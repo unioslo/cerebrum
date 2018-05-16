@@ -26,7 +26,8 @@ import collections
 import functools
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, mail_template
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.email import mail_template
 from Cerebrum.modules.no.access_FS import make_fs
 
 logger = Factory.get_logger('cronjob')

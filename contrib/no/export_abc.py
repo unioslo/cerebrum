@@ -63,6 +63,7 @@ import cereconf
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
+import Cerebrum.utils.argutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
@@ -72,6 +73,8 @@ from Cerebrum.modules.no.access_FS import make_fs
 
 
 logger = logging.getLogger(__name__)
+
+XML_ENCODING = "iso8859-1"
 
 
 def text_decoder(encoding, allow_none=True):
@@ -921,7 +924,7 @@ def output_ue_relations(ue_info, person_info):
 def generate_report(orgname):
     """Main driver for the report generation."""
 
-    xmlwriter.startDocument(encoding="iso8859-1")
+    xmlwriter.startDocument(encoding=XML_ENCODING)
     xmlwriter.startElement("document")
 
     # Write out the "header" with all the IDs used later in the file.
@@ -950,6 +953,28 @@ def generate_report(orgname):
     xmlwriter.endDocument()
 
 
+class AtomicStreamRecoder(AtomicFileWriter):
+    """ file writer encoding hack.
+
+    xmlprinter.xmlprinter encodes data in the desired encoding before writing
+    to the stream, and AtomicFileWriter *requires* unicode-objects to be
+    written.
+
+    This hack turns AtomicFileWriter into a bytestring writer. Just make sure
+    the AtomicStreamRecoder is configured to use the same encoding as the
+    xmlprinter.
+
+    The *proper* fix would be to retire the xmlprinter module, and replace it
+    with something better.
+    """
+
+    def write(self, data):
+        if isinstance(data, bytes) and self.encoding:
+            # will be re-encoded in the same encoding by 'write'
+            data = data.decode(self.encoding)
+        return super(AtomicStreamRecoder, self).write(data)
+
+
 def main(inargs=None):
     global cerebrum_db, constants, fs_db, xmlwriter
     global with_email, with_cell, extra_contact_fields
@@ -960,6 +985,7 @@ def main(inargs=None):
                         required=True)
     parser.add_argument('-i', '--institution',
                         dest='institution',
+                        type=Cerebrum.utils.argutils.UnicodeType(),
                         help='Name of institution to put in report',
                         required=True)
     parser.add_argument('-e', '--with-email',
@@ -1011,7 +1037,9 @@ def main(inargs=None):
 
     _cache_id_types()
     fs_db = make_fs()
-    with AtomicFileWriter(args.filename) as stream:
+    with AtomicStreamRecoder(args.filename,
+                             mode='w',
+                             encoding=XML_ENCODING) as stream:
         xmlwriter = xmlprinter.xmlprinter(stream,
                                           indent_level=2,
                                           # human-friendly output

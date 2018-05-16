@@ -430,21 +430,21 @@ arg_help = {
          (only Posix groups), and 'id' (Cerebrum's internal id)."""],
     'id:target:account':
         ['account', 'Enter an existing entity',
-         """Enter the entity as type:name, for example 'account:bob'.  If only a
+         u"""Enter the entity as type:name, for example 'account:bob'.  If only a
          name is entered, the type 'account' is assumed.  Other types include
          'group', 'fnr' (fødselsnummer), 'id' (Cerebrum's internal id) and
          'host'. The type name may be abbreviated. (Some of the types may not
          make sense for this command)."""],
     'id:target:group':
         ['group', 'Enter an existing entity',
-         """Enter the entity as type:name, for example 'group:foo'.  If only a
+         u"""Enter the entity as type:name, for example 'group:foo'.  If only a
          name is entered, the type 'group' is assumed.  Other types include
          'account', 'fnr' (fødselsnummer), 'id' (Cerebrum's internal id) and
          'host'.  The type name may be abbreviated.  (Some of the types may not
          make sense for this command)."""],
     'id:target:person':
         ['person', 'Enter an existing entity',
-         """Enter the entity as type:name, for example: 'account:bob'. If only a
+         u"""Enter the entity as type:name, for example: 'account:bob'. If only a
          name is entered, it will be assumed to be either an account or a fnr.
          If an account is given, the person owning the account will be used.
          Other types:
@@ -534,7 +534,7 @@ arg_help = {
          'displaying OU names and acronyms.'],
     'person_id':
         ['person_id', 'Enter person id',
-         """Enter person id as idtype:id. If idtype is fnr or account, the
+         u"""Enter person id as idtype:id. If idtype is fnr or account, the
          idtype does not have to be specified. The currently defined id-types
          are:
          - account_name : username
@@ -543,7 +543,7 @@ arg_help = {
          - entity_id    : entity-id"""],
     'person_id_other':
         ['person_id', 'Enter person id',
-         """Enter person id as idtype:id. If idtype is fnr or account, the
+         u"""Enter person id as idtype:id. If idtype is fnr or account, the
          idtype does not have to be specified. The currently defined id-types
          are:
          - account_name : username
@@ -707,7 +707,7 @@ arg_help = {
          'text.'],
     'user_create_person_id':
         ['owner', 'Enter account owner',
-         """Identify account owner (person or group) by entering:
+         u"""Identify account owner (person or group) by entering:
          Birthdate (YYYY-MM-DD)
          Norwegian fødselsnummer (11 digits)
          Export-ID (exp:exportid)

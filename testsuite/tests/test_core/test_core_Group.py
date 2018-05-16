@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Basic tests for Cerebrum/Group.py (GROUP_CLASS). """
+from __future__ import unicode_literals
+
 import pytest
 import datasource
 

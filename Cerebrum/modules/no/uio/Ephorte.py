@@ -20,7 +20,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum import Constants
-from Cerebrum.Constants import ConstantsBase, _CerebrumCode, _SpreadCode
+from Cerebrum.Constants import (ConstantsBase, _CerebrumCode, _SpreadCode,
+                                _get_code)
 from Cerebrum.modules.CLConstants import _ChangeTypeCode
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
@@ -181,6 +182,16 @@ class EphorteConstants(ConstantsBase):
     ephorte_perm_rem = _ChangeTypeCode(
         'ephorte', 'perm_rem', 'remove ephorte perm @ %(dest)s',
         ('type=%(perm_type:perm_type)s',))
+
+
+@_ChangeTypeCode.formatter('rolle_type')
+def format_cl_role_type(co, val):
+    return _get_code(co.EphorteRole, val)
+
+
+@_ChangeTypeCode.formatter('perm_type')
+def format_cl_perm_type(co, val):
+    return _get_code(co.EphortePermission, val)
 
 
 ##

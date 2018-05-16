@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2002-2008 University of Oslo, Norway
 #
@@ -19,17 +19,12 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import time
-import cerebrum_path
 import cereconf
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum import Errors
 from mx import DateTime
-try:
-    set()
-except NameError:
-    from Cerebrum.extlib.sets import Set as set
 
 
 class _BofhdRequestOpCode(Constants._CerebrumCode):

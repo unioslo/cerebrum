@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2003-2005 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,18 +16,19 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
+import base64
 import random
 import string
 import time
-import pickle
-import base64
+
+import six
 
 import cereconf
+
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
+from Cerebrum.utils import json
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import pgp_encrypt
 
@@ -128,28 +129,29 @@ class AccountOfkMixin(Account.Account):
             pwd.append(string.ascii_letters[idx])
             count += 1
         random.shuffle(pwd)
-        return string.join(pwd, '')
+        return six.text_type(string.join(pwd, ''))
 
     def verify_password(self, method, plaintext, cryptstring):
         """Returns True if the plaintext matches the cryptstring,
         False if it doesn't.  If the method doesn't support
         verification, NotImplemented is returned.
         """
-        if method in (self.const.auth_type_md5_crypt,
-                      self.const.auth_type_md5_unsalt,
-                      self.const.auth_type_ha1_md5,
-                      self.const.auth_type_crypt3_des,
-                      self.const.auth_type_md4_nt,
-                      self.const.auth_type_ssha,
-                      self.const.auth_type_sha256_crypt,
-                      self.const.auth_type_sha512_crypt,
-                      self.const.auth_type_plaintext):
-            salt = cryptstring
-            if method == self.const.auth_type_ssha:
-                salt = base64.decodestring(cryptstring)[20:]
-            return (self.encrypt_password(method, plaintext, salt=salt) ==
-                    cryptstring)
-        raise ValueError("Unknown method " + repr(method))
+        if method not in (self.const.auth_type_md5_crypt,
+                          self.const.auth_type_md5_unsalt,
+                          self.const.auth_type_ha1_md5,
+                          self.const.auth_type_crypt3_des,
+                          self.const.auth_type_md4_nt,
+                          self.const.auth_type_ssha,
+                          self.const.auth_type_sha256_crypt,
+                          self.const.auth_type_sha512_crypt,
+                          self.const.auth_type_plaintext):
+            raise ValueError('Unknown method {method}'.format(method=method))
+        salt = cryptstring
+        if method == self.const.auth_type_ssha:
+            salt = base64.decodestring(str(cryptstring))[20:].decode()
+        return (self.encrypt_password(method,
+                                      plaintext,
+                                      salt=salt) == cryptstring)
 
     def _get_old_homeMDB(self):
         """
@@ -164,22 +166,21 @@ class AccountOfkMixin(Account.Account):
                                            types=(self.const.trait_del,)):
             if row['change_params']:
                 try:
-                    tmp = pickle.loads(row['change_params'])
-                    if int(tmp['code']) != int(self.const.trait_homedb_info):
+                    params = json.loads(row['change_params'])
+                    if params['code'] != self.const.trait_homedb_info:
                         continue
-                    val = tmp.get('strval', None)
+                    val = params.get('strval')
                     if val:
                         # There might be more than one hit.
                         res[row['tstamp']] = val
-                except:
+                except Exception:
                     continue
         if res:
             keys = res.keys()
             # when sorting tstamps, most recent will be last in the list
             keys.sort()
             return res[keys[-1]]
-        else:
-            return None
+        return None
 
     def _autopick_homeMDB(self):
         """Return a valid homeMDB value to be used for the account.
@@ -187,7 +188,7 @@ class AccountOfkMixin(Account.Account):
         If the account has previously had a HomeMDB, this is reused, but only
         as long the MDB value is valid today, see
         L{cereconf.EXCHANGE_HOMEMDB_VALID}. Otherwise a random HomeMDB is
-        selected. We don't care about the weight of the MDBs, ØFK wants
+        selected. We don't care about the weight of the MDBs, Ã˜FK wants
         everyone to be equally assigned.
 
         @rtype: string
@@ -229,7 +230,7 @@ class AccountOfkMixin(Account.Account):
                 # This if-test assumes that the cereconf.EMAIL_DEFAULT_DOMAIN
                 # cannot be considered as a primary domain if another
                 # valid domain is found for an account. The behaviour is wrong
-                # for ØFK as quite av few of the accounts should have primary
+                # for Ã˜FK as quite av few of the accounts should have primary
                 # addresses in default domain while they have other domains
                 # Jazz
                 #

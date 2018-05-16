@@ -18,6 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+from __future__ import unicode_literals
+
 """Script for setting person traits for being reserved from publication.
 
 A person should be considered as reserved when:
@@ -59,8 +62,11 @@ import getopt
 from mx.DateTime import now
 
 import cerebrum_path
-import cereconf
 from Cerebrum.Utils import Factory
+
+del cerebrum_path
+
+reservations = None
 
 db = Factory.get('Database')()
 db.cl_init(change_program="update_publication_reservations")
@@ -70,6 +76,7 @@ gr = Factory.get('Group')(db)
 co = Factory.get('Constants')(db)
 logger = Factory.get_logger('cronjob')
 count_resrv_true = count_resrv_false = 0
+
 
 def usage(exitcode=0):
     print """Usage: %(scriptname)s --employee AFFS --student AFFS [--commit]
@@ -115,24 +122,25 @@ def usage(exitcode=0):
     --help          Show this and quit.
 
     """ % {'scriptname': sys.argv[0],
-            'doc': __doc__}
+           'doc': __doc__}
     sys.exit(exitcode)
+
 
 def process(emplaffs, studaffs, with_commit=False):
     logger.info("Starting update_publication_reservations")
     logger.info("Harvesting data")
 
     logger.debug('Employee affiliations: %s', emplaffs)
-    employees  = get_employees(emplaffs)
+    employees = get_employees(emplaffs)
     logger.debug('%d employees found', len(employees))
 
     logger.debug('Student affiliations: %s', studaffs)
-    students   = get_students(studaffs)
+    students = get_students(studaffs)
     logger.debug('%d students found', len(students))
 
     sapmembers = get_members('SAP-elektroniske-reservasjoner')
     logger.debug('%d members from SAP reservations', len(sapmembers))
-    fsmembers  = get_members('FS-aktivt-samtykke')
+    fsmembers = get_members('FS-aktivt-samtykke')
     logger.debug('%d members from FS consent', len(fsmembers))
 
     global reservations
@@ -156,7 +164,7 @@ def process(emplaffs, studaffs, with_commit=False):
         if person_id in already_processed:
             continue
         already_processed.add(person_id)
-        
+
         if person_id in employees:
             set_reservation(person_id, person_id in sapmembers)
         elif person_id in students:
@@ -172,6 +180,7 @@ def process(emplaffs, studaffs, with_commit=False):
         db.rollback()
         logger.info('Rolled back changes')
     logger.info("update_publication_reservations done")
+
 
 def set_reservation(person_id, value=True):
     """Set a reservation on or off for a given person. Checks the already set
@@ -196,6 +205,7 @@ def set_reservation(person_id, value=True):
         count_resrv_false += 1
     # TODO: commit after each update?
 
+
 def get_employees(affs):
     """Returns a set with person_id for all that are considered employees in
     context of publication.
@@ -208,6 +218,7 @@ def get_employees(affs):
                                     source_system=co.system_sap)
                if row['status'] not in affs[2])
 
+
 def get_students(affs):
     """Returns a set with person_id for all that are considered students in
     context of publication."""
@@ -218,12 +229,15 @@ def get_students(affs):
                                     source_system=co.system_fs)
                if row['status'] not in affs[2])
 
+
 def get_members(groupname):
     """Returns a set with person_id of all person members of a given group."""
     rows = gr.search(name=groupname)
     group_id = rows[0]['group_id']
-    return set(row['member_id'] for row in gr.search_members(group_id=group_id,
-                                                member_type=co.entity_person))
+    return set(row['member_id'] for row in gr.search_members(
+        group_id=group_id,
+        member_type=co.entity_person))
+
 
 def update_affiliations(affstring, existing):
     """Parse a string with affiliations and statuses and add it to the list of
@@ -248,7 +262,8 @@ def update_affiliations(affstring, existing):
             aff, status = aff.split('/', 1)
         except ValueError:
             if negate:
-                raise Exception("Negative affiliations isn't logical, only statuses")
+                raise Exception(
+                    "Negative affiliations isn't logical, only statuses")
             affs.append(int(co.PersonAffiliation(aff)))
         else:
             if negate:
@@ -268,8 +283,8 @@ if __name__ == '__main__':
         usage(1)
 
     with_commit = False
-    studaffs = [[],[],[]]
-    emplaffs = [[],[],[]]
+    studaffs = [[], [], []]
+    emplaffs = [[], [], []]
 
     for opt, val in opts:
         if opt in ('-h', '--help'):

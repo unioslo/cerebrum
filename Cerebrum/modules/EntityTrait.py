@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2005-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -19,7 +19,8 @@
 
 
 from Cerebrum.Entity import Entity
-from Cerebrum.Constants import _CerebrumCodeWithEntityType, Constants
+from Cerebrum.Constants import (_CerebrumCodeWithEntityType, Constants,
+                                _get_code)
 from Cerebrum.modules.CLConstants import _ChangeTypeCode
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
@@ -62,6 +63,11 @@ class TraitConstants(Constants):
     # There are no mandatory EntityTraitCodes
 
     EntityTrait = _EntityTraitCode
+
+
+@_ChangeTypeCode.formatter('trait')
+def format_cl_trait(co, val):
+    return _get_code(co.EntityTrait, val, '<unknown>')
 
 class EntityTrait(Entity):
     """Mixin class which adds generic traits to an entity."""

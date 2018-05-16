@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2003-2015 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,7 +17,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""."""
+"""Generates a mail tree for LDAP."""
+
+from __future__ import unicode_literals
 
 import mx
 
@@ -29,12 +31,6 @@ from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.LDIFutils import iso2utf
-
-try:
-    set()
-except NameError:
-    from sets import Set as set
 
 
 class EmailLDAP(DatabaseAccessor):
@@ -217,7 +213,7 @@ class EmailLDAP(DatabaseAccessor):
             else:
                 insert = True
             if insert:
-                self.targ2vacation[t_id] = (iso2utf(row['vacation_text']),
+                self.targ2vacation[t_id] = (row['vacation_text'],
                                             row['start_date'],
                                             row['end_date'])
 

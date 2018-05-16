@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2004-2018 University of Oslo, Norway
 #
@@ -21,12 +21,12 @@
 
 """Tildeler og oppdaterer kvoter iht. til retningslinjer-SFA.txt.
 
-Foreløbig kan denne kun kjøres som en større batch-jobb som oppdaterer alle
+ForelÃ¸big kan denne kun kjÃ¸res som en stÃ¸rre batch-jobb som oppdaterer alle
 personer.
 
 Noen definisjoner:
-- kopiavgift_fritak fritak fra å betale selve kopiavgiften
-- betaling_fritak fritak for å betale for den enkelte utskrift
+- kopiavgift_fritak fritak fra Ã¥ betale selve kopiavgiften
+- betaling_fritak fritak for Ã¥ betale for den enkelte utskrift
 
 """
 
@@ -35,7 +35,6 @@ import mx
 import sys
 import time
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Account
@@ -64,8 +63,8 @@ processed_pids = {}
 utv_quota = 250
 utv_person = {}
 
-# term_init_mask brukes til å identifisere de kvotetildelinger som har
-# skjedde i dette semesteret.  Den definerer også tidspunktet da
+# term_init_mask brukes til Ã¥ identifisere de kvotetildelinger som har
+# skjedde i dette semesteret.  Den definerer ogsÃ¥ tidspunktet da
 # forrige-semesters gratis-kvote nulles, og ny initiell kvote
 # tildeles.
 
@@ -96,28 +95,27 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
                 person_id,
                 {'has_blocked_quota': has_blocked_quota}
             )
-            pq_logger.info("set has_blocked_quota=%i for %i" % (
-                has_blocked_quota, person_id))
+            pq_logger.info("set has_blocked_quota=%r for %r",
+                           has_blocked_quota, person_id)
     except Errors.NotFoundError:
         ppq_info = {'max_quota': None,
                     'weekly_quota': None}
         ppq.new_quota(person_id, has_quota=has_quota,
                       has_blocked_quota=has_blocked_quota)
-        pq_logger.info("new empty quota for %i" % person_id)
+        pq_logger.info("new empty quota for %r", person_id)
 
     if not has_quota or has_blocked_quota:
-        logger.debug("skipping quota calculation for %i" % person_id)
+        logger.debug("skipping quota calculation for %r", person_id)
         db.commit()
         return
 
     # Tildel default kvote for dette semesteret
     if 'default' not in free_this_term.get(person_id, []):
-        logger.debug("grant %s for %i" % ('default', person_id))
-        pq_logger.info("set initial %s=%i for %i" % (
-            'default',
-            int(autostud.pc.default_values['print_start']),
-            person_id)
-        )
+        logger.debug("grant %s for %r", 'default', person_id)
+        pq_logger.info("set initial %s=%r for %r",
+                       'default',
+                       int(autostud.pc.default_values['print_start']),
+                       person_id)
         pu.set_free_pages(person_id,
                           int(autostud.pc.default_values['print_start']),
                           '%s%s' % (term_init_prefix, 'default'),
@@ -127,9 +125,9 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
     # Tildele eventuelle utvidede fri-kvoter jmf. 2.2 og 2.3
     for uq in utv_person.get(person_id, []):
         if uq not in free_this_term.get(person_id, []):
-            logger.debug("grant %s for %i" % (uq, person_id))
-            pq_logger.info("set initial %s=%i for %i" % (
-                uq, utv_quota, person_id))
+            logger.debug("grant %s for %r", uq, person_id)
+            pq_logger.info("set initial %s=%r for %r",
+                           uq, utv_quota, person_id)
             pu.add_free_pages(person_id,
                               utv_quota,
                               '%s%s' % (term_init_prefix, uq),
@@ -144,7 +142,7 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
             if q.get(quota_type, 0) > 0:
                 qid = "%s:%s" % (q['id'], quota_type)
                 if qid not in free_this_term.get(person_id, []):
-                    logger.debug("grant %s for %i" % (qid, person_id))
+                    logger.debug("grant %s for %i", qid, person_id)
                     pageunits_accum = increment = 0
                     if quota_type == 'start':
                         increment = q[quota_type]
@@ -155,24 +153,24 @@ def set_quota(person_id, has_quota=False, has_blocked_quota=False,
                                       '%s%s' % (term_init_prefix, qid),
                                       pageunits_accum=pageunits_accum,
                                       update_program=update_program)
-                    pq_logger.info("grant %s=%i for %i" % (
-                        qid, q[quota_type], person_id))
+                    pq_logger.info("grant %s=%r for %r",
+                                   qid, q[quota_type], person_id)
         if 'weekly' in q:
             new_weekly = (new_weekly or 0) + q['weekly']
         if 'max' in q:
             new_max = (new_max or 0) + q['max']
     if new_weekly != ppq_info['weekly_quota']:
         ppq.set_status_attr(person_id, {'weekly_quota': new_weekly})
-        pq_logger.info("set weekly_quota=%i for %i" % (new_weekly, person_id))
+        pq_logger.info("set weekly_quota=%r for %r", new_weekly, person_id)
     if new_max != ppq_info['max_quota']:
         ppq.set_status_attr(person_id, {'max_quota': new_max})
-        pq_logger.info("set max_quota=%i for %i" % (new_max, person_id))
+        pq_logger.info("set max_quota=%r for %r", new_max, person_id)
     db.commit()
 
 
 def recalc_quota_callback(person_info):
-    # Kun kvoteverdier styres av studconfig.xml.  De øvrige
-    # parameterene er for komplekse til å kunne uttrykkes der uten å
+    # Kun kvoteverdier styres av studconfig.xml.  De Ã¸vrige
+    # parameterene er for komplekse til Ã¥ kunne uttrykkes der uten Ã¥
     # introdusere nye tag'er.
     person_id = person_info.get('person_id', None)
     logger.set_indent(0)
@@ -182,19 +180,19 @@ def recalc_quota_callback(person_info):
                 int(person_info['fodselsdato']),
                 int(person_info['personnr'])
             ))
-        except InvalidFnrError:
+        except fodselsnr.InvalidFnrError:
             logger.warn('Invalid FNR detected')
         if fnr not in fnr2pid:
-            logger.warn("fnr %s is an unknown person" % fnr)
+            logger.warn("fnr %r is an unknown person", fnr)
             return
         person_id = fnr2pid[fnr]
     processed_person[person_id] = True
-    logger.debug("callback for %s" % person_id)
+    logger.debug("callback for %r", person_id)
     logger.set_indent(3)
 
     # Sjekk at personen er underlagt kvoteregimet
     if person_id not in quota_victims:
-        logger.debug("not a quota victim %s" % person_id)
+        logger.debug("not a quota victim %r", person_id)
         logger.set_indent(0)
         # assert that person does _not_ have quota
         set_quota(person_id, has_quota=False)
@@ -218,8 +216,8 @@ def recalc_quota_callback(person_info):
     except AutoStud.ProfileHandler.NoMatchingProfiles, msg:
         # A common situation, so we won't log it
         profile = None
-    except Errors.NotFoundError, msg:
-        logger.warn("(person) not found error for %s: %s" % (person_id, msg))
+    except Errors.NotFoundError as msg:
+        logger.warn("(person) not found error for %r: %s", person_id, msg)
         profile = None
     # Blokker de som ikke har betalt/ikke har kopiavgift-fritak
     if (
@@ -228,9 +226,10 @@ def recalc_quota_callback(person_info):
             not kopiavgift_fritak.get(person_id, False) and
             not (profile and profile.get_printer_kopiavgift_fritak())
     ):
-        logger.debug("block %s (bet=%i, fritak=%i)" % (
-            person_id, har_betalt.get(person_id, False),
-            kopiavgift_fritak.get(person_id, False)))
+        logger.debug("block %r (bet=%r, fritak=%r)",
+                     person_id,
+                     har_betalt.get(person_id, False),
+                     kopiavgift_fritak.get(person_id, False))
         set_quota(person_id, has_quota=True, has_blocked_quota=True)
         logger.set_indent(0)
         return
@@ -250,7 +249,7 @@ def recalc_quota_callback(person_info):
 
 
 def get_bet_fritak_utv_data(sysname, person_file):
-    """Finn pc-stuevakter/gruppelærere mfl. ved å parse SAP-dumpen."""
+    """Finn pc-stuevakter/gruppelÃ¦rere mfl. ved Ã¥ parse SAP-dumpen."""
     ret = {}
     sap_ansattnr2pid = {}
     roller_fritak = cereconf.PQUOTA_ROLLER_FRITAK
@@ -269,9 +268,7 @@ def get_bet_fritak_utv_data(sysname, person_file):
                     employment.code in roller_fritak
             ):
                 if sap_nr not in sap_ansattnr2pid:
-                    logger.warn(
-                        "Unknown person from %s %s" % (sysname, sap_nr)
-                    )
+                    logger.warn("Unknown person (%r) from %r", sap_nr, sysname)
                     continue
                 ret[sap_ansattnr2pid[sap_nr]] = True
     return ret
@@ -300,7 +297,7 @@ def get_students():
     # fritak_tilknyttet = (int(const.affiliation_tilknyttet_pcvakt),
     #                     int(const.affiliation_tilknyttet_grlaerer),
     #                     int(const.affiliation_tilknyttet_bilag))
-    logger.debug2("Gyldige: %s" % str(tmp_gyldige))
+    logger.debug2("Gyldige: %r", tmp_gyldige)
     for pid in tmp_gyldige.keys():
         if (
                 int(const.affiliation_student),
@@ -308,7 +305,7 @@ def get_students():
         ) in tmp_gyldige[pid]:
             # Har minst en gyldig STUDENT/aktiv affiliation
             ret.append(pid)
-            logger.debug2("%i: STUDENT/aktiv" % pid)
+            logger.debug2("%r: STUDENT/aktiv", pid)
             continue
         elif [x for x in tmp_gyldige[pid]
               if x[0] == int(const.affiliation_student)]:
@@ -318,10 +315,10 @@ def get_students():
             )]:
                 # ... og ingen gyldige ikke-student affiliations
                 ret.append(pid)
-                logger.debug2("%i: stud-aff and no non-studaff" % pid)
+                logger.debug2("%r: stud-aff and no non-studaff", pid)
                 continue
 
-    logger.debug2("Slettede: %s" % str(tmp_slettede))
+    logger.debug2("Slettede: %r", tmp_slettede)
     for pid in tmp_slettede.keys():
         if pid in tmp_gyldige:
             continue
@@ -332,13 +329,13 @@ def get_students():
             ret.append(pid)
 
     logger.debug("person.list_affiliations -> %i quota_victims" % len(ret))
-    logger.debug("Victims: %s" % ret)
+    logger.debug("Victims: %r", ret)
     return ret
 
 
 def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
                sysname, person_file):
-    """Finner alle personer som rammes av kvoteordningen ved å:
+    """Finner alle personer som rammes av kvoteordningen ved Ã¥:
 
     - finne alle som har en student-affiliation (0.1)
     - ta bort ansatte (1.2.1)
@@ -356,7 +353,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
     logger.debug("Prefetching data")
 
     betaling_fritak = get_bet_fritak_utv_data(sysname, person_file)
-    logger.debug2("Fritak for: %s" % betaling_fritak)
+    logger.debug2("Fritak for: %r", betaling_fritak)
     # Finn alle som skal rammes av kvoteregimet
     quota_victim = {}
 
@@ -376,7 +373,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
     logger.debug("after removing non-account people: %i" % len(quota_victim))
 
     # Ansatte har fritak
-    # TODO: sparer litt ytelse ved å gjøre dette i get_students()
+    # TODO: sparer litt ytelse ved Ã¥ gjÃ¸re dette i get_students()
     for row in person.list_affiliations(
             affiliation=const.affiliation_ansatt,
             status=(const.affiliation_status_ansatt_bil,
@@ -405,7 +402,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
             del(quota_victim[int(row['person_id'])])
     logger.debug("removed tilknyttet people: %i" % len(quota_victim))
 
-    # Mappe fødselsnummer til person-id
+    # Mappe fÃ¸dselsnummer til person-id
     fnr2pid = {}
     for p in person.list_external_ids(source_system=const.system_fs,
                                       id_type=const.externalid_fodselsnr):
@@ -442,8 +439,8 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
             else:
                 person_id_member.setdefault(m, []).append(g)
                 count[1] += 1
-    logger.debug("memberships: persons:%i, p_m=%i, a_m=%i" % (
-        len(person_id_member), count[1], count[0]))
+    logger.debug("memberships: persons:%i, p_m=%i, a_m=%i",
+                 len(person_id_member), count[1], count[0])
 
     # Fetch any affiliations used as select criteria
     person_id_affs = {}
@@ -483,7 +480,7 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
         har_betalt[pid] = True
     logger.debug("%i personer har betalt kopiavgift" % len(har_betalt))
 
-    # Hent gratis-tildelinger hittil i år
+    # Hent gratis-tildelinger hittil i Ã¥r
     free_this_term = {}
     for row in ppq.get_history_payments(
         transaction_type=const.pqtt_quota_fill_free,
@@ -534,17 +531,17 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
         sysname,
         person_file
     )
-    logger.debug2("Victims: %s" % quota_victims)
+    logger.debug2("Victims: %r", quota_victims)
     # Start call-backs via autostud modulen med vanlig
-    # merged_persons.xml fil.  Vi har da mulighet til å styre kvoter
-    # via de vanlige select kriteriene.  Callback metoden må sjekke
+    # merged_persons.xml fil.  Vi har da mulighet til Ã¥ styre kvoter
+    # via de vanlige select kriteriene.  Callback metoden mÃ¥ sjekke
     # mot unntak.
 
-    logger.info("Starting callbacks from %s" % student_info_file)
+    logger.info("Starting callbacks from %r", student_info_file)
     autostud.start_student_callbacks(student_info_file,
                                      recalc_quota_callback)
 
-    # For de personer som ikke fikk autostud-callback må vi kalle
+    # For de personer som ikke fikk autostud-callback mÃ¥ vi kalle
     # quota_callback funksjonen selv.
     logger.info("process persons that didn't get callback")
     for p in quota_victims.keys():
@@ -569,8 +566,8 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
 #         handle_quota(person_id, p)
 #         has_processed[person_id] = True
 #
-#     # Alle account som kun har student-affiliations (denne er ment å
-#     # ramme de som tidligere har vært studenter, men som har en konto
+#     # Alle account som kun har student-affiliations (denne er ment Ã¥
+#     # ramme de som tidligere har vÃ¦rt studenter, men som har en konto
 #     # som ikke er sperret enda).
 #     for p in fooBar():
 #         person_id = find_person(p['dato'], p['pnr'])
@@ -625,7 +622,7 @@ def main():
 
 
 def usage(exitcode=0):
-    print """Usage: [options]
+    print r"""Usage: [options]
     -s | --student-info-file file:
     -e | --emne-info-file file:
     -C | --studconfig-file file:
@@ -638,11 +635,19 @@ def usage(exitcode=0):
     --ou-perspective perspective:
     -r | --recalc-pq: start quota recalculation
 
-contrib/no/uio/quota_update.py -s /cerebrum/dumps/FS/merged_persons_small.xml -e /cerebrum/dumps/FS/emner.xml -C contrib/no/uio/studconfig.xml -S /cerebrum/dumps/FS/studieprogrammer.xml -D /cerebrum/dumps/FS/drgrad.xml -P system_sap:/cerebrum/dumps/SAP/SAP2BAS/sap2bas_2007-7-16-301.xml -f /cerebrum/dumps/FS/fritak_kopi.xml -b /cerebrum/dumps/FS/betalt_papir.xml -r
+contrib/no/uio/quota_update.py \
+    -s /cerebrum/dumps/FS/merged_persons_small.xml \
+    -e /cerebrum/dumps/FS/emner.xml \
+    -C contrib/no/uio/studconfig.xml \
+    -S /cerebrum/dumps/FS/studieprogrammer.xml \
+    -D /cerebrum/dumps/FS/drgrad.xml \
+    -P system_sap:/cerebrum/dumps/SAP/SAP2BAS/sap2bas_2007-7-16-301.xml \
+    -f /cerebrum/dumps/FS/fritak_kopi.xml \
+    -b /cerebrum/dumps/FS/betalt_papir.xml \
+    -r
 """
-    # ./contrib/no/uio/import_from_FS.py --db-user ureg2000 --db-service FSPROD.uio.no --misc-tag drgrad --misc-func GetStudinfDrgrad --misc-file drgrad.xml
-    # ./contrib/no/uio/import_from_FS.py --db-user ureg2000 --db-service FSPROD.uio.no --misc-tag betfritak --misc-func GetStudFritattKopiavg --misc-file fritak_kopi.xml
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()

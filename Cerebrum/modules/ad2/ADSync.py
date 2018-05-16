@@ -52,21 +52,21 @@ Some terms:
 """
 
 import time
-import pickle
 import uuid
 
-import cerebrum_path
 import adconf
 
-from Cerebrum.Utils import unicode2str, Factory, dyn_import, sendmail, NotSet
 from Cerebrum import Entity, Errors
 from Cerebrum.modules import CLHandler, Email
 from Cerebrum.modules.EntityTrait import EntityTrait
+from Cerebrum.Utils import unicode2str, Factory, dyn_import, NotSet
+from Cerebrum.utils import json
+from Cerebrum.utils.email import sendmail
 
 from Cerebrum.modules.ad2 import ADUtils, ConfigUtils
 from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.ConfigUtils import ConfigError
-from Cerebrum.modules.ad2.winrm import PowershellException, CRYPTO
+from Cerebrum.modules.ad2.winrm import PowershellException
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
 
@@ -180,11 +180,6 @@ class BaseSync(object):
         self.ent = Factory.get('Entity')(self.db)
         self._ent_extid = Entity.EntityExternalId(self.db)
         self._entity_trait = EntityTrait(self.db)
-
-        # TODO: A check here for telling us that the mutual authentication is
-        # not fully implemented yet. Should be removed when fixed.
-        if not CRYPTO:
-            self.logger.warn("Not using mutual authentication")
 
         # Where the sync configuration should go:
         self.config = dict()
@@ -2506,8 +2501,8 @@ class UserSync(BaseSync):
                 self.uname2pasw[ent.entity_name] = (password, tag)
             else:  # we fetch the plaintext from the changelog
                 try:
-                    password = pickle.loads(
-                        str(row['change_params']))['password']
+                    password = json.loads(
+                        row['change_params'])['password']
                     self.uname2pasw[ent.entity_name] = (password,
                                                         'plaintext')
                 except (KeyError, TypeError, IndexError):
@@ -2651,7 +2646,7 @@ class UserSync(BaseSync):
                 pw = gpg_data[0].get('message')
             else:  # we fetch the plaintext from the changelog
                 try:
-                    pw = pickle.loads(str(row['change_params']))['password']
+                    pw = json.loads(row['change_params'])['password']
                 except (KeyError, TypeError, IndexError):
                     self.logger.warn("Account %s missing plaintext password",
                                      row['subject_entity'])

@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -17,6 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
 import time
 
 from Cerebrum.modules.no import access_FS
@@ -71,7 +72,7 @@ class HiAStudent(access_FS.Student):
     def list_jasvar(self):
         """ Hent opplysninger om personer som har takket ja til
         til tilbud om studieplass ved UiA. Skal kun brukes en gang,
-        høsten 2010. Jazz"""
+        hÃ¸sten 2010. Jazz"""
         qry = """
         SELECT DISTINCT
           p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
@@ -98,7 +99,7 @@ class HiAStudent(access_FS.Student):
               sa.institusjonsnr = osp.institusjonsnr AND
               sa.opptakstypekode = osp.opptakstypekode AND
               sa.opptakstypekode <> 'SOMMER' AND
-              sa.terminkode = 'HØST' AND
+              sa.terminkode = :autumn AND
               sa.arstall = 2010 AND
               osp.opptakstypekode = ost.opptakstypekode AND
               osp.studietypenr = ost.studietypenr AND
@@ -107,13 +108,15 @@ class HiAStudent(access_FS.Student):
               ost.arstall = sa.arstall AND
               ost.studieprogramkode = sp.studieprogramkode AND
               %s""" % (self.institusjonsnr, self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['autumn'] = 'HÃ˜ST'
+        return self.db.query(qry, params)
 
     def list_aktiv_deprecated(self):
         """ Hent opplysninger om studenter definert som aktive
         ved HiA. En aktiv student er enten med i et aktivt kull og
         har et gyldig studierett eller har en forekomst i registerkort
-        for inneværende semester og har en gyldig studierett"""
+        for innevÃ¦rende semester og har en gyldig studierett"""
 
         qry = """
         SELECT DISTINCT
@@ -169,7 +172,10 @@ class HiAStudent(access_FS.Student):
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
           %s """ % (self._is_alive(), self._is_alive(),
                     self._get_termin_aar(only_current=1))
-        return self.db.query(qry)
+        params = {}
+        params['spring'] = 'VÃ…R'
+        params['autumn'] = 'HÃ˜ST'
+        return self.db.query(qry, params)
 
 
 @fsobject('student', '>=7.8')
@@ -220,7 +226,7 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
     def list_jasvar(self):
         """ Hent opplysninger om personer som har takket ja til
         til tilbud om studieplass ved UiA. Skal kun brukes en gang,
-        høsten 2010. Jazz"""
+        hÃ¸sten 2010. Jazz"""
         qry = """
         SELECT DISTINCT
           p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
@@ -249,7 +255,7 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
               sa.institusjonsnr = osp.institusjonsnr AND
               sa.opptakstypekode = osp.opptakstypekode AND
               sa.opptakstypekode <> 'SOMMER' AND
-              sa.terminkode = 'HØST' AND
+              sa.terminkode = :autumn AND
               sa.arstall = 2010 AND
               osp.opptakstypekode = ost.opptakstypekode AND
               osp.studietypenr = ost.studietypenr AND
@@ -258,13 +264,15 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
               ost.arstall = sa.arstall AND
               ost.studieprogramkode = sp.studieprogramkode AND
               %s""" % (self.institusjonsnr, self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['autumn'] = 'HÃ˜ST'
+        return self.db.query(qry, params)
 
     def list_aktiv_deprecated(self):
         """ Hent opplysninger om studenter definert som aktive
         ved HiA. En aktiv student er enten med i et aktivt kull og
         har et gyldig studierett eller har en forekomst i registerkort
-        for inneværende semester og har en gyldig studierett"""
+        for innevÃ¦rende semester og har en gyldig studierett"""
 
         qry = """
         SELECT DISTINCT
@@ -324,7 +332,10 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
           %s """ % (self._is_alive(), self._is_alive(),
                     self._get_termin_aar(only_current=1))
-        return self.db.query(qry)
+        params = {}
+        params['spring'] = 'VÃ…R'
+        params['autumn'] = 'HÃ˜ST'
+        return self.db.query(qry, params)
 
 
 @fsobject('undervisning', '<7.8')
@@ -332,9 +343,9 @@ class HiAUndervisning(access_FS.Undervisning):
 
     def list_undervisningenheter(self, sem="current"):
         """Metoden som henter data om undervisningsenheter
-        i nåverende (current) eller neste (next) semester. Default
-        vil være nåværende semester. For hver undervisningsenhet
-        henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall
+        i nÃ¥verende (current) eller neste (next) semester. Default
+        vil vÃ¦re nÃ¥vÃ¦rende semester. For hver undervisningsenhet
+        henter vi institusjonsnr, emnekode, versjonskode, terminkode + Ã¥rstall
         og terminnr."""
         qry = """
         SELECT DISTINCT
@@ -348,13 +359,16 @@ class HiAUndervisning(access_FS.Undervisning):
             qry += """%s""" % self._get_termin_aar(only_current=1)
         else:
             qry += """%s""" % self._get_next_termin_aar()
-        return self.db.query(qry)
+        params = {}
+        params['spring'] = 'VÃ…R'
+        params['autumn'] = 'HÃ˜ST'
+        return self.db.query(qry, params)
 
     def list_studenter_underv_enhet(self, institusjonsnr, emnekode,
                                     versjonskode, terminkode,
                                     arstall, terminnr):
-        """Finn fødselsnumrene til alle studenter på et gitt
-        undervisningsenhet. Skal brukes til å generere grupper for
+        """Finn fÃ¸dselsnumrene til alle studenter pÃ¥ et gitt
+        undervisningsenhet. Skal brukes til Ã¥ generere grupper for
         adgang til CF."""
         qry = """
         SELECT DISTINCT
@@ -376,7 +390,7 @@ class HiAUndervisning(access_FS.Undervisning):
                              )
 
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
-        """Hent alle studentene som er oppført på et gitt kull."""
+        """Hent alle studentene som er oppfÃ¸rt pÃ¥ et gitt kull."""
 
         query = """
         SELECT DISTINCT
@@ -397,7 +411,7 @@ class HiAUndervisning(access_FS.Undervisning):
 
     def list_studenter_kull_deprecated(self, studieprogramkode,
                                        terminkode, arstall):
-        """Hent alle studentene som er oppført på et gitt kull."""
+        """Hent alle studentene som er oppfÃ¸rt pÃ¥ et gitt kull."""
 
         query = """
         SELECT DISTINCT

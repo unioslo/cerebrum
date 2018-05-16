@@ -20,7 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Generate a dump of email addresses. """
 import argparse
-import codecs
 import logging
 import os
 import sys
@@ -31,10 +30,10 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import codec_type
 from Cerebrum.modules import Email
 
 logger = logging.getLogger(__name__)
-
 
 # TODO: This script should probably use the csv module
 
@@ -105,6 +104,7 @@ def generate_email_data(db):
 
         # find email target for this account
         et = Email.EmailTarget(db)
+        et.clear()
         try:
             et.find_by_target_entity(ac.entity_id)
         except Errors.NotFoundError:
@@ -123,13 +123,6 @@ def generate_email_data(db):
         }
 
     logger.debug('Done fetching email data')
-
-
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
 
 
 DEFAULT_ENCODING = 'utf-8'

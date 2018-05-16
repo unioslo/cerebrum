@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2003-2016 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,8 +20,7 @@
 
 import re
 
-from Cerebrum import Group
-from Cerebrum.Database import Errors
+from Cerebrum import Errors, Group
 from Cerebrum.modules import Email
 
 

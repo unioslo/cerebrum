@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,6 +31,13 @@ moved to a separate module after:
     Date:  Fri Mar 18 10:34:58 2016 +0100
 
 """
+from __future__ import print_function
+import io
+
+
+def _format_class(module, name):
+    """ Format a line for the config. """
+    return u'{0}/{1}'.format(module, name)
 
 
 class BofhdConfig(object):
@@ -45,12 +52,9 @@ class BofhdConfig(object):
 
     def load_from_file(self, filename):
         """ Load config file. """
-        with open(filename, 'r') as f:
-            cnt = 0
-            for line in f.readlines():
-                cnt += 1
-                if line:
-                    line = line.strip()
+        with io.open(filename, encoding='utf-8') as f:
+            for lineno, line in enumerate(f, 1):
+                line = line.strip()
                 if not line or line.startswith('#'):
                     continue
                 try:
@@ -59,7 +63,7 @@ class BofhdConfig(object):
                     mod, cls = None, None
                 if not mod or not cls:
                     raise Exception("Parse error in '%s' on line %d: %r" %
-                                    (filename, cnt, line))
+                                    (filename, lineno, line))
                 self._exts.append((mod, cls))
 
     def extensions(self):
@@ -67,8 +71,19 @@ class BofhdConfig(object):
         for mod, cls in self._exts:
             yield mod, cls
 
-    @staticmethod
-    def format_class(cls):
-        u""" Format a line for the config. """
-        assert isinstance(cls, type)
-        return u'{!s}/{!s}'.format(cls.__module__, cls.__name__)
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="Parse config and output classes")
+    parser.add_argument(
+        'config',
+        metavar='FILE',
+        help='Bofhd configuration file')
+
+    args = parser.parse_args()
+
+    config = BofhdConfig(filename=args.config)
+    print('Command classes:')
+    for mod, name in config.extensions():
+        print('-', _format_class(mod, name))

@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2002-2018 University of Oslo, Norway
 #
@@ -21,22 +21,21 @@
 import collections
 import errno
 import imaplib
-import pickle
 import re
 import select
 import socket
 import ssl
+import warnings
 
-import six
 from mx import DateTime
+from six import text_type
 
 import cereconf
-
-from Cerebrum import Database
 from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum import Metainfo
 from Cerebrum import Utils
+from Cerebrum import database
 from Cerebrum.Constants import _LanguageCode
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd import bofhd_core_help
@@ -95,6 +94,8 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
                                               RigidPasswordNotGoodEnough,
                                               PhrasePasswordNotGoodEnough)
 from Cerebrum.modules.pwcheck.history import PasswordHistory
+from Cerebrum.utils.email import mail_template, sendmail
+from Cerebrum.utils import json
 
 
 # TBD: It would probably be cleaner if our time formats were specified
@@ -122,6 +123,17 @@ def date_to_string(date):
         return "<not set>"
 
     return "%04i-%02i-%02i" % (date.year, date.month, date.day)
+
+
+def exc_to_text(e):
+    """ Get an error text from an exception. """
+    try:
+        text = text_type(e)
+    except UnicodeError:
+        text = bytes(e).decode('utf-8', 'replace')
+        warnings.warn("Non-unicode data in exception {!r}".format(e),
+                      UnicodeWarning)
+    return text
 
 
 class TimeoutException(Exception):
@@ -515,7 +527,7 @@ class BofhdExtension(BofhdCommonMethods):
                 ret.append({
                     'opset': aos.name,
                     'attr': attr,
-                    'type': str(self.const.EntityType(ety.entity_type)),
+                    'type': text_type(self.const.EntityType(ety.entity_type)),
                     'name': self._get_name_from_object(ety),
                 })
         ret.sort(lambda a, b: (cmp(a['opset'], b['opset']) or
@@ -607,7 +619,7 @@ class BofhdExtension(BofhdCommonMethods):
     def _validate_access(self, target_type, opset, attr):
         func_name = "_validate_access_%s" % target_type
         if func_name not in dir(self):
-            raise CerebrumError("Unknown type {}".format(target_type))
+            raise CerebrumError("Unknown type %s" % target_type)
         return self.__getattribute__(func_name)(opset, attr)
 
     def _get_access_id_disk(self, target_name):
@@ -826,10 +838,10 @@ class BofhdExtension(BofhdCommonMethods):
                     "Non-existent entity (%s) referenced from auth_op_target",
                     row["entity_id"])
                 continue
-            etype = str(self.const.EntityType(entity.entity_type))
+            etype = self.const.EntityType(entity.entity_type)
             ename = self._get_entity_name(entity.entity_id, entity.entity_type)
             tmp = {"entity_id": row["entity_id"],
-                   "entity_type": etype,
+                   "entity_type": text_type(etype),
                    "entity_name": ename}
             if entity.entity_type == self.const.entity_group:
                 tmp["description"] = entity.description
@@ -857,7 +869,7 @@ class BofhdExtension(BofhdCommonMethods):
         ret = []
         for r in baos.list_operations():
             entry = {
-                'op': str(self.const.AuthRoleOp(r['op_code'])),
+                'op': text_type(self.const.AuthRoleOp(r['op_code'])),
                 'desc': self.const.AuthRoleOp(r['op_code']).description,
             }
             attrs = []
@@ -1014,14 +1026,10 @@ class BofhdExtension(BofhdCommonMethods):
         rows = ar.list(entity_id, opset.op_set_id, op_target_id)
         if len(rows) == 0:
             ar.grant_auth(entity_id, opset.op_set_id, op_target_id)
-            return "OK, granted %s access %s to %s %s" % (entity_name,
-                                                          opset.name,
-                                                          target_type,
-                                                          target_name)
-        return "%s already has %s access to %s %s" % (entity_name,
-                                                      opset.name,
-                                                      target_type,
-                                                      target_name)
+            return "OK, granted %s access %s to %s %s" % (
+                entity_name, opset.name, text_type(target_type), target_name)
+        return "%s already has %s access to %s %s" % (
+            entity_name, opset.name, text_type(target_type), target_name)
 
     def _revoke_auth(self, entity_id, opset, target_id, target_type, attr,
                      entity_name, target_name):
@@ -1032,10 +1040,8 @@ class BofhdExtension(BofhdCommonMethods):
         ar = BofhdAuthRole(self.db)
         rows = ar.list(entity_id, opset.op_set_id, op_target_id)
         if len(rows) == 0:
-            return "%s doesn't have %s access to %s %s" % (entity_name,
-                                                           opset.name,
-                                                           target_type,
-                                                           target_name)
+            return "%s doesn't have %s access to %s %s" % (
+                entity_name, opset.name, text_type(target_type), target_name)
         ar.revoke_auth(entity_id, opset.op_set_id, op_target_id)
         # See if the op_target has any references left, delete it if not.
         rows = ar.list(op_target_id=op_target_id)
@@ -1043,10 +1049,8 @@ class BofhdExtension(BofhdCommonMethods):
             aot = BofhdAuthOpTarget(self.db)
             aot.find(op_target_id)
             aot.delete()
-        return "OK, revoked %s access for %s from %s %s" % (opset.name,
-                                                            entity_name,
-                                                            target_type,
-                                                            target_name)
+        return "OK, revoked %s access for %s from %s %s" % (
+            opset.name, entity_name, text_type(target_type), target_name)
 
     def _email_create_forward_target(self, localaddr, remoteaddr):
         """Helper method for creating a forward target.
@@ -1059,7 +1063,7 @@ class BofhdExtension(BofhdCommonMethods):
         ed = Email.EmailDomain(self.db)
 
         if not ea.validate_localpart(lp):
-            raise CerebrumError("Invalid localpart '{}'".format(lp))
+            raise CerebrumError("Invalid localpart %r" % lp)
 
         try:
             ed.find_by_domain(dom)
@@ -1071,7 +1075,7 @@ class BofhdExtension(BofhdCommonMethods):
         except Errors.NotFoundError:
             pass
         else:
-            raise CerebrumError("Address %s already exists" % localaddr)
+            raise CerebrumError("Address %r already exists" % localaddr)
         et = Email.EmailTarget(self.db)
         et.populate(self.const.email_target_forward)
         et.write_db()
@@ -1091,9 +1095,9 @@ class BofhdExtension(BofhdCommonMethods):
 
         # Default spam and filter settings
         spam = getattr(cereconf, 'EMAIL_DEFAULT_SPAM_SETTINGS',
-                       {}).get(self.const.email_target_forward)
+                       {}).get(text_type(self.const.email_target_forward))
         filter_ = getattr(cereconf, 'EMAIL_DEFAULT_FILTER',
-                          {}).get(self.const.email_target_forward)
+                          {}).get(text_type(self.const.email_target_forward))
 
         if spam:
             spam_level, spam_action = (
@@ -1126,7 +1130,7 @@ class BofhdExtension(BofhdCommonMethods):
     def _entity_info(self, entity):
         co = self.const
         result = {
-            'type': str(co.EntityType(entity.entity_type)),
+            'type': text_type(co.EntityType(entity.entity_type)),
             'entity_id': entity.entity_id,
         }
         if entity.entity_type in (co.entity_group, co.entity_account):
@@ -1135,7 +1139,7 @@ class BofhdExtension(BofhdCommonMethods):
             result['expire_date'] = entity.expire_date
             # FIXME: Should be a list instead of a string, but text
             # clients doesn't know how to view such a list
-            result['spread'] = ", ".join([str(co.Spread(r['spread']))
+            result['spread'] = ", ".join([text_type(co.Spread(r['spread']))
                                           for r in entity.get_spread()])
         if entity.entity_type == co.entity_group:
             result['name'] = entity.group_name
@@ -1155,23 +1159,24 @@ class BofhdExtension(BofhdCommonMethods):
             result['export_id'] = entity.export_id
             result['birthdate'] = entity.birth_date
             result['description'] = entity.description
-            result['gender'] = str(co.Gender(entity.gender))
+            result['gender'] = text_type(co.Gender(entity.gender))
             # make boolean
             result['deceased'] = entity.deceased_date
             names = []
             for name in entity.get_all_names():
-                source_system = str(co.AuthoritativeSystem(name.source_system))
-                name_variant = str(co.PersonName(name.name_variant))
+                source_system = text_type(
+                    co.AuthoritativeSystem(name.source_system))
+                name_variant = text_type(co.PersonName(name.name_variant))
                 names.append((source_system, name_variant, name.name))
             result['names'] = names
             affiliations = []
             for row in entity.get_affiliations():
                 affiliations.append({
                     'ou': row['ou_id'],
-                    'affiliation': str(
+                    'affiliation': text_type(
                         co.PersonAffiliation(row['affiliation'])),
-                    'status': str(co.PersonAffStatus(row['status'])),
-                    'source_system': str(
+                    'status': text_type(co.PersonAffStatus(row['status'])),
+                    'source_system': text_type(
                         co.AuthoritativeSystem(row['source_system'])),
                 })
             result['affiliations'] = affiliations
@@ -1256,7 +1261,7 @@ class BofhdExtension(BofhdCommonMethods):
     def group_multi_add(self, operator, member_type, src_name, dest_group):
         """Adds a person, account or group to a given group."""
         if member_type not in ('group', 'account', 'person', ):
-            raise CerebrumError("Unknown member_type: %s" % member_type)
+            raise CerebrumError("Unknown member_type: %r" % member_type)
 
         return self._group_add(operator, src_name, dest_group,
                                member_type=member_type)
@@ -1409,7 +1414,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_exchange_create(self, operator,
                               groupname, displayname, description,
-                              from_existing=None):
+                              from_existing=False):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
         existing_group = False
@@ -1434,7 +1439,7 @@ class BofhdExtension(BofhdCommonMethods):
             pass
         if not displayname:
             displayname = groupname
-        if existing_group and not self._is_yes(from_existing):
+        if existing_group and not self._get_boolean(from_existing):
             return ('You choose not to create Exchange group from the '
                     'existing group %s' % groupname)
         try:
@@ -1452,8 +1457,8 @@ class BofhdExtension(BofhdCommonMethods):
                                   hidden=std_values['hidden'],
                                   parent=grp)
             dl_group.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError("Database error: %s" % m)
+        except self.db.DatabaseError as m:
+            raise CerebrumError("Database error: %s" % exc_to_text(m))
         self._set_display_name(groupname, displayname,
                                disp_name_variant, disp_name_language)
         dl_group.create_distgroup_mailtarget()
@@ -1520,7 +1525,7 @@ class BofhdExtension(BofhdCommonMethods):
             else:
                 owner = '#%d' % id
             ret.append({
-                'owner_type': str(co.EntityType(en.entity_type)),
+                'owner_type': text_type(co.EntityType(en.entity_type)),
                 'owner': owner,
                 'opset': aos.name,
             })
@@ -1533,10 +1538,10 @@ class BofhdExtension(BofhdCommonMethods):
 
         # Produce a list of members sorted by member type
         ET = self.const.EntityType
-        entries = ["%d %s(s)" % (members[x], str(ET(x)))
+        entries = ["%d %s(s)" % (members[x], text_type(ET(x)))
                    for x in sorted(members,
-                                   lambda it1, it2: cmp(str(ET(it1)),
-                                                        str(ET(it2))))]
+                                   lambda it1, it2: cmp(text_type(ET(it1)),
+                                                        text_type(ET(it2))))]
 
         ret.append({"members": ", ".join(entries)})
         # Find distgroup info
@@ -1578,7 +1583,7 @@ class BofhdExtension(BofhdCommonMethods):
         YesNo(help_ref='yes_no_expire_group', default='No'),
         perm_filter='is_postmaster')
 
-    def group_exchange_remove(self, operator, groupname, expire_group=None):
+    def group_exchange_remove(self, operator, groupname, expire_group=False):
         # check for appropriate priviledge
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
@@ -1591,7 +1596,7 @@ class BofhdExtension(BofhdCommonMethods):
             dl_group.demote_distribution()
         except Errors.NotFoundError:
             return "No Exchange group %s found" % groupname
-        if self._is_yes(expire_group):
+        if self._get_boolean(expire_group):
             # set expire in 90 dates for the remaining Cerebrum-group
             new_expire_date = DateTime.now() + DateTime.DateTimeDelta(90, 0, 0)
             dl_group.expire_date = new_expire_date
@@ -1764,6 +1769,8 @@ class BofhdExtension(BofhdCommonMethods):
         spreadstring = "(" + spread + ")"
         spreads = []
         spreads = re.split(" ", spread)
+
+        # TODO: Make template
         subject = "Cerebrum group create request %s" % groupname
         body = []
         body.append("Please create a new group:")
@@ -1794,7 +1801,7 @@ class BofhdExtension(BofhdCommonMethods):
         body.append("group info %s" % groupname)
         body.append("")
         body.append("")
-        Utils.sendmail(toaddr, fromaddr, subject, "\n".join(body))
+        sendmail(toaddr, fromaddr, subject, "\n".join(body))
         return "Request sent to %s" % toaddr
 
     #
@@ -1849,12 +1856,12 @@ class BofhdExtension(BofhdCommonMethods):
         self._remove_auth_role(grp.entity_id)
         try:
             grp.delete()
-        except self.db.DatabaseError, msg:
-            if re.search("group_member_exists", str(msg)):
+        except self.db.DatabaseError as msg:
+            if re.search("group_member_exists", exc_to_text(msg)):
                 raise CerebrumError(
                     ("Group is member of groups.  "
                      "Use 'group memberships group %s'") % grp.group_name)
-            elif re.search("account_info_owner", str(msg)):
+            elif re.search("account_info_owner", exc_to_text(msg)):
                 raise CerebrumError(
                     ("Group is owner of an account.  "
                      "Use 'entity accounts group %s'") % grp.group_name)
@@ -1944,7 +1951,7 @@ class BofhdExtension(BofhdCommonMethods):
         # jokim 2008-12-02 TBD: Is this bad? Added support for removing
         # members by their entity_id, as 'brukerinfo' (wofh) only knows
         # the entity_id.
-        if isinstance(src_name, str) and not src_name.isdigit():
+        if isinstance(src_name, basestring) and not src_name.isdigit():
             idtype = 'name'
         else:
             idtype = 'id'
@@ -1963,7 +1970,7 @@ class BofhdExtension(BofhdCommonMethods):
             except Errors.TooManyRowsError:
                 raise CerebrumError("Unexpectedly found more than one person")
         else:
-            raise CerebrumError("Unknown member_type: %s" % member_type)
+            raise CerebrumError("Unknown member_type: %r" % member_type)
         group_d = self._get_group(dest_group)
         return self._group_remove_entity(operator, src_entity, group_d)
 
@@ -1985,7 +1992,7 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             group.remove_member(member.entity_id)
         except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % m)
+            raise CerebrumError("Database error: %s" % exc_to_text(m))
         return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
 
     #
@@ -2049,7 +2056,7 @@ class BofhdExtension(BofhdCommonMethods):
             else:
                 owner = '#%d' % id
             ret.append({
-                'owner_type': str(co.EntityType(en.entity_type)),
+                'owner_type': text_type(co.EntityType(en.entity_type)),
                 'owner': owner,
                 'opset': aos.name,
             })
@@ -2062,10 +2069,10 @@ class BofhdExtension(BofhdCommonMethods):
 
         # Produce a list of members sorted by member type
         ET = self.const.EntityType
-        entries = ["%d %s(s)" % (members[x], str(ET(x)))
+        entries = ["%d %s(s)" % (members[x], text_type(ET(x)))
                    for x in sorted(members,
-                                   lambda it1, it2: cmp(str(ET(it1)),
-                                                        str(ET(it2))))]
+                                   lambda it1, it2: cmp(text_type(ET(it1)),
+                                                        text_type(ET(it2))))]
 
         ret.append({"members": ", ".join(entries)})
         return ret
@@ -2097,7 +2104,7 @@ class BofhdExtension(BofhdCommonMethods):
         if (len(members) > cereconf.BOFHD_MAX_MATCHES
                 and not self.ba.is_superuser(operator.get_entity_id())):
             raise CerebrumError("More than %d (%d) matches. Contact superuser "
-                                "to get a listing for %s." %
+                                "to get a listing for %r." %
                                 (cereconf.BOFHD_MAX_MATCHES, len(members),
                                  groupname))
         ac = self.Account_class(self.db)
@@ -2118,7 +2125,7 @@ class BofhdExtension(BofhdCommonMethods):
                 full_name = x['member_name']
                 user_name = '<non-account>'
             tmp = {'id': x['member_id'],
-                   'type': str(self.const.EntityType(x['member_type'])),
+                   'type': text_type(self.const.EntityType(x['member_type'])),
                    'name': x['member_name'],  # Compability with brukerinfo
                    'user_name': user_name,
                    'full_name': full_name,
@@ -2177,7 +2184,7 @@ class BofhdExtension(BofhdCommonMethods):
     def group_list_expanded(self, operator, groupname):
         """List members of group after expansion"""
         def type2str(x):
-            return str(self.const.EntityType(int(x)))
+            return text_type(self.const.EntityType(int(x)))
 
         group = self._get_group(groupname)
         result = list()
@@ -2185,8 +2192,8 @@ class BofhdExtension(BofhdCommonMethods):
                                                 indirect_members=True))
         if (len(all_members) > cereconf.BOFHD_MAX_MATCHES
                 and not self.ba.is_superuser(operator.get_entity_id())):
-            raise CerebrumError("More than %d (%d) matches. Contact superuser"
-                                "to get a listing for %s." %
+            raise CerebrumError("More than %d (%d) matches, contact superuser"
+                                "to get a listing for %r" %
                                 (cereconf.BOFHD_MAX_MATCHES, len(all_members),
                                  groupname))
         for member in all_members:
@@ -2226,7 +2233,7 @@ class BofhdExtension(BofhdCommonMethods):
         group = self.Group_class(self.db)
         try:
             group.find_by_name(uname)
-            raise CerebrumError("Group %s already exists" % uname)
+            raise CerebrumError("Group %r already exists" % uname)
         except Errors.NotFoundError:
             group.populate(creator_id=op,
                            visibility=self.const.group_visibility_all,
@@ -2304,8 +2311,8 @@ class BofhdExtension(BofhdCommonMethods):
     def group_demote_posix(self, operator, group):
         try:
             grp = self._get_group(group, grtype="PosixGroup")
-        except self.db.DatabaseError, msg:
-            if "posix_user_gid" in str(msg):
+        except self.db.DatabaseError as msg:
+            if "posix_user_gid" in exc_to_text(msg):
                 raise CerebrumError(
                     ("Assigned as primary group for posix user(s). "
                      "Use 'group list %s'") % grp.group_name)
@@ -2344,7 +2351,7 @@ class BofhdExtension(BofhdCommonMethods):
                 filter_type = 'name'
                 pattern = rule
             if filter_type not in filters:
-                raise CerebrumError("Unknown filter type: %s" % filter_type)
+                raise CerebrumError("Unknown filter type: %r" % filter_type)
             filters[filter_type] = pattern
         if filters['name'] == '*' and len(rules) == 1:
             raise CerebrumError("Please provide a more specific filter")
@@ -2474,7 +2481,7 @@ class BofhdExtension(BofhdCommonMethods):
         ret = []
         for row in group.search(member_id=entity.entity_id, spread=spread):
             ret.append({
-                'memberop': str(co.group_memberop_union),
+                'memberop': text_type(co.group_memberop_union),
                 'entity_id': row["group_id"],
                 'group': row["name"],
                 'description': row["description"],
@@ -2496,12 +2503,12 @@ class BofhdExtension(BofhdCommonMethods):
         tmp = {}
         duplicate_check_list = list()
         for co in self.const.fetch_constants(self.const.PersonAffStatus):
-            aff = six.text_type(co.affiliation)
+            aff = text_type(co.affiliation)
             if aff not in tmp:
                 tmp[aff] = [{'aff': aff,
                              'status': '',
                              'desc': co.affiliation.description}]
-            status = six.text_type(co._get_status())
+            status = text_type(co._get_status())
             if (aff, status) in duplicate_check_list:
                 continue
             tmp[aff].append({
@@ -2540,15 +2547,17 @@ class BofhdExtension(BofhdCommonMethods):
         br = BofhdRequests(self.db, self.const)
         old_req = br.get_requests(request_id=request_id)
         if not old_req:
-            raise CerebrumError("There is no request with id=%s" % request_id)
+            raise CerebrumError("There is no request with id=%r" % request_id)
         else:
             # If there is anything, it's at most one
             old_req = old_req[0]
         # If you are allowed to cancel a request, you can change it :)
         self.ba.can_cancel_request(operator.get_entity_id(), request_id)
         br.delete_request(request_id=request_id)
-        br.add_request(operator.get_entity_id(), datetime,
-                       old_req['operation'], old_req['entity_id'],
+        br.add_request(operator.get_entity_id(),
+                       datetime,
+                       old_req['operation'],
+                       old_req['entity_id'],
                        old_req['destination_id'],
                        old_req['state_data'])
         return "OK, altered request %s" % request_id
@@ -2560,7 +2569,7 @@ class BofhdExtension(BofhdCommonMethods):
         ("misc", "check_password"),
         AccountPassword(),
         fs=FormatSuggestion([
-            ("%s.", ('message', )),  # To keep old jbofh happy :-(
+            ("OK.", ('password_ok', )),
             ("crypt3-DES:    %s", ('des3', )),
             ("MD5-crypt:     %s", ('md5', )),
             ("SHA256-crypt:  %s", ('sha256', )),
@@ -2574,24 +2583,18 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             check_password(password, ac, structured=False)
         except RigidPasswordNotGoodEnough as e:
-            # tragically converting utf-8 -> unicode -> latin1
-            # since bofh still speaks latin1
-            raise CerebrumError('Bad password: {err_msg}'.format(
-                err_msg=str(e).decode('utf-8').encode('latin-1')))
+            raise CerebrumError('Bad password: %s' % exc_to_text(e))
         except PhrasePasswordNotGoodEnough as e:
-            raise CerebrumError('Bad passphrase: {err_msg}'.format(
-                err_msg=str(e).decode('utf-8').encode('latin-1')))
+            raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
         except PasswordNotGoodEnough as e:
-            # should be used for a default (no style) message
-            # used for backward compatibility paranoia reasons here
-            raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
+            raise CerebrumError('Bad password: %s' % exc_to_text(e))
         crypt = ac.encrypt_password(co.Authentication("crypt3-DES"), password)
         md5 = ac.encrypt_password(co.Authentication("MD5-crypt"), password)
         sha256 = ac.encrypt_password(co.auth_type_sha256_crypt, password)
         sha512 = ac.encrypt_password(co.auth_type_sha512_crypt, password)
         return {
-            'message': 'OK',
-            'des-3': crypt,
+            'password_ok': True,
+            'des3': crypt,
             'md5': md5,
             'sha256': sha256,
             'sha512': sha512,
@@ -2635,7 +2638,7 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             disk.write_db()
         except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % m)
+            raise CerebrumError("Database error: %s" % exc_to_text(m))
         if len(diskname.split("/")) != 4:
             return "OK.  Warning: disk did not follow expected pattern."
         return "OK, added disk '%s' at %s" % (diskname, hostname)
@@ -2835,7 +2838,7 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             disk.delete()
         except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % m)
+            raise CerebrumError("Database error: %s" % exc_to_text(m))
         return "OK, %s deleted" % diskname
 
     #
@@ -2853,7 +2856,7 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             host.write_db()
         except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % m)
+            raise CerebrumError("Database error: %s" % exc_to_text(m))
         return "OK, added host '%s'" % hostname
 
     #
@@ -2871,7 +2874,7 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             host.delete()
         except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % m)
+            raise CerebrumError("Database error: %s" % exc_to_text(m))
         return "OK, %s deleted" % hostname
 
     #
@@ -3022,8 +3025,11 @@ class BofhdExtension(BofhdCommonMethods):
         br = BofhdRequests(self.db, self.const)
         result = []
         for row in br.get_operations():
-            result.append({"code_str": row["code_str"].lstrip("br_"),
-                           "description": row["description"]})
+            br_code = self.const.BofhdRequestOp(row['code_str'])
+            result.append({
+                'code_str': text_type(br_code).lstrip('br_'),
+                'description': br_code.description,
+            })
         return result
 
     #
@@ -3110,7 +3116,7 @@ class BofhdExtension(BofhdCommonMethods):
                                                   self.const.entity_account)
             ret.append({'when': r['run_at'],
                         'requestee': requestee,
-                        'op': str(op),
+                        'op': text_type(op),
                         'entity': ent_name,
                         'destination': dest,
                         'args': r['state_data'],
@@ -3136,7 +3142,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError("Request ID %d not found" % req_id)
         self.ba.can_cancel_request(operator.get_entity_id(), req_id)
         br.delete_request(request_id=req_id)
-        return "OK, %s canceled" % req
+        return "OK, %d canceled" % req_id
 
     #
     # misc reload
@@ -3203,9 +3209,10 @@ class BofhdExtension(BofhdCommonMethods):
 
                             if spread_filter:
                                 spread_filter_match = False
-                                for spread in (self.const.Spread(s[0])
-                                               for s in ou.get_spread()):
-                                    if str(spread).lower() == spread_filter:
+                                for spread in (
+                                        text_type(self.const.Spread(s[0]))
+                                        for s in ou.get_spread()):
+                                    if spread.lower() == spread_filter:
                                         spread_filter_match = True
                                         break
 
@@ -3242,7 +3249,7 @@ class BofhdExtension(BofhdCommonMethods):
                     spread_filter_match = False
                     for spread in (self.const.Spread(s[0])
                                    for s in ou.get_spread()):
-                        if str(spread).lower() == spread_filter:
+                        if text_type(spread).lower() == spread_filter:
                             spread_filter_match = True
                             break
 
@@ -3342,13 +3349,13 @@ class BofhdExtension(BofhdCommonMethods):
         quarantines = []
         for q in ou.get_entity_quarantine(only_active=True):
             quarantines.append(
-                str(self.const.Quarantine(q['quarantine_type'])))
+                text_type(self.const.Quarantine(q['quarantine_type'])))
         if len(quarantines) == 0:
             quarantines = ['<none>']
 
         spreads = []
         for s in ou.get_spread():
-            spreads.append(str(self.const.Spread(s['spread'])))
+            spreads.append(text_type(self.const.Spread(s['spread'])))
         if len(spreads) == 0:
             spreads = ['<none>']
 
@@ -3369,9 +3376,10 @@ class BofhdExtension(BofhdCommonMethods):
 
         for c in ou.get_contact_info():
             output.append({
-                'contact_source': str(
+                'contact_source': text_type(
                     self.const.AuthoritativeSystem(c['source_system'])),
-                'contact_type': str(self.const.ContactInfo(c['contact_type'])),
+                'contact_type': text_type(
+                    self.const.ContactInfo(c['contact_type'])),
                 'contact_value': c['contact_value']
             })
 
@@ -3390,9 +3398,10 @@ class BofhdExtension(BofhdCommonMethods):
                 a['address_text'] += ', '
 
             output.append({
-                'address_source': str(
+                'address_source': text_type(
                     self.const.AuthoritativeSystem(a['source_system'])),
-                'address_type': str(self.const.Address(a['address_type'])),
+                'address_type': text_type(
+                    self.const.Address(a['address_type'])),
                 'address_text': a['address_text'].replace("\n", ', '),
                 'address_po_box': a['p_o_box'],
                 'address_city': a['city'],
@@ -3415,7 +3424,7 @@ class BofhdExtension(BofhdCommonMethods):
             for r in eed.list_affiliations():
                 affname = "<any>"
                 if r['affiliation']:
-                    affname = str(
+                    affname = text_type(
                         self.const.PersonAffiliation(r['affiliation']))
                 ed.clear()
                 ed.find(r['domain_id'])
@@ -3461,12 +3470,12 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError(
                 "No match for perspective '%s'. Try one of: %s" %
                 (ou_perspective,
-                 ", ".join(str(x) for x in
+                 ", ".join(text_type(x) for x in
                            co.fetch_constants(co.OUPerspective))))
         if not perspective:
             raise CerebrumError(
                 "Unable to guess perspective. Please specify one of: %s" %
-                (", ".join(str(x) for x in
+                (", ".join(text_type(x) for x in
                            co.fetch_constants(co.OUPerspective))))
 
         target_ou = self.util.get_target(target,
@@ -3596,7 +3605,7 @@ class BofhdExtension(BofhdCommonMethods):
         for r in aos.list_operations():
             c = AuthConstants(int(r['op_code']))
             ret.append({
-                'op': str(c),
+                'op': text_type(c),
                 'op_id': r['op_id'],
                 'attrs': ", ".join(["%s" % r2['attr'] for r2 in
                                     aos.list_operation_attrs(r['op_id'])]),
@@ -3917,7 +3926,8 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError("Unexpectedly found more than one person")
         ou, aff, aff_status = self._person_affiliation_add_helper(
             operator, person, ou, aff, aff_status)
-        return "OK, added %s@%s to %s" % (aff, self._format_ou_name(ou),
+        return "OK, added %s@%s to %s" % (text_type(aff),
+                                          self._format_ou_name(ou),
                                           person.entity_id)
 
     #
@@ -3953,7 +3963,8 @@ class BofhdExtension(BofhdCommonMethods):
             else:
                 raise CerebrumError("Cannot remove affiliation registered from"
                                     " an authoritative source system")
-        return "OK, removed %s@%s from %s" % (aff, self._format_ou_name(ou),
+        return "OK, removed %s@%s from %s" % (text_type(aff),
+                                              self._format_ou_name(ou),
                                               person.entity_id)
 
     #
@@ -4030,8 +4041,8 @@ class BofhdExtension(BofhdCommonMethods):
 
         try:
             person.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError("Database error: %s" % m)
+        except self.db.DatabaseError as m:
+            raise CerebrumError("Database error: %s" % exc_to_text(m))
 
         return {'person_id': person.entity_id}
 
@@ -4168,8 +4179,9 @@ class BofhdExtension(BofhdCommonMethods):
                         gender = self.const.gender_male
                     else:
                         gender = self.const.gender_female
-                except fodselsnr.InvalidFnrError, msg:
-                    raise CerebrumError("Invalid birth-no: '%s'" % msg)
+                except fodselsnr.InvalidFnrError as msg:
+                    raise CerebrumError("Invalid birth-no: %s" %
+                                        exc_to_text(msg))
                 try:
                     person.find_by_external_id(self.const.externalid_fodselsnr,
                                                id)
@@ -4192,9 +4204,9 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             person.write_db()
             self._person_affiliation_add_helper(
-                operator, person, stedkode, str(aff), aff_status)
+                operator, person, stedkode, text_type(aff), aff_status)
         except self.db.DatabaseError as m:
-            raise CerebrumError("Database error: %s" % m)
+            raise CerebrumError("Database error: %s" % exc_to_text(m))
         return {'person_id': person.entity_id}
 
     def _person_create_externalid_helper(self, person):
@@ -4224,7 +4236,7 @@ class BofhdExtension(BofhdCommonMethods):
             try:
                 filter = int(self.const.PersonAffiliation(filter))
             except Errors.NotFoundError:
-                raise CerebrumError("Invalid affiliation '%s' (perhaps you "
+                raise CerebrumError("Invalid affiliation %r (perhaps you "
                                     "need to quote the arguments?)" % filter)
         person = Utils.Factory.get('Person')(self.db)
         person.clear()
@@ -4366,7 +4378,7 @@ class BofhdExtension(BofhdCommonMethods):
             'name': p_name,
             'entity_id': person.entity_id,
             'birth': date_to_string(person.birth_date),
-            'spreads': ", ".join([str(self.const.Spread(x['spread']))
+            'spreads': ", ".join([text_type(self.const.Spread(x['spread']))
                                   for x in person.get_spread()]),
         }]
         affiliations = []
@@ -4374,22 +4386,23 @@ class BofhdExtension(BofhdCommonMethods):
         for row in person.get_affiliations():
             ou = self._get_ou(ou_id=row['ou_id'])
             affiliations.append("%s@%s" % (
-                self.const.PersonAffStatus(row['status']),
+                text_type(self.const.PersonAffStatus(row['status'])),
                 self._format_ou_name(ou)))
             sources.append(
-                str(self.const.AuthoritativeSystem(row['source_system'])))
+                text_type(
+                    self.const.AuthoritativeSystem(row['source_system'])))
         for ss in cereconf.SYSTEM_LOOKUP_ORDER:
             ss = getattr(self.const, ss)
             person_name = ""
-            for type in [self.const.name_first, self.const.name_last]:
+            for t in [self.const.name_first, self.const.name_last]:
                 try:
-                    person_name += person.get_name(ss, type) + ' '
+                    person_name += person.get_name(ss, t) + ' '
                 except Errors.NotFoundError:
                     continue
             if person_name:
                 data.append({
                     'names': person_name,
-                    'name_src': str(self.const.AuthoritativeSystem(ss)),
+                    'name_src': text_type(self.const.AuthoritativeSystem(ss)),
                 })
         if affiliations:
             data[0]['affiliation_1'] = affiliations[0]
@@ -4409,7 +4422,7 @@ class BofhdExtension(BofhdCommonMethods):
                     id_type=self.const.externalid_fodselsnr):
                 data.append({
                     'fnr': row['external_id'],
-                    'fnr_src': str(
+                    'fnr_src': text_type(
                         self.const.AuthoritativeSystem(row['source_system'])),
                 })
             # Show external ids
@@ -4425,8 +4438,8 @@ class BofhdExtension(BofhdCommonMethods):
                 if extid_const:
                     for row in person.get_external_id(id_type=extid_const):
                         data.append({
-                            'extid': str(extid_const),
-                            'extid_src': str(
+                            'extid': text_type(extid_const),
+                            'extid_src': text_type(
                                 self.const.AuthoritativeSystem(
                                     row['source_system'])),
                         })
@@ -4434,23 +4447,23 @@ class BofhdExtension(BofhdCommonMethods):
             pass
         # Show contact info
         for row in person.get_contact_info():
-            if row['contact_type'] not in (self.const.contact_phone,
-                                           self.const.contact_mobile_phone,
-                                           self.const.contact_phone_private,
-                                           self.const.contact_private_mobile):
+            contact_type = self.const.ContactInfo(row['contact_type'])
+            if contact_type not in (self.const.contact_phone,
+                                    self.const.contact_mobile_phone,
+                                    self.const.contact_phone_private,
+                                    self.const.contact_private_mobile):
                 continue
             try:
                 if self.ba.can_get_contact_info(
                         operator.get_entity_id(),
                         person=person,
-                        contact_type=str(self.const.ContactInfo(
-                            row['contact_type']))):
+                        contact_type=contact_type):
                     data.append({
                         'contact': row['contact_value'],
-                        'contact_src': str(self.const.AuthoritativeSystem(
-                            row['source_system'])),
-                        'contact_type': str(self.const.ContactInfo(
-                            row['contact_type'])),
+                        'contact_src': text_type(
+                            self.const.AuthoritativeSystem(
+                                row['source_system'])),
+                        'contact_type': text_type(contact_type),
                     })
             except PermissionDenied:
                 continue
@@ -4496,15 +4509,16 @@ class BofhdExtension(BofhdCommonMethods):
         if external_id_list:
             ext_id_value = external_id_list[0]['external_id']
             return [{
-                "ext_id_type": ext_id,
+                "ext_id_type": text_type(ext_id_const),
                 "person_id": person.entity_id,
-                "source_system": source_system,
+                "source_system": text_type(ss_const),
                 "ext_id_value": ext_id_value,
             }]
         else:
-            raise CerebrumError("Could not find id {} for "
-                                "person entity {} in system {}.".format(
-                                    ext_id, person.entity_id, source_system))
+            raise CerebrumError(
+                "Could not find id %s for person entity %d in system %s" %
+                (text_type(ext_id_const), person.entity_id,
+                 text_type(ss_const)))
 
     #
     # person set_id
@@ -4560,7 +4574,7 @@ class BofhdExtension(BofhdCommonMethods):
             person._delete_external_id(ss, idtype)
         except:
             raise CerebrumError("Could not delete id %s:%s for %s" %
-                                (idtype, source_system, person_id))
+                                (text_type(idtype), text_type(ss), person_id))
         return "OK"
 
     #
@@ -4592,13 +4606,14 @@ class BofhdExtension(BofhdCommonMethods):
                 person._delete_name(ss, variant)
             except:
                 raise CerebrumError("Could not delete %s from %s" %
-                                    (str(variant).lower(), source_system))
+                                    (text_type(variant).lower(),
+                                     text_type(ss)))
             removed = True
         person._update_cached_names()
         if not removed:
             return ("No name to remove for %s from %s" %
-                    (person_id, source_system))
-        return "Removed name for %s from %s" % (person_id, source_system)
+                    (person_id, text_type(ss)))
+        return "Removed name for %s from %s" % (person_id, text_type(ss))
 
     #
     # person student_info
@@ -4643,7 +4658,7 @@ class BofhdExtension(BofhdCommonMethods):
                     person_id = fodselsnr.personnr_ok(person_id)
                 except:
                     raise e
-                self.logger.debug('Unknown person %s, asking FS directly',
+                self.logger.debug('Unknown person %r, asking FS directly',
                                   person_id)
                 self.ba.can_get_student_info(operator.get_entity_id(), None)
                 fodselsdato, pnum = person_id[:6], person_id[6:]
@@ -4659,11 +4674,11 @@ class BofhdExtension(BofhdCommonMethods):
             fodselsdato, pnum = fodselsnr.del_fnr(fnr[0]['external_id'])
         ret = []
         try:
-            db = Database.connect(user=cereconf.FS_USER,
+            db = database.connect(user=cereconf.FS_USER,
                                   service=cereconf.FS_DATABASE_NAME,
                                   DB_driver=cereconf.DB_DRIVER_ORACLE)
-        except Database.DatabaseError, e:
-            self.logger.warn("Can't connect to FS (%s)" % e)
+        except database.DatabaseError as e:
+            self.logger.warn("Can't connect to FS (%s)", text_type(e))
             raise CerebrumError("Can't connect to FS, try later")
         fs = FS(db)
         for row in fs.student.get_undervisningsmelding(fodselsdato, pnum):
@@ -4806,9 +4821,10 @@ class BofhdExtension(BofhdCommonMethods):
             ret.append({
                 'uname': ac2.account_name,
                 'priority': row['priority'],
-                'affiliation':
-                '%s@%s' % (self.const.PersonAffiliation(row['affiliation']),
-                           self._format_ou_name(ou)),
+                'affiliation': '%s@%s' % (
+                    text_type(
+                        self.const.PersonAffiliation(row['affiliation'])),
+                    self._format_ou_name(ou)),
                 'status': status,
             })
         return ret
@@ -4832,7 +4848,7 @@ class BofhdExtension(BofhdCommonMethods):
 
         if not entity.get_entity_quarantine(qtype=qconst):
             raise CerebrumError("%s does not have a quarantine of type %s" % (
-                self._get_name_from_object(entity), qtype))
+                self._get_name_from_object(entity), text_type(qtype)))
 
         limit = getattr(cereconf, 'BOFHD_QUARANTINE_DISABLE_LIMIT', None)
         if limit:
@@ -4843,9 +4859,9 @@ class BofhdExtension(BofhdCommonMethods):
         entity.disable_entity_quarantine(qconst, date)
         if not date:
             return "OK, reactivated quarantine %s for %s" % (
-                qconst, self._get_name_from_object(entity))
+                text_type(qconst), self._get_name_from_object(entity))
         return "OK, disabled quarantine %s for %s" % (
-            qconst, self._get_name_from_object(entity))
+            text_type(qconst), self._get_name_from_object(entity))
 
     #
     # quarantine list
@@ -4863,13 +4879,13 @@ class BofhdExtension(BofhdCommonMethods):
         for c in self.const.fetch_constants(self.const.Quarantine):
             lock = 'N'
             shell = '-'
-            rule = cereconf.QUARANTINE_RULES.get(str(c), {})
+            rule = cereconf.QUARANTINE_RULES.get(text_type(c), {})
             if 'lock' in rule:
                 lock = 'Y'
             if 'shell' in rule:
                 shell = rule['shell'].split("/")[-1]
             ret.append({
-                'name': "%s" % c,
+                'name': text_type(c),
                 'lock': lock,
                 'shell': shell,
                 'desc': c.description,
@@ -4893,12 +4909,12 @@ class BofhdExtension(BofhdCommonMethods):
 
         if not entity.get_entity_quarantine(qtype=qconst):
             raise CerebrumError("%s does not have a quarantine of type %s" % (
-                self._get_name_from_object(entity), qtype))
+                self._get_name_from_object(entity), text_type(qconst)))
 
         entity.delete_entity_quarantine(qconst)
 
         return "OK, removed quarantine %s for %s" % (
-            qconst, self._get_name_from_object(entity))
+            text_type(qconst), self._get_name_from_object(entity))
 
     #
     # quarantine set
@@ -4925,15 +4941,15 @@ class BofhdExtension(BofhdCommonMethods):
         rows = entity.get_entity_quarantine(qtype=qconst)
         if rows:
             raise CerebrumError("%s already has a quarantine of type %s" % (
-                self._get_name_from_object(entity), qtype))
+                self._get_name_from_object(entity), text_type(qconst)))
         try:
             entity.add_entity_quarantine(qconst, operator.get_entity_id(), why,
                                          start_date)
         except AttributeError:
-            raise CerebrumError("Quarantines cannot be set on %s" %
+            raise CerebrumError("Quarantines cannot be set on %r" %
                                 entity_type)
         return "OK, set quarantine %s for %s" % (
-            qconst, self._get_name_from_object(entity))
+            text_type(qconst), self._get_name_from_object(entity))
 
     # quarantine show
     all_commands['quarantine_show'] = Command(
@@ -4956,7 +4972,7 @@ class BofhdExtension(BofhdCommonMethods):
         for r in entity.get_entity_quarantine():
             acc = self._get_account(r['creator_id'], idtype='id')
             ret.append({
-                'type': str(self.const.Quarantine(r['quarantine_type'])),
+                'type': text_type(self.const.Quarantine(r['quarantine_type'])),
                 'start': r['start_date'],
                 'end': r['end_date'],
                 'disable_until': r['disable_until'],
@@ -5004,15 +5020,16 @@ class BofhdExtension(BofhdCommonMethods):
         if entity.entity_type != spread.entity_type:
             raise CerebrumError(
                 "Spread '%s' is restricted to '%s', selected entity is '%s'" %
-                (spread, self.const.EntityType(spread.entity_type),
-                 self.const.EntityType(entity.entity_type)))
+                (text_type(spread),
+                 text_type(self.const.EntityType(spread.entity_type)),
+                 text_type(self.const.EntityType(entity.entity_type))))
         # exchange-relatert-jazz
         # NB! no checks are implemented in the group-mixin
         # as we want to let other clients handle these spreads
         # in different manner if needed
         # dissallow spread-setting for distribution groups
         if (cereconf.EXCHANGE_GROUP_SPREAD
-                and str(spread) == cereconf.EXCHANGE_GROUP_SPREAD):
+                and text_type(spread) == cereconf.EXCHANGE_GROUP_SPREAD):
             raise CerebrumError("Please create distribution group via "
                                 "'group exchange_create'")
         if entity_type == 'account':
@@ -5020,11 +5037,11 @@ class BofhdExtension(BofhdCommonMethods):
             entity = pu if pu is not None else entity
         if entity.has_spread(spread):
             raise CerebrumError("entity id=%s already has spread=%s" %
-                                (id, spread))
+                                (id, text_type(spread)))
         try:
             entity.add_spread(spread)
         except (Errors.RequiresPosixError, self.db.IntegrityError) as e:
-            raise CerebrumError(str(e))
+            raise CerebrumError(exc_to_text(e))
         entity.write_db()
         if hasattr(self.const, 'spread_uio_nis_fg'):
             if (entity_type == 'group'
@@ -5034,7 +5051,7 @@ class BofhdExtension(BofhdCommonMethods):
                     entity.add_spread(ad_spread)
                     entity.write_db()
         return "OK, added spread %s for %s" % (
-            spread, self._get_name_from_object(entity))
+            text_type(spread), self._get_name_from_object(entity))
 
     #
     # spread list
@@ -5095,10 +5112,11 @@ class BofhdExtension(BofhdCommonMethods):
         if entity.has_spread(spread):
             entity.delete_spread(spread)
         else:
-            txt = "Entity '%s' does not have spread '%s'" % (id, str(spread))
+            txt = "Entity '%s' does not have spread '%s'" % (id,
+                                                             text_type(spread))
             raise CerebrumError(txt)
         return "OK, removed spread %s from %s" % (
-            spread, self._get_name_from_object(entity))
+            text_type(spread), self._get_name_from_object(entity))
 
     #
     # trait info -- show trait values for an entity
@@ -5127,25 +5145,26 @@ class BofhdExtension(BofhdCommonMethods):
             except PermissionDenied:
                 continue
 
-            text.append("  Trait:       %s" % str(trait))
+            text.append("  Trait:       %s" % text_type(trait))
             if values['numval'] is not None:
                 text.append("    Numeric:   %d" % values['numval'])
             if values['strval'] is not None:
                 text.append("    String:    %s" % values['strval'])
             if values['target_id'] is not None:
                 target = self.util.get_target(int(values['target_id']))
-                text.append("    Target:    %s (%s)" %
-                            (self._get_entity_name(target.entity_id,
-                                                   target.entity_type),
-                             str(self.const.EntityType(target.entity_type))))
+                text.append(
+                    "    Target:    %s (%s)" %
+                    (self._get_entity_name(target.entity_id,
+                                           target.entity_type),
+                     text_type(self.const.EntityType(target.entity_type))))
             if values['date'] is not None:
                 text.append("    Date:      %s" % values['date'])
-            values['trait_name'] = str(trait)
+            values['trait_name'] = text_type(trait)
             ret.append(values)
         if text:
             text = ["Entity:        %s (%s)" % (
                 ety_name,
-                str(self.const.EntityType(ety.entity_type)))] + text
+                text_type(self.const.EntityType(ety.entity_type)))] + text
             return {'text': "\n".join(text), 'traits': ret}
         return "%s has no traits" % ety_name
 
@@ -5166,13 +5185,13 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_list_trait(operator.get_entity_id(), trait=trait)
         ety = self.Account_class(self.db)  # exact class doesn't matter
         ret = []
-        ety_type = str(self.const.EntityType(trait.entity_type))
+        ety_type = self.const.EntityType(trait.entity_type)
         for row in ety.list_traits(trait, return_name=True):
             # TODO: Host, Disk and Person don't use entity_name, so name will
             # be <not set>
             ret.append({
-                'trait': str(trait),
-                'type': ety_type,
+                'trait': text_type(trait),
+                'type': text_type(ety_type),
                 'name': row['name'],
             })
         ret.sort(lambda x, y: cmp(x['name'], y['name']))
@@ -5202,9 +5221,9 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             ety_name = ety.get_names()[0][0]
         if ety.get_trait(trait) is None:
-            return "%s has no %s trait" % (ety_name, trait)
+            return "%s has no %s trait" % (ety_name, text_type(trait))
         ety.delete_trait(trait)
-        return "OK, deleted trait %s from %s" % (trait, ety_name)
+        return "OK, deleted trait %s from %s" % (text_type(trait), ety_name)
 
     #
     # trait set -- add or update a trait
@@ -5243,7 +5262,7 @@ class BofhdExtension(BofhdCommonMethods):
                 params[key] = value
         ent.populate_trait(trait, **params)
         ent.write_db()
-        return "Ok, set trait %s for %s" % (trait_name, ent_name)
+        return "Ok, set trait %s for %s" % (text_type(trait), ent_name)
 
     #
     # trait types -- list out the defined trait types
@@ -5260,7 +5279,7 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_set_trait(operator.get_entity_id())
         ret = [
             {
-                "trait": str(x),
+                "trait": text_type(x),
                 "description": x.description,
             }
             for x in self.const.fetch_constants(self.const.EntityTrait)
@@ -5300,7 +5319,8 @@ class BofhdExtension(BofhdCommonMethods):
         account.write_db()
         account.set_account_type(ou.entity_id, aff, priority)
         account.write_db()
-        return "OK, added %s@%s to %s" % (aff, self._format_ou_name(ou),
+        return "OK, added %s@%s to %s" % (text_type(aff),
+                                          self._format_ou_name(ou),
                                           accountname)
 
     #
@@ -5321,7 +5341,8 @@ class BofhdExtension(BofhdCommonMethods):
                                         account, ou, aff)
         account.del_account_type(ou.entity_id, aff)
         account.write_db()
-        return "OK, removed %s@%s from %s" % (aff, self._format_ou_name(ou),
+        return "OK, removed %s@%s from %s" % (text_type(aff),
+                                              self._format_ou_name(ou),
                                               accountname)
 
     #
@@ -5359,7 +5380,7 @@ class BofhdExtension(BofhdCommonMethods):
                 raise AttributeError('Invalid local part')
             ed._validate_domain_name(domain)
         except AttributeError as e:
-            raise CerebrumError("Invalid contact address: {}".format(e))
+            raise CerebrumError("Invalid contact address: %s" % exc_to_text(e))
 
         # Unpersonal accounts shouldn't normally have a mail inbox, but they
         # get a forward target for the account, to be sent to those responsible
@@ -5441,7 +5462,7 @@ class BofhdExtension(BofhdCommonMethods):
             for aff in person.get_affiliations():
                 ou = self._get_ou(ou_id=aff['ou_id'])
                 name = '%s@%s' % (
-                    self.const.PersonAffStatus(aff['status']),
+                    text_type(self.const.PersonAffStatus(aff['status'])),
                     self._format_ou_name(ou))
                 aff_map.append((('%s', name),
                                 {'ou_id': int(aff['ou_id']),
@@ -5578,7 +5599,7 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_create_sysadm')
 
     def user_create_sysadm(self, operator,
-                           accountname, stedkode=None, force=None):
+                           accountname, stedkode=None, force=False):
         """ Create a sysadm account with the given accountname.
 
         TBD, requirements?
@@ -5622,7 +5643,7 @@ class BofhdExtension(BofhdCommonMethods):
         person = self._get_person('account_name', user)
 
         # Need to force if person already has a sysadm account
-        if not self._is_yes(force):
+        if not self._get_boolean(force):
             ac = self.Account_class(self.db)
             suffix = '-{}'.format(suffix)
             existing = filter(lambda x: x['name'].endswith(suffix),
@@ -5643,7 +5664,7 @@ class BofhdExtension(BofhdCommonMethods):
             source_system=self.const.system_sap,
             status=VALID_STATUS,
             ou_id=ou_id)
-        status_blob = ', '.join(map(str, VALID_STATUS))
+        status_blob = ', '.join(map(text_type, VALID_STATUS))
         if valid_aff == []:
             raise CerebrumError('Person has no %s affiliation' % status_blob)
         elif len(valid_aff) > 1:
@@ -5779,7 +5800,7 @@ class BofhdExtension(BofhdCommonMethods):
         # TBD: Should we allow 8-bit characters?
         try:
             gecos.encode("ascii")
-        except UnicodeDecodeError:
+        except UnicodeError:
             raise CerebrumError("GECOS can only contain US-ASCII.")
         account.gecos = gecos.strip() or None
         account.write_db()
@@ -5851,8 +5872,9 @@ class BofhdExtension(BofhdCommonMethods):
         for row in account.get_account_types(filter_expired=False):
             ou = self._get_ou(ou_id=row['ou_id'])
             affiliations.append(
-                "%s@%s" % (self.const.PersonAffiliation(row['affiliation']),
-                           self._format_ou_name(ou)))
+                "%s@%s" %
+                (text_type(self.const.PersonAffiliation(row['affiliation'])),
+                 self._format_ou_name(ou)))
         tmp = {
             'disk_id': None,
             'home': None,
@@ -5864,20 +5886,20 @@ class BofhdExtension(BofhdCommonMethods):
         if spread in cereconf.HOME_SPREADS:
             try:
                 tmp = account.get_home(getattr(self.const, spread))
-                home_status = str(self.const.AccountHomeStatus(tmp['status']))
+                home_status = self.const.AccountHomeStatus(tmp['status'])
             except Errors.NotFoundError:
                 pass
 
         ret = {
             'entity_id': account.entity_id,
             'username': account.account_name,
-            'spread': ",".join([str(self.const.Spread(a['spread']))
+            'spread': ",".join([text_type(self.const.Spread(a['spread']))
                                 for a in account.get_spread()]),
             'affiliations': (",\n" + (" " * 15)).join(affiliations),
             'expire': account.expire_date,
-            'home_status': home_status,
+            'home_status': text_type(home_status),
             'owner_id': account.owner_id,
-            'owner_type': str(self.const.EntityType(account.owner_type)),
+            'owner_type': text_type(self.const.EntityType(account.owner_type)),
         }
         try:
             self.ba.can_show_disk_quota(operator.get_entity_id(), account)
@@ -5892,14 +5914,14 @@ class BofhdExtension(BofhdCommonMethods):
                 dq = DiskQuota(self.db)
                 dq_row = dq.get_quota(tmp['homedir_id'])
                 if not(dq_row['quota'] is None or def_quota is False):
-                    ret['disk_quota'] = str(dq_row['quota'])
+                    ret['disk_quota'] = str(int(dq_row['quota']))
                 # Only display recent quotas
                 days_left = ((dq_row['override_expiration'] or DateTime.Epoch)
                              - DateTime.now()).days
                 if days_left > -30:
                     ret['dq_override'] = dq_row['override_quota']
                     if dq_row['override_quota'] is not None:
-                        ret['dq_override'] = str(dq_row['override_quota'])
+                        ret['dq_override'] = str(int(dq_row['override_quota']))
                     ret['dq_expire'] = dq_row['override_expiration']
                     ret['dq_why'] = dq_row['description']
                     if days_left < 0:
@@ -5936,7 +5958,7 @@ class BofhdExtension(BofhdCommonMethods):
             ret['dfg_posix_gid'] = group.posix_gid
             ret['dfg_name'] = group.group_name
             ret['gecos'] = account.gecos
-            ret['shell'] = str(self.const.PosixShell(account.shell))
+            ret['shell'] = text_type(self.const.PosixShell(account.shell))
         # TODO: Return more info about account
         quarantined = None
         now = DateTime.now()
@@ -5993,7 +6015,7 @@ class BofhdExtension(BofhdCommonMethods):
             try:
                 aff_filter = int(self.const.PersonAffiliation(aff_filter))
             except Errors.NotFoundError:
-                raise CerebrumError("Invalid affiliation %s" % aff_filter)
+                raise CerebrumError("Invalid affiliation %r" % aff_filter)
         filter_expired = not self._get_boolean(include_expired)
 
         if search_type == 'stedkode':
@@ -6012,7 +6034,7 @@ class BofhdExtension(BofhdCommonMethods):
             rows = acc.list_account_home(disk_id=int(disk.entity_id),
                                          filter_expired=filter_expired)
         else:
-            raise CerebrumError("Unknown search type (%s)" % search_type)
+            raise CerebrumError("Unknown search type (%r)" % search_type)
         seen = {}
         ret = []
         for r in rows:
@@ -6089,7 +6111,7 @@ class BofhdExtension(BofhdCommonMethods):
                 r['last_arg'] = True
                 return r
             return {'last_arg': True}
-        raise CerebrumError("Bad user_move command ({!s})".format(move_type))
+        raise CerebrumError("Bad user_move command (%r)" % move_type)
 
     #
     # user move <move-type> <account-name> [opts]
@@ -6144,7 +6166,7 @@ class BofhdExtension(BofhdCommonMethods):
                         and not re.match(r'^/ifi/', args[0])):
                     message += ("WARNING: moving user with %s-spread to "
                                 "a non-Ifi disk.\n" %
-                                self.const.spread_ifi_nis_user)
+                                text_type(self.const.spread_ifi_nis_user))
                     break
 
             # Let's check the disk quota settings.  We only give a an
@@ -6195,13 +6217,13 @@ class BofhdExtension(BofhdCommonMethods):
                 # mail user about the awaiting move operation
                 new_homedir = disk.path + '/' + account.account_name
                 try:
-                    Utils.mail_template(
+                    mail_template(
                         account.get_primary_mailaddress(),
                         cereconf.USER_BATCH_MOVE_WARNING,
                         substitute={'USER': account.account_name,
                                     'TO_DISK': new_homedir})
                 except Exception as e:
-                    self.logger.info("Sending mail failed: %s", e)
+                    self.logger.info("Sending mail failed: %r", e)
             elif move_type == "nofile":
                 ah = account.get_home(spread)
                 account.set_homedir(current_id=ah['homedir_id'],
@@ -6308,13 +6330,11 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             check_password(password, account, structured=False)
         except RigidPasswordNotGoodEnough as e:
-            raise CerebrumError('Bad password: {err_msg}'.format(
-                err_msg=str(e).decode('utf-8').encode('latin-1')))
+            raise CerebrumError('Bad password: %s' % exc_to_text(e))
         except PhrasePasswordNotGoodEnough as e:
-            raise CerebrumError('Bad passphrase: {err_msg}'.format(
-                err_msg=str(e).decode('utf-8').encode('latin-1')))
+            raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
         except PasswordNotGoodEnough as e:
-            raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
+            raise CerebrumError('Bad password: %s' % exc_to_text(e))
         account.set_password(password)
         account.write_db()
         operator.store_state("user_passwd",
@@ -6436,8 +6456,9 @@ class BofhdExtension(BofhdCommonMethods):
             map = [(('%-8s %s', 'Num', 'Affiliation'), None)]
             for aff in person.get_affiliations():
                 ou = self._get_ou(ou_id=aff['ou_id'])
-                name = '%s@%s' % (self.const.PersonAffStatus(aff['status']),
-                                  self._format_ou_name(ou))
+                name = '%s@%s' % (
+                    text_type(self.const.PersonAffStatus(aff['status'])),
+                    self._format_ou_name(ou))
                 map.append((('%s', name), {'ou_id': int(aff['ou_id']),
                                            'aff': int(aff['affiliation'])}))
             if not len(map) > 1:
@@ -6553,8 +6574,8 @@ class BofhdExtension(BofhdCommonMethods):
                     creator_id=operator.get_entity_id())
         try:
             pu.write_db()
-        except self.db.IntegrityError, e:
-            self.logger.debug("IntegrityError: %s" % e)
+        except self.db.IntegrityError as e:
+            self.logger.debug("IntegrityError (user_restore): %r", e)
             self.db.rollback()
             raise CerebrumError('Please contact brukerreg in order to restore')
 
@@ -6568,8 +6589,8 @@ class BofhdExtension(BofhdCommonMethods):
 
         # And remove them quarantines (except those defined in cereconf)
         for q in ac.get_entity_quarantine():
-            if str(self.const.Quarantine(q['quarantine_type'])) not in \
-               cereconf.BOFHD_RESTORE_USER_SAVE_QUARANTINES:
+            if (text_type(self.const.Quarantine(q['quarantine_type']))
+                    not in cereconf.BOFHD_RESTORE_USER_SAVE_QUARANTINES):
                 ac.delete_entity_quarantine(q['quarantine_type'])
 
         # We set the new homedir
@@ -6593,8 +6614,8 @@ class BofhdExtension(BofhdCommonMethods):
         # We'll need to write to the db, in order to store stuff.
         try:
             ac.write_db()
-        except self.db.IntegrityError, e:
-            self.logger.debug("IntegrityError (ac.write_db): %s" % e)
+        except self.db.IntegrityError as e:
+            self.logger.debug("IntegrityError (user_restore): %r", e)
             self.db.rollback()
             raise CerebrumError('Please contact brukerreg in order to restore')
 
@@ -6636,7 +6657,8 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_create_disk(operator.get_entity_id(), query_run_any=True)
         ah = account.get_home(self.const.spread_uio_nis_user)
         account.set_homedir(current_id=ah['homedir_id'], status=status)
-        return "OK, set home-status for %s to %s" % (accountname, status)
+        return "OK, set home-status for %s to %s" % (accountname,
+                                                     text_type(status))
 
     #
     # user set_expire
@@ -6671,7 +6693,8 @@ class BofhdExtension(BofhdCommonMethods):
         account.np_type = self._get_constant(self.const.Account, np_type,
                                              "account type")
         account.write_db()
-        return "OK, set np-type for %s to %s" % (accountname, np_type)
+        return "OK, set np-type for %s to %s" % (accountname,
+                                                 text_type(account.np_type))
 
     def user_set_owner_prompt_func(self, session, *args):
         all_args = list(args[:])
@@ -6692,7 +6715,7 @@ class BofhdExtension(BofhdCommonMethods):
                 for aff in person.get_affiliations():
                     ou = self._get_ou(ou_id=aff['ou_id'])
                     name = "%s@%s" % (
-                        self.const.PersonAffStatus(aff['status']),
+                        text_type(self.const.PersonAffStatus(aff['status'])),
                         self._format_ou_name(ou))
                     map.append((("%s", name),
                                 {'ou_id': int(aff['ou_id']),
@@ -6764,7 +6787,7 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_set_shell(operator.get_entity_id(), account, shell)
         account.shell = shell
         account.write_db()
-        return "OK, set shell for %s to %s" % (accountname, shell)
+        return "OK, set shell for %s to %s" % (accountname, text_type(shell))
 
     #
     # get_persdata
@@ -6781,7 +6804,7 @@ class BofhdExtension(BofhdCommonMethods):
             'is_personal': len(ac.get_account_types()),
             'fnr': [
                 {'id': r['external_id'],
-                 'source': str(
+                 'source': text_type(
                      self.const.AuthoritativeSystem(r['source_system']))}
                 for r in person.get_external_id(
                         id_type=self.const.externalid_fodselsnr)]}
@@ -6790,12 +6813,12 @@ class BofhdExtension(BofhdCommonMethods):
             ac_types.sort(lambda x, y: int(x['priority']-y['priority']))
             for at in ac_types:
                 ac2 = self._get_account(at['account_id'], idtype='id')
+                aff2 = self.const.PersonAffiliation(at['affiliation'])
                 ret.setdefault('users', []).append(
                     (ac2.account_name, '%s@ulrik.uio.no' % ac2.account_name,
-                     at['priority'], at['ou_id'],
-                     str(self.const.PersonAffiliation(at['affiliation']))))
+                     at['priority'], at['ou_id'], text_type(aff2)))
             # TODO: kall ac.list_accounts_by_owner_id(ac.owner_id) for
-            # å hente ikke-personlige konti?
+            # Ã¥ hente ikke-personlige konti?
         ret['home'] = ac.resolve_homedir(disk_id=ac.disk_id, home=ac.home)
         ret['navn'] = {'cached': person.get_name(
             self.const.system_cached, self.const.name_full)}
@@ -6837,9 +6860,9 @@ class BofhdExtension(BofhdCommonMethods):
                     account.clear()
                 account.find_by_uid(id)
             else:
-                raise CerebrumError("unknown idtype: '%s'" % idtype)
+                raise CerebrumError("unknown idtype: %r" % idtype)
         except Errors.NotFoundError:
-            raise CerebrumError("Could not find %s with %s=%s" %
+            raise CerebrumError("Could not find %r with %s=%r" %
                                 (actype, idtype, id))
         return account
 
@@ -6852,7 +6875,7 @@ class BofhdExtension(BofhdCommonMethods):
                 host.find_by_name(name)
             return host
         except Errors.NotFoundError:
-            raise CerebrumError("Unknown host: %s" % name)
+            raise CerebrumError("Unknown host: %r" % name)
 
     def _get_shell(self, shell):
         return self._get_constant(self.const.PosixShell, shell, "shell")
@@ -6874,7 +6897,7 @@ class BofhdExtension(BofhdCommonMethods):
             return self.const.group_memberop_intersection
         if operator == 'difference':
             return self.const.group_memberop_difference
-        raise CerebrumError("unknown group opcode: '%s'" % operator)
+        raise CerebrumError("unknown group opcode: %s" % operator)
 
     def _get_entity(self, idtype=None, ident=None):
         if ident is None:
@@ -6910,11 +6933,6 @@ class BofhdExtension(BofhdCommonMethods):
             if raise_not_found:
                 raise CerebrumError("Unknown disk: %s" % path)
             return disk, None, path
-
-    def _is_yes(self, val):
-        if isinstance(val, str) and val.lower() in ('y', 'yes', 'ja', 'j'):
-            return True
-        return False
 
     # The next two functions require all affiliations to be in upper case,
     # and all affiliation statuses to be in lower case.  If this changes,
@@ -6978,14 +6996,14 @@ class BofhdExtension(BofhdCommonMethods):
         if code_str is not None:
             c = self._get_constant(kls, code_str)
             return {"code": int(c),
-                    "code_str": str(c),
+                    "code_str": text_type(c),
                     "description": c.description}
 
         # Fetch all of the constants of the specified type
         return [
             {
                 "code": int(x),
-                "code_str": str(x),
+                "code_str": text_type(x),
                 "description": x.description,
             }
             for x in self.const.fetch_constants(kls)
@@ -6995,15 +7013,15 @@ class BofhdExtension(BofhdCommonMethods):
         def _get_code(get, code, fallback=None):
             def f(get, code, fallback):
                 try:
-                    return (1, str(get(code)))
+                    return (1, text_type(get(code)))
                 except Errors.NotFoundError:
                     if fallback:
                         return (2, fallback)
                     else:
-                        return (2, str(code))
+                        return (2, text_type(code))
             if not isinstance(get, (tuple, list)):
                 get = [get]
-            return str(sorted([f(c, code, fallback) for c in get])[0][1])
+            return sorted([f(c, code, fallback) for c in get])[0][1]
 
         if val is None:
             return ''
@@ -7020,7 +7038,7 @@ class BofhdExtension(BofhdCommonMethods):
         elif format == 'date':
             return val.date
         elif format == 'timestamp':
-            return str(val)
+            return text_type(val)
         elif format == 'entity':
             return self._get_entity_name(int(val))
         elif format == 'extid':
@@ -7032,7 +7050,7 @@ class BofhdExtension(BofhdCommonMethods):
         elif format == 'home_status':
             return _get_code(self.const.AccountHomeStatus, val)
         elif format == 'int':
-            return str(val)
+            return text_type(val)
         elif format == 'name_variant':
             # Name variants are stored in two separate code-tables; if
             # one doesn't work, try the other
@@ -7048,7 +7066,7 @@ class BofhdExtension(BofhdCommonMethods):
         elif format == 'spread_code':
             return _get_code(self.const.Spread, val)
         elif format == 'string':
-            return str(val)
+            return text_type(val)
         elif format == 'trait':
             # Trait has been deleted from the DB, so we can't know which it
             # was. Therefore we return '<unknown>'
@@ -7061,11 +7079,11 @@ class BofhdExtension(BofhdCommonMethods):
             return _get_code(self.const.EphortePermission, val)
         elif format == 'bool':
             if val == 'T':
-                return str(True)
+                return repr(True)
             elif val == 'F':
-                return str(False)
+                return repr(False)
             else:
-                return str(bool(val))
+                return repr(bool(val))
         else:
             self.logger.warn("bad cl format: %s", repr((format, val)))
             return ''
@@ -7082,9 +7100,9 @@ class BofhdExtension(BofhdCommonMethods):
         if this_cl_const.msg_string is None:
             self.logger.warn('Formatting of change log entry of type %s '
                              'failed, no description defined in change type',
-                             str(this_cl_const))
+                             text_type(this_cl_const))
             msg = '{}, subject {}, destination {}'.format(
-                str(this_cl_const),
+                text_type(this_cl_const),
                 self._get_entity_name(row['subject_entity']),
                 dest)
         else:
@@ -7096,10 +7114,10 @@ class BofhdExtension(BofhdCommonMethods):
         # _ChangeTypeCode.__doc__
         if row['change_params']:
             try:
-                params = pickle.loads(row['change_params'])
+                params = json.loads(row['change_params'])
             except TypeError:
                 self.logger.error("Bogus change_param in change_id=%s,"
-                                  " row: %s", row['change_id'], row)
+                                  " row: %r", row['change_id'], row)
                 raise
         else:
             params = {}
@@ -7133,16 +7151,15 @@ class BofhdExtension(BofhdCommonMethods):
         for r in self.db.get_log_events(0,
                                         subject_entity=account_id,
                                         types=[self.const.posix_demote]):
-            uid = pickle.loads(r['change_params'])['uid']
+            uid = json.loads(r['change_params'])['uid']
         return uid
 
     def _date_human_readable(self, date):
         "Convert date to something human-readable."
 
         if hasattr(date, "strftime"):
-            return date.strftime("%Y-%m-%dT%H:%M:%S")
-
-        return str(date)
+            return text_type(date.strftime("%Y-%m-%dT%H:%M:%S"))
+        return text_type(date)
 
 
 class EmailAuth(UiOAuth, bofhd_email.BofhdEmailAuth):
@@ -7326,8 +7343,8 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                                     ["1.1"])
                 if len(res) != 1:
                     return False
-            except ldap.LDAPError, e:
-                self.logger.error("LDAP search failed: %s", e)
+            except ldap.LDAPError:
+                self.logger.error("LDAP search failed", exc_info=True)
                 return False
         return True
 
@@ -7381,7 +7398,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                 except (TimeoutException, socket.error):
                     used = 'DOWN'
                 except ConnectException as e:
-                    used = str(e)
+                    used = exc_to_text(e)
                 except imaplib.IMAP4.error as e:
                     used = 'DOWN'
                 info.append({'quota_hard': eq.email_quota_hard,
@@ -7519,7 +7536,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         try:
             es.find_by_name(server)
         except Errors.NotFoundError:
-            raise CerebrumError("%s is not registered as an e-mail server" %
+            raise CerebrumError("%r is not registered as an e-mail server" %
                                 server)
         if old_server == es.entity_id:
             raise CerebrumError("User is already at %s" % server)

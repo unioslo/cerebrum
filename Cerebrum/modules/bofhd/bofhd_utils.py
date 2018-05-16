@@ -1,6 +1,6 @@
 # encoding: utf-8
-
-# Copyright 2016 University of Oslo, Norway
+#
+# Copyright 2016-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,11 +17,11 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-u""" Util functions for building a BofhdCommandAPI/BofhdExtension. """
+""" Util functions for building a BofhdCommandAPI/BofhdExtension. """
 
 
 def copy_func(src_cls, methods=[]):
-    u""" This wrapper copies functions and methods from other classes.
+    """ This wrapper copies functions and methods from other classes.
 
     In short, it copies the specified commands and command implementations from
     the `source` class into the wrapped class.
@@ -48,7 +48,7 @@ def copy_func(src_cls, methods=[]):
         for method_name in methods:
             if hasattr(dest_cls, method_name):
                 raise RuntimeError(
-                    u'{!r}.{!s} already exists'.format(
+                    '{!r}.{!s} already exists'.format(
                         dest_cls, method_name))
 
             unbound = src_cls.__dict__.get(method_name)
@@ -56,7 +56,7 @@ def copy_func(src_cls, methods=[]):
                     and not isinstance(unbound,
                                        (classmethod, staticmethod))):
                 raise RuntimeError(
-                    u'{!r}.{!s} is not callable'.format(
+                    '{!r}.{!s} is not callable'.format(
                         src_cls, method_name))
 
             setattr(dest_cls, method_name, unbound)
@@ -65,7 +65,7 @@ def copy_func(src_cls, methods=[]):
 
 
 def copy_command(src_cls, src_attr, dest_attr, commands=[]):
-    u""" This wrapper copies Command objects from other class attributes.
+    """ This wrapper copies Command objects from other class attributes.
 
     NOTE: A method with the command name *must* exist in the wrapped class.
 
@@ -109,11 +109,11 @@ def copy_command(src_cls, src_attr, dest_attr, commands=[]):
         for command_name in commands:
             if command_name not in source:
                 raise RuntimeError(
-                    u'No command {!r} in {!r}.{!s}'.format(
+                    'No command {!r} in {!r}.{!s}'.format(
                         command_name, src_cls, src_attr))
             if dest.get(command_name, None) is not None:
                 raise RuntimeError(
-                    u'Command {!r} already defined in {!r}.{!s}'.format(
+                    'Command {!r} already defined in {!r}.{!s}'.format(
                         command_name, dest_cls, dest_attr))
                 # Already exists
                 continue
@@ -123,7 +123,7 @@ def copy_command(src_cls, src_attr, dest_attr, commands=[]):
                     and not isinstance(implementation,
                                        (classmethod, staticmethod))):
                 raise RuntimeError(
-                    u'{!r}.{!s} is not callable'.format(
+                    '{!r}.{!s} is not callable'.format(
                         dest_cls, command_name))
                 continue
 
@@ -134,7 +134,7 @@ def copy_command(src_cls, src_attr, dest_attr, commands=[]):
 
 
 def copy(src_cls, src_attr, dest_attr, commands=[]):
-    u""" This wrapper allows us to copy everything from other BofhdExtensions.
+    """ This wrapper allows us to copy everything from other BofhdExtensions.
 
     In short, it copies the specified commands and command implementations from
     the `src_cls`.`src_attr` into the wrapped class.

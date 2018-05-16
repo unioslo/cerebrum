@@ -20,6 +20,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Utility methods for CIS webservices. """
 
+from __future__ import unicode_literals
+
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import CerebrumError, CerebrumRPCException
 import twisted.python.log
@@ -27,7 +29,8 @@ from functools import wraps
 
 # only needed for the rpclib-types
 from rpclib.model import nillable_string
-from rpclib.model.primitive import DateTime as RpcDateTime, Unicode as RpcUnicode
+from rpclib.model.primitive import (DateTime as RpcDateTime,
+                                    Unicode as RpcUnicode)
 from mx.DateTime import DateTimeType as MxDateTimeType, DateTime as MxDateTime
 
 
@@ -45,44 +48,21 @@ class SimpleLogger(object):
         # the future
         twisted.python.log.msg(' '.join(args))
 
-    def error(self, msg):
+    def error(self, msg, *args):
         """ Log an error. Will show up as 'ERROR: <msg>' """
-        self._log('ERROR:', msg)
+        self._log('ERROR:', msg % args if args else msg)
 
-    def warning(self, msg):
+    def warning(self, msg, *args):
         """ Log a warning. Will show up as 'WARNING: <msg>' """
-        self._log('WARNING:', msg)
+        self._log('WARNING:', msg % args if args else msg)
 
-    def info(self, msg):
+    def info(self, msg, *args):
         """ Log a notice. Will show up as 'INFO: <msg>' """
-        self._log('INFO:', msg)
+        self._log('INFO:', msg % args if args else msg)
 
-    def debug(self, msg):
+    def debug(self, msg, *args):
         """ Log a debug notice. Will show up as 'DEBUG: <msg>' """
-        self._log('DEBUG:', msg)
-
-
-# This is only used by SoapSAPIntegrationServer
-#db = Factory.get('Database')()
-#co = Factory.get('Constants')(db)
-#pe = Factory.get('Person')(db)
-#ac = Factory.get('Account')(db)
-
-
-#def get_person_data(id_type, ext_id):    
-    #try:
-        #id_type = getattr(co, id_type)
-    #except AttributeError:
-        #raise CerebrumError("No such id type: " + id_type)
-    ## find person
-    #pe.clear()
-    #pe.find_by_external_id(id_type, ext_id)
-    #account_id = pe.get_primary_account()
-    #if account_id is None:
-        #return None, None
-    #ac.clear()
-    #ac.find(account_id)
-    #return ac.get_account_name(), ac.get_primary_mailaddress()
+        self._log('DEBUG:', msg % args if args else msg)
 
 
 def require_id(method):
@@ -95,14 +75,16 @@ def require_id(method):
     def wrapper(self, *args, **kwargs):
         if not getattr(self, 'operator_id', None):
             if hasattr(self, 'log'):
-                self.log.debug('Method (%s) requires operator_id')
-            raise CerebrumError('%s requires login')
+                self.log.debug('Method (%s) requires operator_id',
+                               method.__name__)
+            raise CerebrumError('%s requires login' % method.__name__)
         return method(self, *args, **kwargs)
     return wrapper
 
 
 def commit_handler(dryrun=False):
-    """ Decorator for I{methods} that do database write operations. 
+    """
+    Decorator for I{methods} that do database write operations.
     This method handles decorator arguments, the actual wrapper is C{wrap}.
     The decorator will only work on instance methods with a DatabaseAccessor
     attribute C{db}.
@@ -134,20 +116,21 @@ def commit_handler(dryrun=False):
 
             try:
                 result = method(self, *args, **kwargs)
-            except CerebrumRPCException, e:
+            except CerebrumRPCException as e:
                 # Failed looking up arguments, nothing to roll back or commit.
                 if hasattr(self, 'log'):
-                    self.log.debug('Method (%s) failed: %s.' % (method, e))
+                    self.log.debug('Method (%s) failed: %s.', method, e)
                 raise
-            except:
+            except Exception:
                 # L{method} has been called, we need to roll back.
                 if hasattr(self, 'log'):
-                    self.log.debug('Method (%s) failed, roll back.' % method)
+                    self.log.debug('Method (%s) failed, roll back.', method)
                 self.db.rollback()
                 raise
 
             if hasattr(self, 'log'):
-                self.log.debug('Method (%s) succeeded, Dryrun: %s' % (method, dryrun))
+                self.log.debug('Method (%s) succeeded, Dryrun: %s', method,
+                               dryrun)
             if dryrun:
                 self.db.rollback()
             else:
@@ -155,7 +138,6 @@ def commit_handler(dryrun=False):
             return result
         return wrapper
     return wrap
-
 
 
 class CisModule(object):
@@ -166,7 +148,7 @@ class CisModule(object):
     def __init__(self, name):
         """ Init
 
-        @type name: str
+        @type name: text
         @param name: A name identifying this instance, for the changelog.
         """
         self.db = Factory.get('Database')()
@@ -194,8 +176,8 @@ class CisModule(object):
         destroy the instance. """
         try:
             self.db.close()
-        except Exception, e:
-            self.log.warning("Problems with db.close: %s" % e)
+        except Exception as e:
+            self.log.warning("Problems with db.close: %s", e)
 
 
 # The following classes are fixes for rpclib 2.6. These classes replaces the

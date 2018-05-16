@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -39,7 +39,7 @@ from time import time
 from os.path import basename
 
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import sendmail
+from Cerebrum.utils.email import sendmail
 from Cerebrum.modules.virthome.LDIFHelper import LDIFHelper
 from mx.DateTime import now
 
@@ -95,7 +95,7 @@ class Notifier:
         """ Initialize the notifier with a db connection, logger and dryrun
         option
 
-        @type db: Cerebrum.Database
+        @type db: Cerebrum.database.Database
         @param db: A database connection
 
         @type logger: Cerebrum.modules.cerelog

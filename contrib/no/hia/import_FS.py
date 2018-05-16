@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2002, 2003 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,8 +25,8 @@ import sys
 import getopt
 import mx
 
-import cerebrum_path
 import cereconf
+
 from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum.modules.no import fodselsnr
@@ -316,7 +316,7 @@ def process_person_callback(person_info):
             # Seems to be a bug in time.mktime on some machines
             year = 1970
     except fodselsnr.InvalidFnrError:
-        logger.warn(u"Ugyldig f�dselsnr for: %s",
+        logger.warn("Ugyldig fødselsnr for: %r",
                     person_info['fodselsdato'])
         return
 
@@ -333,7 +333,7 @@ def process_person_callback(person_info):
     for dta_type in person_info.keys():
         x = person_info[dta_type]
         p = x[0]
-        if isinstance(p, str):
+        if isinstance(p, basestring):
             continue
         if dta_type not in ('tilbud', 'eksamen', 'evu'):
             if 'studentnr_tildelt' in p:
@@ -417,7 +417,7 @@ def process_person_callback(person_info):
                                      subtype, affiliations,
                                      studieprog2sko[row['studieprogramkode']])
     if etternavn is None:
-        logger.info("Ikke noe navn p� %s", fnr)
+        logger.info("Ikke noe navn på %r", fnr)
         no_name += 1
         return
 
@@ -433,8 +433,9 @@ def process_person_callback(person_info):
         new_person.find_by_external_ids(*fsids)
     except Errors.NotFoundError:
         pass
-    except Errors.TooManyRowsError, e:
-        logger.error("Trying to find studentnr %s, getting several persons: %s",
+    except Errors.TooManyRowsError as e:
+        logger.error("Trying to find studentnr %r, "
+                     "getting several persons: %r",
                      studentnr, e)
         return
     new_person.populate(db.Date(year, mon, day), gender)
@@ -486,7 +487,7 @@ def process_person_callback(person_info):
         should_add = False
         for dta_type in person_info.keys():
             p = person_info[dta_type][0]
-            if isinstance(p, str):
+            if isinstance(p, basestring):
                 continue
             # We only fetch the column in these queries
             if dta_type not in ('tilbud', 'aktiv', 'privatist_studieprogram',
@@ -569,6 +570,7 @@ def main():
     db.commit()
     logger.info("Found %d persons without name.", no_name)
     logger.info("Completed")
+
 
 if __name__ == '__main__':
     main()

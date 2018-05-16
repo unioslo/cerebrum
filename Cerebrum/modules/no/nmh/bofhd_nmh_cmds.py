@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2017 University of Oslo, Norway
+# Copyright 2006-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,10 +18,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ NMH bofhd module. """
-
 import mx
+from six import text_type
 
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd import bofhd_core_help
@@ -67,7 +67,6 @@ uio_helpers = [
     '_group_count_memberships',
     '_group_remove',
     '_group_remove_entity',
-    '_is_yes',
     '_list_access',
     '_manipulate_access',
     '_person_affiliation_add_helper',
@@ -215,15 +214,16 @@ class BofhdExtension(BofhdCommonMethods):
         if not fnr:
             raise CerebrumError("No matching fnr from FS")
         fodselsdato, pnum = fodselsnr.del_fnr(fnr[0]['external_id'])
-        har_opptak = {}
         ret = []
         try:
             fs_db = make_fs()
-        except Database.DatabaseError, e:
+        except database.DatabaseError, e:
             self.logger.warn("Can't connect to FS (%s)" % e)
             raise CerebrumError("Can't connect to FS, try later")
+
+        har_opptak = set()
         for row in fs_db.student.get_studierett(fodselsdato, pnum):
-            har_opptak[str(row['studieprogramkode'])] = row['status_privatist']
+            har_opptak.add(row['studieprogramkode'])
             ret.append(
                 {
                     'studprogkode': row['studieprogramkode'],
@@ -241,7 +241,7 @@ class BofhdExtension(BofhdCommonMethods):
         for row in fs_db.student.get_eksamensmeldinger(fodselsdato, pnum):
             programmer = []
             for row2 in fs_db.info.get_emne_i_studieprogram(row['emnekode']):
-                if str(row2['studieprogramkode']) in har_opptak:
+                if row2['studieprogramkode'] in har_opptak:
                     programmer.append(row2['studieprogramkode'])
             ret.append(
                 {

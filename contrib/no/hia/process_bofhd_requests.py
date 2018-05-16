@@ -19,6 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 import errno
 import fcntl
 import getopt
@@ -27,12 +29,14 @@ import os
 import pickle
 import sys
 import time
+from contextlib import closing
 
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory, spawn_and_log_output
+from Cerebrum.utils import json
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 
 
@@ -45,10 +49,6 @@ const = Factory.get('Constants')(db)
 max_requests = 999999
 
 EXIT_SUCCESS = 0
-
-
-class RequestLocked(Exception):
-    pass
 
 
 class RequestLockHandler(object):
@@ -65,7 +65,7 @@ class RequestLockHandler(object):
 
         """
         if self.lockfd is not None:
-            self.release()
+            self.close()
 
         self.reqid = reqid
         try:
@@ -84,7 +84,7 @@ class RequestLockHandler(object):
         self.lockfd = lockfile
         return True
 
-    def release(self):
+    def close(self):
         """Release and clean up lock."""
         if self.lockfd is not None:
             fcntl.flock(self.lockfd, fcntl.LOCK_UN)
@@ -111,48 +111,42 @@ def process_requests(types):
 
     operations = {
         'sympa':
-        [(const.bofh_sympa_create, proc_sympa_create, 2*60),
-         (const.bofh_sympa_remove, proc_sympa_remove, 2*60)],
-        }
+        [(const.bofh_sympa_create, proc_sympa_create, 2 * 60),
+         (const.bofh_sympa_remove, proc_sympa_remove, 2 * 60)],
+    }
     """Each type (or category) of requests consists of a list of which
     requests to process.  The tuples are operation, processing function,
     and how long to delay the request (in minutes) if the function returns
     False.
-
     """
-
-    # TODO: There is no variable containing the default log directory
-    # in cereconf
-
-    reqlock = RequestLockHandler()
-    br = BofhdRequests(db, const)
-    for t in types:
-        for op, process, delay in operations[t]:
-            set_operator()
-            start_time = time.time()
-            for r in br.get_requests(operation=op, only_runnable=True):
-                reqid = r['request_id']
-                logger.debug("Req: %s %d at %s, state %r",
-                             op, reqid, r['run_at'], r['state_data'])
-                if time.time() - start_time > 30 * 60:
-                    break
-                if r['run_at'] > mx.DateTime.now():
-                    continue
-                if not is_valid_request(reqid):
-                    continue
-                if reqlock.grab(reqid):
-                    if max_requests <= 0:
+    with closing(RequestLockHandler()) as reqlock:
+        br = BofhdRequests(db, const)
+        for t in types:
+            for op, process, delay in operations[t]:
+                set_operator()
+                start_time = time.time()
+                for r in br.get_requests(operation=op, only_runnable=True):
+                    reqid = r['request_id']
+                    logger.debug("Req: %s %d at %s, state %r",
+                                 op, reqid, r['run_at'], r['state_data'])
+                    if time.time() - start_time > 30 * 60:
                         break
-                    max_requests -= 1
-                    if process(r):
-                        br.delete_request(request_id=reqid)
-                        db.commit()
-                    else:
-                        db.rollback()
-                        if delay:
-                            br.delay_request(reqid, minutes=delay)
+                    if r['run_at'] > mx.DateTime.now():
+                        continue
+                    if not is_valid_request(reqid):
+                        continue
+                    if reqlock.grab(reqid):
+                        if max_requests <= 0:
+                            break
+                        max_requests -= 1
+                        if process(r):
+                            br.delete_request(request_id=reqid)
                             db.commit()
-    reqlock.release()
+                        else:
+                            db.rollback()
+                            if delay:
+                                br.delay_request(reqid, minutes=delay)
+                                db.commit()
 
 
 def proc_sympa_create(request):
@@ -166,15 +160,25 @@ def proc_sympa_create(request):
     try:
         listname = get_address(request["entity_id"])
     except Errors.NotFoundError:
-        logger.warn("Sympa list address %s is deleted! No need to create",
+        logger.info("Sympa list address %s is deleted! No need to create",
                     listname)
         return True
 
     try:
-        state = pickle.loads(str(request["state_data"]))
-    except:
-        logger.exception("Corrupt request state for sympa list=%s: %s",
-                         listname, request["state_data"])
+        state = json.loads(request["state_data"])
+    except ValueError:
+        state = None
+
+    # Remove this when there's no chance of pickled data
+    if state is None:
+        try:
+            state = pickle.loads(request["state_data"])
+        except Exception:
+            pass
+
+    if state is None:
+        logger.error("Cannot parse request state for sympa list=%s: %s",
+                     listname, request["state_data"])
         return True
 
     try:
@@ -192,7 +196,6 @@ def proc_sympa_create(request):
     cmd = [cereconf.SYMPA_SCRIPT, host, 'newlist',
            listname, admins, profile, description]
     return spawn_and_log_output(cmd) == EXIT_SUCCESS
-# end proc_sympa_create
 
 
 def proc_sympa_remove(request):
@@ -205,10 +208,20 @@ def proc_sympa_remove(request):
     """
 
     try:
-        state = pickle.loads(str(request["state_data"]))
-    except:
-        logger.exception("Corrupt request state for sympa request %s: %s",
-                         request["request_id"], request["state_data"])
+        state = json.loads(request["state_data"])
+    except ValueError:
+        state = None
+
+    # Remove this when there's no chance of pickled data
+    if state is None:
+        try:
+            state = pickle.loads(request["state_data"])
+        except Exception:
+            pass
+
+    if state is None:
+        logger.error("Cannot parse request state for sympa request %s: %s",
+                     request["request_id"], request["state_data"])
         return True
 
     try:
@@ -221,7 +234,6 @@ def proc_sympa_remove(request):
 
     cmd = [cereconf.SYMPA_SCRIPT, host, 'rmlist', listname]
     return spawn_and_log_output(cmd) == EXIT_SUCCESS
-# end proc_sympa_remove
 
 
 def get_address(address_id):

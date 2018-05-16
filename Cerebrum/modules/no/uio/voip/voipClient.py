@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2010 University of Oslo, Norway
+# Copyright 2010-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -39,13 +39,13 @@ interface to these tables, so that voip_address (and associated data) can be
 accessed from Python.
 """
 
+from __future__ import unicode_literals
+
 import random
 import string
 
 from collections import defaultdict
-
-import cerebrum_path
-import cereconf
+from six import text_type
 
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import argument_to_sql
@@ -55,22 +55,16 @@ from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.modules.bofhd.errors import CerebrumError
 
 
-
-
-
 class VoipClient(EntityAuthentication, EntityTrait):
-    """voip_client interface.
-
-    This class implements an interface to the voip_client table.
-    """
-
+    """VoIP client interface."""
     __read_attr__ = ("__in_db",)
-    __write_attr__ = ("voip_address_id", # corresponding VoipAddress
-                      "client_type",     # soft/hardphone
-                      "sip_enabled",     # emergency(?) flag (T/F)
-                      "mac_address",     # syntax -- aa:bb:cc:dd:ee:ff 
-                      "client_info",     # specific model code
-                      )
+    __write_attr__ = (
+        "voip_address_id",  # corresponding VoipAddress
+        "client_type",      # soft/hardphone
+        "sip_enabled",      # emergency(?) flag (T/F)
+        "mac_address",      # syntax -- aa:bb:cc:dd:ee:ff
+        "client_info",      # specific model code
+    )
 
     def __init__(self, *rest, **kw):
         super(VoipClient, self).__init__(*rest, **kw)
@@ -79,17 +73,11 @@ class VoipClient(EntityAuthentication, EntityTrait):
         self.sip_secret_alphabet = (string.letters + string.digits +
                                     ",.;:-_/!#{}[]+?")
         self.sip_secret_length = 15
-    # end __init__
-
-
 
     def clear(self):
         self.__super.clear()
         self.clear_class(VoipClient)
         self.__updated = list()
-    # end clear
-
-
 
     def _normalize_mac_address(self, mac_address):
         """Force mac address to a specific format.
@@ -100,21 +88,16 @@ class VoipClient(EntityAuthentication, EntityTrait):
           - aa bb cc dd ee ff
           - aa:bb:cc:dd:ee:ff
         """
-
         if not mac_address:
             return None
-
-        addr = mac_address.translate(string.maketrans("", ""), " :")
+        addr = mac_address.replace(" ", "").replace(":", "")
         addr = addr.lower()
         if not all(x in "0123456789abcdef" for x in addr):
             raise CerebrumError("Wrong mac character in '%s'" % addr)
         if not len(addr) == 12:
             raise CerebrumError("Wrong mac length for '%s'" % addr)
-        return ":".join(addr[i:i+2]
+        return ":".join(addr[i:i + 2]
                         for i in range(0, 12, 2))
-    # end _normalize_mac_address
-
-
 
     def _assert_mac_rules(self):
         """Check that self's mac_address is in sync with the business
@@ -127,9 +110,6 @@ class VoipClient(EntityAuthentication, EntityTrait):
         if self.client_type == self.const.voip_client_type_hardphone:
             assert self._normalize_mac_address(self.mac_address)
             return
-    # end _assert_mac_rules
-    
-
 
     def populate(self, voip_address_id, client_type, sip_enabled,
                  mac_address, client_info):
@@ -151,28 +131,24 @@ class VoipClient(EntityAuthentication, EntityTrait):
         self.mac_address = mac_address
         self.client_info = int(self.const.VoipClientInfoCode(client_info))
         self._assert_mac_rules()
-    # end populate
-
-
 
     def write_db(self):
         """Synchronise the object in memory with the database.
         """
-
         self._assert_mac_rules()
-
         self.__super.write_db()
         if not self.__updated:
             return
-
         is_new = not self.__in_db
-        binds = {"entity_type": self.const.entity_voip_client,
-                 "entity_id": self.entity_id,
-                 "voip_address_id": int(self.voip_address_id),
-                 "client_type": int(self.client_type),
-                 "sip_enabled": bool(self.sip_enabled) and 'T' or 'F',
-                 "mac_address": self._normalize_mac_address(self.mac_address),
-                 "client_info": int(self.client_info),}
+        binds = {
+            "entity_type": self.const.entity_voip_client,
+            "entity_id": self.entity_id,
+            "voip_address_id": int(self.voip_address_id),
+            "client_type": int(self.client_type),
+            "sip_enabled": bool(self.sip_enabled) and 'T' or 'F',
+            "mac_address": self._normalize_mac_address(self.mac_address),
+            "client_info": int(self.client_info),
+        }
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=voip_client]
@@ -184,7 +160,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
             self.execute("""
             UPDATE [:table schema=cerebrum name=voip_client]
             SET %s
-            WHERE entity_id = :entity_id              
+            WHERE entity_id = :entity_id
             """ % ", ".join("%s=:%s" % (t, t) for t in binds),
                          binds)
 
@@ -193,9 +169,6 @@ class VoipClient(EntityAuthentication, EntityTrait):
         self.__in_db = True
         self.__updated = list()
         return is_new
-    # end write_db
-
-
 
     def delete(self):
         """Remove a specified entry from the voip_client table.
@@ -208,9 +181,6 @@ class VoipClient(EntityAuthentication, EntityTrait):
             """, {"entity_id": self.entity_id})
 
         self.__super.delete()
-    # end delete
-
-
 
     def find(self, entity_id):
         """Locate VoipClient by its entity_id."""
@@ -232,9 +202,6 @@ class VoipClient(EntityAuthentication, EntityTrait):
         assert sip_enabled in ('T', 'F')
         self.sip_enabled = sip_enabled == 'T'
         self.__in_db = True
-    # end find
-
-
 
     def find_by_mac_address(self, mac_address):
         mac_address = self._normalize_mac_address(mac_address)
@@ -246,9 +213,6 @@ class VoipClient(EntityAuthentication, EntityTrait):
         """, {"mac_address": mac_address})
 
         self.find(entity_id)
-    # end find_by_mac_address
-
-
 
     def get_auth_data(self, auth_method):
         """Retrieve the corresponding sip secret.
@@ -258,9 +222,6 @@ class VoipClient(EntityAuthentication, EntityTrait):
 
         assert auth_method in self.valid_auth_methods
         return self.__super.get_auth_data(auth_method)
-    # end get_auth_data
-
-
 
     def set_auth_data(self, auth_method, auth_data):
         """Register a new sip secret.
@@ -268,9 +229,6 @@ class VoipClient(EntityAuthentication, EntityTrait):
 
         assert auth_method in self.valid_auth_methods
         return self.__super.set_auth_data(auth_method, auth_data)
-    # end set_auth_data
-
-    
 
     def validate_auth_data(self, auth_method, auth_data):
         """Check that sip secrets match our rules.
@@ -288,7 +246,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
         if not all(x in self.sip_secret_alphabet
                    for x in auth_data):
             raise CerebrumError("Invalid chars in auth_data %s" %
-                                str(auth_data))
+                                auth_data)
 
         # secret is at least 15 characters in length
         if len(auth_data) < self.sip_secret_length:
@@ -296,26 +254,16 @@ class VoipClient(EntityAuthentication, EntityTrait):
                                 "seen %d chars, required %d" %
                                 (auth_data, len(auth_data),
                                  self.sip_secret_length))
-
         return True
-    # end validate_auth_data
-
-
 
     def generate_sip_secret(self):
-        """Return a freshly generated sip secret.
-        """
-
+        """Return a freshly generated sip secret."""
         alphabet = self.sip_secret_alphabet
         pwd = list()
         while len(pwd) < self.sip_secret_length:
-            pwd.append(alphabet[random.randint(0, len(alphabet)-1)])
-
+            pwd.append(alphabet[random.randint(0, len(alphabet) - 1)])
         # FIXME: call a validate_auth_data here?
         return "".join(pwd)
-    # end generate_sip_secret
-
-
 
     def get_voip_attributes(self):
         """Return a dict with all LDAP attributes available for voipAddress.
@@ -330,17 +278,17 @@ class VoipClient(EntityAuthentication, EntityTrait):
                              "voip_address_id",):
             result[required_key] = None
 
-        result["sipClientType"] = str(self.const.VoipClientTypeCode(self.client_type))
-        result["sipClientInfo"] = str(self.const.VoipClientInfoCode(self.client_info))
-        result["sipSecret"] = self.get_auth_data(self.const.voip_auth_sip_secret)
+        result["sipClientType"] = text_type(
+            self.const.VoipClientTypeCode(self.client_type))
+        result["sipClientInfo"] = text_type(
+            self.const.VoipClientInfoCode(self.client_info))
+        result["sipSecret"] = self.get_auth_data(
+            self.const.voip_auth_sip_secret)
         if self.mac_address:
             result["sipMacAddress"] = self.mac_address.replace(":", "")
         result["sipEnabled"] = bool(self.sip_enabled)
         result["voip_address_id"] = self.voip_address_id
         return result
-    # end get_voip_attributes
-
-
 
     def list_voip_attributes(self, voippersons, primary2pid, sysadm_aid):
         """Fast version of search() + get_voip_attributes().
@@ -354,17 +302,16 @@ class VoipClient(EntityAuthentication, EntityTrait):
 
         # So, a few things we need to cache
         const2str = dict()
-        for i in ('Quarantine','VoipClientInfoCode','VoipClientTypeCode'):
-            for cnst in self.const.fetch_constants(getattr(self.const,i)):
+        for i in ('Quarantine', 'VoipClientInfoCode', 'VoipClientTypeCode'):
+            for cnst in self.const.fetch_constants(getattr(self.const, i)):
                 assert int(cnst) not in const2str
-                const2str[int(cnst)] = str(cnst)
+                const2str[int(cnst)] = text_type(cnst)
 
         # entity_id -> {<auth type>: <auth_data>}
         client2auth = dict()
         for row in self.list_auth_data(self.const.voip_auth_sip_secret):
             client2auth.setdefault(row['entity_id'],
                                    {})[row['auth_method']] = row['auth_data']
-
 
         # person_id -> uname, also cache user ids
         owner2uname = defaultdict(list)
@@ -388,10 +335,10 @@ class VoipClient(EntityAuthentication, EntityTrait):
                 only_active=True,
                 entity_ids=quarantined_accounts):
             aid2quarantine[row["entity_id"]] = (
-                "%s,%s,%s" % (const2str[row['quarantine_type']],
-                              # str() returns ISO 8601 format
-                              str(row['start_date'])[0:10],
-                              row['description']))
+                "{},{},{}".format(const2str[row['quarantine_type']],
+                                  # __unicode__() returns ISO 8601 format
+                                  text_type(row['start_date'])[0:10],
+                                  row['description']))
 
         # Make a owner2quarantine, to block hardphone is if primary users is blocked
         owner2quarantine = dict()
@@ -401,21 +348,24 @@ class VoipClient(EntityAuthentication, EntityTrait):
             # is the primaryid.
             if aid in primary2pid or len(owner2uname[aid2owner[aid]]) < 2:
                 owner2quarantine[aid2owner[aid]] = aid2quarantine[aid]
-        
+
         # uname -> HA1 hashes, only for softphone for Account users aka persons.
         uname2ha1 = dict()
         uname2quarantine = dict()
-        for row in account.list_account_authentication(self.const.auth_type_ha1_md5,
-                                                       account_id=aid2owner.keys()):
+        for row in account.list_account_authentication(
+                self.const.auth_type_ha1_md5,
+                account_id=aid2owner.keys()):
             if row['account_id'] in aid2quarantine:
-                uname2quarantine[row['entity_name']] = aid2quarantine[row["account_id"]]
+                uname2quarantine[row['entity_name']] = aid2quarantine.get(
+                    row["account_id"])
             uname2ha1[row['entity_name']] = row['auth_data']
 
         for row in self.search():
-            entry = {"sipClientType": const2str[row["client_type"]],
-                     "sipClientInfo": const2str[row["client_info"]],
-                     "voip_address_id": row["voip_address_id"],}
-
+            entry = {
+                "sipClientType": const2str[row["client_type"]],
+                "sipClientInfo": const2str[row["client_info"]],
+                "voip_address_id": row["voip_address_id"],
+            }
             owner_id = row["owner_entity_id"]
             client_type = row["client_type"]
             if bool(row["sip_enabled"] == 'T'):
@@ -424,11 +374,11 @@ class VoipClient(EntityAuthentication, EntityTrait):
                 entry["sipEnabled"] = "FALSE"
 
             # Create an extra softphone entry for each account
-            if client_type == self.const.voip_client_type_softphone and \
-                              row["owner_entity_type"] == self.const.entity_person:
+            if (client_type == self.const.voip_client_type_softphone and
+                    row["owner_entity_type"] == self.const.entity_person):
                 for uid in owner2uname[owner_id]:
                     e = entry.copy()
-                    e["uid"] = str(uid)
+                    e["uid"] = text_type(uid)
                     if uid in uname2quarantine:
                         e["sipQuarantine"] = uname2quarantine[uid]
                         e["sipEnabled"] = "quarantined"
@@ -438,30 +388,25 @@ class VoipClient(EntityAuthentication, EntityTrait):
                     e["sipClientInfo"] = "sbc2phone"
                     yield e
 
-            entry["sipSecret"] = client2auth.get(row["entity_id"],
-                                    {}).get(self.const.voip_auth_sip_secret)
+            entry["sipSecret"] = client2auth.get(row["entity_id"], {}).get(
+                self.const.voip_auth_sip_secret)
 
             if row["owner_entity_type"] == self.const.entity_person:
-              # Block if primary user is quarantined
-              if owner_id in owner2quarantine:
-                entry["sipEnabled"] = "quarantined"
-                entry["sipQuarantine"] = owner2quarantine[owner_id]
-              # Block if the person has no valid account
-              elif not owner2uname[owner_id]:
-                entry["sipEnabled"] = "noaccount"
+                # Block if primary user is quarantined
+                if owner_id in owner2quarantine:
+                    entry["sipEnabled"] = "quarantined"
+                    entry["sipQuarantine"] = owner2quarantine[owner_id]
+                # Block if the person has no valid account
+                elif not owner2uname[owner_id]:
+                    entry["sipEnabled"] = "noaccount"
 
             if client_type == self.const.voip_client_type_softphone:
-                entry["uid"] = str(owner_id)
+                entry["uid"] = text_type(owner_id)
             elif client_type == self.const.voip_client_type_hardphone:
                 mac = row["mac_address"]
-                #mac = mac.replace(":", "") if mac else None
                 mac = mac.replace(":", "")
                 entry["sipMacAddress"] = mac
-
             yield entry
-    # end list_voip_attributes
-    
-
 
     def search(self, entity_id=None, voip_address_id=None, voip_owner_id=None,
                client_type=None, mac_address=None, client_info=None,
@@ -506,9 +451,9 @@ class VoipClient(EntityAuthentication, EntityTrait):
                                          binds, int))
 
         if owner_entity_type is not None:
-                    where.append(argument_to_sql(owner_entity_type,
-                                                 "ei.entity_type",
-                                                  binds, int))
+            where.append(argument_to_sql(owner_entity_type,
+                                         "ei.entity_type",
+                                         binds, int))
 
         if where:
             where = " AND " + " AND ".join(where)
@@ -523,7 +468,5 @@ class VoipClient(EntityAuthentication, EntityTrait):
              [:table schema=cerebrum name=voip_address] va,
              [:table schema=cerebrum name=entity_info] ei
         WHERE vc.voip_address_id = va.entity_id AND
-              va.owner_entity_id = ei.entity_id 
+              va.owner_entity_id = ei.entity_id
               %s""" % where, binds)
-    # end search
-# end VoipClient

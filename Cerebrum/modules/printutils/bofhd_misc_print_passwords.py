@@ -1,6 +1,7 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2018 University of Oslo, Norway
+# Copyright 2015-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,68 +24,36 @@ Configuration
 -------------
 The following `cereconf' values are used in this module:
 
-BOFHD_TEMPLATES
-    A dictionary that lists available letters for each language.
-
-    - The language format is: '<language>/<"letter" or "printer">
-    - Each letter is a tuple consisting of (<name>, <format (tex or ps)>,
-      <description>)
-
-    Example:
-      BOFHD_TEMPLATES = {
-        'no_NO/letter': [
-            ('password_letter_personal', 'tex',
-             'Password letter in Norwegian for personal accounts'),
-            ('password_letter_nonpersonal', 'ps',
-             'Password letter in Norwegian for non-personal accounts'), ], }
-
 JOB_RUNNER_LOG_DIR
     A directory for temporary files. This is where we'll keep the generated
     files from our templates.
 """
+from __future__ import unicode_literals
 import os
 import re
+import time
+import tempfile
 
 import cereconf
 
-from Cerebrum import Utils
+from Cerebrum.modules.templates import config as tmpl_config
+from Cerebrum.modules.templates import renderers
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules.bofhd.cmd_param import Command
 from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum.modules.templates.letters import TemplateHandler
+from Cerebrum.modules.bofhd.cmd_param import Command
 from .printer import LinePrinter
-from .tex import prepare_tex
 
 
 class BofhdExtension(BofhdCommonMethods):
-    """ BofhdExtension for printing password sheets. """
+    u""" BofhdExtension for printing password sheets. """
 
     __DEFAULT_PRINTER_STATE = 'default_printer'
 
     all_commands = {}
     parent_commands = False
 
-    def __list_password_print_options(self):
-        u""" Enumerated list of password print selections. """
-        templates = getattr(cereconf, 'BOFHD_TEMPLATES', dict())
-        options = list()
-        for lang, templates in templates.iteritems():
-            for tpl in templates:
-                try:
-                    options.append({
-                        'lang': lang,    # e.g. en_GB/printer
-                        'type': tpl[0],  # e.g. nytt_passord_nn
-                        'fmt': tpl[1],   # e.g. tex, ps
-                        'desc': tpl[2]   # e.g. Passordbrev til lokal skriver
-                    })
-                except (IndexError, KeyError, TypeError), err:
-                    self.logger.warn(
-                        "Bad config for template in language %r (%r): %s",
-                        lang, tpl, err)
-        return options
-
-    def __get_template(self, selection):
-        """ Get a template.
+    def __get_template(self, selection, template_config):
+        u""" Get a template.
 
         :param str selection:
             If numerical string, get the n-th template.
@@ -93,41 +62,26 @@ class BofhdExtension(BofhdCommonMethods):
         :return list,dict: A template dict or list of template descriptions.
 
         """
-        tpl_options = self.__list_password_print_options()
+        tpl_options = template_config.print_password_templates
 
         # Numeric selection
         try:
-            return tpl_options[int(selection)-1]
+            return tpl_options[int(selection) - 1]
         except IndexError:
             raise CerebrumError(
-                u"Invalid template number %d, must be in range 1-%d" %
-                (selection, len(tpl_options)))
+                u"Invalid template number {}, must be in range 1-{}"
+                .format(selection, len(tpl_options)))
         except ValueError:
             # int() failed
-            pass
-
-        # Text selection
-        try:
-            lang, ttype = selection.split(':', 1)
-            for tpl in tpl_options:
-                if tpl.get('lang') == lang and tpl.get('type') == ttype:
-                    return tpl
-            raise CerebrumError(
-                u"No template %r in language %r" % (lang, ttype))
-        except ValueError:
-            # unpacking of selection.split() failed
             pass
         raise CerebrumError("Invalid template %r" % selection)
 
     def __get_cached_passwords(self, session):
-        """ List all new passwords cached in session. """
+        u""" List all new passwords cached in session. """
         cached_passwds = []
         for row in session.get_state():
             # state_type, entity_id, state_data, set_time
             if row['state_type'] in ('new_account_passwd', 'user_passwd'):
-                if row['state_data'] is None:
-                    # invalid state data
-                    continue
                 cached_passwds.append({
                     'username': self._get_entity_name(
                         row['state_data']['account_id'],
@@ -137,7 +91,7 @@ class BofhdExtension(BofhdCommonMethods):
         return cached_passwds
 
     def __select_cached_passwords(self, session, selection):
-        """ Get selection of new passwords cached in session. """
+        u""" Get selection of new passwords cached in session. """
         new_passwds = self.__get_cached_passwords(session)
 
         def get_index(idx):
@@ -169,7 +123,7 @@ class BofhdExtension(BofhdCommonMethods):
         return ret
 
     def _get_default_printer(self, session):
-        """ Get a default printer for the prompt.
+        u""" Get a default printer for the prompt.
 
         This function fetches the previously selected printer.
 
@@ -198,7 +152,7 @@ class BofhdExtension(BofhdCommonMethods):
         self.db.commit()
 
     def _get_printer(self, session, template):
-        """ Get printer preset for a given operator/template.
+        u""" Get printer preset for a given operator/template.
 
         :param BofhdSession session: The current session/operator
         :param dict template: The selected template
@@ -209,7 +163,7 @@ class BofhdExtension(BofhdCommonMethods):
         return None
 
     def _can_set_spool_user(self, session, template):
-        """ Check if spool user can be set for a given operator/template.
+        u""" Check if spool user can be set for a given operator/template.
 
         :param BofhdSession session: The current session/operator
         :param dict template: The selected template
@@ -217,26 +171,14 @@ class BofhdExtension(BofhdCommonMethods):
         :return bool: True if spool user can be set, else False"""
         return False
 
-    def _get_mappings(self, account, tpl):
-        """ Get mappings for a given template.
+    def _get_mappings(self, account, password, template):
+        raise NotImplementedError
 
-        :param Cerebrum.Account account: The account to generate mappings for
-        :param dict tpl: The template to generate mappings for
-
-        :return dict: A dictionary of mappings for the TemplateHandler.
-
-        """
-        return dict()
-
-    def _template_filename(self, operator, tpl):
-        """ Generate a filename for the template. """
-        return os.path.extsep.join([tpl.get('type'), tpl.get('fmt')])
-
-    def _make_password_document(self, filename, account, password, tpl):
+    def _make_password_document(self, tpl, tpl_config, account, password):
         """ Make the password document to print.
 
-        :param str filename:
-            Basename of the document.
+        :param str tpl:
+            template-config.
         :param Cerebrum.Account account:
             The account to generate a password document for.
         :param str password:
@@ -248,52 +190,44 @@ class BofhdExtension(BofhdCommonMethods):
 
         """
         self.logger.debug("make_password_document: Selected template %r", tpl)
-        th = TemplateHandler(tpl.get('lang'), tpl.get('type'), tpl.get('fmt'))
 
         # TODO: We should use a <prefix>/var/cache/ or <prefix>/tmp/ dir for
         # this, NOT a logging dir. Also, we should consider the read access to
         # these files.
-        tmp_dir = Utils.make_temp_dir(dir=cereconf.JOB_RUNNER_LOG_DIR,
-                                      prefix="bofh_spool")
+        tmp_dir = tempfile.mkdtemp(dir=cereconf.JOB_RUNNER_LOG_DIR,
+                                   prefix="bofh_spool_{}".format(time.time()))
         self.logger.debug(
-            "make_password_letter: temp dir=%r template=%r", tmp_dir, filename)
+            "make_password_document: temp dir=%r template=%r",
+            tmp_dir, tpl['file'])
 
-        output_file = os.path.join(tmp_dir, filename)
-
-        mapping = self._get_mappings(account, tpl)
-        mapping.update({
-            'uname': account.account_name,
-            'password': password,
-            'account_id': account.entity_id,
-            'lopenr': ''})
+        mappings = self._get_mappings(account, password, tpl)
 
         # Barcode
-        if 'barcode' in mapping:
-            mapping['barcode'] = os.path.join(tmp_dir, mapping['barcode'])
-            try:
-                th.make_barcode(account.entity_id, mapping['barcode'])
-            except IOError, msg:
-                self.logger.error(
-                    "make_password_letter: unable to make barcode (%s)", msg)
-                raise CerebrumError(msg)
+        if tpl['type'] == 'letter':
+            barcode_file_path = os.path.join(tmp_dir, mappings['barcode_file'])
+            renderers.render_barcode(
+                tpl_config, account.entity_id, barcode_file_path
+            )
 
-        # Write template file
-        with file(output_file, 'w') as f:
-            if th._hdr is not None:
-                f.write(th._hdr)
-            f.write(th.apply_template('body', mapping, no_quote=('barcode',)))
-            if th._footer is not None:
-                f.write(th._footer)
+        lang = tpl.get('lang')
+        static_files = tpl.get('static_files', [])
+        pdf_abspath = os.path.join(
+            tmp_dir, 'output_{}.pdf'.format(account.entity_id)
+        )
+        pdf_file = renderers.html_template_to_pdf(
+            tpl_config, tmp_dir, tpl['file'], mappings,
+            lang, static_files, pdf_abspath
+        )
+        return pdf_file
 
-        if tpl.get('fmt') == 'tex':
-            output_file = prepare_tex(output_file)
-        return output_file
-
-    def _confirm_msg(self, account, destination, tpl, print_user):
-        """ Make a confirmation message for the user. """
-        return "OK: %s/%s.%s for %s spooled @ %s for %s" % (
-            tpl.get('lang'), tpl.get('type'), tpl.get('fmt'),
-            account.account_name, destination, print_user.account_name)
+    @staticmethod
+    def _confirm_msg(account, destination, tpl, print_user):
+        u""" Make a confirmation message for the user. """
+        return "OK: {} for {} spooled @ {} for {}".format(
+            tpl.get('file'),
+            account.account_name,
+            destination,
+            print_user.account_name)
 
     @classmethod
     def get_help_strings(cls):
@@ -319,9 +253,10 @@ class BofhdExtension(BofhdCommonMethods):
                   "numbers. Ranges can be written as '3-15'.")],
             'print_enter_print_user':
                 ['print_user', 'Enter username',
-                 ("Enter the username to spool the print job for.")], }
+                 "Enter the username to spool the print job for."]
+        }
 
-        return (group_help, command_help, arg_help)
+        return group_help, command_help, arg_help
 
     def misc_print_passwords_prompt_func(self, session, *args):
         u""" Validate and prompt for 'misc print_passwords' arguments.
@@ -333,18 +268,18 @@ class BofhdExtension(BofhdCommonMethods):
 
         """
         all_args = list(args[:])
-
+        template_config = tmpl_config.get_config()
         # Ask for template argument
         if not all_args:
             mapping = [(("Alternatives",), None)]
             n = 1
-            for t in self.__list_password_print_options():
+            for t in template_config['print_password_templates']:
                 mapping.append(((t.get('desc'),), n))
                 n += 1
             return {'prompt': "Choose template #",
                     'map': mapping,
                     'help_ref': 'print_select_template'}
-        tpl = self.__get_template(all_args.pop(0))
+        tpl = self.__get_template(all_args.pop(0), template_config)
 
         # Ask for printer argument
         if not self._get_printer(session, tpl):
@@ -370,7 +305,7 @@ class BofhdExtension(BofhdCommonMethods):
                     'map': mapping,
                     'raw': True,
                     'help_ref': 'print_select_range',
-                    'default': str(n-1)}
+                    'default': str(n - 1)}
         all_args.pop(0)
 
         # Ask for print user
@@ -403,11 +338,12 @@ class BofhdExtension(BofhdCommonMethods):
 
         :param BofhdSession operator: The current session.
 
-        :return str: Lisings of the successful print jobs.
+        :return str: Listings of the successful print jobs.
 
         """
         args = list(args[:])
-        template = self.__get_template(args.pop(0))
+        template_config = tmpl_config.get_config()
+        template = self.__get_template(args.pop(0), template_config)
         destination = self._get_printer(operator, template)
         if not destination:
             destination = args.pop(0)
@@ -432,10 +368,10 @@ class BofhdExtension(BofhdCommonMethods):
             account = self._get_account(pwd['username'])
             documents.append(
                 self._make_password_document(
-                    self._template_filename(operator, template),
+                    template,
+                    template_config,
                     account,
-                    pwd['password'],
-                    template))
+                    pwd['password']))
             ret.append(
                 self._confirm_msg(
                     account, destination, template, print_user))

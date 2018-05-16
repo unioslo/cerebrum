@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: latin-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2010 University of Oslo, Norway
 #
@@ -55,12 +55,11 @@ import getopt
 import sys
 import textwrap
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
-from Cerebrum.Utils import sendmail
+from Cerebrum.utils.email import sendmail
 from Cerebrum import Errors
 
 
@@ -77,7 +76,7 @@ def get_group(ident):
         ident = ident.strip()
 
     if (isinstance(ident, str) and ident.isdigit() or
-        isinstance(ident, (int, long))):
+            isinstance(ident, (int, long))):
         group.find(int(ident))
         return group
     # Assume it's group_name
@@ -86,7 +85,6 @@ def get_group(ident):
         return group
 
     assert False, "Unknown Group ident: <<%s>>" % (ident,)
-# end get_group
 
 
 @memoize
@@ -126,7 +124,6 @@ def get_ou(ident):
         return ou
 
     assert False, "Unknown OU ident: <<%s>>" % (ident,)
-# end get_ou
 
 
 @memoize
@@ -140,7 +137,6 @@ def ou_id2report(ou_id):
         return "ou id=%s" % str(ou_id)
 
     assert False, "NOTREACHED"
-# end ou_id2report
 
 
 def person_id2report(person_id):
@@ -164,7 +160,6 @@ def person_id2report(person_id):
         return "person id=%s" % str(person_id)
 
     assert False, "NOTREACHED"
-# end person_id2report
 
 
 def account_id2report(account_id):
@@ -178,7 +173,6 @@ def account_id2report(account_id):
         return "account id=%s" % str(account_id)
 
     assert False, "NOTREACHED"
-# end account_id2report
 
 
 def fetch_persons(affiliations, source):
@@ -239,7 +233,6 @@ def fetch_persons(affiliations, source):
                  ", ".join(set(str(const.PersonAffiliation(x))
                                for x in affiliations)))
     return result
-# end fetch_persons
 
 
 def person_user_mismatch(person2affiliations):
@@ -276,7 +269,6 @@ def person_user_mismatch(person2affiliations):
                 mismatched[account_id] = (person_affs, account_affs)
 
     return accountless, multi_account, mismatched
-# end person_user_mismatch
 
 
 def prepare_user_mismatch_report(affiliations, accountless, multi_account, mismatched):
@@ -292,7 +284,6 @@ def prepare_user_mismatch_report(affiliations, accountless, multi_account, misma
             return account.owner_id
         except Errors.NotFoundError:
             return None
-    # end uid2owner
 
     def affs2str(affiliations):
         return "{" + ", ".join(sorted("%s@%s" % (const.PersonAffiliation(x),
@@ -339,7 +330,6 @@ def prepare_user_mismatch_report(affiliations, accountless, multi_account, misma
                         affs2str(account_affs)))
 
     return sink.getvalue()
-# end prepare_user_mismatch_report
 
 
 def groups_matching_user_affs(user_affs, aff2groups):
@@ -358,7 +348,6 @@ def groups_matching_user_affs(user_affs, aff2groups):
 
     required.discard(None)
     return required
-# end groups_matching_person_affs
 
 
 def load_group_members(aff2groups):
@@ -393,7 +382,6 @@ def load_group_members(aff2groups):
                      fetch_group_name(group_id), group_id,
                      len(result[group_id]))
     return result
-# end load_group_members
 
 
 def remap_people_to_accounts(person2affiliations):
@@ -424,7 +412,6 @@ def remap_people_to_accounts(person2affiliations):
                  len(person2affiliations),
                  len(result))
     return result
-# end remap_people_to_accounts
 
 
 def user_group_mismatch(user2affiliations, aff2groups):
@@ -455,7 +442,6 @@ def user_group_mismatch(user2affiliations, aff2groups):
             mismatched_users[account_id] = missing
 
     return mismatched_users
-# end user_group_mismatch
 
 
 def prepare_user_group_mismatch_report(aff2groups, mismatches):
@@ -502,7 +488,6 @@ def prepare_user_group_mismatch_report(aff2groups, mismatches):
                    "%s\n" % (account_id2report(account_id), account_id, missing))
 
     return sink.getvalue()
-# end prepare_user_group_mismatch_report
 
 
 def cli_quadruple2dict(seq):
@@ -582,7 +567,6 @@ def cli_quadruple2dict(seq):
         result[tuple(key)] = group.entity_id
 
     return result
-# end cli_quadruple2dict
 
 
 def send_report(report, subject, to, cc=None):
@@ -594,11 +578,10 @@ def send_report(report, subject, to, cc=None):
     pretty_message = "\n".join(wrapper.fill(x)
                                for x in report.split("\n"))
     sendmail(to,
-             "cerebrum-nmh@usit.uio.no", # From:
+             "cerebrum-nmh@usit.uio.no",
              subject,
              pretty_message,
              cc=cc)
-# end send_report
 
 
 def main(argv):
@@ -662,7 +645,6 @@ def main(argv):
             pretty_message = "\n".join(wrapper.fill(x)
                                        for x in "\n".join(reports).split("\n"))
             logger.debug("Report to send:\n%s", pretty_message)
-# end main
 
 
 if __name__ == "__main__":

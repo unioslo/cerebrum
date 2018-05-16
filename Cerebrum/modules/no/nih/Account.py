@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2010, 2016 University of Oslo, Norway
+# Copyright 2010-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,16 +17,20 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import re
+import io
 import random
+import re
 import time
+
+import six
 
 import cereconf
 
 from Cerebrum import Account
 from Cerebrum import Errors
-from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
+from Cerebrum.modules import Email
+
 
 class AccountNIHMixin(Account.Account):
     """Account mixin class providing functionality specific to NIH."""
@@ -43,13 +47,12 @@ class AccountNIHMixin(Account.Account):
 
         return ret
 
-
     def delete_spread(self, spread):
         #
         # Pre-remove checks
         #
         spreads = [int(r['spread']) for r in self.get_spread()]
-        if not spread in spreads:  # user doesn't have this spread
+        if spread not in spreads:  # user doesn't have this spread
             return
 
         # (Try to) perform the actual spread removal.
@@ -70,7 +73,6 @@ class AccountNIHMixin(Account.Account):
                 pass
         return ret
 
-
     def illegal_name(self, name):
         """ NIH can only allow max 10 characters in usernames.
 
@@ -83,13 +85,11 @@ class AccountNIHMixin(Account.Account):
 
         return super(AccountNIHMixin, self).illegal_name(name)
 
-
     def is_employee(self, person):
         for r in person.get_affiliations():
             if r['affiliation'] == self.const.affiliation_ansatt:
                 return True
         return False
-
 
     def is_affiliate(self, person):
         for r in person.get_affiliations():
@@ -103,12 +103,10 @@ class AccountNIHMixin(Account.Account):
                 return True
         return False
 
-
     def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
         # Override Account.suggest_unames as HiHH allows up to 10 chars
         # in unames
         return self.__super.suggest_unames(domain, fname, lname, maxlen=10)
-
 
     def update_email_addresses(self):
         # Overriding default update_email_addresses as NIH does not require
@@ -157,7 +155,6 @@ class AccountNIHMixin(Account.Account):
         if target_type == self.const.email_target_deleted:
             return
         self._update_email_address_domains(et)
-
 
     def _update_email_address_domains(self, et):
         # Figure out which domain(s) the user should have addresses
@@ -228,7 +225,7 @@ class AccountNIHMixin(Account.Account):
                         epat.populate(ea.entity_id)
                     except Errors.NotFoundError:
                         epat.clear()
-                        epat.populate(ea.entity_id, parent = et)
+                        epat.populate(ea.entity_id, parent=et)
                     epat.write_db()
                     primary_set = True
 
@@ -253,21 +250,20 @@ class AccountNIHMixin(Account.Account):
                   "Cannot assign mdb"
         return mdb_choice
 
-
     def make_passwd(self, uname):
         words = []
         pwd = []
         passwd = ""
         for fname in cereconf.PASSPHRASE_DICTIONARIES:
-            f = file(fname, 'r')
-            for l in f:
-                words.append(l.rstrip())
+            with io.open(fname, mode='r', encoding='ascii') as f:
+                for l in f:
+                    words.append(l.rstrip())
         while(1):
             pwd.append(words[random.randint(0, len(words)-1)])
             passwd = ' '.join([a for a in pwd])
             if len(passwd) >= 12 and len(pwd) > 1:
                 # do not generate passwords longer than 20 chars
                 if len(passwd) <= 20:
-                    return passwd
+                    return six.text_type(passwd)
                 else:
                     pwd.pop(0)

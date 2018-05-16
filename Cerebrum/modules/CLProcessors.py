@@ -1,7 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2006-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,11 +20,12 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import textwrap
-import pickle
 import mx
+from six import text_type
 
 import cereconf
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import json
 from Cerebrum.Errors import NotFoundError
 
 """This module provides components for extracting information about
@@ -41,14 +42,7 @@ The module makes use of two cereconf-variables:
   event can be associated with more than one affiliation, in order to
   know which affiliation counts the most.
 
-* NO_AFFILIATION - which is the string that should be used as the name
-  for grouping those events that cannot be related to any affiliation.
-
 """
-
-__version__ = "$Revision$"
-# $Source$
-
 
 db = Factory.get('Database')()
 constants = Factory.get('Constants')(db)
@@ -67,27 +61,20 @@ for element in cereconf.AFFILIATIONS_BY_PRIORITY:
         code = int(constants.PersonAffiliation(element))
         affiliations_by_priority.append(code)
     except NotFoundError:
-        logger.warning("Unable to find affiliation code for '%s'. Misspelling?" % element)
-        
+        logger.warning("Unable to find affiliation code for %r", element)
 # Name used for group when no affiliation info can be associated with
 # an event that normally has affiliation info.
-no_affiliation = cereconf.NO_AFFILIATION
-
+no_affiliation = '(NONE)'
 
 
 class EventNotDefinedError(Exception):
-    
     """For use by EventProcessor.
-
     Raised when a requested event-type has not been defined yet.
-    
     """
     pass
 
 
-
 class EventProcessor(object):
-    
     """Abstract baseclass for processing a given area of event-based
     statistics.
 
@@ -111,8 +98,8 @@ class EventProcessor(object):
         self._count_by_affiliation = {}
         self._entity_ids = []
         self._description = ""
-        
 
+    @staticmethod
     def get_processor(event_type):
         """Static factory method.
 
@@ -133,9 +120,8 @@ class EventProcessor(object):
         elif event_type == getattr(constants, "group_create"):
             return CreateGroupProcessor()
         else:
-            raise EventNotDefinedError("Handling not defined for '%s'" % event_type)
-    get_processor = staticmethod(get_processor)
-
+            raise EventNotDefinedError(
+                "Handling not defined for %r", event_type)
 
     def process_events(self, start_date=0, end_date=0):
         """Main 'counting' function.
@@ -151,14 +137,13 @@ class EventProcessor(object):
         @type end_date: mx.DateTime
 
         """
-        event_rows = db.get_log_events_date(sdate=start_date, edate=end_date, type=self._log_event)
-
+        event_rows = db.get_log_events_date(sdate=start_date,
+                                            edate=end_date,
+                                            type=self._log_event)
         for row in event_rows:
             self._entity_ids.append(row["subject_entity"])
-
-        logger.info("Number of events for '%s' is %i" % (self._description, self._get_total()))
-
-
+        logger.info("Number of events for '%s' is %i",
+                    self._description, self._get_total())
 
     def calculate_count_by_affiliation(self):
         """Calculates counts by affiliation for the particular
@@ -168,13 +153,12 @@ class EventProcessor(object):
             be implemented(overridden by subclasses.
 
         """
-        raise NotImplementedError("This method should be implemented by subclasses")
-
+        raise NotImplementedError(
+            "This method should be implemented by subclasses")
 
     def _get_total(self):
         """Returns the total number of events for the event-type."""
         return len(self._entity_ids)
-    
 
     def print_report(self, print_affiliations=False, print_source_system=False,
                      print_details=False):
@@ -182,7 +166,7 @@ class EventProcessor(object):
 
         Prints a report for the data collected by this particular
         event processor.
-        
+
         @param print_affiliations: Whether or not affiliation info
             should be printed.
         @type print_affiliations: Boolean
@@ -197,49 +181,43 @@ class EventProcessor(object):
         print ("Event:        '%s'" % self._description),
         print " " * (20 - len(self._description)),
         print (" total count: %s" % self._get_total())
-
         if print_affiliations:
             self._print_affiliation_info()
-
         if print_source_system:
             self._print_source_system_info()
-
         if print_details:
             self._print_details()
-
         print ""
-
 
     def _print_affiliation_info(self):
         """Prints affiliation info for this particular prosessor.
 
         Can be overridden by subclasses, e.g. if there has been
         collected no affiliation-info by them.
-        
         """
         print ""
         # The no-affiliation line should be printed last, and will
         # therefore be specially treated. This will also handle if
         # there is no "no-affiliation".
-        no_affiliation_line = "" 
-        for affiliation, count  in self._count_by_affiliation.iteritems():
+        no_affiliation_line = ""
+        for affiliation, count in self._count_by_affiliation.iteritems():
             # If 'affiliation' isn't a proper code (as is the case for
             # 'no_affiliation'), then PersonAffiliation will simply
             # use 'affiliation' as its string represnetation, and
             # that's sufficient for our purposes.
-            aff_str = str(constants.PersonAffiliation(affiliation))
-                
-            outline = (" " * 18) + aff_str + (" " * (34 -len(aff_str))) + str(count)
-            
+            aff_str = text_type(constants.PersonAffiliation(affiliation))
+            outline = "".join([
+                (" " * 18),
+                aff_str,
+                (" " * (34 - len(aff_str))),
+                text_type(count)])
             if aff_str.startswith(no_affiliation):
                 # "No affiliation" might be specified further in some
                 # cases; we want to gather all these groups at the end.
                 no_affiliation_line = no_affiliation_line + outline + "\n"
             else:
                 print outline
-        
         print no_affiliation_line
-
 
     def _print_source_system_info(self):
         """Prints detailed info for this particular prosessor.
@@ -247,10 +225,8 @@ class EventProcessor(object):
         Default is to print no details, letting those subclasses that
         have interesting details to tell decide for themselves if they
         have something to provide here
-        
         """
         pass
-
 
     def _print_details(self):
         """Prints detailed info for this particular prosessor.
@@ -258,44 +234,34 @@ class EventProcessor(object):
         Default is to print no details, letting those subclasses that
         have interesting details to tell decide for themselves if they
         have something to provide here
-        
         """
         pass
-
 
     def get_most_significant_affiliation(self, affiliations):
         """Determines which of 'affiliations' is the most significant one.
 
-        @param affiliations: The set of affiliation IDs we wish to
-            evaluate.        
+        @param affiliations: The set of affiliation IDs we wish to evaluate.
         @type affiliations: List
-
         @return: The most significant affiliation, as defined by cereconf.
-        
         """
         for aff in affiliations_by_priority:
             if aff in affiliations:
                 return aff
-
-        logger.warning("Unable to find most significant affiliation from " +
-                       "list '" + str(affiliations) + "'. cereconf.AFFILIATIONS_BY_PRIORITY " +
-                       "is probably undefined or missing some affiliations")
-        
-        return affiliations[0];
-
+        logger.warning(
+            ("Unable to find most significant affiliation from list %r. "
+             "Check cereconf.AFFILIATIONS_BY_PRIORITY"), affiliations)
+        return affiliations[0]
 
     def _add_to_affiliation(self, affiliation):
         """Adds an event to the count for a given affiliation.
 
-        @param affiliation: The affiliation that should be added to.        
+        @param affiliation: The affiliation that should be added to.
         @type affiliation: int
-
         """
-        if self._count_by_affiliation.has_key(affiliation):
+        if affiliation in self._count_by_affiliation:
             self._count_by_affiliation[affiliation] += 1
         else:
             self._count_by_affiliation[affiliation] = 1
-
 
     def _process_affiliation_rows(self, affiliation_rows):
         """Generalized handling of affiliation data.
@@ -305,26 +271,22 @@ class EventProcessor(object):
 
         Some processors might need to handle this differently and
         should therefore override this function.
-        
-        @param affiliation_rows: The database rows with affiliation
-            info for the entity being evaluated.        
-        @type affiliation_rows: List of database rows
 
+        @param affiliation_rows: The database rows with affiliation
+            info for the entity being evaluated.
+        @type affiliation_rows: List of database rows
         """
-        designated_affiliation = no_affiliation #  Default till proven otherwise
+        designated_affiliation = no_affiliation
         if affiliation_rows:
             affiliations = []
             for row in affiliation_rows:
-                logger.debug("Found affiliation: '%s'" % row['affiliation']);
                 affiliations.append(row['affiliation'])
-
-            designated_affiliation = self.get_most_significant_affiliation(affiliations)
-
-        self._add_to_affiliation(designated_affiliation)   
+            designated_affiliation = self.get_most_significant_affiliation(
+                affiliations)
+        self._add_to_affiliation(designated_affiliation)
 
 
 class CreatePersonProcessor(EventProcessor):
-
     """Handles 'create person'-events."""
 
     def __init__(self):
@@ -333,51 +295,47 @@ class CreatePersonProcessor(EventProcessor):
         self._description = "Create Person"
         self._person2account = {}
         self._persons_by_source_system = {}
-        
 
     def calculate_count_by_source_system(self, source_system):
         """Implementations of superclass' abstract function."""
         logger.debug("Given source system: " + source_system)
         self._source_system = source_system
         for current_entity in self._entity_ids:
-            logger.debug("Checking source_system for person entity '%s'", current_entity)
-
+            logger.debug("Checking source_system for person entity '%s'",
+                         current_entity)
             person.clear()
             try:
                 person.find(current_entity)
             except NotFoundError:
-                # Unable to look up person (deleted? merged?) 
-                logger.debug("Unable to find person with entity-id '%s'" % current_entity)
+                logger.debug("Unable to find person with entity-id '%s'",
+                             current_entity)
                 continue
-
-            
             external_id_rows = person.get_external_id()
             source_as_num = external_id_rows[0]['source_system']
-            source = str(constants.AuthoritativeSystem(source_as_num))
-                
+            source = text_type(constants.AuthoritativeSystem(source_as_num))
             if source == source_system:
-                logger.debug("Source system for person '%s' is %s " % (
-                    current_entity, source))
-                self._persons_by_source_system.setdefault(source_system,
-                                                          []).append(current_entity)
-            # person -> account mapping
+                logger.debug("Source system for person '%s' is %s ",
+                             current_entity, source)
+                self._persons_by_source_system.setdefault(
+                    source_system, []).append(current_entity)
             self._person2account[current_entity] = person.get_primary_account()
-
 
     def calculate_count_by_affiliation(self):
         """Implementations of superclass' abstract function."""
         for current_entity in self._entity_ids:
-            logger.debug("Checking affiliations for person entity '%s'", current_entity)
-
+            logger.debug("Checking affiliations for person entity '%s'",
+                         current_entity)
             person.clear()
             affiliation_rows = []
             try:
                 person.find(current_entity)
-                affiliation_rows = person.list_affiliations(person_id=current_entity)
+                affiliation_rows = person.list_affiliations(
+                    person_id=current_entity)
             except NotFoundError:
-                # Unable to look up person (deleted? merged?) 
-                logger.debug("Unable to find person with entity-id '%s'" % current_entity)
-                self._add_to_affiliation(no_affiliation + " (deleted since creation)")
+                logger.debug("Unable to find person with entity-id '%s'",
+                             current_entity)
+                self._add_to_affiliation(
+                    no_affiliation + " (deleted since creation)")
                 continue
 
             if affiliation_rows:
@@ -387,15 +345,17 @@ class CreatePersonProcessor(EventProcessor):
                 try:
                     external_id_rows = person.get_external_id()
                     source_as_num = external_id_rows[0]['source_system']
-                    source = str(constants.AuthoritativeSystem(source_as_num))
+                    source = text_type(constants.AuthoritativeSystem(
+                        source_as_num))
                 except IndexError:
-                    # Person has no external IDs, so we can't find any source; ignore
-                    logger.debug("Unable to source for person with entity-id '%s'" % current_entity)
+                    logger.debug(
+                        "Unable to source for person with entity-id '%s'",
+                        current_entity)
                     source = "Unknown"
-            
-                logger.debug("Source for entity '%s' determined to be %s " % (current_entity, source))
-                self._add_to_affiliation(no_affiliation + " (source: " + source + ")")
-            
+                logger.debug("Source for entity '%s' determined to be %s",
+                             current_entity, source)
+                self._add_to_affiliation(
+                    no_affiliation + " (source: " + source + ")")
 
     def _print_details(self):
         """Provides the entity_id's of the persons created."""
@@ -410,10 +370,9 @@ class CreatePersonProcessor(EventProcessor):
             p_ids.append(entity_id)
         if p_ids:
             print "Entity ids for created persons:"
-            print textwrap.fill(" ".join(map(str,p_ids)), 76)
+            print textwrap.fill(" ".join(map(str, p_ids)), 76)
         else:
             print "No new persons."
-
 
     def _print_source_system_info(self):
         """Implementations of superclass' abstract function."""
@@ -431,31 +390,29 @@ class CreatePersonProcessor(EventProcessor):
                     account.clear()
                     account.find(a_id)
                     uname = account.account_name
-                    tmp += ", account: %s" % uname 
+                    tmp += ", account: %s" % uname
                 print tmp
         print ""
 
 
 class CreateAccountProcessor(EventProcessor):
-    
     """Handles 'create account'-events."""
 
     def __init__(self):
         EventProcessor.__init__(self)
         self._log_event = int(constants.account_create)
         self._description = "Create Account"
-        
+
     def calculate_count_by_affiliation(self):
         """Implementations of superclass' abstract function."""
         for current_entity in self._entity_ids:
-            logger.debug("Checking affiliations for account entity '%s'", current_entity)
-
+            logger.debug("Checking affiliations for account entity '%s'",
+                         current_entity)
             account.clear()
             account.find(current_entity)
-            affiliation_rows = account.list_accounts_by_type(account_id=current_entity)
-
+            affiliation_rows = account.list_accounts_by_type(
+                account_id=current_entity)
             self._process_affiliation_rows(affiliation_rows)
-
 
     def _print_details(self):
         """Provides the usernames of the accounts created."""
@@ -471,9 +428,7 @@ class CreateAccountProcessor(EventProcessor):
             print "No new accounts, therefore no new usernames."
 
 
-
 class ModifyAccountProcessor(EventProcessor):
-    
     """Handles 'modify account'-events.
 
     Currently, the events handled are filtered down to only include
@@ -486,7 +441,6 @@ class ModifyAccountProcessor(EventProcessor):
         self._log_event = int(constants.account_mod)
         self._description = "Modify Account"
 
-        
     def process_events(self, start_date=0, end_date=0):
         """Main 'counting' function.
 
@@ -507,82 +461,71 @@ class ModifyAccountProcessor(EventProcessor):
         """
         event_rows = db.get_log_events_date(sdate=start_date, edate=end_date,
                                             type=self._log_event)
-
         for row in event_rows:
-            params = pickle.loads(row["change_params"])
-            
+            params = {}
+            if row["change_params"]:
+                params = json.loads(row["change_params"])
             if "expire_date" in params:
                 if params["expire_date"] is None:
                     # Expire_date unset; include it!
                     self._entity_ids.append(row["subject_entity"])
-                    
                 else:
                     account.clear()
                     account.find(row["subject_entity"])
-                    
                     if (account.expire_date is None or
-                        account.expire_date > mx.DateTime.now()):
+                            account.expire_date > mx.DateTime.now()):
                         # Account set to expire at some point in the
                         # future or not at all; include it!
                         self._entity_ids.append(row["subject_entity"])
-                        
                     else:
                         # Account (already? still?) expired; no need to include
-                        logger.debug("%s: is expired; skipping" % account.account_name)
+                        logger.debug("%s: is expired; skipping",
+                                     account.account_name)
                         continue
-                    
             else:
                 # Event does not modify expire_date; ignore.
                 continue
-
-        logger.info("Number of events dealing with valid expire_dates for '%s' is %i" %
-                    (self._description, self._get_total()))
-
+        logger.info(
+            "Number of events dealing with valid expire_dates for '%s' is %i",
+            self._description, self._get_total())
 
     def calculate_count_by_affiliation(self):
         """Override of super-class'es 'abstract' method. Not currently
         of interest.
-
         """
         pass
-
 
     def _print_details(self):
         """Provides the usernames of the accounts modified."""
         account_names = []
-        
         for entity_id in self._entity_ids:
             account.clear()
             account.find(entity_id)
             account_names.append("%-15s (Current expire: %s)" %
                                  (account.account_name, account.expire_date))
         if account_names:
-            print "Usernames and current expire-dates:"
+            print "Usernames and current expire dates:"
             print "\n".join(account_names)
         else:
             print "No re-activated accounts, therefore no re-activated usernames."
 
 
-
 class CreateGroupProcessor(EventProcessor):
-    
     """Handles 'create group'-events.
 
     Groups are a bit special compared to other events, since they do
     not have any associations with affiliations.
-    
     """
 
     def __init__(self):
         EventProcessor.__init__(self)
         self._log_event = int(constants.group_create)
         self._description = "Create Group"
-        
+
     def calculate_count_by_affiliation(self):
         """Groups do not have affiliations."""
         pass
 
     def _print_affiliation_info(self):
         """Groups do not have affiliations."""
-        print ""
-        print "        (no affiliation info)"
+        pass

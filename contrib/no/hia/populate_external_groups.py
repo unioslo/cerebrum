@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2004 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2004-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,37 +18,31 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """<Documentation goes here.>"""
 
-from __future__ import generators
+from __future__ import generators, unicode_literals
 
 import sys
 import os
 import locale
 import getopt
-import time
-import mx.DateTime
 
-if True:
-    import cerebrum_path
-    import cereconf
-    from Cerebrum import Errors
-    from Cerebrum.Utils import Factory
-    from Cerebrum.modules import Email
-    from Cerebrum.modules.no import access_FS
-else:
-    class liksom_module(object): pass
-    cereconf = liksom_module()
-    cereconf.INSTITUTION_DOMAIN_NAME_LMS = 'hia.no'
+import mx.DateTime
+import six
+
+import cereconf
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.modules import Email
+from Cerebrum.modules.no import access_FS
 
 # Define all global variables, to avoid pychecker warnings.
 db = logger = fnr2account_id = const = None
 
 
-###
-### Struktur FS-grupper i Cerebrum
-###
+#
+# Struktur FS-grupper i Cerebrum
+#
 #
 # 0  Supergruppe for alle grupper automatisk avledet fra FS
 #      internal:DOMAIN:fs:{supergroup}
@@ -59,19 +53,19 @@ db = logger = fnr2account_id = const = None
 #         Eks "internal:hia.no:fs:201:undenh"
 #       2  Gruppering av alle undervisningsenhet-grupper i et semester
 #            internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:TERMINKODE
-#            Eks "internal:hia.no:fs:201:undenh:2004:vår"
+#            Eks "internal:hia.no:fs:201:undenh:2004:vÃ¥r"
 #          3  Gruppering av alle grupper knyttet til en bestemt und.enhet
 #               internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
 #                 TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR
-#               Eks "internal:hia.no:fs:201:undenh:2004:vår:be-102:g:1"
+#               Eks "internal:hia.no:fs:201:undenh:2004:vÃ¥r:be-102:g:1"
 #             4  Gruppe med studenter som tar und.enhet
-#                  Eks "internal:hia.no:fs:201:undenh:2004:vår:be-102:g:1:
+#                  Eks "internal:hia.no:fs:201:undenh:2004:vÃ¥r:be-102:g:1:
 #                       student"
 #             4  Gruppe med forelesere som gir und.enhet
-#                  Eks "internal:hia.no:fs:201:undenh:2004:vår:be-102:g:1:
+#                  Eks "internal:hia.no:fs:201:undenh:2004:vÃ¥r:be-102:g:1:
 #                       foreleser"
 #             4  Gruppe med studieledere knyttet til en und.enhet
-#                  Eks "internal:hia.no:fs:201:undenh:2004:vår:be-102:g:1:
+#                  Eks "internal:hia.no:fs:201:undenh:2004:vÃ¥r:be-102:g:1:
 #                       studieleder"
 #    1  Gruppering av alle grupper relatert til studieprogram ved en
 #       institusjon
@@ -89,7 +83,7 @@ db = logger = fnr2account_id = const = None
 #                    STUDIEPROGRAMKODE:studiekull:ARSTALL_KULL:
 #                    TERMINKODE_KULL:student
 #                  Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:
-#                       studiekull:2004:vår:student"
+#                       studiekull:2004:vÃ¥r:student"
 #          3  Gruppering av alle personrolle-grupper for et studieprogram
 #               internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:
 #                 STUDIEPROGRAMKODE:rolle
@@ -102,18 +96,18 @@ db = logger = fnr2account_id = const = None
 #    1  Gruppering av alle grupper relatert til EVU
 #         Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu"
 #       2  Gruppering av alle grupper knyttet til et bestemt EVU-kurs
-#            Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vår"
-#          3  Gruppe med kursdeltakere på et bestemt EVU-kurs
-#               Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vår:
+#            Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vÃ¥r"
+#          3  Gruppe med kursdeltakere pÃ¥ et bestemt EVU-kurs
+#               Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vÃ¥r:
 #                    kursdeltakere"
-#          3  Gruppe med forelesere på et bestemt EVU-kurs
-#               Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vår:
+#          3  Gruppe med forelesere pÃ¥ et bestemt EVU-kurs
+#               Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vÃ¥r:
 #                    forelesere"
 #
 
-###
-### Struktur SAP-grupper i Cerebrum
-###
+#
+# Struktur SAP-grupper i Cerebrum
+#
 #
 # 0  Supergruppe for alle grupper automatisk avledet fra SAP
 #      internal:DOMAIN:sap:{supergroup}
@@ -124,31 +118,35 @@ db = logger = fnr2account_id = const = None
 #       2  Gruppering av alle grupper knyttet til et bestemt fakultet
 #            internal:DOMAIN:sap:fakultet:INSTITUSJONSNR:STEDKODE
 #            Eks "internal:hia.no:sap:fakultet:201:010000"
-#          3  Gruppe med alle ansatte på fakultet
+#          3  Gruppe med alle ansatte pÃ¥ fakultet
 #            internal:DOMAIN:sap:fakultet:INSTITUSJONSNR:STEDKODE:ansatt
 #            Eks "internal:hia.no:sap:fakultet:201:010000:ansatt"
+
 
 def safe_join(elements, sep=' '):
     """As string.join(), but ensures `sep` isn't part of any element."""
     for i in range(len(elements)):
         if elements[i].find(sep) != -1:
-            raise ValueError, \
-                  "Join separator %r found in element #%d (%r)" % (
-                sep, i, elements[i])
+            raise ValueError(
+                "Join separator %r found in element #%d (%r)" %
+                (sep, i, elements[i]))
     return sep.join(elements)
+
 
 def get_account(name):
     ac = Factory.get('Account')(db)
     ac.find_by_name(name)
     return ac
 
+
 def get_group(id):
     gr = Factory.get('Group')(db)
-    if isinstance(id, str):
+    if isinstance(id, basestring):
         gr.find_by_name(id)
     else:
         gr.find(id)
     return gr
+
 
 def destroy_group(group_id, max_recurse):
     if max_recurse is None:
@@ -245,8 +243,8 @@ class group_tree(object):
 
     def list_matches(self, gtype, data, category):
         if self.users:
-            raise RuntimeError, \
-                  "list_matches() not overriden for user-containing group."
+            raise RuntimeError(
+                "list_matches() not overriden for user-containing group.")
         for subg in self.subnodes.itervalues():
             for match in subg.list_matches(gtype, data, category):
                 yield match
@@ -257,10 +255,10 @@ class group_tree(object):
             return ret
         elif len(ret) == 0:
             # I praksis viser det seg at mange "aktive" studenter har
-            # registreringer på utgåtte studieprogrammer o.l., slik at
+            # registreringer pÃ¥ utgÃ¥tte studieprogrammer o.l., slik at
             # list_matches returnerer 0 grupper.  Den situasjonen er
-            # det lite dette scriptet kan gjøre med, og det bør derfor
-            # ikke føre til noen ERROR-loggmelding.
+            # det lite dette scriptet kan gjÃ¸re med, og det bÃ¸r derfor
+            # ikke fÃ¸re til noen ERROR-loggmelding.
             logger.debug("Ikke gyldig kull eller studieprog: args=%r", args)
             return ()
         logger.warn("Matchet for mange: self=%r, args=%r, kws=%r, ret=%r",
@@ -273,8 +271,8 @@ class group_tree(object):
         sub_ids = {}
         if self.users:
             # Gruppa inneholder minst en person, og skal dermed
-            # populeres med *kun* primærbrukermedlemmer.  Bygg opp
-            # oversikt over primærkonto-id'er i 'sub_ids'.
+            # populeres med *kun* primÃ¦rbrukermedlemmer.  Bygg opp
+            # oversikt over primÃ¦rkonto-id'er i 'sub_ids'.
             for fnr in self.users.iterkeys():
                 a_ids = fnr2account_id.get(fnr)
                 if a_ids is not None:
@@ -285,13 +283,13 @@ class group_tree(object):
                                 fnr, self.users[fnr])
         else:
             # Gruppa har ikke noen personmedlemmer, og skal dermed
-            # populeres med *kun* evt. subgruppemedlemmer.  Vi sørger
-            # for at alle subgrupper synkroniseres først (rekursivt),
+            # populeres med *kun* evt. subgruppemedlemmer.  Vi sÃ¸rger
+            # for at alle subgrupper synkroniseres fÃ¸rst (rekursivt),
             # og samler samtidig inn entity_id'ene deres i 'sub_ids'.
             for subg in self.subnodes:
                 sub_ids[int(subg.sync())] = const.entity_group
-        # I 'sub_ids' har vi nå en oversikt over hvilke entity_id'er
-        # som skal bli gruppens medlemmer.  Foreta nødvendige inn- og
+        # I 'sub_ids' har vi nÃ¥ en oversikt over hvilke entity_id'er
+        # som skal bli gruppens medlemmer.  Foreta nÃ¸dvendige inn- og
         # utmeldinger.
         for row in db_group.search_members(group_id=db_group.entity_id):
             member_id = int(row["member_id"])
@@ -302,7 +300,7 @@ class group_tree(object):
                 db_group.remove_member(member_id)
                 if member_type == const.entity_group:
                     destroy_group(member_id, self.max_recurse)
-                
+
         for member_id in sub_ids.iterkeys():
             db_group.add_member(member_id)
         # Synkroniser gruppens spreads med lista angitt i
@@ -371,7 +369,7 @@ class fs_supergroup(group_tree):
         elif gtype == 'evu':
             subg = fs_evu_1(self, attrs)
         else:
-            raise ValueError, "Ukjent gruppe i hierarkiet: %r" % (gtype,)
+            raise ValueError("Ukjent gruppe i hierarkiet: %r" % (gtype,))
         children = self.subnodes
         # TBD: Make fs_{undenh,stprog}_N into singleton classes?
         if children.has_key(subg):
@@ -455,7 +453,7 @@ class fs_undenh_3(fs_undenh_group):
     def __init__(self, parent, ue):
         super(fs_undenh_3, self).__init__(parent)
         self._prefix = (ue['emnekode'], ue['versjonskode'], ue['terminnr'])
-        multi_id = ":".join([str(x)
+        multi_id = ":".join([six.text_type(x)
                              for x in(ue['institusjonsnr'], ue['emnekode'],
                                       ue['arstall'], ue['terminkode'])])
         self.ue_versjon.setdefault(multi_id, {})[ue['versjonskode']] = 1
@@ -511,13 +509,13 @@ class fs_undenh_users(fs_undenh_group):
         ctg = self._name[0]
         emne = self._emnekode + self.parent.multi_suffix()
         if ctg == 'student':
-            return "Studenter på %s" % (emne,)
+            return "Studenter pÃ¥ %s" % (emne,)
         elif ctg == 'foreleser':
-            return "Forelesere på %s" % (emne,)
+            return "Forelesere pÃ¥ %s" % (emne,)
         elif ctg == 'studieleder':
-            return "Studieledere på %s" % (emne,)
+            return "Studieledere pÃ¥ %s" % (emne,)
         else:
-            raise ValueError, "Ukjent UE-bruker-gruppe: %r" % (ctg,)
+            raise ValueError("Ukjent UE-bruker-gruppe: %r" % (ctg,))
 
     def list_matches(self, gtype, data, category):
         if category == self._name[0]:
@@ -527,7 +525,7 @@ class fs_undenh_users(fs_undenh_group):
         fnr = "%06d%05d" % (int(user['fodselsdato']), int(user['personnr']))
         # TBD: Key on account_id (of primary user) instead?
         if fnr in self.users:
-            logger.warn("Bruker %r forsøkt meldt inn i gruppe %r"
+            logger.warn("Bruker %r forsÃ¸kt meldt inn i gruppe %r"
                         " flere ganger (XML = %r).",
                         fnr, self.name(), user)
             return
@@ -593,7 +591,7 @@ class fs_stprog_2(fs_stprog_group):
                 " studieprogrammet %r" % (self._prefix[0],))
 
     def add(self, stprog):
-        # Det skal lages to grener under hver gruppe på dette nivået.
+        # Det skal lages to grener under hver gruppe pÃ¥ dette nivÃ¥et.
         old = self.child_class
         try:
             for child_class in (fs_stprog_3_kull, fs_stprog_3_rolle):
@@ -625,8 +623,8 @@ class fs_stprog_3_kull(fs_stprog_group):
 
     def list_matches(self, gtype, data, category):
         # Denne metoden er litt annerledes enn de andre
-        # list_matches()-metodene, da den også gjør opprettelse av
-        # kullkode-spesifikke subgrupper når det er nødvendig.
+        # list_matches()-metodene, da den ogsÃ¥ gjÃ¸r opprettelse av
+        # kullkode-spesifikke subgrupper nÃ¥r det er nÃ¸dvendig.
         ret = []
         for subg in self.subnodes.itervalues():
             ret.extend([m for m in subg.list_matches(gtype, data, category)])
@@ -647,14 +645,14 @@ class fs_stprog_3_kull(fs_stprog_group):
             # utsettes derfor til senere (i.e. ved parsing av
             # person.xml); se metoden list_matches over.
             if (stprog.has_key('arstall_kull')
-                and stprog.has_key('terminkode_kull')):
+                    and stprog.has_key('terminkode_kull')):
                 gr = self.child_class(self, stprog, category)
                 if gr in children:
                     logger.warn("Kull %r forekommer flere ganger.", stprog)
                     continue
                 children[gr] = gr
                 ret.append(gr)
-        # TBD: Bør, bl.a. for konsistensens skyld, alle .add()-metoden
+        # TBD: BÃ¸r, bl.a. for konsistensens skyld, alle .add()-metoden
         # returnere noe?  Denne .add()-metodens returverdi brukes av
         # .list_matches()-metoden like over.
         return ret
@@ -673,7 +671,7 @@ class fs_stprog_kull_users(fs_stprog_group):
     def description(self):
         category = self._name[0]
         if category == 'student':
-            return ("Studenter på kull %s %s i"
+            return ("Studenter pÃ¥ kull %s %s i"
                     " studieprogrammet %r" % (self._prefix[1],
                                               self._prefix[0],
                                               self._studieprog))
@@ -681,15 +679,16 @@ class fs_stprog_kull_users(fs_stprog_group):
 
     def list_matches(self, gtype, data, category):
         if (data.get('arstall_kull', self._prefix[0]) == self._prefix[0]
-            and data.get('terminkode_kull', self._prefix[1]) == self._prefix[1]
-            and category == self._name[0]):
+                and data.get('terminkode_kull',
+                             self._prefix[1]) == self._prefix[1]
+                and category == self._name[0]):
             yield self
 
     def add(self, user):
         fnr = "%06d%05d" % (int(user['fodselsdato']), int(user['personnr']))
         # TBD: Key on account_id (of primary user) instead?
         if fnr in self.users:
-            logger.warn("Bruker %r forsøkt meldt inn i gruppe %r"
+            logger.warn("Bruker %r forsÃ¸kt meldt inn i gruppe %r"
                         " flere ganger (XML = %r).",
                         fnr, self.name(), user)
             return
@@ -734,7 +733,7 @@ class fs_stprog_rolle_users(fs_stprog_group):
     def description(self):
         category = self._name[0]
         if category == 'studieleder':
-            return ("Studieledere på studieprogrammet %r" % self._studieprog)
+            return ("Studieledere pÃ¥ studieprogrammet %r" % self._studieprog)
         raise ValueError("Ugyldig kategori: %r" % category)
 
     def list_matches(self, gtype, data, category):
@@ -745,12 +744,11 @@ class fs_stprog_rolle_users(fs_stprog_group):
         fnr = "%06d%05d" % (int(user['fodselsdato']), int(user['personnr']))
         # TBD: Key on account_id (of primary user) instead?
         if fnr in self.users:
-            logger.warn("Bruker %r forsøkt meldt inn i gruppe %r"
+            logger.warn("Bruker %r forsÃ¸kt meldt inn i gruppe %r"
                         " flere ganger (XML = %r).",
                         fnr, self.name(), user)
             return
         self.users[fnr] = user
-
 
 
 class fs_evu_1(fs_undenh_group):
@@ -764,36 +762,26 @@ class fs_evu_1(fs_undenh_group):
         super(fs_evu_1, self).__init__(parent)
         self._prefix = (evudata["institusjonsnr_adm_ansvar"], "evu")
         self.child_class = fs_evu_2
-    # end __init__
-
 
     def description(self):
         return ("Supergruppe for alle grupper avledet fra"
                 " EVU-kurs i %s sin FS" %
                 cereconf.INSTITUTION_DOMAIN_NAME_LMS)
-    # end description
-
 
     def list_matches(self, gtype, data, category):
         if gtype != "evu":
             return ()
-        # fi
 
         if access_FS.roles_xml_parser.target_key in data:
             target = data[access_FS.roles_xml_parser.target_key]
             if not (len(target) == 1 and target[0] == "evu"):
                 return ()
-            # fi
-        # fi
 
-        if (data.get("institusjonsnr_adm_ansvar", self._prefix[0]) !=
-            self._prefix[0]):
+        if (data.get("institusjonsnr_adm_ansvar",
+                     self._prefix[0]) != self._prefix[0]):
             return ()
 
         return super(fs_evu_1, self).list_matches(gtype, data, category)
-    # end list_matches
-# end class fs_evu_1
-
 
 
 class fs_evu_2(fs_undenh_group):
@@ -804,25 +792,19 @@ class fs_evu_2(fs_undenh_group):
         self._prefix = (evudata["etterutdkurskode"],
                         evudata["kurstidsangivelsekode"])
         self.spreads = (const.spread_hia_fronter,)
-    # end __init__
-
 
     def description(self):
         return ("Supergruppe for grupper tilknyttet EVU-kurs %s:%s" %
                 (self._prefix[0], self._prefix[1]))
-    # end description
-
 
     def list_matches(self, gtype, data, category):
         if data.get("etterutdkurskode", self._prefix[0]) != self._prefix[0]:
             return ()
-        if (data.get("kurstidsangivelsekode", self._prefix[1]) !=
-            self._prefix[1]):
+        if (data.get("kurstidsangivelsekode",
+                     self._prefix[1]) != self._prefix[1]):
             return ()
 
         return super(fs_evu_2, self).list_matches(gtype, data, category)
-    # end list_matches
-
 
     def add(self, evudata):
         children = self.subnodes
@@ -831,14 +813,9 @@ class fs_evu_2(fs_undenh_group):
             if gr in children:
                 logger.warn("EVU-kurs %r forekommer flere ganger.",
                             evudata)
-                continue 
-            # fi
+                continue
 
             children[gr] = gr
-        # od
-    # end add
-# end class fs_evu_2
-
 
 
 class fs_evu_users(fs_undenh_group):
@@ -848,41 +825,29 @@ class fs_evu_users(fs_undenh_group):
     def __init__(self, parent, evudata, category):
         super(fs_evu_users, self).__init__(parent)
         self._name = (category,)
-    # end __init__
-
 
     def description(self):
         category = self._name[0]
         if category == "kursdeltaker":
-            return "Kursdeltakere på %s" % self.parent.name()
+            return "Kursdeltakere pÃ¥ %s" % self.parent.name()
         elif category == "foreleser":
-            return "Forelesere på %s" % self.parent.name()
+            return "Forelesere pÃ¥ %s" % self.parent.name()
         else:
-            raise ValueError, "Ukjent EVU-brukergrupper: %r" % (category,)
-        # fi
-    # end description
-
+            raise ValueError("Ukjent EVU-brukergrupper: %r" % (category,))
 
     def list_matches(self, gtype, data, category):
         if category == self._name[0]:
             yield self
-        # fi
-    # end list_matches
-
 
     def add(self, user):
         fnr = "%06d%05d" % (int(user["fodselsdato"]), int(user["personnr"]))
         if fnr in self.users:
-            logger.warn("Bruker %r forsøkt meldt inn i gruppe %r "
+            logger.warn("Bruker %r forsÃ¸kt meldt inn i gruppe %r "
                         " flere ganger (XML = %r).",
                         fnr, self.name(), user)
             return
-        # fi
 
         self.users[fnr] = user
-    # end add
-# end class fs_evu_users
-
 
 
 def prefetch_primaryusers():
@@ -923,23 +888,22 @@ def prefetch_primaryusers():
         fnr_source[fnr] = (p_id, src_sys)
         if personid2accountid.has_key(p_id):
             account_ids = personid2accountid[p_id]
-##             for acc in account_ids:
-##                 account_id2fnr[acc] = fnr
             fnr2account_id[fnr] = account_ids
     del fnr_source
     logger.debug("Ferdig: prefetch_primaryusers()")
+
 
 def init_globals():
     global db, const, logger, fnr2account_id
     global dump_dir, dryrun, immediate_evu_expire
 
-    # Håndter upper- og lowercasing av strenger som inneholder norske
+    logger = Factory.get_logger("cronjob")
+    # HÃ¥ndter upper- og lowercasing av strenger som inneholder norske
     # tegn.
-    locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
+    # locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
     dump_dir = cereconf.FS_DATA_DIR
     dryrun = False
-    logger = Factory.get_logger("cronjob")
     immediate_evu_expire = False
 
     opts, rest = getopt.getopt(sys.argv[1:],
@@ -953,8 +917,6 @@ def init_globals():
             dryrun = True
         elif option in ("--immediate-evu-expire",):
             immediate_evu_expire = True
-        # fi
-    # od
 
     db = Factory.get("Database")()
     db.cl_init(change_program='pop_extern_grps')
@@ -963,17 +925,18 @@ def init_globals():
     fnr2account_id = {}
     prefetch_primaryusers()
 
+
 def main():
     init_globals()
 
     # Opprett objekt for "internal:hia.no:fs:{supergroup}"
     fs_super = fs_supergroup()
 
-    # Gå igjennom alle kjente undervisningsenheter; opprett
+    # GÃ¥ igjennom alle kjente undervisningsenheter; opprett
     # gruppe-objekter for disse.
     #
     # La fs-supergruppe-objektet ta seg av all logikk rundt hvor mange
-    # nivåer gruppestrukturen skal ha for undervisningsenhet-grupper,
+    # nivÃ¥er gruppestrukturen skal ha for undervisningsenhet-grupper,
     # etc.
     def create_UE_helper(el_name, attrs):
         if el_name == 'undenhet':
@@ -984,23 +947,21 @@ def main():
         os.path.join(dump_dir, 'underv_enhet.xml'),
         create_UE_helper)
 
-    # Gå igjennom alle kjente EVU-kurs; opprett gruppeobjekter for disse.
+    # GÃ¥ igjennom alle kjente EVU-kurs; opprett gruppeobjekter for disse.
     def create_evukurs_helper(el_name, attrs):
         if (el_name == "evukurs" and
-            attrs.get("status_aktiv") == 'J' and
-            attrs.get("status_nettbasert_und") == 'J'):
-            
+                attrs.get("status_aktiv") == 'J' and
+                attrs.get("status_nettbasert_und") == 'J'):
+
             if (immediate_evu_expire and
-                mx.DateTime.strptime(attrs.get("dato_til"), "%Y-%m-%d") <
-                mx.DateTime.now()):
+                    mx.DateTime.strptime(attrs.get("dato_til"), "%Y-%m-%d") <
+                    mx.DateTime.now()):
                 logger.debug("Kurs %s-%s ekspirerte",
                              attrs["etterutdkurskode"],
                              attrs["kurstidsangivelsekode"])
             else:
                 fs_super.add("evu", attrs)
-            # fi
-        # fi
-    # end create_evukurs_helper
+
     xmlfile = "evu_kursinfo.xml"
     logger.info("Leser XML-fil: %s", xmlfile)
     access_FS.evukurs_xml_parser(os.path.join(dump_dir, xmlfile),
@@ -1022,29 +983,28 @@ def main():
     # Meld EVU-kursdeltakere i de respektive EVU-kursgruppene.
     def EVU_deltaker_helper(el_name, attrs):
         if el_name == "person" and len(attrs.get("evu")) > 0:
-            # Dette blir ikke fult så pent -- i merged_persons plasserer man
+            # Dette blir ikke fult sÃ¥ pent -- i merged_persons plasserer man
             # informasjonen om EVU-tilknytning i form av underelementer av
-            # <person>. Dermed må ethvert EVU-underelement (de er samlet i en
-            # liste av dict'er under nøkkelen "evu" under) "suppleres" med
-            # fdato/pnr på eieren til det EVU-underelementet.
-            tmp = { "fodselsdato" : attrs["fodselsdato"],
-                    "personnr"  : attrs["personnr"], }
+            # <person>. Dermed mÃ¥ ethvert EVU-underelement (de er samlet i en
+            # liste av dict'er under nÃ¸kkelen "evu" under) "suppleres" med
+            # fdato/pnr pÃ¥ eieren til det EVU-underelementet.
+            tmp = {
+                "fodselsdato": attrs["fodselsdato"],
+                "personnr": attrs["personnr"],
+            }
             for evuattrs in attrs["evu"]:
                 evuattrs.update(tmp)
                 for evukurs in fs_super.list_matches_1("evu", evuattrs,
                                                        "kursdeltaker"):
                     evukurs.add(evuattrs)
-                # od
-            # od
-        # fi
-    # end create_EVU_participant_helper
+
     xmlfile = "merged_persons.xml"
     logger.info("Leser XML-fil: %s", xmlfile)
     access_FS.deltaker_xml_parser(os.path.join(dump_dir, xmlfile),
                                   EVU_deltaker_helper)
     logger.info("Ferdig med %s", xmlfile)
 
-    # Gå igjennom alle kjente studieprogrammer; opprett gruppeobjekter
+    # GÃ¥ igjennom alle kjente studieprogrammer; opprett gruppeobjekter
     # for disse.
     def create_studieprog_helper(el_name, attrs):
         if el_name == 'studprog' and attrs.get('status_utgatt') != 'J':
@@ -1080,15 +1040,10 @@ def main():
             # fi
         elif target in ('evu',):
             if rolle == 'FORELESER':
-                # Kan ett element tilhøre flere evukurs?
+                # Kan ett element tilhÃ¸re flere evukurs?
                 for evu_foreleser in fs_super.list_matches('evu', attrs,
                                                            "foreleser"):
                     evu_foreleser.add(attrs)
-                # od
-            # fi
-        # fi
-    # end rolle_helper
-            
 
     xmlfile = "roles.xml"
     logger.info("Leser XML-fil: %s", xmlfile)
@@ -1096,7 +1051,7 @@ def main():
                                rolle_helper)
     logger.info("Ferdig med %s", xmlfile)
 
-    # Finn alle studenter 
+    # Finn alle studenter
     def student_studieprog_helper(el_name, attrs):
         if el_name == 'aktiv':
             for stpr in fs_super.list_matches_1('studieprogram', attrs,
@@ -1118,12 +1073,9 @@ def main():
     else:
         logger.info("committing all changes")
         db.commit()
-    # fi
-# end main
 
 
-
-def walk_hierarchy(root, indent = 0, print_users = False):
+def walk_hierarchy(root, indent=0, print_users=False):
     """
     Display the data structure (tree) from a given node. Useful to get an
     overview over how various nodes are structured/populated. This is used for
@@ -1135,19 +1087,10 @@ def walk_hierarchy(root, indent = 0, print_users = False):
     if print_users and root.users:
         import pprint
         logger.debug("%susers: %s", ' ' * indent, pprint.pformat(root.users))
-    # fi
-    
+
     for n in root.subnodes:
         walk_hierarchy(n, indent + 2)
-    # od
-# end walk_hierarchy
-    
-
-
 
 
 if __name__ == '__main__':
     main()
-# fi
-
-

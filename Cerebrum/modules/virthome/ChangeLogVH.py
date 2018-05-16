@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding: utf-8 -*-
 """This implements VirtHome extensions to the ChangeLog framework.
 
 The primary purpose of the extensions is to be able to track state change
@@ -15,11 +15,7 @@ tidbit where unique keys are linked to the change_log events; such a linkage
 is the main task of this modules.
 
 """
-import pickle
-
-import cerebrum_path
-import cereconf
-from Cerebrum.modules.ChangeLog import ChangeLog
+from Cerebrum.modules.ChangeLog import ChangeLog, _params_to_db
 from Cerebrum.Utils import argument_to_sql
 
 
@@ -91,7 +87,7 @@ class ChangeLogVH(ChangeLog):
             raise RuntimeError("must set change_by or change_program")
         change_type_id = int(change_type_id)
         if change_params is not None:
-            change_params = pickle.dumps(change_params)
+            change_params = _params_to_db(change_params)
         self.messages.append(locals())
 
         return confirmation_key

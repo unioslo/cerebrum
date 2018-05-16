@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding: utf-8 -*-
 #
-# Copyright 2002-2015 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,17 +27,20 @@ Address, Gender etc. type."""
 
 import copy
 import threading
+import re
 
 import cereconf
-from six import string_types as string, text_type as text, \
-    python_2_unicode_compatible
+from six import (string_types as string,  # standard Python module?!?
+                 text_type as text,
+                 python_2_unicode_compatible)
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import context
 
 
 def _uchlp(arg):
-    """ 'Anything' to text (unicode) """
+    """'Anything' to text (unicode)"""
     if isinstance(arg, text):
         return arg
     if isinstance(arg, bytes):
@@ -51,7 +54,6 @@ def _uchlp(arg):
 
 
 class CodeValuePresentError(RuntimeError):
-
     """Error raised when an already existing code value is inserted."""
     pass
 
@@ -109,7 +111,6 @@ class SynchronizedDatabase(Database_class):
 
 @python_2_unicode_compatible
 class _CerebrumCode(DatabaseAccessor):
-
     """Abstract base class for accessing code tables in Cerebrum.
 
     The class needs a connection to the database (to enable constant
@@ -138,9 +139,7 @@ class _CerebrumCode(DatabaseAccessor):
             try:
                 _CerebrumCode._private_db_proxy.ping()
             except:
-                _CerebrumCode._private_db_proxy = SynchronizedDatabase(
-                    client_encoding='UTF-8'
-                )
+                _CerebrumCode._private_db_proxy = SynchronizedDatabase()
             return _CerebrumCode._private_db_proxy
 
     @sql.setter
@@ -150,9 +149,7 @@ class _CerebrumCode(DatabaseAccessor):
                 db.ping()
                 _CerebrumCode._private_db_proxy = db
             except:
-                _CerebrumCode._private_db_proxy = SynchronizedDatabase(
-                    client_encoding='UTF-8'
-                )
+                _CerebrumCode._private_db_proxy = SynchronizedDatabase()
 
     _lookup_table = None                # Abstract class.
     _lookup_code_column = 'code'
@@ -958,6 +955,180 @@ class _ChangeTypeCode(_CerebrumCode):
                           'type': self.type,
                           'desc': self.msg_string})
 
+    def format_message(self, subject, dest):
+        """Format self.msg_string with subject and dest.
+
+        :type subject: unicode or ascii bytes
+        :param subject: subject entity_name
+
+        :type dest: unicode or ascii bytes
+        :param dest: destination entity_name
+
+        :rtype: unicode
+        :return: Formatted string
+        """
+        if self.msg_string is None:
+            return '{}, subject {}, destination {}'.format(
+                text(self),
+                subject,
+                dest)
+        return self.msg_string % {
+            'subject': subject,
+            'dest': dest}
+
+    param_formatters = {}
+
+    @classmethod
+    def formatter(cls, param_type):
+        def fun(fn):
+            cls.param_formatters[param_type] = fn
+            return fn
+        return fun
+
+    def format_params(self, params):
+        """ Format self.format with params from change_params.
+
+        :type params: dict or dict-like mapping, basestr, or None
+        :param params:  change_params as dict or json string
+
+        :rtype: unicode
+        :return: Formatted string
+        """
+        from Cerebrum.utils import json
+        if isinstance(params, string):
+            params = json.loads(params)
+
+        def helper():
+            for f in self.format:
+                repl = {}
+                for part in re.findall(r'%\([^\)]+\)s', f):
+                    fmt_key = part[2:-2]
+                    if fmt_key not in repl:
+                        fmt_type, key = fmt_key.split(':')
+                        try:
+                            repl['%({}:{})s'.format(fmt_type, key)] = \
+                                self.param_formatters.get(fmt_type)(
+                                    self.sql,
+                                    params.get(key, None))
+                        except:
+                            pass
+                if any(repl.values()):
+                    for k, v in repl.items():
+                        f = f.replace(k, v)
+                yield f
+
+        if self.format:
+            return ', '.join(helper())
+
+
+@_ChangeTypeCode.formatter('string')
+@_ChangeTypeCode.formatter('date')
+@_ChangeTypeCode.formatter('timestamp')
+def format_cl_string(co, s):
+    return text(s)
+
+
+@_ChangeTypeCode.formatter('entity')
+def format_cl_entity(co, e):
+    with context.entity.entity(e) as ent:
+        try:
+            ret = ent.get_subclassed_object()
+        except ValueError:
+            ret = ent
+        return text(ret)
+
+
+@_ChangeTypeCode.formatter('homedir')
+def format_cl_homedir(co, e):
+    return 'homedir_id:{}'.format(e)
+
+
+@_ChangeTypeCode.formatter('disk')
+def format_cl_disk(co, d):
+    disk = Factory.get('Disk')(co._db)
+    try:
+        disk.find(d)
+        return disk.path
+    except Errors.NotFoundError:
+        return 'deleted_disk:{}'.format(d)
+
+
+def _get_code(get, code, fallback=False):
+    def f(get):
+        try:
+            return 1, text(get(code))
+        except Errors.NotFoundError:
+            if fallback:
+                return 2, fallback
+            else:
+                return 2, text(code)
+    if not isinstance(get, (tuple, list)):
+        get = [get]
+    return text(sorted(map(f, get))[0][1])
+
+
+@_ChangeTypeCode.formatter('spread_code')
+def format_cl_spread(co, code):
+    return _get_code(co.Spread, code)
+
+
+@_ChangeTypeCode.formatter('ou')
+def format_cl_ou(co, val):
+    with context.entity.ou(val) as ou:
+        return text(ou)
+
+
+@_ChangeTypeCode.formatter('affiliation')
+def format_cl_aff(co, val):
+    return _get_code(co.PersonAffiliation, val)
+
+
+@_ChangeTypeCode.formatter('int')
+def format_cl_int(co, val):
+    return text(val)
+
+
+@_ChangeTypeCode.formatter('bool')
+def format_cl_bool(co, val):
+    if val == 'F':
+        return text(False)
+    return text(val)
+
+
+@_ChangeTypeCode.formatter('home_status')
+def format_cl_home_status(co, val):
+    return _get_code(co.AccountHomeStatus, val)
+
+
+@_ChangeTypeCode.formatter('source_system')
+def format_cl_source(co, val):
+    return _get_code(co.AuthoritativeSystem, val)
+
+
+@_ChangeTypeCode.formatter('name_variant')
+def format_cl_name_variant(co, val):
+    return _get_code((co.PersonName, co.EntityNameCode), val)
+
+
+@_ChangeTypeCode.formatter('value_domain')
+def format_cl_value_domain(co, val):
+    return _get_code(co.ValueDomain, val)
+
+
+@_ChangeTypeCode.formatter('extid')
+def format_cl_external_id(co, val):
+    return _get_code(co.EntityExternalId, val)
+
+
+@_ChangeTypeCode.formatter('quarantine_type')
+def format_cl_quarantine_type(co, val):
+    return _get_code(co.Quarantine, val)
+
+
+@_ChangeTypeCode.formatter('id_type')
+def format_cl_id_type(co, val):
+    return _get_code(co.ChangeType, val)
+
 
 class ConstantsBase(DatabaseAccessor):
     def __iterate_constants(self, const_type=None):
@@ -1109,9 +1280,8 @@ class ConstantsBase(DatabaseAccessor):
 
         clist = list()
         for const_obj in self.__iterate_constants(wanted_class):
-            if str(const_obj).startswith(prefix_match):
+            if text(const_obj).startswith(prefix_match):
                 clist.append(const_obj)
-
         return clist
 
     def cache_constants(self):
@@ -1158,14 +1328,18 @@ class ConstantsBase(DatabaseAccessor):
                     human_repr = human_repr.decode('UTF-8')
                 except UnicodeDecodeError:
                     human_repr = human_repr.decode('latin-1')
-            # ok, that failed, so assume this is a constant name ...
-            if hasattr(self, human_repr):
-                obj = getattr(self, human_repr)
+            # ok, that failed, so assume this is a constant attribute name ...
+            try:
+                if hasattr(self, human_repr):
+                    obj = getattr(self, human_repr)
+            except UnicodeError:
+                # PY2 does not like non-ascii attribute names
+                pass
             # ok, that failed too, we can only compare stringified version of
             # all proper constants with the parameter...
             if obj is None:
                 for const_obj in self.__iterate_constants(const_type):
-                    if str(const_obj) == human_repr:
+                    if text(const_obj) == human_repr:
                         obj = const_obj
             # assume it's a textual representation of the code int...
             if obj is None and human_repr.isdigit():
@@ -1689,7 +1863,7 @@ class CLConstants(Constants):
     guest_create = _ChangeTypeCode(
         'guest', 'create', 'created guest %(dest)s',
         ('mobile=%(string:mobile)s, name=%(string:name)s, '
-         'owner_id=%(string:owner)s',))
+         'owner_id=%(string:owner)s', ))
 
 
 class ExampleConstants(Constants):

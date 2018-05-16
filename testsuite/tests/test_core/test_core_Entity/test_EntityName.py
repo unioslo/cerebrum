@@ -56,14 +56,14 @@ def test_add_name(entity, domain_foo):
 
 
 def test_add_name_only_one_domain(entity, domain_foo):
-    from Cerebrum.Database import DatabaseError
+    from Cerebrum.database import DatabaseError
     entity.add_entity_name(domain_foo, 'foo')
     with pytest.raises(DatabaseError):
         entity.add_entity_name(domain_foo, 'foo')
 
 
 def test_add_name_unique(database, Entity, entity_type, domain_foo):
-    from Cerebrum.Database import DatabaseError
+    from Cerebrum.database import DatabaseError
     obj = list()
     for n in range(2):
         o = Entity(database)

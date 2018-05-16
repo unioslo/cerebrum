@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2003-2016 University of Oslo, Norway
 #
@@ -30,11 +30,13 @@ import sys
 import time
 import socket
 import ssl
+from contextlib import closing
 
 import cereconf
 
 from Cerebrum import Utils
 from Cerebrum import Errors
+from Cerebrum.utils import json
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 
@@ -44,10 +46,10 @@ from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 
 logger = Utils.Factory.get_logger("bofhd_req")
-db = Utils.Factory.get(b'Database')()
+db = Utils.Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')
-cl_const = Utils.Factory.get(b'CLConstants')(db)
-const = Utils.Factory.get(b'Constants')(db)
+cl_const = Utils.Factory.get('CLConstants')(db)
+const = Utils.Factory.get('Constants')(db)
 
 max_requests = 999999
 ou_perspective = None
@@ -55,8 +57,6 @@ ou_perspective = None
 SSH_CMD = "/usr/bin/ssh"
 SUDO_CMD = "sudo"
 SSH_CEREBELLUM = [SSH_CMD, "cerebrum@cerebellum"]
-
-ldapconns = None
 
 DEBUG = False
 EXIT_SUCCESS = 0
@@ -67,10 +67,6 @@ EXIT_SUCCESS = 0
 # something else.  The proper solution is to change the databasetable
 # and/or letting state_data be pickled.
 default_spread = const.spread_uio_nis_user
-
-
-class RequestLocked(Exception):
-    pass
 
 
 class RequestLockHandler(object):
@@ -87,11 +83,11 @@ class RequestLockHandler(object):
 
         """
         if self.lockfd is not None:
-            self.release()
+            self.close()
 
         self.reqid = reqid
         try:
-            lockfile = file(self.lockdir % reqid, "w")
+            lockfile = file(self.lockdir % reqid, "wb")
         except IOError, e:
             logger.error("Checking lock for %d failed: %s", reqid, e)
             return False
@@ -106,7 +102,7 @@ class RequestLockHandler(object):
         self.lockfd = lockfile
         return True
 
-    def release(self):
+    def close(self):
         """Release and clean up lock."""
         if self.lockfd is not None:
             fcntl.flock(self.lockfd, fcntl.LOCK_UN)
@@ -118,34 +114,6 @@ class RequestLockHandler(object):
             self.lockfd = None
 
 
-class CyrusConnectError(Exception):
-    pass
-
-
-def email_delivery_stopped(user):
-    global ldapconns
-    import ldap
-    import ldap.filter
-    import ldap.ldapobject
-    if ldapconns is None:
-        ldapconns = [ldap.ldapobject.ReconnectLDAPObject("ldap://%s/" % server)
-                     for server in cereconf.LDAP_SERVERS]
-    userfilter = ("(&(target=%s)(mailPause=TRUE))" %
-                  ldap.filter.escape_filter_chars(user))
-    for conn in ldapconns:
-        try:
-            # FIXME: cereconf.LDAP_MAIL['dn'] has a bogus value, so we
-            # must hardcode the DN.
-            res = conn.search_s("cn=targets,cn=mail,dc=uio,dc=no",
-                                ldap.SCOPE_ONELEVEL, userfilter, ["1.1"])
-            if len(res) != 1:
-                return False
-        except ldap.LDAPError, e:
-            logger.error("LDAP search failed: %s", e)
-            return False
-    return True
-
-
 def get_email_server(account_id, local_db=db):
     """Return Host object for account's mail server."""
     et = Email.EmailTarget(local_db)
@@ -155,38 +123,8 @@ def get_email_server(account_id, local_db=db):
     return server
 
 
-def get_home(acc, spread=None):
-    if not spread:
-        spread = default_spread
-    try:
-        return acc.get_homepath(spread)
-    except Errors.NotFoundError:
-        return None
-
-
-def add_forward(user_id, addr):
-    ef = Email.EmailForward(db)
-    ef.find_by_target_entity(user_id)
-    # clean up input a little
-    if addr.startswith('\\'):
-        addr = addr[1:]
-    addr = addr.strip()
-
-    if addr.startswith('|') or addr.startswith('"|'):
-        logger.warn("forward to pipe ignored: %s", addr)
-        return
-    elif not addr.count('@'):
-        try:
-            acc = get_account(name=addr)
-        except Errors.NotFoundError:
-            logger.warn("forward to unknown username: %s", addr)
-            return
-        addr = acc.get_primary_mailaddress()
-    for r in ef.get_forward():
-        if r['forward_to'] == addr:
-            return
-    ef.add_forward(addr)
-    ef.write_db()
+class CyrusConnectError(Exception):
+    pass
 
 
 def connect_cyrus(host=None, username=None, as_admin=True):
@@ -208,23 +146,13 @@ def connect_cyrus(host=None, username=None, as_admin=True):
         imapconn = Utils.CerebrumIMAP4_SSL(
             host=host.name,
             ssl_version=ssl.PROTOCOL_TLSv1)
-    except socket.gaierror, e:
+    except socket.gaierror as e:
         raise CyrusConnectError("%s@%s: %s" % (username, host.name, e))
     try:
         imapconn.authenticate('PLAIN', auth_plain_cb)
-    except (imapconn.error, socket.error), e:
+    except (imapconn.error, socket.error) as e:
         raise CyrusConnectError("%s@%s: %s" % (username, host.name, e))
     return imapconn
-
-
-def dependency_pending(dep_id, local_db=db, local_co=const):
-    if not dep_id:
-        return False
-    br = BofhdRequests(local_db, local_co)
-    for dr in br.get_requests(request_id=dep_id):
-        logger.debug("waiting for request %d" % int(dep_id))
-        return True
-    return False
 
 
 def process_requests(types):
@@ -252,38 +180,37 @@ def process_requests(types):
     and how long to delay the request (in minutes) if the function returns
     False.
     """
-    reqlock = RequestLockHandler()
-    br = BofhdRequests(db, const)
-    for t in types:
-        if t == 'move' and is_ok_batch_time(time.strftime("%H:%M")):
-            # convert move_student into move_user requests
-            process_move_student_requests()
-        for op, process, delay in operations[t]:
-            set_operator()
-            start_time = time.time()
-            for r in br.get_requests(operation=op, only_runnable=True):
-                reqid = r['request_id']
-                logger.debug("Req: %s %d at %s, state %r",
-                             op, reqid, r['run_at'], r['state_data'])
-                if time.time() - start_time > 30 * 60:
-                    break
-                if r['run_at'] > mx.DateTime.now():
-                    continue
-                if not is_valid_request(reqid):
-                    continue
-                if reqlock.grab(reqid):
-                    if max_requests <= 0:
+    with closing(RequestLockHandler()) as reqlock:
+        br = BofhdRequests(db, const)
+        for t in types:
+            if t == 'move' and is_ok_batch_time(time.strftime("%H:%M")):
+                # convert move_student into move_user requests
+                process_move_student_requests()
+            for op, process, delay in operations[t]:
+                set_operator()
+                start_time = time.time()
+                for r in br.get_requests(operation=op, only_runnable=True):
+                    reqid = r['request_id']
+                    logger.debug("Req: %s %d at %s, state %r",
+                                 op, reqid, r['run_at'], r['state_data'])
+                    if time.time() - start_time > 30 * 60:
                         break
-                    max_requests -= 1
-                    if process(r):
-                        br.delete_request(request_id=reqid)
-                        db.commit()
-                    else:
-                        db.rollback()
-                        if delay:
-                            br.delay_request(reqid, minutes=delay)
+                    if r['run_at'] > mx.DateTime.now():
+                        continue
+                    if not is_valid_request(reqid):
+                        continue
+                    if reqlock.grab(reqid):
+                        if max_requests <= 0:
+                            break
+                        max_requests -= 1
+                        if process(r):
+                            br.delete_request(request_id=reqid)
                             db.commit()
-    reqlock.release()
+                        else:
+                            db.rollback()
+                            if delay:
+                                br.delay_request(reqid, minutes=delay)
+                                db.commit()
 
 
 def proc_email_create(r):
@@ -446,15 +373,25 @@ def proc_sympa_create(request):
     try:
         listname = get_address(request["entity_id"])
     except Errors.NotFoundError:
-        logger.warn("Sympa list address id:%s is deleted! No need to create",
+        logger.info("Sympa list address id:%s is deleted! No need to create",
                     request["entity_id"])
         return True
 
     try:
-        state = pickle.loads(str(request["state_data"]))
-    except:
-        logger.exception("Corrupt request state for sympa list=%s: %s",
-                         listname, request["state_data"])
+        state = json.loads(request["state_data"])
+    except ValueError:
+        state = None
+
+    # Remove this when there's no chance of pickled data
+    if state is None:
+        try:
+            state = pickle.loads(request["state_data"])
+        except Exception:
+            pass
+
+    if state is None:
+        logger.error("Cannot parse request state for sympa list=%s: %s",
+                     listname, request["state_data"])
         return True
 
     try:
@@ -484,10 +421,20 @@ def proc_sympa_remove(request):
     """
 
     try:
-        state = pickle.loads(str(request["state_data"]))
-    except:
-        logger.exception("Corrupt request state for sympa request %s: %s",
-                         request["request_id"], request["state_data"])
+        state = json.loads(request["state_data"])
+    except ValueError:
+        state = None
+
+    # Remove this when there's no chance of pickled data
+    if state is None:
+        try:
+            state = pickle.loads(request["state_data"])
+        except Exception:
+            pass
+
+    if state is None:
+        logger.error("Cannot parse request state for sympa request %s: %s",
+                     request["request_id"], request["state_data"])
         return True
 
     try:
@@ -524,9 +471,9 @@ def is_ok_batch_time(now):
 
 def proc_move_user(r):
     try:
-        account, uname, old_host, old_disk = \
-                 get_account_and_home(r['entity_id'], type='PosixUser',
-                                      spread=r['state_data'])
+        account, uname, old_host, old_disk = get_account_and_home(
+            r['entity_id'], type='PosixUser',
+            spread=r['state_data'])
         new_host, new_disk = get_disk(r['destination_id'])
     except Errors.NotFoundError:
         logger.error("move_request: user %i not found", r['entity_id'])
@@ -570,7 +517,7 @@ def process_move_student_requests():
                                  emne_info_file=emne_info_file,
                                  ou_perspective=ou_perspective)
 
-    # Hent ut personens fødselsnummer + account_id
+    # Hent ut personens fodselsnummer + account_id
     fnr2move_student = {}
     account = Utils.Factory.get('Account')(db)
     person = Utils.Factory.get('Person')(db)

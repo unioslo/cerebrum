@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2016 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -53,6 +53,7 @@ Currently, an Account-object is passed to add_history, and the `acocunt_name'
 and `entity_id' attributes are used in the password history hash.
 
 """
+from __future__ import unicode_literals
 
 import hashlib
 import base64
@@ -101,7 +102,8 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
         super(PasswordHistoryMixin, self).clear()
 
     def _bruteforce_check_password_history(self, password):
-        """ Check if entity had a similar password earlier.
+        """
+        Check if entity had a similar password earlier.
 
         :param str password: The plaintext password.
 
@@ -162,10 +164,10 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
 
 
 class PasswordHistory(DatabaseAccessor):
-    """PasswordHistory contains an API for accessing password history. """
+    """PasswordHistory contains an API for accessing password history."""
 
     def encode_for_history(self, name, password):
-        m = hashlib.md5("%s%s" % (name, password))
+        m = hashlib.md5(name.encode('utf-8') + password.encode('utf-8'))
         return base64.encodestring(m.digest())[:22]
 
     def add_history(self, account, password, _csum=None, _when=None):

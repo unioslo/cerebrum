@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2013-2017 University of Oslo, Norway
+# Copyright 2013-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,21 +35,23 @@ superusers.
 
 Tags that are important to us:
 
- - respondentNationalIdNumber: The FNR for the respondent. We must just trust that
-   this number is authenticated through ID-porten, as long as we get the JSON
-   files from TSD's closed environment.
+ - respondentNationalIdNumber: The FNR for the respondent.
+   We must just trust that this number is authenticated through ID-porten,
+   as long as we get the JSON files from TSD's closed environment.
 
  - questionId: An ID for the given answer that is manually set by the
    administrators of the survey. This is used to map answers into attributes in
    Cerebrum.
 
- - unfilteredTextAnswer: Used for questions that are just simple textfields. No filtering
-   is done in Nettskjema, so we need to do all of that in here. Other question
-   types have different tags that is used instead.
+ - unfilteredTextAnswer: Used for questions that are just simple textfields.
+   No filtering is done in Nettskjema, so we need to do all of that in here.
+   Other question types have different tags that is used instead.
 
- - answerOptions: Used for questions where it is needed to select one alternative.
+ - answerOptions: Used for questions where it is needed to select
+   one alternative.
    The contents is the list of one element -- the ID of the answers.
 """
+from __future__ import unicode_literals
 
 import functools
 import getopt
@@ -61,6 +63,8 @@ import sys
 import time
 
 from os.path import join as pjoin
+
+import six
 
 from mx import DateTime
 
@@ -74,7 +78,7 @@ from Cerebrum.modules.tsd import Gateway
 from Cerebrum.modules.username_generator.generator import UsernameGenerator
 
 logger = Factory.get_logger('cronjob')
-db = Factory.get('Database')(client_encoding = 'utf-8')
+db = Factory.get('Database')(client_encoding='utf-8')
 co = Factory.get('Constants')(db)
 ou = Factory.get('OU')(db)
 pe = Factory.get('Person')(db)
@@ -86,15 +90,16 @@ ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
 db.cl_init(change_by=ac.entity_id)
 systemaccount_id = ac.entity_id
 
+
 def usage(exitcode=0):
-    print """
-    %(doc)s 
-    
+    print("""
+    %(doc)s
+
     Usage: %(file)s FILE_OR_DIR [FILE_OR_DIR...]
 
-    Where FILE_OR_DIR is a specific JSON file to import, or a directory where all
-    the JSON files should be imported from. You could specify several directories
-    and/or files.
+    Where FILE_OR_DIR is a specific JSON file to import, or a directory where
+    all the JSON files should be imported from. You could specify several
+    directories and/or files.
 
     --archive DIR       A directory to move successfully processed files. The
                         archived files will get the format:
@@ -111,16 +116,17 @@ def usage(exitcode=0):
     -h --help           Show this and quit.
 
     """ % {'doc': __doc__,
-           'file': os.path.basename(sys.argv[0])}
+           'file': os.path.basename(sys.argv[0])})
     sys.exit(exitcode)
 
-def archive_file(file, dryrun, directory):
+
+def archive_file(afile, dryrun, directory):
     """Archive a file by moving it to a archive directory.
 
     The given file should be successfully processed before archiving it.
 
-    @type file: string
-    @param file: The file to archive.
+    @type afile: string
+    @param afile: The file to archive.
 
     @type dryrun: bool
     @param dryrun: If the archival should actually happen or not.
@@ -130,11 +136,12 @@ def archive_file(file, dryrun, directory):
 
     @rtype: bool
     @return: If the file got successfully moved or not.
-
     """
-    def getfilename(count = 0):
-        return '%s/%s-%s-%s.json' % (directory, time.strftime('%Y%m%d'),
-                                    os.path.basename(file), count)
+    def getfilename(count=0):
+        return '%s/%s-%s-%s.json' % (directory,
+                                     time.strftime('%Y%m%d'),
+                                     os.path.basename(afile),
+                                     count)
     count = 0
     new_file = getfilename(count)
     while os.path.exists(new_file):
@@ -143,11 +150,13 @@ def archive_file(file, dryrun, directory):
     logger.info("Archiving file to: %s", new_file)
     if dryrun:
         return True
-    return shutil.move(file, new_file)
+    return shutil.move(afile, new_file)
+
 
 class InvalidFileError(Exception):
     """Exception for invalid files, e.g. it can't be parsed."""
     pass
+
 
 def process_files(locations, dryrun, archive=None):
     """Do the process thing."""
@@ -160,13 +169,13 @@ def process_files(locations, dryrun, archive=None):
             files.add(location)
         else:
             logger.warn("Ignoring unknown path: %s", location)
-    
+
     # Process the files:
-    # TODO: Might want to sort in a numeric fashion, depending on the file names
-    # given from Nettskjema.
-    for file in sorted(files):
+    # TODO: Might want to sort in a numeric fashion, depending on the file
+    # names given from Nettskjema.
+    for afile in sorted(files):
         try:
-            if process_file(file, dryrun):
+            if process_file(afile, dryrun):
                 if dryrun:
                     db.rollback()
                     logger.info("Dryrun, rolled back changes")
@@ -174,23 +183,22 @@ def process_files(locations, dryrun, archive=None):
                     db.commit()
                     logger.info("Commited changes")
                 if archive:
-                    archive_file(file, dryrun, archive)
+                    archive_file(afile, dryrun, archive)
         except BadInputError, e:
-            logger.warn("Bad input in file %s: %s", file, e)
+            logger.warn("Bad input in file %s: %s", afile, e)
             db.rollback()
         except InvalidFileError, e:
-            logger.warn("Problems with file %s: %s", file, e)
+            logger.warn("Problems with file %s: %s", afile, e)
             db.rollback()
         except Errors.CerebrumError, e:
             logger.exception(e)
             db.rollback()
-        #except Errors.CerebrumError, e:
-        #    logger.warn("Failed processing %s: %s", location, e)
-        #    db.rollback()
+
 
 class BadInputError(Exception):
     """Exception for invalid input."""
     pass
+
 
 class InputControl(object):
     """Class for validating and filtering the input.
@@ -203,13 +211,12 @@ class InputControl(object):
     All the data given from the JSON forms must not be trusted, as it could be
     given by anyone with an FNR. The only data we could trust, is the FNR
     itself, as that is authenticated by ID-porten.
-
     """
     def is_projectid(self, name):
         """Check that a given projectname validates."""
         try:
             return ou._validate_project_name(name)
-        except Errors.CerebrumError, e:
+        except Errors.CerebrumError as e:
             raise BadInputError(e)
 
     def is_valid_date(self, date):
@@ -254,17 +261,16 @@ class InputControl(object):
         """Check if input is a valid, Norwegian fnr."""
         self.is_nonempty(fnr)
         # TODO: bogus fnr in test, add the check back when done testing:
-        #fnr = fodselsnr.personnr_ok(fnr)
+        # fnr = fodselsnr.personnr_ok(fnr)
         return True
 
     def in_options(self, options):
         """Check if the answer is in a valid range of options.
 
         Actually returns a lambda that could be used by the validator.
-
         """
-        def check(input):
-            ret = input in options
+        def check(oinput):
+            ret = oinput in options
             if not ret:
                 raise BadInputError('Invalid option, should be one of: %s'
                                     % ', '.join(options))
@@ -273,7 +279,7 @@ class InputControl(object):
 
     def str(self, data):
         """Return the data as a string, stripped."""
-        return str(data).strip()
+        return six.text_type(data).strip()
 
     def filter_date(self, date):
         """Parse a date and return a DateTime object."""
@@ -285,100 +291,103 @@ input = InputControl()
 # The map for changing the keys the new JSON schema has to the old ones,
 # which the script uses throughout the code.
 recode_keys = {
-        '131473': 'p_id',
-        '131472': 'p_name',
-        '184420': 'p_shortname',
-        '131480': 'project_start',
-        '159706': 'project_end',
-        '131478': 'rek_owner',
-        '131479': 'inst_address',
-        '131481': 'legal_notice',
-        '131489': 'p_persons',
-        '224781': 'vm_descr',
-        '131474': 'pa_name',
-        '131475': 'pa_phone',
-        '131476': 'pa_email',
-        '131477': 'pa_username',
-        '181189': 'p_id',
-        '181172': 'real_name',
-        '181139': 'username',
-        '226093': 'email',
-        '226094': 'phone',
-        '226486': 'smartphone',
-        '181198': 'p_id',
-        '181199': 'p_persons',
-        '226096': 'pa_phone',
-        '226095': 'pa_email'
+    '131473': 'p_id',
+    '131472': 'p_name',
+    '184420': 'p_shortname',
+    '131480': 'project_start',
+    '159706': 'project_end',
+    '131478': 'rek_owner',
+    '131479': 'inst_address',
+    '131481': 'legal_notice',
+    '131489': 'p_persons',
+    '224781': 'vm_descr',
+    '131474': 'pa_name',
+    '131475': 'pa_phone',
+    '131476': 'pa_email',
+    '131477': 'pa_username',
+    '181189': 'p_id',
+    '181172': 'real_name',
+    '181139': 'username',
+    '226093': 'email',
+    '226094': 'phone',
+    '226486': 'smartphone',
+    '181198': 'p_id',
+    '181199': 'p_persons',
+    '226096': 'pa_phone',
+    '226095': 'pa_email'
 }
 
-# The dict to map answer options numerical codes to the corresponding string values
+# The dict to map answer options numerical codes to the corresponding string
+# values
 answer_options_map = {
-        466097: 'linux_vm',
-        466096: 'win_vm',
-        466098: 'win_and_linux_vm',
-        469051: 'smartphone_yes',
-        469052: 'smartphone_no'
+    466097: 'linux_vm',
+    466096: 'win_vm',
+    466098: 'win_and_linux_vm',
+    469051: 'smartphone_yes',
+    469052: 'smartphone_no'
 }
 
 # Settings for input data
 #
-# This dict contains the settings for the input control and filter. The keys are
-# the tag names that should be found in the file.
+# This dict contains the settings for the input control and filter. The keys
+# are the tag names that should be found in the file.
 #
 # Tag found in submission, mapped to requirement func, filter func and name of
 # variable.
 input_values = {
-        # Project ID
-        'p_id': (input.is_projectid, input.str),
-        # Project full name
-        'p_name': (input.is_nonempty, input.str),
-        # Project short name
-        'p_shortname': (input.is_nonempty, input.str),
-        # Project start date
-        'project_start': (input.is_valid_date, input.filter_date),
-        # Project end date
-        'project_end': (input.is_valid_date, input.filter_date),
-        # Project owner's FNR
-        'rek_owner': (input.is_fnr, input.str),
-        # Project's institution's address
-        'inst_address': (input.is_nonempty, input.str),
-        # Project's REK approval number
-        'legal_notice': (input.is_nonempty, input.str),
-        # Project members, identified by FNR
-        'p_persons': (lambda x: True, input.str),
-        # PA's full name
-        'pa_name': (input.is_nonempty, input.str),
-        # PA's phone number
-        'pa_phone': (input.is_phone, input.str),
-        # PA's e-mail address
-        'pa_email': (input.is_email, input.str),
-        # PA's chosen username
-        'pa_username': (input.is_username, input.str),
-        # The respondent's chosen username. Not necessarily mandatory.
-        'username': (lambda x: True, input.str),
-        # The respondent's full name
-        'real_name': (input.is_nonempty, input.str),
-        # The respondent's e-mail address
-        'email': (input.is_email, input.str),
-        # The respondent's phone number
-        'phone': (input.is_phone, input.str),
-        # What resources that should be used in a given project:
-        'vm_descr': (input.in_options(cereconf.TSD_VM_TYPES), input.str),
-        # If the person should use OTP through smartphone or yubikey:
-        'smartphone': (lambda x: True, input.str),
-        }
+    # Project ID
+    'p_id': (input.is_projectid, input.str),
+    # Project full name
+    'p_name': (input.is_nonempty, input.str),
+    # Project short name
+    'p_shortname': (input.is_nonempty, input.str),
+    # Project start date
+    'project_start': (input.is_valid_date, input.filter_date),
+    # Project end date
+    'project_end': (input.is_valid_date, input.filter_date),
+    # Project owner's FNR
+    'rek_owner': (input.is_fnr, input.str),
+    # Project's institution's address
+    'inst_address': (input.is_nonempty, input.str),
+    # Project's REK approval number
+    'legal_notice': (input.is_nonempty, input.str),
+    # Project members, identified by FNR
+    'p_persons': (lambda x: True, input.str),
+    # PA's full name
+    'pa_name': (input.is_nonempty, input.str),
+    # PA's phone number
+    'pa_phone': (input.is_phone, input.str),
+    # PA's e-mail address
+    'pa_email': (input.is_email, input.str),
+    # PA's chosen username
+    'pa_username': (input.is_username, input.str),
+    # The respondent's chosen username. Not necessarily mandatory.
+    'username': (lambda x: True, input.str),
+    # The respondent's full name
+    'real_name': (input.is_nonempty, input.str),
+    # The respondent's e-mail address
+    'email': (input.is_email, input.str),
+    # The respondent's phone number
+    'phone': (input.is_phone, input.str),
+    # What resources that should be used in a given project:
+    'vm_descr': (input.in_options(cereconf.TSD_VM_TYPES), input.str),
+    # If the person should use OTP through smartphone or yubikey:
+    'smartphone': (lambda x: True, input.str),
+}
+
 
 # A list of all the required input values for each defined survey type. This is
 # used to identify the survey type.
 survey_types = {
-        'new_project': ('p_id', 'p_name', 'p_shortname', 'project_start',
-                        'project_end', 'rek_owner', 'inst_address',
-                        'legal_notice', 'p_persons', 'pa_name', 'pa_phone',
-                        'pa_email', 'pa_username', 'vm_descr'),
-        'project_access': ('p_id', 'real_name', 'username', 'email', 'phone',
-                           'smartphone',),
-        'approve_persons': ('p_id', 'p_persons'),
-        }
+    'new_project': ('p_id', 'p_name', 'p_shortname', 'project_start',
+                    'project_end', 'rek_owner', 'inst_address',
+                    'legal_notice', 'p_persons', 'pa_name', 'pa_phone',
+                    'pa_email', 'pa_username', 'vm_descr'),
+    'project_access': ('p_id', 'real_name', 'username', 'email', 'phone',
+                       'smartphone',),
+    'approve_persons': ('p_id', 'p_persons'),
+}
+
 
 def _json2answersdict(json_data):
     """Parse the JSON and return a dict with all the answers.
@@ -393,23 +402,23 @@ def _json2answersdict(json_data):
     @rtype: dict
     @return: A mapping of the answers. Keys are the id of the answer,
         and the values are the answers, most often as strings.
-
     """
     ret = dict()
     answers = json_data['answersAsMap']
-    
+
     if answers is None:
         raise InvalidFileError('Missing entry "answersAsMap"')
     for id, ans in answers.items():
         if id not in recode_keys:
             # Ignore undefined questions
             continue
-        # Answers could either be put in a unfilteredTextAnswer element, which is then a
-        # simple string or integer, or it could be an answerOptions array.
+        # Answers could either be put in a unfilteredTextAnswer element,
+        # which is then a simple string or integer,
+        # or it could be an answerOptions array.
         # Note that both elements are always present, though both may be empty.
         answer = None
         if ans['answerOptions']:
-            # Cumbersome addressing. 'answerOptions' is a list, containing 
+            # Cumbersome addressing. 'answerOptions' is a list, containing
             # only one dict element
             answer_option = ans['answerOptions'][0]['answerOptionId']
             if answer_option not in answer_options_map:
@@ -420,7 +429,7 @@ def _json2answersdict(json_data):
                 answer = answer_options_map[answer_option]
         else:
             answer = ans['unfilteredTextAnswer']
-        ret[recode_keys[id]] = answer.encode('utf-8')
+        ret[recode_keys[id]] = answer
     return ret
 
 
@@ -429,15 +438,15 @@ def json2answers(json_data):
 
     The answers are processed through the input control and filter settings in
     L{input_values}.
-    
+
     Since the JSON does not have an identifier of what survey it is about, we
     need to guess it by finding the L{survey_type} that has all its questions
     answered in the JSON. The IDs are used for this.
 
     Note that you *could* get a file that matches more than one survey type,
-    which is an error. You then either have to fix the config of L{input_values}
-    and L{survey_types}, or you need to change the defined IDs in the
-    form at Nettskjema.
+    which is an error. You then either have to fix the config of
+    L{input_values} and L{survey_types}, or you need to change the defined IDs
+    in the form at Nettskjema.
 
     @type json_data: dict
     @param json_data:
@@ -447,7 +456,6 @@ def json2answers(json_data):
     @return: The first element contains the id of the submission type, defined
         in L{survey_types}, followed by a dict with the answers. The keys are
         from L{input_values} and the values are the filtered answers.
-
     """
     answers = _json2answersdict(json_data)
     logger.debug2("Answers: %s", answers)
@@ -462,11 +470,12 @@ def json2answers(json_data):
     if len(stypes) > 1:
         # Find the type with the most correct answers:
         stypes = sorted(stypes, reverse=True, key=lambda x:
-                                                    len(survey_types[x]))
+                        len(survey_types[x]))
         # Check if it's a tie
         if len(survey_types[stypes[0]]) == len(survey_types[stypes[1]]):
-            raise InvalidFileError('Could not uniquely identify submission '
-                    'type: %s, keys: %s' % ( stypes[:2], answers.keys()))
+            raise InvalidFileError(
+                'Could not uniquely identify submission '
+                'type: %s, keys: %s' % (stypes[:2], answers.keys()))
     stype = stypes[0]
     # Do the input control and filtering:
     ret = dict()
@@ -476,26 +485,31 @@ def json2answers(json_data):
         try:
             control_ans = control(answer)
         except BadInputError, e:
-            raise BadInputError('Answer "%s" invalid: %s. Answer: %s' % (extid, e,
-                                                                         answer))
+            raise BadInputError('Answer "%s" invalid: %s. Answer: %s' % (
+                extid,
+                e,
+                answer))
         if not control_ans:
             raise BadInputError('Answer "%s" invalid: %s' % (extid, answer))
         ret[extid] = filter(answer)
     return stype, ret
 
-def process_file(file, dryrun):
-    logger.info("Processing file: %s", file)
 
-    with open(file, 'r') as json_file:
+def process_file(afile, dryrun):
+    logger.info("Processing file: %s", afile)
+
+    with open(afile, 'r') as json_file:
         json_data = json.load(json_file)
 
     stype, answers = json2answers(json_data)
     try:
-        fnr = json_data['respondentNationalIdNumber'].encode('ascii','replace')
+        fnr = json_data['respondentNationalIdNumber']
     except AttributeError:
         raise Exception("Bad file, missing mandatory FNR tag from ID-porten")
-    logger.debug('Submission, type "%s", respondent: "%s", answers: %d', stype,
-                 fnr, len(answers))
+    logger.debug('Submission, type "%s", respondent: "%s", answers: %d',
+                 stype,
+                 fnr,
+                 len(answers))
     for k in sorted(answers):
         logger.debug("  %s: %s", k, answers[k])
 
@@ -505,6 +519,7 @@ def process_file(file, dryrun):
     logger.debug("Submission processed: %s" % ret)
     return ret
 
+
 class Processing(object):
     """Handles the processing of the parsed and validated JSON data."""
 
@@ -512,9 +527,8 @@ class Processing(object):
         """Set up the processing.
 
         @type fnr: string
-        @param fnr: The fødselsnummer for the person that sent in the survey and
-            requested some changes in TSD.
-
+        @param fnr: The fødselsnummer for the person that sent in the survey
+                     and requested some changes in TSD.
         """
         self.fnr = fnr
 
@@ -529,11 +543,11 @@ class Processing(object):
 
         @type create_nonexisting: bool
         @param create_nonexisting: If the person is not found in Cerebrum,
-            should we create it? If False, you will instead get a NotFoundError.
+            should we create it?
+            If False, you will instead get a NotFoundError.
 
         @raise NotFoundError: If the person is not found and
             L{create_nonexisting} is False, so that we can't create the person.
-
         """
         if not fnr:
             fnr = self.fnr
@@ -548,7 +562,8 @@ class Processing(object):
             pe.clear()
             pe.populate(birth_date=None, gender=co.gender_unknown)
             pe.write_db()
-            pe.affect_external_id(co.system_nettskjema, co.externalid_fodselsnr)
+            pe.affect_external_id(co.system_nettskjema,
+                                  co.externalid_fodselsnr)
             pe.populate_external_id(source_system=co.system_nettskjema,
                                     id_type=co.externalid_fodselsnr,
                                     external_id=fnr)
@@ -560,7 +575,6 @@ class Processing(object):
 
         Update names, contact info and other available data. No project related
         data is added or modified.
-
         """
         # Full name
         for key in ('pa_name', 'real_name'):
@@ -569,7 +583,7 @@ class Processing(object):
                 pe.affect_names(co.system_nettskjema, co.name_full)
                 pe.populate_name(co.name_full, input[key])
                 pe.write_db()
-                # TODO: gateway.rename_user(project=?, username=?, realname=input[key])
+
         # Phone
         for key in ('pa_phone', 'phone'):
             if key in input:
@@ -591,7 +605,7 @@ class Processing(object):
             if key in input:
                 logger.debug("Updating otp-device: %s", input[key])
                 pe.populate_trait(co.trait_otp_device, date=DateTime.now(),
-                                  strval=str(input[key]))
+                                  strval=six.text_type(input[key]))
                 pe.write_db()
 
     def _create_ou(self, input):
@@ -627,18 +641,20 @@ class Processing(object):
         endtime = input['project_end']
         if endtime < DateTime.now():
             raise BadInputError("End date of project has passed: %s" % endtime)
-        ou.add_entity_quarantine(qtype=co.quarantine_project_end,
-                                 creator=systemaccount_id,
-                                 description='Initial requested lifetime for project',
-                                 start=endtime)
+        ou.add_entity_quarantine(
+            qtype=co.quarantine_project_end,
+            creator=systemaccount_id,
+            description='Initial requested lifetime for project',
+            start=endtime)
         ou.write_db()
         starttime = input['project_start']
         # We always set the start time quarantine, even if the start time has
         # passed. This is to let the administrators see the start time in bofh.
-        ou.add_entity_quarantine(qtype=co.quarantine_project_start,
-                                 creator=systemaccount_id,
-                                 description='Initial requested starttime for project',
-                                 start=DateTime.now() - 1000, end=starttime)
+        ou.add_entity_quarantine(
+            qtype=co.quarantine_project_start,
+            creator=systemaccount_id,
+            description='Initial requested starttime for project',
+            start=DateTime.now() - 1000, end=starttime)
         ou.write_db()
 
         ou.populate_trait(co.trait_project_institution, target_id=ou.entity_id,
@@ -656,7 +672,6 @@ class Processing(object):
 
     def _generate_username(self, pid, pe, ac):
         """Helper method for generating a project username for a given person.
-
         """
         fname = pe.get_name(co.system_cached, co.name_first)
         lname = pe.get_name(co.system_cached, co.name_last)
@@ -702,7 +717,6 @@ class Processing(object):
 
         @rtype: str
         @return: The chosen, available username.
-
         """
         pid = ou.get_project_id()
         ac = Factory.get('Account')(db)
@@ -715,53 +729,65 @@ class Processing(object):
                     return rname
             return self._generate_username(pid, pe, ac)
         for row in other_acs:
-            logger.debug("Person %s has other accounts, ignoring requestedname",
-                         pe.entity_id)
+            logger.debug(
+                "Person %s has other accounts, ignoring requestedname",
+                pe.entity_id)
             # Strip out the project prefix and give it the new pid
             uname = ac.get_username_without_project(row['name'])
             new_name = '%s-%s' % (pid, uname)
             # TODO: If a person should be able to have more than one account in
-            # a project, we should also check if ac.owner_id == pe.entity_id and
-            # skip those without an exception.
+            # a project, we should also check if ac.owner_id == pe.entity_id
+            # and skip those without an exception.
             if ac.search(name=new_name):
-                raise Exception("Failed giving %s username: %s, already taken" %
-                                (pe.entity_id, new_name))
+                raise Exception(
+                    "Failed giving %s username: %s, already taken" % (
+                        pe.entity_id,
+                        new_name))
             return new_name
 
     def _create_account(self, pe, ou, requestedname):
         """Create an account for a given project.
 
         The person must already be affiliated with the project for the account
-        to be created. If the person only has a pending affiliation, the account
-        gets quarantined.
+        to be created. If the person only has a pending affiliation,
+        the account gets quarantined.
 
         If the project has been approved and is set up properly, the account
         could become a posix user. Otherwise, the account is only a regular
         account, e.g. without a DFG, as no such group is created before the
         project approval.
-
         """
         ou_is_approved = ou.is_approved()
         pid = ou.get_project_id()
         ac = Factory.get('Account')(db)
         # Not set usernames or invalid usernames gets ignored
         username = self._get_username(pe, ou, requestedname)
-        logger.info("Creating project user for person %s: %s", pe.entity_id,
+        logger.info("Creating project user for person %s: %s",
+                    pe.entity_id,
                     username)
         # Check if the project has been accepted, i.e. is active:
         if ou_is_approved:
             # The project is in quarantine, probably due to not accepted.
             # Should not start handing out posix data yet, then.
-            ac.populate(name=username, owner_type=pe.entity_type,
-                        owner_id=pe.entity_id, np_type=None,
-                        creator_id=systemaccount_id, expire_date=None)
+            ac.populate(name=username,
+                        owner_type=pe.entity_type,
+                        owner_id=pe.entity_id,
+                        np_type=None,
+                        creator_id=systemaccount_id,
+                        expire_date=None)
         else:
             # Project is active, creating posix user instead:
             ac = Factory.get('PosixUser')(db)
-            ac.populate(posix_uid=ac.get_free_uid(), gid_id=None, gecos=None,
-                        shell=co.posix_shell_bash, name=username,
-                        owner_type=pe.entity_type, owner_id=pe.entity_id,
-                        np_type=None, creator_id=systemaccount_id, expire_date=None)
+            ac.populate(posix_uid=ac.get_free_uid(),
+                        gid_id=None,
+                        gecos=None,
+                        shell=co.posix_shell_bash,
+                        name=username,
+                        owner_type=pe.entity_type,
+                        owner_id=pe.entity_id,
+                        np_type=None,
+                        creator_id=systemaccount_id,
+                        expire_date=None)
         ac.write_db()
 
         # Check if the person is already accepted and affiliated with the
@@ -769,19 +795,23 @@ class Processing(object):
         if pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
                                 affiliation=co.affiliation_project):
             # Approved account:
-            logger.debug("Account %s approved for project: %s", ac.account_name,
+            logger.debug("Account %s approved for project: %s",
+                         ac.account_name,
                          pid)
             ac.set_account_type(ou.entity_id, co.affiliation_project)
             realname = pe.get_name(co.system_cached, co.name_full)
             if ou_is_approved:
-                ac.add_entity_quarantine(qtype=co.quarantine_not_approved,
-                                         creator=systemaccount_id,
-                                         description='Project not yet approved',
-                                         start=DateTime.now())
+                ac.add_entity_quarantine(
+                    qtype=co.quarantine_not_approved,
+                    creator=systemaccount_id,
+                    description='Project not yet approved',
+                    start=DateTime.now())
             else:
                 try:
-                    gateway.create_user(uid=ac.posix_uid, pid=pid, 
-                                        username=username, realname=realname)
+                    gateway.create_user(uid=ac.posix_uid,
+                                        pid=pid,
+                                        username=username,
+                                        realname=realname)
                 except Gateway.GatewayException:
                     logger.info("User will arrive in GW at next fullsync")
         elif pe.list_affiliations(pe.entity_id, ou_id=ou.entity_id,
@@ -809,10 +839,8 @@ class Processing(object):
 
         Note that a person *could* have more than one account per project, even
         if that would not make much sense.
-
         """
         return ac.list_accounts_by_type(ou_id=ou.entity_id,
-                                        #affiliation=co.affiliation_pending,
                                         person_id=pe.entity_id)
 
     def new_project(self, input):
@@ -823,7 +851,6 @@ class Processing(object):
 
         @type input: dict
         @param input: The survey answers about the requested project.
-
         """
         pname = input['p_id']
         logger.info('New project: %s', pname)
@@ -852,12 +879,13 @@ class Processing(object):
             try:
                 pe2 = self._get_person(input['rek_owner'],
                                        create_nonexisting=False)
-                pe2.populate_affiliation(source_system=co.system_nettskjema,
-                                         ou_id=ou.entity_id,
-                                         affiliation=co.affiliation_project,
-                                         status=co.affiliation_status_project_owner)
-                # Note that no name or anything else is now set, so we wait with the
-                # account.
+                pe2.populate_affiliation(
+                    source_system=co.system_nettskjema,
+                    ou_id=ou.entity_id,
+                    affiliation=co.affiliation_project,
+                    status=co.affiliation_status_project_owner)
+                # Note that no name or anything else is now set, so we wait
+                # with the account.
                 pe2.write_db()
             except Errors.NotFoundError:
                 logger.warn("Project owner not found: %s", input['rek_owner'])
@@ -882,7 +910,7 @@ class Processing(object):
             logger.debug("Pre approvals: %s", ', '.join(pre_approve_list))
             ou.add_pre_approved_persons(pre_approve_list)
             ou.write_db()
-        # TODO: How should we signal that a new project is waiting for approval?
+        # TODO:How should we signal that a new project is waiting for approval?
         return True
 
     def project_access(self, input):
@@ -902,7 +930,6 @@ class Processing(object):
 
         @type input: dict
         @param input: The survey answers.
-
         """
         logger.debug('Asking for project access')
         # Update the requestee for the project:
@@ -912,11 +939,8 @@ class Processing(object):
         # Find the project:
         pid = input['p_id']
         ou.clear()
-        try:
-            ou.find_by_tsd_projectid(pid)
-        except Errors.NotFoundError: 
-            # Retry with lowercase, just in case:
-            ou.find_by_tsd_projectid(pid.lower())
+
+        ou.find_by_tsd_projectid(pid)
 
         # Check that the person is not already in the project:
         for row in pe.list_affiliations(person_id=pe.entity_id,
@@ -935,26 +959,29 @@ class Processing(object):
         if approved:
             logger.info("Adding member aff to project %s for %s", pid,
                         pe.entity_id)
-            pe.populate_affiliation(source_system=co.system_nettskjema,
-                    ou_id=int(ou.entity_id),
-                    affiliation=int(co.affiliation_project),
-                    status=co.affiliation_status_project_member)
+            pe.populate_affiliation(
+                source_system=co.system_nettskjema,
+                ou_id=int(ou.entity_id),
+                affiliation=int(co.affiliation_project),
+                status=co.affiliation_status_project_member)
             pe.write_db()
             # TODO: remove fnr from project's list of pre approved persons.
         else:
             logger.info("Adding pending aff to project %s for %s", pid,
                         pe.entity_id)
-            pe.populate_affiliation(source_system=co.system_nettskjema,
-                    ou_id=ou.entity_id, affiliation=co.affiliation_pending,
-                    status=co.affiliation_status_pending_project_member)
+            pe.populate_affiliation(
+                source_system=co.system_nettskjema,
+                ou_id=ou.entity_id, affiliation=co.affiliation_pending,
+                status=co.affiliation_status_pending_project_member)
             pe.write_db()
 
         # Check if the person already has an account:
         accounts = self._get_project_account(pe, ou)
         if accounts:
-            logger.info("Ignoring person %s, already has project accounts: id:%s",
-                        pe.entity_id,
-                        ', '.join(str(a['account_id']) for a in accounts))
+            logger.info(
+                "Ignoring person %s, already has project accounts: id:%s",
+                pe.entity_id,
+                ', '.join(six.text_type(a['account_id']) for a in accounts))
             return False
 
         ac = self._create_account(pe, ou, input['username'])
@@ -966,7 +993,6 @@ class Processing(object):
         Sending this through Nettskjema is needed as we have no web GUI inside
         TSD in the beginning, and project admins need a way to approve people
         for their projects.
-
         """
         # Find the project:
         pid = input['p_id']
@@ -978,14 +1004,16 @@ class Processing(object):
         pe = self._get_person()
 
         # The requestor must be owner or PA:
-        if not list(pe.list_affiliations(person_id=pe.entity_id,
-                        affiliation=co.affiliation_project,
-                        status=(co.affiliation_status_project_owner,
-                                co.affiliation_status_project_admin),
-                        ou_id=ou.entity_id)):
+        if not list(pe.list_affiliations(
+                person_id=pe.entity_id,
+                affiliation=co.affiliation_project,
+                status=(co.affiliation_status_project_owner,
+                        co.affiliation_status_project_admin),
+                ou_id=ou.entity_id)):
             # TODO: Delete the JSON file?
-            raise BadInputError("Person %s is not PA of project %s" %
-                                       (pe.entity_id, pid))
+            raise BadInputError("Person %s is not PA of project %s" % (
+                pe.entity_id,
+                pid))
 
         # Update contact info for PA:
         self._update_person(pe, input)
@@ -1004,31 +1032,37 @@ class Processing(object):
                 try:
                     pe2 = self._get_person(fnr1, create_nonexisting=False)
                 except Errors.NotFoundError:
-                    logger.info("Person %s not found, added to pre approve list",
-                                 fnr1)
+                    logger.info(
+                        "Person %s not found, added to pre approve list",
+                        fnr1)
                     pre_approvals.add(fnr1)
                     continue
                 # Affiliate person to project:
-                if not pe2.list_affiliations(person_id=pe2.entity_id,
-                                             ou_id=ou.entity_id,
-                                             affiliation=co.affiliation_project):
+                if not pe2.list_affiliations(
+                        person_id=pe2.entity_id,
+                        ou_id=ou.entity_id,
+                        affiliation=co.affiliation_project):
                     logger.info("Approve person %s for project: %s", fnr1, pid)
-                    pe2.populate_affiliation(source_system=co.system_nettskjema,
-                                         ou_id=ou.entity_id,
-                                         affiliation=co.affiliation_project,
-                                         status=co.affiliation_status_project_member)
-                # Remove pending aff, if set. Note that this also removes any other
-                # pending statuses, if we should create more of those in the future.
-                pe2.delete_affiliation(ou_id=ou.entity_id,
-                                       affiliation=co.affiliation_pending,
-                                       source=co.system_nettskjema)
+                    pe2.populate_affiliation(
+                        source_system=co.system_nettskjema,
+                        ou_id=ou.entity_id,
+                        affiliation=co.affiliation_project,
+                        status=co.affiliation_status_project_member)
+                # Remove pending aff, if set. Note that this also removes any
+                # other pending statuses,
+                # if we should create more of those in the future.
+                pe2.delete_affiliation(
+                    ou_id=ou.entity_id,
+                    affiliation=co.affiliation_pending,
+                    source=co.system_nettskjema)
                 pe2.write_db()
 
                 # Find the member's project account, if it exist:
                 accounts = self._get_project_account(pe2, ou)
                 if not accounts:
-                    logger.info("No project account for %s, added to approve list",
-                                 fnr1)
+                    logger.info(
+                        "No project account for %s, added to approve list",
+                        fnr1)
                     pre_approvals.add(fnr1)
                     continue
                 ac.clear()
@@ -1052,28 +1086,16 @@ class Processing(object):
                         pu.find(ac.entity_id)
                     except Errors.NotFoundError:
                         uid = pu.get_free_uid()
-                        pu.populate(uid, None, None, co.posix_shell_bash, parent=ac,
+                        pu.populate(uid,
+                                    None,
+                                    None,
+                                    co.posix_shell_bash,
+                                    parent=ac,
                                     creator_id=systemaccount_id)
-                        logger.debug("Promote POSIX, UID: %s", ac.entity_id, uid)
+                        logger.debug("Promote POSIX, UID: %s",
+                                     ac.entity_id,
+                                     uid)
                         pu.write_db()
-
-                # Stop if person already is PA or owner, can't have member-aff at
-                # the same time:
-                #if pe2.list_affiliations(person_id=pe2.entity_id,
-                #                         affiliation=co.affiliation_project,
-                #                         status=(co.affiliation_status_project_owner,
-                #                                 co.affiliation_status_project_admin),
-                #                         ou_id=ou.entity_id):
-                #    logger.debug("Person is already owner or PA: %s", fnr1)
-                #    continue
-                #pe2.populate_affiliation(source_system=co.system_nettskjema,
-                #                         ou_id=ou.entity_id,
-                #                         affiliation=co.affiliation_project,
-                #                         status=co.affiliation_status_project_member)
-                #pe2.write_db()
-                # TODO: The person will get an account when successfully registered
-                # with its name. This could have happened already, so might create
-                # it now already?
 
         # Store those not processed for later approval:
         if pre_approvals:
@@ -1083,13 +1105,15 @@ class Processing(object):
             ou.write_db()
         return True
 
+
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'hd',
-                                   ['help', 'dryrun',
-                                    'archive=',])
+        opts, args = getopt.getopt(
+            sys.argv[1:],
+            'hd',
+            ['help', 'dryrun', 'archive='])
     except getopt.GetoptError, e:
-        print e
+        print(e)
         usage(1)
 
     global dryrun

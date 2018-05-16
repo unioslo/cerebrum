@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,14 +18,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""This module contains a number of core utilities used everywhere in the
-tree.
 """
+This module contains a number of core utilities used everywhere in the tree.
+"""
+from __future__ import unicode_literals
 
 import cereconf
 import inspect
 import os
 import re
+import mx.DateTime
 import smtplib
 import ssl
 import imaplib
@@ -33,20 +35,20 @@ import sys
 import time
 import traceback
 import socket
-import urllib2
-import urllib
-import urlparse
 import random
 import collections
 import unicodedata
+import io
+
 from string import ascii_lowercase, digits
 from subprocess import Popen, PIPE
+
+import six
 
 from Cerebrum.UtilsHelper import Latin1
 
 
 class _NotSet(object):
-
     """This class shouldn't be referred to directly, import the
     singleton, 'NotSet', instead.  It should be used as the default
     value of keyword arguments which need to distinguish between the
@@ -61,6 +63,7 @@ class _NotSet(object):
         return False
 
     __slots__ = ()
+
 
 NotSet = _NotSet()
 
@@ -95,144 +98,6 @@ def this_module():
             correct_mod = mod
     assert correct_mod is not None
     return correct_mod
-
-
-def sendmail(toaddr, fromaddr, subject, body, cc=None,
-             charset='utf-8', debug=False):
-    """Sends e-mail, mime-encoding the subject.  If debug is set,
-    message won't be send, and the encoded message will be
-    returned."""
-
-    from email.MIMEText import MIMEText
-    from email.Header import Header
-    from email.Utils import formatdate
-
-    msg = MIMEText(body, _charset=charset)
-    msg['Subject'] = Header(subject.strip(), charset)
-    msg['From'] = fromaddr.strip()
-    msg['To'] = toaddr.strip()
-    msg['Date'] = formatdate(localtime=True)
-    # recipients in smtp.sendmail should be a list of RFC 822
-    # to-address strings
-    toaddr = [addr.strip() for addr in toaddr.split(',')]
-    if cc:
-        toaddr.extend([addr.strip() for addr in cc.split(',')])
-        msg['Cc'] = cc.strip()
-    if debug or (hasattr(cereconf, 'EMAIL_DISABLED') and
-                 cereconf.EMAIL_DISABLED):
-        return msg.as_string()
-    smtp = smtplib.SMTP(cereconf.SMTP_HOST)
-    smtp.sendmail(fromaddr, toaddr, msg.as_string())
-    smtp.quit()
-
-
-def mail_template(recipient, template_file, sender=None, cc=None,
-                  substitute={}, charset='utf-8', debug=False):
-    """Read template from file, perform substitutions based on the
-    dict, and send e-mail to recipient.  The recipient and sender
-    e-mail address will be used as the defaults for the To and From
-    headers, and vice versa for sender.  These values are also made
-    available in the substitution dict as the keys 'RECIPIENT' and
-    'SENDER'.
-
-    When looking for replacements in the template text, it has to be
-    enclosed in ${}, ie. '${SENDER}', not just 'SENDER'.  The template
-    should contain at least a Subject header.  Make each header in the
-    template a single line, it will be folded when sent.  Note that
-    due to braindamage in Python's email module, only Subject and the
-    body will be automatically MIME encoded.  The lines in the
-    template should be terminated by LF, not CRLF.
-
-    """
-    from email.MIMEText import MIMEText
-    from email.Header import Header
-    from email.Utils import formatdate, getaddresses
-
-    if not template_file.startswith('/'):
-        template_file = cereconf.TEMPLATE_DIR + "/" + template_file
-    f = open(template_file)
-    message = "".join(f.readlines())
-    f.close()
-    substitute['RECIPIENT'] = recipient
-    if sender:
-        substitute['SENDER'] = sender
-    for key in substitute:
-        message = message.replace("${%s}" % key, substitute[key])
-
-    headers, body = message.split('\n\n', 1)
-    msg = MIMEText(body, _charset=charset)
-    # Date is always set, and shouldn't be in the template
-    msg['Date'] = formatdate(localtime=True)
-    preset_fields = {'from': sender,
-                     'to': recipient,
-                     'subject': '<none>'}
-    for header in headers.split('\n'):
-        field, value = map(str.strip, header.split(':', 1))
-        field = field.lower()
-        if field in preset_fields:
-            preset_fields[field] = value
-        else:
-            msg[field] = Header(value)
-    msg['From'] = Header(preset_fields['from'])
-    msg['To'] = Header(preset_fields['to'])
-    msg['Subject'] = Header(preset_fields['subject'], charset)
-    # recipients in smtp.sendmail should be a list of RFC 822
-    # to-address strings
-    to_addrs = [recipient]
-    if cc:
-        to_addrs.extend(cc)
-        msg['Cc'] = ', '.join(cc)
-
-    if debug:
-        return msg.as_string()
-
-    smtp = smtplib.SMTP(cereconf.SMTP_HOST)
-    smtp.sendmail(sender or getaddresses([preset_fields['from']])[0][1],
-                  to_addrs, msg.as_string())
-    smtp.quit()
-
-
-def separate_entries(rows, *predicates):
-    """Separate ``rows`` into (keep, reject) tuple based on ``predicates``.
-
-    The ``rows`` argument should be a sequence of db_row.py-generated
-    objects.  Each element in ``predicates`` should be a (key, value)
-    tuple, and is a formulation of a test expression.  The key must be
-    a valid attribute name of each row object.
-
-    The rows are separated according to these rules:
-    1. By default rows go to the keep list.
-    2. If a predicate's `value` is None, that predicate is ignored.
-    3. Compare each predicate's `value` with the attribute whose name
-       is `key` in each row.  Rows matching all predicates go to the
-       keep list, while the rest end up in the reject list.
-
-    """
-    keep = []
-    reject = []
-    for row in rows:
-        ok = 1
-        for key, value in predicates:
-            if value is None:
-                continue
-            ok = (row[key] == value)
-            if not ok:
-                break
-        if ok:
-            keep.append(row)
-        else:
-            reject.append(row)
-    return (keep, reject)
-
-
-def keep_entries(rows, *predicates):
-    """Return the 'keep' part of separate_entries() return value."""
-    return separate_entries(rows, *predicates)[0]
-
-
-def reject_entries(rows, *predicates):
-    """Return the 'reject' part of separate_entries() return value."""
-    return separate_entries(rows, *predicates)[1]
 
 
 # TODO: Deprecate when switching over to Python 3.x
@@ -271,26 +136,6 @@ def _mangle_name(classname, attr):
     return attr
 
 
-# TODO: Use Python standard library functions instead
-# TODO: Don't redefined the "dir" built-in
-# TODO: Add docstring
-def make_temp_file(dir="/tmp", only_name=0, ext="", prefix="cerebrum_tmp"):
-    name = "%s/%s.%s%s" % (dir, prefix, time.time(), ext)
-    if only_name:
-        return name
-    f = open(name, "w")
-    return f, name
-
-
-# TODO: Use Python standard library functions instead
-# TODO: Don't redefined the "dir" built-in
-# TODO: Add docstring
-def make_temp_dir(dir="/tmp", prefix="cerebrum_tmp"):
-    name = make_temp_file(dir=dir, only_name=1, ext="", prefix=prefix)
-    os.mkdir(name)
-    return name
-
-
 # For global caching
 _latin1 = Latin1()
 
@@ -299,7 +144,7 @@ latin1_to_iso646_60 = _latin1.to_iso646_60
 latin1_wash = _latin1.wash
 
 
-def read_password(user, system, host=None):
+def read_password(user, system, host=None, encoding=None):
     """Read the password 'user' needs to authenticate with 'system'.
     It is stored as plain text in DB_AUTH_DIR.
 
@@ -319,14 +164,12 @@ def read_password(user, system, host=None):
     format_var = tuple(var)
     filename = os.path.join(cereconf.DB_AUTH_DIR,
                             format_str % format_var)
-    f = file(filename)
-    try:
+    mode = 'rb' if encoding is None else 'r'
+    with io.open(filename, mode, encoding=encoding) as f:
         # .rstrip() removes any trailing newline, if present.
         dbuser, dbpass = f.readline().rstrip('\n').split('\t', 1)
         assert dbuser == user
         return dbpass
-    finally:
-        f.close()
 
 
 def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[], shell=False):
@@ -406,12 +249,12 @@ def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[], shell=False):
     return status
 
 
-def filtercmd(cmd, input):
+def filtercmd(cmd, input_data):
     """Send input on stdin to a command and collect the output from stdout.
 
     Keyword arguments:
     cmd -- arg list, where the first element is the full path to the command
-    input -- data to be sent on stdin to the executable
+    input_data -- data to be sent on stdin to the executable
 
     Returns the stdout that is returned from the command. May throw an IOError.
 
@@ -423,7 +266,9 @@ def filtercmd(cmd, input):
     """
 
     p = Popen(cmd, stdin=PIPE, stdout=PIPE, close_fds=False)
-    p.stdin.write(input)
+    if isinstance(input_data, six.text_type):
+        input_data = input_data.encode('utf-8')
+    p.stdin.write(input_data)
     p.stdin.close()
 
     output = p.stdout.read()
@@ -470,13 +315,6 @@ def pgp_decrypt(message, keyid, passphrase):
     return filtercmd(cmd, message)
 
 
-def format_as_int(i):
-    """Get rid of PgNumeric while preserving NULL and unset values."""
-    if i is None or i is NotSet:
-        return i
-    return int(i)
-
-
 # TODO: Deprecate when switching over to Python 3.x
 def to_unicode(obj, encoding='utf-8'):
     """Decode obj to unicode if it is a str (basestring is either str or unicode)."""
@@ -491,46 +329,6 @@ def unicode2str(obj, encoding='utf-8'):
     if is_unicode(obj):
         return obj.encode(encoding)
     return obj
-
-
-# TODO: Rewrite when switching over to Python 3.x
-def shorten_name(name, max_length=30, method='initials', encoding='utf-8'):
-    """
-    Shorten a name by a given or default method if it's too long.
-    Possible methods are 'initials' and 'truncate'.
-
-    name is handled as unicode internally, and then decoded back if
-    neccessary before it is returned.
-    """
-    def get_initials(name):
-        tmp = name.split()
-        # Try making initials
-        if len(tmp) == 1:
-            return tmp[0] + "."
-        elif len(tmp) > 1:
-            return ". ".join([x[0] for x in tmp]) + "."
-
-    # Some sanity checks
-    assert isinstance(name, basestring) and len(name) > 0 and max_length > 0
-    if len(name) <= max_length:
-        return name
-    # Decode to unicode before shortening
-    name_uni = to_unicode(name, encoding=encoding)
-    # then shorten name
-    if method == 'initials':
-        ret = get_initials(name_uni)
-        if len(ret) > max_length:
-            # If intitials doesn't work, truncate
-            return shorten_name(name, max_length=max_length, method='truncate')
-    elif method == 'truncate':
-        ret = name_uni[:max_length].strip()
-    else:
-        raise AssertionError("Unknown method value: %s" % method)
-    # encode if name's type is str before returning
-    if isinstance(name, str):
-        return ret.encode(encoding)
-    else:
-        return ret
 
 
 class auto_super(type):
@@ -774,9 +572,10 @@ class mark_update(auto_super):
         return super(mark_update, cls).__new__(cls, name, bases, dict)
 
 
-# TODO: Use UTF-8 instead of ISO-8859-1?
 class XMLHelper(object):
-    xml_hdr = '<?xml version="1.0" encoding="ISO-8859-1"?>\n'
+
+    def __init__(self, encoding='utf-8'):
+        self.xml_hdr = '<?xml version="1.0" encoding="{}"?>\n'.format(encoding)
 
     def conv_colnames(self, cols):
         """Strip tablename prefix from column name."""
@@ -802,19 +601,17 @@ class XMLHelper(object):
                       for x in cols if row[x] is not None]) +
             "%s%s>" % (extra_attr, close_tag))
 
-    # TODO: Use UTF-8 instead?
     def escape_xml_attr(self, a):
-        """Escapes XML attributes. Expected input format is iso-8859-1."""
-        a = str(a).replace('&', "&amp;")
+        """Escapes XML attributes."""
+        if isinstance(a, int):
+            a = six.text_type(a)
+        elif isinstance(a, mx.DateTime.DateTimeType):
+            a = six.text_type(str(a))
+        a = a.replace('&', "&amp;")
         a = a.replace('"', "&quot;")
         a = a.replace('<', "&lt;")
         a = a.replace('>', "&gt;")
-        # http://www.w3.org/TR/1998/REC-xml-19980210.html#NT-Char
-        # x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD] |
-        # [#x10000-#x10FFFF] /* any Unicode character, excluding the
-        # surrogate blocks, FFFE, and FFFF. */
-        a = re.sub('[^\x09\x0a\x0d\x20-\xff]', '.', a)
-        return '"%s"' % a
+        return '"{}"'.format(a)
 
 
 class Factory(object):
@@ -877,7 +674,8 @@ class Factory(object):
     def make_class(name, import_spec, conf_var=None):
         """Assemble the class according to spec.
 
-        :param string name: Name of class thing.
+        :param name: Name of class thing.
+        :type name: str, unicode
 
         :param sequence import_spec: Name of classes to assemble into the
             returned class. Each element of the form ``module/classname``.
@@ -932,7 +730,8 @@ class Factory(object):
                 # prefix of "_dynamic_"; the prefix is there to reduce
                 # the probability of `auto_super` name collision
                 # problems.
-                comp_class = type('_dynamic_' + name, tuple(bases), {})
+                comp_class = type(str('_dynamic_' + name),
+                                  tuple(bases), {})
             Factory.class_cache[name] = comp_class
             return comp_class
         else:
@@ -960,51 +759,21 @@ if os.getenv('CEREBRUM_LOGUTILS'):
 
 
 def random_string(length, characters=ascii_lowercase + digits):
-    """Generate a random string of a given length using the given characters.
+    """
+    Generate a random string of a given length using the given characters.
 
     :param int length: the desired string length
     :param str characters: a set of characters to use
 
     :return str: returns a string of random characters
     """
-    random.seed()
+    # Create a local random object for increased randomness
+    # "Use os.urandom() or SystemRandom if you require a
+    # cryptographically secure pseudo-random number generator."
+    # docs.python.org/2.7/library/random.html#random.SystemRandom
+    lrandom = random.SystemRandom()
     # pick "length" number of letters, then combine them to a string
-    return ''.join([random.choice(characters) for _ in range(length)])
-
-
-class RecursiveDict(dict):
-
-    """A variant of dict supporting recursive updates.
-    Useful for combining complex configuration dicts.
-    """
-
-    def __init__(self, values=None):
-        if values is None:
-            values = {}
-        dict.__init__(self)
-        # Make sure our __setitem__ is called.
-        for (key, value) in values.items():
-            self[key] = value
-
-    def update(self, other):
-        """D.update(E) -> None. Update D from E recursively.  Any
-        dicts that exists in both D and E are updated (merged)
-        recursively instead of being replaced. Note that items that
-        are UserDicts are not updated recursively.
-        """
-        for (key, value) in other.items():
-            if (key in self and
-                isinstance(self[key], RecursiveDict) and
-                    isinstance(value, dict)):
-                self[key].update(value)
-            else:
-                self[key] = value
-
-    def __setitem__(self, key, value):
-        if isinstance(value, dict):
-            # Wrap it, make sure it follows our rules
-            value = RecursiveDict(value)
-        dict.__setitem__(self, key, value)
+    return ''.join([lrandom.choice(characters) for _ in range(length)])
 
 
 def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
@@ -1212,7 +981,7 @@ def argument_to_sql(argument,
     return "(%s %s :%s)" % (sql_attr_name, compare_scalar, binds_name)
 
 
-def prepare_string(value, transform=str.lower):
+def prepare_string(value, transform=six.text_type.lower):
     """Prepare a string for being used in SQL.
 
     @type value: basestring
@@ -1227,9 +996,6 @@ def prepare_string(value, transform=str.lower):
 
       Send in None or some other callable to override this behaviour.
     """
-
-    if (type(value) == type(unicode())) and (transform == str.lower):
-        transform = unicode.lower
 
     value = value.replace("*", "%")
     value = value.replace("?", "_")
@@ -1312,150 +1078,6 @@ class Messages(dict):
                 "Message for key '%s' doesn't exist for lang '%s'",
                 key, self.lang)
         return dict.__getitem__(self, key)[self.fallback]
-
-
-class SMSSender():
-    """Communicates with a Short Messages Service (SMS) gateway for sending
-    out SMS messages.
-
-    This class is meant to be used with UiOs SMS gateway, which uses basic
-    HTTPS requests for communicating, and is also used by FS, but then through
-    database links. This might not be the solution other institutions want to
-    use if they have their own gateway.
-    """
-
-    def __init__(self, logger=None, url=None, user=None, system=None):
-        self._logger = logger or Factory.get_logger("cronjob")
-        self._url = url or cereconf.SMS_URL
-        self._system = system or cereconf.SMS_SYSTEM
-        self._user = user or cereconf.SMS_USER
-
-    def _validate_response(self, ret):
-        """Check that the response from an SMS gateway says that the message
-        was sent or not. The SMS gateway we use should respond with a line
-        formatted as:
-
-         <msg_id>¤<status>¤<phone_to>¤<timestamp>¤¤¤<message>
-
-        An example:
-
-         UT_19611¤SENDES¤87654321¤20120322-15:36:35¤¤¤Welcome to UiO. Your
-
-        ...followed by the rest of the lines with the message that was sent.
-
-        @rtype: bool
-        @return: True if the server's response says that the message was sent.
-        """
-        # We're only interested in the first line:
-        line = ret.readline()
-        try:
-            # msg_id, status, to, timestamp, message
-            msg_id, status, to, _, _ = line.split('\xa4', 4)
-        except ValueError:
-            self._logger.warning("SMS: bad response from server: %s" % line)
-            return False
-
-        if status == 'SENDES':
-            return True
-        self._logger.warning("SMS: Bad status '%s' (phone_to='%s', msg_id='%s')"
-                             % (status, to, msg_id))
-        return False
-
-    def _filter_phone_number(self, phone_to):
-        """ Check if the mobile number, L{phone_to}, is a valid phone number.
-
-        This function is used to whitelist phone numbers, which in turn will
-        prevent sending messages to non-whitelisted numbers.
-
-        This function can also be used if we want to wash phone numbers before
-        passing them to the SMS gateway (e.g. strip spaces).
-
-        NOTE: If the phone number is deemed un-sms-worthy, we raise a
-            ValueError.
-
-        @type: str
-        @param:
-            The phone number that we will filter.
-
-        @rtype: str
-        @return: The (properly formatted) phone number.
-
-        """
-        # Should we allow ints as well?
-        #if isinstance(phone_to, (int, long)):
-            #phone_to = str(phone_to)
-
-        # Should we be helpful and remove any space separators?
-        #phone_to = phone_to.replace(' ', '')
-
-        for regex in cereconf.SMS_ACCEPT_REGEX:
-            if re.match(regex, phone_to):
-                return phone_to
-
-        raise ValueError("Invalid phone number '%s'" % phone_to)
-
-    def __call__(self, phone_to, message, confirm=False):
-        """ Sends an SMS message to the given phone number.
-
-        @type phone_to: basestring
-        @param phone_to:
-          The phone number to send the message to.
-
-        @type message: basestring
-        @param message:
-          The message to send to the given phone number.
-
-        @type confirm: boolean
-        @param confim:
-          If the gateway should wait for the message to be sent before it
-          confirms it being sent.
-        """
-
-        try:
-            phone_to = self._filter_phone_number(phone_to)
-        except ValueError, e:
-            self._logger.warning("Unable to send SMS: %s" % str(e))
-            return False
-
-        if getattr(cereconf, 'SMS_DISABLE', True):
-            self._logger.info('Would have sent \'{}\' to {}'.format(message,
-                                                                    phone_to))
-            return True
-
-        hostname = urlparse.urlparse(self._url).hostname
-        password = read_password(user=self._user, system=hostname)
-        postdata = urllib.urlencode({'b': self._user,
-                                     'p': password,
-                                     's': self._system,
-                                     't': phone_to,
-                                     'm': message})
-        self._logger.info("Sending SMS to %s (user: %s, system: %s)" % (
-            phone_to, self._user, self._system))
-
-        old_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(60)  # in seconds
-
-        try:
-            ret = urllib2.urlopen(
-                self._url,
-                postdata)
-        except urllib2.URLError, e:
-            self._logger.warning('SMS gateway error: %s' % e)
-            return False
-        finally:
-            socket.setdefaulttimeout(old_timeout)
-
-        if ret.code is not 200:
-            self._logger.warning("SMS gateway responded with code "
-                                 "%s - %s" % (ret.code, ret.msg))
-            return False
-
-        resp = self._validate_response(ret)
-        if resp:
-            self._logger.info("SMS to %s sent ok" % (phone_to))
-        else:
-            self._logger.warning("SMS to %s could not be sent" % phone_to)
-        return bool(resp)
 
 
 class CerebrumIMAP4_SSL(imaplib.IMAP4_SSL):

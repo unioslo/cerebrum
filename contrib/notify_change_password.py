@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2008-2016 University of Oslo, Norway
+# Copyright 2008-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,11 +18,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+"""
+from __future__ import unicode_literals
 
 import argparse
-import sys
 
-import cereconf
+import six
 
 from Cerebrum import Utils
 from Cerebrum.modules.password_notifier.notifier import PasswordNotifier
@@ -43,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-f', '--config-file',
         metavar='<filename>',
-        type=str,
+        type=six.text_type,
         default=None,
         dest='alternative_config',
         help='Alternative configuration file for %(prog)s')

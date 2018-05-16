@@ -29,13 +29,13 @@ will be sent instead of outputted to the logger instance.
 """
 
 import argparse
-import pickle
 
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum import Utils
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.email import sendmail as sendmail_util
+from Cerebrum.utils import json
 from Cerebrum.modules import CLHandler
 
 logger = Factory.get_logger('cronjob')
@@ -66,7 +66,9 @@ def check_changelog_for_quarantine_triggers(logger, sendmail):
             getattr(co, trigger) for trigger in quar_data['triggers'])
         for event in cl.get_events(quar_data['cl_key'],
                                    triggers):
-            change_params = pickle.loads(event['change_params'])
+            change_params = {}
+            if event['change_params']:
+                change_params = json.loads(event['change_params'])
             if change_params['q_type'] == int(co.Quarantine(quarantine)):
                 # Generate dicts with relevant info for email
                 quar_info = generate_quarantine_info(quarantine, quar_data)
@@ -147,11 +149,11 @@ def generate_mail_notification(quar_info, event_info, debug=False):
                                 event_info['time_stamp'],
                                 event_info['change_by'],
                                 event_info['change_id'])
-    return Utils.sendmail(quar_info['mail_to'],
-                          quar_info['mail_from'],
-                          subject,
-                          body,
-                          debug=debug)
+    return sendmail_util(quar_info['mail_to'],
+                         quar_info['mail_from'],
+                         subject,
+                         body,
+                         debug=debug)
 
 
 def main():

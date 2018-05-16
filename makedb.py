@@ -477,12 +477,12 @@ def parsefile(fname):
             if re.match(line_comment, x):
                 continue
 
-            upperx = x.upper()  # match against case insensitive SQL keywords
+            upperx = x.upper()
             # Handle functions correctly, as they might contain semi-colons
             if 'FUNCTION' in upperx and 'DROP FUNCTION' not in upperx:
                 function_join_mode = True
                 join_str += x
-            elif 'LANGUAGE' in upperx:
+            elif function_join_mode and 'LANGUAGE' in upperx:
                 function_join_mode = False
                 join_str += sc_pat_repl.sub('', x)
                 ret.append(join_str.strip())
@@ -507,7 +507,7 @@ def runfile(fname, db, debug, phase):
     @param fname:
         The file path for the given SQL definition file.
 
-    @type db: Cerebrum.Database
+    @type db: Cerebrum.database.Database
     @param db:
         The Cerebrum database object, used for communicating with the db.
 
@@ -526,7 +526,8 @@ def runfile(fname, db, debug, phase):
     print "Reading file (phase=%s): <%s>" % (phase, fname)
     statements = parsefile(fname)
 
-    NO_CATEGORY, WRONG_CATEGORY, CORRECT_CATEGORY, SET_METAINFO = 1, 2, 3, 4
+    NO_CATEGORY, WRONG_CATEGORY, CORRECT_CATEGORY, SET_METAINFO = (
+        'ready', 'wrong', 'correct', 'meta')
     state = NO_CATEGORY
     output_col = None
     max_col = 78

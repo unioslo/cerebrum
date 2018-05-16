@@ -1,0 +1,150 @@
+.container {
+  width: 100%; }
+
+.row {
+  position: relative;
+  width: 100%; }
+
+.row [class^="col"] {
+  float: left;
+  margin: 0 2%;
+  min-height: 0.125rem; }
+
+.row::after {
+  content: "";
+  display: table;
+  clear: both; }
+
+.col-1 {
+  width: 4.33333%; }
+
+.col-2 {
+  width: 12.66667%; }
+
+.col-3 {
+  width: 21%; }
+
+.col-4 {
+  width: 29.33333%; }
+
+.col-5 {
+  width: 37.66667%; }
+
+.col-6 {
+  width: 46%; }
+
+.col-7 {
+  width: 54.33333%; }
+
+.col-8 {
+  width: 62.66667%; }
+
+.col-9 {
+  width: 71%; }
+
+.col-10 {
+  width: 79.33333%; }
+
+.col-11 {
+  width: 87.66667%; }
+
+.col-12 {
+  width: 96%; }
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0; }
+
+@media print {
+  @page {
+    margin: 0 auto; } }
+
+@page {
+  margin: 0 auto; }
+
+h1 {
+  font-size: 36px;
+  font-weight: 400; }
+
+body {
+  margin: 0mm auto;
+  width: 210mm;
+  height: 296mm;
+  background: #fff;
+  font-family: "Arial", sans-serif; }
+
+.sheet {
+  margin: 0 5mm 0mm 5mm;
+  page-break-after: always;
+  padding: 5mm 0mm 0mm 0mm;
+  background: white;
+  width: 210mm;
+  height: 296mm;
+  line-height: 1.25;
+  position: relative; }
+
+.header .addresses__recipient {
+  border: 1px solid black;
+  padding: 5px;
+  font-size: 13px;
+  min-height: 95px; }
+
+.header .addresses__sender {
+  font-size: 10px; }
+
+.header__serialno {
+  text-align: center;
+  padding-top: 80px;
+  font-size: 16px; }
+
+.header__barcode {
+  text-align: right; }
+  .header__barcode__inner {
+    display: inline-block; }
+    .header__barcode__inner .huge-a {
+      text-align: center;
+      font-weight: bold;
+      font-size: 80px;
+      line-height: 0.75; }
+    .header__barcode__inner .barcode-image {
+      height: 45px;
+      width: 80px;
+      margin-left: -7px; }
+
+.header__stamp {
+  text-align: right; }
+  .header__stamp .stamp-image {
+    height: 95px; }
+
+.header__postal-info {
+  text-align: right; }
+  .header__postal-info .franko-container {
+    display: inline-block; }
+
+.main {
+  font-size: 15px; }
+  .main .logo {
+    margin: 40px 0;
+    height: 80px; }
+  .main br {
+    line-height: 1; }
+  .main p {
+    line-height: 1.25; }
+  .main .password, .main .username {
+    font-family: "Courier New", Courier, monospace; }
+  .main section {
+    margin-top: 12px; }
+  .main .text-small-margin {
+    margin-top: 6px; }
+  .main ul {
+    list-style-position: inside; }
+  .main .signature {
+    padding-top: 24px; }
+
+.footer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  font-size: 13px; }

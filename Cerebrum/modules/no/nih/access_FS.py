@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -17,6 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
 import time
 
 from Cerebrum.modules.no import access_FS
@@ -63,7 +64,7 @@ class NIHStudent(access_FS.Student):
         return self.db.query(qry)
 
     def list_eksamensmeldinger(self):  # GetAlleEksamener
-        """Hent ut alle eksamensmeldinger i nåværende sem."""
+        """Hent ut alle eksamensmeldinger i nÃ¥vÃ¦rende sem."""
 
         qry = """
         SELECT p.fodselsdato, p.personnr, vm.emnekode, vm.studieprogramkode
@@ -135,16 +136,16 @@ class NIHStudent78(NIHStudent, access_FS.Student78):
 
 @fsobject('undervisning', '<7.8')
 class NIHUndervisning(access_FS.Undervisning):
-    # TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
+    # TBD: avskaffe UiO-spesifikke sÃ¸k for list_undervisningsenheter
     # og list_studenter_underv_enhet.
-    # Prøve å lage generell list_studenter_kull.
-    # Prøve å fjerne behov for override-metoder her
+    # PrÃ¸ve Ã¥ lage generell list_studenter_kull.
+    # PrÃ¸ve Ã¥ fjerne behov for override-metoder her
 
     def list_undervisningenheter(self, sem="current"):
         """Metoden som henter data om undervisningsenheter
-        i nåverende (current) eller neste (next) semester. Default
-        vil være nåværende semester. For hver undervisningsenhet
-        henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall,
+        i nÃ¥verende (current) eller neste (next) semester. Default
+        vil vÃ¦re nÃ¥vÃ¦rende semester. For hver undervisningsenhet
+        henter vi institusjonsnr, emnekode, versjonskode, terminkode + Ã¥rstall,
         terminnr samt hvorvidt enheten skal eksporteres til LMS."""
         qry = """
         SELECT DISTINCT
@@ -159,14 +160,17 @@ class NIHUndervisning(access_FS.Undervisning):
             qry += """%s""" % self._get_termin_aar(only_current=1)
         else:
             qry += """%s""" % self._get_next_termin_aar()
-        return self.db.query(qry)
+        params = {}
+        params['spring'] = 'VÃ…R'
+        params['autumn'] = 'HÃ˜ST'
+        return self.db.query(qry, params)
 
     def list_aktiviteter(self, start_aar=time.localtime()[0],
                          start_semester=None):
-        """Henter info om undervisningsaktiviteter for inneværende
+        """Henter info om undervisningsaktiviteter for innevÃ¦rende
         semester. For hver undervisningsaktivitet henter vi
-        institusjonsnr, emnekode, versjonskode, terminkode + årstall,
-        terminnr, aktivitetskode, underpartiløpenummer, disiplinkode,
+        institusjonsnr, emnekode, versjonskode, terminkode + Ã¥rstall,
+        terminnr, aktivitetskode, underpartilÃ¸penummer, disiplinkode,
         kode for undervisningsform, aktivitetsnavn samt hvorvidt
         enheten skal eksporteres til LMS."""
         if start_semester is None:
@@ -184,7 +188,7 @@ class NIHUndervisning(access_FS.Undervisning):
           ua.undpartilopenr IS NOT NULL AND
           ua.disiplinkode IS NOT NULL AND
           ua.undformkode IS NOT NULL AND
-          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode IN (:spring, :autumn) AND
           ua.terminkode = t.terminkode AND
           ((ua.arstall = :aar AND
             EXISTS (SELECT 'x' FROM fs.arstermin tt
@@ -192,7 +196,9 @@ class NIHUndervisning(access_FS.Undervisning):
                           t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
            ua.arstall > :aar)""",
                              {'aar': start_aar,
-                              'semester': start_semester})
+                              'semester': start_semester,
+                              'autumn': 'HÃ˜ST',
+                              'spring': 'VÃ…R'})
 
     def list_studenter_underv_enhet(self,
                                     institusjonsnr,
@@ -201,8 +207,8 @@ class NIHUndervisning(access_FS.Undervisning):
                                     terminkode,
                                     arstall,
                                     terminnr):
-        """Finn fødselsnumrene til alle studenter på et gitt
-        undervisningsenhet. Skal brukes til å generere grupper for
+        """Finn fÃ¸dselsnumrene til alle studenter pÃ¥ et gitt
+        undervisningsenhet. Skal brukes til Ã¥ generere grupper for
         adgang til CF."""
         qry = """
         SELECT DISTINCT
@@ -224,7 +230,7 @@ class NIHUndervisning(access_FS.Undervisning):
                              )
 
     def list_studenter_alle_kullklasser(self):
-        """Hent alle studenter fordelt på kullklasser.
+        """Hent alle studenter fordelt pÃ¥ kullklasser.
         """
 
         query = """
@@ -256,7 +262,7 @@ class NIHUndervisning(access_FS.Undervisning):
     # end list_studenter_alle_kull
 
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
-        """Hent alle studentene som er oppført på et gitt kull."""
+        """Hent alle studentene som er oppfÃ¸rt pÃ¥ et gitt kull."""
 
         query = """
         SELECT DISTINCT
@@ -276,10 +282,10 @@ class NIHUndervisning(access_FS.Undervisning):
                                      "arstall_kull": arstall})
 
     def list_studenter_alle_kull(self):
-        """Hent alle studenter fordelt på kull.
+        """Hent alle studenter fordelt pÃ¥ kull.
 
-        Dette er noe annet enn alle studenter fordelt på kullklasser. En
-        student kan gjerne være meldt opp i et kull, uten å være tilordnet en
+        Dette er noe annet enn alle studenter fordelt pÃ¥ kullklasser. En
+        student kan gjerne vÃ¦re meldt opp i et kull, uten Ã¥ vÃ¦re tilordnet en
         kullklasse (hos hiof er mesteparten av kullstudentene ikke med i en
         kullklasse).
         """

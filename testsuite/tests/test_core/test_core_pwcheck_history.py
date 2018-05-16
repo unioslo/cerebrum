@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """ Tests for Cerebrum.modules.pwcheck.history.
 """
+from __future__ import unicode_literals
 
 from nose.tools import raises, with_setup
 from nose.plugins.skip import SkipTest

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2017 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,24 +16,25 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
-
 """
+from __future__ import unicode_literals
 
 import collections
+
+import six
 
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
-from Cerebrum.Constants import _EntityTypeCode
 from Cerebrum.Utils import argument_to_sql, prepare_string
 from Cerebrum.Utils import NotSet
 from Cerebrum.Utils import to_unicode
 
 
+@six.python_2_unicode_compatible
 class Entity(DatabaseAccessor):
     """Class for generic access to Cerebrum entities.
 
@@ -243,13 +244,20 @@ class Entity(DatabaseAccessor):
         based on the entity's type."""
         if id is not None:
             self.find(id)
-        entity_type = str(self.const.EntityType(self.entity_type))
+        entity_type = six.text_type(self.const.EntityType(self.entity_type))
         component = Factory.type_component_map.get(entity_type)
         if component is None:
             raise ValueError("No factory for type %s" % entity_type)
         entity = Factory.get(component)(self._db)
         entity.find(self.entity_id)
         return entity
+
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            return '{}:{}'.format(self.const.EntityType(self.entity_type),
+                                  self.entity_id)
+        else:
+            return '<unbound entity>'
 
 
 class EntitySpread(Entity):
@@ -416,12 +424,20 @@ class EntityName(Entity):
 
     def find_by_name(self, name, domain):
         "Associate instance with the entity having NAME in DOMAIN."
-        entity_id = self.query_1("""
-        SELECT entity_id
-        FROM [:table schema=cerebrum name=entity_name]
-        WHERE value_domain=:domain AND entity_name=:name""",
-                                 {'domain': int(domain),
-                                  'name': name})
+        if not isinstance(name, basestring):
+            raise ValueError("invalid name {name!r}".format(name=name))
+
+        entity_id = self.query_1(
+            """
+            SELECT entity_id
+            FROM [:table schema=cerebrum name=entity_name]
+            WHERE value_domain=:domain AND entity_name=:name
+            """,
+            {
+                'domain': int(domain),
+                'name': six.text_type(name),
+            }
+        )
         # Populate all of self's class (and base class) attributes.
         self.find(entity_id)
 
@@ -481,7 +497,7 @@ class EntityNameWithLanguage(Entity):
                                 int))
         if name is not None:
             if exact_match:
-                where.append(argument_to_sql(name, "eln.name", binds, str))
+                where.append(argument_to_sql(name, "eln.name", binds, six.text_type))
             else:
                 name_pattern = prepare_string(name)
                 if name_pattern.count('%') == 0:
@@ -576,8 +592,8 @@ class EntityNameWithLanguage(Entity):
             # Why not a specific constant? Well, because
             # name_variant/name_language/name could all be a sequence or an
             # iterable. It should work regardless.
-            change_params = {'name_variant': str(name_variant),
-                             'name_language': str(name_language),
+            change_params = {'name_variant': six.text_type(name_variant),
+                             'name_language': six.text_type(name_language),
                              'name': name}
             self._db.log_change(self.entity_id, self.const.entity_name_del,
                                 None, change_params=change_params)
@@ -728,14 +744,20 @@ class EntityContactInfo(Entity):
                                            'src': int(source)})
 
     def get_contact_info(self, source=None, type=None):
-        return Utils.keep_entries(
-            self.query("""
+        where = []
+        binds = {}
+        where.append(argument_to_sql(self.entity_id, 'entity_id', binds, int))
+        if source is not None:
+            where.append(argument_to_sql(source, 'source_system', binds, int))
+        if type is not None:
+            where.append(argument_to_sql(type, 'contact_type', binds, int))
+        where_str = 'WHERE ' + ' AND '.join(where)
+
+        return self.query("""
             SELECT *
             FROM [:table schema=cerebrum name=entity_contact_info]
-            WHERE entity_id=:e_id
-            ORDER BY contact_pref""", {'e_id': self.entity_id}),
-            ('source_system', source),
-            ('contact_type', type))
+            %s
+            ORDER BY contact_pref""" % (where_str), binds)
 
     def populate_contact_info(self, source_system, type=None, value=None,
                               contact_pref=50, description=None, alias=None):
@@ -764,8 +786,8 @@ class EntityContactInfo(Entity):
         #
         # To avoid such problems, the 'value' argument is always
         # converted to a string before being stored in self.__data.
-        self.__data[idx] = {'value': str(value),
-                            'alias': alias and str(alias) or None,
+        self.__data[idx] = {'value': six.text_type(value),
+                            'alias': alias and six.text_type(alias) or None,
                             'description': description}
 
     def write_db(self):
@@ -814,7 +836,7 @@ class EntityContactInfo(Entity):
           entity_id=:e_id AND
           source_system=:src AND
           contact_type=:c_type"""
-        if str(pref) != 'ALL':
+        if six.text_type(pref) != 'ALL':
             sql += """ AND contact_pref=:pref"""
         self._db.log_change(self.entity_id, self.const.entity_cinfo_del, None,
                             change_params={'type': int(contact_type),
@@ -858,8 +880,8 @@ class EntityContactInfo(Entity):
         for name, transform in (("entity_id", int),
                                 ("source_system", int),
                                 ("contact_type", int),
-                                ("contact_value", str),
-                                ("contact_alias", str)):
+                                ("contact_value", six.text_type),
+                                ("contact_alias", six.text_type)):
             if locals()[name] is not None:
                 where.append(argument_to_sql(locals()[name],
                                              "ec." + name,
@@ -1292,12 +1314,12 @@ class EntityExternalId(Entity):
         if hasattr(self, '_extid_source'):
             dbvalues = {}
             for row in self.get_external_id(source_system=self._extid_source):
-                dbvalues[row['id_type']] = str(row['external_id'])
+                dbvalues[row['id_type']] = six.text_type(row['external_id'])
             for type in self._extid_types:
                 val = self._external_id.get(type)
                 dbval = dbvalues.get(type)
                 if val is not None:
-                    val = str(val)
+                    val = six.text_type(val)
                 if val != dbval:
                     if val is None:
                         self._delete_external_id(self._extid_source, type)
@@ -1402,7 +1424,7 @@ class EntityExternalId(Entity):
         if id_type is not None:
             cols['id_type'] = int(id_type)
         if external_id is not None:
-            cols['external_id'] = str(external_id)
+            cols['external_id'] = six.text_type(external_id)
         if entity_id is not None:
             cols['entity_id'] = int(entity_id)
         if cols:
@@ -1531,11 +1553,11 @@ class EntityExternalId(Entity):
             return ret
 
         def make_bind_str(id_type, external_id, source_system=None):
-            ret = {'id_type': str(id_type),
+            ret = {'id_type': six.text_type(id_type),
                    'ext_id': external_id,
                    'src': None}
             if source_system:
-                ret['src'] = str(source_system)
+                ret['src'] = six.text_type(source_system)
             return "(id_type:{id_type} id:{ext_id} source:{src})".format(**ret)
 
         opt_ss = query + " AND source_system=:src"

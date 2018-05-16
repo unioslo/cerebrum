@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2006, 2011 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2006-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,27 +16,27 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 Constants common for higher education institutions in Norway.
 """
+from __future__ import unicode_literals
+
 
 from Cerebrum import Constants
-from Cerebrum.Constants import _EntityExternalIdCode, \
-    _AuthoritativeSystemCode, \
-    _OUPerspectiveCode, \
-    _AccountCode, \
-    _PersonNameCode, \
-    _ContactInfoCode, \
-    _CountryCode, \
-    _QuarantineCode, \
-    _SpreadCode,\
-    _PersonAffiliationCode,\
+from Cerebrum.Constants import (
+    _EntityExternalIdCode,
+    _AuthoritativeSystemCode,
+    _OUPerspectiveCode,
+    _AccountCode,
+    _PersonNameCode,
+    _ContactInfoCode,
+    _QuarantineCode,
+    _SpreadCode,
+    _PersonAffiliationCode,
     _PersonAffStatusCode
-from Cerebrum.modules.bofhd.utils import \
-    _AuthRoleOpCode
-from Cerebrum.modules.EntityTrait import \
-    _EntityTraitCode
+)
+from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+from Cerebrum.modules.EntityTrait import _EntityTraitCode
 
 
 class ConstantsActiveDirectory(Constants.Constants):
@@ -109,10 +109,10 @@ class ConstantsCommon(Constants.Constants):
         'OUs publishable in online directories')
 
     quarantine_autopassord = _QuarantineCode(
-        'autopassord', 'Passord ikke skiftet trass pålegg')
+        'autopassord', 'Passord ikke skiftet trass pÃ¥legg')
 
     quarantine_svakt_passord = _QuarantineCode(
-        'svakt_passord', 'For dårlig passord')
+        'svakt_passord', 'For dÃ¥rlig passord')
 
     trait_auto_group = _EntityTraitCode(
         'auto_group', Constants.Constants.entity_group,
@@ -160,7 +160,8 @@ class ConstantsCommon(Constants.Constants):
         'sms_welcome', Constants.Constants.entity_account,
         "If a user has retrieved a welcome message by SMS")
 
-    # Trait for showing that a user account is either newly created or restored.
+    # Trait for showing that a user account is either newly created or
+    # restored.
     # Used to e.g. send welcome message by SMS. This trait is for all accounts,
     # the trait_student_new should be used for only targeting student accounts.
     trait_account_new = _EntityTraitCode(
@@ -187,10 +188,12 @@ class ConstantsCommon(Constants.Constants):
         'sap_mug', Constants.Constants.entity_account,
         "MUG from SAP - medarbeiderundergruppe")
 
-    # Quarantine to be set automatically when cleaning up in persons that are no
-    # longer affiliated with the instance
-    quarantine_auto_no_aff = _QuarantineCode('auto_no_aff',
-                                            'Ikke tilknyttet person, utestengt')
+    # Quarantine to be set automatically when cleaning up in persons that are
+    # no longer affiliated with the instance
+    quarantine_auto_no_aff = _QuarantineCode(
+        'auto_no_aff',
+        'Ikke tilknyttet person, utestengt')
+
 
 class ConstantsHigherEdu(Constants.Constants):
 
@@ -281,11 +284,11 @@ class ConstantsUniversityColleges(Constants.Constants):
     affiliation_status_tilknyttet_bilag = _PersonAffStatusCode(
         affiliation_tilknyttet,
         'bilag',
-        'Registrert i HR, bilagslønnet')
+        'Registrert i HR, bilagslÃ¸nnet')
     affiliation_status_tilknyttet_time = _PersonAffStatusCode(
         affiliation_tilknyttet,
-        'timelønnet',
-        'Registrert i HR, timelønnet')
+        'timelÃ¸nnet',
+        'Registrert i HR, timelÃ¸nnet')
     affiliation_status_tilknyttet_gjest = _PersonAffStatusCode(
         affiliation_tilknyttet,
         'gjest',
@@ -310,7 +313,7 @@ class ConstantsUniversityColleges(Constants.Constants):
     quarantine_teppe = _QuarantineCode(
         'teppe', 'Kalt inn til samtale')
     quarantine_auto_emailonly = _QuarantineCode(
-        'kunepost', 'Ikke ordinær student, tilgang til bare e-post')
+        'kunepost', 'Ikke ordinÃ¦r student, tilgang til bare e-post')
 
     quarantine_system = _QuarantineCode(
         'system', 'Systembruker som ikke skal logge inn')
@@ -341,9 +344,9 @@ class ConstantsUniversityColleges(Constants.Constants):
     name_middle = _PersonNameCode('MIDDLE', 'Mellomnavn')
     name_initials = _PersonNameCode('INITIALS', 'Initialer')
 
-    ## Contact info
-
-    contact_office = _ContactInfoCode('OFFICE',
+    # Contact info
+    contact_office = _ContactInfoCode(
+        'OFFICE',
         'Office address (building code and room number')
 
     # SAP comm. constants
@@ -389,7 +392,7 @@ class ConstantsUniversityColleges(Constants.Constants):
 #  SAP magic below
 #
 #  stillingstype        - hoved/bistilling
-#  lønnstittel          - work title (sendemann, ekspedisjonssjef, etc)
+#  lÃ¸nnstittel          - work title (sendemann, ekspedisjonssjef, etc)
 
 
 class SAPStillingsTypeKode(Constants._CerebrumCode):

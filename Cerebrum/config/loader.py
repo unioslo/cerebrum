@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015-2017 University of Oslo, Norway
+# Copyright 2015-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-""" Cerebrum module for loading configuration files.
+"""Cerebrum module for loading configuration files.
 
 This module contains functionality for finding and loading config files from
 well-defined locations on the file system.
@@ -35,11 +35,14 @@ TODO: Improvements:
   - Reading config should be 'transactional'. If any errors exists, no
     configuration should be changed.
 """
+from __future__ import unicode_literals
 
 import logging
 import os
 import sys
+
 from . import parsers as _parsers
+
 
 # Make it possible to override sys.prefix for configuration path purposes
 sys_prefix = os.getenv('CEREBRUM_SYSTEM_PREFIX', sys.prefix)
@@ -159,9 +162,10 @@ def read(config, root_ns=default_root_ns, additional_dirs=[]):
             if key == root_ns:
                 logger.debug('loading root using namespace {0!r}'.format(key))
                 config.load_dict(read_config(f))
-            elif key in config:
-                logger.debug('loading namespace {0!r}'.format(key))
-                config[key].load_dict(read_config(f))
+            # TODO: Find a more elegant way of handling nested structures
+            # elif key in config:
+            #     logger.debug('loading namespace {0!r}'.format(key))
+            #     config[key].load_dict(read_config(f))
 
     # TODO: Then validate the copy, and write changes back to the original
     # config object to complete the 'transaction'.

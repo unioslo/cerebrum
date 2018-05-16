@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- encoding: iso-8859-1 -*-
+# -*- encoding: utf-8 -*-
 
-# Copyright 2008-2011 University of Oslo, Norway
+# Copyright 2008-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -43,6 +43,7 @@ from UserDict import IterableUserDict
 import getopt
 import sys
 import traceback
+import six
 
 import cerebrum_path
 
@@ -51,7 +52,7 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum import Errors
 from Cerebrum.utils.funcwrap import memoize
-from Cerebrum import Database
+from Cerebrum import database
 
 
 logger = Factory.get_logger("cronjob")
@@ -59,6 +60,7 @@ constants = Factory.get("Constants")()
 database = Factory.get("Database")()
 
 
+@six.python_2_unicode_compatible
 class SimplePerson(IterableUserDict, object):
     """FS-relevant info storage.
 
@@ -132,7 +134,7 @@ def exc2message(exc_tuple):
     # poke in the exception objects easily.
     msg = traceback.format_exception_only(exc, exc_type)[0]
     msg = msg.split("\n", 1)[0]
-    return str(msg)
+    return six.text_type(msg)
 # end exc2message
 
 
@@ -343,7 +345,7 @@ def find_my_affiliations(person, selection_criteria, authoritative_system):
 
     logger.debug("Person id=%s has affiliations: %s",
                  person.entity_id,
-                 [(x, str(constants.PersonAffiliation(y)))
+                 [(x, six.text_type(constants.PersonAffiliation(y)))
                   for x, y in my_affiliations])
     return my_affiliations
 # end find_my_affiliations
@@ -722,7 +724,7 @@ def select_FS_candidates(selection_criteria, authoritative_system):
                             source_system=authoritative_system))
     logger.debug("%d db-rows match %s criteria",
                  len(rows),
-                 list(str(x) for x in selection_criteria))
+                 list(six.text_type(x) for x in selection_criteria))
     for row in rows:
         person_id = int(row["person_id"])
         if person_id in result:
@@ -761,7 +763,7 @@ def export_person(person_id, info_chunk, fs):
                                  data.name_last, data.email, data.gender,
                                  data.birth_date, data.ansattnr)
 
-        except Database.IntegrityError:
+        except database.IntegrityError:
             logger.info("Insertion of id=%s (fnr=%s, email=%s) failed: %s",
                         person_id, data.fnr11, data.email,
                         exc2message(sys.exc_info()))
@@ -769,7 +771,7 @@ def export_person(person_id, info_chunk, fs):
     elif data.has_key('ansattnr') and data.ansattnr is not None:
         try:
             fs.person.set_ansattnr(data.fnr6, data.pnr, data.ansattnr)
-        except Database.IntegrityError:
+        except database.IntegrityError:
             logger.info("Setting of ansattnr=%d on id=%d failed: %s",
                         data.ansattnr, person_id, exc2message(sys.exc_info()))
 # end export_person
@@ -857,7 +859,8 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
         fs.person.update_fagperson(**values2push)
     instno = primary_sko[0]
     phone = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
-                                    instno, 'ARB')
+                                    instno, 'ARB', fetchall=True)
+
     if phone:
         if phone[0]['telefonlandnr']:
             phone = '+' + phone[0]['telefonlandnr'] + phone[0]['telefonnr']
@@ -877,7 +880,7 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
         logger.info("Could not set phone %s: %s", info_chunk.phone, e)
 
     fax = fs.person.get_telephone(info_chunk.fnr6, info_chunk.pnr,
-                                  instno, 'FAKS')
+                                  instno, 'FAKS', fetchall=True)
     if fax:
         if fax[0]['telefonlandnr']:
             fax = '+' + fax[0]['telefonlandnr'] + fax[0]['telefonnr']

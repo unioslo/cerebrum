@@ -28,13 +28,11 @@ changing affiliations.
 """
 
 import argparse
-import pickle
-import cerebrum_path
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import json
 from Cerebrum.modules import CLHandler
 from Cerebrum.Errors import NotFoundError
 
-del cerebrum_path
 logger = None
 EVENT_KEY = 'ou-group'
 
@@ -434,7 +432,7 @@ def main():
         def handler(event):
             args = event['change_params']
             if args is not None:
-                args = pickle.loads(args)
+                args = json.loads(args)
             logger.debug('Handler(%s) called for %s', tp, args)
             eid = int(event['subject_entity'])
             datum = data[tp].get(eid)

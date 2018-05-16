@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2011 University of Oslo, Norway
 #
@@ -17,7 +17,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
-# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA. 
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """This script is a tool used to check active accounts in Cerebrum.
 Check and list summary or detail information of the Cerebrum users and
@@ -27,8 +27,8 @@ the number is greater than allowed.
 """
 import sys
 import getopt
-from Cerebrum import Utils
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.email import sendmail
 
 logger = Factory.get_logger("console")
 db = Factory.get('Database')()
@@ -36,35 +36,35 @@ co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
 pr = Factory.get('Person')(db)
 
-def usage(msg = None, exit_status = 0):
+
+def usage(msg=None, exit_status=0):
     if msg is not None:
         logger.debug(msg)
     print """Usage: %s [options]
-    
+
     -s, --summary   This option is default. List the overview
                     information for the active accounts in Cerebrum.
-                       
+
     -d, --detail    List the informaiton of personal_id and account_ids
                     for each person.
-                       
+
     --min [Nr1]     The default vaule for Nr1 is 1. Check the persons
                     who have more than Nr1 active accounts in Cerebrum.
-                       
+
     --max [Nr2]     Check the persons who have less than Nr2 active
                     accounts in Cerebrum.
-                       
+
     -h, --help      See this help infomation and exit.
-    
+
     """ % sys.argv[0]
-    
     sys.exit(exit_status)
 
-def accountNr(minimum,maxmum,accs):
+
+def accountNr(minimum, maxmum, accs):
     """
     Compare the number of accounts in the 'accs' list for each person
     with the input option number 'minimum' and 'maxmum'.
     """
-    
     if maxmum:
         if len(accs) >= minimum and len(accs) <= maxmum:
             return True
@@ -180,8 +180,8 @@ def main():
     if mail_to:
         count = persons.count("\n")
         subject = "Warning: these following %s persons have more than %s active accounts." % (count,minimum)
-        Utils.sendmail(mail_to, mail_from, subject, persons)
-            
+        sendmail(mail_to, mail_from, subject, persons)
+
 
 if __name__ == '__main__':
     main()

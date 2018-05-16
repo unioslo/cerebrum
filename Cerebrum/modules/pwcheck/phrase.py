@@ -20,6 +20,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains simple password phrase checks. """
 
+from __future__ import unicode_literals
+
 from .checker import pwchecker, PasswordChecker
 
 

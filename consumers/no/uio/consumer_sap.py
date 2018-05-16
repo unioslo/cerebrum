@@ -27,7 +27,7 @@ from collections import OrderedDict
 from six import text_type
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, read_password, remove_control_characters
+from Cerebrum.Utils import Factory, read_password
 from Cerebrum.modules.event.mapping import CallbackMap
 
 
@@ -169,36 +169,9 @@ def parse_names(d):
     :rtype: tuple((PersonName('FIRST'), 'first'),
                   (PersonName('FIRST'), 'last'))
     :return: A tuple with the fields that should be updated"""
-    # TODO: This is a ULTRA-UGLY hack. Remove this when Cerebrum can Unicode in
-    # an appropriate manner.
-    import unicodedata
-
-    def clense(string):
-        def stripper(char):
-            try:
-                char.encode('ISO-8859-1')
-                return char
-            except UnicodeEncodeError:
-                return unicode(
-                    unicodedata.normalize('NFD', char).encode('ISO-8859-1',
-                                                              'ignore'))
-
-        return u''.join(map(stripper, unicodedata.normalize('NFC', string)))
-
-    def cleanse_and_maybe_log(ident, name):
-        cleansed_name = clense(name)
-
-        if name != cleansed_name:
-            logger.info(
-                u'Cleansed name of {} from {} to {}'.format(
-                    ident, name, cleansed_name))
-        return cleansed_name
-
     co = Factory.get('Constants')
-    return ((co.name_first,
-             cleanse_and_maybe_log(d.get(u'id'), d.get(u'firstName'))),
-            (co.name_last,
-             cleanse_and_maybe_log(d.get(u'id'), d.get(u'lastName'))))
+    return ((co.name_first, d.get(u'firstName')),
+            (co.name_last, d.get(u'lastName')))
 
 
 def parse_contacts(d):
@@ -439,9 +412,6 @@ def _parse_hr_person(database, source_system, data):
     """Collects parsed information from SAP."""
     from mx import DateTime
     co = Factory.get('Constants')
-
-    data = {k: remove_control_characters(v) if isinstance(v, text_type) else v
-            for k, v in data.items()}
 
     return {
         u'id': data.get(u'personId'),
@@ -837,10 +807,7 @@ def update_titles(database, source_system, hr_person, cerebrum_person):
             _stringify_for_log(e), cerebrum_person.entity_id))
 
     for e in titles - set(hr_person.get(u'titles')):
-        # TODO: Un-WTF-o-rama-this after/during the unicode epic
-        kwargs = dict(e)
-        kwargs[u'name'] = kwargs.get(u'name').encode(u'UTF-8')
-        cerebrum_person.delete_name_with_language(**kwargs)
+        cerebrum_person.delete_name_with_language(**dict(e))
         logger.debug(u'Removing title {} for id:{}'.format(
             _stringify_for_log(e), cerebrum_person.entity_id))
 
@@ -1011,7 +978,7 @@ def main(args=None):
     import functools
     from Cerebrum.modules.event_consumer import get_consumer
 
-    database = Factory.get('Database')(client_encoding='UTF-8')
+    database = Factory.get('Database')()
     database.cl_init(change_program=prog_name)
     source_system = Factory.get('Constants')(database).system_sap
 

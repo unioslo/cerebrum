@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2008-2010 University of Oslo, Norway
+# Copyright 2008-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,47 +19,52 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Usage: generate_subnet_ldif.py [--logger-name=console ...]
+"""Write IP subnet information from Cerebrum to an LDIF file.
 
-Write IP subnet information from Cerebrum
-to an LDIF file, which can then be loaded into LDAP.
 See Cerebrum/default_config.py:LDAP_SUBNETS for configuration.
 
 See design/ldap/uioIpNetwork.schema for information about the
-uioIpAddressRangeStart, uioIpAddressRangeEnd and uioVlanID
-attributes.
+uioIpAddressRangeStart, uioIpAddressRangeEnd and uioVlanID attributes.
 """
 
-import cerebrum_path
-import cereconf
+from six import text_type
+
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.LDIFutils import ldapconf, iso2utf, \
-     ldif_outfile, end_ldif_outfile, entry_string, container_entry_string
-from Cerebrum.modules.dns.Subnet  import Subnet
+from Cerebrum.modules.LDIFutils import (ldapconf,
+                                        ldif_outfile,
+                                        end_ldif_outfile,
+                                        entry_string,
+                                        container_entry_string)
+from Cerebrum.modules.dns.Subnet import Subnet
 from Cerebrum.modules.dns.IPUtils import IPCalc
 
-netmask_to_ip = IPCalc().netmask_to_ip
+logger = Factory.get_logger('cronjob')
+
 
 def write_subnet_ldif():
-    DN = ldapconf('SUBNETS', 'dn')
-    objectClasses = ('top', 'ipNetwork', 'uioIpNetwork')
     db = Factory.get('Database')()
-    f  = ldif_outfile('SUBNETS')
+    subnet = Subnet(db)
+
+    dn = ldapconf('SUBNETS', 'dn')
+    f = ldif_outfile('SUBNETS')
     f.write(container_entry_string('SUBNETS'))
-    for row in Subnet(db).search():
-        cn   = "%s/%s" % (row['subnet_ip'], row['subnet_mask'])
+    subnets = subnet.search()
+    for row in subnets:
+        cn = "{}/{}".format(row['subnet_ip'], row['subnet_mask'])
         desc = row['description']
         entry = {
-            'objectClass':     objectClasses,
-            'description':     (desc and (iso2utf(desc),) or ()),
+            'objectClass': ('top', 'ipNetwork', 'uioIpNetwork'),
+            'description': (desc and (desc,) or ()),
             'ipNetworkNumber': (row['subnet_ip'],),
-            'ipNetmaskNumber': (netmask_to_ip(row['subnet_mask']),),
-            'uioIpAddressRangeStart': (str(int(row['ip_min'])),),
-            'uioIpAddressRangeEnd': (str(int(row['ip_max'])),)}
+            'ipNetmaskNumber': (IPCalc.netmask_to_ip(row['subnet_mask']),),
+            'uioIpAddressRangeStart': (text_type(row['ip_min']),),
+            'uioIpAddressRangeEnd': (text_type(row['ip_max']),)}
         if row['vlan_number']:
-            entry['uioVlanID'] = (str(int(row['vlan_number'])),)
-        f.write(entry_string("cn=%s,%s" % (cn, DN), entry))
+            entry['uioVlanID'] = (text_type(row['vlan_number']),)
+        f.write(entry_string("cn={},{}".format(cn, dn), entry))
     end_ldif_outfile('SUBNETS', f)
+    logger.info('Wrote %d entries to %s', len(subnets), f.name)
+
 
 if __name__ == '__main__':
     write_subnet_ldif()

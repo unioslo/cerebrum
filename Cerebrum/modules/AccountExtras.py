@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+import six
 
 import cereconf
 from Cerebrum.Utils import Factory
@@ -44,7 +45,8 @@ class AutoPriorityAccountMixin(Account.Account):
         if status is None:
             raise ValueError("Person %s don't have aff %s at ou_id %s" % (
                              self.owner_id, affiliation, ou_id))
-        affiliation = str(self.const.PersonAffiliation(int(affiliation)))
+        affiliation = six.text_type(self.const.PersonAffiliation(
+            int(affiliation)))
 
         # Find the range that we resolve to
         pri_ranges = cereconf.ACCOUNT_PRIORITY_RANGES

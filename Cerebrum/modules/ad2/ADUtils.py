@@ -247,7 +247,7 @@ class ADclient(PowershellClient):
         """
         super(ADclient, self).__init__(*args, **kwargs)
         self.add_credentials(username=auth_user,
-                             password=unicode(read_password(auth_user, self.host), 'utf-8'))
+                             password=read_password(auth_user, self.host))
 
         # Note that we save the user's password by domain and not the host. It
         # _could_ be the wrong way to do it. TBD: Maybe both host and domain?
@@ -258,8 +258,7 @@ class ADclient(PowershellClient):
             self.ad_account_username = '%s@%s' % (ad_user, user_domain)
             self.logger.debug2("Using domain account: %s",
                                self.ad_account_username)
-            self.ad_account_password = unicode(read_password(ad_user, user_domain),
-                                               'utf-8')
+            self.ad_account_password = read_password(ad_user, user_domain)
         else:
             self.logger.debug2("Not using a domain account")
         self.dryrun = dryrun
@@ -464,8 +463,8 @@ class ADclient(PowershellClient):
             'ad_pasw': self.escape_to_string(self.ad_account_password)}
         #for a in args:
         #    print a
-        self.logger.debug4(u'Executing powershell command: %s',
-                           u' '.join(args).replace('\n', ' '))
+        self.logger.debug4(u'Executing powershell command: %r',
+                           args)
         return super(ADclient, self).execute(setup, *args, **kwargs)
 
     # Standard lines in powershell that we can't get rid of by powershell code.
@@ -1508,6 +1507,8 @@ class ADclient(PowershellClient):
                                                      ['Reset']))
         else:
             raise Exception('Invalid password-type')
+        if isinstance(cmd, bytes):
+            cmd = cmd.decode('utf-8')
         if self.dryrun:
             return True
         out = self.run(cmd)

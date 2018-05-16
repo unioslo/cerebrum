@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2017 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -92,7 +92,8 @@ save_dig_output (e.g. 3)
     an additional old output file is kept as (dig.out.N).
 
 """
-from __future__ import absolute_import
+from __future__ import absolute_import, unicode_literals
+
 import operator
 import os
 import re
@@ -201,7 +202,8 @@ def get_zone_records(ns, zone, rtypes, savefile):
 
     if pipe.returncode != 0:
         raise RuntimeError(
-            "dig failed with exitcode {0}".format(pipe.returncode))
+            "dig failed with exitcode {}: {}".format(pipe.returncode,
+                                                     out))
 
     for line in out.splitlines(True):
         savefile.write(line)
@@ -210,7 +212,9 @@ def get_zone_records(ns, zone, rtypes, savefile):
             name, rtype, rdata = match.groups()
             if rtype not in rtypes:
                 continue
-            yield name, rtype, rdata
+            yield (name.decode('utf-8'),
+                   rtype.decode('utf-8'),
+                   rdata.decode('utf-8'))
         elif check_dig_line(line):
             check_lines.append(line)
         else:
@@ -387,7 +391,7 @@ cn: %s
                 handle_domain_host(cnames[domain])
             elif domain in hosts:
                 handle_domain_host(domain)
-        except:
+        except Exception:
             logger.error("domain=%r, cnames[domain]=%r, "
                          "in hosts=%r, in cnames=%r",
                          domain, cnames.get(domain),

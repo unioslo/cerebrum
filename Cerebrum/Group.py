@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -17,6 +17,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 """API for accessing the core group structures in Cerebrum.
 
 Note that even though the database allows us to define groups in
@@ -27,6 +29,7 @@ name when constructing a Group object."""
 
 
 import mx
+import six
 
 import cereconf
 from Cerebrum import Utils
@@ -39,6 +42,7 @@ from Cerebrum.Utils import argument_to_sql, prepare_string
 Entity_class = Utils.Factory.get("Entity")
 
 
+@six.python_2_unicode_compatible
 class Group(EntityQuarantine, EntityExternalId, EntityName,
             EntitySpread, EntityNameWithLanguage, Entity_class):
 
@@ -121,7 +125,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if 'group_name' in self.__updated:
             tmp = self.illegal_name(self.group_name)
             if tmp:
-                raise self._db.IntegrityError, "Illegal groupname: %s" % tmp
+                raise self._db.IntegrityError("Illegal groupname: %s" % tmp)
 
         if is_new:
             cols = [('entity_type', ':e_type'),
@@ -895,6 +899,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 entry["expire_date"] = entry["expire2"]
             yield entry
 
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            return self.group_name
+        return '<unbound group>'
+
 
 class GroupAPI(object):
     """Functional and generalized API that provides common operations."""
@@ -914,7 +923,7 @@ class GroupAPI(object):
             'name': gr.group_name,
             'description': gr.description,
             'expire_date': gr.expire_date,
-            'visibility': (str(co.GroupVisibility(gr.visibility)) if
+            'visibility': (six.text_type(co.GroupVisibility(gr.visibility)) if
                            gr.visibility else None),
         }
 

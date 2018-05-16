@@ -28,6 +28,7 @@ can be formatted and published.
 from __future__ import absolute_import, print_function
 
 import re
+import six
 from collections import OrderedDict
 
 from Cerebrum.Utils import Factory
@@ -144,9 +145,9 @@ def _stringify_code(msg, field, code_converter):
     """
     code = msg.get('data', {}).get(field)
     if code and isinstance(code, code_converter):
-        msg['data'][field] = str(code)
+        msg['data'][field] = six.text_type(code)
     elif code:
-        msg['data'][field] = str(code_converter(code))
+        msg['data'][field] = six.text_type(code_converter(code))
 
 
 def _rename_key(msg, field, new_field):
@@ -280,7 +281,7 @@ def _ou(msg, db):
     if ou:
         o = Factory.get("OU")(db)
         o.find(ou)
-        msg['data']['ou'] = str(o)
+        msg['data']['ou'] = six.text_type(o)
 
 
 @EventFilter.register('ac_type')
@@ -368,7 +369,7 @@ def entity_cinfo(msg, db=None, **kwargs):
         c.contact_mobile_phone: 'cellPhone',
         c.contact_private_mobile: 'cellPhone',
         c.contact_private_mobile_visible: 'cellPhone'
-    }.get(x) or str(x).capitalize()
+    }.get(x) or six.text_type(x).capitalize()
 
     common = _make_common_args(msg)
 
@@ -414,7 +415,7 @@ def entity_external_id(msg, db=None, **kwargs):
         c.externalid_sap_ou: 'sapOu',
         c.externalid_uname: 'externalUsername',
         c.externalid_stedkode: 'OuCode',
-    }.get(x) or str(x).capitalize()
+    }.get(x) or six.text_type(x).capitalize()
 
     common = _make_common_args(msg)
 

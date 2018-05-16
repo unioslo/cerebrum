@@ -25,16 +25,17 @@ To modify permissions, temporary start a separate bofhd with the normal
 bofhd_uio_cmds so that the perm commands are available.
 
 """
+import imaplib
+import socket
+
+import mx
+from six import text_type
 
 import cereconf
 
-import imaplib
-import mx
-import pickle
-import socket
-
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import json
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
@@ -117,12 +118,14 @@ copy_uio = [
     methods=copy_helpers)
 class BofhdExtension(BofhdCommonMethods):
 
+    external_id_mappings = {}
     all_commands = {}
     parent_commands = True
     authz = BofhdAuth
 
     def __init__(self, *args, **kwargs):
         super(BofhdExtension, self).__init__(*args, **kwargs)
+        self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
 
         # Quick fix to replace the `person_find_uio` hack
         self.__uio_impl = base(*args, **kwargs)
@@ -209,16 +212,18 @@ class BofhdExtension(BofhdCommonMethods):
                 owner = en.group_name
             else:
                 owner = '#%d' % id
-            ret.append({'owner_type': str(co.EntityType(en.entity_type)),
-                        'owner': owner,
-                        'opset': aos.name})
+            ret.append({
+                'owner_type': text_type(co.EntityType(en.entity_type)),
+                'owner': owner,
+                'opset': aos.name,
+            })
 
         # Count group members of different types
         members = list(grp.search_members(group_id=grp.entity_id))
         tmp = {}
         for ret_pfix, entity_type in (
-                ('c_group', int(self.const.entity_group)),
-                ('c_account', int(self.const.entity_account))):
+                ('c_group', int(co.entity_group)),
+                ('c_account', int(co.entity_account))):
             tmp[ret_pfix] = len([x for x in members
                                  if int(x["member_type"]) == entity_type])
         ret.append(tmp)
@@ -256,10 +261,11 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['list_defined_spreads'] = None
 
     def list_defined_spreads(self, operator):
-        return [{'code_str': str(y),
-                 'desc': y.description,
-                 'entity_type': str(self.const.EntityType(y.entity_type))}
-                for y in self.const.fetch_constants(self.const.Spread)]
+        return [{
+            'code_str': text_type(y),
+            'desc': y.description,
+            'entity_type': text_type(self.const.EntityType(y.entity_type)),
+        } for y in self.const.fetch_constants(self.const.Spread)]
 
     #
     # get_entity_spreads
@@ -271,7 +277,7 @@ class BofhdExtension(BofhdCommonMethods):
         to_spread = self.const.Spread
         return [
             {
-                'spread': str(to_spread(row['spread'])),
+                'spread': text_type(to_spread(row['spread'])),
                 'spread_desc': to_spread(row['spread']).description,
             }
             for row in entity.get_spread()
@@ -383,12 +389,14 @@ class BofhdExtension(BofhdCommonMethods):
                     name_variant=self.const.ou_name,
                     name_language=self.const.language_nb,
                     default=""),
-                 'aff_type': str(
+                 'aff_type': text_type(
                      self.const.PersonAffiliation(row['affiliation'])),
-                 'aff_status': str(self.const.PersonAffStatus(row['status'])),
+                 'aff_status': text_type(
+                     self.const.PersonAffStatus(row['status'])),
                  'ou_id': row['ou_id'],
-                 'affiliation': str(self.const.PersonAffStatus(row['status'])),
-                 'source_system': str(
+                 'affiliation': text_type(
+                     self.const.PersonAffStatus(row['status'])),
+                 'source_system': text_type(
                      self.const.AuthoritativeSystem(row['source_system'])), })
 
         account = self.Account_class(self.db)
@@ -398,9 +406,11 @@ class BofhdExtension(BofhdCommonMethods):
                 or operator.get_entity_id() in account_ids):
             for row in person.get_external_id(
                     id_type=self.const.externalid_fodselsnr):
-                data.append({'fnr': row['external_id'],
-                             'fnr_src': str(
-                    self.const.AuthoritativeSystem(row['source_system']))})
+                data.append({
+                    'fnr': row['external_id'],
+                    'fnr_src': text_type(
+                        self.const.AuthoritativeSystem(row['source_system'])),
+                })
         return data
 
     #
@@ -704,18 +714,18 @@ class BofhdExtension(BofhdCommonMethods):
                 del(changes[int(self.const.account_password)])
 
             for k, v in changes.items():
-                change_str = str(self.const.ChangeType(int(k)))
+                change_type = self.const.ChangeType(int(k))
                 params = ''
-                if k == int(self.const.account_password):
+                if k == self.const.account_password:
                     if v['change_params']:
-                        params = pickle.loads(v['change_params'])
+                        params = json.loads(v['change_params'])
                         params = params.get('password', '')
                 tmp = {
                     'tstamp': v['tstamp'],
                     # 'change_type': str(cl),
-                    'change_type': change_str,
+                    'change_type': text_type(change_type),
                     'misc': params,
-                    }
+                }
                 entity = self._get_entity(ident=int(v['subject_entity']))
                 if entity.entity_type == int(self.const.entity_person):
                     person = self._get_person("entity_id", entity.entity_id)
@@ -889,7 +899,7 @@ class BofhdExtension(BofhdCommonMethods):
                 except (TimeoutException, socket.error):
                     used = 'DOWN'
                 except ConnectException as e:
-                    used = str(e)
+                    used = text_type(e)
                 except imaplib.IMAP4.error:
                     used = 'DOWN'
                 info.append({'quota_hard': eq.email_quota_hard,

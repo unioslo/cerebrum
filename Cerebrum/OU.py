@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2002-2011 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,7 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """Organisational Unit implementation.
 
 This module implements the functionality for one of the basic elements of
@@ -29,8 +28,10 @@ source, called perspective. An OU may be in different parts of the
 organizational trees in different perspectives.
 """
 
+from __future__ import unicode_literals
 
-import cereconf
+import six
+
 from Cerebrum import Utils
 from Cerebrum.Utils import prepare_string
 from Cerebrum import Errors
@@ -45,6 +46,7 @@ from Cerebrum.Entity import EntityNameWithLanguage
 Entity_class = Utils.Factory.get("Entity")
 
 
+@six.python_2_unicode_compatible
 class OU(EntityContactInfo, EntityExternalId, EntityAddress,
          EntityQuarantine, EntitySpread, EntityNameWithLanguage,
          Entity_class):
@@ -58,7 +60,6 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         self.__super.clear()
         self.clear_class(OU)
         self.__updated = []
-    # end clear
 
     def populate(self):
         Entity_class.populate(self, self.const.entity_ou)
@@ -72,7 +73,6 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                 raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
-    # end populate
 
     def __getattribute__(self, name):
         """Issue warnings for deprecated API usage.
@@ -90,13 +90,13 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                     "short_name": self.const.ou_name_short,
                     "display_name": self.const.ou_name_display, }
         logger = Utils.Factory.get_logger()
-        logger.warn("Deprecated usage of OU: OU.%s cannot be accessed directly."
+        logger.warn("Deprecated usage of OU:"
+                    " OU.%s cannot be accessed directly."
                     " Use get/add/delete_name_with_language" % (name,))
-        # For the "unspecified" case we assume Norwegian bokmål.
+        # For the "unspecified" case we assume Norwegian bokmÃ¥l.
         return self.get_name_with_language(name_map[name],
                                            self.const.language_nb,
                                            default='')
-    # end __getattribute__
 
     def write_db(self):
         """Sync instance with Cerebrum database.
@@ -120,7 +120,6 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         self.__in_db = True
         self.__updated = []
         return is_new
-    # end write_db
 
     def __eq__(self, other):
         """Overide the == test for objects."""
@@ -130,19 +129,19 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
 
         own_names = set((r["name_variant"], r["name_language"], r["name"])
                         for r in
-                        self.search_name_with_language(entity_id=self.entity_id))
+                        self.search_name_with_language(
+                            entity_id=self.entity_id))
         other_names = set((r["name_variant"], r["name_language"], r["name"])
                           for r in
-                          other.search_name_with_language(entity_id=self.entity_id))
+                          other.search_name_with_language(
+                              entity_id=self.entity_id))
         return own_names == other_names
-    # end __eq__
 
     def new(self):
         """Register a new OU."""
         self.populate()
         self.write_db()
         self.find(self.entity_id)
-    # end new
 
     def delete(self):
         if self.__in_db:
@@ -151,7 +150,6 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
             WHERE ou_id = :ou_id""", {'ou_id': self.entity_id})
             self._db.log_change(self.entity_id, self.const.ou_del, None)
         self.__super.delete()
-    # end delete
 
     def find(self, ou_id):
         """Associate the object with the OU whose identifier is OU_ID.
@@ -165,7 +163,6 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
             pass
         self.__in_db = True
         self.__updated = []
-    # end find
 
     def get_parent(self, perspective):
         return self.query_1("""
@@ -174,7 +171,6 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         WHERE ou_id=:ou_id AND  perspective=:perspective""",
                             {'ou_id': self.entity_id,
                              'perspective': int(perspective)})
-    # end get_parent
 
     def structure_path(self, perspective):
         """Return a string indicating OU's structural placement.
@@ -197,9 +193,10 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
 
             # Append this node's acronym (if it is non-NULL) to
             # 'components'.
-            acronyms = self.search_name_with_language(entity_id=temp.entity_id,
-                                                      name_variant=self.const.ou_name_acronym,
-                                                      name_language=self.const.language_nb)
+            acronyms = self.search_name_with_language(
+                entity_id=temp.entity_id,
+                name_variant=self.const.ou_name_acronym,
+                name_language=self.const.language_nb)
             if acronyms:
                 components.append(acronyms[0]["name"])
 
@@ -211,7 +208,6 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
             temp.clear()
             temp.find(parent_id)
         return "/".join(components)
-    # end structure_path
 
     def unset_parent(self, perspective):
         self.execute("""
@@ -263,7 +259,6 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                 ret.extend(self.list_children(perspective, r['ou_id'],
                                               recursive))
         return ret
-    # end list_children
 
     def get_structure_mappings(self, perspective):
         """Return list of ou_id -> parent_id connections in ``perspective``."""
@@ -271,7 +266,6 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         SELECT ou_id, parent_id
         FROM [:table schema=cerebrum name=ou_structure]
         WHERE perspective=:perspective""", {'perspective': int(perspective)})
-    # end get_structure_mappings
 
     def root(self):
         # FIXME: Doesn't check perspective. Documentation should also
@@ -285,13 +279,12 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         SELECT ou_id
         FROM [:table schema=cerebrum name=ou_structure]
         WHERE parent_id IS NULL""")
-    # end root
 
     def search(self, spread=None, filter_quarantined=False):
         """Retrives a list of OUs filtered by the given criteria.
 
-        Note that acronyms and other name variants is not a part of the basic OU
-        table, but could be searched for through
+        Note that acronyms and other name variants is not a part of the basic
+        OU table, but could be searched for through
         L{EntityNameWithLanguage.search_name_with_language}.
 
         If no criteria is given, all OUs are returned.
@@ -320,7 +313,8 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         if filter_quarantined:
             where.append("""
             (NOT EXISTS (SELECT 1
-                         FROM [:table schema=cerebrum name=entity_quarantine] eq
+                         FROM
+                          [:table schema=cerebrum name=entity_quarantine] eq
                          WHERE oi.ou_id=eq.entity_id))
             """)
 
@@ -331,5 +325,8 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         return self.query("""
         SELECT DISTINCT oi.ou_id
         FROM %s %s""" % (','.join(tables), where_str), binds)
-    # end search
-# end class OU
+
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            return self.display_name
+        return '<unbound ou>'

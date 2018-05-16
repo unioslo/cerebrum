@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2003-2005 University of Oslo, Norway
 #
@@ -23,11 +23,13 @@
 Informatics.
 """
 
+from __future__ import unicode_literals
+
 import sys
 import getopt
 import re
-import locale
 import time
+from six import text_type
 
 from mx import DateTime
 import cerebrum_path
@@ -36,6 +38,11 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
+
+
+del cerebrum_path
+db = co = logger = group_creator = dryrun = None
+
 
 def get_email_target_and_address(address):
     ea = Email.EmailAddress(db)
@@ -46,7 +53,8 @@ def get_email_target_and_address(address):
     et = Email.EmailTarget(db)
     et.find(ea.email_addr_target_id)
     return (et, ea)
-        
+
+
 def delete_email_address(address):
     et, ea = get_email_target_and_address(address)
     if et is None:
@@ -64,13 +72,14 @@ def delete_email_address(address):
         logger.debug("Deleted *primary* address <%s>", address)
     except Errors.NotFoundError:
         pass
-        
+
     ea.delete()
     for r in et.get_addresses():
         logger.info("There are addresses left")
         return
     logger.debug("Deleting target as well")
     et.delete()
+
 
 def update_email_address(address, group):
     et, ea = get_email_target_and_address(address)
@@ -91,8 +100,8 @@ def update_email_address(address, group):
             logger.info("Added address <%s>", address)
         except Errors.NotFoundError:
             et.populate(co.email_target_multi,
-                        target_entity_type = co.entity_group,
-                        target_entity_id = group.entity_id)
+                        target_entity_type=co.entity_group,
+                        target_entity_id=group.entity_id)
             et.write_db()
             logger.info("Created <%s>", address)
         ed = Email.EmailDomain(db)
@@ -101,6 +110,7 @@ def update_email_address(address, group):
         ea = Email.EmailAddress(db)
         ea.populate(lp, ed.entity_id, et.entity_id)
         ea.write_db()
+
 
 def find_leaf(group):
     target_group = None
@@ -136,6 +146,7 @@ def sync_email_address(address, group):
 # the horrors, the horrors.
 # http://www.uio.no/for-ansatte/arbeidsstotte/sta/enheter/mn/institutter/ifi/epostlister/
 
+
 def shorten_course_name(course):
     fgname = course
     fgname = fgname.replace("matinf", "mi", 1)
@@ -155,10 +166,11 @@ def shorten_course_name(course):
     fgname = fgname.replace("tool", "it", 1)
     return fgname[:6]
 
+
 def convert_activitynumber(act):
     # support for TVI has not been added, it will probably not return
 
-    if act is 'grl':
+    if act == 'grl':
         return 'g'      # the filegroup for all the teachers
     elif act in range(200, 300):
         delim = 'p'     # activity for profession students
@@ -172,7 +184,7 @@ def convert_activitynumber(act):
     if act < 26:
         return delim + "%c" % (ord('a') + act)
     else:
-        return "%c%c" % (ord('a') + act/26, ord('a') + act%26)
+        return "%c%c" % (ord('a') + act/26, ord('a') + act % 26)
 
 
 def make_filegroup_name(course, act, names):
@@ -215,7 +227,7 @@ def add_members(gname, new_members):
             group.add_member(memb)
     group.write_db()
 # end add_members
-    
+
 
 def sync_filegroup(fgname, group, course, act):
     posix_group = PosixGroup.PosixGroup(db)
@@ -229,9 +241,9 @@ def sync_filegroup(fgname, group, course, act):
     except Errors.NotFoundError:
         logger.info("Created new file group %s", fgname)
         posix_group.populate(group_creator, co.group_visibility_all, fgname,
-                             "Gruppelærere %s gruppe %s" %
+                             "GruppelÃ¦rere %s gruppe %s" %
                              (course.upper(), act),
-                             expire_date = expdate)
+                             expire_date=expdate)
         posix_group.write_db()
     else:
         posix_group.find(fgroup.entity_id)
@@ -271,6 +283,7 @@ def sync_filegroup(fgname, group, course, act):
         posix_group.add_spread(co.spread_ifi_nis_fg)
     return posix_group
 
+
 def process_groups(super, fg_super):
     # make a note of what filegroups are automatically maintained
     auto_fg = {}
@@ -280,9 +293,9 @@ def process_groups(super, fg_super):
         # first time we run this
         fg_super_gr = Factory.get('Group')(db)
         fg_super_gr.populate(group_creator, co.group_visibility_internal,
-                             fg_super, "Ikke-eksporterbar gruppe.  Hvilke "+
-                             "filgrupper som er automatisk opprettet som "+
-                             "følge av Ifi-automatikk")
+                             fg_super, "Ikke-eksporterbar gruppe.  Hvilke "
+                             "filgrupper som er automatisk opprettet som "
+                             "fÃ¸lge av Ifi-automatikk")
         fg_super_gr.write_db()
     else:
         for row in fg_super_gr.search_members(group_id=fg_super_gr.entity_id,
@@ -300,7 +313,7 @@ def process_groups(super, fg_super):
                                           member_type=co.entity_group,
                                           member_filter_expired=False):
         member_id = int(row["member_id"])
-    
+
         group = get_group(member_id)
         if group.group_name.startswith(('sinf', 'sin')):
             continue
@@ -330,14 +343,14 @@ def process_groups(super, fg_super):
             leaf = get_group(group.group_name)
         if course:
             sync_email_address("%s-%s@ifi.uio.no" % (course, act), leaf)
-            if not course in short_name:
+            if course not in short_name:
                 short_name[course] = shorten_course_name(course)
             if leaf and act:
                 todo["%s-%s" % (course, act)] = (course, act, leaf)
 
     for course, act, group in todo.values():
         fgname = make_filegroup_name(course, act, short_name)
-        if fgname == None:
+        if fgname is None:
             logger.debug("Skipping %s-%s, it is an alias", course, act)
             continue
         fgroup = sync_filegroup(fgname, group, course, act)
@@ -365,28 +378,28 @@ def process_groups(super, fg_super):
                         co.EntityType(row["member_type"]),
                         row["member_id"], fgroup.group_name)
             fgroup.remove_member(row["member_id"])
-        
+
         fgroup.write_db()
 # end process_groups
 
 
 def get_group(id):
     gr = Factory.get('Group')(db)
-    if isinstance(id, str):
+    if isinstance(id, text_type):
         gr.find_by_name(id)
     else:
         gr.find(id)
     return gr
+
 
 def get_account(name):
     ac = Factory.get('Account')(db)
     ac.find_by_name(name)
     return ac
 
+
 def main():
     global db, co, logger, group_creator, dryrun
-    # handle upper and lower casing of strings with Norwegian letters.
-    locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
     db = Factory.get('Database')()
     db.cl_init(change_program='ifi_auto')
@@ -414,6 +427,7 @@ def main():
         db.commit()
     logger.info("All done")
 
+
 def usage(exitcode=64):
     print """Usage: ifi_auto.py [options]
     Update e-mail addresses and filegroups associated with courses
@@ -428,4 +442,3 @@ def usage(exitcode=64):
 
 if __name__ == '__main__':
     main()
-

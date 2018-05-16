@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2005-2008 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2005-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -43,13 +43,45 @@ TODO:
   flexible.
 * Fix the documentation and provide a few more examples.
 """
+from __future__ import unicode_literals
+
 import copy
 import time
+
 from xml.etree.cElementTree import parse, iterparse, ElementTree
+
 from mx.DateTime import Date, DateTimeDelta
 
 import cereconf
 from Cerebrum import Utils
+
+
+def get_xml_file_encoding(file_name):
+    """
+    A relatively naive way of determining the encoding used in a xml-file.
+    """
+    with open(file_name, 'r') as xml_file:
+        encoding = None
+        while encoding is None:
+            line = xml_file.readline()
+            if line.startswith('<?xml'):
+                if 'encoding=' in line:
+                    encoding = line.split('encoding="')[1].split('"')[0]
+                    return encoding
+                else:
+                    raise Exception('No encoding specified in {}'
+                                    ''.format(file_name))
+            elif line.startswith('<') or line == '':
+                raise Exception('No encoding specified in {}'
+                                ''.format(file_name))
+
+
+def ensure_unicode(text, encoding):
+    if not isinstance(text, basestring):
+        raise Exception('Not a string: {}'.format(text))
+    if isinstance(text, str):
+        return text.decode(encoding)
+    return text
 
 
 #######################################################################
@@ -62,7 +94,7 @@ class DataAddress(object):
     TBD: We should include some form for address validation.
     """
 
-    ADDRESS_BESOK = "besøk"
+    ADDRESS_BESOK = "besÃ¸k"
     ADDRESS_PRIVATE = "private"
     ADDRESS_POST = "post"
     ADDRESS_OTHER_POST = "addr_other_post"
@@ -75,7 +107,7 @@ class DataAddress(object):
     def __init__(self, kind, street=(), zip="", city="", country=""):
         self.kind = kind
         if isinstance(street, (list, tuple)):
-            self.street = "\n".join(filter(None, map(str.strip, street)))
+            self.street = "\n".join(filter(None, map(unicode.strip, street)))
         else:
             self.street = street.strip()
         self.city = city.strip()
@@ -225,8 +257,7 @@ class NameContainer(object):
 
 
 class DataEmployment(NameContainer):
-
-    """ Class for representing employment information. """
+    """Class for representing employment information."""
 
     # Employment types
     HOVEDSTILLING = "hovedstilling"
@@ -235,7 +266,7 @@ class DataEmployment(NameContainer):
     BILAG = "bilag"
 
     # Emplyment categories
-    KATEGORI_OEVRIG = "tekadm-øvrig"
+    KATEGORI_OEVRIG = "tekadm-Ã¸vrig"
     KATEGORI_VITENSKAPLIG = "vitenskaplig"
 
     # Work title string
@@ -243,7 +274,7 @@ class DataEmployment(NameContainer):
 
     def __init__(self, kind, percentage, code, start, end, place, category,
                  leave=None, mg=None, mug=None):
-        """ Create a new Employment object.
+        """Create a new Employment object.
 
         :type kind: basestring
         :param kind: Employment type, one of the attributes of this class.
@@ -281,7 +312,6 @@ class DataEmployment(NameContainer):
 
         :type mug: int
         :param mug: (MUGType, medarbeiderundergruppe)
-
         """
         super(DataEmployment, self).__init__()
         # TBD: Subclass?
@@ -294,7 +324,7 @@ class DataEmployment(NameContainer):
         self.end = end
         # Associated OU identified with (kind, value)-tuple.
         self.place = place
-        # Kind of employment -- VIT/TEKADM-ØVR
+        # Kind of employment -- VIT/TEKADM-Ã˜VR
         self.category = category
         # leave (should be a sequence of dict-like objects)
         if not leave:
@@ -327,7 +357,6 @@ class DataEmployment(NameContainer):
     def has_leave(self, date=Date(*time.localtime()[:3])):
         """If the employment is on leave, e.g. working somewhere else
         temporarily.
-
         """
         for l in self.leave:
             if l['start_date'] <= date and (date <= l['end_date']):
@@ -450,15 +479,18 @@ class DataOU(DataEntity):
                              self.NAME_SHORT,
                              self.NAME_LONG)
 
-    def __str__(self):
+    def __unicode__(self):
         return "DataOU (valid: %s-%s): %s\n| %s\n| %s\n| %s\n__%s\n" % (
             self.start_date,
             self.end_date,
             list(self.iterids()),
-            ["%s:%s" % (x, map(str, y)) for x, y in self.iternames()],
-            map(str, self.itercontacts()),
+            ["%s:%s" % (x, map(unicode, y)) for x, y in self.iternames()],
+            map(unicode, self.itercontacts()),
             list(self._usage_codes),
-            ["%s:%s" % (x, str(y)) for x, y in self.iteraddress()])
+            ["%s:%s" % (x, unicode(y)) for x, y in self.iteraddress()])
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8')
 
 
 class DataPerson(DataEntity):
@@ -486,13 +518,16 @@ class DataPerson(DataEntity):
         assert name.kind in (self.NAME_FIRST, self.NAME_LAST, self.NAME_MIDDLE,
                              self.NAME_TITLE)
 
-    def __str__(self):
+    def __unicode__(self):
         ret = "DataPerson: %s\n" % list(self.iterids())
         for kind, name in self.iternames():
             # ret += "%s: %s\n" % (kind, name.value)
-            ret += "| %s: %s\n" % (kind, map(str, name))
+            ret += "| %s: %s\n" % (kind, map(unicode, name))
         ret += "__\n"
         return ret
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8')
 
 
 class HRDataPerson(DataPerson):
@@ -597,6 +632,7 @@ class XMLDataGetter(AbstractDataGetter):
     def __init__(self, filename, logger, fetchall=True):
         self._filename = filename
         self._data_source = None
+        self._encoding = get_xml_file_encoding(filename)
 
         super(XMLDataGetter, self).__init__(logger, fetchall)
 
@@ -612,7 +648,7 @@ class XMLDataGetter(AbstractDataGetter):
         else:
             it = XMLEntityIterator(self._filename, element)
 
-        return klass(iter(it), self.logger, **kwargs)
+        return klass(iter(it), self.logger, self._encoding, **kwargs)
 
     def fetch(self, fetchall=True):
         """Parse the XML file and convert it to HRDataPerson objects."""
@@ -638,7 +674,7 @@ class XMLEntity2Object(object):
     reason such an object cannot be created, None must be returned.
     """
 
-    def __init__(self, xmliter, logger, **kwargs):
+    def __init__(self, xmliter, logger, encoding, **kwargs):
         """Constructs an iterator supplying DataEntity objects.
 
         xmliter is the the underlying ElementTree iterator (here we do not
@@ -647,6 +683,7 @@ class XMLEntity2Object(object):
 
         self._xmliter = iter(xmliter)
         self.logger = logger
+        self.encoding = encoding
         for (k, v) in kwargs.items():
             setattr(self, k, v)
 
@@ -797,7 +834,7 @@ class XMLEntityIterator(object):
 
     def __init__(self, filename, element):
         # iterparse itself is not necessarily an iterator. Therefore iter()
-        self.it = iter(iterparse(filename, ("start", "end")))
+        self.it = iter(iterparse(filename, (str("start"), str("end"))))
         self.element_name = element
 
         # Keep track of the root element (to prevent element caching)

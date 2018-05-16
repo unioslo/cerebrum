@@ -36,15 +36,16 @@ other instances too.
 
 """
 
+import cereconf
+
 import sys
 import os
 import getopt
 from mx.DateTime import now
 
-import cerebrum_path
-import cereconf
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, SMSSender
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.sms import SMSSender
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
 logger = Factory.get_logger('cronjob')

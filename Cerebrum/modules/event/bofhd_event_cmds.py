@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2014-2018 University of Oslo, Norway
@@ -18,13 +19,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Commands used for listing and managing events."""
-import pickle
 from collections import defaultdict
+
+import six
 
 import eventconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import json
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
@@ -78,7 +81,7 @@ class BofhdExtension(BofhdCommandBase):
             # Provoke. See if it exists.
             int(ts)
         except Errors.NotFoundError:
-            raise CerebrumError('No such target system: {}'.format(target_sys))
+            raise CerebrumError('No such target system: %r' % target_sys)
         return ts
 
     def _make_constants_human_readable(self, data):
@@ -91,7 +94,7 @@ class BofhdExtension(BofhdCommandBase):
                 if key in data:
                     value = self.const.human2constant(data[key])
                     if value:
-                        data[key] = str(value)
+                        data[key] = six.text_type(value)
         except TypeError:
             pass
         return data
@@ -152,7 +155,7 @@ class BofhdExtension(BofhdCommandBase):
             raise PermissionDenied('No access to event')
         ts = self._validate_target_system(operator, target_sys)
 
-        fail_limit = eventconf.CONFIG[str(ts)]['fail_limit']
+        fail_limit = eventconf.CONFIG[six.text_type(ts)]['fail_limit']
         return self.db.get_target_stats(ts, fail_limit)
 
     #
@@ -163,9 +166,9 @@ class BofhdExtension(BofhdCommandBase):
         TargetSystem(),
         SimpleString(help_ref='event_list_filter', optional=True),
         fs=FormatSuggestion(
-            '%-8d %-28s %-25s %d',
-            ('id', 'type', 'taken', 'failed',),
-            hdr='%-8s %-28s %-25s %s' % ('Id', 'Type', 'Taken', 'Failed',),),
+            '%-8d %-35s %-22s %d',
+            ('id', 'type', format_time('taken'), 'failed',),
+            hdr='%-8s %-35s %-22s %s' % ('Id', 'Type', 'Taken', 'Failed',),),
         perm_filter='is_postmaster')
 
     def event_list(self, operator, target_sys, args='failed'):
@@ -177,7 +180,7 @@ class BofhdExtension(BofhdCommandBase):
         # TODO: Check auth on target-system
         #       Remove perm_filter when this is implemented?
         if args == 'failed':
-            fail_limit = eventconf.CONFIG[str(ts)]['fail_limit']
+            fail_limit = eventconf.CONFIG[six.text_type(ts)]['fail_limit']
             locked = True
         elif args == 'full':
             fail_limit = None
@@ -191,8 +194,8 @@ class BofhdExtension(BofhdCommandBase):
                 locked=locked):
             r.append({
                 'id': ev['event_id'],
-                'type': str(self.const.map_const(ev['event_type'])),
-                'taken': str(ev['taken_time']).replace(' ', '_'),
+                'type': six.text_type(self.const.map_const(ev['event_type'])),
+                'taken': ev['taken_time'],
                 'failed': ev['failed']
             })
         return r
@@ -340,7 +343,7 @@ class BofhdExtension(BofhdCommandBase):
         # For certain keys, convert constants to human-readable representations
         change_params = ev['change_params']
         if change_params:
-            change_params = pickle.loads(ev['change_params'])
+            change_params = json.loads(ev['change_params'])
             change_params = self._make_constants_human_readable(change_params)
             change_params = repr(change_params)
         else:
@@ -348,8 +351,10 @@ class BofhdExtension(BofhdCommandBase):
 
         ret = {
             'event_id': ev['event_id'],
-            'event_type': str(self.const.map_const(ev['event_type'])),
-            'target_system': str(self.const.map_const(ev['target_system'])),
+            'event_type': six.text_type(
+                self.const.map_const(ev['event_type'])),
+            'target_system': six.text_type(
+                self.const.map_const(ev['target_system'])),
             'failed': ev['failed'],
             'tstamp': ev['tstamp'],
             'taken_time': ev['taken_time'],
@@ -366,7 +371,8 @@ class BofhdExtension(BofhdCommandBase):
                 try:
                     en.clear()
                     en.find(ev[key])
-                    entity_type = str(self.const.map_const(en.entity_type))
+                    entity_type = six.text_type(
+                        self.const.map_const(en.entity_type))
                     entity_name = self._get_entity_name(
                         en.entity_id, en.entity_type)
                     ret[key] = '{} {} (id:{:d})'.format(
@@ -426,13 +432,13 @@ class BofhdExtension(BofhdCommandBase):
 
             change_params = ev['change_params']
             if ev['change_params']:
-                change_params = pickle.loads(ev['change_params'])
+                change_params = json.loads(ev['change_params'])
                 change_params = self._make_constants_human_readable(
                     change_params)
 
             ret = {
                 'id': ev['event_id'],
-                'type': str(self.const.map_const(ev['event_type'])),
+                'type': six.text_type(self.const.map_const(ev['event_type'])),
                 'taken': ev['taken_time'],
                 'failed': ev['failed'],
                 'params': repr(change_params),
@@ -441,10 +447,10 @@ class BofhdExtension(BofhdCommandBase):
             }
 
             if 'dest_type' in types:
-                ret['dest_type'] = str(self.const.map_const(
+                ret['dest_type'] = six.text_type(self.const.map_const(
                     types['dest_type']))
             if 'subject_type' in types:
-                ret['subject_type'] = str(self.const.map_const(
+                ret['subject_type'] = six.text_type(self.const.map_const(
                     types['subject_type']))
             r.append(ret)
         return r

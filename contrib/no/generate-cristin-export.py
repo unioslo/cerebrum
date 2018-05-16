@@ -1,7 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2010 University of Oslo, Norway
+# Copyright 2010-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -42,17 +42,21 @@ Relevant docs:
 
 """
 
+from __future__ import unicode_literals
+
 import getopt
 import sys
 import time
+import six
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
+
+XML_ENCODING = 'iso8859-1'
 
 logger = None
 
@@ -71,22 +75,17 @@ def output_element_helper(xml, element, value, attributes=dict()):
     This function is just a shorthand, to avoid mistyping the element names
     in open and close tags.
     """
-
     # If there are no attributes and no textual value for the element, we do
     # not need it.
-    if not attributes and (value is None or not str(value)):
+    if not attributes and (value is None or not six.text_type(value)):
         return
-
     xml.startElement(element, attributes)
-    xml.data(str(value))
+    xml.data(six.text_type(value))
     xml.endElement(element)
-# end output_element_helper
-
 
 
 def output_headers(writer, tag, root_ou):
     """Generate a header with (mostly) static data"""
-
     writer.startElement("beskrivelse")
     output_element("kilde", tag)
     output_element("dato", time.strftime("%Y-%m-%d %H:%M:%S"))
@@ -104,14 +103,12 @@ def output_headers(writer, tag, root_ou):
                                           default="")
     output_element("akronym", name)
     writer.endElement("institusjon")
-# end output_headers
 
 
 def _cache_ou_data(perspective):
     """Fetch all relevant info for our OUs."""
-
     logger.debug("Starting caching ou_data")
-    
+
     db = Factory.get("Database")()
     const = Factory.get("Constants")()
     ou = Factory.get("OU")(db)
@@ -129,23 +126,17 @@ def _cache_ou_data(perspective):
     for row in ou.list_entity_addresses(entity_type=const.entity_ou,
                                         address_type=const.address_post):
         ous.setdefault(row["entity_id"], dict()).update(
-            {"postadresse": ", ".join(row[x]
-                                      for x in ("address_text", "p_o_box")
-                                      if row[x]),
-             "postnrOgPoststed": " ".join(row[x]
-                                          for x in ("postal_number",
-                                                    "city")
-                                          if row[x]),
-             "land": row["country"],})
-
+            {
+                "postadresse": ", ".join(row[x]
+                                         for x in ("address_text", "p_o_box")
+                                         if row[x]),
+                "postnrOgPoststed": " ".join(row[x]
+                                             for x in ("postal_number", "city")
+                                             if row[x]),
+                "land": row["country"],
+            })
     logger.debug("Ending caching ou_data: %d entries", len(ous))
-    #for k,v in ous.items():
-    #    logger.debug("OUS %10s %10s %10s" %(k, v["parent_id"],
-    #        str(v["fakultet"])+ str(v["institutt"])+str(v["avdeling"])))
-    #logger.debug("Ending debug OU print.")
     return ous
-# end _cache_ou_data    
-
 
 
 def output_OUs(writer, perspective, spread):
@@ -168,10 +159,9 @@ def output_OUs(writer, perspective, spread):
       online and it's not a required element).
     + datoAktivFra/datoAktivTil (not a problem. Although these dates are not
       registered in Cerebrum, they are not required required elements XML)
-   
     """
     if spread:
-        logger.debug("Outputting OUs with spread %s" %spread)
+        logger.debug("Outputting OUs with spread %s", spread)
     else:
         logger.debug("Outputting all OUs")
 
@@ -179,7 +169,7 @@ def output_OUs(writer, perspective, spread):
     db = Factory.get("Database")()
     ou = Factory.get("OU")(db)
     const = Factory.get("Constants")()
-    
+
     writer.startElement("organisasjon")
 
     filtered_ou_ids = ou.search(spread=spread, filter_quarantined=True)
@@ -191,26 +181,29 @@ def output_OUs(writer, perspective, spread):
 
         data = ous[ou_id]
         writer.startElement("enhet")
-        for element, value in (("institusjonsnr", cereconf.DEFAULT_INSTITUSJONSNR),
-                               ("avdnr", data["fakultet"]),
-                               ("undavdnr", data["institutt"]),
-                               ("gruppenr", data["avdeling"])):
+        for element, value in (
+                ("institusjonsnr", cereconf.DEFAULT_INSTITUSJONSNR),
+                ("avdnr", data["fakultet"]),
+                ("undavdnr", data["institutt"]),
+                ("gruppenr", data["avdeling"])):
             output_element(element, value)
         if "parent_id" in data and ous.get(data["parent_id"]):
-            counter = [0,]
+            counter = [0, ]
             parent_id = get_ou_for_export(ous, filtered_ou_ids,
-                                        data["parent_id"], counter)
+                                          data["parent_id"], counter)
             parent = ous[parent_id]
         else:
-            logger.debug("OU %s (%s) has no parent", ou_id,
-                         "-".join("%02d" % data[x]
-                                for x in ("fakultet", "institutt", "avdeling")))
+            logger.debug(
+                "OU %s (%s) has no parent",
+                ou_id,
+                "-".join("%02d" % data[x]
+                         for x in ("fakultet", "institutt", "avdeling")))
             parent = data
-        for element, value in (("institusjonsnrUnder",
-                                cereconf.DEFAULT_INSTITUSJONSNR),
-                               ("avdnrUnder", parent["fakultet"]),
-                               ("undavdnrUnder", parent["institutt"]), 
-                               ("gruppenrUnder", parent["avdeling"])):  
+        for element, value in (
+                ("institusjonsnrUnder", cereconf.DEFAULT_INSTITUSJONSNR),
+                ("avdnrUnder", parent["fakultet"]),
+                ("undavdnrUnder", parent["institutt"]),
+                ("gruppenrUnder", parent["avdeling"])):
             output_element(element, value)
 
         # FIXME: Remove this hardcoded junk (this is for testing only)
@@ -219,20 +212,16 @@ def output_OUs(writer, perspective, spread):
 
         ou.clear()
         ou.find(ou_id)
-        ou_name  = ou.get_name_with_language(name_variant=const.ou_name,
+        ou_name = ou.get_name_with_language(name_variant=const.ou_name,
                                             name_language=const.language_nb)
-        
         output_element("navnBokmal", ou_name)
         for element in ("postadresse", "postnrOgPoststed", "land",):
             if element in data:
                 output_element(element, data[element])
-            
         writer.endElement("enhet")
 
     writer.endElement("organisasjon")
     logger.debug("OU output complete")
-# end output_OUs
-
 
 
 def _cache_person_names(cache, source_system):
@@ -243,7 +232,6 @@ def _cache_person_names(cache, source_system):
     const = Factory.get("Constants")()
 
     logger.debug("Caching person names")
-    
     # Collect the names...
     for row in person.search_person_names(source_system=source_system,
                                           name_variant=(const.name_first,
@@ -251,12 +239,12 @@ def _cache_person_names(cache, source_system):
         person_id = row["person_id"]
         if person_id not in cache:
             continue
-
         cache[person_id][int(row["name_variant"])] = row["name"]
 
-    for row in person.search_name_with_language(entity_type=const.entity_person,
-                                                name_variant=const.work_title,
-                                                name_language=const.language_nb):
+    for row in person.search_name_with_language(
+            entity_type=const.entity_person,
+            name_variant=const.work_title,
+            name_language=const.language_nb):
         person_id = row["entity_id"]
         if person_id not in cache:
             continue
@@ -264,15 +252,11 @@ def _cache_person_names(cache, source_system):
 
     logger.debug("Caching person names complete")
     return cache
-# end _cache_person_names
-
 
 
 def _cache_person_contact_info(cache, source_system):
     """Preload the contact info tidbits."""
-
     logger.debug("Caching person contact info")
-    
     db = Factory.get("Database")()
     person = Factory.get("Person")(db)
     const = Factory.get("Constants")()
@@ -285,19 +269,14 @@ def _cache_person_contact_info(cache, source_system):
         person_id = row["entity_id"]
         if person_id not in cache:
             continue
-
         chunk = cache[person_id]
         contact_type = row["contact_type"]
         priority = row["contact_pref"]
-        if chunk.get(contact_type, {}).get("contact", priority+1) < priority:
+        if chunk.get(contact_type, {}).get("contact", priority + 1) < priority:
             continue
-
         chunk[contact_type] = row.dict()
-
-    logger.debug("Caching person contact info complete")        
+    logger.debug("Caching person contact info complete")
     return cache
-# end _cache_person_contact_info
-
 
 
 def _cache_person_external_id(cache, source_system):
@@ -305,8 +284,7 @@ def _cache_person_external_id(cache, source_system):
 
     fnr is the only key of interest.
     """
-
-    logger.debug("Caching person external ids")    
+    logger.debug("Caching person external ids")
     db = Factory.get("Database")()
     person = Factory.get("Person")(db)
     const = Factory.get("Constants")()
@@ -316,26 +294,19 @@ def _cache_person_external_id(cache, source_system):
                                         entity_type=const.entity_person):
         if row["entity_id"] not in cache:
             continue
-
         cache[row["entity_id"]][int(row["id_type"])] = row["external_id"]
-
     logger.debug("Caching person external ids complete")
     return cache
-# end _cache_person_external_id
-
 
 
 def _cache_person_reservation_data(cache, source_system):
     """Tag all employees as reserved/publishable."""
-
     logger.debug("Caching person reservation data")
-    
     db = Factory.get("Database")()
     group = Factory.get("Group")(db)
     try:
         if not hasattr(cereconf, "HIDDEN_PERSONS_GROUP"):
             return cache
-        
         group.find_by_name(cereconf.HIDDEN_PERSONS_GROUP)
     except Errors.NotFoundError:
         return cache
@@ -343,22 +314,15 @@ def _cache_person_reservation_data(cache, source_system):
     for row in group.search_members(group_id=group.entity_id):
         if row["member_id"] not in cache:
             continue
-
         cache[row["member_id"]]["reserved"] = True
-
     logger.debug("Caching person reservation data complete")
     return cache
-# end _cache_person_reservation_data
-    
 
 
 def _cache_person_primary_account(cache, source_system):
     """Locate primary accounts for everybody in cache."""
-
-    #
     # Ugh, this is so inelegant...
     logger.debug("Caching primary accounts")
-    
     # 1. cache person_id -> primary account_id
     db = Factory.get("Database")()
     account = Factory.get("Account")(db)
@@ -371,19 +335,14 @@ def _cache_person_primary_account(cache, source_system):
                      for x in
                      account.list_names(const.account_namespace))
     # 3. finally, fixup the cache
-
     for pid in cache:
         uname = aid2uname.get(pid2aid.get(pid))
         if not uname:
             continue
-        
         data = cache[pid]
         data["account_name"] = uname
-
     logger.debug("Caching primary accounts complete")
     return cache
-# end _cache_person_primary_account
-    
 
 
 def _cache_person_info(perspective, source_system):
@@ -404,7 +363,6 @@ def _cache_person_info(perspective, source_system):
 
     logger.debug("Caching person info")
     ous = _cache_ou_data(perspective)
-    
     # person_id -> <dict with attributes>
     cache = dict()
 
@@ -414,21 +372,21 @@ def _cache_person_info(perspective, source_system):
         person_id = row["person_id"]
         if row["ou_id"] not in ous:
             logger.info("Skipping employment %s, since ou_id=%s is absent "
-                        "from output", str(row), row["ou_id"])
+                        "from output", row, row["ou_id"])
             continue
 
         if person_id not in cache:
             cache[person_id] = {"employments": list()}
         cache[person_id]["employments"].append(row.dict())
-    
     # ... and the "rest" -- ph.d students and the like.
     # IVR 2011-02-17 FIXME: Should this be affiliation-based?
     # TODO: Should probably be configurable what affiliations we choose.
-    for row in person.list_affiliations(source_system=source_system,
-                                        affiliation=const.affiliation_tilknyttet):
+    for row in person.list_affiliations(
+            source_system=source_system,
+            affiliation=const.affiliation_tilknyttet):
         if row["ou_id"] not in ous:
             logger.info("Skipping affiliation %s, since ou_id=%s is absent "
-                        "from output", str(row), row["ou_id"])
+                        "from output", row, row["ou_id"])
             continue
 
         person_id = row["person_id"]
@@ -437,17 +395,15 @@ def _cache_person_info(perspective, source_system):
         if "affiliations" not in cache[person_id]:
             cache[person_id]["affiliations"] = list()
         cache[person_id]["affiliations"].append(row.dict())
-    
+
     cache = _cache_person_names(cache, source_system)
     cache = _cache_person_contact_info(cache, source_system)
     cache = _cache_person_external_id(cache, source_system)
     cache = _cache_person_reservation_data(cache, source_system)
     cache = _cache_person_primary_account(cache, source_system)
-    
+
     logger.debug("Caching person data complete: %d entries", len(cache))
     return cache
-# end _cache_person_info
-
 
 
 def output_employment(writer, employment, ou_cache):
@@ -458,29 +414,28 @@ def output_employment(writer, employment, ou_cache):
     try:
         ou = ou_cache[ou_id]
     except KeyError:
-        logger.warn("Could not find ou_id:%s for employment: %s" % (ou_id,
-                                                                    employment))
+        logger.warn(
+            "Could not find ou_id:%s for employment: %s",
+            ou_id, employment)
         return
     writer.startElement("ansettelse")
-    for element, value in (("institusjonsnr", cereconf.DEFAULT_INSTITUSJONSNR),
-                           ("avdnr", ou["fakultet"]),
-                           ("undavdnr", ou["institutt"]),
-                           ("gruppenr", ou["avdeling"]),
-                           ("stillingskode", employment["employment_code"]),
-                           ("stillingsbetegnelse", employment["description"]),
-                           ("datoTil", employment["end_date"].strftime("%F")),
-                           ("stillingsandel", employment["percentage"]),
-                           ("datoFra", employment["start_date"].strftime("%F"))):
+    for element, value in (
+            ("institusjonsnr", cereconf.DEFAULT_INSTITUSJONSNR),
+            ("avdnr", ou["fakultet"]),
+            ("undavdnr", ou["institutt"]),
+            ("gruppenr", ou["avdeling"]),
+            ("stillingskode", employment["employment_code"]),
+            ("stillingsbetegnelse", employment["description"]),
+            ("datoTil", employment["end_date"].strftime("%F")),
+            ("stillingsandel", float(employment["percentage"])),
+            ("datoFra", employment["start_date"].strftime("%F"))):
         output_element(element, value)
     writer.endElement("ansettelse")
-# end output_employment
-
 
 
 def output_guest(writer, entry, ou_cache):
     """Output one complete guest element (associated, ph.d students, etc).
     """
-    
     ou_id = entry["ou_id"]
     ou = ou_cache[ou_id]
     writer.startElement("gjest")
@@ -497,8 +452,6 @@ def output_guest(writer, entry, ou_cache):
                            ("datoFra", entry["create_date"].strftime("%F"))):
         output_element(element, value)
     writer.endElement("gjest")
-# end output_guest
-
 
 
 def output_person(writer, chunk, ou_cache, ou_cache_export):
@@ -510,11 +463,11 @@ def output_person(writer, chunk, ou_cache, ou_cache_export):
     if const.externalid_fodselsnr not in chunk:
         logger.info("Person %s is missing fnr. Will be skipped from output",
                     repr(chunk))
-        return 
+        return
     if const.name_first not in chunk or const.name_last not in chunk:
         logger.info("Person %s is missing name. Will be skipped from output",
                     repr(chunk))
-        return 
+        return
 
     writer.startElement("person", {"fnr": chunk[const.externalid_fodselsnr],
                                    "reserved": rstatus[chunk.get("reserved",
@@ -527,7 +480,7 @@ def output_person(writer, chunk, ou_cache, ou_cache_export):
         output_element(element, chunk[key])
 
     output_element("brukernavn", chunk.get("account_name"))
-        
+
     for element, key in (("telefonnr", const.contact_phone),
                          ("telefaxnr", const.contact_fax),
                          ("URL", const.contact_url)):
@@ -537,8 +490,8 @@ def output_person(writer, chunk, ou_cache, ou_cache_export):
         output_element(element, contact_block["contact_value"])
     employments = chunk.get("employments", tuple())
     if employments:
-        prep_employments = prepare_employment(employments,
-                ou_cache, ou_cache_export)
+        prep_employments = prepare_employment(
+            employments, ou_cache, ou_cache_export)
         writer.startElement("ansettelser")
         for entry in prep_employments:
             output_employment(writer, entry, ou_cache_export)
@@ -547,19 +500,18 @@ def output_person(writer, chunk, ou_cache, ou_cache_export):
     associations = [x for x in chunk.get("affiliations", ())
                     if x["affiliation"] == const.affiliation_tilknyttet]
     if associations:
-        prep_associations = prepare_employment(associations,
-                ou_cache, ou_cache_export)
+        prep_associations = prepare_employment(
+            associations, ou_cache, ou_cache_export)
         writer.startElement("gjester")
         for entry in prep_associations:
             output_guest(writer, entry, ou_cache_export)
         writer.endElement("gjester")
     writer.endElement("person")
-# end output_person
 
 
 def output_people(writer, perspective, source_system, spread):
     """Output all people of interest.
-    
+
     We publish people who are:
 
       - Employees
@@ -573,13 +525,12 @@ def output_people(writer, perspective, source_system, spread):
       - Contact info (tlf, fax, URL)
       - Employment info (from affs).
       - Guest info (from affs)
-    
     """
-
     logger.debug("Output people started")
     ous = _cache_ou_data(perspective)
     ous_filtered = filter_by_spread(ous, spread)
-    logger.debug('cached ous %d, filtered ous %d.' %(len(ous), len(ous_filtered)))
+    logger.debug('cached ous %d, filtered ous %d.',
+                 len(ous), len(ous_filtered))
     people = _cache_person_info(perspective, source_system)
     writer.startElement("personer")
     for pid in people:
@@ -588,31 +539,23 @@ def output_people(writer, perspective, source_system, spread):
 
     writer.endElement("personer")
     logger.debug("Output people complete")
-# end output_people
-
 
 
 def output_xml(sink, tag, root_ou, perspective, source_system, spread):
     writer = xmlprinter.xmlprinter(sink,
                                    indent_level=2,
-                                   data_mode=True,
-                                   input_encoding="iso8859-1")
+                                   data_mode=True)
     global output_element
     output_element = (lambda *rest, **kw:
-                          output_element_helper(writer, *rest, **kw))
+                      output_element_helper(writer, *rest, **kw))
     # Incredibly enough, latin-1 is a requirement.
-    writer.startDocument(encoding="iso8859-1")
+    writer.startDocument(encoding=XML_ENCODING)
     writer.startElement("fridaImport")
-    
     output_headers(writer, tag, root_ou)
     output_OUs(writer, perspective, spread)
     output_people(writer, perspective, source_system, spread)
-    
-    
     writer.endElement("fridaImport")
     writer.endDocument()
-# end output_xml
-
 
 
 def find_root_ou(identifier):
@@ -627,7 +570,7 @@ def find_root_ou(identifier):
     ou = Factory.get("OU")(db)
     co = Factory.get("Constants")()
     if (isinstance(identifier, (long, int)) or
-        isinstance(identifier, (str, unicode)) and identifier.isdigit()):
+            isinstance(identifier, (str, unicode)) and identifier.isdigit()):
         try:
             ou.find(int(identifier))
             return ou
@@ -646,6 +589,7 @@ def find_root_ou(identifier):
 
     # Before quitting, list every root available
     possible_roots = list(x["ou_id"] for x in ou.root())
+
     def typesetter(x):
         ou.clear()
         ou.find(x)
@@ -661,8 +605,6 @@ def find_root_ou(identifier):
                  ", ".join(typesetter(x) for x in
                            sorted(possible_roots)))
     sys.exit(1)
-# end find_root_ou
-
 
 
 def filter_by_spread(cache, spread):
@@ -681,7 +623,6 @@ def filter_by_spread(cache, spread):
         filtered_cache[elm["ou_id"]] = cache[elm["ou_id"]]
 
     return filtered_cache
-# end filter_by_spread
 
 
 def get_ou_for_export(cache, filtered, ou_id, counter):
@@ -698,29 +639,48 @@ def get_ou_for_export(cache, filtered, ou_id, counter):
         return ou_id
     parent_id = None
     parent_id = cache[ou_id].get("parent_id")
-    if parent_id is None: # ou_id is root ou
+    if parent_id is None:  # ou_id is root ou
         return ou_id
     return get_ou_for_export(cache, filtered, parent_id, counter)
-# end get_ou4export
 
 
 def prepare_employment(alist, cache, filtered):
     """Return a list with employments that are exportable.
-    
+
     @param alist: employments to process.
     @param cache: dict with ous
     @param filtered: ous in this dict have spread that defines an exportable ou.
     @return list of employments for export.
     """
-    counter = [0,]
-    
+    counter = [0, ]
     from copy import deepcopy
     res = deepcopy(alist)
     for index, elm in enumerate(alist):
         temp = elm["ou_id"]
         res[index]["ou_id"] = get_ou_for_export(cache, filtered, temp, counter)
     return res
-# end prepare_employment
+
+
+class SimilarSizeStreamRecoder(SimilarSizeWriter):
+    """ file writer encoding hack.
+
+    xmlprinter.xmlprinter encodes data in the desired encoding before writing
+    to the stream, and AtomicFileWriter *requires* unicode-objects to be
+    written.
+
+    This hack turns AtomicFileWriter into a bytestring writer. Just make sure
+    the AtomicStreamRecoder is configured to use the same encoding as the
+    xmlprinter.
+
+    The *proper* fix would be to retire the xmlprinter module, and replace it
+    with something better.
+    """
+
+    def write(self, data):
+        if isinstance(data, bytes) and self.encoding:
+            # will be re-encoded in the same encoding by 'write'
+            data = data.decode(self.encoding)
+        return super(SimilarSizeStreamRecoder, self).write(data)
 
 
 def main(argv):
@@ -732,7 +692,7 @@ def main(argv):
     perspective = None
     source_system = None
     tag = None
-    spread = None #export all OUs
+    spread = None  # export all OUs
     args, junk = getopt.getopt(argv[1:],
                                "o:r:p:s:t:",
                                ("output-file=",
@@ -766,40 +726,49 @@ def main(argv):
     if tag is None:
         logger.error("No tag is specified. Can't deduce value for <kilde>")
         sys.exit(1)
-        
+
     const = Factory.get("Constants")()
-    if (not perspective or 
-        not const.human2constant(perspective, const.OUPerspective)):
-        logger.error("Bogus perspective '%s'. Available options are: %s",
-                     perspective,
-                     ", ".join(str(x) for x in
-                               const.fetch_constants(const.OUPerspective)))
+    if (not perspective or
+            not const.human2constant(perspective, const.OUPerspective)):
+        logger.error(
+            "Bogus perspective '%s'. Available options are: %s",
+            perspective,
+            ", ".join(six.text_type(x) for x in
+                      const.fetch_constants(const.OUPerspective)))
         sys.exit(1)
     perspective = const.human2constant(perspective, const.OUPerspective)
 
     if (not source_system or
-        not const.human2constant(source_system, const.AuthoritativeSystem)):
-        logger.error("Bogus source '%s'. Available options are: %s",
-                     source_system,
-                     ", ".join(str(x) for x in
-                               const.fetch_constants(const.AuthoritativeSystem)))
+            not const.human2constant(source_system,
+                                     const.AuthoritativeSystem)):
+        logger.error(
+            "Bogus source '%s'. Available options are: %s",
+            source_system,
+            ", ".join(six.text_type(x) for x in
+                      const.fetch_constants(const.AuthoritativeSystem)))
         sys.exit(1)
-    source_system = const.human2constant(source_system, const.AuthoritativeSystem)
-    
+    source_system = const.human2constant(source_system,
+                                         const.AuthoritativeSystem)
+
     spread = const.human2constant(spread, const.Spread)
     root_ou_obj = find_root_ou(root_ou)
     if spread and not root_ou_obj.has_spread(spread):
-        logger.error('Root OU %s does not have %s spread. To export all OUs '
-                'run the script without --spread option.' %(root_ou, spread))
+        logger.error(
+            'Root OU %s does not have %s spread. To export all OUs '
+            'run the script without --spread option.',
+            root_ou,
+            spread)
         if len(root_ou_obj.list_all_with_spread(spread)) == 0:
-            logger.error('No OU has %s spread. To be exported to Cristin an OU'
-                    ' must have this spread.' %spread)
+            logger.error(
+                'No OU has %s spread. To be exported to Cristin an OU'
+                ' must have this spread.', spread)
         sys.exit(1)
-    sink = SimilarSizeWriter(output_file)
-    sink.max_pct_change = 15
-    output_xml(sink, tag, root_ou_obj, perspective, source_system, spread)
-    sink.close()
-# end main
+    with SimilarSizeStreamRecoder(output_file,
+                                  mode='w',
+                                  encoding=XML_ENCODING) as stream:
+        stream.max_pct_change = 15
+        output_xml(stream, tag, root_ou_obj, perspective, source_system,
+                   spread)
 
 
 if __name__ == "__main__":

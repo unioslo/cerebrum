@@ -17,9 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-import traceback
 from collections import OrderedDict
+
+from six import text_type
 
 import cereconf
 
@@ -265,7 +265,7 @@ def get_hinfo_code(code_str):
     try:
         return LEGAL_HINFO[code_str]
     except KeyError:
-        raise CerebrumError("Illegal HINFO '%s'" % code_str)
+        raise CerebrumError("Illegal HINFO (%r)" % code_str)
 
 
 def _compress_ipv4(ip):
@@ -327,11 +327,6 @@ class BofhdExtension(BofhdCommandBase):
             (group, {}, args),
             (HELP_DNS_GROUPS, HELP_DNS_CMDS, HELP_DNS_ARGS))
 
-    def _is_yes(self, val):
-        if isinstance(val, str) and val.lower() in ('y', 'yes', 'ja', 'j'):
-            return True
-        return False
-
     def _alloc_a_record(self, *args):
         return _compress_ipv4(self.mb_utils.alloc_arecord(*args))
 
@@ -381,10 +376,10 @@ class BofhdExtension(BofhdCommandBase):
             # IVR 2008-06-13 TBD: Does it make sense to report union, when it
             # is the ONLY possibility?
             ret.append({
-                'memberop': str(co.group_memberop_union),
+                'memberop': text_type(co.group_memberop_union),
                 'entity_id': grp.entity_id,
                 'group': grp.group_name,
-                'spreads': ",".join([str(co.Spread(a['spread']))
+                'spreads': ",".join([text_type(co.Spread(a['spread']))
                                      for a in grp.get_spread()]),
             })
         ret.sort(lambda a, b: cmp(a['group'], b['group']))
@@ -606,11 +601,11 @@ class BofhdExtension(BofhdCommandBase):
 
     def host_cname_add(self, operator, cname_name, target_name, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
-        cname_name = cname_name.lower()
         force = self.dns_parser.parse_force(force)
+        cname_name = cname_name.lower()
         try:
             self.mb_utils.alloc_cname(cname_name, target_name, force)
-        except ValueError, ve:
+        except ValueError as ve:
             raise CerebrumError("%s" % ve)
         return "OK, cname registered for %s" % target_name
 
@@ -768,11 +763,10 @@ class BofhdExtension(BofhdCommandBase):
                 policy.remove_from_host(owner_id)
         except CerebrumError:
             raise
-        except Exception, e:
+        except Exception:
             # This could be due to that hostpolicy isn't implemented at the
             # instance, will therefore log all errors in the start:
-            self.logger.warn(e)
-            self.logger.warn(traceback.format_exc())
+            self.logger.warn('host_remove policy error', exc_info=True)
         self.mb_utils.ip_free(dns.DNS_OWNER, host_id, force)
         return "OK, DNS-owner %s completely removed" % host_id
 
@@ -906,7 +900,7 @@ class BofhdExtension(BofhdCommandBase):
                 })
                 added_rev = True
             if not ret:
-                self.logger.warn("Nothing known about '%s'?" % host_id)
+                self.logger.warn("Nothing known about host_id=%r ?", host_id)
             if not added_rev:
                 rev_type = ('A-record' if target_type == dns.IP_NUMBER
                             else 'AAAA-record')
@@ -943,7 +937,7 @@ class BofhdExtension(BofhdCommandBase):
         ret.append({'owner_id': dns_owner.entity_id})
 
         # HINFO records
-        ret.append({'zone': str(self.const.DnsZone(dns_owner.zone))})
+        ret.append({'zone': text_type(self.const.DnsZone(dns_owner.zone))})
         try:
             host = HostInfo.HostInfo(self.db)
             host.find_by_dns_owner_id(owner_id)

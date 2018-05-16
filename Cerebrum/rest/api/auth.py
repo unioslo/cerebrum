@@ -27,6 +27,7 @@ from werkzeug.exceptions import Unauthorized as _Unauthorized
 from werkzeug.exceptions import Forbidden
 from functools import wraps
 from mx import DateTime
+from six import python_2_unicode_compatible
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -307,6 +308,7 @@ def build_error(exc_type, message, **custom):
     return exc
 
 
+@python_2_unicode_compatible
 class AuthModule(object):
     """Abstract auth module."""
 

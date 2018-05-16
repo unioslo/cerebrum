@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-# Copyright 2006 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2006-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,16 +17,19 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
 
 import cerebrum_path
 import cereconf
 import procconf
 
+from six import text_type
 from mx import DateTime
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, auto_super
 from Cerebrum.Constants import _SpreadCode, _PersonAffiliationCode
+
 
 class ProcHandler(object):
     """Handle entities. For now, business logic is implemented in code
@@ -54,7 +57,7 @@ class ProcHandler(object):
         self.str2const = dict()
         for c in dir(self._co):
             tmp = getattr(self._co, c)
-            self.str2const[str(tmp)] = tmp
+            self.str2const[text_type(tmp)] = tmp
 
     def _populate_ou2spread(self):
         """Make a dict with all OUs and their derived spread from
@@ -65,11 +68,13 @@ class ProcHandler(object):
         self.ou2spread = dict()
         ou = Factory.get('OU')(self.db)
         for row in ou.list_entity_spreads(self._co.entity_ou):
-            ou_spread_str = str(_SpreadCode(int(row['spread'])))
-            if not procconf.OU2ACCOUNT_SPREADS.has_key(ou_spread_str):
+            ou_spread_str = text_type(_SpreadCode(int(row['spread'])))
+            if ou_spread_str not in procconf.OU2ACCOUNT_SPREADS:
                 continue
             acc_spread_str = procconf.OU2ACCOUNT_SPREADS[ou_spread_str]
-            self.ou2spread.setdefault(row['entity_id'], []).append(self.str2const[acc_spread_str])
+            self.ou2spread.setdefault(row['entity_id'], []).append(
+                self.str2const[acc_spread_str]
+            )
 
     def _create_account(self, owner):
         """Create a standard account."""
@@ -85,7 +90,7 @@ class ProcHandler(object):
             self._ac.clear()
             self._ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
             self.default_creator_id = self._ac.entity_id
-        
+
         self._ac.clear()
         ac = owner.get_primary_account()
         if not ac:
@@ -122,7 +127,7 @@ class ProcHandler(object):
 
         # str2const is something we need if we create new accounts.
         self._make_str2const()
-  
+
         if not self._ac:
             self._ac = Factory.get('Account')(self.db)
 
@@ -153,7 +158,7 @@ class ProcHandler(object):
                 if ac:
                     self.logger.info("Person '%d' got new account '%s'." % (person.entity_id, ac.account_name))
                 # Take care of person affiliations too
-                
+
             else:
                 self.logger.info("Person '%d' have no affiliations. No account created." % person.entity_id)
 
@@ -161,20 +166,21 @@ class ProcHandler(object):
         change = False
         for spread in procconf.PERSON_SPREADS:
             if person_affiliations:
-                if not person.has_spread(int(self.str2const[spread])):    
+                if not person.has_spread(int(self.str2const[spread])):
                     person.add_spread(int(self.str2const[spread]))
-                    self.logger.info("Person '%d' got spread '%s'." % \
+                    self.logger.info("Person '%d' got spread '%s'." %
                                      (person.entity_id, spread))
                     change = True
             else:
                 if person.has_spread(int(self.str2const[spread])):
                     person.delete_spread(int(self.str2const[spread]))
-                    self.logger.info("Person '%d' have no affiliations. Spread '%s' deleted." % \
+                    self.logger.info("Person '%d' have no affiliations. "
+                                     "Spread '%s' deleted." %
                                      (person.entity_id, spread))
                     change = True
         if change:
             person.write_db()
-            
+
         # Loop over the person's account(s) and correct affiliations
         # and spreads
         for account in person.get_accounts(filter_expired=False):
@@ -234,12 +240,12 @@ class ProcHandler(object):
                     if not self._ac.has_spread(spread):
                         self._ac.add_spread(spread)
                         self.logger.info("Account '%s' added spread '%s'." % (self._ac.account_name,
-                                                                          str(_SpreadCode(int(spread)))))
+                                                                              str(_SpreadCode(int(spread)))))
                         change = True
             elif hasattr(procconf, 'OU2ACCOUNT_SPREADS') and procconf.OU2ACCOUNT_SPREADS:
                 self._populate_ou2spread()
                 acc_spreads = []
-                for ou,aff in person_affiliations:
+                for ou, aff in person_affiliations:
                     for s in self.ou2spread[ou]:
                         if s not in acc_spreads:
                             acc_spreads.append(s)
@@ -254,11 +260,11 @@ class ProcHandler(object):
                     if not self._ac.has_spread(spread):
                         self._ac.add_spread(spread)
                         self.logger.info("Account '%s' added spread '%s'." % (self._ac.account_name,
-                                                                          str(_SpreadCode(int(spread)))))
-                        change = True        
-            
+                                                                              str(_SpreadCode(int(spread)))))
+                        change = True
+
             if change:
-                self._ac.write_db()   
+                self._ac.write_db()
                 # print self._ac.account_name, person_affiliations, self._ac.get_spread()
 
     def _diff_groups(self, grp, shdw_grp):
@@ -292,13 +298,12 @@ class ProcHandler(object):
         if change:
             shdw_grp.write_db()
         return change
-        
 
     def process_group(self, group_name):
         """Check the group's `shadow group`."""
 
         self._make_str2const()
-        
+
         # Init the needed objects if not already done
         if not self._group:
             self._group = Factory.get('Group')(self.db)
@@ -314,9 +319,10 @@ class ProcHandler(object):
         shadow = procconf.SHADOW(group_name)
         # See if this group got a shadow name
         if not shadow:
-            self.logger.warning("prc_grp: Group '%s' has a name not compatible with the shadow naming scheme." % group_name) 
+            self.logger.warning(
+                "prc_grp: Group '%s' has a name not compatible with the shadow naming scheme." % group_name)
             return
-                        
+
         # Try to initialize the object
         try:
             self._group.clear()
@@ -333,11 +339,11 @@ class ProcHandler(object):
             if self._group.get_trait(self._co.trait_group_derived):
                 self.logger.debug("prc_grp: Group '%s' is a shadow group." % group_name)
                 return
-            
+
             try:
                 shdw_grp.find_by_name(shadow)
                 self.logger.debug("prc_grp: Group '%s' has a shadow group '%s'." % (group_name, shadow))
-                
+
             except Errors.NotFoundError:
                 # None found, so we make one. Populate it with
                 # trait_group_derived
@@ -352,13 +358,13 @@ class ProcHandler(object):
                 shdw_grp.write_db()
                 self.logger.info("prc_grp: Shadow group '%s' created." % shadow)
             change = False
-            if shdw_trait_str != None:
+            if shdw_trait_str is not None:
                 if not shdw_grp.get_trait(int(self._co.EntityTrait(shdw_trait_str))):
                     shdw_grp.populate_trait(int(self._co.EntityTrait(shdw_trait_str)),
                                             date=DateTime.now())
                     change = True
             for spread in procconf.SHADOW_GROUP_SPREAD:
-                if not shdw_grp.has_spread(int(self.str2const[spread])):    
+                if not shdw_grp.has_spread(int(self.str2const[spread])):
                     shdw_grp.add_spread(int(self.str2const[spread]))
                     change = True
             if change:
@@ -367,14 +373,15 @@ class ProcHandler(object):
             # which we know exists. Diff members.
             change = self._diff_groups(self._group, shdw_grp)
             if change:
-                self.logger.info("prc_grp: Shadow group '%s' synced with group '%s' successfully." % (shadow,group_name))
+                self.logger.info(
+                    "prc_grp: Shadow group '%s' synced with group '%s' successfully." % (shadow, group_name))
         except Errors.NotFoundError:
             # Group we have gotten is deleted. Try to look up it's potential
             # shadow group
-            try:                
+            try:
                 self._group.clear()
                 self._group.find_by_name(shadow)
-                self.logger.debug("prc_grp: Group '%s' not found, but name matching '%s' found" % (group_name,shadow))
+                self.logger.debug("prc_grp: Group '%s' not found, but name matching '%s' found" % (group_name, shadow))
                 # Name matches a shadow group. Check if it actually is.
                 # If it is, we delete it, if not, do nothing.
                 if self._group.get_trait(self._co.trait_group_derived):
@@ -383,15 +390,14 @@ class ProcHandler(object):
                 return
             except Errors.NotFoundError:
                 # No shadow group found. Do nothing.
-                self.logger.debug("prc_grp: Group '%s' and shadow group '%s' not found." % (group_name,shadow))
+                self.logger.debug("prc_grp: Group '%s' and shadow group '%s' not found." % (group_name, shadow))
                 return
-        
 
     def process_ou(self, ou):
         """Check the OU's data."""
 
         self._make_str2const()
-        
+
         change = False
         if not hasattr(procconf, "OU_SPREADS"):
             return
@@ -403,13 +409,12 @@ class ProcHandler(object):
         if change:
             ou.write_db()
 
-
     def ac_type_add(self, account_id, affiliation, ou_id):
         """Adds an account to special groups which represent an
         affiliation at an OU. Make the group if it's not present."""
 
         self._make_str2const()
-        
+
         if self._ac is None:
             self._ac = Factory.get('Account')(self.db)
             self._ac.clear()
@@ -417,9 +422,9 @@ class ProcHandler(object):
         ou = Factory.get("OU")(self.db)
         ou.find(ou_id)
 
-        aff2txt = { int(self._co.affiliation_ansatt) : 'Tilsette',
-                    int(self._co.affiliation_teacher) : 'Tilsette',
-                    int(self._co.affiliation_elev) : 'Elevar' }
+        aff2txt = {int(self._co.affiliation_ansatt): 'Tilsette',
+                   int(self._co.affiliation_teacher): 'Tilsette',
+                   int(self._co.affiliation_elev): 'Elevar'}
 
         # Look up the group
         grp_name = "%s %s" % (self._get_ou_acronym(ou),
@@ -477,15 +482,16 @@ class ProcHandler(object):
                 self.logger.info("ac_type_del: Account '%s' deleted from group '%s'." % (account_id, grp_name))
             # Deal with empty groups as well
             if len(list(self._group.search_members(
-                                   group_id=self._group.entity_id,
-                                   indirect_members=True,
-                                   member_type=self._co.entity_account))) == 0:
+                    group_id=self._group.entity_id,
+                    indirect_members=True,
+                    member_type=self._co.entity_account))) == 0:
                 self._group.delete()
                 self._group.write_db()
         except Errors.NotFoundError:
             self.logger.debug("ac_type_del: Group '%s' not found. Nothing to do" % grp_name)
 
-    def _ac_add_new_traits(self, ac):
+    @staticmethod
+    def _ac_add_new_traits(ac):
         """Give an account new traits, as defined in
         procconf.NEW_ACCOUNT_TRAITS. This method should be called when creating
         and restoring accounts.
@@ -497,19 +503,18 @@ class ProcHandler(object):
     def _get_ou_acronym(self, ou):
         """Retrieve ou's acronym.
 
-        If none is present in Norwegian bokmål, return ''.
+        If none is present in Norwegian bokmÃ¥l, return ''.
         """
 
         return ou.get_name_with_language(name_variant=self._co.ou_name_acronym,
                                          name_language=self._co.language_nb,
                                          default="")
+
     # end _get_ou_acronym
 
-            
     def commit(self):
         """Clean up if needed."""
         self.db.commit()
-
 
     def rollback(self):
         """Roll back all changes done."""

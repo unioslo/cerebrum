@@ -19,6 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
+
 """ Quarantine accounts without person affiliations.
 
 The accounts are warned, by e-mail, unless they are reserved, i.e. are not
@@ -47,14 +49,14 @@ import sys
 import getopt
 import smtplib
 import email
+import io
 from mx import DateTime
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum import Utils
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.email import sendmail
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
 logger = Factory.get_logger('cronjob')
@@ -115,8 +117,8 @@ def usage(exitcode=0):
 def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
     """Function for sending mail to users.
 
-    Will respect dryrun, as that is given and handled by Utils.sendmail, which
-    is then not sending the e-mail.
+    Will respect dryrun, as that is given and handled by
+    Cerebrum.utils.email.sendmail, which is then not sending the e-mail.
 
     @type mail_to: string
     @param mail_to: The recipient of the Email.
@@ -137,8 +139,8 @@ def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
     @return: A boolean that tells if the email was sent sucessfully or not.
     """
     try:
-        ret = Utils.sendmail(mail_to, mail_from, subject, body,
-                             cc=mail_cc, debug=dryrun)
+        ret = sendmail(mail_to, mail_from, subject, body,
+                       cc=mail_cc, debug=dryrun)
         if debug_verbose:
             print "---- Mail: ---- \n" + ret
     except smtplib.SMTPRecipientsRefused, e:
@@ -467,7 +469,7 @@ if __name__ == '__main__':
     for opt, val in opts:
         if opt in ('-q',):
             try:
-                quarantine = co.Quarantine(val)
+                quarantine = co.Quarantine(val.decode('UTF-8'))
                 int(quarantine)
             except Errors.NotFoundError:
                 raise Exception("Invalid quarantine: %s" % val)
@@ -488,12 +490,11 @@ if __name__ == '__main__':
                 logger.error('\'%s\' is not an integer' % val)
                 sys.exit(4)
         elif opt in ('-a',):
-            ignore_aff = parse_affs(val)
+            ignore_aff = parse_affs(val.decode('UTF-8'))
         elif opt in ('-m',):
             try:
-                f = open(val)
-                msg = email.message_from_file(f)
-                f.close()
+                with io.open(val, 'r', encoding='UTF-8') as f:
+                    msg = email.message_from_file(f)
                 email_info = {
                     'Subject': email.Header.decode_header(
                         msg['Subject'])[0][0],

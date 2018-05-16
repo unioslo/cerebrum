@@ -19,7 +19,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum import Errors
-from Cerebrum import Utils
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.email import sendmail
 from Cerebrum.modules.Email import (EmailTarget, EmailForward, EmailDomain)
 
 from Cerebrum.config.configuration import (ConfigDescriptor,
@@ -33,7 +34,7 @@ from Cerebrum.modules.event_consumer.config import AMQPClientConsumerConfig
 import json
 from collections import defaultdict
 
-logger = Utils.Factory.get_logger('cronjob')
+logger = Factory.get_logger('cronjob')
 
 
 class FPECriteriaConfig(Configuration):
@@ -82,8 +83,8 @@ def load_config(filepath=None):
 
 def handle_person(database, source_system, affiliations, send_notifications,
                   email_config, data):
-    pe = Utils.Factory.get('Person')(database)
-    ac = Utils.Factory.get('Account')(database)
+    pe = Factory.get('Person')(database)
+    ac = Factory.get('Account')(database)
     et = EmailTarget(database)
     ef = EmailForward(database)
     ed = EmailDomain(database)
@@ -130,7 +131,7 @@ def handle_person(database, source_system, affiliations, send_notifications,
                             forward, ac.account_name))
         if send_notifications:
             for k, v in removed_forwards.items():
-                Utils.sendmail(
+                sendmail(
                     toaddr=k,
                     fromaddr=email_config.sender,
                     subject=email_config.subject,
@@ -184,12 +185,12 @@ def main(args=None):
     import functools
     from Cerebrum.modules.event_consumer import get_consumer
 
-    database = Utils.Factory.get('Database')()
+    database = Factory.get('Database')()
     database.cl_init(change_program=prog_name)
 
     config = load_config(filepath=args.configfile)
 
-    co = Utils.Factory.get('Constants')(database)
+    co = Factory.get('Constants')(database)
     source_system = co.human2constant(config.fpe.source_system)
     affiliation = co.human2constant(config.fpe.affiliation)
     assert int(source_system) and int(affiliation), \
@@ -213,6 +214,7 @@ def main(args=None):
             consumer.stop()
         consumer.close()
     logger.info('Stopping {}'.format(prog_name))
+
 
 if __name__ == "__main__":
     main()

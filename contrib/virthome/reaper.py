@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: iso-8859-1 -*-
+# -*- encoding: utf-8 -*-
 
 """Undo certain operations in Cerebrum.
 
@@ -14,20 +14,18 @@ The code should be generic enough to be used on any installation.
 
 import getopt
 import sys
-import pickle
 
 from mx.DateTime import now
 from mx.DateTime import DateTimeDelta
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
-from Cerebrum import Errors
+from Cerebrum.utils import json
+from Cerebrum import Errors, Entity
 from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget
-from Cerebrum import Entity
 from Cerebrum.Entity import EntitySpread
 
 
@@ -42,7 +40,6 @@ def fetch_name(entity_id, db):
         return ", ".join(x["name"] for x in ent.get_names())
     except Errors.NotFoundError:
         return ""
-# end fetch_name
 
 
 def get_account(ident, database):
@@ -65,7 +62,6 @@ def get_account(ident, database):
         return None
 
     assert False, "NOTREACHED"
-# end get_account
 
 
 def get_group(ident, database):
@@ -88,7 +84,6 @@ def get_group(ident, database):
         return None
 
     assert False, "NOTREACHED"
-# end get_account
 
 
 def remove_target_permissions(entity_id, db):
@@ -110,7 +105,6 @@ def remove_target_permissions(entity_id, db):
             aot.clear()
             aot.find(r['op_target_id'])
             aot.delete()
-# end remove_permissions_on_target
 
 
 def remove_permissions_on_target(entity_id, db):
@@ -133,7 +127,6 @@ def remove_permissions_on_target(entity_id, db):
             ar.revoke_auth(role['entity_id'], role['op_set_id'],
                            r['op_target_id'])
         aot.delete()
-# end remove_permissions_on_target
 
 
 def delete_common(entity_id, db):
@@ -175,7 +168,6 @@ def delete_common(entity_id, db):
     # Kill change_log entries (this includes requests linked to this entity)
     for row in db.get_log_events(subject_entity=entity_id):
         db.remove_log_event(row["change_id"])
-# end delete_common
 
 
 def remove_from_groups(entity_id, db):
@@ -220,7 +212,6 @@ def disable_account(account_id, db):
     account.write_db()
     logger.debug("Disabled account %s (id=%s)",
                  account.account_name, account.entity_id)
-# end disable_account
 
 
 def delete_account(account, db):
@@ -232,7 +223,6 @@ def delete_account(account, db):
     # This may be a rollback -- that behaviour is controlled by the command line.
     db.commit()
     logger.debug("Deleted account %s (id=%s)", a_name, a_id)
-# end delete_account
 
 
 def disable_expired_accounts(db):
@@ -253,7 +243,6 @@ def disable_expired_accounts(db):
         disable_account(row["account_id"], db)
         db.commit()
     logger.debug("Disabled all expired accounts")
-# end disable_expired_accounts
 
 
 def delete_unconfirmed_accounts(account_np_type, db):
@@ -304,7 +293,6 @@ def delete_unconfirmed_accounts(account_np_type, db):
         delete_account(account, db)
         db.commit()
     logger.debug("All unconfirmed accounts deleted")
-# end delete_unconfirmed_accounts
 
 
 def delete_stale_events(cl_events, db):
@@ -327,7 +315,7 @@ def delete_stale_events(cl_events, db):
         tstamp = event["tstamp"]
         timeout = cereconf.GRACE_PERIOD
         try:
-            params = pickle.loads(event["change_params"])
+            params = json.loads(event["change_params"])
             if params['timeout'] is not None:
                 timeout = DateTimeDelta(params['timeout'])
                 logger.debug('Timeout set to %s for %s',
@@ -354,7 +342,6 @@ def delete_stale_events(cl_events, db):
         db.commit()
 
     logger.debug("Deleted all stale requests: %s", typeset_request)
-# end delete_stale_events
 
 
 def enforce_user_constraints(db):
@@ -383,7 +370,6 @@ def enforce_user_constraints(db):
                         " future.", account.account_name, account.entity_id)
             account.expire_date = now() + account.DEFAULT_ACCOUNT_LIFETIME
             account.write_db()
-# end enforce_user_constraints
 
 
 def find_and_disable_account(uname, database):
@@ -401,7 +387,6 @@ def find_and_disable_account(uname, database):
         return
     disable_account(account.entity_id, database)
     logger.debug("Disabled account: %s", uname)
-# end find_and_disable_account
 
 
 def find_and_delete_account(uname, database):
@@ -416,7 +401,6 @@ def find_and_delete_account(uname, database):
         return
 
     delete_account(account, database)
-# end find_and_delete_account
 
 
 def find_and_delete_group(gname, database):
@@ -432,7 +416,6 @@ def find_and_delete_group(gname, database):
 
     group.delete()
     logger.debug("Deleting group %s (id=%s)", gname, gid)
-# end find_and_delete_group
 
 
 def main(argv):
@@ -507,7 +490,6 @@ def main(argv):
 
     # commit/rollback changes to the database.
     try_commit()
-# end main
 
 
 if __name__ == "__main__":

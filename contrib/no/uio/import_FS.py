@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,6 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Importerer personer fra FS iht. fs_import.txt."""
+from __future__ import unicode_literals
 from os.path import join as pj
 
 import sys
@@ -249,7 +250,7 @@ def _calc_address(person_info):
         tmp = person_info[key][0].copy()
         if key == 'aktiv':
             # Henter ikke adresseinformasjon for aktiv, men vi vil
-            # alltid ha minst et opptak når noen er aktiv.
+            # alltid ha minst et opptak nÃ¥r noen er aktiv.
             if not any(tag in person_info for tag in (
                     'opptak', 'privatist_studieprogram', 'emnestud')):
                 logger.error(
@@ -375,14 +376,16 @@ def filter_affiliations(affiliations):
     # Reverse sort affiliations list according to aff_status_pri_order
     affiliations.sort(
         lambda x, y: (
-            aff_status_pri_order.get(int(y[2]), 99)
-            - aff_status_pri_order.get(int(x[2]), 99)))
+            aff_status_pri_order.get(int(y[2]), 99) -
+            aff_status_pri_order.get(int(x[2]), 99)))
     aktiv = False
 
     for ou, aff, aff_status in affiliations:
-        if (aff_status == int(co.affiliation_status_student_aktiv)
-                or aff_status == int(co.affiliation_status_student_drgrad)
-                or aff_status == int(co.affiliation_status_student_evu)):
+        if (
+                aff_status == int(co.affiliation_status_student_aktiv) or
+                aff_status == int(co.affiliation_status_student_drgrad) or
+                aff_status == int(co.affiliation_status_student_evu)
+        ):
             aktiv = True
 
     ret = {}
@@ -478,8 +481,8 @@ def _get_admission_date_func(for_date, grace_days=0):
     for from_date, to_date in date_ranges:
         if from_date <= for_date <= to_date + grace_days:
             return lambda date: (
-                isinstance(date, mx.DateTime.DateTimeType)
-                and from_date <= date <= to_date + grace_days)
+                isinstance(date, mx.DateTime.DateTimeType) and
+                from_date <= date <= to_date + grace_days)
 
     return lambda date: False
 
@@ -511,12 +514,14 @@ def process_person_callback(person_info):
         fnr = fodselsnr.personnr_ok(fnr)
         logger.info("Process %s " % (fnr))
         (year, mon, day) = fodselsnr.fodt_dato(fnr)
-        if (year < 1970
-                and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
+        if (
+                year < 1970 and
+                getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1
+        ):
             # Seems to be a bug in time.mktime on some machines
             year = 1970
     except fodselsnr.InvalidFnrError:
-        logger.warn("Ugyldig fødselsnr: %s" % fnr)
+        logger.warn("Ugyldig fÃ¸dselsnr: %s" % fnr)
         return
 
     gender = co.gender_male
@@ -580,7 +585,7 @@ def process_person_callback(person_info):
                     subtype = co.affiliation_status_student_aktiv
                 elif row['studierettstatkode'] == 'EVU':
                     subtype = co.affiliation_status_student_evu
-                elif row['studierettstatkode'] == 'FULLFØRT':
+                elif row['studierettstatkode'] == 'FULLFÃ˜RT':
                     subtype = co.affiliation_status_student_alumni
                 elif int(row['studienivakode']) >= 900:
                     subtype = co.affiliation_status_student_drgrad
@@ -643,7 +648,7 @@ def process_person_callback(person_info):
             logger.debug2("No such affiliation type: %s, skipping", dta_type)
 
     if etternavn is None:
-        logger.debug("Ikke noe navn på %s" % fnr)
+        logger.debug("Ikke noe navn pÃ¥ %s" % fnr)
         no_name += 1
         return
 
@@ -714,8 +719,10 @@ def process_person_callback(person_info):
 
         if 'nettpubl' in person_info:
             for row in person_info['nettpubl']:
-                if (row.get('akseptansetypekode', "") == "NETTPUBL"
-                        and row.get('status_svar', "") == "J"):
+                if (
+                        row.get('akseptansetypekode', "") == "NETTPUBL" and
+                        row.get('status_svar', "") == "J"
+                ):
                     should_add = True
 
         if should_add:

@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
-""" Configuration errors. """
+# -*- coding: utf-8 -*-
+"""Configuration errors."""
+
+from __future__ import unicode_literals
 
 
 class ConfigurationError(Exception):
-
-    """ An exception that groups multiple exceptions in a _Configuration. """
+    """An exception that groups multiple exceptions in a _Configuration."""
 
     def __init__(self, errormap=dict()):
-        """ A new exception.
+        """A new exception.
 
         :param dict errormap:
             Initialize with exceptions.
@@ -25,7 +26,7 @@ class ConfigurationError(Exception):
         return self._errors
 
     def set_error(self, key, exc):
-        """ Set an error or group of errors.
+        """Set an error or group of errors.
 
         :param str key:
             The key to add the error(s) under.

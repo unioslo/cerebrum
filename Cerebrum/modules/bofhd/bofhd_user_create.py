@@ -26,6 +26,8 @@ This module contains class, functions, etc. related to the command
 Push institution-specific extensions to
 modules/no/<institution>/bofhd_<institution>_cmds.py.
 """
+import six
+
 import cereconf
 
 from Cerebrum import Errors
@@ -35,6 +37,7 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+from Cerebrum.modules.bofhd.help import merge_help_strings
 
 
 CMD_HELP = {
@@ -61,11 +64,11 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
 
     @classmethod
     def get_help_strings(cls):
-        # All the args are specified in bofhd_core_help, but user_create is not
-        group, cmd, args = get_help_strings()
-        for group_name in CMD_HELP:
-            cmd.setdefault(group_name, {}).update(CMD_HELP[group_name])
-        return group, cmd, args
+        group, _, args = get_help_strings()
+        # merge help strings will strip away unused groups
+        return merge_help_strings(
+            (group, {}, args),
+            ({}, CMD_HELP, {}))
 
     def _user_create_prompt_func_helper(self, session, *args):
         """A prompt_func on the command level should return
@@ -135,7 +138,8 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
                 for aff in person.get_affiliations():
                     ou = self._get_ou(ou_id=aff['ou_id'])
                     name = "%s@%s" % (
-                        self.const.PersonAffStatus(aff['status']),
+                        six.text_type(
+                            self.const.PersonAffStatus(aff['status'])),
                         self._format_ou_name(ou))
                     map.append((("%s", name),
                                 {'ou_id': int(aff['ou_id']),
@@ -180,13 +184,14 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
             # make sure exist
             int(affiliation)
         except Errors.NotFoundError:
-            raise CerebrumError("Invalid affiliation {}".format(affiliation))
+            raise CerebrumError("Invalid affiliation %s" %
+                                six.text_type(affiliation))
         for aff in person.get_affiliations():
             if aff['ou_id'] == ou_id and aff['affiliation'] == affiliation:
                 break
         else:
-            raise CerebrumError(
-                "Owner did not have any affiliation {}".format(affiliation))
+            raise CerebrumError("Owner did not have any affiliation %s" %
+                                six.text_type(affiliation))
         account.set_account_type(ou_id, affiliation, priority=priority)
 
     def _user_create_basic(self, operator, owner, uname, np_type=None):
@@ -196,7 +201,7 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
         except Errors.NotFoundError:
             account.clear()
         else:
-            raise CerebrumError("Username already taken: {}".format(uname))
+            raise CerebrumError("Username already taken: %r" % uname)
         account.populate(uname,
                          owner.entity_type,
                          owner.entity_id,
@@ -214,7 +219,7 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
         try:
             account.write_db()
         except self.db.DatabaseError as m:
-            raise CerebrumError('Database error: {}'.format(m))
+            raise CerebrumError('Database error: %s' % m)
         operator.store_state('new_account_passwd',
                              {'account_id': int(account.entity_id),
                               'password': passwd})

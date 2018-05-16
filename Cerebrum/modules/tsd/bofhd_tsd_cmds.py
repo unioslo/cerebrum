@@ -36,10 +36,14 @@ Using the @superuser decorator instead of calling self.ba.is_superuser(userid)
 is only used in this file so far, so if you are an experienced bofhd developer,
 ba.is_superuser is not missing, it's still here, but in a different form.
 """
-from functools import wraps, partial
+from __future__ import unicode_literals
+
 import json
+from functools import wraps, partial
 
 from mx import DateTime
+
+import six
 
 import cereconf
 
@@ -78,7 +82,6 @@ def date_to_string(date):
     Custom-made for our purposes, since the standard XMLRPC-libraries
     restrict formatting to years after 1899, and we see years prior to
     that.
-
     """
     if not date:
         return "<not set>"
@@ -224,7 +227,6 @@ class TSDBofhdExtension(BofhdCommonMethods):
 
         Overridden to be able to return TSD projects by their project ID or
         entity_id.
-
         """
         if ident and entity_type == 'project':
             return self._get_project(ident)
@@ -246,7 +248,6 @@ class TSDBofhdExtension(BofhdCommonMethods):
 
         @raise CerebrumError: If no project OU with the given acronym name was
             found, or if more than one project OU was found.
-
         """
         ou = self.OU_class(self.db)
         try:
@@ -260,7 +261,8 @@ class TSDBofhdExtension(BofhdCommonMethods):
                 return ou
             except Errors.NotFoundError:
                 pass
-        raise CerebrumError("Could not find project: %s" % projectid)
+        raise CerebrumError('Could not find project: {projectid}'.format(
+            projectid=projectid))
 
     def _get_host(self, host_id):
         """Helper method for getting the DnsOwner for the given host ID.
@@ -269,7 +271,6 @@ class TSDBofhdExtension(BofhdCommonMethods):
 
         @rtype: Cerebrum.modules.dns.DnsOwner/DnsOwner
         @return: An instance of the matching DnsOwner.
-
         """
         finder = dns.Utils.Find(self.db,
                                 self.const.DnsZone(getattr(cereconf,
@@ -294,7 +295,8 @@ class TSDBofhdExtension(BofhdCommonMethods):
         try:
             dns_owner.find(owner_id)
         except Errors.NotFoundError:
-            raise CerebrumError('Unknown host: %s' % host_id)
+            raise CerebrumError('Unknown host: {host_id}'.format(
+                host_id=host_id))
         return dns_owner
 
     def _get_ou(self, ou_id=None, stedkode=None):
@@ -304,7 +306,6 @@ class TSDBofhdExtension(BofhdCommonMethods):
         stored as acronyms. To avoid having to change too much, we just
         override the stedkode reference so we don't have to override each
         method that fetches an OU by its stedkode.
-
         """
         if ou_id is not None:
             return super(TSDBofhdExtension, self)._get_ou(ou_id, stedkode)
@@ -328,9 +329,8 @@ class TSDBofhdExtension(BofhdCommonMethods):
         @param include_short_name: If a short name of the OU should be returned
             as well. If False, only the project ID is returned.
 
-        @rtype: string
+        @rtype: string (unicode)
         @return: The human readable string that identifies the OU.
-
         """
         if not include_short_name:
             return ou.get_project_id()
@@ -374,10 +374,10 @@ class TSDBofhdExtension(BofhdCommonMethods):
             check_password(password, account, structured=False)
         except RigidPasswordNotGoodEnough, e:
             raise CerebrumError('Bad password: {err_msg}'.format(
-                err_msg=str(e).decode('utf-8').encode('latin-1')))
+                err_msg=six.text_type(e)))
         except PhrasePasswordNotGoodEnough, e:
             raise CerebrumError('Bad passphrase: {err_msg}'.format(
-                err_msg=str(e).decode('utf-8').encode('latin-1')))
+                err_msg=six.text_type(e)))
         except PasswordNotGoodEnough, e:
             raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
 
@@ -433,10 +433,10 @@ class TSDBofhdExtension(BofhdCommonMethods):
 
         @type dest_group: Group
         @param dest_group: The group the member should be added to.
-
         """
         if operator:
-            self.ba.can_add_group_member(operator.get_entity_id(), src_entity,
+            self.ba.can_add_group_member(operator.get_entity_id(),
+                                         src_entity,
                                          member_type, dest_group)
 
         src_name = self._get_entity_name(src_entity.entity_id,
@@ -499,7 +499,6 @@ class TSDBofhdExtension(BofhdCommonMethods):
 
         @type member_type: String or EntityTypeCode (CerebrumCode)
         @param member_type: The EntityType of the member.
-
         """
         if member_type in ("person", self.const.entity_group):
             raise CerebrumError("Can't handle persons in project groups")
@@ -546,7 +545,6 @@ class TSDBofhdExtension(BofhdCommonMethods):
         @type dest_group: String
         @param dest_group: The name/id of the group the member should be
                            removed from.
-
         """
         if member_type in ("group", self.const.entity_group):
             src_entity = self._get_group(src_name)
@@ -574,7 +572,6 @@ class TSDBofhdExtension(BofhdCommonMethods):
 
         @type group: Group
         @param group: The group to remove the member from.
-
         """
         self.ba.can_alter_group(operator.get_entity_id(), group)
         member_name = self._get_entity_name(member.entity_id,
@@ -649,7 +646,6 @@ class _Project:
 
         return [project.as_dict(['entity_id', 'name'])
                 for project in filtered_projects]
-
     """
 
     def __init__(self, const, entity_id, name, pid=None):
@@ -678,7 +674,7 @@ class _Project:
     def quarantine_string(self):
         """Convert the list of quarantine identifiers to a string"""
         return ", ".join(
-            map(str, map(self.const.Quarantine, self.quarantines)))
+            map(six.text_type, map(self.const.Quarantine, self.quarantines)))
 
     def as_dict(self, keynames):
         """ Get project data as dict.
@@ -690,16 +686,17 @@ class _Project:
         for key in keynames:
             # both 'id' and 'entity_id' are allowed
             if key in ["id", "entity_id"]:
-                d[key] = str(self.id)
+                d[key] = six.text_type(self.id)
             elif key == "quars":
                 d['quars'] = self.quarantine_string()
             else:
-                d[key] = str(getattr(self, key))
+                d[key] = six.text_type(getattr(self, key))
         return d
 
 
 class _Projects:
-    """ Project collection.
+    """
+    Project collection.
 
     Helper class for making it easy to search, filter, sort and return project
     data.
@@ -747,15 +744,9 @@ class _Projects:
         if self.filter is None:
             # Don't do anything
             return
-        try:
-            self.filter.encode('ascii')
-        except UnicodeDecodeError:
-            self.filter = self.filter.decode("iso-8859-1"
-                                             ).upper().encode("iso-8859-1")
         if not self.filter:
             # List everything if no filter is specified
             self.filter = "*"
-        self.filter = str(self.filter)
 
     def set_project_list(self, project_list):
         """Takes a list of _project objects and returns a dictionary on the form
@@ -809,7 +800,6 @@ admin_uio_helpers = [
     '_get_posix_account',
     '_get_shell',
     '_grant_auth',
-    '_is_yes',
     '_list_access',
     '_manipulate_access',
     '_person_create_externalid_helper',
@@ -882,7 +872,7 @@ admin_copy_uio = [
 
 
 def _apply_superuser(commands, replace=True):
-    u""" Require superuser for commands.
+    """Require superuser for commands.
 
     Class wrapper that wraps the functions for the given commands with the
     `superuser` wrapper, and tries to set the `perm_filter` to 'is_superuser'
@@ -972,26 +962,26 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             The operator's Session, i.e. the user which executes the command.
         :param int vlan:
             If given, sets what VLAN the project's subnet should be set in.
-
         """
         start = self._parse_date(startdate)
         end = self._parse_date(enddate)
 
         if end < DateTime.now():
             raise CerebrumError("End date of project has passed: %s"
-                                % str(end).split()[0])
+                                % six.text_type(end).split()[0])
         elif end < start:
             raise CerebrumError(
                 "Project can not end before it has begun: from %s to %s" %
-                (str(start).split()[0], str(end).split()[0]))
+                (six.text_type(start).split()[0],
+                 six.text_type(end).split()[0]))
 
         try:
             meta = json.loads(meta)
         except ValueError as e:
-            raise CerebrumError('Project metadata should be valid json: {}'.
+            raise CerebrumError('Project metadata must be a valid json: {}'.
                                 format(e))
         if not isinstance(meta, dict):
-            raise CerebrumError('Project metadata should be a dictionary')
+            raise CerebrumError('Project metadata must be a dictionary')
 
         hpc = self._parse_hpc_yesno(hpc)
 
@@ -1042,7 +1032,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         self._set_project_metadata(operator, ou, meta)
 
-        return "New project created: %s" % pid
+        return 'New project created: {pid}'.format(pid=pid)
 
     #
     # project setup
@@ -1062,11 +1052,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         :param operator: An BofhdSession-instance of the current user session.
         :type  operator: BofhdSession
         :param project_id: Project ID for the given project.
-        :type  project_id: str
+        :type  project_id: str (unicode)
 
         :returns: A statement that the operation was successful.
-        :rtype: str
-
+        :rtype: str (unicode)
         """
 
         op_id = operator.get_entity_id()
@@ -1095,14 +1084,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         All information about the project gets deleted except its acronym, to
         avoid reuse of the ID.
-
         """
         project = self._get_project(projectid)
         # TODO: delete person affiliations?
         # TODO: delete accounts
         project.terminate()
         # self.gateway.delete_project(projectid)
-        return "Project terminated: %s" % projectid
+        return 'Project terminated: {projectid}'.format(projectid=projectid)
 
     #
     # project approve
@@ -1119,10 +1107,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         is created after we get metadata for it from the outside world, but is
         only visible inside of Cerebrum. When a superuser approves the project,
         it gets spread to AD and gets set up properly.
-
         """
         project = self._get_project(projectid)
-        success_msg = "Project approved: %s" % (projectid)
+        success_msg = 'Project approved: {projectid}'.format(
+            projectid=projectid)
 
         # Check if the project was already approved
         if not project.get_entity_quarantine(
@@ -1161,7 +1149,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         All information about the project gets deleted, since it hasn't been
         exported out of Cerebrum yet.
-
         """
         project = self._get_project(projectid)
         if not project.get_entity_quarantine(
@@ -1177,7 +1164,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             self.gateway.delete_project(projectid)
         except Exception:
             pass
-        return "Project deleted: %s" % projectid
+        return 'Project deleted: {projectid}'.format(projectid=projectid)
 
     #
     # project set_enddate
@@ -1190,9 +1177,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     @superuser
     def project_set_enddate(self, operator, projectid, enddate):
-        """Set the end date for a project.
-
-        """
+        """Set the end date for a project."""
         project = self._get_project(projectid)
         qtype = self.const.quarantine_project_end
         end = self._parse_date(enddate)
@@ -1210,8 +1195,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             # TODO
             # self.gateway.freeze_project(projectid)
             pass
-        return "Project %s updated to end: %s" % (projectid,
-                                                  date_to_string(end))
+        return 'Project {projectid} updated to end: {date_string}'.format(
+            projectid=projectid,
+            date_string=date_to_string(end))
 
     #
     # project set_projectname
@@ -1230,8 +1216,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                   name_language=self.const.language_en,
                                   name=projectname)
         ou.write_db()
-        return "Project %s updated with name: %s" % (
-            ou.get_project_id(), ou.get_project_name())
+        return 'Project {project_id} updated with name: {project_name}'.format(
+            project_id=ou.get_project_id(),
+            project_name=ou.get_project_name())
 
     #
     # project set_longname
@@ -1250,8 +1237,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                   name_language=self.const.language_en,
                                   name=longname)
         ou.write_db()
-        return "Project %s updated with long name: %s" % (ou.get_project_id(),
-                                                          longname)
+        return 'Project {project_id} updated with long name: {lname}'.format(
+            project_id=ou.get_project_id(),
+            lname=longname)
 
     #
     # project set_shortname
@@ -1270,8 +1258,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                   name_language=self.const.language_en,
                                   name=shortname)
         ou.write_db()
-        return "Project %s updated with short name: %s" % (ou.get_project_id(),
-                                                           shortname)
+        return 'Project {project_id} updated with short name: {sname}'.format(
+            project_id=ou.get_project_id(),
+            sname=shortname)
 
     #
     # project set_price
@@ -1344,7 +1333,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     @staticmethod
     def _get_project_metadata(project):
-        """ Get a project's metadata field (use EntityNote). """
+        """Get a project's metadata field (use EntityNote)."""
         for note in sorted(filter(lambda x: x['subject'] == 'project_metadata',
                                   project.get_notes()),
                            reverse=True,
@@ -1353,7 +1342,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     @staticmethod
     def _set_project_metadata(operator, project, metadata):
-        """ Set a project's metadata """
+        """Set a project's metadata"""
         project.add_note(operator.get_entity_id(),
                          'project_metadata',
                          json.dumps(metadata, sort_keys=True))
@@ -1376,7 +1365,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         else:
             meta[key] = value
         AdministrationBofhdExtension._set_project_metadata(operator,
-                                                           project, meta)
+                                                           project,
+                                                           meta)
         return ret
 
     #
@@ -1419,7 +1409,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                       description='Project freeze',
                                       start=when)
         project.write_db()
-        success_msg = 'Project %s is now frozen' % projectid
+        success_msg = 'Project {projectid} is now frozen'.format(
+            projectid=projectid)
         try:
             self.gateway.freeze_project(projectid)
         except Gateway.GatewayException, e:
@@ -1491,7 +1482,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         for row in project.get_entity_quarantine(qtype):
             project.delete_entity_quarantine(qtype)
             project.write_db()
-        success_msg = 'Project %s is now unfrozen' % projectid
+        success_msg = 'Project {projectid} is now unfrozen'.format(
+            projectid=projectid)
         # Only unthaw projects without quarantines
         if not project.get_entity_quarantine(only_active=True):
             try:
@@ -1600,7 +1592,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         The reason for the semi-sub method is to be able to specify the OU with
         the projectid instead of entity_id. This could probably be handled in
         a much better way.
-
         """
         project = self._get_project(projectid)
         try:
@@ -1614,9 +1605,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         }
         quars = [self.const.Quarantine(r['quarantine_type']) for r in
                  project.get_entity_quarantine(only_active=True)]
-        ret['quarantines'] = ', '.join(str(q) for q in quars)
-        ret['spreads'] = ', '.join(str(self.const.Spread(s['spread'])) for s in
-                                   project.get_spread())
+        ret['quarantines'] = ', '.join(six.text_type(q) for q in quars)
+        ret['spreads'] = ', '.join(
+            six.text_type(self.const.Spread(s['spread'])) for s in
+            project.get_spread())
         # Start and end dates:
         ret['start_date'] = '<Not Set>'
         for row in project.get_entity_quarantine(
@@ -1677,7 +1669,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 sub.find(subnet_id)
                 return {
                     'subnet': '%s/%s' % (sub.subnet_ip, sub.subnet_mask),
-                    'vlan_number': str(sub.vlan_number)
+                    'vlan_number': six.text_type(sub.vlan_number)
                 }
             except dns.Errors.SubnetError:
                 sub = IPv6Subnet.IPv6Subnet(self.db)
@@ -1686,7 +1678,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 return {
                     'subnet': '%s/%s' % (compress(sub.subnet_ip),
                                          sub.subnet_mask),
-                    'vlan_number': str(sub.vlan_number)
+                    'vlan_number': six.text_type(sub.vlan_number)
                 }
 
         subnets = [_subnet_info(x['entity_id']) for x in
@@ -1761,7 +1753,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ent.populate_trait(trait_type, target_id=ou.entity_id,
                            date=DateTime.now())
         ent.write_db()
-        return "Entity affiliated with project: %s" % ou.get_project_id()
+        return 'Entity affiliated with project: {project_id}'.format(
+            project_id=ou.get_project_id())
 
     #
     # project set_vm_type
@@ -1780,15 +1773,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         :param operator: An BofhdSession-instance of the current user session.
         :type  operator: BofhdSession
         :param project_id: Project ID for the given project.
-        :type  project_id: str
+        :type  project_id: str (unicode)
         :param vm_type: The new setting for VM-host(s) for the project.
-        :type  vm_type: str
+        :type  vm_type: str (unicode)
 
         :returns: A statement that the operation was successful.
-        :rtype: str
-
+        :rtype: str (unicode)
         """
-
         project = self._get_project(project_id)
         op_id = operator.get_entity_id()
 
@@ -1799,7 +1790,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         project.write_db()
         project.setup_project(op_id)
 
-        return 'OK, vm_type for %s changed to %s.' % (project_id, vm_type)
+        return 'OK, vm_type for {project_id} changed to {vm_type}.'.format(
+            project_id=project_id,
+            vm_type=vm_type)
 
     #
     # project list_hosts
@@ -1849,8 +1842,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         # Sort by name
         return sorted(hosts, key=lambda x: x['name']) or 'No hosts found'
 
-    def _person_affiliation_add_helper(self, operator,
-                                       person, ou, aff, aff_status):
+    def _person_affiliation_add_helper(self,
+                                       operator,
+                                       person,
+                                       ou,
+                                       aff,
+                                       aff_status):
         """Helper-function for adding an affiliation to a person with permission
         checking. Person is expected to be a person object, while ou, aff and
         aff_status should be the textual representation from the client.
@@ -1870,9 +1867,14 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                         "for this OU/affiliation combination")
 
         if not has_aff:
-            self.ba.can_add_affiliation(operator.get_entity_id(), person, ou,
-                                        aff, aff_status)
-            person.add_affiliation(ou.entity_id, aff, self.const.system_manual,
+            self.ba.can_add_affiliation(operator.get_entity_id(),
+                                        person,
+                                        ou,
+                                        aff,
+                                        aff_status)
+            person.add_affiliation(ou.entity_id,
+                                   aff,
+                                   self.const.system_manual,
                                    aff_status)
             person.write_db()
 
@@ -1892,7 +1894,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         - map (optional) maps the user-entered value to a value that
           is returned to the server, typically when user selects from
           a list.
-
         """
         all_args = list(args[:])
 
@@ -1913,18 +1914,18 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                     all_args = [group.entity_id]
             else:
                 c = self._find_persons(arg)
-                map = [(("%-8s %s", "Id", "Name"), None)]
+                map_list = [(("%-8s %s", "Id", "Name"), None)]
                 for i in range(len(c)):
                     person = self._get_person("entity_id", c[i]['person_id'])
-                    map.append((
+                    map_list.append((
                         ("%8i %s", int(c[i]['person_id']),
                          person.get_name(self.const.system_cached,
                                          self.const.name_full)),
                         int(c[i]['person_id'])))
-                if not len(map) > 1:
+                if not len(map_list) > 1:
                     raise CerebrumError("No persons matched")
                 return {'prompt': "Choose person from list",
-                        'map': map,
+                        'map': map_list,
                         'help_ref': 'user_create_select_person'}
         owner_id = all_args.pop(0)
         if not group_owner:
@@ -1951,19 +1952,20 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                 if not yes_no == 'y':
                     raise CerebrumError("Command aborted at user request")
             if not all_args:
-                map = [(("%-8s %s", "Num", "Affiliation"), None)]
+                map_list = [(("%-8s %s", "Num", "Affiliation"), None)]
                 for aff in person.get_affiliations():
                     ou = self._get_ou(ou_id=aff['ou_id'])
                     name = "%s@%s" % (
                         self.const.PersonAffStatus(aff['status']),
                         self._format_ou_name(ou))
-                    map.append((("%s", name),
-                                {'ou_id': int(aff['ou_id']),
-                                 'aff': int(aff['affiliation'])}))
-                if not len(map) > 1:
+                    map_list.append((("%s", name),
+                                     {'ou_id': int(aff['ou_id']),
+                                      'aff': int(aff['affiliation'])}))
+                if not len(map_list) > 1:
                     raise CerebrumError("Person has no affiliations."
                                         " Try person affiliation_add")
-                return {'prompt': "Choose affiliation from list", 'map': map}
+                return {'prompt': 'Choose affiliation from list',
+                        'map': map_list}
             affiliation = all_args.pop(0)
         else:
             if not all_args:
@@ -2086,8 +2088,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             posix_user.set_password(passwd)
             posix_user.write_db()
             if posix_user.owner_type == self.const.entity_person:
-                self._user_create_set_account_type(posix_user, owner_id,
-                                                   ou_id, affiliation)
+                self._user_create_set_account_type(posix_user,
+                                                   owner_id,
+                                                   ou_id,
+                                                   affiliation)
         except self.db.DatabaseError as m:
             raise CerebrumError("Database error: %s" % m)
         for spread in cereconf.BOFHD_NEW_USER_SPREADS:
@@ -2229,8 +2233,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                         creator_id=operator.get_entity_id())
             pu.write_db()
 
-        return 'Approved %s for project %s' % (ac.account_name,
-                                               ou.get_project_id())
+        return 'Approved {account_name} for project {project_id}'.format(
+            account_name=ac.account_name,
+            project_id=ou.get_project_id())
 
     #
     # user delete
@@ -2255,7 +2260,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             pu.write_db()
         account.deactivate()
         account.write_db()
-        return "User %s is deactivated" % account.account_name
+        return 'User {account_name} is deactivated'.format(
+            account_name=account.account_name)
 
     #
     # user unapproved
@@ -2346,7 +2352,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         This should rather be done automatically by the PosixUser mixin class
         for TSD, and UiO, but that requires some refactoring of bofhd. We don't
         know the consequences of that quite yet.
-
         """
         if account.np_type or account.owner_type == self.const.entity_group:
             return
@@ -2418,7 +2423,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         for row in subnet.search():
             subnets.append({
                 'subnet': '%s/%s' % (row['subnet_ip'], row['subnet_mask']),
-                'vlan_number': str(row['vlan_number']),
+                'vlan_number': six.text_type(row['vlan_number']),
                 'project_id': subnet2project.get(row['entity_id']),
                 'description': row['description']})
 
@@ -2429,10 +2434,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             subnets.append({
                 'subnet': '%s/%s' % (compress(row['subnet_ip']),
                                      row['subnet_mask']),
-                'vlan_number': str(row['vlan_number']),
+                'vlan_number': six.text_type(row['vlan_number']),
                 'project_id': subnet2project.get(row['entity_id']),
                 'description': row['description']})
-
         return subnets
 
     #
@@ -2511,14 +2515,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         TODO: Should it be possible to specify a range, or should we find one
         randomly?
-
         """
         subnet = Subnet.Subnet(self.db)
         subnet.populate(subnet, description=description, vlan=vlan)
 
         # TODO: more checks?
         subnet.write_db(perform_checks=True)
-        return "Subnet created: %s" % subnet
+        return 'Subnet created: {subnet}'.format(subnet=subnet)
 
     def add_subnet(subnet, description, vlan, perform_checks=True):
         pass

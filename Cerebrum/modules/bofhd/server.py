@@ -42,13 +42,9 @@ from Cerebrum import Cache
 from Cerebrum import https
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
-from Cerebrum.modules.bofhd.handler import BofhdRequestHandler
+from Cerebrum.modules.bofhd.handler import BofhdRequestHandler, format_addr
 from Cerebrum.modules.bofhd.help import Help
 from Cerebrum.modules.statsd import config as statsd_config
-
-
-format_addr = lambda addr: ':'.join([str(x) for x in addr or ['err', 'err']])
-""" Get ip:port formatted string from address tuple. """
 
 
 class BofhdServerImplementation(object):
@@ -74,7 +70,7 @@ class BofhdServerImplementation(object):
 
     @property
     def logger(self):
-        u""" Server logger. """
+        """ Server logger. """
         if not self.__logger:
             self.__logger = Factory.get_logger()
         return self.__logger
@@ -91,7 +87,7 @@ class BofhdServerImplementation(object):
 
     @property
     def cmdhelp(self):
-        u""" Combined Help structure for all extensions. """
+        """ Combined Help structure for all extensions. """
         try:
             return self.__help
         except AttributeError:
@@ -101,7 +97,7 @@ class BofhdServerImplementation(object):
     @property
     @memoize
     def commands(self):
-        u""" Cache of commands that a user has access to.
+        """ Cache of commands that a user has access to.
 
         It should contain info on every accessible command for every
         authenticated user:
@@ -115,7 +111,7 @@ class BofhdServerImplementation(object):
     @property
     @memoize
     def sessions(self):
-        u""" A cache that maps session id to entity id. """
+        """ A cache that maps session id to entity id. """
         # Needed? Only used to throw ServerRestartedError...
         return Cache.Cache()
 
@@ -126,7 +122,7 @@ class BofhdServerImplementation(object):
         try:
             return statsd_config.load_config()
         except Exception as e:
-            self.logger.error("could not load statsd config ({0})".format(e))
+            self.logger.error("could not load statsd config (%r)", e)
             # default config
             return statsd_config.StatsConfig()
 
@@ -155,21 +151,21 @@ class BofhdServerImplementation(object):
         the logger.
         """
         def fmt_class(cls):
-            return u'{!s}/{!s}'.format(cls.__module__, cls.__name__)
+            return '{0.__module__}/{0.__name__}'.format(cls)
         for cls in self.extensions:
             commands = cls.list_commands('all_commands')
             for key, cmd in commands.iteritems():
                 if not key:
-                    self.logger.warn(u'Skipping: Unnamed command %r', cmd)
+                    self.logger.warn('Skipping: Unnamed command %r', cmd)
                     continue
                 if key not in self.classmap:
-                    self.logger.warn(u'Skipping: No command %r in class map',
+                    self.logger.warn('Skipping: No command %r in class map',
                                      key)
                     continue
                 if cls is not self.classmap[key]:
                     self.logger.info(
-                        u'Skipping: Duplicate command %r'
-                        u' (skipping=%s, using=%s)',
+                        'Skipping: Duplicate command %r'
+                        ' (skipping=%s, using=%s)',
                         key,
                         fmt_class(cls),
                         fmt_class(self.classmap[key]))
@@ -207,8 +203,7 @@ class BofhdServerImplementation(object):
         # Check that all calls are implemented
         for rpc in sorted(self.classmap.keys()):
             if not hasattr(self.classmap[rpc], rpc):
-                self.logger.warn("Warning, command '%s' is not implemented",
-                                 rpc)
+                self.logger.warn("Warning, command %r is not implemented", rpc)
         self.__help = Help(self.extensions, logger=self.logger)
 
         self._log_help_text_mismatch()
@@ -242,7 +237,7 @@ class BofhdServerImplementation(object):
 
         """
         sock, addr = super(BofhdServerImplementation, self).get_request()
-        self.logger.debug2("new connection from %s", format_addr(addr))
+        self.logger.debug2("new connection from %r", format_addr(addr))
         return sock, addr
 
     def close_request(self, request):
@@ -264,15 +259,18 @@ class BofhdServerImplementation(object):
 
 class _TCPServer(SocketServer.TCPServer, object):
     """SocketServer.TCPServer as a new-style class."""
-    # Must override __init__ here to make the super() call work with only kw args.
+    # Must override __init__ here to make the super() call work with only kw
+    # args.
+
     def __init__(self, server_address=None,
                  RequestHandlerClass=BofhdRequestHandler,
                  bind_and_activate=True, **kws):
         # This should always call SocketServer.TCPServer
-        super(_TCPServer, self).__init__(server_address=server_address,
-                                         RequestHandlerClass=RequestHandlerClass,
-                                         bind_and_activate=bind_and_activate,
-                                         **kws)
+        super(_TCPServer, self).__init__(
+            server_address=server_address,
+            RequestHandlerClass=RequestHandlerClass,
+            bind_and_activate=bind_and_activate,
+            **kws)
 
 
 class _ThreadingMixIn(SocketServer.ThreadingMixIn, object):

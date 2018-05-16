@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# coding: utf-8
+# -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,9 +20,12 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ RESTful Cerebrum group API. """
 
+from __future__ import unicode_literals
+
 from flask_restplus import Namespace, Resource, abort, reqparse
 from flask_restplus import fields as base_fields
 from werkzeug.exceptions import NotFound
+from six import text_type
 
 from Cerebrum.rest.api import db, auth, utils
 from Cerebrum.rest.api import fields as crb_fields
@@ -35,7 +38,7 @@ api = Namespace('groups', description='Group operations')
 
 def find_group(identifier, idtype='name'):
     if idtype == 'name' and isinstance(identifier, unicode):
-        identifier = identifier.encode(db.encoding)
+        identifier = identifier
     try:
         try:
             group = utils.get_group(identifier=identifier,
@@ -44,7 +47,7 @@ def find_group(identifier, idtype='name'):
         except utils.EntityLookupError:
             group = utils.get_group(identifier=identifier, idtype=idtype)
     except utils.EntityLookupError as e:
-        raise NotFound(str(e))
+        raise NotFound(text_type(e))
     return group
 
 
@@ -52,7 +55,7 @@ def find_entity(entity_id):
     try:
         entity = utils.get_entity(identifier=entity_id, idtype='entity_id')
     except utils.EntityLookupError as e:
-        raise NotFound(str(e))
+        raise NotFound(text_type(e))
     return entity
 
 
@@ -204,19 +207,13 @@ class GroupResource(Resource):
 
     @staticmethod
     def group_info(group):
-        name = group.group_name
-        if isinstance(name, str):
-            name = utils._db_decode(group.group_name)
-        desc = group.description
-        if isinstance(desc, str):
-            desc = utils._db_decode(group.description)
         return {
-            'name': name,
+            'name': group.group_name,
             'id': group.entity_id,
             'created_at': group.created_at,
             'expire_date': group.expire_date,
             'visibility': group.visibility,
-            'description': desc,
+            'description': group.description,
             'contexts': [row['spread'] for row in group.get_spread()],
         }
 
@@ -278,7 +275,6 @@ class GroupResource(Resource):
         args = self.new_group_parser.parse_args()
         args['visibility'] = GroupVisibility.unserialize(args['visibility'])
         result_code = 200
-        name = name.encode(db.encoding)
         try:
             # find and update all attributes
             group = utils.get_group(name, 'name', 'Group')
@@ -286,7 +282,6 @@ class GroupResource(Resource):
             if group.visibility != args['visibility']:
                 group.visibility = args['visibility']
                 changes = True
-            group.description = group.description.decode('utf-8')
             if group.description != args['description']:
                 group.description = args['description']
                 changes = True
@@ -344,9 +339,9 @@ class GroupResource(Resource):
         """ Delete group. """
         # TODO: Find out if any user has group as dfg?
         #       If so, 409 CONFLICT?
-        name = name.encode(db.encoding)
         group = find_group(name)
         group.delete()
+        return '', 204
 
 
 @api.route('/<string:name>/moderators/', endpoint='group-moderators')
@@ -362,7 +357,6 @@ class GroupModeratorListResource(Resource):
     @api.marshal_with(GroupModerator, as_list=True, envelope='moderators')
     def get(self, name):
         """ Get moderators for this group. """
-        name = name.encode(db.encoding)
         group = find_group(name)
         return utils.get_auth_roles(group, 'group',
                                     role_map=GroupAuthRoles._map)
@@ -392,7 +386,6 @@ class GroupModeratorResource(Resource):
     @api.response(404, 'group or moderator not found')
     def put(self, name, role, moderator_id):
         """ Add a group moderator. """
-        name = name.encode(db.encoding)
         mod = find_entity(moderator_id)
         opset = self.get_opset(role)
         group = find_group(name)
@@ -405,7 +398,6 @@ class GroupModeratorResource(Resource):
     @api.response(404, 'group or moderator not found')
     def delete(self, name, role, moderator_id):
         """ Remove a group moderator. """
-        name = name.encode(db.encoding)
         mod = find_entity(moderator_id)
         opset = self.get_opset(role)
         group = find_group(name)
@@ -438,7 +430,6 @@ class GroupContextResource(Resource):
     @api.response(404, 'group or context not found')
     def get(self, name, context):
         """ Check if group has context. """
-        name = name.encode(db.encoding)
         gr = find_group(name)
         spread = self.get_spread(context)
         if not gr.has_spread(spread):
@@ -453,7 +444,6 @@ class GroupContextResource(Resource):
     @api.response(404, 'group not found')
     def put(self, name, context):
         """ Add context on group. """
-        name = name.encode(db.encoding)
         gr = find_group(name)
         spread = self.get_spread(context)
         if not gr.has_spread(spread):
@@ -468,7 +458,6 @@ class GroupContextResource(Resource):
     @api.response(404, 'group not found')
     def delete(self, name, context):
         """ Remove context from group. """
-        name = name.encode(db.encoding)
         gr = find_group(name)
         spread = self.get_spread(context)
         if gr.has_spread(spread):
@@ -483,13 +472,19 @@ class GroupMemberListResource(Resource):
     #
     group_member_filter = api.parser()
     group_member_filter.add_argument(
-        'type', type=str, dest='member_type',
+        'type',
+        type=validator.String(),
+        dest='member_type',
         help='Filter by entity type.')
     group_member_filter.add_argument(
-        'context', type=str, dest='member_spread',
+        'context',
+        type=validator.String(),
+        dest='member_spread',
         help='Filter by context. Accepts * and ? as wildcards.')
     group_member_filter.add_argument(
-        'filter_expired', type=bool, dest='member_filter_expired',
+        'filter_expired',
+        type=bool,
+        dest='member_filter_expired',
         help='If false, include members that are expired.')
 
     @auth.require()
@@ -498,7 +493,6 @@ class GroupMemberListResource(Resource):
     @api.doc(params={'name': 'group name'})
     def get(self, name):
         """List members of a group."""
-        name = name.encode(db.encoding)
         args = self.group_member_filter.parse_args()
         filters = {key: value for (key, value) in args.items() if
                    value is not None}
@@ -508,7 +502,7 @@ class GroupMemberListResource(Resource):
                 member_type = db.const.EntityType(filters['member_type'])
                 filters['member_type'] = int(member_type)
             except Errors.NotFoundError:
-                abort(404, message=u'Unknown entity type for type={}'.format(
+                abort(404, message='Unknown entity type for type={}'.format(
                     filters['member_type']))
 
         if 'member_spread' in filters:
@@ -516,7 +510,7 @@ class GroupMemberListResource(Resource):
                 member_spread = db.const.Spread(filters['member_spread'])
                 filters['member_spread'] = int(member_spread)
             except Errors.NotFoundError:
-                abort(404, message=u'Unknown context for context={}'.format(
+                abort(404, message='Unknown context for context={}'.format(
                     filters['member_spread']))
 
         gr = find_group(name)
@@ -548,7 +542,6 @@ class GroupMemberResource(Resource):
     @api.marshal_with(GroupMember)
     def get(self, name, member_id):
         """ Check if member exists in group. """
-        name = name.encode(db.encoding)
         group = find_group(name)
         member = find_entity(member_id)
         if not group.has_member(member.entity_id):
@@ -570,7 +563,6 @@ class GroupMemberResource(Resource):
     @api.marshal_with(GroupMember)
     def put(self, name, member_id):
         """ Add member to group. """
-        name = name.encode(db.encoding)
         group = find_group(name)
         member = find_entity(member_id)
         if not group.has_member(member.entity_id):
@@ -591,11 +583,11 @@ class GroupMemberResource(Resource):
     @api.response(404, 'group or member not found')
     def delete(self, name, member_id):
         """ Remove member from group. """
-        name = name.encode(db.encoding)
         group = find_group(name)
         member = find_entity(member_id)
         if group.has_member(member.entity_id):
             group.remove_member(member.entity_id)
+        return '', 204
 
 
 @api.route('/<string:name>/posix', endpoint='posixgroup')
@@ -611,7 +603,6 @@ class PosixGroupResource(Resource):
     @api.doc(params={'name': 'group name'})
     def get(self, name):
         """Get POSIX group information."""
-        name = name.encode(db.encoding)
         gr = find_group(name)
         return {
             'name': name,
@@ -630,15 +621,15 @@ class GroupListResource(Resource):
     group_search_filter = api.parser()
     group_search_filter.add_argument(
         'name',
-        type=str,
+        type=validator.String(),
         help='Filter by name. Accepts * and ? as wildcards.')
     group_search_filter.add_argument(
         'description',
-        type=str,
+        type=validator.String(),
         help='Filter by description. Accepts * and ? as wildcards.')
     group_search_filter.add_argument(
         'context',
-        type=str,
+        type=validator.String(),
         dest='spread',
         help='Filter by context. Accepts * and ? as wildcards.')
     group_search_filter.add_argument(
@@ -681,9 +672,8 @@ class GroupListResource(Resource):
         for row in gr.search(**filters):
             group = dict(row)
             group.update({
-                'id': utils._db_decode(group['name']),
-                'name': utils._db_decode(group['name']),
+                'id': group['name'],
+                'name': group['name'],
             })
-            group['description'] = utils._db_decode(group['description'])
             groups.append(group)
         return groups

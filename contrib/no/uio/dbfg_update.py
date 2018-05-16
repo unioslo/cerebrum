@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2003 University of Oslo, Norway
 #
@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+from __future__ import unicode_literals
 
 """
 This file performs group membership synchronization between several external
@@ -100,11 +102,13 @@ import traceback
 import argparse
 import StringIO
 
+from six import text_type
+
 import cerebrum_path
 import cereconf
 
 import Cerebrum
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.modules.no.uio.access_FS import FS, FSvpd
@@ -325,7 +329,7 @@ def remove_from_cerebrum_group(account, group, constants):
         logger.error("Aiee! Removing %s from %s failed: %s, %s, %s",
                      account.account_name,
                      group.group_name,
-                     str(type), str(value),
+                     text_type(type), text_type(value),
                      string.join(traceback.format_tb(tb)))
 
 
@@ -350,7 +354,7 @@ def add_to_cerebrum_group(account, group, constants):
         logger.error("Aiee! Adding %s to %s failed: %s, %s, %s",
                      account.account_name,
                      group.group_name,
-                     str(type), str(value),
+                     text_type(type), text_type(value),
                      string.join(traceback.format_tb(tb)))
 
 
@@ -398,7 +402,7 @@ def perform_synchronization(services):
                      service, user)
 
         try:
-            db = Database.connect(user=user, service=service,
+            db = database.connect(user=user, service=service,
                                   DB_driver=cereconf.DB_DRIVER_ORACLE)
             if db_charset:
                 obj = klass(db, db_charset)
@@ -487,7 +491,7 @@ def report_users(stream_name, databases):
     person = Factory.get("Person")(db_cerebrum)
     constants = Factory.get("Constants")(db_cerebrum)
 
-    with AtomicFileWriter(stream_name, "w") as report_stream:
+    with AtomicFileWriter(stream_name, "w", encoding='UTF-8') as report_stream:
 
         for item in databases:
             # Report expired users for all databases
@@ -520,7 +524,7 @@ def make_report(user, report_missing, item, acc_name, *func_list):
     db_cerebrum = Factory.get("Database")()
     account = Factory.get("Account")(db_cerebrum)
     service = item["dbname"]
-    db = Database.connect(user=user, service=service,
+    db = database.connect(user=user, service=service,
                           DB_driver=cereconf.DB_DRIVER_ORACLE)
     source = get_accessor(item["accessor"])(db)
     accessor = getattr(source, acc_name)

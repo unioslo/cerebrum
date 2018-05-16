@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2010 University of Oslo, Norway
+# Copyright 2010-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,10 +32,10 @@ voip service) has at most one voip-address. A voip-address CANNOT exist
 without a corresponding person/voip-service owner.
 """
 
-import random
+from __future__ import unicode_literals
 
-import cerebrum_path
 import cereconf
+from six import text_type
 
 from Cerebrum.modules.no.uio.voip.EntityAuthentication import EntityAuthentication
 from Cerebrum.modules.no.uio.voip.voipService import VoipService
@@ -46,15 +46,10 @@ from Cerebrum.Utils import Factory
 from Cerebrum.Utils import argument_to_sql
 from Cerebrum.modules import Email
 from Cerebrum import Errors
-from Cerebrum.Errors import CerebrumError
-
-
-
 
 
 class VoipAddress(EntityAuthentication, EntityTrait):
-    """voip_address interface.
-    """
+    """VoIP address interface"""
 
     __read_attr__ = ("__in_db",)
     __write_attr__ = ("owner_entity_id",)
@@ -68,8 +63,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         self.__super.clear()
         self.clear_class(VoipAddress)
         self.__updated = list()
-    # end clear
-
 
     def populate(self, owner_entity_id):
         """Create a new VoipAddress in memory.
@@ -77,18 +70,13 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         FIXME: check that owner_entity_type is voip_service/person.
         FIXME: check that owner_entity_id does not own other voipAddresses.
         """
-
         EntityTrait.populate(self, self.const.entity_voip_address)
-
         try:
             if not self.__in_db:
                 raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
-            
         self.owner_entity_id = owner_entity_id
-    # end populate
-
 
     def write_db(self):
         """Synchronise the object in memory with the database.
@@ -102,9 +90,11 @@ class VoipAddress(EntityAuthentication, EntityTrait):
             return
 
         is_new = not self.__in_db
-        binds =  {"entity_type": self.const.entity_voip_address,
-                  "entity_id": self.entity_id,
-                  "owner_entity_id": self.owner_entity_id,}
+        binds = {
+            "entity_type": self.const.entity_voip_address,
+            "entity_id": self.entity_id,
+            "owner_entity_id": self.owner_entity_id,
+        }
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=voip_address]
@@ -116,36 +106,27 @@ class VoipAddress(EntityAuthentication, EntityTrait):
             SET owner_entity_id = :owner_entity_id
             WHERE entity_id = :entity_id
             """, binds)
-            
         # Reset the cerebrum auto_updater magic
         del self.__in_db
         self.__in_db = True
         self.__updated = list()
         return is_new
-    # end write_db
-
 
     def delete(self):
-        """Remove a specified entry from the voip_address table. 
-        
+        """Remove a specified entry from the voip_address table.
+
         Be mindful of the fact that multiple voip_client rows may
         refer to a single voip_address row.
         """
-
         if self.__in_db:
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=voip_address]
             WHERE entity_id = :entity_id
             """, {"entity_id": self.entity_id})
-            
         self.__super.delete()
-    # end delete
-    
-
 
     def find(self, entity_id):
         """Locate voipAddress by entity_id."""
-
         self.__super.find(entity_id)
         self.owner_entity_id = self.query_1("""
             SELECT owner_entity_id
@@ -153,9 +134,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
             WHERE entity_id = :entity_id
             """, {"entity_id": self.entity_id})
         self.__in_db = True
-    # end find
-
-
 
     def find_by_owner_id(self, owner_id):
         """Locate voipAddress by its owner_id."""
@@ -166,9 +144,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         WHERE owner_entity_id = :owner_entity_id
         """, {"owner_entity_id": owner_id})
         self.find(entity_id)
-    # end find_by_owner_id
-
-
 
     def find_by_contact_info(self, designation):
         """Locate voip address by a contact info tidbit.
@@ -179,7 +154,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
         L{designation} can be any string.
         """
-
         entity_id = self.query_1("""
         SELECT va.entity_id
         FROM [:table schema=cerebrum name=voip_address] va,
@@ -187,16 +161,12 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         WHERE va.owner_entity_id = eci.entity_id AND
               eci.source_system = [:get_constant name=system_voip] AND
               (eci.contact_value = :value OR eci.contact_alias = :value)
-        """, {"value": str(designation)})
+        """, {"value": text_type(designation)})
         self.find(entity_id)
-    # end find_by_contact_info
 
-
-    
     def search(self, owner_entity_id=None, owner_entity_type=None):
         """Search for voip_addresses matching the filtering criteria."""
-
-        where = ["va.owner_entity_id = ei.entity_id",]
+        where = ["va.owner_entity_id = ei.entity_id", ]
         binds = dict()
         if owner_entity_id is not None:
             where.append(argument_to_sql(owner_entity_id, "va.owner_entity_id",
@@ -208,49 +178,38 @@ class VoipAddress(EntityAuthentication, EntityTrait):
             where = "WHERE " + " AND ".join(where)
         else:
             where = ""
-            
+
         return self.query("""
         SELECT va.entity_id,
                va.owner_entity_id, ei.entity_type as owner_entity_type
         FROM [:table schema=cerebrum name=voip_address] va,
              [:table schema=cerebrum name=entity_info] ei
         """ + where, binds)
-    # end search
-
-    
 
     def get_owner(self):
         """Return the owner object of the proper type."""
-
         ent = Entity(self._db)
         ent.find(self.owner_entity_id)
         if ent.entity_type == self.const.entity_voip_service:
             result = VoipService(self._db)
             result.find(self.owner_entity_id)
             return result
-
         ent.clear()
         return ent.get_subclassed_object(self.owner_entity_id)
-    # end get_owner
-        
-
 
     _voip_prefix = "sip:"
+
     def _voipify(self, value, suffix="@voip.uio.no"):
         prefix = self._voip_prefix
         if suffix and not value.endswith(suffix):
             return prefix + value + suffix
         return prefix + value
-    # end _voipify
-
 
     def _voipify_short(self, value, suffix="@uio.no"):
         prefix = self._voip_prefix
         if suffix and not value.endswith(suffix):
             return prefix + value + suffix
         return prefix + value
-    # end _voip_prefix
-
 
     def get_voip_attributes(self):
         """Return a dict with all LDAP attributes available for voipAddress.
@@ -264,14 +223,14 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         * cn (fullt navn - fra cerebrum) e.g. Marius Pedersen
         * voipSipUri (alle gyldige sip urier for denne uid, inkludert sip
           urier som  inneholder extensions og mail-addresser) e.g.
-        
+
             o sip:+4722852426@voip.uio.no
             o sip:52426@uio.no
             o sip:marius.pedersen@usit.uio.no
 
         * voipSipPrimaryUri (sip uri generet fra primary email address)
           e.g. sip:marius.pedersen@usit.uio.no
-          
+
         * voipE164Uri (sip uri generet fra 8-sifret uio-nummer)e.g.
           sip:+4722852426@voip.uio.no
 
@@ -280,7 +239,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
         * voipSKO (6 digit "stedkode") e.g. 112233
         """
-
         voipify = self._voipify
         voipify_short = self._voipify_short
 
@@ -288,7 +246,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         result = dict((key, None) for key in self._required_voip_attributes)
         result.update(self._get_owner_voip_attributes(owner))
         result["owner_type"] = self.const.EntityType(owner.entity_type)
-        
+
         uris = result.get("voipSipUri") or list()
         for row in owner.get_contact_info(source=self.const.system_voip):
             uris.append(voipify(row["contact_value"]))
@@ -311,22 +269,14 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                     e164[0]["contact_alias"])
 
         return result
-    # end get_voip_attributes
 
-    
-    
     def _get_owner_voip_attributes(self, owner):
-
         if owner.entity_type == self.const.entity_person:
             return self._get_person_owner_attributes(owner)
         elif owner.entity_type == self.const.entity_voip_service:
             return self._get_voip_service_owner_attributes(owner)
-
         assert RuntimeError("Unknown voipAddress owner type: %s" %
-                            str(self.const.EntityType(owner.entity_type)))
-    # end _get_owner_voip_attributes
-
-
+                            self.const.EntityType(owner.entity_type))
 
     def _get_voip_service_owner_attributes(self, owner):
         """Return a dict with voip_service tidbits for LDAP.
@@ -335,13 +285,10 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         """
 
         result = dict()
-        result["uid"] = str(owner.entity_id)
+        result["uid"] = text_type(owner.entity_id)
         result["mail"] = result["uid"] + "@usit.uio.no"
         result["cn"] = owner.description
         return result
-    # end _get_voip_service_owner_attributes
-
-
 
     def _get_person_owner_attributes(self, owner):
         """Return a dict with person tidbits for LDAP.
@@ -357,7 +304,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                         for r in et.get_addresses(special=False)]
             except Errors.NotFoundError:
                 return []
-        # end extract_email_from_account
 
         result = dict()
         # uid
@@ -370,7 +316,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
             result["uid"] = None
 
         # ALL unames must go into 'voipSipUri'. And so must all e-mail
-        # addresses. 
+        # addresses.
         result["voipSipUri"] = list()
         for row in acc.search(owner_id=owner.entity_id):
             result["voipSipUri"].append(self._voipify(row["name"], None))
@@ -401,8 +347,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
         result["cn"] = p_name
         return result
-    # end _get_person_owner_attributes
-
 
     def contact_is_valid(self, contact_type, value, alias=None):
         """Check if contact value is legal.
@@ -423,7 +367,8 @@ class VoipAddress(EntityAuthentication, EntityTrait):
             return True
 
         # They must be strings...
-        if not (isinstance(value, str) and isinstance(alias, str)):
+        if not (isinstance(value, (str, text_type)) and
+                isinstance(alias, (str, text_type))):
             return False
 
         # This is a UiO number -- 8 digits and 5 digits for the internal number.
@@ -455,8 +400,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
         # Finally, it has to be a valid number.
         return True
-    # end contact_is_valid
-
 
     def list_voip_attributes(self, *args):
         """Return a generator over what looks like get_voip_attributes() return
@@ -473,14 +416,15 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         # ou_id -> stedkode
         # Will pass it to the cache functions so we can get stedkode and not OUs back
         ou = Factory.get("OU")(self._db)
-        ou2sko = dict((x["ou_id"], "%02d%02d%02d" % (x["fakultet"], x["institutt"], x["avdeling"]))
-                      for x in ou.get_stedkoder())
+        ou2sko = dict((x["ou_id"], "%02d%02d%02d" % (
+            x["fakultet"], x["institutt"], x["avdeling"]))
+            for x in ou.get_stedkoder())
 
         owner_data = self._cache_owner_voip_service_attrs(ou2sko)
         owner_data.update(self._cache_owner_person_attrs(ou2sko, *args))
         voipify = self._voipify
         voipify_short = self._voipify_short
-        
+
         # owner_id -> sequence of contact info (value, alias)-pairs
         owner2contact_info = dict()
         eci = EntityContactInfo(self._db)
@@ -492,19 +436,18 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         # owner_id -> mobile
         owner2mobiles = dict()
         for row in eci.list_contact_info(
-                           source_system=self.const.system_sap,
-                           contact_type=self.const.contact_mobile_phone,
-                           entity_type=self.const.entity_person):
+                source_system=self.const.system_sap,
+                contact_type=self.const.contact_mobile_phone,
+                entity_type=self.const.entity_person):
             owner2mobiles.setdefault(row["entity_id"], list()).append(
                 row["contact_value"])
 
         for row in self.search():
             entry = dict((key, None) for key in self._required_voip_attributes)
-            entry["voipOwnerId"] = str(row["owner_entity_id"])
+            entry["voipOwnerId"] = text_type(row["owner_entity_id"])
             entry["voipSipUri"] = list()
             entry["entity_id"] = row["entity_id"]
             owner_id = row["owner_entity_id"]
-            address_id = row["entity_id"]
 
             # Why this way? Well, if owner_data has required attributes and they
             # are missing, the LDAP import will fail (by design). We cannot
@@ -538,73 +481,71 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                     entry["voipExtensionUri"] = voipify_short(alias)
 
             yield entry
-    # end list_voip_attributes
-
-
 
     def _cache_owner_voip_service_attrs(self, ou2sko):
         # First cache the constants
         const2str = dict()
         for cnst in self.const.fetch_constants(self.const.VoipServiceTypeCode):
             assert int(cnst) not in const2str
-            const2str[int(cnst)] = str(cnst)
+            const2str[int(cnst)] = text_type(cnst)
         # Second the voipServices...
         vp = VoipService(self._db)
         owner_data = dict()
         for row in vp.search():
-            uid = str(row["entity_id"])
+            uid = text_type(row["entity_id"])
             ou = row["ou_id"]
-            owner_data[row["entity_id"]] = {"uid": uid,
-                                            "mail": uid + "@usit.uio.no",
-                                            "cn": row["description"],
-                                            "voipOwnerType": "service",
-                                            "voipServiceType": const2str[row["service_type"]],
-                                            "voipSKO": (ou2sko[ou],)}
+            owner_data[row["entity_id"]] = {
+                "uid": uid,
+                "mail": uid + "@usit.uio.no",
+                "cn": row["description"],
+                "voipOwnerType": "service",
+                "voipServiceType": const2str[row["service_type"]],
+                "voipSKO": (ou2sko[ou],),
+            }
         return owner_data
-    # end _cache_owner_voip_service_attrs
-
-
 
     def _join_address(self, local_part, domain):
         return "@".join((local_part, domain))
-    # end _join_address
-    
-    def _cache_owner_person_attrs(self, ou2sko, voippersons, primary2pid, sysadm_aid):
+
+    def _cache_owner_person_attrs(self, ou2sko, voippersons, primary2pid,
+                                  sysadm_aid):
         """Preload the person owner attributes (i.e. the ones specific to people)."""
 
         owner_data = dict()
 
         # Now the tough part -- people
         p = Factory.get("Person")(self._db)
-
         for person in voippersons:
-            owner_data[person] = {"uid": list(),
-                                  "voipOwnerType": "person",
-                                  "voipSKO": set(),}
+            owner_data[person] = {
+                "uid": list(),
+                "voipOwnerType": "person",
+                "voipSKO": set(),
+            }
 
         # Fill out 'cn'
         for row in p.search_person_names(
-                         person_id=voippersons,
-                         name_variant=getattr(self.const,
-                                              cereconf.DEFAULT_GECOS_NAME,
-                                              self.const.name_full),
-                         source_system=self.const.system_cached):
+                person_id=voippersons,
+                name_variant=getattr(self.const,
+                                     cereconf.DEFAULT_GECOS_NAME,
+                                     self.const.name_full),
+                source_system=self.const.system_cached):
             owner_data[row["person_id"]]["cn"] = row["name"]
 
         # Fill out 'uid', 'mail'
         account = Factory.get("Account")(self._db)
         et = Email.EmailTarget(self._db)
-        a_id2primary_mail = dict((r["target_entity_id"],
-                                  self._join_address(r["local_part"], r["domain"]))
-                                 for r in
-                                 et.list_email_target_primary_addresses(
-                                     target_entity_id=primary2pid.keys(),
-                                     target_type=self.const.email_target_account))
+        a_id2primary_mail = dict(
+            (r["target_entity_id"],
+             self._join_address(r["local_part"], r["domain"]))
+            for r in et.list_email_target_primary_addresses(
+                target_entity_id=primary2pid.keys(),
+                target_type=self.const.email_target_account))
 
         # person -> stedkode
-        for row in p.list_affiliations(person_id=voippersons,
-                                       source_system=(self.const.system_sap,
-                                                      self.const.system_manual,)):
+        for row in p.list_affiliations(
+                person_id=voippersons,
+                source_system=(self.const.system_sap,
+                               self.const.system_manual,)):
             owner_data[row["person_id"]]["voipSKO"].add(ou2sko[row["ou_id"]])
 
         for row in account.search(owner_type=self.const.entity_person,
@@ -633,9 +574,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
         del a_id2primary_mail
         return self._cache_owner_person_sip_uris(owner_data)
-    # end _cache_owner_person_attrs
-
-
 
     def _cache_owner_person_sip_uris(self, owner_data):
         """Preload the person owner sipURI attributes for all voipAddresses."""
@@ -647,11 +585,10 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         for person_id in owner_data:
             chunk = owner_data[person_id]
             for uname in chunk["uid"]:
-                chunk.setdefault(key, list()).append(self._voipify(uname, None))
+                chunk.setdefault(key, list()).append(
+                    self._voipify(uname, None))
                 for address in uname2mails.get(uname, ()):
                     chunk[key].append(self._voipify(address, None))
 
         del uname2mails
         return owner_data
-    # end _cache_owner_person_sip_uris
-# end class VoipAddress

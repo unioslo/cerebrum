@@ -32,7 +32,7 @@ import cereconf
 import guestconfig
 
 from Cerebrum import Errors
-from Cerebrum.Utils import NotSet, SMSSender
+from Cerebrum.Utils import NotSet
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import (AccountName,
                                               Command,
@@ -44,6 +44,7 @@ from Cerebrum.modules.bofhd.cmd_param import (AccountName,
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.guest.bofhd_guest_auth import BofhdAuth
 from Cerebrum.modules.username_generator.generator import UsernameGenerator
+from Cerebrum.utils.sms import SMSSender
 
 
 def format_date(field):
@@ -90,7 +91,7 @@ class BofhdExtension(BofhdCommonMethods):
         except Errors.NotFoundError:
             # Group does not exist, must create it
             pass
-        self.logger.info('Creating guest owner group %s' %
+        self.logger.info('Creating guest owner group %r',
                          guestconfig.GUEST_OWNER_GROUP)
         ac = self.Account_class(self.db)
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
@@ -124,7 +125,7 @@ class BofhdExtension(BofhdCommonMethods):
         except CerebrumError:
             # Mostlikely not created yet
             pass
-        self.logger.info('Creating guest group %s' % groupname)
+        self.logger.info('Creating guest group %r', groupname)
         group = self.Group_class(self.db)
         group.populate(creator_id=operator_id,
                        name=groupname,
@@ -226,13 +227,15 @@ class BofhdExtension(BofhdCommonMethods):
         if end_date < DateTime.now():
             status = 'expired'
 
-        return {'username':     account.account_name,
-                'created':      account.created_at,
-                'expires':      end_date,
-                'name':         guest_name,
-                'responsible':  self._get_account_name(responsible_id),
-                'status':       status,
-                'contact':      mobile}
+        return {
+            'username': account.account_name,
+            'created': account.created_at,
+            'expires': end_date,
+            'name': guest_name,
+            'responsible': self._get_account_name(responsible_id),
+            'status': status,
+            'contact': mobile,
+        }
 
     #
     # guest create
@@ -303,7 +306,7 @@ class BofhdExtension(BofhdCommonMethods):
             nr = len(tuple(self._get_guests(responsible,
                                             include_expired=False)))
             if nr >= guestconfig.GUEST_MAX_PER_PERSON:
-                self.logger.debug("More than %d guests, stopped" %
+                self.logger.debug("More than %d guests, stopped",
                                   guestconfig.GUEST_MAX_PER_PERSON)
                 raise PermissionDenied('Not allowed to have more than '
                                        '%d active guests, you have %d' %
@@ -315,7 +318,7 @@ class BofhdExtension(BofhdCommonMethods):
 
         # An extra change log is required in the responsible's log
         ac._db.log_change(responsible, ac.const.guest_create, ac.entity_id,
-                          change_params={'owner': str(responsible),
+                          change_params={'owner': responsible,
                                          'mobile': mobile,
                                          'name': '%s %s' % (fname, lname)},
                           change_by=operator.get_entity_id())
@@ -325,7 +328,7 @@ class BofhdExtension(BofhdCommonMethods):
         if operator.get_entity_id() != responsible:
             ac._db.log_change(operator.get_entity_id(), ac.const.guest_create,
                               ac.entity_id, change_params={
-                                  'owner': str(responsible),
+                                  'owner': responsible,
                                   'mobile': mobile,
                                   'name': '%s %s' % (fname, lname)},
                               change_by=operator.get_entity_id())
@@ -342,14 +345,15 @@ class BofhdExtension(BofhdCommonMethods):
                'expire': end_date.strftime('%Y-%m-%d'), }
 
         if mobile:
+            # TODO: Fix template
             msg = guestconfig.GUEST_WELCOME_SMS % {
                 'username': ac.account_name,
                 'expire': end_date.strftime('%Y-%m-%d'),
                 'password': password}
             if getattr(cereconf, 'SMS_DISABLE', False):
                 self.logger.info(
-                    "SMS disabled in cereconf, would send to '%s':\n%s\n",
-                    mobile, msg)
+                    "SMS disabled in cereconf, would send to '%s'",
+                    mobile)
             else:
                 sms = SMSSender(logger=self.logger)
                 if not sms(mobile, msg):
@@ -396,7 +400,8 @@ class BofhdExtension(BofhdCommonMethods):
             # name and come up with new suggestions.
             raise Errors.RealityError("No potential usernames available")
 
-        ac.populate(name=name, owner_type=self.const.entity_group,
+        ac.populate(name=name,
+                    owner_type=self.const.entity_group,
                     owner_id=owner_group.entity_id,
                     np_type=self.const.account_guest,
                     creator_id=responsible_id,
@@ -423,7 +428,7 @@ class BofhdExtension(BofhdCommonMethods):
             try:
                 spr = int(self.const.Spread(spr))
             except Errors.NotFoundError:
-                self.logger.warn('Unknown guest spread: %s' % spr)
+                self.logger.warn('Unknown guest spread: %r', spr)
                 continue
             ac.add_spread(spr)
 
@@ -596,8 +601,8 @@ class BofhdExtension(BofhdCommonMethods):
                 source=self.const.system_manual,
                 type=self.const.contact_mobile_phone)[0]['contact_value']
         except (IndexError, KeyError):
-            raise CerebrumError(
-                "No contact info registered for %s" % account.account_name)
+            raise CerebrumError("No contact info registered for %s" %
+                                account.account_name)
 
         password = account.make_passwd(account.account_name)
         account.set_password(password)
@@ -614,12 +619,12 @@ class BofhdExtension(BofhdCommonMethods):
             'password': password}
         if getattr(cereconf, 'SMS_DISABLE', False):
             self.logger.info("SMS disabled in cereconf, would send"
-                             " to %r:\n%s\n", mobile, msg)
+                             " to %r", mobile)
         else:
             sms = SMSSender(logger=self.logger)
             if not sms(mobile, msg):
                 raise CerebrumError(
-                    "Unable to send SMS to registered number '%s'" % mobile)
+                    "Unable to send SMS to registered number %r" % mobile)
 
         return {'username': account.account_name,
                 'mobile': mobile}

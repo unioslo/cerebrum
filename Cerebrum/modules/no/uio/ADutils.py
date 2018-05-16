@@ -208,8 +208,7 @@ class ADgroupUtil(ADutil):
         for (grp_id, grp_name, grp_desc) in cerebrumgroups:
             # Only interested in union members(believe this is only type in
             # use)
-            grp_name = unicode(grp_name, 'ISO-8859-1')
-            self.logger.debug("Sync group %s" % grp_name)
+            self.logger.debug("Sync group %r", grp_name)
 
             # TODO: How to treat quarantined users???, some exist in AD,
             # others do not. They generate errors when not in AD. We still
@@ -254,15 +253,13 @@ class ADgroupUtil(ADutil):
                 # Sync description
                 if grp_desc is None:
                     grp_desc = "Not available"
-                self.server.setObjectProperties(
-                    {'Description': unicode(grp_desc, 'ISO-8859-1')})
+                self.server.setObjectProperties({'Description': grp_desc})
                 self.server.setObject()
 
     def compare(self, delete_groups, cerebrumgrp, adgrp):
         changelist = []
         for (grp_id, grp, description) in cerebrumgrp:
             ou = self.get_default_ou(grp_id)
-            grp = unicode(grp, 'ISO-8859-1')
 
             if 'CN=%s%s,%s' % (grp, cereconf.AD_GROUP_POSTFIX, ou) in adgrp:
                 adgrp.remove('CN=%s%s,%s' % (
@@ -370,10 +367,8 @@ class ADuserUtil(ADutil):
             if not dry_run:
                 self.logger.info("created user %s" % ret)
 
-            pw = unicode(self.ac.make_passwd(chg['sAMAccountName']),
-                         'iso-8859-1')
-
-            ret = self.run_cmd('setPassword', dry_run, pw)
+            ret = self.run_cmd('setPassword', dry_run,
+                               self.ac.make_passwd(chg['sAMAccountName']))
             if not ret[0]:
                 self.logger.warning("setPassword on %s failed: %s" %
                                     (chg['sAMAccountName'], ret))
@@ -452,7 +447,7 @@ class ADuserUtil(ADutil):
                             Mchange = False
 
                             if isinstance(adusrs[usr][attr],
-                                          (str, int, long, unicode)):
+                                          (basestring, int, long)):
                                 # Transform single-value to a list for
                                 # comparison.
                                 val2list = []

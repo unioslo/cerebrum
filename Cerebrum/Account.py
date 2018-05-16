@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2002-2017 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,6 +24,7 @@ parameters that may be required by the requested backend.
 Usernames are stored in the table entity_name.  The domain that the
 default username is stored in is yet to be determined.
 """
+from __future__ import unicode_literals
 
 import crypt
 import string
@@ -31,6 +32,8 @@ import re
 import mx
 import hashlib
 import base64
+
+import six
 
 from Cerebrum import Utils, Disk
 from Cerebrum.Entity import (EntityName,
@@ -50,7 +53,6 @@ import cereconf
 
 
 class AccountType(object):
-
     """The AccountType class does not use populate logic as the only
     data stored represent a PK in the database"""
 
@@ -109,7 +111,6 @@ class AccountType(object):
             type priorities.
 
         :rtype: tuple
-
         """
         all_pris = {}
         orig_pri = None
@@ -248,8 +249,8 @@ class AccountType(object):
         if account_id:
             extra += " AND ai.account_id=:account_id"
         if person_spread is not None and account_spread is not None:
-            raise Errors.CerebrumError, ('Illegal to use both person and '
-                                         'account spread in query')
+            raise Errors.CerebrumError('Illegal to use both person and '
+                                       'account spread in query')
         if person_spread is not None:
             if isinstance(person_spread, (list, tuple)):
                 person_spread = "IN (%s)" % \
@@ -310,7 +311,6 @@ class AccountHome(object):
     Whenever a users account_home or homedir is modified, we changelog
     the new path of the users homedirectory as a string.  For
     convenience, we also log this path when the entry is deleted.
-
     """
 
     def resolve_homedir(self, account_name=None, disk_id=None,
@@ -534,6 +534,7 @@ class AccountHome(object):
 Entity_class = Utils.Factory.get("Entity")
 
 
+@six.python_2_unicode_compatible
 class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
               EntityExternalId, EntityContactInfo, EntitySpread, Entity_class):
 
@@ -647,13 +648,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def __eq__(self, other):
         assert isinstance(other, Account)
 
-        if (self.account_name != other.account_name or
-            int(self.owner_type) != int(other.owner_type) or
-            self.owner_id != other.owner_id or
-            self.np_type != other.np_type or
-            self.creator_id != other.creator_id or
-            self.expire_date != other.expire_date or
-            self.description != other.description):
+        if (
+                self.account_name != other.account_name or
+                int(self.owner_type) != int(other.owner_type) or
+                self.owner_id != other.owner_id or
+                self.np_type != other.np_type or
+                self.creator_id != other.creator_id or
+                self.expire_date != other.expire_date or
+                self.description != other.description
+        ):
             return False
         return True
 
@@ -722,7 +725,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 continue
             try:
                 enc = self.encrypt_password(method, plaintext)
-            except Errors.NotImplementedAuthTypeError, e:
+            except Errors.NotImplementedAuthTypeError as e:
                 notimplemented.append(str(e))
             else:
                 self.populate_authentication_type(method, enc)
@@ -747,28 +750,21 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         :type method: Constants.AccountAuthentication
         :param method: Some auth_type_x constant
 
-        :type plaintext: String (str or unicode)
+        :type plaintext: String (unicode)
         :param plaintext: The plaintext to hash
 
-        :type salt: String
+        :type salt: String (unicode)
         :param salt: Salt for hashing
 
         :type binary: bool
         :param binary: Treat plaintext as binary data
         """
-        # TODO: Temporary (and ugly) fix for CRB-162
-        # Strings should be represented as unicode objects everywhere
-        # in the entire system
         unicode_plaintext = plaintext
-        if not isinstance(unicode_plaintext, unicode):
-            try:
-                unicode_plaintext = unicode(plaintext, 'UTF-8')
-            except:
-                unicode_plaintext = unicode(plaintext, 'ISO-8859-1')
         if binary:
             utf8_plaintext = plaintext  # a small lie
         else:
-            utf8_plaintext = unicode_plaintext.encode('UTF-8')
+            assert(isinstance(unicode_plaintext, six.text_type))
+            utf8_plaintext = unicode_plaintext.encode('utf-8')
         if method in (self.const.auth_type_md5_crypt,
                       self.const.auth_type_crypt3_des,
                       self.const.auth_type_sha256_crypt,
@@ -790,27 +786,28 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 # b64encode does not, but it requires Python 2.4
                 return base64.encodestring(
                     hashlib.sha1(
-                        utf8_plaintext + salt).digest() + salt).strip()
-            return crypt.crypt(plaintext if method ==
-                               self.const.auth_type_crypt3_des
-                               else utf8_plaintext, salt)
+                        utf8_plaintext + salt.encode('utf-8')
+                    ).digest() + salt.encode('utf-8')).strip().decode()
+            return crypt.crypt(
+                plaintext if binary else utf8_plaintext,
+                salt.encode('utf-8')).decode()
         elif method == self.const.auth_type_md4_nt:
             # Do the import locally to avoid adding a dependency for
             # those who don't want to support this method.
             import smbpasswd
-            return smbpasswd.nthash(unicode_plaintext)
+            return smbpasswd.nthash(unicode_plaintext).decode()
         elif method == self.const.auth_type_plaintext:
-            return plaintext
+            return unicode_plaintext
         elif method == self.const.auth_type_md5_unsalt:
-            return hashlib.md5(utf8_plaintext).hexdigest()
+            return hashlib.md5(utf8_plaintext).hexdigest().decode()
         elif method == self.const.auth_type_ha1_md5:
             s = ":".join(
                 [self.account_name,
                  cereconf.AUTH_HA1_REALM,
-                 utf8_plaintext])
-            return hashlib.md5(s).hexdigest()
+                 unicode_plaintext])
+            return hashlib.md5(s.encode('utf-8')).hexdigest().decode()
         raise Errors.NotImplementedAuthTypeError(
-            "Unknown method %r" % method)
+            'Unknown method {method}'.format(method=method))
 
     def decrypt_password(self, method, cryptstring):
         """Returns the decrypted plaintext according to the specified
@@ -824,33 +821,33 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                       self.const.auth_type_sha256_crypt,
                       self.const.auth_type_sha512_crypt,
                       self.const.auth_type_md4_nt):
-            raise NotImplementedError("Can't decrypt %s" % method)
+            raise NotImplementedError(
+                "Can't decrypt {method}".format(method=method))
         elif method == self.const.auth_type_plaintext:
             return cryptstring
-        raise ValueError("Unknown method %r" % method)
+        raise ValueError('Unknown method {method}'.format(method=method))
 
     def verify_password(self, method, plaintext, cryptstring):
         """Returns True if the plaintext matches the cryptstring,
         False if it doesn't.  If the method doesn't support
         verification, NotImplemented is returned.
         """
-        if method in (self.const.auth_type_md5_crypt,
-                      self.const.auth_type_ha1_md5,
-                      self.const.auth_type_crypt3_des,
-                      self.const.auth_type_md4_nt,
-                      self.const.auth_type_ssha,
-                      self.const.auth_type_sha256_crypt,
-                      self.const.auth_type_sha512_crypt,
-                      self.const.auth_type_plaintext):
-            salt = cryptstring
-            if method == self.const.auth_type_ssha:
-                salt = base64.decodestring(cryptstring)[20:]
-            return (self.encrypt_password(method, plaintext, salt=salt) ==
-                    cryptstring or self.encrypt_password(method, plaintext,
-                                                         salt=salt,
-                                                         binary=True) ==
-                    cryptstring)
-        raise ValueError("Unknown method %r" % method)
+        if method not in (self.const.auth_type_md5_crypt,
+                          self.const.auth_type_ha1_md5,
+                          self.const.auth_type_crypt3_des,
+                          self.const.auth_type_md4_nt,
+                          self.const.auth_type_ssha,
+                          self.const.auth_type_sha256_crypt,
+                          self.const.auth_type_sha512_crypt,
+                          self.const.auth_type_plaintext):
+            raise ValueError('Unknown method {method}'.format(method=method))
+        salt = cryptstring
+        if method == self.const.auth_type_ssha:
+            salt = base64.decodestring(
+                cryptstring.encode())[20:].decode()
+        return (self.encrypt_password(method,
+                                      plaintext,
+                                      salt=salt) == cryptstring)
 
     def verify_auth(self, plaintext):
         """Try to verify all authentication data stored for an
@@ -859,7 +856,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         authentication methods which are able to confirm a plaintext,
         do.  If no methods are able to confirm, or one method reports
         a mismatch, return False.
-
         """
         success = []
         failed = []
@@ -989,6 +985,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         # criteria.
         try:
             password_str = self.__plaintext_password
+            del password_str
         except AttributeError:
             # TODO: this is meant to catch that self.__plaintext_password is
             # unset, trying to use hasattr() instead will surprise you
@@ -1208,7 +1205,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return self.query("""
         SELECT ai.account_id, en.entity_name, hd.home,
                ah.spread AS home_spread, d.path, hd.homedir_id, ai.owner_id,
-               hd.status, ai.expire_date, ai.description, ei.created_at, d.disk_id, d.host_id
+               hd.status, ai.expire_date, ai.description, ei.created_at,
+               d.disk_id, d.host_id
         FROM %s
         WHERE %s""" % (tables, where), {
             'home_spread': int(home_spread or 0),
@@ -1465,41 +1463,67 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         legal in a posix username.  If as_gecos=1, it may also be
         used for the gecos field"""
 
+        try:
+            # make sure that s contains only latin1 compatible characters
+            s.encode('ISO_8859-1')
+        except UnicodeEncodeError:
+            self.logger.error(
+                u'latin1 incompatible characters detected in '
+                u'simplify_name for: {name}'.format(
+                    name=s))
+            raise ValueError('latin1 incompatible characters detected')
         key = bool(alt) + (bool(as_gecos) * 2)
         try:
             (tr, xlate_subst, xlate_match) = self._simplify_name_cache[key]
         except TypeError:
-            xlate = {'–': 'Dh', '': 'dh',
-                     'ﬁ': 'Th', '˛': 'th',
-                     'ﬂ': 'ss'}
+            xlate = {u'√ê': u'Dh',
+                     u'√∞': u'dh',
+                     u'√û': u'Th',
+                     u'√æ': u'th',
+                     u'√ü': u'ss'}
             if alt:
-                xlate.update({'∆': 'ae', 'Ê': 'ae',
-                              '≈': 'aa', 'Â': 'aa'})
+                xlate.update({u'√Ü': u'ae',
+                              u'√¶': u'ae',
+                              u'√Ö': u'aa',
+                              u'√•': u'aa'})
             xlate_subst = re.compile(r'[^a-zA-Z0-9 -]').sub
 
             def xlate_match(match):
-                return xlate.get(match.group(), "")
-            tr = dict(zip(map(chr, xrange(0200, 0400)), ('x',) * 0200))
+                return xlate.get(match.group(), u'')
+            tr = dict(zip(map(six.unichr, xrange(0200, 0400)), (u'x',) * 0200))
             tr.update(dict(zip(
-                '∆ÿ≈Ê¯øÂ¿¡¬√ƒ«»… ÀÃÕŒœ—“”‘’÷Ÿ⁄€‹›‡·‚„‰ÁËÈÍÎÏÌÓÔÒÚÛÙıˆ˘˙˚¸˝ˇ'
-                '{[}]|¶\\®≠Ø¥',
-                'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
-                'aAaAooO"--\'')))
-            for ch in filter(tr.has_key, xlate):
+                u'√Ü√ò√Ö√¶√∏¬ø√•√Ä√Å√Ç√É√Ñ√á√à√â√ä√ã√å√ç√é√è√ë√í√ì√î√ï√ñ√ô√ö√õ√ú√ù√†√°√¢√£√§√ß√®√©√™√´√¨√≠√Æ√Ø√±√≤√≥√¥√µ√∂√π√∫√ª√º√Ω√ø'
+                u'{[}]|¬¶\\¬®¬≠¬Ø¬¥',
+                u'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
+                u'aAaAooO"--\'')))
+            for ch in filter(lambda x: x in tr, xlate):
                 del tr[ch]
-            tr = string.maketrans("".join(tr.keys()), "".join(tr.values()))
             if not as_gecos:
                 # lowercase the result
-                tr = tr.lower()
-                xlate = dict(zip(xlate.keys(), map(str.lower, xlate.values())))
+                xlate = dict(zip(xlate.keys(), map(six.text_type.lower,
+                                                   xlate.values())))
             self._simplify_name_cache[key] = (tr, xlate_subst, xlate_match)
 
-        xlated = xlate_subst(xlate_match, s.translate(tr))
+        # this is intended to be a replacement for s.translate until Python3
+        for key, value in tr.items():
+            s = s.replace(key, value)
+        if not as_gecos:
+            s = s.lower()
+
+        xlated = xlate_subst(xlate_match, s)
 
         # normalise whitespace and hyphens: only ordinary SPC, only
         # one of them between words, and none leading or trailing.
-        xlated = re.sub(r'\s+', " ", xlated)
-        xlated = re.sub(r' ?-+ ?', "-", xlated).strip(" -")
+        xlated = re.sub(r'\s+', u' ', xlated)
+        xlated = re.sub(r' ?-+ ?', u'-', xlated).strip(u' -')
+        try:
+            xlated.encode('ascii')
+        except UnicodeEncodeError:
+            self.logger.error(
+                u'ASCII incompatible output produced in '
+                u'simplify_name for: {output}'.format(
+                    output=xlated))
+            raise ValueError('ASCII incompatible output produced')
         return xlated
 
     def search(self,
@@ -1611,6 +1635,13 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return self.query("""
         SELECT DISTINCT ai.account_id AS account_id, en.entity_name AS name,
                         ai.owner_id AS owner_id, ai.owner_type AS owner_type,
-                        ai.expire_date AS expire_date, ai.description AS description,
+                        ai.expire_date AS expire_date, ai.description AS
+                        description,
                         ai.np_type AS np_type
         FROM %s %s""" % (','.join(tables), where_str), binds)
+
+    def __str__(self):
+        if hasattr(self, 'account_name'):
+            return self.account_name
+        else:
+            return u'<unbound account>'

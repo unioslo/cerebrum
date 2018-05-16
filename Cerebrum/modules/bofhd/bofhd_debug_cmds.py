@@ -77,6 +77,14 @@ class BofhdExtension(BofhdCommandBase):
                     'Raise an exception with multiple args',
                 'debug_cause_integrity_error':
                     'Cause the database to raise an IntegrityError',
+                'debug_wait':
+                    'Wait a specified number of seconds before returning',
+                'debug_unicode':
+                    'Echo string input, and check if unicode',
+                'debug_bytes':
+                    'Echo binary input, and return some binary output.'
+                    ' NOTE: Input will probably not be binary/bytestring,'
+                    ' since few clients implement this.',
             }
         }
 
@@ -187,3 +195,49 @@ class BofhdExtension(BofhdCommandBase):
                             self.MAX_SLEEP)
         time.sleep(sleep_seconds)
         return {'wait': sleep_seconds, }
+
+    #
+    # debug unicode <text>
+    #
+    all_commands['debug_unicode'] = cmd_param.Command(
+        ("debug", "unicode"),
+        cmd_param.SimpleString(optional=False),
+        fs=cmd_param.FormatSuggestion([
+            ("text:        '%s'", ('text', )),
+            ('type:        %s', ('type', )),
+            ('repr:        %s', ('repr', ))
+        ])
+    )
+
+    def debug_unicode(self, operator, text):
+        """ Return text. """
+        return {
+            'type': repr(type(text)),
+            'text': text,
+            'repr': repr(text),
+        }
+
+    #
+    # debug bytes <bytestring>
+    #
+    all_commands['debug_bytes'] = cmd_param.Command(
+        ("debug", "bytes"),
+        cmd_param.SimpleString(optional=False),
+        fs=cmd_param.FormatSuggestion([
+            ("bytestring:         '%s'", ('bytestring', )),
+            ('type:               %s', ('type', )),
+            ('repr:               %s', ('repr', )),
+            ('some actual bytes:  %r', ('bytes', )),
+        ])
+    )
+
+    def debug_bytes(self, operator, bytestring):
+        """ Return text. """
+        # Clients don't really implement the binary xmlrpc data type, so
+        # `bytestring` will probably be a unicode string.
+        return {
+            'type': repr(type(bytestring)),
+            'bytestring': bytestring,
+            'repr': repr(bytestring),
+            'bytes': bytearray(b'abcæøå'),
+        }

@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,8 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
 
 import xml.sax
+
 
 class StudentInfoParser(xml.sax.ContentHandler):
     """Parses the StudentInfo file, (which is the result of running
@@ -41,8 +43,8 @@ class StudentInfoParser(xml.sax.ContentHandler):
     def startElement(self, name, attrs):
         tmp = {}
         for k in attrs.keys():
-            tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
-        name = name.encode('iso8859-1')
+            tmp[k] = attrs[k]
+        name = name
         if len(self.elementstack) == 0:
             if name == "data":
                 pass
@@ -63,11 +65,12 @@ class StudentInfoParser(xml.sax.ContentHandler):
             else:
                 self._logger.warn("unknown person element: %s" % name)
         self.elementstack.append(name)
-            
+
     def endElement(self, name):
         if name == "person":
             self.call_back_function(self.person)
         self.elementstack.pop()
+
 
 class GeneralDataParser(xml.sax.ContentHandler, object):
     """Parses the xml file that contains definitions"""
@@ -75,7 +78,7 @@ class GeneralDataParser(xml.sax.ContentHandler, object):
     def startElement(self, name, attrs):
         self.t_data = {}
         for k in attrs.keys():
-            self.t_data[k.encode('iso8859-1')] = attrs[k.encode('iso8859-1')].encode('iso8859-1')
+            self.t_data[k] = attrs[k]
 
     def endElement(self, name):
         if name == self.entry_tag:
@@ -90,17 +93,20 @@ class GeneralDataParser(xml.sax.ContentHandler, object):
         return self
 
     def next(self):
-        """Returns a dict with data about all studieprogs for the next person."""
+        """
+        Returns a dict with data about all studieprogs for the next person.
+        """
         try:
             return self.data.pop(0)
         except IndexError:
-            raise StopIteration, "End of file"
+            raise StopIteration
+
 
 class StudieprogDefParser(GeneralDataParser):
     def __init__(self, studieprogs_file):
         super(StudieprogDefParser, self).__init__(studieprogs_file, 'studprog')
 
+
 class EmneDefParser(GeneralDataParser):
     def __init__(self, studieprogs_file):
         super(EmneDefParser, self).__init__(studieprogs_file, 'emne')
-

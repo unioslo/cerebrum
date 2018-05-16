@@ -45,6 +45,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.Utils import read_password
 from Cerebrum.modules.Email import EmailAddress
 from Cerebrum.modules.exchange.CerebrumUtils import CerebrumUtils
+from Cerebrum.utils.email import sendmail
 from Cerebrum.utils.ldaputils import decode_attrs
 
 logger = logging.getLogger(__name__)
@@ -606,7 +607,7 @@ def main(inargs=None):
 
     # Send a report by mail
     if args.mail and args.sender:
-        Utils.sendmail(args.mail, args.sender,
+        sendmail(args.mail, args.sender,
                        'Exchange group state report',
                        rep.encode('utf-8'))
 

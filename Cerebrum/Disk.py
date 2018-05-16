@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2003 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,10 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
-
 """
+from __future__ import unicode_literals
+
+import six
 
 from Cerebrum.Utils import Factory, prepare_string, argument_to_sql
 from Cerebrum.Entity import EntityName, EntitySpread
@@ -27,6 +28,7 @@ from Cerebrum.Entity import EntityName, EntitySpread
 Entity_class = Factory.get("Entity")
 
 
+@six.python_2_unicode_compatible
 class Disk(EntitySpread, Entity_class):
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('host_id', 'path', 'description')
@@ -229,7 +231,13 @@ class Disk(EntitySpread, Entity_class):
             {'spread': spread, 'entity_type': int(self.const.entity_disk),
              'host_id': host_id, 'path': path, 'description': description})
 
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            return self.path
+        return '<unbound disk>'
 
+
+@six.python_2_unicode_compatible
 class Host(EntityName, EntitySpread, Entity_class):
     # TODO: Move into it's own Host.py
     __read_attr__ = ('__in_db',)
@@ -279,7 +287,7 @@ class Host(EntityName, EntitySpread, Entity_class):
         if 'name' in self.__updated:
             tmp = self.illegal_name(self.name)
             if tmp:
-                raise self._db.IntegrityError, "Illegal host name: %s" % tmp
+                raise self._db.IntegrityError("Illegal host name: %s" % tmp)
 
         is_new = not self.__in_db
         if is_new:
@@ -393,3 +401,8 @@ class Host(EntityName, EntitySpread, Entity_class):
             where_str = "WHERE " + " AND ".join(where)
 
         return self.query(query_fmt.format(where=where_str), binds)
+
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            return self.name
+        return '<unbound host>'
