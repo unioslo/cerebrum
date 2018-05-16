@@ -56,8 +56,8 @@ class SMSSender():
 
     def _validate_response(self, response):
         """Check that the response from an SMS gateway says that the message
-        was sent or not. The SMS gateway we use should respond with a line
-        formatted as:
+        was sent or not. The SMS gateway we use should respond with a
+        latin1-encoded line formatted as:
 
          <msg_id>¤<status>¤<phone_to>¤<timestamp>¤¤¤<message>
 
@@ -72,15 +72,16 @@ class SMSSender():
         :rtype: bool
         :returns: True if the server's response says that the message was sent.
         """
-        text = response.text
+        sep = b'\xa4'  # latin1 '¤'
         try:
             # msg_id, status, to, timestamp, message
-            msg_id, status, to, _, _ = text.split('\xa4', 4)
+            msg_id, status, to, _, _ = response.content.split(sep, 4)
         except ValueError:
-            logger.warning("SMS: Bad response from server: %r", text)
+            logger.warning("SMS: Bad response from server: %r",
+                           response.content)
             return False
 
-        if status == 'SENDES':
+        if status == b'SENDES':
             return True
         logger.warning("SMS: Bad status=%r (phone_to=%r, msg_id=%r)",
                        status, to, msg_id)
