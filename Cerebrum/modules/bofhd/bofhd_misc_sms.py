@@ -20,6 +20,9 @@
 """This module contains a command for sending passwords by SMS."""
 from __future__ import unicode_literals
 
+import io
+import os
+
 import cereconf
 
 from mx import DateTime
@@ -255,11 +258,13 @@ class BofhdExtension(BofhdCommonMethods):
         # TODO: The whole templating system is getting re-worked, ~tgk can deal
         # with this...
         try:
-            from os import path
-            with open(path.join(cereconf.TEMPLATE_DIR,
-                                'password_sms_{}.template'.format(language)),
-                      'r') as f:
-                msg = f.read().decode('utf-8').format(
+            with io.open(
+                    os.path.join(
+                        cereconf.TEMPLATE_DIR,
+                        'password_sms_{}.template'.format(language)),
+                    'r',
+                    encoding='utf-8') as f:
+                msg = f.read().format(
                     account_name=account_name,
                     password=state.get('password'))
         except IOError:
