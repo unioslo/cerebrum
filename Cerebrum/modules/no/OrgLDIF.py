@@ -18,14 +18,15 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import unicode_literals
 
-import re
-import json
 import io
+import json
 import os.path
+import re
 import string
 
-import cereconf
+import six
 
+import cereconf
 from Cerebrum import Entity
 from Cerebrum.modules.feide.service import FeideService
 from Cerebrum.modules.OrgLDIF import OrgLDIF
@@ -510,10 +511,11 @@ class norEduLDIFMixin(OrgLDIF):
                 c_type = self.const.ContactInfo(row['contact_type'])
                 system = self.const.AuthoritativeSystem(row['source_system'])
                 self._person_authn_methods.setdefault(
-                    int(row['entity_id']), list()).append(
-                        {'value': str(row['contact_value']),
-                         'contact_type': c_type,
-                         'source_system': system, })
+                    int(row['entity_id']), list()).append({
+                        'value': six.text_type(row['contact_value']),
+                        'contact_type': c_type,
+                        'source_system': system,
+                    })
                 count += 1
             timer("...authentication methods done.")
         return self._person_authn_methods
