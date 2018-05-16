@@ -17,7 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This module contains a command for sending passwords by SMS. """
+"""This module contains a command for sending passwords by SMS."""
+from __future__ import unicode_literals
+
 import cereconf
 
 from mx import DateTime
@@ -98,7 +100,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     @classmethod
     def get_help_strings(cls):
-        """ Get help strings. """
+        """Get help strings."""
         # No GROUP_HELP, we'll just guess that 'user' and 'misc' exists
         # already.
         # The help structure doesn't really allow command groups to come from
@@ -161,12 +163,11 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_send_welcome_sms')
 
     def user_send_welcome_sms(self, operator, username, mobile=None):
-        """ Send a (new) welcome SMS to a user.
+        """Send a (new) welcome SMS to a user.
 
         Optional mobile override, if what's registered in Cerebrum is wrong or
         missing. Override must be permitted in the cereconf setting
         BOFHD_ALLOW_MANUAL_MOBILE.
-
         """
         sms = SMSSender(logger=self.logger)
         account = self._get_account(username)
@@ -235,7 +236,7 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='is_superuser')
 
     def misc_sms_password(self, operator, account_name, language='no'):
-        """ Send last password set for account in cache. """
+        """Send last password set for account in cache."""
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Only superusers may send passwords by SMS")
 
@@ -258,8 +259,9 @@ class BofhdExtension(BofhdCommonMethods):
             with open(path.join(cereconf.TEMPLATE_DIR,
                                 'password_sms_{}.template'.format(language)),
                       'r') as f:
-                msg = f.read().format(account_name=account_name,
-                                      password=state.get('password'))
+                msg = f.read().decode('utf-8').format(
+                    account_name=account_name,
+                    password=state.get('password'))
         except IOError:
             raise CerebrumError(
                 'Could not load template for language {}'.format(language))
