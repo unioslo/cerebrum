@@ -135,11 +135,11 @@ class SMSSender():
         hostname = urlparse(self._url).hostname
         password = read_password(user=self._user, system=hostname)
         data = {
-            'b': self._user,
-            'p': password,
-            's': self._system,
-            't': phone_to,
-            'm': message,
+            b'b': self._user.encode('latin1'),
+            b'p': password.encode('latin1'),
+            b's': self._system.encode('latin1'),
+            b't': phone_to.encode('latin1'),
+            b'm': message.encode('latin1'),
         }
         logger.debug("Sending SMS to %r (user=%r, system=%r)",
                      phone_to, self._user, self._system)
