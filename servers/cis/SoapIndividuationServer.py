@@ -37,6 +37,7 @@ instance not be blocked.
 from __future__ import unicode_literals
 
 import getopt
+import logging
 import sys
 
 from twisted.python import log
@@ -403,6 +404,12 @@ if __name__ == '__main__':
             log_prefix=log_prefix,
             log_formatters=log_formatters)
     IndividuationServer.site = server.site
+
+    # anything to stdout is captured by the twisted logger
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=logging.DEBUG,
+        format='%(levelname)s: %(name)s - %(message)s')
 
     # We want the sessions to be simple dicts, for now:
     server.site.sessionFactory = SoapListener.SessionCacher

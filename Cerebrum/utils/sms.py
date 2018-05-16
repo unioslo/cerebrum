@@ -18,18 +18,21 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """Utilities for sending SMS."""
-
 from __future__ import unicode_literals
 
-import cereconf
+import logging
 import re
-import requests
-import six
-import urlparse
+import warnings
 
-from Cerebrum.Utils import Factory, read_password
+import requests
+from six import text_type
+from six.moves.urllib.parse import urlparse
+
+import cereconf
+from Cerebrum.Utils import read_password
+
+logger = logging.getLogger(__name__)
 
 
 class SMSSender():
@@ -44,7 +47,8 @@ class SMSSender():
 
     def __init__(self, logger=None, url=None, user=None, system=None,
                  timeout=None):
-        self._logger = logger or Factory.get_logger("cronjob")
+        if logger is not None:
+            warnings.warn("passing logger is deprecated", DeprecationWarning)
         self._url = url or cereconf.SMS_URL
         self._system = system or cereconf.SMS_SYSTEM
         self._user = user or cereconf.SMS_USER
@@ -73,14 +77,13 @@ class SMSSender():
             # msg_id, status, to, timestamp, message
             msg_id, status, to, _, _ = text.split('\xa4', 4)
         except ValueError:
-            self._logger.warning("SMS: Bad response from server: %s", text)
+            logger.warning("SMS: Bad response from server: %r", text)
             return False
 
         if status == 'SENDES':
             return True
-        self._logger.warning(
-            "SMS: Bad status '%s' (phone_to='%s', msg_id='%s')",
-            status, to, msg_id)
+        logger.warning("SMS: Bad status=%r (phone_to=%r, msg_id=%r)",
+                       status, to, msg_id)
         return False
 
     def _filter_phone_number(self, phone_to):
@@ -115,20 +118,20 @@ class SMSSender():
         :param unicode message:
           The message to send to the given phone number.
         """
-        assert isinstance(phone_to, six.text_type)
-        assert isinstance(message, six.text_type)
+        assert isinstance(phone_to, text_type)
+        assert isinstance(message, text_type)
 
         try:
             phone_to = self._filter_phone_number(phone_to)
         except ValueError as e:
-            self._logger.warning("Unable to send SMS: %s", str(e))
+            logger.warning("Unable to send SMS: %s", e)
             return False
 
         if getattr(cereconf, 'SMS_DISABLE', True):
-            self._logger.info("Would have sent '%s' to %s'", message, phone_to)
+            logger.info("Would have sent %r to %r'", message, phone_to)
             return True
 
-        hostname = urlparse.urlparse(self._url).hostname
+        hostname = urlparse(self._url).hostname
         password = read_password(user=self._user, system=hostname)
         data = {
             'b': self._user,
@@ -137,25 +140,25 @@ class SMSSender():
             't': phone_to,
             'm': message,
         }
-        self._logger.debug("Sending SMS to %s (user: %s, system: %s)",
-                           phone_to, self._user, self._system)
+        logger.debug("Sending SMS to %r (user=%r, system=%r)",
+                     phone_to, self._user, self._system)
 
         try:
             response = requests.post(
                 self._url, data=data, timeout=self._timeout)
         except requests.exceptions.RequestException as e:
-            self._logger.warning('SMS gateway error: %s', e)
+            logger.warning('SMS gateway error: %s', e)
             return False
 
         if response.status_code != 200:
-            self._logger.warning("SMS gateway responded with code %s - %s",
-                                 response.status_code,
-                                 response.text)
+            logger.warning("SMS gateway responded with code=%r body=%r",
+                           response.status_code,
+                           response.text)
             return False
 
         success = self._validate_response(response)
         if success:
-            self._logger.debug("SMS to %s sent OK", phone_to)
+            logger.debug("SMS to %r sent OK", phone_to)
         else:
-            self._logger.warning("SMS to %s could not be sent", phone_to)
+            logger.warning("SMS to %r could not be sent", phone_to)
         return bool(success)
