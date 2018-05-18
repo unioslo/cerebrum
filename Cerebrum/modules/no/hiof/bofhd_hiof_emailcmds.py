@@ -136,8 +136,8 @@ class BofhdExtension(bofhd_email.BofhdEmailCommands):
                             try:
                                 folder, qtype, qused, qlimit = line.split()
                                 if qtype == "(STORAGE":
-                                    used = str(int(qused)/1024)
-                                    limit = int(qlimit.rstrip(")"))/1024
+                                    used = str(int(qused) / 1024)
+                                    limit = int(qlimit.rstrip(")")) / 1024
                             except ValueError:
                                 # line.split fails e.g. because quota isn't set
                                 # on server
