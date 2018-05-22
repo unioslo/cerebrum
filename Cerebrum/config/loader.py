@@ -41,6 +41,7 @@ import logging
 import os
 import sys
 
+from Cerebrum.config.configuration import Configuration
 from . import parsers as _parsers
 
 
@@ -162,10 +163,12 @@ def read(config, root_ns=default_root_ns, additional_dirs=[]):
             if key == root_ns:
                 logger.debug('loading root using namespace {0!r}'.format(key))
                 config.load_dict(read_config(f))
-            # TODO: Find a more elegant way of handling nested structures
-            # elif key in config:
-            #     logger.debug('loading namespace {0!r}'.format(key))
-            #     config[key].load_dict(read_config(f))
+            elif key in config:
+                # TODO: Find a more elegant way of handling nested structures
+                if not isinstance(config[key], Configuration):
+                    continue
+                logger.debug('loading namespace {0!r}'.format(key))
+                config[key].load_dict(read_config(f))
 
     # TODO: Then validate the copy, and write changes back to the original
     # config object to complete the 'transaction'.
