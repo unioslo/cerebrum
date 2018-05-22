@@ -68,7 +68,6 @@ from Cerebrum.modules.bofhd.cmd_param import (
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.utils.email import sendmail
 from Cerebrum.utils import json
 
 
@@ -194,7 +193,7 @@ class BofhdEmailBase(BofhdCommandBase):
 
     def _get_email_address_from_str(self, email_str):
         """ Get EmailAddress from string. """
-        if not isinstance(email_str, (str, text_type)):
+        if not isinstance(email_str, basestring):
             raise CerebrumError(
                 "Invalid argument type: %s" % type(email_str))
         elif email_str.count('@') != 1:
@@ -215,7 +214,7 @@ class BofhdEmailBase(BofhdCommandBase):
             epa.find(et.entity_id)
             ea.find(epa.email_primaddr_id)
         except Errors.NotFoundError:
-            if not isinstance(user_or_uname, str):
+            if not isinstance(user_or_uname, basestring):
                 user_or_uname = user_or_uname.account_name
             raise CerebrumError(
                 "No primary address for '%s'" % user_or_uname)
@@ -225,7 +224,7 @@ class BofhdEmailBase(BofhdCommandBase):
     def _get_email_target_for_account(self, user_or_uname):
         """ Get EmailTarget for an account (account-object or user name). """
         acc = user_or_uname
-        if isinstance(acc, str):
+        if isinstance(acc, basestring):
             acc = self._get_account(user_or_uname, idtype='name')
         elif not isinstance(acc, self.Account_class):
             raise CerebrumError(
