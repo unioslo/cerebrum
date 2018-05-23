@@ -850,11 +850,14 @@ def perform_update(database, source_system, hr_person, cerebrum_person):
 
 def perform_delete(database, source_system, hr_person, cerebrum_person):
     """Delete a person."""
-    # Update person, external IDs, names
+    # Update person and external IDs
     update_person(database, source_system, hr_person, cerebrum_person)
     update_external_ids(database, source_system, hr_person, cerebrum_person)
-    update_names(database, source_system, hr_person, cerebrum_person)
     # Delete everything else
+    update_names(database,
+                 source_system,
+                 {u'names': []},
+                 cerebrum_person)
     update_addresses(database,
                      source_system,
                      {u'addresses': []},
