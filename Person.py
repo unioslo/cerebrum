@@ -102,6 +102,23 @@ class UiTPersonMixin(Person.Person):
 #            return unicode(tmp, 'iso8859-1') == myname
         return tmp == myname
 
+  def list_persons_name(self, source_system=None, name_type=None):
+        type_str = ""
+        if name_type == None:
+            type_str = "= %d" % int(self.const.name_full)
+        elif isinstance(name_type, (list, tuple)):
+            type_str = "IN ("
+            type_str += ", ".join(["%d" % x for x in name_type])
+            type_str += ")"
+        else:
+            type_str = "= %d" % int(name_type)
+        if source_system:
+            type_str += " AND source_system = %d" % int(source_system)
+
+        return self.query("""
+        SELECT DISTINCT person_id, name_variant, name, source_system
+        FROM [:table schema=cerebrum name=person_name]
+        WHERE name_variant %s""" % type_str)
 
   def set_affiliation_last_date(self, source, ou_id, affiliation, status):
         binds = {'ou_id': int(ou_id),

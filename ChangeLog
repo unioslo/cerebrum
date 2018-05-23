@@ -1,3 +1,9 @@
+2018-05-23    <cerebrum@cleomedes.uit.no>
+
+	* Person.py (UiTPersonMixin.list_persons_name): this function was
+	removed in new Person.py. since uit has several scripts using this
+	function, it was added in our uit Person module
+
 2018-04-24  Karen   <cerebrum@gagarin.uit.no>
 
     * access_FS.py: Merged uio version of this file into our version of it.
