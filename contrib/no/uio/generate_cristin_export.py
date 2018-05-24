@@ -640,10 +640,11 @@ def output_xml(output_file, sysname, personfile, oufile):
         writer = xmlprinter.xmlprinter(output_stream,
                                        indent_level=2,
                                        data_mode=True,
-                                       input_encoding="utf-8")
+                                       input_encoding="utf-8",
+                                       encoding_errors="ignore")
 
         # Hardcoded headers
-        writer.startDocument(encoding="utf-8")
+        writer.startDocument(encoding="iso8859-1")
 
         writer.startElement("fridaImport")
 
