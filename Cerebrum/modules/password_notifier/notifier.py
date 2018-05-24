@@ -491,7 +491,7 @@ class PasswordNotifier(object):
                         num_reminded += 1
                     else:
                         logger.error("User %s not modified",
-                                          account.account_name)
+                                     account.account_name)
 
         skipped_warnings = (
             "({} skipped, limit reached)".format(num_skipped_new_notifications)
