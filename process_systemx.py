@@ -599,6 +599,9 @@ class Build(object):
             user_mail_message = True
         else:
             acc_id=p_obj.get_account()
+            s_acc.clear()
+            s_acc.find(acc_id)
+            is_expired = s_acc.is_expired()
 
         if acc_id != None:
             acc_obj=accounts[acc_id]
@@ -760,9 +763,9 @@ class Build(object):
 
             person_info['kontaktinfo'] = self.unquote_html(person_info['kontaktinfo']).replace('<br/>', '\n')
             person_info['hjemmel'] = self.unquote_html(person_info['hjemmel']).replace('<br/>', '\n')
-
-
-            if new_account == True:
+        
+        
+            if new_account == True or is_expired == True:
                 mailq.append( {
                     'account_id': acc_id,
                     'person_info': person_info, 
