@@ -19,23 +19,31 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
+Send password change notifications and quarantine accounts.
+
+This script sends password notifications for accounts that are due for a
+new password.  It will also quarantine accounts where the password is not
+changed within the deadline.
 """
 from __future__ import unicode_literals
 
 import argparse
+import logging
 
 import six
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Utils
 from Cerebrum.modules.password_notifier.notifier import PasswordNotifier
 
-logger = Utils.Factory.get_logger("cronjob")
-db = Utils.Factory.get('Database')()
+logger = logging.getLogger(__name__)
 
 
-if __name__ == '__main__':
+def main(inargs=None):
     parser = argparse.ArgumentParser(
-        description='The following options are available')
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=(__doc__ or '').strip())
     parser.add_argument(
         '-d', '--dryrun',
         action='store_true',
@@ -49,9 +57,22 @@ if __name__ == '__main__':
         default=None,
         dest='alternative_config',
         help='Alternative configuration file for %(prog)s')
-    args = parser.parse_args()
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start of script %s', parser.prog)
+    logger.debug("args: %r", args)
+
+    db = Utils.Factory.get('Database')()
+
     notifier = PasswordNotifier.get_notifier(args.alternative_config)(
         db=db,
-        logger=logger,
         dryrun=args.dryrun)
     notifier.process_accounts()
+
+    logger.info('Done with script %s', parser.prog)
+
+
+if __name__ == '__main__':
+    main()
