@@ -71,9 +71,10 @@ class xmlprinter(object):
     __slots__ = ['fp', '_elstack', '_inroot',
                  '_past_doctype', '_past_decl', '_finished',
                  '_indent_level', '_data_mode', '_has_data',
-                 '_encoding', '_input_encoding']
+                 '_encoding', '_input_encoding', '_encoding_errors']
 
-    def __init__(self, fp, indent_level=0, data_mode=0, input_encoding='UTF-8'):
+    def __init__(self, fp, indent_level=0, data_mode=0, input_encoding='UTF-8',
+                 encoding_errors='strict'):
         """fp is a file-like object, needing only a write() method"""
         self._finished     = False
         self._past_doctype = False
@@ -84,11 +85,12 @@ class xmlprinter(object):
         self._indent_level = indent_level
         self._data_mode = data_mode
         self._input_encoding = input_encoding
+        self._encoding_errors = encoding_errors
 
     def _encode_str(self, chunk):
         if type(chunk) is str:
             chunk = chunk.decode(self._input_encoding)
-        return chunk.encode(self._encoding)
+        return chunk.encode(self._encoding, self._encoding_errors)
 
     def startDocument(self, encoding='UTF-8'):
         """Begin writing out a document, including the XML declaration.
