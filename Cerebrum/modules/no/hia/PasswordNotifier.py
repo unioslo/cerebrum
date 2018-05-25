@@ -76,5 +76,4 @@ class UiaPasswordNotifier(EmailPasswordNotifier):
                 mail_to=', '.join(self.config.summary_to),
                 mail_from=self.config.summary_from,
                 subject="List from password notifier",
-                body=body,
-                logger=self.logger)
+                body=body)

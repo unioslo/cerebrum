@@ -50,7 +50,6 @@ A trait is used for excepting specific users from being processed.
 
 import io
 import email
-import email.Header
 import locale
 import logging
 import os
@@ -674,7 +673,6 @@ class EmailPasswordNotifier(PasswordNotifier):
                          'r', encoding='UTF-8') as fp:
                 msg = email.message_from_file(fp)
             self.mail_info.append({
-                # 'Subject': email.Header.decode_header(msg['Subject'])[0][0],
                 'Subject': msg['Subject'],
                 'From': msg['From'],
                 'Cc': msg['Cc'],
