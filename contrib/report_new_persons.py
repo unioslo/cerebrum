@@ -27,9 +27,9 @@ from six import text_type
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
-from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.email import sendmail
 
 
 logger = logging.getLogger(__name__)
@@ -170,7 +170,7 @@ def main(inargs=None):
 
     if new_persons:
         if args.mail_to and not args.dryrun:
-            Utils.sendmail(args.mail_to, args.mail_from, subject, message)
+            sendmail(args.mail_to, args.mail_from, subject, message)
             logger.info("Sent report to %s", args.mail_to)
         else:
             print("To: {0}".format(args.mail_to))
