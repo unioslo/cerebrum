@@ -52,6 +52,7 @@ import io
 import email
 import email.Header
 import locale
+import logging
 import os
 import smtplib
 import time
@@ -59,6 +60,7 @@ import warnings
 from functools import partial
 
 import mx.DateTime as dt
+import six
 
 import cereconf
 
@@ -70,6 +72,8 @@ from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.password_notifier.config import load_config
 from Cerebrum.modules.pwcheck.history import PasswordHistory
 
+
+logger = logging.getLogger(__name__)
 
 # Default date format (non-localized)
 DATE_FORMAT = '%Y-%m-%d'
@@ -119,8 +123,8 @@ class PasswordNotifier(object):
             If this object should refrain from doing changes, and only print
             debug info. Default is `False`.
         """
-
-        self.logger = logger or Utils.Factory.get_logger('console')
+        if logger is not None:
+            warnings.warn("passing logger is deprecated", DeprecationWarning)
         self.db = db or Utils.Factory.get("Database")()
         self.dryrun = bool(dryrun)
 
@@ -145,7 +149,7 @@ class PasswordNotifier(object):
 
             aff_or_status = self.constants.human2constant(affiliation)
             if not aff_or_status:
-                self.logger.error('Unknown affiliation "%s"', affiliation)
+                logger.error('Unknown affiliation "%s"', affiliation)
                 return old
 
             lookup = {'status' if '/' in affiliation
@@ -174,20 +178,20 @@ class PasswordNotifier(object):
                                 old_ids.remove(account_id)
                             except KeyError:
                                 pass
-            self.logger.info(
+            logger.info(
                 'Accounts with affiliation %s with old password: %s',
                 str(affiliation), len(old))
             return old
 
         ph = PasswordHistory(self.db)
 
-        self.logger.info('Fetching accounts with password older than %d days',
-                         self.config.max_password_age)
+        logger.info('Fetching accounts with password older than %d days',
+                    self.config.max_password_age)
         old_ids = set(
             [int(x['account_id']) for x in ph.find_old_password_accounts((
                 self.today - dt.DateTimeDelta(
                     self.config.max_password_age)).strftime(DATE_FORMAT))])
-        self.logger.info('Fetching accounts with no password history')
+        logger.info('Fetching accounts with no password history')
         old_ids.update(
             set([int(x['account_id']) for x in ph.find_no_history_accounts()]))
         # Do we have special rules for certain person affiliations?
@@ -196,7 +200,7 @@ class PasswordNotifier(object):
                               key=lambda k: k['max_password_age'],
                               reverse=True)
         for aff_mapping in aff_mappings:
-            self.logger.info(
+            logger.info(
                 'Fetching accounts with affiliation %s '
                 'with password older than %d days',
                 str(aff_mapping['affiliation']),
@@ -204,7 +208,7 @@ class PasswordNotifier(object):
             old_ids.update(_with_aff(
                 affiliation=aff_mapping['affiliation'],
                 max_age=dt.DateTimeDelta(aff_mapping['max_password_age'])))
-        self.logger.info('Fetching quarantines')
+        logger.info('Fetching quarantines')
         # TODO: Select only autopassword quarantines?
         quarantined_ids = QuarantineHandler.get_locked_entities(
             self.db,
@@ -229,8 +233,7 @@ class PasswordNotifier(object):
         try:
             account.delete_trait(self.constants.EntityTrait(self.config.trait))
             account.write_db()
-            self.logger.info("Deleting passwd trait for %s",
-                             account.account_name)
+            logger.info("Deleting passwd trait for %s", account.account_name)
         except Errors.NotFoundError:
             # raised if account does not have trait
             pass
@@ -263,8 +266,8 @@ class PasswordNotifier(object):
             account.write_db()
         else:
             if int(traits['numval']) != 0:
-                self.logger.error("Notification has already succeeded "
-                                  "(this should not happen)")
+                logger.error("Notification has already succeeded "
+                             "(this should not happen)")
 
     def inc_num_notifications(self, account):
         """ Update trait to indicate that account has been notified.
@@ -279,8 +282,8 @@ class PasswordNotifier(object):
                 [(x, traits[x])
                  for x in ('code', 'target_id', 'date', 'numval', 'strval')])
             traits['numval'] = int(traits['numval']) + 1
-            self.logger.info("Increasing trait for %s: %d",
-                             account.account_name, traits['numval'])
+            logger.info("Increasing trait for %s: %d",
+                        account.account_name, traits['numval'])
             if traits['strval']:
                 strval = ", ".join((str(traits['strval']),
                                     self.today.strftime(DATE_FORMAT)))
@@ -288,8 +291,7 @@ class PasswordNotifier(object):
                 strval = self.today.strftime(DATE_FORMAT)
             traits['strval'] = strval
         else:
-            self.logger.info("Adding passwd trait for %s",
-                             account.account_name)
+            logger.info("Adding passwd trait for %s", account.account_name)
             traits = {
                 'code': self.constants.EntityTrait(self.config.trait),
                 'target_id': None,
@@ -357,13 +359,13 @@ class PasswordNotifier(object):
                 person_aff_code_str = self.constants.human2constant(
                     aff_mapping['affiliation'])
                 if person_aff_code_str is None:
-                    self.logger.error('Unknown affiliation-string "%s"',
-                                      aff_mapping['affiliation'])
+                    logger.error('Unknown affiliation-string "%s"',
+                                 aff_mapping['affiliation'])
                     continue
                 aff_code = int(person_aff_code_str)
             except KeyError:
-                self.logger.error('Key "affiliation" not found in the '
-                                  '"affiliation_mappings" list')
+                logger.error('Key "affiliation" not found in the '
+                             '"affiliation_mappings" list')
                 return None
             for row in affiliations:
                 if row['affiliation'] == aff_code:
@@ -396,7 +398,7 @@ class PasswordNotifier(object):
                 qtype=self.constants.quarantine_autopassord,
                 only_active=True,
                 ignore_disable_until=True):
-            self.logger.debug("Splatting {}".format(account.account_name))
+            logger.debug("Splatting {}".format(account.account_name))
             account.delete_entity_quarantine(
                 self.constants.quarantine_autopassord)
             account.add_entity_quarantine(
@@ -410,13 +412,13 @@ class PasswordNotifier(object):
             return False
 
     def process_accounts(self):
-        self.logger.info("process_accounts started")
+        logger.info("process_accounts started")
         if self.dryrun:
-            self.logger.info("Running dry")
+            logger.info("Running dry")
 
         old_ids = self.get_old_account_ids()
         all_ids = self.get_notified_ids().union(old_ids)
-        self.logger.debug("Found %d users with old passwords", len(old_ids))
+        logger.debug("Found %d users with old passwords", len(old_ids))
 
         # variables for statistics
         num_mailed = num_splatted = num_previously_warned = num_reminded = 0
@@ -436,8 +438,7 @@ class PasswordNotifier(object):
             reason = self.except_user(account)
             if reason:
                 num_excepted += 1
-                self.logger.info("Skipping %s -- %s",
-                                 account.account_name, reason)
+                logger.info("Skipping %s -- %s", account.account_name, reason)
                 continue
             if account_id not in old_ids:
                 # Has new password, but may have notify trait
@@ -445,8 +446,7 @@ class PasswordNotifier(object):
                 if not self.dryrun:
                     self.remove_trait(account)
                 else:
-                    self.logger.info("Removing trait for %s",
-                                     account.account_name)
+                    logger.info("Removing trait for %s", account.account_name)
                 continue
 
             # now, I know the password should be old,
@@ -455,13 +455,13 @@ class PasswordNotifier(object):
                 if not self.dryrun:
                     num_splatted += 1 if self.splat_user(account) else 0
                 else:
-                    self.logger.info("Splat user %s", account.account_name)
+                    logger.info("Splat user %s", account.account_name)
                     num_splatted += 1
             elif self.get_num_notifications(account) == 0:
                 # Should we limit the number of new notifications?
                 if (self.config.max_new_notifications and
                         num_mailed >= self.config.max_new_notifications):
-                    self.logger.info(
+                    logger.info(
                         "Skipping %s -- Maximum number of new notifications "
                         "reached", account.account_name)
                     num_skipped_new_notifications += 1
@@ -472,13 +472,11 @@ class PasswordNotifier(object):
                     if not self.dryrun:
                         self.inc_num_notifications(account)
                     else:
-                        self.logger.info("First notify %s",
-                                         account.account_name)
+                        logger.info("First notify %s", account.account_name)
                     num_mailed += 1
                 else:
                     self.rec_fail_notification(account)
-                    self.logger.error("User %s not modified",
-                                      account.account_name)
+                    logger.error("User %s not modified", account.account_name)
             else:
                 num_previously_warned += 1
                 if self.remind_ok(account):
@@ -486,14 +484,14 @@ class PasswordNotifier(object):
                         if not self.dryrun:
                             self.inc_num_notifications(account)
                         else:
-                            self.logger.info(
+                            logger.info(
                                 "Remind %d for %s",
                                 self.get_num_notifications(account),
                                 account.account_name)
                         num_reminded += 1
                     else:
-                        self.logger.error("User %s not modified",
-                                          account.account_name)
+                        logger.error("User %s not modified",
+                                     account.account_name)
 
         skipped_warnings = (
             "({} skipped, limit reached)".format(num_skipped_new_notifications)
@@ -524,14 +522,13 @@ class PasswordNotifier(object):
                 mail_from=self.config.summary_from,
                 subject='Statistics from password notifier',
                 body=stats,
-                logger=self.logger,
                 mail_cc=', '.join(self.config.summary_cc))
 
         if self.dryrun:
-            self.logger.info('Rolling back changes')
+            logger.info('Rolling back changes')
             self.db.rollback()
         else:
-            self.logger.info('Committing changes')
+            logger.info('Committing changes')
             self.db.commit()
 
     def except_user(self, account):
@@ -559,8 +556,8 @@ class PasswordNotifier(object):
         # Look for a primary email address
         try:
             primary = account.get_primary_mailaddress()
-            self.logger.debug("Found primary email address for '%s'",
-                              account.account_name)
+            logger.debug("Found primary email address for '%s'",
+                         account.account_name)
             return primary
         except Errors.NotFoundError:
             pass
@@ -578,8 +575,8 @@ class PasswordNotifier(object):
             # Look for forward addresses registered on the account:
             account_addr = get_entity_email(
                 entity_id=account.entity_id)[0]['contact_value']
-            self.logger.debug("Found email address for '%s' in contact info",
-                              account.account_name)
+            logger.debug("Found email address for '%s' in contact info",
+                         account.account_name)
             return account_addr
         except IndexError:
             pass
@@ -588,13 +585,13 @@ class PasswordNotifier(object):
         try:
             owner_addr = get_entity_email(
                 entity_id=account.owner_id)[0]['contact_value']
-            self.logger.debug("Found email address for '%s' in contact info",
-                              account.account_name)
+            logger.debug("Found email address for '%s' in contact info",
+                         account.account_name)
             return owner_addr
         except IndexError:
             pass
 
-        self.logger.warn("No email-address for %s" % account.account_name)
+        logger.warn("No email-address for %s" % account.account_name)
         return None
 
     def notify(self, account):
@@ -649,6 +646,7 @@ class PasswordNotifier(object):
 
 class EmailPasswordNotifier(PasswordNotifier):
     """ Send password notifications by E-mail. """
+
     def __init__(self, db=None, logger=None, dryrun=False, *rest, **kw):
         """ Constructs a PasswordNotifier that notifies by E-mail.
 
@@ -676,18 +674,20 @@ class EmailPasswordNotifier(PasswordNotifier):
                          'r', encoding='UTF-8') as fp:
                 msg = email.message_from_file(fp)
             self.mail_info.append({
-                'Subject': email.Header.decode_header(msg['Subject'])[0][0],
+                # 'Subject': email.Header.decode_header(msg['Subject'])[0][0],
+                'Subject': msg['Subject'],
                 'From': msg['From'],
                 'Cc': msg['Cc'],
                 'Reply-To': msg['Reply-To'],
-                'Body': msg.get_payload(decode=1)
+                'Body': msg.get_payload(),
             })
 
     def notify(self, account):
+
         def mail_user(account, mail_type, deadline, first_time=''):
             mail_type = min(mail_type, len(self.mail_info)-1)
             if mail_type == -1:
-                self.logger.debug("No template defined")
+                logger.debug("No template defined")
                 return False
             to_email = self.get_account_email_addr(account)
             if not to_email:
@@ -716,11 +716,10 @@ class EmailPasswordNotifier(PasswordNotifier):
                 mail_from=self.mail_info[mail_type]['From'],
                 subject=subject,
                 body=body,
-                logger=self.logger,
                 debug_enabled=self.dryrun)
 
         deadline = self.get_deadline(account)
-        self.logger.info(
+        logger.info(
             "Notifying %s, number=%d, deadline=%s",
             account.account_name,
             self.get_num_notifications(account) + 1,
@@ -738,14 +737,28 @@ class EmailPasswordNotifier(PasswordNotifier):
                 first_time=self.get_notification_time(account))
 
     def _date2human(self, date, language_code=None):
-        """Return a human readable string of a given date, and in the correct
-        language. Making it easier for users to be sure of a deadline date."""
-        DATE_FORMATS = {
+        """ Get a localized date.
+
+        Return a human readable string of a given date, and in the correct
+        language. Making it easier for users to be sure of a deadline date.
+        """
+        date_formats = {
             'nb_NO': '%A %-d. %B %Y',
             'nn_NO': '%x',
             'en_US': '%A, %-d %B %Y',
             None:    '%x',  # default
         }
+        # TODO: Replace this with babel.dates.format_date?
+        # setlocale doesn't seem to like unicode
+        if language_code:
+            try:
+                language_code = str(language_code)
+            except UnicodeError:
+                warnings.warn(
+                    'non-ascii language_code: {!r}'.format(language_code),
+                    UnicodeWarning)
+                language_code = None
+
         if language_code:
             previous = locale.getlocale(locale.LC_TIME)
             try:
@@ -754,11 +767,14 @@ class EmailPasswordNotifier(PasswordNotifier):
                 warnings.warn('locale.setlocale failed: {}'.format(e),
                               RuntimeWarning)
 
-        date_fmt = DATE_FORMATS.get(language_code) or DATE_FORMATS[None]
+        locale_encoding = locale.getlocale(locale.LC_TIME)[1]
+        date_fmt = date_formats.get(language_code) or date_formats[None]
         ret = date.strftime(date_fmt)
         if language_code:
             locale.setlocale(locale.LC_TIME, previous)
-        return ret
+        if locale_encoding:
+            ret = ret.decode(locale_encoding)
+        return six.text_type(ret)
 
 
 class SMSPasswordNotifier(PasswordNotifier):
@@ -830,13 +846,13 @@ class SMSPasswordNotifier(PasswordNotifier):
         return False
 
     def process_accounts(self):
-        self.logger.info("process_accounts started")
+        logger.info("process_accounts started")
         if self.dryrun:
-            self.logger.info("Running dry")
+            logger.info("Running dry")
 
         old_ids = self.get_old_account_ids()
         all_ids = self.get_notified_ids().union(old_ids)
-        self.logger.debug("Found %d users with old passwords", len(old_ids))
+        logger.debug("Found %d users with old passwords", len(old_ids))
 
         # variables for statistics
         num_excepted = 0
@@ -857,8 +873,7 @@ class SMSPasswordNotifier(PasswordNotifier):
             reason = self.except_user(account)
             if reason:
                 num_excepted += 1
-                self.logger.info("Skipping %s -- %s",
-                                 account.account_name, reason)
+                logger.info("Skipping %s -- %s", account.account_name, reason)
                 continue
             if account_id not in old_ids:
                 # Has new password, but may have notify trait
@@ -866,22 +881,20 @@ class SMSPasswordNotifier(PasswordNotifier):
                 if not self.dryrun:
                     self.remove_trait(account)
                 else:
-                    self.logger.info("Removing trait for %s",
-                                     account.account_name)
+                    logger.info("Removing trait for %s", account.account_name)
                 continue
             if self.remind_ok(account):
                 if self.notify(account):
                     if not self.dryrun:
                         self.inc_num_notifications(account)
                     else:
-                        self.logger.info(
+                        logger.info(
                             "Remind %d for %s",
                             self.get_num_notifications(account),
                             account.account_name)
                     num_smsed += 1
                 else:
-                    self.logger.info("User %s not notified",
-                                     account.account_name)
+                    logger.info("User %s not notified", account.account_name)
 
         stats = ("Users with old passwords: {}\n"
                  "Excepted users: {}\n"
@@ -900,14 +913,13 @@ class SMSPasswordNotifier(PasswordNotifier):
                 mail_from=self.config.summary_from,
                 subject='Statistics from SMS password notifier',
                 body=stats,
-                logger=self.logger,
                 mail_cc=', '.join(self.config.summary_cc))
 
         if self.dryrun:
-            self.logger.info('Rolling back changes')
+            logger.info('Rolling back changes')
             self.db.rollback()
         else:
-            self.logger.info('Committing changes')
+            logger.info('Committing changes')
             self.db.commit()
 
     def notify(self, account):
@@ -929,34 +941,34 @@ class SMSPasswordNotifier(PasswordNotifier):
                     lambda x: x['source_system'] in person_in_systems,
                     mobile)[0]['contact_value']
             except IndexError:
-                self.logger.info(
+                logger.info(
                     'No applicable phone number for {}'.format(
                         account.account_name))
                 return False
 
             # Send SMS
             if getattr(cereconf, 'SMS_DISABLE', False):
-                self.logger.info(
+                logger.info(
                     'SMS disabled in cereconf, would have '
                     'sent password SMS to {}'.format(mobile))
                 return True
             if self.dryrun:
-                self.logger.info(
+                logger.info(
                     'Running in drymode. '
                     'Would have sent password SMS to {mobile}'.format(
                         mobile=mobile))
                 return True
-            sms = SMSSender(logger=self.logger)
+            sms = SMSSender()
             if sms(mobile, self.template.format(
                     account_name=account.account_name,
                     days_until_splat=days_until_splat)):
                 return True
             else:
-                self.logger.info(
+                logger.info(
                     'Unable to send message to {}.'.format(mobile))
                 return False
         deadline = self.get_deadline(account)
-        self.logger.info(
+        logger.info(
             "Notifying %s by SMS, number=%d, deadline=%s",
             account.account_name,
             self.get_num_notifications(account) + 1,
@@ -966,7 +978,7 @@ class SMSPasswordNotifier(PasswordNotifier):
             days_until_splat=int(deadline - self.today))
 
 
-def _send_mail(mail_to, mail_from, subject, body, logger,
+def _send_mail(mail_to, mail_from, subject, body,
                mail_cc=None, debug_enabled=False):
     if debug_enabled:
         logger.debug("Sending mail to %s. Subject: %s", mail_to, subject)
