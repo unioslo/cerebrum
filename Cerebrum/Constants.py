@@ -1650,9 +1650,9 @@ class CLConstants(Constants):
     # Group changes
 
     group_add = _ChangeTypeCode(
-        'e_group', 'add', 'added %(subject)s to %(dest)s')
+        'e_group', 'add', 'added %(dest)s to %(subject)s')
     group_rem = _ChangeTypeCode(
-        'e_group', 'rem', 'removed %(subject)s from %(dest)s')
+        'e_group', 'rem', 'removed %(dest)s from %(subject)s')
     group_create = _ChangeTypeCode(
         'e_group', 'create', 'created %(subject)s')
     group_mod = _ChangeTypeCode(
