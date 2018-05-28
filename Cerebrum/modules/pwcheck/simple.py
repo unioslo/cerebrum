@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This module contains simple password checks.
+"""This module contains simple password checks.
 
 The CheckSimpleMixin class is an adoption of the old PasswordChecker class, and
 used to check simple password constraints.
@@ -30,14 +30,13 @@ structure of the dictionary checks, please see:
 
 > commit 9a01d8b6ac93513a57ac8d6393de842939582f51
 > Mon Jul 20 14:12:55 2015 +0200
-
 """
-
 from __future__ import unicode_literals
 
 import re
 import operator
 import string
+
 from six import text_type
 
 from Cerebrum.Errors import NotFoundError
@@ -92,7 +91,7 @@ class CheckASCIICharacters(PasswordChecker):
                                   special_characters=string.punctuation)
         self.allowed_chars = (string.ascii_letters +
                               string.digits +
-                              string.punctuation + ' ')
+                              string.punctuation + ' ').decode('utf-8')
 
     def check_password(self, password, account=None):
         """
@@ -107,8 +106,8 @@ class CheckASCIICharacters(PasswordChecker):
             if character not in self.allowed_chars:
                 errors.append(
                     _('Password can not contain the character: '
-                      '{character}').format(
-                          character=character))
+                      '{character}'.format(
+                          character=character)))
         return errors
 
 
