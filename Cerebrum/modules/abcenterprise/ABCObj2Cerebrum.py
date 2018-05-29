@@ -16,8 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 from __future__ import unicode_literals
+
 import abcconf
 
 from Cerebrum.Utils import Factory
@@ -53,19 +53,18 @@ class ABCObj2Cerebrum(object):
     def _conv_const_entity(self, entity):
         """Convert temporary text constants to real Constants."""
         entity = self._process_tags(entity)
-        for i in entity._ids.keys():
-            entity._ids[self._conv_cons(i)] = entity._ids[i]
+        for i, v in entity._ids.items():
             del entity._ids[i]
-        for i in entity._names.keys():
-            entity._names[self._conv_cons(i)] = entity._names[i]
-            if not self._conv_cons(i) is i:
-                del entity._names[i]
-        for i in entity._address.keys():
-            entity._address[self._conv_cons(i)] = entity._address[i]
+            entity._ids[self._conv_cons(i)] = v
+        for i, v in entity._names.items():
+            del entity._names[i]
+            entity._names[self._conv_cons(i)] = v
+        for i, v in entity._address.items():
             del entity._address[i]
-        for i in entity._contacts.keys():
-            entity._contacts[self._conv_cons(i)] = entity._contacts[i]
+            entity._address[self._conv_cons(i)] = v
+        for i, v in entity._contacts.items():
             del entity._contacts[i]
+            entity._contacts[self._conv_cons(i)] = v
         return entity
 
     def _process_tags(self, entity):
@@ -123,6 +122,8 @@ class ABCObj2Cerebrum(object):
                     pass
         # Name must be set
         if not ou.ou_names.get(self.co.ou_name):
+            self.logger.error("No name for OU, ou._ids=%r, ou._names=%r",
+                              ou._ids, ou._names)
             raise ABCDataError("Missing name for OU: %s" % ou._ids)
         return ou
 
