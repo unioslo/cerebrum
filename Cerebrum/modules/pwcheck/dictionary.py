@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2016 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This module contains a password dictionary check.
+"""This module contains a password dictionary check.
 
 The PasswordDictionaryMixin class is used to check variations of a password
 against dictionaries of words and names. This raises the bar for dictionary
@@ -31,17 +31,16 @@ structure of the dictionary checks, please see:
 
 > commit 9a01d8b6ac93513a57ac8d6393de842939582f51
 > Mon Jul 20 14:12:55 2015 +0200
-
 """
-
 from __future__ import unicode_literals
 
-import cerebrum_path
-import cereconf
-
+import io
 import os
 import re
 import string
+
+import cerebrum_path
+import cereconf
 
 from .checker import pwchecker, PasswordChecker, l33t_speak
 
@@ -107,7 +106,11 @@ def look(FH, key, dictn, fold):
     return min
 
 
-def is_word_in_dicts(dictionaries, words, dict_order=1, case_fold=1):
+def is_word_in_dicts(dictionaries,
+                     words,
+                     dict_order=1,
+                     case_fold=1,
+                     file_encoding='utf-8'):
     """Check if one of the given words are in the dictionary.
 
     If one word starts with 4, and another with A, the search will take a
@@ -119,7 +122,6 @@ def is_word_in_dicts(dictionaries, words, dict_order=1, case_fold=1):
     :param bool case_fold: ...
 
     :return bool: True if any word is found in any dictionary.
-
     """
     words = [w for w in words if len(w) > 3]
     if len(words) == 0:
@@ -127,7 +129,7 @@ def is_word_in_dicts(dictionaries, words, dict_order=1, case_fold=1):
     words.sort()
     # We'll iterate over several dictionaries.
     for fname in dictionaries:
-        with open(fname) as f:
+        with io.open(fname, encoding=file_encoding) as f:
             look(f, words[0], dict_order, case_fold)
             while (1):
                 line = f.readline()
@@ -146,7 +148,7 @@ def is_word_in_dicts(dictionaries, words, dict_order=1, case_fold=1):
     return False
 
 
-def check_dict(dictionaries, baseword):
+def check_dict(dictionaries, baseword, file_encoding='utf-8'):
     """Check if variations of `baseword' is in the dictionary."""
     baseword = baseword.lower()
     if re.search(r'^[a-z]', baseword):
@@ -173,13 +175,13 @@ def check_dict(dictionaries, baseword):
         if is_word_in_dicts(dictionaries, [re.sub(r'^[^a-z]+', '', baseword)]):
             return True
     nshort = baseword.translate(l33t_speak)
-    if is_word_in_dicts(dictionaries, [nshort]):
+    if is_word_in_dicts(dictionaries, [nshort], file_encoding=file_encoding):
         return True
     return False
 
 
-def check_two_word_combinations(dictionaries, word):
-    """ Check for two word-combinations.
+def check_two_word_combinations(dictionaries, word, file_encoding='utf-8'):
+    """Check for two word-combinations.
 
     This gets hairy. We look up everything that starts with the same first two
     letters as the password, and if the word matches the head of the password,
@@ -213,7 +215,7 @@ def check_two_word_combinations(dictionaries, word):
 
         for fname in dictionaries:
             two = npass[:2]
-            with open(fname) as f:
+            with io.open(fname, encoding=file_encoding) as f:
                 look(f, two, 1, 1)
                 two = two[:-1] + chr(ord(two[-1])+1)
                 while 1:
@@ -231,40 +233,51 @@ def check_two_word_combinations(dictionaries, word):
                                 others[key] = 1
 
         for fname in dictionaries:
-            with open(fname) as f:
+            with io.open(fname, encoding=file_encoding) as f:
                 for key in others.keys():
-                    look(f, key, 1, 1)
-                    line = f.readline().rstrip()
-                    line = re.sub('\t.*', '', line)
-                    if (line == key or (len(word) == 8 and
-                                        re.search(r'^%s' % key, line))):
-                        pre = npass[0:len(npass)-len(key)]
-                        return (pre, line)
-                    elif (len(key) == 1 and
-                          re.search(r'^.[a-z]+.$', npass)):
-                        return (line, key)
+                    try:
+                        look(f, key, 1, 1)
+                        line = f.readline().rstrip()
+                        line = re.sub('\t.*', '', line)
+                        if (line == key or (len(word) == 8 and
+                                            re.search(r'^%s' % key, line))):
+                            pre = npass[0:len(npass)-len(key)]
+                            return (pre, line)
+                        elif (len(key) == 1 and
+                              re.search(r'^.[a-z]+.$', npass)):
+                            return (line, key)
+                    except UnicodeDecodeError:
+                        continue
         return None
 
 
 @pwchecker('dictionary')
 class CheckPasswordDictionary(PasswordChecker):
-    """ Check if password contains dictionary words. """
+    """Check if password contains dictionary words."""
 
-    def __init__(self):
+    def __init__(self, file_encoding='utf-8'):
         self._requirement = _('Must not contain dictionary words')
+        self._file_encoding = file_encoding
 
     @property
     def password_dictionaries(self):
-        """ The dictionary files to check. """
+        """The dictionary files to check."""
         return getattr(cereconf, 'PASSWORD_DICTIONARIES', [])
 
     def check_password(self, password, account=None):
-        """ Check password against a dictionary. """
-        if check_dict(self.password_dictionaries, password[0:8]):
-            return [_('Password cannot contain dictionary words')]
+        """Check password against a dictionary."""
+        try:
+            if check_dict(self.password_dictionaries,
+                          password[0:8],
+                          file_encoding=self._file_encoding):
+                return [_('Password cannot contain dictionary words')]
 
-        err = check_two_word_combinations(self.password_dictionaries,
-                                          password[0:8])
+            err = check_two_word_combinations(
+                self.password_dictionaries,
+                password[0:8],
+                file_encoding=self._file_encoding)
+        except UnicodeDecodeError:
+            pass
         if err and len(err) == 2:
             return [
                 _('You should not combine two words like {word1} and '
