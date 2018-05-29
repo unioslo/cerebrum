@@ -1,3 +1,7 @@
+2018-05-29    <cerebrum@gagarin.uit.no>
+
+	* process_students.py (get_existing_accounts): removed lots of debug lines. Also rewrote how we calculate account home. the previous version didnt work as intended and generated LOTS of unnecessary changelog entries. The current version is the same as uio uses.
+
 2018-05-24    <cerebrum@gagarin.uit.no>
 
 	* process_systemx.py (Build._process_sysx): This script will now also send out emails when reopening old accounts

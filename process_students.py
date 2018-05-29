@@ -1103,7 +1103,6 @@ def get_existing_accounts():
             continue
         tmp_ac[int(row['account_id'])] = ExistingAccount(pid2fnr[int(row['owner_id'])],
                                                          row['expire_date'])
-        logger.info("adding account:%s to tmp_ac" % int(row['owner_id']))
     # PosixGid
     for row in posix_user_obj.list_posix_users():
         tmp = tmp_ac.get(int(row['account_id']), None)
@@ -1155,7 +1154,7 @@ def get_existing_accounts():
                     pid2fnr.get(int(row['entity_id']), None), None)
             if tmp is not None:
                 tmp.append_spread(spread_id)
-                logger.debug("appending spread:%s on account:%s" % (spread_id,row['entity_id']))
+                #logger.debug("appending spread:%s on account:%s" % (spread_id,row['entity_id']))
                 
 
     #
@@ -1166,21 +1165,14 @@ def get_existing_accounts():
     #
     disk_obj = Factory.get('Disk')(db)
     disk_obj.clear()
-    disk_path = '/fakeserver/nodisk'
+    disk_path = '/its/home'
     student_disk = disk_obj.find_by_path(path = disk_path)
-    #student_disk_retval = disk_obj.search(path = disk_path)
-    #logger.debug(pformat(student_disk_retval[0]['disk_id']))
-    #student_disk = str(student_disk_retval['disk_id'])
-    #logger.debug("student disk id:%s" % student_disk)
-
 
     # Account homes
-    for row in account_obj.list_account_home(filter_expired = False,disk_id = None):
+    for row in account_obj.list_account_home():
         tmp = tmp_ac.get(int(row['account_id']), None)
-        if tmp is not None and student_disk:
-            # replaced row['disk_id'] with student_disk
-            tmp.set_home(int(row['home_spread']),int(student_disk),int(row['homedir_id']))
-
+        if tmp is not None and row['disk_id']:
+            tmp.set_home(int(row['home_spread']), int(row['disk_id']),int(row['homedir_id']))
     # Group memberships
     for group_id in autostud.pc.group_defs.keys():
         group_obj.clear()
@@ -1201,7 +1193,6 @@ def get_existing_accounts():
         affiliation=const.affiliation_student, fetchall=False):
         tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None:
-            logger.info("append_affiliation for student account:%s" % (int(row['account_id'])))
             tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']))
 
     #
@@ -1218,33 +1209,33 @@ def get_existing_accounts():
 
 
     for ac_id, tmp in tmp_ac.items():
-        logger.info("now entering routine that sets other_ac for account:%s" % ac_id)
+        #logger.info("now entering routine that sets other_ac for account:%s" % ac_id)
         fnr = tmp_ac[ac_id].get_fnr()
         affs = tmp.get_affiliations()
         #get_expire_date = tmp.get_expire_date()
         #get_fnr = tmp.get_fnr()
         get_spreads = tmp.get_spreads()
-        logger.debug(pformat(tmp))        
+        #logger.debug(pformat(tmp))        
 
         if tmp.is_reserved():
             tmp_persons[fnr].append_reserved_ac(ac_id)
-            logger.info("reserved account: %s" % ac_id)
+            #logger.info("reserved account: %s" % ac_id)
         elif tmp.is_deleted():
             tmp_persons[fnr].append_deleted_ac(ac_id)
-            logger.info("deleted account: %s" % ac_id)
+            #logger.info("deleted account: %s" % ac_id)
         elif tmp.has_affiliation(int(const.affiliation_student)):
             tmp_persons[fnr].append_stud_ac(ac_id)
-            logger.info("student account: %s" % ac_id)
+            #logger.info("student account: %s" % ac_id)
         elif tmp.has_affiliation(int(const.affiliation_tilknyttet)):
             tmp_persons[fnr].append_stud_ac(ac_id)            
-            logger.info("tilknyttet account: %s" % ac_id)
+            #logger.info("tilknyttet account: %s" % ac_id)
         elif tmp_persons[fnr].get_affiliations():
             # get_affiliations() only returns STUDENT affiliations.
             # Accounts on student disks are handled as if they were
             # students if the person has at least one STUDENT
             # affiliation.  The STUDENT affiliation(s) will be added
             # later during this run.
-            logger.info("no match, try get_affiliations(): %s" % ac_id)
+            #logger.info("no match, try get_affiliations(): %s" % ac_id)
             for s in tmp.get_home_spreads():
                 disk_id = tmp.get_home(s)[0]
                 foo = autostud.disk_tool.get_diskdef_by_diskid(disk_id)
@@ -1252,10 +1243,10 @@ def get_existing_accounts():
                     tmp_persons[fnr].append_stud_ac(ac_id)
                     break
             else:
-                logger.info("1. has other account: %s" % ac_id)
+                #logger.info("1. has other account: %s" % ac_id)
                 tmp_persons[fnr].append_other_ac(ac_id)
         else:
-            logger.info("2. has other account: %s" % ac_id)
+            #logger.info("2. has other account: %s" % ac_id)
             tmp_persons[fnr].append_other_ac(ac_id)
 
     logger.info(" found %i persons and %i accounts" % (
