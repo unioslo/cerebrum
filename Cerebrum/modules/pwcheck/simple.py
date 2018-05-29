@@ -106,8 +106,8 @@ class CheckASCIICharacters(PasswordChecker):
             if character not in self.allowed_chars:
                 errors.append(
                     _('Password can not contain the character: '
-                      '{character}'.format(
-                          character=character)))
+                      '{character}').decode('utf-8').format(
+                          character=character))
         return errors
 
 
