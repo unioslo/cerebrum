@@ -477,27 +477,12 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                     if cached_name['name_first'] is None:
                         cached_name['name_first'] = " ".join(name_parts)
 
-        # TBD: When we're unable to find cacheable data, it would
-        #      probably be more correct to update the cache (that is,
-        #      remove any previously cached values, in the for loop
-        #      below), before issuing a warning/raising an exception
-        #      to signal that there is no cacheable name data for this
-        #      person.
-        #
-        #      However, that behaviour would represent a bigger change
-        #      from how the cache has worked until now; some persons
-        #      would end up without any cached fullname, which could
-        #      lead to other scripts breaking.
-        #
-        #      So, until we have the resources to do proper testing on
-        #      such a more correct change, we'll live with this hack.
-        if not [n for n in cached_name if cached_name[n] is not None]:
-            # We have no cacheable name variants.
-            raise ValueError("No cacheable name for %d / %r" % (
-                self.entity_id, self._name_info))
-        for ntype, name in cached_name.items():
-            name_type = getattr(self.const, ntype)
-            self._set_cached_name(name_type, name)
+        # Update the cache if a name is found in a system referred to by
+        # cereconf.SYSTEM_LOOKUP_ORDER
+        if [n for n in cached_name if cached_name[n] is not None]:
+            for ntype, name in cached_name.items():
+                name_type = getattr(self.const, ntype)
+                self._set_cached_name(name_type, name)
 
     def list_person_name_codes(self):
         return self.query("""
