@@ -50,7 +50,7 @@ class SAPConstants(Constants.Constants):
     sap_1007_hogskolelaerer_ovings = SAPLonnsTittelKode(
         "20001007",
         "1007 Høgskolelærer/øvings",
-        "ØVR"
+        "VIT"
     )
 
     sap_1008_hogskolelektor = SAPLonnsTittelKode(
@@ -176,7 +176,7 @@ class SAPConstants(Constants.Constants):
     sap_1077_hovedbibliotekar = SAPLonnsTittelKode(
         "20001077",
         "1077 Hovedbibliotekar",
-        "ØVR"
+        "VIT"
     )
 
     sap_1078_betjent = SAPLonnsTittelKode(
@@ -191,28 +191,34 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    sap_1084_avdelingsingenior = SAPLonnsTittelKode(
+        "20001084",
+        "1084 Avdelingsingeniør",
+        "VIT"
+    )
+
     sap_1085_avdelingsingenior = SAPLonnsTittelKode(
         "20001085",
         "1085 Avdelingsingeniør",
-        "ØVR"
+        "VIT"
     )
 
     sap_1087_overingenior = SAPLonnsTittelKode(
         "20001087",
         "1087 Overingeniør",
-        "ØVR"
+        "VIT"
     )
 
     sap_1088_sjefsingenior = SAPLonnsTittelKode(
         "20001088",
         "1088 Sjefsingeniør",
-        "ØVR"
+        "VIT"
     )
 
     sap_1091_tekniker = SAPLonnsTittelKode(
         "20001091",
         "1091 Tekniker",
-        "ØVR"
+        "VIT"
     )
 
     sap_1113_prosjektleder = SAPLonnsTittelKode(
@@ -248,7 +254,7 @@ class SAPConstants(Constants.Constants):
     sap_1181_senioringenior = SAPLonnsTittelKode(
         "20001181",
         "1181 Senioringeniør",
-        "ØVR"
+        "VIT"
     )
 
     sap_1183_forsker = SAPLonnsTittelKode(
@@ -332,13 +338,13 @@ class SAPConstants(Constants.Constants):
     sap_1410_bibliotekar = SAPLonnsTittelKode(
         "20001410",
         "1410 Bibliotekar",
-        "ØVR"
+        "VIT"
     )
 
     sap_1411_avdelingsingenior = SAPLonnsTittelKode(
         "20001411",
         "1411 Avdelingsingeniør",
-        "ØVR"
+        "VIT"
     )
 
     sap_1423_undervp = SAPLonnsTittelKode(
@@ -380,7 +386,7 @@ class SAPConstants(Constants.Constants):
     sap_1532_dosent = SAPLonnsTittelKode(
         "20001532",
         "1532 Dosent",
-        "ØVR"
+        "VIT"
     )
 
     sap_9999_dummy_stillingskode = SAPLonnsTittelKode(
