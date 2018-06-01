@@ -20,6 +20,10 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains a password print command for UiA. """
 from __future__ import unicode_literals
+
+import os
+import time
+
 import cereconf
 
 import Cerebrum.modules.printutils.bofhd_misc_print_passwords as base
@@ -84,3 +88,14 @@ class BofhdExtension(base.BofhdExtension):
                 "Unsupported owner type. Please use `misc list_passwords'")
 
         return mappings
+
+    def _get_password_filename(self, directory, account, operator, suffix):
+        return os.path.join(directory,
+                            '{account_name}_{tstamp}_{pid}.{suffix}'.format(
+                                account_name=self._get_account(
+                                    operator.get_entity_id(),
+                                    idtype='id').account_name,
+                                tstamp=time.strftime("%Y-%m-%d-%H%M%S",
+                                                     time.localtime()),
+                                pid=os.getpid(),
+                                suffix=suffix))

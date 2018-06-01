@@ -174,13 +174,22 @@ class BofhdExtension(BofhdCommonMethods):
     def _get_mappings(self, account, password, template):
         raise NotImplementedError
 
-    def _make_password_document(self, tpl, tpl_config, account, password):
+    def _get_password_filename(self, directory, account, operator, suffix):
+        return os.path.join(directory,
+                            'output_{account_id}.{suffix}'.format(
+                                account_id=account.entity_id,
+                                suffix=suffix))
+
+    def _make_password_document(self, tpl, tpl_config, account, operator,
+                                password):
         """ Make the password document to print.
 
         :param str tpl:
             template-config.
         :param Cerebrum.Account account:
             The account to generate a password document for.
+        :param Cerebrum.modules.bofhd.session.BofhdSession operator:
+            The account that performs the password change.
         :param str password:
             The new password for the account.
         :param dict tpl:
@@ -211,9 +220,10 @@ class BofhdExtension(BofhdCommonMethods):
 
         lang = tpl.get('lang')
         static_files = tpl.get('static_files', [])
-        pdf_abspath = os.path.join(
-            tmp_dir, 'output_{}.pdf'.format(account.entity_id)
-        )
+        pdf_abspath = self._get_password_filename(tmp_dir,
+                                                  account,
+                                                  operator,
+                                                  'pdf')
         pdf_file = renderers.html_template_to_pdf(
             tpl_config, tmp_dir, tpl['file'], mappings,
             lang, static_files, pdf_abspath
@@ -371,6 +381,7 @@ class BofhdExtension(BofhdCommonMethods):
                     template,
                     template_config,
                     account,
+                    operator,
                     pwd['password']))
             ret.append(
                 self._confirm_msg(
