@@ -47,7 +47,8 @@ targets = {
              'rel_0_9_18', 'rel_0_9_19', ),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
     'bofhd_auth': ('bofhd_auth_1_1', 'bofhd_auth_1_2',),
-    'changelog': ('changelog_1_2', 'changelog_1_3', 'changelog_1_4'),
+    'changelog': ('changelog_1_2', 'changelog_1_3', 'changelog_1_4',
+                  'changelog_1_5'),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4',
               'email_1_5',),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
@@ -1009,6 +1010,25 @@ def migrate_to_changelog_1_4():
         meta.set_metainfo("sqlmodule_changelog", "1.4")
         print("Migration to changelog 1.4 completed successfully")
         db.commit()
+
+
+def migrate_to_changelog_1_5():
+    assert_db_version("1.4", component='changelog')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_changelog", "1.5")
+
+    print("Swapping dest_entity and subject_entity for e_group:{add,rem} "
+          "and dlgroup:{add,rem}")
+    q = ("UPDATE change_log SET "
+         "subject_entity = dest_entity, dest_entity = subject_entity "
+         "WHERE change_type_id IN "
+         "(SELECT change_type_id FROM change_type "
+         "WHERE category IN ('e_group', 'dlgroup') "
+         "AND type IN ('add', 'rem'));")
+    db.execute(q)
+
+    print("Migration to changelog 1.5 completed successfully")
+    db.commit()
 
 
 def migrate_to_eventlog_1_1():

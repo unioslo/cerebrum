@@ -25,7 +25,7 @@ from Cerebrum.Utils import argument_to_sql
 import Cerebrum.utils.json as json
 
 
-__version__ = "1.4"
+__version__ = "1.5"
 
 
 def _params_to_db(params, separators=(',', ':')):
