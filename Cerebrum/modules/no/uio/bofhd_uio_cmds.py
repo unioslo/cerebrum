@@ -1367,8 +1367,8 @@ class BofhdExtension(BofhdCommonMethods):
                                                  group=dest_group))
         if nis_warning:
             return nis_warning
-        return 'OK, added {source_name} to {group}'.format(
-            source_name=src_name,
+        return u"OK, added '{member}' to '{group}'".format(
+            member=src_name,
             group=dest_group)
 
     def _group_count_memberships(self, entity_id, spread):
@@ -1993,7 +1993,8 @@ class BofhdExtension(BofhdCommonMethods):
             group.remove_member(member.entity_id)
         except self.db.DatabaseError as m:
             raise CerebrumError("Database error: %s" % exc_to_text(m))
-        return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
+        return u"OK, removed '{member}' from '{group}'".format(
+            member=member_name, group=group.group_name)
 
     #
     # group remove_entity
