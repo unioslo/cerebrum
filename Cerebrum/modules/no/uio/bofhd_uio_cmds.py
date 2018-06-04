@@ -1218,13 +1218,13 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['entity_history'] = Command(
         ("entity", "history"),
         Id(help_ref="id:target:account"),
-        YesNo(help_ref='yes_no_all_op', optional=True, default="no"),
+        YesNo(help_ref='yes_no_all_op', optional=True, default="yes"),
         Integer(optional=True, help_ref="limit_number_of_results"),
         fs=FormatSuggestion(
             "%s [%s]: %s", ("timestamp", "change_by", "message")),
         perm_filter='can_show_history')
 
-    def entity_history(self, operator, entity, any="no", limit=100):
+    def entity_history(self, operator, entity, any="yes", limit=100):
         ent = self.util.get_target(entity, restrict_to=[])
         self.ba.can_show_history(operator.get_entity_id(), ent)
         ret = []
