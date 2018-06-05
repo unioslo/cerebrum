@@ -25,6 +25,7 @@ import io
 import six
 import sys
 import getopt
+import logging
 
 import cereconf
 
@@ -50,7 +51,7 @@ default_kull_info_file = pj(cereconf.FS_DATA_DIR, "kull_info.xml")
 
 XML_ENCODING = 'utf-8'
 
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 xml = XMLHelper(encoding=XML_ENCODING)
 fs = None
 

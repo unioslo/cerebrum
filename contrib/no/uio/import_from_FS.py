@@ -28,6 +28,7 @@ import os
 import sys
 import getopt
 import six
+import logging
 
 import cereconf
 
@@ -41,10 +42,9 @@ from Cerebrum.Utils import Factory
 
 XML_ENCODING = 'utf-8'
 
+logger = logging.getLogger(__name__)
 xml = XMLHelper(encoding=XML_ENCODING)
 fs = None
-
-logger = Factory.get_logger("cronjob")
 
 
 def usage(exitcode=0):

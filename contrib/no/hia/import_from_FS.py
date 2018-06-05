@@ -24,6 +24,7 @@ import sys
 import getopt
 import six
 import io
+import logging
 
 import cereconf
 
@@ -37,7 +38,7 @@ from Cerebrum.Utils import Factory
 
 XML_ENCODING = 'utf-8'
 
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 xml = XMLHelper(encoding=XML_ENCODING)
 fs = None
 
