@@ -4510,16 +4510,16 @@ class BofhdExtension(BofhdCommonMethods):
         if external_id_list:
             ext_id_value = external_id_list[0]['external_id']
             return [{
-                "ext_id_type": text_type(ext_id_const),
+                "ext_id_type": text_type(ext_id),
                 "person_id": person.entity_id,
-                "source_system": text_type(ss_const),
+                "source_system": text_type(source_system),
                 "ext_id_value": ext_id_value,
             }]
         else:
             raise CerebrumError(
                 "Could not find id %s for person entity %d in system %s" %
-                (text_type(ext_id_const), person.entity_id,
-                 text_type(ss_const)))
+                (text_type(ext_id), person.entity_id,
+                 text_type(source_system)))
 
     #
     # person set_id
