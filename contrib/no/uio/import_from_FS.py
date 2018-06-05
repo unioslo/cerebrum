@@ -27,10 +27,12 @@ from __future__ import unicode_literals
 import os
 import sys
 import getopt
+import six
+import logging
 
-import cerebrum_path
 import cereconf
 
+import Cerebrum.logutils
 from Cerebrum.Utils import XMLHelper
 from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.extlib import xmlprinter
@@ -39,10 +41,12 @@ from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.utils.atomicfile import FileChangeTooBigError
 from Cerebrum.Utils import Factory
 
-xml = XMLHelper()
+XML_ENCODING = 'utf-8'
+
+logger = logging.getLogger(__name__)
+xml = XMLHelper(encoding=XML_ENCODING)
 fs = None
 
-logger = Factory.get_logger("cronjob")
 
 def usage(exitcode=0):
     print """Usage: %(filename)s [options]
@@ -125,6 +129,7 @@ def usage(exitcode=0):
            'doc': __doc__}
     sys.exit(exitcode)
 
+
 def _ext_cols(db_rows):
     # TBD: One might consider letting xmlify_dbrow handle this
     cols = None
@@ -153,8 +158,8 @@ def write_edu_info(outfile):
     fs.evu.list_studenter_alle_kursakt()            <- kursakt deltagelse
     fs.evu.list()                                   <- evu deltagelse
     """
-
-    f = SimilarSizeWriter(outfile, "w")
+    logger.info("Writing edu info to '%s'", outfile)
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
 
@@ -181,13 +186,12 @@ def write_edu_info(outfile):
 
     f.write("</data>\n")
     f.close()
-# end write_edu_info
 
 
 def write_forkurs_info(outfile):
     from mx.DateTime import now
-    logger.info("Writing pre-course file to '{}'".format(outfile))
-    f = SimilarSizeWriter(outfile, "w")
+    logger.info("Writing pre-course file to '%s'", outfile)
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     cols, course_attendants = _ext_cols(fs.forkurs.list())
     f.write(xml.xml_hdr + "<data>\n")
@@ -215,9 +219,9 @@ def write_person_info(outfile):
     # fil der all informasjon om en person er samlet under en egen
     # <person> tag?
 
-    logger.info("Writing person info to '%s'" % outfile)
+    logger.info("Writing person info to '%s'", outfile)
 
-    f = SimilarSizeWriter(outfile, "w")
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     # Fagpersoner
@@ -293,11 +297,12 @@ def write_person_info(outfile):
     f.write("</data>\n")
     f.close()
 
+
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
-    logger.info("Writing OU info to '%s'" % outfile)
+    logger.info("Writing OU info to '%s'", outfile)
 
-    f = SimilarSizeWriter(outfile, "w")
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, ouer = _ext_cols(fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR))  # TODO
@@ -342,11 +347,12 @@ def write_ou_info(outfile):
     f.write("</data>\n")
     f.close()
 
+
 def write_topic_info(outfile):
     """Lager fil med informasjon om alle XXX"""
     # TODO: Denne filen blir endret med det nye opplegget :-(
-    logger.info("Writing topic info to '%s'" % outfile)
-    f = SimilarSizeWriter(outfile, "w")
+    logger.info("Writing topic info to '%s'", outfile)
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, topics = _ext_cols(fs.student.list_eksamensmeldinger())
@@ -357,11 +363,12 @@ def write_topic_info(outfile):
     f.write("</data>\n")
     f.close()
 
+
 def write_regkort_info(outfile):
     """Lager fil med informasjon om semesterregistreringer for
-    innev�rende semester"""
-    logger.info("Writing regkort info to '%s'" % outfile)
-    f = SimilarSizeWriter(outfile, "w")
+    inneværende semester"""
+    logger.info("Writing regkort info to '%s'", outfile)
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, regkort = _ext_cols(fs.student.list_semreg())
@@ -370,10 +377,11 @@ def write_regkort_info(outfile):
     f.write("</data>\n")
     f.close()
 
+
 def write_netpubl_info(outfile):
     """Lager fil med informasjon om status nettpublisering"""
-    logger.info("Writing nettpubl info to '%s'" % outfile)
-    f = SimilarSizeWriter(outfile, "w")
+    logger.info("Writing nettpubl info to '%s'", outfile)
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, nettpubl = _ext_cols(fs.person.list_status_nettpubl())
@@ -382,10 +390,11 @@ def write_netpubl_info(outfile):
     f.write("</data>\n")
     f.close()
 
+
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
-    logger.info("Writing studprog info to '%s'" % outfile)
-    f = SimilarSizeWriter(outfile, "w")
+    logger.info("Writing studprog info to '%s'", outfile)
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.info.list_studieprogrammer())
@@ -394,10 +403,11 @@ def write_studprog_info(outfile):
     f.write("</data>\n")
     f.close()
 
+
 def write_emne_info(outfile):
     """Lager fil med informasjon om alle definerte emner"""
-    logger.info("Writing emne info to '%s'" % outfile)
-    f = SimilarSizeWriter(outfile, "w")
+    logger.info("Writing emne info to '%s'", outfile)
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.info.list_emner())
@@ -406,10 +416,11 @@ def write_emne_info(outfile):
     f.write("</data>\n")
     f.close()
 
+
 def write_personrole_info(outfile):
     """Lager fil med informasjon om alle roller definer i FS.PERSONROLLE"""
-    logger.info("Writing personrolle info to '%s'" % outfile)
-    f = SimilarSizeWriter(outfile, "w")
+    logger.info("Writing personrolle info to '%s'", outfile)
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.undervisning.list_alle_personroller())
@@ -418,10 +429,11 @@ def write_personrole_info(outfile):
     f.write("</data>\n")
     f.close()
 
+
 def write_misc_info(outfile, tag, func_name):
     """Lager fil med data fra gitt funksjon i access_FS"""
-    logger.info("Writing misc info to '%s'" % outfile)
-    f = SimilarSizeWriter(outfile, "w")
+    logger.info("Writing misc info to '%s'", outfile)
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     # It's still not foolproof, but hopefully much more sane than simply
@@ -437,50 +449,69 @@ def write_misc_info(outfile, tag, func_name):
     f.write("</data>\n")
     f.close()
 
+
+class AtomicStreamRecoder(AtomicFileWriter):
+    """ file writer encoding hack.
+
+    xmlprinter.xmlprinter encodes data in the desired encoding before writing
+    to the stream, and AtomicFileWriter *requires* unicode-objects to be
+    written.
+
+    This hack turns AtomicFileWriter into a bytestring writer. Just make sure
+    the AtomicStreamRecoder is configured to use the same encoding as the
+    xmlprinter.
+
+    The *proper* fix would be to retire the xmlprinter module, and replace it
+    with something better.
+    """
+
+    def write(self, data):
+        if isinstance(data, bytes) and self.encoding:
+            # will be re-encoded in the same encoding by 'write'
+            data = data.decode(self.encoding)
+        return super(AtomicStreamRecoder, self).write(data)
+
+
 def write_fnrupdate_info(outfile):
-    """Lager fil med informasjon om alle f�dselsnummerendringer"""
-    logger.info("Writing fnrupdate info to '%s'" % outfile)
-    stream = AtomicFileWriter(outfile, 'w')
+    """Lager fil med informasjon om alle fødselsnummerendringer"""
+    logger.info("Writing fnrupdate info to '%s'", outfile)
+    stream = AtomicStreamRecoder(outfile, mode='w', encoding=XML_ENCODING)
     writer = xmlprinter.xmlprinter(stream,
-                                   indent_level = 2,
-                                   # Human-readable output
-                                   data_mode = True,
-                                   input_encoding = "utf-8")
-    writer.startDocument(encoding = "utf-8")
+                                   indent_level=2,
+                                   data_mode=True)
+    writer.startDocument(encoding=XML_ENCODING)
 
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
 
-    writer.startElement("data", {"source_system" : unicode(const.system_fs)})
+    writer.startElement("data",
+                        {"source_system": six.text_type(const.system_fs)})
 
     data = fs.person.list_fnr_endringer()
     for row in data:
         # Make the format resemble the corresponding FS output as close as
         # possible.
-        attributes = { "type" : unicode(const.externalid_fodselsnr),
-                       "new"  : "%06d%05d" % (row["fodselsdato_naverende"],
-                                              row["personnr_naverende"]),
-                       "old"  : "%06d%05d" % (row["fodselsdato_tidligere"],
-                                              row["personnr_tidligere"]),
-                       "date" : unicode(row["dato_foretatt"]),
-                     }
-
+        attributes = {
+            "type": six.text_type(const.externalid_fodselsnr),
+            "new": "%06d%05d" % (row["fodselsdato_naverende"],
+                                 row["personnr_naverende"]),
+            "old": "%06d%05d" % (row["fodselsdato_tidligere"],
+                                 row["personnr_tidligere"]),
+            "date": six.text_type(row["dato_foretatt"]),
+        }
         writer.emptyElement("external_id", attributes)
-    # od
 
     writer.endElement("data")
     writer.endDocument()
     stream.close()
-# end get_fnr_update_info
-
 
 
 def write_betalt_papir_info(outfile):
     """Lager fil med informasjon om alle som enten har fritak fra å
     betale kopiavgift eller har betalt kopiavgiften"""
 
-    logger.info("Writing betaltpapir info to '%s'" % outfile)
-    f = SimilarSizeWriter(outfile, "w")
+    logger.info("Writing betaltpapir info to '%s'", outfile)
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(fs.betaling.list_kopiavgift_data(kun_fritak=False, semreg=True))
@@ -490,10 +521,12 @@ def write_betalt_papir_info(outfile):
     f.write("</data>\n")
     f.close()
 
+
 def fix_float(row):
     for n in range(len(row)):
         if isinstance(row[n], float):
             row[n] = int(row[n])
+
 
 def set_filepath(datadir, file):
     """Return the string of path to a file. If the given file path is relative,
@@ -504,7 +537,9 @@ def set_filepath(datadir, file):
         return file
     return os.path.join(datadir, file)
 
+
 def main():
+    Cerebrum.logutils.autoconf('cronjob')
     logger.info("Starting import from FS")
     try:
         opts, args = getopt.getopt(sys.argv[1:], "ptsroefbknd",
@@ -603,7 +638,7 @@ def main():
         except FileChangeTooBigError as msg:
             logger.error("Manual intervention required: %s", msg)
 
-    logger.info("Import from FS done")
+    logger.info("Done with import from FS")
 
 
 if __name__ == '__main__':

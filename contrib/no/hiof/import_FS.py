@@ -132,7 +132,7 @@ def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
                 }
         else:
             ou_adr_cache[ou_id] = None
-            logger.warn("No address for %i" % ou_id)
+            logger.warn("No address for %i", ou_id)
     return ou_adr_cache[ou_id]
 
 
@@ -185,8 +185,8 @@ def _calc_address(person_info):
                   'postnr_hjem', 'adresseland_hjem'),
         '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
         }
-    logger.debug("Getting address for person %s%s" %
-                 (person_info['fodselsdato'], person_info['personnr']))
+    logger.debug("Getting address for person %s%s",
+                 person_info['fodselsdato'], person_info['personnr'])
     ret = [None, None, None]
     for key, addr_src in rules:
         if key not in person_info:
