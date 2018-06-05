@@ -68,6 +68,7 @@ def _ext_cols(db_rows):
 
 
 def write_person_info(outfile):
+    logger.info("Writing person info to '%s'", outfile)
     f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
@@ -96,6 +97,7 @@ def write_person_info(outfile):
 
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
+    logger.info("Writing OU info to '%s'", outfile)
     f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
@@ -146,6 +148,7 @@ def write_ou_info(outfile):
 
 def write_evukurs_info(outfile):
     """Skriv data om alle EVU-kurs"""
+    logger.info("Writing evukurs info to '%s'", outfile)
     f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.minsize = 1 * KiB
     f.write(xml.xml_hdr + "<data>\n")
@@ -159,6 +162,7 @@ def write_evukurs_info(outfile):
 
 def write_role_info(outfile):
     """Skriv data om alle registrerte roller"""
+    logger.info("Writing role info to '%s'", outfile)
     f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.minsize = KiB / 4
     f.write(xml.xml_hdr + "<data>\n")
@@ -171,6 +175,7 @@ def write_role_info(outfile):
 
 def write_undenh_metainfo(outfile):
     "Skriv metadata om undervisningsenheter for inneværende+neste semester."
+    logger.info("Writing undenh_metainfo to '%s'", outfile)
     f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.minsize = 5 * KiB
     f.write(xml.xml_hdr + "<undervenhet>\n")
@@ -189,6 +194,7 @@ def write_undenh_student(outfile):
     """Skriv oversikt over personer oppmeldt til undervisningsenheter.
     Tar med data for alle undervisingsenheter i inneværende+neste
     semester."""
+    logger.info("Writing undenh_student info to '%s'", outfile)
     f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.minsize = 5 * KiB
     f.write(xml.xml_hdr + "<data>\n")
@@ -220,7 +226,7 @@ def write_kull_info(outfile):
       - kullklasser
       - kull
     """
-
+    logger.info("Writing kull info to '%s'", outfile)
     f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
@@ -239,6 +245,7 @@ def write_kull_info(outfile):
 
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
+    logger.info("Writing studprog info to '%s'", outfile)
     f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.minsize = 10 * KiB
     f.write(xml.xml_hdr + "<data>\n")
@@ -252,9 +259,10 @@ def write_studprog_info(outfile):
 
 def write_emne_info(outfile):
     """Lager fil med informasjon om alle definerte emner"""
+    logger.info("Writing emne info to '%s'", outfile)
     f = io.open(outfile, mode='w', encoding=XML_ENCODING)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta =_ext_cols(fs.info.list_emner())
+    cols, dta = _ext_cols(fs.info.list_emner())
     for t in dta:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
     f.write("</data>\n")
@@ -284,7 +292,7 @@ class AtomicStreamRecoder(AtomicFileWriter):
 
 def write_fnrupdate_info(outfile):
     """Lager fil med informasjon om alle fødselsnummerendringer"""
-    logger.info("Writing fnrupdate info to '%s'" % outfile)
+    logger.info("Writing fnrupdate info to '%s'", outfile)
     stream = AtomicStreamRecoder(outfile, mode='w', encoding=XML_ENCODING)
     writer = xmlprinter.xmlprinter(stream,
                                    indent_level=2,
@@ -318,6 +326,7 @@ def write_fnrupdate_info(outfile):
 
 def write_misc_info(outfile, tag, func_name):
     """Lager fil med data fra gitt funksjon i access_FS"""
+    logger.info("Writing misc info to '%s'", outfile)
     f = io.open(outfile, mode='w', encoding=XML_ENCODING)
     f.write(xml.xml_hdr + "<data>\n")
     cols, dta = _ext_cols(eval("fs.%s" % func_name)())

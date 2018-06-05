@@ -157,7 +157,7 @@ def write_edu_info(outfile):
     fs.evu.list_studenter_alle_kursakt()            <- kursakt deltagelse
     fs.evu.list()                                   <- evu deltagelse
     """
-
+    logger.info("Writing edu info to '%s'", outfile)
     f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
@@ -189,7 +189,7 @@ def write_edu_info(outfile):
 
 def write_forkurs_info(outfile):
     from mx.DateTime import now
-    logger.info("Writing pre-course file to '{}'".format(outfile))
+    logger.info("Writing pre-course file to '%s'", outfile)
     f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     cols, course_attendants = _ext_cols(fs.forkurs.list())
@@ -218,7 +218,7 @@ def write_person_info(outfile):
     # fil der all informasjon om en person er samlet under en egen
     # <person> tag?
 
-    logger.info("Writing person info to '%s'" % outfile)
+    logger.info("Writing person info to '%s'", outfile)
 
     f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
@@ -299,7 +299,7 @@ def write_person_info(outfile):
 
 def write_ou_info(outfile):
     """Lager fil med informasjon om alle OU-er"""
-    logger.info("Writing OU info to '%s'" % outfile)
+    logger.info("Writing OU info to '%s'", outfile)
 
     f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
@@ -350,7 +350,7 @@ def write_ou_info(outfile):
 def write_topic_info(outfile):
     """Lager fil med informasjon om alle XXX"""
     # TODO: Denne filen blir endret med det nye opplegget :-(
-    logger.info("Writing topic info to '%s'" % outfile)
+    logger.info("Writing topic info to '%s'", outfile)
     f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
@@ -366,7 +366,7 @@ def write_topic_info(outfile):
 def write_regkort_info(outfile):
     """Lager fil med informasjon om semesterregistreringer for
     inneværende semester"""
-    logger.info("Writing regkort info to '%s'" % outfile)
+    logger.info("Writing regkort info to '%s'", outfile)
     f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
@@ -379,7 +379,7 @@ def write_regkort_info(outfile):
 
 def write_netpubl_info(outfile):
     """Lager fil med informasjon om status nettpublisering"""
-    logger.info("Writing nettpubl info to '%s'" % outfile)
+    logger.info("Writing nettpubl info to '%s'", outfile)
     f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
@@ -392,7 +392,7 @@ def write_netpubl_info(outfile):
 
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
-    logger.info("Writing studprog info to '%s'" % outfile)
+    logger.info("Writing studprog info to '%s'", outfile)
     f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
@@ -405,7 +405,7 @@ def write_studprog_info(outfile):
 
 def write_emne_info(outfile):
     """Lager fil med informasjon om alle definerte emner"""
-    logger.info("Writing emne info to '%s'" % outfile)
+    logger.info("Writing emne info to '%s'", outfile)
     f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
@@ -418,7 +418,7 @@ def write_emne_info(outfile):
 
 def write_personrole_info(outfile):
     """Lager fil med informasjon om alle roller definer i FS.PERSONROLLE"""
-    logger.info("Writing personrolle info to '%s'" % outfile)
+    logger.info("Writing personrolle info to '%s'", outfile)
     f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
@@ -431,7 +431,7 @@ def write_personrole_info(outfile):
 
 def write_misc_info(outfile, tag, func_name):
     """Lager fil med data fra gitt funksjon i access_FS"""
-    logger.info("Writing misc info to '%s'" % outfile)
+    logger.info("Writing misc info to '%s'", outfile)
     f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
@@ -473,7 +473,7 @@ class AtomicStreamRecoder(AtomicFileWriter):
 
 def write_fnrupdate_info(outfile):
     """Lager fil med informasjon om alle fødselsnummerendringer"""
-    logger.info("Writing fnrupdate info to '%s'" % outfile)
+    logger.info("Writing fnrupdate info to '%s'", outfile)
     stream = AtomicStreamRecoder(outfile, mode='w', encoding=XML_ENCODING)
     writer = xmlprinter.xmlprinter(stream,
                                    indent_level=2,
@@ -509,7 +509,7 @@ def write_betalt_papir_info(outfile):
     """Lager fil med informasjon om alle som enten har fritak fra å
     betale kopiavgift eller har betalt kopiavgiften"""
 
-    logger.info("Writing betaltpapir info to '%s'" % outfile)
+    logger.info("Writing betaltpapir info to '%s'", outfile)
     f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.max_pct_change = 50
     f.write(xml.xml_hdr + "<data>\n")
