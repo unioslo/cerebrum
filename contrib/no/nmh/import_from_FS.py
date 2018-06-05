@@ -41,6 +41,7 @@ from Cerebrum.modules.no.nmh.access_FS import FS
 
 XML_ENCODING = 'utf-8'
 
+logger = Factory.get_logger("cronjob")
 xml = XMLHelper(encoding=XML_ENCODING)
 fs = None
 
@@ -241,14 +242,35 @@ def write_emne_info(outfile):
     f.write("</data>\n")
 
 
+class AtomicStreamRecoder(AtomicFileWriter):
+    """ file writer encoding hack.
+
+    xmlprinter.xmlprinter encodes data in the desired encoding before writing
+    to the stream, and AtomicFileWriter *requires* unicode-objects to be
+    written.
+
+    This hack turns AtomicFileWriter into a bytestring writer. Just make sure
+    the AtomicStreamRecoder is configured to use the same encoding as the
+    xmlprinter.
+
+    The *proper* fix would be to retire the xmlprinter module, and replace it
+    with something better.
+    """
+
+    def write(self, data):
+        if isinstance(data, bytes) and self.encoding:
+            # will be re-encoded in the same encoding by 'write'
+            data = data.decode(self.encoding)
+        return super(AtomicStreamRecoder, self).write(data)
+
+
 def write_fnrupdate_info(outfile):
     """Lager fil med informasjon om alle fødselsnummerendringer"""
-    stream = AtomicFileWriter(outfile, mode='w', encoding=XML_ENCODING)
+    logger.info("Writing fnrupdate info to '%s'" % outfile)
+    stream = AtomicStreamRecoder(outfile, mode='w', encoding=XML_ENCODING)
     writer = xmlprinter.xmlprinter(stream,
                                    indent_level=2,
-                                   # Human-readable output
-                                   data_mode=True,
-                                   input_encoding="utf-8")
+                                   data_mode=True)
     writer.startDocument(encoding=XML_ENCODING)
 
     db = Factory.get("Database")()
@@ -269,9 +291,7 @@ def write_fnrupdate_info(outfile):
                                  row["personnr_tidligere"]),
             "date": six.text_type(row["dato_foretatt"]),
         }
-
         writer.emptyElement("external_id", attributes)
-    # od
 
     writer.endElement("data")
     writer.endDocument()
