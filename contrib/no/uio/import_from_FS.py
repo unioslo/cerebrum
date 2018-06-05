@@ -32,6 +32,7 @@ import logging
 
 import cereconf
 
+import Cerebrum.logutils
 from Cerebrum.Utils import XMLHelper
 from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.extlib import xmlprinter
@@ -538,6 +539,7 @@ def set_filepath(datadir, file):
 
 
 def main():
+    Cerebrum.logutils.autoconf('cronjob')
     logger.info("Starting import from FS")
     try:
         opts, args = getopt.getopt(sys.argv[1:], "ptsroefbknd",
@@ -636,7 +638,7 @@ def main():
         except FileChangeTooBigError as msg:
             logger.error("Manual intervention required: %s", msg)
 
-    logger.info("Import from FS done")
+    logger.info("Done with import from FS")
 
 
 if __name__ == '__main__':

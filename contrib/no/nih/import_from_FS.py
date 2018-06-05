@@ -29,6 +29,7 @@ import logging
 
 import cereconf
 
+import Cerebrum.logutils
 from os.path import join as pj
 from Cerebrum import database
 from Cerebrum.extlib import xmlprinter
@@ -380,6 +381,8 @@ def assert_connected(user="CEREBRUM", service="FSNIH.uio.no"):
 
 
 def main():
+    Cerebrum.logutils.autoconf('cronjob')
+    logger.info("Starting import from FS")
     try:
         opts, args = getopt.getopt(sys.argv[1:], "fpsruUoeEk",
                                    ["personinfo-file=", "studprog-file=",
@@ -461,6 +464,8 @@ def main():
             misc_tag = val
         elif o in ('--misc-file',):
             write_misc_info(val, misc_tag, misc_func)
+
+    logger.info("Done with import from FS")
 
 
 if __name__ == '__main__':

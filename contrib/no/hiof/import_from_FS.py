@@ -28,6 +28,7 @@ import logging
 
 import cereconf
 
+import Cerebrum.logutils
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import XMLHelper
 from Cerebrum.utils.atomicfile import MinimumSizeWriter
@@ -324,6 +325,7 @@ def assert_connected(user="CEREBRUM", service="FSHIOF.uio.no"):
 
 
 def main():
+    Cerebrum.logutils.autoconf('cronjob')
     logger.info("Starting import from FS")
     try:
         opts, args = getopt.getopt(sys.argv[1:], "fpsruoei",
@@ -398,7 +400,7 @@ def main():
         elif o in ('--misc-file',):
             write_misc_info(val, misc_tag, misc_func)
 
-    logger.info("Import from FS done")
+    logger.info("Done with import from FS")
 
 
 if __name__ == '__main__':
