@@ -1,3 +1,14 @@
+2018-06-06    <cerebrum@gagarin.uit.no>
+
+	* bofhd_uit_cmds.py
+	(BofhdExtension._person_affiliation_add_helper): initially bofd
+	does not support adding student/ansatt affiliation on
+	persons. unfortunately uit needs this now. we have a case where a
+	person is not employed by UiT, but the person needs propper
+	employee access and the only we can do this is to import the
+	person via system-x and then set propper ansatt affiliation via
+	bofhd. removing this constraint now
+
 2018-05-23    <cerebrum@cleomedes.uit.no>
 
 	* Person.py (UiTPersonMixin.list_persons_name): this function was

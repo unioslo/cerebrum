@@ -7045,10 +7045,10 @@ Addresses and settings:
         if not has_aff:
             self.ba.can_add_affiliation(operator.get_entity_id(),
                                         person, ou, aff, aff_status)
-            if (aff == self.const.affiliation_ansatt or
-                aff == self.const.affiliation_student):
-                raise PermissionDenied(
-                    "Student/Ansatt affiliation can only be set by automatic import routines")
+            # if (aff == self.const.affiliation_ansatt or
+            #     aff == self.const.affiliation_student):
+            #     raise PermissionDenied(
+            #         "Student/Ansatt affiliation can only be set by automatic import routines")
             person.add_affiliation(ou.entity_id, aff,
                                    self.const.system_manual, aff_status)
             person.write_db()
