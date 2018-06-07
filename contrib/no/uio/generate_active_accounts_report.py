@@ -86,8 +86,8 @@ template = u"""
   </head>
   <body>
     <p class="meta">
-      {{ stats.matches }} have more than {{ settings.minimum }} accounts
-      {% if settings.maximum %}and less than {{ settings.maximum }}
+      {{ stats.matches }} persons have more than {{ settings.minimum }}
+      accounts{% if settings.maximum %} and less than {{ settings.maximum }}
       accounts{% endif %}.
     </p>
 
