@@ -139,17 +139,16 @@ def main(inargs=None):
     if bool(args.mail_from) ^ bool(args.mail_to):
         apply_to = mail_to_arg if args.mail_to else mail_from_arg
         missing = mail_from_arg if args.mail_to else mail_to_arg
-        error = argparse.ArgumentError(
+        parser.error(argparse.ArgumentError(
             apply_to,
-            "Must set {0} as well".format('/'.join(missing.option_strings)))
-        parser.error(error)
+            "Must set {0} as well".format('/'.join(missing.option_strings))))
 
     # Require mail_to or dryrun to be set
     if not any((args.mail_to, args.dryrun)):
-        raise argparse.ArgumentError(
+        parser.error(argparse.ArgumentError(
             mail_to_arg,
             "Must set {0} if not sending mail".format(
-                '/'.join(dryrun_arg.option_strings)))
+                '/'.join(dryrun_arg.option_strings))))
 
     Cerebrum.logutils.autoconf('cronjob', args)
 

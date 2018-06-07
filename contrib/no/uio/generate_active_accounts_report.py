@@ -369,17 +369,17 @@ def main(inargs=None):
     write_html_report(args.output, args.codec, persons, stats, args.minimum,
                       args.maximum)
 
+    args.output.flush()
+    if args.output is not sys.stdout:
+        args.output.close()
+    logger.info('Report written to %s', args.output.name)
+
     if args.mail_to:
         subject = "Report from %s" % parser.prog
         body = make_email_report(persons, args.minimum, args.maximum, stats)
         logger.debug('Sending report to %r (%r)', args.mail_to, subject)
         sendmail(args.mail_to, args.mail_from, subject, body)
 
-    args.output.flush()
-    if args.output is not sys.stdout:
-        args.output.close()
-
-    logger.info('Report written to %s', args.output.name)
     logger.info('Done with script %s', parser.prog)
 
 
