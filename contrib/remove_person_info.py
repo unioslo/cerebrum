@@ -110,6 +110,7 @@ def select_addresses(person, source_system, constants):
                                ('source_system',
                                 'address_type'))
 
+
 def select_contact_info(person, source_system, constants):
     return _collect_candidates(person.list_contact_info,
                                constants,
@@ -176,7 +177,8 @@ def select(person, source_system, constants, grace, selectors):
             select_by_stored_data(person, source_system, constants, selectors))
 
 
-def clean_it(prog, commit, logger, systems, system_to_cleaner, selectors, commit_threshold=1, grace=0):
+def clean_it(prog, commit, logger, systems, system_to_cleaner, selectors,
+             commit_threshold=1, grace=0):
     """Call funcs based on command line arguments."""
     class _Committer(object):
         """Commit changes upon reaching a threshold of N calls to commit()."""
@@ -285,10 +287,12 @@ def parse_it():
                                       select_names]}
 
     for x in args.systems:
-        if not x in system_to_cleaner:
-            raise NotImplementedError('Cleaner for system {} is not implemented'.format(x))
+        if x not in system_to_cleaner:
+            raise NotImplementedError(
+                'Cleaner for system {} is not implemented'.format(x))
         elif x not in system_to_selectors:
-            raise NotImplementedError('Selector for system {} is not implemented'.format(x))
+            raise NotImplementedError(
+                'Selector for system {} is not implemented'.format(x))
 
     clean_it(parser.prog,
              args.commit,
