@@ -150,8 +150,7 @@ def make_account_cache(db):
     ac = Factory.get('Account')(db)
     account_cache = collections.defaultdict(list)
     logger.debug('caching accounts...')
-    for row in ac.search(owner_type=co.entity_person,
-                         expire_start=None):
+    for row in ac.search(owner_type=co.entity_person):
         account_cache[row['owner_id']].append(row['name'])
     logger.debug('cached accounts for %d persons', len(account_cache))
 
