@@ -57,22 +57,20 @@ def clean_titles(person, specs):
         person.delete_name_with_language(*spec)
 
 
-def update_person_from_sap(logger, person, constants, source_system):
-    """Remove information from persons from SAP."""
+def update_person(logger, person, constants, source_system):
+    """Remove base information from persons."""
     clean_names(logger, person, constants, source_system)
     clean_addresses(person, source_system)
     clean_contact_info(person, source_system)
+
+
+def update_person_with_titles(logger, person, constants, source_system):
+    """Remove base and title information from persons."""
+    update_person(logger, person, constants, source_system)
     clean_titles(person, [(constants.work_title, constants.language_en),
                           (constants.work_title, constants.language_nb),
                           (constants.personal_title, constants.language_en),
                           (constants.personal_title, constants.language_nb)])
-
-
-def update_person_from_fs(logger, person, constants, source_system):
-    """Remove information from persons from FS."""
-    clean_names(logger, person, constants, source_system)
-    clean_addresses(person, source_system)
-    clean_contact_info(person, source_system)
 
 
 def perform(cleaner, committer, logger, person, constants, selection):
@@ -271,13 +269,20 @@ def parse_it():
                              ' affiliation in the last N days')
     args = parser.parse_args()
 
-    system_to_cleaner = {'FS': update_person_from_fs,
-                         'SAP': update_person_from_sap,
-                         'EXTENS': update_person_from_fs}
+    system_to_cleaner = {'FS': update_person,
+                         'SAP': update_person_with_titles,
+                         'EXTENS': update_person}
 
-    system_to_selectors = {'FS': [select_addresses, select_contact_info, select_names],
-                           'SAP': [select_addresses, select_contact_info, select_titles, select_names],
-                           'EXTENS': [select_addresses, select_contact_info, select_names]}
+    system_to_selectors = {'FS': [select_addresses,
+                                  select_contact_info,
+                                  select_names],
+                           'SAP': [select_addresses,
+                                   select_contact_info,
+                                   select_titles,
+                                   select_names],
+                           'EXTENS': [select_addresses,
+                                      select_contact_info,
+                                      select_names]}
 
     for x in args.systems:
         if not x in system_to_cleaner:
