@@ -272,10 +272,12 @@ def parse_it():
     args = parser.parse_args()
 
     system_to_cleaner = {'FS': update_person_from_fs,
-                         'SAP': update_person_from_sap }
+                         'SAP': update_person_from_sap,
+                         'EXTENS': update_person_from_fs}
 
     system_to_selectors = {'FS': [select_addresses, select_contact_info, select_names],
-                           'SAP': [select_addresses, select_contact_info, select_titles, select_names]}
+                           'SAP': [select_addresses, select_contact_info, select_titles, select_names],
+                           'EXTENS': [select_addresses, select_contact_info, select_names]}
 
     for x in args.systems:
         if not x in system_to_cleaner:
