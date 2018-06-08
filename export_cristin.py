@@ -1185,6 +1185,24 @@ def output_account_info(writer, person_db):
                     person_db.entity_id)
 # end output_account_info
 
+
+#
+# Filter out persons with a single ansatt affiliation whos status is 'timelonnet_midlertidig'
+#
+def filter_timelonnet(person_db):
+	aff_status = person_db.get_affiliations()
+	
+	i_am_not_timelonnet = True
+	for aff_stat in aff_status:
+		if aff_stat['status'] != int(constants.affiliation_status_timelonnet_midlertidig):
+			i_am_not_timelonnet = False
+
+	if i_am_not_timelonnet==True:
+			logger.info("person_id:%s only has a single affiliation and it is timelonnet. skipping..." % (person_db.entity_id))
+			return False
+	else:
+		return True
+
 def output_person(writer, pobj, phd_cache, system_source):
     """
     Output all information pertinent to a particular person (POBJ).
@@ -1212,8 +1230,12 @@ def output_person(writer, pobj, phd_cache, system_source):
     except Errors.NotFoundError:
         logger.error("Person with FNR %s not found in BAS - skipping. Check for inconsistent FNR" % (pobj.fnr))
         return
-        
 
+    # Filter out persons with a single employee affiliation whos status is timelonnet
+    retval = filter_timelonnet(person_db)
+    if retval == False:
+    		return
+    
     writer.startElement("person",
                         construct_person_attributes(writer,
                                                     pobj,

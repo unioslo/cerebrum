@@ -1,3 +1,7 @@
+2018-06-08    <cerebrum@gagarin.uit.no>
+
+	* export_cristin.py (filter_timelonnet): added function to filter out persons with a single affiliation whos status is timelonnet
+
 2018-05-29    <cerebrum@gagarin.uit.no>
 
 	* process_students.py (get_existing_accounts): removed lots of debug lines. Also rewrote how we calculate account home. the previous version didnt work as intended and generated LOTS of unnecessary changelog entries. The current version is the same as uio uses.
