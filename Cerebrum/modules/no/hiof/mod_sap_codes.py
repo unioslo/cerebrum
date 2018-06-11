@@ -277,7 +277,7 @@ class SAPConstants(Constants.Constants):
 
     sap_1203_fagarbeider_m_fagbre = SAPLonnsTittelKode(
         "20001203",
-        "1203 Fagarbeider m/fagbre",
+        "1203 Fagarbeider med fagbrev",
         "ØVR"
     )
 
