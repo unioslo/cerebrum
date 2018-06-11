@@ -176,7 +176,7 @@ class SAPConstants(Constants.Constants):
     sap_1077_hovedbibliotekar = SAPLonnsTittelKode(
         "20001077",
         "1077 Hovedbibliotekar",
-        "VIT"
+        "ØVR"
     )
 
     sap_1078_betjent = SAPLonnsTittelKode(
@@ -194,31 +194,31 @@ class SAPConstants(Constants.Constants):
     sap_1084_avdelingsingenior = SAPLonnsTittelKode(
         "20001084",
         "1084 Avdelingsingeniør",
-        "VIT"
+        "ØVR"
     )
 
     sap_1085_avdelingsingenior = SAPLonnsTittelKode(
         "20001085",
         "1085 Avdelingsingeniør",
-        "VIT"
+        "ØVR"
     )
 
     sap_1087_overingenior = SAPLonnsTittelKode(
         "20001087",
         "1087 Overingeniør",
-        "VIT"
+        "ØVR"
     )
 
     sap_1088_sjefsingenior = SAPLonnsTittelKode(
         "20001088",
         "1088 Sjefsingeniør",
-        "VIT"
+        "ØVR"
     )
 
     sap_1091_tekniker = SAPLonnsTittelKode(
         "20001091",
         "1091 Tekniker",
-        "VIT"
+        "ØVR"
     )
 
     sap_1113_prosjektleder = SAPLonnsTittelKode(
@@ -254,7 +254,7 @@ class SAPConstants(Constants.Constants):
     sap_1181_senioringenior = SAPLonnsTittelKode(
         "20001181",
         "1181 Senioringeniør",
-        "VIT"
+        "ØVR"
     )
 
     sap_1183_forsker = SAPLonnsTittelKode(
@@ -277,7 +277,7 @@ class SAPConstants(Constants.Constants):
 
     sap_1203_fagarbeider_m_fagbre = SAPLonnsTittelKode(
         "20001203",
-        "1203 Fagarbeider med fagbrev",
+        "1203 Fagarbeider m/fagbre",
         "ØVR"
     )
 
@@ -338,13 +338,13 @@ class SAPConstants(Constants.Constants):
     sap_1410_bibliotekar = SAPLonnsTittelKode(
         "20001410",
         "1410 Bibliotekar",
-        "VIT"
+        "ØVR"
     )
 
     sap_1411_avdelingsingenior = SAPLonnsTittelKode(
         "20001411",
         "1411 Avdelingsingeniør",
-        "VIT"
+        "ØVR"
     )
 
     sap_1423_undervp = SAPLonnsTittelKode(
