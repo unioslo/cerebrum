@@ -4446,28 +4446,29 @@ class BofhdExtension(BofhdCommonMethods):
                         })
         except PermissionDenied:
             pass
-        # Show contact info
-        for row in person.get_contact_info():
-            contact_type = self.const.ContactInfo(row['contact_type'])
-            if contact_type not in (self.const.contact_phone,
-                                    self.const.contact_mobile_phone,
-                                    self.const.contact_phone_private,
-                                    self.const.contact_private_mobile):
-                continue
-            try:
-                if self.ba.can_get_contact_info(
-                        operator.get_entity_id(),
-                        person=person,
-                        contact_type=contact_type):
-                    data.append({
-                        'contact': row['contact_value'],
-                        'contact_src': text_type(
-                            self.const.AuthoritativeSystem(
-                                row['source_system'])),
-                        'contact_type': text_type(contact_type),
-                    })
-            except PermissionDenied:
-                continue
+
+        # # Show contact info
+        # for row in person.get_contact_info():
+        #     contact_type = self.const.ContactInfo(row['contact_type'])
+        #     if contact_type not in (self.const.contact_phone,
+        #                             self.const.contact_mobile_phone,
+        #                             self.const.contact_phone_private,
+        #                             self.const.contact_private_mobile):
+        #         continue
+        #     try:
+        #         if self.ba.can_get_contact_info(
+        #                 operator.get_entity_id(),
+        #                 person=person,
+        #                 contact_type=contact_type):
+        #             data.append({
+        #                 'contact': row['contact_value'],
+        #                 'contact_src': text_type(
+        #                     self.const.AuthoritativeSystem(
+        #                         row['source_system'])),
+        #                 'contact_type': text_type(contact_type),
+        #             })
+        #     except PermissionDenied:
+        #         continue
         return data
 
     # person get_id
@@ -5386,13 +5387,14 @@ class BofhdExtension(BofhdCommonMethods):
         # Unpersonal accounts shouldn't normally have a mail inbox, but they
         # get a forward target for the account, to be sent to those responsible
         # for the account, preferrably a sysadm mail list.
-        if hasattr(self, 'entity_contactinfo_add'):
+        if hasattr(account, 'add_contact_info'):
             account.add_contact_info(self.const.system_manual,
                                      self.const.contact_email,
                                      contact_address)
+
         # TBD: Better way of checking if email forwards are in use, by
         # checking if bofhd command is available?
-        if hasattr(self, 'email_create_forward_target'):
+        if hasattr(self, '_email_create_forward_target'):
             localaddr = '{}@{}'.format(account_name,
                                        cereconf.EMAIL_DEFAULT_DOMAIN)
             self._email_create_forward_target(localaddr, contact_address)

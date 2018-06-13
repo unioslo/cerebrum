@@ -19,7 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Site specific auth.py for UiO. """
 
-import cereconf
 from Cerebrum import Constants
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
@@ -124,26 +123,6 @@ class BofhdAuth(auth.BofhdAuth):
                 operation_attr=str(trait)):
             return True
         raise PermissionDenied("Not allowed to set trait")
-
-    def can_get_contact_info(self, operator, person=None, contact_type=None,
-                             query_run_any=False):
-        """If an operator is allowed to see contact information for a given
-        person, i.e. phone numbers."""
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return True
-        account = Factory.get('Account')(self._db)
-        account.find(operator)
-        if person.entity_id == account.owner_id:
-            return True
-        if (hasattr(cereconf, 'BOFHD_VOIP_ADMINS') and
-                self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS)):
-                return True
-        return super(BofhdAuth, self).can_get_contact_info(operator, person,
-                                                           contact_type,
-                                                           query_run_any)
-
 
     def can_create_sysadm(self, operator, query_run_any=False):
         """Allow sysadmins to create sysadmin accounts.
