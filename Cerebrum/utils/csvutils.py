@@ -18,7 +18,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ csv utilities. """
+
 from __future__ import absolute_import
+
 import abc
 import csv
 import io
@@ -33,12 +35,17 @@ class _UnicodeSupport(object):
     Adopted from https://docs.python.org/2/library/csv.html
     """
 
-    writer_class = csv.writer
+    # Base class for formatting the csv bytestring
+    writer_class = None
+
+    # Encoding to use in the writer_class
     transcode = 'utf-8'
 
     def __init__(self, stream, *args, **kwargs):
         self.queue = io.BytesIO()
         self.stream = stream
+        if self.writer_class is None:
+            raise NotImplementedError("writer_class not set")
         self.writer = self.writer_class(self.queue, *args, **kwargs)
 
     @abc.abstractmethod
@@ -46,7 +53,7 @@ class _UnicodeSupport(object):
         pass
 
     def writerow(self, row):
-        # Write utf-8 encoded output to queue
+        # Write encoded output to queue
         self.writer.writerow(self.convert_row(row))
         data = self.queue.getvalue()
 
@@ -72,10 +79,7 @@ class UnicodeWriter(_UnicodeSupport):
 
 
 class UnicodeDictWriter(_UnicodeSupport):
-    """ Unicode-compatible CSV writer based on ``csv.DictWriter``.
-
-    Adopted from https://docs.python.org/2/library/csv.html
-    """
+    """ Unicode-compatible CSV writer based on ``csv.DictWriter``.  """
 
     writer_class = csv.DictWriter
 
