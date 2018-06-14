@@ -37,7 +37,6 @@ will produce a file:
 import argparse
 import csv
 import functools
-import io
 import logging
 import sys
 import time
@@ -47,6 +46,7 @@ import six
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 import Cerebrum.utils.argutils
+import Cerebrum.utils.csvutils as _csvutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 
@@ -64,32 +64,6 @@ class NameDumpDialect(csv.excel):
     escapechar = '\\'
     lineterminator = '\n'
     quoting = csv.QUOTE_NONE
-
-
-class CsvUnicodeWriter:
-    """ Unicode-compatible CSV writer.
-
-    Adopted from https://docs.python.org/2/library/csv.html
-    """
-    def __init__(self, f, dialect=csv.excel, **kwds):
-        self.queue = io.BytesIO()
-        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
-        self.stream = f
-
-    def writerow(self, row):
-        # Write utf-8 encoded output to queue
-        self.writer.writerow([six.text_type(s).encode("utf-8") for s in row])
-        data = self.queue.getvalue()
-
-        # Read formatted CSV data from queue, re-encode and write to stream
-        data = data.decode("utf-8")
-        self.stream.write(data)
-        self.queue.truncate(0)
-        self.queue.seek(0)
-
-    def writerows(self, rows):
-        for row in rows:
-            self.writerow(row)
 
 
 def make_name_cache(db):
@@ -162,7 +136,7 @@ def write_csv_report(stream, persons):
     :param stream: file-like object that can write unicode strings
     :param persons: iterable with mappings that has keys ('ext_id', 'name')
     """
-    writer = CsvUnicodeWriter(stream, dialect=NameDumpDialect)
+    writer = _csvutils.UnicodeWriter(stream, dialect=NameDumpDialect)
     for person in sorted(persons, key=lambda x: x['ext_id']):
         writer.writerow((
             person['ext_id'],

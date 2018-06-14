@@ -20,7 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 import argparse
 import csv
-import io
 import logging
 import os
 import sys
@@ -30,6 +29,7 @@ import six
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 import Cerebrum.utils.argutils
+import Cerebrum.utils.csvutils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
@@ -49,36 +49,8 @@ class KvernfileDialect(csv.excel):
     # an actual parseable CSV file...
 
 
-class CsvUnicodeWriter:
-    """ Unicode-compatible CSV writer.
-
-    Adopted from https://docs.python.org/2/library/csv.html
-    """
-
-    def __init__(self, stream, fieldnames, dialect=csv.excel, **kwds):
-        self.queue = io.BytesIO()
-        self.writer = csv.DictWriter(self.queue, fieldnames, dialect=dialect,
-                                     **kwds)
-        self.stream = stream
-
-    def writeheader(self):
-        return self.writer.writeheader()
-
-    def writerow(self, row):
-        # Write utf-8 encoded output to queue
-        self.writer.writerow(dict((k, six.text_type(v).encode("utf-8"))
-                                  for k, v in row.items()))
-        data = self.queue.getvalue()
-
-        # Read formatted CSV data from queue, re-encode and write to stream
-        data = data.decode("utf-8")
-        self.stream.write(data)
-        self.queue.truncate(0)
-        self.queue.seek(0)
-
-    def writerows(self, rows):
-        for row in rows:
-            self.writerow(row)
+class CsvUnicodeWriter(Cerebrum.utils.csvutils.UnicodeDictWriter):
+    pass
 
 
 def format_email(row):

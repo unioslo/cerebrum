@@ -24,10 +24,8 @@ This program reports users on disk without affiliations, and any quarantines
 that are ACTIVE for that user.
 """
 import argparse
-import codecs
 import csv
 import datetime
-import io
 import logging
 import sys
 
@@ -36,8 +34,10 @@ from six import text_type
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
+import Cerebrum.utils.csvutils as _csvutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import codec_type, get_constant
 
 logger = logging.getLogger(__name__)
 now = datetime.datetime.now
@@ -132,34 +132,6 @@ class CsvDialect(csv.excel):
     """
     delimiter = ';'
     lineterminator = '\n'
-
-
-class CsvUnicodeWriter:
-    """ Unicode-compatible CSV writer.
-
-    Adopted from https://docs.python.org/2/library/csv.html
-    """
-    def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
-        self.queue = io.BytesIO()
-        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
-        self.stream = f
-        self.encoder = codecs.getincrementalencoder(encoding)()
-
-    def writerow(self, row):
-        # Write utf-8 encoded output to queue
-        self.writer.writerow([text_type(s).encode("utf-8") for s in row])
-        data = self.queue.getvalue()
-
-        # Read formatted CSV data from queue, re-encode and write to stream
-        data = data.decode("utf-8")
-        data = self.encoder.encode(data)
-        self.stream.write(data)
-        self.queue.truncate(0)
-        self.queue.seek(0)
-
-    def writerows(self, rows):
-        for row in rows:
-            self.writerow(row)
 
 
 def get_accs_wo_affs(db, target_spread, check_accounts=False):
@@ -271,7 +243,8 @@ def write_csv_report(stream, codec, no_aff, check_accounts):
     output.write('# Generated: %s\n' % now().strftime('%Y-%m-%d %H:%M:%S'))
     output.write('# Number of users found: %d\n' % number_of_users)
 
-    writer = CsvUnicodeWriter(stream, dialect=CsvDialect, encoding=codec.name)
+    writer = _csvutils.UnicodeWriter(output, dialect=CsvDialect)
+
     for disk_path in sorted(no_aff):
         for user in do_sort_by_quarantine(no_aff[disk_path]):
             quarantine = user['quarantine'] or ''
@@ -323,13 +296,6 @@ DEFAULT_SPREAD = 'NIS_user@uio'
 DEFAULT_ENCODING = 'utf-8'
 
 
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
-
-
 def main(inargs=None):
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -370,15 +336,11 @@ def main(inargs=None):
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
 
-    try:
-        spread = co.Spread(args.spread)
-        int(spread)
-    except Errors.NotFoundError:
-        raise argparse.ArgumentError(
-            spread_arg, 'invalid spread {}'.format(repr(args.spread)))
+    spread = get_constant(db, parser, co.Spread, args.spread, spread_arg)
 
     logger.info('Start of script %s', parser.prog)
     logger.debug("args: %r", args)
+    logger.info("spread: %s", text_type(spread))
 
     # Search for accounts without affiliations
     no_aff = get_accs_wo_affs(db, spread, args.check_accounts)
