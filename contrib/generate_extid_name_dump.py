@@ -18,8 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Generate a CSV report over names and external IDs from a source system.
 
-"""This script produces a dump of names and external ID's from a source system.
 The dump is colon-separated data with the external ID and name of the person
 tied to the ID. Each line ends with the date and time for when the file was
 generated, as required by Datavarehus.
@@ -34,98 +34,211 @@ will produce a file:
     ...
 
 """
-from __future__ import unicode_literals
-
-import sys
 import argparse
+import csv
+import functools
+import io
+import logging
+import sys
 import time
 
-from six import text_type
+import six
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+import Cerebrum.utils.argutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 
 
-logger = Factory.get_logger('cronjob')
-db = Factory.get('Database')()
-pe = Factory.get('Person')(db)
-co = Factory.get('Constants')(db)
+logger = logging.getLogger(__name__)
 
 
-def get_external_ids(source_system, id_type):
-    """Fetches a list of people, their external ID and their name from a source
-    system.
+class NameDumpDialect(csv.excel):
+    """Specifying the CSV output dialect the script uses.
 
-    :param AuthoritativeSystem source_sys:
-        The authorative system to list from.
+    See the module `csv` for a description of the settings.
 
-    :param EntityExternalId id_type:
-        The external ID type to list.
-
-    :rtype: list
-    :returns: A list of dictionary objects with the keys:
-               'entity_id' -> <int> Entity id of the person
-               'ext_id'    -> <string> External id
-               'name'      -> <string> Full name of the employee
     """
-    ext_ids = []
-    persons = pe.list_external_ids(source_system=source_system,
-                                   id_type=id_type,
-                                   entity_type=co.entity_person)
-    names = pe.getdict_persons_names(source_system=co.system_cached,
-                                     name_types=co.name_full)
-    for person in persons:
-        try:
-            name = names[person['entity_id']][int(co.name_full)]
-        except KeyError:
-            logger.warn("No name for person with external id '%d'. \
-                         Excluded from list.", person['entity_id'])
-            continue
-        entry = {
-            'entity_id': person['entity_id'],
-            'ext_id': person['external_id'],
-            'name': name
+    delimiter = ';'
+    escapechar = '\\'
+    lineterminator = '\n'
+    quoting = csv.QUOTE_NONE
+
+
+class CsvUnicodeWriter:
+    """ Unicode-compatible CSV writer.
+
+    Adopted from https://docs.python.org/2/library/csv.html
+    """
+    def __init__(self, f, dialect=csv.excel, **kwds):
+        self.queue = io.BytesIO()
+        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+        self.stream = f
+
+    def writerow(self, row):
+        # Write utf-8 encoded output to queue
+        self.writer.writerow([six.text_type(s).encode("utf-8") for s in row])
+        data = self.queue.getvalue()
+
+        # Read formatted CSV data from queue, re-encode and write to stream
+        data = data.decode("utf-8")
+        self.stream.write(data)
+        self.queue.truncate(0)
+        self.queue.seek(0)
+
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
+
+
+def make_name_cache(db):
+    """ Make a cache of person names.
+
+    :return callable:
+        A callable that takes an entity_id and returns a string or None.
+    """
+    pe = Factory.get('Person')(db)
+    co = Factory.get('Constants')(db)
+
+    cache = pe.getdict_persons_names(
+        source_system=co.system_cached,
+        name_types=co.name_full)
+
+    def get_name(person_id):
+        return cache.get(person_id, {}).get(int(co.name_full))
+    return get_name
+
+
+def get_external_ids(db, source_system, id_type):
+    """
+    :param db:
+    :param source_system: source system to fetch persons from
+    :param id_type: id type to fetch persons with
+
+    :return generator:
+        A generator that yields persons with the given id types.
+    """
+    pe = Factory.get('Person')(db)
+    co = Factory.get('Constants')(db)
+    for row in pe.list_external_ids(
+            source_system=source_system,
+            id_type=id_type,
+            entity_type=co.entity_person):
+        yield {
+            'entity_id': row['entity_id'],
+            'ext_id': row['external_id'],
         }
-        ext_ids.append(entry)
-    return sorted(ext_ids, key=lambda x: x['ext_id'])
 
 
-def main():
+def get_persons(db, source_system, id_type):
+    """ Fetch persons to export. """
+    logger.debug('get_persons ...')
+    logger.debug('caching names...')
+    get_name = make_name_cache(db)
+    logger.debug('fetching persons...')
+    for person_info in get_external_ids(db, source_system, id_type):
+        person_info['name'] = get_name(person_info['entity_id'])
+        if not person_info['name']:
+            logger.warn("No name for person with external_id=%r. "
+                        "Excluded from list.", person_info['ext_id'])
+            continue
+        yield person_info
+    logger.debug('... get_persons done')
+
+
+def get_output_stream(filename, codec):
+    """ Get a unicode-compatible stream to write. """
+    if filename == '-':
+        stream = sys.stdout
+    else:
+        stream = AtomicFileWriter(filename, mode='w', encoding=codec.name)
+    return stream
+
+
+def write_csv_report(stream, persons):
+    """ Write a CSV report to a stream.
+
+    :param stream: file-like object that can write unicode strings
+    :param persons: iterable with mappings that has keys ('ext_id', 'name')
+    """
+    writer = CsvUnicodeWriter(stream, dialect=NameDumpDialect)
+    for person in sorted(persons, key=lambda x: x['ext_id']):
+        writer.writerow((
+            person['ext_id'],
+            person['name'],
+            time.strftime('%m/%d/%Y %H:%M:%S'),
+        ))
+    writer.writerow((u'foo', u'bar;bar', u'baz'))
+
+
+DEFAULT_ENCODING = 'utf-8'
+DEFAULT_SOURCE_SYSTEM = 'SAP'
+DEFAULT_EXTERNAL_ID = 'NO_SAPNO'
+
+
+def main(inargs=None):
+    doc = (__doc__ or '').strip().split('\n')
+
     parser = argparse.ArgumentParser(
-        description=('Generate a semicolon-separated file with employee IDs '
-                     'and employee names.'))
+        description=doc[0],
+        epilog='\n'.join(doc[1:]),
+        formatter_class=argparse.RawTextHelpFormatter)
+
     parser.add_argument(
         '-o', '--output',
-        type=text_type,
-        help='output file (default: stdout)')
+        metavar='FILE',
+        default='-',
+        help='The file to print the report to, defaults to stdout')
     parser.add_argument(
+        '-e', '--encoding',
+        dest='codec',
+        default=DEFAULT_ENCODING,
+        type=Cerebrum.utils.argutils.codec_type,
+        help="Output file encoding, defaults to %(default)s")
+    source_arg = parser.add_argument(
         '-s', '--source-system',
-        type=lambda x: co.human2constant(x, co.AuthoritativeSystem),
-        help='code for source system')
-    parser.add_argument(
+        metavar='SYSTEM',
+        default=DEFAULT_SOURCE_SYSTEM,
+        help='Source system to fetch data from, defaults to %(default)s')
+    id_type_arg = parser.add_argument(
         '-t', '--id-type',
-        type=lambda x: co.human2constant(x, co.EntityExternalId),
-        help='code for external ID type')
-    args = parser.parse_args()
+        metavar='IDTYPE',
+        default=DEFAULT_EXTERNAL_ID,
+        help='External ID type, defaults to %(default)s')
 
-    if not args.source_system:
-        parser.error("No valid source system provided")
-    if not args.id_type:
-        parser.error("No valid external ID type provided")
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    db = Factory.get('Database')()
+    co = Factory.get('Constants')(db)
+    get_const = functools.partial(
+        Cerebrum.utils.argutils.get_constant, db, parser)
+    source_system = get_const(
+        co.AuthoritativeSystem, args.source_system, source_arg)
+    id_type = get_const(co.EntityExternalId, args.id_type, id_type_arg)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-    # Generate selected report
-    logger.info("Started dump to %s", args.output)
-    external_ids = get_external_ids(args.source_system, args.id_type)
-    if not external_ids:
+    logger.info('Start of script %s', parser.prog)
+    logger.debug("args: %r", args)
+    logger.info("source_system: %s", six.text_type(source_system))
+    logger.info("id_type: %s", six.text_type(id_type))
+
+    persons = list(get_persons(db, source_system, id_type))
+    if not persons:
         logger.error('Found nothing to write to file')
-        sys.exit(1)
-    with AtomicFileWriter(args.output, encoding='latin1') as f:
-        for id_name in external_ids:
-            f.write("%s\n" % ';'.join(
-                (id_name['ext_id'],
-                 id_name['name'],
-                 time.strftime('%m/%d/%Y %H:%M:%S'))))
-    logger.info("Done")
+        raise SystemExit('Found nothing to write to file')
+    else:
+        logger.info("Writing id and name of %d persons", len(persons))
+
+    stream = get_output_stream(args.output, args.codec)
+    write_csv_report(stream, persons)
+
+    stream.flush()
+    if stream is not sys.stdout:
+        stream.close()
+
+    logger.info('Report written to %s', stream.name)
+    logger.info('Done with script %s', parser.prog)
 
 
 if __name__ == "__main__":
