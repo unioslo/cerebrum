@@ -27,7 +27,6 @@ OU.
 Created to give LITA overview of newly arrived persons from SAPUiO.
 """
 import argparse
-import codecs
 import logging
 import sys
 
@@ -40,6 +39,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import NotFoundError
+from Cerebrum.utils.argutils import codec_type, get_constant
 
 logger = logging.getLogger(__name__)
 
@@ -249,13 +249,6 @@ def write_html_report(stream, codec, new_persons_by_ou, from_date, to_date):
     output.write('\n')
 
 
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
-
-
 DEFAULT_ENCODING = 'utf-8'
 
 
@@ -301,17 +294,13 @@ def main(inargs=None):
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
 
-    src = []
-    for spread_str in args.source_systems.split(','):
-        code = co.human2constant(spread_str, co.AuthoritativeSystem)
-        if not code:
-            raise argparse.ArgumentError(
-                source_arg,
-                'invalid source system {}'.format(repr(spread_str)))
-        src.append(code)
+    src = [
+        get_constant(db, parser, co.AuthoritativeSystem, value, source_arg)
+        for value in args.source_systems.split(',')]
 
     logger.info('Start of script %s', parser.prog)
     logger.debug("args: %r", args)
+    logger.debug("source_systems: %r", src)
 
     new_persons = aggregate(
         get_new_persons(db, src, args.start_date, args.end_date),

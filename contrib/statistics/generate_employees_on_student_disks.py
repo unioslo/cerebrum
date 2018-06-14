@@ -55,7 +55,6 @@ Overall flow of execution looks like:
 
 """
 import argparse
-import codecs
 import datetime
 import logging
 import sys
@@ -68,6 +67,7 @@ import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.EntityTrait import EntityTrait
+from Cerebrum.utils.argutils import codec_type, get_constant
 from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
@@ -360,13 +360,6 @@ DEFAULT_SPREAD = 'NIS_user@uio'
 DEFAULT_ENCODING = 'utf-8'
 
 
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
-
-
 def main(inargs=None):
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -401,15 +394,11 @@ def main(inargs=None):
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
 
-    try:
-        spread = co.Spread(args.spread)
-        int(spread)
-    except Errors.NotFoundError:
-        raise argparse.ArgumentError(
-            spread_arg, 'invalid spread {}'.format(repr(args.spread)))
+    spread = get_constant(db, parser, co.Spread, args.spread, spread_arg)
 
     logger.info('Start of script %s', parser.prog)
     logger.debug("args: %r", args)
+    logger.info("spread: %s", text_type(spread))
 
     # Collect the data
     empl_on_stud_disk = get_empl_on_student_disks(db, spread, args.sort_by)

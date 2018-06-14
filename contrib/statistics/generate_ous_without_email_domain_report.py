@@ -24,7 +24,6 @@ Email domains can be configured with domain affiliations. This report will list
 OUs that are not in the configuration for any email domains.
 """
 import argparse
-import codecs
 import datetime
 import logging
 import sys
@@ -37,6 +36,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
+from Cerebrum.utils.argutils import codec_type
 
 logger = logging.getLogger(__name__)
 now = datetime.datetime.now
@@ -196,13 +196,6 @@ def write_html_report(stream, codec, ous):
 
 
 DEFAULT_ENCODING = 'utf-8'
-
-
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
 
 
 def main(inargs=None):

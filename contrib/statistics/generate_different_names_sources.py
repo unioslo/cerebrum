@@ -26,7 +26,6 @@ to the script.
 
 """
 import argparse
-import codecs
 import logging
 import sys
 
@@ -37,6 +36,7 @@ import Cerebrum.logutils.options
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import codec_type, get_constant
 
 
 logger = logging.getLogger(__name__)
@@ -109,13 +109,6 @@ def output_diff(stream, codec, iterator):
     output.write("\n")
 
 
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
-
-
 DEFAULT_ENCODING = 'utf-8'
 
 
@@ -149,14 +142,10 @@ def main(inargs=None):
     db = Factory.get("Database")()
     co = Factory.get("Constants")(db)
 
-    systems = [co.human2constant(const, co.AuthoritativeSystem)
-               for const in args.source_system]
+    systems = [
+        get_constant(db, parser, co.AuthoritativeSystem, value, diff_arg)
+        for value in args.source_system]
     logger.debug("systems: %r", systems)
-
-    if any(const is None for const in systems):
-        raise argparse.ArgumentError(
-            diff_arg,
-            'invalid source system in {}'.format(repr(args.source_system)))
 
     output_diff(args.output, args.codec, generate_diff(db, *systems))
 
