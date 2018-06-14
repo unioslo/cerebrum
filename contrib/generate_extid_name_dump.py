@@ -169,7 +169,6 @@ def write_csv_report(stream, persons):
             person['name'],
             time.strftime('%m/%d/%Y %H:%M:%S'),
         ))
-    writer.writerow((u'foo', u'bar;bar', u'baz'))
 
 
 DEFAULT_ENCODING = 'utf-8'
