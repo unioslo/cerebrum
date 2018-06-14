@@ -32,7 +32,7 @@ import six
 class _UnicodeSupport(object):
     """ Unicode-compatible CSV writer base class.
 
-    Adopted from https://docs.python.org/2/library/csv.html
+    Adapted from https://docs.python.org/2/library/csv.html
     """
 
     # Base class for formatting the csv bytestring
