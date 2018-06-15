@@ -74,18 +74,187 @@ Three events exist: consent_approve, consent_decline, and consent_remove.
 The first two corresponds to new or updated consents with opt-in or opt-out
 respectively. The last is sent when consent is removed.
 """
+import six
 
 from Cerebrum.Entity import Entity
 from Cerebrum.Errors import PolicyException
 from Cerebrum.Utils import NotSet, argument_to_sql
-from ConsentConstants import CLConstants, Constants, _EntityConsentCode
+from ConsentConstants import (CLConstants, Constants, _EntityConsentCode,
+                              _ConsentTypeCode)
 
 __version__ = "1.0"
 
 
-class EntityConsentMixin(Entity):
-    """Mixin for approve/deny propositions.
+def assert_consent_code(consent_code):
+    """ Turn an int or string value into a consent code object
+    :return _EntityConsentCode:
     """
+    if isinstance(consent_code, _EntityConsentCode):
+        return consent_code
+    return _EntityConsentCode(consent_code)
+
+
+def assert_consent_type(consent_type_code):
+    if isinstance(consent_type_code, _ConsentTypeCode):
+        return consent_type_code
+    return _ConsentTypeCode(consent_type_code)
+
+
+def get_change_type(consent_code):
+    """ Figure out the ChangeType of a EntityConsentCode. """
+    if consent_code.consent_type == Constants.consent_opt_in:
+        change = CLConstants.consent_approve
+    else:
+        change = CLConstants.consent_decline
+    return change
+
+
+def sql_insert_consent(db, entity_id, consent_code,
+                       description=None, expire=None):
+    """ Insert a consent row in the database.
+
+    :param db: a database-like connection or cursor
+    :param int entity_id: The entity_id to add ocnsent to
+    :param consent_code: The _EntityConsentCode to set
+    :param description: A description for the consent
+    :param expire: An expire datetime for the consent
+    """
+    if not isinstance(consent_code, _EntityConsentCode):
+        raise ValueError("consent_code must be EntityConsentCode")
+    db.execute(
+        """
+        INSERT INTO [:table schema=cerebrum name=entity_consent]
+            (entity_id, consent_code, description, time_set, expiry)
+            VALUES (:entity_id, :consent_code, :description, now(), :expiry)
+        """,
+        {
+            'entity_id': int(entity_id),
+            'consent_code': int(consent_code),
+            'description': description,
+            'expiry': expire,
+        })
+
+    if hasattr(db, 'log_change'):
+        change_type = get_change_type(consent_code)
+        change_params = {
+            'description': description,
+            'expiry': expire,
+            'consent_code': int(consent_code),
+            'consent_string': six.text_type(consent_code),
+        }
+        db.log_change(entity_id, change_type, None,
+                      change_params=change_params)
+
+
+def sql_update_consent(db, entity_id, consent_code,
+                       description=NotSet, expire=NotSet):
+    """ Update a consent row in the database.
+
+    :param db: a database-like connection or cursor
+    :param int entity_id: The entity_id to add ocnsent to
+    :param consent_code: The _EntityConsentCode to set
+    :param description: A description for the consent
+    :param expire: An expire datetime for the consent
+    """
+    if not isinstance(consent_code, _EntityConsentCode):
+        raise ValueError("consent_code must be EntityConsentCode")
+    update = """
+    UPDATE [:table schema=cerebrum name=entity_consent]
+    SET {changes}
+    WHERE entity_id=:entity_id AND consent_code=:consent_code
+    """
+    binds = {
+        'entity_id': entity_id,
+        'consent_code': consent_code,
+    }
+    fields = dict((field, value)
+                  for field, value in (('description', description),
+                                       ('expiry', expire))
+                  if value is not NotSet)
+
+    if not fields:
+        return
+
+    changes = ', '.join('{field}=:{field}'.format(field=field)
+                        for field in fields)
+    binds.update(fields)
+    db.execute(update.format(changes=changes), binds)
+
+    if hasattr(db, 'log_change'):
+        change_type = get_change_type(consent_code)
+        change_params = {
+            'description': description,
+            'expiry': expire,
+            'consent_code': int(consent_code),
+            'consent_string': six.text_type(consent_code),
+        }
+        db.log_change(entity_id, change_type, None,
+                      change_params=change_params)
+    return True
+
+
+def sql_delete_consent(db, entity_id, consent_code):
+    """ Update a consent row in the database.
+
+    :param db: a database-like connection or cursor
+    :param int entity_id: The entity_id to add ocnsent to
+    :param consent_code: The _EntityConsentCode to set
+    """
+    if not isinstance(consent_code, _EntityConsentCode):
+        raise ValueError("consent_code must be EntityConsentCode")
+    db.execute(
+        """
+        DELETE FROM [:table schema=cerebrum name=entity_consent]
+        WHERE entity_id=:entity_id AND consent_code=:consent_code
+        """,
+        {
+            'entity_id': int(entity_id),
+            'consent_code': int(consent_code),
+        })
+
+    if hasattr(db, 'log_change'):
+        db.log_change(
+            entity_id, CLConstants.consent_remove, None,
+            change_params={
+                'consent_code': int(consent_code),
+                'consent_string': six.text_type(consent_code),
+            })
+
+
+def sql_select_consents(db,
+                        consent_code=None,
+                        consent_type=None,
+                        entity_id=None,
+                        entity_type=None,
+                        filter_expired=True,
+                        fetchall=True):
+    """ Get consents from the database. """
+    filters = set()
+    args = {}
+    query = """
+    SELECT entity_consent.*
+    FROM [:table schema=cerebrum name=entity_consent]
+    INNER JOIN [:table schema=cerebrum name=entity_consent_code]
+    ON consent_code = code
+    """
+    for value, field, convert in (
+            (consent_code, 'consent_code', int),
+            (consent_type, 'consent_type', int),
+            (entity_id, 'entity_id', int),
+            (entity_type, 'entity_type', int)):
+        if value:
+            filters.add(argument_to_sql(value, field, args, convert))
+
+    if filter_expired:
+        filters.add('(expiry is null or expiry < [:now])')
+    if filters:
+        query += " WHERE " + " AND ".join(filters)
+    return db.query(query, args, fetchall=fetchall)
+
+
+class EntityConsentMixin(Entity):
+    """ Mixin for approve/deny propositions.  """
+
     def __init__(self, *rest, **kw):
         super(EntityConsentMixin, self).__init__(*rest, **kw)
         self.__consents = {}
@@ -173,6 +342,7 @@ class EntityConsentMixin(Entity):
         :type expiry: mx.DateTime, NotSet or None (=Null)
         :param description: expiry.
         """
+        consent_code = assert_consent_code(consent_code)
         if not isinstance(consent_code, _EntityConsentCode):
             consent_code = _EntityConsentCode(consent_code)
         if consent_code.consent_type == Constants.consent_opt_in:
@@ -222,42 +392,22 @@ class EntityConsentMixin(Entity):
         super(EntityConsentMixin, self).write_db()
         if not self.__consents:
             return
-        insert = """
-        INSERT INTO [:table schema=cerebrum name=entity_consent]
-        (entity_id, consent_code, description, time_set, expiry)
-        VALUES (:entity_id, :consent_code, :description, now(), :expiry)
-        """
-        # update = """
-        # UPDATE [:table schema=cerebrum name=entity_consent]
-        # SET {field} = :value
-        # """
-        update = """
-        UPDATE [:table schema=cerebrum name=entity_consent]
-        SET %(field)s = :value
-        """
-        delete = """DELETE FROM [:table schema=cerebrum name=entity_consent]
-        WHERE entity_id=:entity_id AND consent_code=:consent_code"""
         consents = [int(x['consent_code'])
                     for x in self.list_consents(entity_id=self.entity_id,
                                                 filter_expired=False)]
         for c, obj in self.__consents.items():
+            code = assert_consent_code(c)
             if 'deleted' in obj:
-                self.execute(delete, {
-                    'entity_id': self.entity_id,
-                    'consent_code': c
-                })
+                sql_delete_consent(self._db, self.entity_id, code)
             elif c in consents:
-                for field in ['description', 'expiry']:
-                    if field in obj:
-                        # self.execute(update.format(field=field),
-                        #              {'value': obj[field]})
-                        self.execute(update % {'field': field},
-                                     {'value': obj[field]})
+                kwargs = {}
+                if 'description' in obj:
+                    kwargs['description'] = obj['description']
+                if 'expiry' in obj:
+                    kwargs['expire'] = obj['expiry']
+                sql_update_consent(self._db, self.entity_id, code, **kwargs)
             else:
-                self.execute(insert, {
-                    'entity_id': self.entity_id,
-                    'consent_code': c,
-                    'description': obj.get('description'),
-                    'expiry': obj.get('expiry')
-                })
+                sql_insert_consent(self._db, self.entity_id, code,
+                                   description=obj.get('description'),
+                                   expire=obj.get('expiry'))
         self.__consents = dict()
