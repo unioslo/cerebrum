@@ -273,7 +273,7 @@ def parse_it():
 
     system_to_cleaner = {'FS': update_person,
                          'SAP': update_person_with_titles,
-                         'EXTENS': update_person}
+                         'EKSTENS': update_person}
 
     system_to_selectors = {'FS': [select_addresses,
                                   select_contact_info,
@@ -282,9 +282,9 @@ def parse_it():
                                    select_contact_info,
                                    select_titles,
                                    select_names],
-                           'EXTENS': [select_addresses,
-                                      select_contact_info,
-                                      select_names]}
+                           'EKSTENS': [select_addresses,
+                                       select_contact_info,
+                                       select_names]}
 
     for x in args.systems:
         if x not in system_to_cleaner:
