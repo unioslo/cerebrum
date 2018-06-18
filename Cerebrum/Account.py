@@ -27,8 +27,8 @@ default username is stored in is yet to be determined.
 from __future__ import unicode_literals
 
 import crypt
+import functools
 import string
-import re
 import mx
 import hashlib
 import base64
@@ -45,6 +45,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import (NotSet,
                             argument_to_sql,
                             prepare_string)
+from Cerebrum.utils.username import suggest_usernames
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough)
 from Cerebrum.modules.password_generator.generator import PasswordGenerator
@@ -1319,130 +1320,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         maxlen: maximum length of a username (incl. the suffix)
         suffix: string to append to every generated username
         """
-        goal = 15       # We may return more than this
-        maxlen -= len(suffix)
-        assert maxlen > 0, "maxlen - suffix = no characters left"
-        potuname = ()
-
-        lastname = self.simplify_name(lname, alt=1)
-        if lastname == "":
-            raise ValueError(
-                "Must supply last name, got '%s', '%s'" % (fname, lname))
-
-        fname = self.simplify_name(fname, alt=1)
-        lname = lastname
-
-        if fname == "":
-            # This is a person with no first name.  We "fool" the
-            # algorithm below by switching the names around.  This
-            # will always lead to suggesting names with numerals added
-            # to the end since there are only 8 possible usernames for
-            # a name of length 8 or more.  (assuming maxlen=8)
-            fname = lname
-            lname = ""
-
-        # We ignore hyphens in the last name, but extract the
-        # initials from the first name(s).
-        lname = lname.replace('-', '').replace(' ', '')
-        initials = [n[0] for n in re.split(r'[ -]', fname)]
-
-        # firstinit is set to the initials of the first two names if
-        # the person has three or more first names, so firstinit and
-        # initial never overlap.
-        firstinit = ""
-        initial = None
-        if len(initials) >= 3:
-            firstinit = "".join(initials[:2])
-        # initial is taken from the last first name.
-        if len(initials) > 1:
-            initial = initials[-1]
-
-        # Now remove all hyphens and keep just the first name.  People
-        # called "Geir-Ove Johnsen Hansen" generally prefer "geirove"
-        # to just "geir".
-
-        fname = fname.replace('-', '').split(" ")[0][0:maxlen]
-
-        # For people with many (more than three) names, we prefer to
-        # use all initials.
-        # Example:  Geir-Ove Johnsen Hansen
-        #           ffff fff i       llllll
-        # Here, firstinit is "GO" and initial is "J".
-        #
-        # gohansen gojhanse gohanse gojhanse ... goh gojh
-        # ssllllll ssilllll sslllll ssilllll     ssl ssil
-        #
-        # ("ss" means firstinit, "i" means initial, "l" means last name)
-
-        if len(firstinit) > 1:
-            llen = min(len(lname), maxlen - len(firstinit))
-            for j in range(llen, 0, -1):
-                un = firstinit + lname[0:j] + suffix
-                if self.validate_new_uname(domain, un):
-                    potuname += (un, )
-
-                if initial and len(firstinit) + 1 + j <= maxlen:
-                    un = firstinit + initial + lname[0:j] + suffix
-                    if self.validate_new_uname(domain, un):
-                        potuname += (un, )
-
-                if len(potuname) >= goal:
-                    break
-
-        # Now try different substrings from first and last name.
-        #
-        # geiroveh,
-        # fffffffl
-        # geirovjh geirovh geirovha,
-        # ffffffil ffffffl ffffffll
-        # geirojh geiroh geirojha geiroha geirohan,
-        # fffffil fffffl fffffill fffffll ffffflll
-        # geirjh geirh geirjha geirha geirjhan geirhan geirhans
-        # ffffil ffffl ffffill ffffll ffffilll fffflll ffffllll
-        # ...
-        # gjh gh gjha gha gjhan ghan ... gjhansen ghansen
-        # fil fl fill fll filll flll     fillllll fllllll
-
-        flen = min(len(fname), maxlen - 1)
-        for i in range(flen, 0, -1):
-            llim = min(len(lname), maxlen - i)
-            for j in range(1, llim + 1):
-                if initial:
-                    # Is there room for an initial?
-                    if j < llim:
-                        un = fname[0:i] + initial + lname[0:j] + suffix
-                        if self.validate_new_uname(domain, un):
-                            potuname += (un, )
-                un = fname[0:i] + lname[0:j] + suffix
-                if self.validate_new_uname(domain, un):
-                    potuname += (un, )
-            if len(potuname) >= goal:
-                break
-
-        # Try prefixes of the first name with nothing added.  This is
-        # the only rule which generates usernames for persons with no
-        # _first_ name.
-        #
-        # geirove, geirov, geiro, geir, gei, ge
-
-        flen = min(len(fname), maxlen)
-        for i in range(flen, 1, -1):
-            un = fname[0:i] + suffix
-            if self.validate_new_uname(domain, un):
-                potuname += (un, )
-            if len(potuname) >= goal:
-                break
-
-        # Absolutely last ditch effort:  geirov1, geirov2 etc.
-        i = 1
-        prefix = (fname + lname)[:maxlen - 2]
-
-        while len(potuname) < goal and i < 100:
-            un = prefix + str(i) + suffix
-            i += 1
-            if self.validate_new_uname(domain, un):
-                potuname += (un, )
-        return potuname
+        validate_func = functools.partial(self.validate_new_uname,
+                                          self.const.account_namespace)
+        return suggest_usernames(domain, fname, lname,
+                                 maxlen=maxlen, suffix=suffix,
+                                 validate_func=validate_func)
 
     def validate_new_uname(self, domain, uname):
         """Check that the requested username is legal and free"""
@@ -1455,76 +1337,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             return False
         except Errors.NotFoundError:
             return True
-
-    _simplify_name_cache = [None] * 4
-
-    def simplify_name(self, s, alt=0, as_gecos=0):
-        """Convert string so that it only contains characters that are
-        legal in a posix username.  If as_gecos=1, it may also be
-        used for the gecos field"""
-
-        try:
-            # make sure that s contains only latin1 compatible characters
-            s.encode('ISO_8859-1')
-        except UnicodeEncodeError:
-            self.logger.error(
-                u'latin1 incompatible characters detected in '
-                u'simplify_name for: {name}'.format(
-                    name=s))
-            raise ValueError('latin1 incompatible characters detected')
-        key = bool(alt) + (bool(as_gecos) * 2)
-        try:
-            (tr, xlate_subst, xlate_match) = self._simplify_name_cache[key]
-        except TypeError:
-            xlate = {u'Ð': u'Dh',
-                     u'ð': u'dh',
-                     u'Þ': u'Th',
-                     u'þ': u'th',
-                     u'ß': u'ss'}
-            if alt:
-                xlate.update({u'Æ': u'ae',
-                              u'æ': u'ae',
-                              u'Å': u'aa',
-                              u'å': u'aa'})
-            xlate_subst = re.compile(r'[^a-zA-Z0-9 -]').sub
-
-            def xlate_match(match):
-                return xlate.get(match.group(), u'')
-            tr = dict(zip(map(six.unichr, xrange(0200, 0400)), (u'x',) * 0200))
-            tr.update(dict(zip(
-                u'ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝàáâãäçèéêëìíîïñòóôõöùúûüýÿ'
-                u'{[}]|¦\\¨­¯´',
-                u'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
-                u'aAaAooO"--\'')))
-            for ch in filter(lambda x: x in tr, xlate):
-                del tr[ch]
-            if not as_gecos:
-                # lowercase the result
-                xlate = dict(zip(xlate.keys(), map(six.text_type.lower,
-                                                   xlate.values())))
-            self._simplify_name_cache[key] = (tr, xlate_subst, xlate_match)
-
-        # this is intended to be a replacement for s.translate until Python3
-        for key, value in tr.items():
-            s = s.replace(key, value)
-        if not as_gecos:
-            s = s.lower()
-
-        xlated = xlate_subst(xlate_match, s)
-
-        # normalise whitespace and hyphens: only ordinary SPC, only
-        # one of them between words, and none leading or trailing.
-        xlated = re.sub(r'\s+', u' ', xlated)
-        xlated = re.sub(r' ?-+ ?', u'-', xlated).strip(u' -')
-        try:
-            xlated.encode('ascii')
-        except UnicodeEncodeError:
-            self.logger.error(
-                u'ASCII incompatible output produced in '
-                u'simplify_name for: {output}'.format(
-                    output=xlated))
-            raise ValueError('ASCII incompatible output produced')
-        return xlated
 
     def search(self,
                spread=None,

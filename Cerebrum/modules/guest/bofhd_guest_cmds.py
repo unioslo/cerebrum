@@ -43,8 +43,8 @@ from Cerebrum.modules.bofhd.cmd_param import (AccountName,
                                               PersonName)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.guest.bofhd_guest_auth import BofhdAuth
-from Cerebrum.modules.username_generator.generator import UsernameGenerator
 from Cerebrum.utils.sms import SMSSender
+from Cerebrum.utils.username import suggest_usernames
 
 
 def format_date(field):
@@ -379,11 +379,10 @@ class BofhdExtension(BofhdCommonMethods):
         settings = guestconfig.GUEST_TYPES[guest_group.group_name]
 
         ac = self.Account_class(self.db)
-        uname_generator = UsernameGenerator()
         # create a validation callable (function)
         vfunc = functools.partial(ac.validate_new_uname,
                                   self.const.account_namespace)
-        name = uname_generator.suggest_unames(
+        name = suggest_usernames(
             self.const.account_namespace,
             fname,
             lname,
