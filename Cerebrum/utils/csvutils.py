@@ -90,3 +90,18 @@ class UnicodeDictWriter(_UnicodeSupport):
 
     def writeheader(self):
         return self.writer.writeheader()
+
+
+class CerebrumDialect(csv.Dialect):
+    """Describe the default Cerebrum dialect.
+
+    The dialect does *not* use quoting, and only applies a backslash escape
+    char to the default delimiter, ';'.
+    """
+    delimiter = ';'
+    escapechar = '\\'
+    lineterminator = '\n'
+    quoting = csv.QUOTE_NONE
+
+
+csv.register_dialect('cerebrum', CerebrumDialect)
