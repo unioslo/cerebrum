@@ -2800,7 +2800,7 @@ class AccountEmailMixin(Account.Account):
                 ret.setdefault(uname, set()).add(address)
         return ret
 
-    def wash_email_local_part_new(self, local_part):
+    def wash_email_local_part(self, local_part):
         """
         """
         lp = transliterate.for_email_local_part(local_part)
