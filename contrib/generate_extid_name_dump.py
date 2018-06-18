@@ -35,7 +35,6 @@ will produce a file:
 
 """
 import argparse
-import csv
 import functools
 import logging
 import sys
@@ -46,24 +45,12 @@ import six
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 import Cerebrum.utils.argutils
-import Cerebrum.utils.csvutils as _csvutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
+from Cerebrum.utils.csvutils import CerebrumDialect, UnicodeWriter
 
 
 logger = logging.getLogger(__name__)
-
-
-class NameDumpDialect(csv.excel):
-    """Specifying the CSV output dialect the script uses.
-
-    See the module `csv` for a description of the settings.
-
-    """
-    delimiter = ';'
-    escapechar = '\\'
-    lineterminator = '\n'
-    quoting = csv.QUOTE_NONE
 
 
 def make_name_cache(db):
@@ -136,7 +123,7 @@ def write_csv_report(stream, persons):
     :param stream: file-like object that can write unicode strings
     :param persons: iterable with mappings that has keys ('ext_id', 'name')
     """
-    writer = _csvutils.UnicodeWriter(stream, dialect=NameDumpDialect)
+    writer = UnicodeWriter(stream, dialect=CerebrumDialect)
     for person in sorted(persons, key=lambda x: x['ext_id']):
         writer.writerow((
             person['ext_id'],
