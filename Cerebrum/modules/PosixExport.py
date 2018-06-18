@@ -32,7 +32,8 @@ from six import text_type
 import posixconf
 
 from Cerebrum.Entity import EntityName
-from Cerebrum.Utils import Factory, auto_super, latin1_to_iso646_60
+from Cerebrum.Utils import Factory, auto_super
+from Cerebrum.utils import transliterate
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.utils.atomicfile import FileSizeChangeError
 from Cerebrum.QuarantineHandler import QuarantineHandler
@@ -607,8 +608,8 @@ Examples:
         cn = gecos = row['gecos']
         if data.account_id in self.a_id2owner:
             cn = self.p_id2name.get(self.a_id2owner[data.account_id], gecos)
-        data.cn    = cn or data.uname
-        data.gecos = latin1_to_iso646_60(gecos or data.cn)
+        data.cn = cn or data.uname
+        data.gecos = transliterate.to_iso646_60(gecos or data.cn)
         return data
 
     def ldif_user(self, data):
@@ -652,7 +653,7 @@ Examples:
                  'memberUid':   members}
         desc = self.group2desc(group_id)
         if desc:
-            # latin1_to_iso646_60 later
+            # becomes iso646_60 later
             entry['description'] = (desc,)
         return ','.join(('cn=' + name, self.fgrp_dn)), entry
 
@@ -666,7 +667,7 @@ Examples:
                  'memberNisNetgroup': group_members}
         desc = self.group2desc(group_id)
         if desc:
-            entry['description'] = (latin1_to_iso646_60(desc),)
+            entry['description'] = (transliterate.to_iso646_60(desc),)
         return ','.join(('cn=' + name, self.ngrp_dn)), entry
 
 

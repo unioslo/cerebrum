@@ -63,6 +63,7 @@ import six
 
 from Cerebrum import Utils
 from Cerebrum.Utils import prepare_string, argument_to_sql
+from Cerebrum.utils import transliterate
 from Cerebrum import Constants
 from Cerebrum.modules import CLConstants
 from Cerebrum.Entity import Entity
@@ -2799,30 +2800,16 @@ class AccountEmailMixin(Account.Account):
                 ret.setdefault(uname, set()).add(address)
         return ret
 
-    # Rewrite when converting to Python 3.x
-    def wash_email_local_part(self, local_part):
+    def wash_email_local_part_new(self, local_part):
         """
         """
-        lp = Utils.latin1_to_iso646_60(local_part)
-        # Translate ISO 646-60 representation of Norwegian characters
-        # to the closest single-ascii-letter.
-        xlate = {'[': 'A', '{': 'a',
-                 '\\': 'O', '|': 'o',
-                 ']': 'A', '}': 'a'}
-        lp = ''.join([xlate.get(c, c) for c in lp])
-        # Don't use caseful local-parts; lowercase them before they're
-        # written to the database.
-        lp = lp.lower()
+        lp = transliterate.for_email_local_part(local_part)
         # Retain only characters that are likely to be intentionally
         # used in local-parts.
         allow_chars = string.ascii_lowercase + string.digits + '-_.'
         lp = "".join([c for c in lp if c in allow_chars])
-        # The '.' character isn't allowed at the start or end of a
-        # local-part.
-        while lp.startswith('.'):
-            lp = lp[1:]
-        while lp.endswith('.'):
-            lp = lp[:-1]
+        # The '.' character isn't allowed at the start or end of a local-part.
+        lp = lp.strip('.')
         # Two '.' characters can't be together
         while lp.find('..') != -1:
             lp = lp.replace('..', '.')

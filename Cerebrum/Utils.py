@@ -28,7 +28,7 @@ import inspect
 import os
 import re
 import mx.DateTime
-import smtplib
+import six
 import ssl
 import imaplib
 import sys
@@ -42,10 +42,6 @@ import io
 
 from string import ascii_lowercase, digits
 from subprocess import Popen, PIPE
-
-import six
-
-from Cerebrum.UtilsHelper import Latin1
 
 
 class _NotSet(object):
@@ -134,14 +130,6 @@ def _mangle_name(classname, attr):
         # Strip leading underscores from classname.
         return "_" + classname.lstrip("_") + attr
     return attr
-
-
-# For global caching
-_latin1 = Latin1()
-
-# For global access (these names are used by other modules)
-latin1_to_iso646_60 = _latin1.to_iso646_60
-latin1_wash = _latin1.wash
 
 
 def read_password(user, system, host=None, encoding=None):

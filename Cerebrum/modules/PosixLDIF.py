@@ -26,7 +26,8 @@ from six import text_type
 import cereconf
 from Cerebrum.modules import LDIFutils
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.Utils import Factory, latin1_to_iso646_60, auto_super, make_timer
+from Cerebrum.Utils import Factory, auto_super, make_timer
+from Cerebrum.utils import transliterate
 from Cerebrum import Errors
 
 
@@ -311,7 +312,7 @@ class PosixLDIF(object):
             self.logger.warn("User %s has no home directory", uname)
             return None, None
         cn = row['name'] or row['gecos'] or uname
-        gecos = latin1_to_iso646_60(row['gecos'] or cn)
+        gecos = transliterate.to_iso646_60(row['gecos'] or cn)
         entry = {
             'objectClass': ['top', 'account', 'posixAccount'],
             'cn': (cn,),
@@ -509,7 +510,7 @@ class PosixLDIF(object):
         }
         if 'description' in cache:
             entry['description'] = \
-                latin1_to_iso646_60(cache['description']).rstrip(),
+                transliterate.to_iso646_60(cache['description']).rstrip(),
         self.netgroupcache[group_id] = entry
 
     def init_netgroup(self):
