@@ -4458,7 +4458,7 @@ class BofhdExtension(BofhdCommonMethods):
                 try:
                     if self.ba.can_get_contact_info(
                             operator.get_entity_id(),
-                            person=person,
+                            entity=person,
                             contact_type=contact_type):
                         data.append({
                             'contact': row['contact_value'],
