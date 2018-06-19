@@ -146,6 +146,11 @@ def get_ouinfo(ou_id,perspective):
     sko.clear()
     sko.find_by_perspective(ou_id,perspective)
 
+    # Determine if OU is quarantined
+    if (sko.get_entity_quarantine(qtype=co.quarantine_ou_notvalid) != []):
+    	# this sko is quarantined. return False
+    	return False
+
     #sko.find(ou_id)
     res=dict()
     #res['name']=str(sko.name)
@@ -210,7 +215,9 @@ def get_samskipnadstedinfo(ou_id,perspective):
     res=dict()
     sito_ou.clear()
     sito_ou.find(ou_id)
-    depname=wash_sitosted(sito_ou.display_name)
+    #depname=wash_sitosted(sito_ou.display_name)
+    depname = wash_sitosted(sito_ou.get_name_with_language(name_variant=co.ou_name_display,name_language=co.language_nb))
+    
     res['sted']=depname
     # Find company name for this ou_id by going to parents
     visited = []
@@ -219,7 +226,7 @@ def get_samskipnadstedinfo(ou_id,perspective):
         #logger.debug("Parent to id=%s is %s" % (ou_id,parent_id))
         if (parent_id is None) or (parent_id == sito_ou.entity_id):
             #logger.debug("Root for %s is %s, name is  %s" % (ou_id,sito_ou.entity_id,sito_ou.name))
-            res['company']=sito_ou.name
+            res['company'] = sito_ou.get_name_with_language(name_variant=co.ou_name,name_language=co.language_nb)
             break
         sito_ou.clear()
         sito_ou.find(parent_id)
@@ -228,7 +235,8 @@ def get_samskipnadstedinfo(ou_id,perspective):
         if sito_ou.entity_id in visited:
             raise RuntimeError, "DEBUG: Loop detected: %r" % visited
         visited.append(sito_ou.entity_id)
-        parentname=wash_sitosted(sito_ou.display_name)
+        #parentname=wash_sitosted(sito_ou.display_name)
+        parentname = wash_sitosted(sito_ou.get_name_with_language(name_variant=co.ou_name_display,name_language=co.language_nb))
         res.setdefault('parents',list()).append(parentname)
     res['parents'].remove(res['company'])
     return res
@@ -326,7 +334,7 @@ class ad_export:
                 try:
                     uname=self.accid2accname[e_id]
                 except KeyError:
-                    logger.warn("Entity_id %s not found in accid2accname, account does not have AD spread?" % (e_id))
+                    #logger.warn("Entity_id %s not found in accid2accname, account does not have AD spread?" % (e_id))
                     continue
                 #logger.debug("email target %s resolved to %s" % (row['target_id'],uname))
                 self.uname2forwards[uname]=row['forward_to']
@@ -342,7 +350,7 @@ class ad_export:
         self.account2contact=dict()
         # valid uit source systems
         for c in person.list_contact_info(entity_type=co.entity_account):
-            logger.debug("appending uit data:%s" % c)
+            #logger.debug("appending uit data:%s" % c)
             self.account2contact.setdefault(c['entity_id'], list()).append(c)
 
 
@@ -359,8 +367,8 @@ class ad_export:
         skip_source.append(co.system_lt)
         #skip_source.append(co.system_hitos)
         for aff in person.list_affiliations():
-            logger.debug("now processing person id:%s" % aff['person_id'])
-            logger.debug("affs are:%s" % aff)
+            #logger.debug("now processing person id:%s" % aff['person_id'])
+            #logger.debug("affs are:%s" % aff)
             # simple filtering
             aff_status_filter=(co.affiliation_status_student_tilbud,)
             if aff['status'] in aff_status_filter:
@@ -371,15 +379,20 @@ class ad_export:
             p_id = aff['person_id']
             ou_id = aff['ou_id']
             source_system = aff['source_system']
+
             if (source_system==co.system_sito):
                 perspective_code=co.perspective_sito
                 ou_info = get_ouinfo_sito(ou_id,perspective_code)
             else:
                 perspective_code=co.perspective_fs
                 ou_info=get_ouinfo(ou_id,perspective_code)
+                if ou_info == False:
+                	# this is is quarantined, continue with next affiliation
+                	logger.debug("ou id:%s is quarantined, continue with next affiliation" % ou_id)
+                	continue
             last_date=aff['last_date'].strftime("%Y-%m-%d")
             try:
-                logger.debug("ou id:%s, perspective code:%s" % (ou_id,perspective_code))
+                #logger.debug("ou id:%s, perspective code:%s" % (ou_id,perspective_code))
 
                 sko = ou_info['sko']
                 company=ou_info['company']
@@ -395,7 +408,7 @@ class ad_export:
                        'sko': sko,
                        'lastdate':last_date,
                        'company': company}
-            logger.debug("person id:%s, has affiliation:%s" %(p_id,aff['source_system']))
+            #logger.debug("person id:%s, has affiliation:%s" %(p_id,aff['source_system']))
             if(aff['source_system'] == co.system_paga):
                 paga_id = self.pid2pagaid.get(p_id,None)
                 #logger.info("have paga id:%s" % (paga_id))
@@ -429,7 +442,7 @@ class ad_export:
                 affinfo['sted']=sitosted['sted']
                 affinfo['parents']=",".join(sitosted['parents'])
                 logger.debug("processing sito person:%s", sito_id)
-                logger.debug("affs:%s", affinfo )
+                #logger.debug("affs:%s", affinfo )
 
             tmp=person_affs.get(p_id,list())
             if affinfo not in tmp:
@@ -569,7 +582,7 @@ class ad_export:
                         new_contact.update(a)
                     
                 if len(new_contact) > 0:
-                    logger.debug("appending the following:%s" % new_contact)
+                    #logger.debug("appending the following:%s" % new_contact)
                     contact.append(new_contact)
 
                                 

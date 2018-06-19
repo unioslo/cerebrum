@@ -1,3 +1,7 @@
+2018-06-19    <cerebrum@gagarin.uit.no>
+	* export_ad (get_ouinfo): this function will not return false if the ou_id is quarantined
+			    rewrote script to use the get_name_with_language() function when getting ou names. 					
+
 2018-06-08    <cerebrum@gagarin.uit.no>
 
 	* export_cristin.py (filter_timelonnet): added function to filter out persons with a single affiliation whos status is timelonnet
