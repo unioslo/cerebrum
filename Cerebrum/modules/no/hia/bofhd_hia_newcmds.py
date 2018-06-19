@@ -33,7 +33,7 @@ from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
                                          BofhdAuthRole)
-from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactInfo
+from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
@@ -1364,7 +1364,7 @@ class BofhdExtension(BofhdCommonMethods):
                                   member_type=member_type)
 
 
-class ContactCommands(BofhdContactInfo):
+class ContactCommands(BofhdContactCommands):
     authz = UiaContactAuth
 
 

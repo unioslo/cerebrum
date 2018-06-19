@@ -35,7 +35,28 @@ class Constants(Constants.Constants):
         'set_password_imp', 'Set password for important/critical accounts')
 
 
-class UioAuth(BofhdContactAuth, BofhdAuth):
+class UioContactAuthMixin(BofhdContactAuth):
+    """ uio specific contact auth. """
+
+    def can_get_contact_info(self, operator,
+                             entity=None,
+                             contact_type=None,
+                             query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return True
+        if (hasattr(cereconf, 'BOFHD_VOIP_ADMINS') and
+                self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS)):
+                return True
+        return super(UioContactAuthMixin, self).can_get_contact_info(
+            operator,
+            entity=entity,
+            contact_type=contact_type,
+            query_run_any=query_run_any)
+
+
+class UioAuth(UioContactAuthMixin, BofhdAuth):
     """Defines methods that are used by bofhd to determine wheter
     an operator is allowed to perform a given action.
 
@@ -144,23 +165,6 @@ class UioAuth(BofhdContactAuth, BofhdAuth):
         if query_run_any:
             return False
         raise PermissionDenied('Not allowed to create sysadmin accounts')
-
-    def can_get_contact_info(self, operator,
-                             entity=None,
-                             contact_type=None,
-                             query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return True
-        if (hasattr(cereconf, 'BOFHD_VOIP_ADMINS') and
-                self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS)):
-                return True
-        return super(UioContactAuth, self).can_get_contact_info(
-            operator,
-            entity=entity,
-            contact_type=contact_type,
-            query_run_any=query_run_any)
 
 
 class UioContactAuth(UioAuth):

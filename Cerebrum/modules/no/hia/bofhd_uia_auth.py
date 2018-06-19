@@ -115,8 +115,10 @@ class UiaContactAuth(UiaAuth, BofhdContactAuth):
             return False
         raise PermissionDenied("Not allowed to add contact info")
 
-    def can_remove_contact_info(self, operator, entity_id=None,
-                                contact_type=None, source_system=None,
+    def can_remove_contact_info(self, operator,
+                                entity=None,
+                                contact_type=None,
+                                source_system=None,
                                 query_run_any=False):
         # Superusers can see and run command
         if self.is_superuser(operator):
