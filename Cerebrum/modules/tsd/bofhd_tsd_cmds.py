@@ -29,19 +29,13 @@ Note that there are different bofhd extensions. One is for administrative
 tasks, i.e. the superusers in TSD, and one is for the end users. End users are
 communicating with bofhd through a web site, so that bofhd should only be
 reachable from the web host.
-
-NOTE:
-
-Using the @superuser decorator instead of calling self.ba.is_superuser(userid)
-is only used in this file so far, so if you are an experienced bofhd developer,
-ba.is_superuser is not missing, it's still here, but in a different form.
 """
 from __future__ import unicode_literals
 
 import json
 import six
 
-from functools import wraps, partial
+from functools import partial
 from mx import DateTime
 
 import cereconf
@@ -594,34 +588,6 @@ class TSDBofhdExtension(BofhdCommonMethods):
         return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
 
 
-def superuser(fn):
-    """Decorator for checking that methods are being executed as operator.
-
-    The first argument of the decorated function must be "self" and the second
-    must be "operator".  If operator is not superuser a CerebrumError will be
-    raised.
-    """
-    if fn.func_dict.get('assert_superuser_wrapper'):
-        return fn
-
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        if len(args) < 2:
-            raise CerebrumError(
-                'Decorated functions must have self and operator as the first'
-                ' arguments')
-        self = args[0]
-        operator = args[1]
-        userid = operator.get_entity_id()
-        if not self.ba.is_superuser(userid):
-            raise CerebrumError('Only superuser is allowed to do this!')
-        else:
-            self.logger.debug2("OK, current user is superuser.")
-            return fn(*args, **kwargs)
-    wrapper.func_dict['assert_superuser_wrapper'] = True
-    return wrapper
-
-
 class _Project:
     """Helper class for project information that has an entity_id, name and a
     list of quarantine types.
@@ -1010,14 +976,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         :returns: A statement that the operation was successful.
         :rtype: str (unicode)
         """
-        self.ba.can_setup_project(operator.get_entity_id())
-        op_id = operator.get_entity_id()
-        ou = self.OU_class(self.db)
-        try:
-            ou.find_by_tsd_projectid(project_id)
-        except Errors.CerebrumError:
-            raise CerebrumError("Could not find project '%s'" % project_id)
-        ou.setup_project(op_id)
+        project = self._get_project(project_id)
+        self.ba.can_setup_project(operator.get_entity_id(), project)
+        project.setup_project(operator.get_entity_id())
         return 'OK, project reconfigured according to current settings.'
 
     #
@@ -1034,8 +995,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         All information about the project gets deleted except its acronym, to
         avoid reuse of the ID.
         """
-        self.ba.can_terminate_project(operator.get_entity_id())
         project = self._get_project(projectid)
+        self.ba.can_terminate_project(operator.get_entity_id(), project)
         # TODO: delete person affiliations?
         # TODO: delete accounts
         project.terminate()
@@ -1057,8 +1018,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         only visible inside of Cerebrum. When a superuser approves the project,
         it gets spread to AD and gets set up properly.
         """
-        self.ba.can_approve_project(operator.get_entity_id())
         project = self._get_project(projectid)
+        self.ba.can_approve_project(operator.get_entity_id(), project)
         success_msg = 'Project approved: {projectid}'.format(
             projectid=projectid)
 
@@ -1096,8 +1057,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         All information about the project gets deleted, since it hasn't been
         exported out of Cerebrum yet.
         """
-        self.ba.can_reject_project(operator.get_entity_id())
         project = self._get_project(projectid)
+        self.ba.can_reject_project(operator.get_entity_id(), project)
         if not project.get_entity_quarantine(
                 only_active=True,
                 qtype=self.const.quarantine_not_approved):
@@ -1124,8 +1085,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     def project_set_enddate(self, operator, projectid, enddate):
         """Set the end date for a project."""
-        self.ba.can_set_project_end_date(operator.get_entity_id())
         project = self._get_project(projectid)
+        self.ba.can_set_project_end_date(operator.get_entity_id(), project)
         qtype = self.const.quarantine_project_end
         end = self._parse_date(enddate)
         # The quarantine needs to be removed before it could be added again
@@ -1157,8 +1118,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     def project_set_projectname(self, operator, projectid, projectname):
         """Set the project name for a project."""
-        self.ba.can_set_project_name(operator.get_entity_id())
         ou = self._get_project(projectid)
+        self.ba.can_set_project_name(operator.get_entity_id(), ou)
         ou.add_name_with_language(name_variant=self.const.ou_name_acronym,
                                   name_language=self.const.language_en,
                                   name=projectname)
@@ -1178,8 +1139,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     def project_set_longname(self, operator, projectid, longname):
         """Set the project name for a project."""
-        self.ba.can_set_project_name(operator.get_entity_id())
         ou = self._get_project(projectid)
+        self.ba.can_set_project_name(operator.get_entity_id(), ou)
         ou.add_name_with_language(name_variant=self.const.ou_name_long,
                                   name_language=self.const.language_en,
                                   name=longname)
@@ -1199,8 +1160,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     def project_set_shortname(self, operator, projectid, shortname):
         """Set the project name for a project."""
-        self.ba.can_set_project_name(operator.get_entity_id())
         ou = self._get_project(projectid)
+        self.ba.can_set_project_name(operator.get_entity_id(), ou)
         ou.add_name_with_language(name_variant=self.const.ou_name_short,
                                   name_language=self.const.language_en,
                                   name=shortname)
@@ -1219,11 +1180,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         perm_filter='can_set_project_price')
 
     def project_set_price(self, operator, projectid, price):
-        self.ba.can_set_project_price(operator.get_entity_id())
-        proj = self._get_project(projectid)
-        status = proj.populate_trait(self.const.trait_project_price,
-                                     strval=price)
-        proj.write_db()
+        project = self._get_project(projectid)
+        self.ba.can_set_project_price(operator.get_entity_id(), project)
+        status = project.populate_trait(self.const.trait_project_price,
+                                        strval=price)
+        project.write_db()
         return 'Project price {} to {}'.format('set' if status == 'INSERT'
                                                else 'changed',
                                                price)
@@ -1238,8 +1199,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         perm_filter='can_set_project_institution')
 
     def project_set_institution(self, operator, projectid, institution):
-        self.ba.can_set_project_institution(operator.get_entity_id())
         proj = self._get_project(projectid)
+        self.ba.can_set_project_institution(operator.get_entity_id(), proj)
         status = proj.populate_trait(self.const.trait_project_institution,
                                      strval=institution)
         proj.write_db()
@@ -1268,9 +1229,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         perm_filter='can_set_project_hpc')
 
     def project_set_hpc(self, operator, projectid, hpc):
-        self.ba.can_set_project_hpc(operator.get_entity_id())
-        hpc = self._parse_hpc_yesno(hpc)
         proj = self._get_project(projectid)
+        self.ba.can_set_project_hpc(operator.get_entity_id(), proj)
+        hpc = self._parse_hpc_yesno(hpc)
         status = proj.populate_trait(self.const.trait_project_hpc,
                                      strval=hpc)
         proj.write_db()
@@ -1327,8 +1288,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         perm_filter='can_set_project_metadata')
 
     def project_set_metadata(self, operator, projectid, key, value):
-        self.ba.can_set_project_metadata(operator.get_entity_id())
         proj = self._get_project(projectid)
+        self.ba.can_set_project_metadata(operator.get_entity_id(), proj)
         status = self._add_project_metadata_field(operator, proj, key, value)
         return 'Value for {} {}'.format(key, status)
 
@@ -1342,8 +1303,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     def project_freeze(self, operator, projectid):
         """Freeze a project."""
-        self.ba.can_freeze_project(operator.get_entity_id())
         project = self._get_project(projectid)
+        self.ba.can_freeze_project(operator.get_entity_id(), project)
         when = DateTime.now()
 
         # The quarantine needs to be removed before it could be added again
@@ -1421,8 +1382,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     def project_unfreeze(self, operator, projectid):
         """Unfreeze a project."""
-        self.ba.can_unfreeze_project(operator.get_entity_id())
         project = self._get_project(projectid)
+        self.ba.can_unfreeze_project(operator.get_entity_id(), project)
 
         # Remove the quarantine
         qtype = self.const.quarantine_frozen
@@ -1538,8 +1499,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         the projectid instead of entity_id. This could probably be handled in
         a much better way.
         """
-        self.ba.can_view_project_info(operator.get_entity_id())
         project = self._get_project(projectid)
+        self.ba.can_view_project_info(operator.get_entity_id(), project)
         try:
             pid = project.get_project_id()
         except Errors.NotFoundError:
@@ -1645,8 +1606,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         perm_filter='can_view_project_info')
 
     def project_metadata(self, operator, project_id):
-        self.ba.can_view_project_info(operator.get_entity_id())
         project = self._get_project(project_id)
+        self.ba.can_view_project_info(operator.get_entity_id(), project)
         ret = []
         for key, val in sorted((self._get_project_metadata(project) or {})
                                .items()):
@@ -1667,8 +1628,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         """Affiliate a given entity with a project. This is a shortcut command
         for helping the TSD-admins instead of using L{trait_set}. Some entity
         types doesn't even work with trait_set, like DnsOwners."""
-        self.ba.can_affiliate_entity_with_project(operator.get_entity_id())
-        ou = self._get_project(projectid)
+        project = self._get_project(projectid)
+        self.ba.can_affiliate_entity_with_project(operator.get_entity_id(),
+                                                  project)
 
         # A mapping of what trait to set for what entity type:
         co = self.const
@@ -1697,11 +1659,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             entity_id = ent.entity_id
             ent = EntityTrait.EntityTrait(self.db)
             ent.find(entity_id)
-        ent.populate_trait(trait_type, target_id=ou.entity_id,
+        ent.populate_trait(trait_type, target_id=project.entity_id,
                            date=DateTime.now())
         ent.write_db()
         return 'Entity affiliated with project: {project_id}'.format(
-            project_id=ou.get_project_id())
+            project_id=project.get_project_id())
 
     #
     # project set_vm_type
@@ -1726,8 +1688,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         :returns: A statement that the operation was successful.
         :rtype: str (unicode)
         """
-        self.ba.can_set_project_vm_type(operator.get_entity_id())
         project = self._get_project(project_id)
+        self.ba.can_set_project_vm_type(operator.get_entity_id(), project)
         op_id = operator.get_entity_id()
 
         if vm_type not in cereconf.TSD_VM_TYPES:
@@ -1755,8 +1717,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
     def project_list_hosts(self, operator, projectid):
         """List hosts by project."""
-        self.ba.can_list_project_hosts(operator.get_entity_id())
         project = self._get_project(projectid)
+        self.ba.can_list_project_hosts(operator.get_entity_id(), project)
         ent = EntityTrait.EntityTrait(self.db)
         dnsowner = dns.DnsOwner.DnsOwner(self.db)
         hostinfo = dns.HostInfo.HostInfo(self.db)
@@ -2110,8 +2072,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         perm_filter='can_approve_user')
 
     def user_approve(self, operator, accountname):
-        self.ba.can_approve_user(operator.get_entity_id())
         ac = self._get_account(accountname)
+        self.ba.can_approve_user(operator.get_entity_id(), ac)
         if ac.owner_type != self.const.entity_person:
             raise CerebrumError('Non-personal account, use: quarantine remove')
 

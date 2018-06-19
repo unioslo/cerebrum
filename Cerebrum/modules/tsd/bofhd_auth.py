@@ -84,222 +84,162 @@ class TSDBofhdAuthConstants(Constants.Constants):
 class TSDBofhdAuth(BofhdAuth):
     """The BofhdAuth class for TSD."""
 
+    def _can_do(self, operator, project, operation, what, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if self._has_operation_perm_somewhere(operator, operation):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied('Not authorized to {}'.format(what))
+
     def can_create_project(self, operator, query_run_any=False):
         """If the operator is allowed to create new projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_create):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to create projects')
+        return self._can_do(operator, None,
+                            self.const.auth_project_create,
+                            'create projects',
+                            query_run_any)
 
-    def can_setup_project(self, operator, query_run_any=False):
+    def can_setup_project(self, operator, project=None, query_run_any=False):
         """If the operator is allowed to run the setup procedure for
-        projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_setup):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to setup projects')
+        a project."""
+        return self._can_do(operator, project,
+                            self.const.auth_project_setup,
+                            'setup projects',
+                            query_run_any)
 
-    def can_terminate_project(self, operator, query_run_any=False):
-        """If the operator is allowed to terminate projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_terminate):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to terminate projects')
+    def can_terminate_project(self, operator, project=None,
+                              query_run_any=False):
+        """If the operator is allowed to terminate a project."""
+        return self._can_do(operator, project,
+                            self.const.auth_project_terminate,
+                            'terminate projects',
+                            query_run_any)
 
-    def can_approve_project(self, operator, query_run_any=False):
-        """If the operator is allowed to approve projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_approve):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to approve projects')
+    def can_approve_project(self, operator, project=None, query_run_any=False):
+        """If the operator is allowed to approve a project."""
+        return self._can_do(operator, project,
+                            self.const.auth_project_approve,
+                            'approve projects',
+                            query_run_any)
 
-    def can_reject_project(self, operator, query_run_any=False):
-        """If the operator is allowed to reject projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_reject):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to reject projects')
+    def can_reject_project(self, operator, project=None, query_run_any=False):
+        """If the operator is allowed to reject a project."""
+        return self._can_do(operator, project,
+                            self.const.auth_project_reject,
+                            'reject projects',
+                            query_run_any)
 
-    def can_freeze_project(self, operator, query_run_any=False):
+    def can_freeze_project(self, operator, project=None, query_run_any=False):
         """If the operator is allowed to freeze projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_freeze):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to freeze projects')
+        return self._can_do(operator, project,
+                            self.const.auth_project_freeze,
+                            'freeze projects',
+                            query_run_any)
 
-    def can_unfreeze_project(self, operator, query_run_any=False):
+    def can_unfreeze_project(self, operator, project=None,
+                             query_run_any=False):
         """If the operator is allowed to unfreeze projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_unfreeze):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to unfreeze projects')
+        return self._can_do(operator, project,
+                            self.const.auth_project_unfreeze,
+                            'unfreeze projects',
+                            query_run_any)
 
     def can_list_projects(self, operator, query_run_any=False):
         """If the operator is allowed to list projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_list):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to list projects')
+        return self._can_do(operator, None,
+                            self.const.auth_project_list,
+                            'list projects',
+                            query_run_any)
 
-    def can_view_project_info(self, operator, query_run_any=False):
-        """If the operator is allowed to see information about projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_view_info):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied(
-            'Not authorized to view information about projects')
+    def can_view_project_info(self, operator, project=None,
+                              query_run_any=False):
+        """If the operator is allowed to see information about a project."""
+        return self._can_do(operator, None,
+                            self.const.auth_project_view_info,
+                            'view information about projects',
+                            query_run_any)
 
-    def can_affiliate_entity_with_project(self, operator, query_run_any=False):
-        """If the operator is allowed to affiliate entities with projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_affiliate_with_entity):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied(
-            'Not authorized to view affiliate entity with project')
+    def can_affiliate_entity_with_project(self, operator, project=None,
+                                          query_run_any=False):
+        """If the operator is allowed to affiliate entities with a project."""
+        return self._can_do(operator, None,
+                            self.const.auth_project_affiliate_with_entity,
+                            'affiliate entity with project',
+                            query_run_any)
 
-    def can_set_project_end_date(self, operator, query_run_any=False):
-        """If the operator is allowed to set the end date for projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_set_end_date):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to set end date for projects')
+    def can_set_project_end_date(self, operator, project=None,
+                                 query_run_any=False):
+        """If the operator is allowed to set the end date for a project."""
+        return self._can_do(operator, project,
+                            self.const.auth_project_set_end_date,
+                            'set end date for project',
+                            query_run_any)
 
-    def can_set_project_name(self, operator, query_run_any=False):
-        """If the operator is allowed to set names for projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_set_name):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to set names for projects')
+    def can_set_project_name(self, operator, project=None,
+                             query_run_any=False):
+        """If the operator is allowed to set names for a project."""
+        return self._can_do(operator, project,
+                            self.const.auth_project_set_name,
+                            'set name for project',
+                            query_run_any)
 
-    def can_set_project_price(self, operator, query_run_any=False):
+    def can_set_project_price(self, operator, project=None,
+                              query_run_any=False):
         """If the operator is allowed to set price for projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_set_price):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to set price for projects')
+        return self._can_do(operator, project,
+                            self.const.auth_project_set_price,
+                            'set price for project',
+                            query_run_any)
 
-    def can_set_project_institution(self, operator, query_run_any=False):
+    def can_set_project_institution(self, operator, project=None,
+                                    query_run_any=False):
         """If the operator is allowed to set institution for projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_set_institution):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied(
-            'Not authorized to set institution for projects')
+        return self._can_do(operator, project,
+                            self.const.auth_project_set_institution,
+                            'set institution for projects',
+                            query_run_any)
 
-    def can_set_project_hpc(self, operator, query_run_any=False):
+    def can_set_project_hpc(self, operator, project=None, query_run_any=False):
         """If the operator is allowed to set HPC for projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_set_hpc):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to set HPC for projects')
+        return self._can_do(operator, project,
+                            self.const.auth_project_set_hpc,
+                            'set HPC for projects',
+                            query_run_any)
 
-    def can_set_project_metadata(self, operator, query_run_any=False):
+    def can_set_project_metadata(self, operator, project=None,
+                                 query_run_any=False):
         """If the operator is allowed to set metadata for projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_set_metadata):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to set metadata for projects')
+        return self._can_do(operator, project,
+                            self.const.auth_project_set_project_metadata,
+                            'set metadata for projects',
+                            query_run_any)
 
-    def can_set_project_vm_type(self, operator, query_run_any=False):
+    def can_set_project_vm_type(self, operator, project=None,
+                                query_run_any=False):
         """If the operator is allowed to set VM type for projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_set_vm_type):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to set VM type for projects')
+        return self._can_do(operator, project,
+                            self.const.auth_project_set_vm_type,
+                            'set VM type for projects',
+                            query_run_any)
 
-    def can_list_project_hosts(self, operator, query_run_any=False):
+    def can_list_project_hosts(self, operator, project=None,
+                               query_run_any=False):
         """If the operator is allowed to list hosts associated with
         projects."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_project_list_hosts):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied(
-            'Not authorized to list hosts associated with projects')
+        return self._can_do(operator, project,
+                            self.const.auth_project_list_hosts,
+                            'list hosts associated with projects',
+                            query_run_any)
 
     def can_view_subnets(self, operator, query_run_any=False):
         """If the operator is allowed to view subnets."""
-        if self.is_superuser(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_subnet_view):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Not authorized to view subnets')
+        return self._can_do(operator, None,
+                            self.const.auth_subnet_view,
+                            'view subnets',
+                            query_run_any)
 
-    def can_approve_user(self, operator, query_run_any=False):
+    def can_approve_user(self, operator, account=None, query_run_any=False):
         """If the operator is allowed to approve users."""
         if self.is_superuser(operator):
             return True
@@ -310,13 +250,14 @@ class TSDBofhdAuth(BofhdAuth):
             return False
         raise PermissionDenied('Not authorized to approve users')
 
-    def can_generate_otp_key(self, operator, account, query_run_any=False):
+    def can_generate_otp_key(self, operator, account=None,
+                             query_run_any=False):
         """If the operator is allowed to generate a new OTP key for a given
         account."""
         if self.is_superuser(operator):
             return True
         if self._has_operation_perm_somewhere(
-                operator, self.const.auth_generate_otp_key):
+                operator, self.const.auth_user_generate_otp_key):
             return True
         if query_run_any:
             return False
