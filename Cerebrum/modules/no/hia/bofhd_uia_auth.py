@@ -24,12 +24,14 @@ Site specific auth.py for UiA
 """
 
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd import auth
+from Cerebrum.modules.bofhd.auth import BofhdAuth
+from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
+from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.no.bofhd_note_cmds import EntityNoteBofhdAuth
 
 
-class BofhdAuth(EntityNoteBofhdAuth, auth.BofhdAuth):
+class UiaAuth(EntityNoteBofhdAuth, BofhdAuth):
     """Defines methods that are used by bofhd to determine wheter
     an operator is allowed to perform a given action.
 
@@ -83,3 +85,58 @@ class BofhdAuth(EntityNoteBofhdAuth, auth.BofhdAuth):
         if query_run_any:
             return False
         raise PermissionDenied("Not allowed to send Welcome SMS")
+
+
+class UiaContactAuth(UiaAuth, BofhdContactAuth):
+
+    def can_add_contact_info(self, operator,
+                             entity=None,
+                             contact_type=None,
+                             query_run_any=False):
+        # Superusers can see and run command
+        if self.is_superuser(operator):
+            return True
+
+        # Users with auth_add_contactinfo can see and run command
+        if self._has_operation_perm_somewhere(
+                operator,
+                self.const.auth_add_contactinfo):
+            # Only allow phone numbers to be added
+            if contact_type is not None and contact_type not in (
+                    self.const.contact_phone,
+                    self.const.contact_phone_private,
+                    self.const.contact_mobile_phone,
+                    self.const.contact_private_mobile):
+                raise PermissionDenied(
+                    "You are only allowed to add phone numbers")
+            return True
+        # Hide command if not in the above groups
+        if query_run_any:
+            return False
+        raise PermissionDenied("Not allowed to add contact info")
+
+    def can_remove_contact_info(self, operator, entity_id=None,
+                                contact_type=None, source_system=None,
+                                query_run_any=False):
+        # Superusers can see and run command
+        if self.is_superuser(operator):
+            return True
+        # Users with auth_rem_contactinfo can see and run command
+        if self._has_operation_perm_somewhere(
+                operator,
+                self.const.auth_remove_contactinfo):
+            return True
+        # Hide command if not in the above groups
+        if query_run_any:
+            return False
+        raise PermissionDenied("Not allowed to remove contact info")
+
+
+class UiaEmailAuth(UiaAuth, BofhdEmailAuth):
+
+    def can_email_move(self, operator, account=None, query_run_any=False):
+        if self.is_postmaster(operator, query_run_any):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Currently limited to superusers")

@@ -17,7 +17,27 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This module contains contact_info related commands in bofhd. """
+""" This module contains contact_info related commands in bofhd.
+
+NOTE: The classes in this module should probably not be used directly. Make
+subclasses of the classes here, and mix in the proper auth classes.
+
+E.g. given a ``FooAuth`` class that implements or overrides the core
+``BofhdAuth`` authorization checks, you should create:
+::
+
+    class FooContactAuth(FooAuth, BofhdContactAuth):
+        pass
+
+
+    class FooContactCommands(BofhdContactCommands):
+        authz = FooContactAuth
+
+Then list the FooContactCommands in your bofhd configuration file. This way,
+any override done in FooAuth (e.g. is_superuser) will also take effect in these
+classes.
+
+"""
 from __future__ import unicode_literals
 
 import logging
@@ -27,13 +47,14 @@ import six
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules.bofhd.auth import BofhdAuth
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.cmd_param import (Command, FormatSuggestion,
                                               SimpleString, SourceSystem)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
-from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
+from Cerebrum.modules.bofhd.utils import BofhdUtils
 
 
 logger = logging.getLogger(__name__)
@@ -173,10 +194,20 @@ CMD_ARGS = {
 }
 
 
-class BofhdContactInfo(BofhdCommonMethods):
+class BofhdContactCommands(BofhdCommandBase):
 
     all_commands = {}
     authz = BofhdContactAuth
+
+    @property
+    def util(self):
+        # TODO: Or should we inherit from BofhdCommonMethods?
+        #       We're not really interested in user_delete, etc...
+        try:
+            return self.__util
+        except AttributeError:
+            self.__util = BofhdUtils(self.db)
+            return self.__util
 
     @classmethod
     def get_help_strings(cls):
@@ -421,10 +452,10 @@ class BofhdContactInfo(BofhdCommonMethods):
         SimpleString(help_ref='id:target:entity'),
         # SimpleString(help_ref='entity_contact_type'),
         fs=FormatSuggestion(
-            "%-10s %-15s %-8s %-16s  %s",
+            "%-15s %-15s %-8s %-16s  %s",
             ('source_system', 'contact_type', 'contact_pref',
              format_time('modified'), 'contact_value', ),
-            hdr="%-10s %-15s %-8s %-16s  %s" % ('Source', 'Type', 'Weight',
+            hdr="%-15s %-15s %-8s %-16s  %s" % ('Source', 'Type', 'Weight',
                                                 'Modified', 'Value')
         ),
         perm_filter='can_get_contact_info')
@@ -444,7 +475,7 @@ class BofhdContactInfo(BofhdCommonMethods):
                     self.const.ContactInfo):
                 try:
                     self.ba.can_get_contact_info(operator.get_entity_id(),
-                                                 person=entity,
+                                                 entity=entity,
                                                  contact_type=contact_type)
                     yield contact_type
                 except PermissionDenied:

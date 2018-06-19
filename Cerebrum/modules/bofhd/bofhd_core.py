@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2009-2016 University of Oslo, Norway
+# Copyright 2009-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,15 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Common bofh daemon functionality used across all institutions.
+""" Common bofh daemon functionality used across all institutions.
 
 This module contains class, functions, etc. that are common and useful in all
 bofhd instances at all installations. This file should only include such
 generic functionality. Push institution-specific extensions to
 modules/no/<institution>/bofhd_<institution>_cmds.py.
 """
-
-import re
 import time
 
 import six
@@ -170,7 +167,7 @@ class BofhdCommandBase(object):
                     if hasattr(cand, 'list_commands'):
                         cmds = dict(
                             filter(
-                                lambda x, y: x not in omit_commands,
+                                lambda t: t[0] not in omit_commands,
                                 cand.list_commands(attr).items()))
                         merge(cmds)
             except IndexError:

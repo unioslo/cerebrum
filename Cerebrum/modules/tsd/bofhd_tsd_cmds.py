@@ -65,7 +65,7 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
                                               PhrasePasswordNotGoodEnough)
-from Cerebrum.modules.tsd.bofhd_auth import TSDBofhdAuth
+from Cerebrum.modules.tsd.bofhd_auth import TsdBofhdAuth, TsdContactAuth
 from Cerebrum.modules.tsd import bofhd_help
 from Cerebrum.modules.tsd import Gateway
 from Cerebrum.modules.username_generator.generator import UsernameGenerator
@@ -199,7 +199,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
     all_commands = {}
     hidden_commands = {}
     parent_commands = True
-    authz = TSDBofhdAuth
+    authz = TsdBofhdAuth
 
     def __init__(self, *args, **kwargs):
         super(TSDBofhdExtension, self).__init__(*args, **kwargs)
@@ -2589,3 +2589,7 @@ class EnduserBofhdExtension(TSDBofhdExtension):
             (name, cmd) for name, cmd in commands.iteritems()
             if name in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS)
         return filtered
+
+
+class ContactCommands(bofhd_contact_info.BofhdContactCommands):
+    authz = TsdContactAuth

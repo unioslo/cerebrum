@@ -81,6 +81,7 @@ from Cerebrum.modules.bofhd.cmd_param import (
     YesNo,
 )
 from Cerebrum.modules.bofhd import bofhd_email
+from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.help import Help, merge_help_strings
@@ -88,7 +89,11 @@ from Cerebrum.modules.dns.Subnet import Subnet
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
-from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
+from Cerebrum.modules.no.uio.bofhd_auth import (
+    UioAuth,
+    UioContactAuth,
+    UioEmailAuth,
+)
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
@@ -144,12 +149,6 @@ class ConnectException(Exception):
     pass
 
 
-# TODO: move more UiO cruft from bofhd/auth.py in here
-class UiOAuth(BofhdAuth):
-    """Authorisation.  UiO specific operations and business logic."""
-    pass
-
-
 @copy_func(
     BofhdUserCreateMethod,
     methods=['_user_create_set_account_type', '_user_create_basic',
@@ -162,7 +161,7 @@ class BofhdExtension(BofhdCommonMethods):
     omit_parent_commands = {'user_create'}
     parent_commands = True
 
-    authz = UiOAuth
+    authz = UioAuth
     external_id_mappings = {}
 
     # This little class is used to store connections to the LDAP servers, and
@@ -4447,28 +4446,29 @@ class BofhdExtension(BofhdCommonMethods):
         except PermissionDenied:
             pass
 
-        # # Show contact info
-        # for row in person.get_contact_info():
-        #     contact_type = self.const.ContactInfo(row['contact_type'])
-        #     if contact_type not in (self.const.contact_phone,
-        #                             self.const.contact_mobile_phone,
-        #                             self.const.contact_phone_private,
-        #                             self.const.contact_private_mobile):
-        #         continue
-        #     try:
-        #         if self.ba.can_get_contact_info(
-        #                 operator.get_entity_id(),
-        #                 person=person,
-        #                 contact_type=contact_type):
-        #             data.append({
-        #                 'contact': row['contact_value'],
-        #                 'contact_src': text_type(
-        #                     self.const.AuthoritativeSystem(
-        #                         row['source_system'])),
-        #                 'contact_type': text_type(contact_type),
-        #             })
-        #     except PermissionDenied:
-        #         continue
+        # Show contact info, if permission checks are implemented
+        if hasattr(self.ba, 'can_get_contact_info'):
+            for row in person.get_contact_info():
+                contact_type = self.const.ContactInfo(row['contact_type'])
+                if contact_type not in (self.const.contact_phone,
+                                        self.const.contact_mobile_phone,
+                                        self.const.contact_phone_private,
+                                        self.const.contact_private_mobile):
+                    continue
+                try:
+                    if self.ba.can_get_contact_info(
+                            operator.get_entity_id(),
+                            person=person,
+                            contact_type=contact_type):
+                        data.append({
+                            'contact': row['contact_value'],
+                            'contact_src': text_type(
+                                self.const.AuthoritativeSystem(
+                                    row['source_system'])),
+                            'contact_type': text_type(contact_type),
+                        })
+                except PermissionDenied:
+                    continue
         return data
 
     # person get_id
@@ -7165,90 +7165,9 @@ class BofhdExtension(BofhdCommonMethods):
         return text_type(date)
 
 
-class EmailAuth(UiOAuth, bofhd_email.BofhdEmailAuth):
-    """ UiO specific email auth. """
-
-    def can_email_address_delete(self, operator_id,
-                                 account=None,
-                                 domain=None,
-                                 query_run_any=False):
-        """Checks if the operator can delete an address in a given domain.
-
-        Superusers and postmasters are always allowed, but normal users are
-        also allowed to delete their own addresses if it is not registered to
-        one of their users' active affiliations' OU.
-        """
-        if self.is_superuser(operator_id):
-            return True
-        if query_run_any:
-            return True
-        try:
-            return self._is_local_postmaster(
-                operator_id, self.const.auth_email_delete, account, domain,
-                query_run_any)
-        except PermissionDenied:
-            pass
-        if operator_id != account.entity_id:
-            raise PermissionDenied("Can only change e-mail addresses that "
-                                   "belongs to your account")
-        if domain.entity_id in account.get_prospect_maildomains():
-            raise PermissionDenied(
-                "Can't delete e-mail addresses from domains the account is "
-                "affiliated with")
-        return True
-
-    def can_email_forward_info(self, operator, query_run_any=False):
-        """Allow access to superusers, postmasters and CERT."""
-        if self.is_superuser(operator):
-            return True
-        if self.is_postmaster(operator):
-            return True
-        if self._has_operation_perm_somewhere(
-                operator,
-                self.const.auth_email_forward_info):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied('Restricted access')
-
-    def can_email_mod_name(self, operator, person=None, firstname=None,
-                           lastname=None, query_run_any=False):
-        """If someone is allowed to modify a person's name. """
-        if self.is_superuser(operator, query_run_any):
-            return True
-        if self.is_postmaster(operator, query_run_any):
-            return True
-        if query_run_any:
-            return True
-
-        # Operator can only modify name if owner
-        account = Utils.Factory.get('Account')(self._db)
-        account.find(operator)
-        if person.entity_id != account.owner_id:
-            raise PermissionDenied('Cannot modify name for other persons')
-
-        all_names = person.get_all_names()
-
-        # Last name must match one of the registered last names
-        last_names = [x['name'] for x in all_names
-                      if x['name_variant'] == self.const.name_last]
-        if lastname not in last_names:
-            raise PermissionDenied("Invalid family name")
-
-        # All parts of the given name must exist somewhere
-        first_names = sum([x['name'].split(' ') for x in all_names
-                          if x['name_variant'] == self.const.name_first], [])
-        for n in firstname.split(' '):
-            if n not in first_names:
-                raise PermissionDenied('Invalid given name: {}'.format(n))
-        return True
-
-    def can_email_move(self, operator, account=None, query_run_any=False):
-        if self.is_postmaster(operator, query_run_any):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
+class ContactCommands(BofhdContactCommands):
+    """ entity_contactinfo_* commands with custom uio auth. """
+    authz = UioContactAuth
 
 
 class EmailCommands(bofhd_email.BofhdEmailCommands):
@@ -7258,7 +7177,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
     hidden_commands = {}
     omit_parent_commands = set()
     parent_commands = True
-    authz = EmailAuth
+    authz = UioEmailAuth
 
     @classmethod
     def get_help_strings(cls):
