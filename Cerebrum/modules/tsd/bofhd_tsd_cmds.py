@@ -1247,6 +1247,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                            reverse=True,
                            key=lambda x: x['note_id']):
             return json.loads(note['description'])
+        return dict()
 
     @staticmethod
     def _set_project_metadata(operator, project, metadata):
