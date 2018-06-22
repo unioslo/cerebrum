@@ -107,6 +107,8 @@ class Constants(Constants.Constants):
         'set_password', 'Set password')
     auth_set_password_important = _AuthRoleOpCode(
         'set_password_imp', 'Set password for important accounts')
+    auth_send_sms_welcome = _AuthRoleOpCode(
+        'send_welcome_sms', 'Send welcome SMS to account')
     auth_set_gecos = _AuthRoleOpCode(
         'set_gecos', "Set account's gecos field")
     auth_set_trait = _AuthRoleOpCode(
