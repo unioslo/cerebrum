@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2002-2008 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -351,7 +351,7 @@ class BofhdRequests(object):
                 SET run_at=:when WHERE request_id=:id""",
                              {'when': when, 'id': request_id})
             return
-        raise Errors.NotFoundError, "No such request %d" % request_id
+        raise Errors.NotFoundError("No such request %d" % request_id)
 
     def delete_request(self, entity_id=None, request_id=None,
                        operator_id=None, operation=None):
@@ -550,7 +550,7 @@ class BofhdUtils(object):
                 en = en.get_subclassed_object(ety_id)
             except Errors.NotFoundError:
                 raise CerebrumError("No such entity (%d)" % ety_id)
-            except ValueError, e:
+            except ValueError as e:
                 raise CerebrumError("Can't handle entity (%s)" % e)
             if en.entity_type == self.co.entity_account:
                 return get_target_posix_by_object(en)
