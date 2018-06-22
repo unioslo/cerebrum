@@ -150,10 +150,20 @@ class Repeaterable(collections.Iterable):
         return 'Repeaterable(%s)' % (repr(self.iterable), )
 
 
-def filtered_defaultdict(d, keys):
-    return collections.defaultdict(
-        six.text_type,
-        filter(lambda t: t[0] in keys, d.items()))
+def get_exported_orgs(db):
+    """" Get the ou_id of OUs to export.
+
+    :return tuple: OU entity_ids
+    """
+    co = Factory.get("Constants")(db)
+    ou = Factory.get("OU")(db)
+
+    def find_ous():
+        for row in ou.search(spread=co.spread_uio_org_ou,
+                             filter_quarantined=True):
+            yield int(row['ou_id'])
+        yield DEFAULT_ORG_OU_ID
+    return tuple(find_ous())
 
 
 def iter_employees(db):
@@ -249,8 +259,9 @@ def generate_people_info(db, exported_orgs):
 
             enabled = int(primary_account_id not in quarantined_accounts)
             person_name_full = pe.get_name(co.system_cached, co.name_full)
-            use_t1 = get_primary_contact(pe, co.contact_phone)
-            use_t2 = get_primary_contact(pe, co.contact_fax)
+            contact_phone = get_primary_contact(pe, co.contact_phone)
+            contact_fax = get_primary_contact(pe, co.contact_fax)
+
         yield {
             'uro_id': 'DUMMY1',
             'uro_oun_id': use_home_oun_id,
@@ -270,8 +281,8 @@ def generate_people_info(db, exported_orgs):
             'use_language_code': 'NO',
             'use_name': account_name,
             'use_send_email': '1',
-            'use_t1': use_t1,
-            'use_t2': use_t2,
+            'use_t1': contact_phone,
+            'use_t2': contact_fax,
             'use_uid': no_sap_nr,
             'use_view_abstract_suplier': '0',
         }
@@ -320,7 +331,7 @@ def generate_ou_info(db, exported_orgs):
     logger.debug('fetching ou data...')
     for ou_id in exported_orgs:
         if ou_id == DEFAULT_ORG_OU_ID:
-            # exported manually last
+            # the default ou is hard coded
             continue
 
         oun_parent_id = None
@@ -373,6 +384,7 @@ def generate_ou_info(db, exported_orgs):
             'oun_parent_id': oun_parent_id,
             'oun_type': oun_type,
         }
+    # and the default OU...
     yield DEFAULT_ORG_DATA
     logger.debug("done fetching ou data")
 
@@ -480,20 +492,16 @@ def generate_addr_parts_info(db, ous):
     logger.debug("done fetching address data")
 
 
-def get_exported_orgs(db):
-    """" Get the ou_id of OUs to export.
+def filtered_defaultdict(d, keys):
+    """ Wrap a dict for writing with the CSV writer.
 
-    :return tuple: OU entity_ids
+    1. unused keys are filtered out - otherwise the csv writer will complain
+       about unused keys.
+    2. provide a default empty string value for undefined keys
     """
-    co = Factory.get("Constants")(db)
-    ou = Factory.get("OU")(db)
-
-    def find_ous():
-        for row in ou.search(spread=co.spread_uio_org_ou,
-                             filter_quarantined=True):
-            yield int(row['ou_id'])
-        yield DEFAULT_ORG_OU_ID
-    return tuple(find_ous())
+    return collections.defaultdict(
+        six.text_type,
+        filter(lambda t: t[0] in keys, d.items()))
 
 
 def write_users_file(filename, employees,
@@ -539,14 +547,12 @@ def write_addr_file(filename, ous,
                     encoding=DEFAULT_ENCODING,
                     errors=DEFAULT_ERRORS):
     with io.open(filename, 'w', encoding=encoding, errors=errors) as stream:
-        write_keys_1 = UnicodeDictWriter(
-            stream,
-            ordered_addr_keys_1,
-            dialect=BaswareDialect)
-        write_keys_2 = UnicodeDictWriter(
-            stream,
-            ordered_addr_keys_2,
-            dialect=BaswareDialect)
+        write_keys_1 = UnicodeDictWriter(stream,
+                                         ordered_addr_keys_1,
+                                         dialect=BaswareDialect)
+        write_keys_2 = UnicodeDictWriter(stream,
+                                         ordered_addr_keys_2,
+                                         dialect=BaswareDialect)
         for ou_data in ous:
             write_keys_1.writerow(
                 filtered_defaultdict(ou_data, ordered_addr_keys_1))
@@ -570,7 +576,7 @@ def write_part_file(filename, ous,
         logger.info('wrote address data to %r', stream.name)
 
 
-def get_default_dumpdir(dirname):
+def get_default_dumpdir():
     return os.path.join(
         '' if sys.prefix == '/usr' else sys.prefix,
         'var', 'cache', 'BASWAREPM')
@@ -583,6 +589,7 @@ def make_filename(suffix):
 
 
 def main(inargs=None):
+
     # Make default filenames with date prefix
     user_filename = make_filename('User')
     roles_filename = make_filename('Roles')
@@ -590,11 +597,12 @@ def main(inargs=None):
     adr_filename = make_filename('Adr')
     adr_part_filename = make_filename('AdrPart')
 
-    # dump_directory = '/cerebrum/var/cache/BASWAREPM'
-    dump_directory = 'basware'
+    dump_directory = get_default_dumpdir()
+
+    # TODO: Rework the arguments to make it more convenient for testing.
+    # dump_directory = 'basware'
 
     parser = argparse.ArgumentParser()
-
     parser.add_argument(
         '-p', '--gen-person-file',
         const=['users', 'roles'],
@@ -615,7 +623,8 @@ def main(inargs=None):
         '-e', '--encoding',
         dest='codec',
         type=Cerebrum.utils.argutils.codec_type,
-        default=DEFAULT_ENCODING)
+        default=DEFAULT_ENCODING,
+        help="encoding of CSV files")
 
     filenames = parser.add_argument_group(
         'Files',
@@ -649,8 +658,6 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
-
-    # exports = set(args.exports)
 
     logger.info('Start of script %s', parser.prog)
     logger.debug("args: %r", args)
