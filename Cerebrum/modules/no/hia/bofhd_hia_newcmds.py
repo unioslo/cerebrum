@@ -33,6 +33,7 @@ from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
                                          BofhdAuthRole)
+from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
@@ -42,7 +43,11 @@ from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.access_FS import FS
-from Cerebrum.modules.no.hia.bofhd_uia_auth import BofhdAuth
+from Cerebrum.modules.no.hia.bofhd_uia_auth import (
+    UiaAuth,
+    UiaContactAuth,
+    UiaEmailAuth,
+)
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as base
 
 
@@ -230,7 +235,7 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands = {}
     hidden_commands = {}
     parent_commands = True
-    authz = BofhdAuth
+    authz = UiaAuth
 
     def __init__(self, *args, **kwargs):
         super(BofhdExtension, self).__init__(*args, **kwargs)
@@ -329,7 +334,7 @@ class BofhdExtension(BofhdCommonMethods):
             pass
 
     #
-    # person info <persin-id>
+    # person info <person-id>
     #
     all_commands['person_info'] = cmd_param.Command(
         ("person", "info"),
@@ -501,6 +506,7 @@ class BofhdExtension(BofhdCommonMethods):
                             co.AuthoritativeSystem(row['source_system'])),
                     })
 
+            # TODO: Why doesn't this use `can_get_contact_info`?
             # Show telephone numbers
             for row in person.get_contact_info():
                 if (row['contact_type']
@@ -1358,15 +1364,8 @@ class BofhdExtension(BofhdCommonMethods):
                                   member_type=member_type)
 
 
-class EmailAuth(bofhd_email.BofhdEmailAuth):
-    """ UiA specific email auth. """
-
-    def can_email_move(self, operator, account=None, query_run_any=False):
-        if self.is_postmaster(operator, query_run_any):
-            return True
-        if query_run_any:
-            return False
-        raise PermissionDenied("Currently limited to superusers")
+class ContactCommands(BofhdContactCommands):
+    authz = UiaContactAuth
 
 
 class EmailCommands(bofhd_email.BofhdEmailCommands):
@@ -1391,7 +1390,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         'email_pause',
         'email_primary_address',
     }
-    authz = EmailAuth
+    authz = UiaEmailAuth
 
     @classmethod
     def get_help_strings(cls):

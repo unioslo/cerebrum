@@ -189,7 +189,12 @@ class BofhdServerImplementation(object):
 
         for module_name, class_name in self.__config.extensions():
             mod = Utils.dyn_import(module_name)
-            cls = getattr(mod, class_name)
+            # TODO: Make dyn_import support class name
+            try:
+                cls = getattr(mod, class_name)
+            except AttributeError:
+                raise ImportError("Module '{}' has no class '{}'"
+                                  .format(module_name, class_name))
             self.extensions.add(cls)
 
             # Map commands to BofhdExtensions

@@ -24,6 +24,7 @@ from six import text_type
 from Cerebrum import database
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
@@ -40,6 +41,25 @@ from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cmd_base
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
+
+
+class NmhAuth(bofhd_contact_info.BofhdContactAuth, BofhdAuth):
+    """ NMH specific auth.
+
+    Inherits from BofhdContactAuth as a hack, to make can_get_contact_info
+    available to 'person_info'.
+    """
+    pass
+
+
+class NmhContactAuth(NmhAuth):
+    """ NMH specific contact info auth. """
+    pass
+
+
+class NmhEmailAuth(NmhAuth, bofhd_email.BofhdEmailAuth):
+    """ NMH specific email auth. """
+    pass
 
 
 uio_helpers = [
@@ -166,7 +186,7 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands = {}
     parent_commands = True
     external_id_mappings = {}
-    authz = BofhdAuth
+    authz = NmhAuth
 
     @classmethod
     def get_help_strings(cls):
@@ -294,9 +314,8 @@ class BofhdExtension(BofhdCommonMethods):
         return "User %s queued for deletion immediately" % account.account_name
 
 
-class EmailAuth(bofhd_email.BofhdEmailAuth):
-    """ NMH specific email auth. """
-    pass
+class ContactCommands(bofhd_contact_info.BofhdContactCommands):
+    authz = NmhContactAuth
 
 
 @copy_command(
@@ -310,4 +329,4 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
     hidden_commands = {}
     parent_commands = False  # copied with copy_command
     omit_parent_commands = set()
-    authz = EmailAuth
+    authz = NmhEmailAuth

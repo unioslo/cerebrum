@@ -27,6 +27,7 @@ from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 
+from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -43,6 +44,37 @@ from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cmd_base
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
+
+
+class NihAuth(bofhd_contact_info.BofhdContactAuth, BofhdAuth):
+    """ NIH specific auth.
+
+    Inherits from BofhdContactAuth as a hack, to make can_get_contact_info
+    available to 'person_info'.
+    """
+    pass
+
+
+class NihContactAuth(NihAuth):
+    """ NIH specific contact info auth. """
+    pass
+
+
+class NihEmailAuth(NihAuth, bofhd_email.BofhdEmailAuth):
+    """ NIH specific email auth. """
+
+    def can_email_info_detail(self, operator, account=None,
+                              query_run_any=False):
+        """ Can get extended info from email_info. """
+        if query_run_any or (account and operator == account.entity_id):
+            return True
+        if self._is_local_postmaster(operator,
+                                     self.const.auth_email_info_detail,
+                                     account=account,
+                                     domain=None,
+                                     query_run_any=query_run_any):
+            return True
+        raise PermissionDenied("Currently limited to postmasters")
 
 
 uio_helpers = [
@@ -173,7 +205,7 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands = {}
     parent_commands = True
     external_id_mappings = {}
-    authz = BofhdAuth
+    authz = NihAuth
 
     def __init__(self, *args, **kwargs):
         super(BofhdExtension, self).__init__(*args, **kwargs)
@@ -305,21 +337,8 @@ class BofhdExtension(BofhdCommonMethods):
         return "User %s queued for deletion immediately" % account.account_name
 
 
-class EmailAuth(bofhd_email.BofhdEmailAuth):
-    """ NIH specific email auth. """
-
-    def can_email_info_detail(self, operator, account=None,
-                              query_run_any=False):
-        """ Can get extended info from email_info. """
-        if query_run_any or (account and operator == account.entity_id):
-            return True
-        if self._is_local_postmaster(operator,
-                                     self.const.auth_email_info_detail,
-                                     account=account,
-                                     domain=None,
-                                     query_run_any=query_run_any):
-            return True
-        raise PermissionDenied("Currently limited to postmasters")
+class ContactCommands(bofhd_contact_info.BofhdContactCommands):
+    authz = NihContactAuth
 
 
 @copy_command(
@@ -342,7 +361,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
     hidden_commands = {}
     parent_commands = False  # copied with copy_command
     omit_parent_commands = set()
-    authz = EmailAuth
+    authz = NihEmailAuth
 
     @classmethod
     def get_help_strings(cls):

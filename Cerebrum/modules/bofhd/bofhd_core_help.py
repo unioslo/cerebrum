@@ -103,10 +103,6 @@ command_help = {
             "List information about accounts associated with given entities",
         'entity_history':
             "List the changes made to an entity.",
-        'entity_contactinfo_add':
-            "Add contact information to an entity.",
-        'entity_contactinfo_remove':
-            "Remove contact information from an entity.",
     },
     'group': {
         'group_multi_add': 'Let an account, person or group join a group',
@@ -379,13 +375,6 @@ arg_help = {
     'entity_id':
         ['id', 'Enter entity ID',
          "Numeric ID of the entity you wish to process."],
-    'entity_contact_type':
-        ['contact_type', 'Enter contact type',
-         'Examples:\n - EMAIL\n - PHONE\n - MOBILE\n - PRIVPHONE\n'
-         ' - PRIVATEMOBILE\n - OFFICE\n - URL'],
-    'entity_contact_value':
-        ['value', 'Enter contact value',
-         'Enter the valid contact information.'],
     'external_id_type':
         ['external_id_type', 'Enter external id type',
          'The external id type, i.e. NO_BIRTHNO/NO_STUDNO etc'],
