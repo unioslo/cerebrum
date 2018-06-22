@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2007 University of Oslo, Norway
+# Copyright 2007-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,53 +18,57 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Generate CSV data for IP Basware.
 
+This file is part of the Cerebrum framework. It produces a set of CSV
+files used to provision IP Basware.
 """
-This file is part of the Cerebrum framework. It produces a set of text
-files used to provision IP Basware, UiOs e-commerce application.
-The standard format of all the files is:
-
- <value>;<value>;...<value>
-
-Following files are produced:
-
- YYYYMMDD-User.cvs:
-  - information about the users of e-commerce application
-
- YYYYMMDD-Org.cvs:
-  - information about UiOs organizational structure
-
- YYYYMMDD-Roles.cvs:
-  - information about affiliations
-
- YYYYMMDD-Adr.cvs:
-  - information about addresses of organizational units at UiO
-
- YYYYMMDD-AdrPart.cvs:
-  - information about actual address parts (street address etc)
-
-"""
-
 from __future__ import unicode_literals
 
-
-import sys
-import getopt
+import argparse
+import collections
+import csv
+import datetime
+import itertools
 import io
+import logging
+import os
+import sys
 
-from six import text_type
+import six
 
-from mx import DateTime
-import cerebrum_path
-
-from Cerebrum.Utils import Factory
-from Cerebrum.utils.context import entity
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+import Cerebrum.utils.argutils
 from Cerebrum import Errors
 from Cerebrum.QuarantineHandler import QuarantineHandler
+from Cerebrum.Utils import Factory
+# from Cerebrum.utils.atomicfile import AtomicFileWriter
+from Cerebrum.utils.csvutils import UnicodeDictWriter
+from Cerebrum.utils.context import ContextPool
 
-del cerebrum_path
 
-outencoding = 'ISO-8859-1'
+class BaswareDialect(csv.Dialect):
+    """Describe the BASWARE CSV dialect.
+
+    The dialect does *not* use quoting, and only applies a backslash escape
+    char to the default delimiter, ';'.
+    """
+    # The csv module requires these to be bytestrings. Shouldn't cause any
+    # problems as long as they are ascii-bytestrings.
+    delimiter = str(';')
+    escapechar = str('\\')
+    lineterminator = str('\n')
+    quoting = csv.QUOTE_NONE
+
+
+logger = logging.getLogger(__name__)
+
+
+# DEFAULT_ENCODING = 'utf-8'
+DEFAULT_ENCODING = 'latin1'
+DEFAULT_ERRORS = 'replace'
+
 
 ordered_people_keys = ['use_uid', 'use_home_oun_id', 'use_supervisor_uid',
                        'use_name', 'use_domain', 'use_full_name',
@@ -83,6 +87,9 @@ ordered_people_keys = ['use_uid', 'use_home_oun_id', 'use_supervisor_uid',
                        'use_view_abstract_suplier', 'use_plan_approval_limit',
                        'use_t1', 'use_t2']
 
+# user fields that should be empty
+ordered_people_keys.extend(['_unused_field_%d' % i for i in range(38)])
+
 ordered_org_keys = ['oun_id', 'oun_name', 'oun_parent_id', 'oun_type',
                     'oun_party_id', 'oun_default_delivery_party',
                     'oun_default_invoicing_party',
@@ -90,472 +97,603 @@ ordered_org_keys = ['oun_id', 'oun_name', 'oun_parent_id', 'oun_type',
                     'oun_default_invoice_address',
                     'oun_default_cost_center_id',
                     'oun_default_acc_currency', 'oun_acc_cur_rate',
-                    'oun_acc_cur_rate_method']
+                    'oun_acc_cur_rate_method',
+                    '_unused_org_field']
 
-ordered_role_keys = ['uro_user_uid', 'uro_id', 'uro_oun_id', 'uro_is_self']
+ordered_role_keys = ['uro_user_uid', 'uro_id', 'uro_oun_id', 'uro_is_self',
+                     '_unused_role_field']
 
 ordered_addr_keys_1 = ['add_id_1', 'add_oun_id_1', 'add_title_1',
-                       'add_is_invoicing_1', 'add_is_delivery_1']
+                       'add_is_invoicing_1', 'add_is_delivery_1',
+                       '_unused_adr_field']
 ordered_addr_keys_2 = ['add_id_2', 'add_oun_id_2', 'add_title_2',
-                       'add_is_invoicing_2', 'add_is_delivery_2']
+                       'add_is_invoicing_2', 'add_is_delivery_2',
+                       '_unused_adr_field']
 
 ordered_addr_part_keys = ['apa_add_id', 'apa_id', 'apa_type', 'apa_text']
 
-default_org_data = {'oun_id': '83',
-                    'oun_name': 'Universitetet i Oslo',
-                    'oun_parent_id': '',
-                    'oun_type': '1',
-                    'oun_party_id': '',
-                    'oun_default_delivery_party': '',
-                    'oun_default_invoicing_party': '83',
-                    'oun_default_delivery_address': '',
-                    'oun_default_invoice_address': '',
-                    'oun_default_cost_center_id': '83',
-                    'oun_default_acc_currency': 'NOK',
-                    'oun_acc_cur_rate': '1',
-                    'oun_acc_cur_rate_method': '0',
-                    'add_id_1': '831',
-                    'add_oun_id_1': '83',
-                    'add_title_1': '83 (Toppnivå-post)',
-                    'add_is_invoicing_1': '0',
-                    'add_is_delivery_1': '1',
-                    'add_id_2': '832',
-                    'add_oun_id_2': '83',
-                    'add_title_2': '83 (Toppnivå-besøk)',
-                    'add_is_invoicing_2': '0',
-                    'add_is_delivery_2': '1'}
+DEFAULT_ORG_OU_ID = 999999
+DEFAULT_ORG_DATA = {
+    'add_id_1': '831',
+    'add_id_2': '832',
+    'add_is_delivery_1': '1',
+    'add_is_delivery_2': '1',
+    'add_is_invoicing_1': '0',
+    'add_is_invoicing_2': '0',
+    'add_oun_id_1': '83',
+    'add_oun_id_2': '83',
+    # TODO: wrong titles? shouldn't it be add_title_1=besøk, add_title_2=post?
+    'add_title_1': '83 (Toppnivå-post)',
+    'add_title_2': '83 (Toppnivå-besøk)',
+    'oun_acc_cur_rate': '1',
+    'oun_acc_cur_rate_method': '0',
+    'oun_default_acc_currency': 'NOK',
+    'oun_default_cost_center_id': '83',
+    'oun_default_invoicing_party': '83',
+    'oun_id': '83',
+    'oun_name': 'Universitetet i Oslo',
+    'oun_type': '1',
+}
 
 
-def generate_people_file(exported_orgs):
-    file_name = person_file_name
-    people_data = generate_people_info(exported_orgs)
-    with io.open(file_name, 'w', encoding=outencoding) as people_file, \
-            io.open(role_file_name, 'w', encoding=outencoding) as role_file:
-        free_vals = ';' * 37
-        for p in people_data.keys():
-            people_line = ''
-            for k in ordered_people_keys:
-                people_line = people_line + '%s;' % people_data[p][k]
-            people_file.write(people_line + free_vals + '\n')
-            role_line = ''
-            for r in ordered_role_keys:
-                role_line = role_line + '%s;' % people_data[p][r]
+class Repeaterable(collections.Iterable):
+    """ Repeatable iterator """
 
-            role_file.write(role_line + '\n')
+    def __init__(self, iterable):
+        self.iterable = iterable
+
+    def __iter__(self):
+        self.iterable, iterable = itertools.tee(self.iterable)
+        return iterable
+
+    def __repr__(self):
+        return 'Repeaterable(%s)' % (repr(self.iterable), )
 
 
-def generate_people_info(exported_orgs):
-    exported_employee_id = []
-    employee_data = {}
-    all_employee_ids = fetch_employee_data()
-    quarantined_accounts = QuarantineHandler.get_locked_entities(
-        db,
-        entity_types=const.entity_account,
-        entity_ids=[x['person_id'] for x in all_employee_ids])
-    for p in all_employee_ids:
-        if not p['person_id'] in exported_employee_id:
-            exported_employee_id.append(p['person_id'])
-        else:
+def get_exported_orgs(db):
+    """" Get the ou_id of OUs to export.
+
+    :return tuple: OU entity_ids
+    """
+    co = Factory.get("Constants")(db)
+    ou = Factory.get("OU")(db)
+
+    def find_ous():
+        for row in ou.search(spread=co.spread_uio_org_ou,
+                             filter_quarantined=True):
+            yield int(row['ou_id'])
+        yield DEFAULT_ORG_OU_ID
+    return tuple(find_ous())
+
+
+def iter_employees(db):
+    """ Iterate over persons to consider, and their ou affiliation. """
+    pe = Factory.get("Person")(db)
+    co = Factory.get('Constants')(db)
+    seen_persons = set()
+
+    def employee_iter(aff, aff_status):
+        return pe.list_affiliations(
+            source_system=co.system_sap,
+            affiliation=aff,
+            status=aff_status,
+            fetchall=False)
+
+    def seen(row):
+        seen = row['person_id'] in seen_persons
+        seen_persons.add(row['person_id'])
+        return seen
+
+    for row in itertools.chain(
+            employee_iter(co.affiliation_ansatt,
+                          co.affiliation_status_ansatt_tekadm),
+            employee_iter(co.affiliation_ansatt,
+                          co.affiliation_status_ansatt_vit),
+            employee_iter(co.affiliation_tilknyttet,
+                          co.affiliation_tilknyttet_innkjoper)):
+        if seen(row):
+            # Only consider the first found person affiliation
             continue
-        person.clear()
-        person.find(p['person_id'])
-        with entity.ou.find(p['ou_id']) as ou:
-            use_home_oun_id = text_type(ou)
+        else:
+            yield row['person_id'], row['ou_id']
+
+
+def generate_people_info(db, exported_orgs):
+    """ Generate user data.
+
+    :param exported_orgs:
+        A list or tuple with ou_id of OUs to export (from get_exported_orgs())
+
+    :return generator:
+        A generator that yields user dicts
+    """
+    co = Factory.get('Constants')(db)
+    context = ContextPool(db)
+
+    logger.debug('fetching account quarantines ...')
+    quarantined_accounts = QuarantineHandler.get_locked_entities(
+        db, entity_types=co.entity_account)
+    logger.debug('... got %d quarantines', len(quarantined_accounts))
+
+    def get_primary_contact(person, contact_type):
+        for row in person.get_contact_info(source=co.system_sap,
+                                           type=contact_type):
+            return row['contact_value']
+        return ''
+
+    def get_primary_email(account):
+        try:
+            return account.get_primary_mailaddress()
+        except Errors.NotFoundError:
+            return ''
+
+    logger.debug('fetching employee data...')
+    for person_id, ou_id in iter_employees(db):
+
+        with context.ou.find(ou_id) as ou:
+            use_home_oun_id = six.text_type(ou)
             if ou.entity_id not in exported_orgs:
-                logger.warn("Person %s connected to non-exported org. unit %s,"
-                            " skipping", person.entity_id, use_home_oun_id)
+                logger.warn("Skipping %s, connected to non-exported OU %s",
+                            person_id, use_home_oun_id)
                 # if a person is connected to a non-exported org unit,
                 # do not export
-            continue
-        primary_account_id = person.get_primary_account()
-        if not primary_account_id:
-            continue
-        account.clear()
+                continue
+
+        with context.person.find(person_id) as pe:
+            primary_account_id = pe.get_primary_account()
+            if not primary_account_id:
+                logger.info("Skipping %s, no primary account found", person_id)
+                continue
+
+            with context.account.find(primary_account_id) as account:
+                account_name = account.account_name
+                email_address = get_primary_email(account)
+
+            if not email_address:
+                logger.info("No primary e-mail address found for %s",
+                            account_name)
+
+            no_sap_nr = pe.get_external_id(
+                source_system=co.system_sap,
+                id_type=co.externalid_sap_ansattnr)[0]['external_id']
+
+            enabled = int(primary_account_id not in quarantined_accounts)
+            person_name_full = pe.get_name(co.system_cached, co.name_full)
+            contact_phone = get_primary_contact(pe, co.contact_phone)
+            contact_fax = get_primary_contact(pe, co.contact_fax)
+
+        yield {
+            'uro_id': 'DUMMY1',
+            'uro_oun_id': use_home_oun_id,
+            'uro_user_uid': no_sap_nr,
+            'use_change_cost_center': '1',
+            'use_change_delivery_addr': '1',
+            'use_change_invoicing_addr': '0',
+            'use_client_type': '2',
+            'use_edit_delivery_addr': '1',
+            'use_email_address': email_address,
+            'use_enabled': six.text_type(enabled),
+            'use_full_name': person_name_full,
+            'use_home_oun_id': use_home_oun_id,
+            'use_inherit_cost_center': '0',
+            'use_inherit_delivery_address': '1',
+            'use_inherit_invoicing_address': '1',
+            'use_language_code': 'NO',
+            'use_name': account_name,
+            'use_send_email': '1',
+            'use_t1': contact_phone,
+            'use_t2': contact_fax,
+            'use_uid': no_sap_nr,
+            'use_view_abstract_suplier': '0',
+        }
+
+    logger.debug("done fetching employee data")
+
+
+def generate_ou_info(db, exported_orgs):
+    """ Generate OU data.
+
+    :param listorg_units:
+        A dict with OUs to export (from get_exported_orgs())
+
+    :return generator:
+        A generator that yields ou dicts
+    """
+    co = Factory.get('Constants')(db)
+    context = ContextPool(db)
+
+    def get_parent_id(parent_id):
         try:
-            account.find(primary_account_id)
+            with context.ou.find(parent_id) as parent:
+                if parent_id and parent_id in exported_orgs:
+                    return six.text_type(parent)
+                else:
+                    return get_parent_id(parent.get_parent(co.perspective_sap))
         except Errors.NotFoundError:
-            logger.warn("Skipping %s, no valid account found", p['person_id'])
+            return None
+
+    def get_org_level(parent_id, level):
+        with context.ou.find(parent_id) as parent:
+            parent_id = parent.get_parent(co.perspective_sap)
+            if parent_id is None:
+                return level
+            else:
+                return get_org_level(int(parent_id), level + 1)
+
+    def get_ou_name(ou):
+        for row in ou.search_name_with_language(
+            entity_id=ou.entity_id,
+            name_language=co.language_nb,
+                name_variant=co.ou_name_display):
+            return row['name']
+        raise ValueError("No name for ou_id=%r" % (ou.entity_id, ))
+
+    logger.debug('fetching ou data...')
+    for ou_id in exported_orgs:
+        if ou_id == DEFAULT_ORG_OU_ID:
+            # the default ou is hard coded
             continue
-        no_sap_nr = person.get_external_id(
-            source_system=const.system_sap,
-            id_type=const.externalid_sap_ansattnr)[0]['external_id']
-        try:
-            email_address = account.get_primary_mailaddress()
-        except Errors.NotFoundError:
-            logger.info("No primary e-mail address found for %s, sending ''",
-                        account.account_name)
-            email_address = ''
-        quarantined = 0 if primary_account_id in quarantined_accounts else 1
-        person_name_full = person.get_name(const.system_cached,
-                                           const.name_full)
-        phones = person.get_contact_info(source=const.system_sap,
-                                         type=const.contact_phone)
-        if not phones:
-            use_t1 = ''
-        else:
-            use_t1 = phones[0]['contact_value']
-        fax = person.get_contact_info(source=const.system_sap,
-                                      type=const.contact_fax)
-        if not fax:
-            use_t2 = ''
-        else:
-            use_t2 = fax[0]['contact_value']
-        employee_data[p['person_id']] = {'use_uid': no_sap_nr,
-                                         'use_home_oun_id': use_home_oun_id,
-                                         'use_supervisor_uid': '',
-                                         'use_name': account.account_name,
-                                         'use_domain': '',
-                                         'use_full_name': person_name_full,
-                                         'use_email_address': email_address,
-                                         'use_language_code': 'NO',
-                                         'use_approval_limit': '',
-                                         'use_approve_own': '',
-                                         'use_send_email': '1',
-                                         'use_move_to_substitute': '',
-                                         'use_substitute_uid': '',
-                                         'use_substitute_start_date': '',
-                                         'use_substitute_end_date': '',
-                                         'use_client_type': '2',
-                                         'use_inherit_delivery_address': '1',
-                                         'use_delivery_add_id': '',
-                                         # setting this value to none allows
-                                         # inheritance of delivery address
-                                         # in stead of use_home_oun_id,
-                                         'use_change_delivery_addr': '1',
-                                         'use_edit_delivery_addr': '1',
-                                         'use_inherit_invoicing_address': '1',
-                                         'use_invoicing_add_id': '',
-                                         'use_change_invoicing_addr': '0',
-                                         'use_edit_invoicing_addr': '',
-                                         'use_inherit_cost_center': '0',
-                                         'use_cce_id': '',
-                                         'use_change_cost_center': '1',
-                                         'use_ugr_id': '',
-                                         'use_enabled': quarantined,
-                                         'use_superadmin': '',
-                                         'use_personnel_number': '',
-                                         'use_view_abstract_suplier': '0',
-                                         'use_plan_approval_limit': '',
-                                         'use_t1': use_t1,
-                                         'use_t2': use_t2,
-                                         'uro_user_uid': no_sap_nr,
-                                         'uro_id': 'DUMMY1',
-                                         'uro_oun_id': use_home_oun_id,
-                                         'uro_is_self': ''}
-    logger.debug("Fetched all relevant employee data.")
-    return employee_data
 
-
-def fetch_employee_data():
-    all_employee_ids = person.list_affiliations(
-        source_system=const.system_sap,
-        affiliation=const.affiliation_ansatt,
-        status=const.affiliation_status_ansatt_tekadm)
-    all_vit_ids = person.list_affiliations(
-        source_system=const.system_sap,
-        affiliation=const.affiliation_ansatt,
-        status=const.affiliation_status_ansatt_vit)
-    all_guest_ids = person.list_affiliations(
-        source_system=const.system_sap,
-        affiliation=const.affiliation_tilknyttet,
-        status=const.affiliation_tilknyttet_innkjoper)
-    for v in all_vit_ids:
-        all_employee_ids.append(v)
-
-    for i in all_guest_ids:
-        all_employee_ids.append(i)
-    return all_employee_ids
-
-
-def generate_organization_file(org_units, exported_orgs):
-    org_structure = get_org_unit_data(org_units, exported_orgs)
-    with io.open(org_file_name, 'w', encoding=outencoding) as org_file, \
-            io.open(address_file_name, 'w',
-                    encoding=outencoding) as address_file, \
-            io.open(address_part_file_name, 'w',
-                    encoding=outencoding) as addr_part_file:
-        org_structure['999999'] = default_org_data
-        addr_part_file_data = generate_address_parts_file(org_structure)
-        for apfd in addr_part_file_data:
-            addr_part_file.write(apfd + '\n')
-        for o in org_structure.keys():
-            org_line = ''
-            for k in ordered_org_keys:
-                org_line = org_line + '%s;' % org_structure[o][k]
-            org_file.write(org_line + '\n')
-            addr_line_1 = ''
-            addr_line_2 = ''
-            for a in ordered_addr_keys_1:
-                addr_line_1 = addr_line_1 + '%s;' % org_structure[o][a]
-            for a in ordered_addr_keys_2:
-                addr_line_2 = addr_line_2 + '%s;' % org_structure[o][a]
-            address_file.write(addr_line_1 + '\n')
-            address_file.write(addr_line_2 + '\n')
-
-
-def get_org_unit_data(org_units, exported_orgs):
-    org_structure = {}
-    for o in org_units:
         oun_parent_id = None
         oun_type = None
         count_level = 1
-        try:
-            with entity.ou.find(o[0]) as ou:
-                oun_id = text_type(ou)
-                tmp = ou.search_name_with_language(
-                    entity_id=ou.entity_id,
-                    name_language=const.language_nb,
-                    name_variant=const.ou_name_display)
-                oun_name = tmp[0]["name"]
-                parent_id = ou.get_parent(const.perspective_sap)
-                # No direct parent is registered for ou
-                if not parent_id or parent_id not in exported_orgs:
-                    logger.info("No parent for ou %s, exporting default values"
-                                " for oun_type and oun_parent_id", oun_id)
-                    oun_parent_id = '999999'
-                else:
-                    oun_parent_id = get_parent_id(int(parent_id),
-                                                  exported_orgs)
-                    count_level = get_org_level(int(parent_id), count_level)
-                if count_level < 3:
-                    oun_type = '2'
-                else:
-                    oun_type = '0'
-                if oun_type == '2':
-                    oun_parent_id = '83'
-                org_structure[ou.entity_id] = {
-                    'oun_id': oun_id,
-                    'oun_name': oun_id + ' - ' + oun_name,
-                    'oun_parent_id': oun_parent_id,
-                    'oun_type': oun_type,
-                    'oun_party_id': '',
-                    'oun_default_delivery_party': '',
-                    'oun_default_invoicing_party': '83',
-                    'oun_default_delivery_address': oun_id + '1',
-                    # default delivery address er besøksadresse
-                    'oun_default_invoice_address': '',
-                    'oun_default_cost_center_id': '83',
-                    'oun_default_acc_currency': 'NOK',
-                    'oun_acc_cur_rate': '1',
-                    'oun_acc_cur_rate_method': '0',
-                    'add_id_1': oun_id + '1',
-                    'add_oun_id_1': oun_id,
-                    'add_title_1': oun_id + '-Besøk',
-                    'add_is_invoicing_1': '0',
-                    'add_is_delivery_1': '1',
-                    'add_id_2': oun_id + '2',
-                    'add_oun_id_2': oun_id,
-                    'add_title_2': oun_id + '-Post',
-                    'add_is_invoicing_2': '0',
-                    'add_is_delivery_2': '1'}
-        except Errors.NotFoundError:
-            logger.warn("Could not find OU with id: %s "
-                        "(this should never happen!).",
-                        o[0])
-    return org_structure
 
-
-def get_parent_id(parent_id, exported_orgs):
-    try:
-        with entity.ou.find(parent_id) as parent_ou:
-            if parent_id and parent_id in exported_orgs:
-                return text_type(parent_ou)
+        with context.ou.find(ou_id) as ou:
+            oun_id = six.text_type(ou)
+            oun_name = get_ou_name(ou)
+            parent_id = ou.get_parent(co.perspective_sap)
+            # No direct parent is registered for ou
+            if not parent_id or parent_id not in exported_orgs:
+                logger.info("No parent for ou %s, exporting default values"
+                            " for oun_type and oun_parent_id", oun_id)
+                # TODO: this seems wrong, should this not be
+                #       DEFAULT_ORG_DATA['oun_id']?
+                oun_parent_id = six.text_type(DEFAULT_ORG_OU_ID)
             else:
-                return get_parent_id(parent_ou.get_parent(
-                    const.perspective_sap),
-                    exported_orgs)
-    except Errors.NotFoundError:
-        return None
+                oun_parent_id = get_parent_id(int(parent_id))
+                count_level = get_org_level(int(parent_id), count_level)
+            if count_level < 3:
+                oun_type = '2'
+            else:
+                oun_type = '0'
+            if oun_type == '2':
+                oun_parent_id = '83'
+
+        yield {
+            # _ou_id is only used by 'generate_addr_parts_info'
+            '_ou_id': ou_id,
+            'add_id_1': oun_id + '1',
+            'add_id_2': oun_id + '2',
+            'add_is_delivery_1': '1',
+            'add_is_delivery_2': '1',
+            'add_is_invoicing_1': '0',
+            'add_is_invoicing_2': '0',
+            'add_oun_id_1': oun_id,
+            'add_oun_id_2': oun_id,
+            'add_title_1': oun_id + '-Besøk',
+            'add_title_2': oun_id + '-Post',
+            'oun_acc_cur_rate': '1',
+            'oun_acc_cur_rate_method': '0',
+            'oun_default_acc_currency': 'NOK',
+            'oun_default_cost_center_id': '83',
+            # default delivery address er besøksadresse
+            'oun_default_delivery_address': oun_id + '1',
+            'oun_default_invoicing_party': '83',
+            'oun_id': oun_id,
+            'oun_name': oun_id + ' - ' + oun_name,
+            'oun_parent_id': oun_parent_id,
+            'oun_type': oun_type,
+        }
+    # and the default OU...
+    yield DEFAULT_ORG_DATA
+    logger.debug("done fetching ou data")
 
 
-def generate_address_parts_file(orgs):
-    addr_parts = []
-    for o in orgs.keys():
-        try:
-            with entity.ou.find(o) as ou:
-                sko = text_type(ou)
-                logger.debug("SKO: %s", sko)
-                addrs_1 = ou.get_entity_address(source=const.system_sap,
-                                                type=const.address_post)
-                apa_add_id = sko + '2'
-                pobox = []
+def generate_addr_parts_info(db, ous):
+    """ Generate OU data.
 
-                ou_name = ou.get_name_with_language(
-                    name_variant=const.ou_name,
-                    name_language=const.language_nb,
-                    default="")
-                if len(addrs_1) == 0:
-                    # This will happen when the OU has no valid postal address
-                    # Use bogus/empty address to enable further processing
-                    logger.warning("OU '%s' (SKO: '%s', ENT-ID: '%s') is "
-                                   "registered without a post address",
-                                   ou_name, sko, o)
-                    addrs_1.append((0, 0, 0, '', None, '', None, ''))
+    :param ous:
+        An iterable of ou_info (from generate_ou_info)
 
-                for k in addrs_1[0][3].split('\n'):
-                    pobox.append(k)
+    :return generator:
+        A generator that yields address dicts
+    """
+    co = Factory.get('Constants')(db)
+    context = ContextPool(db)
 
-                for e in ['Name1:0', 'Name2:1', 'POBox:3', 'Street1:4',
-                          'Department:12', 'Postalcode:13', 'City:14']:
-                    apa_id, apa_type = e.split(':')
-                    if apa_id == 'Name1':
-                        apa_text = 'Universitetet i Oslo'
-                    elif apa_id == 'Name2':
-                        apa_text = ou_name
-                    elif apa_id == 'POBox':
-                        apa_text = pobox[0]
-                    elif apa_id == 'Street1':
-                        if len(pobox) == 2:
-                            apa_text = pobox[1]
-                        else:
-                            apa_text = ''
-                    elif apa_id == 'Department':
-                        apa_text = apa_add_id
-                    elif apa_id == 'Postalcode':
-                        apa_text = 'NO-' + addrs_1[0][7]
-                    elif apa_id == 'City':
-                        apa_text = addrs_1[0][5]
-                    line1 = ';'.join((apa_add_id, apa_id, apa_type, apa_text))
-                    addr_parts.append(line1)
-                apa_add_id = ""
+    def get_address(ou, addr_type, name=''):
+        address = {'address_text': '', 'city': '', 'postal_number': ''}
+        for row in ou.get_entity_address(
+                source=co.system_sap,
+                type=addr_type):
+            for key in address:
+                address[key] = row[key]
+            return address
+        logger.warning(
+            "OU %s (sko=%r, ou_id=%r) missing address of type %s",
+            ou_name, six.text_type(ou), ou.entity_id, six.text_type(addr_type))
+        return address
 
-                addrs_2 = ou.get_entity_address(source=const.system_sap,
-                                                type=const.address_street)
-                apa_add_id = sko + '1'
-                street = []
+    logger.debug('fetching address data...')
+    for ou_data in ous:
+        if '_ou_id' not in ou_data:
+            # TODO: Should there not be address data for the default OU?
+            logger.debug("Skipping default ou: %s", ou_data['oun_id'])
+            continue
+        ou_id = ou_data['_ou_id']
 
-                if len(addrs_2) == 0:
-                    # This will happen when the OU has no valid street address
-                    # Use bogus/empty address to enable further processing
-                    logger.warning("OU '%s' (SKO: '%s', ENT-ID: '%s') is "
-                                   "registered without a street address",
-                                   ou_name, sko, o)
-                    addrs_2.append((0, 0, 0, '', None, '', None, ''))
+        with context.ou.find(ou_id) as ou:
+            sko = six.text_type(ou)
 
-                for k in addrs_2[0][3].split('\n'):
-                    street.append(k)
-                for e in ['Name1:0', 'Name2:1', 'Street1:4', 'Street2:6',
-                          'Department:12', 'Postalcode:13', 'City:14']:
-                    apa_id, apa_type = e.split(':')
-                    if apa_id == 'Name1':
-                        apa_text = 'Universitetet i Oslo'
-                    elif apa_id == 'Name2':
-                        apa_text = ou_name
-                    elif apa_id == 'Street1':
-                        apa_text = street[0]
-                    elif apa_id == 'Street2':
-                        if len(street) == 2:
-                            apa_text = street[1]
-                        else:
-                            apa_text = ''
-                    elif apa_id == 'Department':
-                        apa_text = apa_add_id
-                    elif apa_id == 'Postalcode':
-                        apa_text = 'NO-' + addrs_2[0][7]
-                    elif apa_id == 'City':
-                        apa_text = addrs_2[0][5]
-                    line2 = ';'.join((apa_add_id, apa_id, apa_type, apa_text))
-                    addr_parts.append(line2)
-            return addr_parts
-        except Errors.NotFoundError:
-            logger.warn("could not find OU %s", o)
+            ou_name = ou.get_name_with_language(
+                name_variant=co.ou_name,
+                name_language=co.language_nb,
+                default="")
 
+            # post
+            apa_add_id = sko + '2'
+            addr = get_address(ou, co.address_post, name=ou_name)
+            pobox = addr['address_text'].split('\n')
 
-def get_org_level(parent_ou_id, level):
-    with entity.ou.find(parent_ou_id) as parent_ou:
-        po = parent_ou.get_parent(const.perspective_sap)
-        return level if po is None else get_org_level(int(po), level + 1)
+            for e in ['Name1:0', 'Name2:1', 'POBox:3', 'Street1:4',
+                      'Department:12', 'Postalcode:13', 'City:14']:
+                apa_id, apa_type = e.split(':')
+                if apa_id == 'Name1':
+                    apa_text = 'Universitetet i Oslo'
+                elif apa_id == 'Name2':
+                    apa_text = ou_name
+                elif apa_id == 'POBox':
+                    apa_text = pobox[0]
+                elif apa_id == 'Street1':
+                    apa_text = pobox[1] if len(pobox) == 2 else ''
+                elif apa_id == 'Department':
+                    apa_text = apa_add_id
+                elif apa_id == 'Postalcode':
+                    apa_text = 'NO-' + addr['postal_number']
+                elif apa_id == 'City':
+                    apa_text = addr['city']
 
+                yield {
+                    'apa_add_id': apa_add_id,
+                    'apa_id': apa_id,
+                    'apa_type': apa_type,
+                    'apa_text': apa_text,
+                }
 
-def generate_address_file():
-    print("not yet implemented")
+            # besøk
+            apa_add_id = sko + '1'
+            addr = get_address(ou, co.address_street, name=ou_name)
+            street = addr['address_text'].split('\n')
 
+            for e in ['Name1:0', 'Name2:1', 'Street1:4', 'Street2:6',
+                      'Department:12', 'Postalcode:13', 'City:14']:
+                apa_id, apa_type = e.split(':')
+                if apa_id == 'Name1':
+                    apa_text = 'Universitetet i Oslo'
+                elif apa_id == 'Name2':
+                    apa_text = ou_name
+                elif apa_id == 'Street1':
+                    apa_text = street[0]
+                elif apa_id == 'Street2':
+                    apa_text = street[1] if len(street) == 2 else ''
+                elif apa_id == 'Department':
+                    apa_text = apa_add_id
+                elif apa_id == 'Postalcode':
+                    apa_text = 'NO-' + addr['postal_number']
+                elif apa_id == 'City':
+                    apa_text = addr['city']
 
-def usage():
-    print("""Usage: generate_ehandel_export.py [options]
-             Options:
-               --gen-organization-files, -o: generate organization file
-               --org-file-name: override name of the organization file
-               --gen-person-files, -p: generate person file
-               --person-file-name: override name of the person file
-               --help, -h: print this text
-          """)
+                yield {
+                    'apa_add_id': apa_add_id,
+                    'apa_id': apa_id,
+                    'apa_type': apa_type,
+                    'apa_text': apa_text,
+                }
+    logger.debug("done fetching address data")
 
 
-def main():
-    global db, person, account, const
-    global person_file_name, logger, role_file_name
-    global org_file_name, address_file_name, address_part_file_name
+def filtered_defaultdict(d, keys):
+    """ Wrap a dict for writing with the CSV writer.
 
-    logger = Factory.get_logger("cronjob")
+    1. unused keys are filtered out - otherwise the csv writer will complain
+       about unused keys.
+    2. provide a default empty string value for undefined keys
+    """
+    return collections.defaultdict(
+        six.text_type,
+        filter(lambda t: t[0] in keys, d.items()))
+
+
+def write_users_file(filename, employees,
+                     encoding=DEFAULT_ENCODING,
+                     errors=DEFAULT_ERRORS):
+    with io.open(filename, 'w', encoding=encoding, errors=errors) as stream:
+        writer = UnicodeDictWriter(stream,
+                                   ordered_people_keys,
+                                   dialect=BaswareDialect)
+        for person_data in employees:
+            writer.writerow(
+                filtered_defaultdict(person_data, ordered_people_keys))
+        logger.info('wrote users to %r', stream.name)
+
+
+def write_roles_file(filename, employees,
+                     encoding=DEFAULT_ENCODING,
+                     errors=DEFAULT_ERRORS):
+    with io.open(filename, 'w', encoding=encoding, errors=errors) as stream:
+        writer = UnicodeDictWriter(stream,
+                                   ordered_role_keys,
+                                   dialect=BaswareDialect)
+        for person_data in employees:
+            writer.writerow(
+                filtered_defaultdict(person_data, ordered_role_keys))
+        logger.info('wrote roles to %r', stream.name)
+
+
+def write_org_file(filename, ous,
+                   encoding=DEFAULT_ENCODING,
+                   errors=DEFAULT_ERRORS):
+    with io.open(filename, 'w', encoding=encoding, errors=errors) as stream:
+        writer = UnicodeDictWriter(stream,
+                                   ordered_org_keys,
+                                   dialect=BaswareDialect)
+        for ou_data in ous:
+            writer.writerow(
+                filtered_defaultdict(ou_data, ordered_org_keys))
+        logger.info('wrote ou data to %r', stream.name)
+
+
+def write_addr_file(filename, ous,
+                    encoding=DEFAULT_ENCODING,
+                    errors=DEFAULT_ERRORS):
+    with io.open(filename, 'w', encoding=encoding, errors=errors) as stream:
+        write_keys_1 = UnicodeDictWriter(stream,
+                                         ordered_addr_keys_1,
+                                         dialect=BaswareDialect)
+        write_keys_2 = UnicodeDictWriter(stream,
+                                         ordered_addr_keys_2,
+                                         dialect=BaswareDialect)
+        for ou_data in ous:
+            write_keys_1.writerow(
+                filtered_defaultdict(ou_data, ordered_addr_keys_1))
+            write_keys_2.writerow(
+                filtered_defaultdict(ou_data, ordered_addr_keys_2))
+        logger.info('wrote address indexes to %r', stream.name)
+
+
+def write_part_file(filename, ous,
+                    encoding=DEFAULT_ENCODING,
+                    errors=DEFAULT_ERRORS):
+    with io.open(filename, 'w',
+                 encoding=encoding,
+                 errors=errors) as stream:
+        writer = UnicodeDictWriter(stream,
+                                   ordered_addr_part_keys,
+                                   dialect=BaswareDialect)
+        for ou_data in ous:
+            data = filtered_defaultdict(ou_data, ordered_addr_part_keys)
+            writer.writerow(data)
+        logger.info('wrote address data to %r', stream.name)
+
+
+def get_default_dumpdir():
+    return os.path.join(
+        '' if sys.prefix == '/usr' else sys.prefix,
+        'var', 'cache', 'BASWAREPM')
+
+
+def make_filename(suffix):
+    return '{date}-{suffix}.csv'.format(
+        date=datetime.datetime.now().strftime('%Y%m%d'),
+        suffix=suffix)
+
+
+def main(inargs=None):
+
+    # Make default filenames with date prefix
+    user_filename = make_filename('User')
+    roles_filename = make_filename('Roles')
+    org_filename = make_filename('Org')
+    adr_filename = make_filename('Adr')
+    adr_part_filename = make_filename('AdrPart')
+
+    dump_directory = get_default_dumpdir()
+
+    # TODO: Rework the arguments to make it more convenient for testing.
+    # dump_directory = 'basware'
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-p', '--gen-person-file',
+        const=['users', 'roles'],
+        dest='exports',
+        type=set,
+        action=Cerebrum.utils.argutils.ExtendConstAction,
+        help='generate users and roles (%s, %s)'
+              % (user_filename, roles_filename))
+    parser.add_argument(
+        '-o', '--gen-organization-files',
+        const=['org', 'addr', 'parts'],
+        dest='exports',
+        type=set,
+        action=Cerebrum.utils.argutils.ExtendConstAction,
+        help='generate organization files (%s, %s, %s)'
+              % (org_filename, adr_filename, adr_part_filename))
+    parser.add_argument(
+        '-e', '--encoding',
+        dest='codec',
+        type=Cerebrum.utils.argutils.codec_type,
+        default=DEFAULT_ENCODING,
+        help="encoding of CSV files")
+
+    filenames = parser.add_argument_group(
+        'Files',
+        'Override the default file placement')
+    filenames.add_argument(
+        '--users-file',
+        default=os.path.join(dump_directory, user_filename),
+        metavar='FILE',
+        help='CSV file for users, default is %(default)s')
+    filenames.add_argument(
+        '--roles-file',
+        default=os.path.join(dump_directory, roles_filename),
+        metavar='FILE',
+        help='CSV file for roles, default is %(default)s')
+    filenames.add_argument(
+        '--org-file',
+        default=os.path.join(dump_directory, org_filename),
+        metavar='FILE',
+        help='CSV file for OU data, default is %(default)s')
+    filenames.add_argument(
+        '--addr-file',
+        default=os.path.join(dump_directory, adr_filename),
+        metavar='FILE',
+        help='CSV file for address indexes, default is %(default)s')
+    filenames.add_argument(
+        '--part-file',
+        default=os.path.join(dump_directory, adr_part_filename),
+        metavar='FILE',
+        help='CSV file for address data, default is %(default)s')
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start of script %s', parser.prog)
+    logger.debug("args: %r", args)
+    logger.info("exports: %s", ', '.join(sorted(args.exports)))
+
     db = Factory.get("Database")()
-    person = Factory.get("Person")(db)  # TODO entity.person
-    account = Factory.get("Account")(db)  # TODO: entity.account
-    const = Factory.get("Constants")(db)
-    ou = Factory.get("OU")(db)
 
-    dump_directory = '/cerebrum/var/cache/BASWAREPM/'
+    # orgs to export
+    exported_orgs = get_exported_orgs(db)
 
-    now = DateTime.now()
-    datetime = now.Format("%Y%m%d")
-    person_file_name = dump_directory + datetime + '-' + 'User.csv'
-    role_file_name = dump_directory + datetime + '-' + 'Roles.csv'
-    org_file_name = dump_directory + datetime + '-' + 'Org.csv'
-    address_file_name = dump_directory + datetime + '-' + 'Adr.csv'
-    address_part_file_name = dump_directory + datetime + '-' + 'AdrPart.csv'
+    # iterable data
+    employees = Repeaterable(generate_people_info(db, exported_orgs))
+    ous = Repeaterable(generate_ou_info(db, exported_orgs))
+    addrs = Repeaterable(generate_addr_parts_info(db, ous))
 
-    org_units = ou.search(spread=const.spread_uio_org_ou,
-                          filter_quarantined=True)
-    exported_orgs = []
+    if 'users' in args.exports:
+        logger.info("Generating users file")
+        write_users_file(args.users_file, employees, encoding=args.codec.name)
 
-    for e in org_units:
-        exported_orgs.append(int(e[0]))
-    exported_orgs.append(999999)
+    if 'roles' in args.exports:
+        logger.info("Generating roles file")
+        write_roles_file(args.roles_file, employees, encoding=args.codec.name)
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'proash',
-                                   ['help',
-                                    'gen-person-file',
-                                    'person-file-name=',
-                                    'gen-role-file',
-                                    'role-file-name=',
-                                    'gen-organization-file',
-                                    'org-file-name=',
-                                    # 'gen-address-file',
-                                    'address-file-name=',
-                                    # 'gen-address-part-file',
-                                    'address-part-file-name='])
-    except getopt.GetoptError:
-        usage()
+    if 'org' in args.exports:
+        logger.info("Generating OU file")
+        write_org_file(args.org_file, ous, encoding=args.codec.name)
 
-    for opt, val in opts:
-        if opt in ('--help', '-h'):
-            usage()
-        elif opt in ('--person-file-name', ):
-            person_file_name = val
-        elif opt in ('--role-file-name', ):
-            role_file_name = val
-        elif opt in ('--org-file-name', ):
-            org_file_name = val
-        elif opt in ('--address-file-name', ):
-            address_file_name = val
-        elif opt in ('--address-part-file-name', ):
-            address_part_file_name = val
+    if 'addr' in args.exports:
+        logger.info("Generating address index file")
+        write_addr_file(args.addr_file, ous, encoding=args.codec.name)
 
-    for opt, val in opts:
-        if opt in ('--gen-person-file', '-p'):
-            generate_people_file(exported_orgs)
-        elif opt in ('--gen-organization-file', '-o'):
-            generate_organization_file(org_units, exported_orgs)
-#        elif opt in ('--gen-address-file', '-a'):
-#            # Implied by -o
-#            generate_address_file()
-#        elif opt in ('--gen-address-parts-file', '-s'):
-#            # Implied by -o
-#            generate_address_parts_file()
+    if 'parts' in args.exports:
+        logger.info("Generating address data file")
+        write_part_file(args.part_file, addrs, encoding=args.codec.name)
 
-    if not opts:
-        usage()
+    logger.info('Done with script %s', parser.prog)
 
 
 if __name__ == "__main__":

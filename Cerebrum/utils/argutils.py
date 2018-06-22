@@ -145,3 +145,58 @@ def get_constant(db, parser, const_types, value, argument=None):
             e = argparse.ArgumentTypeError(msg)
         parser.error(str(e))
     return const_value
+
+
+class ExtendAction(argparse.Action):
+    """ Like the 'append'-action, but uses `list.extend`.
+
+    This means that the `type` argument should be set to something that returns
+    a sequence of items to add to the namespace value.
+    """
+
+    def __init__(self, option_strings, dest, default=None, type=None,
+                 required=False, help=None, metavar=None):
+        super(ExtendAction, self).__init__(
+            option_strings=option_strings,
+            dest=dest,
+            nargs=None,
+            const=None,
+            default=default,
+            type=type,
+            choices=None,
+            required=required,
+            help=help,
+            metavar=metavar)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        items = (getattr(namespace, self.dest, None) or [])[:]
+        items.extend(values)
+        setattr(namespace, self.dest, items)
+
+
+class ExtendConstAction(argparse.Action):
+    """ Like ExtendAction, but adds a constant to the list.
+
+    Typical usage is to collect a sequence of things to do using switches.
+    """
+
+    def __init__(self, option_strings, dest, const, default=None,
+                 type=None, required=False, help=None, metavar=None):
+        # Ensure iterable item:
+        const = tuple(c for c in const)
+        super(ExtendConstAction, self).__init__(
+            option_strings=option_strings,
+            dest=dest,
+            nargs=0,
+            const=const,
+            default=default or [],
+            type=type or (lambda x: x),
+            choices=None,
+            required=required,
+            help=help,
+            metavar=metavar)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        items = list(getattr(namespace, self.dest, ()))[:]
+        items.extend(self.const)
+        setattr(namespace, self.dest, self.type(items))
