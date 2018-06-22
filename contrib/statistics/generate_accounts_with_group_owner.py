@@ -21,7 +21,6 @@
 """ Generate an HTML report with all np_type accounts owned by groups. """
 
 import argparse
-import codecs
 import datetime
 import logging
 import os
@@ -34,6 +33,7 @@ from six import text_type
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import codec_type
 
 logger = logging.getLogger(__name__)
 now = datetime.datetime.now
@@ -119,13 +119,6 @@ def write_html_report(stream, codec, accounts, summary):
         )
     )
     output.write("\n")
-
-
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
 
 
 DEFAULT_ENCODING = 'utf-8'

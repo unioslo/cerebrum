@@ -24,7 +24,6 @@ Accounts are missing mail spread if they are owned by a person, which lacks the
 specified mail spread, but still has an email_target of type 'account'.
 """
 import argparse
-import codecs
 import datetime
 import logging
 import sys
@@ -39,6 +38,7 @@ from Cerebrum import Errors
 from Cerebrum.Entity import EntitySpread
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.Email import EmailTarget
+from Cerebrum.utils.argutils import codec_type, get_constant
 
 
 logger = logging.getLogger(__name__)
@@ -216,13 +216,6 @@ def write_html_report(stream, codec, title, usernames):
     output.write('\n')
 
 
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
-
-
 DEFAULT_ENCODING = 'utf-8'
 
 
@@ -262,10 +255,7 @@ def main(inargs=None):
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
 
-    spread = co.human2constant(args.spread, co.Spread)
-    if not spread:
-        raise argparse.ArgumentError(
-            spread_arg, 'invalid spread {}'.format(repr(args.spread)))
+    spread = get_constant(db, parser, co.Spread, args.spread, spread_arg)
 
     excluded_groups = []
     if args.excluded_groups is not None:
@@ -273,6 +263,7 @@ def main(inargs=None):
 
     logger.info('Start of script %s', parser.prog)
     logger.debug("args: %r", args)
+    logger.info("spread: %s", text_type(spread))
 
     accounts = list(get_accounts(db,
                                  spread,

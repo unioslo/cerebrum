@@ -35,7 +35,6 @@ Example of use:
 """
 
 import argparse
-import codecs
 import logging
 import sys
 from collections import defaultdict
@@ -46,6 +45,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.utils.argutils import codec_type
 
 logger = logging.getLogger(__name__)
 
@@ -357,13 +357,6 @@ def aggregate(iterable, *keys):
     return root
 
 
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
-
-
 DEFAULT_ENCODING = 'utf-8'
 
 
@@ -429,8 +422,6 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
-
-    # db = Factory.get('Database')()
 
     logger.info('Start of script %s', parser.prog)
     logger.debug("args: %r", args)

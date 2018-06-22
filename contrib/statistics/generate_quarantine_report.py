@@ -21,7 +21,6 @@
 """ Generate an HTML report with quarantined accounts on employee disks. """
 
 import argparse
-import codecs
 import logging
 import sys
 from collections import defaultdict
@@ -36,6 +35,7 @@ from Cerebrum.Entity import EntitySpread
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.utils.argutils import codec_type
 
 
 logger = logging.getLogger(__name__)
@@ -327,13 +327,6 @@ def write_html_report(stream, codec, quarantines, start_date):
         })
     )
     output.write('\n')
-
-
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
 
 
 DEFAULT_ENCODING = 'utf-8'
