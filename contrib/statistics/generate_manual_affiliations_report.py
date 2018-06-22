@@ -24,10 +24,8 @@ This program reports on persons with affiliation in the MANUAL source system.
 """
 
 import argparse
-import codecs
 import csv
 import datetime
-import io
 import logging
 import os
 import sys
@@ -39,7 +37,9 @@ import cereconf
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
+import Cerebrum.utils.csvutils as _csvutils
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import codec_type
 
 logger = logging.getLogger(__name__)
 now = datetime.datetime.now
@@ -55,41 +55,6 @@ class CsvDialect(csv.excel):
     lineterminator = '\n'
 
 
-class CsvUnicodeWriter:
-    """ Unicode-compatible CSV writer.
-
-    Adopted from https://docs.python.org/2/library/csv.html
-    """
-
-    def __init__(self, f, fieldnames, dialect=csv.excel, encoding="utf-8",
-                 **kwds):
-        self.queue = io.BytesIO()
-        self.writer = csv.DictWriter(self.queue, fieldnames, dialect=dialect,
-                                     **kwds)
-        self.stream = f
-        self.encoder = codecs.getincrementalencoder(encoding)()
-
-    def writeheader(self):
-        return self.writer.writeheader()
-
-    def writerow(self, row):
-        # Write utf-8 encoded output to queue
-        self.writer.writerow(dict((k, text_type(v).encode("utf-8"))
-                                  for k, v in row.items()))
-        data = self.queue.getvalue()
-
-        # Read formatted CSV data from queue, re-encode and write to stream
-        data = data.decode("utf-8")
-        data = self.encoder.encode(data)
-        self.stream.write(data)
-        self.queue.truncate(0)
-        self.queue.seek(0)
-
-    def writerows(self, rows):
-        for row in rows:
-            self.writerow(row)
-
-
 class OuCache(object):
     def __init__(self, db):
         co = Factory.get('Constants')(db)
@@ -102,7 +67,7 @@ class OuCache(object):
             for row in ou.get_stedkoder())
 
         self._ou2name = dict(
-            (row['entity_id'], row['name'].decode(db.encoding))
+            (row['entity_id'], row['name'])
             for row in ou.search_name_with_language(
                 name_variant=co.ou_name_short,
                 name_language=co.language_nb))
@@ -222,8 +187,7 @@ def write_csv_report(stream, codec, users):
     fields = ['person_ou_list', 'person_affiliations', 'person_name',
               'account_name', 'account_affiliations']
 
-    writer = CsvUnicodeWriter(stream, dialect=CsvDialect, encoding=codec.name,
-                              fieldnames=fields)
+    writer = _csvutils.UnicodeDictWriter(output, fields, dialect=CsvDialect)
     writer.writeheader()
     writer.writerows(users)
 
@@ -253,13 +217,6 @@ def write_html_report(stream, codec, users, summary):
         })
     )
     output.write('\n')
-
-
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
 
 
 DEFAULT_ENCODING = 'utf-8'

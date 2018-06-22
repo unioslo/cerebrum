@@ -22,7 +22,6 @@
 from __future__ import unicode_literals
 
 import argparse
-import codecs
 import datetime
 import logging
 import os
@@ -35,6 +34,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import codec_type, get_constant
 from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
@@ -150,13 +150,6 @@ def write_html_report(stream, codec, person_data, aff_status):
     output.write("\n")
 
 
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
-
-
 DEFAULT_ENCODING = 'utf-8'
 
 
@@ -187,17 +180,12 @@ def main(inargs=None):
     db = Factory.get(b'Database')()
     co = Factory.get(b'Constants')(db)
 
-    aff_status = co.human2constant(args.status, co.PersonAffStatus)
-    if not aff_status:
-        suggestion = ', '.join(text_type(a) for a in
-                               co.fetch_constants(co.PersonAffStatus))
-        raise argparse.ArgumentError(
-            aff_arg,
-            'invalid affiliation status {}'
-            ',\nTry one of: {}'.format(repr(args.status), suggestion))
+    aff_status = get_constant(db, parser, co.PersonAffStatus, args.status,
+                              aff_arg)
 
     logger.info('Start of script %s', parser.prog)
     logger.debug("args: %r", args)
+    logger.info("aff-status: %s", text_type(aff_status))
 
     persons = persons_with_aff_status(db, aff_status)
     sorted_persons = sorted(persons,

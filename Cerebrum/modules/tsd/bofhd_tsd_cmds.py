@@ -46,6 +46,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import EntityTrait
 from Cerebrum.modules import dns
 from Cerebrum.modules.bofhd import cmd_param as cmd
+from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
@@ -58,7 +59,7 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
                                               PhrasePasswordNotGoodEnough)
-from Cerebrum.modules.tsd.bofhd_auth import TSDBofhdAuth
+from Cerebrum.modules.tsd.bofhd_auth import TsdBofhdAuth, TsdContactAuth
 from Cerebrum.modules.tsd import bofhd_help
 from Cerebrum.modules.tsd import Gateway
 from Cerebrum.modules.username_generator.generator import UsernameGenerator
@@ -192,7 +193,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
     all_commands = {}
     hidden_commands = {}
     parent_commands = True
-    authz = TSDBofhdAuth
+    authz = TsdBofhdAuth
 
     def __init__(self, *args, **kwargs):
         super(TSDBofhdExtension, self).__init__(*args, **kwargs)
@@ -365,13 +366,13 @@ class TSDBofhdExtension(BofhdCommonMethods):
                 raise CerebrumError("Cannot specify password for another user")
         try:
             check_password(password, account, structured=False)
-        except RigidPasswordNotGoodEnough, e:
+        except RigidPasswordNotGoodEnough as e:
             raise CerebrumError('Bad password: {err_msg}'.format(
                 err_msg=six.text_type(e)))
-        except PhrasePasswordNotGoodEnough, e:
+        except PhrasePasswordNotGoodEnough as e:
             raise CerebrumError('Bad passphrase: {err_msg}'.format(
                 err_msg=six.text_type(e)))
-        except PasswordNotGoodEnough, e:
+        except PasswordNotGoodEnough as e:
             raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
 
         ret_msgs = ['Password altered']
@@ -383,7 +384,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
             ac.set_password(password)
             try:
                 ac.write_db()
-            except self.db.DatabaseError, m:
+            except self.db.DatabaseError as m:
                 raise CerebrumError("Database error: %s" % m)
             # Remove "weak password" quarantine
             for r in ac.get_entity_quarantine():
@@ -583,7 +584,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
                 pass
         try:
             group.remove_member(member.entity_id)
-        except self.db.DatabaseError, m:
+        except self.db.DatabaseError as m:
             raise CerebrumError("Database error: %s" % m)
         return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
 
@@ -1322,7 +1323,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             projectid=projectid)
         try:
             self.gateway.freeze_project(projectid)
-        except Gateway.GatewayException, e:
+        except Gateway.GatewayException as e:
             self.logger.warn("From GW: %s", e)
             success_msg += " (bad result from GW)"
         # Freeze all affiliated acconts:
@@ -1368,7 +1369,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                              account.account_name,
                                              when)
                 # else: update_user_freeze.py will make the right decisions
-            except Gateway.GatewayException, e:
+            except Gateway.GatewayException as e:
                 self.logger.warn("From GW: %s", e)
                 success_msg += " (bad freeze_user result from GW)"
         return success_msg
@@ -1397,7 +1398,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         if not project.get_entity_quarantine(only_active=True):
             try:
                 self.gateway.thaw_project(projectid)
-            except Gateway.GatewayException, e:
+            except Gateway.GatewayException as e:
                 self.logger.warn("From GW: %s", e)
                 success_msg += ' (bad result from GW)'
         else:
@@ -2030,7 +2031,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         try:
             uri = account.regenerate_otpkey(otp_type)
-        except Errors.CerebrumError, e:
+        except Errors.CerebrumError as e:
             raise CerebrumError("Failed generating OTP-key: %s" % e)
 
         # Generate a list of all the accounts for the person
@@ -2057,7 +2058,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         for name, pid in ac_list.iteritems():
             try:
                 self.gateway.user_otp(pid, name, uri)
-            except Gateway.GatewayException, e:
+            except Gateway.GatewayException as e:
                 self.logger.warn("OTP failed for %s: %s", name, e)
                 msg += '\nFailed updating GW for: %s' % name
             else:

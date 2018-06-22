@@ -37,6 +37,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import json
 from Cerebrum.modules import Email
+from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import (BofhdAuth, BofhdAuthRole,
@@ -45,7 +46,10 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.Indigo import bofhd_go_help
-
+from Cerebrum.modules.bofhd.bofhd_contact_info import (
+    BofhdContactAuth,
+    BofhdContactCommands,
+)
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as base
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import ConnectException
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import TimeoutException
@@ -69,6 +73,21 @@ def date_to_string(date):
         return "<not set>"
 
     return "%04i-%02i-%02i" % (date.year, date.month, date.day)
+
+
+class IndigoAuth(BofhdAuth):
+    """ Indigo specific auth. """
+    pass
+
+
+class IndigoContactAuth(IndigoAuth, bofhd_contact_info.BofhdContactAuth):
+    """ Indigo specific contact info auth. """
+    pass
+
+
+class IndigoEmailAuth(IndigoAuth, bofhd_email.BofhdEmailAuth):
+    """ Indigo specific email auth. """
+    pass
 
 
 # Helper methods from uio
@@ -969,9 +988,8 @@ class BofhdExtension(BofhdCommonMethods):
         return "OK, deleted trait for user %s" % uname
 
 
-class EmailAuth(bofhd_email.BofhdEmailAuth):
-    """ Indigo specific email auth. """
-    pass
+class ContactCommands(bofhd_contact_info.BofhdContactCommands):
+    authz = IndigoContactAuth
 
 
 @copy_command(
@@ -990,4 +1008,4 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
     hidden_commands = {}
     parent_commands = False  # copied with copy_command
     omit_parent_commands = set()
-    authz = EmailAuth
+    authz = IndigoEmailAuth

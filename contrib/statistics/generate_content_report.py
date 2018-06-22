@@ -29,7 +29,6 @@ last variety can also provide the entity IDs that fall within the
 given problematic topic (for lack of better term)
 """
 import argparse
-import codecs
 import logging
 import sys
 
@@ -38,6 +37,7 @@ from six import text_type
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import codec_type
 
 logger = logging.getLogger(__name__)
 
@@ -523,13 +523,6 @@ def generate_cerebrum_numbers(db, presenter):
     # TODO 2007-01-17 amveha: Registered e-mail-domains.
 
     # TODO 2007-01-17 amveha: Resgistered hosts/disks (with description).
-
-
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
 
 
 DEFAULT_ENCODING = 'utf-8'

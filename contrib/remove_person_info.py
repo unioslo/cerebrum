@@ -57,22 +57,20 @@ def clean_titles(person, specs):
         person.delete_name_with_language(*spec)
 
 
-def update_person_from_sap(logger, person, constants, source_system):
-    """Remove information from persons from SAP."""
+def update_person(logger, person, constants, source_system):
+    """Remove base information from persons."""
     clean_names(logger, person, constants, source_system)
     clean_addresses(person, source_system)
     clean_contact_info(person, source_system)
+
+
+def update_person_with_titles(logger, person, constants, source_system):
+    """Remove base and title information from persons."""
+    update_person(logger, person, constants, source_system)
     clean_titles(person, [(constants.work_title, constants.language_en),
                           (constants.work_title, constants.language_nb),
                           (constants.personal_title, constants.language_en),
                           (constants.personal_title, constants.language_nb)])
-
-
-def update_person_from_fs(logger, person, constants, source_system):
-    """Remove information from persons from FS."""
-    clean_names(logger, person, constants, source_system)
-    clean_addresses(person, source_system)
-    clean_contact_info(person, source_system)
 
 
 def perform(cleaner, committer, logger, person, constants, selection):
@@ -111,6 +109,7 @@ def select_addresses(person, source_system, constants):
                                source_system,
                                ('source_system',
                                 'address_type'))
+
 
 def select_contact_info(person, source_system, constants):
     return _collect_candidates(person.list_contact_info,
@@ -178,7 +177,8 @@ def select(person, source_system, constants, grace, selectors):
             select_by_stored_data(person, source_system, constants, selectors))
 
 
-def clean_it(prog, commit, logger, systems, system_to_cleaner, selectors, commit_threshold=1, grace=0):
+def clean_it(prog, commit, logger, systems, system_to_cleaner, selectors,
+             commit_threshold=1, grace=0):
     """Call funcs based on command line arguments."""
     class _Committer(object):
         """Commit changes upon reaching a threshold of N calls to commit()."""
@@ -271,17 +271,28 @@ def parse_it():
                              ' affiliation in the last N days')
     args = parser.parse_args()
 
-    system_to_cleaner = {'FS': update_person_from_fs,
-                         'SAP': update_person_from_sap }
+    system_to_cleaner = {'FS': update_person,
+                         'SAP': update_person_with_titles,
+                         'EKSTENS': update_person}
 
-    system_to_selectors = {'FS': [select_addresses, select_contact_info, select_names],
-                           'SAP': [select_addresses, select_contact_info, select_titles, select_names]}
+    system_to_selectors = {'FS': [select_addresses,
+                                  select_contact_info,
+                                  select_names],
+                           'SAP': [select_addresses,
+                                   select_contact_info,
+                                   select_titles,
+                                   select_names],
+                           'EKSTENS': [select_addresses,
+                                       select_contact_info,
+                                       select_names]}
 
     for x in args.systems:
-        if not x in system_to_cleaner:
-            raise NotImplementedError('Cleaner for system {} is not implemented'.format(x))
+        if x not in system_to_cleaner:
+            raise NotImplementedError(
+                'Cleaner for system {} is not implemented'.format(x))
         elif x not in system_to_selectors:
-            raise NotImplementedError('Selector for system {} is not implemented'.format(x))
+            raise NotImplementedError(
+                'Selector for system {} is not implemented'.format(x))
 
     clean_it(parser.prog,
              args.commit,

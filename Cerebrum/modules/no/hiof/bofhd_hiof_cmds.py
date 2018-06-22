@@ -25,14 +25,15 @@ import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.auth import BofhdAuth
+from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import cmd_param
-from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
+from Cerebrum.modules.bofhd.utils import BofhdRequests
 
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cmd_base
@@ -46,6 +47,16 @@ class HiofBofhdRequests(BofhdRequests):
         super(HiofBofhdRequests, self).__init__(db, const, id)
         # Hiofs BohfdRequest constant must be added to self.conflicts
         self.conflicts[int(const.bofh_ad_attrs_remove)] = None
+
+
+class HiofAuth(BofhdAuth):
+    """ Indigo specific auth. """
+    pass
+
+
+class HiofContactAuth(HiofAuth, bofhd_contact_info.BofhdContactAuth):
+    """ Indigo specific contact info auth. """
+    pass
 
 
 uio_commands = [
@@ -76,7 +87,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     all_commands = {}
     parent_commands = True
-    authz = BofhdAuth
+    authz = HiofAuth
 
     @property
     def ou(self):
@@ -366,6 +377,10 @@ class BofhdExtension(BofhdCommonMethods):
             "new_account_passwd",
             {'account_id': int(account.entity_id), 'password': passwd})
         return {'account_id': int(account.entity_id)}
+
+
+class ContactCommands(bofhd_contact_info.BofhdContactCommands):
+    authz = HiofContactAuth
 
 
 HELP_CMDS = {

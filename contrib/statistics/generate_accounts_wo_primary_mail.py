@@ -24,7 +24,6 @@ Accounts should have a primary email address if they are owned by a person, and
 lacks an email spread.
 """
 import argparse
-import codecs
 import datetime
 import logging
 import sys
@@ -36,6 +35,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.Email import EmailTarget
+from Cerebrum.utils.argutils import codec_type, get_constant
 
 logger = logging.getLogger(__name__)
 now = datetime.datetime.now
@@ -172,13 +172,6 @@ def write_html_report(stream, codec, title, usernames):
     output.write('\n')
 
 
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
-
-
 DEFAULT_ENCODING = 'utf-8'
 
 
@@ -214,13 +207,11 @@ def main(inargs=None):
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
 
-    spread = co.human2constant(args.spread, co.Spread)
-    if not spread:
-        raise argparse.ArgumentError(
-            spread_arg, 'invalid spread {}'.format(repr(args.spread)))
+    spread = get_constant(db, parser, co.Spread, args.spread, spread_arg)
 
     logger.info('Start of script %s', parser.prog)
     logger.debug("args: %r", args)
+    logger.info("spread: %s", text_type(spread))
 
     accounts = list(get_accounts_wo_primary_addr(db,
                                                  spread,

@@ -40,7 +40,6 @@ This job has been requested for ØFK, but it could be used at any institution
 using Cerebrum.
 """
 import argparse
-import codecs
 import logging
 import sys
 from collections import defaultdict
@@ -50,6 +49,7 @@ import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import codec_type, get_constant
 
 logger = logging.getLogger(__name__)
 
@@ -113,13 +113,6 @@ def write_report(stream, codec, iterable):
     output.write("\n")
 
 
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
-
-
 DEFAULT_ENCODING = 'utf-8'
 
 
@@ -158,14 +151,9 @@ def main(inargs=None):
     db = Factory.get("Database")()
     co = Factory.get("Constants")(db)
 
-    source_systems = []
-    for source_sys in (args.id_source_systems or cereconf.SYSTEM_LOOKUP_ORDER):
-        source_const = co.human2constant(source_sys, co.AuthoritativeSystem)
-        if source_const is None:
-            raise argparse.ArgumentError(
-                id_source_arg,
-                'invalid source system {}'.format(repr(source_sys)))
-        source_systems.append(source_const)
+    source_systems = [
+        get_constant(db, parser, co.AuthoritativeSystem, value, id_source_arg)
+        for value in (args.id_source_systems or cereconf.SYSTEM_LOOKUP_ORDER)]
     logger.debug("source_systems: %r", source_systems)
 
     account_iter = get_account_data(db,

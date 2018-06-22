@@ -31,6 +31,7 @@ In TSD, you have the user groups:
 """
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
@@ -81,7 +82,7 @@ class TSDBofhdAuthConstants(Constants.Constants):
         'subnet_view', 'View subnets')
 
 
-class TSDBofhdAuth(BofhdAuth):
+class TsdBofhdAuth(BofhdAuth):
     """The BofhdAuth class for TSD."""
 
     def _can_do(self, operator, project, operation, what, query_run_any=False):
@@ -308,3 +309,32 @@ class TSDBofhdAuth(BofhdAuth):
                         'Account %s is not affiliated with %s.'
                         % (src_entity.account_name, proj_name))
         return True
+
+
+class TsdContactAuth(TsdBofhdAuth, bofhd_contact_info.BofhdContactAuth):
+
+    def _can_any(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return True
+        raise PermissionDenied("Restricted to superusers")
+
+    def can_get_contact_info(self, operator,
+                             entity=None,
+                             contact_type=None,
+                             query_run_any=False):
+        return self._can_any(operator, query_run_any=query_run_any)
+
+    def can_add_contact_info(self, operator,
+                             entity=None,
+                             contact_type=None,
+                             query_run_any=False):
+        return self._can_any(operator, query_run_any=query_run_any)
+
+    def can_remove_contact_info(self, operator,
+                                entity=None,
+                                contact_type=None,
+                                source_system=None,
+                                query_run_any=False):
+        return self._can_any(operator, query_run_any=query_run_any)

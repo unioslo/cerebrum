@@ -27,7 +27,6 @@ An abandoned account is an account that.
 Note that only one quarantine per account is included in the HTML report.
 """
 import argparse
-import codecs
 import logging
 import sys
 from collections import defaultdict
@@ -40,6 +39,7 @@ from mx.DateTime import now, DateTimeDelta
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import codec_type
 
 
 logger = logging.getLogger(__name__)
@@ -257,13 +257,6 @@ def write_html_report(stream, codec, matches):
 
 
 DEFAULT_ENCODING = 'utf-8'
-
-
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
 
 
 def main(inargs=None):

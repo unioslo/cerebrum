@@ -22,7 +22,6 @@
 from __future__ import unicode_literals, absolute_import
 
 import argparse
-import codecs
 import datetime
 import logging
 import sys
@@ -34,6 +33,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.utils.argutils import codec_type
 
 logger = logging.getLogger(__name__)
 now = datetime.datetime.now
@@ -226,13 +226,6 @@ def write_html_report(stream, codec, mismatch):
         'mismatch': mismatch,
     }))
     output.write("\n")
-
-
-def codec_type(encoding):
-    try:
-        return codecs.lookup(encoding)
-    except LookupError as e:
-        raise ValueError(str(e))
 
 
 DEFAULT_ENCODING = 'utf-8'

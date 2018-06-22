@@ -26,29 +26,21 @@ The output format: title, first name, last name, FEIDE id, e-mail address,
 telephone number, social security number (or equivalent)."""
 import argparse
 import csv
-import io
 import logging
-
-from six import text_type
 
 import cereconf
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 import Cerebrum.utils.argutils
+import Cerebrum.utils.csvutils as _csvutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 
 logger = logging.getLogger(__name__)
 
 
-# TODO: Replace with proper csv file writer
-CSV_ENCODING = 'latin1'
-
-
-# TODO: Make a csv util module and consolidate different implementations
-
-class CsvDialect(csv.excel):
+class BergHansenDialect(csv.excel):
     """Specifying the CSV output dialect the script uses.
 
     See the module `csv` for a description of the settings.
@@ -56,38 +48,6 @@ class CsvDialect(csv.excel):
     """
     delimiter = ';'
     lineterminator = '\n'
-
-
-class CsvUnicodeWriter:
-    """ Unicode-compatible CSV writer.
-
-    Adopted from https://docs.python.org/2/library/csv.html
-    """
-
-    def __init__(self, stream, fieldnames, dialect=csv.excel, **kwds):
-        self.queue = io.BytesIO()
-        self.writer = csv.DictWriter(self.queue, fieldnames, dialect=dialect,
-                                     **kwds)
-        self.stream = stream
-
-    def writeheader(self):
-        return self.writer.writeheader()
-
-    def writerow(self, row):
-        # Write utf-8 encoded output to queue
-        self.writer.writerow(dict((k, text_type(v).encode("utf-8"))
-                                  for k, v in row.items()))
-        data = self.queue.getvalue()
-
-        # Read formatted CSV data from queue, re-encode and write to stream
-        data = data.decode("utf-8")
-        self.stream.write(data)
-        self.queue.truncate(0)
-        self.queue.seek(0)
-
-    def writerows(self, rows):
-        for row in rows:
-            self.writerow(row)
 
 
 def _parse_codes(db, codes):
@@ -218,9 +178,8 @@ def write_file(filename, codec, persons, skip_incomplete, skip_header=False):
     with AtomicFileWriter(filename,
                           mode='w',
                           encoding=codec.name) as stream:
-        writer = CsvUnicodeWriter(stream,
-                                  dialect=CsvDialect,
-                                  fieldnames=fields)
+        writer = _csvutils.UnicodeDictWriter(stream, fields,
+                                             dialect=BergHansenDialect)
 
         if not skip_header:
             writer.writeheader()
@@ -228,8 +187,8 @@ def write_file(filename, codec, persons, skip_incomplete, skip_header=False):
         for i, person in enumerate(persons, 1):
             if skip_incomplete and not all(person.values()):
                 continue
-            person = dict(map(lambda (x, y): (x, '' if y is None else y),
-                              person.iteritems()))
+            person = dict(map(lambda t: (t[0], '' if t[1] is None else t[1]),
+                              person.items()))
             writer.writerow(person)
     logger.info('Wrote %d users to file %s', i, filename)
 
