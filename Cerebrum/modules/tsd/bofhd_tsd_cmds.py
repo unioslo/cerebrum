@@ -2494,3 +2494,7 @@ class EnduserBofhdExtension(TSDBofhdExtension):
             (name, cmd) for name, cmd in commands.iteritems()
             if name in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS)
         return filtered
+
+
+class ContactCommands(bofhd_contact_info.BofhdContactCommands):
+    authz = TsdContactAuth
