@@ -36,7 +36,7 @@ class NIHStudent(access_FS.Student):
         ikke satt."""
         qry = """
         SELECT DISTINCT
-          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -105,7 +105,7 @@ class NIHStudent78(NIHStudent, access_FS.Student78):
         ikke satt."""
         qry = """
         SELECT DISTINCT
-          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,

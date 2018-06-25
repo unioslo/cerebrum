@@ -868,8 +868,9 @@ class Student(FSObject):
         """Hent informasjon om semester-registrering og betaling"""
         qry = """
         SELECT DISTINCT
-               fodselsdato, personnr, regformkode, dato_endring, dato_opprettet
-        FROM fs.registerkort r
+               r.fodselsdato, r.personnr, p.dato_fodt, r.regformkode,
+               r.dato_endring, r.dato_opprettet
+        FROM fs.registerkort r, fs.person p
         WHERE %s AND
         NVL(r.status_ugyldig, 'N') = 'N'
         """ % self._get_termin_aar(only_current=1)
@@ -922,7 +923,7 @@ class Student(FSObject):
         """Hent ut alle eksamensmeldinger i nåværende sem.
         samt fnr for oppmeldte(topics.xml)"""
         qry = """
-        SELECT p.fodselsdato, p.personnr, vm.emnekode,
+        SELECT p.fodselsdato, p.personnr, p.dato_fodt, vm.emnekode,
                vm.studieprogramkode, vm.arstall,
                vm.versjonskode, vm.vurdtidkode, vt.terminkode_gjelder_i,
                vt.arstall_gjelder_i
@@ -1041,7 +1042,7 @@ class Student(FSObject):
         """Hent informasjon om alle som er vurderingsmeldt til
            EMNEKODE i inneværende semester"""
         query = """
-        SELECT DISTINCT p.fodselsdato, p.personnr, p.fornavn, p.etternavn,
+        SELECT DISTINCT p.fodselsdato, p.personnr, p.dato_fodt, p.fornavn, p.etternavn,
              vm.emnekode, vm.studieprogramkode, vm.arstall, vm.versjonskode,
              vt.terminkode_gjelder_i, vt.arstall_gjelder_i
         FROM fs.person p, fs.vurdkombmelding vm,
@@ -1124,7 +1125,7 @@ class Student(FSObject):
 
         qry = """
         SELECT DISTINCT
-              p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+              p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
               p.adrlin1_hjemsted, p.adrlin2_hjemsted,
               p.postnr_hjemsted, p.adrlin3_hjemsted, p.adresseland_hjemsted,
               p.sprakkode_malform, osp.studieprogramkode,
@@ -1147,7 +1148,7 @@ class Student(FSObject):
             fs.utvekslingsperson. Vi henter 14 dager før studenten står
             på trappa. """
         qry = """
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -1175,7 +1176,7 @@ class Student(FSObject):
 
         qry = """
         SELECT  pe.studieprogramkode, pe.fodselsdato, pe.personnr,
-                pe.fraverarsakkode_hovedarsak
+                p.dato_fodt, pe.fraverarsakkode_hovedarsak
         FROM fs.innvilget_permisjon pe, fs.person p
         WHERE p.fodselsdato = pe.fodselsdato AND
               p.personnr = pe.personnr AND
@@ -1193,7 +1194,7 @@ class Student(FSObject):
 
         qry = """
         SELECT DISTINCT
-               sps.fodselsdato, sps.personnr,
+               sps.fodselsdato, sps.personnr, p.dato_fodt,
                sp.institusjonsnr_studieansv AS institusjonsnr,
                sp.faknr_studieansv AS faknr,
                sp.instituttnr_studieansv AS instituttnr,
@@ -1231,7 +1232,7 @@ class Student(FSObject):
         er PRIVATIST eller status_privatist er satt til 'J'"""
         qry = """
         SELECT DISTINCT
-          p.fodselsdato, p.personnr, p.etternavn,
+          p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn,
           p.fornavn, p.kjonn, s.adrlin1_semadr,
           s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr,
           s.adresseland_semadr, p.adrlin1_hjemsted,
@@ -1267,7 +1268,7 @@ class Student78(Student):
 
         qry = """
         SELECT DISTINCT
-               sps.fodselsdato, sps.personnr,
+               sps.fodselsdato, sps.personnr, p.dato_fodt,
                sp.institusjonsnr_studieansv AS institusjonsnr,
                sp.faknr_studieansv AS faknr,
                sp.instituttnr_studieansv AS instituttnr,
@@ -1309,7 +1310,7 @@ class Student78(Student):
         er PRIVATIST eller status_privatist er satt til 'J'"""
         qry = """
         SELECT DISTINCT
-          p.fodselsdato, p.personnr, p.etternavn,
+          p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn,
           p.fornavn, p.kjonn, s.adrlin1_semadr,
           s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr,
           s.adresseland_semadr, p.adrlin1_hjemsted,
@@ -1571,7 +1572,7 @@ class Undervisning(FSObject):
 
         qry = """
         SELECT DISTINCT
-              fp.fodselsdato, fp.personnr, p.etternavn, p.fornavn,
+              fp.fodselsdato, fp.personnr, p.dato_fodt, p.etternavn, p.fornavn,
               fp.adrlin1_arbeide, fp.adrlin2_arbeide, fp.postnr_arbeide,
               fp.adrlin3_arbeide, fp.adresseland_arbeide,
               fp.telefonnr_arbeide, fp.telefonnr_fax_arb,
@@ -1677,7 +1678,7 @@ class Undervisning78(Undervisning):
 
         qry = """
         SELECT DISTINCT
-              fp.fodselsdato, fp.personnr, p.etternavn, p.fornavn,
+              fp.fodselsdato, fp.personnr, p.dato_fodt, p.etternavn, p.fornavn,
               fp.adrlin1_arbeide, fp.adrlin2_arbeide, fp.postnr_arbeide,
               fp.adrlin3_arbeide, fp.adresseland_arbeide,
               ptw.telefonnr telefonnr_arbeide,
@@ -1725,7 +1726,7 @@ class EVU(FSObject):
 
         qry = """
         SELECT DISTINCT
-               p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+               p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                d.adrlin1_job, d.adrlin2_job, d.postnr_job,
                d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
                d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,
@@ -1788,7 +1789,7 @@ class EVU(FSObject):
     def list_kurs_deltakere(self, kurskode, tid):  # GetEvuKursPameldte
         """List everyone registered for a given course"""
         query = """
-        SELECT p.fodselsdato, p.personnr,
+        SELECT p.fodselsdato, p.personnr, p.dato_fodt,
           p.fornavn, p.etternavn
         FROM fs.person p, fs.etterutdkurs e,
           fs.kursdeltakelse kd, fs.deltaker d
@@ -1848,7 +1849,7 @@ class EVU78(EVU):
 
         qry = """
         SELECT DISTINCT
-               p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+               p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                d.adrlin1_job, d.adrlin2_job, d.postnr_job,
                d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
                d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,
@@ -1891,7 +1892,7 @@ class Alumni(FSObject):
         studium frem til en grad, min. Cand.Mag.  Disse regnes
         som 'Alumni' ved UiO."""
         qry = u"""
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr,
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
