@@ -75,10 +75,10 @@ SECOND_WARNING=cereconf.USER_EXPIRE_CONF['SECOND_WARNING']
 # user_expire will not send notification emails from cleomedes.
 # these messages are still sendt from leetah
 #
-def send_mail(uname, user_info, nr, forward=False):
-    return None
+#def send_mail(uname, user_info, nr, forward=False):
+#    return None
 
-def send_mail_orig(uname, user_info, nr, forward=False):
+def send_mail(uname, user_info, nr, forward=False):
     """Get template file based on user_info and expiring action number
     to create Subject and body of mail. Get mail addresses based on
     type of account and expiring action number. If a critical error
@@ -127,7 +127,7 @@ def send_mail_orig(uname, user_info, nr, forward=False):
     body = ''.join(msg)
     body = body.replace('$USER$', uname)
     body = body.replace('$EXPIRE_DATE$', user_info['expire_date'].date)
-    # OK, tenk på hvordan dette skal gjøres pent.
+    # OK, tenk pï¿½ hvordan dette skal gjï¿½res pent.
     if user_info['ou']:
         body = body.replace('ved $OU$', 'ved %s' % user_info['ou'])    
         body = body.replace('at $OU$', 'at %s' % user_info['ou'])    
@@ -288,7 +288,7 @@ def check_users(cache_file):
         logger.warn("Could not read expire data from cache file %s." %
                     cache_file)
         expiring_data = {} 
-
+  
     logger.debug("Check expiring info for all user accounts")
     for row in ac.list_all(filter_expired=False):
         uname = row['entity_name']
@@ -380,8 +380,8 @@ def check_users(cache_file):
     cPickle.dump(expiring_data, file(cache_file, 'w+'))
 
 
-# FIXME, vi kan muligens fjerne denne og bruke rapporteringsverktøyet
-# for å lage denne oversikten i stedet.
+# FIXME, vi kan muligens fjerne denne og bruke rapporteringsverktï¿½yet
+# for ï¿½ lage denne oversikten i stedet.
 def generate_info(cache_file, info_file):
     "Generate info about expired users and create a web page"
     try:
