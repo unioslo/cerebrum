@@ -96,10 +96,10 @@ class CLConstants(CLConstants):
                                       'group remove distribution %(subject)s')
 
     dl_group_add = _ChangeTypeCode(
-        'dlgroup', 'add', 'added %(subject)s to %(dest)s',
+        'dlgroup', 'add', 'added %(dest)s to %(subject)s',
         ('AlreadyPerformed=%(string:AlreadyPerformed)s',))
     dl_group_rem = _ChangeTypeCode('dlgroup', 'rem',
-                                   'removed %(subject)s from %(dest)s')
+                                   'removed %(dest)s from %(subject)s')
 
     dl_group_primary = _ChangeTypeCode('dlgroup', 'primary',
                                        'group set primary for %(subject)s')

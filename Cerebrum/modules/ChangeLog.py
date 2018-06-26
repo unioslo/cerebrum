@@ -25,7 +25,7 @@ from Cerebrum.Utils import argument_to_sql
 import Cerebrum.utils.json as json
 
 
-__version__ = "1.4"
+__version__ = "1.5"
 
 
 def _params_to_db(params, separators=(',', ':')):
@@ -165,7 +165,7 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
     def get_log_events(self, start_id=0, max_id=None, types=None,
                        subject_entity=None, dest_entity=None,
                        any_entity=None, change_by=None, change_program=None,
-                       sdate=None, return_last_only=False):
+                       sdate=None, return_last_only=False, limit=None):
         """ Fetch change entries from the database.
 
         :param int start_id:
@@ -201,6 +201,8 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
         :param boolean return_last_only:
             Only return the last change. Default: False.
             NOTE: Requires `types' to be used as well.
+        :param int limit:
+            Perform LIMIT in SQL query.
 
         :return list|dbrow:
             Returns a list of dbrow results. If `return_last_only' is set, only
@@ -243,6 +245,8 @@ class ChangeLog(Cerebrum.ChangeLog.ChangeLog):
         where = "WHERE (" + ") AND (".join(where) + ")"
         if return_last_only:
             where = where + 'ORDER BY tstamp DESC LIMIT 1'
+        elif limit:
+            where = where + 'ORDER BY change_id LIMIT {}'.format(limit)
         else:
             where = where + 'ORDER BY change_id'
         return self.query("""

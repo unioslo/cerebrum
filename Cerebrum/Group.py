@@ -327,7 +327,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                      {'g_id': self.entity_id,
                       'm_type': int(member_type),
                       'm_id': member_id})
-        self._db.log_change(member_id, self.const.group_add, self.entity_id)
+        self._db.log_change(self.entity_id, self.const.group_add, member_id)
 
     def has_member(self, member_id):
         """Check whether L{member_id} is a member of this group.
@@ -366,7 +366,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           group_id=:g_id AND
           member_id=:m_id""", {'g_id': self.entity_id,
                                'm_id': member_id})
-        self._db.log_change(member_id, self.clconst.group_rem, self.entity_id)
+        self._db.log_change(self.entity_id, self.clconst.group_rem, member_id)
 
     def search(self,
                group_id=None,

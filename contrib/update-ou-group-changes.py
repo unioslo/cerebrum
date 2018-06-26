@@ -322,7 +322,7 @@ def handle_group_add(event, db, co, data):
     """Handle group adding"""
     logger.debug('handle_group_add called')
     # This event will come from this script, as well as OUGroup creation.
-    subject, gid = event['subject_entity'], event['dest_entity']
+    gid, subject = event['subject_entity'], event['dest_entity']
     data['replay'].add((int(subject), int(co.group_add), int(gid)))
     return
 
@@ -331,7 +331,7 @@ def handle_group_rem(event, db, co, data):
     """Handle group membership removing"""
     logger.debug('handle_group_rem called')
     # This event will come from this script, as well as OUGroup deletion.
-    subject, gid = event['subject_entity'], event['dest_entity']
+    gid, subject = event['subject_entity'], event['dest_entity']
     data['replay'].add((int(subject), int(co.group_rem), int(gid)))
 
 
@@ -342,7 +342,7 @@ def remove_groups(db, entity, groups, co, data):
     for grp in groups:
         if (entity, int(co.group_rem), grp) not in data['replay']:
             logger.info('Changelogging id:%s group_rem id:%s', entity, grp)
-            db.log_change(entity, co.group_rem, grp)
+            db.log_change(grp, co.group_rem, entity)
 
 
 def add_groups(db, entity, groups, co, data):
@@ -352,7 +352,7 @@ def add_groups(db, entity, groups, co, data):
     for grp in groups:
         if (entity, int(co.group_add), grp) not in data['replay']:
             logger.info('Changelogging id:%s group_add id:%s', entity, grp)
-            db.log_change(entity, co.group_add, grp)
+            db.log_change(grp, co.group_add, entity)
 
 
 def calculate_changes(db, data, co):
