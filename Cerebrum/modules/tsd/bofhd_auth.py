@@ -348,28 +348,41 @@ class TsdBofhdAuth(BofhdAuth):
 
 class TsdContactAuth(TsdBofhdAuth, bofhd_contact_info.BofhdContactAuth):
 
-    def _can_any(self, operator, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return True
-        raise PermissionDenied("Restricted to superusers")
-
     def can_get_contact_info(self, operator,
                              entity=None,
                              contact_type=None,
                              query_run_any=False):
-        return self._can_any(operator, query_run_any=query_run_any)
+        if query_run_any:
+            return True
+        # The person itself should be able to see it
+        account = Factory.get('Account')(self._db)
+        account.find(operator)
+        if entity.entity_id == account.owner_id:
+            return True
+        return self._can_do(operator, None,
+                            self.const.auth_view_contactinfo,
+                            'view contact information',
+                            query_run_any)
 
     def can_add_contact_info(self, operator,
                              entity=None,
                              contact_type=None,
                              query_run_any=False):
-        return self._can_any(operator, query_run_any=query_run_any)
+        if query_run_any:
+            return True
+        return self._can_do(operator, None,
+                            self.const.auth_add_contactinfo,
+                            'add contact information',
+                            query_run_any)
 
     def can_remove_contact_info(self, operator,
                                 entity=None,
                                 contact_type=None,
                                 source_system=None,
                                 query_run_any=False):
-        return self._can_any(operator, query_run_any=query_run_any)
+        if query_run_any:
+            return True
+        return self._can_do(operator, None,
+                            self.const.auth_remove_contactinfo,
+                            'remove contact information',
+                            query_run_any)
