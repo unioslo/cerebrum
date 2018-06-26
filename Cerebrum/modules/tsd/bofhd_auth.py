@@ -74,6 +74,10 @@ class TSDBofhdAuthConstants(Constants.Constants):
         'project_affiliate_with_entity', 'Affiliate entity with project')
     auth_project_list_hosts = _AuthRoleOpCode(
         'project_list_hosts', 'List hosts associated with project')
+    auth_person_view = _AuthRoleOpCode(
+        'person_view', 'View information about persons')
+    auth_user_view = _AuthRoleOpCode(
+        'user_view', 'View information about users')
     auth_user_approve = _AuthRoleOpCode(
         'user_approve', 'Approve users')
     auth_user_generate_otp_key = _AuthRoleOpCode(
@@ -238,6 +242,37 @@ class TsdBofhdAuth(BofhdAuth):
         return self._can_do(operator, None,
                             self.const.auth_subnet_view,
                             'view subnets',
+                            query_run_any)
+
+    def can_view_person(self, operator, person=None, query_run_any=False):
+        """Check if operator can view basic information about a person."""
+        if query_run_any:
+            return True
+        if person is not None:
+            ac = Factory.get('Account')(self._db)
+            pe = Factory.get('Person')(self._db)
+            try:
+                ac.find(operator)
+                pe.find(person.entity_id)
+            except Exception:
+                pass
+            else:
+                if ac.owner_id == pe.entity_id:
+                    return True
+        return self._can_do(operator, None,
+                            self.const.auth_person_view,
+                            'view information about persons',
+                            query_run_any)
+
+    def can_view_user(self, operator, account=None, query_run_any=False):
+        """Check if operator can view basic information about an account."""
+        if query_run_any:
+            return True
+        if account is not None and operator == account.entity_id:
+            return True
+        return self._can_do(operator, None,
+                            self.const.auth_user_view,
+                            'view information about users',
                             query_run_any)
 
     def can_approve_user(self, operator, account=None, query_run_any=False):

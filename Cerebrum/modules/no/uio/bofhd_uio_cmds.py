@@ -4226,9 +4226,11 @@ class BofhdExtension(BofhdCommonMethods):
             ('id', 'birth', 'account', 'name'),
             hdr="%7s   %10s   %-12s  %s" %
             ('Id', 'Birth', 'Account', 'Name')
-        ))
+        ),
+        perm_filter='can_view_person')
 
     def person_find(self, operator, search_type, value, filter=None):
+        self.ba.can_view_person(operator.get_entity_id(), person=None)
         # TODO: Need API support for this
         matches = []
         idcol = 'person_id'
@@ -4359,14 +4361,15 @@ class BofhdExtension(BofhdCommonMethods):
             ("Contact:       %s: %s [from %s]", ("contact_type", "contact",
                                                  "contact_src")),
             ("External id:   %s [from %s]", ("extid", "extid_src"))
-        ])
-    )
+        ]),
+        perm_filter='can_view_person')
 
     def person_info(self, operator, person_id):
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
+        self.ba.can_view_person(operator.get_entity_id(), person)
         try:
             p_name = person.get_name(
                 self.const.system_cached,
@@ -5858,7 +5861,8 @@ class BofhdExtension(BofhdCommonMethods):
              ('uid', 'dfg_posix_gid', 'dfg_name', 'gecos',
               'shell')),
             ("Quarantined:   %s", ("quarantined",))
-        ]))
+        ]),
+        perm_filter='can_view_user')
 
     def user_info(self, operator, accountname):
         is_posix = False
@@ -5867,6 +5871,7 @@ class BofhdExtension(BofhdCommonMethods):
             is_posix = True
         except CerebrumError:
             account = self._get_account(accountname)
+        self.ba.can_view_user(operator.get_entity_id(), account)
         if (account.is_deleted()
                 and not self.ba.is_superuser(operator.get_entity_id())):
             raise CerebrumError("User '{}' is deleted".format(
@@ -6008,11 +6013,12 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(optional=True, help_ref="affiliation_optional"),
         fs=FormatSuggestion(
             "%7i   %-12s %s", ('entity_id', 'username', format_day("expire")),
-            hdr="%7s   %-10s   %-12s" % ('Id', 'Username', 'Expire date'))
-    )
+            hdr="%7s   %-10s   %-12s" % ('Id', 'Username', 'Expire date')),
+        perm_filter='can_view_user')
 
     def user_find(self, operator, search_type, value,
                   include_expired="no", aff_filter=None):
+        self.ba.can_view_user(operator.get_entity_id(), account=None)
         acc = self.Account_class(self.db)
         if aff_filter is not None:
             try:

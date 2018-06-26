@@ -361,11 +361,13 @@ class BofhdExtension(BofhdCommonMethods):
             "Entity id:      %d\n"
             "Owner id:       %d\n"
             "Owner type:     %d\n",
-            ("entity_id", "owner_id", "owner_type")))
+            ("entity_id", "owner_id", "owner_type")),
+        perm_filter='can_view_user')
 
     def user_info(self, operator, entity_id):
         """ Account info. """
         account = self._get_account(entity_id)
+        self.ba.can_view_user(operator.get_entity_id(), account=account)
         return {'entity_id': account.entity_id,
                 'owner_id': account.owner_id,
                 'owner_type': account.owner_type}

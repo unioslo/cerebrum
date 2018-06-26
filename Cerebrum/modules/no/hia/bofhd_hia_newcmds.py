@@ -374,7 +374,8 @@ class BofhdExtension(BofhdCommonMethods):
                                              "source_system")),
             ("Primary account: %s [%s]", ("prim_acc", 'prim_acc_status')),
             ("Primary email: %s", ("prim_email",))
-        ]))
+        ]),
+        perm_filter='can_view_person')
 
     def person_info(self, operator, person_id):
         co = self.const
@@ -382,6 +383,7 @@ class BofhdExtension(BofhdCommonMethods):
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
+        self.ba.can_view_person(operator.get_entity_id(), person)
         try:
             p_name = person.get_name(co.system_cached,
                                      getattr(co, cereconf.DEFAULT_GECOS_NAME))
@@ -810,7 +812,8 @@ class BofhdExtension(BofhdCommonMethods):
              ("quarantined",)),
             ("Note:          (#%d) %s: %s",
              ('note_id', 'note_subject', 'note_description'))
-        ]))
+        ]),
+        perm_filter='can_view_user')
 
     def user_info(self, operator, accountname):
         is_posix = False
@@ -819,6 +822,7 @@ class BofhdExtension(BofhdCommonMethods):
             is_posix = True
         except CerebrumError:
             account = self._get_account(accountname)
+        self.ba.can_view_user(operator.get_entity_id(), account)
         if (account.is_deleted()
                 and not self.ba.is_superuser(operator.get_entity_id())):
             raise CerebrumError("User is deleted")
