@@ -28,7 +28,7 @@ from six import text_type
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import latin1_to_iso646_60
+from Cerebrum.utils import transliterate
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Entity import EntityName
@@ -109,7 +109,7 @@ class Passwd(object):
             gecos = row['name']
         if gecos is None:
             gecos = uname
-        gecos = text_type(latin1_to_iso646_60(gecos))
+        gecos = transliterate.to_iso646_60(gecos)
         shell = self.shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
             now = mx.DateTime.now()

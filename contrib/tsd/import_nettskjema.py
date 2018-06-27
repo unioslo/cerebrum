@@ -57,7 +57,6 @@ import functools
 import getopt
 import json
 import os
-import re
 import shutil
 import sys
 import time
@@ -68,14 +67,13 @@ import six
 
 from mx import DateTime
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.username import suggest_usernames
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.tsd import Gateway
-from Cerebrum.modules.username_generator.generator import UsernameGenerator
 
 logger = Factory.get_logger('cronjob')
 db = Factory.get('Database')(client_encoding='utf-8')
@@ -675,12 +673,11 @@ class Processing(object):
         """
         fname = pe.get_name(co.system_cached, co.name_first)
         lname = pe.get_name(co.system_cached, co.name_last)
-        uname_generator = UsernameGenerator()
         # create a validation callable (function)
         vfunc = functools.partial(ac.validate_new_uname,
                                   co.account_namespace,
                                   owner_id=pe.entity_id)
-        for name in uname_generator.suggest_unames(
+        for name in suggest_usernames(
                 co.account_namespace,
                 fname,
                 lname,

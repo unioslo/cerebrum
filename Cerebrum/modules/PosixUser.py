@@ -47,6 +47,7 @@ import string
 
 import cereconf
 from Cerebrum.Utils import Factory, argument_to_sql
+from Cerebrum.utils import transliterate
 from Cerebrum import Errors
 from Cerebrum import Constants
 from Cerebrum.modules import PosixGroup
@@ -309,16 +310,15 @@ class PosixUser(Account_class):
         default_gecos_name = getattr(self.const, cereconf.DEFAULT_GECOS_NAME)
         if self.gecos is not None:
             return self.gecos
-        if self.owner_type == int(self.const.entity_group):
-            return self.simplify_name(
-                "%s user" % self.account_name, as_gecos=1)
-        assert self.owner_type == int(self.const.entity_person)
+        if self.owner_type == self.const.entity_group:
+            return transliterate.for_gecos("{} user".format(self.account_name))
+        assert self.owner_type == self.const.entity_person
         p = Factory.get("Person")(self._db)
         p.find(self.owner_id)
         try:
             ret = p.get_name(self.const.system_cached,
                              default_gecos_name)
-            return self.simplify_name(ret, as_gecos=1)
+            return transliterate.for_gecos(ret)
         except Errors.NotFoundError:
             pass
         return "Unknown"  # Raise error?

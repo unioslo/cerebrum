@@ -136,7 +136,8 @@ from itertools import izip, repeat
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, latin1_wash, NotSet
+from Cerebrum.Utils import Factory, NotSet
+from Cerebrum.utils import transliterate
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.modules.no.access_FS import roles_xml_parser, make_fs
@@ -1152,8 +1153,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                     aktnavn = m.group(1)
                 else:
                     aktnavn = aktnavn.replace(" ", "-")
-                    aktnavn = latin1_wash(aktnavn, target_charset='POSIXname',
-                                          expand_chars=True).lower()
+                    aktnavn = transliterate.for_posix(aktnavn)
                 logger.debug("Aktivitetsnavn '%s' -> '%s'" %
                              (aktivitet["aktivitetsnavn"], aktnavn))
                 sync_group(kurs_id,

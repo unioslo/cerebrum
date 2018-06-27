@@ -495,7 +495,6 @@ setup(
         'Cerebrum/modules/no/nih',
         'Cerebrum/modules/password_notifier',
         'Cerebrum/modules/password_generator',
-        'Cerebrum/modules/username_generator',
         'Cerebrum/modules/posix',
         'Cerebrum/modules/pwcheck',
         'Cerebrum/modules/printutils',

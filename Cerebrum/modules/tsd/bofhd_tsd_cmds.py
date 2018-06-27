@@ -50,6 +50,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.username import suggest_usernames
 from Cerebrum.modules import EntityTrait
 from Cerebrum.modules import dns
 from Cerebrum.modules.bofhd import cmd_param as cmd
@@ -69,7 +70,6 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
 from Cerebrum.modules.tsd.bofhd_auth import TsdBofhdAuth, TsdContactAuth
 from Cerebrum.modules.tsd import bofhd_help
 from Cerebrum.modules.tsd import Gateway
-from Cerebrum.modules.username_generator.generator import UsernameGenerator
 
 
 def format_day(field):
@@ -1987,12 +1987,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                         person.get_name(self.const.system_cached, v)
                         for v in (self.const.name_first, self.const.name_last)]
                     ou = self._get_ou(ou_id=affiliation['ou_id'])
-                    uname_generator = UsernameGenerator()
                     # create a validation callable (function)
                     vfunc = partial(posix_user.validate_new_uname,
                                     self.const.account_namespace,
                                     owner_id=owner_id)
-                    sugg = uname_generator.suggest_unames(
+                    sugg = suggest_usernames(
                         self.const.account_namespace,
                         fname,
                         lname,
