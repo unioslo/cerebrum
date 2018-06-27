@@ -20,6 +20,7 @@
 PostgreSQL / PsycoPG2 DB functionality for the people
 """
 import uuid
+import sys
 
 import psycopg2
 import psycopg2.extensions
@@ -101,24 +102,26 @@ def safebytes(value):
 psycopg2.extensions.register_adapter(bytes, safebytes)
 
 
-# floats and longs
-# TODO: Do we really need these?
 def numtype(value, cursor):
-    """ psycopg2 type, DECIMAL/NUMBER -> float/long. """
+    """ psycopg2 type, DECIMAL/NUMBER -> float/int/long. """
     # The PsycoPG driver returns floats for all columns of type
     # numeric.  The PyPgSQL driver only does this if the column is
     # defined to have digits.  This method makes PsycoPG behave
     # the same way
     desc = cursor.description[0]
     # DECIMAL is a subtype of NUMBER, so we need to use the same handler here.
-    if desc.type_code == PG_TYPE_DECIMAL and desc.scale > 0:
+    if desc.type_code == PG_TYPE_DECIMAL:
         value = PG_TYPE_DECIMAL(value, cursor)
-        if value is not None:
-            value = float(value)
     else:
         value = PG_TYPE_NUMBER(value, cursor)
-        if value is not None and cursor.description[0].scale <= 0:
-            value = long(value)
+    if value is not None:
+        if desc.scale > 0:
+            value = float(value)
+        else:
+            if value <= sys.maxint:
+                value = int(value)
+            else:
+                value = long(value)
     return value
 
 
