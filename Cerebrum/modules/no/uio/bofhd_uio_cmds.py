@@ -1231,15 +1231,13 @@ class BofhdExtension(BofhdCommonMethods):
             kw = {'any_entity': ent.entity_id}
         else:
             kw = {'subject_entity': ent.entity_id}
-
+        rows = list(self.db.get_log_events(0, **kw))
         try:
-            kw['limit'] = int(limit)
+            limit = int(limit)
         except ValueError:
             raise CerebrumError("Limit must be a number")
 
-        rows = list(self.db.get_log_events(0, **kw))
-
-        for r in rows:
+        for r in rows[-limit:]:
             ret.append(self._format_changelog_entry(r))
         return ret
 
