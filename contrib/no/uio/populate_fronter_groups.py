@@ -1663,7 +1663,7 @@ def remove_spread_from_group(group, spread):
 
 def get_group(id):
     gr = Factory.get('Group')(db)
-    if isinstance(id, str):
+    if isinstance(id, basestring):
         gr.find_by_name(id)
     else:
         gr.find(id)
