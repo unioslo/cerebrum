@@ -163,6 +163,15 @@ def process(db, trait, message, phone_types, affiliations, too_old,
         except Errors.NotFoundError:
             pass
 
+        # get student number
+        studentnumber = None
+        try:
+            studentnumber = pe.get_external_id(
+                co.system_fs,
+                co.externalid_studentnr)[0]['external_id']
+        except IndexError:
+            pass
+
         def u(db_value):
             if isinstance(db_value, bytes):
                 return db_value.decode(db.encoding)
@@ -170,6 +179,7 @@ def process(db, trait, message, phone_types, affiliations, too_old,
 
         msg = message % {
             'username': u(ac.account_name),
+            'studentnumber': u(studentnumber),
             'email': u(email),
         }
         if not send_sms(phone, msg, commit):
