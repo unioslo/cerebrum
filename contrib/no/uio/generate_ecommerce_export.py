@@ -65,8 +65,8 @@ class BaswareDialect(csv.Dialect):
 logger = logging.getLogger(__name__)
 
 
-# DEFAULT_ENCODING = 'utf-8'
-DEFAULT_ENCODING = 'latin1'
+DEFAULT_ENCODING = 'utf-8'
+# DEFAULT_ENCODING = 'latin1'
 DEFAULT_ERRORS = 'replace'
 
 
