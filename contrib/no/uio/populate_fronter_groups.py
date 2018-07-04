@@ -346,8 +346,8 @@ def prefetch_primaryusers():
         if fnr in fnr_source and fnr_source[fnr][0] != p_id:
             # Multiple person_info rows have the same fnr (presumably
             # the different fnrs come from different source systems).
-            logger.error("Multiple persons share fnr %s: (%d, %d)" % (
-                fnr, fnr_source[fnr][0], p_id))
+            logger.error("Persons share fnr, check entities: (%d, %d)",
+                         fnr_source[fnr][0], p_id)
             # Determine which person's fnr registration to use.
             source_weight = dict()
             count = len(cereconf.SYSTEM_LOOKUP_ORDER)
@@ -1193,12 +1193,11 @@ def populate_enhet_groups(enhet_id, role_mapping):
             for account_id in aktivitet['students']:
                 if account_id not in alle_stud:
                     account_name = account_id2uname(account_id)
-                    logger.warn("OBS: Bruker <%s> (fnr <%s>) er med i"
-                                " undaktivitet <%s>, men ikke i"
-                                " undervisningsenhet <%s>.\n" %
-                                (account_name and account_name or account_id,
-                                 account_id2fnr[account_id],
-                                 "%s:%s" % (enhet_id, aktkode), enhet_id))
+                    logger.warn("Bruker %r er med i undaktivitet <%s>,"
+                                " men ikke i undervisningsenhet <%s>",
+                                account_name or account_id,
+                                "%s:%s" % (enhet_id, aktkode),
+                                enhet_id)
                 akt_stud[account_id] = 1
 
             logger.debug("%d studenter ved undakt <%s> for undenh <%s>",
@@ -1389,11 +1388,10 @@ def populate_enhet_groups(enhet_id, role_mapping):
             for account_id in aktivitet['students']:
                 if account_id not in evustud:
                     account_name = account_id2uname(account_id)
-                    logger.warn("OBS: Bruker <%s> (fnr <%s>) er med i "
-                                "aktivitet <%s>, men ikke i kurset <%s>." %
-                                (account_name and account_name or account_id,
-                                 account_id2fnr[account_id],
-                                 "%s:%s" % (enhet_id, aktkode), enhet_id))
+                    logger.warn("Bruker %r er med i aktivitet <%s>,"
+                                " men ikke i kurset <%s>.",
+                                account_name or account_id,
+                                "%s:%s" % (enhet_id, aktkode), enhet_id)
                 evu_akt_stud[account_id] = 1
             sync_group(kurs_id,
                        fields2key(enhet_id, "student", aktkode),
