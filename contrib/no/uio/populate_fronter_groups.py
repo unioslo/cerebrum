@@ -127,17 +127,21 @@ annen rolle til Ifi-kursene havner i 'g'-ansvarlige-gruppene.
 
 from __future__ import unicode_literals
 
-import sys
-import getopt
-import re
+import argparse
 import locale
+import logging
+import os
+import re
+import sys
+
 from itertools import izip, repeat
 
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet
-from Cerebrum.utils import transliterate
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.modules.no.access_FS import roles_xml_parser, make_fs
@@ -145,6 +149,7 @@ from Cerebrum.modules.no.uio.fronter_lib import (UE2KursID, key2fields,
                                                  str2key, fields2key)
 from Cerebrum.modules.xmlutils.fsxml2object import EduGenericIterator
 from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
+from Cerebrum.utils import transliterate
 
 
 # IVR 2007-11-08 FIXME: Should this be in fronter_lib?
@@ -155,6 +160,9 @@ valid_roles = ("ADMIN", "DLO", "FAGANSVAR", "FORELESER", "GJESTEFORE",
 # Roles that are inherited by entities located at a certain sko or at a
 # certain stprog.
 recursive_roles = ("ADMIN", "DLO", "IT-ANSVARL", "STUDIEKONS", "TILSYN",)
+
+
+logger = logging.getLogger(__name__)
 
 
 def make_sko(row, suffix=""):
@@ -1680,13 +1688,6 @@ def mkgname(id, prefix='internal:'):
     return (prefix + id).lower()
 
 
-def usage(exitcode=0):
-    print """Usage: [options]
-    --db-user name: connect with given database username
-    --db-service name: connect to given database"""
-    sys.exit(exitcode)
-
-
 def parse_xml_roles(fname):
     """Parse a files with FS roles and return a dict structured thus::
 
@@ -1788,62 +1789,102 @@ def parse_xml_roles(fname):
     return detailed_roles
 
 
-def main():
-    global fs, db, co, logger, emne_versjon, emne_termnr, account_id2fnr
+DEFAULT_COMMIT = True
+
+
+def readable_file_type(filename):
+    if not os.path.isfile(filename):
+        raise ValueError("No file %r" % (filename, ))
+    if not os.access(filename, os.R_OK):
+        raise ValueError("Unable to read %r" % (filename, ))
+    return filename
+
+
+def main(inargs=None):
+    global fs, db, co, emne_versjon, emne_termnr, account_id2fnr
     global fnr2account_id, fnr2stud_account_id, AffiliatedGroups
     global known_FS_groups, fs_supergroup, auto_supergroup
     global group_creator, UndervEnhet
     global ifi_netgr_g, ifi_netgr_lkurs, dryrun
 
-    logger = Factory.get_logger("cronjob")
-    logger.debug("populating fronter groups")
-
+    # TODO: This shouldn't be need anymore?
     # Upper/lowercasing of Norwegian letters.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
+    parser = argparse.ArgumentParser()
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "",
-                                   ["role-file=",
-                                    "undenh-file=",
-                                    "undakt-file=",
-                                    "evu-file=",
-                                    "kursakt-file=",
-                                    "kull-file=",
-                                    "edu-file=",
-                                    "dryrun"])
+    db_commit = parser.add_argument_group('Database')
+    commit_mutex = db_commit.add_mutually_exclusive_group()
+    commit_mutex.add_argument(
+        '--dryrun',
+        dest='commit',
+        action='store_false',
+        help='Run in dryrun mode' + ('' if DEFAULT_COMMIT else ' (default)'))
+    commit_mutex.add_argument(
+        '--commit',
+        dest='commit',
+        action='store_true',
+        help='Commit changes to the database' + ('' if not DEFAULT_COMMIT
+                                                 else ' (default)'))
+    commit_mutex.set_defaults(commit=DEFAULT_COMMIT)
 
-    except getopt.GetoptError:
-        usage(2)
-    dryrun = False
-    role_file = None
-    undenh_file = None
-    undakt_file = None
-    evu_file = None
-    kursakt_file = None
-    kull_file = None
-    edu_file = None
-    for o, val in opts:
-        if o in ('--role-file',):
-            role_file = val
-        elif o in ('--undenh-file',):
-            undenh_file = val
-        elif o in ('--undakt-file',):
-            undakt_file = val
-        elif o in ('--evu-file',):
-            evu_file = val
-        elif o in ('--kursakt-file',):
-            kursakt_file = val
-        elif o in ('--kull-file',):
-            kull_file = val
-        elif o in ('--edu-file',):
-            edu_file = val
-        elif o in ('--dryrun',):
-            dryrun = True
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    # TODO: Require all these? I *think* they are required...
+    fs_files = parser.add_argument_group('Files',
+                                         'XML data files from import_FS')
+    fs_files.add_argument(
+        '--role-file',
+        type=readable_file_type,
+        help='Roller',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--undenh-file',
+        type=readable_file_type,
+        help='Undervisningsenheter',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--undakt-file',
+        type=readable_file_type,
+        help='Undervisningsaktiviteter',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--evu-file',
+        type=readable_file_type,
+        help='EVU-kurs',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--kursakt-file',
+        type=readable_file_type,
+        help='EVU-kursaktiviteter',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--kull-file',
+        type=readable_file_type,
+        help='Kull',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--edu-file',
+        type=readable_file_type,
+        help='edu_info?',
+        metavar='FILE')
+
+    args = parser.parse_args(inargs)
+
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start of script %s', parser.prog)
+    logger.debug("args: %r", args)
+
+    #
+    # Initialize globals
+    #
     fs = make_fs()
-
     db = Factory.get('Database')()
     db.cl_init(change_program='CF_gen_groups')
     co = Factory.get('Constants')(db)
+
+    dryrun = not args.commit
+
     emne_versjon = {}
     emne_termnr = {}
     account_id2fnr = {}
@@ -1866,15 +1907,23 @@ def main():
     auto_supergroup = "{autogroup}"
     group_creator = get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id
 
-    process_kursdata(role_file, undenh_file, undakt_file,
-                     evu_file, kursakt_file, kull_file, edu_file)
-    if dryrun:
-        logger.debug("Dry run. Rolling back all changes...")
-        db.rollback()
-    else:
-        logger.debug("Committing all changes...")
+    process_kursdata(
+        args.role_file,
+        args.undenh_file,
+        args.undakt_file,
+        args.evu_file,
+        args.kursakt_file,
+        args.kull_file,
+        args.edu_file)
+
+    if args.commit:
+        logger.info("Committing all changes...")
         db.commit()
-    logger.info("All done")
+    else:
+        logger.info("Dry run. Rolling back all changes...")
+        db.rollback()
+
+    logger.info('Done with script %s', parser.prog)
 
 
 if __name__ == '__main__':
