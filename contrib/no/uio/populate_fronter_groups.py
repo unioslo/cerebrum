@@ -266,13 +266,13 @@ def process_role(enhet_id, template_id, roles_mapping,
     stprogroller = roles_mapping.get(fields2key("stprog", stprog), {})
 
     key = str2key(enhet_id)
-    logger.debug("Locating roles for enhet_id <<%s>> (description "
-                 "template: %s). template is %s; key is %s",
-                 enhet_id, description, template_id, key)
+    logger.debug("Locating roles for enhet_id=%r, template_id=%r, "
+                 "key=%r, description=%r",
+                 enhet_id, template_id, key, description)
     if ((key not in roles_mapping) and
             (not stedroller) and
             (not stprogroller)):
-        logger.debug("No roles for enhet %s found", enhet_id)
+        logger.debug("No roles for enhet_id=%r found", enhet_id)
         return
 
     my_roles = roles_mapping.get(key, {})
@@ -893,7 +893,7 @@ def get_kursakt(edu_info, kursakt_file, edu_file):
     for kursakt in EduDataGetter(kursakt_file, logger).iter_kursakt():
         evu_id = fields2key("evu", kursakt['etterutdkurskode'],
                             kursakt['kurstidsangivelsekode'])
-        logger.debug2('Processing EVU-kurs: %s', evu_id)
+        logger.debug('Processing EVU-kurs: %s', evu_id)
         aktkode = fields2key(kursakt["aktivitetskode"])
         if evu_id not in edu_info:
             logger.error("Ikke-eksisterende EVU-kurs <%s> har aktiviteter "
@@ -1558,7 +1558,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
         else:
             remove_spread_from_group(gname, co.spread_fronter_dotcom)
     else:
-        logger.debug2("Spreads for group %s are unchanged", gname)
+        logger.debug("Spreads for group %s are unchanged", gname)
 # end sync_group
 
 
@@ -1716,11 +1716,14 @@ def parse_xml_roles(fname):
     """
 
     detailed_roles = dict()
+    stats = {'elem': 0}
 
     def element_to_role(element, data):
+        stats['elem'] += 1
         kind = data[roles_xml_parser.target_key]
         if len(kind) > 1:
-            logger.warn("Cannot decide on role kind for: %s", kind)
+            logger.warn("role[%d]: cannot decide on role kind for: %r",
+                        stats['elem'], kind)
             return
         kind = kind[0]
 
@@ -1750,37 +1753,42 @@ def parse_xml_roles(fname):
                    data["arstall"])
         elif kind in ("sted",):
             key = ("sted", make_sko(data))
-            logger.debug("Rekursiv rolle (%s): %s -> %s",
+            logger.debug("role[%d]: recursive role (%s): %r -> %r",
+                         stats['elem'],
                          data["rollekode"] in recursive_roles and
-                         "brukt" or "ignorert",
+                         "used" or "ignored",
                          key, data["rollekode"])
             if data["rollekode"] not in recursive_roles:
                 return
         elif kind in ("stprog",):
             key = ("stprog", data["studieprogramkode"])
-            logger.debug("Rekursiv rolle (%s): %s -> %s",
+            logger.debug("role[%d]: recursive role (%s): %r -> %r",
+                         stats['elem'],
                          data["rollekode"] in recursive_roles and
-                         "brukt" or "ignorert",
+                         "used" or "ignored",
                          key, data["rollekode"])
             if data["rollekode"] not in recursive_roles:
                 return
         else:
-            logger.warn("%s%s: Wrong role entry kind: %s",
-                        data["fodselsdato"], data["personnr"], kind)
+            logger.warn("role[%d]: wrong role entry, kind=%r, fodselsdato=%r",
+                        stats['elem'], kind, data["fodselsdato"])
             return
 
         key = fields2key(*key)
-        fnr = {"fodselsdato": int(data["fodselsdato"]),
-               "personnr": int(data["personnr"]), }
         if data["rollekode"] in valid_roles:
-            logger.debug("role %s given for %s to %s",
-                         data["rollekode"], key, fnr)
+            logger.debug("role[%d]: role=%r, unit=%r, fodselsdato=%r given",
+                         stats['elem'], data["rollekode"], key,
+                         data["fodselsdato"])
             detailed_roles.setdefault(key, dict()).setdefault(
-                data["rollekode"], list()).append(fnr)
+                data["rollekode"], list()).append({
+                    "fodselsdato": int(data["fodselsdato"]),
+                    "personnr": int(data["personnr"]),
+                })
         else:
-            logger.debug("role %s for person %s for unit %s is not recognized "
-                         "and will be ignored",
-                         data["rollekode"], fnr, key)
+            logger.debug("role[%d]: role=%r, unit=%r, fodselsdato=%r is not "
+                         "recognized and will be ignored",
+                         stats['elem'], data["rollekode"], key,
+                         data["fodselsdato"])
 
     logger.info("Parsing role file %s", fname)
     roles_xml_parser(fname, element_to_role)
