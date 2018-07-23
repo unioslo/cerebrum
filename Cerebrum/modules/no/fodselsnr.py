@@ -77,24 +77,15 @@ def personnr_ok(nr, _ret_date=0, accept_00x00=True):
         month -= 50
 
     # Så var det det å kjenne igjen hvilket hundreår som er det riktige.
-    if pnr < 500:
+    if 000 <= pnr <= 499:
         year += 1900
-    elif pnr >= 900:
-        # Nok et FS/SO hack.  Dobbelturk, dette får ting til å gå i
-        # stykker når noen født i år 2000 eller senere dukker opp i
-        # våre systemer...
-        #
-        # Hacket er ikke lenger (siden høst 1999) i bruk for
-        # _opprettelse_ av nye student-personnummer, men allerede
-        # opprettede nummer vil finnes en stund enda.
-        year += 1900
-    elif year >= 55:
-        # eldste person tildelt fødelsnummer er født i 1855.
-        year += 1800
-    else:
-        # vi har et problem igjen etter år 2054.  Det er ikke helt
-        # avklart hva løsningen da vil være.
+    elif 500 <= pnr <= 999 and year <= 39:
         year += 2000
+    elif 900 <= pnr <= 999 and year >= 40:
+        year += 1900
+    elif 500 <= pnr <= 749:
+        year += 1800
+
     if not _is_legal_date(year, month, day):
         raise InvalidFnrError("ugyldig dato")
     if not _ret_date:
