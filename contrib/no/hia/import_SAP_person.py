@@ -206,7 +206,7 @@ def populate_external_ids(tpl):
                      tpl.sap_ansattnr, tpl.sap_fnr)
 
     try:
-        fodselsnr.personnr_ok(tpl.sap_fnr, accept_00X00=False)
+        fodselsnr.personnr_ok(tpl.sap_fnr, accept_00x00=False)
     except fodselsnr.InvalidFnrError:
         # IVR 2007-02-15 It is *wrong* to simply ignore these, but since they
         # do occur, and they may be difficult to get rid of, we'll downgrade

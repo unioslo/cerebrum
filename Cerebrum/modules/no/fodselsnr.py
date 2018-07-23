@@ -33,16 +33,18 @@ Ported from the perl version written by Gisle Aas <aas@sn.no>"""
 
 import re
 
+
 class InvalidFnrError(ValueError):
     "Exception som indikerer ugyldig norsk fødselsnummer."
     pass
 
-def personnr_ok(nr, _retDate=0, accept_00X00=True):
+
+def personnr_ok(nr, _ret_date=0, accept_00x00=True):
     """Returnerer 11-sifret fødselsnummer som str dersom det er gyldig.
 
     Første argument kan være enten en (long) int eller en str.
 
-    Andre argument, `_retDate', skal kun brukes internt i denne
+    Andre argument, `_ret_date', skal kun brukes internt i denne
     modulen.
 
     """
@@ -59,13 +61,13 @@ def personnr_ok(nr, _retDate=0, accept_00X00=True):
                               % nr)
 
     # Del opp fødselsnummeret i dets enkelte komponenter.
-    day, month, year, pnr = \
-         int(nr[0:2]), int(nr[2:4]), int(nr[4:6]), int(nr[6:9])
+    day, month, year, pnr = (
+        int(nr[0:2]), int(nr[2:4]), int(nr[4:6]), int(nr[6:9]))
 
     # luk ut personnr fra SAP (12345600X00)
-    if not accept_00X00 and re.search(r'00\d00$', nr):
+    if not accept_00x00 and re.search(r'00\d00$', nr):
         raise InvalidFnrError("Fnr med gyldig sjekksum, men ugyldig personnr")
-    
+
     # B-nummer -- midlertidig (max 6 mnd) personnr
     if day > 40:
         day -= 40
@@ -94,10 +96,11 @@ def personnr_ok(nr, _retDate=0, accept_00X00=True):
         # avklart hva løsningen da vil være.
         year += 2000
     if not _is_legal_date(year, month, day):
-        raise InvalidFnrError, "ugyldig dato"
-    if not _retDate:
+        raise InvalidFnrError("ugyldig dato")
+    if not _ret_date:
         return nr
     return (year, month, day)
+
 
 def _is_legal_date(y, m, d):
     """Returnerer 1 hvis dato er lovlig"""
@@ -116,6 +119,7 @@ def _is_legal_date(y, m, d):
     if d > mdays:
         return
     return 1
+
 
 def beregn_sjekksum(fnr):
     """Returner ``fnr`` med korrekt kontrollsifferdel."""
@@ -141,13 +145,14 @@ def beregn_sjekksum(fnr):
         # For noen kombinasjoner av 'DDMMYY' og 'PPP' eksisterer det
         # ingen gyldig sjekksum.
         if kontroll < 0 or kontroll >= 10:
-            raise InvalidFnrError, \
-                  "Gyldig sjekksum for %s eksisterer ikke." % fnr
+            raise InvalidFnrError(
+                  "Gyldig sjekksum for %s eksisterer ikke." % fnr)
         # Vi har funnet riktig siffer; sett det inn og gå videre til
         # neste.
         nr[idx] = kontroll
         idx += 1
     return "".join([str(x) for x in nr])
+
 
 def er_mann(nr):
     """Vil returnere 1 hvis nr tilhører en mann."""
@@ -155,13 +160,16 @@ def er_mann(nr):
     # croak "Feil i personnummer" unless $nr;
     return int(nr[8]) % 2
 
+
 def er_kvinne(nr):
     """Vil returnere 1 hvis nr tilhører en kvinne."""
     return not er_mann(nr)
 
+
 def fodt_dato(nr):
     'Returner personens fødselsdato på formen (år, måned, dag).'
-    return personnr_ok(nr, _retDate=1)
+    return personnr_ok(nr, _ret_date=1)
+
 
 def del_fnr(fnr):
     """Returner ``fnr`` delt i 2 ints: (dato, personnr).
@@ -172,6 +180,7 @@ def del_fnr(fnr):
     """
     fnr = personnr_ok(fnr)
     return (int(fnr[:-5]), int(fnr[-5:]))
+
 
 def del_fnr_4(fnr):
     """Returner ``fnr`` delt i 4 ints: (dag, måned, 2-sifret år, personnr).
@@ -199,4 +208,3 @@ if __name__ == '__main__':
             print "fodt_dato: %s" % str(fodt_dato(fnr))
         except:
             print "Sjekksum '%s' er ugyldig for '%s'" % (fnr[9:], fnr)
-
