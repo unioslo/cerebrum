@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -22,25 +22,25 @@
 
 This documentation is written in Norwegian.
 
-Denne modulen kan brukes for å sjekke norske personnummer.  De 2 siste
-siffrene i personnummerene er kontrollsiffre og må stemme overens med
-resten for at det skal være et gyldig nummer.  Modulen inneholder også
-funksjoner for å bestemme personens kjønn og personens fødselsdato.
+Denne modulen kan brukes for Ã¥ sjekke norske personnummer.  De 2 siste
+siffrene i personnummerene er kontrollsiffre og mÃ¥ stemme overens med
+resten for at det skal vÃ¦re et gyldig nummer.  Modulen inneholder ogsÃ¥
+funksjoner for Ã¥ bestemme personens kjÃ¸nn og personens fÃ¸dselsdato.
 
-Ved ugyldig fødselsnummer reises en InvalidFnrError.
+Ved ugyldig fÃ¸dselsnummer reises en InvalidFnrError.
 
 Ported from the perl version written by Gisle Aas <aas@sn.no>"""
 
 import re
 
 class InvalidFnrError(ValueError):
-    "Exception som indikerer ugyldig norsk fødselsnummer."
+    "Exception som indikerer ugyldig norsk fÃ¸dselsnummer."
     pass
 
 def personnr_ok(nr, _retDate=0, accept_00X00=True):
-    """Returnerer 11-sifret fødselsnummer som str dersom det er gyldig.
+    """Returnerer 11-sifret fÃ¸dselsnummer som str dersom det er gyldig.
 
-    Første argument kan være enten en (long) int eller en str.
+    FÃ¸rste argument kan vÃ¦re enten en (long) int eller en str.
 
     Andre argument, `_retDate', skal kun brukes internt i denne
     modulen.
@@ -51,14 +51,14 @@ def personnr_ok(nr, _retDate=0, accept_00X00=True):
     if len(nr) == 10:
         nr = "0" + nr
     if len(nr) != 11:
-        raise InvalidFnrError("Ugyldig lengde for fødselsnummer <%s>."
+        raise InvalidFnrError("Ugyldig lengde for fÃ¸dselsnummer <%s>."
                               % nr)
 
     if nr != beregn_sjekksum(nr):
-        raise InvalidFnrError("Feil sjekksum for fødselsnummer <%s>."
+        raise InvalidFnrError("Feil sjekksum for fÃ¸dselsnummer <%s>."
                               % nr)
 
-    # Del opp fødselsnummeret i dets enkelte komponenter.
+    # Del opp fÃ¸dselsnummeret i dets enkelte komponenter.
     day, month, year, pnr = \
          int(nr[0:2]), int(nr[2:4]), int(nr[4:6]), int(nr[6:9])
 
@@ -74,24 +74,24 @@ def personnr_ok(nr, _retDate=0, accept_00X00=True):
     if month > 50:
         month -= 50
 
-    # Så var det det å kjenne igjen hvilket hundreår som er det riktige.
+    # SÃ¥ var det det Ã¥ kjenne igjen hvilket hundreÃ¥r som er det riktige.
     if pnr < 500:
         year += 1900
     elif pnr >= 900:
-        # Nok et FS/SO hack.  Dobbelturk, dette får ting til å gå i
-        # stykker når noen født i år 2000 eller senere dukker opp i
-        # våre systemer...
+        # Nok et FS/SO hack.  Dobbelturk, dette fÃ¥r ting til Ã¥ gÃ¥ i
+        # stykker nÃ¥r noen fÃ¸dt i Ã¥r 2000 eller senere dukker opp i
+        # vÃ¥re systemer...
         #
-        # Hacket er ikke lenger (siden høst 1999) i bruk for
+        # Hacket er ikke lenger (siden hÃ¸st 1999) i bruk for
         # _opprettelse_ av nye student-personnummer, men allerede
         # opprettede nummer vil finnes en stund enda.
         year += 1900
     elif year >= 55:
-        # eldste person tildelt fødelsnummer er født i 1855.
+        # eldste person tildelt fÃ¸delsnummer er fÃ¸dt i 1855.
         year += 1800
     else:
-        # vi har et problem igjen etter år 2054.  Det er ikke helt
-        # avklart hva løsningen da vil være.
+        # vi har et problem igjen etter Ã¥r 2054.  Det er ikke helt
+        # avklart hva lÃ¸sningen da vil vÃ¦re.
         year += 2000
     if not _is_legal_date(year, month, day):
         raise InvalidFnrError, "ugyldig dato"
@@ -119,22 +119,22 @@ def _is_legal_date(y, m, d):
 
 def beregn_sjekksum(fnr):
     """Returner ``fnr`` med korrekt kontrollsifferdel."""
-    # TODO: Kanonikalisering av fnr; må være nøyaktig 11 elementer
+    # TODO: Kanonikalisering av fnr; mÃ¥ vÃ¦re nÃ¸yaktig 11 elementer
     # lang.
     nr = list(fnr)
-    idx = 9                             # Første kontrollsiffer
+    idx = 9                             # FÃ¸rste kontrollsiffer
     for vekt in ((3, 7, 6, 1, 8, 9, 4, 5, 2, 1, 0),
                  (5, 4, 3, 2, 7, 6, 5, 4, 3, 2, 1)):
         sum = 0
         for x in range(11):
             #
             # Lag vektet sum av alle siffer, utenom det
-            # kontrollsifferet vi forsøker å beregne.
+            # kontrollsifferet vi forsÃ¸ker Ã¥ beregne.
             if x != idx:
                 sum = sum + int(nr[x]) * int(vekt[x])
-        # Kontrollsifferet har vekt 1; evt. etterfølgende
+        # Kontrollsifferet har vekt 1; evt. etterfÃ¸lgende
         # kontrollsiffer har vekt 0.  Riktig kontrollsiffer er det som
-        # får den totale kontrollsummen (for hver vekt-serie) til å gå
+        # fÃ¥r den totale kontrollsummen (for hver vekt-serie) til Ã¥ gÃ¥
         # opp i 11.
         kontroll = (11 - (sum % 11)) % 11
         #
@@ -143,30 +143,30 @@ def beregn_sjekksum(fnr):
         if kontroll < 0 or kontroll >= 10:
             raise InvalidFnrError, \
                   "Gyldig sjekksum for %s eksisterer ikke." % fnr
-        # Vi har funnet riktig siffer; sett det inn og gå videre til
+        # Vi har funnet riktig siffer; sett det inn og gÃ¥ videre til
         # neste.
         nr[idx] = kontroll
         idx += 1
     return "".join([str(x) for x in nr])
 
 def er_mann(nr):
-    """Vil returnere 1 hvis nr tilhører en mann."""
+    """Vil returnere 1 hvis nr tilhÃ¸rer en mann."""
     nr = personnr_ok(nr)
     # croak "Feil i personnummer" unless $nr;
     return int(nr[8]) % 2
 
 def er_kvinne(nr):
-    """Vil returnere 1 hvis nr tilhører en kvinne."""
+    """Vil returnere 1 hvis nr tilhÃ¸rer en kvinne."""
     return not er_mann(nr)
 
 def fodt_dato(nr):
-    'Returner personens fødselsdato på formen (år, måned, dag).'
+    'Returner personens fÃ¸dselsdato pÃ¥ formen (Ã¥r, mÃ¥ned, dag).'
     return personnr_ok(nr, _retDate=1)
 
 def del_fnr(fnr):
     """Returner ``fnr`` delt i 2 ints: (dato, personnr).
 
-    Sjekker at ``fnr`` er et gyldig fødselsnummer først; hvis ikke
+    Sjekker at ``fnr`` er et gyldig fÃ¸dselsnummer fÃ¸rst; hvis ikke
     raises en InvalidFnrError.
 
     """
@@ -174,9 +174,9 @@ def del_fnr(fnr):
     return (int(fnr[:-5]), int(fnr[-5:]))
 
 def del_fnr_4(fnr):
-    """Returner ``fnr`` delt i 4 ints: (dag, måned, 2-sifret år, personnr).
+    """Returner ``fnr`` delt i 4 ints: (dag, mÃ¥ned, 2-sifret Ã¥r, personnr).
 
-    Sjekker at ``fnr`` er et gyldig fødselsnummer først; hvis ikke
+    Sjekker at ``fnr`` er et gyldig fÃ¸dselsnummer fÃ¸rst; hvis ikke
     raises en InvalidFnrError.
 
     """
