@@ -332,6 +332,7 @@ def makeInitialUsers(db):
 def check_schema_versions(db, strict=False):
     modules = {
         'ad': 'Cerebrum.modules.ADObject',
+        'auditlog': 'Cerebrum.modules.audit',
         'changelog': 'Cerebrum.modules.ChangeLog',
         'dns': 'Cerebrum.modules.dns',
         'email': 'Cerebrum.modules.Email',
@@ -607,6 +608,7 @@ def runfile(fname, db, debug, phase):
                          % fname)
     if output_col is not None:
         print
+
 
 if __name__ == '__main__':
     main()
