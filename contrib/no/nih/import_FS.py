@@ -18,12 +18,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from os.path import join as pj
+"""
+"""
+from __future__ import unicode_literals
 
 import sys
 import getopt
 import mx
+
+from os.path import join as pj
 
 import cereconf
 
@@ -259,13 +262,51 @@ def _load_cere_aff():
 
 
 def rem_old_aff():
+    """
+    Deleting the remaining person affiliations that were not processed by the
+    import. This is all student affiliations from FS which should not be here
+    anymore.
+
+    Note that affiliations might not be removed until after a defined grace
+    period, as defined in L{cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS}
+    """
+    logger.info("Removing old FS affiliations")
     person = Factory.get("Person")(db)
-    for k, v in old_aff.items():
-        if v:
-            ent_id, ou, affi = k.split(':')
-            person.clear()
-            person.find(int(ent_id))
-            person.delete_affiliation(ou, affi, co.system_fs)
+
+    for k, v in old_aff.iteritems():
+        if not v:
+            continue
+        ent_id, ou, affi = (int(x) for x in k.split(':'))
+        aff = person.list_affiliations(person_id=ent_id,
+                                       source_system=co.system_fs,
+                                       affiliation=affi, ou_id=ou)
+        if not aff:
+            logger.debug("No affiliation %s for person %s, skipping",
+                         co.PersonAffiliation(affi), ent_id)
+            continue
+        if len(aff) > 1:
+            logger.warn("More than one aff for person %s, what to do?", ent_id)
+            # if more than one aff we should probably just remove both/all
+            continue
+        aff = aff[0]
+
+        # Check date, do not remove affiliation for active students until end of
+        # grace period. EVU affiliations should be removed at once.
+        grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
+        if (aff['last_date'] > (mx.DateTime.now() - grace_days) and
+                int(aff['status']) != int(co.affiliation_status_student_evu)):
+            logger.info("Too fresh aff for person %s, skipping", ent_id)
+            continue
+
+        person.clear()
+        try:
+            person.find(ent_id)
+        except Errors.NotFoundError:
+            logger.warn("Couldn't find person_id:%s, not removing aff", ent_id)
+            continue
+        logger.info("Removing aff %s for person=%s, at ou_id=%s",
+                    co.PersonAffiliation(affi), ent_id, ou)
+        person.delete_affiliation(ou, affi, co.system_fs)
 
 
 def filter_affiliations(affiliations):
