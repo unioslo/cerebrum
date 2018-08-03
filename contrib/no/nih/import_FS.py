@@ -84,7 +84,8 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
     else:
         institusjon = cereconf.DEFAULT_INSTITUSJONSNR
 
-    key = "-".join((str(institusjon), a_dict[kfak], a_dict[kinst], a_dict[kgr]))
+    key = "-".join(
+        (str(institusjon), a_dict[kfak], a_dict[kinst], a_dict[kgr]))
     if key not in ou_cache:
         ou = Factory.get('OU')(db)
         try:
@@ -108,10 +109,11 @@ def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
     if not ou_id:
         return None
     ou_id = int(ou_id)
-    if not ou_adr_cache.has_key(ou_id):
+    if ou_id not in ou_adr_cache:
         ou = Factory.get('OU')(db)
         ou.find(ou_id)
-        rows = ou.get_entity_address(source=co.system_fs, type=co.address_street)
+        rows = ou.get_entity_address(source=co.system_fs,
+                                     type=co.address_street)
         if rows:
             ou_adr_cache[ou_id] = {
                 'address_text': rows[0]['address_text'],
@@ -182,7 +184,7 @@ def _calc_address(person_info):
                  person_info['fodselsdato'], person_info['personnr'])
     ret = [None, None, None]
     for key, addr_src in rules:
-        if not person_info.has_key(key):
+        if key not in person_info:
             continue
         tmp = person_info[key][0].copy()
         if key == 'aktiv':
@@ -249,7 +251,8 @@ def register_cellphone(person, person_info):
                      cell_phone, fnr)
         return
 
-    logger.warn("Person %s has several cell phone numbers. Ignoring them all", fnr)
+    logger.warn("Person %s has several cell phone numbers. Ignoring them all",
+                fnr)
 
 
 def _load_cere_aff():
@@ -290,8 +293,8 @@ def rem_old_aff():
             continue
         aff = aff[0]
 
-        # Check date, do not remove affiliation for active students until end of
-        # grace period. EVU affiliations should be removed at once.
+        # Check date, do not remove affiliation for active students until end
+        # of grace period. EVU affiliations should be removed at once.
         grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
         if (aff['last_date'] > (mx.DateTime.now() - grace_days) and
                 int(aff['status']) != int(co.affiliation_status_student_evu)):
@@ -329,8 +332,9 @@ def process_person_callback(person_info):
     information."""
     global no_name
     try:
-        fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
-                                                  int(person_info['personnr'])))
+        fnr = fodselsnr.personnr_ok(
+            "%06d%05d" % (int(person_info['fodselsdato']),
+                          int(person_info['personnr'])))
         fnr = fodselsnr.personnr_ok(fnr)
         logger.info("Process %s " % (fnr))
         (year, mon, day) = fodselsnr.fodt_dato(fnr)
@@ -353,10 +357,11 @@ def process_person_callback(person_info):
     aktiv_sted = []
 
     # Iterate over all person_info entries and extract relevant data
-    if person_info.has_key('aktiv'):
+    if 'aktiv' in person_info:
         for row in person_info['aktiv']:
             if studieprog2sko[row['studieprogramkode']] is not None:
-                aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
+                aktiv_sted.append(
+                    int(studieprog2sko[row['studieprogramkode']]))
                 logger.debug("App2akrivts")
 
     for dta_type in person_info.keys():
@@ -368,27 +373,34 @@ def process_person_callback(person_info):
         if dta_type in ('fagperson', 'evu', 'aktiv'):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
-        if p.has_key('studentnr_tildelt'):
+        if 'studentnr_tildelt' in p:
             studentnr = p['studentnr_tildelt']
 
         # Get affiliations
         if dta_type in ('fagperson',):
-            _process_affiliation(co.affiliation_tilknyttet,
-                                 co.affiliation_status_tilknyttet_fagperson,
-                                 affiliations, _get_sko(p, 'faknr',
-                                 'instituttnr', 'gruppenr', 'institusjonsnr'))
+            _process_affiliation(
+                co.affiliation_tilknyttet,
+                co.affiliation_status_tilknyttet_fagperson,
+                affiliations, _get_sko(p,
+                                       'faknr',
+                                       'instituttnr',
+                                       'gruppenr',
+                                       'institusjonsnr'))
         elif dta_type in ('aktiv', ):
             for row in x:
-                # aktiv_sted is necessary in order to avoid different affiliation statuses
-                # to a same 'stedkode' to be overwritten
+                # aktiv_sted is necessary in order to avoid different
+                # affiliation statuses to a same 'stedkode' to be overwritten
                 # e.i. if a person has both affiliations status 'evu' and
-                # aktive to a single stedkode we want to register the status 'aktive'
-                # in cerebrum
+                # aktive to a single stedkode we want to register the status
+                # 'aktive' in Cerebrum
                 if studieprog2sko[row['studieprogramkode']] is not None:
-                    aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
-                    _process_affiliation(co.affiliation_student,
-                                         co.affiliation_status_student_aktiv, affiliations,
-                                         studieprog2sko[row['studieprogramkode']])
+                    aktiv_sted.append(
+                        int(studieprog2sko[row['studieprogramkode']]))
+                    _process_affiliation(
+                        co.affiliation_student,
+                        co.affiliation_status_student_aktiv,
+                        affiliations,
+                        studieprog2sko[row['studieprogramkode']])
         elif dta_type in ('evu',):
             subtype = co.affiliation_status_student_evu
             if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
@@ -407,7 +419,7 @@ def process_person_callback(person_info):
     # superior setting.
 
     new_person = Factory.get('Person')(db)
-    if fnr2person_id.has_key(fnr):
+    if fnr in fnr2person_id:
         new_person.find(fnr2person_id[fnr])
 
     new_person.populate(mx.DateTime.Date(year, mon, day), gender)
@@ -450,7 +462,7 @@ def process_person_callback(person_info):
         new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
         if include_delete:
             key_a = "%s:%s:%s" % (new_person.entity_id, ou, int(aff))
-            if old_aff.has_key(key_a):
+            if key_a in old_aff:
                 old_aff[key_a] = False
 
     register_cellphone(new_person, person_info)
@@ -458,7 +470,7 @@ def process_person_callback(person_info):
     op2 = new_person.write_db()
     if op is None and op2 is None:
         logger.info("**** EQUAL ****")
-    elif op == True:
+    elif op:
         logger.info("**** NEW ****")
     else:
         logger.info("**** UPDATE ****")
