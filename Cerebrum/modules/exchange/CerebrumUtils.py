@@ -465,36 +465,7 @@ class CerebrumUtils(object):
         params = event['change_params']
         if params is None:
             return params
-
-        # params *should* be a json-formatted unicode object...
-        try:
-            return json.loads(params)
-        except:
-            logger.warn("unable to json.loads change_params (%r)",
-                        params,
-                        exc_info=True)
-
-        # ... but *could* be a pickle-formatted latin1-string in a transitional
-        # period
-        try:
-            # TODO: remove -- p
-            if isinstance(params, text_type):
-                try:
-                    pparams = params.encode('ISO-8859-1')
-                except UnicodeEncodeError:
-                    pparams = b'make UnpicklingError'
-            else:
-                pparams = params
-            return pickle.loads(pparams)
-        except:
-            logger.warn("unable to pickle.loads change_params (%r)",
-                        params,
-                        exc_info=True)
-
-        # TODO: This is odd behaviour -- we should probably not catch issues
-        # with unserializing, but let it propagate up to the handler ...
-        # Fix this when we remove the pickle.loads above
-        return params
+        return json.loads(params)
 
     def get_entity_type(self, entity_id):
         """Fetch the entity type code of an entity.
