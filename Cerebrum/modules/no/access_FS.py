@@ -871,7 +871,8 @@ class Student(FSObject):
                r.fodselsdato, r.personnr, p.dato_fodt, r.regformkode,
                r.dato_endring, r.dato_opprettet
         FROM fs.registerkort r, fs.person p
-        WHERE %s AND
+        WHERE r.fodselsdato = p.fodselsdato AND r.personnr = p.personnr AND
+        %s AND
         NVL(r.status_ugyldig, 'N') = 'N'
         """ % self._get_termin_aar(only_current=1)
         return self.db.query(qry, {'autumn': 'HØST',
