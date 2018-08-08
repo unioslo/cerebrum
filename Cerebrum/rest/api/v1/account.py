@@ -491,10 +491,17 @@ class AccountEmailAddressResource(Resource):
     def get(self, name):
         """Get the email addresses for an account."""
         ac = find_account(name)
-        addresses = emailaddress.list_email_addresses(
-            ac.get_primary_mailaddress())
+        primary = None
+        addresses = []
+        try:
+            primary = ac.get_primary_mailaddress()
+        except Errors.NotFoundError:
+            pass
+        if primary:
+            addresses = emailaddress.list_email_addresses(primary)
+
         return {
-            'primary': ac.get_primary_mailaddress(),
+            'primary': primary,
             'addresses': addresses,
         }
 
