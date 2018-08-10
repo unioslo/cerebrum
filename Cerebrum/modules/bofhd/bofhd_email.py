@@ -3395,8 +3395,12 @@ class BofhdRtCommands(BofhdEmailBase):
         rt_dom = self._get_email_domain_from_str(host)
         self.ba.can_rt_address_remove(operator.get_entity_id(), domain=rt_dom)
         et = self._get_rt_email_target(queue, host)
-        return self._remove_email_address(et, address)
-
+        deleted_et = self._remove_email_address(et, address)
+        msg = ("OK, removed '%s' as e-mail address for '%s'" %
+               (address, queuename))
+        if deleted_et:
+            msg += "\nRT queue '%s' deleted, no addresses left" % queuename
+        return msg
     #
     # rt primary_address address
     #
