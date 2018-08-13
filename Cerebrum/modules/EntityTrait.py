@@ -19,7 +19,7 @@
 
 
 from Cerebrum.Entity import Entity
-from Cerebrum.Constants import (_CerebrumCodeWithEntityType, Constants,
+from Cerebrum.Constants import (_CerebrumCodeWithEntityType, CLConstants,
                                 _get_code)
 from Cerebrum.modules.CLConstants import _ChangeTypeCode
 from Cerebrum import Errors
@@ -37,7 +37,7 @@ class _EntityTraitCode(_CerebrumCodeWithEntityType):
     pass
 
 
-class TraitConstants(Constants):
+class CLConstants(CLConstants):
     trait_add = _ChangeTypeCode("trait", "add",
                                 "new trait for %(subject)s",
                                 ("%(trait:code)s",
