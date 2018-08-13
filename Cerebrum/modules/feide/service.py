@@ -34,6 +34,9 @@ class Constants(cereconst.Constants):
     # Entity type
     entity_feide_service = cereconst._EntityTypeCode('feide_service',
                                                      'Feide service')
+
+
+class CLConstants(cereconst.CLConstants):
     # Change log
     feide_service_add = cereconst._ChangeTypeCode(
         'feide_service', 'add',
