@@ -20,18 +20,21 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ HiOF FS import implementation and rules. """
 
-from os.path import join as pj
-import sys
+
+import datetime
 import getopt
-import mx
+import sys
 from collections import defaultdict
+from os.path import join as pj
+
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 
 import cereconf
 
-from Cerebrum import Errors
-from Cerebrum.modules.no import fodselsnr
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uio.AutoStud import StudentInfo
+import mx
 
 # FS import files:
 default_personfile = pj(cereconf.FS_DATA_DIR, "merged_persons.xml")
@@ -361,11 +364,6 @@ def process_person_callback(person_info):
                           int(person_info['personnr'])))
         fnr = fodselsnr.personnr_ok(fnr)
         logger.info("Process %s " % (fnr))
-        (year, mon, day) = fodselsnr.fodt_dato(fnr)
-        if (year < 1970 and
-                getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
-            # Seems to be a bug in time.mktime on some machines
-            year = 1970
     except fodselsnr.InvalidFnrError:
         logger.warn("Ugyldig fødselsnr: %s" % fnr)
         return
@@ -376,6 +374,7 @@ def process_person_callback(person_info):
 
     etternavn = fornavn = None
     studentnr = None
+    birth_date = None
     affiliations = []
     address_info = None
     aktiv_sted = []
@@ -399,6 +398,9 @@ def process_person_callback(person_info):
             fornavn = p['fornavn']
         if 'studentnr_tildelt' in p:
             studentnr = p['studentnr_tildelt']
+        if not birth_date and 'dato_fodt' in p:
+            birth_date = datetime.datetime.strptime(p['dato_fodt'],
+                                                    "%Y-%m-%d %H:%M:%S.%f")
 
         # Get affiliations
         if dta_type in ('fagperson',):
@@ -436,6 +438,9 @@ def process_person_callback(person_info):
         no_name += 1
         return
 
+    if not birth_date:
+        logger.warn('No birth date registered for studentnr %s', studentnr)
+
     # TODO: If the person already exist and has conflicting data from
     # another source-system, some mechanism is needed to determine the
     # superior setting.
@@ -444,7 +449,7 @@ def process_person_callback(person_info):
     if fnr in fnr2person_id:
         new_person.find(fnr2person_id[fnr])
 
-    new_person.populate(mx.DateTime.Date(year, mon, day), gender)
+    new_person.populate(birth_date, gender)
 
     new_person.affect_names(co.system_fs, co.name_first, co.name_last)
     new_person.populate_name(co.name_first, fornavn)
