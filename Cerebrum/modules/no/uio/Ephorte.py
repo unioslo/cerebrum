@@ -22,7 +22,6 @@
 from Cerebrum import Constants
 from Cerebrum.Constants import (ConstantsBase, _CerebrumCode, _SpreadCode,
                                 _get_code)
-from Cerebrum.modules.CLConstants import _ChangeTypeCode
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 
@@ -163,33 +162,34 @@ class EphorteConstants(ConstantsBase):
     EphorteJournalenhet = _EphorteJournalenhetCode
     EphortePermission = _EphortePermTypeCode
 
-    # ChangeLog constants
-    ephorte_role_add = _ChangeTypeCode(
+
+class CLConstants(Constants.CLConstants):
+    ephorte_role_add = Constants._ChangeTypeCode(
         'ephorte', 'role_add', 'add ephorte role @ %(dest)s',
         ('type=%(rolle_type:rolle_type)s',))
 
-    ephorte_role_upd = _ChangeTypeCode(
+    ephorte_role_upd = Constants._ChangeTypeCode(
         'ephorte', 'role_upd', 'update ephorte role @ %(dest)s')
 
-    ephorte_role_rem = _ChangeTypeCode(
+    ephorte_role_rem = Constants._ChangeTypeCode(
         'ephorte', 'role_rem', 'remove ephorte role @ %(dest)s',
         ('type=%(rolle_type:rolle_type)s',))
 
-    ephorte_perm_add = _ChangeTypeCode(
+    ephorte_perm_add = Constants._ChangeTypeCode(
         'ephorte', 'perm_add', 'add ephorte perm @ %(dest)s',
         ('type=%(perm_type:perm_type)s',))
 
-    ephorte_perm_rem = _ChangeTypeCode(
+    ephorte_perm_rem = Constants._ChangeTypeCode(
         'ephorte', 'perm_rem', 'remove ephorte perm @ %(dest)s',
         ('type=%(perm_type:perm_type)s',))
 
 
-@_ChangeTypeCode.formatter('rolle_type')
+@Constants._ChangeTypeCode.formatter('rolle_type')
 def format_cl_role_type(co, val):
     return _get_code(co.EphorteRole, val)
 
 
-@_ChangeTypeCode.formatter('perm_type')
+@Constants._ChangeTypeCode.formatter('perm_type')
 def format_cl_perm_type(co, val):
     return _get_code(co.EphortePermission, val)
 
