@@ -236,29 +236,36 @@ def read_country_file(fname):
 
 
 def insert_code_values(db, delete_extra_codes=False):
-    const = Factory.get('Constants')()
+    def do(kind):
+        const = Factory.get(kind)(db)
+        try:
+            stats = const.initialize(delete=delete_extra_codes)
+        except db.DatabaseError:
+            traceback.print_exc(file=sys.stdout)
+            print ("Error initializing constants, check that you include "
+                   "the sql files referenced by CLASS_CONSTANTS and "
+                   "CLASS_CL_CONSTANTS")
+            sys.exit(1)
+        if delete_extra_codes:
+            print('  Inserted {inserted} new {kind} (new total: {total}), '
+                  'updated {updated}, deleted {deleted}').format(
+                      kind=kind, **stats)
+        else:
+            print('  Inserted {inserted} new {kind} (new total: {total}), '
+                  'updated {updated}, superfluous {superfluous}').format(
+                      kind=kind, **stats)
+        if stats['details']:
+            print "  Details:\n    %s" % "\n    ".join(stats['details'])
+        const.commit()
+
     print "Inserting code values."
-    try:
-        stats = const.initialize(delete=delete_extra_codes)
-    except db.DatabaseError:
-        traceback.print_exc(file=sys.stdout)
-        print "Error initializing constants, check that you include " +\
-              "the sql files referenced by CLASS_CONSTANTS"
-        sys.exit(1)
-    if delete_extra_codes:
-        print "  Inserted %(inserted)d new codes (new total: %(total)d), "\
-            "updated %(updated)d, deleted %(deleted)d" % stats
-    else:
-        print "  Inserted %(inserted)d new codes (new total: %(total)d), "\
-            "updated %(updated)d, superfluous %(superfluous)d" % stats
-    if stats['details']:
-        print "  Details:\n    %s" % "\n    ".join(stats['details'])
-    const.commit()
+    for kind in ('Constants', 'CLConstants'):
+        do(kind)
 
 
 def clean_codes_from_change_log(db):
     """ Deletes entries in change_log referencing a deleted change type. """
-    co = Factory.get('Constants')()
+    co = Factory.get('CLConstants')()
     codes = [x for x in co._get_superfluous_codes()
              if x[0] is co.ChangeType]
     for cls, code, name in codes:

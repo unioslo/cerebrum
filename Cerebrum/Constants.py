@@ -1631,12 +1631,6 @@ class Constants(CoreConstants, CommonConstants):
             return aff, status
 
 
-# TODO: CLConstants are typically included in the CLASS_CONSTANTS definition.
-#       This is probably a hack that is done to make makedb create and update
-#       the constants in the database.
-#       We need to clean up all use of CLConstants from the CLASS_CONSTANTS
-#       object.
-
 # TODO: CLConstants should inherit from ConstantsBase.
 class CLConstants(Constants):
 
