@@ -22,20 +22,20 @@
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-from Cerebrum.modules.CLConstants import _ChangeTypeCode
-from Cerebrum import Account
 from Cerebrum import Constants
+from Cerebrum import Account
 
 class NotSet(object): pass
 
-class DiskQuotaConstants(Constants.Constants):
-    disk_quota_set = _ChangeTypeCode(
+
+class CLConstants(Constants.CLConstants):
+    disk_quota_set = Constants._ChangeTypeCode(
         'disk_quota', 'set', 'set disk quota for %(subject)s',
         ('quota=%(int:quota)s',
          'override_quota=%(int:override_quota)s',
          'override_exp=%(string:override_expiration)s',
          'reason=%(string:description)s'))
-    disk_quota_clear = _ChangeTypeCode(
+    disk_quota_clear = Constants._ChangeTypeCode(
         'disk_quota', 'clear', 'clear disk quota for %(subject)s')
 
 class DiskQuota(DatabaseAccessor):
