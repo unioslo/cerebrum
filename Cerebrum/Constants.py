@@ -1631,8 +1631,7 @@ class Constants(CoreConstants, CommonConstants):
             return aff, status
 
 
-# TODO: CLConstants should inherit from ConstantsBase.
-class CLConstants(Constants):
+class CLConstants(ConstantsBase):
 
     """Singleton whose members make up all needed coding values.
 
