@@ -65,7 +65,7 @@ logger=Factory.get_logger('cronjob')
 
 emdb=Email.email_address(db,logger=logger)
 
-try_only_first=True
+try_only_first=False
 uit_addresses_in_use=list()
 uit_addresses_new=list()
 uit_account_affs=dict()
@@ -100,18 +100,18 @@ def _get_alternatives(account_name):
 #    # then does a find(person_id), followed by get_names(system_cached) for 
 #    # each call to that function!
 #    #find other alternatives!
-#    given_names=(3,2,1,0,-1)
-#    max_initials=(1,2,0,3,4)
-#    for nm in given_names:
-#        for mlm in max_initials:
-#            for dash in (True,False):
-#                local_part = ac.get_email_cn_local_part(given_names=nm,
-#                                                        max_initials=mlm,
-#                                                        keep_dash=dash)
-#                if "." not in local_part:
-#                    continue
-#                if local_part not in alternatives:
-#                    alternatives.append(local_part)
+    given_names=(3,2,1,0,-1)
+    max_initials=(1,2,0,3,4)
+    for nm in given_names:
+        for mlm in max_initials:
+            for dash in (True,False):
+                local_part = ac.get_email_cn_local_part(given_names=nm,
+                                                        max_initials=mlm,
+                                                        keep_dash=dash)
+                if "." not in local_part:
+                    continue
+                if local_part not in alternatives:
+                    alternatives.append(local_part)
     logger.debug("Alternatives for %s: %s" % (account_name,alternatives))
     return alternatives
 
@@ -185,7 +185,13 @@ def get_cn_addr(username,domain):
                 logger.error("First alternative not free! %s@%s/%s" % 
                     (em_addr,domain,username))
     else:
-        logger.error("NOT IMPLEMENTED, only using suggested mailaddr nr 1")
+        for em_addr in alternatives:
+            if is_cnaddr_free(em_addr,domain):
+                return em_addr
+            else:
+                logger.error("alternative not free! %s@%s/%s" % 
+                    (em_addr,domain,username))
+        #logger.error("NOT IMPLEMENTED, only using suggested mailaddr nr 1")
     return None
 
 
@@ -200,7 +206,7 @@ def calculate_uit_emails(uname,affs):
         #logger.debug("status is:%s" % status)
         #logger.debug("sko is:%s" % sko)
         #logger.debug("aff is:%s" % aff)
-        # set cnaddr == true if you are an employee (but not if you are a "timelønnet employee")
+        # set cnaddr == true if you are an employee (but not if you are a "timelï¿½nnet employee")
         if (aff==co.affiliation_ansatt):
             valid_cnaddr_aff = False
             for item in status:
@@ -213,7 +219,7 @@ def calculate_uit_emails(uname,affs):
                 # even if you are an employee you do not get cnaddr==True if you belong to a stedkode defined in EMPLOYEE_FILTER_EXCHANGE_SKO
                 for flt in cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO:
                     #TBD hva om bruker har flere affs og en av dem matcher?
-                    #TBD kanskje også se på priority mellom affs?
+                    #TBD kanskje ogsï¿½ se pï¿½ priority mellom affs?
                     #logger.debug("Filter: %s on %s" % (flt,sko))
                     if sko.startswith(flt):
                         logger.warning("employee %s has affiliation with sko(%s) that is in cn-filterset %s" % (uname,sko,flt))
@@ -225,7 +231,7 @@ def calculate_uit_emails(uname,affs):
             logger.debug("aff:%s, aff status:%s" % (aff,status))
             for flt in cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO:
                 #TBD hva om bruker har flere affs og en av dem matcher?
-                #TBD kanskje også se på priority mellom affs?
+                #TBD kanskje ogsï¿½ se pï¿½ priority mellom affs?
                 logger.debug("Filter: %s on %s" % (flt,sko))
                 if sko.startswith(flt):
                     logger.warning("drgrad student %s has affiliation with sko(%s) that is in cn-filterset %s" % (uname,sko,flt))
@@ -375,7 +381,7 @@ def process_mail():
                 if em['domain'].endswith('uit.no'):
                     mail_addr_cache+=1
                     uit_mails.setdefault(uname,list()).append("@".join((em['local_part'],em['domain'])))
-                    uit_addresses_in_use.append("@".join((em['local_part'],em['domain'])))
+                    #uit_addresses_in_use.append("@".join((em['local_part'],em['domain'])))
     logger.debug("Cached %d mailaddrs" % (mail_addr_cache,))
 
     logger.debug("Caching primary mailaddrs")
@@ -527,9 +533,25 @@ def get_priority(account_id):
                 return key
 
     
+#
+# return list of all email addresses with domain = 'post.uit.no' and 'uit.no'
+# format is: uit_addresse_in_use = ['localpart@domainpart']..[localpart@domainpart]]
+#
+def get_existing_emails():
+    ea = EmailAddress(db)
+    addresses_in_use = []
+    #print "%s" % dir(ea)
+    uit_no_list = ea.list_email_addresses_ext('uit.no')
+    post_uit_no_list = ea.list_email_addresses_ext('post.uit.no')
+    for item in uit_no_list:
+        email_address = "%s@%s" % (item['local_part'],item['domain'])
+        addresses_in_use.append(email_address)
+        logger.debug("existing email: %s" % (email_address))
+        #print "%s@%s" % (item['local_part'],item['domain'])
+    return addresses_in_use
 
 def main():
-    global persons,accounts
+    global persons,accounts,uit_addresses_in_use
     import datetime as dt
 
     try:
@@ -545,7 +567,7 @@ def main():
             dryrun = True
         elif opt in ('-h','--help'):
             usage()
-
+    uit_addresses_in_use = get_existing_emails()
     process_mail()
 
     if (dryrun):

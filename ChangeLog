@@ -1,4 +1,13 @@
-018-06-26    <cerebrum@gagarin.uit.no>
+2018-08-16    <cerebrum@gagarin.uit.no>
+    * process_uit_email.py (get_existing_email) rewrote how we collect already existing email addresses.
+            The previous version was bloated and took too much time. The new version collects existing email addresses
+            directly from the email table, not caring if the owning account, is expired or what affiliation it might have.
+
+    *   process_uit_email.py (get_cn_addr) we will not try ALL alternatives when looking for a free email address, and not
+            only the first alternative as was the case until now. 
+
+
+2018-06-26    <cerebrum@gagarin.uit.no>
     * user_expire.py is now to be run on cleomedes. activate send_mail function
 
 2018-06-19    <cerebrum@gagarin.uit.no>
