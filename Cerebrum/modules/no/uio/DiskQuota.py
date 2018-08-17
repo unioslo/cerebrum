@@ -55,6 +55,7 @@ class DiskQuota(DatabaseAccessor):
     def __init__(self, database):
         super(DiskQuota, self).__init__(database)
         self.co = Factory.get('Constants')(database)
+        self.clconst = Factory.get('CLConstants')(database)
 
     def _get_account_id(self, homedir_id):
         ah = Account.Account(self._db)
@@ -115,7 +116,7 @@ class DiskQuota(DatabaseAccessor):
             new_values['override_expiration'] = override_expiration.\
                                                 strftime('%Y-%m-%d')
         self._db.log_change(self._get_account_id(homedir_id),
-                            self.co.disk_quota_set, None,
+                            self.clconst.disk_quota_set, None,
                             change_params=new_values)
 
     def clear_override(self, homedir_id):
@@ -129,7 +130,7 @@ class DiskQuota(DatabaseAccessor):
         DELETE FROM  [:table schema=cerebrum name=disk_quota]
         WHERE homedir_id=:homedir_id""", {'homedir_id': homedir_id})
         self._db.log_change(self._get_account_id(homedir_id),
-                            self.co.disk_quota_clear, None,
+                            self.clconst.disk_quota_clear, None,
                             change_params={'homedir_id': homedir_id})
 
     def get_quota(self, homedir_id):
