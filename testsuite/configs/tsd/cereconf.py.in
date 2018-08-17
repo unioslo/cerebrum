@@ -42,9 +42,14 @@ CLASS_CONSTANTS = [
     'Cerebrum.modules.dns.DnsConstants/Constants',
     'Cerebrum.modules.dns.bofhd_dns_cmds/Constants',
     'Cerebrum.modules.hostpolicy.HostPolicyConstants/Constants',
-    'Cerebrum.modules.CLConstants/CLConstants',
     'Cerebrum.Constants/Constants',
     ]
+
+CLASS_CL_CONSTANTS = [
+    'Cerebrum.modules.EntityTrait/CLConstants',
+    'Cerebrum.modules.dns.DnsConstants/CLConstants',
+    'Cerebrum.modules.hostpolicy.HostPolicyConstants/CLConstants',
+    'Cerebrum.Constants/CLConstants', ]
 
 CLASS_ENTITY = ['Cerebrum.modules.EntityTrait/EntityTrait',
                 'Cerebrum.modules.ad2.Entity/EntityADMixin',
