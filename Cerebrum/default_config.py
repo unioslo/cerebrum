@@ -168,10 +168,9 @@ CLASS_HOST = ['Cerebrum.Disk/Host']
 CLASS_DISK = ['Cerebrum.Disk/Disk']
 CLASS_CONSTANTS = [
     'Cerebrum.Constants/ExampleConstants',
-    'Cerebrum.modules.CLConstants/CLConstants',
     'Cerebrum.Constants/Constants']
 
-CLASS_CL_CONSTANTS = ['Cerebrum.modules.CLConstants/CLConstants']
+CLASS_CL_CONSTANTS = ['Cerebrum.Constants/CLConstants']
 
 CLASS_DBDRIVER = ['Cerebrum.database.postgres/PsycoPG2']
 CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
