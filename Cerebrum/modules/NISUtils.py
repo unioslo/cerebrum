@@ -37,6 +37,7 @@ from Cerebrum import QuarantineHandler
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
+clconst = Factory.get('CLConstants')(db)
 logger = Factory.get_logger("cronjob")
 posix_user = Factory.get('PosixUser')(db)
 posix_group = PosixGroup.PosixGroup(db)
@@ -255,7 +256,7 @@ class NISGroupUtil(object):
         """
         try:
             events = list(db.get_log_events(
-                types=(co.group_create, co.account_create),
+                types=(clconst.group_create, clconst.account_create),
                 subject_entity=entity_id,
                 sdate=self._namecachedtime))
             return bool(events)
