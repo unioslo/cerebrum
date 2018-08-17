@@ -19,9 +19,11 @@
 
 
 from Cerebrum.Entity import Entity
-from Cerebrum.Constants import (_CerebrumCodeWithEntityType, CLConstants,
+from Cerebrum.Constants import (CLConstants,
+                                _CerebrumCodeWithEntityType,
+                                _ChangeTypeCode,
                                 _get_code)
-from Cerebrum.modules.CLConstants import _ChangeTypeCode
+
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
 try:

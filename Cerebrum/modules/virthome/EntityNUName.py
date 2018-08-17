@@ -36,7 +36,7 @@ from Cerebrum.Entity import Entity
 from Cerebrum.Errors import NoEntityAssociationError
 
 from Cerebrum.Constants import Constants
-from Cerebrum.modules.CLConstants import _ChangeTypeCode as ChangeType
+from Cerebrum.Constants import _ChangeTypeCode as ChangeType
 
 
 
