@@ -107,7 +107,7 @@ class PosixUser(Account_class):
                 "Unable to determine which entity to delete.")
         if hasattr(super(PosixUser, self), 'delete_posixuser'):
             super(PosixUser, self).delete_posixuser()
-        self._db.log_change(self.entity_id, self.const.posix_demote,
+        self._db.log_change(self.entity_id, self.clconst.posix_demote,
                             None, change_params={'uid': int(self.posix_uid),
                                                  'gid': int(self.gid_id),
                                                  'shell': int(self.shell),
@@ -173,7 +173,7 @@ class PosixUser(Account_class):
                           'gecos': self.gecos,
                           'shell': int(self.shell)})
 
-        self._db.log_change(self.entity_id, self.const.posix_promote,
+        self._db.log_change(self.entity_id, self.clconst.posix_promote,
                             None, change_params={'uid': int(self.posix_uid),
                                                  'gid': int(self.gid_id),
                                                  'shell': int(self.shell),
