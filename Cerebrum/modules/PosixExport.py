@@ -126,6 +126,7 @@ Examples:
 
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
+        self.clconst = Factory.get('CLConstants')(self.db)
         self.group = Factory.get('Group')(self.db)
         self.posix_user = Factory.get('PosixUser')(self.db)
         self.posix_group = PosixGroup.PosixGroup(self.db)
@@ -750,7 +751,8 @@ Examples:
         try:
             # TODO: Try 'for event in self.db.get_log_events(): return True'.
             events = list(self.db.get_log_events(
-                    types=(self.co.group_create, self.co.account_create),
+                    types=(self.clconst.group_create,
+                           self.clconst.account_create),
                     subject_entity=entity_id,
                     sdate=self._namecachedtime))
             return bool(events)
