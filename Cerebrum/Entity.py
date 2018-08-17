@@ -154,7 +154,7 @@ class Entity(DatabaseAccessor):
             VALUES (:e_id, :e_type)
             RETURNING created_at""", {'e_id': self.entity_id,
                                       'e_type': int(self.entity_type)})
-            self._db.log_change(self.entity_id, self.const.entity_add, None)
+            self._db.log_change(self.entity_id, self.clconst.entity_add, None)
         else:
             # Don't need to do anything as entity type can't change
             pass
@@ -211,7 +211,7 @@ class Entity(DatabaseAccessor):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:e_id""", {'e_id': self.entity_id})
-        self._db.log_change(self.entity_id, self.const.entity_del, None)
+        self._db.log_change(self.entity_id, self.clconst.entity_del, None)
         self.clear()
 
     def get_delete_blockers(self, ignore_group_memberships=False, **kw):
@@ -386,7 +386,7 @@ class EntityName(Entity):
                           {'e_id': self.entity_id})
 
     def add_entity_name(self, domain, name):
-        self._db.log_change(self.entity_id, self.const.entity_name_add, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_name_add, None,
                             change_params={'domain': int(domain),
                                            'name': name})
         return self.execute("""
@@ -397,7 +397,7 @@ class EntityName(Entity):
                                             'name': name})
 
     def delete_entity_name(self, domain):
-        self._db.log_change(self.entity_id, self.const.entity_name_del, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_name_del, None,
                             change_params={'domain': int(domain),
                                            'name': self.get_name(int(domain))})
         return self.execute("""
@@ -418,7 +418,7 @@ class EntityName(Entity):
                      {'e_id': self.entity_id,
                       'domain': int(domain),
                       'name': name})
-        self._db.log_change(self.entity_id, self.const.entity_name_mod, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_name_mod, None,
                             change_params={'domain': int(domain),
                                            'name': name})
 
@@ -550,7 +550,7 @@ class EntityNameWithLanguage(Entity):
                   name_language = :name_language
             """, binds)
             self._db.log_change(
-                self.entity_id, self.const.entity_name_mod, None,
+                self.entity_id, self.clconst.entity_name_mod, None,
                 change_params=change_params)
         else:
             rv = self.execute("""
@@ -558,7 +558,7 @@ class EntityNameWithLanguage(Entity):
             VALUES (:entity_id, :name_variant, :name_language, :name)
             """, binds)
             self._db.log_change(
-                self.entity_id, self.const.entity_name_add, None,
+                self.entity_id, self.clconst.entity_name_add, None,
                 change_params=change_params)
             return rv
 
@@ -595,7 +595,7 @@ class EntityNameWithLanguage(Entity):
             change_params = {'name_variant': six.text_type(name_variant),
                              'name_language': six.text_type(name_language),
                              'name': name}
-            self._db.log_change(self.entity_id, self.const.entity_name_del,
+            self._db.log_change(self.entity_id, self.clconst.entity_name_del,
                                 None, change_params=change_params)
         return rv
 
@@ -738,7 +738,7 @@ class EntityContactInfo(Entity):
                       'value': value,
                       'desc': description,
                       'alias': alias})
-        self._db.log_change(self.entity_id, self.const.entity_cinfo_add, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_cinfo_add, None,
                             change_params={'type': int(type),
                                            'value': value,
                                            'src': int(source)})
@@ -838,7 +838,7 @@ class EntityContactInfo(Entity):
           contact_type=:c_type"""
         if six.text_type(pref) != 'ALL':
             sql += """ AND contact_pref=:pref"""
-        self._db.log_change(self.entity_id, self.const.entity_cinfo_del, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_cinfo_del, None,
                             change_params={'type': int(contact_type),
                                            'src': int(source)})
         return self.execute(sql, {'e_id': self.entity_id,
@@ -1058,7 +1058,7 @@ class EntityAddress(Entity):
                       'p_num': postal_number,
                       'city': city,
                       'country': country})
-        self._db.log_change(self.entity_id, self.const.entity_addr_add, None)
+        self._db.log_change(self.entity_id, self.clconst.entity_addr_add, None)
 
     def delete_entity_address(self, source_type, a_type):
         self.execute("""
@@ -1069,7 +1069,7 @@ class EntityAddress(Entity):
                      {'e_id': self.entity_id,
                       'src': int(source_type),
                       'a_type': int(a_type)})
-        self._db.log_change(self.entity_id, self.const.entity_addr_del, None)
+        self._db.log_change(self.entity_id, self.clconst.entity_addr_del, None)
 
     def get_entity_address(self, source=None, type=None):
         cols = {'entity_id': int(self.entity_id)}
@@ -1155,7 +1155,7 @@ class EntityQuarantine(Entity):
              'end_date': end})
 
         self._db.log_change(self.entity_id,
-                            self.const.quarantine_add,
+                            self.clconst.quarantine_add,
                             None,
                             change_params={'q_type': qtype,
                                            'start': start,
@@ -1220,7 +1220,7 @@ class EntityQuarantine(Entity):
                      {'e_id': self.entity_id,
                       'q_type': int(qtype),
                       'd_until': until})
-        self._db.log_change(self.entity_id, self.const.quarantine_mod,
+        self._db.log_change(self.entity_id, self.clconst.quarantine_mod,
                             None, change_params={'q_type': int(qtype)})
 
     def delete_entity_quarantine(self, qtype):
@@ -1238,7 +1238,7 @@ class EntityQuarantine(Entity):
                      {'e_id': self.entity_id,
                       'q_type': int(qtype)})
         if self._db.rowcount:
-            self._db.log_change(self.entity_id, self.const.quarantine_del,
+            self._db.log_change(self.entity_id, self.clconst.quarantine_del,
                                 None, change_params={'q_type': int(qtype)})
             return True
         return False
@@ -1350,7 +1350,7 @@ class EntityExternalId(Entity):
                      {'p_id': self.entity_id,
                       'id_type': int(id_type),
                       'src': int(source_system)})
-        self._db.log_change(self.entity_id, self.const.entity_ext_id_del, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_ext_id_del, None,
                             change_params={'id_type': int(id_type),
                                            'src': int(source_system)})
 
@@ -1361,7 +1361,7 @@ class EntityExternalId(Entity):
             SET external_id=:ext_id
             WHERE entity_id=:e_id AND id_type=:id_type AND source_system=:src"""
             self._db.log_change(
-                self.entity_id, self.const.entity_ext_id_mod, None,
+                self.entity_id, self.clconst.entity_ext_id_mod, None,
                 change_params={'id_type': int(id_type),
                                'src': int(source_system),
                                'value': external_id})
@@ -1370,7 +1370,7 @@ class EntityExternalId(Entity):
             (entity_id, entity_type, id_type, source_system, external_id)
             VALUES (:e_id, :e_type, :id_type, :src, :ext_id)"""
             self._db.log_change(
-                self.entity_id, self.const.entity_ext_id_add, None,
+                self.entity_id, self.clconst.entity_ext_id_add, None,
                 change_params={'id_type': int(id_type),
                                'src': int(source_system),
                                'value': external_id})
