@@ -53,6 +53,7 @@ class CerebrumUtils(object):
         self.pe = Factory.get('Person')(self.db)
         self.gr = Factory.get('Group')(self.db)
         self.co = Factory.get('Constants')(self.db)
+        self.clconst = Factory.get('CLConstants')(self.db)
         self.ed = EmailDomain(self.db)
         self.eq = EmailQuota(self.db)
         self.ef = EmailForward(self.db)
@@ -493,7 +494,7 @@ class CerebrumUtils(object):
         if isinstance(trigger, (list, tuple)):
             trigger = trigger[0]
         trigger = trigger.split(':')
-        ct = self.co.ChangeType(trigger[0], trigger[1])
+        ct = self.clconst.ChangeType(trigger[0], trigger[1])
 
         params = self.load_params(event)
 
@@ -518,7 +519,7 @@ class CerebrumUtils(object):
         if isinstance(trigger, (list, tuple)):
             trigger = trigger[0]
         trigger = trigger.split(':')
-        ct = self.co.ChangeType(trigger[0], trigger[1])
+        ct = self.clconst.ChangeType(trigger[0], trigger[1])
         parm = {'change_program': 'ExchangeIntegration',
                 'skip_event': True,
                 'skip_publish': True}
