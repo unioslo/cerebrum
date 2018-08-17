@@ -493,7 +493,7 @@ class EmailDomain(Entity_class):
             self.remove_category(category_row['category'])
         # exchange-relatert-jazz
         # requires cl-use!
-        self._db.log_change(self.entity_id, self.const.email_dom_rem, None,
+        self._db.log_change(self.entity_id, self.clconst.email_dom_rem, None,
                             change_params={
                                 'del_domain': self.email_domain_name})
         self.execute("""
@@ -515,7 +515,7 @@ class EmailDomain(Entity_class):
                           'name': self.email_domain_name,
                           'descr': self.email_domain_description})
             # exchange-relatert-jazz
-            self._db.log_change(self.entity_id, self.const.email_dom_add, None,
+            self._db.log_change(self.entity_id, self.clconst.email_dom_add, None,
                                 change_params={
                                     'new_domain_name': self.email_domain_name,
                                     'new_domain_desc':
@@ -529,7 +529,7 @@ class EmailDomain(Entity_class):
                           'name': self.email_domain_name,
                           'descr': self.email_domain_description})
             # exchange-relatert-jazz
-            self._db.log_change(self.entity_id, self.const.email_dom_mod, None,
+            self._db.log_change(self.entity_id, self.clconst.email_dom_mod, None,
                                 change_params={
                                     'mod_domain_name': self.email_domain_name,
                                     'mod_domain_desc':
@@ -585,7 +585,7 @@ class EmailDomain(Entity_class):
 
     def add_category(self, category):
         # exchange-relevant-jazz
-        self._db.log_change(self.entity_id, self.const.email_dom_addcat, None,
+        self._db.log_change(self.entity_id, self.clconst.email_dom_addcat, None,
                             change_params={'category': int(category)})
         # conv
         return self.execute("""
@@ -596,7 +596,7 @@ class EmailDomain(Entity_class):
 
     def remove_category(self, category):
         # exchange-relevant-jazz
-        self._db.log_change(self.entity_id, self.const.email_dom_remcat, None,
+        self._db.log_change(self.entity_id, self.clconst.email_dom_remcat, None,
                             change_params={'category': int(category)})
         # conv
         return self.execute("""
@@ -751,7 +751,7 @@ class EmailTarget(Entity_class):
                           'server_id': self.email_server_id})
             # exchange-relatert-jazz
             self._db.log_change(self.entity_id,
-                                self.const.email_target_add,
+                                self.clconst.email_target_add,
                                 self.email_target_entity_id,
                                 change_params={
                                     'target_type': int(self.email_target_type)
@@ -777,7 +777,7 @@ class EmailTarget(Entity_class):
             # every changes is done separately, but there is no
             # time for that. Jazz (2013-11)
             self._db.log_change(self.entity_id,
-                                self.const.email_target_mod,
+                                self.clconst.email_target_mod,
                                 self.email_target_entity_id,
                                 change_params={
                                     'target_type': int(self.email_target_type),
@@ -830,7 +830,7 @@ class EmailTarget(Entity_class):
         WHERE target_id=:e_id""", {'e_id': self.entity_id})
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
-                            self.const.email_target_rem,
+                            self.clconst.email_target_rem,
                             self.email_target_entity_id,
                             change_params={
                                 'target_type': int(self.email_target_type)})
@@ -1102,7 +1102,7 @@ class EmailAddress(Entity_class):
             # will be the target_id and not the address_id
             self._db.log_change(
                 self.email_addr_target_id,
-                self.const.email_address_add,
+                self.clconst.email_address_add,
                 self.entity_id,
                 change_params={'lp': self.email_addr_local_part,
                                'dom_id': self.email_addr_domain_id})
@@ -1151,7 +1151,7 @@ class EmailAddress(Entity_class):
         # address-manipulation is change_logged with target_id
         # as subject_entity
         self._db.log_change(self.email_addr_target_id,
-                            self.const.email_address_rem,
+                            self.clconst.email_address_rem,
                             self.entity_id,
                             change_params={
                                 'lp': self.email_addr_local_part,
@@ -1374,7 +1374,7 @@ class EntityEmailDomain(Entity):
                           'dom_id': self.entity_email_domain_id})
             # exchange-relevant-jazz
             self._db.log_change(self.entity_email_domain_id,
-                                self.const.email_entity_dom_add,
+                                self.clconst.email_entity_dom_add,
                                 self.entity_id,
                                 change_params={'aff': affiliation})
         else:
@@ -1389,7 +1389,7 @@ class EntityEmailDomain(Entity):
                                         'dom_id': self.entity_email_domain_id})
             # exchange-relevant-jazz
             self._db.log_change(self.entity_email_domain_id,
-                                self.const.email_entity_dom_mod,
+                                self.clconst.email_entity_dom_mod,
                                 self.entity_id,
                                 change_params={'aff': affiliation})
         del self.__in_db
@@ -1435,7 +1435,7 @@ class EntityEmailDomain(Entity):
         # exchange-relevant-jazz
         self._db.log_change(
             self.entity_email_domain_id,
-            self.const.email_entity_dom_rem,
+            self.clconst.email_entity_dom_rem,
             self.entity_id,
             change_params={'aff': self.entity_email_affiliation})
         return self.execute("""
@@ -1481,7 +1481,7 @@ class EmailQuota(EmailTarget):
                           'hard': self.email_quota_hard})
             # exchange-relevant-jazz
             self._db.log_change(self.entity_id,
-                                self.const.email_quota_add,
+                                self.clconst.email_quota_add,
                                 None,
                                 change_params={'soft': self.email_quota_soft,
                                                'hard': self.email_quota_hard})
@@ -1496,7 +1496,7 @@ class EmailQuota(EmailTarget):
                                        'hard': self.email_quota_hard})
             # exchange-relevant-jazz
             self._db.log_change(self.entity_id,
-                                self.const.email_quota_mod,
+                                self.clconst.email_quota_mod,
                                 None,
                                 change_params={'soft': self.email_quota_soft,
                                                'hard': self.email_quota_hard})
@@ -1521,7 +1521,7 @@ class EmailQuota(EmailTarget):
     def delete(self):
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
-                            self.const.email_quota_rem,
+                            self.clconst.email_quota_rem,
                             None)
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_quota]
@@ -1594,7 +1594,7 @@ class EmailTargetFilter(EmailTarget):
             # exchange-relatert-jazz
             self._db.log_change(
                 self.entity_id,
-                self.const.email_tfilter_add,
+                self.clconst.email_tfilter_add,
                 None,
                 change_params={'filter': int(self.email_target_filter_filter)})
         else:
@@ -1628,7 +1628,7 @@ class EmailTargetFilter(EmailTarget):
         """Helper method, used to enable a given filter."""
         # exchange-relatert-jazz
         self._db.log_change(self.entity_id,
-                            self.const.email_tfilter_rem,
+                            self.clconst.email_tfilter_rem,
                             None,
                             change_params={'filter': int(filter)})
         return self.execute("""
@@ -1691,7 +1691,7 @@ class EmailSpamFilter(EmailTarget):
             # exchange-relatert-jazz
             self._db.log_change(
                 self.entity_id,
-                self.const.email_sfilter_add,
+                self.clconst.email_sfilter_add,
                 None,
                 change_params={
                     'level': int(self.email_spam_level),
@@ -1708,7 +1708,7 @@ class EmailSpamFilter(EmailTarget):
             # exchange-relatert-jazz
             self._db.log_change(
                 self.entity_id,
-                self.const.email_sfilter_mod,
+                self.clconst.email_sfilter_mod,
                 None,
                 change_params={
                     'level': int(self.email_spam_level),
@@ -1794,7 +1794,7 @@ class EmailVirusScan(EmailTarget):
             # exchange-relatert-jazz
             self._db.log_change(
                 self.entity_id,
-                self.const.email_scan_add,
+                self.clconst.email_scan_add,
                 None,
                 change_params={'found': int(self.email_virus_found_act),
                                'removed': int(self.email_virus_removed_act),
@@ -1812,7 +1812,7 @@ class EmailVirusScan(EmailTarget):
             # exchange-relatert-jazz
             self._db.log_change(
                 self.entity_id,
-                self.const.email_scan_mod,
+                self.clconst.email_scan_mod,
                 None,
                 change_params={'found': int(self.email_virus_found_act),
                                'removed': int(self.email_virus_removed_act),
@@ -1892,7 +1892,7 @@ class EmailForward(EmailTarget):
         if not self.local_delivery:
             self.local_delivery = True
             self._db.log_change(self.entity_id,
-                                self.const.email_local_delivery,
+                                self.clconst.email_local_delivery,
                                 None,
                                 change_params={'enabled': True})
             self.execute(
@@ -1906,7 +1906,7 @@ class EmailForward(EmailTarget):
         if self.local_delivery:
             self.local_delivery = False
             self._db.log_change(self.entity_id,
-                                self.const.email_local_delivery,
+                                self.clconst.email_local_delivery,
                                 None,
                                 change_params={'enabled': False})
             self.execute(
@@ -1923,7 +1923,7 @@ class EmailForward(EmailTarget):
         enable = 'T' if enable else 'F'
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
-                            self.const.email_forward_add,
+                            self.clconst.email_forward_add,
                             None,
                             change_params={'forward': forward,
                                            'enable': enable})
@@ -1936,9 +1936,9 @@ class EmailForward(EmailTarget):
 
     def _set_forward_enable(self, forward, enable):
         if enable == 'F':
-            cat = self.const.email_forward_disable
+            cat = self.clconst.email_forward_disable
         else:
-            cat = self.const.email_forward_enable
+            cat = self.clconst.email_forward_enable
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
                             cat,
@@ -1981,7 +1981,7 @@ class EmailForward(EmailTarget):
         """
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
-                            self.const.email_forward_rem,
+                            self.clconst.email_forward_rem,
                             None,
                             change_params={'forward': forward})
         return self.execute("""
@@ -2066,7 +2066,7 @@ class EmailVacation(EmailTarget):
                             'enable': enable})
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
-                            self.const.email_vacation_add, None,
+                            self.clconst.email_vacation_add, None,
                             change_params={'start': start,
                                            'end': end,
                                            'enable': enable})
@@ -2075,10 +2075,10 @@ class EmailVacation(EmailTarget):
     def enable_vacation(self, start, enable=True):
         if enable:
             enable = 'T'
-            cat = self.const.email_vacation_enable
+            cat = self.clconst.email_vacation_enable
         else:
             enable = 'F'
-            cat = self.const.email_vacation_disable
+            cat = self.clconst.email_vacation_disable
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
                             cat, None,
@@ -2104,7 +2104,7 @@ class EmailVacation(EmailTarget):
     def delete_vacation(self, start):
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
-                            self.const.email_vacation_rem,
+                            self.clconst.email_vacation_rem,
                             None,
                             change_params={'start': start})
         return self.execute("""
@@ -2167,7 +2167,7 @@ class EmailPrimaryAddressTarget(EmailTarget):
             # exchange-relevant-jazz
             self._db.log_change(
                 self.entity_id,
-                self.const.email_primary_address_add,
+                self.clconst.email_primary_address_add,
                 None,
                 change_params={'addr_id': self.email_primaddr_id})
         else:
@@ -2180,7 +2180,7 @@ class EmailPrimaryAddressTarget(EmailTarget):
             # exchange-relevant-jazz
             self._db.log_change(
                 self.entity_id,
-                self.const.email_primary_address_mod,
+                self.clconst.email_primary_address_mod,
                 None,
                 change_params={'addr_id': self.email_primaddr_id})
         del self.__in_db
@@ -2194,7 +2194,7 @@ class EmailPrimaryAddressTarget(EmailTarget):
         well, you need to do so explicitly."""
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
-                            self.const.email_primary_address_rem,
+                            self.clconst.email_primary_address_rem,
                             None,
                             change_params={'addr_id': self.email_primaddr_id})
         return self.execute("""
@@ -2260,7 +2260,7 @@ class EmailServer(Host):
             # exchange-relatert-jazz
             self._db.log_change(
                 self.entity_id,
-                self.const.email_server_add,
+                self.clconst.email_server_add,
                 None,
                 change_params={'server_type': int(self.email_server_type)})
         else:
@@ -2273,7 +2273,7 @@ class EmailServer(Host):
             # exchange-relatert-jazz
             self._db.log_change(
                 self.entity_id,
-                self.const.email_server_mod,
+                self.clconst.email_server_mod,
                 None,
                 change_params={'server_type': int(self.email_server_type)})
         del self.__in_db
@@ -2289,7 +2289,7 @@ class EmailServer(Host):
         # exchange-relatert-jazz
         self._db.log_change(
             self.entity_id,
-            self.const.email_server_rem,
+            self.clconst.email_server_rem,
             None,
             change_params={'server_type': int(self.email_server_type)})
         return self.__super.delete()
