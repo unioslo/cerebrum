@@ -121,7 +121,7 @@ class EntityTrait(Entity):
                 """ % binds,
                              self.__traits[code])
                 if changelog:
-                    self._db.log_change(self.entity_id, self.const.trait_mod, None,
+                    self._db.log_change(self.entity_id, self.clconst.trait_mod, None,
                                         change_params=params)
             else:
                 binds = ", ".join([":%s" % c
@@ -131,7 +131,7 @@ class EntityTrait(Entity):
                 (%s) VALUES (%s)
                 """ % (", ".join(self.__traits[code].keys()), binds),
                              self.__traits[code])
-                self._db.log_change(self.entity_id, self.const.trait_add, None,
+                self._db.log_change(self.entity_id, self.clconst.trait_add, None,
                                     change_params=params)
         self.__trait_updates = {}
 
@@ -153,7 +153,7 @@ class EntityTrait(Entity):
         DELETE FROM [:table schema=cerebrum name=entity_trait]
         WHERE entity_id=:entity_id AND code=:code
         """, {'entity_id': self.entity_id, 'code': int(code)})
-        self._db.log_change(self.entity_id, self.const.trait_del, None,
+        self._db.log_change(self.entity_id, self.clconst.trait_del, None,
                             change_params=params)
         del self.__traits[code]
 
