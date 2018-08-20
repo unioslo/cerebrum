@@ -66,6 +66,7 @@ class CleanChangeLog(object):
         self.commit = commit
         self.db = get_db()
         self.co = Factory.get('Constants')(self.db)
+        self.clconst = Factory.get('CLConstants')(self.db)
 
         self.forever = default_dbcl_conf.forever
 
@@ -99,11 +100,11 @@ class CleanChangeLog(object):
     def format_for_logging(self, e):
         return (e['tstamp'].strftime('%Y-%m-%d'),
                 int(e['change_id']),
-                text_type(self.co.map_const(int(e['change_type_id']))),
+                text_type(self.clconst.map_const(int(e['change_type_id']))),
                 self.int_or_none(e['subject_entity']),
                 self.int_or_none(e['dest_entity']),
                 'password' if (
-                    int(e['change_type_id']) == int(self.co.account_password))
+                    int(e['change_type_id']) == int(self.clconst.account_password))
                 else e['change_params'])
 
     def process_log(self):
@@ -198,7 +199,7 @@ class CleanChangeLog(object):
                     human_change_type))
                 del self.max_ages[human_change_type]
                 continue
-            assert isinstance(change_type, self.co.ChangeType)
+            assert isinstance(change_type, self.clconst.ChangeType)
             self.max_ages[int(change_type)] = age
             del self.max_ages[human_change_type]
 
@@ -219,7 +220,7 @@ class CleanChangeLog(object):
                     logger.info(
                         "Unknown change type {!r} ignored".format(trigger))
                     continue
-                if not isinstance(change_type, self.co.ChangeType):
+                if not isinstance(change_type, self.clconst.ChangeType):
                     logger.info(
                         "{!r} is not a change type".format(trigger))
                     continue
@@ -240,7 +241,7 @@ class CleanChangeLog(object):
             for trigger in triggers:
                 if trigger in self.trigger_map:
                     raise ValueError("{} is not a unique trigger".format(
-                        self.co.ChangeType(trigger)))
+                        self.clconst.ChangeType(trigger)))
                 self.trigger_map[trigger] = data if togglable else None
 
         logger.info("Unique toggler rules: {}".format(len(self.togglers)))
@@ -272,7 +273,7 @@ class CleanPasswords(object):
         removed = 0
         logger.info("Fetching password change log entries...")
         for e in self.db.get_log_events_date(
-                type=int(self.co.account_password),
+                type=int(self.clconst.account_password),
                 edate=cutoff):
             if not e['change_params']:
                 # Nothing to remove
