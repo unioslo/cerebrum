@@ -47,6 +47,7 @@ from Cerebrum.modules import CLHandler
 logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
+clconst = Factory.get('CLConstants')(db)
 ac = Factory.get('Account')(db)
 pe = Factory.get('Person')(db)
 cl = CLHandler.CLHandler(db)
@@ -80,7 +81,7 @@ def process_accounts(event_key, event_types, stream, spreads, dryrun):
 
     for event in events:
         if process_account(event['subject_entity'], stream, handled, spreads):
-            cl.confirm_event(event)
+            l.confirm_event(event)
     stream.close()
 
     if not dryrun:
@@ -171,12 +172,12 @@ def main():
 
     if create_file:
         logger.info("Start processing new accounts")
-        process_accounts('dump_new_accounts', co.account_create,
+        process_accounts('dump_new_accounts', clconst.account_create,
                          open(create_file, 'w'), spreads, dryrun)
         logger.info("Processing of new accounts done")
     if pwd_file:
         logger.info("Start processing accounts with new passwords")
-        process_accounts('dump_new_passwords', co.account_password,
+        process_accounts('dump_new_passwords', clconst.account_password,
                          open(pwd_file, 'w'), spreads, dryrun)
         logger.info("Processing of accounts with new passwords done")
     logger.info("All done")
