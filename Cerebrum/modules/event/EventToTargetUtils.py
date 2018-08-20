@@ -38,9 +38,10 @@ class EventToTargetUtils(object):
     def __init__(self, db):
         self.db = db
         self.co = Factory.get('Constants')(self.db)
+        self.clconst = Factory.get('CLConstants')(self.db)
 
         self._event_type_to_code = partial(self.__get_const,
-                                           self.co.ChangeType)
+                                           self.clconst.ChangeType)
         self._target_system_to_code = partial(self.__get_const,
                                               self.co.TargetSystem)
 
@@ -183,7 +184,7 @@ class EventToTargetUtils(object):
         added = set()
         removed = set()
 
-        current = [self.co.ChangeType(x['event_type']) for x in
+        current = [self.clconst.ChangeType(x['event_type']) for x in
                    self.get_mappings(target_systems=target_system)]
 
         for ct in event_types:
