@@ -667,7 +667,7 @@ def migrate_to_rel_0_9_18():
              'FROM [:table schema=cerebrum name=change_log] '
              'WHERE change_type_id = :change_type_id')
     cl_entry_rows = db.query(query,
-                             {'change_type_id': int(co.entity_cinfo_add)})
+                             {'change_type_id': int(clconst.entity_cinfo_add)})
     print('Processing {count} CL-entries'.format(count=len(cl_entry_rows)))
     for row in cl_entry_rows:
         if not row.get('change_params'):
@@ -893,8 +893,8 @@ def fix_change_params(params):
 
 
 @memoize
-def get_change_type(co, code):
-    return co.ChangeType(code)
+def get_change_type(cl, code):
+    return cl.ChangeType(code)
 
 
 def fix_changerows(process, qin, qout, mn, mx):
@@ -907,7 +907,6 @@ def fix_changerows(process, qin, qout, mn, mx):
     loads = pickle.loads
     try:
         db = Utils.Factory.get('Database')()
-        co = Utils.Factory.get('Constants')(db)
         rows = db.query(
             'SELECT change_id, change_params, change_type_id FROM '
             '[:table schema=cerebrum name=change_log] '
@@ -923,7 +922,7 @@ def fix_changerows(process, qin, qout, mn, mx):
                 print('process {} at {}%'.format(
                     process, int(round(float(n) / num_rows * 100))))
             p = fix_change_params(loads(params.encode('ISO-8859-1')))
-            ct = get_change_type(co, ct)
+            ct = get_change_type(clconst, ct)
             orig = ct.format_params(p)
             new = ct.format_params(_params_to_db(p))
             if orig != new:
@@ -1033,14 +1032,13 @@ def migrate_to_changelog_1_5():
 
 def migrate_to_eventlog_1_1():
     assert_db_version("1.0", component='eventlog')
-    co = Utils.Factory.get('Constants')(db)
     from Cerebrum.modules.ChangeLog import _params_to_db
 
     for event_id, event_type, params in db.query(
             'SELECT event_id, event_type, change_params FROM event_log '
             'WHERE change_params IS NOT NULL'):
         p = fix_change_params(cPickle.loads(params.encode('ISO-8859-1')))
-        ct = get_change_type(co, event_type)
+        ct = get_change_type(clconst, event_type)
         orig = ct.format_params(p)
         new = ct.format_params(_params_to_db(p))
         if orig != new:
@@ -1659,12 +1657,13 @@ def migrate_to_hostpolicy_1_1():
 
 
 def init():
-    global db, co
+    global db, co, clconst
 
     Factory = Utils.Factory
     db = Factory.get('Database')()
     db.cl_init(change_program="migrate")
     co = Factory.get('Constants')(db)
+    clconst = Factory.get('CLConstants')(db)
 
 
 def show_migration_info():
