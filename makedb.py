@@ -259,6 +259,7 @@ def insert_code_values(db, delete_extra_codes=False):
         const.commit()
 
     print "Inserting code values."
+    # TODO: Generalize the two following lines
     for kind in ('Constants', 'CLConstants'):
         do(kind)
 
