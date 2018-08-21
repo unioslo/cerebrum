@@ -189,9 +189,15 @@ def get_constant(db, parser, const_types, value, argument=None):
     """
     # TODO: We really should have a way to look up constants attrs/strvals from
     # Factory.get('Constants') without needing a db-connection
-    co = Factory.get('Constants')(db)
     with ParserContext(parser, argument):
-        const_value = co.human2constant(value, const_types)
+        const_value = None
+        # TODO: Generalize this lookup
+        for kind in ('Constants', 'CLConstants'):
+            co = Factory.get(kind)(db)
+            const_value = co.human2constant(value, const_types)
+            if const_value:
+                break
+
         if const_value is None:
             raise ValueError(
                 "invalid constant value: %r" % (value, ))
