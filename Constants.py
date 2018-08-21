@@ -80,6 +80,9 @@ class Constants(Constants.Constants):
     system_sito = _AuthoritativeSystemCode('SITO', 'SITO')
     system_flyt = _AuthoritativeSystemCode('FLYT', 'FLYT')
     system_fs_derived = _AuthoritativeSystemCode('FS-auto','Utledet av FS data')
+    system_kr_reg = _AuthoritativeSystemCode('KR_REG','Kontakt- og reservasjonsregisteret')
+    system_intern_ice = _AuthoritativeSystemCode('INTERN_ICE','Internal (uit) source for ICE number')
+
     # Account codes
     account_test = _AccountCode('T', 'Testkonto')
     account_felles_drift = _AccountCode('FD','Felles Drift') 
@@ -96,6 +99,7 @@ class Constants(Constants.Constants):
     contact_building = _ContactInfoCode('BYGG@UIT', 'Building name')
     contact_sito_mobile = _ContactInfoCode('PHONE_SITO', 'sito employee phone')
     contact_uit_mobile = _ContactInfoCode('PHONE_UIT', 'uit employee phone')
+    contact_ice_phone = _ContactInfoCode('ICE_PHONE', 'Phone number for alerts (varsler)')
 
     # address codes
     address_location = _AddressCode('Lokasjon', 'Campus')

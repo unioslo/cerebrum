@@ -1,3 +1,8 @@
+2018-08-21	  <cerebrum@gagarin.uit.no>
+	* Constants.py added constant system_kr_reg. to be used as a source system for CIM phone numbers
+				   added constant system_intern_ice to be used as a source system for CIM phone numbers
+				   added constant contact_ice_phone to be used as a contact info code for CIM phone numbers
+
 2018-06-28    <cerebrum@gagarin.uit.no>
 
 	* access_FS.py (_list_gyldigopptak): UiT needs to create accounts for new students earlier than the +14 days from sps.dato_studierett_tildelt which is currently in use. 
