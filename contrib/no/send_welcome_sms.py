@@ -169,7 +169,7 @@ def process(db, trait, message, phone_types, affiliations, too_old,
             studentnumber = pe.get_external_id(
                 co.system_fs,
                 co.externalid_studentnr)[0]['external_id']
-        except IndexError:
+        except (IndexError, AttributeError):
             pass
 
         def u(db_value):
