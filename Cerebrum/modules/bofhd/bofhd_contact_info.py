@@ -358,7 +358,7 @@ class BofhdContactCommands(BofhdCommandBase):
             ("Removed contact info %s:%s from %s with id=%s\nOld value: '%s'",
              ('source_system', 'contact_type', 'entity_type', 'entity_id',
               'contact_value')),
-        ]),
+        ),
         perm_filter='can_remove_contact_info')
 
     def entity_contactinfo_remove(self, operator, entity_target, source_system,
