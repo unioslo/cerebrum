@@ -1350,6 +1350,13 @@ class ConstantsBase(DatabaseAccessor):
                 obj = None
         return obj
 
+    @classmethod
+    def resolve_constant(cls, database, constant, const_type=None):
+        for t in ('Constants', 'CLConstants'):
+            c = Factory.get(t)(database).human2constant(constant, const_type)
+            if c:
+                return c
+
 
 class CoreConstants(ConstantsBase):
 
