@@ -177,7 +177,7 @@ class CleanChangeLog(object):
             logger.warn(
                 "Unknown change type id:{} ({}) for {} entries".format(
                     change_type,
-                    text_type(self.co.human2constant(change_type)),
+                    text_type(self.clconst.human2constant(change_type)),
                     num))
 
         maybe_commit(self)
@@ -193,7 +193,7 @@ class CleanChangeLog(object):
         logger.info("Parsing max ages...")
 
         for human_change_type, age in self.max_ages.items():
-            change_type = self.co.human2constant(human_change_type)
+            change_type = self.clconst.human2constant(human_change_type)
             if change_type is None:
                 logger.info("Unknown change type {!r} ignored".format(
                     human_change_type))
@@ -215,7 +215,7 @@ class CleanChangeLog(object):
 
             # Verify and convert change types
             for trigger in data['triggers']:
-                change_type = self.co.human2constant(trigger)
+                change_type = self.clconst.human2constant(trigger)
                 if change_type is None:
                     logger.info(
                         "Unknown change type {!r} ignored".format(trigger))
