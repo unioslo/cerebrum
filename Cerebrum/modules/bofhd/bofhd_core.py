@@ -627,7 +627,7 @@ class BofhdCommandBase(object):
                 ety.find(entity_id)
                 entity_type = self.const.EntityType(ety.entity_type)
             except Errors.NotFoundError:
-                return "notfound:%d" % entity_id
+                return "notfound:%r" % entity_id
         if entity_type == self.const.entity_account:
             acc = self._get_account(entity_id, idtype='id')
             return acc.account_name
@@ -680,7 +680,7 @@ class BofhdCommandBase(object):
                 # options at this point.
                 return "%s:%s" % (six.text_type(entity_type), entity_id)
         except Errors.NotFoundError:
-            return "notfound:%d" % entity_id
+            return "notfound:%r" % entity_id
         # NOTREACHED
         assert False
 
