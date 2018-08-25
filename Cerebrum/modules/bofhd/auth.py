@@ -1691,7 +1691,8 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if self.is_group_member(operator, groupname):
             return True
-        raise PermissionDenied("Can't request guest accounts")
+        raise PermissionDenied("Can't request guest accounts: Not member of "
+                               "group {}".format(groupname))
 
     def can_release_guests(self, operator, groupname=None,
                            query_run_any=False):
