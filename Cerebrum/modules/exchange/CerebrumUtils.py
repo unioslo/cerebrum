@@ -463,9 +463,9 @@ class CerebrumUtils(object):
         :rtype: dict or None
         :return: The change params."""
         params = event['change_params']
-        if params is None:
-            return params
-        return json.loads(params)
+        if isinstance(params, basestring):
+            return json.loads(params)
+        return params
 
     def get_entity_type(self, entity_id):
         """Fetch the entity type code of an entity.
