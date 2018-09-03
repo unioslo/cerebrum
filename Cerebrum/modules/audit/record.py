@@ -48,6 +48,14 @@ class AuditRecord(object):
             six.text_type(self.change_type),
             self.entity_id)
 
+    @property
+    def record_id(self):
+        return None
+
+    @property
+    def timestamp(self):
+        return None
+
     def to_dict(self):
         d = {
             'change_type': self.change_type,

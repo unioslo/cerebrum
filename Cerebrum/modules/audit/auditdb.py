@@ -237,7 +237,9 @@ class AuditLogAccessor(DatabaseAccessor):
             record.entity_id,
             target_id=record.target_id,
             metadata=record.metadata,
-            params=record.params)
+            params=record.params,
+            timestamp=record.timestamp,
+            record_id=record.record_id)
 
     # def update(self, record):
     #     # TODO: assert DbAuditRecord instance?
