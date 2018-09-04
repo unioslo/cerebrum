@@ -946,7 +946,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
           affiliation=:affiliation AND
           source_system=:source""", binds)
         self._db.log_change(self.entity_id,
-                            self.const.person_aff_src_del, None,
+                            self.clconst.person_aff_src_del, None,
                             change_params=change_params)
         # This method doesn't touch table 'person_affiliation', nor
         # does it try to do any actual deletion of rows from table
