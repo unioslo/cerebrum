@@ -54,6 +54,7 @@ cerebrum_path, cereconf  # Satisfy the linters.
 logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
+clconst = Factory.get('CLConstants')(db)
 ou = Factory.get('OU')(db)
 ephorte_role = EphorteRole(db)
 
@@ -464,10 +465,10 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
     clh = CLHandler.CLHandler(db)
     pe = Factory.get('Person')(db)
 
-    change_types_roles = (co.ephorte_role_add,
-                          co.ephorte_role_rem,
-                          co.ephorte_role_upd)
-    change_types_perms = (co.ephorte_perm_add, co.ephorte_perm_rem)
+    change_types_roles = (clconst.ephorte_role_add,
+                          clconst.ephorte_role_rem,
+                          clconst.ephorte_role_upd)
+    change_types_perms = (clconst.ephorte_perm_add, clconst.ephorte_perm_rem)
     change_types = change_types_roles + change_types_perms
 
     event_selector = select_events_by_person(
