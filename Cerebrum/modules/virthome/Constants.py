@@ -7,7 +7,7 @@
 import cerebrum_path
 import cereconf
 
-from Cerebrum.Constants import (Constants, CLConstants)
+from Cerebrum.Constants import (Constants, CLConstants, _ChangeTypeCode)
 from Cerebrum.Constants import _SpreadCode as SpreadCode
 from Cerebrum.Constants import _QuarantineCode as QuarantineCode
 from Cerebrum.modules.EntityTrait import _EntityTraitCode as EntityTrait
@@ -17,37 +17,37 @@ class VirtHomeCLConstants(CLConstants):
     #
     # Bofhd requests
     #####
-    va_pending_create = Constants._ChangeTypeCode(
+    va_pending_create = _ChangeTypeCode(
         'e_account',
         'pending_create',
         'waiting for creation confirmation on %(subject)s')
 
-    va_email_change = Constants._ChangeTypeCode(
+    va_email_change = _ChangeTypeCode(
         'e_account',
         'pending_email',
         'waiting for e-mail change confirmation on %(subject)s')
 
-    va_group_invitation = Constants._ChangeTypeCode(
+    va_group_invitation = _ChangeTypeCode(
         'e_group',
         'pending_invitation',
         'issued invitation to join group')
 
-    va_group_owner_swap = Constants._ChangeTypeCode(
+    va_group_owner_swap = _ChangeTypeCode(
         'e_group',
         'pending_owner_change',
         'waiting for a group owner change')
 
-    va_group_moderator_add = Constants._ChangeTypeCode(
+    va_group_moderator_add = _ChangeTypeCode(
         'e_group',
         'pending_moderator_add',
         'waiting for a new group moderator')
 
-    va_password_recover = Constants._ChangeTypeCode(
+    va_password_recover = _ChangeTypeCode(
         'e_account',
         'password_recover',
         'a pending password recovery request')
 
-    va_reset_expire_date = Constants._ChangeTypeCode(
+    va_reset_expire_date = _ChangeTypeCode(
         'e_account',
         'reset_expire_date',
         "push VA/FA's expire date into the future")
