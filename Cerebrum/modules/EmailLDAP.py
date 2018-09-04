@@ -48,6 +48,7 @@ class EmailLDAP(DatabaseAccessor):
         super(EmailLDAP, self).__init__(db)
         self.acc = Factory.get('Account')(db)
         self.const = Factory.get('Constants')(db)
+        self.clconst = Factory.get('CLConstants')(db)
         self.grp = Factory.get('Group')(db)
         # Internal structure:
         self.aid2addr = {}
