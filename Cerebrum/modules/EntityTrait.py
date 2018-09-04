@@ -19,7 +19,8 @@
 
 
 from Cerebrum.Entity import Entity
-from Cerebrum.Constants import (CLConstants,
+from Cerebrum.Constants import (Constants,
+                                CLConstants,
                                 _CerebrumCodeWithEntityType,
                                 _ChangeTypeCode,
                                 _get_code)
@@ -64,12 +65,15 @@ class CLConstants(CLConstants):
 
     # There are no mandatory EntityTraitCodes
 
+
+class Constants(Constants):
     EntityTrait = _EntityTraitCode
 
 
 @_ChangeTypeCode.formatter('trait')
 def format_cl_trait(co, val):
     return _get_code(co.EntityTrait, val, '<unknown>')
+
 
 class EntityTrait(Entity):
     """Mixin class which adds generic traits to an entity."""
