@@ -494,9 +494,9 @@ class ConsentGroupSync(_FroupSync):
 
     def process_cl_event(self, row):
         """ Process consent changes fast. """
-        if row['change_type_id'] in (self.co.consent_approve,
-                                     self.co.consent_decline,
-                                     self.co.consent_remove):
+        if row['change_type_id'] in (self.clconst.consent_approve,
+                                     self.clconst.consent_decline,
+                                     self.clconst.consent_remove):
             return self._update_consent_group(row['subject_entity'])
         return super(ConsentGroupSync, self).process_cl_event(row)
 
