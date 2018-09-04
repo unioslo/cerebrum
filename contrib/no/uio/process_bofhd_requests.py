@@ -671,7 +671,7 @@ def proc_quarantine_refresh(r):
 
     """
     set_operator(r['requestee_id'])
-    db.log_change(r['entity_id'], const.quarantine_refresh, None)
+    db.log_change(r['entity_id'], cl_const.quarantine_refresh, None)
     return True
 
 
