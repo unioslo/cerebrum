@@ -115,7 +115,7 @@ class BofhdExtension(BofhdCommandBase):
                 except ValueError:
                     raise CerebrumError('Search pattern incomplete')
                 try:
-                    type_code = int(self.const.ChangeType(cat, typ))
+                    type_code = int(self.clconst.ChangeType(cat, typ))
                 except Errors.NotFoundError:
                     raise CerebrumError('EventType does not exist')
                 params['type'].append(type_code)

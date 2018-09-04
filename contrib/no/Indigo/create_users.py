@@ -81,6 +81,7 @@ def main():
     db.cl_init(change_program='auto_create')
     acc = Factory.get('Account')(db)
     constants = Factory.get('Constants')(db)
+    clconstants = Factory.get('CLConstants')(db)
     cl_handler = CLHandler.CLHandler(db)
     logger = Factory.get_logger('cronjob')
     person = Factory.get('Person')(db)
@@ -94,13 +95,14 @@ def main():
     new_acc_id = None
     
     try:
-        cl_events = cl_handler.get_events('auto_create', (constants.person_create,))
+        cl_events = cl_handler.get_events('auto_create',
+                                          (clconstants.person_create,))
         if cl_events == []:
             logger.info("Nothing to do.")
             sys.exit(0)
             
         for event in cl_events:
-            if event['change_type_id'] == constants.person_create:
+            if event['change_type_id'] == clconstants.person_create:
                 new_acc_id = build_account(event['subject_entity'])
                 if new_acc_id == None:
                     logger.error('Could not create an account for %s',

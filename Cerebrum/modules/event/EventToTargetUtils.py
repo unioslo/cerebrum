@@ -38,13 +38,16 @@ class EventToTargetUtils(object):
     def __init__(self, db):
         self.db = db
         self.co = Factory.get('Constants')(self.db)
+        self.clconst = Factory.get('CLConstants')(self.db)
 
         self._event_type_to_code = partial(self.__get_const,
-                                           self.co.ChangeType)
+                                           self.clconst,
+                                           self.clconst.ChangeType)
         self._target_system_to_code = partial(self.__get_const,
+                                              self.co,
                                               self.co.TargetSystem)
 
-    def __get_const(self, const_type, value):
+    def __get_const(self, const_object, const_type, value):
         u""" A human2constant that accepts Constants as input.
 
         :raises CerebrumError:
@@ -53,7 +56,7 @@ class EventToTargetUtils(object):
         if isinstance(value, const_type):
             const = value
         else:
-            const = self.co.human2constant(value, const_type=const_type)
+            const = const_object.human2constant(value, const_type=const_type)
         if const is None:
             raise CerebrumError('No {!r} code {!r}'.format(const_type,
                                                            value))
@@ -183,7 +186,7 @@ class EventToTargetUtils(object):
         added = set()
         removed = set()
 
-        current = [self.co.ChangeType(x['event_type']) for x in
+        current = [self.clconst.ChangeType(x['event_type']) for x in
                    self.get_mappings(target_systems=target_system)]
 
         for ct in event_types:

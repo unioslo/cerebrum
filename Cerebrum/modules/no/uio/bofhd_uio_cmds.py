@@ -7049,7 +7049,7 @@ class BofhdExtension(BofhdCommonMethods):
         elif format == 'homedir':
             return 'homedir_id:%s' % val
         elif format == 'id_type':
-            return _get_code(self.const.ChangeType, val)
+            return _get_code(self.clconst.ChangeType, val)
         elif format == 'home_status':
             return _get_code(self.const.AccountHomeStatus, val)
         elif format == 'int':
@@ -7099,7 +7099,7 @@ class BofhdExtension(BofhdCommonMethods):
             except Errors.NotFoundError:
                 dest = repr(dest)
 
-        this_cl_const = self.const.ChangeType(row['change_type_id'])
+        this_cl_const = self.clconst.ChangeType(row['change_type_id'])
         if this_cl_const.msg_string is None:
             self.logger.warn('Formatting of change log entry of type %s '
                              'failed, no description defined in change type',
@@ -7153,7 +7153,7 @@ class BofhdExtension(BofhdCommonMethods):
         uid = None
         for r in self.db.get_log_events(0,
                                         subject_entity=account_id,
-                                        types=[self.const.posix_demote]):
+                                        types=[self.clconst.posix_demote]):
             uid = json.loads(r['change_params'])['uid']
         return uid
 

@@ -20,15 +20,16 @@
 """Changelog constants for AD2
 """
 
-from Cerebrum.modules import CLConstants
+from Cerebrum import Constants
 
-class CLConstants(CLConstants.CLConstants):
+
+class CLConstants(Constants.CLConstants):
     # AD functionality
-    ad_attr_add = CLConstants._ChangeTypeCode(
+    ad_attr_add = Constants._ChangeTypeCode(
         'ad_attr', 'add', 'added AD-attribute for %(subject)s',
-        ('spread=%(string:spread)s, attr=%(string:attr)s, value=%(string:value)s',))
+        ('spread=%(string:spread)s, attr=%(string:attr)s, '
+         'value=%(string:value)s',))
 
-    ad_attr_del = CLConstants._ChangeTypeCode(
+    ad_attr_del = Constants._ChangeTypeCode(
         'ad_attr', 'del', 'removed AD-attribute for %(subject)s',
         ('spread=%(string:spread)s, attr=%(string:attr)s',))
-

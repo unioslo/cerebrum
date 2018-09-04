@@ -45,13 +45,14 @@ def mangle(from_spread, to_spread, file,
     pe = Factory.get('Person')(db)
     ac = Factory.get('Account')(db)
     co = Factory.get('Constants')(db)
+    clconst = Factory.get('CLConstants')(db)
     db.cl_init(change_program='migrate_spreads')
 
     # Parse the types to be excluded
     if exclude_events:
         tmp = []
         for x in exclude_events:
-            tmp += [int(co.ChangeType(*x.split(':')))]
+            tmp += [int(clconst.ChangeType(*x.split(':')))]
         exclude_events = tmp
 
     # Monkeypatch in a function that avoids creating events for certain
@@ -151,7 +152,7 @@ def mangle(from_spread, to_spread, file,
             if gid in exclude_gids and not add_to_auto_group:
                 continue
 
-            ct = co.ChangeType('e_group', 'add')
+            ct = clconst.ChangeType('e_group', 'add')
             db.log_change(gid,
                           int(ct),
                           ac.entity_id,

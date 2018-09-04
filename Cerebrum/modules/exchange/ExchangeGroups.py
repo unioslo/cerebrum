@@ -132,11 +132,11 @@ class DistributionGroup(Group_class):
                           'hidden': self.hidden})
             if self.roomlist == 'T':
                 self._db.log_change(self.entity_id,
-                                    self.const.dl_roomlist_create,
+                                    self.clconst.dl_roomlist_create,
                                     None)
             else:
                 self._db.log_change(self.entity_id,
-                                    self.const.dl_group_create,
+                                    self.clconst.dl_group_create,
                                     None)
         else:
             self.execute("""
@@ -147,7 +147,7 @@ class DistributionGroup(Group_class):
                                       'hidden': self.hidden})
         # should probably param-log all relevant data!
         self._db.log_change(self.entity_id,
-                            self.const.dl_group_modify,
+                            self.clconst.dl_group_modify,
                             None)
         del self.__in_db
         self.__in_db = True
@@ -214,7 +214,7 @@ class DistributionGroup(Group_class):
         :type roomlist: basestring
         :param roomlist: 'T' if the DistributionGroup should be a roomlist. 'F'
             otherwise."""
-        self._db.log_change(self.entity_id, self.const.dl_group_room,
+        self._db.log_change(self.entity_id, self.clconst.dl_group_room,
                             None, change_params={'roomlist': roomlist})
         return self.execute("""
           UPDATE [:table schema=cerebrum name=distribution_group]
@@ -229,7 +229,7 @@ class DistributionGroup(Group_class):
 
         :type hidden: basestring
         :param hidden: 'T' if hidden, 'F' if visible."""
-        self._db.log_change(self.entity_id, self.const.dl_group_hidden,
+        self._db.log_change(self.entity_id, self.clconst.dl_group_hidden,
                             None,
                             change_params={'hidden': hidden})
         return self.execute("""

@@ -134,6 +134,15 @@ class BofhdCommandBase(object):
             return self.__const
 
     @property
+    def clconst(self):
+        u""" CLConstants. """
+        try:
+            return self.__clconst
+        except AttributeError:
+            self.__clconst = Factory.get("CLConstants")(self.db)
+            return self.__clconst
+
+    @property
     def logger(self):
         u""" Logger. """
         return self.__logger

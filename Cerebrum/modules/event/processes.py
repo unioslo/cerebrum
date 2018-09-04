@@ -269,6 +269,12 @@ class ProcessDBMixin(ProcessBase):
         u""" Constants. """
         return Factory.get('Constants')(self.db)
 
+    @property
+    @memoize
+    def clconst(self):
+        u""" CLConstants. """
+        return Factory.get('CLConstants')(self.db)
+
 
 class ProcessQueueMixin(ProcessBase):
     u""" Simple multiprocessing queue handler. """
