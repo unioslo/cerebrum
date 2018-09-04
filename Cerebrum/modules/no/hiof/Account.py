@@ -420,7 +420,7 @@ class AccountHiOfMixin(Account.Account):
         assert type(ad_attr_map) is dict
         for k,v in ad_attr_map.items():
             assert (type(k) is int and k in self.ad_account_spreads.keys())
-            assert type(v) is str
+            assert type(v) is str or type(v) is unicode
         self.populate_trait(trait_type, strval=cPickle.dumps(ad_attr_map))
 
     def delete_ad_attrs(self, spread=None):
