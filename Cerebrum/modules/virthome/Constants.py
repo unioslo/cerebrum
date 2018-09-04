@@ -7,13 +7,13 @@
 import cerebrum_path
 import cereconf
 
-from Cerebrum.Constants import Constants
+from Cerebrum.Constants import (Constants, CLConstants)
 from Cerebrum.Constants import _SpreadCode as SpreadCode
 from Cerebrum.Constants import _QuarantineCode as QuarantineCode
 from Cerebrum.modules.EntityTrait import _EntityTraitCode as EntityTrait
 
 
-class VirtHomeCLConstants(Constants.CLConstants):
+class VirtHomeCLConstants(CLConstants):
     #
     # Bofhd requests
     #####
