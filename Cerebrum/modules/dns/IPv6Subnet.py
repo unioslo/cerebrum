@@ -288,7 +288,7 @@ class IPv6Subnet(Entity):
                                      'desc': self.description,
                                      'res_adr': self.no_of_reserved_adr,
                                      'vlan': self.vlan})
-            self._db.log_change(self.entity_id, self.const.subnet6_create, None)
+            self._db.log_change(self.entity_id, self.clconst.subnet6_create, None)
 
         else:
             if perform_checks:
@@ -311,7 +311,7 @@ class IPv6Subnet(Entity):
             SET %(defs)s
             WHERE entity_id=:e_id""" % {'defs': ", ".join(
                 ["%s=%s" % x for x in cols if x[0] != 'entity_id'])}, binds)
-            self._db.log_change(self.entity_id, self.const.subnet6_mod, None,
+            self._db.log_change(self.entity_id, self.clconst.subnet6_mod, None,
                                 change_params=binds)
 
         del self.__in_db
@@ -326,7 +326,7 @@ class IPv6Subnet(Entity):
                     "Subnet '%s/%s' cannot be deleted; it has addresses in use" % (
                         self.subnet_ip, self.subnet_mask))
 
-        self._db.log_change(self.entity_id, self.const.subnet6_delete, None)
+        self._db.log_change(self.entity_id, self.clconst.subnet6_delete, None)
         if self.__in_db:
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=dns_ipv6_subnet]

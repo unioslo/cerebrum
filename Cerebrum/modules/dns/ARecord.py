@@ -67,7 +67,7 @@ class ARecord(Entity):
             VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                      'binds': ", ".join([x[1] for x in cols])},
                          binds)
-            self._db.log_change(self.dns_owner_id, self.const.a_record_add,
+            self._db.log_change(self.dns_owner_id, self.clconst.a_record_add,
                                 self.ip_number_id)
         else:
             self.execute("""
@@ -75,7 +75,8 @@ class ARecord(Entity):
             SET %(defs)s
             WHERE a_record_id=:e_id""" % {'defs': ", ".join(
                 ["%s=%s" % x for x in cols])}, binds)
-            self._db.log_change(self.dns_owner_id, self.const.a_record_update,
+            self._db.log_change(self.dns_owner_id,
+                                self.clconst.a_record_update,
                                 self.ip_number_id)
         del self.__in_db
         
@@ -141,7 +142,7 @@ class ARecord(Entity):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_a_record]
         WHERE a_record_id=:e_id""", {'e_id': self.entity_id})
-        self._db.log_change(self.dns_owner_id, self.const.a_record_del,
+        self._db.log_change(self.dns_owner_id, self.clconst.a_record_del,
                             self.ip_number_id)
         self.__super.delete()
 
