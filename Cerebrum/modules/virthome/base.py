@@ -218,6 +218,7 @@ class VirthomeUtils:
     def __init__(self, db):
         self.db = db
         self.co = Factory.get('Constants')(db)
+        self.clconst = Factory.get('CLConstants')(db)
 
         self.group_class = Factory.get('Group')
         self.account_class = Factory.get('Account')
