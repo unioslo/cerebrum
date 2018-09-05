@@ -64,7 +64,7 @@ class CNameRecord(Entity):
             VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                      'binds': ", ".join([x[1] for x in cols])},
                          binds)
-            self._db.log_change(self.cname_owner_id, self.const.cname_add,
+            self._db.log_change(self.cname_owner_id, self.clconst.cname_add,
                                 self.target_owner_id)
         else:
             self.execute("""
@@ -73,7 +73,7 @@ class CNameRecord(Entity):
             WHERE cname_id=:e_id""" % {'defs': ", ".join(
                 ["%s=%s" % x for x in cols])},
                          binds)
-            self._db.log_change(self.cname_owner_id, self.const.cname_update,
+            self._db.log_change(self.cname_owner_id, self.clconst.cname_update,
                                 self.target_owner_id)
         del self.__in_db
         self.__in_db = True
@@ -142,6 +142,6 @@ class CNameRecord(Entity):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_cname_record]
         WHERE cname_id=:e_id""", {'e_id': self.entity_id})
-        self._db.log_change(self.cname_owner_id, self.const.cname_del,
+        self._db.log_change(self.cname_owner_id, self.clconst.cname_del,
                             self.target_owner_id)
         self.__super.delete()
