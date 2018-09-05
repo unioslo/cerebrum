@@ -255,7 +255,7 @@ def delete_unconfirmed_accounts(account_np_type, db):
     deletion?
     """
     logger.debug("Deleting unconfirmed accounts")
-    clconst = Factory.get("Constants")(db)
+    clconst = Factory.get("CLConstants")(db)
     account = Factory.get("Account")(db)
     for row in db.get_log_events(types=clconst.va_pending_create):
         tstamp = row["tstamp"]
