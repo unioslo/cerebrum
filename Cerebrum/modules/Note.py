@@ -56,7 +56,7 @@ class EntityNote(Entity):
                       'description': description,
                       })
 
-        self._db.log_change(self.entity_id, self.const.entity_note_add, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_note_add, None,
                             change_params={
                                 'note_id': int(note_id),
                             })
@@ -118,7 +118,7 @@ class EntityNote(Entity):
                          'n_id': note_id
                      })
 
-        self._db.log_change(self.entity_id, self.const.entity_note_del, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_note_del, None,
                             change_params={
                                 'note_id': int(note_id),
                             })
