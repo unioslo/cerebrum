@@ -40,6 +40,12 @@ from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 
 
+def format_time(field):
+    # 19 chr width
+    fmt = "yyyy-MM-dd HH:mm:ss"
+    return ':'.join((field, "date", fmt))
+
+
 class TargetSystem(Parameter):
     """Parameter type used for carrying target system names to commands."""
     _type = 'targetSystem'
@@ -163,7 +169,7 @@ class BofhdExtension(BofhdCommandBase):
         SimpleString(help_ref='event_list_filter', optional=True),
         fs=FormatSuggestion(
             '%-8d %-35s %-22s %d',
-            ('id', 'type', 'taken', 'failed',),
+            ('id', 'type', format_time('taken'), 'failed',),
             hdr='%-8s %-35s %-22s %s' % ('Id', 'Type', 'Taken', 'Failed',),),
         perm_filter='is_postmaster')
 
@@ -363,7 +369,7 @@ class BofhdExtension(BofhdCommandBase):
             'Destination entity: %s\n'
             'Parameters:         %s',
             ('event_id', 'event_type', 'target_system', 'failed',
-             'tstamp', 'taken_time',
+             format_time('tstamp'), format_time('taken_time'),
              'subject_entity', 'dest_entity', 'change_params')
         ),
         perm_filter='is_postmaster')
@@ -428,7 +434,7 @@ class BofhdExtension(BofhdCommandBase):
         SimpleString(repeat=True, help_ref='search_pattern'),
         fs=FormatSuggestion(
             '%-8d %-35s %-15s %-15s %-22s %-6d %s',
-            ('id', 'type', 'subject_type', 'dest_type', 'taken',
+            ('id', 'type', 'subject_type', 'dest_type', format_time('taken'),
                 'failed', 'params'),
             hdr='%-8s %-35s %-15s %-15s %-22s %-6s %s' % (
                 'Id', 'Type', 'SubjectType', 'DestinationType', 'Taken',
