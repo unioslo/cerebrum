@@ -113,6 +113,8 @@ class BofhdExtension(BofhdCommandBase):
                 except Errors.NotFoundError:
                     raise CerebrumError('EventType does not exist')
                 params['type'].append(type_code)
+            elif key == 'is_taken':
+                params[key] = self._get_boolean(value)
             else:
                 params[key] = value
         return params
@@ -305,6 +307,47 @@ class BofhdExtension(BofhdCommandBase):
                 stats['failed'] += 1
         return stats
 
+    # event unlock_where
+    all_commands['event_unlock_where'] = Command(
+        ('event', 'unlock_where',),
+        TargetSystem(),
+        SimpleString(repeat=True, help_ref='search_pattern'),
+        fs=FormatSuggestion(
+            'Unlocked %s of %s matching events (%s failed/vanished)',
+            ('success', 'total', 'failed')),
+        perm_filter='is_postmaster')
+
+    def event_unlock_where(self, operator, target_sys, *args):
+        """Unlock events matching a search query.
+
+        :param str target_sys: Target system to search
+        :param str args: Pattern(s) to search for.
+        """
+        if not self.ba.is_postmaster(operator.get_entity_id()):
+            raise PermissionDenied('No access to event')
+
+        # TODO: Fetch an ACL of which target systems can be searched by this
+        ts = self._validate_target_system(operator, target_sys)
+
+        params = self._parse_search_params(*args)
+        if not params:
+            raise CerebrumError('Must specify search pattern.')
+
+        params['is_taken'] = True
+        params['target_system'] = ts
+        event_ids = [row['event_id'] for row in self._search_events(**params)]
+        stats = {}
+        stats['total'] = len(event_ids)
+        stats['success'] = stats['failed'] = 0
+
+        for event_id in event_ids:
+            try:
+                self.db.release_event(event_id, increment=False)
+                stats['success'] += 1
+            except Errors.NotFoundError:
+                stats['failed'] += 1
+        return stats
+
     # event info
     all_commands['event_info'] = Command(
         ('event', 'info',),
@@ -469,6 +512,8 @@ HELP_EVENT_CMDS = {
             'Force processing of all failed events for a target system',
         'event_unlock':
             'Unlock a previously locked event',
+        'event_unlock_where':
+            'Unlock events matching search',
         'event_delete':
             'Delete an event',
         'event_delete_where':
@@ -491,15 +536,17 @@ HELP_EVENT_ARGS = {
     'search_pattern':
         ['search_pattern', 'Enter search pattern',
          "Patterns that can be used:\n"
-         "  id:0                   Matches events where dest- or "
+         "  id:0                    Matches events where dest- or "
          "subject_entity is set to 0\n"
-         "  type:spread:add        Matches events of type spread:add\n"
-         "  param:Joe              Matches events where the string"
+         "  type:spread:add         Matches events of type spread:add\n"
+         "  param:Joe               Matches events where the string"
          " 'Joe' is found in the change params\n"
-         "  from_ts:2016-01-01     Matches events from after a "
-         "timestamp\n"
-         "  to_ts:2016-12-31       Matches events from before a "
-         "timestamp\n"
+         "  from_ts:2016-01-01      Matches events from after a timestamp\n"
+         "  to_ts:2016-12-31        Matches events from before a timestamp\n"
+         "  taken_after:2016-12-31  Matches events taken after a timestamp\n"
+         "  taken_before:2016-01-01 Matches events taken before a timestamp\n"
+         "  is_taken:true/false     Matches events that are taken or"
+         " unlocked\n"
          "In combination, these patterns form a boolean AND\n"
          "expression. Multiple event types forms an OR expression."
          "\nTimestamps can also be 'today', 'yesterday' or precise"
