@@ -40,12 +40,6 @@ from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 
 
-def format_time(field):
-    # 19 chr width
-    fmt = "yyyy-MM-dd HH:mm:ss"
-    return ':'.join((field, "date", fmt))
-
-
 class TargetSystem(Parameter):
     """Parameter type used for carrying target system names to commands."""
     _type = 'targetSystem'
@@ -167,7 +161,7 @@ class BofhdExtension(BofhdCommandBase):
         SimpleString(help_ref='event_list_filter', optional=True),
         fs=FormatSuggestion(
             '%-8d %-35s %-22s %d',
-            ('id', 'type', format_time('taken'), 'failed',),
+            ('id', 'type', 'taken', 'failed',),
             hdr='%-8s %-35s %-22s %s' % ('Id', 'Type', 'Taken', 'Failed',),),
         perm_filter='is_postmaster')
 
@@ -194,7 +188,7 @@ class BofhdExtension(BofhdCommandBase):
                 locked=locked):
             r.append({
                 'id': ev['event_id'],
-                'type': six.text_type(self.const.map_const(ev['event_type'])),
+                'type': six.text_type(self.clconst.map_const(ev['event_type'])),
                 'taken': ev['taken_time'],
                 'failed': ev['failed']
             })
@@ -326,7 +320,7 @@ class BofhdExtension(BofhdCommandBase):
             'Destination entity: %s\n'
             'Parameters:         %s',
             ('event_id', 'event_type', 'target_system', 'failed',
-             format_time('tstamp'), format_time('taken_time'),
+             'tstamp', 'taken_time',
              'subject_entity', 'dest_entity', 'change_params')
         ),
         perm_filter='is_postmaster')
@@ -352,7 +346,7 @@ class BofhdExtension(BofhdCommandBase):
         ret = {
             'event_id': ev['event_id'],
             'event_type': six.text_type(
-                self.const.map_const(ev['event_type'])),
+                self.clconst.map_const(ev['event_type'])),
             'target_system': six.text_type(
                 self.const.map_const(ev['target_system'])),
             'failed': ev['failed'],
@@ -391,7 +385,7 @@ class BofhdExtension(BofhdCommandBase):
         SimpleString(repeat=True, help_ref='search_pattern'),
         fs=FormatSuggestion(
             '%-8d %-35s %-15s %-15s %-22s %-6d %s',
-            ('id', 'type', 'subject_type', 'dest_type', format_time('taken'),
+            ('id', 'type', 'subject_type', 'dest_type', 'taken',
                 'failed', 'params'),
             hdr='%-8s %-35s %-15s %-15s %-22s %-6s %s' % (
                 'Id', 'Type', 'SubjectType', 'DestinationType', 'Taken',
@@ -438,7 +432,8 @@ class BofhdExtension(BofhdCommandBase):
 
             ret = {
                 'id': ev['event_id'],
-                'type': six.text_type(self.const.map_const(ev['event_type'])),
+                'type': six.text_type(
+                    self.clconst.map_const(ev['event_type'])),
                 'taken': ev['taken_time'],
                 'failed': ev['failed'],
                 'params': repr(change_params),
