@@ -140,16 +140,6 @@ def datetime_type(value):
     raise ValueError("invalid datetime (%r)" % (value, ))
 
 
-class StringFormatter(object):
-
-    def __init__(self, formatstr):
-        self.formatstr = formatstr
-
-    def __call__(self, record):
-        data = record.to_dict()
-        return self.formatstr.format(**data)
-
-
 def get_formatter(args):
     _process = AuditRecordProcessor()
 
