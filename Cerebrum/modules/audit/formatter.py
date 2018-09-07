@@ -19,8 +19,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Format audit log records.
 
-This module contains utilities to turn a AuditRecord into a
-FormattedAuditRecord.
+This module contains utilities to turn a AuditRecord into a PreparedRecord,
+and to format AuditRecord like objects into strings.
 """
 import collections
 import logging
@@ -56,30 +56,14 @@ def _format_entity(entity_id, entity_type, entity_name):
 #         return '%s(id=%r)' % (entity_type, entity_id)
 
 
-def format_operator(record):
-    return _format_entity(record.operator_id,
-                          (record.metadata or {}).get('operator_type'),
-                          (record.metadata or {}).get('operator_name'))
+class PreparedRecord(object):
+    """ AuditRecord-like object with formatted attributes.
 
+    This object wraps AuditRecord objects, and presents all its attributes as
+    human readable values, suitable for formatting.
 
-def format_entity(record):
-    return _format_entity(record.entity_id,
-                          (record.metadata or {}).get('entity_type'),
-                          (record.metadata or {}).get('entity_name'))
-
-
-def format_target(record):
-    return _format_entity(record.target_id,
-                          (record.metadata or {}).get('target_type'),
-                          (record.metadata or {}).get('target_name'))
-
-
-def format_timestamp(record):
-    return record.timestamp.strftime('%Y-%m-%d %H:%M:%S %z')
-
-
-class FormattedRecord(object):
-    """ AuditRecord-like object with formatted attributes. """
+    Unlike other record objects, all fields are read-only.
+    """
 
     def __init__(self, record, message=None):
         self._record = record
@@ -95,7 +79,7 @@ class FormattedRecord(object):
     def timestamp(self):
         """ formatted timestamp string or None. """
         if self._record.timestamp:
-            return format_timestamp(self._record)
+            return self._record.timestamp.strftime('%Y-%m-%d %H:%M:%S %z')
         else:
             # TODO: Default to <now> with tz?
             return None
@@ -107,17 +91,26 @@ class FormattedRecord(object):
     @property
     def operator(self):
         """ formatted operator identifier or None. """
-        return format_operator(self._record)
+        return _format_entity(
+            self._record.operator_id,
+            (self._record.metadata or {}).get('operator_type'),
+            (self._record.metadata or {}).get('operator_name'))
 
     @property
     def entity(self):
         """ formatted entity identifier or None. """
-        return format_entity(self._record)
+        return _format_entity(
+            self._record.entity_id,
+            (self._record.metadata or {}).get('entity_type'),
+            (self._record.metadata or {}).get('entity_name'))
 
     @property
     def target(self):
         """ formatted target identifier or None. """
-        return format_target(self._record)
+        return _format_entity(
+            self._record.target_id,
+            (self._record.metadata or {}).get('target_type'),
+            (self._record.metadata or {}).get('target_name'))
 
     @property
     def change_program(self):
@@ -128,18 +121,22 @@ class FormattedRecord(object):
         """ formatted operator identifier, change_program or None. """
         return (self.operator or self.change_program)
 
+    def __getattr__(self, attr):
+        return getattr(self._record, attr)
 
-def format_message(record):
-    """ Default message formatter for records. """
-
-    return ' '.join(
-        '%s=%r' % (key, value)
-        for key, value in (
-                ('record', getattr(record, 'record_id', None)),
-                ('params', record.params),
-                ('metadata', record.metadata),
-        )
-        if value)
+    def to_dict(self):
+        d = self._record.to_dict()
+        d.update({
+            'message': self.message,
+            'timestamp': self.timestamp,
+            'change_type': self.change_type,
+            'operator': self.operator,
+            'entity': self.entity,
+            'target': self.target,
+            'change_program': self.change_program,
+            'change_by': self.change_by,
+        })
+        return d
 
 
 # TODO: Generalize and move somewhere else?
@@ -165,8 +162,9 @@ class _ChangeTypeCallbacks(object):
                 return self.callbacks[key]
 
 
-# TODO: Restructure into a series for formatters that can be chained?
-class AuditRecordFormatter(object):
+class AuditRecordProcessor(object):
+    """ Process audit records into a PreparedRecord. """
+    # TODO: Find *one* good way to describe how to format records
 
     custom_formatters = _ChangeTypeCallbacks()
 
@@ -174,13 +172,17 @@ class AuditRecordFormatter(object):
     @staticmethod
     def format_account_mod(record):
         """ temporary issue with formatting date values. """
-        return 'modified account %s attrs=%r' % (format_entity(record),
+        entity_repr = _format_entity(
+            record.entity_id,
+            (record.metadata or {}).get('entity_type'),
+            (record.metadata or {}).get('entity_name'))
+        return 'modified account %s attrs=%r' % (entity_repr,
                                                  (record.params or {}).keys())
 
     def _get_message(self, record):
         message = None
 
-        def msg(method):
+        def try_msg(method):
             if hasattr(method, '__func__'):
                 # unbound staticmethod workaround ...
                 method = getattr(method, '__func__')
@@ -196,26 +198,53 @@ class AuditRecordFormatter(object):
             record.change_type.category,
             record.change_type.type)
         if callback:
-            message = msg(callback)
+            message = try_msg(callback)
 
         # Format strings specified within change_type codes.
         if (not message and
                 (getattr(record.change_type, 'msg_string', None) or
                  getattr(record.change_type, 'format', None))):
-            message = msg(format_message_from_const)
+            message = try_msg(_format_message_from_const)
 
         # Default format and fallbacks
         if not message:
-            message = msg(format_message)
+            message = try_msg(format_message)
         if not message:
-            message = msg(repr)
+            message = try_msg(repr)
         if not message:
             message = '<%r id=record_id>' % (type(record).__name__,
                                              record.record_id)
         return message
 
     def __call__(self, record):
-        return FormattedRecord(record, self._get_message(record))
+        return PreparedRecord(record, self._get_message(record))
+
+
+def format_message(record):
+    """ Default message formatter for records. """
+
+    return ' '.join(
+        '%s=%r' % (key, value)
+        for key, value in (
+                ('record', getattr(record, 'record_id', None)),
+                ('params', record.params),
+                ('metadata', record.metadata),
+        )
+        if value)
+
+
+class AuditRecordFormatter(object):
+    """ Format a log record string. """
+
+    def __init__(self, fmt):
+        self.fmt = fmt
+
+    def __repr__(self):
+        return '{cls.__name__}({obj.fmt!r})'.format(cls=type(self), obj=self)
+
+    def __call__(self, record):
+        data = record.to_dict()
+        return self.fmt.format(**data)
 
 
 #
@@ -230,7 +259,7 @@ import Cerebrum.Errors               # noqa: E402
 from Cerebrum.Utils import Factory   # noqa: E402
 
 
-def format_message_from_const(record):
+def _format_message_from_const(record):
     """ format changelog according to its `record.change_type`.
 
     ChangeType constants may provide a `msg_string` and `format` attribute that
@@ -239,11 +268,19 @@ def format_message_from_const(record):
     # We use a new db transaction here -- we don't want formatting of cl
     # records to depend on a database -- this is just a way to handle old cruft
     db = Factory.get('Database')()
-    formatter = LegacyFormatter(db)
+    formatter = _LegacyMessageFormatter(db)
     return formatter(record)
 
 
 def _find_value(record, name, default=None):
+    """ find a field in a record.
+
+    looks for attributes in:
+
+    1. The record itself
+    2. The record params
+    3. The record metadata
+    """
     record = record.to_dict()
     params = record.pop('params', {})
     meta = record.pop('metadata', {})
@@ -255,7 +292,7 @@ def _find_value(record, name, default=None):
     return default
 
 
-class LegacyFormatter(object):
+class _LegacyMessageFormatter(object):
     """ The old formatter functionality. """
 
     def __init__(self, db):
@@ -287,8 +324,14 @@ class LegacyFormatter(object):
             msg_string = ('subject %(subject)s, destination %(dest)s')
         try:
             msg.append(msg_string % {
-                'subject': format_entity(record),
-                'dest': format_target(record),
+                'subject': _format_entity(
+                    record.entity_id,
+                    (record.metadata or {}).get('entity_type'),
+                    (record.metadata or {}).get('entity_name')),
+                'dest': _format_entity(
+                    record.target_id,
+                    (record.metadata or {}).get('target_type'),
+                    (record.metadata or {}).get('target_name')),
             })
         except Exception:
             logger.warn("failed applying message %r to record %r",
