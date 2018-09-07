@@ -19,7 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Format audit log records.
 
-
 This module contains utilities to turn a AuditRecord into a
 FormattedAuditRecord.
 """
@@ -40,8 +39,7 @@ def _format_entity(entity_id, entity_type, entity_name):
     if entity_name:
         return '%s(%r)' % (entity_name, entity_id)
     else:
-        return '<no name>(%r)' % (entity_name, entity_id)
-
+        return '<no name>(%r)' % (entity_id)
 
 # def _format_entity(entity_id, entity_type, entity_name):
 #     if entity_id is None:
@@ -90,7 +88,7 @@ class FormattedRecord(object):
     def __repr__(self):
         return '<%s change=%s message=%r>' % (
             self.__class__.__name__,
-            self.change,
+            self.change_type,
             self.message)
 
     @property
@@ -103,7 +101,7 @@ class FormattedRecord(object):
             return None
 
     @property
-    def change(self):
+    def change_type(self):
         return six.text_type(self._record.change_type)
 
     @property
@@ -172,10 +170,20 @@ class AuditRecordFormatter(object):
 
     custom_formatters = _ChangeTypeCallbacks()
 
+    @custom_formatters.register('e_account', 'mod')
+    @staticmethod
+    def format_account_mod(record):
+        """ temporary issue with formatting date values. """
+        return 'modified account %s attrs=%r' % (format_entity(record),
+                                                 (record.params or {}).keys())
+
     def _get_message(self, record):
         message = None
 
         def msg(method):
+            if hasattr(method, '__func__'):
+                # unbound staticmethod workaround ...
+                method = getattr(method, '__func__')
             try:
                 return method(record)
             except Exception:
@@ -191,8 +199,9 @@ class AuditRecordFormatter(object):
             message = msg(callback)
 
         # Format strings specified within change_type codes.
-        fmt = getattr(record.change_type, 'format', None)
-        if fmt and not message:
+        if (not message and
+                (getattr(record.change_type, 'msg_string', None) or
+                 getattr(record.change_type, 'format', None))):
             message = msg(format_message_from_const)
 
         # Default format and fallbacks
@@ -209,16 +218,29 @@ class AuditRecordFormatter(object):
         return FormattedRecord(record, self._get_message(record))
 
 
+#
 # Legacy format utils
 #
-# TODO: All these should be removed as the database is migrated
-#       Code from here on an onwards is mainly copied from the bofhd entity
-#       hisotry formatting utils.
+# TODO: All this should be removed.  Code from here on an onwards is mainly
+#       copied from the bofhd entity hisotry formatting utils.
 
-# un-peplike, but it's moved down here in order to prevent others from using
-# them.
-import Cerebrum.Errors
-from Cerebrum.Utils import Factory
+# These imports are un-peplike, but it's moved down here in order to prevent
+# others from using them.
+import Cerebrum.Errors               # noqa: E402
+from Cerebrum.Utils import Factory   # noqa: E402
+
+
+def format_message_from_const(record):
+    """ format changelog according to its `record.change_type`.
+
+    ChangeType constants may provide a `msg_string` and `format` attribute that
+    hints on how to format records with that type.
+    """
+    # We use a new db transaction here -- we don't want formatting of cl
+    # records to depend on a database -- this is just a way to handle old cruft
+    db = Factory.get('Database')()
+    formatter = LegacyFormatter(db)
+    return formatter(record)
 
 
 def _find_value(record, name, default=None):
@@ -226,46 +248,68 @@ def _find_value(record, name, default=None):
     params = record.pop('params', {})
     meta = record.pop('metadata', {})
     for d in [params, meta, record]:
+        if not isinstance(d, (dict, collections.Mapping)):
+            continue
         if name in d:
             return d[name]
     return default
 
 
-def format_message_from_const(record):
-    msg = []
-    msg_string = getattr(record.change_type, 'msg_string')
-    fmt = getattr(record.change_type, 'format', [])
+class LegacyFormatter(object):
+    """ The old formatter functionality. """
 
-    if msg_string is None:
-        logger.warn('Formatting of change log entry of type %s '
-                    'failed, no description defined in change type',
-                    six.text_type(record.change_type))
-        msg.append(six.text_type(record.change_type))
-        msg_string = ('subject %(subject)s, destination %(dest)s')
-    try:
-        msg.append(msg_string % {
-            'subject': format_entity(record),
-            'dest': format_target(record),
-        })
-    except Exception:
-        logger.warn("failed applying message %r to record %r",
-                    msg_string, record.record_id, exc_info=True)
+    def __init__(self, db):
+        self._format_entity = _EntityFormatter(db)
+        self._format_const = _ConstantFormatter(db)
 
-    for f in fmt:
-        repl = {}
-        for part in re.findall(r'%\([^\)]+\)s', f):
-            fmt_type, key = part[2:-2].split(':')
-            try:
-                _kk = '%%(%s:%s)s' % (fmt_type, key)
-                repl[_kk] = _format_from_cl(fmt_type, _find_value(record, key))
-            except Exception:
-                logger.warn("Failed applying %r to record %r",
-                            part, repr(record), exc_info=True)
-        if any(repl.values()):
-            for k, v in repl.items():
-                f = f.replace(k, v)
-            msg.append(f)
-    return ', '.join(msg)
+    def format_value(self, value_type, value):
+        if value is None:
+            return ''
+
+        if value_type in self._format_entity:
+            return self._format_entity(value_type, value)
+        elif value_type in self._format_const:
+            return self._format_const(value_type, value)
+        else:
+            logger.warn("bad cl format %r: %r", value_type, value)
+
+    def __call__(self, record):
+        """ Format a record. """
+        msg_string = getattr(record.change_type, 'msg_string')
+        fmt = getattr(record.change_type, 'format') or []
+        msg = []
+
+        if msg_string is None:
+            logger.warn('Formatting of change log entry of type %s '
+                        'failed, no description defined in change type',
+                        six.text_type(record.change_type))
+            msg.append(six.text_type(record.change_type))
+            msg_string = ('subject %(subject)s, destination %(dest)s')
+        try:
+            msg.append(msg_string % {
+                'subject': format_entity(record),
+                'dest': format_target(record),
+            })
+        except Exception:
+            logger.warn("failed applying message %r to record %r",
+                        msg_string, record.record_id, exc_info=True)
+
+        for f in fmt:
+            repl = {}
+            for part in re.findall(r'%\([^\)]+\)s', f):
+                fmt_type, key = part[2:-2].split(':')
+                try:
+                    _kk = '%%(%s:%s)s' % (fmt_type, key)
+                    repl[_kk] = self.format_value(fmt_type,
+                                                  _find_value(record, key))
+                except Exception:
+                    logger.warn("Failed applying %r to record %r",
+                                part, repr(record), exc_info=True)
+            if any(repl.values()):
+                for k, v in repl.items():
+                    f = f.replace(k, v)
+                msg.append(f)
+        return ', '.join(msg)
 
 
 class _ConstantFormatter(object):
@@ -286,7 +330,7 @@ class _ConstantFormatter(object):
         'perm_type': ['EphortePermission'],
     }
 
-    def __init__(self, db=None):
+    def __init__(self, db):
         self.co = Factory.get('Constants')(db)
 
     def __contains__(self, co_type):
@@ -305,7 +349,7 @@ class _ConstantFormatter(object):
 
 
 class _EntityFormatter(object):
-    """ turn entities and values into strings """
+    """ Turn entities and values into strings. """
 
     en_type_map = {
         'disk': '_fmt_disk_id',
@@ -319,11 +363,8 @@ class _EntityFormatter(object):
         'bool': '_fmt_bool',
     }
 
-    def __init__(self, db=None):
-        if db:
-            self.db = db
-        else:
-            self.db = Factory.get('Database')()
+    def __init__(self, db):
+        self.db = db
         self.co = Factory.get('Constants')(db)
 
     def __contains__(self, en_type):
@@ -365,20 +406,3 @@ class _EntityFormatter(object):
             return repr(False)
         else:
             return repr(bool(value))
-
-
-def _format_from_cl(value_type, value):
-
-    en_fmt = _EntityFormatter()
-    co_fmt = _ConstantFormatter()
-
-    if value is None:
-        return ''
-
-    if value_type in en_fmt:
-        return en_fmt(value_type, value)
-    elif value_type in co_fmt:
-        return co_fmt(value_type, value)
-    else:
-        logger.warn("bad cl format %r: %r", value_type, value)
-        return ''
