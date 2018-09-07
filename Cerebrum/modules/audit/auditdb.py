@@ -30,7 +30,7 @@ import json
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import argument_to_sql, Factory
 
-from .record import AuditRecord, DbAuditRecord
+from .record import DbAuditRecord
 
 
 def sql_get_record(db, record_id):
@@ -54,7 +54,7 @@ def sql_search(
         record_ids=None,
         after_id=None, before_id=None,
         after_timestamp=None, before_timestamp=None,
-        fetchall=True):
+        fetchall=False):
     """ TODO: document """
     query = """
     SELECT *
