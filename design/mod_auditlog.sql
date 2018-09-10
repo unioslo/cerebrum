@@ -36,21 +36,21 @@ CREATE SEQUENCE audit_log_seq;
 category:main;
 CREATE TABLE audit_log
 (
-  /* Timestamp with timezone */
-  timestamp       TIMESTAMP
-                  WITH TIME ZONE
-                  NOT NULL
-                  DEFAULT [:now],
-
   /* A unique ID of this change record */
   record_id       NUMERIC(12,0)
                   NOT NULL
-                  CONSTRAINT record_idx PRIMARY KEY,
+                  CONSTRAINT audit_log_record_idx PRIMARY KEY,
 
   /* Changelog constant for this change */
   change_type     NUMERIC(6,0)
                   NOT NULL
                   REFERENCES change_type(change_type_id),
+
+  /* Timestamp with timezone */
+  timestamp       TIMESTAMP
+                  WITH TIME ZONE
+                  NOT NULL
+                  DEFAULT [:now],
 
   /* entity_id of the account that caused this change */
   operator        NUMERIC(12,0)
@@ -63,11 +63,11 @@ CREATE TABLE audit_log
   /* entity_id of an affected entity */
   target          NUMERIC(12,0),
 
-  /* Additional metadata about the entities involved */
-  metadata        JSON,
-
   /* Additional information about the change */
-  params          JSON
+  params          JSONB,
+
+  /* Additional metadata about the entities involved */
+  metadata        JSONB
 );
 
 category:main;
