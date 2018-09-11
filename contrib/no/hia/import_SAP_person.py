@@ -270,7 +270,7 @@ def populate_personal_title(person, fields):
         person.delete_name_with_language(name_variant=const.personal_title,
                                          name_language=const.language_nb)
         logger.debug("Removed %s for person id=%s",
-                     str(const.work_title), person.entity_id)
+                     str(const.personal_title), person.entity_id)
 
 
 def _remove_communication(person, comm_type):
