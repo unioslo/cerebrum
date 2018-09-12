@@ -42,17 +42,26 @@ def _parse_selection_criteria(db, criteria):
     types = []
     try:
         for x in t[1].split(','):
-            types.append(_parse_code(db, x))
+            types.append(_parse_constant(db, x))
     except IndexError:
         pass
-    return (_parse_code(db, t[0]), types)
+    return (_parse_change_type(db, t[0]), types)
 
 
-def _parse_code(db, constant):
+def _parse_change_type(database, change_type):
+    return _parse_code(change_type, Factory.get('CLConstants')(database))
+
+
+def _parse_constant(database, constant):
+    return _parse_code(constant, Factory.get('Constants')(database))
+
+
+def _parse_code(constant, resolver):
     """Parse and error-check a constant.
 
-    :param Cerebrum.database.Database db: A Database object.
     :param basestring constant: The string representation of the constant.
+    :param Cerebrum.Constants.BaseConstants resolver: The resolver to use for
+        the constant
     :rtype: Cerebrum.Constant
     :return: The instantiated constant."""
     from Cerebrum import Errors
@@ -60,17 +69,13 @@ def _parse_code(db, constant):
     class UndefinedConstantException(Exception):
         pass
 
-    co = Factory.get('Constants')(db)
     try:
-        if isinstance(constant, basestring):
-            ct = co.human2constant(constant)
-        else:
-            ct = co.ChangeType(constant)
-        int(ct)
+        const = resolver.human2constant(constant)
+        int(const)
     except (Errors.NotFoundError, TypeError):
         raise UndefinedConstantException('The constant %s is not defined',
                                          constant)
-    return ct
+    return const
 
 
 def convert_events(db, events):
@@ -97,7 +102,7 @@ def convert_events(db, events):
 
     def _convert(msg):
         msg = _unpack(dict(msg))
-        ct = _parse_code(db, msg.get('change_type_id'))
+        ct = _parse_change_type(db, msg.get('change_type_id'))
 
         # TODO: Restructure something, this is prone to break
         from Cerebrum.modules.event_publisher import change_type_to_message

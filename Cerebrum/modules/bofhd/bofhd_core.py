@@ -134,6 +134,15 @@ class BofhdCommandBase(object):
             return self.__const
 
     @property
+    def clconst(self):
+        u""" CLConstants. """
+        try:
+            return self.__clconst
+        except AttributeError:
+            self.__clconst = Factory.get("CLConstants")(self.db)
+            return self.__clconst
+
+    @property
     def logger(self):
         u""" Logger. """
         return self.__logger
@@ -627,7 +636,7 @@ class BofhdCommandBase(object):
                 ety.find(entity_id)
                 entity_type = self.const.EntityType(ety.entity_type)
             except Errors.NotFoundError:
-                return "notfound:%d" % entity_id
+                return "notfound:%r" % entity_id
         if entity_type == self.const.entity_account:
             acc = self._get_account(entity_id, idtype='id')
             return acc.account_name
@@ -680,7 +689,7 @@ class BofhdCommandBase(object):
                 # options at this point.
                 return "%s:%s" % (six.text_type(entity_type), entity_id)
         except Errors.NotFoundError:
-            return "notfound:%d" % entity_id
+            return "notfound:%r" % entity_id
         # NOTREACHED
         assert False
 

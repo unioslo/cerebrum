@@ -22,7 +22,6 @@
 from Cerebrum import Constants
 from Cerebrum.Constants import (ConstantsBase, _CerebrumCode, _SpreadCode,
                                 _get_code)
-from Cerebrum.modules.CLConstants import _ChangeTypeCode
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 
@@ -163,33 +162,34 @@ class EphorteConstants(ConstantsBase):
     EphorteJournalenhet = _EphorteJournalenhetCode
     EphortePermission = _EphortePermTypeCode
 
-    # ChangeLog constants
-    ephorte_role_add = _ChangeTypeCode(
+
+class CLConstants(Constants.CLConstants):
+    ephorte_role_add = Constants._ChangeTypeCode(
         'ephorte', 'role_add', 'add ephorte role @ %(dest)s',
         ('type=%(rolle_type:rolle_type)s',))
 
-    ephorte_role_upd = _ChangeTypeCode(
+    ephorte_role_upd = Constants._ChangeTypeCode(
         'ephorte', 'role_upd', 'update ephorte role @ %(dest)s')
 
-    ephorte_role_rem = _ChangeTypeCode(
+    ephorte_role_rem = Constants._ChangeTypeCode(
         'ephorte', 'role_rem', 'remove ephorte role @ %(dest)s',
         ('type=%(rolle_type:rolle_type)s',))
 
-    ephorte_perm_add = _ChangeTypeCode(
+    ephorte_perm_add = Constants._ChangeTypeCode(
         'ephorte', 'perm_add', 'add ephorte perm @ %(dest)s',
         ('type=%(perm_type:perm_type)s',))
 
-    ephorte_perm_rem = _ChangeTypeCode(
+    ephorte_perm_rem = Constants._ChangeTypeCode(
         'ephorte', 'perm_rem', 'remove ephorte perm @ %(dest)s',
         ('type=%(perm_type:perm_type)s',))
 
 
-@_ChangeTypeCode.formatter('rolle_type')
+@Constants._ChangeTypeCode.formatter('rolle_type')
 def format_cl_role_type(co, val):
     return _get_code(co.EphorteRole, val)
 
 
-@_ChangeTypeCode.formatter('perm_type')
+@Constants._ChangeTypeCode.formatter('perm_type')
 def format_cl_perm_type(co, val):
     return _get_code(co.EphortePermission, val)
 
@@ -211,6 +211,7 @@ class EphorteRole(DatabaseAccessor):
     def __init__(self, database):
         super(EphorteRole, self).__init__(database)
         self.co = Factory.get('Constants')(database)
+        self.clconst = Factory.get('CLConstants')(database)
         self.pe = Factory.get('Person')(database)
         self.ephorte_perm = EphortePermission(database)
 
@@ -234,7 +235,7 @@ class EphorteRole(DatabaseAccessor):
                                  ", ".join([":%s" % k for k in binds])),
                      binds)
         self._db.log_change(
-            person_id, self.co.ephorte_role_add, sko,
+            person_id, self.clconst.ephorte_role_add, sko,
             change_params={
                 'arkivdel': arkivdel and str(arkivdel) or '',
                 'rolle_type': str(role)
@@ -266,7 +267,7 @@ class EphorteRole(DatabaseAccessor):
             ["%s=:%s" % (x, x) for x in binds if binds[x]]))
         self.execute(query, binds)
         self._db.log_change(
-            person_id, self.co.ephorte_role_upd, sko,
+            person_id, self.clconst.ephorte_role_upd, sko,
             change_params={'standard_role': standard_role})
 
     def _remove_role(self, person_id, role, sko, arkivdel, journalenhet):
@@ -284,7 +285,7 @@ class EphorteRole(DatabaseAccessor):
             ["%s IS NULL" % x for x in binds if binds[x] is None]),
             binds)
         self._db.log_change(
-            person_id, self.co.ephorte_role_rem, sko,
+            person_id, self.clconst.ephorte_role_rem, sko,
             change_params={
                 'arkivdel': arkivdel and str(arkivdel) or '',
                 'rolle_type': str(role)
@@ -358,7 +359,7 @@ class EphorteRole(DatabaseAccessor):
 class EphortePermission(DatabaseAccessor):
     def __init__(self, database):
         super(EphortePermission, self).__init__(database)
-        self.co = Factory.get('Constants')(database)
+        self.clconst = Factory.get('CLConstants')(database)
         self.pe = Factory.get('Person')(database)
 
     def add_permission(self, person_id, perm_type, sko, requestee):
@@ -374,7 +375,7 @@ class EphortePermission(DatabaseAccessor):
                                  ", ".join([":%s" % k for k in binds])),
                      binds)
         self._db.log_change(
-            person_id, self.co.ephorte_perm_add, sko,
+            person_id, self.clconst.ephorte_perm_add, sko,
             change_params={
                 'adm_enhet': sko or '',
                 'perm_type': str(perm_type)
@@ -393,7 +394,7 @@ class EphortePermission(DatabaseAccessor):
             ["%s IS NULL" % x for x in binds if binds[x] is None]),
             binds)
         self._db.log_change(
-            person_id, self.co.ephorte_perm_rem, sko,
+            person_id, self.clconst.ephorte_perm_rem, sko,
             change_params={
                 'adm_enhet': sko or '',
                 'perm_type': str(perm_type)

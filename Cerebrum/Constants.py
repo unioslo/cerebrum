@@ -1350,6 +1350,13 @@ class ConstantsBase(DatabaseAccessor):
                 obj = None
         return obj
 
+    @classmethod
+    def resolve_constant(cls, database, constant, const_type=None):
+        for t in ('Constants', 'CLConstants'):
+            c = Factory.get(t)(database).human2constant(constant, const_type)
+            if c:
+                return c
+
 
 class CoreConstants(ConstantsBase):
 
@@ -1631,14 +1638,7 @@ class Constants(CoreConstants, CommonConstants):
             return aff, status
 
 
-# TODO: CLConstants are typically included in the CLASS_CONSTANTS definition.
-#       This is probably a hack that is done to make makedb create and update
-#       the constants in the database.
-#       We need to clean up all use of CLConstants from the CLASS_CONSTANTS
-#       object.
-
-# TODO: CLConstants should inherit from ConstantsBase.
-class CLConstants(Constants):
+class CLConstants(ConstantsBase):
 
     """Singleton whose members make up all needed coding values.
 

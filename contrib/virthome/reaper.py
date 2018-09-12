@@ -173,7 +173,7 @@ def delete_common(entity_id, db):
 def remove_from_groups(entity_id, db):
     """ Remove entity from groups and clean change log. """
     group = Factory.get("Group")(db)
-    const = Factory.get("Constants")()
+    clconst = Factory.get("CLConstants")()
 
     for row in group.search(member_id=entity_id,
                             filter_expired=False):
@@ -184,7 +184,7 @@ def remove_from_groups(entity_id, db):
         group.remove_member(entity_id)
 
     for row in db.get_log_events(subject_entity=entity_id,
-                                 types=[const.group_rem]):
+                                 types=[clconst.group_rem]):
         db.remove_log_event(row["change_id"])
 
 
@@ -255,9 +255,9 @@ def delete_unconfirmed_accounts(account_np_type, db):
     deletion?
     """
     logger.debug("Deleting unconfirmed accounts")
-    const = Factory.get("Constants")(db)
+    clconst = Factory.get("CLConstants")(db)
     account = Factory.get("Account")(db)
-    for row in db.get_log_events(types=const.va_pending_create):
+    for row in db.get_log_events(types=clconst.va_pending_create):
         tstamp = row["tstamp"]
         if now() - tstamp <= cereconf.GRACE_PERIOD:
             continue
@@ -272,7 +272,7 @@ def delete_unconfirmed_accounts(account_np_type, db):
                         "account name=%s (id=%s) "
                         "that no longer exists (cl event will be deleted)",
                         row["change_id"],
-                        str(const.ChangeType(row["change_type_id"])),
+                        str(clconst.ChangeType(row["change_type_id"])),
                         tstamp.strftime("%F %T"),
                         fetch_name(row["subject_entity"], db),
                         row["subject_entity"])
@@ -287,7 +287,7 @@ def delete_unconfirmed_accounts(account_np_type, db):
             "Account %s (id=%s) has event %s @ %s and will be deleted",
             account.account_name,
             account.entity_id,
-            str(const.ChangeType(const.va_pending_create)),
+            str(clconst.ChangeType(clconst.va_pending_create)),
             tstamp.strftime("%Y-%m-%d"))
 
         delete_account(account, db)
@@ -307,8 +307,8 @@ def delete_stale_events(cl_events, db):
     if not isinstance(cl_events, (list, tuple, set)):
         cl_events = [cl_events, ]
 
-    const = Factory.get("Constants")()
-    typeset_request = ", ".join(str(const.ChangeType(x))
+    clconst = Factory.get("CLConstants")()
+    typeset_request = ", ".join(str(clconst.ChangeType(x))
                                 for x in cl_events)
     logger.debug("Deleting stale requests: %s", typeset_request)
     for event in db.get_log_events(types=cl_events):
@@ -333,7 +333,7 @@ def delete_stale_events(cl_events, db):
             continue
 
         logger.debug("Deleting stale event %s (@%s) for entity %s (id=%s)",
-                     str(const.ChangeType(event["change_type_id"])),
+                     str(clconst.ChangeType(event["change_type_id"])),
                      event["tstamp"].strftime("%Y-%m-%d"),
                      fetch_name(event["subject_entity"], db),
                      event["subject_entity"])
@@ -440,6 +440,7 @@ def main(argv):
     try_commit = db.rollback
 
     const = Factory.get("Constants")()
+    clconst = Factory.get("CLConstants")()
     actions = list()
     #
     # NB! We can safely ignore processing va_reset_expire_date -- if the user
@@ -453,20 +454,23 @@ def main(argv):
                                                        db))
         elif option in ("--remove-stale-email-requests",):
             actions.append(lambda db:
-                           delete_stale_events(const.va_email_change, db))
+                           delete_stale_events(clconst.va_email_change, db))
         elif option in ("--remove-group-invitations",):
             actions.append(lambda db:
-                           delete_stale_events(const.va_group_invitation, db))
+                           delete_stale_events(clconst.va_group_invitation,
+                                               db))
         elif option in ("--disable-expired-accounts",):
             actions.append(disable_expired_accounts)
         elif option in ("--remove-stale-group-modifications",):
             actions.append(lambda db:
-                           delete_stale_events((const.va_group_owner_swap,
-                                                const.va_group_moderator_add,),
-                                               db))
+                           delete_stale_events(
+                               (clconst.va_group_owner_swap,
+                                clconst.va_group_moderator_add,),
+                               db))
         elif option in ("--remove-stale-password-recover",):
             actions.append(lambda db:
-                           delete_stale_events(const.va_password_recover, db))
+                           delete_stale_events(clconst.va_password_recover,
+                                               db))
         elif option in ("--with-commit",):
             try_commit = db.commit
 

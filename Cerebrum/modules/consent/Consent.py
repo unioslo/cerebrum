@@ -75,7 +75,7 @@ The first two corresponds to new or updated consents with opt-in or opt-out
 respectively. The last is sent when consent is removed.
 """
 
-import Cerebrum.Constants as cereconst
+from Cerebrum import Constants as cereconst
 from Cerebrum.Entity import Entity
 from Cerebrum.Errors import PolicyException
 from Cerebrum.Utils import NotSet, argument_to_sql
@@ -84,7 +84,7 @@ from Cerebrum.Utils import NotSet, argument_to_sql
 __version__ = "1.0"
 
 
-class _ConsentTypeCode(cereconst.Constants.CerebrumCode):
+class _ConsentTypeCode(cereconst._CerebrumCode):
     """Code to represent the type of code.
     Two values should exist: opt-in and opt-out"""
     _lookup_table = '[:table schema=cerebrum name=consent_type_code]'
@@ -152,7 +152,8 @@ class Constants(cereconst.Constants):
     consent_opt_out = _ConsentTypeCode('opt-out',
                                        'Consent assumed unless declined')
 
-    # Change log codes
+
+class CLConstants(cereconst.CLConstants):
     consent_approve = cereconst._ChangeTypeCode(
         'consent', 'approve',
         '%(subject)s gives consent',
@@ -261,10 +262,10 @@ class EntityConsentMixin(Entity):
         """
         if not isinstance(consent_code, _EntityConsentCode):
             consent_code = _EntityConsentCode(consent_code)
-        if consent_code.consent_type == Constants.consent_opt_in:
-            change = Constants.consent_approve
+        if consent_code.consent_type == CLConstants.consent_opt_in:
+            change = CLConstants.consent_approve
         else:
-            change = Constants.consent_decline
+            change = CLConstants.consent_decline
         if consent_code.entity_type != self.entity_type:
             # raise PolicyException("Consent {type} not compatible"
             #                       " with {etype}".format(

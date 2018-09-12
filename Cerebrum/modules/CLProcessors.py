@@ -46,6 +46,7 @@ The module makes use of two cereconf-variables:
 
 db = Factory.get('Database')()
 constants = Factory.get('Constants')(db)
+clconstants = Factory.get('CLConstants')(db)
 account = Factory.get('Account')(db)
 person = Factory.get('Person')(db)
 logger = Factory.get_logger("cronjob")
@@ -111,13 +112,13 @@ class EventProcessor(object):
         @raise EventNotDefinedError: If 'event_type' is not defined/incorrect.
 
         """
-        if event_type == getattr(constants, "person_create"):
+        if event_type == getattr(clconstants, "person_create"):
             return CreatePersonProcessor()
-        elif event_type == getattr(constants, "account_create"):
+        elif event_type == getattr(clconstants, "account_create"):
             return CreateAccountProcessor()
-        elif event_type == getattr(constants, "account_mod"):
+        elif event_type == getattr(clconstants, "account_mod"):
             return ModifyAccountProcessor()
-        elif event_type == getattr(constants, "group_create"):
+        elif event_type == getattr(clconstants, "group_create"):
             return CreateGroupProcessor()
         else:
             raise EventNotDefinedError(
@@ -291,7 +292,7 @@ class CreatePersonProcessor(EventProcessor):
 
     def __init__(self):
         EventProcessor.__init__(self)
-        self._log_event = int(constants.person_create)
+        self._log_event = int(clconstants.person_create)
         self._description = "Create Person"
         self._person2account = {}
         self._persons_by_source_system = {}
@@ -400,7 +401,7 @@ class CreateAccountProcessor(EventProcessor):
 
     def __init__(self):
         EventProcessor.__init__(self)
-        self._log_event = int(constants.account_create)
+        self._log_event = int(clconstants.account_create)
         self._description = "Create Account"
 
     def calculate_count_by_affiliation(self):
@@ -438,7 +439,7 @@ class ModifyAccountProcessor(EventProcessor):
 
     def __init__(self):
         EventProcessor.__init__(self)
-        self._log_event = int(constants.account_mod)
+        self._log_event = int(clconstants.account_mod)
         self._description = "Modify Account"
 
     def process_events(self, start_date=0, end_date=0):
@@ -519,7 +520,7 @@ class CreateGroupProcessor(EventProcessor):
 
     def __init__(self):
         EventProcessor.__init__(self)
-        self._log_event = int(constants.group_create)
+        self._log_event = int(clconstants.group_create)
         self._description = "Create Group"
 
     def calculate_count_by_affiliation(self):

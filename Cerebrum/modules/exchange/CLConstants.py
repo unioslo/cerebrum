@@ -21,11 +21,10 @@
 
 """ChangeLog constants for Exchange."""
 
-from Cerebrum.modules.CLConstants import CLConstants
-from Cerebrum.modules.CLConstants import _ChangeTypeCode
+from Cerebrum import Constants as cereconst
 
 
-class CLConstants(CLConstants):
+class CLConstants(cereconst.CLConstants):
 
     """ChangeLog constants for Exchange."""
 
@@ -37,91 +36,93 @@ class CLConstants(CLConstants):
     #
 
     # Account mailbox created/deleted
-    acc_mbox_create = _ChangeTypeCode('exchange', 'acc_mbox_create',
-                                      'account mailbox added')
-    acc_mbox_delete = _ChangeTypeCode('exchange', 'acc_mbox_delete',
-                                      'account mailbox deleted')
+    acc_mbox_create = cereconst._ChangeTypeCode('exchange', 'acc_mbox_create',
+                                                'account mailbox added')
+    acc_mbox_delete = cereconst._ChangeTypeCode('exchange', 'acc_mbox_delete',
+                                                'account mailbox deleted')
 
     # Account mailbox created/deleted
-    shared_mbox_create = _ChangeTypeCode('exchange', 'shared_mbox_create',
-                                         'shared mailbox added')
-    shared_mbox_delete = _ChangeTypeCode('exchange', 'shared_mbox_delete',
-                                         'shared mailbox deleted')
+    shared_mbox_create = cereconst._ChangeTypeCode('exchange',
+                                                   'shared_mbox_create',
+                                                   'shared mailbox added')
+    shared_mbox_delete = cereconst._ChangeTypeCode('exchange',
+                                                   'shared_mbox_delete',
+                                                   'shared mailbox deleted')
 
     # Account add/remove an address
-    acc_addr_add = _ChangeTypeCode('exchange', 'acc_addr_add',
-                                   'account address added')
-    acc_addr_rem = _ChangeTypeCode('exchange', 'acc_addr_rem',
-                                   'account address removed')
+    acc_addr_add = cereconst._ChangeTypeCode('exchange', 'acc_addr_add',
+                                             'account address added')
+    acc_addr_rem = cereconst._ChangeTypeCode('exchange', 'acc_addr_rem',
+                                             'account address removed')
     # Account change primary address
-    acc_primaddr = _ChangeTypeCode('exchange', 'acc_primaddr',
-                                   'account primary changed')
+    acc_primaddr = cereconst._ChangeTypeCode('exchange', 'acc_primaddr',
+                                             'account primary changed')
 
     # Setting of local delivery
-    acc_local_delivery = _ChangeTypeCode(
+    acc_local_delivery = cereconst._ChangeTypeCode(
         'exchange', 'local_delivery',
         'local delivery setting changed', ('enabled = %(string:enabled)s',))
 
     # Electronic reservation registered
-    pers_reservation = _ChangeTypeCode(
+    pers_reservation = cereconst._ChangeTypeCode(
         'exchange', 'per_e_reserv',
         'address book visibility changed', ('visible = %(string:visible)s',))
 
     # Distribution group create/deleted
-    dl_mbox_create = _ChangeTypeCode('exchange', 'dl_mbox_create',
-                                     'dist group mailbox added')
-    dl_mbox_delete = _ChangeTypeCode('exchange', 'dl_mbox_delete',
-                                     'dist group mailbox deleted')
+    dl_mbox_create = cereconst._ChangeTypeCode('exchange', 'dl_mbox_create',
+                                               'dist group mailbox added')
+    dl_mbox_delete = cereconst._ChangeTypeCode('exchange', 'dl_mbox_delete',
+                                               'dist group mailbox deleted')
     # Dist group add/remove address
-    dl_addr_add = _ChangeTypeCode('exchange', 'dl_addr_add',
-                                  'dist group address added')
-    dl_addr_rem = _ChangeTypeCode('exchange', 'dl_addr_rem',
-                                  'dist group address deleted')
+    dl_addr_add = cereconst._ChangeTypeCode('exchange', 'dl_addr_add',
+                                            'dist group address added')
+    dl_addr_rem = cereconst._ChangeTypeCode('exchange', 'dl_addr_rem',
+                                            'dist group address deleted')
     # Dist group set hidden
-    dl_hidden_set = _ChangeTypeCode('exchange', 'dl_hidden_set',
-                                    'dist group set HiddenAddr')
+    dl_hidden_set = cereconst._ChangeTypeCode('exchange', 'dl_hidden_set',
+                                              'dist group set HiddenAddr')
     # Dist group set join/depart restrictions
-    dl_join_set = _ChangeTypeCode('exchange', 'dl_join_set',
-                                  'dist group set JoinRestr')
-    dl_depart_set = _ChangeTypeCode('exchange', 'dl_depart_set',
-                                    'dist group set DepartRestr')
+    dl_join_set = cereconst._ChangeTypeCode('exchange', 'dl_join_set',
+                                            'dist group set JoinRestr')
+    dl_depart_set = cereconst._ChangeTypeCode('exchange', 'dl_depart_set',
+                                              'dist group set DepartRestr')
 
     # register when a distribution group has been created or removed
     # should probably log and show more data about groups
-    dl_group_create = _ChangeTypeCode('dlgroup', 'create',
-                                      'group create distribution %(subject)s')
-    dl_group_modify = _ChangeTypeCode('dlgroup', 'modify',
-                                      'group modify distribution %(subject)s')
-    dl_group_remove = _ChangeTypeCode('dlgroup', 'remove',
-                                      'group remove distribution %(subject)s')
+    dl_group_create = cereconst._ChangeTypeCode(
+        'dlgroup', 'create', 'group create distribution %(subject)s')
+    dl_group_modify = cereconst._ChangeTypeCode(
+        'dlgroup', 'modify', 'group modify distribution %(subject)s')
+    dl_group_remove = cereconst._ChangeTypeCode(
+        'dlgroup', 'remove', 'group remove distribution %(subject)s')
 
-    dl_group_add = _ChangeTypeCode(
+    dl_group_add = cereconst._ChangeTypeCode(
         'dlgroup', 'add', 'added %(dest)s to %(subject)s',
         ('AlreadyPerformed=%(string:AlreadyPerformed)s',))
-    dl_group_rem = _ChangeTypeCode('dlgroup', 'rem',
-                                   'removed %(dest)s from %(subject)s')
+    dl_group_rem = cereconst._ChangeTypeCode(
+        'dlgroup', 'rem', 'removed %(dest)s from %(subject)s')
 
-    dl_group_primary = _ChangeTypeCode('dlgroup', 'primary',
-                                       'group set primary for %(subject)s')
-    dl_group_addaddr = _ChangeTypeCode('dlgroup', 'addaddr',
-                                       'group add address for %(subject)s')
-    dl_group_remaddr = _ChangeTypeCode('dlgroup', 'remaddr',
-                                       'group remove address for %(subject)s')
-    dl_roomlist_create = _ChangeTypeCode('dlgroup', 'roomcreate',
-                                         'group create roomlist %(subject)s')
-    dl_group_hidden = _ChangeTypeCode('dlgroup', 'modhidden',
-                                      'group mod hidden for %(subject)s',
-                                      ('hidden:%(string:hidden)'))
-    dl_group_manby = _ChangeTypeCode('dlgroup', 'modmanby',
-                                     'group mod managed by for %(subject)s',
-                                     ('manby:%(str:manby)'))
-    dl_group_room = _ChangeTypeCode('dlgroup', 'modroom',
-                                    'group mod room stat for %(subject)s',
-                                    ('roomlist:%(str:roomlist)'))
+    dl_group_primary = cereconst._ChangeTypeCode(
+        'dlgroup', 'primary', 'group set primary for %(subject)s')
+    dl_group_addaddr = cereconst._ChangeTypeCode(
+        'dlgroup', 'addaddr', 'group add address for %(subject)s')
+    dl_group_remaddr = cereconst._ChangeTypeCode(
+        'dlgroup', 'remaddr', 'group remove address for %(subject)s')
+    dl_roomlist_create = cereconst._ChangeTypeCode(
+        'dlgroup', 'roomcreate', 'group create roomlist %(subject)s')
+    dl_group_hidden = cereconst._ChangeTypeCode(
+        'dlgroup', 'modhidden', 'group mod hidden for %(subject)s',
+        ('hidden:%(string:hidden)'))
+    dl_group_manby = cereconst._ChangeTypeCode(
+        'dlgroup', 'modmanby', 'group mod managed by for %(subject)s',
+        ('manby:%(str:manby)'))
+    dl_group_room = cereconst._ChangeTypeCode(
+        'dlgroup', 'modroom', 'group mod room stat for %(subject)s',
+        ('roomlist:%(str:roomlist)'))
 
     # deferred events
-    exchange_group_add = _ChangeTypeCode('exchange', 'group_add',
-                                         'deferred addition of group member')
+    exchange_group_add = cereconst._ChangeTypeCode(
+        'exchange', 'group_add', 'deferred addition of group member')
 
-    exchange_group_rem = _ChangeTypeCode('exchange', 'group_rem',
-                                         'deferred removal of group member')
+    exchange_group_rem = cereconst._ChangeTypeCode(
+        'exchange', 'group_rem', 'deferred removal of group member')

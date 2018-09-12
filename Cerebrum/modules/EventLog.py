@@ -340,16 +340,22 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
 
     def search_events(self, id=None, type=None, param=None,
                       from_ts=None, to_ts=None, target_system=None,
+                      taken_before=None, taken_after=None, is_taken=None,
                       fetchall=True):
         """Search for events based on a given criteria.
 
         :param int id: The subject- or dest_entity to search for.
         :param int type: The EventType to search for.
         :param str param: A substring to search for in change_params.
-        :param DateTime/str from_ts: Search for events that occoured after this
+        :param DateTime/str from_ts: Search for events that occurred after this
             timestamp.
-        :param DateTime/str to_ts: Search for events that occoured before this
+        :param DateTime/str to_ts: Search for events that occurred before this
             timestamp.
+        :param DateTime/str taken_before:
+            Search for events that were taken before this timestamp.
+        :param DateTime/str taken_after:
+            Search for events that were taken after this timestamp.
+        :param bool is_taken: Filter by taken/unlocked
         :param int target_system: The TargetSystem to search for.
         :param bool fetchall: Wether to return an iterator, or everything.
             Default is everything.
@@ -378,6 +384,16 @@ class EventLog(Cerebrum.ChangeLog.ChangeLog):
         if to_ts:
             where.append("tstamp < :to_ts")
             binds['to_ts'] = to_ts
+        if is_taken is False:
+            where.append("taken_time is null")
+        if is_taken is True:
+            where.append("taken_time is not null")
+        if taken_before:
+            where.append("taken_time < :taken_before")
+            binds['taken_before'] = taken_before
+        if taken_after:
+            where.append("taken_time > :taken_after")
+            binds['taken_after'] = taken_after
         if param:
             where.append("change_params LIKE :param")
             binds['param'] = "%{}%".format(param)

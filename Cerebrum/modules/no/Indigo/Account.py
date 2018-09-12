@@ -163,7 +163,7 @@ class AccountOfkMixin(Account.Account):
         # to fetch that value if it exists.
         res = {}
         for row in self._db.get_log_events(subject_entity=self.entity_id,
-                                           types=(self.const.trait_del,)):
+                                           types=(self.clconst.trait_del,)):
             if row['change_params']:
                 try:
                     params = json.loads(row['change_params'])

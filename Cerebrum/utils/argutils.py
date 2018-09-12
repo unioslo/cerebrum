@@ -27,6 +27,13 @@ import six
 
 from Cerebrum.Utils import Factory
 
+#
+# types
+#
+# These objects and functions can be used as the ``type`` value of
+# most argparse.Action (add_argument) types.
+#
+
 
 class UnicodeType(object):
     """ Argparse transform for non-unicode input. """
@@ -120,6 +127,54 @@ def codec_type(encoding):
         raise ValueError(str(e))
 
 
+#
+# errors and validation
+#
+# These objects and functions can be used to ensure similar behaviour when
+# doing argument validation.
+#
+
+
+class ParserContext(object):
+    """ Perform argument validation on the context of an argument parser.
+
+    If an exception is raised in the ParserContext, the script will exit with
+    a parser error.
+
+    Typical usage:
+
+        parser = argparse.ArgumentParser()
+        foo_arg = parser.add_argument('--foo')
+        args = parser.parse_args()
+
+        with ParserContext(parser, foo_arg):
+            # validate args.foo here
+            if args.foo in ('foo', 'bar', 'baz'):
+                raise ValueError("should not be %r" % (args.foo, ))
+
+    """
+
+    def __init__(self, parser, argument=None):
+        self.parser = parser
+        self.argument = argument
+
+    def make_error(self, message):
+        if self.argument:
+            return argparse.ArgumentError(self.argument, message)
+        else:
+            return argparse.ArgumentTypeError(message)
+
+    def cause_error(self, message):
+        self.parser.error(str(self.make_error(message)))
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if exc_type is not None:
+            self.cause_error(str(exc_value))
+
+
 def get_constant(db, parser, const_types, value, argument=None):
     """ Get an exising constant.
 
@@ -132,19 +187,25 @@ def get_constant(db, parser, const_types, value, argument=None):
     :param value: The value to look up
     :type argument: argparse.Action
     """
-
     # TODO: We really should have a way to look up constants attrs/strvals from
     # Factory.get('Constants') without needing a db-connection
-    co = Factory.get('Constants')(db)
-    const_value = co.human2constant(value, const_types)
-    if const_value is None:
-        msg = "invalid constant value: %r" % (value, )
-        if argument:
-            e = argparse.ArgumentError(argument, msg)
-        else:
-            e = argparse.ArgumentTypeError(msg)
-        parser.error(str(e))
+    co = Factory.get('Constants')
+    with ParserContext(parser, argument):
+        const_value = co.resolve_constant(db, value, const_types)
+        if const_value is None:
+            raise ValueError(
+                "invalid constant value: %r" % (value, ))
+    # Assert same database connection is used
+    const_value.sql = db
     return const_value
+
+
+#
+# actions
+#
+# These objects and functions can be used as the ``action`` value of
+# most add_argument, and provide alternate behaviour in options parsing.
+#
 
 
 class ExtendAction(argparse.Action):
@@ -162,22 +223,35 @@ class ExtendAction(argparse.Action):
             nargs=None,
             const=None,
             default=default,
-            type=type,
+            type=type or (lambda x: x),
             choices=None,
             required=required,
             help=help,
             metavar=metavar)
 
     def __call__(self, parser, namespace, values, option_string=None):
-        items = (getattr(namespace, self.dest, None) or [])[:]
+        items = list(getattr(namespace, self.dest, ()))[:]
         items.extend(values)
-        setattr(namespace, self.dest, items)
+        setattr(namespace, self.dest, self.type(items))
 
 
 class ExtendConstAction(argparse.Action):
-    """ Like ExtendAction, but adds a constant to the list.
+    """ Like ExtendAction, but adds constants to the list.
 
     Typical usage is to collect a sequence of things to do using switches.
+
+    Example:
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--preset-a',
+            dest='items',
+            action=ExtendConstAction,
+            const=['foo', 'bar', 'baz'])
+        parser.add_argument(
+            '--preset-b',
+            dest='items',
+            action=ExtendConstAction,
+            const=['bar', 'baz'])
     """
 
     def __init__(self, option_strings, dest, const, default=None,

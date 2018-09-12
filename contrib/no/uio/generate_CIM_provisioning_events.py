@@ -62,12 +62,13 @@ def generate_events(db, collector=collect_candidates):
     :param Cerebrum.database.Database db: The database connection
     :param function collector: The collector for selecting candidates
     """
-    co = Factory.get('Constants')(db)
+    const = Factory.get('Constants')(db)
+    clconst = Factory.get('CLConstants')(db)
     for person_id in collector(db):
         logger.info('Creating faux spread:add for person_id:%d', person_id)
         db.log_change(subject_entity=person_id,
-                      change_type_id=co.spread_add,
-                      change_params={'spread': int(co.spread_cim_person)},
+                      change_type_id=clconst.spread_add,
+                      change_params={'spread': int(const.spread_cim_person)},
                       destination_entity=None, skip_change=True)
 
 

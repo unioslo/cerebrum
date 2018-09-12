@@ -1125,13 +1125,13 @@ class PersonOuGroup(Person):
             else:
                 return c, s, p
             for i in adds:
-                self._db.log_change(i, self.const.group_add, myid)
+                self._db.log_change(i, self.clconst.group_add, myid)
             for i in aadds:
-                self._db.log_change(i, self.const.group_add, ac)
+                self._db.log_change(i, self.clconst.group_add, ac)
             for i in rems:
-                self._db.log_change(i, self.const.group_rem, myid)
+                self._db.log_change(i, self.clconst.group_rem, myid)
             for i in arems:
-                self._db.log_change(i, self.const.group_rem, ac)
+                self._db.log_change(i, self.clconst.group_rem, ac)
         return c, s, p
 
     def __delete_affiliation(self, ou_id, affiliation, source, status):
@@ -1142,13 +1142,13 @@ class PersonOuGroup(Person):
                 ou_id=ou_id, affiliation=affiliation, status=status,
                 source=source, indirect=False,
                 member_types=self.const.virtual_group_ou_person):
-            self._db.log_change(row['group_id'], self.const.group_rem, myid)
+            self._db.log_change(row['group_id'], self.clconst.group_rem, myid)
 
         for row in gr.list_ou_groups_for(
                 ou_id=ou_id, affiliation=affiliation, status=status,
                 source=source, indirect=False,
                 member_types=self.const.virtual_group_ou_person):
-            self._db.log_change(row['group_id'], self.const.group_rem, myid)
+            self._db.log_change(row['group_id'], self.clconst.group_rem, myid)
         try:
             myid = self.get_primary_account()
             for row in gr.list_ou_groups_for(
@@ -1156,7 +1156,7 @@ class PersonOuGroup(Person):
                     source=source, indirect=False,
                     member_types=self.const.virtual_group_ou_primary):
                 self._db.log_change(row['group_id'],
-                                    self.const.group_rem,
+                                    self.clconst.group_rem,
                                     myid)
         except:
             pass
@@ -1198,8 +1198,8 @@ class AccountOuGroup(Account):
                     member_types=self.const.virtual_group_ou_primary):
                 grids.add(gid['group_id'])
         for grid in grids:
-            self._db.log_change(grid, self.const.group_rem, old)
-            self._db.log_change(grid, self.const.group_add, new)
+            self._db.log_change(grid, self.clconst.group_rem, old)
+            self._db.log_change(grid, self.clconst.group_add, new)
 
     def set_account_type(self, ou_id, affiliation, priority=None):
         """Add or update account type -> add group memberships?"""
@@ -1220,7 +1220,7 @@ class AccountOuGroup(Account):
                 member_types=self.const.virtual_group_ou_accounts)
             for grp in new:
                 self._db.log_change(grp['group_id'],
-                                    self.const.group_add,
+                                    self.clconst.group_add,
                                     myid)
         elif oldprim != self.entity_id and pri < lst[0]['priority']:
             self.__new_primary_account(oldprim, self.entity_id)
@@ -1248,7 +1248,7 @@ class AccountOuGroup(Account):
             ou_id=ou_id, affiliation=affiliation, indirect=False,
             member_types=self.const.virtual_group_ou_accounts)
         for grp in rem:
-            self._db.log_change(grp['group_id'], self.const.group_rem, myid)
+            self._db.log_change(grp['group_id'], self.clconst.group_rem, myid)
         return ret
 
     def del_ac_types(self):
@@ -1277,6 +1277,6 @@ class AccountOuGroup(Account):
                     member_types=self.const.virtual_group_ou_accounts)
                 for grp in rem:
                     self._db.log_change(grp['group_id'],
-                                        self.const.group_rem,
+                                        self.clconst.group_rem,
                                         myid)
         return ret

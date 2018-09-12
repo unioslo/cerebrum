@@ -448,7 +448,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
         # get the last pwd-change entry from change_log for this account
         # and user it to populate AD.
         # And if there isn't a pwd in changelog, generate one
-        tmp = self.db.get_log_events(types=(self.co.account_password,),
+        tmp = self.db.get_log_events(types=(self.ac.clconst.account_password,),
                                      subject_entity=self.ac.entity_id,
                                      return_last_only=True)
         try:

@@ -364,7 +364,7 @@ class EventLogConsumer(DBConsumer):
             Returns the ChangeType code referred to in the event['event_type'].
         """
         try:
-            return self.co.ChangeType(int(event['event_type']))
+            return self.clconst.ChangeType(int(event['event_type']))
         except KeyError as e:
             self.logger.warn(u'Invalid event format for %r: %s', event, e)
         except Exception as e:

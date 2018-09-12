@@ -274,9 +274,7 @@ class PersonAccountListResource(Resource):
             account_name = utils.get_entity_name(row['account_id'])
             accounts.append({
                 'href': url_for('.account', name=account_name),
-                # TODO: Make the 'id' field contain the actual ID!
-                'id': account_name,
-                # 'id': row['account_id'],
+                'id': row['account_id'],
                 'name': account_name,
                 'primary': (row['account_id'] == primary_account_id),
             })
@@ -294,8 +292,17 @@ class PersonConsentListResource(Resource):
         """Get the consents of a person."""
         pe = find_person(id)
         consents = []
+        # Hack to represent publication reservation
+        if hasattr(pe, 'has_e_reservation') and pe.has_e_reservation():
+            consents.append({
+                'name': 'publication',
+                'description': 'Hide from public catalogs?',
+                'type': 'opt-out',
+                'set_at': None,
+                'expires': None,
+            })
         if not hasattr(pe, 'list_consents'):
-            abort(501, message='Consent module not enabled')
+            return consents
         for c in pe.list_consents(entity_id=pe.entity_id):
             consent = db.const.EntityConsent(c['consent_code'])
             consent_type = db.const.ConsentType(consent.consent_type)
@@ -305,15 +312,6 @@ class PersonConsentListResource(Resource):
                 'type': text_type(consent_type),
                 'set_at': c.time_set,
                 'expires': c.expiry,
-            })
-        # Hack to represent publication reservation
-        if hasattr(pe, 'has_e_reservation') and pe.has_e_reservation():
-            consents.append({
-                'name': 'publication',
-                'description': 'Hide from public catalogs?',
-                'type': 'opt-out',
-                'set_at': None,
-                'expires': None,
             })
         return consents
 

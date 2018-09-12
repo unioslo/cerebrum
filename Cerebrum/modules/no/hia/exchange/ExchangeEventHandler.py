@@ -362,7 +362,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
         ev_type = event['event_type']
 
         # Handle group additions
-        if ev_type in (self.co.group_add, self.co.group_rem,):
+        if ev_type in (self.clconst.group_add, self.clconst.group_rem,):
             group_id = event['subject_entity']
             person_id = event['dest_entity']
             check_if_correct_type(person_id)

@@ -588,7 +588,10 @@ class BofhdExtension(BofhdCommonMethods):
                 })
         # Fetch primary email
         if acc_id:
-            data.append({'prim_email': account.get_primary_mailaddress()})
+            try:
+                data.append({'prim_email': account.get_primary_mailaddress()})
+            except Errors.NotFoundError:
+                data.append({'prim_email': None})
         else:
             data.append({'prim_email': None})
         return data

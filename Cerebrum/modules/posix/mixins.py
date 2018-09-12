@@ -67,7 +67,7 @@ class PosixGroupMixin(Group):
             return False
 
         self._db.log_change(self.entity_id,
-                            self.const.posix_group_demote,
+                            self.clconst.posix_group_demote,
                             None,
                             change_params={'gid': int(gid), })
 

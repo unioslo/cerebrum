@@ -70,6 +70,7 @@ class VirthomeBase:
         """
         self.db = db
         self.co = Factory.get('Constants')(db)
+        self.clconst = Factory.get('CLConstants')(db)
 
         self.account_class = Factory.get('Account')
         self.group_class = Factory.get('Group')
@@ -163,7 +164,7 @@ class VirthomeBase:
 
         ret = {'confirmation_key': self.vhutils.setup_event_request(
                                        group.entity_id,
-                                       self.co.va_group_invitation,
+                                       self.clconst.va_group_invitation,
                                        params={'inviter_id': inviter.entity_id,
                                                'group_id': group.entity_id,
                                                'invitee_mail': email,
@@ -217,6 +218,7 @@ class VirthomeUtils:
     def __init__(self, db):
         self.db = db
         self.co = Factory.get('Constants')(db)
+        self.clconst = Factory.get('CLConstants')(db)
 
         self.group_class = Factory.get('Group')
         self.account_class = Factory.get('Account')
@@ -492,7 +494,9 @@ class VirthomeUtils:
 
         magic_key = ""
         if with_confirmation:
-            magic_key = self.setup_event_request(account.entity_id, self.co.va_pending_create)
+            magic_key = self.setup_event_request(
+                account.entity_id,
+                self.clconst.va_pending_create)
 
         return account, magic_key
 

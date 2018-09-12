@@ -46,12 +46,12 @@ def text_decoder(encoding, allow_none=True):
 
 
 def get_new_persons(db, start_date, change_program=None):
-    co = Factory.get('Constants')(db)
+    clconst = Factory.get('CLConstants')(db)
     pe_cls = Factory.get('Person')
     ac_cls = Factory.get('Account')
     u = text_decoder(db.encoding)
 
-    log_events = [co.person_create]
+    log_events = [clconst.person_create]
 
     def get_person(person_id):
         pe = pe_cls(db)

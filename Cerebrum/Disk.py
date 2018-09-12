@@ -82,7 +82,7 @@ class Disk(EntitySpread, Entity_class):
                           'disk_id': self.entity_id,
                           'path': self.path,
                           'description': self.description})
-            self._db.log_change(self.entity_id, self.const.disk_add, None,
+            self._db.log_change(self.entity_id, self.clconst.disk_add, None,
                                 change_params={'host_id': self.host_id,
                                                'path': self.path})
         else:
@@ -94,7 +94,7 @@ class Disk(EntitySpread, Entity_class):
                           'host_id': self.host_id,
                           'disk_id': self.entity_id,
                           'description': self.description})
-            self._db.log_change(self.entity_id, self.const.disk_mod, None,
+            self._db.log_change(self.entity_id, self.clconst.disk_mod, None,
                                 change_params={'host_id': self.host_id,
                                                'path': self.path})
         del self.__in_db
@@ -177,7 +177,7 @@ class Disk(EntitySpread, Entity_class):
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=disk_info]
             WHERE disk_id = :d_id""", {'d_id': self.entity_id})
-            self._db.log_change(self.entity_id, self.const.disk_del, None,
+            self._db.log_change(self.entity_id, self.clconst.disk_del, None,
                                 change_params={'host_id': self.host_id,
                                                'path': self.path})
         self.__super.delete()
@@ -299,7 +299,7 @@ class Host(EntityName, EntitySpread, Entity_class):
                          {'e_type': int(self.const.entity_host),
                           'host_id': self.entity_id,
                           'description': self.description})
-            self._db.log_change(self.entity_id, self.const.host_add, None,
+            self._db.log_change(self.entity_id, self.clconst.host_add, None,
                                 change_params={'name': self.name})
             self.add_entity_name(self.const.host_namespace, self.name)
         else:
@@ -309,7 +309,7 @@ class Host(EntityName, EntitySpread, Entity_class):
             WHERE host_id=:host_id""",
                          {'host_id': self.entity_id,
                           'description': self.description})
-            self._db.log_change(self.entity_id, self.const.host_mod, None,
+            self._db.log_change(self.entity_id, self.clconst.host_mod, None,
                                 change_params={'name': self.name})
             if 'name' in self.__updated:
                 self.update_entity_name(self.const.host_namespace, self.name)
@@ -359,7 +359,7 @@ class Host(EntityName, EntitySpread, Entity_class):
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=host_info]
             WHERE host_id = :host_id""", {'host_id': self.entity_id})
-            self._db.log_change(self.entity_id, self.const.host_del, None,
+            self._db.log_change(self.entity_id, self.clconst.host_del, None,
                                 change_params={'old_name': self.name})
         self.__super.delete()
 

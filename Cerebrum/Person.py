@@ -167,7 +167,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                               'desc': self.description})
                 self._db.log_change(
                     self.entity_id,
-                    self.const.person_create,
+                    self.clconst.person_create,
                     None)
             else:
                 self.execute("""
@@ -183,7 +183,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                               'p_id': self.entity_id})
                 self._db.log_change(
                     self.entity_id,
-                    self.const.person_update,
+                    self.clconst.person_update,
                     None)
         else:
             is_new = None
@@ -342,7 +342,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                       'n_variant': int(variant),
                       'src': int(source_system),
                       'name': name})
-        self._db.log_change(self.entity_id, self.const.person_name_add, None,
+        self._db.log_change(self.entity_id, self.clconst.person_name_add, None,
                             change_params={'src': int(source_system),
                                            'name': name,
                                            'name_variant': int(variant)})
@@ -358,7 +358,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                       'src': int(source),
                       'n_variant': int(variant)})
         self._db.log_change(self.entity_id,
-                            self.const.person_name_del, None,
+                            self.clconst.person_name_del, None,
                             change_params={'src': int(source),
                                            'name_variant': int(variant)})
 
@@ -375,7 +375,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                       'p_id': self.entity_id,
                       'src': int(source_system),
                       'n_variant': int(variant)})
-        self._db.log_change(self.entity_id, self.const.person_name_mod, None,
+        self._db.log_change(self.entity_id, self.clconst.person_name_mod, None,
                             change_params={'src': int(source_system),
                                            'name': name,
                                            'name_variant': int(variant)})
@@ -847,7 +847,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             VALUES (:p_id, :ou_id, :affiliation)""", binds)
             self._db.log_change(
                 self.entity_id,
-                self.const.person_aff_add, None,
+                self.clconst.person_aff_add, None,
                 change_params={
                     'ou_id': int(ou_id),
                     'affiliation': int(affiliation),
@@ -881,7 +881,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
               source_system=:source""".format(updprec), binds)
             if cur_del:
                 self._db.log_change(self.entity_id,
-                                    self.const.person_aff_src_add, None,
+                                    self.clconst.person_aff_src_add, None,
                                     change_params=change_params)
                 return 'add', status, precedence
             if cur_status != int(status) or cur_precedence != new_prec:
@@ -889,7 +889,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 change_params['oldstatus'] = int(cur_status)
                 change_params['oldstatusstr'] = six.text_type(cur_status)
                 self._db.log_change(self.entity_id,
-                                    self.const.person_aff_src_mod, None,
+                                    self.clconst.person_aff_src_mod, None,
                                     change_params=change_params)
                 return 'mod', cur_status, cur_precedence
         except Errors.NotFoundError:
@@ -904,7 +904,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             """,
                          binds)
             self._db.log_change(self.entity_id,
-                                self.const.person_aff_src_add, None,
+                                self.clconst.person_aff_src_add, None,
                                 change_params=change_params)
             return 'add', status, precedence
         return False, status, precedence
@@ -946,7 +946,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
           affiliation=:affiliation AND
           source_system=:source""", binds)
         self._db.log_change(self.entity_id,
-                            self.const.person_aff_src_del, None,
+                            self.clconst.person_aff_src_del, None,
                             change_params=change_params)
         # This method doesn't touch table 'person_affiliation', nor
         # does it try to do any actual deletion of rows from table
@@ -980,7 +980,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             'statusstr': six.text_type(status)
         }
         self._db.log_change(self.entity_id,
-                            self.const.person_aff_src_del, None,
+                            self.clconst.person_aff_src_del, None,
                             change_params=change_params)
         remaining_affiliations = self.query("""
         SELECT 'yes' AS yes
@@ -998,7 +998,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
               affiliation=:affiliation""", locals())
             self._db.log_change(
                 self.entity_id,
-                self.const.person_aff_del, None,
+                self.clconst.person_aff_del, None,
                 change_params={
                     'ou_id': int(ou_id),
                     'affiliation': int(affiliation),
@@ -1015,7 +1015,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         if not isinstance(source_system, self.const.AuthoritativeSystem):
             source_system = self.const.AuthoritativeSystem(source_system)
         self._db.log_change(self.entity_id,
-                            self.const.person_aff_src_del, None,
+                            self.clconst.person_aff_src_del, None,
                             change_params={
                                 'source': int(source_system),
                                 'sourcestr': six.text_type(source_system)

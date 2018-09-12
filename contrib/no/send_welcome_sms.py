@@ -169,7 +169,7 @@ def process(db, trait, message, phone_types, affiliations, too_old,
             studentnumber = pe.get_external_id(
                 co.system_fs,
                 co.externalid_studentnr)[0]['external_id']
-        except IndexError:
+        except (IndexError, AttributeError):
             pass
 
         def u(db_value):
@@ -250,7 +250,7 @@ def send_sms(phone, message, commit=False):
 
 def skip_if_password_set(db, ac, trait):
     """ Has the password been changed after the trait was set? """
-    co = Factory.get('Constants')(db)
+    clconst = Factory.get('CLConstants')(db)
     # The trait and initial password is set in the same transaction. We add
     # a minute to skip this initial password change event.
     try:
@@ -260,7 +260,7 @@ def skip_if_password_set(db, ac, trait):
     return True if [x for x in db.get_log_events(
         subject_entity=ac.entity_id,
         sdate=after,
-        types=co.account_password)] else False
+        types=clconst.account_password)] else False
 
 
 def lalign(s):

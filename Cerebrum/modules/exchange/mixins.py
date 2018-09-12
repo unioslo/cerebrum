@@ -85,7 +85,7 @@ class DistributionGroupMixin(Group):
             return False
 
         self._db.log_change(self.entity_id,
-                            self.const.dl_group_remove,
+                            self.clconst.dl_group_remove,
                             None,
                             change_params={'name': self.group_name,
                                            'roomlist': is_roomlist})
