@@ -134,18 +134,45 @@ class AuditRecordBuilder(DatabaseAccessor):
     """ Helper function to build AuditRecord objects. """
 
     @property
-    def co(self):
-        if not hasattr(self, '_co'):
-            self._co = Factory.get('Constants')(self._db)
-        return self._co
+    def const(self):
+        if not hasattr(self, '_const'):
+            self._const = Factory.get('Constants')(self._db)
+        return self._const
+
+    @property
+    def clconst(self):
+        if not hasattr(self, '_clconst'):
+            self._clconst = Factory.get('CLConstants')(self._db)
+        return self._clconst
 
     def get_change_type(self, value):
-        if isinstance(value, self.co.ChangeType):
+        if isinstance(value, self.clconst.ChangeType):
             const = value
         else:
-            const = self.co.ChangeType(value)
+            const = self.clconst.ChangeType(value)
         int(const)
         return const
+
+    def _get_type(self, e_id):
+        entity = Entity(self._db)
+        try:
+            entity.find(e_id)
+            return six.text_type(self.const.EntityType(entity.entity_type))
+        except Cerebrum.Errors.NotFoundError:
+            return None
+
+    def _get_name(self, e_id, e_type):
+        namespace = ENTITY_TYPE_NAMESPACE.get(six.text_type(e_type))
+        if namespace is None:
+            return None
+        else:
+            namespace = self.const.ValueDomain(namespace)
+        entity = EntityName(self._db)
+        try:
+            entity.find(e_id)
+            return entity.get_name(namespace)
+        except Cerebrum.Errors.NotFoundError:
+            return None
 
     def build_meta(self, change_type, operator_id, entity_id, target_id):
         """ Build default metadata from change_log arguments.
@@ -160,7 +187,7 @@ class AuditRecordBuilder(DatabaseAccessor):
         That way we would be able to fetch cached info on the entities
         involved, rather than looking it up for every change.
         """
-        co = Factory.get('Constants')(self._db)
+        co = self.const
 
         def get_type(e_id):
             entity = Entity(self._db)
@@ -184,12 +211,12 @@ class AuditRecordBuilder(DatabaseAccessor):
                 return None
 
         change = six.text_type(change_type)
-        operator_type = get_type(operator_id)
-        operator_name = get_name(operator_id, operator_type)
-        entity_type = get_type(entity_id)
-        entity_name = get_name(entity_id, entity_type)
-        target_type = get_type(target_id)
-        target_name = get_name(target_id, target_type)
+        operator_type = self._get_type(operator_id)
+        operator_name = self._get_name(operator_id, operator_type)
+        entity_type = self._get_type(entity_id)
+        entity_name = self._get_name(entity_id, entity_type)
+        target_type = self._get_type(target_id)
+        target_name = self._get_name(target_id, target_type)
         return {
             'change': change,
             'operator_type': operator_type,

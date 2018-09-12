@@ -374,13 +374,17 @@ class _ConstantFormatter(object):
     }
 
     def __init__(self, db):
-        self.co = Factory.get('Constants')(db)
+        self.const = Factory.get('Constants')(db)
+        self.clconst = Factory.get('CLConstants')(db)
 
     def __contains__(self, co_type):
         return co_type in self.co_type_map
 
+    def get_type(self, attr):
+        return getattr(self.const, attr, getattr(self.clconst, attr))
+
     def __call__(self, ident, value):
-        types = [getattr(self.co, attr) for attr in self.co_type_map[ident]]
+        types = [self.get_type(attr) for attr in self.co_type_map[ident]]
 
         def f(cls, code):
             try:
@@ -408,7 +412,6 @@ class _EntityFormatter(object):
 
     def __init__(self, db):
         self.db = db
-        self.co = Factory.get('Constants')(db)
 
     def __contains__(self, en_type):
         return en_type in self.en_type_map

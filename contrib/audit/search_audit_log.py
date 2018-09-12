@@ -41,11 +41,11 @@ def _entity_lookup(db):
 
 def _change_type_lookup(db):
     """ create a ChangeType lookup function. """
-    co = Factory.get('Constants')(db)
+    clconst = Factory.get('CLConstants')(db)
 
     def lookup_change(value):
         """ Look up change type constant """
-        const_value = co.human2constant(value, co.ChangeType)
+        const_value = clconst.human2constant(value, clconst.ChangeType)
         if const_value is None:
             raise ValueError("invalid constant value: %r" % (value, ))
         return const_value

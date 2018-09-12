@@ -8,7 +8,7 @@ import logging
 import threading
 
 import pytz
-import six
+# import six
 
 import cereconf
 
@@ -17,7 +17,7 @@ import Cerebrum.logutils.options
 from Cerebrum import Cache
 from Cerebrum.Constants import _CerebrumCode, SynchronizedDatabase
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
-from Cerebrum.Entity import Entity, EntityName
+# from Cerebrum.Entity import Entity, EntityName
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.audit import auditdb
 from Cerebrum.modules.audit import auditlog
@@ -184,46 +184,13 @@ class AuditRecordBuilder(auditlog.AuditRecordBuilder):
 
     @entity_type_cache
     def _get_type(self, e_id):
-        entity = Entity(self._db)
-        try:
-            entity.find(e_id)
-            return six.text_type(self.co.EntityType(entity.entity_type))
-        except Cerebrum.Errors.NotFoundError:
-            return None
+        super(AuditRecordBuilder, self)._get_type(e_id)
 
     entity_name_cache = CacheDescriptor('entity_name', size=10000)
 
     @entity_name_cache
     def _get_name(self, e_id, e_type):
-        namespace = ENTITY_TYPE_NAMESPACE.get(six.text_type(e_type))
-        if namespace is None:
-            return None
-        else:
-            namespace = self.co.ValueDomain(namespace)
-        entity = EntityName(self._db)
-        try:
-            entity.find(e_id)
-            return entity.get_name(namespace)
-        except Cerebrum.Errors.NotFoundError:
-            return None
-
-    def build_meta(self, change_type, operator_id, entity_id, target_id):
-        change = six.text_type(change_type)
-        operator_type = self._get_type(operator_id)
-        operator_name = self._get_name(operator_id, operator_type)
-        entity_type = self._get_type(entity_id)
-        entity_name = self._get_name(entity_id, entity_type)
-        target_type = self._get_type(target_id)
-        target_name = self._get_name(target_id, target_type)
-        return {
-            'change': change,
-            'operator_type': operator_type,
-            'operator_name': operator_name,
-            'entity_type': entity_type,
-            'entity_name': entity_name,
-            'target_type': target_type,
-            'target_name': target_name,
-        }
+        super(AuditRecordBuilder, self)._get_name(e_id, e_type)
 
 
 class ChangeLogMigrator(DatabaseAccessor):
