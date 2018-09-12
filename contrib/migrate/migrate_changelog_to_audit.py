@@ -40,11 +40,11 @@ def _get_mx_dst(mx_datetime):
     # We need to know this when the naive datetime hits an ambiguous time:
     # - in CET the clock strikes 02:05 twice when turning back the clocks.
     # - in CET the clock never strikes 02:05 when turing the clocks ahead.
-    if mx_datetime.tz == 'CEST':
-        return True
-    if mx_datetime.tz == 'CET':
-        return False
-    return None
+    #
+    # This doesn't really work though -- the mx.DateTime.tz and mx.DateTime.dst
+    # value seems like it guesses CEST when given an ambiguous naive datetime
+    # value.
+    return bool(mx_datetime.dst)
 
 
 def _get_mx_timezone(mx_datetime):
@@ -52,15 +52,19 @@ def _get_mx_timezone(mx_datetime):
     timezone = mx_datetime.tz
     if timezone == 'CEST':
         # CEST is just CET with summer time
-        # pytz-timezones will apply summer time correctly when localizing a
-        # naive datetime objects.
         return 'CET'
     return timezone
 
 
 def mx_to_datetime(mx_datetime):
     """ Transform an mx.DateTime object to a localized python datetime. """
-    default_is_dst = _get_mx_timezone(mx_datetime)
+    # A few notes:
+    # - changelog tstamp is a naive, local timestamp
+    # - when converted to an mx.DateTime by the database driver, timezone and
+    # summertime (.tz, .dst) is set according to system settings
+    # - as long as timezone settings are (and always have been) correct on
+    # database host and localhost, this should work somewhat OK
+    default_is_dst = _get_mx_dst(mx_datetime)
     tz_candidate = _get_mx_timezone(mx_datetime)
     naive = mx_datetime.pydatetime()
     tz = pytz.timezone(tz_candidate)
@@ -294,41 +298,31 @@ class ChangeLogMigrator(DatabaseAccessor):
         self.auditlog.append(record)
 
 
-def change_id_range_type(value):
-    """ strval to ints.
-
-    >>> list(change_id_type('8'))
-    (8, 8)
-    >>> list(change_id_type('3-5'))
-    (3, 5)
-    """
-    start, _, end = value.partition('-')
-    start = int(start)
-    if end:
-        end = int(end)
-        return (start, end)
-    else:
-        return (start, start)
-
-
 class Worker(threading.Thread):
     """Thread executing tasks from a given tasks queue"""
 
-    def __init__(self, queue):
+    timeout = 5
+
+    def __init__(self, queue, commit=False):
         super(Worker, self).__init__()
         self.rows = queue
+        self.commit = commit
         self.daemon = True
         self.errors = dict()
         self.stats = collections.Counter(ok=0, failed=0)
+        self.stop = threading.Event()
         self.err_stats = collections.Counter()
         self.db = Factory.get('Database')()
         self.migrate = ChangeLogMigrator(self.db)
 
+    def cancel(self):
+        self.stop.set()
+
     def run(self):
         logger.debug("Worker thread starting")
-        while True:
+        while not self.stop.is_set():
             try:
-                row_dct = self.rows.get(True, 5)
+                row_dct = self.rows.get(True, self.timeout)
             except Queue.Empty:
                 logger.warn("queue is empty")
                 continue
@@ -343,6 +337,15 @@ class Worker(threading.Thread):
                 self.stats['failed'] += 1
             finally:
                 self.rows.task_done()
+
+        logger.info("statistics: %r", self.stats)
+        if self.commit:
+            logger.info("commiting changes")
+            self.db.commit()
+        else:
+            logger.info("rolling back changes")
+            self.db.rollback()
+        logger.info("thread done")
 
 
 class WorkerStats(threading.Thread):
@@ -401,23 +404,34 @@ class ThreadPool(object):
     """ Pool of threads consuming tasks from a queue. """
 
     queue_max_size = 10000
-    queue_timeout = 10
-    # 10 seconds * 60 tries -- we've tried to queue for 10 minutes!
     queue_max_tries = 60
+    queue_timeout = 10
 
     def __init__(self, numworkers, commit=False, stats_interval=None):
         self.rows = Queue.Queue(self.queue_max_size)
         self.workers = []
-        self.commit = commit
-        self.stats = collections.Counter()
         self.errors = dict()
         for _ in range(numworkers):
-            worker = Worker(self.rows)
+            worker = Worker(self.rows, commit=commit)
             self.workers.append(worker)
             worker.start()
         if stats_interval:
-            self._stats = WorkerStats(self, float(stats_interval))
-            self._stats.start()
+            self._stats_thread = WorkerStats(self, float(stats_interval))
+            self._stats_thread.start()
+        else:
+            self._stats_thread = None
+
+    def get_stats(self):
+        stats = collections.Counter()
+        for th in self.workers:
+            stats.update(th.stats)
+        return stats
+
+    def get_error_stats(self):
+        errors = collections.Counter()
+        for th in self.workers:
+            errors.update(th.err_stats)
+        return errors
 
     def add_row(self, row_dct):
         """Add a task to the queue"""
@@ -439,22 +453,23 @@ class ThreadPool(object):
         logger.info("Waiting for workers to complete")
         self.rows.join()
         logger.info("Workers done")
-        self._stats.cancel()
 
+        logger.info("Stopping threads")
+        if self._stats_thread:
+            self._stats_thread.cancel()
         for thread in self.workers:
-            logger.info("Thread %r: %r", thread, thread.stats)
-            if self.commit:
-                logger.info("Commiting changes")
-                thread.db.commit()
-            else:
-                logger.info("Rolling back changes")
-                thread.db.rollback()
-            self.stats.update(thread.stats)
-            self.errors.update(thread.errors)
+            thread.cancel()
 
-        if hasattr(self, '_stats'):
-            logger.info("Waiting for stats thread to complete")
-            self._stats.join(10)
+        logger.info("Waiting for threads to complete")
+        for thread in self.workers:
+            logger.info("... waiting for thread %r", thread)
+            # Depending on number of changes, this could take a while -- it
+            # needs to commit everything here.
+            thread.join()
+
+        if self._stats_thread:
+            logger.info("... waiting for stats thread")
+            self._stats_thread.join(self._stats_thread.interval + 1)
         logger.info("Threads completed")
 
 
@@ -477,20 +492,32 @@ def queue_and_process(args):
         logger.debug("added %r rows", num_events)
         total_events += num_events
 
+    # Done queueing, just wait for worker threads to be done
     logger.info("queueing done, processing %d change_log records",
                 total_events)
     pool.wait_completion()
 
     logger.info('processing done, target %d change_log records', total_events)
-    logger.info('stats=%r, processed=%d, queued=%d',
-                pool.stats, sum(pool.stats.values()), total_events)
+    stats = pool.get_stats()
+    logger.info('queued=%d, processed=%d, stats=%r',
+                total_events, sum(stats.values()), stats)
 
-    if args.commit:
-        logger.info("Commiting changes")
-        db.commit()
+
+def change_id_tuple_type(value):
+    """ strval to ints.
+
+    >>> list(change_id_type('8'))
+    (8, 8)
+    >>> list(change_id_type('3-5'))
+    (3, 5)
+    """
+    start, _, end = value.partition('-')
+    start = int(start)
+    if end:
+        end = int(end)
+        return (start, end)
     else:
-        logger.info("Rolling back changes")
-        db.rollback()
+        return (start, start)
 
 
 DEFAULT_THREADS_NUM = 4
@@ -505,8 +532,7 @@ def main(inargs=None):
     parser.add_argument(
         'change_ids',
         nargs='+',
-        # type=change_id_type,
-        type=change_id_range_type,
+        type=change_id_tuple_type,
         help='change_id to process (range N-M or single value N)')
 
     commit_mutex = parser.add_mutually_exclusive_group()
@@ -521,23 +547,6 @@ def main(inargs=None):
         action='store_false',
         help='dry run (do not commit -- this is the default)')
     commit_mutex.set_defaults(commit=False)
-
-    grouping = parser.add_argument_group('processing options')
-    grouping.add_argument(
-        '-k', '--change-handler-key',
-        dest='change_handler_key',
-        type=str,
-        default='cl_to_audit_log',
-        help='Track processed records using %(metavar)s, '
-             'default is %(default)s',
-        metavar='KEY',
-    )
-    grouping.add_argument(
-        '--chunk-size',
-        type=int,
-        default=DEFAULT_CHUNK_SIZE,
-        help='process chunks of size %(metavar)s, default is %(default)s',
-        metavar='N')
 
     threading_args = parser.add_argument_group('threading')
     threading_args.add_argument(
