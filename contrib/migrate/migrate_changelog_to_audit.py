@@ -5,7 +5,6 @@ import argparse
 import collections
 import functools
 import logging
-import os
 import threading
 
 import pytz
@@ -26,10 +25,8 @@ from Cerebrum.modules.audit import record
 from Cerebrum.utils import json
 
 
-# TODO: Change to cronjob?
-DEFAULT_LOG_PRESET = 'console'
-SCRIPT = os.path.basename(__file__).replace('.pyc', '.py').replace('.', '-')
-logger = logging.getLogger(SCRIPT)
+DEFAULT_LOG_PRESET = 'cronjob'
+logger = logging.getLogger(__name__)
 
 
 ENTITY_TYPE_NAMESPACE = getattr(cereconf, 'ENTITY_TYPE_NAMESPACE', dict())
