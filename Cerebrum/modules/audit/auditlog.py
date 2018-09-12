@@ -20,6 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ CLDatabase integration for audit log records. """
 import collections
+import logging
 import re
 
 import six
@@ -35,6 +36,7 @@ from .auditdb import AuditLogAccessor
 from .record import AuditRecord
 
 
+logger = logging.getLogger(__name__)
 ENTITY_TYPE_NAMESPACE = getattr(cereconf, 'ENTITY_TYPE_NAMESPACE', dict())
 
 
@@ -131,10 +133,17 @@ class _ChangeTypeCallbacks(object):
 class AuditRecordBuilder(DatabaseAccessor):
     """ Helper function to build AuditRecord objects. """
 
-    def get_change_type(self, const):
-        co = Factory.get('Constants')(self._db)
-        if not isinstance(const, co.ChangeType):
-            const = co.ChangeType(const)
+    @property
+    def co(self):
+        if not hasattr(self, '_co'):
+            self._co = Factory.get('Constants')(self._db)
+        return self._co
+
+    def get_change_type(self, value):
+        if isinstance(value, self.co.ChangeType):
+            const = value
+        else:
+            const = self.co.ChangeType(value)
         int(const)
         return const
 
@@ -193,13 +202,15 @@ class AuditRecordBuilder(DatabaseAccessor):
 
     translate_params = _ChangeTypeCallbacks()
 
-    def build_params(self, change_type, change_params):
+    def build_params(self, change_type, subject_entity, destination_entity,
+                     change_params):
         """ Build params for the audit log entry.
         """
         category, change = change_type.category, change_type.type
         fn = self.translate_params.get_callback(category, change)
         if fn:
-            params = fn(self._db, change_params)
+            params = fn(self, subject_entity, destination_entity,
+                        change_params)
             if params is not None:
                 change_params = params
         return change_params
@@ -217,7 +228,10 @@ class AuditRecordBuilder(DatabaseAccessor):
                                    change_by,
                                    subject_entity,
                                    destination_entity)
-        params = self.build_params(change_type, change_params)
+        params = self.build_params(change_type,
+                                   subject_entity,
+                                   destination_entity,
+                                   change_params)
         return AuditRecord(
             change_type,
             change_by,
@@ -226,10 +240,11 @@ class AuditRecordBuilder(DatabaseAccessor):
             metadata=metadata,
             params=params)
 
-    @translate_params.register('a', 'b')
-    def spread_add(self, record):
-        pass
+    # Examples
+    # @translate_params.register('spread', 'add')
+    # def spread_add(self, subject_entity, destination_entity, change_params):
+    #     return change_params
 
-    @translate_params.register('a', 'c')
-    def spread_remove(self, record):
-        pass
+    # @translate_params.register('spread', 'remove')
+    # def spread_remove(self, subject_entity, destination_entity, change_params):
+    #     return change_params
