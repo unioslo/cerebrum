@@ -70,7 +70,7 @@ def build_search_params(db, args):
         search_params['targets'] = [lookup_entity(e) for e in args.targets]
 
     if args.record_ids:
-        search_params['record_ids'] = set(itertools.chain(*(args.record_ids))),
+        search_params['record_ids'] = set(itertools.chain(*(args.record_ids)))
     if args.min_id is not None:
         search_params['after_id'] = args.min_id
     if args.max_id is not None:
