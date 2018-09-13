@@ -248,7 +248,7 @@ class BofhdContactCommands(BofhdCommandBase):
         SimpleString(help_ref='entity_contact_value'),
         fs=FormatSuggestion(
             "Added contact info %s:%s '%s' to '%s' with id=%s",
-            ('source_system', 'contact_type', 'value', 'entity_type',
+            ('source_system', 'contact_type', 'contact_value', 'entity_type',
              'entity_id')
         ),
         perm_filter='can_add_contact_info',
@@ -354,11 +354,11 @@ class BofhdContactCommands(BofhdCommandBase):
         SimpleString(help_ref='id:target:entity'),
         SourceSystem(help_ref='entity_contact_source_system'),
         SimpleString(help_ref='entity_contact_type'),
-        fs=FormatSuggestion([
-            ("Removed contact info %s:%s from %s with id=%s",
-             ('source_system', 'contact_type', 'entity_type', 'entity_id')),
-            ("Old value: '%s'", ('contact_value',)),
-        ]),
+        fs=FormatSuggestion(
+            ("Removed contact info %s:%s from %s with id=%s\nOld value: '%s'",
+             ('source_system', 'contact_type', 'entity_type', 'entity_id',
+              'contact_value')),
+        ),
         perm_filter='can_remove_contact_info')
 
     def entity_contactinfo_remove(self, operator, entity_target, source_system,
@@ -431,6 +431,7 @@ class BofhdContactCommands(BofhdCommandBase):
             'contact_type': six.text_type(contact_type),
             'entity_type': six.text_type(entity_type),
             'entity_id': int(entity.entity_id),
+            'contact_value': 'N/A',
         }
 
         try:

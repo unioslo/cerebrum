@@ -52,7 +52,7 @@ class UiOStudent(access_FS.Student):
 
         qry = """
         SELECT DISTINCT
-           s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+           s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
            s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
            s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
            p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -93,7 +93,7 @@ class UiOStudent(access_FS.Student):
 
         qry = """
         SELECT DISTINCT
-           s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+           s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
            s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
            s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
            p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -132,7 +132,7 @@ class UiOStudent(access_FS.Student):
 
         qry = """
         SELECT DISTINCT
-           s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+           s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
            s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
            s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
            p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -192,7 +192,7 @@ class UiOStudent(access_FS.Student):
 
         qry = """
         SELECT DISTINCT
-           p.fodselsdato, p.personnr, sp.studieprogramkode,
+           p.fodselsdato, p.personnr, p.dato_fodt, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
            vm.emnekode, vm.versjonskode, s.studentnr_tildelt
         FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
@@ -237,7 +237,7 @@ class UiOStudent(access_FS.Student):
 
         qry = """
         SELECT DISTINCT
-           p.fodselsdato, p.personnr, sp.studieprogramkode,
+           p.fodselsdato, p.personnr, p.dato_fodt, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
            vm.emnekode, vm.versjonskode, s.studentnr_tildelt
         FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
@@ -278,7 +278,7 @@ class UiOStudent(access_FS.Student):
 
         qry = """
         SELECT DISTINCT
-           p.fodselsdato, p.personnr, sp.studieprogramkode,
+           p.fodselsdato, p.personnr, p.dato_fodt, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
            NULL as emnekode, NULL as versjonskode, s.studentnr_tildelt
         FROM fs.student s, fs.studieprogramstudent sps, fs.registerkort r,
@@ -324,7 +324,7 @@ class UiOStudent(access_FS.Student):
 
         qry = """
         SELECT DISTINCT
-           p.fodselsdato, p.personnr, sps.studieprogramkode,
+           p.fodselsdato, p.personnr, p.dato_fodt, sps.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
            svp.emnekode, svp.versjonskode, s.studentnr_tildelt
         FROM fs.studentvurdkombprotokoll svp, fs.studieprogramstudent sps,
@@ -383,7 +383,7 @@ class UiOStudent(access_FS.Student):
             extra = "p.fodselsdato=:fodselsdato AND p.personnr=:personnr AND"
 
         qry = """
-        SELECT p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+        SELECT p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -435,7 +435,7 @@ class UiOStudent(access_FS.Student):
             extra = "p.fodselsdato=:fodselsdato AND p.personnr=:personnr AND"
 
         qry = """
-        SELECT p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+        SELECT p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -507,7 +507,7 @@ class UiOStudent(access_FS.Student):
             extra2 = "s.fodselsdato=:fodselsdato2 AND s.personnr=:personnr2 AND"
 
         qry = """
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr,
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
@@ -535,7 +535,7 @@ class UiOStudent(access_FS.Student):
                %s
         """ % (extra1, self._is_alive())
         qry += """ UNION
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr,
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
@@ -782,7 +782,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
 
         qry = """
         SELECT DISTINCT
-           s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+           s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
            s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
            s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
            p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -825,7 +825,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
 
         qry = """
         SELECT DISTINCT
-           s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+           s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
            s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
            s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
            p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -865,7 +865,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
 
         qry = """
         SELECT DISTINCT
-           s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+           s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
            s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
            s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
            p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -927,7 +927,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
 
         qry = """
         SELECT DISTINCT
-           p.fodselsdato, p.personnr, sp.studieprogramkode,
+           p.fodselsdato, p.personnr, p.dato_fodt, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
            vm.emnekode, vm.versjonskode, s.studentnr_tildelt
         FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
@@ -972,7 +972,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
 
         qry = """
         SELECT DISTINCT
-           p.fodselsdato, p.personnr, sp.studieprogramkode,
+           p.fodselsdato, p.personnr, p.dato_fodt, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
            vm.emnekode, vm.versjonskode, s.studentnr_tildelt
         FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
@@ -1013,7 +1013,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
 
         qry = """
         SELECT DISTINCT
-           p.fodselsdato, p.personnr, sp.studieprogramkode,
+           p.fodselsdato, p.personnr, p.dato_fodt, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
            NULL as emnekode, NULL as versjonskode, s.studentnr_tildelt
         FROM fs.student s, fs.studieprogramstudent sps, fs.registerkort r,
@@ -1059,7 +1059,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
 
         qry = """
         SELECT DISTINCT
-           p.fodselsdato, p.personnr, sps.studieprogramkode,
+           p.fodselsdato, p.personnr, p.dato_fodt, sps.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
            svp.emnekode, svp.versjonskode, s.studentnr_tildelt
         FROM fs.studentvurdkombprotokoll svp, fs.studieprogramstudent sps,
@@ -1117,7 +1117,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
             extra = "p.fodselsdato=:fodselsdato AND p.personnr=:personnr AND"
 
         qry = """
-        SELECT p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+        SELECT p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -1171,7 +1171,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
             extra = "p.fodselsdato=:fodselsdato AND p.personnr=:personnr AND"
 
         qry = """
-        SELECT p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+        SELECT p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -1244,7 +1244,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
             extra2 = "s.fodselsdato=:fodselsdato2 AND s.personnr=:personnr2 AND"
 
         qry = """
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr,
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
@@ -1274,7 +1274,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
                %s
         """ % (extra1, self._is_alive())
         qry += """ UNION
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr,
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
@@ -1838,7 +1838,7 @@ class UiOEVU(access_FS.EVU):
 
         qry = """
         SELECT DISTINCT
-               p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+               p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                d.adrlin1_job, d.adrlin2_job, d.postnr_job,
                d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
                d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,
@@ -1948,7 +1948,7 @@ class UiOEVU78(UiOEVU, access_FS.EVU78):
 
         qry = """
         SELECT DISTINCT
-               p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+               p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                d.adrlin1_job, d.adrlin2_job, d.postnr_job,
                d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
                d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,
@@ -2019,6 +2019,7 @@ class UiOForkurs(access_FS.FSObject):
         SELECT
             FS.VURDKOMBMELDING.FODSELSDATO,
             FS.VURDKOMBMELDING.PERSONNR,
+            FS.PERSON.DATO_FODT,
             FS.STUDENT.STUDENTNR_TILDELT,
             FS.PERSON.FORNAVN,
             FS.PERSON.ETTERNAVN,

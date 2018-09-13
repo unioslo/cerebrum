@@ -83,7 +83,7 @@ class IPNumber(Entity.Entity):
             VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                      'binds': ", ".join([x[1] for x in cols])},
                          binds)
-            self._db.log_change(self.entity_id, self.const.ip_number_add,
+            self._db.log_change(self.entity_id, self.clconst.ip_number_add,
                                 None, change_params={'a_ip': self.a_ip})
         else:
             self.execute("""
@@ -91,12 +91,12 @@ class IPNumber(Entity.Entity):
             SET %(defs)s
             WHERE ip_number_id=:ip_number_id""" % {'defs': ", ".join(
                 ["%s=%s" % x for x in cols])}, binds)
-            self._db.log_change(self.entity_id, self.const.ip_number_add,
+            self._db.log_change(self.entity_id, self.clconst.ip_number_add,
                                 None, change_params={'a_ip': self.a_ip})
         del self.__in_db
 
         if 'mac_adr' in self.__updated:
-            self._db.log_change(self.entity_id, self.const.mac_adr_set,
+            self._db.log_change(self.entity_id, self.clconst.mac_adr_set,
                                 None, change_params={'mac_adr': self.mac_adr})
             
         self.__in_db = True
@@ -174,7 +174,7 @@ class IPNumber(Entity.Entity):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_ip_number]
         WHERE ip_number_id=:ip_number_id""", {'ip_number_id': self.entity_id})
-        self._db.log_change(self.entity_id, self.const.ip_number_add, None)
+        self._db.log_change(self.entity_id, self.clconst.ip_number_add, None)
         self.__super.delete()
 
 
@@ -243,7 +243,7 @@ class IPNumber(Entity.Entity):
         VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                  'binds': ", ".join([x[1] for x in cols])},
                      binds)
-        self._db.log_change(ip_number_id, self.const.ip_number_add, dns_owner_id)
+        self._db.log_change(ip_number_id, self.clconst.ip_number_add, dns_owner_id)
 
 
     def delete_reverse_override(self, ip_number_id, dns_owner_id):
@@ -255,7 +255,7 @@ class IPNumber(Entity.Entity):
         DELETE FROM [:table schema=cerebrum name=dns_override_reversemap]
         WHERE ip_number_id=:ip_number_id AND %s""" % where,
                             locals())
-        self._db.log_change(ip_number_id, self.const.ip_number_del,
+        self._db.log_change(ip_number_id, self.clconst.ip_number_del,
                             dns_owner_id)
 
 
@@ -264,7 +264,7 @@ class IPNumber(Entity.Entity):
         UPDATE [:table schema=cerebrum name=dns_override_reversemap]
         SET dns_owner_id=:dns_owner_id
         WHERE ip_number_id=:ip_number_id""", locals())
-        self._db.log_change(ip_number_id, self.const.ip_number_update, dns_owner_id)
+        self._db.log_change(ip_number_id, self.clconst.ip_number_update, dns_owner_id)
 
 
     def list_override(self, ip_number_id=None, start=None, stop=None, dns_owner_id=None):

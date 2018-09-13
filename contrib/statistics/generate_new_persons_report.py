@@ -128,6 +128,7 @@ template = u"""
 
 
 def get_new_persons(db, source_systems, start_date, end_date):
+    clconst = Factory.get('CLConstants')(db)
     co = Factory.get('Constants')(db)
     pe = Factory.get('Person')(db)
     ac = Factory.get('Account')(db)
@@ -157,7 +158,7 @@ def get_new_persons(db, source_systems, start_date, end_date):
                   for row in db.get_log_events_date(
                           sdate=start_date,
                           edate=end_date,
-                          type=int(co.person_create)))
+                          type=int(clconst.person_create)))
 
     logger.debug('building data ...')
     for p_id in person_ids:

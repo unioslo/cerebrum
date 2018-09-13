@@ -42,7 +42,7 @@ class HiAStudent(access_FS.Student):
 
         qry = """
         SELECT DISTINCT
-          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -75,7 +75,7 @@ class HiAStudent(access_FS.Student):
         høsten 2010. Jazz"""
         qry = """
         SELECT DISTINCT
-          p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+          p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
           p.adrlin1_hjemsted, p.adrlin2_hjemsted, p.postnr_hjemsted,
           p.adrlin3_hjemsted, p.adresseland_hjemsted,
           p.status_reserv_nettpubl, p.sprakkode_malform,
@@ -120,7 +120,7 @@ class HiAStudent(access_FS.Student):
 
         qry = """
         SELECT DISTINCT
-          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -194,7 +194,7 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
 
         qry = """
         SELECT DISTINCT
-          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -229,7 +229,7 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
         høsten 2010. Jazz"""
         qry = """
         SELECT DISTINCT
-          p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+          p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
           p.adrlin1_hjemsted, p.adrlin2_hjemsted, p.postnr_hjemsted,
           p.adrlin3_hjemsted, p.adresseland_hjemsted,
           p.status_reserv_nettpubl, p.sprakkode_malform,
@@ -276,7 +276,7 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
 
         qry = """
         SELECT DISTINCT
-          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -464,7 +464,7 @@ class HiAEVU(access_FS.EVU):
 
         qry = """
         SELECT DISTINCT
-               p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+               p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                d.adrlin1_job, d.adrlin2_job, d.postnr_job,
                d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
                d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,
@@ -504,7 +504,7 @@ class HiAEVU78(HiAEVU, access_FS.EVU78):
 
         qry = """
         SELECT DISTINCT
-               p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+               p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
                d.adrlin1_job, d.adrlin2_job, d.postnr_job,
                d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
                d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,

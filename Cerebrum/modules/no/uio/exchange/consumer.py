@@ -101,6 +101,11 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
 
     @property
     @memoize
+    def clconst(self):
+        return Factory.get('CLConstants')(self.db)
+
+    @property
+    @memoize
     def mb_spread(self):
         return self.co.Spread(
             self.config.selection_criteria.mailbox_spread)
@@ -607,7 +612,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         ev_type = event['event_type']
 
         # Handle group additions
-        if ev_type in (self.co.group_add, self.co.group_rem,):
+        if ev_type in (self.clconst.group_add, self.clconst.group_rem,):
             # Check if this group addition operation is related to
             # the randzone group. If not, raise the UnrelatedEvent exception.
             # If it is related to randzones, and the person is a member of the
@@ -815,8 +820,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             raise UnrelatedEvent
 
         address = None
-        if event['event_type'] in (self.co.email_forward_enable,
-                                   self.co.email_forward_add):
+        if event['event_type'] in (self.clconst.email_forward_enable,
+                                   self.clconst.email_forward_add):
             address = params['forward']
 
         try:

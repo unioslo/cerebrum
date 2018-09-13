@@ -37,7 +37,6 @@ from Cerebrum.utils.atomicfile import MinimumSizeWriter
 logger = Factory.get_logger("cronjob")
 
 db = Factory.get('Database')()
-const = Factory.get('CLConstants')(db)
 co = Factory.get('Constants')(db)
 ou = Factory.get('OU')(db)
 person = Factory.get('Person')(db)

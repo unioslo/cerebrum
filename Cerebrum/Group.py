@@ -146,7 +146,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                           'visib': int(self.visibility),
                           'creator_id': self.creator_id,
                           'exp_date': self.expire_date})
-            self._db.log_change(self.entity_id, self.const.group_create, None)
+            self._db.log_change(self.entity_id, self.clconst.group_create, None)
             self.add_entity_name(self.const.group_namespace, self.group_name)
         else:
             cols = [('description', ':desc'),
@@ -164,7 +164,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                  'creator_id': self.creator_id,
                  'exp_date': self.expire_date})
             self._db.log_change(self.entity_id,
-                                self.const.group_mod,
+                                self.clconst.group_mod,
                                 None,
                                 change_params=self.__updated)
             if 'group_name' in self.__updated:
@@ -218,7 +218,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             DELETE FROM [:table schema=cerebrum name=group_info]
             WHERE group_id=:g_id""", {'g_id': self.entity_id})
             self._db.log_change(self.entity_id,
-                                self.const.group_destroy,
+                                self.clconst.group_destroy,
                                 None,
                                 {'name': self.group_name})
         # Class Group is a core class; when its delete() method is
@@ -327,7 +327,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                      {'g_id': self.entity_id,
                       'm_type': int(member_type),
                       'm_id': member_id})
-        self._db.log_change(self.entity_id, self.const.group_add, member_id)
+        self._db.log_change(self.entity_id, self.clconst.group_add, member_id)
 
     def has_member(self, member_id):
         """Check whether L{member_id} is a member of this group.

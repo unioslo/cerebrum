@@ -276,9 +276,9 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # fetch event ids
         pending_events = [int(row['event_id'])
                           for row in self._db.search_events(
-            type=(self.const.email_primary_address_mod,
-                  self.const.email_primary_address_add,
-                  self.const.email_primary_address_rem),
+            type=(self.clconst.email_primary_address_mod,
+                  self.clconst.email_primary_address_add,
+                  self.clconst.email_primary_address_rem),
             target_system=self.const.target_system_exchange)]
 
         # add each email target id to our list of pending targets

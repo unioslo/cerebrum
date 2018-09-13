@@ -212,9 +212,9 @@ def sql_delete(
 
 
 def db_row_to_record(db, row):
-    co = Factory.get('Constants')(db)
+    clconst = Factory.get('CLConstants')(db)
     row = dict(row)
-    row['change_type'] = co.ChangeType(row['change_type'])
+    row['change_type'] = clconst.ChangeType(row['change_type'])
     return DbAuditRecord.from_dict(row)
 
 

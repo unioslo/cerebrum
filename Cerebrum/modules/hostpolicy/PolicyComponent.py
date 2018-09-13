@@ -104,9 +104,9 @@ class PolicyComponent(EntityName, Entity_class):
 
         if is_new:
             if self.entity_type == self.const.entity_hostpolicy_atom:
-                event = self.const.hostpolicy_atom_create
+                event = self.clconst.hostpolicy_atom_create
             elif self.entity_type == self.const.entity_hostpolicy_role:
-                event = self.const.hostpolicy_role_create
+                event = self.clconst.hostpolicy_role_create
             else:
                 raise RuntimeError('Unknown entity_type=%s for entity_id=%s' %
                                    (self.entity_type, self.entity_id))
@@ -131,9 +131,9 @@ class PolicyComponent(EntityName, Entity_class):
                                  self.component_name)
         else:
             if self.entity_type == self.const.entity_hostpolicy_atom:
-                event = self.const.hostpolicy_atom_mod
+                event = self.clconst.hostpolicy_atom_mod
             elif self.entity_type == self.const.entity_hostpolicy_role:
-                event = self.const.hostpolicy_role_mod
+                event = self.clconst.hostpolicy_role_mod
             else:
                 raise RuntimeError('Unknown entity_type=%s for entity_id=%s' %
                                    (self.entity_type, self.entity_id))
@@ -179,9 +179,9 @@ class PolicyComponent(EntityName, Entity_class):
             WHERE component_id=:component_id""",
                          {'component_id': self.entity_id})
             if self.entity_type == self.const.entity_hostpolicy_atom:
-                event = self.const.hostpolicy_atom_delete
+                event = self.clconst.hostpolicy_atom_delete
             elif self.entity_type == self.const.entity_hostpolicy_role:
-                event = self.const.hostpolicy_role_delete
+                event = self.clconst.hostpolicy_role_delete
             else:
                 raise RuntimeError(
                     "Unknown entity_type=%s for entity_id=%s" % (
@@ -253,7 +253,7 @@ class PolicyComponent(EntityName, Entity_class):
             VALUES (:dns_owner, :policy_id)""",
                      {'dns_owner': int(dns_owner_id),
                       'policy_id': self.entity_id})
-        self._db.log_change(dns_owner_id, self.const.hostpolicy_policy_add,
+        self._db.log_change(dns_owner_id, self.clconst.hostpolicy_policy_add,
                             self.entity_id)
 
     def remove_from_host(self, dns_owner_id):
@@ -266,7 +266,7 @@ class PolicyComponent(EntityName, Entity_class):
                 dns_owner_id = :dns_owner""",
                      {'policy': self.entity_id,
                       'dns_owner': dns_owner_id})
-        self._db.log_change(dns_owner_id, self.const.hostpolicy_policy_remove,
+        self._db.log_change(dns_owner_id, self.clconst.hostpolicy_policy_remove,
                             self.entity_id)
 
     def search_hostpolicies(self, policy_id=None, policy_type=None,
@@ -658,7 +658,7 @@ class Role(PolicyComponent):
                       'rel': int(relationship_code),
                       'target': target_id})
         self._db.log_change(self.entity_id,
-                            self.const.hostpolicy_relationship_add, target_id)
+                            self.clconst.hostpolicy_relationship_add, target_id)
 
     def remove_relationship(self, relationship_code, target_id):
         """Remove a relationship of given type between this role and a target
@@ -674,7 +674,7 @@ class Role(PolicyComponent):
                                           'target': target_id,
                                           'rel': relationship_code})
         self._db.log_change(self.entity_id,
-                            self.const.hostpolicy_relationship_remove,
+                            self.clconst.hostpolicy_relationship_remove,
                             target_id)
 
     def search(self, *args, **kwargs):

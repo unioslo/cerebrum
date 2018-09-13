@@ -39,10 +39,10 @@ from mx.DateTime import now, RelativeDateTime, ISO, Monday
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.CLProcessors import EventProcessor
-from Cerebrum.modules.CLConstants import _ChangeTypeCode
+from Cerebrum.Constants import _ChangeTypeCode
 
 db = Factory.get('Database')()
-constants = Factory.get('Constants')(db)
+clconstants = Factory.get('CLConstants')(db)
 logger = Factory.get_logger("cronjob")
 
 
@@ -112,7 +112,7 @@ def main():
     event_types = []
     for element in options['events'].split(','):
         try:
-            event = getattr(constants, element)
+            event = getattr(clconstants, element)
             if not isinstance(event, _ChangeTypeCode):
                 raise AttributeError
         except AttributeError:

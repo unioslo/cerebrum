@@ -19,9 +19,12 @@
 
 
 from Cerebrum.Entity import Entity
-from Cerebrum.Constants import (_CerebrumCodeWithEntityType, Constants,
+from Cerebrum.Constants import (Constants,
+                                CLConstants,
+                                _CerebrumCodeWithEntityType,
+                                _ChangeTypeCode,
                                 _get_code)
-from Cerebrum.modules.CLConstants import _ChangeTypeCode
+
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
 try:
@@ -37,7 +40,7 @@ class _EntityTraitCode(_CerebrumCodeWithEntityType):
     pass
 
 
-class TraitConstants(Constants):
+class CLConstants(CLConstants):
     trait_add = _ChangeTypeCode("trait", "add",
                                 "new trait for %(subject)s",
                                 ("%(trait:code)s",
@@ -62,12 +65,15 @@ class TraitConstants(Constants):
 
     # There are no mandatory EntityTraitCodes
 
+
+class Constants(Constants):
     EntityTrait = _EntityTraitCode
 
 
 @_ChangeTypeCode.formatter('trait')
 def format_cl_trait(co, val):
     return _get_code(co.EntityTrait, val, '<unknown>')
+
 
 class EntityTrait(Entity):
     """Mixin class which adds generic traits to an entity."""
@@ -119,7 +125,7 @@ class EntityTrait(Entity):
                 """ % binds,
                              self.__traits[code])
                 if changelog:
-                    self._db.log_change(self.entity_id, self.const.trait_mod, None,
+                    self._db.log_change(self.entity_id, self.clconst.trait_mod, None,
                                         change_params=params)
             else:
                 binds = ", ".join([":%s" % c
@@ -129,7 +135,7 @@ class EntityTrait(Entity):
                 (%s) VALUES (%s)
                 """ % (", ".join(self.__traits[code].keys()), binds),
                              self.__traits[code])
-                self._db.log_change(self.entity_id, self.const.trait_add, None,
+                self._db.log_change(self.entity_id, self.clconst.trait_add, None,
                                     change_params=params)
         self.__trait_updates = {}
 
@@ -151,7 +157,7 @@ class EntityTrait(Entity):
         DELETE FROM [:table schema=cerebrum name=entity_trait]
         WHERE entity_id=:entity_id AND code=:code
         """, {'entity_id': self.entity_id, 'code': int(code)})
-        self._db.log_change(self.entity_id, self.const.trait_del, None,
+        self._db.log_change(self.entity_id, self.clconst.trait_del, None,
                             change_params=params)
         del self.__traits[code]
 

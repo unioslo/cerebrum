@@ -571,7 +571,7 @@ class BofhdExtension(BofhdCommonMethods):
 
         rows = list(self.db.get_log_events(0,
                                            subject_entity=person.entity_id,
-                                           types=[getattr(self.const, t)
+                                           types=[getattr(self.clconst, t)
                                                   for t in types]))
         for r in rows[-limit:]:
             ret.append(self._format_changelog_entry(r))

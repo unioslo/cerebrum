@@ -36,7 +36,7 @@ from Cerebrum.Entity import Entity
 from Cerebrum.Errors import NoEntityAssociationError
 
 from Cerebrum.Constants import Constants
-from Cerebrum.modules.CLConstants import _ChangeTypeCode as ChangeType
+from Cerebrum.Constants import _ChangeTypeCode as ChangeType
 
 
 
@@ -126,7 +126,7 @@ class EntityNonUniqueName(Entity):
 
 
     def add_entity_nu_name(self, domain, name):
-        self._db.log_change(self.entity_id, self.const.entity_nu_name_add, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_nu_name_add, None,
                             change_params={'domain': int(domain),
                                            'name': name})
         return self.execute("""
@@ -139,7 +139,7 @@ class EntityNonUniqueName(Entity):
 
 
     def delete_entity_nu_name(self, domain):
-        self._db.log_change(self.entity_id, self.const.entity_nu_name_del, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_nu_name_del, None,
                             change_params={'domain': int(domain),
                                            'name': self.get_name(int(domain))})
         return self.execute("""
@@ -151,7 +151,7 @@ class EntityNonUniqueName(Entity):
 
 
     def update_entity_nu_name(self, domain, name):
-        self._db.log_change(self.entity_id, self.const.entity_nu_name_mod, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_nu_name_mod, None,
                             change_params={'domain': int(domain),
                                            'name': name})
         if int(domain) in [int(self.const.ValueDomain(code_str))

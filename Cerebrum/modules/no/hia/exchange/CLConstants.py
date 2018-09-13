@@ -21,10 +21,9 @@
 
 from __future__ import unicode_literals
 
-from Cerebrum.modules.CLConstants import CLConstants
-from Cerebrum.modules.CLConstants import _ChangeTypeCode
+from Cerebrum import Constants as cereconst
 
 
-class CLConstants(CLConstants):
-    ea_policy = _ChangeTypeCode('exchange', 'set_ea_policy',
-                                'Address book policy changed')
+class CLConstants(cereconst.CLConstants):
+    ea_policy = cereconst._ChangeTypeCode('exchange', 'set_ea_policy',
+                                          'Address book policy changed')

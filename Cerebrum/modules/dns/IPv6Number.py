@@ -68,7 +68,7 @@ class IPv6Number(Entity.Entity):
             VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                      'binds': ", ".join([x[1] for x in cols])},
                          binds)
-            self._db.log_change(self.entity_id, self.const.ipv6_number_add,
+            self._db.log_change(self.entity_id, self.clconst.ipv6_number_add,
                                 None, change_params={'aaaa_ip': self.aaaa_ip})
         else:
             self.execute("""
@@ -76,12 +76,12 @@ class IPv6Number(Entity.Entity):
             SET %(defs)s
             WHERE ipv6_number_id=:ipv6_number_id""" % {'defs': ", ".join(
                 ["%s=%s" % x for x in cols])}, binds)
-            self._db.log_change(self.entity_id, self.const.ipv6_number_add,
+            self._db.log_change(self.entity_id, self.clconst.ipv6_number_add,
                                 None, change_params={'aaaa_ip': self.aaaa_ip})
         del self.__in_db
 
         if 'mac_adr' in self.__updated:
-            self._db.log_change(self.entity_id, self.const.mac_adr_set,
+            self._db.log_change(self.entity_id, self.clconst.mac_adr_set,
                                 None, change_params={'mac_adr': self.mac_adr})
             
         self.__in_db = True
@@ -158,7 +158,7 @@ class IPv6Number(Entity.Entity):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_ipv6_number]
         WHERE ipv6_number_id=:ipv6_number_id""", {'ipv6_number_id': self.entity_id})
-        self._db.log_change(self.entity_id, self.const.ipv6_number_add, None)
+        self._db.log_change(self.entity_id, self.clconst.ipv6_number_add, None)
         self.__super.delete()
 
 
@@ -227,7 +227,7 @@ class IPv6Number(Entity.Entity):
         VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                  'binds': ", ".join([x[1] for x in cols])},
                      binds)
-        self._db.log_change(ipv6_number_id, self.const.ipv6_number_add, dns_owner_id)
+        self._db.log_change(ipv6_number_id, self.clconst.ipv6_number_add, dns_owner_id)
 
 
     def delete_reverse_override(self, ipv6_number_id, dns_owner_id):
@@ -239,7 +239,7 @@ class IPv6Number(Entity.Entity):
         DELETE FROM [:table schema=cerebrum name=dns_override_reversemap_ipv6]
         WHERE ipv6_number_id=:ipv6_number_id AND %s""" % where,
                             locals())
-        self._db.log_change(ipv6_number_id, self.const.ipv6_number_del,
+        self._db.log_change(ipv6_number_id, self.clconst.ipv6_number_del,
                             dns_owner_id)
 
 
@@ -248,7 +248,7 @@ class IPv6Number(Entity.Entity):
         UPDATE [:table schema=cerebrum name=dns_override_reversemap_ipv6]
         SET dns_owner_id=:dns_owner_id
         WHERE ipv6_number_id=:ipv6_number_id""", locals())
-        self._db.log_change(ipv6_number_id, self.const.ipv6_number_update, dns_owner_id)
+        self._db.log_change(ipv6_number_id, self.clconst.ipv6_number_update, dns_owner_id)
 
 
     def list_override(self, ip_number_id=None, start=None, stop=None, dns_owner_id=None):

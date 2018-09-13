@@ -67,7 +67,7 @@ class AAAARecord(Entity):
             VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                      'binds': ", ".join([x[1] for x in cols])},
                          binds)
-            self._db.log_change(self.dns_owner_id, self.const.aaaa_record_add,
+            self._db.log_change(self.dns_owner_id, self.clconst.aaaa_record_add,
                                 self.ipv6_number_id)
         else:
             self.execute("""
@@ -76,7 +76,7 @@ class AAAARecord(Entity):
             WHERE aaaa_record_id=:e_id""" % {'defs': ", ".join(
                 ["%s=%s" % x for x in cols])}, binds)
             self._db.log_change(self.dns_owner_id,
-                    self.const.aaaa_record_update, self.ipv6_number_id)
+                    self.clconst.aaaa_record_update, self.ipv6_number_id)
         del self.__in_db
         
         self.__in_db = True
@@ -141,7 +141,7 @@ class AAAARecord(Entity):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_aaaa_record]
         WHERE aaaa_record_id=:e_id""", {'e_id': self.entity_id})
-        self._db.log_change(self.dns_owner_id, self.const.aaaa_record_del,
+        self._db.log_change(self.dns_owner_id, self.clconst.aaaa_record_del,
                             self.ipv6_number_id)
         self.__super.delete()
 

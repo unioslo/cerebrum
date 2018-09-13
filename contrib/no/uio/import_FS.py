@@ -20,17 +20,21 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Importerer personer fra FS iht. fs_import.txt."""
 from __future__ import unicode_literals
+
+
+import datetime
+import getopt
+import sys
 from os.path import join as pj
 
-import sys
-import getopt
-import mx.DateTime
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 
 import cereconf
-from Cerebrum import Errors
-from Cerebrum.modules.no import fodselsnr
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uio.AutoStud import StudentInfo
+
+import mx.DateTime
 
 # Defaults
 DEFAULT_PERSONFILE = pj(cereconf.FS_DATA_DIR, "merged_persons.xml")
@@ -513,13 +517,6 @@ def process_person_callback(person_info):
                             int(person_info['personnr']))
         fnr = fodselsnr.personnr_ok(fnr)
         logger.info("Process %s " % (fnr))
-        (year, mon, day) = fodselsnr.fodt_dato(fnr)
-        if (
-                year < 1970 and
-                getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1
-        ):
-            # Seems to be a bug in time.mktime on some machines
-            year = 1970
     except fodselsnr.InvalidFnrError:
         logger.warn("Ugyldig fødselsnr: %s" % fnr)
         return
@@ -529,6 +526,7 @@ def process_person_callback(person_info):
         gender = co.gender_female
 
     etternavn = fornavn = None
+    birth_date = None
     studentnr = None
     affiliations = []
     address_info = None
@@ -566,6 +564,11 @@ def process_person_callback(person_info):
                 'emnestud', ):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
+
+            if not birth_date and 'dato_fodt' in p:
+                birth_date = datetime.datetime.strptime(p['dato_fodt'],
+                                                        "%Y-%m-%d %H:%M:%S.%f")
+
         if 'studentnr_tildelt' in p:
             studentnr = p['studentnr_tildelt']
         # Get affiliations
@@ -652,6 +655,9 @@ def process_person_callback(person_info):
         no_name += 1
         return
 
+    if not birth_date:
+        logger.warn('No birth date registered for studentnr %s', studentnr)
+
     # TODO: If the person already exist and has conflicting data from
     # another source-system, some mechanism is needed to determine the
     # superior setting.
@@ -660,7 +666,7 @@ def process_person_callback(person_info):
     if fnr in fnr2person_id:
         new_person.find(fnr2person_id[fnr])
 
-    new_person.populate(mx.DateTime.Date(year, mon, day), gender)
+    new_person.populate(birth_date, gender)
 
     new_person.affect_names(co.system_fs, co.name_first, co.name_last)
     new_person.populate_name(co.name_first, fornavn)

@@ -141,7 +141,7 @@ class AccountType(object):
                                      'binds': ", ".join(
                                          [":%s" % t for t in cols.keys()])},
                          cols)
-            self._db.log_change(self.entity_id, self.const.account_type_add,
+            self._db.log_change(self.entity_id, self.clconst.account_type_add,
                                 None, change_params={
                                     'ou_id': int(ou_id),
                                     'affiliation': int(affiliation),
@@ -169,7 +169,7 @@ class AccountType(object):
         WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
                                     for x in cols.keys() if x != "priority"]),
                      cols)
-        self._db.log_change(self.entity_id, self.const.account_type_mod,
+        self._db.log_change(self.entity_id, self.clconst.account_type_mod,
                             None, change_params={'new_pri': int(new_pri),
                                                  'old_pri': int(orig_pri)})
 
@@ -185,7 +185,7 @@ class AccountType(object):
         self.execute("""
                      DELETE FROM [:table schema=cerebrum name=account_type]
                      WHERE {}""".format(where), cols)
-        self._db.log_change(self.entity_id, self.const.account_type_del,
+        self._db.log_change(self.entity_id, self.clconst.account_type_del,
                             None,
                             change_params={'ou_id': int(ou_id),
                                            'affiliation': int(affiliation),
@@ -363,7 +363,7 @@ class AccountHome(object):
             'account_id': self.entity_id,
             'spread': int(spread)})
         self._db.log_change(
-            self.entity_id, self.const.account_home_removed, None,
+            self.entity_id, self.clconst.account_home_removed, None,
             change_params={'spread': int(spread),
                            'home': old_home,
                            'homedir_id': ah['homedir_id']})
@@ -412,7 +412,7 @@ class AccountHome(object):
                 ", ".join(binds.keys()),
                 ", ".join([":%s" % t for t in binds]))
 
-            change_type = self.const.homedir_add
+            change_type = self.clconst.homedir_add
         else:
             # Leave previous value alone if update
             for key, value in binds.items():
@@ -427,7 +427,7 @@ class AccountHome(object):
             WHERE homedir_id=:homedir_id""" % (
                 ", ".join(["%s=:%s" % (t, t) for t in binds]))
 
-            change_type = self.const.homedir_update
+            change_type = self.clconst.homedir_update
 
         self.execute(sql, binds)
 
@@ -456,7 +456,7 @@ class AccountHome(object):
         WHERE homedir_id=:homedir_id""",
                      {'homedir_id': homedir_id})
         self._db.log_change(
-            self.entity_id, self.const.homedir_remove, None,
+            self.entity_id, self.clconst.homedir_remove, None,
             change_params={'homedir_id': homedir_id,
                            'home': tmp})
 
@@ -490,7 +490,7 @@ class AccountHome(object):
             SET homedir_id=:homedir_id
             WHERE account_id=:account_id AND spread=:spread""", binds)
             self._db.log_change(
-                self.entity_id, self.const.account_home_updated, None,
+                self.entity_id, self.clconst.account_home_updated, None,
                 change_params={
                     'spread': int(spread),
                     'home': tmp,
@@ -507,7 +507,7 @@ class AccountHome(object):
             VALUES
               (:account_id, :spread, :homedir_id)""", binds)
             self._db.log_change(
-                self.entity_id, self.const.account_home_added, None,
+                self.entity_id, self.clconst.account_home_added, None,
                 change_params={'spread': int(spread),
                                'home': tmp,
                                'homedir_id': homedir_id})
@@ -583,7 +583,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             self.delete_entity_name(self.const.account_namespace)
             self._db.log_change(
                 self.entity_id,
-                self.const.account_destroy,
+                self.clconst.account_destroy,
                 None)
 
         # AccountHome is the class "breaking" the MRO-delete() "chain".
@@ -951,7 +951,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                           'np_type': np_type,
                           'exp_date': self.expire_date,
                           'desc': self.description})
-            self._db.log_change(self.entity_id, self.const.account_create,
+            self._db.log_change(self.entity_id, self.clconst.account_create,
                                 None, change_params=newvalues)
             self.add_entity_name(
                 self.const.account_namespace,
@@ -975,7 +975,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                  'exp_date': self.expire_date,
                  'desc': self.description,
                  'acc_id': self.entity_id})
-            self._db.log_change(self.entity_id, self.const.account_mod,
+            self._db.log_change(self.entity_id, self.clconst.account_mod,
                                 None, change_params=newvalues)
             if 'account_name' in self.__updated:
                 self.update_entity_name(self.const.account_namespace,
@@ -998,7 +998,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             if cereconf.PASSWORD_PLAINTEXT_IN_CHANGE_LOG:
                 change_params = {'password': self.__plaintext_password}
             self._db.log_change(self.entity_id,
-                                self.const.account_password,
+                                self.clconst.account_password,
                                 None,
                                 change_params=change_params)
         # Store the authentication data.

@@ -206,7 +206,7 @@ def populate_external_ids(tpl):
                      tpl.sap_ansattnr, tpl.sap_fnr)
 
     try:
-        fodselsnr.personnr_ok(tpl.sap_fnr, accept_00X00=False)
+        fodselsnr.personnr_ok(tpl.sap_fnr, accept_00x00=False)
     except fodselsnr.InvalidFnrError:
         # IVR 2007-02-15 It is *wrong* to simply ignore these, but since they
         # do occur, and they may be difficult to get rid of, we'll downgrade
@@ -270,7 +270,7 @@ def populate_personal_title(person, fields):
         person.delete_name_with_language(name_variant=const.personal_title,
                                          name_language=const.language_nb)
         logger.debug("Removed %s for person id=%s",
-                     str(const.work_title), person.entity_id)
+                     str(const.personal_title), person.entity_id)
 
 
 def _remove_communication(person, comm_type):

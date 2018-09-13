@@ -317,7 +317,7 @@ class BofhdExtension(BofhdCommonMethods):
                                         mobile, guest_group)
 
         # An extra change log is required in the responsible's log
-        ac._db.log_change(responsible, ac.const.guest_create, ac.entity_id,
+        ac._db.log_change(responsible, ac.clconst.guest_create, ac.entity_id,
                           change_params={'owner': responsible,
                                          'mobile': mobile,
                                          'name': '%s %s' % (fname, lname)},
@@ -326,7 +326,7 @@ class BofhdExtension(BofhdCommonMethods):
         # In case a superuser has set a specific account as the responsible,
         # the event should be logged for both operator and responsible:
         if operator.get_entity_id() != responsible:
-            ac._db.log_change(operator.get_entity_id(), ac.const.guest_create,
+            ac._db.log_change(operator.get_entity_id(), ac.clconst.guest_create,
                               ac.entity_id, change_params={
                                   'owner': responsible,
                                   'mobile': mobile,

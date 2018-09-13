@@ -407,9 +407,9 @@ class AffGroupSync(_FroupSync):
 
     def process_cl_event(self, row):
         """ Process person affiliation changes fast. """
-        if row['change_type_id'] in (self.co.person_aff_add,
-                                     self.co.person_aff_del,
-                                     self.co.person_aff_mod):
+        if row['change_type_id'] in (self.clconst.person_aff_add,
+                                     self.clconst.person_aff_del,
+                                     self.clconst.person_aff_mod):
             return self._update_aff_group(row['subject_entity'])
 
         return super(AffGroupSync, self).process_cl_event(row)
@@ -494,9 +494,9 @@ class ConsentGroupSync(_FroupSync):
 
     def process_cl_event(self, row):
         """ Process consent changes fast. """
-        if row['change_type_id'] in (self.co.consent_approve,
-                                     self.co.consent_decline,
-                                     self.co.consent_remove):
+        if row['change_type_id'] in (self.clconst.consent_approve,
+                                     self.clconst.consent_decline,
+                                     self.clconst.consent_remove):
             return self._update_consent_group(row['subject_entity'])
         return super(ConsentGroupSync, self).process_cl_event(row)
 

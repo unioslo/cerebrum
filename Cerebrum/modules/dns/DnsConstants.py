@@ -19,17 +19,16 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Constant types and common constants for the DNS module. """
 
-from Cerebrum import Constants
-from Cerebrum.modules.CLConstants import _ChangeTypeCode
+from Cerebrum import Constants as cereconst
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
 
 
-class _FieldTypeCode(Constants._CerebrumCode):
+class _FieldTypeCode(cereconst._CerebrumCode):
     "Mappings stored in the field_type_code table"
     _lookup_table = '[:table schema=cerebrum name=dns_field_type_code]'
 
 
-class _DnsZoneCode(Constants._CerebrumCode):
+class _DnsZoneCode(cereconst._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=dns_zone]'
 
     _lookup_code_column = 'zone_id'
@@ -51,54 +50,54 @@ class _DnsZoneCode(Constants._CerebrumCode):
     postfix = property(_get_postfix, None, None, "the postfix")
 
 
-class Constants(Constants.Constants):
+class Constants(cereconst.Constants):
     """ Common DNS module constants. """
 
     #
     # DNS Entities
     #
-    entity_dns_cname = Constants._EntityTypeCode(
+    entity_dns_cname = cereconst._EntityTypeCode(
         'cname',
         'cname - see table "cerebrum.cname_info" and friends.')
-    entity_dns_host = Constants._EntityTypeCode(
+    entity_dns_host = cereconst._EntityTypeCode(
         # name-clash with existing entity_type
         'dns_host',
         'dns_host - see table "cerebrum.dns_host_info" and friends.')
-    entity_dns_a_record = Constants._EntityTypeCode(
+    entity_dns_a_record = cereconst._EntityTypeCode(
         'a_record',
         'a_record - see table "cerebrum.a_record_info" and friends.')
-    entity_dns_aaaa_record = Constants._EntityTypeCode(
+    entity_dns_aaaa_record = cereconst._EntityTypeCode(
         'aaaa_record',
         'aaaa_record - see table "cerebrum.aaaa_record_info" and friends.')
-    entity_dns_owner = Constants._EntityTypeCode(
+    entity_dns_owner = cereconst._EntityTypeCode(
         'dns_owner',
         'dns_owner - see table "cerebrum.dns_owner" and friends.')
-    entity_dns_ip_number = Constants._EntityTypeCode(
+    entity_dns_ip_number = cereconst._EntityTypeCode(
         'dns_ip_number',
         'dns_ip_number - see table "cerebrum.dns_ip_number" and friends.')
-    entity_dns_ipv6_number = Constants._EntityTypeCode(
+    entity_dns_ipv6_number = cereconst._EntityTypeCode(
         'dns_ipv6_number',
         'dns_ipv6_number - see table "cerebrum.dns_ipv6_number" and friends.')
-    entity_dns_subnet = Constants._EntityTypeCode(
+    entity_dns_subnet = cereconst._EntityTypeCode(
         'dns_subnet',
         'dns_subnet - see table "cerebrum.dns_subnet" and friends.')
-    entity_dns_ipv6_subnet = Constants._EntityTypeCode(
+    entity_dns_ipv6_subnet = cereconst._EntityTypeCode(
         'dns_ipv6_subnet',
         'dns_ipv6_subnet - see table "cerebrum.dns_ipv6_subnet" and friends.')
 
     #
     # Namespace for DNS names
     #
-    dns_owner_namespace = Constants._ValueDomainCode(
+    dns_owner_namespace = cereconst._ValueDomainCode(
         'dns_owner_ns',
         'Domain for dns_owners')
 
     #
     # NIS host group?
     #
-    spread_uio_machine_netgroup = Constants._SpreadCode(
+    spread_uio_machine_netgroup = cereconst._SpreadCode(
         'NIS_mng@uio',
-        Constants.Constants.entity_group,
+        cereconst.Constants.entity_group,
         'Machine netgroup in NIS domain "uio"')
 
     field_type_txt = _FieldTypeCode(
@@ -122,163 +121,162 @@ class Constants(Constants.Constants):
     #
     other_zone = _DnsZoneCode("other", None)
 
-    #
-    # ChangeLog constants
-    #
-    a_record_add = _ChangeTypeCode(
+    FieldTypeCode = _FieldTypeCode
+    DnsZone = _DnsZoneCode
+
+
+class CLConstants(cereconst.CLConstants):
+    a_record_add = cereconst._ChangeTypeCode(
         'host',
         'a_rec_add',
         'add a-record %(subject)s -> %(dest)s')
-    a_record_del = _ChangeTypeCode(
+    a_record_del = cereconst._ChangeTypeCode(
         'host',
         'a_rec_del',
         'del a-record %(subject)s -> %(dest)s')
-    a_record_update = _ChangeTypeCode(
+    a_record_update = cereconst._ChangeTypeCode(
         'host',
         'a_rec_upd',
         'update a-record %(subject)s -> %(dest)s')
-    aaaa_record_add = _ChangeTypeCode(
+    aaaa_record_add = cereconst._ChangeTypeCode(
         'host',
         'aaaa_rec_add',
         'add aaaa-record %(subject)s -> %(dest)s')
-    aaaa_record_del = _ChangeTypeCode(
+    aaaa_record_del = cereconst._ChangeTypeCode(
         'host',
         'aaaa_rec_del',
         'del aaaa-record %(subject)s -> %(dest)s')
-    aaaa_record_update = _ChangeTypeCode(
+    aaaa_record_update = cereconst._ChangeTypeCode(
         'host',
         'aaaa_rec_upd',
         'update aaaa-record %(subject)s -> %(dest)s')
-    cname_add = _ChangeTypeCode(
+    cname_add = cereconst._ChangeTypeCode(
         'host',
         'cname_add',
         'add cname %(subject)s -> %(dest)s')
-    cname_del = _ChangeTypeCode(
+    cname_del = cereconst._ChangeTypeCode(
         'host',
         'cname_del',
         'del cname %(subject)s -> %(dest)s')
-    cname_update = _ChangeTypeCode(
+    cname_update = cereconst._ChangeTypeCode(
         'host',
         'cname_upd',
         'update cname %(subject)s -> %(dest)s')
-    dns_owner_add = _ChangeTypeCode(
+    dns_owner_add = cereconst._ChangeTypeCode(
         'host',
         'dns_owner_add',
         'add dns-owner %(subject)s')
-    dns_owner_update = _ChangeTypeCode(
+    dns_owner_update = cereconst._ChangeTypeCode(
         'host',
         'dns_owner_upd',
         'update dns-owner %(subject)s')
-    dns_owner_del = _ChangeTypeCode(
+    dns_owner_del = cereconst._ChangeTypeCode(
         'host',
         'dns_owner_del',
         'del dns-owner %(subject)s')
-    general_dns_record_add = _ChangeTypeCode(
+    general_dns_record_add = cereconst._ChangeTypeCode(
         'host',
         'gen_dns_rec_add',
         'add record for %(subject)s',
         ('%(int:field_type)s=%(string:data)s',))
-    general_dns_record_del = _ChangeTypeCode(
+    general_dns_record_del = cereconst._ChangeTypeCode(
         'host',
         'gen_dns_rec_del',
         'del record for %(subject)s',
         ('type=%(int:field_type)s',))
-    general_dns_record_update = _ChangeTypeCode(
+    general_dns_record_update = cereconst._ChangeTypeCode(
         'host',
         'gen_dns_rec_upd',
         'update record for %(subject)s',
         ('%(int:field_type)s=%(string:data)s',))
-    host_info_add = _ChangeTypeCode(
+    host_info_add = cereconst._ChangeTypeCode(
         'host',
         'host_info_add',
         'add %(subject)s',
         ('hinfo=%(string:hinfo)s',))
-    host_info_update = _ChangeTypeCode(
+    host_info_update = cereconst._ChangeTypeCode(
         'host',
         'host_info_upd',
         'update %(subject)s',
         ('hinfo=%(string:hinfo)s',))
-    host_info_del = _ChangeTypeCode(
+    host_info_del = cereconst._ChangeTypeCode(
         'host',
         'host_info_del',
         'del %(subject)s')
-    ip_number_add = _ChangeTypeCode(
+    ip_number_add = cereconst._ChangeTypeCode(
         'host',
         'ip_number_add',
         'add %(subject)s',
         ('a_ip=%(string:a_ip)s',))
-    ip_number_update = _ChangeTypeCode(
+    ip_number_update = cereconst._ChangeTypeCode(
         'host',
         'ip_number_upd',
         'update %(subject)s',
         ('a_ip=%(string:a_ip)s',))
-    ip_number_del = _ChangeTypeCode(
+    ip_number_del = cereconst._ChangeTypeCode(
         'host',
         'ip_number_del',
         'del %(subject)s')
-    ipv6_number_add = _ChangeTypeCode(
+    ipv6_number_add = cereconst._ChangeTypeCode(
         'host',
         'ipv6_number_add',
         'add %(subject)s',
         ('aaaaaaa_ip=%(string:aaaa_ip)s',))
-    ipv6_number_update = _ChangeTypeCode(
+    ipv6_number_update = cereconst._ChangeTypeCode(
         'host',
         'ipv6_number_upd',
         'update %(subject)s',
         ('aaaaaaa_ip=%(string:aaaa_ip)s',))
-    ipv6_number_del = _ChangeTypeCode(
+    ipv6_number_del = cereconst._ChangeTypeCode(
         'host',
         'ipv6_number_del',
         'del %(subject)s')
-    mac_adr_set = _ChangeTypeCode(
+    mac_adr_set = cereconst._ChangeTypeCode(
         'host',
         'mac_adr_set',
         'set %(subject)s',
         ('mac_adr=%(string:mac_adr)s',))
-    rev_override_add = _ChangeTypeCode(
+    rev_override_add = cereconst._ChangeTypeCode(
         'host',
         'rev_ovr_add',
         'add rev-override %(subject)s -> %(dest)s')
-    rev_override_del = _ChangeTypeCode(
+    rev_override_del = cereconst._ChangeTypeCode(
         'host',
         'rev_ovr_del',
         'del rev-override for %(subject)s')
-    rev_override_update = _ChangeTypeCode(
+    rev_override_update = cereconst._ChangeTypeCode(
         'host',
         'rev_ovr_upd',
         'update rev-override %(subject)s -> %(dest)s')
-    subnet_create = _ChangeTypeCode(
+    subnet_create = cereconst._ChangeTypeCode(
         'subnet',
         'subnet_create',
         'create subnet %(subject)s')
-    subnet_mod = _ChangeTypeCode(
+    subnet_mod = cereconst._ChangeTypeCode(
         'subnet',
         'subnet_mod',
         'modify subnet %(subject)s')
-    subnet_delete = _ChangeTypeCode(
+    subnet_delete = cereconst._ChangeTypeCode(
         'subnet',
         'subnet_delete',
         'delete subnet %(subject)s')
-    subnet6_create = _ChangeTypeCode(
+    subnet6_create = cereconst._ChangeTypeCode(
         'subnet',
         'subnet6_create',
         'create IPv6 subnet %(subject)s')
-    subnet6_mod = _ChangeTypeCode(
+    subnet6_mod = cereconst._ChangeTypeCode(
         'subnet',
         'subnet6_mod',
         'modify IPv6 subnet %(subject)s')
-    subnet6_delete = _ChangeTypeCode(
+    subnet6_delete = cereconst._ChangeTypeCode(
         'subnet',
         'subnet6_delete',
         'delete IPv6 subnet %(subject)s')
-    srv_record_add = _ChangeTypeCode(
+    srv_record_add = cereconst._ChangeTypeCode(
         'host',
         'srv_rec_add',
         'add srv-record %(subject)s -> %(dest)s')
-    srv_record_del = _ChangeTypeCode(
+    srv_record_del = cereconst._ChangeTypeCode(
         'host',
         'srv_rec_del',
         'del srv-record %(subject)s -> %(dest)s')
-
-    FieldTypeCode = _FieldTypeCode
-    DnsZone = _DnsZoneCode

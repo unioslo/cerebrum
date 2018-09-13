@@ -115,7 +115,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
             VALUES (:e_type, :ou_id)""",
                          {'e_type': int(self.const.entity_ou),
                           'ou_id': self.entity_id, })
-            self._db.log_change(self.entity_id, self.const.ou_create, None)
+            self._db.log_change(self.entity_id, self.clconst.ou_create, None)
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -148,7 +148,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=ou_info]
             WHERE ou_id = :ou_id""", {'ou_id': self.entity_id})
-            self._db.log_change(self.entity_id, self.const.ou_del, None)
+            self._db.log_change(self.entity_id, self.clconst.ou_del, None)
         self.__super.delete()
 
     def find(self, ou_id):
@@ -215,7 +215,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         WHERE ou_id=:e_id AND perspective=:perspective""",
                      {'e_id': self.entity_id,
                       'perspective': int(perspective)})
-        self._db.log_change(self.entity_id, self.const.ou_unset_parent, None,
+        self._db.log_change(self.entity_id, self.clconst.ou_unset_parent, None,
                             change_params={'perspective': int(perspective)})
 
     def set_parent(self, perspective, parent_id):
@@ -240,7 +240,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                          {'e_id': self.entity_id,
                           'perspective': int(perspective),
                           'parent_id': parent_id})
-        self._db.log_change(self.entity_id, self.const.ou_set_parent,
+        self._db.log_change(self.entity_id, self.clconst.ou_set_parent,
                             parent_id,
                             change_params={'perspective': int(perspective)})
 

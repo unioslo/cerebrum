@@ -321,18 +321,20 @@ def handle_account_type_del(event, db, co, data, p):
 def handle_group_add(event, db, co, data):
     """Handle group adding"""
     logger.debug('handle_group_add called')
+    clconst = Factory.get('CLConstants')(db)
     # This event will come from this script, as well as OUGroup creation.
     gid, subject = event['subject_entity'], event['dest_entity']
-    data['replay'].add((int(subject), int(co.group_add), int(gid)))
+    data['replay'].add((int(subject), int(clconst.group_add), int(gid)))
     return
 
 
 def handle_group_rem(event, db, co, data):
     """Handle group membership removing"""
     logger.debug('handle_group_rem called')
+    clconst = Factory.get('CLConstants')(db)
     # This event will come from this script, as well as OUGroup deletion.
     gid, subject = event['subject_entity'], event['dest_entity']
-    data['replay'].add((int(subject), int(co.group_rem), int(gid)))
+    data['replay'].add((int(subject), int(clconst.group_rem), int(gid)))
 
 
 def remove_groups(db, entity, groups, co, data):
@@ -355,7 +357,7 @@ def add_groups(db, entity, groups, co, data):
             db.log_change(grp, co.group_add, entity)
 
 
-def calculate_changes(db, data, co):
+def calculate_changes(db, data, co, clconst):
     """Calculate the adds and removes for the persons"""
     global logger
 
@@ -375,24 +377,24 @@ def calculate_changes(db, data, co):
         oldgrps = getoldgroups(obj, 'primary')
         if newacc != oldacc:
             logger.info('Changing primary for %s', pid)
-            remove_groups(db, oldacc, oldgrps, co, data)
-            add_groups(db, newacc, newgrps, co, data)
+            remove_groups(db, oldacc, oldgrps, clconst, data)
+            add_groups(db, newacc, newgrps, clconst, data)
         else:
             logger.info('Updating primary for %s', pid)
-            remove_groups(db, oldacc, oldgrps - newgrps, co, data)
-            add_groups(db, newacc, newgrps - oldgrps, co, data)
+            remove_groups(db, oldacc, oldgrps - newgrps, clconst, data)
+            add_groups(db, newacc, newgrps - oldgrps, clconst, data)
         newgrps = obj['new']['personal']
         oldgrps = getoldgroups(obj, 'personal')
         logger.info('Updating personal for %s', pid)
-        remove_groups(db, pid, oldgrps - newgrps, co, data)
-        add_groups(db, pid, newgrps - oldgrps, co, data)
+        remove_groups(db, pid, oldgrps - newgrps, clconst, data)
+        add_groups(db, pid, newgrps - oldgrps, clconst, data)
     for accid, obj in data['account'].iteritems():
         logger.info('Handling account id:%s', pid)
         oldgrps = set()
         map(oldgrps.update, obj['old'].values())
         newgrps = obj['new']
-        remove_groups(db, accid, oldgrps - newgrps, co, data)
-        add_groups(db, accid, newgrps - oldgrps, co, data)
+        remove_groups(db, accid, oldgrps - newgrps, clconst, data)
+        add_groups(db, accid, newgrps - oldgrps, clconst, data)
 
 
 def main():
@@ -473,7 +475,7 @@ def main():
             types.get(int(event['change_type_id']), lambda x: None)(event)
             clh.confirm_event(event)
         logger.info('Done event traversing, calculating changes')
-        calculate_changes(db, data, co)
+        calculate_changes(db, data, co, clco)
         logger.info('Done')
 
     if args.commit:

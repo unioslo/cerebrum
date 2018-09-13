@@ -24,27 +24,26 @@
 The Constants defined for the HostPolicy module, depending on the DNS module.
 """
 
-from Cerebrum import Constants
-from Cerebrum.modules.CLConstants import _ChangeTypeCode
+from Cerebrum import Constants as cereconst
 
 __version__ = "$Revision$"
 # $URL$
 # $Source$
 
-class _PolicyRelationshipCode(Constants._CerebrumCode):
+class _PolicyRelationshipCode(cereconst._CerebrumCode):
     "Mappings stored in the hostpolicy_relationship_code table"
     _lookup_table = '[:table schema=cerebrum name=hostpolicy_relationship_code]'
 
-class Constants(Constants.Constants):
-    entity_hostpolicy_atom = Constants._EntityTypeCode(
+class Constants(cereconst.Constants):
+    entity_hostpolicy_atom = cereconst._EntityTypeCode(
         'hostpolicy_atom',
         'hostpolicy_atom - see table "cerebrum.hostpolicy_component" and friends.')
-    entity_hostpolicy_role = Constants._EntityTypeCode(
+    entity_hostpolicy_role = cereconst._EntityTypeCode(
         'hostpolicy_role',
         'hostpolicy_role - see table "cerebrum.hostpolicy_component" and friends.')
 
 
-    hostpolicy_component_namespace = Constants._ValueDomainCode('hostpol_comp_ns',
+    hostpolicy_component_namespace = cereconst._ValueDomainCode('hostpol_comp_ns',
                                                                 'Domain for hostpolicy-components')
 
 
@@ -53,32 +52,41 @@ class Constants(Constants.Constants):
     hostpolicy_contains = _PolicyRelationshipCode(
         "hostpol_contains", "Source policy contains target policy")
 
+
+class CLConstants(cereconst.CLConstants):
     # ChangeLog constants
-    hostpolicy_atom_create = _ChangeTypeCode(
+    hostpolicy_atom_create = cereconst._ChangeTypeCode(
         'hostpolicy', 'atom_create', 'create atom %(subject)s')
-    hostpolicy_atom_mod = _ChangeTypeCode(
+    hostpolicy_atom_mod = cereconst._ChangeTypeCode(
         'hostpolicy', 'atom_mod', 'modify atom %(subject)s')
-    hostpolicy_atom_delete = _ChangeTypeCode(
+    hostpolicy_atom_delete = cereconst._ChangeTypeCode(
         'hostpolicy', 'atom_delete', 'delete atom %(subject)s')
-    hostpolicy_role_create = _ChangeTypeCode(
+    hostpolicy_role_create = cereconst._ChangeTypeCode(
         'hostpolicy', 'role_create', 'create role %(subject)s')
-    hostpolicy_role_mod = _ChangeTypeCode(
+    hostpolicy_role_mod = cereconst._ChangeTypeCode(
         'hostpolicy', 'role_mod', 'modify role %(subject)s')
-    hostpolicy_role_delete = _ChangeTypeCode(
+    hostpolicy_role_delete = cereconst._ChangeTypeCode(
         'hostpolicy', 'role_delete', 'delete role %(subject)s')
 
-    hostpolicy_relationship_add = _ChangeTypeCode(
-        'hostpolicy', 'relationship_add', 'add relationship %(subject)s -> %(dest)s')
-        # TODO: type is not given here
-    hostpolicy_relationship_remove = _ChangeTypeCode(
-        'hostpolicy', 'relationship_remove', 'remove relationship %(subject)s -> %(dest)s')
-        # TODO: type is not given here
+    hostpolicy_relationship_add = cereconst._ChangeTypeCode(
+        'hostpolicy',
+        'relationship_add',
+        'add relationship %(subject)s -> %(dest)s')
+    # TODO: type is not given here
+    hostpolicy_relationship_remove = cereconst._ChangeTypeCode(
+        'hostpolicy',
+        'relationship_remove',
+        'remove relationship %(subject)s -> %(dest)s')
+    # TODO: type is not given here
 
-    hostpolicy_policy_add = _ChangeTypeCode(
-        'hostpolicy', 'policy_add', 'add policy %(dest)s to host %(subject)s')
-    hostpolicy_policy_remove = _ChangeTypeCode(
-        'hostpolicy', 'policy_remove', 'remove policy %(dest)s from host %(subject)s')
-
+    hostpolicy_policy_add = cereconst._ChangeTypeCode(
+        'hostpolicy',
+        'policy_add',
+        'add policy %(dest)s to host %(subject)s')
+    hostpolicy_policy_remove = cereconst._ChangeTypeCode(
+        'hostpolicy',
+        'policy_remove',
+        'remove policy %(dest)s from host %(subject)s')
 
 
 PolicyRelationshipCode = _PolicyRelationshipCode
