@@ -212,6 +212,7 @@ class BofhdExtension(BofhdCommonMethods):
         # TODO: The whole templating system is getting re-worked, ~tgk can deal
         # with this...
         message = cereconf.AUTOADMIN_WELCOME_SMS % {"username": username,
+                                                    "studentnumber": '',
                                                     "email": mailaddr}
         if not sms(mobile, message):
             raise CerebrumError("Could not send SMS to %r" % mobile)
