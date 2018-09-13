@@ -494,7 +494,7 @@ class BofhdContactCommands(BofhdCommandBase):
                     self.const.AuthoritativeSystem(row['source_system'])),
                 'contact_type': six.text_type(
                     self.const.ContactInfo(row['contact_type'])),
-                'contact_pref': row['contact_pref'],
+                'contact_pref': six.text_type(row['contact_pref']),
                 'contact_value': row['contact_value'],
                 'description': row['description'],
                 'contact_alias': row['contact_alias'],
