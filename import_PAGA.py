@@ -337,7 +337,8 @@ def process_person(person):
 
     # If a FNR is given, do a check of the values presented
     if(person['fnr'][6:11] == "00000"):
-        logger.warn("Person with fnr:%s does not have valid fnr. Do not process fnr gender check. it will fail" % person['fnr'])
+        logger.warn("Person with fnr:%s does not have valid fnr. Person not imported" % person['fnr'])
+        return
     elif((person.get('fnr','') and (person['fnr'][6:11]!='00000'))):
         try:
             fodselsnr.personnr_ok(fnr)

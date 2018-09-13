@@ -1,3 +1,7 @@
+2018-09-13    <cerebrum@gagarin.uit.no>
+    * import_PAGA.py    We cannot import persons from paga where the last 5 digits are set to 00000 (non-norwegians missing propper fnr).
+                        There are 2 reasons for this. 1: the resulting 11 digit fnr is not unique. 2: In some cases giving an existing username to a returning user, will give the wrong username. in reallity the username 
+                        returned actually belongs to someone else.
 2018-08-16    <cerebrum@gagarin.uit.no>
     * process_uit_email.py (get_existing_email) rewrote how we collect already existing email addresses.
             The previous version was bloated and took too much time. The new version collects existing email addresses
