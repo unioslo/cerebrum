@@ -184,13 +184,13 @@ class AuditRecordBuilder(auditlog.AuditRecordBuilder):
 
     @entity_type_cache
     def _get_type(self, e_id):
-        super(AuditRecordBuilder, self)._get_type(e_id)
+        return super(AuditRecordBuilder, self)._get_type(e_id)
 
     entity_name_cache = CacheDescriptor('entity_name', size=10000)
 
     @entity_name_cache
     def _get_name(self, e_id, e_type):
-        super(AuditRecordBuilder, self)._get_name(e_id, e_type)
+        return super(AuditRecordBuilder, self)._get_name(e_id, e_type)
 
 
 class ChangeLogMigrator(DatabaseAccessor):
