@@ -133,8 +133,7 @@ class EventCollector(evhandlers.DBProducer):
         for db_row in event_db.get_unprocessed(
                 self.config['failed_limit'],
                 self.config['failed_delay'],
-                self.config['unpropagated_delay'],
-                include_taken=True):
+                self.config['unpropagated_delay']):
             event = evhandlers.EventItem(
                 EVENT_CHANNEL, int(db_row['event_id']), from_row(db_row))
             self.push(event)
