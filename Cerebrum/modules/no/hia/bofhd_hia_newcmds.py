@@ -1379,7 +1379,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
     parent_commands = True
     omit_parent_commands = {
         # Commands that are *not* included from BofhdEmailCommands
-        'email_address_primary',
+        'email_address_set_primary',
         'email_domain_delete',
         'email_delete_forward_target',
         'email_domain_set_description',

@@ -1941,15 +1941,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return {'person_id': person.entity_id}
 
     #
-    # email address_primary <address>
+    # email address_set_primary <address>
     #
-    all_commands['email_address_primary'] = Command(
+    all_commands['email_address_set_primary'] = Command(
         ("email", "address_primary"),
         EmailAddress(),
         fs=FormatSuggestion([("New primary address: '%s'", ("address", ))]),
         perm_filter="is_postmaster")
 
-    def email_address_primary(self, operator, addr):
+    def email_address_set_primary(self, operator, addr):
         """ Set primary email address. """
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -2714,15 +2714,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, set quota for '%s'" % uname
 
     #
-    # email spam_add_filter filter address
+    # email spam_filter_add filter address
     #
-    all_commands['email_spam_add_filter'] = Command(
-        ('email', 'spam_add_filter'),
+    all_commands['email_spam_filter_add'] = Command(
+        ('email', 'spam_filter_add'),
         SimpleString(help_ref='string_email_filter'),
         SimpleString(help_ref='string_email_target_name', repeat="True"),
         perm_filter='can_email_spam_settings')
 
-    def email_spam_add_filter(self, operator, filter, address):
+    def email_spam_filter_add(self, operator, filter, address):
         """ Add a filter to an existing e-mail target. """
         et, acc = self._get_email_target_and_account(address)
         self.ba.can_email_spam_settings(operator.get_entity_id(),
@@ -2761,15 +2761,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "Ok, registered filter %s for %s" % (filter, address)
 
     #
-    # email remove_filter filter address
+    # email spam_remove_filter filter address
     #
-    all_commands['email_spam_remove_filter'] = Command(
-        ('email', 'spam_remove_filter'),
+    all_commands['email_spam_filter_remove'] = Command(
+        ('email', 'spam_filter_remove'),
         SimpleString(help_ref='string_email_filter'),
         SimpleString(help_ref='string_email_target_name', repeat="True"),
         perm_filter='can_email_spam_settings')
 
-    def email_spam_remove_filter(self, operator, filter, address):
+    def email_spam_filter_remove(self, operator, filter, address):
         """ Remove filter. """
         et, acc = self._get_email_target_and_account(address)
         self.ba.can_email_spam_settings(operator.get_entity_id(),
@@ -3987,18 +3987,18 @@ class BofhdSympaCommands(BofhdEmailBase):
         return {'listname': listname, 'request': True}
 
     #
-    # sympa alias_add <list-address> <new-alias>
+    # sympa alias_create <list-address> <new-alias>
     #
-    all_commands['sympa_alias_add'] = Command(
-        ("sympa", "alias_add"),
+    all_commands['sympa_alias_create'] = Command(
+        ("sympa", "alias_create"),
         EmailAddress(help_ref="mailing_list_exist"),
         EmailAddress(help_ref="mailing_list"),
         YesNo(help_ref="yes_no_force", optional=True),
         fs=FormatSuggestion([("List alias '%s' created", ('alias', ))]),
         perm_filter="can_email_list_create")
 
-    def sympa_alias_add(self, operator, listname, address,
-                        yes_no_force='No'):
+    def sympa_alias_create(self, operator, listname, address,
+                           yes_no_force='No'):
         """ Create a secondary name for an existing Sympa list. """
         force = self._get_boolean(yes_no_force)
         # The first thing we have to do is to locate the delivery
@@ -4023,15 +4023,15 @@ class BofhdSympaCommands(BofhdEmailBase):
         return {'target': listname, 'alias': address, }
 
     #
-    # sympa alias_remove <alias>
+    # sympa alias_delete <alias>
     #
-    all_commands['sympa_alias_remove'] = Command(
-        ('sympa', 'alias_remove'),
+    all_commands['sympa_alias_delete'] = Command(
+        ('sympa', 'alias_delete'),
         EmailAddress(help_ref='mailing_list_alias'),
         fs=FormatSuggestion([("List alias '%s' removed", ('alias', ))]),
         perm_filter='can_email_list_create')
 
-    def sympa_alias_remove(self, operator, alias):
+    def sympa_alias_delete(self, operator, alias):
         """ Remove Sympa list aliases. """
         lp, dom = self._split_email_address(alias, with_checks=False)
         ed = self._get_email_domain_from_str(dom)
@@ -4201,9 +4201,9 @@ HELP_EMAIL_CMDS = {
             "Add an alias address",
         "email_address_remove":
             "Remove an alias address",
-        "email_spam_add_filter":
+        "email_spam_filter_add":
             "Add a target filter",
-        "email_spam_remove_filter":
+        "email_spam_filter_remove":
             "Remove target_filter",
         "email_address_reassign":
             "Move an address from one account to another",
@@ -4366,10 +4366,10 @@ HELP_SYMPA_CMDS = {
             "Add addresses needed for a Sympa list",
         'sympa_delete':
             "Remove a sympa list from Cerebrum",
-        'sympa_alias_add':
+        'sympa_alias_create':
             "Add an alias for a Sympa list.  This also adds additional "
             "addresses (e.g. -owner, -request, etc.)",
-        'sympa_alias_remove':
+        'sympa_alias_delete':
             "Remove an alias for a Sympa list. This also removes additional "
             "administrative addresses (-owner, -request, etc.)",
         'sympa_create_cerebrum_target':
