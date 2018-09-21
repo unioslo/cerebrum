@@ -259,7 +259,7 @@ class BofhdExtension(BofhdCommonMethods):
                   "snail-mail from a central printer.")],
             'print_select_range':
                 ['range', 'Select range',
-                 ("Select entries by entering a space-separated list of "
+                 ("Select entries by entering a comma-separated list of "
                   "numbers. Ranges can be written as '3-15'.")],
             'print_enter_print_user':
                 ['print_user', 'Enter username',
