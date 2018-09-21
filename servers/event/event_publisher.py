@@ -45,9 +45,10 @@ from Cerebrum.modules.event_publisher import consumer
 class Manager(utils.Manager):
     pass
 
-# Inject Queue implementations:
+
+# Inject our queue implementation:
+# TODO: This should probably be a Queue.Queue, since it's handled by a Manager!
 Manager.register('queue', Queue)
-Manager.register('log_queue', Queue)
 
 
 def serve(config, num_workers, enable_listener, enable_collector):
