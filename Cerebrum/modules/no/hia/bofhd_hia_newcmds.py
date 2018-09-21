@@ -1379,19 +1379,19 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
     parent_commands = True
     omit_parent_commands = {
         # Commands that are *not* included from BofhdEmailCommands
-        'email_create_multi',
-        'email_create_pipe',
-        'email_delete_domain',
+        'email_address_primary',
+        'email_domain_delete',
         'email_delete_forward_target',
-        'email_delete_multi',
-        'email_delete_pipe',
         'email_domain_set_description',
-        'email_edit_pipe_command',
-        'email_edit_pipe_user',
         'email_failure_message',
-        'email_list_pause',
+        'email_multi_create',
+        'email_multi_delete',
+        'email_pipe_create',
+        'email_pipe_delete',
+        'email_pipe_edit_command',
+        'email_pipe_edit_user',
         'email_pause',
-        'email_primary_address',
+        'email_pause_list',
     }
     authz = UiaEmailAuth
 

@@ -1053,9 +1053,9 @@ class BofhdEmailCommands(BofhdEmailBase):
             omit_parent_commands = {'email_info', 'email_update'}
             parent_commands = True
 
-            def email_add_address(self, *args):
+            def email_address_add(self, *args):
                 # do something extra
-                return super(MyEmailCommands, self).email_add_address(*args)
+                return super(MyEmailCommands, self).email_address_add(*args)
 
     """
 
@@ -1082,10 +1082,10 @@ class BofhdEmailCommands(BofhdEmailBase):
             raise CerebrumError("Unknown affiliation")
 
     #
-    # email add_address <address or account> <address>+
+    # email address_add <address or account> <address>+
     #
-    all_commands['email_add_address'] = Command(
-        ('email', 'add_address'),
+    all_commands['email_address_add'] = Command(
+        ('email', 'address_add'),
         AccountName(help_ref='account_name'),
         EmailAddress(help_ref='email_address', repeat=True),
         fs=FormatSuggestion(
@@ -1093,7 +1093,7 @@ class BofhdEmailCommands(BofhdEmailBase):
         ),
         perm_filter='can_email_address_add')
 
-    def email_add_address(self, operator, uname, address):
+    def email_address_add(self, operator, uname, address):
         """ Add an email address to an account. """
 
         # uname can be an address
@@ -1122,10 +1122,10 @@ class BofhdEmailCommands(BofhdEmailBase):
         }
 
     #
-    # email remove_address <account> <address>+
+    # email address_remove <account> <address>+
     #
-    all_commands['email_remove_address'] = Command(
-        ('email', 'remove_address'),
+    all_commands['email_address_remove'] = Command(
+        ('email', 'address_remove'),
         AccountName(),
         EmailAddress(repeat=True),
         fs=FormatSuggestion([
@@ -1134,7 +1134,7 @@ class BofhdEmailCommands(BofhdEmailBase):
         ]),
         perm_filter='can_email_address_delete')
 
-    def email_remove_address(self, operator, uname, address):
+    def email_address_remove(self, operator, uname, address):
         """ Remove an email address from an account. """
 
         # uname can be an address
@@ -1152,15 +1152,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return retval
 
     #
-    # email reassign_address <address> <destination>
+    # email address_reassign <address> <destination>
     #
-    all_commands['email_reassign_address'] = Command(
-        ('email', 'reassign_address'),
+    all_commands['email_address_reassign'] = Command(
+        ('email', 'address_reassign'),
         EmailAddress(help_ref='email_address'),
         AccountName(help_ref='account_name'),
         perm_filter='can_email_address_reassign')
 
-    def email_reassign_address(self, operator, address, dest):
+    def email_address_reassign(self, operator, address, dest):
         """ Reassign address to a user account. """
 
         source_et, source_acc = self._get_email_target_and_account(address)
@@ -1222,15 +1222,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, reassigned %s" % address
 
     #
-    # email local_delivery <username> on|off
+    # email forward_local_delivery <username> on|off
     #
-    all_commands['email_local_delivery'] = Command(
-        ('email', 'local_delivery'),
+    all_commands['email_forward_local_delivery'] = Command(
+        ('email', 'forward_local_delivery'),
         AccountName(help_ref='account_name'),
         SimpleString(help_ref='string_email_on_off'),
         perm_filter='can_email_forward_toggle')
 
-    def email_local_delivery(self, operator, uname, on_off):
+    def email_forward_local_delivery(self, operator, uname, on_off):
         """Turn on or off local delivery of E-mail."""
         acc = self._get_account(uname)
         self.ba.can_email_forward_toggle(operator.get_entity_id(), account=acc)
@@ -1277,17 +1277,17 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, forward to %s turned %s" % (addr, on_off)
 
     #
-    # email add_forward <account>+ <address>+
+    # email forward_add <account>+ <address>+
     #
     # account can also be an e-mail address for pure forwardtargets
     #
-    all_commands['email_add_forward'] = Command(
-        ('email', 'add_forward'),
+    all_commands['email_forward_add'] = Command(
+        ('email', 'forward_add'),
         AccountName(help_ref='account_name', repeat=True),
         EmailAddress(help_ref='email_address', repeat=True),
         perm_filter='can_email_forward_edit')
 
-    def email_add_forward(self, operator, uname, address):
+    def email_forward_add(self, operator, uname, address):
         """Add an e-mail forward."""
         et, acc = self._get_email_target_and_account(uname)
         if uname.count('@') and not acc:
@@ -1313,15 +1313,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, added '%s' as forward-address for '%s'" % (address, uname)
 
     #
-    # email delete_forward address
+    # email forward_target_delete address
     #
-    all_commands['email_delete_forward_target'] = Command(
-        ("email", "delete_forward"),
+    all_commands['email_forward_target_delete'] = Command(
+        ("email", "forward_target_delete"),
         EmailAddress(help_ref='email_address'),
         fs=FormatSuggestion([("Deleted forward address: %s", ("address", ))]),
         perm_filter='can_email_forward_create')
 
-    def email_delete_forward_target(self, operator, address):
+    def email_forward_target_delete(self, operator, address):
         """Delete a forward target with associated aliases.
 
         Requires primary address.
@@ -1366,17 +1366,17 @@ class BofhdEmailCommands(BofhdEmailBase):
         return result
 
     #
-    # email remove_forward <account>+ <address>+
+    # email forward_remove <account>+ <address>+
     #
     # account can also be an e-mail address for pure forwardtargets
     #
-    all_commands['email_remove_forward'] = Command(
-        ("email", "remove_forward"),
+    all_commands['email_forward_remove'] = Command(
+        ("email", "forward_remove"),
         AccountName(help_ref="account_name", repeat=True),
         EmailAddress(help_ref='email_address', repeat=True),
         perm_filter='can_email_forward_edit')
 
-    def email_remove_forward(self, operator, uname, address):
+    def email_forward_remove(self, operator, uname, address):
         et, acc = self._get_email_target_and_account(uname)
 
         if uname.count('@') and not acc:
@@ -1941,15 +1941,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return {'person_id': person.entity_id}
 
     #
-    # email primary_address <address>
+    # email address_primary <address>
     #
-    all_commands['email_primary_address'] = Command(
-        ("email", "primary_address"),
+    all_commands['email_address_primary'] = Command(
+        ("email", "address_primary"),
         EmailAddress(),
         fs=FormatSuggestion([("New primary address: '%s'", ("address", ))]),
         perm_filter="is_postmaster")
 
-    def email_primary_address(self, operator, addr):
+    def email_address_primary(self, operator, addr):
         """ Set primary email address. """
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
@@ -1997,16 +1997,16 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "No change, %s is primary address for %s" % (address, uname)
 
     #
-    # email create_pipe <address> <uname> <command>
+    # email pipe_create <address> <uname> <command>
     #
-    all_commands['email_create_pipe'] = Command(
-        ("email", "create_pipe"),
+    all_commands['email_pipe_create'] = Command(
+        ("email", "pipe_create"),
         EmailAddress(help_ref="email_address"),
         AccountName(),
         SimpleString(help_ref="command_line"),
         perm_filter="can_email_pipe_create")
 
-    def email_create_pipe(self, operator, addr, uname, cmd):
+    def email_pipe_create(self, operator, addr, uname, cmd):
         """ Create email pipe. """
         lp, dom = self._split_email_address(addr)
         ed = self._get_email_domain_from_str(dom)
@@ -2033,14 +2033,14 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, created pipe address %s" % addr
 
     #
-    # email delete_pipe <address>
+    # email pipe_delete <address>
     #
-    all_commands['email_delete_pipe'] = Command(
-        ("email", "delete_pipe"),
+    all_commands['email_pipe_delete'] = Command(
+        ("email", "pipe_delete"),
         EmailAddress(help_ref="email_address"),
         perm_filter="can_email_pipe_create")
 
-    def email_delete_pipe(self, operator, addr):
+    def email_pipe_delete(self, operator, addr):
         """ Delete email pipe. """
         lp, dom = self._split_email_address(addr, with_checks=False)
         ed = self._get_email_domain_from_str(dom)
@@ -2095,15 +2095,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, updated %s" % uname
 
     #
-    # email edit_pipe_command <address> <command>
+    # email pipe_edit_command <address> <command>
     #
-    all_commands['email_edit_pipe_command'] = Command(
-        ("email", "edit_pipe_command"),
+    all_commands['email_pipe_edit_command'] = Command(
+        ("email", "pipe_edit_command"),
         EmailAddress(),
         SimpleString(help_ref="command_line"),
         perm_filter="can_email_pipe_edit")
 
-    def email_edit_pipe_command(self, operator, addr, cmd):
+    def email_pipe_edit_command(self, operator, addr, cmd):
         """ Edit pipe command. """
         lp, dom = self._split_email_address(addr)
         ed = self._get_email_domain_from_str(dom)
@@ -2129,15 +2129,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, edited %s" % addr
 
     #
-    # email edit_pipe_user <address> <uname>
+    # email pipe_edit_user <address> <uname>
     #
-    all_commands['email_edit_pipe_user'] = Command(
-        ("email", "edit_pipe_user"),
+    all_commands['email_pipe_edit_user'] = Command(
+        ("email", "pipe_edit_user"),
         EmailAddress(),
         AccountName(),
         perm_filter="can_email_pipe_edit")
 
-    def email_edit_pipe_user(self, operator, addr, uname):
+    def email_pipe_edit_user(self, operator, addr, uname):
         lp, dom = self._split_email_address(addr)
         ed = self._get_email_domain_from_str(dom)
         self.ba.can_email_pipe_edit(operator.get_entity_id(), domain=ed)
@@ -2157,15 +2157,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, edited %s" % addr
 
     #
-    # email create_domain <domainname> <description>
+    # email domain_create <domainname> <description>
     #
-    all_commands['email_create_domain'] = Command(
-        ("email", "create_domain"),
+    all_commands['email_domain_create'] = Command(
+        ("email", "domain_create"),
         SimpleString(help_ref="email_domain"),
         SimpleString(help_ref="string_description"),
         perm_filter="can_email_domain_create")
 
-    def email_create_domain(self, operator, domainname, desc):
+    def email_domain_create(self, operator, domainname, desc):
         """Create e-mail domain."""
         self.ba.can_email_domain_create(operator.get_entity_id())
         ed = Email.EmailDomain(self.db)
@@ -2186,14 +2186,14 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, domain '%s' created" % domainname
 
     #
-    # email delete_domain <domainname>
+    # email domain_delete <domainname>
     #
-    all_commands['email_delete_domain'] = Command(
-        ("email", "delete_domain"),
+    all_commands['email_domain_delete'] = Command(
+        ("email", "domain_delete"),
         SimpleString(help_ref="email_domain"),
         perm_filter="can_email_domain_create")
 
-    def email_delete_domain(self, operator, domainname):
+    def email_domain_delete(self, operator, domainname):
         """Delete e-mail domain."""
         self.ba.can_email_domain_create(operator.get_entity_id())
         ed = Email.EmailDomain(self.db)
@@ -2334,16 +2334,16 @@ class BofhdEmailCommands(BofhdEmailBase):
         return ret
 
     #
-    # email add_domain_affiliation <domain> <stedkode> [<affiliation>]
+    # email domain_add_affiliation <domain> <stedkode> [<affiliation>]
     #
-    all_commands['email_add_domain_affiliation'] = Command(
-        ("email", "add_domain_affiliation"),
+    all_commands['email_domain_add_affiliation'] = Command(
+        ("email", "domain_add_affiliation"),
         SimpleString(help_ref="email_domain"),
         OU(),
         Affiliation(optional=True),
         perm_filter="can_email_domain_create")
 
-    def email_add_domain_affiliation(self, operator,
+    def email_domain_add_affiliation(self, operator,
                                      domainname, sko, aff=None):
         """ Add affiliation to domain. """
         self.ba.can_email_domain_create(operator.get_entity_id())
@@ -2403,16 +2403,16 @@ class BofhdEmailCommands(BofhdEmailBase):
         return count
 
     #
-    # email remove_domain_affiliation <domain> <stedkode> [<affiliation>]
+    # email domain_remove_affiliation <domain> <stedkode> [<affiliation>]
     #
-    all_commands['email_remove_domain_affiliation'] = Command(
-        ("email", "remove_domain_affiliation"),
+    all_commands['email_domain_remove_affiliation'] = Command(
+        ("email", "domain_remove_affiliation"),
         SimpleString(help_ref="email_domain"),
         OU(),
         Affiliation(optional=True),
         perm_filter="can_email_domain_create")
 
-    def email_remove_domain_affiliation(self, operator, domainname, sko,
+    def email_domain_remove_affiliation(self, operator, domainname, sko,
                                         aff=None):
         """ Remove domain affs. """
         self.ba.can_email_domain_create(operator.get_entity_id())
@@ -2435,15 +2435,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, removed domain-affiliation for '%s'" % domainname
 
     #
-    # email create_forward <local-address> <remote-address>
+    # email forward_target_create <local-address> <remote-address>
     #
-    all_commands['email_create_forward_target'] = Command(
-        ("email", "create_forward"),
+    all_commands['email_forward_target_create'] = Command(
+        ("email", "forward_target_create"),
         EmailAddress(),
         EmailAddress(help_ref='email_forward_address'),
         perm_filter="can_email_forward_create")
 
-    def email_create_forward_target(self, operator, localaddr, remoteaddr):
+    def email_forward_target_create(self, operator, localaddr, remoteaddr):
         """ Create forward target.
 
         Creates a forward target, add localaddr as an address associated with
@@ -2480,15 +2480,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, created forward address '%s'" % localaddr
 
     #
-    # email create_multi <multi-address> <group>
+    # email multi_create <multi-address> <group>
     #
-    all_commands['email_create_multi'] = Command(
-        ("email", "create_multi"),
+    all_commands['email_multi_create'] = Command(
+        ("email", "multi_create"),
         EmailAddress(help_ref="email_address"),
         GroupName(help_ref="group_name_dest"),
         perm_filter="can_email_multi_create")
 
-    def email_create_multi(self, operator, addr, group):
+    def email_multi_create(self, operator, addr, group):
         """ Create en e-mail target of type 'multi'. """
         lp, dom = self._split_email_address(addr)
         ed = self._get_email_domain_from_str(dom)
@@ -2519,15 +2519,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, multi-target for '%s' created" % addr
 
     #
-    # email delete_multi <address>
+    # email multi_delete <address>
     #
-    all_commands['email_delete_multi'] = Command(
-        ("email", "delete_multi"),
+    all_commands['email_multi_delete'] = Command(
+        ("email", "multi_delete"),
         EmailAddress(help_ref="email_address"),
         fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
         perm_filter="can_email_multi_delete")
 
-    def email_delete_multi(self, operator, addr):
+    def email_multi_delete(self, operator, addr):
         """ Delete multi target. """
         lp, dom = self._split_email_address(addr)
         ed = self._get_email_domain_from_str(dom)
@@ -2622,14 +2622,14 @@ class BofhdEmailCommands(BofhdEmailBase):
             raise CerebrumError('Mailpause is either \'ON\' or \'OFF\'')
 
     #
-    # email list_pause
+    # email pause_list
     #
-    all_commands['email_list_pause'] = Command(
-        ("email", "list_pause"),
+    all_commands['email_pause_list'] = Command(
+        ("email", "pause_list"),
         perm_filter='can_email_pause',
         fs=FormatSuggestion([("Paused addresses:\n%s", ("paused", ))]),)
 
-    def email_list_pause(self, operator):
+    def email_pause_list(self, operator):
         """ Pause email delivery to list. """
         self.ba.can_email_pause(operator.get_entity_id())
         ac = self.Account_class(self.db)
@@ -2714,15 +2714,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, set quota for '%s'" % uname
 
     #
-    # email add_filter filter address
+    # email spam_add_filter filter address
     #
-    all_commands['email_add_filter'] = Command(
-        ('email', 'add_filter'),
+    all_commands['email_spam_add_filter'] = Command(
+        ('email', 'spam_add_filter'),
         SimpleString(help_ref='string_email_filter'),
         SimpleString(help_ref='string_email_target_name', repeat="True"),
         perm_filter='can_email_spam_settings')
 
-    def email_add_filter(self, operator, filter, address):
+    def email_spam_add_filter(self, operator, filter, address):
         """ Add a filter to an existing e-mail target. """
         et, acc = self._get_email_target_and_account(address)
         self.ba.can_email_spam_settings(operator.get_entity_id(),
@@ -2763,13 +2763,13 @@ class BofhdEmailCommands(BofhdEmailBase):
     #
     # email remove_filter filter address
     #
-    all_commands['email_remove_filter'] = Command(
-        ('email', 'remove_filter'),
+    all_commands['email_spam_remove_filter'] = Command(
+        ('email', 'spam_remove_filter'),
         SimpleString(help_ref='string_email_filter'),
         SimpleString(help_ref='string_email_target_name', repeat="True"),
         perm_filter='can_email_spam_settings')
 
-    def email_remove_filter(self, operator, filter, address):
+    def email_spam_remove_filter(self, operator, filter, address):
         """ Remove filter. """
         et, acc = self._get_email_target_and_account(address)
         self.ba.can_email_spam_settings(operator.get_entity_id(),
@@ -2954,10 +2954,10 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, set tripnote to '%s' for '%s'" % (action, uname)
 
     #
-    # email list tripnotes <uname>
+    # email tripnote_list <uname>
     #
-    all_commands['email_list_tripnotes'] = Command(
-        ('email', 'list_tripnotes'),
+    all_commands['email_tripnote_list'] = Command(
+        ('email', 'tripnote_list'),
         AccountName(help_ref='account_name'),
         fs=FormatSuggestion([
             ("%s%s -- %s: %s\n"
@@ -2968,7 +2968,7 @@ class BofhdEmailCommands(BofhdEmailBase):
         perm_filter='can_email_tripnote_toggle'
     )
 
-    def email_list_tripnotes(self, operator, uname):
+    def email_tripnote_list(self, operator, uname):
         """ List tripnotes for a user. """
         acc = self._get_account(uname)
         self.ba.can_email_tripnote_toggle(operator.get_entity_id(),
@@ -3037,16 +3037,16 @@ class BofhdEmailCommands(BofhdEmailBase):
         raise CerebrumError("No tripnotes for %s" % uname)
 
     #
-    # email add_tripnote <uname> <text> <begin-date>[-<end-date>]
+    # email tripnote_add <uname> <text> <begin-date>[-<end-date>]
     #
-    all_commands['email_add_tripnote'] = Command(
-        ('email', 'add_tripnote'),
+    all_commands['email_tripnote_add'] = Command(
+        ('email', 'tripnote_add'),
         AccountName(help_ref='account_name'),
         SimpleString(help_ref='tripnote_text'),
         SimpleString(help_ref='string_from_to'),
         perm_filter='can_email_tripnote_edit')
 
-    def email_add_tripnote(self, operator, uname, text, when=None):
+    def email_tripnote_add(self, operator, uname, text, when=None):
         """ Add a tripnote. """
         acc = self._get_account(uname)
         self.ba.can_email_tripnote_edit(operator.get_entity_id(), account=acc)
@@ -3072,15 +3072,15 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, added tripnote for '%s'" % uname
 
     #
-    # email remove_tripnote <uname> [<when>]
+    # email tripnote_remove <uname> [<when>]
     #
-    all_commands['email_remove_tripnote'] = Command(
-        ('email', 'remove_tripnote'),
+    all_commands['email_tripnote_remove'] = Command(
+        ('email', 'tripnote_remove'),
         AccountName(help_ref='account_name'),
         SimpleString(help_ref='date', optional=True),
         perm_filter='can_email_tripnote_edit')
 
-    def email_remove_tripnote(self, operator, uname, when=None):
+    def email_tripnote_remove(self, operator, uname, when=None):
         """ Remove tripnote. """
         acc = self._get_account(uname)
         self.ba.can_email_tripnote_edit(operator.get_entity_id(), account=acc)
@@ -3809,11 +3809,11 @@ class BofhdSympaCommands(BofhdEmailBase):
         return ret
 
     #
-    # sympa create_list <run-host> <delivery-host> <listaddr> <admins>
-    #                   <profile> <desc> [force?]
+    # sympa create <run-host> <delivery-host> <listaddr> <admins>
+    #              <profile> <desc> [force?]
     #
-    all_commands['sympa_create_list'] = Command(
-        ("sympa", "create_list"),
+    all_commands['sympa_create'] = Command(
+        ("sympa", "create"),
         SimpleString(help_ref='string_exec_host'),
         SimpleString(help_ref='string_email_delivery_host'),
         EmailAddress(help_ref="mailing_list"),
@@ -3824,9 +3824,9 @@ class BofhdSympaCommands(BofhdEmailBase):
         fs=FormatSuggestion([("Sympa list '%s' created", ('listname', ))]),
         perm_filter="can_email_list_create")
 
-    def sympa_create_list(self, operator, run_host, delivery_host, listname,
-                          admins, list_profile, list_description,
-                          yes_no_force="No"):
+    def sympa_create(self, operator, run_host, delivery_host, listname,
+                     admins, list_profile, list_description,
+                     yes_no_force="No"):
         """ Create a sympa list in Cerebrum and on the sympa server(s).
 
         Registers all the necessary cerebrum information and make a bofhd
@@ -3898,10 +3898,10 @@ class BofhdSympaCommands(BofhdEmailBase):
         return {'listname': listname}
 
     #
-    # sympa remove_list <run-host> <list-address>
+    # sympa delete <run-host> <list-address>
     #
-    all_commands['sympa_remove_list'] = Command(
-        ("sympa", "remove_list"),
+    all_commands['sympa_delete'] = Command(
+        ("sympa", "delete"),
         SimpleString(help_ref='string_exec_host'),
         EmailAddress(help_ref="mailing_list_exist"),
         YesNo(help_ref="yes_no_with_request"),
@@ -3909,7 +3909,7 @@ class BofhdSympaCommands(BofhdEmailBase):
                               ('listname', 'request', ))]),
         perm_filter="can_email_list_delete")
 
-    def sympa_remove_list(self, operator, run_host, listname, force_yes_no):
+    def sympa_delete(self, operator, run_host, listname, force_yes_no):
         """ Remove a sympa list from cerebrum.
 
         @type force_request: bool
@@ -3987,18 +3987,18 @@ class BofhdSympaCommands(BofhdEmailBase):
         return {'listname': listname, 'request': True}
 
     #
-    # sympa create_list_alias <list-address> <new-alias>
+    # sympa alias_add <list-address> <new-alias>
     #
-    all_commands['sympa_create_list_alias'] = Command(
-        ("sympa", "create_list_alias"),
+    all_commands['sympa_alias_add'] = Command(
+        ("sympa", "alias_add"),
         EmailAddress(help_ref="mailing_list_exist"),
         EmailAddress(help_ref="mailing_list"),
         YesNo(help_ref="yes_no_force", optional=True),
         fs=FormatSuggestion([("List alias '%s' created", ('alias', ))]),
         perm_filter="can_email_list_create")
 
-    def sympa_create_list_alias(self, operator, listname, address,
-                                yes_no_force='No'):
+    def sympa_alias_add(self, operator, listname, address,
+                        yes_no_force='No'):
         """ Create a secondary name for an existing Sympa list. """
         force = self._get_boolean(yes_no_force)
         # The first thing we have to do is to locate the delivery
@@ -4023,15 +4023,15 @@ class BofhdSympaCommands(BofhdEmailBase):
         return {'target': listname, 'alias': address, }
 
     #
-    # sympa remove_list_alias <alias>
+    # sympa alias_remove <alias>
     #
-    all_commands['sympa_remove_list_alias'] = Command(
-        ('sympa', 'remove_list_alias'),
+    all_commands['sympa_alias_remove'] = Command(
+        ('sympa', 'alias_remove'),
         EmailAddress(help_ref='mailing_list_alias'),
         fs=FormatSuggestion([("List alias '%s' removed", ('alias', ))]),
         perm_filter='can_email_list_create')
 
-    def sympa_remove_list_alias(self, operator, alias):
+    def sympa_alias_remove(self, operator, alias):
         """ Remove Sympa list aliases. """
         lp, dom = self._split_email_address(alias, with_checks=False)
         ed = self._get_email_domain_from_str(dom)
@@ -4068,10 +4068,10 @@ class BofhdSympaCommands(BofhdEmailBase):
         return {'alias': alias}
 
     #
-    # sympa create_list_in_cerebrum
+    # sympa create_cerebrum_target
     #
-    all_commands['sympa_create_list_in_cerebrum'] = Command(
-        ("sympa", "create_list_in_cerebrum"),
+    all_commands['sympa_create_cerebrum_target'] = Command(
+        ("sympa", "create_cerebrum_target"),
         SimpleString(help_ref='string_email_delivery_host'),
         EmailAddress(help_ref="mailing_list"),
         YesNo(help_ref="yes_no_force", optional=True, default="No"),
@@ -4079,8 +4079,8 @@ class BofhdSympaCommands(BofhdEmailBase):
                               ('listname', ))]),
         perm_filter="can_email_list_create")
 
-    def sympa_create_list_in_cerebrum(self, operator, delivery_host, listname,
-                                      yes_no_force=None):
+    def sympa_create_cerebrum_target(self, operator, delivery_host, listname,
+                                     yes_no_force=None):
         """ Create a sympa mailing list in cerebrum only. """
 
         delivery_host = self._get_server_from_ident(delivery_host)
@@ -4197,29 +4197,29 @@ HELP_EMAIL_GROUP = {
 
 HELP_EMAIL_CMDS = {
     'email': {
-        "email_add_address":
+        "email_address_add":
             "Add an alias address",
-        "email_remove_address":
+        "email_address_remove":
             "Remove an alias address",
-        "email_add_filter":
+        "email_spam_add_filter":
             "Add a target filter",
-        "email_remove_filter":
+        "email_spam_remove_filter":
             "Remove target_filter",
-        "email_reassign_address":
+        "email_address_reassign":
             "Move an address from one account to another",
         "email_update":
             "Update default address and aliases associated with account",
-        "email_create_domain":
+        "email_domain_create":
             "Create a new e-mail domain",
-        "email_delete_domain":
+        "email_domain_delete":
             "Delete an e-mail domain",
-        "email_create_forward_target":
+        "email_forward_target_create":
             "Create a new e-mail forward target",
         "email_domain_info":
             "View information about an e-mail domain",
-        "email_add_domain_affiliation":
+        "email_domain_add_affiliation":
             "Connect a OU to an e-mail domain",
-        "email_remove_domain_affiliation":
+        "email_domain_remove_affiliation":
             "Remove link between OU and e-mail domain",
         "email_domain_configuration":
             "Configure settings for an e-mail domain",
@@ -4229,34 +4229,34 @@ HELP_EMAIL_CMDS = {
             "Customise the failure message for a deleted account",
         "email_forward":
             "Turn e-mail forwarding for a user on/off",
-        "email_add_forward":
+        "email_forward_add":
             "Add a forward address",
-        "email_remove_forward":
+        "email_forward_remove":
             "Remove a forward address",
-        "email_local_delivery":
+        "email_forward_local_delivery":
             "Turn on/off local e-mail delivery for an account with a forward "
             "address",
         "email_info":
             "View e-mail information about a user or address",
-        "email_create_multi":
+        "email_multi_create":
             "Make an e-mail target which expands to the members of a group",
-        "email_create_pipe":
+        "email_pipe_create":
             "Make an e-mail target which points to a pipe",
-        "email_delete_pipe":
+        "email_pipe_delete":
             "Delete an e-mail target that points to a pipe",
         "email_delete_sympa_list":
             "Remove a Sympa list's addresses",
-        "email_delete_multi":
+        "email_multi_delete":
             "Remove a multi target and all its addresses",
-        "email_delete_forward_target":
+        "email_forward_target_delete":
             "Delete an e-mail forward target",
-        "email_edit_pipe_command":
+        "email_pipe_edit_command":
             "Change the command the pipe or RT target runs",
-        "email_edit_pipe_user":
+        "email_pipe_edit_user":
             "Change the account the pipe or RT target runs as",
         "email_mod_name":
             "Override name for person (to be used in e-mail address)",
-        "email_primary_address":
+        "email_address_set_primary":
             "Changes the primary address for the e-mail target to the "
             "specified value",
         "email_set_primary_address":
@@ -4270,15 +4270,15 @@ HELP_EMAIL_CMDS = {
             "Change target's tolerance for spam",
         "email_tripnote":
             "Turn vacation messages on/off",
-        "email_add_tripnote":
+        "email_tripnote_add":
             "Add vacation message",
-        "email_list_tripnotes":
+        "email_tripnote_list":
             "List user's vacation messages",
-        "email_remove_tripnote":
+        "email_tripnote_remove":
             "Remove vacation message",
         "email_pause":
             "Turn delivery pause on or off",
-        "email_list_pause":
+        "email_pause_list":
             "List all mailtargets with paused delivery",
     },
 }
@@ -4362,17 +4362,17 @@ HELP_SYMPA_GROUP = {
 
 HELP_SYMPA_CMDS = {
     'sympa': {
-        'sympa_create_list':
+        'sympa_create':
             "Add addresses needed for a Sympa list",
-        'sympa_remove_list':
+        'sympa_delete':
             "Remove a sympa list from Cerebrum",
-        'sympa_create_list_alias':
+        'sympa_alias_add':
             "Add an alias for a Sympa list.  This also adds additional "
             "addresses (e.g. -owner, -request, etc.)",
-        'sympa_remove_list_alias':
+        'sympa_alias_remove':
             "Remove an alias for a Sympa list. This also removes additional "
             "administrative addresses (-owner, -request, etc.)",
-        'sympa_create_list_in_cerebrum':
+        'sympa_create_cerebrum_target':
             "Add addresses needed for a Sympa list (Cerebrum only)",
     },
 }
