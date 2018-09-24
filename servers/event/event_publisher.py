@@ -142,11 +142,15 @@ def main(args=None):
 
     # Run event processes
     logger.info('Starting publisher event utils')
-    serve(
-        config,
-        int(args.num_workers),
-        args.listen_db,
-        args.collect_db)
+    try:
+        with pid():
+            serve(
+                config,
+                int(args.num_workers),
+                args.listen_db,
+                args.collect_db)
+    except PIDError:
+        logger.warn('Failed to start publisher, lockfile is locked')
 
 
 if __name__ == '__main__':
