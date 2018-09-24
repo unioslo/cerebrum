@@ -165,12 +165,8 @@ class BaseSync(object):
         only use ADclient directly in this class instead? Depends on how
         complicated things are getting.
 
-        @type db: Cerebrum.CLDatabase.CLDatabase
-        @param db: The Cerebrum database connection that should be used.
-
-        @type logger: Cerebrum.modules.cerelog.CerebrumLogger
-        @param logger: The Cerebrum logger to use.
-
+        :type db: Cerebrum.CLDatabase.CLDatabase
+        :type logger: Cerebrum.logutils.loggers.CerebrumLogger
         """
         super(BaseSync, self).__init__()
 
