@@ -32,22 +32,30 @@ SIGUSR1 (main process)
     List current processes, pids and their state.
 """
 import argparse
-
 from multiprocessing import Queue
 
 from Cerebrum import Utils
 from Cerebrum.modules.event import utils
-from Cerebrum.modules.event_publisher.config import load_daemon_config
-
 from Cerebrum.modules.event_publisher import consumer
+from Cerebrum.modules.event_publisher.config import load_daemon_config
+from Cerebrum.utils.pidcontext import (PIDError, pid)
 
 
 class Manager(utils.Manager):
     pass
 
+
 # Inject Queue implementations:
 Manager.register('queue', Queue)
 Manager.register('log_queue', Queue)
+
+
+def unlock_all_events():
+    from Cerebrum.Utils import Factory
+    from Cerebrum.modules.event_publisher.eventdb import EventsAccessor
+    database = Factory.get('Database')()
+    EventsAccessor(database).release_all()
+    database.commit()
 
 
 def serve(config, num_workers, enable_listener, enable_collector):
@@ -133,6 +141,13 @@ def main(args=None):
                         default=True,
                         help='Disable event collectors')
 
+    parser.add_argument('--unlock-events',
+                        dest='unlock_events',
+                        action='store_true',
+                        default=False,
+                        help='Unlock events that remain locked from '
+                             'previous runs')
+
     args = parser.parse_args(args)
     config = load_daemon_config(filepath=args.configfile)
 
@@ -144,6 +159,8 @@ def main(args=None):
     logger.info('Starting publisher event utils')
     try:
         with pid():
+            if args.unlock_events:
+                unlock_all_events()
             serve(
                 config,
                 int(args.num_workers),
