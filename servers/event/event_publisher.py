@@ -169,6 +169,8 @@ def main(args=None):
     except PIDError:
         logger.warn('Failed to start publisher, lockfile is locked')
 
+    logger.info('Event publisher stopped')
+
 
 if __name__ == '__main__':
     main()
