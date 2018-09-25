@@ -67,6 +67,10 @@ class RadiusLDIF(object):
         fd.write(container_entry_string('RADIUS'))
         noAuth = (None, None)
         for account_id, vlan_vpn in self.id2vlan_vpn.iteritems():
+            # self.auth is cached
+            if account_id not in self.auth:
+                continue
+
             info = self.auth[account_id]
             uname = info[0]
             auth = info[1]
