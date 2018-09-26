@@ -38,7 +38,7 @@ from Cerebrum import Utils
 from Cerebrum.modules.event import utils
 from Cerebrum.modules.event_publisher import consumer
 from Cerebrum.modules.event_publisher.config import load_daemon_config
-from Cerebrum.utils.pidcontext import (PIDError, pid)
+from Cerebrum.utils.pidcontext import Pid
 
 
 class Manager(utils.Manager):
@@ -157,17 +157,14 @@ def main(args=None):
 
     # Run event processes
     logger.info('Starting publisher event utils')
-    try:
-        with pid():
-            if args.unlock_events:
-                unlock_all_events()
-            serve(
-                config,
-                int(args.num_workers),
-                args.listen_db,
-                args.collect_db)
-    except PIDError:
-        logger.warn('Failed to start publisher, lockfile is locked')
+    with Pid():
+        if args.unlock_events:
+            unlock_all_events()
+        serve(
+            config,
+            int(args.num_workers),
+            args.listen_db,
+            args.collect_db)
 
     logger.info('Event publisher stopped')
 

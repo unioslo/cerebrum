@@ -21,22 +21,36 @@
 
 """This module contains a simple PID file locking tool.
 
->>> from pid import (PIDError, pid)
->>> try:
-...     with pid():
+>>> from pidcontext import Pid
+...     with Pid():
 ...         do_something()
-... except PIDError:
-...     print('PID file exists')
+
+Runs do_something() only if a lockfile for the program is acquirable. A warning
+stating '<filename> is locked' is logged and SystemExit is raised if the
+lockfile is not acquirable.
 """
+
+from Cerebrum.Utils import Factory
 
 from cereconf import LOCKFILE_DIR
 
 from pid import PidFile
 from pid import PidFileAlreadyLockedError
 
+LOGGER = Factory.get_logger()
 
-PIDError = PidFileAlreadyLockedError
 
+class Pid(object):
+    def __init__(self):
+        self.pid = PidFile(piddir=LOCKFILE_DIR)
 
-def pid():
-    return PidFile(piddir=LOCKFILE_DIR)
+    def __enter__(self):
+        try:
+            self.pid.__enter__()
+        except PidFileAlreadyLockedError:
+            LOGGER.warn('%s is locked', self.pid.filename)
+            raise SystemExit()
+        return self
+
+    def __exit__(self, exc_type=None, exc_value=None, exc_tb=None):
+        self.pid.__exit__()
