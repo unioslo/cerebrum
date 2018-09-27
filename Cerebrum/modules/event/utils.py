@@ -160,8 +160,6 @@ class ProcessHandler(object):
     @memoize
     def log_queue(self):
         """ A shared queue to use for log messages. """
-        # return multiprocessing.Queue(self.log_queue_size)
-        # return self.mgr.Queue(self.log_queue_size)
         return self.mgr.LogQueue(self.log_queue_size)
 
     @property
