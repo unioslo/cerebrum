@@ -165,7 +165,7 @@ class CerebrumObject(object):
     def code(self, obj):
         """ Convert constants code. """
         try:
-            c = self.const.resolve_const(obj['code'])
+            c = self.const.resolve_constant(self.db, obj['code'])
         except KeyError:
             raise ValueError('Object {} has no code'.format(obj))
         if c is None:  # code does not exist any more
