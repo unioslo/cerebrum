@@ -371,6 +371,9 @@ EXCHANGE_HOMEMDB_PER_AFFILIATION = {}
 UA_FTP_HOST = 'uaftp.uio.no'
 UA_FTP_UNAME = 'uname'
 
+# General location for lockfiles
+LOCKFILE_DIR = pj(prefix, 'var', 'lock')
+
 # Is this used?
 LOGGING_ROOT_DIR = pj(prefix, 'var', 'log', 'cerebrum')
 
@@ -428,7 +431,7 @@ BOFHD_AUTH_GROUPMODERATOR = None
 # Directory for templates
 TEMPLATE_DIR = pj(prefix, 'etc', 'templates')
 # Location of locks used by bofhd-request processing system
-BOFHD_REQUEST_LOCK_DIR = pj(prefix, 'var', 'lock', 'bofhreq', 'lock-%d')
+BOFHD_REQUEST_LOCK_DIR = pj(LOCKFILE_DIR, 'bofhreq', 'lock-%d')
 # Quarantines that do not lead to denial of access to bofhd
 BOFHD_NONLOCK_QUARANTINES = ()
 BOFHD_QUARANTINE_DISABLE_LIMIT = None  # days a quarantine can be disabled
@@ -505,7 +508,7 @@ FS_GROUP_DESC = "Internal group for students which will be shown online."
 USE_STUDENTNR_AS_UNAME = False
 # Socket used to query the job-runner server, should not be writeable by
 # untrusted users
-JOB_RUNNER_SOCKET = pj(prefix, 'var', 'lock', 'job_runner')
+JOB_RUNNER_SOCKET = pj(LOCKFILE_DIR, 'job_runner')
 
 # Set to a place where only 'cerebrum' has write access
 JOB_RUNNER_LOG_DIR = pj(prefix, 'var', 'log', 'job_runner')

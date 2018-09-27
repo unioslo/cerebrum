@@ -106,7 +106,6 @@ from distutils import sysconfig
 from distutils.command import install_data
 from distutils.core import setup, Command
 from distutils.util import change_root, convert_path
-from setuptools.command.develop import develop
 import Cerebrum
 
 
@@ -189,11 +188,6 @@ class LocaleInstaller(Command):
                 continue
             self.warn('No locale for {!r} in language {!r}'.format(namespace,
                                                                    lang_dir))
-
-
-class CerebrumDevelop(develop):
-    def run(self):
-        self.run_command('install_locales')
 
 
 class CerebrumLocales(LocaleInstaller):
@@ -529,7 +523,6 @@ setup(
     cmdclass={
         'install_data': my_install_data,
         'install_locales': CerebrumLocales,
-        'develop': CerebrumDevelop,
     }
 )
 
