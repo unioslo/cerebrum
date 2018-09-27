@@ -18,7 +18,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import logging
+
 import cereconf
+import Cerebrum.logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.LDIFutils import (ldapconf,
                                         ldif_outfile,
@@ -26,6 +29,8 @@ from Cerebrum.modules.LDIFutils import (ldapconf,
                                         entry_string,
                                         container_entry_string)
 from Cerebrum.QuarantineHandler import QuarantineHandler
+
+logger = logging.getLogger(__name__)
 
 
 class RadiusLDIF(object):
@@ -64,11 +69,14 @@ class RadiusLDIF(object):
 
     def dump(self):
         fd = ldif_outfile('RADIUS')
+
         fd.write(container_entry_string('RADIUS'))
         noAuth = (None, None)
         for account_id, vlan_vpn in self.id2vlan_vpn.iteritems():
             # self.auth is cached
             if account_id not in self.auth:
+                logging.warning(('{0} not in self.auth (cached). '
+                                 'Skipping..').format(account_id))
                 continue
 
             info = self.auth[account_id]
@@ -99,7 +107,7 @@ class RadiusLDIF(object):
 
 
 def main():
-    logger = Factory.get_logger("cronjob")
+    Cerebrum.logutils.autoconf('cronjob')
     logger.info('Dumping RADIUS accounts...')
     RadiusLDIF().dump()
     logger.info('Done')
