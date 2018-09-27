@@ -30,14 +30,12 @@ stating '<filename> is locked' is logged and SystemExit is raised if the
 lockfile is not acquirable.
 """
 
-from Cerebrum.Utils import Factory
+import logging
 
 from cereconf import LOCKFILE_DIR
 
 from pid import PidFile
 from pid import PidFileAlreadyLockedError
-
-LOGGER = Factory.get_logger()
 
 
 class Pid(object):
@@ -48,7 +46,8 @@ class Pid(object):
         try:
             self.pid.__enter__()
         except PidFileAlreadyLockedError:
-            LOGGER.warn('%s is locked', self.pid.filename)
+            logging.getLogger(__name__).warning('%s is locked',
+                                                self.pid.filename)
             raise SystemExit()
         return self
 

@@ -32,13 +32,17 @@ SIGUSR1 (main process)
     List current processes, pids and their state.
 """
 import argparse
+import logging
 from multiprocessing import Queue
 
+import Cerebrum.logutils
 from Cerebrum import Utils
 from Cerebrum.modules.event import utils
 from Cerebrum.modules.event_publisher import consumer
 from Cerebrum.modules.event_publisher.config import load_daemon_config
 from Cerebrum.utils.pidcontext import Pid
+
+logger = logging.getLogger(__name__)
 
 
 class Manager(utils.Manager):
@@ -107,7 +111,6 @@ def show_config(config):
 
 
 def main(args=None):
-    logger = Utils.Factory.get_logger('cronjob')
     parser = argparse.ArgumentParser(description=__doc__)
 
     parser.add_argument('-c', '--config',
@@ -148,7 +151,10 @@ def main(args=None):
                         help='Unlock events that remain locked from '
                              'previous runs')
 
+    Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(args)
+    Cerebrum.logutils.autoconf(__name__, args)
+
     config = load_daemon_config(filepath=args.configfile)
 
     if args.show_config:
