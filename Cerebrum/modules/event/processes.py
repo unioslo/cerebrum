@@ -17,7 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
-u""" This module contains common multiprocessing.Process implementations. """
+""" This module contains common multiprocessing.Process implementations. """
+from __future__ import print_function
 
 import os
 import time
@@ -33,16 +34,23 @@ from .logutils import QueueHandler
 
 
 class ProcessBase(multiprocessing.Process):
-    u""" Common functionality for all processes. """
+    """ Common functionality for all processes. """
+
+    def __init__(self, *args, **kwargs):
+        daemon = kwargs.pop('daemon', None)
+        super(ProcessBase, self).__init__(*args, **kwargs)
+        if daemon is not None:
+            self.daemon = bool(daemon)
+        # else, do not explicitly set (inherit from parent process)
 
     @property
     def _key(self):
-        u""" A unique string hex id for this process. """
-        return u'CB{:x}'.format(os.getpid()).upper()
+        """ A unique string hex id for this process. """
+        return 'CB{:x}'.format(os.getpid()).upper()
 
     @property
     def _started(self):
-        u""" If this process has started.
+        """ If this process has started.
 
         NOTE: Parent process/other procs should use `is_alive()` for this
         purpose.
@@ -50,7 +58,7 @@ class ProcessBase(multiprocessing.Process):
         return os.getpid() != self._parent_pid
 
     def run(self):
-        u""" Process runtime method. """
+        """ Process runtime method. """
         try:
             self.setup()
             self.main()
@@ -58,20 +66,20 @@ class ProcessBase(multiprocessing.Process):
             self.cleanup()
 
     def setup(self):
-        u""" A no-op setup method. """
+        """ A no-op setup method. """
         return
 
     def cleanup(self):
-        u""" A no-op cleanup method. """
+        """ A no-op cleanup method. """
         return
 
     def main(self):
-        u""" A no-op main method. """
+        """ A no-op main method. """
         return
 
 
 class ProcessLoggingMixin(ProcessBase):
-    u""" Mixin to supply a QueueLogger logging object for processes.
+    """ Mixin to supply a QueueLogger logging object for processes.
 
     The log records should be processed in a .logutils.LogRecordThread, running
     in the main process of your multiprocessing script.
@@ -88,7 +96,7 @@ class ProcessLoggingMixin(ProcessBase):
     """
 
     def __init__(self, log_queue=None, **kwargs):
-        u""" Initialize process with a logger.
+        """ Initialize process with a logger.
 
         :param Queue log_queue:
             A queue for log messages. Log messages should be formatted as
@@ -111,17 +119,17 @@ class ProcessLoggingMixin(ProcessBase):
         root.setLevel(self.logger.level)
         root.addHandler(self._handler)
 
-        self.logger.info(u'Process starting (pid=%d): %s',
-                         os.getpid(), str(self))
+        self.logger.info('Process starting (pid=%r): %s',
+                         os.getpid(), repr(self))
 
     def cleanup(self):
-        self.logger.info(u'Process stopping (pid=%d): %s',
-                         os.getpid(), str(self))
+        self.logger.info('Process stopping (pid=%r): %s',
+                         os.getpid(), repr(self))
         super(ProcessLoggingMixin, self).cleanup()
 
 
 class ProcessLoopMixin(ProcessBase):
-    u""" Simple Process with a shared `running` kill switch.
+    """ Simple Process with a shared `running` kill switch.
 
     This Process will call `self.process()` as long as `self.running` is
     `True`.
@@ -133,7 +141,7 @@ class ProcessLoopMixin(ProcessBase):
     -------
     >>> class MyClass(ProcessLoopMixin):
     ...     def process(self):
-    ...         print 'Waiting {:d} seconds'.format(self.timeout)
+    ...         print('Waiting {:d} seconds'.format(self.timeout))
     ...         time.sleep(self.timeout)
     >>> proc = MyClass(running=multiprocessing.Value(ctypes.c_int, 1))
     >>> proc.start()
@@ -152,10 +160,10 @@ class ProcessLoopMixin(ProcessBase):
     """
 
     timeout = 5
-    u""" A timeout for the process loop. """
+    """ A timeout for the process loop. """
 
     def __init__(self, running=None, keep_sighup=False, **kwargs):
-        u""" Initializes the process loop.
+        """ Initializes the process loop.
 
         :type running:
             multiprocessing.Value(ctypes.c_int), NoneType
@@ -179,8 +187,8 @@ class ProcessLoopMixin(ProcessBase):
             self._running = multiprocessing.Value(ctypes.c_int, 1)
         else:
             raise TypeError(
-                u'Invalid running value {!r}, must be a'
-                u' multiprocessing.Value(ctypes.c_int)'.format(type(running)))
+                'Invalid running value {!r}, must be a'
+                ' multiprocessing.Value(ctypes.c_int)'.format(type(running)))
 
         super(ProcessLoopMixin, self).__init__(**kwargs)
 
@@ -191,7 +199,7 @@ class ProcessLoopMixin(ProcessBase):
 
     @property
     def running(self):
-        u""" A (shared) boolean killswitch value. """
+        """ A (shared) boolean killswitch value. """
         return bool(self._running.value)
 
     @running.setter
@@ -199,23 +207,23 @@ class ProcessLoopMixin(ProcessBase):
         self._running.value = int(bool(value))
 
     def __make_ppid_sighup_handler(self, keep_parent):
-        u""" Make signal handler for parent process. """
+        """ Make signal handler for parent process. """
         if keep_parent:
             old_handler = signal.getsignal(signal.SIGINT)
         else:
             old_handler = None
 
         def handler(signum, frame):
-            u""" Sets `running` to False on SIGHUP. """
-            print 'Parent (main) process got SIGHUP'
+            """ Sets `running` to False on SIGHUP. """
+            print('Parent (main) process got SIGHUP')
             self.running = False
             if callable(old_handler):
                 old_handler(signum, frame)
         return handler
 
     def __sighup_handler(self, signum, frame):
-        u""" Sets `running` to False on SIGHUP. """
-        print self.name, 'got SIGHUP'
+        """ Sets `running` to False on SIGHUP. """
+        print(self.name, 'got SIGHUP')
         self.running = False
         if os.getpid() != self._parent_pid:
             os.kill(self._parent_pid, signum)
@@ -232,18 +240,18 @@ class ProcessLoopMixin(ProcessBase):
             self.process()
 
     def process(self):
-        u""" Implementation of the process loop. """
+        """ Implementation of the process loop. """
         time.sleep(self.timeout)
 
 
 class ProcessDBMixin(ProcessBase):
-    u""" Mixin to supply db objects to a process. """
+    """ Mixin to supply db objects to a process. """
 
     db_enc = 'utf-8'
-    u""" Database encoding. """
+    """ Database encoding. """
 
     def __init__(self, dryrun=False, **kwargs):
-        u""" Initialize process.
+        """ Initialize process.
 
         :param bool dryrun:
             If True, commit will be disabled in the db object (default: False).
@@ -254,9 +262,9 @@ class ProcessDBMixin(ProcessBase):
     @property
     @memoize
     def db(self):
-        u""" The database connection. """
+        """ The database connection. """
         if not self._started:
-            raise RuntimeError(u'Tried to set up database connection pre-fork')
+            raise RuntimeError('Tried to set up database connection pre-fork')
         db = Factory.get('Database')(client_encoding=self.db_enc)
         if self._db_dryrun:
             # TODO: Wrap the rollback-commit in something that issues a warn?
@@ -266,21 +274,21 @@ class ProcessDBMixin(ProcessBase):
     @property
     @memoize
     def co(self):
-        u""" Constants. """
+        """ Constants. """
         return Factory.get('Constants')(self.db)
 
     @property
     @memoize
     def clconst(self):
-        u""" CLConstants. """
+        """ CLConstants. """
         return Factory.get('CLConstants')(self.db)
 
 
 class ProcessQueueMixin(ProcessBase):
-    u""" Simple multiprocessing queue handler. """
+    """ Simple multiprocessing queue handler. """
 
     def __init__(self, queue=None, fan_out_queues=None, **kwargs):
-        u"""EventHandler initialization routine.
+        """EventHandler initialization routine.
 
         :param Queue queue:
             The queue to poll or put items on.
@@ -294,7 +302,7 @@ class ProcessQueueMixin(ProcessBase):
         super(ProcessQueueMixin, self).__init__(**kwargs)
 
     def push(self, item):
-        u""" Pushes an item on the shared queue.
+        """ Pushes an item on the shared queue.
 
         :param item:
             Any pickleable object.
@@ -304,7 +312,7 @@ class ProcessQueueMixin(ProcessBase):
 
 
 class QueueListener(ProcessQueueMixin, ProcessLoopMixin):
-    u""" An abstract queue listener process. """
+    """ An abstract queue listener process. """
     def process(self):
         try:
             item = self.queue.get(block=True, timeout=self.timeout)
@@ -313,4 +321,4 @@ class QueueListener(ProcessQueueMixin, ProcessLoopMixin):
         self.handle(item)
 
     def handle(self, item):
-        raise NotImplementedError(u'{!r}.handle not implemented'.format(self))
+        raise NotImplementedError('{!r}.handle not implemented'.format(self))

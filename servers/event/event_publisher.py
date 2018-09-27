@@ -49,9 +49,9 @@ class Manager(utils.Manager):
     pass
 
 
-# Inject Queue implementations:
+# Inject our queue implementation:
+# TODO: This should probably be a Queue.Queue, since it's handled by a Manager!
 Manager.register('queue', Queue)
-Manager.register('log_queue', Queue)
 
 
 def unlock_all_events():
@@ -73,34 +73,36 @@ def serve(config, num_workers, enable_listener, enable_collector):
     # Listens on the `event_queue` and processes events that are pushed onto it
     for i in range(0, num_workers):
         daemon.add_process(
-            consumer.EventConsumer,
-            config.event_publisher,
-            config.event_formatter,
-            queue=event_queue,
-            log_queue=daemon.log_queue,
-            running=daemon.run_trigger,
-        )
+            consumer.EventConsumer(
+                config.event_publisher,
+                config.event_formatter,
+                daemon=True,
+                queue=event_queue,
+                log_queue=daemon.log_queue,
+                running=daemon.run_trigger))
 
     # The 'event listener'
     # Listens to 'events' from the database, fetches related event records, and
     # pushes events onto the `event_queue`.
     if enable_listener:
         daemon.add_process(
-            consumer.EventListener,
-            queue=event_queue,
-            log_queue=daemon.log_queue,
-            running=daemon.run_trigger)
+            consumer.EventListener(
+                daemon=True,
+                queue=event_queue,
+                log_queue=daemon.log_queue,
+                running=daemon.run_trigger))
 
     # The 'event collector'
     # Regularly pulls event records from the database, and pushes events onto
     # the `event_queue`.
     if enable_collector:
         daemon.add_process(
-            consumer.EventCollector,
-            queue=event_queue,
-            log_queue=daemon.log_queue,
-            running=daemon.run_trigger,
-            config=config.event_daemon_collector)
+            consumer.EventCollector(
+                daemon=True,
+                queue=event_queue,
+                log_queue=daemon.log_queue,
+                running=daemon.run_trigger,
+                config=config.event_daemon_collector))
 
     daemon.serve()
 
