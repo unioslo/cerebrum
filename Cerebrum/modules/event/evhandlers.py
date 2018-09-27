@@ -104,7 +104,7 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
             self.db.commit()
             return True
         else:
-            self.logger.debug(u'Unable to lock event %r', identifier)
+            self.logger.warn(u'Unable to lock event %r', identifier)
             self.db.rollback()
             return False
 
