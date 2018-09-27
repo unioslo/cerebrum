@@ -70,7 +70,14 @@ class BofhdExtension(base.BofhdExtension):
                 (self.const.system_fs, self.const.address_post_private)
             )
             address = mappers.get_person_address(person, address_lookups)
-            mappings.update(mappers.get_address_mappings(address))
+            if address:
+                mappings.update(mappers.get_address_mappings(address))
+            else:
+                mappings.update(dict.fromkeys(
+                    ('address_line2', 'address_line3', 'zip', 'city',
+                     'country'),
+                    ''
+                ))
             try:
                 mappings['email_adr'] = account.get_primary_mailaddress()
             except (Errors.NotFoundError, AttributeError):
