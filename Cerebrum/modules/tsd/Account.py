@@ -29,6 +29,8 @@ import base64
 import os
 import re
 
+import six
+
 import cerebrum_path
 import cereconf
 
