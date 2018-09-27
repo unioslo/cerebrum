@@ -54,16 +54,11 @@ class UserSync(ADUserUtils):
         """
         Connect to AD agent on host:port and initialize user sync.
 
-        @param db: Connection to Cerebrum database
-        @type db: Cerebrum.CLDatabase.CLDatabase
-        @param logger: Cerebrum logger
-        @type logger: Cerebrum.modules.cerelog.CerebrumLogger
-        @param host: Server where AD agent runs
-        @type host: str
-        @param port: port number
-        @type port: int
-        @param ad_domain_admin: The user we connect to the AD agent as
-        @type ad_domain_admin: str
+        :type db: Cerebrum.CLDatabase.CLDatabase
+        :type logger: Cerebrum.logutils.loggers.CerebrumLogger
+        :param str host: Server where xmlrpc AD agent runs
+        :param int port: port number
+        :param str ad_domain_admin: The user we connect to the AD agent as
         """
 
         ADUserUtils.__init__(self, db, logger, host, port, ad_domain_admin)
@@ -584,16 +579,11 @@ class GroupSync(ADGroupUtils):
         """
         Connect to AD agent on host:port and initialize group sync.
 
-        @param db: Connection to Cerebrum database
-        @type db: Cerebrum.CLDatabase.CLDatabase
-        @param logger: Cerebrum logger
-        @type logger: Cerebrum.modules.cerelog.CerebrumLogger
-        @param host: Server where AD agent runs
-        @type host: str
-        @param port: port number
-        @type port: int
-        @param ad_domain_admin: The user we connect to the AD agent as
-        @type ad_domain_admin: str
+        :type db: Cerebrum.CLDatabase.CLDatabase
+        :type logger: Cerebrum.logutils.loggers.CerebrumLogger
+        :param str host: Server where xmlrpc AD agent runs
+        :param int port: port number
+        :param str ad_domain_admin: The user we connect to the AD agent as
         """
         ADGroupUtils.__init__(self, db, logger, host, port, ad_domain_admin)
         self.groups = dict()
