@@ -170,16 +170,9 @@ class ProcessHandler(object):
         """ A shared boolean value to signal run state. """
         return multiprocessing.Value(ctypes.c_int, 1)
 
-    def add_process_the_right_way(self, process):
+    def add_process(self, process):
         self.logger.debug('Adding process: %r', process)
         self.procs.append(process)
-
-    def add_process(self, cls, *args, **kwargs):
-        """ Queues a process to start when calling `serve`. """
-        proc = cls(*args, **kwargs)
-        proc.daemon = True
-        self.logger.debug('Adding process: %r', proc)
-        self.procs.append(proc)
 
     def print_process_list(self):
         """ Prints a list of the current processes. """

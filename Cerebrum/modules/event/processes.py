@@ -36,6 +36,13 @@ from .logutils import QueueHandler
 class ProcessBase(multiprocessing.Process):
     """ Common functionality for all processes. """
 
+    def __init__(self, *args, **kwargs):
+        daemon = kwargs.pop('daemon', None)
+        super(ProcessBase, self).__init__(*args, **kwargs)
+        if daemon is not None:
+            self.daemon = bool(daemon)
+        # else, do not explicitly set (inherit from parent process)
+
     @property
     def _key(self):
         """ A unique string hex id for this process. """
