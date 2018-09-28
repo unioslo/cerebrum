@@ -75,8 +75,7 @@ class RadiusLDIF(object):
         for account_id, vlan_vpn in self.id2vlan_vpn.iteritems():
             # self.auth is cached
             if account_id not in self.auth:
-                logging.warning(('{0} not in self.auth (cached). '
-                                 'Skipping..').format(account_id))
+                logger.warning('%r not in self.auth (cached)', account_id)
                 continue
 
             info = self.auth[account_id]
