@@ -767,7 +767,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             assert(isinstance(unicode_plaintext, six.text_type))
             utf8_plaintext = unicode_plaintext.encode('utf-8')
         if method in (self.const.auth_type_md5_crypt,
-                      self.const.auth_type_crypt3_des,
                       self.const.auth_type_sha256_crypt,
                       self.const.auth_type_sha512_crypt,
                       self.const.auth_type_ssha):
@@ -818,7 +817,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         """
         if method in (self.const.auth_type_md5_crypt,
                       self.const.auth_type_ha1_md5,
-                      self.const.auth_type_crypt3_des,
                       self.const.auth_type_sha256_crypt,
                       self.const.auth_type_sha512_crypt,
                       self.const.auth_type_md4_nt):
@@ -835,7 +833,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         """
         if method not in (self.const.auth_type_md5_crypt,
                           self.const.auth_type_ha1_md5,
-                          self.const.auth_type_crypt3_des,
                           self.const.auth_type_md4_nt,
                           self.const.auth_type_ssha,
                           self.const.auth_type_sha256_crypt,

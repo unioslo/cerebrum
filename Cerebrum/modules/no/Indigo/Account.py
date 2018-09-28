@@ -139,7 +139,6 @@ class AccountOfkMixin(Account.Account):
         if method not in (self.const.auth_type_md5_crypt,
                           self.const.auth_type_md5_unsalt,
                           self.const.auth_type_ha1_md5,
-                          self.const.auth_type_crypt3_des,
                           self.const.auth_type_md4_nt,
                           self.const.auth_type_ssha,
                           self.const.auth_type_sha256_crypt,
