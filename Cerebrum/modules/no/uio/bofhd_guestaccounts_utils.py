@@ -187,14 +187,19 @@ class GuestUtils(object):
             quarantine_types=self.co.quarantine_guest_release)]
 
         for row in ac.list_traits(self.co.trait_uio_guest_owner,
-                                  target_id=owner_id, return_name=True):
+                                  target_id=owner_id):
+
+            ac.clear()
+            ac.find(row['entity_id'])
+            name = ac.account_name
+
             # If prefix is given, only return guests with this prefix
-            if prefix and prefix != row['name'].rstrip("0123456789"):
+            if prefix and prefix != name.rstrip("0123456789"):
                 continue
             # Must check if guest is available.
             if owner_id is None and row['entity_id'] in quarantined_guests:
                 continue
-            tmp = [row['name'], None, None]
+            tmp = [name, None, None]
             if include_date:
                 tmp[1] = self._get_end_date(row['entity_id'])
             if include_comment:
