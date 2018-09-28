@@ -432,10 +432,8 @@ class BofhdExtension(BofhdCommandBase):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
         host_name = host_name.lower()
-        try:
-            subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet_or_ip)
-        except CerebrumError as e:
-            return 'Invalid subnet or ip: {error}'.format(error=e)
+        subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet_or_ip)
+
         if subnet is None:
             if not force:
                 # Allow IPv6-addresses if DNS_HOST_A_ADD... is set as True
