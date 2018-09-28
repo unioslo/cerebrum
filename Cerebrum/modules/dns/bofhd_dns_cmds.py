@@ -71,8 +71,8 @@ class Constants(Constants.Constants):
 class DnsBofhdAuth(BofhdAuth):
 
     def assert_dns_superuser(self, operator, query_run_any=False):
-        if (not (self.is_dns_superuser(operator))
-                and not (self.is_superuser(operator))):
+        if (not (self.is_dns_superuser(operator)) and
+                not (self.is_superuser(operator))):
             raise PermissionDenied("Currently limited to dns_superusers")
 
     def is_dns_superuser(self, operator, query_run_any=False):
@@ -432,9 +432,10 @@ class BofhdExtension(BofhdCommandBase):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
         host_name = host_name.lower()
-
-        subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet_or_ip)
-
+        try:
+            subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet_or_ip)
+        except CerebrumError as e:
+            return 'Invalid subnet or ip: {error}'.format(error=e)
         if subnet is None:
             if not force:
                 # Allow IPv6-addresses if DNS_HOST_A_ADD... is set as True
