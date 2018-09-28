@@ -180,12 +180,12 @@ def _transliterate_to_latin1_or_ascii(string):
     """
     try:
         string.encode('latin-1')
-    except UnicodeEncodeError as e:
+    except UnicodeEncodeError:
         res = []
         for c in string:
             try:
                 c.encode('latin-1')
-            except UnicodeEncodeError as e:
+            except UnicodeEncodeError:
                 c = to_ascii(c)
             res.append(c)
 
