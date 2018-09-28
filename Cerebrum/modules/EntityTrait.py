@@ -218,12 +218,12 @@ class EntityTrait(Entity):
 
     def list_traits(self, code=NotSet, target_id=NotSet, entity_id=NotSet,
                     date=NotSet, numval=NotSet, strval=NotSet,
-                    strval_like=NotSet, return_name=False, fetchall=False):
-        """Returns all the occurences of specified trait(s), optionally
+                    strval_like=NotSet, fetchall=False):
+        """Returns all the occurrences of specified trait(s), optionally
         filtered on values.
 
         Multiple filters work akin to set intersection; i.e. specifying both
-        code and target_id would constrait the result to those rows that match
+        code and target_id would constrain the result to those rows that match
         *both* code and trait_id. If a specified filter is a sequence, then
         any row matching any one of the values in that sequence will be
         returned. E.g. specifying code=(trait1, trait2) will result in rows
@@ -274,11 +274,6 @@ class EntityTrait(Entity):
           Filter the result by specific strval associated with the
           trait. strval_like will apply DWIM case sensitivity (see
           Utils.prepare_sql_pattern).
-
-        @type return_name: bool
-        @param return_name:
-          Controls whether to return the entity name, if available, for
-          entities that have traits.
 
         @type fetchall: bool
         @param fetchall:
@@ -332,19 +327,12 @@ class EntityTrait(Entity):
         else:
             # strval_like has precedence over strval
             strval = add_cond("strval", strval, normalise=str)
-        attrs = join = ""
-        if return_name:
-            attrs += ", en.entity_name AS name"
-            join += """
-            LEFT JOIN [:table schema=cerebrum name=entity_name] en
-              ON en.entity_id = t.entity_id"""
         where = ""
         if conditions:
             where = "WHERE " + " AND ".join(conditions)
 
         return self.query("""
         SELECT t.entity_id, t.entity_type, t.code, t.target_id,
-               t.date, t.numval, t.strval %s
+               t.date, t.numval, t.strval
         FROM [:table schema=cerebrum name=entity_trait] t
-        %s
-        %s""" % (attrs, join, where), locals(), fetchall=fetchall)
+        %s""" % where, locals(), fetchall=fetchall)
