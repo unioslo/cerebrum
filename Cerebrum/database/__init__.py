@@ -217,7 +217,7 @@ API_TYPE_CTOR_NAMES = (
 
 class DatabaseErrorWrapper(object):
     """
-    Exception context wrapper for calls to objects that implements tha DB-API.
+    Exception context wrapper for calls to objects that implements the DB-API.
 
     The idea is based on the django.db.utils.DatabaseExceptionWrapper. Calls
     performed in this context will handle PEP-249 exceptions, and reraise as
@@ -241,8 +241,8 @@ class DatabaseErrorWrapper(object):
             an attribute. This can be used to piggy-back extra information with
             the exception.
         """
-        self.to_module = to_module  # Should we typecheck this? (db
-        self.from_modules = from_module   # Can we typecheck this?
+        self.to_module = to_module
+        self.from_module = from_module
 
         # Extra attributes for the exception
         self.extra_attrs = dict((n, repr(v)) for n, v in kwargs.iteritems())
@@ -272,7 +272,7 @@ class DatabaseErrorWrapper(object):
         # Identify the exception
         for api_exc_name in API_EXCEPTION_NAMES:
             crb_exc_type = getattr(self.to_module, api_exc_name)
-            mod_exc_type = getattr(self.from_modules, api_exc_name)
+            mod_exc_type = getattr(self.from_module, api_exc_name)
             if issubclass(exc_type, mod_exc_type):
                 # Copy arguments and cause
                 try:
