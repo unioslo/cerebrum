@@ -782,13 +782,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 else:
                     salt = Utils.random_string(2, saltchars)
             if method == self.const.auth_type_ssha:
-                # encodestring annoyingly adds a '\n' at the end of
-                # the string, and OpenLDAP won't accept that.
-                # b64encode does not, but it requires Python 2.4
-                return base64.encodestring(
+                return base64.b64encode(
                     hashlib.sha1(
                         utf8_plaintext + salt.encode('utf-8')
-                    ).digest() + salt.encode('utf-8')).strip().decode()
+                    ).digest() + salt.encode('utf-8')).decode()
             return crypt.crypt(
                 plaintext if binary else utf8_plaintext,
                 salt.encode('utf-8')).decode()
