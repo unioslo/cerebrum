@@ -28,6 +28,7 @@ import procconf
 
 from Cerebrum.Utils import Factory, auto_super
 from Cerebrum.modules.process_entity.ProcUtils import ProcFactory
+from Cerebrum import Errors
 
 
 # Classes like this are very segmented. Sequential code may be split
@@ -115,10 +116,26 @@ class ProcBatchRunner(object):
         # Add all imported groups into the list we want to examine.
         # Also add all generated groups with their "parent" gone.
         group_names = dict()
-        for row in grp.list_traits(self.co.trait_group_imported, return_name=True):
-            group_names[row['name']] = None
-        for row in grp.list_traits(self.co.trait_group_derived, return_name=True):
-            normal_name = procconf.NORMAL(row['name'])
+        for row in grp.list_traits(self.co.trait_group_imported):
+            e_id = int(row['entity_id'])
+            try:
+                grp.clear()
+                grp.find(e_id)
+                group_name = grp.group_name
+            except Errors.NotFoundError:
+                self.logger.error("No group with id %r", e_id)
+                continue
+            group_names[group_name] = None
+        for row in grp.list_traits(self.co.trait_group_derived):
+            e_id = int(row['entity_id'])
+            try:
+                grp.clear()
+                grp.find(e_id)
+                group_name = grp.group_name
+            except Errors.NotFoundError:
+                self.logger.error("No group with id %r", e_id)
+                continue
+            normal_name = procconf.NORMAL(group_name)
             if not normal_name:
                 self.logger.warning("Group '%s' has an odd name for a generated group. Skipping" % row['name'])
                 continue
