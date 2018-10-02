@@ -935,10 +935,15 @@ def collect_existing_cf_groups(db):
     group = Factory.get("Group")(db)
     const = Factory.get("Constants")(db)
     logger.debug("Collecting all CF groups in Cerebrum")
-    for row in group.list_traits(return_name=True,
-                                 code=const.trait_cf_group):
+    for row in group.list_traits(code=const.trait_cf_group):
         group_id = row["entity_id"]
-        group_name = row["name"]
+        try:
+            group.clear()
+            group.find(group_id)
+            group_name = group.group_name
+        except Errors.NotFoundError:
+            logger.error("No group with id %r", group_id)
+            continue
         result[group_name] = set(row["member_id"]
                                  for row in
                                  group.search_members(
