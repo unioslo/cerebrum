@@ -699,9 +699,16 @@ class BofhdExtension(BofhdCommandBase):
     def _hosts_matching_trait(self, trait, pattern):
         dns_owner = DnsOwner.DnsOwner(self.db)
         matches = []
-        for row in dns_owner.list_traits(trait, strval_like=pattern,
-                                         return_name=True):
-            matches.append({'name': row['name'], 'info': row['strval']})
+        for row in dns_owner.list_traits(trait, strval_like=pattern):
+            e_id = row['entity_id']
+            try:
+                dns_owner.clear()
+                dns_owner.find(row['entity_id'])
+                name = dns_owner.name
+            except Errors.NotFoundError:
+                self.logger.error("No DNS Owner with id %r", e_id)
+                continue
+            matches.append({'name': name, 'info': row['strval']})
         return matches
 
     def _hosts_matching_name(self, pattern):
