@@ -1,5 +1,5 @@
 /*
- * Copyright 2003, 2004 University of Oslo, Norway
+ * Copyright 2015 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -18,23 +18,12 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-category:metainfo;
-name=job_runner;
-category:metainfo;
-version=1.1;
+/* SQL script for migrating job_ran table from 1.0 to 1.1
+ *
+ * The purpose of this migration is to change the job_ran column type from
+ * CHAR VARYING(32) to TEXT, to allow for job names of any length.
+ */
 
-category:main;
-CREATE TABLE job_ran
-(
-  id           TEXT
-               CONSTRAINT job_ran_pk
-               PRIMARY KEY,
-  timestamp    TIMESTAMP
-               NOT NULL
-);
-
-category:drop;
-DROP TABLE job_ran;
-
-/* arch-tag: aa468296-bbb1-427f-aac9-cdeedeabf59a
-   (do not change this comment) */
+category:pre;
+ALTER TABLE job_ran
+    ALTER COLUMN id TYPE TEXT;
