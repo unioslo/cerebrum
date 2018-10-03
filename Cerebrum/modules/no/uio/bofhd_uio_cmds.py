@@ -2546,9 +2546,9 @@ class BofhdExtension(BofhdCommonMethods):
                 'spreads']]]
 
         for membership in ret:
-            membership['sources_names_str'] = ', '.join(
+            membership['sources_names_str'] = u', '.join(
                 membership['sources_names'])
-            membership['spreads'] = map(str, membership['spreads'])
+            membership['spreads'] = map(text_type, membership['spreads'])
 
         ret.sort(lambda a, b: cmp(a['group'], b['group']))
         return ret
