@@ -131,6 +131,8 @@ command_help = {
         'group_list_expanded':
             'List all members of a group, direct and indirect',
         'group_memberships': 'List all groups an entity is a member of',
+        'group_memberships_expanded':
+            'List all groups an entity is a member of, direct and indirect',
         'group_padd': 'Let a person join a group',
         'group_premove': 'Remove a person from a group',
         'group_personal': 'Create a new personal filegroup for an account',
