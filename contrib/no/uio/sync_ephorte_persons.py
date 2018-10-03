@@ -219,8 +219,8 @@ def update_person_info(pe, client):
                            initials, email_address, telephone, mobile,
                            street_address, zip_code, city)
         return True
-    except EphorteWSError, e:
-        # Temporary hack to return prettier error-message if EphorteWS returns
+    except EphorteWSError as e:
+        # Return prettier error-message if EphorteWS returns
         # an unspecified rule violation for field length.
         # Should be removed once the WS itself returns the specific field
         # that caused the exception.
