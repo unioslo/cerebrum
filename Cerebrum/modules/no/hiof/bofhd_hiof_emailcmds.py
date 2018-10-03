@@ -56,16 +56,16 @@ class EmailAuth(bofhd_email.BofhdEmailAuth):
     bofhd_email.BofhdEmailCommands,
     'all_commands', 'all_commands',
     commands=[
-        'email_add_address',
-        'email_add_domain_affiliation',
-        'email_create_domain',
+        'email_address_add',
+        'email_address_reassign',
+        'email_address_remove',
+        'email_address_set_primary',
+        'email_domain_add_affiliation',
         'email_domain_configuration',
+        'email_domain_create',
         'email_domain_info',
+        'email_domain_remove_affiliation',
         'email_info',
-        'email_primary_address',
-        'email_reassign_address',
-        'email_remove_address',
-        'email_remove_domain_affiliation',
         'email_update',
     ]
 )

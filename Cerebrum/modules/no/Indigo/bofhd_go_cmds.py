@@ -996,8 +996,8 @@ class ContactCommands(bofhd_contact_info.BofhdContactCommands):
     bofhd_email.BofhdEmailCommands,
     'all_commands', 'all_commands',
     commands=[
-        'email_add_address',
-        'email_remove_address',
+        'email_address_add',
+        'email_address_remove',
         'email_info',
     ]
 )

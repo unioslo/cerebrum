@@ -7364,16 +7364,16 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         return ret
 
     #
-    # email add_forward <account>+ <address>+
+    # email forward_add <account>+ <address>+
     #
-    def email_add_forward(self, operator, uname, address):
+    def email_forward_add(self, operator, uname, address):
         """Add an email-forward to a email-target asociated with an account."""
-        # Override email_add_forward with check for employee email addr
+        # Override email_forward_add with check for employee email addr
         et, acc = self._get_email_target_and_account(uname)
         if acc and not self.__email_forward_destination_allowed(acc, address):
             raise CerebrumError("Employees cannot forward e-mail to"
                                 " external addresses")
-        return super(EmailCommands, self).email_add_forward(operator,
+        return super(EmailCommands, self).email_forward_add(operator,
                                                             uname,
                                                             address)
 
@@ -7485,9 +7485,9 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
             operator, action, uname, when=when)
 
     #
-    # email add_tripnote
+    # email tripnote_add
     #
-    def email_add_tripnote(self, operator, uname, text, when=None):
+    def email_tripnote_add(self, operator, uname, text, when=None):
         try:
             acc = self._get_account(uname)
             spread = self.const.spread_exchange_account
@@ -7498,5 +7498,5 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
             if acc.has_spread(spread):
                 raise CerebrumError("Sorry, Exchange-users must enable "
                                     "vacation messages via OWA!")
-        return super(EmailCommands, self).email_add_tripnote(
+        return super(EmailCommands, self).email_tripnote_add(
             operator, uname, text, when=when)

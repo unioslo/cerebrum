@@ -345,11 +345,11 @@ class ContactCommands(bofhd_contact_info.BofhdContactCommands):
     bofhd_email.BofhdEmailCommands,
     'all_commands', 'all_commands',
     commands=[
-        'email_add_address',
+        'email_address_add',
         'email_info',
         'email_mod_name',
-        'email_reassign_address',
-        'email_remove_address',
+        'email_address_reassign',
+        'email_address_remove',
         'email_set_primary_address',
         'email_update',
     ]
