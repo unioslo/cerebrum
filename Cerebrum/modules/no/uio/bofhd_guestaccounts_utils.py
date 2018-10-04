@@ -200,7 +200,7 @@ class GuestUtils(object):
                     ac.find(e_id)
                     uname = ac.account_name
                 except Errors.NotFoundError:
-                    self.logger.error("No account with id %r", e_id)
+                    self.logger.error("No account with entity_id=%r", e_id)
                     continue
 
             # If prefix is given, only return guests with this prefix
@@ -255,7 +255,7 @@ class GuestUtils(object):
                 ac.find(e_id)
                 uname = ac.account_name
             except Errors.NotFoundError:
-                self.logger.error("No account with id %r", e_id)
+                self.logger.error("No account with entity_id=%r", e_id)
                 continue
 
             if e_id in active_q:

@@ -942,7 +942,7 @@ def collect_existing_cf_groups(db):
             group.find(group_id)
             group_name = group.group_name
         except Errors.NotFoundError:
-            logger.error("No group with id %r", group_id)
+            logger.error("No group with entity_id=%r", group_id)
             continue
         result[group_name] = set(row["member_id"]
                                  for row in

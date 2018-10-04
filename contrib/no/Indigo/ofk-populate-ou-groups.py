@@ -150,7 +150,7 @@ def find_all_auto_groups():
                 entity.find(group_id)
                 group_name = entity.group_name
             except Errors.NotFoundError:
-                logger.error("No group with id %r", group_id)
+                logger.error("No group with entity_id=%r", group_id)
                 continue
             result[group_name] = group_id
 

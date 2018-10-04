@@ -706,7 +706,7 @@ class BofhdExtension(BofhdCommandBase):
                 dns_owner.find(row['entity_id'])
                 name = dns_owner.name
             except Errors.NotFoundError:
-                self.logger.error("No DNS Owner with id %r", e_id)
+                self.logger.error("No DNS Owner with entity_id=%r", e_id)
                 continue
             matches.append({'name': name, 'info': row['strval']})
         return matches
