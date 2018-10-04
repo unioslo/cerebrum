@@ -26,9 +26,9 @@ import getopt
 import cerebrum_path
 import procconf
 
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory, auto_super
 from Cerebrum.modules.process_entity.ProcUtils import ProcFactory
-from Cerebrum import Errors
 
 
 # Classes like this are very segmented. Sequential code may be split

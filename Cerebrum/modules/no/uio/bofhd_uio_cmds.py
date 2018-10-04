@@ -5190,14 +5190,15 @@ class BofhdExtension(BofhdCommonMethods):
         entity_type_namespace = getattr(
             cereconf, 'ENTITY_TYPE_NAMESPACE', dict())
         namespace = entity_type_namespace.get(text_type(ety_type))
-        if namespace is None:
-            return []
-        namespace = self.const.ValueDomain(namespace)
+        if namespace is not None:
+            namespace = self.const.ValueDomain(namespace)
 
         ety = self.Account_class(self.db)  # exact class doesn't matter
         ety_name = Entity.EntityName(self.db)
 
         def get_name(e_id):
+            if namespace is None:
+                return None
             try:
                 ety_name.clear()
                 ety_name.find(e_id)

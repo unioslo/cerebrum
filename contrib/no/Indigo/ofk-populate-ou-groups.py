@@ -153,7 +153,6 @@ def find_all_auto_groups():
                 logger.error("No group with id %r", group_id)
                 continue
             result[group_name] = group_id
-    # end slurp_data
 
     result = dict()
     entity = Factory.get("Group")(database)
