@@ -827,6 +827,7 @@ admin_copy_uio = [
     'group_list',
     'group_list_expanded',
     'group_memberships',
+    'group_memberships_expanded',
     'group_promote_posix',
     'group_search',
     'group_set_description',

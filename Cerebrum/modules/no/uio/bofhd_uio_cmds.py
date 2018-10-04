@@ -2490,6 +2490,70 @@ class BofhdExtension(BofhdCommonMethods):
         return ret
 
     #
+    # group memberships_expanded
+    #
+    all_commands['group_memberships_expanded'] = Command(
+        ('group', 'memberships_expanded'),
+        EntityType(default="account"),
+        Id(),
+        Spread(optional=True, help_ref='spread_filter'),
+        fs=FormatSuggestion(
+            "%-50s %-20s", ("group", "sources_names_str"),
+            hdr="%-50s %-20s" % ("Group", "Source group")
+        ))
+
+    def group_memberships_expanded(self, operator, entity_type, entity_id,
+                                   spread=None):
+        entity = self._get_entity(entity_type, entity_id)
+        group = self.Group_class(self.db)
+        co = self.const
+        if spread is not None:
+            spread = self._get_constant(self.const.Spread, spread, "spread")
+        ret = []
+
+        for row in group.search(member_id=entity.entity_id,
+                                indirect_members=True):
+            ret.append({
+                'memberop': text_type(co.group_memberop_union),
+                'entity_id': row['group_id'],
+                'group': row['name'],
+                'description': row['description'],
+                'sources': [],
+                'sources_names': [],
+                'sources_names_str': '',
+                'spreads': [],
+                'spreads_str': ''
+            })
+
+        for membership in ret:
+            group.find(membership['entity_id'])
+            membership['spreads'] = [
+                co.Spread(x['spread']) for x in group.get_spread()]
+
+            # Find the source group (if any)
+            for source_group in ret:
+                # We skip groups where the entity is a direct member
+                if group.has_member(entity.entity_id):
+                    continue
+                elif group.has_member(source_group['entity_id']):
+                    membership['sources'].append(source_group['entity_id'])
+                    membership['sources_names'].append(source_group['group'])
+            group.clear()
+
+        if spread:
+            # Only select groups with spread x
+            ret = [x for x in ret if spread in [co.Spread(y) for y in x[
+                'spreads']]]
+
+        for membership in ret:
+            membership['sources_names_str'] = u', '.join(
+                membership['sources_names'])
+            membership['spreads'] = map(text_type, membership['spreads'])
+
+        ret.sort(lambda a, b: cmp(a['group'], b['group']))
+        return ret
+
+    #
     # misc affiliations
     #
     all_commands['misc_affiliations'] = Command(

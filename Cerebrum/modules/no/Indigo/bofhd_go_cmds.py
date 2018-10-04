@@ -105,6 +105,7 @@ copy_helpers = [
 copy_uio = [
     'person_list_user_priorities',
     'group_memberships',
+    'group_memberships_expanded',
     'group_search',
     'group_list',
     'misc_list_passwords',

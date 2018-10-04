@@ -140,6 +140,7 @@ uio_commands = [
     'group_list',
     'group_list_expanded',
     'group_memberships',
+    'group_memberships_expanded',
     'group_remove',
     'group_remove_entity',
     'group_search',
