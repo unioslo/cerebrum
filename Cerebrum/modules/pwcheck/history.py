@@ -168,7 +168,7 @@ class PasswordHistory(DatabaseAccessor):
 
     def encode_for_history(self, name, password):
         m = hashlib.md5(name.encode('utf-8') + password.encode('utf-8'))
-        return base64.encodestring(m.digest())[:22]
+        return base64.b64encode(m.digest())[:22]
 
     def add_history(self, account, password, _csum=None, _when=None):
         """Add an entry to the password history."""

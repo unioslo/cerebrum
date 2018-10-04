@@ -406,7 +406,7 @@ class WinRMProtocol(object):
         """Set the credentials to give to the server for authentication."""
         self._username = username
         self._password = password
-        cred = base64.encodestring('%s:%s' % (username, password)).strip()
+        cred = base64.b64encode('%s:%s' % (username, password))
         self._http_headers['Authorization'] = "Basic %s" % cred
 
     def _http_call(self, xml, address='/wsman'):
@@ -1391,8 +1391,10 @@ class WinRMProtocol(object):
         header = self._xml_header('send', selectors=[selector])
         body = self._xml_element('Body', 's')
         send = self._xml_element('Send', 'rsp')
+        # Switch from encodestring to b64encode removes the '\n' from the end
+        # of the string. Probably don't need it but kept it just in case.
         send.append(self._xml_element('Stream', 'rsp',
-                                      text=base64.encodestring(data),
+                                      text=base64.b64encode(data)+'\n',
                                       attribs={'Name': 'stdin',
                                                'CommandId': commandid,
                                                # Not sure if End is used
