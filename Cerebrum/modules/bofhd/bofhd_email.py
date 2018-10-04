@@ -1683,7 +1683,7 @@ class BofhdEmailCommands(BofhdEmailBase):
         if len(filters) > 0:
             info["filters"] = ", ".join([x for x in filters]),
         else:
-            info["filters"] = "<none>"
+            info["filters"] = None
         return [info, ]
 
     def _email_info_forward(self, et, addr):
