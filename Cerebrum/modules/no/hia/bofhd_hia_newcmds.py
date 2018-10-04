@@ -142,6 +142,7 @@ copy_uio = [
     'group_list',
     'group_list_expanded',
     'group_memberships',
+    'group_memberships_expanded',
     'group_padd',
     'group_personal',
     'group_promote_posix',
