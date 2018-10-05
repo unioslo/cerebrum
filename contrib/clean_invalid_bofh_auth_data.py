@@ -38,12 +38,11 @@ def main():
     """Remove invalid auth data."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        '-d', '--dryrun',
-        action='store_true',
-        dest='dryrun',
+        '-c', '--commit',
+        action='store_false',
+        dest='commit',
         default=False,
-        help='Do not actually remove the invalid auth data. '
-        '(default: All matching groups will be removed)'
+        help='Actually remove the invalid auth data.'
     )
     args = parser.parse_args()
 
@@ -70,10 +69,10 @@ def main():
     bar_count_after = bar.count_invalid()
     baot_count_after = baot.count_invalid()
 
-    if args.dryrun:
-        db.rollback()
-    else:
+    if args.commit:
         db.commit()
+    else:
+        db.rollback()
 
     logger.info('Removed {0} invalid entries in auth_roles'.format(
         bar_count - bar_count_after))
