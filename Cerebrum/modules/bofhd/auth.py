@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Module for access control in Cerebrum.
+"""Module for access control in Cerebrum.
 
 This module was mainly written for use with `bofhd`, given its name, but its
 functionality is *independent* of `bofhd`. You could use this module for every
@@ -233,7 +233,7 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 
 
 class AuthConstants(Constants._CerebrumCode):
-    """ Defines an operation constant.
+    """Defines an operation constant.
 
     # TODO: this looks like a duplicate of utils._AuthRoleOpCode.  Cleanup!
 
@@ -245,13 +245,13 @@ class AuthConstants(Constants._CerebrumCode):
     to operation targets, and is then either connected to the operator
     directly, or is most likely connected through a regular group the operator
     is member of.
-
     """
+
     _lookup_table = '[:table schema=cerebrum name=auth_op_code]'
 
 
 class BofhdAuthOpSet(DatabaseAccessor):
-    """ Operation Set (OpSet) management.
+    """Operation Set (OpSet) management.
 
     Operations could be put into different groups (sets) of operations. These
     sets are here called *OpSets*. OpSets are making it easier to administrate
@@ -265,8 +265,8 @@ class BofhdAuthOpSet(DatabaseAccessor):
     `auth_operation_set`, while the operations that belongs to an OpSet is
     referenced to in the table `auth_operation`. Operation attributes, e.g. for
     setting constraints for an operation, is put in `auth_op_attrs`.
-
     """
+
     __metaclass__ = mark_update
     __read_attr__ = ('__in_db', 'const')
     __write_attr__ = ('op_set_id', 'name')
@@ -397,10 +397,9 @@ class BofhdAuthOpSet(DatabaseAccessor):
 
 
 class BofhdAuthOpTarget(DatabaseAccessor):
-    """ Management of the `auth_op_target` table.
+    """Management of the `auth_op_target` table.
 
     This identifies *operation targets*, which operations may be performed on.
-
     """
 
     __metaclass__ = mark_update
@@ -503,9 +502,37 @@ class BofhdAuthOpTarget(DatabaseAccessor):
             'target_type': target_type,
             'attr': attr})
 
+    def count_invalid(self):
+        """Return the count of invalid auth_roles in the database."""
+        return self.query("""
+            SELECT count(*)
+            FROM [:table schema=cerebrum name=auth_op_target] ot
+            WHERE NOT EXISTS (
+                SELECT entity_id
+                FROM [:table schema=cerebrum name=entity_info] ei
+                WHERE ei.entity_id = ot.entity_id)
+            AND ot.entity_id IS NOT NULL;
+            """)[0][0]
+
+    def remove_invalid(self):
+        """Remove all invalid auth_op_targets in the database.
+
+        The database can contain references to deleted entities. The method
+        cleans up the table by deleting any auth_op_targets with an invalid
+        entity_id target.
+        :return: None
+        """
+        self.execute("""
+            DELETE FROM [:table schema=cerebrum name=auth_op_target] ot
+            WHERE NOT EXISTS (
+                SELECT entity_id
+                FROM [:table schema=cerebrum name=entity_info] ei
+                WHERE ei.entity_id = ot.entity_id)
+            AND ot.entity_id IS NOT NULL""")
+
 
 class BofhdAuthRole(DatabaseAccessor):
-    """ Role management, telling who has permission to what targets.
+    """Role management, telling who has permission to what targets.
 
     The data about roles are stored in the `auth_role` table, containing
     information about who has certain permissions to certain targets.
@@ -515,7 +542,6 @@ class BofhdAuthRole(DatabaseAccessor):
     for instance be an account or a group (which gives all direct members of
     the group access), and the target could for instance be an OU, group or a
     disk.
-
     """
 
     def __init__(self, database):
@@ -536,7 +562,9 @@ class BofhdAuthRole(DatabaseAccessor):
 
     def list(self, entity_ids=None, op_set_id=None, op_target_id=None):
         """Return info about where entity_id has permissions.
-        entity_id may be a list of entities """
+
+        entity_id may be a list of entities.
+        """
         ewhere = []
         if entity_ids is not None:
             if not isinstance(entity_ids, (list, tuple)):
@@ -557,7 +585,7 @@ class BofhdAuthRole(DatabaseAccessor):
                                 'op_target_id': op_target_id, })
 
     def list_owners(self, target_ids):
-        """Return info about who owns the given target_ids"""
+        """Return info about who owns the given target_ids."""
         if not isinstance(target_ids, (list, tuple)):
             target_ids = [target_ids]
         if not target_ids:
@@ -567,6 +595,40 @@ class BofhdAuthRole(DatabaseAccessor):
         FROM [:table schema=cerebrum name=auth_role]
         WHERE op_target_id IN (%s)""" % ", ".join(["%i" % i for i in
                                                    target_ids]))
+
+    def count_invalid(self):
+        """Return the count of invalid auth_roles in the database."""
+        return self.query("""
+        SELECT count(*) FROM [:table schema=cerebrum name=auth_role]
+        WHERE op_target_id IN (
+            SELECT op_target_id
+            FROM [:table schema=cerebrum name=auth_op_target] ot
+            WHERE NOT EXISTS (
+                SELECT entity_id
+                FROM [:table schema=cerebrum name=entity_info] ei
+                WHERE ei.entity_id = ot.entity_id)
+                AND ot.entity_id IS NOT NULL
+        )""")[0][0]
+
+    def remove_invalid(self):
+        """Remove all invalid auth_roles in the database.
+
+        The database can contain references to deleted entities. The method
+        cleans up the table by deleting any auth_op_targets with an invalid
+        entity_id target.
+        :return: None
+        """
+        self.execute("""
+            DELETE FROM [:table schema=cerebrum name=auth_role]
+            WHERE op_target_id IN (
+                SELECT op_target_id
+                FROM [:table schema=cerebrum name=auth_op_target] ot
+                WHERE NOT EXISTS (
+                    SELECT entity_id
+                    FROM [:table schema=cerebrum name=entity_info] ei
+                    WHERE ei.entity_id = ot.entity_id)
+                AND ot.entity_id IS NOT NULL
+            )""")
 
 
 class BofhdAuth(DatabaseAccessor):
@@ -579,7 +641,6 @@ class BofhdAuth(DatabaseAccessor):
     method should return either `True` or `False`, and not raise
     `PermissionDenied`. Note that `query_run_any` should NOT be used a security
     measure, as you are still able to call the command if not in jbofh!
-
     """
 
     def __init__(self, database):
@@ -711,9 +772,7 @@ class BofhdAuth(DatabaseAccessor):
             is raised instead.
         :raise PermissionDenied:
             If the operator doesn't have access to the entity.
-
         """
-
         if self._has_access_to_entity_via_ou(operator, operation, entity,
                                              operation_attr=operation_attr):
             return True
@@ -1095,9 +1154,8 @@ class BofhdAuth(DatabaseAccessor):
         return self.can_create_host(operator, query_run_any=query_run_any)
 
     def can_alter_group(self, operator, group=None, query_run_any=False):
-        """
-        Checks if the operator has permission to add/remove group members for
-        the given group.
+        """Checks if the operator has permission to add/remove group members
+        for the given group.
 
         @type operator: int
         @param operator: The entity_id of the user performing the operation.
@@ -1248,7 +1306,7 @@ class BofhdAuth(DatabaseAccessor):
         raise PermissionDenied("Not allowed to delete group")
 
     def can_expire_group(self, operator, group=None, query_run_any=False):
-        """Check if operator is allowed to set expire date for a group"""
+        """Check if operator is allowed to set expire date for a group."""
         if self.is_superuser(operator):
             return True
         if query_run_any:
@@ -1305,8 +1363,8 @@ class BofhdAuth(DatabaseAccessor):
         it.
 
         If the operator has create_user access to the account's disk,
-        as above, but also allow the last affiliation to be removed."""
-
+        as above, but also allow the last affiliation to be removed.
+        """
         if query_run_any:
             return True
         if self.is_superuser(operator):
@@ -1389,8 +1447,8 @@ class BofhdAuth(DatabaseAccessor):
                                aff=None, query_run_any=False):
         """If the opset has rem_affiliation access to the affiliation, and the
         operator has rem_affiliation access to the affiliation's OU, allow
-        removing the affiliation from the person. Not as strict on MANUELL."""
-
+        removing the affiliation from the person. Not as strict on MANUELL.
+        """
         if self.is_superuser(operator):
             return True
         if query_run_any:
@@ -1745,7 +1803,7 @@ class BofhdAuth(DatabaseAccessor):
 
     def _query_disk_permissions(self, operator, operation, disk, victim_id,
                                 operation_attr=None):
-        """ Check if operator can do `operation` on a victim on a disk.
+        """Check if operator can do `operation` on a victim on a disk.
 
         Permissions on disks may either be granted to a specific **disk**, a
         complete **host**, or a set of disks matching a **regexp**.
@@ -1761,9 +1819,7 @@ class BofhdAuth(DatabaseAccessor):
         :rtype: bool
         :returns: True if the operator has access.
         :raise PermissionDenied: If the operator doesn't have the access.
-
         """
-
         if self._has_target_permissions(operator, operation,
                                         self.const.auth_target_type_disk,
                                         disk.entity_id, victim_id,
@@ -1803,7 +1859,7 @@ class BofhdAuth(DatabaseAccessor):
         return False
 
     def _has_operation_perm_somewhere(self, operator, operation):
-        """ Check if the operator has access to a given operation, anywhere.
+        """Check if the operator has access to a given operation, anywhere.
 
         Note that the operator might not be allowed to do this for a *specific*
         target - that is not checked here. The method is therefore useful if
@@ -1817,7 +1873,6 @@ class BofhdAuth(DatabaseAccessor):
         :param int operation: The operation constant's `intval`.
         :rtype: bool
         :return: If the operator has been granted the operation *somewhere*.
-
         """
         # This is called numerous times when using "help", so we use a cache
         key = "%i:%i" % (operator, operation)
@@ -1917,7 +1972,7 @@ class BofhdAuth(DatabaseAccessor):
                     return True
 
         if self._list_target_permissions(operator, operation, target_type,
-                                         target_id,  operation_attr):
+                                         target_id, operation_attr):
             return True
         else:
             return False
@@ -2024,12 +2079,13 @@ class BofhdAuth(DatabaseAccessor):
 
     def _has_access_to_entity_via_ou(self, operator, operation, entity,
                                      operation_attr=None):
-        """entity may be an instance of Person or Account.  Returns
+        """entity may be an instance of Person or Account. Returns
         True if the operator has access to any of the OU's associated
         with the entity, or False otherwise.  If an auth_op_target
         has an attribute, the attribute value is compared to the
         string representation of the affiliations the entity is a
-        member of."""
+        member of.
+        """
         # make a list of the groups the operator is a (direct) member of.
         operator_groups = ["%i" % x
                            for x in self._get_users_auth_entities(operator)]
@@ -2089,7 +2145,7 @@ class BofhdAuth(DatabaseAccessor):
 
     def _has_global_access(self, operator, operation, global_type, victim_id,
                            operation_attr=None):
-        """ Check if operator has a global permission to an operation.
+        """Check if operator has a global permission to an operation.
 
         Superusers must not be affected by global permissions, which is why the
         `victim_id` is needed. Note that `global_host` and `global_group`
@@ -2106,7 +2162,6 @@ class BofhdAuth(DatabaseAccessor):
         :param str operation_attr:
             Limit the access check to a specific operation attribute.
         :rtype: bool
-
         """
         if global_type == self.const.auth_target_type_global_group:
             if victim_id == self._superuser_group:
@@ -2167,7 +2222,7 @@ class BofhdAuth(DatabaseAccessor):
         return ret
 
     def _get_group_members(self, groupname):
-        """ Get a group's *direct* members.
+        """Get a group's *direct* members.
 
         The memberships are cached for a while.
 
@@ -2176,7 +2231,6 @@ class BofhdAuth(DatabaseAccessor):
         :rtype: list
         :returns: A list of each member's `entity_id`.
         :raise Errors.NotFoundError: If the group doesn't exist.
-
         """
         try:
             return self._group_member_cache[groupname]
