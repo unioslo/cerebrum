@@ -311,10 +311,12 @@ arg_help = {
          'Enter the name of the account for this operation'],
     'account_name_id_uid':
         ['uname', 'Enter account name',
-         """Enter the name of the account for this operation. Also accepts Entity id as id:xxx or UID as uid:xxx"""],
+         """Enter the name of the account for this operation. """
+         """Also accepts Entity id as id:xxx or UID as uid:xxx"""],
     'account_name_id':
         ['uname', 'Enter account name',
-         """Enter the name of the account for this operation. Also accepts Entity id as id:xxx"""],
+         """Enter the name of the account for this operation."""
+         """Also accepts Entity id as id:xxx"""],
     'account_name_member':
         ['uname', 'Enter members account name',
          "Enter the name of an account that already is a member"],
@@ -398,7 +400,8 @@ arg_help = {
     'group_name':
         ['gname', 'Enter groupname'],
     'group_name_id':
-        ['gname', 'Enter groupname', """Accepts group name or entity id of group as id:gid"""],
+        ['gname', 'Enter groupname',
+         """Accepts group name or entity id of group as id:gid"""],
     'group_name_dest':
         ['dest_gname', 'Enter the destination group'],
     'group_name_new':
@@ -726,10 +729,8 @@ arg_help = {
          - 'disk'"""],
     'user_set_owner_group_person':
         ['', '',
-         """
-         Person: accepts user name or Entity id of person as id:xxx. 
-         Group: accepts group name or Entity id of group as id:xxx
-         """],
+         "Person: accepts user name or Entity id of person as id:xxx. "
+         "Group: accepts group name or Entity id of group as id:xxx."],
 
     'yes_no_force':
         ['force', 'Force the operation?'],

@@ -2093,16 +2093,16 @@ class BofhdExtension(BofhdCommonMethods):
     def group_list(self, operator, groupname):
         """List direct members of group"""
         def compare(a, b):
-            return (cmp(a['type'], b['type'])
-                    or cmp(a['user_name'], b['user_name']))
+            return (cmp(a['type'], b['type']) or
+                    cmp(a['user_name'], b['user_name']))
         group = self._get_group(groupname)
         ret = []
         now = DateTime.now()
         members = list(group.search_members(group_id=group.entity_id,
                                             indirect_members=False,
                                             member_filter_expired=False))
-        if (len(members) > cereconf.BOFHD_MAX_MATCHES
-                and not self.ba.is_superuser(operator.get_entity_id())):
+        if (len(members) > cereconf.BOFHD_MAX_MATCHES and
+                not self.ba.is_superuser(operator.get_entity_id())):
             raise CerebrumError("More than %d (%d) matches. Contact superuser "
                                 "to get a listing for %r." %
                                 (cereconf.BOFHD_MAX_MATCHES, len(members),
@@ -2190,8 +2190,8 @@ class BofhdExtension(BofhdCommonMethods):
         result = list()
         all_members = list(group.search_members(group_id=group.entity_id,
                                                 indirect_members=True))
-        if (len(all_members) > cereconf.BOFHD_MAX_MATCHES
-                and not self.ba.is_superuser(operator.get_entity_id())):
+        if (len(all_members) > cereconf.BOFHD_MAX_MATCHES and
+                not self.ba.is_superuser(operator.get_entity_id())):
             raise CerebrumError("More than %d (%d) matches, contact superuser"
                                 "to get a listing for %r" %
                                 (cereconf.BOFHD_MAX_MATCHES, len(all_members),
@@ -2940,9 +2940,9 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_set_disk_default_quota(operator.get_entity_id(),
                                            host=host)
         old = host.get_trait(self.const.trait_host_disk_quota)
-        if (quota.lower() == 'none'
-                or quota.lower() == 'default'
-                or (quota.isdigit() and int(quota) == 0)):
+        if (quota.lower() == 'none' or
+                quota.lower() == 'default' or
+                (quota.isdigit() and int(quota) == 0)):
             # "default" doesn't make much sense, but the help text
             # says it's a valid value.
             if old:
@@ -3901,8 +3901,8 @@ class BofhdExtension(BofhdCommonMethods):
         if not has_aff:
             self.ba.can_add_affiliation(operator.get_entity_id(),
                                         person, ou, aff, aff_status)
-            if (aff == self.const.affiliation_ansatt
-                    or aff == self.const.affiliation_student):
+            if (aff == self.const.affiliation_ansatt or
+                    aff == self.const.affiliation_student):
                 raise PermissionDenied("Student/Ansatt affiliation can only be"
                                        " set by automatic import routines")
             person.add_affiliation(ou.entity_id, aff,
@@ -5030,8 +5030,8 @@ class BofhdExtension(BofhdCommonMethods):
         # as we want to let other clients handle these spreads
         # in different manner if needed
         # dissallow spread-setting for distribution groups
-        if (cereconf.EXCHANGE_GROUP_SPREAD
-                and text_type(spread) == cereconf.EXCHANGE_GROUP_SPREAD):
+        if (cereconf.EXCHANGE_GROUP_SPREAD and
+                text_type(spread) == cereconf.EXCHANGE_GROUP_SPREAD):
             raise CerebrumError("Please create distribution group via "
                                 "'group exchange_create'")
         if entity_type == 'account':
@@ -5046,8 +5046,8 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError(exc_to_text(e))
         entity.write_db()
         if hasattr(self.const, 'spread_uio_nis_fg'):
-            if (entity_type == 'group'
-                    and spread == self.const.spread_uio_nis_fg):
+            if (entity_type == 'group' and
+                    spread == self.const.spread_uio_nis_fg):
                 ad_spread = self.const.spread_uio_ad_group
                 if not entity.has_spread(ad_spread):
                     entity.add_spread(ad_spread)
@@ -5870,8 +5870,8 @@ class BofhdExtension(BofhdCommonMethods):
             is_posix = True
         except CerebrumError:
             account = self._get_account(accountname)
-        if (account.is_deleted()
-                and not self.ba.is_superuser(operator.get_entity_id())):
+        if (account.is_deleted() and
+                not self.ba.is_superuser(operator.get_entity_id())):
             raise CerebrumError("User '{}' is deleted".format(
                 account.account_name))
         affiliations = []
@@ -5922,8 +5922,8 @@ class BofhdExtension(BofhdCommonMethods):
                 if not(dq_row['quota'] is None or def_quota is False):
                     ret['disk_quota'] = str(int(dq_row['quota']))
                 # Only display recent quotas
-                days_left = ((dq_row['override_expiration'] or DateTime.Epoch)
-                             - DateTime.now()).days
+                days_left = ((dq_row['override_expiration'] or
+                              DateTime.Epoch) - DateTime.now()).days
                 if days_left > -30:
                     ret['dq_override'] = dq_row['override_quota']
                     if dq_row['override_quota'] is not None:
@@ -5972,8 +5972,8 @@ class BofhdExtension(BofhdCommonMethods):
             if q['start_date'] <= now:
                 if (q['end_date'] is not None and q['end_date'] < now):
                     quarantined = 'expired'
-                elif (q['disable_until'] is not None
-                        and q['disable_until'] > now):
+                elif (q['disable_until'] is not None and
+                      q['disable_until'] > now):
                     quarantined = 'disabled'
                 else:
                     quarantined = 'active'
@@ -6084,7 +6084,8 @@ class BofhdExtension(BofhdCommonMethods):
             return MoveType().get_struct(help_struct)
         move_type = all_args.pop(0)
         if not all_args:
-            return AccountName(help_ref='account_name_id_uid').get_struct(help_struct)
+            return AccountName(
+                help_ref='account_name_id_uid').get_struct(help_struct)
         # pop account name
         all_args.pop(0)
         if move_type in ("immediate", "batch", "nofile", "hard_nofile"):
@@ -6171,8 +6172,8 @@ class BofhdExtension(BofhdCommonMethods):
             self.ba.can_move_user(operator.get_entity_id(), account, disk_id)
 
             for r in account.get_spread():
-                if (r['spread'] == self.const.spread_ifi_nis_user
-                        and not re.match(r'^/ifi/', args[0])):
+                if (r['spread'] == self.const.spread_ifi_nis_user and
+                        not re.match(r'^/ifi/', args[0])):
                     message += ("WARNING: moving user with %s-spread to "
                                 "a non-Ifi disk.\n" %
                                 text_type(self.const.spread_ifi_nis_user))
