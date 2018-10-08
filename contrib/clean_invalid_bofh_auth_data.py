@@ -52,7 +52,7 @@ def main():
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
-    Cerebrum.logutils.autoconf(__name__, args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('START {0}'.format(parser.prog))
     db = Factory.get('Database')()
