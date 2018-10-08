@@ -61,6 +61,7 @@ targets = {
     'entity_trait': ('entity_trait_1_1',),
     'hostpolicy': ('hostpolicy_1_1',),
     'note': ('note_1_1',),
+    'job_runner': ('job_runner_1_1',),
 }
 
 # Global variables
@@ -1654,6 +1655,22 @@ def migrate_to_hostpolicy_1_1():
     meta.set_metainfo("sqlmodule_hostpolicy", "1.1")
     db.commit()
     print("Migration to hostpolicy 1.1 completed successfully")
+
+
+def migrate_to_job_runner_1_1():
+    print("\ndone.")
+    meta = Metainfo.Metainfo(db)
+    try:
+        meta.get_metainfo("sqlmodule_job_runner")
+    except Errors.NotFoundError:
+        print("Schema version for sqlmodule_job_runner "
+              "is missing, setting to 1.0")
+        meta.set_metainfo("sqlmodule_job_runner", "1.0")
+    assert_db_version("1.0", component='job_runner')
+    makedb('job_runner_1_1', 'pre')
+    meta.set_metainfo("sqlmodule_job_runner", "1.1")
+    print("Migration to job_runner 1.1 completed successfully")
+    db.commit()
 
 
 def init():
