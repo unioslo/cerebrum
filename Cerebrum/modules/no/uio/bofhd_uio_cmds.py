@@ -85,7 +85,7 @@ from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.help import Help, merge_help_strings
-from Cerebrum.modules.dns.Subnet import Subnet
+from Cerebrum.modules.dns.Subnet import Subnet, SubnetError
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
@@ -958,7 +958,7 @@ class BofhdExtension(BofhdCommonMethods):
                     # TODO: should Subnet.find() support ints as input?
                     try:
                         s.find('entity_id:%s' % r['entity_id'])
-                    except (Errors.NotFoundError, ValueError):
+                    except (Errors.NotFoundError, ValueError, SubnetError):
                         self.logger.warn("Non-existing entity (subnet) in "
                                          "auth_op_target %s:%d" %
                                          (r['target_type'], r['entity_id']))
