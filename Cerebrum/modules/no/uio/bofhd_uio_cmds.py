@@ -957,10 +957,7 @@ class BofhdExtension(BofhdCommonMethods):
                     s = Subnet(self.db)
                     # TODO: should Subnet.find() support ints as input?
                     try:
-                        self.logger.debug('Before')
-                        self.logger.debug(r)
                         s.find('entity_id:%s' % r['entity_id'])
-                        self.logger.debug('After')
                     except (Errors.NotFoundError, ValueError, SubnetError):
                         self.logger.warn("Non-existing entity (subnet) in "
                                          "auth_op_target %s:%d" %

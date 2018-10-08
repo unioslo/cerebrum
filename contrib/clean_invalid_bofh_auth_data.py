@@ -22,16 +22,21 @@
 
 The auth_op_target and auth_op_roles tables can contain entries that refers
 to deleted entities. This script find and removed these entries.
+
+Some parts of Cerebrum (see dns/Subnet.py) removes the BofhAuth data on delete.
+We do not want Cerebrum to touch BofhdAuth butt removing it might brake stuff..
+See CRB-2616.
 """
 
 import argparse
-import sys
+import logging
 
+import Cerebrum.logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.database import DatabaseError
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
 
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -39,12 +44,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '-c', '--commit',
-        action='store_false',
+        action='store_true',
         dest='commit',
         default=False,
         help='Actually remove the invalid auth data.'
     )
+
+    Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
+    Cerebrum.logutils.autoconf(__name__, args)
 
     logger.info('START {0}'.format(parser.prog))
     db = Factory.get('Database')()
@@ -64,20 +72,22 @@ def main():
         logger.error(
             'Error removing invalid auth data {0}. Rolling back any changes'
             .format(e))
-        sys.exit(1)
+        raise
 
     bar_count_after = bar.count_invalid()
     baot_count_after = baot.count_invalid()
 
+    logger.info('Removing {0} invalid entries in auth_roles'.format(
+        bar_count - bar_count_after))
+    logger.info('Removing {0} invalid entries in auth_op_targets'.format(
+        baot_count - baot_count_after))
+
     if args.commit:
+        logger.info('Committing changes.')
         db.commit()
     else:
+        logger.info('Rolling back changes.')
         db.rollback()
-
-    logger.info('Removed {0} invalid entries in auth_roles'.format(
-        bar_count - bar_count_after))
-    logger.info('Removed {0} invalid entries in auth_op_targets'.format(
-        baot_count - baot_count_after))
 
     logger.info('DONE {0}'.format(parser.prog))
 

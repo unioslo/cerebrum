@@ -504,7 +504,7 @@ class BofhdAuthOpTarget(DatabaseAccessor):
 
     def count_invalid(self):
         """Return the count of invalid auth_roles in the database."""
-        return self.query("""
+        return self.query_1("""
             SELECT count(*)
             FROM [:table schema=cerebrum name=auth_op_target] ot
             WHERE NOT EXISTS (
@@ -512,7 +512,7 @@ class BofhdAuthOpTarget(DatabaseAccessor):
                 FROM [:table schema=cerebrum name=entity_info] ei
                 WHERE ei.entity_id = ot.entity_id)
             AND ot.entity_id IS NOT NULL;
-            """)[0][0]
+            """)
 
     def remove_invalid(self):
         """Remove all invalid auth_op_targets in the database.
@@ -598,7 +598,7 @@ class BofhdAuthRole(DatabaseAccessor):
 
     def count_invalid(self):
         """Return the count of invalid auth_roles in the database."""
-        return self.query("""
+        return self.query_1("""
         SELECT count(*) FROM [:table schema=cerebrum name=auth_role]
         WHERE op_target_id IN (
             SELECT op_target_id
@@ -608,7 +608,7 @@ class BofhdAuthRole(DatabaseAccessor):
                 FROM [:table schema=cerebrum name=entity_info] ei
                 WHERE ei.entity_id = ot.entity_id)
                 AND ot.entity_id IS NOT NULL
-        )""")[0][0]
+        )""")
 
     def remove_invalid(self):
         """Remove all invalid auth_roles in the database.
