@@ -309,6 +309,12 @@ arg_help = {
     'account_name':
         ['uname', 'Enter account name',
          'Enter the name of the account for this operation'],
+    'account_name_id_uid':
+        ['uname', 'Enter account name',
+         """Enter the name of the account for this operation. Also accepts Entity id as id:xxx or UID as uid:xxx"""],
+    'account_name_id':
+        ['uname', 'Enter account name',
+         """Enter the name of the account for this operation. Also accepts Entity id as id:xxx"""],
     'account_name_member':
         ['uname', 'Enter members account name',
          "Enter the name of an account that already is a member"],
@@ -391,6 +397,8 @@ arg_help = {
             - addrbook_visibility (H/V)"""],
     'group_name':
         ['gname', 'Enter groupname'],
+    'group_name_id':
+        ['gname', 'Enter groupname', """Accepts group name or entity id of group as id:gid"""],
     'group_name_dest':
         ['dest_gname', 'Enter the destination group'],
     'group_name_new':
@@ -505,7 +513,7 @@ arg_help = {
     'ou':
         ['ou', 'Enter OU',
          'Enter the 6-digit code of the organizational unit the person is '
-         'affiliated to'],
+         'affiliated to. Example: 150300'],
     'ou_stedkode_or_id':
         ['ou', 'Enter OU stedkode/id',
          'Enter a 6-digit stedkode of an organizational unit, or id:? to '
@@ -639,7 +647,7 @@ arg_help = {
          pc*,spread:AD_group  - list all AD groups whose names start with """
          "'pc'"],
     'string_host':
-        ['hostname', 'Enter hostname.  Example: ulrik'],
+        ['hostname', 'Enter hostname', 'Accepts hostname. Example: ulrik'],
     'string_new_priority':
         ['new_priority', 'Enter value new priority value',
          'Enter a positive integer (1..999), lower integers give higher '
@@ -716,6 +724,13 @@ arg_help = {
          - 'stedkode'
          - 'host'
          - 'disk'"""],
+    'user_set_owner_group_person':
+        ['', '',
+         """
+         Person: accepts user name or Entity id of person as id:xxx. 
+         Group: accepts group name or Entity id of group as id:xxx
+         """],
+
     'yes_no_force':
         ['force', 'Force the operation?'],
     'yes_no_all_op':

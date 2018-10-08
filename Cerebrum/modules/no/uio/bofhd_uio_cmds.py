@@ -324,7 +324,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['access_group'] = Command(
         ('access', 'group'),
-        GroupName(),
+        GroupName(help_ref='group_name_id'),
         fs=FormatSuggestion(
             "%-16s %-9s %s", ("opset", "type", "name"),
             hdr="%-16s %-9s %s" % ("Operation set", "Type", "Name")
@@ -5293,7 +5293,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['user_affiliation_add'] = Command(
         ("user", "affiliation_add"),
-        AccountName(),
+        AccountName(help_ref='account_name_id_uid'),
         OU(),
         Affiliation(),
         AffiliationStatus(),
@@ -5501,10 +5501,11 @@ class BofhdExtension(BofhdCommonMethods):
         raise CerebrumError('Too many arguments')
 
     #
-    # user create_unpersonal
+    # user create_personal
     #
     all_commands['user_create_personal'] = Command(
-        ('user', 'create_personal'), prompt_func=_user_create_prompt_func,
+        ('user', 'create_personal'),
+        prompt_func=_user_create_prompt_func,
         fs=FormatSuggestion("Created uid=%i", ("uid",)),
         perm_filter='can_create_user')
 
@@ -5568,7 +5569,7 @@ class BofhdExtension(BofhdCommonMethods):
                 ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
                 self._user_create_set_account_type(posix_user, owner_id,
                                                    ou_id, affiliation)
-        except self.db.DatabaseError, m:
+        except self.db.DatabaseError as m:
             raise CerebrumError('Database error: {}'.format(m))
         operator.store_state('new_account_passwd',
                              {'account_id': int(posix_user.entity_id),
@@ -5596,7 +5597,9 @@ class BofhdExtension(BofhdCommonMethods):
     # user create_sysadm
     #
     all_commands['user_create_sysadm'] = Command(
-        ("user", "create_sysadm"), AccountName(), OU(optional=True),
+        ("user", "create_sysadm"),
+        AccountName(),
+        OU(optional=True),
         YesNo(help_ref="yes_no_force", optional=True, default="No"),
         fs=FormatSuggestion('OK, created %s', ('accountname',)),
         perm_filter='can_create_sysadm')
@@ -5723,7 +5726,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['user_delete'] = Command(
         ("user", "delete"),
-        AccountName(),
+        AccountName(help_ref='account_name_id_uid'),
         perm_filter='can_delete_user')
 
     def user_delete(self, operator, accountname):
@@ -5752,7 +5755,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['user_set_disk_quota'] = Command(
         ("user", "set_disk_quota"),
-        AccountName(),
+        AccountName(help_ref='account_name_id_uid'),
         Integer(help_ref="disk_quota_size"),
         Date(help_ref="disk_quota_expire_date"),
         SimpleString(help_ref="string_why"),
@@ -5792,7 +5795,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['user_gecos'] = Command(
         ("user", "gecos"),
-        AccountName(),
+        AccountName(help_ref='account_name_id_uid'),
         PosixGecos(),
         perm_filter='can_set_gecos')
 
@@ -5823,7 +5826,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['user_history'] = Command(
         ("user", "history"),
-        AccountName(),
+        AccountName(help_ref='account_name_id'),
         fs=FormatSuggestion(
             "%s [%s]: %s", ("timestamp", "change_by", "message")),
         perm_filter='can_show_history')
@@ -5836,7 +5839,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['user_info'] = Command(
         ("user", "info"),
-        AccountName(),
+        AccountName(help_ref='account_name_id_uid'),
         fs=FormatSuggestion([
             ("Username:      %s\n"
              "Spreads:       %s\n"
@@ -6064,13 +6067,16 @@ class BofhdExtension(BofhdCommonMethods):
         Base command:
           user move <move-type> <account-name>
         Variants
-          user move immediate   <account-name> <disk-id> <reason>
-          user move batch       <account-name> <disk-id> <reason>
-          user move nofile      <account-name> <disk-id> <reason>
-          user move hard_nofile <account-name> <disk-id> <reason>
-          user move request     <account-name> <disk-id> <reason>
-          user move give        <account-name> <group-name> <reason>
-
+          user move immediate           <account-name> <disk-id> <reason>
+          user move batch               <account-name> <disk-id> <reason>
+          user move nofile              <account-name> <disk-id> <reason>
+          user move hard_nofile         <account-name> <disk-id> <reason>
+          user move request             <account-name> <disk-id> <reason>
+          user move give                <account-name> <group-name> <reason>
+          user move student             <account-name>
+          user move student_immediate   <account-name>
+          user move confirm             <account-name>
+          user move cancel              <account-name>
         """
         help_struct = Help([self, ], logger=self.logger)
         all_args = list(args)
@@ -6078,7 +6084,7 @@ class BofhdExtension(BofhdCommonMethods):
             return MoveType().get_struct(help_struct)
         move_type = all_args.pop(0)
         if not all_args:
-            return AccountName().get_struct(help_struct)
+            return AccountName(help_ref='account_name_id_uid').get_struct(help_struct)
         # pop account name
         all_args.pop(0)
         if move_type in ("immediate", "batch", "nofile", "hard_nofile"):
@@ -6308,7 +6314,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['user_password'] = Command(
         ('user', 'password'),
-        AccountName(),
+        AccountName(help_ref='account_name_id_uid'),
         AccountPassword(optional=True))
 
     def user_password(self, operator, accountname, password=None):
@@ -6368,7 +6374,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['user_promote_posix'] = Command(
         ('user', 'promote_posix'),
-        AccountName(),
+        AccountName(help_ref='account_name_id'),
         PosixShell(default="bash"),
         DiskId(),
         perm_filter='can_create_user')
@@ -6425,11 +6431,11 @@ class BofhdExtension(BofhdCommonMethods):
         return "OK, promoted %s to posix user%s" % (accountname, tmp)
 
     #
-    # user posix_delete
+    # user demote_posix
     #
     all_commands['user_demote_posix'] = Command(
         ('user', 'demote_posix'),
-        AccountName(),
+        AccountName(help_ref='account_name_id_uid'),
         perm_filter='can_create_user')
 
     def user_demote_posix(self, operator, accountname):
@@ -6448,7 +6454,7 @@ class BofhdExtension(BofhdCommonMethods):
         # Get the account name
         if not all_args:
             return {'prompt': 'Account name',
-                    'help_ref': 'account_name'}
+                    'help_ref': 'account_name_id_uid'}
         arg = all_args.pop(0)
         ac = self._get_account(arg)
 
@@ -6642,7 +6648,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['user_set_disk_status'] = Command(
         ('user', 'set_disk_status'),
-        AccountName(),
+        AccountName(help_ref='account_name_id_uid'),
         SimpleString(help_ref='string_disk_status'),
         perm_filter='can_create_disk')
 
@@ -6668,7 +6674,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['user_set_expire'] = Command(
         ('user', 'set_expire'),
-        AccountName(),
+        AccountName(help_ref='account_name_id_uid'),
         Date(),
         perm_filter='can_delete_user')
 
@@ -6686,7 +6692,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['user_set_np_type'] = Command(
         ('user', 'set_np_type'),
-        AccountName(),
+        AccountName(help_ref='account_name_id_uid'),
         SimpleString(help_ref="string_np_type"),
         perm_filter='can_delete_user')
 
@@ -6702,14 +6708,17 @@ class BofhdExtension(BofhdCommonMethods):
     def user_set_owner_prompt_func(self, session, *args):
         all_args = list(args[:])
         if not all_args:
-            return {'prompt': 'Account name'}
+            return {'prompt': 'Account name',
+                    'help_ref': 'account_name_id_uid'}
+
         all_args.pop(0)
         if not all_args:
             return {'prompt': 'Entity type (group/person)',
                     'default': 'person'}
         entity_type = all_args.pop(0)
         if not all_args:
-            return {'prompt': 'Id of the type specified above'}
+            return {'prompt': 'Id of the type specified above',
+                    'help_ref': 'user_set_owner_group_person'}
         id = all_args.pop(0)
         if entity_type == 'person':
             if not all_args:
@@ -6780,7 +6789,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['user_shell'] = Command(
         ("user", "shell"),
-        AccountName(),
+        AccountName(help_ref='account_name_id_uid'),
         PosixShell(default="bash")
     )
 
