@@ -1,6 +1,6 @@
 /* encoding: latin-1
  *
- * Copyright 2002-2016 University of Oslo, Norway
+ * Copyright 2002-2018 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -23,7 +23,7 @@
 category:metainfo;
 name=cerebrum_database_schema_version;
 category:metainfo;
-version=0.9.19;
+version=0.9.20;
 
 /* Define role hierarchy used for granting access to various database
    objects.
@@ -564,7 +564,7 @@ CREATE TABLE entity_address
 		CONSTRAINT entity_address_address_type
 		  REFERENCES address_code(code),
   address_text	CHAR VARYING(256),
-  p_o_box	CHAR VARYING(10),
+  p_o_box	TEXT,
   postal_number	CHAR VARYING(32),
   city		CHAR VARYING(128),
   country	NUMERIC(6,0)
@@ -753,15 +753,15 @@ GRANT INSERT, UPDATE, DELETE ON account_code TO change_code;
 
 /*	account_info
 
-Konto kan være tilknyttet en person.  Kontoens type indikerer hvorvidt
-kontoen kan være upersonlig; integriteten av dette tas hånd om utenfor
+Konto kan vï¿½re tilknyttet en person.  Kontoens type indikerer hvorvidt
+kontoen kan vï¿½re upersonlig; integriteten av dette tas hï¿½nd om utenfor
 SQL.
 
 Konto kan ha forskjellig brukernavn i forskjellige kontekster, men
-alle disse skal til enhver tid kunne autentisere seg på (de) samme
-måte(ne).
+alle disse skal til enhver tid kunne autentisere seg pï¿½ (de) samme
+mï¿½te(ne).
 
-Hvert brukernavn (kontekst?) kan ha tilknyttet et eget hjemmeområde.
+Hvert brukernavn (kontekst?) kan ha tilknyttet et eget hjemmeomrï¿½de.
 
  * "User" is an Oracle reserved word, so we're probably better off if
  * we avoid using that as a table or column name.  Besides, "account"
@@ -1134,7 +1134,7 @@ GRANT INSERT, UPDATE, DELETE ON gender_code TO change_code;
 		forever once it has been assigned.
 
 		TBD: Fint om man kunne garantere at denne IDen var
-		unik på tvers av forskjellige Cerebrum-installasjoner;
+		unik pï¿½ tvers av forskjellige Cerebrum-installasjoner;
 		holder det med en felles konvensjon for hvordan IDen
 		ser ut?
 
@@ -1143,9 +1143,9 @@ GRANT INSERT, UPDATE, DELETE ON gender_code TO change_code;
                   first delivered this piece of information about a
                   person  
 
-  TODO: Må definere API for å flytte informasjon knyttet til en
-	person_id over til en annen.  Både kjernen og alle moduler må
-	støtte dette.
+  TODO: Mï¿½ definere API for ï¿½ flytte informasjon knyttet til en
+	person_id over til en annen.  Bï¿½de kjernen og alle moduler mï¿½
+	stï¿½tte dette.
 
 */
 category:main;
@@ -1563,11 +1563,11 @@ CREATE TABLE group_info
 		NOT NULL
 		CONSTRAINT group_info_creator_id
 		  REFERENCES account_info(account_id),
-/* expire_date kan brukes for å slette grupper, f.eks. ved at gruppen
-   ikke lenger eksporteres etter at datoen er passert, men først
-   slettes fra tabellen N måneder senere.  Det innebærer at man ikke
-   får opprettet noen ny gruppe med samme navn før gruppa har vært
-   borte fra eksporten i N måneder (med mindre man endrer på
+/* expire_date kan brukes for ï¿½ slette grupper, f.eks. ved at gruppen
+   ikke lenger eksporteres etter at datoen er passert, men fï¿½rst
+   slettes fra tabellen N mï¿½neder senere.  Det innebï¿½rer at man ikke
+   fï¿½r opprettet noen ny gruppe med samme navn fï¿½r gruppa har vï¿½rt
+   borte fra eksporten i N mï¿½neder (med mindre man endrer pï¿½
    expire_date). */
   expire_date	DATE
 		DEFAULT NULL,
@@ -1660,28 +1660,28 @@ GRANT change_core_table TO cerebrum_user;
 
 Konvensjoner:
 
- * Forsøker å følge ANSI SQL ('92, uten at jeg helt vet forskjellen på
+ * Forsï¿½ker ï¿½ fï¿½lge ANSI SQL ('92, uten at jeg helt vet forskjellen pï¿½
    denne og '99); dette betyr f.eks. at "CHAR VARYING" brukes i stedet
    for Oracle-datatypen "VARCHAR2", selv om begge disse er
    implementert identisk i Oracle.
 
- * Kolonner som er hele primærnøkkelen i en tabell, har ofte samme
+ * Kolonner som er hele primï¿½rnï¿½kkelen i en tabell, har ofte samme
    navn som tabellen + suffikset "_key".  Kun kolonner som er hele
-   primærnøkkelen i tabellen sin har dette suffikset.
+   primï¿½rnï¿½kkelen i tabellen sin har dette suffikset.
 
- * Når det refereres til en _key-kolonne har kolonnen som inneholder
-   referansen altså IKKE navn med suffiks _key (da referanse-kolonnen
-   ikke alene er primærnøkkel i tabellen det refereres fra).
+ * Nï¿½r det refereres til en _key-kolonne har kolonnen som inneholder
+   referansen altsï¿½ IKKE navn med suffiks _key (da referanse-kolonnen
+   ikke alene er primï¿½rnï¿½kkel i tabellen det refereres fra).
 
- * Alle _key-kolonner bruker type NUMERIC(12,0), altså et heltall med
+ * Alle _key-kolonner bruker type NUMERIC(12,0), altsï¿½ et heltall med
    maks 12 sifre.
 
  * For alle tabeller med en _key-kolonne finnes det en sekvens med
    samme navn som _key-kolonnen.  Ved innlegging av nye data i en slik
-   tabell skal _key-kolonnen få sin verdi hentet fra denne
-   sekvensen.NEXTVAL (for å unngå race conditions).
+   tabell skal _key-kolonnen fï¿½ sin verdi hentet fra denne
+   sekvensen.NEXTVAL (for ï¿½ unngï¿½ race conditions).
 
- * Vi benytter ikke cascading deletes, da dette vil være lite
+ * Vi benytter ikke cascading deletes, da dette vil vï¿½re lite
    kompatibelt med at ymse personer "fikser litt" direkte i SQL.
 
 */
@@ -1696,20 +1696,20 @@ Data assosiert direkte med en enkelt konto:
 
  * Eier							== 1
 
-   Kontoen _må_ ha en eier; dette kan enten være en
+   Kontoen _mï¿½_ ha en eier; dette kan enten vï¿½re en
    person, eller en IT-gruppe (det siste kun for
-   upersonlige konti, siden disse ikke eies av noen
+   upersonlige konti, siden disse ikke eies avï¿½noen
    person :-).
 
  * Kontotype						1..N
 
    Kontotype bestemmes av et sett med affiliations.
-   Alle disse må tilhøre den samme eieren (person
+   Alle disse mï¿½ tilhï¿½re den samme eieren (person
    eller IT-gruppe), slik at en konto kun kan ha
    typer avledet av sin egen eier.
 
-   For upersonlige konti (som altså eies av en
-   gruppe) må det settes nøyaktig en konto-type.
+   For upersonlige konti (som altsï¿½ eies av en
+   gruppe) mï¿½ det settes nï¿½yaktig en konto-type.
 
  * Brukernavn						1..N
 
@@ -1729,50 +1729,50 @@ Data assosiert direkte med en enkelt konto:
    private		0x..., NULL, NULL
    public		0x.-.., md5-crypt, DES-crypt
 
- * Hjemmeområde						0..1
+ * Hjemmeomrï¿½de						0..1
    Noen typer bruker har ikke noe assosiert
-   hjemmeområde i det hele tatt, mens i andre
-   sammenhenger bør det kunne knyttes separate
-   hjemmeområder til hver av de brukernavnene
+   hjemmeomrï¿½de i det hele tatt, mens i andre
+   sammenhenger bï¿½r det kunne knyttes separate
+   hjemmeomrï¿½der til hver av de brukernavnene
    kontoen har.
 
  * Sperring (potensielt flere samtidige, potensielt	0..N
    med forskjellig prioritet)
 
-   Sperring kan også skje på person-nivå (type
+   Sperring kan ogsï¿½ skje pï¿½ person-nivï¿½ (type
    karantene); disse vil da affektere alle kontoene
    personen eier.
 
    Hver enkelt konto-sperring vil ha tilsvarende
    effekt i _alle_ kontekster der kontoen er kjent.
-   Sperring på kontekst-nivå må gjøres ved å fjerne
+   Sperring pï¿½ kontekst-nivï¿½ mï¿½ gjï¿½res ved ï¿½ fjerne
    aktuell spread.
 
- * Aktiv/slettet (bør ligge en stund med alle		0..1
+ * Aktiv/slettet (bï¿½r ligge en stund med alle		0..1
    tabell-entries intakt, men flagget som
-   slettet, for å lett kunne gjøre restore).
+   slettet, for ï¿½ lett kunne gjï¿½re restore).
 
    Dersom vi hadde hatt datostempel for alle
    medlemmers innmeldelse i grupper, kunne dette ha
    blitt implementert som (nok) en gruppe.  Det har
-   vi ikke, og vil nok heller ikke ha, så dermed
-   fremstår gruppe-implementasjon ikke som noen lur
-   måte å gjøre dette på.
+   vi ikke, og vil nok heller ikke ha, sï¿½ dermed
+   fremstï¿½r gruppe-implementasjon ikke som noen lur
+   mï¿½te ï¿½ gjï¿½re dette pï¿½.
 
- * Spread (hvilke systemer skal kontoen være		0..N
+ * Spread (hvilke systemer skal kontoen vï¿½re		0..N
    kjent i)
    Implementeres vha. grupper med egen nomenklatur
    for gruppenavnene.
 
    Ved fjerning av spread en spread er det opp til
-   hver enkelt eksportmodul å evt. flagge tidspunkt
-   for forsvinningen, slik at man unngår "sletting"
+   hver enkelt eksportmodul ï¿½ evt. flagge tidspunkt
+   for forsvinningen, slik at man unngï¿½r "sletting"
    etterfulgt av gjenoppretting (i systemer der
    dette er veldig dumt).
 
  * Unix UID						0..N
 
- * Unix primærgruppe					0..N
+ * Unix primï¿½rgruppe					0..N
 
  * Unix shell						0..N
 
