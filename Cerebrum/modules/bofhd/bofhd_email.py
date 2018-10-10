@@ -774,7 +774,8 @@ class BofhdEmailAuth(BofhdAuth):
             self._query_maildomain_permissions(operator, operation,
                                                domain, None)
         if account:
-            self.has_priviliged_access_to_account_or_person(operator, operation, account)
+            self.has_priviliged_access_to_account_or_person(
+                operator, operation, account)
         return True
 
     def can_email_address_add(self, operator, account=None, domain=None,
