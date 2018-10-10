@@ -5028,8 +5028,7 @@ class BofhdExtension(BofhdCommonMethods):
              format_day('disable_until'), 'who', 'why'),
             hdr="%-14s %-16s %-16s %-14s %-8s %s" %
             ('Type', 'Start', 'End', 'Disable until', 'Who', 'Why')
-        ),
-        perm_filter='can_show_quarantines')
+        ))
 
     def quarantine_show(self, operator, entity_type, id):
         ret = []

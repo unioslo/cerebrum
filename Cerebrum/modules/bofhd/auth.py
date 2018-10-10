@@ -98,7 +98,7 @@ for the database model.
 
 - *OpSets* are created and consists of references to various operations. Each
   operation could be configured with some parameters. For example the operation
-  to add a spread includes a parametere where you could define *what* spread is
+  to add a spread includes a parameter where you could define *what* spread is
   allowed.
 
 - *Operators* are then authorized, i.e. *granted* access, to OpSets. Note that
@@ -194,7 +194,8 @@ BOFHD_AUTH_GROUPMODERATOR
     groups a given user has access to moderate.
 BOFHD_CHECK_DISK_SPREAD
     A spread to check for home directory. If set, then access to that disk will
-    also give access to users on taht disk (see `is_account_owner`)
+    also give access to users on that disk (see
+    `has_priviliged_access_to_account_or_person`)
 BOFHD_FNR_ACCESS_GROUP
     A group name, members are allowed to view protected external id values (see
     `can_get_person_external_id`).
@@ -686,8 +687,27 @@ class BofhdAuth(DatabaseAccessor):
             return True
         return False
 
-    def is_account_owner(self, operator, operation, entity,
-                         operation_attr=None):
+    def is_owner_of_account(self, operator, account):
+        """See if operator is owner of an account.
+
+        :param int operator:
+            The operator's `entity_id`.
+        :param Cerebrum.Account account:
+            The account to check is operator is owner of.
+        :raise PermissionDenied:
+            If the operator is not owner of account.
+        """
+
+        if not isinstance(account, Factory.get('Account')):
+            raise PermissionDenied("accont parameter must be an account")
+        op_account = Factory.get('Account')(self._db)
+        op_account.find(operator)
+        if op_account.owner_id == account.owner_id:
+            return True
+        raise PermissionDenied("Not owner of account")
+
+    def has_priviliged_access_to_account_or_person(
+            self, operator, operation, entity, operation_attr=None):
         """See if operator has access to an account or a person.
 
         Operation targets that are checked:
@@ -745,14 +765,13 @@ class BofhdAuth(DatabaseAccessor):
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_disk_quota_set)
         if forever:
-            self.is_account_owner(operator, self.const.auth_disk_quota_forever,
-                                  account)
+            self.has_priviliged_access_to_account_or_person(
+                operator, self.const.auth_disk_quota_forever, account)
         if unlimited:
-            self.is_account_owner(operator,
-                                  self.const.auth_disk_quota_unlimited,
-                                  account)
-        return self.is_account_owner(operator, self.const.auth_disk_quota_set,
-                                     account)
+            self.has_priviliged_access_to_account_or_person(
+                operator, self.const.auth_disk_quota_unlimited, account)
+        return self.has_priviliged_access_to_account_or_person(
+            operator, self.const.auth_disk_quota_set, account)
 
     def can_set_disk_default_quota(self, operator, host=None, disk=None,
                                    query_run_any=False):
@@ -778,8 +797,8 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_disk_quota_show)
-        return self.is_account_owner(operator, self.const.auth_disk_quota_show,
-                                     account)
+        return self.has_priviliged_access_to_account_or_person(
+            operator, self.const.auth_disk_quota_show, account)
 
     def can_set_person_user_priority(self, operator, account=None,
                                      query_run_any=False):
@@ -787,8 +806,8 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if self.is_superuser(operator) or operator == account.entity_id:
             return True
-        return self.is_account_owner(operator, self.const.auth_set_password,
-                                     account)
+        return self.has_priviliged_access_to_account_or_person(
+            operator, self.const.auth_set_password, account)
 
     def can_set_trait(self, operator, trait=None, ety=None, target=None,
                       query_run_any=False):
@@ -910,8 +929,8 @@ class BofhdAuth(DatabaseAccessor):
         account.find(operator)
         if person.entity_id == account.owner_id:
             return True
-        return self.is_account_owner(operator, self.const.auth_create_user,
-                                     account)
+        return self.has_priviliged_access_to_account_or_person(
+            operator, self.const.auth_create_user, account)
 
     def can_alter_printerquota(self, operator, account=None,
                                query_run_any=False):
@@ -920,9 +939,8 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_alter_printerquota)
-        return self.is_account_owner(operator,
-                                     self.const.auth_alter_printerquota,
-                                     account)
+        return self.has_priviliged_access_to_account_or_person(
+            operator, self.const.auth_alter_printerquota, account)
 
     def can_query_printerquota(self, operator, account=None,
                                query_run_any=False):
@@ -962,7 +980,7 @@ class BofhdAuth(DatabaseAccessor):
             if six.text_type(qtype) == attr:
                 return True
 
-        return self.is_account_owner(
+        return self.has_priviliged_access_to_account_or_person(
             operator, self.const.auth_quarantine_disable, entity,
             operation_attr=six.text_type(qtype))
 
@@ -1005,7 +1023,7 @@ class BofhdAuth(DatabaseAccessor):
             if six.text_type(qtype) == attr:
                 return True
 
-        return self.is_account_owner(
+        return self.has_priviliged_access_to_account_or_person(
             operator, self.const.auth_quarantine_remove, entity,
             operation_attr=six.text_type(qtype))
 
@@ -1041,26 +1059,23 @@ class BofhdAuth(DatabaseAccessor):
         else:
             if self._no_account_home(operator, entity):
                 return True
-        return self.is_account_owner(operator,
-                                     self.const.auth_quarantine_set,
-                                     entity,
-                                     operation_attr=six.text_type(qtype))
+        return self.has_priviliged_access_to_account_or_person(
+            operator, self.const.auth_quarantine_set, entity,
+            operation_attr=six.text_type(qtype))
 
     def can_show_quarantines(self, operator, entity=None,
                              query_run_any=False):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_set_password)
+            return True
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
         # this is a hack
         else:
             if self._no_account_home(operator, entity):
                 return True
-        return self.is_account_owner(operator, self.const.auth_set_password,
-                                     entity)
+        return self.is_owner_of_account(operator, entity)
 
     def can_create_disk(self, operator, host=None, query_run_any=False):
         if self.is_superuser(operator):
@@ -1231,8 +1246,8 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if operator == account.entity_id:
             return True
-        return self.is_account_owner(operator, self.const.auth_create_user,
-                                     account)
+        return self.has_priviliged_access_to_account_or_person(
+            operator, self.const.auth_create_user, account)
 
     def can_delete_group(self, operator, group=None, query_run_any=False):
         if self.is_superuser(operator):
@@ -1288,8 +1303,9 @@ class BofhdAuth(DatabaseAccessor):
             self.is_group_owner(operator, self.const.auth_modify_spread,
                                 entity, spread)
         else:
-            self.is_account_owner(operator, self.const.auth_modify_spread,
-                                  entity, operation_attr=spread)
+            self.has_priviliged_access_to_account_or_person(
+                operator, self.const.auth_modify_spread, entity,
+                operation_attr=spread)
         return True
 
     def can_remove_spread(self, operator, entity=None, spread=None,
@@ -1431,8 +1447,8 @@ class BofhdAuth(DatabaseAccessor):
                                                 self._get_disk(disk),
                                                 None)
         if person:
-            return self.is_account_owner(operator, self.const.auth_create_user,
-                                         person)
+            return self.has_priviliged_access_to_account_or_person(
+                operator, self.const.auth_create_user, person)
         raise PermissionDenied("No access")
 
     def can_create_user_unpersonal(self, operator, group=None, disk=None,
@@ -1465,8 +1481,8 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_remove_user)
-        return self.is_account_owner(operator, self.const.auth_remove_user,
-                                     account)
+        return self.has_priviliged_access_to_account_or_person(
+            operator, self.const.auth_remove_user, account)
 
     def can_set_default_group(self, operator, account=None,
                               group=None, query_run_any=False):
@@ -1491,8 +1507,8 @@ class BofhdAuth(DatabaseAccessor):
                             operator, self.const.auth_create_user))
         if self._is_owner_of_nonpersonal_account(operator, account):
             return True
-        return self.is_account_owner(operator, self.const.auth_set_gecos,
-                                     account)
+        return self.has_priviliged_access_to_account_or_person(
+            operator, self.const.auth_set_gecos, account)
 
     def can_move_user(self, operator, account=None, dest_disk=None,
                       query_run_any=False):
@@ -1511,8 +1527,8 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_move_from_disk)
-        return self.is_account_owner(operator, self.const.auth_move_from_disk,
-                                     account)
+        return self.has_priviliged_access_to_account_or_person(
+            operator, self.const.auth_move_from_disk, account)
 
     def can_receive_user(self, operator, account=None, dest_disk=None,
                          query_run_any=False):
@@ -1573,7 +1589,8 @@ class BofhdAuth(DatabaseAccessor):
         operation = (self.const.auth_set_password_important if important
                      else self.const.auth_set_password)
         try:
-            return self.is_account_owner(operator, operation, account)
+            return self.has_priviliged_access_to_account_or_person(
+                operator, operation, account)
         except PermissionDenied:
             raise PermissionDenied(
                 "Not allowed to set password for '{}'".format(
@@ -1595,8 +1612,8 @@ class BofhdAuth(DatabaseAccessor):
                 shell.description.find("/bin/") != -1):
             return True
         # TODO 2003-07-04: Bård is going to comment this
-        return self.is_account_owner(operator, self.const.auth_set_password,
-                                     account)
+        return self.has_priviliged_access_to_account_or_person(
+            operator, self.const.auth_set_password, account)
 
     def can_show_history(self, operator, entity=None, query_run_any=False):
         if self.is_superuser(operator):
@@ -1639,8 +1656,8 @@ class BofhdAuth(DatabaseAccessor):
         if entity.entity_type == self.const.entity_account:
             if self._no_account_home(operator, entity):
                 return True
-            return self.is_account_owner(operator,
-                                         self.const.auth_view_history, entity)
+            return self.has_priviliged_access_to_account_or_person(
+                operator, self.const.auth_view_history, entity)
         if entity.entity_type == self.const.entity_group:
             return self.is_group_owner(operator,
                                        self.const.auth_view_history,
