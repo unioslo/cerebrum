@@ -262,7 +262,7 @@ class EntityConsentMixin(Entity):
         """
         if not isinstance(consent_code, _EntityConsentCode):
             consent_code = _EntityConsentCode(consent_code)
-        if consent_code.consent_type == CLConstants.consent_opt_in:
+        if consent_code.consent_type == Constants.consent_opt_in:
             change = CLConstants.consent_approve
         else:
             change = CLConstants.consent_decline
@@ -299,7 +299,7 @@ class EntityConsentMixin(Entity):
             self.__consents[code]['deleted'] = True
         else:
             self.__consents[code] = {'deleted': True}
-        self._db.log_change(self.entity_id, Constants.consent_remove, None,
+        self._db.log_change(self.entity_id, CLConstants.consent_remove, None,
                             change_params={
                                 'consent_code': code,
                                 'consent_string': str(consent_code)})
