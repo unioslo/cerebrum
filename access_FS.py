@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002, 2003, 2012 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -18,7 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 # kbj005, 2018-04-04: Copied from Cerebrum.modules.no.uio and adapted for uit. 
-
+from __future__ import unicode_literals
 import time
 
 from Cerebrum.modules.no import access_FS
@@ -27,8 +27,8 @@ def get_semester(uppercase = False):
     '''Returns two pairs: ((this_year, this_sem),(next_year,next_sem))
     Ex. Usage: this_sem, next_sem = access_FS.get_semester()
     '''    
-    spring = 'v�r'
-    autumn = 'h�st'
+    spring = 'vår'
+    autumn = 'høst'
     
     if uppercase:
         spring = str_upper_no(spring)
@@ -262,7 +262,10 @@ class UiTStudent(access_FS.Student):
            %s AND
            %s""" % (extra, self._get_termin_aar(only_current=1),
                     self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'      
+        return self.db.query(qry, params)
 
     def _list_aktiv_enkeltemne(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte med gyldig opptak til
@@ -301,7 +304,10 @@ class UiTStudent(access_FS.Student):
            %s AND
            %s""" % (extra, self._get_termin_aar(only_current=1),
                     self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def _list_aktiv_utdplan(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har bekreftet
@@ -343,7 +349,10 @@ class UiTStudent(access_FS.Student):
            %s AND
            %s""" % (extra, self.year, self.semester,
                     self._get_termin_aar(only_current=1), self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def _list_aktiv_avlagteksamen(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som har avlagt eksamen i innev�rende
@@ -397,7 +406,10 @@ class UiTStudent(access_FS.Student):
         """ % (self.year, extra,
                self._get_termin_aar(only_current=1),
                self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
         """Hent informasjon om personer som anses som aktive studenter p�
@@ -443,7 +455,10 @@ class UiTStudent(access_FS.Student):
               NVL(u.status_opptatt, 'N') = 'J'
               """ % (self._is_alive(), self._get_termin_aar(only_current=1),
                      extra)
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     # GetStudentPrivatistEmne_50
     def list_privatist_emne(self, fodselsdato=None, personnr=None):
@@ -509,7 +524,10 @@ class UiTStudent(access_FS.Student):
               %s
         """ % (self.year, self.year, extra,
                self._get_termin_aar(only_current=1), self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def list_privatist(self, fodselsdato=None, personnr=None):
         # GetStudentPrivatist_50
@@ -978,7 +996,10 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
            %s AND
            %s""" % (extra, self._get_termin_aar(only_current=1),
                     self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def _list_aktiv_enkeltemne(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte med gyldig opptak til
@@ -1017,7 +1038,10 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
            %s AND
            %s""" % (extra, self._get_termin_aar(only_current=1),
                     self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def _list_aktiv_utdplan(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har bekreftet
@@ -1059,7 +1083,10 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
            %s AND
            %s""" % (extra, self.year, self.semester,
                     self._get_termin_aar(only_current=1), self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def _list_aktiv_avlagteksamen(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som har avlagt eksamen i innev�rende
@@ -1113,7 +1140,10 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
         """ % (self.year, extra,
                self._get_termin_aar(only_current=1),
                self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
         """Hent informasjon om personer som anses som aktive studenter p�
@@ -1161,7 +1191,10 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
               NVL(u.status_opptatt, 'N') = 'J'
               """ % (self._is_alive(), self._get_termin_aar(only_current=1),
                      extra)
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     # GetStudentPrivatistEmne_50
     def list_privatist_emne(self, fodselsdato=None, personnr=None):
@@ -1228,7 +1261,10 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
               %s
         """ % (self.year, self.year, extra,
                self._get_termin_aar(only_current=1), self._is_alive())
-        return self.db.query(qry, locals())
+        params = locals()
+        params['spring'] = 'VÅR'
+        params['autumn'] = 'HØST'
+        return self.db.query(qry, params)
 
     def list_privatist(self, fodselsdato=None, personnr=None):
         # GetStudentPrivatist_50
@@ -1654,7 +1690,9 @@ class UiTUndervisning(access_FS.Undervisning):
                   t.sorteringsnokkel >= tt.sorteringsnokkel)))
           """, {'aar': year,
                 'aar2': year,  # db-driver bug work-around
-                'sem': sem})
+                'sem': sem,
+                'autumn': 'HØST',
+                'spring': 'VÅR'})
 
     def list_aktiviteter(self, start_aar=time.localtime()[0],
                          start_semester=None):
@@ -1688,7 +1726,9 @@ class UiTUndervisning(access_FS.Undervisning):
                           t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
            ua.arstall > :aar)""",
                              {'aar': start_aar,
-                              'semester': start_semester})
+                              'semester': start_semester,
+                              'autumn': 'HØST',
+                              'spring': 'VÅR'})
 
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
         """Hent alle studentene som er oppf�rt p� et gitt kull."""
@@ -1772,7 +1812,11 @@ class UiTUndervisning(access_FS.Undervisning):
         """
 
         result = self.db.query(qry, {"aar1": self.year,
-                                     "aar2": self.year}, fetchall=True)
+                                     "aar2": self.year,
+                                     'autumn': 'HØST',
+                                    'spring': 'VÅR'},
+                                    fetchall=True
+        )
         # IVR 2009-03-12 FIXME: DCOracle2 returns a float when taking a union
         # of two ints. The resons for this escape me.
         for row in result:

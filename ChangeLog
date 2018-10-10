@@ -1,3 +1,6 @@
+2018-10-10	  <cerebrum@gagarin.uit.no>
+	* prepared access_FS.py to use UTF-8
+	
 2018-08-21	  <cerebrum@gagarin.uit.no>
 	* Constants.py added constant system_kr_reg. to be used as a source system for CIM phone numbers
 				   added constant system_intern_ice to be used as a source system for CIM phone numbers
