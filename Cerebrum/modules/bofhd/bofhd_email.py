@@ -774,7 +774,7 @@ class BofhdEmailAuth(BofhdAuth):
             self._query_maildomain_permissions(operator, operation,
                                                domain, None)
         if account:
-            self.has_priviliged_access_to_account_or_person(
+            self.has_privileged_access_to_account_or_person(
                 operator, operation, account)
         return True
 

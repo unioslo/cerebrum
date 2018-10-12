@@ -94,7 +94,7 @@ class UioAuth(UioContactAuthMixin, BofhdAuth):
     def _is_important_account(self, operator, account):
         """If an account is considered important."""
         # Accounts owned by a group, i.e. system account
-        # has_priviliged_access_to_account_or_person() will allow this if
+        # has_privileged_access_to_account_or_person() will allow this if
         # operator is a group member
         if account.owner_type == self.const.entity_group:
             return True
