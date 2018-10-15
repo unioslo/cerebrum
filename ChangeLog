@@ -1,3 +1,10 @@
+2018-10-15  Karen   <cerebrum@gagarin.uit.no>
+
+    * cim_datasource.py: Added functionality to add ICE number to persons in CIM.
+
+    * Contacts.py: Added to repo. Contains class PhoneNums which provides functionality for converting 
+    phone numbers to e164 format ("+<Country code><phone number>").
+
 2018-10-10	  <cerebrum@gagarin.uit.no>
 	* prepared access_FS.py to use UTF-8
 	

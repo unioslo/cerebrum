@@ -205,6 +205,48 @@ class CIMDataSourceUit(CIMDataSource):
 
 # Eiscat? -> HOVEDBYGNING -> is "Hovedbygning" enough to place a person?
 
+    def _get_ice_number_by_source_system(self, source_system):
+        ice_numbers = self.pe.get_contact_info(source = source_system, type = self.co.contact_ice_phone)
+
+        if len(ice_numbers) > 0:
+            # We need the one with lowest contact_pref, if there are several
+            ice_numbers.sort(lambda x, y: cmp(x["contact_pref"], y["contact_pref"]))
+            return ice_numbers[0]['contact_value']
+        else:
+            # no ice number found
+            return None
+
+    def get_ice_number(self, person_id):
+        """
+        Gets ICE number from Cerebrum's database for the given person and returns it.
+        If person has ICE number from both system_intern_ice and system_kr_reg, the
+        one from system_intern_ice is returned.
+
+        :param int person_id: The person's entity_id in Cerebrum
+        :return: Person's ICE number from BAS, or None if no ICE number is found.
+        """
+        self.pe.clear()
+        self.pe.find(person_id)
+
+        intern_ice_num = self._get_ice_number_by_source_system(self.co.system_intern_ice)
+        if intern_ice_num:
+            # there is an ice number from co.system_intern_ice registered for this person, this is the one to use.
+            return intern_ice_num
+        else:
+            # otherwise use the one from system_kr_reg, returning None if no ice number was found.
+            return self._get_ice_number_by_source_system(self.co.system_kr_reg)
+
+# TODO when finished with this: 
+#   describe methods that are missing documentation...
+#   add '_' to beginning of names of methods that are for internal use...
+# 
+#   in create_dist_lists():
+#   change 
+#       "rooms = self.pe.get_contact_info(type=550)"
+#   and 
+#       "buildings = self.pe.get_contact_info(type=558)"
+#   so they use co.contact_room and co.contact_building instead of "type=..."
+
     def prepare_for_comparison(self, text):
         """
         Converts text to lowercase and correct encoding.
@@ -290,7 +332,7 @@ class CIMDataSourceUit(CIMDataSource):
                     dist_lists += ',' + s
         return dist_lists
 
-# if someone has more than one entry in entity_contact_info with same contact_type (550 or 558):
+# ?? if someone has more than one entry in entity_contact_info with same contact_type (550 or 558):
 #   use contact_pref to decide which to use, or add to both dist groups? 
 #   => will add to both for now...
 
@@ -333,10 +375,6 @@ class CIMDataSourceUit(CIMDataSource):
             dist_lists = self.IKKE_PLASSERT
 
         return dist_lists
-
-# forts her...
-    # Run test with all persons that have cim_person spread...
-    #   ->  check results (how many in 'Ikke plassert'?)...
 
     def get_person_data(self, person_id):
         """
@@ -382,6 +420,10 @@ class CIMDataSourceUit(CIMDataSource):
 
         if person != None:
             person['dist_list'] = self.create_dist_lists(person_id)
+
+            ice_num = self.get_ice_number(person_id)
+            if ice_num:
+                person['private_mobile'] = ice_num
 
         return person
 
