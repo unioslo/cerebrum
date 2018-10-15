@@ -1,3 +1,9 @@
+2018-10-15  Karen   <cerebrum@gagarin.uit.no>
+
+    * fetch_mobile.py: Added to repo. Collects mobile_numbers from Difi's "Kontakt- og reservasjonssregister" 
+    for all persons in a given file and adds these as ICE numbers for these persons in BAS 
+    (entity_contact_info table).
+
 2018-03-23    <cerebrum@gagarin.uit.no>
 
 	* delete_account.py (delete.delete_account): because some ppl
