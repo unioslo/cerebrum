@@ -489,7 +489,7 @@ class ADclientMock(ADUtils.ADclient):
         """ Add member to AD group. """
         if not isinstance(member_ids, collections.Sequence):
             member_ids = [member_ids, ]
-        self.logger.debug("Removing %d members for group: %s",
+        self.logger.debug("Adding %d members for group: %s",
                           len(member_ids), group_id)
         # TODO: Cache members
         return True

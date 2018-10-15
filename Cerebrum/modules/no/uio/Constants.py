@@ -660,11 +660,20 @@ class Constants(Constants.Constants):
     #
     # Consents
     #
+
+    # Office 365
     consent_office365 = Consent.Constants.EntityConsent(
         'office365',
         entity_type=Constants.Constants.entity_person,
         consent_type=Consent.Constants.consent_opt_in,
         description="Export to office365?")
+
+    # Gsuite
+    consent_gsuite = Consent.Constants.EntityConsent(
+        'gsuite',
+        entity_type=Constants.Constants.entity_person,
+        consent_type=Consent.Constants.consent_opt_in,
+        description="Export to Google for Education")
 
     #
     # DNS Zones
