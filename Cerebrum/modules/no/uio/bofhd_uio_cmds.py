@@ -4046,11 +4046,17 @@ class BofhdExtension(BofhdCommonMethods):
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
+
+        auth_systems = []
+        for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
+            tmp = getattr(self.const, auth_sys)
+            auth_systems.append(int(tmp))
         for a in person.get_affiliations():
-            if (int(a['source_system']) in [int(self.const.system_fs),
-                                            int(self.const.system_sap)]):
-                raise PermissionDenied("You are not allowed to alter "
-                                       "birth date for this person.")
+            if int(a['source_system']) in auth_systems:
+                raise PermissionDenied("You are not allowed to alter the "
+                                       "birth date for persons registered "
+                                       "in authoritative source systems.")
+
         bdate = self._parse_date(bdate)
         if bdate > self._today():
             raise CerebrumError("Please check the date of birth, "
@@ -4078,7 +4084,7 @@ class BofhdExtension(BofhdCommonMethods):
             if int(a['source_system']) in auth_systems:
                 raise PermissionDenied("You are not allowed to alter "
                                        "names registered in authoritative "
-                                       "source_systems.")
+                                       "source systems.")
 
         if last_name == "":
             raise CerebrumError("Last name is required.")
