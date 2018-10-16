@@ -196,9 +196,6 @@ BOFHD_CHECK_DISK_SPREAD
     A spread to check for home directory. If set, then access to that disk will
     also give access to users on that disk (see
     `has_privileged_access_to_account_or_person`)
-BOFHD_FNR_ACCESS_GROUP
-    A group name, members are allowed to view protected external id values (see
-    `can_get_person_external_id`).
 BOFHD_STUDADM_GROUP
     A group name, members are considered IT support staff for users *without* a
     home direcotry.
@@ -2004,7 +2001,12 @@ class BofhdAuth(DatabaseAccessor):
                         self.const.auth_target_type_global_dns, victim_id,
                         operation_attr=operation_attr):
                     return True
-
+            elif target_type == self.const.auth_target_type_person:
+                if self._has_global_access(
+                        operator, operation,
+                        self.const.auth_target_type_global_person, victim_id,
+                        operation_attr=operation_attr):
+                    return True
         if self._list_target_permissions(operator, operation, target_type,
                                          target_id, operation_attr):
             return True
@@ -2304,22 +2306,45 @@ class BofhdAuth(DatabaseAccessor):
                 pass
         return None
 
-    def can_get_person_external_id(self, operator, person,
-                                   query_run_any=False):
+    def can_get_person_external_id(self, operator, person, extid_type,
+                                   source_sys, query_run_any=False):
+        """Check if operator can see external ids. Lets everyone see
+         NO_STUDNO and NO_SAPNO. But restricts access to NO_BIRTHNO.
+
+        :param operator: operator object
+        :param person: person object
+        :param str extid_type: e.g NO_STUDNO/NO_BIRTHNO
+        :param str source_sys: str source source system. e.g FS/SAP
+        :param query_run_any
+        :return bool True or False
+        """
         if query_run_any:
             return True
         if self.is_superuser(operator.get_entity_id()):
             return True
         account = Factory.get('Account')(self._db)
-        account_ids = [int(r['account_id']) for r in
-                       account.list_accounts_by_owner_id(person.entity_id)]
+        account_ids = [int(
+            r['account_id']) for r in
+            account.list_accounts_by_owner_id(person.entity_id)]
         if operator.get_entity_id() in account_ids:
             return True
-        is_member_of_privileged_grp = False
-        if cereconf.BOFHD_FNR_ACCESS_GROUP is not None:
-            members = self._get_group_members(cereconf.BOFHD_FNR_ACCESS_GROUP)
-            is_member_of_privileged_grp = operator.get_entity_id() in members
-        if is_member_of_privileged_grp:
+
+        ext_id_const = int(self.const.EntityExternalId(extid_type))
+        if ext_id_const == self.const.externalid_studentnr:
+            return True
+        if ext_id_const == self.const.externalid_sap_ansattnr:
+            return True
+
+        operation_attr = str("{}:{}".format(
+            str(self.const.AuthoritativeSystem(source_sys)),
+            extid_type))
+
+        if self._has_target_permissions(
+                operator.get_entity_id(),
+                self.const.auth_view_external_id,
+                self.const.auth_target_type_global_person,
+                None, None,
+                operation_attr=operation_attr):
             return True
         raise PermissionDenied("You don't have permission to view "
                                "external ids for person entity {}".format(

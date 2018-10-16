@@ -510,6 +510,9 @@ class BofhdExtension(BofhdCommonMethods):
     def access_global_dns(self, operator):
         return self._list_access("global_dns")
 
+    def access_global_person(self, operator):
+        return self._list_access("global_person")
+
     def _list_access(self, target_type, target_name=None, empty_result="None"):
         target_id, target_type, target_auth = self._get_access_id(target_type,
                                                                   target_name)
@@ -705,6 +708,16 @@ class BofhdExtension(BofhdCommonMethods):
         if attr is not None:
             raise CerebrumError("Can't specify attribute for global group")
 
+    def _get_access_id_global_person(self, person):
+        # if person is not None and person != "":
+        #     raise CerebrumError("Cannot set domain for global access")
+        return None, self.const.auth_target_type_global_person, None
+
+    def _validate_access_global_person(self, opset, attr):
+        if attr:
+            raise CerebrumError(
+                "You can't specify a pattern with global_person.")
+
     def _get_access_id_host(self, target_name):
         target = self._get_host(target_name)
         return (target.entity_id, self.const.auth_target_type_host,
@@ -717,7 +730,7 @@ class BofhdExtension(BofhdCommonMethods):
                                     "the last component of the path.")
             try:
                 re.compile(attr)
-            except re.error, e:
+            except re.error as e:
                 raise CerebrumError("Syntax error in regexp: {}".format(e))
 
     def _get_access_id_global_host(self, target_name):
@@ -4484,35 +4497,39 @@ class BofhdExtension(BofhdCommonMethods):
             data.append({'affiliation': affiliations[i],
                          'source_system': sources[i]})
         try:
-            self.ba.can_get_person_external_id(operator, person)
             # Include fnr. Note that this is not displayed by the main
             # bofh-client, but some other clients (Brukerinfo, cweb) rely
             # on this data.
+
             for row in person.get_external_id(
                     id_type=self.const.externalid_fodselsnr):
+                self.ba.can_get_person_external_id(
+                    operator, person,
+                    extid_type=self.const.externalid_fodselsnr,
+                    source_sys=row['source_system'])
                 data.append({
                     'fnr': row['external_id'],
                     'fnr_src': text_type(
                         self.const.AuthoritativeSystem(row['source_system'])),
                 })
             # Show external ids
-            for extid in (
-                    'externalid_fodselsnr',
-                    'externalid_sap_ansattnr',
-                    'externalid_studentnr',
-                    'externalid_pass_number',
-                    'externalid_social_security_number',
-                    'externalid_tax_identification_number',
-                    'externalid_value_added_tax_number'):
-                extid_const = getattr(self.const, extid, None)
-                if extid_const:
-                    for row in person.get_external_id(id_type=extid_const):
-                        data.append({
-                            'extid': text_type(extid_const),
-                            'extid_src': text_type(
-                                self.const.AuthoritativeSystem(
-                                    row['source_system'])),
-                        })
+            for row in person.get_external_id():
+                try:
+                    extid_type = str(self.const.EntityExternalId(
+                        row[0]))
+                    self.ba.can_get_person_external_id(
+                        operator, person,
+                        extid_type=extid_type,
+                        source_sys=row['source_system'])
+                except PermissionDenied:
+                    pass
+                else:
+                    data.append({
+                        'extid': text_type(extid_type),
+                        'extid_src': text_type(
+                            self.const.AuthoritativeSystem(
+                                row['source_system'])),
+                    })
         except PermissionDenied:
             pass
 
@@ -4553,22 +4570,28 @@ class BofhdExtension(BofhdCommonMethods):
               "source_system", "ext_id_value"))
         ]))
 
-    def person_get_id(self, operator, person_id, ext_id, source_system):
+    def person_get_id(self, operator, person_id, ext_id_type, source_system):
         """
         Returns an external id value for a person according to the specified
         source system. The command/function only returns one ID instead of all
         IDs for a person entity in order to limit the exposure of sensitive
         personal info to the bare minimum.
         """
-        ext_id_const = self._get_constant(self.const.EntityExternalId,
-                                          ext_id, 'external id')
-        ss_const = self._get_constant(self.const.AuthoritativeSystem,
-                                      source_system, 'source system')
+        try:
+            ext_id_const = int(self.const.EntityExternalId(ext_id_type))
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown external id: {}".format(ext_id_type))
+        try:
+            ss_const = int(self.const.AuthoritativeSystem(source_system))
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown source system: {}"
+                                .format(source_system))
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
-        self.ba.can_get_person_external_id(operator, person)
+        self.ba.can_get_person_external_id(
+            operator, person, ext_id_type, source_system)
         external_id_list = person.get_external_id(
             id_type=ext_id_const,
             source_system=ss_const)
@@ -4584,7 +4607,7 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             raise CerebrumError(
                 "Could not find id %s for person entity %d in system %s" %
-                (text_type(ext_id), person.entity_id,
+                (text_type(ext_id_const), person.entity_id,
                  text_type(source_system)))
 
     #
