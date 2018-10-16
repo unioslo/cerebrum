@@ -185,7 +185,7 @@ class AccountHiAMixin(Account.Account):
             return 'contains upper case letter(s) ({})'.format(name)
 
         if isinstance(self, PosixUser):
-            if len(name) > 8:
+            if len(name) > 16:
                 return "too long (%s)" % name
             if re.search("^[^A-Za-z]", name):
                 return "must start with a character (%s)" % name
