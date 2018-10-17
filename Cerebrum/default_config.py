@@ -407,7 +407,6 @@ QUARANTINE_FEIDE_NONLOCK = ()
 CEREBRUM_DDL_DIR = pj(prefix, 'share', 'cerebrum', 'design')
 BOFHD_SUPERUSER_GROUP = INITIAL_GROUPNAME
 BOFHD_STUDADM_GROUP = BOFHD_SUPERUSER_GROUP
-BOFHD_FNR_ACCESS_GROUP = None
 BOFHD_SU_CAN_SPECIFY_PASSWORDS = False
 # Should contain mapping lang: [('template-prefix', 'tpl-type)...]
 BOFHD_TEMPLATES = {}
