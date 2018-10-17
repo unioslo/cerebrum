@@ -4013,7 +4013,7 @@ class BofhdExtension(BofhdCommonMethods):
         ou = self._get_ou(stedkode=ou)
         auth_systems = []
         for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp = getattr(self.const, auth_sys)
+            tmp = self.const.human2constant(auth_sys)
             auth_systems.append(int(tmp))
         self.ba.can_remove_affiliation(operator.get_entity_id(),
                                        person, ou, aff)
@@ -4049,7 +4049,7 @@ class BofhdExtension(BofhdCommonMethods):
 
         auth_systems = []
         for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp = getattr(self.const, auth_sys)
+            tmp = self.const.human2constant(auth_sys)
             auth_systems.append(int(tmp))
         for a in person.get_affiliations():
             if int(a['source_system']) in auth_systems:
@@ -4076,7 +4076,7 @@ class BofhdExtension(BofhdCommonMethods):
     def person_set_name(self, operator, person_id, first_name, last_name):
         auth_systems = []
         for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp = getattr(self.const, auth_sys)
+            tmp = self.const.human2constant(auth_sys)
             auth_systems.append(int(tmp))
         person = self._get_person(*self._map_person_id(person_id))
         self.ba.can_create_person(operator.get_entity_id())
