@@ -38,7 +38,7 @@ from smtplib import SMTPRecipientsRefused, SMTPException
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import sendmail
+#from Cerebrum.Utils import sendmail
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
 
