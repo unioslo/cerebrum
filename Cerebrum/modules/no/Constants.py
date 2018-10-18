@@ -35,8 +35,8 @@ from Cerebrum.Constants import (
     _PersonAffiliationCode,
     _PersonAffStatusCode
 )
-from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
-from Cerebrum.modules.EntityTrait import _EntityTraitCode
+from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
+from Cerebrum.modules.EntityTraitConstants import _EntityTraitCode
 
 
 class ConstantsActiveDirectory(Constants.Constants):

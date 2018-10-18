@@ -29,10 +29,12 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
+from Cerebrum.modules.EmailConstants import _EmailDomainCategoryCode
 from Cerebrum.Constants import _PersonAffiliationCode
 
+
 def usage():
-    print """Usage: email_domains.py -f filename
+    print("""Usage: email_domains.py -f filename
                     email_domains.py -d domainname -c ou_id
                     email_domains.py -d domainname -k uidaddr -c ou_id -i STUDENT
     -d, --domain     : register domain name in cerebrum
@@ -43,8 +45,9 @@ def usage():
     -k, --category   : set category for domain. (only -d option)
     -i, --affiliation: set affiliation for connected ou_id
                        (only -c option)
-    """
+    """)
     sys.exit(0)
+
 
 def main():
     global db, const, logger
@@ -97,7 +100,7 @@ def main():
                 sys.exit(1)
             aff = val
     
-    if not reg_dom and infile == None:
+    if not reg_dom and infile is None:
         usage()
 
     if connect:
@@ -123,14 +126,16 @@ def main():
         for i in all_ous:
             process_domain(dom_name, i['ou_id'])
     db.commit()
-    
+
+
 def process_line(infile):
     stream = open(infile, 'r')        
 
     for l in stream:
         process_domain(str(l.strip()), False)
     stream.close()
-    
+
+
 def process_domain(dom, conn, cat, aff):
     edom = Email.EmailDomain(db)
     edom.clear()
@@ -141,7 +146,7 @@ def process_domain(dom, conn, cat, aff):
     if cat:
         for c in dir(const):
             tmp = getattr(const, c)
-            if isinstance(tmp,Email._EmailDomainCategoryCode) and str(tmp) == cat:
+            if isinstance(tmp, _EmailDomainCategoryCode) and str(tmp) == cat:
                 c_cat = tmp
         if not c_cat:
             logger.error('Could not find category "%s". Exiting.', cat)
@@ -151,7 +156,7 @@ def process_domain(dom, conn, cat, aff):
     if aff:
         for c in dir(const):
             tmp = getattr(const, c)
-            if isinstance(tmp,_PersonAffiliationCode) and str(tmp) == aff:
+            if isinstance(tmp, _PersonAffiliationCode) and str(tmp) == aff:
                 c_aff = tmp
         if not c_aff:
             logger.error('Could not find affiliation "%s". Exiting.', aff)
@@ -178,6 +183,8 @@ def process_domain(dom, conn, cat, aff):
         else:
             edom.add_category(c_cat)
             logger.info('Email_category "%s" added.', cat)
+
+
 def connect_domain_ou(ou_id, dom_id, c_aff):
     ee_dom = Email.EntityEmailDomain(db)
     ee_dom.clear()

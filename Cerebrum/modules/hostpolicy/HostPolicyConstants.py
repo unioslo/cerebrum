@@ -20,70 +20,73 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 # $Id$
-""" 
+"""
 The Constants defined for the HostPolicy module, depending on the DNS module.
 """
 
-from Cerebrum import Constants as cereconst
+from Cerebrum import Constants as CereConst
 
 __version__ = "$Revision$"
 # $URL$
 # $Source$
 
-class _PolicyRelationshipCode(cereconst._CerebrumCode):
-    "Mappings stored in the hostpolicy_relationship_code table"
+
+class _PolicyRelationshipCode(CereConst._CerebrumCode):
+    """Mappings stored in the hostpolicy_relationship_code table"""
     _lookup_table = '[:table schema=cerebrum name=hostpolicy_relationship_code]'
 
-class Constants(cereconst.Constants):
-    entity_hostpolicy_atom = cereconst._EntityTypeCode(
+
+class Constants(CereConst.Constants):
+    entity_hostpolicy_atom = CereConst._EntityTypeCode(
         'hostpolicy_atom',
         'hostpolicy_atom - see table "cerebrum.hostpolicy_component" and friends.')
-    entity_hostpolicy_role = cereconst._EntityTypeCode(
+    entity_hostpolicy_role = CereConst._EntityTypeCode(
         'hostpolicy_role',
         'hostpolicy_role - see table "cerebrum.hostpolicy_component" and friends.')
 
-
-    hostpolicy_component_namespace = cereconst._ValueDomainCode('hostpol_comp_ns',
-                                                                'Domain for hostpolicy-components')
-
+    hostpolicy_component_namespace = CereConst._ValueDomainCode(
+        'hostpol_comp_ns',
+        'Domain for hostpolicy-components')
 
     hostpolicy_mutually_exclusive = _PolicyRelationshipCode(
-        "hostpol_mutex", "Source policy and target policy are mutually exclusive")
+        "hostpol_mutex",
+        "Source policy and target policy are mutually exclusive")
     hostpolicy_contains = _PolicyRelationshipCode(
-        "hostpol_contains", "Source policy contains target policy")
+        "hostpol_contains",
+        "Source policy contains target policy")
 
 
-class CLConstants(cereconst.CLConstants):
+class CLConstants(CereConst.CLConstants):
     # ChangeLog constants
-    hostpolicy_atom_create = cereconst._ChangeTypeCode(
+    hostpolicy_atom_create = CereConst._ChangeTypeCode(
         'hostpolicy', 'atom_create', 'create atom %(subject)s')
-    hostpolicy_atom_mod = cereconst._ChangeTypeCode(
+    hostpolicy_atom_mod = CereConst._ChangeTypeCode(
         'hostpolicy', 'atom_mod', 'modify atom %(subject)s')
-    hostpolicy_atom_delete = cereconst._ChangeTypeCode(
+    hostpolicy_atom_delete = CereConst._ChangeTypeCode(
         'hostpolicy', 'atom_delete', 'delete atom %(subject)s')
-    hostpolicy_role_create = cereconst._ChangeTypeCode(
+    hostpolicy_role_create = CereConst._ChangeTypeCode(
         'hostpolicy', 'role_create', 'create role %(subject)s')
-    hostpolicy_role_mod = cereconst._ChangeTypeCode(
+    hostpolicy_role_mod = CereConst._ChangeTypeCode(
         'hostpolicy', 'role_mod', 'modify role %(subject)s')
-    hostpolicy_role_delete = cereconst._ChangeTypeCode(
+    hostpolicy_role_delete = CereConst._ChangeTypeCode(
         'hostpolicy', 'role_delete', 'delete role %(subject)s')
 
-    hostpolicy_relationship_add = cereconst._ChangeTypeCode(
+    hostpolicy_relationship_add = CereConst._ChangeTypeCode(
         'hostpolicy',
         'relationship_add',
         'add relationship %(subject)s -> %(dest)s')
     # TODO: type is not given here
-    hostpolicy_relationship_remove = cereconst._ChangeTypeCode(
+    hostpolicy_relationship_remove = CereConst._ChangeTypeCode(
         'hostpolicy',
         'relationship_remove',
         'remove relationship %(subject)s -> %(dest)s')
     # TODO: type is not given here
 
-    hostpolicy_policy_add = cereconst._ChangeTypeCode(
+    hostpolicy_policy_add = CereConst._ChangeTypeCode(
         'hostpolicy',
         'policy_add',
         'add policy %(dest)s to host %(subject)s')
-    hostpolicy_policy_remove = cereconst._ChangeTypeCode(
+    hostpolicy_policy_remove = CereConst._ChangeTypeCode(
         'hostpolicy',
         'policy_remove',
         'remove policy %(dest)s from host %(subject)s')
