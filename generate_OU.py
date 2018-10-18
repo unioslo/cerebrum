@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-#-*- coding: iso-8859-1 -*-
+#-*- coding: utf-8 -*-
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -25,6 +25,8 @@
 # right ou information from that file. For stedkoder who doesnt
 # exist in the FS file, default data is inserted..
 #
+from __future__ import unicode_literals
+
 from pprint import pprint
 import getopt
 import sys
@@ -38,7 +40,9 @@ from Cerebrum import Database
 from Cerebrum.modules.no.uit.access_FS import FS
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
-
+import six
+import codecs
+#sys.stdout = codecs.lookup("utf-8")[-1](sys.stdout)
 #pp = pprint.PrettyPrinter(indent=4)
 logger = Factory.get_logger("cronjob")
 
@@ -50,7 +54,7 @@ default_input_files = [os.path.join(sourcedir, 'stedtre-gjeldende.csv'), os.path
 
 dumpdir = os.path.join(cereconf.DUMPDIR,"ou")
 default_output_file = os.path.join(dumpdir,'uit_ou_%d%02d%02d.xml' % (t[0], t[1], t[2]))
-
+       
 class ou:
 
     def __init__(self,ou_files):
@@ -70,9 +74,10 @@ class ou:
         # FS 
         user="I0186_UIT_BAS"
         #user="i0186_uit_bas"
-        service="FSUIT.uio.no"
+        service="FSDMO.uio.no"
         logger.info("Connecting to FS db")
-        self.fs_db = Database.connect(user=user,service=service,DB_driver='cx_Oracle')
+        self.fs_db = Database.connect(user=user,service=service,DB_driver='cx_Oracle', client_encoding='UTF-8')
+        #self.fs_db = Database.connect(user=user,service=service,DB_driver='cx_Oracle')
         self.fs = FS(self.fs_db)
         self.fs_data=dict()
 	logger.info("Connections ok")
@@ -81,15 +86,45 @@ class ou:
     def get_fs_ou(self):
         logger.info("Reading OU's from FS")
         ouer = self.fs.ou.list_ou(institusjonsnr=186)
+        for i in ouer:
+            decode_db_row(i, 'utf-8')
+
+        #ouer = [[word.decode("UTF-8") for word in sets] for sets in ouer]
+        #for sets in ouer:
+        #    for word in sets:
+        #        if isinstance(word, six.string_types):
+        #                print "is text:%s" % word.decode('iso-8859-1').encode("UTF-8")
         poststednr_besok_adr=''
         poststednr_alternativ_adr=''
         for i in ouer:
+
+             #new_data = []
+            #temp_tuple = ()
+            #print "i = %s" % i
+            """for item in i.items():
+                #######################
+                
+                #print "%s is type:%s" % (item[1],type(item))
+                key = item[0]
+                value = item[1]
+                if isinstance(item[1], str) == True:
+                    value = item[1].decode("iso-8859-1") # .encode("unicode-escape")
+                    print "refactored i:%s" % value 
+                #new_tuple =(key,value)
+                new_data.append(key)
+                new_data.append(value)
+            temp_tuple = tuple(new_data)
+            i = new_data """
+                #item = new_tuple
+                #item = [[word.decode('unicode-escape') for word in sets] for sets in repr(item)]
+            
+            ############################
             temp_inst_nr = "%02d%02d%02d" % (i['faknr'],i['instituttnr'],i['gruppenr'])
             for key in i.keys():
-                if i[key]==None:
-                    i[key]=""
+                if i[key] is None:
+                    i[key]=u""
                 else:
-                    i[key]=str(i[key])
+                    i[key]=unicode(i[key])
             postnr = "%s" % i['postnr']
             postnr_besok = "%s" % i['postnr_besok']
             
@@ -101,12 +136,20 @@ class ou:
 
             # if not i['telefonlandnr'] : i['telefonlandnr']="0" KB
             # if not i['telefonretnnr'] : i['telefonretnnr']="0" KB
-            if not i['telefonnr'] : i['telefonnr']="0"
-            if not i['adrlin1'] : i['adrlin1'] = 'Universitetet i Tromsø'
-            if not i['adrlin2'] : i['adrlin2'] = i['stednavn_bokmal'] 
-            if not i['postnr'] : i['postnr'] = '9037'
-            if not i['adrlin3'] : i['adrlin3'] = 'Tromsø'
-
+            if not i['telefonnr'] : i['telefonnr']=unicode("0")
+            if not i['adrlin1'] : i['adrlin1'] = unicode('Universitetet i TromsÃ¸')
+            if not i['adrlin2'] : i['adrlin2'] =i['stednavn_bokmal']
+            if not i['postnr'] : i['postnr'] = unicode('9037')
+            if not i['adrlin3'] : i['adrlin3'] = unicode('TromsÃ¸')
+            #i['adrlin1_besok'] = i['adrlin1_besok']
+            #i['adrlin2_besok'] = i['adrlin2_besok']
+            #print "adrlin2_besok:%s" % i['adrlin2_besok']
+            #print "# %s %s %s" % (i['adrlin1_besok'].decode("UTF-8"),i['adrlin1_besok'].decode("UTF-8"),'')
+            #print "### %s %s %s" % (i['adrlin1_besok'].decode("UTF-8").encode("unicode-escape"),i['adrlin1_besok'].decode("UTF-8").encode("unicode-escape"),'')
+            #print "1. %s" % i['adrlin3']
+            #if i['adrlin3'] != None:
+            #    print "1. %s" % repr(i['adrlin3'])
+            #    print i['adrlin3']
             self.fs_data[temp_inst_nr] = {
                 'fakultetnr' : "%02d" % int(i['faknr']),
                 'instituttnr' : "%02d" % int(i['instituttnr']),
@@ -129,7 +172,8 @@ class ou:
                 'linjenr' : i['telefonnr'],
                 # 'stedpostboks' : '',#i['stedpostboks'],
                 'adrtypekode_besok_adr': 'INT',#i['adrtypekode_besok_adr'],
-                'adresselinje1_besok_adr' :i['adrlin1'],
+                'adresselinje1_besok_adr' : i['adrlin1'],
+               
                 'adresselinje2_besok_adr': i['adrlin2'],
                 'poststednr_besok_adr' : poststednr_besok_adr,
                 'poststednavn_besok_adr' : '%s %s %s' % (i['adrlin1_besok'],i['adrlin2_besok'],''), #i['adrlin3_besok']), KB
@@ -146,7 +190,10 @@ class ou:
                 # 'poststednr_alternativ_adr': '',#poststednr_alternativ_adr,
                 # 'poststednavn_alternativ_adr' : '',#i['poststednavn_alternativ_adr'],
                 # 'landnavn_alternativ_adr': '',#i['adresseland_besok']
-                }    
+                } 
+            #print   self.fs_data[temp_inst_nr] 
+            #print "new i:%s" % i
+
         return self.fs_data
     
     def get_authoritative_ou(self):
@@ -158,14 +205,16 @@ class ou:
         KORTNAVN = 3
         FULTNAVN = 4
         num_fields = 5
-        sort_key = 1
+        sort_key = "1"
         import codecs
 
         for file in self.ou_files:
             logger.info("Reading authoritative OU file: %s" % file)
-            fileObj = codecs.open(file,"r","iso-8859-1")
+            #fileObj = codecs.open(file,"r","iso-8859-1")
+            fileObj = codecs.open(file,"r","utf-8")
             for line in fileObj:
-                line = line.encode('iso-8859-1')
+                #line = line.encode('iso-8859-1')
+                #line = line.decode('utf-8')
                 if ((line) and ((not line.startswith("#")) and (not line.startswith("\n")) and (not line.startswith(";")))):
                     items = line.rstrip().split(";")
                     if len(items) != num_fields:
@@ -205,27 +254,46 @@ class ou:
     
                         
                     katalog_merke='F'
-                   
                     authoritative_ou[fakultetskode] = {
-                        'fakultetnr' : str(faknr).zfill(2),
-                        'instituttnr' : str(instnr).zfill(2),
-                        'gruppenr' : str(avdnr).zfill(2),
-                        'stednavn' : str(fulltnavn),
-                        'display_name': str(fulltnavn),
-                        'forkstednavn': str(kortnavn),
-                        'akronym': str(akronym),
-                        'stedlangnavn_bokmal': str(fulltnavn),
-                        'fakultetnr_for_org_sted' : str(faknr_org_under),
-                        'instituttnr_for_org_sted': str(instituttnr_org_under),
-                        'gruppenr_for_org_sted' : str(gruppenr_org_under),
-                        'adresselinje1_intern_adr' : 'Universitetet i Tromsø',
-                        'adresselinje2_intern_adr': str(fulltnavn),
+                        'fakultetnr' : faknr.zfill(2),
+                        'instituttnr' : instnr.zfill(2),
+                        'gruppenr' : avdnr.zfill(2),
+                        'stednavn' : fulltnavn,
+                        'display_name': fulltnavn,
+                        'forkstednavn': kortnavn,
+                        'akronym': akronym,
+                        'stedlangnavn_bokmal': fulltnavn,
+                        'fakultetnr_for_org_sted' : faknr_org_under,
+                        'instituttnr_for_org_sted': instituttnr_org_under,
+                        'gruppenr_for_org_sted' : gruppenr_org_under,
+                        'adresselinje1_intern_adr' : unicode('Universitetet i Tromso'),
+                        'adresselinje2_intern_adr': fulltnavn,
+                        'poststednr_intern_adr': unicode('9037'),
+                        'poststednavn_intern_adr': unicode('Tromso'),
+                        'opprettetmerke_for_oppf_i_kat' : katalog_merke,
+                        'telefonnr' : unicode("77644000"),
+                        'sort_key': sort_key
+                    }
+                    """ authoritative_ou[fakultetskode] = {
+                        'fakultetnr' : faknr.zfill(2),
+                        'instituttnr' : instnr.zfill(2),
+                        'gruppenr' : avdnr.zfill(2),
+                        'stednavn' : unicode(fulltnavn),
+                        'display_name': unicode(fulltnavn),
+                        'forkstednavn': unicode(kortnavn),
+                        'akronym': unicode(akronym),
+                        'stedlangnavn_bokmal': unicode(fulltnavn),
+                        'fakultetnr_for_org_sted' : unicode(faknr_org_under),
+                        'instituttnr_for_org_sted': unicode(instituttnr_org_under),
+                        'gruppenr_for_org_sted' : unicode(gruppenr_org_under),
+                        'adresselinje1_intern_adr' : unicode('Universitetet i TromsÃ¸'),
+                        'adresselinje2_intern_adr': unicode(fulltnavn),
                         'poststednr_intern_adr': '9037',
-                        'poststednavn_intern_adr': 'Tromsø',
-                        'opprettetmerke_for_oppf_i_kat' : str(katalog_merke),
-                        'telefonnr' : "77644000",
-                        'sort_key': str(sort_key)
-                        }
+                        'poststednavn_intern_adr': unicode('TromsÃ¸'),
+                        'opprettetmerke_for_oppf_i_kat' : unicode(katalog_merke),
+                        'telefonnr' : unicode("77644000"),
+                        'sort_key': unicode(sort_key)
+                        }"""
             
             fileObj.close()        
         return authoritative_ou
@@ -241,7 +309,7 @@ class ou:
                 for k,v in f_ou.items():
                     if not a_ou_data.has_key(k):
                         #logger.debug("stedkode:%s in auth xml file is missing data  for %s. using '%s' from FS" % (a_ou,k,v))
-                        a_ou_data[k]=str(v)
+                        a_ou_data[k]=(v)
                 del fs_ou[a_ou]
             else:
                 pass
@@ -257,21 +325,49 @@ class ou:
 
     def print_ou(self,final_ou,out_file):
         logger.info("Writing OU file %s" % out_file)
-        stream = AtomicFileWriter(out_file, "w")
+        #stream = AtomicFileWriter(out_file, "w")
+        stream = open(out_file, "wb")  # codecs.open(out_file,"w","UTF-8")
+
+        encoding = 'iso-8859-1'
+
         writer = xmlprinter.xmlprinter(stream,
                                        indent_level = 2,
                                        data_mode = True,
-                                       input_encoding = "latin1")
-        writer.startDocument(encoding = "iso-8859-1")
+                                       input_encoding = encoding)
+        writer.startDocument(encoding = encoding)
+        # writer.startDocument()
         writer.startElement("data")
+        
         for ou,ou_data in final_ou.items():
-            #pp.pprint(ou_data)
-            writer.emptyElement("sted",(ou_data))
+            #pp.pprint(ou_data
+            #print "before conversion: %s" % repr(ou_data)
+            ou_data = convert(ou_data, encoding)
+            #print "after conversion:%s" % ou_data
+            writer.emptyElement("sted", (ou_data))
         writer.endElement("data")
         writer.endDocument()
         stream.close()
 
+def convert(input, encoding='utf-8'):
+    if isinstance(input, dict):
+        return {convert(key): convert(value, encoding) for key, value in input.iteritems()}
+    elif isinstance(input, list):
+        return [convert(element, encoding) for element in input]
+    elif isinstance(input, unicode):
+        #print "check:%s" %input
+        #return unicode(input)
+        #print "check2:%s" % input.encode("iso-8859-1")
+        return input.encode(encoding)
+    else:
+        return input
+
+
+def decode_db_row(row, encoding='utf-8'):
+    for key in row.keys():
+        if isinstance(row[key], bytes):
+            row[key] = row[key].decode(encoding)
         
+
 def main():
 
     try:
