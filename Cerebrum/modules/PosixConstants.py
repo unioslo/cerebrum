@@ -21,8 +21,6 @@
 
 from Cerebrum import Constants
 
-__version__ = "1.0"
-
 
 class _PosixShellCode(Constants._CerebrumCode):
     """Mappings stored in the posix_shell_code table"""

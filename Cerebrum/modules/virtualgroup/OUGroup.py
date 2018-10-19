@@ -71,7 +71,7 @@ from Cerebrum.Account import Account
 from Cerebrum.Errors import NotFoundError
 
 
-__version__ = "1.1"  # mod_virtualgroup_ou
+__version__ = "1.0"  # mod_virtualgroup_ou
 
 
 class OUGroup(VirtualGroup):

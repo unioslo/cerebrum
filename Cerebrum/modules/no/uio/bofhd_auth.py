@@ -20,19 +20,12 @@
 """ Site specific auth.py for UiO. """
 import cereconf
 
-from Cerebrum import Constants
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
-
-
-class Constants(Constants.Constants):
-    auth_set_password_important = _AuthRoleOpCode(
-        'set_password_imp', 'Set password for important/critical accounts')
 
 
 class UioContactAuthMixin(BofhdContactAuth):

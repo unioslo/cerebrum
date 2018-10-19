@@ -48,28 +48,7 @@ from Cerebrum import Errors
 from Cerebrum import Constants
 from Cerebrum.modules import PosixGroup
 
-__version__ = "1.1"
-
-
-# Module spesific constant. Belongs somewhere else
-class _PosixShellCode(Constants._CerebrumCode):
-    "Mappings stored in the posix_shell_code table"
-    _lookup_table = '[:table schema=cerebrum name=posix_shell_code]'
-    _lookup_desc_column = 'shell'
-    pass
-
-
-class Constants(Constants.Constants):
-
-    PosixShell = _PosixShellCode
-
-    posix_shell_bash = _PosixShellCode('bash', '/bin/bash')
-    posix_shell_csh = _PosixShellCode('csh', '/bin/csh')
-    posix_shell_false = _PosixShellCode('false', '/bin/false')
-    posix_shell_nologin = _PosixShellCode('nologin', '/bin/nologin')
-    posix_shell_sh = _PosixShellCode('sh', '/bin/sh')
-    posix_shell_tcsh = _PosixShellCode('tcsh', '/bin/tcsh')
-    posix_shell_zsh = _PosixShellCode('zsh', '/bin/zsh')
+__version__ = "1.0"
 
 
 Account_class = Factory.get("Account")

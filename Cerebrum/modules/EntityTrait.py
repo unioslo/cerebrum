@@ -29,7 +29,7 @@ try:
 except:
     from Cerebrum.extlib.sets import Set as set
 
-__version__ = "1.2"
+__version__ = "1.1"
 
 
 @_ChangeTypeCode.formatter('trait')

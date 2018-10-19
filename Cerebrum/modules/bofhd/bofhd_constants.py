@@ -21,8 +21,6 @@
 
 from Cerebrum import Constants
 
-__version__ = "1.0"
-
 
 class _BofhdRequestOpCode(Constants._CerebrumCode):
     """Mappings stored in the auth_role_op_code table"""

@@ -32,7 +32,7 @@ from Cerebrum.Constants import (
     _PersonAffStatusCode,
 )
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
-from Cerebrum.modules.PosixUser import _PosixShellCode
+from Cerebrum.modules.PosixConstants import _PosixShellCode
 from Cerebrum.modules.ad2.Entity import ConstantsActiveDirectory
 from Cerebrum.modules.ad2.Entity import _ADAttrCode
 from Cerebrum.modules.bofhd.bofhd_constants import _BofhdRequestOpCode

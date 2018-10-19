@@ -35,32 +35,11 @@ import cerebrum_path
 import cereconf
 
 
-from Cerebrum import Constants
-from Cerebrum.Constants import _CerebrumCode as CerebrumCode
 from Cerebrum import Errors
 from Cerebrum.Entity import Entity
 from Cerebrum.Utils import argument_to_sql
 from Cerebrum.Errors import CerebrumError
 
-
-class _EntityAuthenticationCode(CerebrumCode):
-    """Code class for various authentication codes."""
-    
-    _lookup_table = '[:table schema=cerebrum name=entity_authentication_code]'
-# end class _EntityAuthenticationCode
-
-
-class VoipAuthConstants(Constants.Constants):
-    """Authentication constants for voip.
-    """
-
-    EntityAuthenticationCode = _EntityAuthenticationCode
-
-    voip_auth_sip_secret = _EntityAuthenticationCode(
-        'voip-sipsecret',
-        'sipSecret value for voip clients')
-# end VoipAuthConstants
-    
 
 class EntityAuthentication(Entity):
     """Class for supporting authentication data in voip.

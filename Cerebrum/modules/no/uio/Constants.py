@@ -25,14 +25,21 @@ Address, Gender etc. type.
 
 """
 from Cerebrum import Constants
-from Cerebrum.modules.PosixUser import _PosixShellCode
+from Cerebrum.modules.PosixConstants import _PosixShellCode
 from Cerebrum.modules import EmailConstants
 from Cerebrum.modules.EntityTraitConstants import _EntityTraitCode
+from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
 from Cerebrum.modules.consent import Consent
 from Cerebrum.modules.dns import DnsConstants
 
 
 class Constants(Constants.Constants):
+
+    #
+    # Bofhd Auth
+    #
+    auth_set_password_important = _AuthRoleOpCode(
+        'set_password_imp', 'Set password for important/critical accounts')
 
     #
     # Authoritative systems/source systems

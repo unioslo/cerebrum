@@ -20,10 +20,7 @@
 
 from Cerebrum import Constants
 
-"""PaidPrinterQuotas and PPQUtil contains routines for updating the
-paid_quota_* tables.  They should not provide any public methods that
-makes it possible to violate the invariant stating that
-paid_quota_status can be calculated from paid_quota_history."""
+"""Constants for the PaidPrinterQuotas and PPQUtil modules."""
 
 
 class _PaidQuotaTransactionTypeCode(Constants._CerebrumCode):

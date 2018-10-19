@@ -80,7 +80,7 @@ from Cerebrum.Errors import PolicyException
 from Cerebrum.Utils import NotSet, argument_to_sql
 from ConsentConstants import CLConstants, Constants, _EntityConsentCode
 
-__version__ = "1.1"
+__version__ = "1.0"
 
 
 class EntityConsentMixin(Entity):
