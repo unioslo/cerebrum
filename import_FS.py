@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2002-2007 University of Oslo, Norway
 #
@@ -19,6 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from __future__ import unicode_literals
 from os.path import join as pj
 
 import re
@@ -195,7 +196,7 @@ def _calc_address(person_info):
         tmp = person_info[key][0].copy()
         if key == 'aktiv':
             # Henter ikke adresseinformasjon for aktiv, men vi vil
-            # alltid ha minst et opptak når noen er aktiv.
+            # alltid ha minst et opptak nÃ¥r noen er aktiv.
             if not (person_info.has_key('opptak') or
                     person_info.has_key('privatist_studieprogram') or
                     person_info.has_key('emnestud')):
@@ -367,12 +368,14 @@ def process_person_callback(person_info):
         fnr = fodselsnr.personnr_ok(fnr)
         logger.info("Process %s " % (fnr))
         (year, mon, day) = fodselsnr.fodt_dato(fnr)
-        if (year < 1970
-            and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
+        #if (year < 1970
+        #    and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
+        if (year < 1970 and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
+
             # Seems to be a bug in time.mktime on some machines
             year = 1970
     except fodselsnr.InvalidFnrError:
-        logger.warn("Ugyldig fødselsnr: %s" % fnr)
+        logger.warn("Ugyldig fÃ¸dselsnr: %s" % fnr)
         return
 
     gender = co.gender_male
@@ -408,7 +411,8 @@ def process_person_callback(person_info):
                         'privatist_studieprogram', 'alumni', 'emnestud'):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
-        if p.has_key('studentnr_tildelt'):
+        #if p.has_key('studentnr_tildelt'):
+        if 'studentnr_tildelt' in p:
             studentnr = p['studentnr_tildelt']
         # Get affiliations
         if dta_type in ('fagperson',):
@@ -423,7 +427,7 @@ def process_person_callback(person_info):
                     subtype = co.affiliation_status_student_aktiv
                 elif row['studierettstatkode'] == 'EVU':
                     subtype = co.affiliation_status_student_evu
-                elif row['studierettstatkode'] == 'FULLFØRT':
+                elif row['studierettstatkode'] == 'FULLFÃ˜RT':
                     subtype = co.affiliation_status_student_alumni
                 elif int(row['studienivakode']) >= 980:
                     subtype = co.affiliation_status_student_drgrad
@@ -475,7 +479,7 @@ def process_person_callback(person_info):
             logger.debug2("No such affiliation type: %s, skipping", dta_type)
             
     if etternavn is None:
-        logger.debug("Ikke noe navn på %s" % fnr)
+        logger.debug("Ikke noe navn pï¿½ %s" % fnr)
         no_name += 1 
         return
 

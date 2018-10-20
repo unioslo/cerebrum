@@ -1,3 +1,6 @@
+2018-10-20    <kennethj@gagarin.uit.no>
+    * import_FS.py      updated to handle UTF-8 from FS.
+
 2018-10-18    <kennethj@gagarin.uit.no>
     * generate_OU.py	Updated to handle UTF-8 from FS
 2018-09-13    <cerebrum@gagarin.uit.no>
