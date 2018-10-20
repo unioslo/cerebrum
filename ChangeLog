@@ -1,3 +1,6 @@
+2018-10-19  kennethj <cerebrum@gagarin.uit.no>
+    * Account.py: account.simplify_name() has been replaced by Cerebrum.utils.transliterate..for_posix()
+	
 2018-10-15  Karen   <cerebrum@gagarin.uit.no>
 
     * cim_datasource.py: Added functionality to add ICE number to persons in CIM.

@@ -39,7 +39,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Account
 from Cerebrum import Errors
-
+from Cerebrum.utils import transliterate
 from Cerebrum import Utils
 from Cerebrum.Utils import NotSet
 from Cerebrum.modules import Email
@@ -59,21 +59,72 @@ class AccountUiTMixin(Account.Account):
 
     kort forklart:
     den siste write_db() er den
-    som kjøres. den kaller opp foreldrenes write_db. de kaller igjen opp
+    som kjï¿½res. den kaller opp foreldrenes write_db. de kaller igjen opp
     sine foreldre(grunnet self.__super.write_db()) til
-    man til slutt kaller Account sin write_db(). når den returnerer så
+    man til slutt kaller Account sin write_db(). nï¿½r den returnerer sï¿½
     fortsetter metodene der de kallte super()
     Man har bare en write_db() i
-    hele Account etter at man har inkludert Mixins, men man får tak i
-    foreldrene ved å bruke super()
+    hele Account etter at man har inkludert Mixins, men man fï¿½r tak i
+    foreldrene ved ï¿½ bruke super()
 
 
     """
 
     #
+    # UiO has discontinued this function in cerebrum. copied their now-deleted version
+    # into our Account.py
+    #
+    _simplify_name_cache = [None] * 4
+
+    def simplify_name(self, s, alt=0, as_gecos=0):
+        """Convert string so that it only contains characters that are
+        legal in a posix username.  If as_gecos=1, it may also be
+        used for the gecos field"""
+        print "s is:%s" % s
+        key = bool(alt) + (bool(as_gecos) * 2)
+        print "key is:%s" % key
+        try:
+            (tr, xlate_subst, xlate_match) = self._simplify_name_cache[key]
+        except TypeError:
+            xlate = {'ï¿½': 'Dh', 'ï¿½': 'dh',
+                     'ï¿½': 'Th', 'ï¿½': 'th',
+                     'ï¿½': 'ss'}
+            if alt:
+                xlate.update({'ï¿½': 'ae', 'ï¿½': 'ae',
+                              'ï¿½': 'aa', 'ï¿½': 'aa'})
+            xlate_subst = re.compile(r'[^a-zA-Z0-9 -]').sub
+
+            def xlate_match(match):
+                return xlate.get(match.group(), "")
+            tr = dict(zip(map(chr, xrange(0200, 0400)), ('x',) * 0200))
+            tr.update(dict(zip(
+                'ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½'
+                '{[}]|ï¿½\\ï¿½ï¿½ï¿½ï¿½',
+                'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
+                'aAaAooO"--\'')))
+            for ch in filter(tr.has_key, xlate):
+                del tr[ch]
+            tr = string.maketrans("".join(tr.keys()), "".join(tr.values()))
+            if not as_gecos:
+                # lowercase the result
+                tr = tr.lower()
+                xlate = dict(zip(xlate.keys(), map(str.lower, xlate.values())))
+            self._simplify_name_cache[key] = (tr, xlate_subst, xlate_match)
+
+        xlated = xlate_subst(xlate_match, s.translate(tr))
+
+        # normalise whitespace and hyphens: only ordinary SPC, only
+        # one of them between words, and none leading or trailing.
+        xlated = re.sub(r'\s+', " ", xlated)
+        xlated = re.sub(r' ?-+ ?', "-", xlated).strip(" -")
+        return xlated
+
+
+
+    #
     # SITO accounts will have their own namespace as describe here
     #
-    # sitø username will be on the following format:S-XXXNNN
+    # sitï¿½ username will be on the following format:S-XXXNNN
     #
     # S = The letter S
     # XXX = letters generated based on fname and lname
@@ -261,7 +312,7 @@ class AccountUiTMixin(Account.Account):
         It checks our legacy_users table for entries from our legacy systems
         
         Input:
-        fnr=Norwegian Fødselsnr, 11 digits
+        fnr=Norwegian Fï¿½dselsnr, 11 digits
         name=Name of the person we are generating a username for
         Regime=Optional
 
@@ -463,7 +514,8 @@ class AccountUiTMixin(Account.Account):
        #Gets the first 3 letters based upon the name of the user.
        #print "DNAME= %s" % dname
        orgname = dname
-       dname = self.simplify_name(dname)
+       dname = transliterate.for_posix(dname)
+      
        #p = re.compile('[^a-zA-Z0-9]')
        #m =p.search(dname)
        #if m:
