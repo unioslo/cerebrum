@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2002, 2003 University of Oslo, Norway
 #
@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#from __future__ import unicode_literals
+from __future__ import unicode_literals
 
 progname = __file__.split("/")[-1]
 __doc__="""Usage: %s -p personfile [-h|--help] [-v] [-d|--dryrun] [--logger-name] [--logger-level]
@@ -305,6 +307,7 @@ def is_y2k_problem(year_chk, year):
         y2k_problem = True
 
     return y2k_problem
+
 
 def process_person(person):
     fnr = person['fnr']

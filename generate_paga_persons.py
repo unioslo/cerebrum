@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -22,6 +22,7 @@
 # This script reads data exported from our HR system PAGA.
 # It is a simple CSV file.
 #
+from __future__ import unicode_literals
 
 import getopt
 import sys
@@ -70,35 +71,35 @@ logger = Factory.get_logger("cronjob")
 
 # define field positions in PAGA csv-data
 # First line in PAGA csv file contains field names. Use them.
-KEY_AKSJONKODE='A.kode'
-KEY_AKSJONDATO='A.dato'
-KEY_ANSATTNR='Ansattnr'
-KEY_HJEMSTED_ADRESSE='Adresse'
-KEY_HJEMSTED_POSTSTED='Poststed'
-KEY_HJEMSTED_POSTNR='Postnr'
-KEY_AV='Av'
-KEY_BRUKERNAVN= 'Brukernavn'
-KEY_DBHKAT='DBH stillingskategori'
-KEY_DATOFRA='F.lønnsdag'
-KEY_DATOTIL='S.lønnsdag'
-KEY_EPOST='E-postadresse'
-KEY_ETTERNAVN='Etternavn'
-KEY_FNR='Fødselsnummer'
-KEY_FORNAVN= 'Fornavn'
-KEY_HOVEDARBFORH='HovedAF'
-KEY_KOSTNADSTED='K.sted'
-KEY_NR='Nr'
-KEY_ORGSTED='Org.nr.'
-KEY_PERMISJONKODE='P.kode'
-KEY_STANDEL='St.andel'
-KEY_STILLKODE='St. kode'
-KEY_TITTEL='St.bet'
-KEY_TJFORH='Tj.forh.'
-KEY_UNIKAT='Univkat'
-KEY_UITKAT='UITkat'
-KEY_KJONN='Kjønn'
-KEY_FODSELSDATO='Fødselsdato'
-KEY_LOKASJON='Lokasjon'
+KEY_AKSJONKODE='A.kode'.encode('ISO-8859-1')
+KEY_AKSJONDATO='A.dato'.encode('ISO-8859-1')
+KEY_ANSATTNR='Ansattnr'.encode('ISO-8859-1')
+KEY_HJEMSTED_ADRESSE='Adresse'.encode('ISO-8859-1')
+KEY_HJEMSTED_POSTSTED='Poststed'.encode('ISO-8859-1')
+KEY_HJEMSTED_POSTNR='Postnr'.encode('ISO-8859-1')
+KEY_AV='Av'.encode('ISO-8859-1')
+KEY_BRUKERNAVN= 'Brukernavn'.encode('ISO-8859-1')
+KEY_DBHKAT='DBH stillingskategori'.encode('ISO-8859-1')
+KEY_DATOFRA='F.lÃ¸nnsdag'.encode('ISO-8859-1')
+KEY_DATOTIL='S.lÃ¸nnsdag'.encode('ISO-8859-1')
+KEY_EPOST='E-postadresse'.encode('ISO-8859-1')
+KEY_ETTERNAVN='Etternavn'.encode('ISO-8859-1')
+KEY_FNR='FÃ¸dselsnummer'.encode('ISO-8859-1')
+KEY_FORNAVN= 'Fornavn'.encode('ISO-8859-1')
+KEY_HOVEDARBFORH='HovedAF'.encode('ISO-8859-1')
+KEY_KOSTNADSTED='K.sted'.encode('ISO-8859-1')
+KEY_NR='Nr'.encode('ISO-8859-1')
+KEY_ORGSTED='Org.nr.'.encode('ISO-8859-1')
+KEY_PERMISJONKODE='P.kode'.encode('ISO-8859-1')
+KEY_STANDEL='St.andel'.encode('ISO-8859-1')
+KEY_STILLKODE='St. kode'.encode('ISO-8859-1')
+KEY_TITTEL='St.bet'.encode('ISO-8859-1')
+KEY_TJFORH='Tj.forh.'.encode('ISO-8859-1')
+KEY_UNIKAT='Univkat'.encode('ISO-8859-1')
+KEY_UITKAT='UITkat'.encode('ISO-8859-1')
+KEY_KJONN='KjÃ¸nn'.encode("iso-8859-1")
+KEY_FODSELSDATO='FÃ¸dselsdato'.encode('ISO-8859-1')
+KEY_LOKASJON='Lokasjon'.encode('ISO-8859-1')
 
 def parse_paga_csv(pagafile):
     import csv
@@ -107,8 +108,9 @@ def parse_paga_csv(pagafile):
     permisjoner=dict()
     dupes=list()
     logger.info ("Reading %s",(pagafile,))
-    for detail in csv.DictReader(open(pagafile,'r'),delimiter=CHARSEP):
-        ssn=detail[KEY_FNR]        
+    print CHARSEP
+    for detail in csv.DictReader(open(pagafile,'r'),delimiter=str(CHARSEP)):
+        ssn=detail[KEY_FNR]     
         
         # some checks
         if detail[KEY_PERMISJONKODE] not in cereconf.PAGA_PERMKODER_ALLOWED:
@@ -283,7 +285,8 @@ class person_xml:
         </person>
         """
 
-        stream = AtomicFileWriter(self.out_file, "w")
+        #stream = AtomicFileWriter(self.out_file, "w")
+        stream = open(self.out_file, "wb")
         writer = xmlprinter.xmlprinter(stream,
                                        indent_level = 2,
                                        data_mode = True,
