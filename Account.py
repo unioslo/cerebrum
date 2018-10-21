@@ -80,9 +80,7 @@ class AccountUiTMixin(Account.Account):
         """Convert string so that it only contains characters that are
         legal in a posix username.  If as_gecos=1, it may also be
         used for the gecos field"""
-        print "s is:%s" % s
         key = bool(alt) + (bool(as_gecos) * 2)
-        print "key is:%s" % key
         try:
             (tr, xlate_subst, xlate_match) = self._simplify_name_cache[key]
         except TypeError:
