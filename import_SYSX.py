@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2004 University of Oslo, Norway
 #
@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-
+from __future__ import unicode_literals
 import getopt
 import sys
 import os
@@ -149,7 +149,7 @@ def create_sysx_person(sxp):
         try:
            fnr = fodselsnr.personnr_ok(personnr)
         except fodselsnr.InvalidFnrError:
-           logger.error("Ugyldig fødselsnr: %s on sysX id=" % (personnr,id))
+           logger.error("Ugyldig fï¿½dselsnr: %s on sysX id=" % (personnr,id))
            return
         (year,mon,day) = fodselsnr.fodt_dato(fnr)
         gender = co.gender_male
@@ -260,9 +260,7 @@ def create_sysx_person(sxp):
        if old_aff.has_key(key_a):
           logger.debug("Don't delete affiliation: %s" % (key_a,))
           old_aff[key_a] = False
-
     op2 = person.write_db()
-
     # Update last-seen date
     try:
        person.set_affiliation_last_date(co.system_x,
@@ -316,7 +314,6 @@ def main():
             update = 1
         elif opt in ('--dryrun'):
             dryrun = True
-
     process_sysx_persons(source_file,update)
    
     if dryrun:
