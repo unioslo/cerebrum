@@ -1,4 +1,5 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8-*-
+from __future__ import unicode_literals
 import xml.sax
 
 
@@ -24,12 +25,13 @@ class PagaDataParserClass(xml.sax.ContentHandler):
         elif name in ("tils", "gjest", "permisjon"):
             tmp = {}
             for k in attrs.keys():
-                tmp[k] = attrs[k].encode('iso8859-1')
+                tmp[k] = unicode(attrs[k])
+               
             self.p_data[name] = self.p_data.get(name, []) + [tmp]
         elif name == "person":
             self.p_data = {}
-            for k in attrs.keys():
-                self.p_data[k] = attrs[k].encode('iso8859-1')
+            for k in attrs.keys(): 
+                self.p_data[k] = unicode(attrs[k])
         else:
             logger.warn("WARNING: unknown element: %s" % name)
 

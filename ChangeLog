@@ -1,3 +1,6 @@
+2018-10-20  kennethj <cerebrum@gagarin.uit.no>
+	* PagaDataParser.py:	updated to handle unicode
+	
 2018-10-19  kennethj <cerebrum@gagarin.uit.no>
     * Account.py: account.simplify_name() has been replaced by Cerebrum.utils.transliterate..for_posix()
 	
