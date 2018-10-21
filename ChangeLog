@@ -1,4 +1,7 @@
 2018-10-21    <kennethj@gagarin.uit.no>
+    * update_displayname.py:  updated to write utf-8 encoded strings to FS
+
+2018-10-21    <kennethj@gagarin.uit.no>
     * wipe.py:  updated to handle json format in changelog instead of pickle
 
 2018-10-21    <kennethj@gagarin.uit.no>

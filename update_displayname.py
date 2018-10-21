@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
+
+from __future__ import unicode_literals
+
 
 progname = __file__.split("/")[-1]
 __doc__="""This script overrides display name for a list of users from the portal.
@@ -12,8 +15,7 @@ options is
     --logger-name name    : log name to use
     --logger-level level  : log level to use
 """ % ( progname, )
-
-
+import io
 from sgmllib import SGMLParser
 import getopt
 import sys
@@ -72,7 +74,7 @@ def get_changes(filename, url):
 
     # Read file
     logger.info("Opening changelog file")
-    f = open(filename, "r")
+    f = io.open(filename, "r",encoding="utf-8")
     content = f.read()
     f.close()
 
@@ -106,7 +108,7 @@ def get_changes(filename, url):
            if len(invalid_chars.findall(firstname)) > 0 or len(invalid_chars.findall(lastname)):
                logger.error("Skipped line because of invalid characters. Username: %s. Firstname: %s. Lastname %s." % (username, firstname, lastname))
            else:
-               changes[username] = (unicode(firstname, 'UTF-8').encode('iso-8859-1'), unicode(lastname, 'UTF-8').encode('iso-8859-1'))
+               changes[username] = (firstname, lastname)
        else:
            logger.info("Skipped line because of missing data. Username: %s. Firstname: %s. Lastname %s." % (username, firstname, lastname))
 
@@ -116,7 +118,7 @@ def get_changes(filename, url):
 # Change names in Portal HTML (if changed)
 def change_names(changes, outfile):
 
-    fp = open(outfile, 'w')
+    fp = io.open(outfile, 'w',encoding="utf-8")
     fp.write('#username,old_first_name,new_first_name,old_last_name,new_last_name\n')
 
     logger.info("Creating dict person_id -> cached names")
@@ -232,7 +234,7 @@ def main():
     # Test data
     # changes = {'rmi000':('Romulus','Mikalsen'), 'bto001':('Bjarne','Betjent')}
     change_names(changes, outfile)
-
+    dryrun = True
     if (dryrun):
       db.rollback()
       logger.info("Dryrun, rollback changes")
