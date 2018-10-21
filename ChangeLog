@@ -1,4 +1,7 @@
 2018-10-20  kennethj <cerebrum@gagarin.uit.no>
+	* sito_utils.py:	updated to handle unicode
+
+2018-10-20  kennethj <cerebrum@gagarin.uit.no>
 	* PagaDataParser.py:	updated to handle unicode
 	
 2018-10-19  kennethj <cerebrum@gagarin.uit.no>

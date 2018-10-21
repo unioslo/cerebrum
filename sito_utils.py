@@ -53,6 +53,6 @@ class sitoFactory(object):
             # prefix of "_dynamic_"; the prefix is there to reduce
             # the probability of `auto_super` name collision
             # problems.
-            comp_class = type('_dynamic_' + comp, tuple(bases), {})
+            comp_class = type('_dynamic_' + str(comp), tuple(bases), {})
         #print "comp_class:%s" % (comp_class)
         return comp_class
