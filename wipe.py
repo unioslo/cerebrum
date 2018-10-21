@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2003 University of Oslo, Norway
 #
@@ -18,8 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
 
-
+import json
 import sys
 import getopt
 import pickle
@@ -68,7 +69,7 @@ def pwd_wipe(changes):
         age = now - chg['tstamp'].ticks()
         if age > age_threshold:
             logger.debug('Password will be wiped: ' + str(chg['change_id']))
-            change_params = pickle.loads(chg['change_params'])
+            change_params = json.loads(chg['change_params'])
             #print change_params
             #print chg['change_params']
             #print chg['change_id']
