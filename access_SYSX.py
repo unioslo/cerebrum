@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8-*-
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -16,7 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+from __future__ import unicode_literals
+import io
 import time
 import os
 import sys
@@ -77,13 +78,15 @@ class SYSX:
 
     def load_sysx_data(self):
         data = []
-        file_handle = open(self.sysx_data,"r")
+        file_handle = io.open(self.sysx_data,"r",encoding="utf-8")
         lines = file_handle.readlines()
         file_handle.close()
         for line in lines:
             line = line.rstrip()
+            #line = line.decode("UTF-8")
             if not line or line.startswith('#'):
                 continue
+            #line = line.decode("UTF-8")
             data.append(line)
         return data
 
@@ -102,7 +105,7 @@ class SYSX:
 
             def fixname(name):
                 # Cerebrum populate expects iso-8859-1.
-                return name.strip().decode('utf-8').encode('iso-8859-1')
+                return name.strip()
             
             ##########################
             # collect right stedkode #
