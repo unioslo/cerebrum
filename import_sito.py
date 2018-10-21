@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2004 University of Oslo, Norway
 #
@@ -20,6 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 # Global imports
+from __future__ import unicode_literals
 import getopt
 import sys
 import os
@@ -759,22 +760,22 @@ def generate_OU_list(datafile):
 def encode_decode_text(list,type):
     if type == 'OU':
         for ou in list:
-            new_name = unicode(ou['Name'],'utf-8').encode('iso-8859-1')
+            new_name = unicode(ou['Name'],'utf-8')
             ou['Name'] = new_name
     elif type == 'Person':
         for person in list:
-            new_firstname = unicode(person['Firstname'],'utf-8').encode('iso-8859-1')
+            new_firstname = unicode(person['Firstname'],'utf-8')
             try:
                 person['Middlename']
-                new_middlename = unicode(person['Middlename'],'utf-8').encode('iso-8859-1')
+                new_middlename = unicode(person['Middlename'],'utf-8')
                 person['Middlename'] = new_middlename
             except KeyError:
                 # person has no middlename, do nothing
                 pass
             
-            new_lastname = unicode(person['Lastname'],'utf-8').encode('iso-8859-1')
-            new_positionname = unicode(person['PositionName'],'utf-8').encode('iso-8859-1')
-            new_title = unicode(person['title'],'utf-8').encode('iso-8859-1')
+            new_lastname = unicode(person['Lastname'],'utf-8')
+            new_positionname = unicode(person['PositionName'],'utf-8')
+            new_title = unicode(person['title'],'utf-8')
             person['Firstname'] = new_firstname
             person['Lastname'] = new_lastname
             person['PositionName'] = new_positionname
@@ -1016,7 +1017,7 @@ def main():
             usage()
         else:
             usage()
-            
+    
     if(execute_person == True):
         personfile = input_personfile
     if(execute_ou == True):

@@ -1,3 +1,8 @@
+
+2018-10-21    <kennethj@gagarin.uit.no>
+    * import_sito.py: updated to handle ou file on utf-8 format
+
+
 2018-10-21    <kennethj@gagarin.uit.no>
     * generate_paga_persons.py Updated to handle UTF-8 from FS
 
