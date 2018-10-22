@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -38,7 +38,7 @@ This script take the following arguments:
 --picklefile fname : pickle file with group memberships
 --ldiffile fname : LDIF file with the group tree
 """
-
+from __future__ import unicode_literals
 import os, sys
 import getopt
 import pickle
@@ -65,7 +65,7 @@ def dump_ldif_uit(file_handle):
     for row in group.search(spread=co.spread_ldap_group):
         group.clear()
         group.find(int(row['group_id']))
-        dn = "cn=%s,%s" % (iso2utf(row['name']), top_dn)
+        dn = "cn=%s,%s" % (row['name'], top_dn)
 
         for mbr in group.search_members(group_id=group.entity_id,
                                         member_type=co.entity_account):
@@ -78,14 +78,14 @@ def dump_ldif_uit(file_handle):
 
         file_handle.write(entry_string(dn, {
             'objectClass': ("top", "uioUntypedObject"),
-            'description': (iso2utf(row['description']),)}))
+            'description': (row['description'],)}))
 
 
 def dump_ldif(file_handle):
     for row in group.search(spread=co.spread_ldap_group):
         group.clear()
         group.find(int(row['group_id']))
-        dn = "cn=%s,%s" % (iso2utf(row['name']), top_dn)
+        dn = "cn=%s,%s" % (row['name'], top_dn)
         #for mbr in group.search_members(group_id=group.entity_id,
         #                                member_type=co.entity_person):
         for mbr in group.search_members(group_id=group.entity_id,
@@ -93,7 +93,7 @@ def dump_ldif(file_handle):
             mbr2grp.setdefault(int(mbr["member_id"]), []).append(dn)
         file_handle.write(entry_string(dn, {
             'objectClass': ("top", "uioUntypedObject"),
-            'description': (iso2utf(row['description']),)}))
+            'description': (row['description'],)}))
         
 def main():
     try:

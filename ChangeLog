@@ -1,3 +1,11 @@
+2018-10-21    <kennethj@gagarin.uit.no>
+    * ad_export_autogroups_undervisning.py:  updated to read utf-8 instead of iso-8859-1
+    * export_ad.py : updated to read utf-8 instead of iso-8859-1
+    * export_ldap.py : updated to read utf-8 instead of iso-8859-1. also fixed 2 parameter name changes
+    * export_oid.py:  updated to read utf-8 instead of iso-8859-1
+    * export_securimaster.py: updated to read utf-8 instead of iso-8859-1
+    * generate_groups_ldif.py: updated to read utf-8 instead of iso-8859-1
+    * generate_temp_employee_xml.py: updated to read utf-8 instead of iso-8859-1
 
 2018-10-21    <kennethj@gagarin.uit.no>
     * generate_kurs_ldif.py:  updated to read utf-8 instead of iso-8859-1

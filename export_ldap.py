@@ -1,8 +1,8 @@
 #!/usr/bin/python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copied from Leetah
-
+from __future__ import unicode_literals
 import cerebrum_path
 import cereconf
 import string
@@ -31,7 +31,7 @@ def ldap_export():
 
     # 1. create the posix_user_ldif
     script = os.path.join(script_dir,'generate_posix_ldif.py')
-    script_arg = "-U system@ldap -u "+cereconf.DUMPDIR+"/ldap/users_ldif"
+    script_arg = "--user-spread system@ldap --user-file "+cereconf.DUMPDIR+"/ldap/users_ldif"
     script_cmd = "%s %s %s" % ('python', script, script_arg)
     logger.debug("Running %s" % script_cmd)
     ret = os.system(script_cmd)

@@ -1,5 +1,5 @@
 #!/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -- coding: utf-8 --
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -444,22 +444,24 @@ def build_xml(outfile):
         home_addressinfo = attrs['home_address']
         if home_addressinfo:
             for c in home_addressinfo:
-                home_address = str(c['address_text'])
+                home_address = c['address_text']
                 home_postalnumber = str(c['postal_number'])
-                home_city = str(c['city'])
+                home_city = c['city']
                 
                 if home_address != None:
+                    home_address = str(home_address.encode('utf-8'))
                     xml_attr['home_address'] = home_address
                 if home_postalnumber != None:
                     xml_attr['home_postal_code'] = home_postalnumber
                 if home_city != None:
+                    home_city = str(home_city.encode('utf-8'))
                     xml_attr['home_city'] = home_city
 
         # get campus 
         campusinfo=attrs['campus']
         if campusinfo:            
             for c in campusinfo:
-                campus_name = str(c['address_text'])
+                campus_name = str(c['address_text'].encode('utf-8'))
                 xml_attr['campus'] = campus_name
 
         #if attrs['worktitle']: xml_attr['worktitle'] = attrs['worktitle']
@@ -497,7 +499,7 @@ def build_xml(outfile):
                     {'source':source,
                     'type':ctype,
                     'pref':str(c['contact_pref']),
-                    'value':str(c['contact_value'])
+                    'value':str(c['contact_value'].encode('utf-8'))
                     })
             xml.endElement('contactinfo')
         xml.endElement('person')

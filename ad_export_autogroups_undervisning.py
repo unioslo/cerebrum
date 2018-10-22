@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -- coding: utf-8 --
+
 #
 # Copyright 2002, 2003 University of Tromso, Norway
 #
@@ -97,9 +98,9 @@ def get_skoinfo(fak,inst,avd):
     sko.clear()
     sko.find_stedkode(fakultet=fak,institutt=inst,avdeling=avd,institusjon=186) #TODO 186 from config
     res=dict()
-    res['name']=str(sko.get_name_with_language(co.ou_name, co.language_nb, default=''))
-    res['short_name']=str(sko.get_name_with_language(co.ou_name_short, co.language_nb, default=''))
-    res['acronym']=str(sko.get_name_with_language(co.ou_name_acronym, co.language_nb, default=''))    
+    res['name']=str(sko.get_name_with_language(co.ou_name, co.language_nb, default='').encode('utf-8'))
+    res['short_name']=str(sko.get_name_with_language(co.ou_name_short, co.language_nb, default='').encode('utf-8'))
+    res['acronym']=str(sko.get_name_with_language(co.ou_name_acronym, co.language_nb, default='').encode('utf-8'))    
     perspective=co.perspective_fs
     root=False
     acrolist=list()
@@ -110,7 +111,7 @@ def get_skoinfo(fak,inst,avd):
         if parentid != None:
             sko.clear()
             sko.find(parentid)
-            acrolist.append(str(sko.get_name_with_language(co.ou_name_acronym, co.language_nb, default='')))
+            acrolist.append(str(sko.get_name_with_language(co.ou_name_acronym, co.language_nb, default='').encode('utf-8')))
         else:
             root=currentid
     acrolist.reverse()

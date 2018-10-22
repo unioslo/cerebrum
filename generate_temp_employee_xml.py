@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -- coding: utf-8 --
 
 # Copyright 2014 University of Oslo, Norway
 #
@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 # kbj005 2015.02.25: Copied from Leetah.
-
+from __future__ import unicode_literals
 #
 # Generic imports.
 #
@@ -184,10 +184,12 @@ def write_xml(qualified_list,out_file):
         #print "faculty is:%s" % faculty
         group = etree.SubElement(global_group,'group')
         MailTip = etree.SubElement(group,'MailTip')
-        MailTip.text = "%s Midlertidige vitenskapelige ansatte" % unicode(faculty,'iso-8859-1')
+        #MailTip.text = "%s Midlertidige vitenskapelige ansatte" % unicode(faculty,'iso-8859-1')
+        MailTip.text = "%s Midlertidige vitenskapelige ansatte" % faculty
         
         displayname = etree.SubElement(group,'displayname')
-        displayname.text = "%s Midlertidige vitenskapelige ansatte" % unicode(faculty,'iso-8859-1')
+        #displayname.text = "%s Midlertidige vitenskapelige ansatte" % unicode(faculty,'iso-8859-1')
+        displayname.text = "%s Midlertidige vitenskapelige ansatte" % faculty
        
         account_names = ''
         for qualified in qualified_list:
@@ -214,9 +216,11 @@ def write_xml(qualified_list,out_file):
         acc_name = etree.SubElement(group,'members')
         acc_name.text = "%s" % account_names
         name = etree.SubElement(group,'name')
-        name.text = "%s Midlertidige vitenskapelige ansatte" % unicode(faculty,'iso-8859-1')
+        #name.text = "%s Midlertidige vitenskapelige ansatte" % unicode(faculty,'iso-8859-1')
+        name.text = "%s Midlertidige vitenskapelige ansatte" % faculty
         samaccountname = etree.SubElement(group,'samaccountname')
-        samaccountname.text ="uit.%s.midl.vit.ansatt" % unicode(faculty,'iso-8859-1')
+        #samaccountname.text ="uit.%s.midl.vit.ansatt" % unicode(faculty,'iso-8859-1')
+        samaccountname.text ="uit.%s.midl.vit.ansatt" % faculty
         samaccountname.text = samaccountname.text.lower()
         root_members.append(samaccountname.text)
 
@@ -225,7 +229,8 @@ def write_xml(qualified_list,out_file):
         mail.text = mail.text.lower()
         
         mail_nick= etree.SubElement(group,'alias')
-        mail_nick.text="%s.midl.vit.ansatt" % unicode(faculty,'iso-8859-1')
+        #mail_nick.text="%s.midl.vit.ansatt" % unicode(faculty,'iso-8859-1')
+        mail_nick.text="%s.midl.vit.ansatt" % faculty
         mail_nick.text = mail_nick.text.lower()
 
 
@@ -258,7 +263,8 @@ def write_xml(qualified_list,out_file):
     samaccountname.text = "uit.midl.vit.ansatt"
 
     members = etree.SubElement(system_group,'members')
-    members.text = "%s" % unicode(all_facultys,'iso-8859-1')
+    #members.text = "%s" % unicode(all_facultys,'iso-8859-1')
+    members.text = "%s" % all_facultys
 
 
 
@@ -280,7 +286,9 @@ def read_paga(file):
     paga_dict = {}
     fh = open(file,'r')
     for line in fh:
+        line = line.decode("iso-8859-1")
         line_data = line.split(";")
+       
         #print "line[0]=%s" % line_data[0]
         paga_dict = {'fnr' : line_data[0], 'ansatt_type' : line_data[39], 'prosent' : line_data[36],'stedkode' : line_data[15]}
         paga_person.append(paga_dict)
@@ -407,7 +415,6 @@ def main():
         if opt in('-h','--help'):
             msg = 'display help information'
             usage(1,msg)
-
     if(out_file == None) or (person_file == None):
         msg ="you must spesify person file and out file"
         usage(1,msg)

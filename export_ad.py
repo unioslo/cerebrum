@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -- coding: utf-8 --
 #
 # Copyright 2002, 2003 University of Oslo, Norway
 #
@@ -95,9 +95,9 @@ def get_ouinfo_sito(ou_id,perspective):
     #sko.find(ou_id)
     res=dict()
     #res['name']=str(sko.name)
-    res['name']=str(sko.get_name_with_language(co.ou_name,name_language))
-    res['short_name']=str(sko.get_name_with_language(co.ou_name_short,name_language))
-    res['acronym']=str(sko.get_name_with_language(co.ou_name_acronym,name_language))
+    res['name']=str(sko.get_name_with_language(co.ou_name,name_language).encode('utf-8'))
+    res['short_name']=str(sko.get_name_with_language(co.ou_name_short,name_language).encode('utf-8'))
+    res['acronym']=str(sko.get_name_with_language(co.ou_name_acronym,name_language).encode('utf-8'))
 
     #sko.clear()
     #logger.debug("got basic info about id=%s,persp=%s" % (ou_id,perspective))
@@ -154,13 +154,13 @@ def get_ouinfo(ou_id,perspective):
     #sko.find(ou_id)
     res=dict()
     #res['name']=str(sko.name)
-    res['name']=str(sko.get_name_with_language(co.ou_name,name_language))
+    res['name']=str(sko.get_name_with_language(co.ou_name,name_language).encode('utf-8'))
     try:
-        res['short_name']=str(sko.get_name_with_language(co.ou_name_short,name_language))
+        res['short_name']=str(sko.get_name_with_language(co.ou_name_short,name_language).encode('utf-8'))
     except Errors.NotFoundError:
         res['short_name'] = ""
     try:
-        res['acronym']=str(sko.get_name_with_language(co.ou_name_acronym,name_language))
+        res['acronym']=str(sko.get_name_with_language(co.ou_name_acronym,name_language).encode('utf-8'))
     except Errors.NotFoundError:
         res['acronym'] = ""
     sko.clear()
@@ -592,7 +592,7 @@ class ad_export:
             campus=self.person2campus.get(self.accid2ownerid[accid])
             if campus:
                 for c in campus:
-                    campus_name = str(c['address_text'])
+                    campus_name = str(c['address_text'].encode('utf-8'))
                     xml.dataElement('l',str(campus_name))
             if(item['forward'] !=''):
                 xml.dataElement('targetAddress',str(item['forward']))
@@ -605,7 +605,7 @@ class ad_export:
                                               {'source':source,
                                               'type':ctype,
                                               'pref':str(c['contact_pref']),
-                                              'value':str(c['contact_value'])
+                                              'value':str(c['contact_value'].encode('utf-8'))
                                               })
                 xml.endElement('contactinfo')
 

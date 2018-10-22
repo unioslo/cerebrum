@@ -1,4 +1,6 @@
 #!/bin/env python
+# -- coding: utf-8 --
+
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -24,6 +26,7 @@
 
 # kbj005 2015.02.26: Copied from Leetah.
 
+from __future__ import unicode_literals
 import getopt
 import sys
 import time
@@ -48,8 +51,8 @@ ac=Factory.get('Account')(db)
 sko = Stedkode(db)
 logger=Factory.get_logger("console")
 
-CHARSEP=";"
-AFF_CHARSEP="|"
+CHARSEP=u";"
+AFF_CHARSEP=u"|"
 
 pid2fnr=pnr2account=sysx2accountid=account2name=owner2account=num2const=owner2email=worktitle_cache=None
 
@@ -173,21 +176,23 @@ def load_cb_data():
 def build_export(outfile):
     logger.info("Start building export, writing to %s" % outfile)
     export=list()
-    export.append(CHARSEP.join(("#username","fnr","firstname","lastname","worktitle","primary_mail","affiliation")))
+    export.append(CHARSEP.join((u"#username",u"fnr",u"firstname",u"lastname",u"worktitle",u"primary_mail",u"affiliation")))
     for person_id in export_attrs:
         attrs=export_attrs[person_id]
         affs = person_affs.get(person_id)
         aff_str=AFF_CHARSEP.join(affs)
         attrs.append(aff_str)
         try:
-            export.append(CHARSEP.join(attrs) )
+            export.append(CHARSEP.join(attrs))
         except Exception,m:
             logger.error("Failed to dump person_id=%s, attrs=%s, reason: %s" % \
                 (person_id,attrs,m))
 
     logger.info("Starting write export")
     fh=open(outfile,"w")
-    fh.write("\n".join(export))
+    for row in export:
+        fh.write("{}\n".format(row).encode('utf-8'))
+    #fh.write(u"\n".join(export))
     fh.close()
     logger.info("Export finished")
 
