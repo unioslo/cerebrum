@@ -1,5 +1,5 @@
 #! /bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -23,7 +23,7 @@
 # UiT specific extension to Cerebrum
 #
 
-
+from __future__ import unicode_literals
 progname = __file__.split("/")[-1]
 __doc__ = """
     
@@ -86,8 +86,8 @@ logger=Factory.get_logger("cronjob")
 num_changes = 0
 max_changes_allowed = int(cereconf.MAX_NUM_ALLOWED_CHANGES)
 def str_upper_no(string, encoding='iso-8859-1'):
-    '''Converts Norwegian iso strings to upper correctly. Eg. æøå -> ÆØÅ
-    Ex. Usage: my_string = str_upper_no('aæeøå')'''
+    '''Converts Norwegian iso strings to upper correctly. Eg. ï¿½ï¿½ï¿½ -> ï¿½ï¿½ï¿½
+    Ex. Usage: my_string = str_upper_no('aï¿½eï¿½ï¿½')'''
     return unicode(string, encoding).upper().encode(encoding)
 
 def init_cache(checknames,checkmail):
@@ -302,6 +302,18 @@ def is_new_number(phonenumber, ownerid):
 
     return is_new_number
 
+def convert(input, encoding='utf-8'):
+    if isinstance(input, dict):
+        return {convert(key): convert(value, encoding) for key, value in input.iteritems()}
+    elif isinstance(input, list):
+        return [convert(element, encoding) for element in input]
+    elif isinstance(input, bytes):
+        #print "check:%s" %input
+        #return unicode(input)
+        #print "check2:%s" % input.encode("iso-8859-1")
+        return input.decode(encoding)
+    else:
+        return input
 
 def process_telefoni(filename,checknames,checkmail,notify_recipient):
     #
@@ -351,9 +363,16 @@ def process_telefoni(filename,checknames,checkmail,notify_recipient):
         ("69",  "DELETE"),
     ]
 
-    reader=csv.reader(open(filename,'r'), delimiter=';')
+    reader=csv.reader(open(filename,'r'), delimiter=str(';'))
     phonedata=dict()
+
+
     for row in reader:
+        # convert to unicode
+        row = convert(row,'iso-8859-1')
+        #print type(row)
+        
+
         if row[RESERVATION].lower()=='kat' and row[USERID].strip():
 
             if row[USERID].strip() <> row[USERID]:
