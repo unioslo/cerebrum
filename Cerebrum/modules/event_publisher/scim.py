@@ -55,7 +55,7 @@ class EntityTypeToApiRouteMapConfig(Configuration):
 
     group = ConfigDescriptor(
         String,
-        default=u'entities',
+        default=u'groups',
         doc=u'API Route for group entities')
 
     ou = ConfigDescriptor(
