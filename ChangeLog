@@ -1,3 +1,7 @@
+
+2018-10-21    <kennethj@gagarin.uit.no>
+    * generate_kurs_ldif.py:  updated to read utf-8 instead of iso-8859-1
+
 2018-10-21    <kennethj@gagarin.uit.no>
     * import_tlf.py:  updated to write utf-8 encoded strings to FS
 

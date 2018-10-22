@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # kbj005 2015.02.10: copied from /home/cerebrum/cerebrum/contrib/no/uio
 
@@ -11,15 +11,15 @@ URN som unikt identifiserer dette studie-elementet.
 
 ldap-person-dumpen vil generere eduCourseMember atributter med verdi
 role@eduCourseOffering, der eduCourseOffering er URN-en over, og
-role=Learner for studenter og Instructor for gruppe-lærer/foreleser.
+role=Learner for studenter og Instructor for gruppe-lï¿½rer/foreleser.
 
 --aktivitetfile fname : xml fil med undervisningsaktiviteter
 --enhetfile fname : xml fil med undervisningsenheter
 --emnefile fname : xml fil med emner
 --ldiffile fname.ldif : trigger generering av ldif fil med angitt navn
---picklefile fname : brukes av person-ldif exporten til å sette eduCourseMember
+--picklefile fname : brukes av person-ldif exporten til ï¿½ sette eduCourseMember
 """
-
+from __future__ import unicode_literals
 import getopt
 import pickle
 import os, sys
@@ -35,7 +35,7 @@ db = Factory.get('Database')()
 ac = Factory.get('Account')(db)
 group = Factory.get('Group')(db)
 
-locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))  # norsk "Ø".lower()
+locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))  # norsk "ï¿½".lower()
 
 #
 # IVR 2008-07-14 Vortex group wanted more detailed information about FS roles
@@ -49,10 +49,10 @@ interesting_fs_roles = (('student', 'Learner'),
                         ('fagansvar', 'Fagansvarlig'),
                         ('foreleser', 'Foreleser'),
                         ('gjestefore', 'Gjesteforeleser'),
-                        ('gruppelære', 'Gruppelaerer'),
-                        ('hovedlære', 'Hovedlaerer'),
+                        ('gruppelï¿½re', 'Gruppelaerer'),
+                        ('hovedlï¿½re', 'Hovedlaerer'),
                         ('it-ansvarl', 'IT-ansvarlig'),
-                        ('lærer', 'Laerer'),
+                        ('lï¿½rer', 'Laerer'),
                         ('sensor', 'Sensor'),
                         ('studiekons', 'Studiekonsulent'),)
 
@@ -67,10 +67,10 @@ class CerebrumGroupInfo(object):
     ## 1144:       enhstud = "uio.no:fs:%s:student" % enhet_id.lower()
     ## 982:        aktstud = "uio.no:fs:%s:student:%s" % (enhet_id.lower(), aktkode.lower())
 
-    ##     752523 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:aktivitetsansvar:2-2
-    ##     752521 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:enhetsansvar
-    ##     752522 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:student
-    ##     752526 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vår:2007:1:student:2-1
+    ##     752523 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vï¿½r:2007:1:aktivitetsansvar:2-2
+    ##     752521 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vï¿½r:2007:1:enhetsansvar
+    ##     752522 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vï¿½r:2007:1:student
+    ##     752526 |           15 | uio.no:fs:kurs:185:inf-mat2351:1:vï¿½r:2007:1:student:2-1
     PREFIX = "uit.no:fs:kurs:"
     id_key_seq = ('institusjonsnr', 'emnekode', 'versjonskode',
                   'terminkode', 'arstall', 'terminnr')
@@ -92,7 +92,7 @@ class CerebrumGroupInfo(object):
         self, institusjonsnr, emnekode, versjonskode, terminkode,
         arstall, terminnr, persontype):
         """Returnerer entity-id for aktuell gruppe.
-        persontype er en av ('enhetsansvar', 'student').  De øvrige
+        persontype er en av ('enhetsansvar', 'student').  De ï¿½vrige
         verdiene tilsvarer kolonner i FS
         """
         rows = self._emne_key2dta.get(
@@ -112,7 +112,7 @@ class CerebrumGroupInfo(object):
         arstall, terminnr, aktkode, persontype):
         """Returnerer entity-id for aktuell gruppe.
         persontype er en av ('aktivitetsansvar', 'student').  De
-        øvrige verdiene tilsvarer kolonner i FS
+        ï¿½vrige verdiene tilsvarer kolonner i FS
         """
 
         rows = self._emne_key2dta.get(
@@ -228,18 +228,18 @@ def gen_undervisningsaktivitet(cgi, sip, out):
 
         out.write(entry_string("cn=ua-%i,%s" % (n, top_dn), {
             'objectClass':               ("top", "uioEduSection"),
-            'uioEduCourseCode':          (iso2utf(entry['emnekode']),),
-            'uioEduCourseAdministrator': (iso2utf(emne['sko']),),
-            'uioEduCourseLevel':         (iso2utf(emne['studienivakode']),),
-            'uioEduCourseName':          (iso2utf(emne['emnenavn_bokmal']),),
-            'uioEduCourseSectionName':   (iso2utf(entry['aktivitetsnavn']),),
-            'uioEduCourseInstitution':   (iso2utf(emne['institusjonsnr']),),
-            'uioEduCourseVersion':       (iso2utf(emne['versjonskode']),),
-            'uioEduCourseSectionCode':   (iso2utf(entry['aktivitetkode']),),
-            'uioEduOfferingTermCode':    (iso2utf(entry['terminkode']),),
-            'uioEduOfferingYear':        (iso2utf(entry['arstall']),),
-            'uioEduOfferingTermNumber':  (iso2utf(entry['terminnr']),),
-            'uioEduCourseOffering':      (iso2utf(urn),)}))
+            'uioEduCourseCode':          (entry['emnekode'],),
+            'uioEduCourseAdministrator': (emne['sko'],),
+            'uioEduCourseLevel':         (emne['studienivakode'],),
+            'uioEduCourseName':          (emne['emnenavn_bokmal'],),
+            'uioEduCourseSectionName':   (entry['aktivitetsnavn'],),
+            'uioEduCourseInstitution':   (emne['institusjonsnr'],),
+            'uioEduCourseVersion':       (emne['versjonskode'],),
+            'uioEduCourseSectionCode':   (entry['aktivitetkode'],),
+            'uioEduOfferingTermCode':    (entry['terminkode'],),
+            'uioEduOfferingYear':        (entry['arstall'],),
+            'uioEduOfferingTermNumber':  (entry['terminnr'],),
+            'uioEduCourseOffering':      (urn,)}))
         n += 1
         ret[urn] = aktivitet_id
     return ret
@@ -273,16 +273,16 @@ def gen_undervisningsenhet(cgi, sip, out):
         urn = 'urn:mace:uit.no:offering:enhet-%s' % "_".join(keys)
         out.write(entry_string("cn=ue-%i,%s" % (n, top_dn), {
             'objectClass':               ("top", "uioEduOffering"),
-            'uioEduCourseCode':          (iso2utf(entry['emnekode']),),
-            'uioEduCourseAdministrator': (iso2utf(emne['sko']),),
-            'uioEduCourseLevel':         (iso2utf(emne['studienivakode']),),
-            'uioEduCourseName':          (iso2utf(emne['emnenavn_bokmal']),),
-            'uioEduCourseInstitution':   (iso2utf(emne['institusjonsnr']),),
-            'uioEduCourseVersion':       (iso2utf(emne['versjonskode']),),
-            'uioEduOfferingTermCode':    (iso2utf(entry['terminkode']),),
-            'uioEduOfferingYear':        (iso2utf(entry['arstall']),),
-            'uioEduOfferingTermNumber':  (iso2utf(entry['terminnr']),),
-            'uioEduCourseOffering':      (iso2utf(urn),)}))
+            'uioEduCourseCode':          (entry['emnekode'],),
+            'uioEduCourseAdministrator': (emne['sko'],),
+            'uioEduCourseLevel':         (emne['studienivakode'],),
+            'uioEduCourseName':          (emne['emnenavn_bokmal'],),
+            'uioEduCourseInstitution':   (emne['institusjonsnr'],),
+            'uioEduCourseVersion':       (emne['versjonskode'],),
+            'uioEduOfferingTermCode':    (entry['terminkode'],),
+            'uioEduOfferingYear':        (entry['arstall'],),
+            'uioEduOfferingTermNumber':  (entry['terminnr'],),
+            'uioEduCourseOffering':      (urn,)}))
         n += 1
         ret[urn] = aktivitet_id
     return ret
