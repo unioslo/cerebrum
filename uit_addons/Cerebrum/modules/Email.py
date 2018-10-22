@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2003-2017 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,7 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """Module for making Cerebrum into a local email address database.
 
 This module contains various classes that enables Cerebrum to act as a
@@ -54,13 +53,17 @@ See contrib/generate_mail_ldif.py for an example of a script exporting
 the email data.  Note, though, that this example assumes that your
 Cerebrum instance uses more than the minimal subset of email-related
 classes."""
+from __future__ import unicode_literals
 
 import re
 import string
 import time
 
+import six
+
 from Cerebrum import Utils
 from Cerebrum.Utils import prepare_string, argument_to_sql
+from Cerebrum.utils import transliterate
 from Cerebrum import Constants
 from Cerebrum.modules import CLConstants
 from Cerebrum.Entity import Entity
@@ -427,6 +430,7 @@ class CLConstants(CLConstants.CLConstants):
 Entity_class = Utils.Factory.get("Entity")
 
 
+@six.python_2_unicode_compatible
 class EmailDomain(Entity_class):
     """Interface to the email domains your MTA should consider as 'local'.
 
@@ -664,7 +668,13 @@ class EmailDomain(Entity_class):
         FROM [:table schema=cerebrum name=email_domain] ed %s %s
         """ % (join_str, where_str), binds)
 
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            return self.email_domain_name
+        return '<unbound domain>'
 
+
+@six.python_2_unicode_compatible
 class EmailTarget(Entity_class):
     """Interface for registering valid email delivery targets.
 
@@ -1024,7 +1034,18 @@ class EmailTarget(Entity_class):
         # NA
         return self.email_server_id
 
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            tp = self.const.EntityType(self.email_target_type)
+            target = Utils.Factory.get(
+                Utils.Factory.type_component_map.get(str(tp), 'Entity'))(
+                    self.db)
+            return '{}:{}'.format(
+                six.text_type(self.email_target_type),
+                six.text_type(target))
 
+
+@six.python_2_unicode_compatible
 class EmailAddress(Entity_class):
     """Interface for registering known local email addresses.
 
@@ -1310,6 +1331,11 @@ class EmailAddress(Entity_class):
         domain.find(self.email_addr_domain_id)
         return (self.email_addr_local_part + '@' +
                 domain.rewrite_special_domains(domain.email_domain_name))
+
+    def __str__(self):
+        if hasattr(self, 'entity_id'):
+            return self.get_address()
+        return '<unbound email address>'
 
 
 class EntityEmailDomain(Entity):
@@ -1846,7 +1872,6 @@ class EmailVirusScan(EmailTarget):
 
 
 class EmailForward(EmailTarget):
-
     """Forwarding addresses attached to EmailTargets."""
 
     def find(self, target_id):
@@ -2506,6 +2531,9 @@ class AccountEmailMixin(Account.Account):
             full = self.get_fullname()
         except Errors.NotFoundError:
             full = self.account_name
+        if not isinstance(full, six.text_type):
+            raise Errors.CerebrumError(
+                'Corrupt input while converting full_name')
         return self.get_email_cn_given_local_part(
             full_name=full, given_names=given_names, max_initials=max_initials)
 
@@ -2578,21 +2606,10 @@ class AccountEmailMixin(Account.Account):
         return self.wash_email_local_part(".".join(names))
 
     def get_fullname(self):
-        if self.owner_type != self.const.entity_person:
-            # In the Cerebrum core, there is only one place the "full
-            # name" of an account can be registered: As the full name
-            # of the person owner.  Hence, for non-personal accounts,
-            # we just use the account name.
-            #
-            # Note that the situation may change for specialisations
-            # of the core Account class; e.g. the PosixUser class
-            # allows full name to be registered directly on the
-            # account, in the `gecos' attribute.  To take such
-            # specialisations into account (for *all* your users),
-            # override this method in an appropriate subclass, and set
-            # cereconf.CLASS_ACCOUNT accordingly.
-            raise Errors.NotFoundError(
-                'No full name for non-personal account.')
+        """
+        Returns the cached full name of the person owning the POSIX account.
+        @return: The person owner's full name.
+        """
         p = Utils.Factory.get("Person")(self._db)
         p.find(self.owner_id)
         full = p.get_name(self.const.system_cached, self.const.name_full)
@@ -2784,44 +2801,16 @@ class AccountEmailMixin(Account.Account):
                 ret.setdefault(uname, set()).add(address)
         return ret
 
-    # Rewrite when converting to Python 3.x
     def wash_email_local_part(self, local_part):
         """
         """
-        # A very ugly and hopefully temporary fix for CRB-2170
-        # `latin1_to_iso646_60 expects` a latin1 (iso-8859-1) string.
-        # Since `local_part` may be different depending on the DB connection
-        # backend, we need to make sure that it always ends up being latin-1.
-        if isinstance(local_part, str):
-            try:
-                local_part = local_part.decode('utf-8')
-            except:  # probably latin1
-                local_part = local_part.decode('iso-8859-1')
-        try:
-            local_part = local_part.encode('iso-8859-1')
-        except UnicodeEncodeError:
-            raise Errors.CerebrumError(
-                'Corrupt input when washing email_local_part')
-        lp = Utils.latin1_to_iso646_60(local_part)
-        # Translate ISO 646-60 representation of Norwegian characters
-        # to the closest single-ascii-letter.
-        xlate = {'[': 'A', '{': 'a',
-                 '\\': 'O', '|': 'o',
-                 ']': 'A', '}': 'a'}
-        lp = ''.join([xlate.get(c, c) for c in lp])
-        # Don't use caseful local-parts; lowercase them before they're
-        # written to the database.
-        lp = lp.lower()
+        lp = transliterate.for_email_local_part(local_part)
         # Retain only characters that are likely to be intentionally
         # used in local-parts.
         allow_chars = string.ascii_lowercase + string.digits + '-_.'
         lp = "".join([c for c in lp if c in allow_chars])
-        # The '.' character isn't allowed at the start or end of a
-        # local-part.
-        while lp.startswith('.'):
-            lp = lp[1:]
-        while lp.endswith('.'):
-            lp = lp[:-1]
+        # The '.' character isn't allowed at the start or end of a local-part.
+        lp = lp.strip('.')
         # Two '.' characters can't be together
         while lp.find('..') != -1:
             lp = lp.replace('..', '.')
@@ -2911,67 +2900,25 @@ class AccountEmailMixin(Account.Account):
 class AccountEmailQuotaMixin(Account.Account):
     """Email-quota module for core class 'Account'."""
 
-    def update_email_quota(self, force=False):
+    def update_email_quota(self):
         """Set e-mail quota according to values in cereconf.EMAIL_HARD_QUOTA.
-         EMAIL_HARD_QUOTA is in MiB andbased on affiliations.
-         If cereconf.EMAIL_ADD_QUOTA_REQUEST = True, any change is made and
-         user's e-mail is on a Cyrus server, add a request in Cerebrum to have
-         Cyrus updated accordingly.  If force is true, such a request is always
-         made for Cyrus users (i.e. quota < new_quota).
+         EMAIL_HARD_QUOTA is in MiB and based on affiliations.
          Soft quota is in percent, fetched from EMAIL_SOFT_QUOTA."""
-        change = force
         quota = self._calculate_account_emailquota()
         eq = EmailQuota(self._db)
         try:
             eq.find_by_target_entity(self.entity_id)
         except Errors.NotFoundError:
             if quota is not None:
-                change = True
                 eq.populate(cereconf.EMAIL_SOFT_QUOTA, quota)
                 eq.write_db()
         else:
-            # We never decrease the quota, to allow for manual overrides
+            # We never decrease quota, because of manual overrides
             if quota is None:
                 eq.delete()
             elif quota > eq.email_quota_hard:
-                change = True
                 eq.email_quota_hard = quota
                 eq.write_db()
-        if not change:
-            return
-        # exchange-relatert-jazz
-        # after migration to exchange is completed this part of the
-        # method may be removed along with the default_config.py and
-        # cereconf.py definitions of EMAIL_ADD_QUOTA_REQUEST as they
-        # will no longer be necessary
-        # Jazz (2013-11)
-        if cereconf.EMAIL_ADD_QUOTA_REQUEST:
-            from Cerebrum.modules.bofhd.utils import BofhdRequests
-            br = BofhdRequests(self._db, self.const)
-            et = EmailTarget(self._db)
-            try:
-                et.find_by_target_entity(self.entity_id)
-            except:
-                return
-            if not et.email_server_id:
-                return
-            es = EmailServer(self._db)
-            es.find(et.email_server_id)
-            if es.email_server_type == self.const.email_server_type_cyrus:
-                br = BofhdRequests(self._db, self.const)
-                # The call graph is too complex when creating new users or
-                # migrating old users.  So to avoid problems with this
-                # function being called more than once, we just remove any
-                # conflicting requests, so that the last request added
-                # wins.
-                br.delete_request(entity_id=self.entity_id,
-                                  operation=self.const.bofh_email_hquota)
-                # If the ChangeLog module knows who the user requesting
-                # this change is, use that knowledge.  Otherwise, set
-                # requestor to None; it's the best we can do.
-                requestor = getattr(self._db, 'change_by', None)
-                br.add_request(requestor, br.now, self.const.bofh_email_hquota,
-                               self.entity_id, None)
 
     # Calculate quota for this account
     def _calculate_account_emailquota(self):
@@ -2981,7 +2928,8 @@ class AccountEmailQuotaMixin(Account.Account):
         # '*' is default quota size in EMAIL_HARD_QUOTA dict
         max_quota = quota_settings['*']
         for r in self.get_account_types():
-            affiliation = str(self.const.PersonAffiliation(r['affiliation']))
+            affiliation = six.text_type(self.const.PersonAffiliation(
+                r['affiliation']))
             if affiliation in quota_settings:
                 # always choose the largest quota
                 if quota_settings[affiliation] is None:

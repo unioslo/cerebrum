@@ -1,3 +1,7 @@
+
+2018-10-22  Kennethj   <cerebrum@cleomedes.uit.no>
+    * Email.py: uppdated with code from UiO
+    
 2017-08-25  Karen   <cerebrum@cleomedes.uit.no>
 
     * Email.py: Had to make our own version of Cerebrum.modules.Email.py because of a 
