@@ -20,13 +20,14 @@
 # kbj005 2015.02.16: copied from /cerebrum/lib/python2.7/site-packages/Cerebrum/modules/no/hih
 
 """Mixin for OrgLDIF for UiT."""
-
+from __future__ import unicode_literals
 from collections import defaultdict
 from os.path import join as join_paths
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.OrgLDIF import *
 from Cerebrum.modules.LDIFutils import *
 from pprint import pprint
+import pickle
         
 class OrgLDIFUiTMixin(OrgLDIF):
     def __init__(self, db, logger):
