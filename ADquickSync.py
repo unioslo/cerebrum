@@ -48,7 +48,7 @@ import socket
 # cerebrum imports
 import cerebrum_path
 import cereconf
-
+import json
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum import Entity
@@ -88,7 +88,7 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
         for ans in answer:
             if ans['change_type_id'] == self.co.account_password:
                 try:
-		   pw = cPickle.loads(ans['change_params'])['password']
+		   pw = json.loads(ans['change_params'])['password']
 		except KeyError,m:
                    logger.warn("Password probably wiped already for change_id %s" % (ans['change_id'],))
 		else:

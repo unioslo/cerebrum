@@ -1,3 +1,5 @@
+2018-10-23    <kennethj@gagarin.uit.no>
+    * ADquickSync.py:   updated to read json from changelog.
 2018-10-21    <kennethj@gagarin.uit.no>
     * ad_export_autogroups_undervisning.py:  updated to read utf-8 instead of iso-8859-1
     * export_ad.py : updated to read utf-8 instead of iso-8859-1
