@@ -271,6 +271,10 @@ class EmailConstants(Constants.Constants):
         "Only accept the use of an UiO address as sender address"
         " on the UiO network, or when using authenticated SMTP")
 
+    email_target_filter_internalonly = _EmailTargetFilterCode(
+        'internalonly',
+        "Only route internal mail. External mail is rejected")
+
 
 class CLConstants(Constants.CLConstants):
     # ChangeTypes used by the email module
