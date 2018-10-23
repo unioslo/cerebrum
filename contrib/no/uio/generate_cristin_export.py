@@ -572,25 +572,18 @@ def get_consent(person):
     :param person: SAPPerson object
     :return: Boolean, True if consent has been given
     """
-    fnr = person.get_id(person.NO_SSN)
-    sap_nr = person.get_id(person.SAP_NR)
-    pass_nr = person.get_id(person.PASSNR)
+    if not isinstance(person_db, EntityConsentMixin):
+        logger.info('Skipping entity without support for consent')
+        return False
+
+    fnr = (constants.externalid_fodselsnr, person.get_id(person.NO_SSN))
+    sap_nr = (constants.externalid_sap_ansattnr, person.get_id(person.SAP_NR))
+    pass_nr = (constants.externalid_pass_number, person.get_id(person.PASSNR))
+    ids = [fnr, sap_nr, pass_nr]
 
     try:
         person_db.clear()
-
-        if fnr:
-            person_db.find_by_external_id(constants.externalid_fodselsnr, fnr)
-        elif sap_nr:
-            person_db.find_by_external_id(constants.externalid_sap_ansattnr,
-                                          sap_nr)
-        elif pass_nr:
-            person_db.find_by_external_id(constants.externalid_pass_number,
-                                          pass_nr)
-        else:
-            logger.error("Cant find person in cerebrum",
-                         _get_redacted_person_id_list(person))
-            return False
+        person_db.find_by_external_ids(*ids)
 
     except Errors.NotFoundError:
         logger.error("Person %s is in the datafile, but not in Cerebrum",
@@ -602,16 +595,13 @@ def get_consent(person):
                      _get_redacted_person_id_list(person))
         return False
 
-    if not isinstance(person_db, EntityConsentMixin):
-        logger.info('Skipping entity without support for consent')
-        return False
-
-    elif person_db.list_consents(entity_id=person_db.entity_id,
-                                 consent_code=co.consent_cristin):
+    if person_db.list_consents(entity_id=person_db.entity_id,
+                               consent_code=co.consent_cristin):
         # Found consent from user
         logger.info('Found consent, person_id %s has consented to '
                     'export', _get_redacted_person_id_list(person))
         return True
+    return False
 
 
 def should_export_person(person):
@@ -663,11 +653,11 @@ def should_export_person(person):
         # Export if consent is given.
         if get_consent(person):
             return True
-        else:
-            logger.info('Skipping, person_id %s is not employed in a '
-                        'scientific position',
-                        _get_redacted_person_id_list(person))
-            return False
+
+        logger.info('Skipping, person_id %s is not employed in a '
+                    'scientific position',
+                    _get_redacted_person_id_list(person))
+        return False
 
     logger.debug('Person %s ok for export',
                  _get_redacted_person_id_list(person))
