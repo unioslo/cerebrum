@@ -1,3 +1,7 @@
+2018-10-23  kennethj <cerebrum@gagarin.uit.no>
+	* ADsync.py:	updated to read json instead of pickle
+2018-10-23  kennethj <cerebrum@gagarin.uit.no>
+	* bofhd_uit_cmds.py:	updated to read json instead of pickle
 
 2018-10-21  kennethj <cerebrum@gagarin.uit.no>
 	* PosixLDIF.py: updated to handle UTF-8

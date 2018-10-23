@@ -22,8 +22,9 @@ import time
 import re
 import imaplib
 import ssl
-import pickle
+#import pickle
 import socket
+import json
 
 from mx import DateTime
 from flanker.addresslib import address as email_validator

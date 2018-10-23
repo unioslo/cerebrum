@@ -28,8 +28,8 @@ ADutilMixIn.py to work with the AD setup at the University of Oslo.
 import cerebrum_path
 import cereconf
 import copy
-import pickle
-
+#import pickle
+import json
 from Cerebrum import Utils
 from Cerebrum import QuarantineHandler
 from Cerebrum.modules import ADutilMixIn
@@ -438,7 +438,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                      return_last_only=True)
         try:
             row = tmp.next()
-            params = pickle.loads(row["change_params"])
+            params = json.loads(row["change_params"])
             passwd = params["password"]
         except (StopIteration, AttributeError, KeyError, TypeError):
             passwd = unicode(self.ac.make_passwd(uname), "iso-8859-1")
@@ -648,12 +648,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 self.ac.find(ans['subject_entity'])
                 #if usr exists in ad change pwd, else password set when created
                 if adusrs.has_key(self.ac.account_name):
-                    pw = pickle.loads(ans['change_params'])['password']
+                    pw = json.loads(ans['change_params'])['password']
                     confirm = self.change_pwd(self.ac.account_name, pw, dry_run)
                 #but for now we dont get the password when user is created so we also
                 #check if user is a user with AD-spread and asume these are just created
                 elif self.ac.has_spread(self.co.Spread(spread)):
-                    pw = pickle.loads(ans['change_params'])['password']
+                    pw = json.loads(ans['change_params'])['password']
                     confirm = self.change_pwd(self.ac.account_name, pw, dry_run)
             else:
                 self.logger.debug("unknown change_type_id %i or user already updated",
