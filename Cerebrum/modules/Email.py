@@ -273,7 +273,7 @@ class EmailConstants(Constants.Constants):
 
     email_target_filter_internalonly = _EmailTargetFilterCode(
         'internalonly',
-        "Only route internal mail. External mail are rejected")
+        "Only route internal mail. External mail is rejected")
 
 
 class CLConstants(Constants.CLConstants):
