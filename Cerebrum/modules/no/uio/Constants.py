@@ -675,6 +675,13 @@ class Constants(Constants.Constants):
         consent_type=Consent.Constants.consent_opt_in,
         description="Export to Google for Education")
 
+    # cristin
+    consent_cristin = Consent.Constants.EntityConsent(
+        'cristin',
+        entity_type=Constants.Constants.entity_person,
+        consent_type=Consent.Constants.consent_opt_in,
+        description="Export to Cristin")
+
     #
     # DNS Zones
     #

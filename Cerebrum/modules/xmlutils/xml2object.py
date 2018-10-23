@@ -49,6 +49,7 @@ import copy
 import time
 
 from xml.etree.cElementTree import parse, iterparse, ElementTree
+from six import text_type
 
 from mx.DateTime import Date, DateTimeDelta
 
@@ -366,7 +367,7 @@ class DataEmployment(NameContainer):
     def __str__(self):
         return "(%s) Employment: %s%% %s [%s..%s @ %s]" % (
             self.kind, self.percentage,
-            ", ".join("%s:%s" % (x[0], map(str, x[1]))
+            ", ".join("%s:%s" % (x[0], map(text_type, x[1]))
                       for x in self.iternames()),
             self.start, self.end, self.place)
 
