@@ -119,7 +119,6 @@ class SimplePerson(IterableUserDict, object):
         return "Person(fnr=%s, %s): birth=%s; email=%s; %s, %s;" % (
             self.fnr11, self.gender, self.birth_date, self.email,
             self.name_last, self.name_first)
-# end SimplePerson
 
 
 def exc2message(exc_tuple):
@@ -135,7 +134,6 @@ def exc2message(exc_tuple):
     msg = traceback.format_exception_only(exc, exc_type)[0]
     msg = msg.split("\n", 1)[0]
     return six.text_type(msg)
-# end exc2message
 
 
 def _selection2aff_dict(selection_criteria):
@@ -162,7 +160,6 @@ def _selection2aff_dict(selection_criteria):
             s.add(None)
 
     return aff2status
-# end _selection2aff_dict
 
 
 def criteria2affiliations(selection_criteria):
@@ -177,7 +174,6 @@ def criteria2affiliations(selection_criteria):
 
     return tuple(set(int(affiliation)
                      for affiliation, status in selection_criteria))
-# end criteria2affiliations
 
 
 def find_fnr(person, authoritative_system):
@@ -217,7 +213,6 @@ def find_fnr(person, authoritative_system):
         return None
 
     return numbers.pop()
-# end find_fnr
 
 
 def find_name(person, name_variant, authoritative_system):
@@ -244,7 +239,6 @@ def find_name(person, name_variant, authoritative_system):
         return name
     except Errors.NotFoundError:
         return None
-# end find_name
 
 
 def find_title(person):
@@ -253,7 +247,6 @@ def find_title(person):
     return person.get_name_with_language(name_variant=constants.work_title,
                                          name_language=constants.language_nb,
                                          default=None)
-# end find_title
 
 
 def find_primary_mail_address(person):
@@ -282,8 +275,6 @@ def find_primary_mail_address(person):
     except Errors.NotFoundError:
         return None
 
-    # NOTREACHED
-# end find_primary_mail_address
 
 
 def find_contact_info(person, contact_variant, authoritative_system):
@@ -313,7 +304,6 @@ def find_contact_info(person, contact_variant, authoritative_system):
     # They arrive already sorted
     value = result[0]["contact_value"]
     return value
-# end find_contact_info
 
 
 def find_my_affiliations(person, selection_criteria, authoritative_system):
@@ -348,7 +338,6 @@ def find_my_affiliations(person, selection_criteria, authoritative_system):
                  [(x, six.text_type(constants.PersonAffiliation(y)))
                   for x, y in my_affiliations])
     return my_affiliations
-# end find_my_affiliations
 
 
 def find_primary_ou(person, selection_criteria, authoritative_system):
@@ -416,7 +405,6 @@ def find_primary_ou(person, selection_criteria, authoritative_system):
     assert ou_id is not None
     logger.debug("Person id=%s has primary ou_id=%s", person.entity_id, ou_id)
     return ou_id
-# end find_primary_ou
 
 
 @memoize
@@ -447,9 +435,6 @@ def find_primary_sko(primary_ou_id, fs, ou_perspective):
                                 ou_perspective)
     except Errors.NotFoundError:
         return None
-
-    # NOTREACHED
-# end find_primary_sko
 
 
 def _populate_caches(selection_criteria, authoritative_system, email_cache,
@@ -586,7 +571,6 @@ def _populate_caches(selection_criteria, authoritative_system, email_cache,
     find_ansattnr = lambda p: _fnr2ansattnr.get(p)
     logger.debug("Done preloading ansattnr information (%d entries)",
                  len(_fnr2ansattnr))
-# end _populate_caches
 
 
 def person2fs_info(row, person, authoritative_system):
@@ -654,7 +638,6 @@ def person2fs_info(row, person, authoritative_system):
         return None
 
     return result
-# end person2fs_info
 
 
 def select_rows(selection_criteria, row_generator, **kw_args):
@@ -700,7 +683,6 @@ def select_rows(selection_criteria, row_generator, **kw_args):
             continue
 
         yield row
-# end select_rows
 
 
 def select_FS_candidates(selection_criteria, authoritative_system):
@@ -735,7 +717,6 @@ def select_FS_candidates(selection_criteria, authoritative_system):
             result[person_id] = info_object
 
     return result
-# end select_FS_candidates
 
 
 def export_person(person_id, info_chunk, fs):
@@ -774,7 +755,6 @@ def export_person(person_id, info_chunk, fs):
         except database.IntegrityError:
             logger.info("Setting of ansattnr=%d on id=%d failed: %s",
                         data.ansattnr, person_id, exc2message(sys.exc_info()))
-# end export_person
 
 
 def export_fagperson(person_id, info_chunk, selection_criteria, fs,
@@ -948,7 +928,6 @@ def make_fs_updates(person_affiliations, fagperson_affiliations, fs,
         export_fagperson(person_id, info_chunk, fagperson_affiliations, fs,
                          authoritative_system, ou_perspective)
     fs.db.commit()
-# end make_fs_updates
 
 
 def main():
@@ -1023,7 +1002,6 @@ def main():
     make_fs_updates(person_affiliations, fagperson_affiliations, fs,
                     authoritative_system, ou_perspective)
     logger.debug("Pushed all changes to FS")
-# end main
 
 
 if __name__ == "__main__":
