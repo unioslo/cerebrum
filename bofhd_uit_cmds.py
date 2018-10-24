@@ -2752,7 +2752,7 @@ class BofhdExtension(BofhdCommonMethods):
         br.add_request(operator.get_entity_id(),
                        DateTime.now() + DateTime.DateTimeDelta(0, 0, 30),
                        self.const.bofh_sympa_create, list_id, ea.entity_id,
-                       state_data=pickle.dumps(state))
+                       state_data=json.dumps(state))
         return "OK, sympa list '%s' created" % listname
 
     all_commands['email_create_sympa_cerebrum_list'] = Command(
@@ -3102,7 +3102,7 @@ Addresses and settings:
                        # than a confusing error burp from sympa.
                        DateTime.now() + DateTime.DateTimeDelta(0, 1),
                        self.const.bofh_sympa_remove,
-                       list_id, None, state_data=pickle.dumps(state))
+                       list_id, None, state_data=json.dumps(state))
 
         return "OK, sympa list '%s' deleted (bofhd request issued)" % listname
 
@@ -10142,7 +10142,7 @@ Password altered. Use misc list_password to print or view the new password.%s'''
         # _ChangeTypeCode.__doc__
         if row['change_params']:
             try:
-                params = pickle.loads(row['change_params'])
+                params = json.loads(row['change_params'])
             except TypeError:
                 self.logger.error("Bogus change_param in change_id=%s, row: %s",
                                   row['change_id'], row)
@@ -10179,7 +10179,7 @@ Password altered. Use misc list_password to print or view the new password.%s'''
         uid = None
         for r in self.db.get_log_events(
             0, subject_entity=account_id, types=[self.const.posix_demote]):
-            uid = pickle.loads(r['change_params'])['uid']
+            uid = json.loads(r['change_params'])['uid']
         return uid
 
     def _date_human_readable(self, date):
