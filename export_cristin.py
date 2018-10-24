@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding:utf-8 -*-
 #
 # Copyright 2003 University of Oslo, Norway
 #
@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+from __future__ import unicode_literals
 """
 
 This file is part of the Cerebrum framework.
@@ -46,7 +46,7 @@ specifically)
 
 person.xml format is specified by lt-person.dtd available in the
 "uiocerebrum" project. Only some of the elements are of interest for FRIDA
-export. We use Norwegian fødselsnummer to tie <person>-elements to database
+export. We use Norwegian fï¿½dselsnummer to tie <person>-elements to database
 rows.
 
 sted.xml format is noe specified anywhere (but it will be :)). For now, this
@@ -310,7 +310,7 @@ class LTPersonRepresentation(object):
 	      prosent_tilsetting CDATA #REQUIRED
 	      dato_fra CDATA #REQUIRED
 	      dato_til CDATA #REQUIRED
-	      hovedkat (VIT | ØVR) #REQUIRED
+	      hovedkat (VIT | ï¿½VR) #REQUIRED
 	      tittel CDATA #REQUIRED>
     <!ELEMENT gjest EMPTY>
     <!ATTLIST gjest
@@ -656,7 +656,7 @@ def output_OU_address(writer, db_ou, constants):
     address = db_ou.get_entity_address(constants.system_fs,
                                        constants.address_post)[0]
 
-    city = (address['city'] or 'Tromsø').strip()
+    city = (address['city'] or 'Tromsï¿½').strip()
     po_box = (address['p_o_box'] or '').strip()
     postal_number = (address['postal_number'] or "9037").strip()
     country = (address['country'] or "Norway").strip() 
@@ -938,7 +938,7 @@ def output_employment_information(writer, pobj):
 
         # if element["hovedkat"] == "VIT":
 #             attributes = {"Affiliation": "Faculty"}
-#         elif element["hovedkat"] == "ØVR":
+#         elif element["hovedkat"] == "ï¿½VR":
 #             attributes = {"Affiliation": "Staff"}
 #         else:
 #             logger.error("Aiee! %s has no suitable employment affiliation %s",

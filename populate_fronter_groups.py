@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -- coding: utf-8 --
 
 # Copyright 2003-2005 University of Oslo, Norway
 #
@@ -138,7 +138,7 @@ from itertools import izip, repeat
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, latin1_wash, NotSet
+from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.modules.no.access_FS import roles_xml_parser
@@ -1062,7 +1062,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
         # Alle studenter på kullet
         sync_group(kull_id,
                    fields2key(enhet_id, "student"),
-                   "Studenter på kull %s, %s, %s" % (stprog, terminkode, aar),
+                   u"Studenter pÃ¥ kull %s, %s, %s" % (stprog, terminkode, aar),
                    co.entity_account,
                    UndervEnhet[enhet_id].get('students', {}),
                    auto_spread=UndervEnhet[enhet_id]["fronter_spreads"])
@@ -1075,7 +1075,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                      fields2key(kull_id, "%s"),
                      role_mapping,
                      kull_id,
-                     "Ansvarlige (%s) på kull %s" % ("%s", kull_id),
+                     u"Ansvarlige (%s) pÃ¥ kull %s" % ("%s", kull_id),
                      co.entity_account,
                      UndervEnhet[enhet_id]["fronter_spreads"],
                      sted,
@@ -1392,7 +1392,7 @@ def remove_spread_from_group(group, spread):
 
 def get_group(id):
     gr = Factory.get('Group')(db)
-    if isinstance(id, str):
+    if not isinstance(id, int):
         gr.find_by_name(id)
     else:
         gr.find(id)
