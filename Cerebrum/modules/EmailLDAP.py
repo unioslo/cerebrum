@@ -28,6 +28,7 @@ from collections import defaultdict
 from Cerebrum import Errors
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules import Email
+from Cerebrum.modules import EmailConstants
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.modules.bofhd.utils import BofhdRequests
@@ -177,7 +178,7 @@ class EmailLDAP(DatabaseAccessor):
         const2str = {}
         for c in dir(self.const):
             tmp = getattr(self.const, c)
-            if isinstance(tmp, Email._EmailTargetFilterCode):
+            if isinstance(tmp, EmailConstants._EmailTargetFilterCode):
                 const2str[int(tmp)] = str(tmp)
 
         mail_target_filter = Email.EmailTargetFilter(self._db)
