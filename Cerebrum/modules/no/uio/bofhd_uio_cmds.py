@@ -5243,16 +5243,39 @@ class BofhdExtension(BofhdCommonMethods):
     def trait_list(self, operator, trait_name):
         trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
         self.ba.can_list_trait(operator.get_entity_id(), trait=trait)
-        ety = self.Account_class(self.db)  # exact class doesn't matter
-        ret = []
         ety_type = self.const.EntityType(trait.entity_type)
-        for row in ety.list_traits(trait, return_name=True):
+
+        entity_type_namespace = getattr(
+            cereconf, 'ENTITY_TYPE_NAMESPACE', dict())
+        namespace = entity_type_namespace.get(text_type(ety_type))
+        if namespace is not None:
+            namespace = self.const.ValueDomain(namespace)
+
+        ety = self.Account_class(self.db)  # exact class doesn't matter
+        ety_name = Entity.EntityName(self.db)
+
+        def get_name(e_id):
+            if namespace is None:
+                return None
+            try:
+                ety_name.clear()
+                ety_name.find(e_id)
+                return ety_name.get_name(namespace)
+            except Errors.NotFoundError:
+                return None
+
+        ret = []
+        for row in ety.list_traits(trait):
+
+            e_id = row['entity_id']
+            name = get_name(e_id)
+
             # TODO: Host, Disk and Person don't use entity_name, so name will
             # be <not set>
             ret.append({
                 'trait': text_type(trait),
                 'type': text_type(ety_type),
-                'name': row['name'],
+                'name': name,
             })
         ret.sort(lambda x, y: cmp(x['name'], y['name']))
         return ret
