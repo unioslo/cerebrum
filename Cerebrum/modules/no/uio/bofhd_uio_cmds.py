@@ -4050,9 +4050,9 @@ class BofhdExtension(BofhdCommonMethods):
         auth_systems = []
         for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
             tmp = self.const.human2constant(auth_sys)
-            auth_systems.append(int(tmp))
+            auth_systems.append(tmp)
         for a in person.get_affiliations():
-            if int(a['source_system']) in auth_systems:
+            if a['source_system'] in auth_systems:
                 raise PermissionDenied("You are not allowed to alter the "
                                        "birth date for persons registered "
                                        "in authoritative source systems.")
@@ -4077,11 +4077,11 @@ class BofhdExtension(BofhdCommonMethods):
         auth_systems = []
         for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
             tmp = self.const.human2constant(auth_sys)
-            auth_systems.append(int(tmp))
+            auth_systems.append(tmp)
         person = self._get_person(*self._map_person_id(person_id))
         self.ba.can_create_person(operator.get_entity_id())
         for a in person.get_affiliations():
-            if int(a['source_system']) in auth_systems:
+            if a['source_system'] in auth_systems:
                 raise PermissionDenied("You are not allowed to alter "
                                        "names registered in authoritative "
                                        "source systems.")
