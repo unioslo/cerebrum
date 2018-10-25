@@ -37,11 +37,6 @@ from Cerebrum.Utils import argument_to_sql
 
 
 
-class BofhdVirtHomeAuthConstants(Constants):
-    pass
-# end BofhdVirtHomeAuthConstants
-
-
 
 class BofhdVirtHomeAuth(auth.BofhdAuth):
     """This class defines a number of permission check/authorisation methods

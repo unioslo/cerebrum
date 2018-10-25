@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,21 +22,12 @@
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-from Cerebrum import Constants
 from Cerebrum import Account
 
-class NotSet(object): pass
 
+class NotSet(object):
+    pass
 
-class CLConstants(Constants.CLConstants):
-    disk_quota_set = Constants._ChangeTypeCode(
-        'disk_quota', 'set', 'set disk quota for %(subject)s',
-        ('quota=%(int:quota)s',
-         'override_quota=%(int:override_quota)s',
-         'override_exp=%(string:override_expiration)s',
-         'reason=%(string:description)s'))
-    disk_quota_clear = Constants._ChangeTypeCode(
-        'disk_quota', 'clear', 'clear disk quota for %(subject)s')
 
 class DiskQuota(DatabaseAccessor):
     """Methods for maintaining disk-quotas for accounts.  Typical
@@ -66,11 +57,11 @@ class DiskQuota(DatabaseAccessor):
                   override_expiration=NotSet(), description=NotSet()):
         """Insert or update disk_quota for homedir_id.  Will only
         affect the columns used as keyword arguments"""
-        new_values = { 'homedir_id': int(homedir_id),
-                       'quota': quota,
-                       'override_quota': override_quota,
-                       'override_expiration': override_expiration,
-                       'description': description }
+        new_values = {'homedir_id': int(homedir_id),
+                      'quota': quota,
+                      'override_quota': override_quota,
+                      'override_expiration': override_expiration,
+                      'description': description}
         old_values = {}
         try:
             old_values = self.get_quota(homedir_id=homedir_id)
@@ -173,4 +164,3 @@ class DiskQuota(DatabaseAccessor):
                           {'value_domain': int(self.co.account_namespace),
                            'spread': spread,
                            'disk_id': disk_id})
-

@@ -25,14 +25,21 @@ Address, Gender etc. type.
 
 """
 from Cerebrum import Constants
-from Cerebrum.modules.PosixUser import _PosixShellCode
-from Cerebrum.modules import Email
-from Cerebrum.modules.EntityTrait import _EntityTraitCode
+from Cerebrum.modules.PosixConstants import _PosixShellCode
+from Cerebrum.modules import EmailConstants
+from Cerebrum.modules.EntityTraitConstants import _EntityTraitCode
+from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
 from Cerebrum.modules.consent import Consent
 from Cerebrum.modules.dns import DnsConstants
 
 
 class Constants(Constants.Constants):
+
+    #
+    # Bofhd Auth
+    #
+    auth_set_password_important = _AuthRoleOpCode(
+        'set_password_imp', 'Set password for important/critical accounts')
 
     #
     # Authoritative systems/source systems
@@ -536,38 +543,39 @@ class Constants(Constants.Constants):
     #
     # Email domains
     #
-    email_domain_category_uio_globals = Email._EmailDomainCategoryCode(
-        'UIO_GLOBALS',
-        "All local_parts defined in domain 'UIO_GLOBALS' are treated"
-        " as overrides for all domains posessing this category.")
+    email_domain_category_uio_globals = \
+        EmailConstants._EmailDomainCategoryCode(
+            'UIO_GLOBALS',
+            "All local_parts defined in domain 'UIO_GLOBALS' are treated"
+            " as overrides for all domains posessing this category.")
 
     #
     # Email spam settings
     #
-    email_spam_level_none = Email._EmailSpamLevelCode(
+    email_spam_level_none = EmailConstants._EmailSpamLevelCode(
         'no_filter',
         9999,
         "No email will be filtered as spam")
-    email_spam_level_standard = Email._EmailSpamLevelCode(
+    email_spam_level_standard = EmailConstants._EmailSpamLevelCode(
         'standard_spam',
         7,
         "Only filter email that obviously is spam")
-    email_spam_level_heightened = Email._EmailSpamLevelCode(
+    email_spam_level_heightened = EmailConstants._EmailSpamLevelCode(
         'most_spam',
         5,
         "Filter most emails that look like spam")
-    email_spam_level_aggressive = Email._EmailSpamLevelCode(
+    email_spam_level_aggressive = EmailConstants._EmailSpamLevelCode(
         'aggressive_spam',
         3,
         "Filter everything that resembles spam")
 
-    email_spam_action_none = Email._EmailSpamActionCode(
+    email_spam_action_none = EmailConstants._EmailSpamActionCode(
         'noaction',
         "Deliver spam just like legitimate email")
-    email_spam_action_folder = Email._EmailSpamActionCode(
+    email_spam_action_folder = EmailConstants._EmailSpamActionCode(
         'spamfolder',
         "Deliver spam to a separate IMAP folder")
-    email_spam_action_delete = Email._EmailSpamActionCode(
+    email_spam_action_delete = EmailConstants._EmailSpamActionCode(
         'dropspam',
         "Reject messages classified as spam")
 
@@ -582,7 +590,7 @@ class Constants(Constants.Constants):
 
     trait_email_pause = _EntityTraitCode(
         'email_pause',
-        Email.EmailConstants.entity_email_target,
+        EmailConstants.EmailConstants.entity_email_target,
         'Pauses delivery of email')
 
     #

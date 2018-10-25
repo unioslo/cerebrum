@@ -23,7 +23,6 @@ from six import text_type
 
 import cereconf
 
-from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import dns
@@ -40,7 +39,6 @@ from Cerebrum.modules.bofhd.cmd_param import (
 )
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
-from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.dns import AAAARecord
 from Cerebrum.modules.dns import ARecord
 from Cerebrum.modules.dns import CNameRecord
@@ -56,16 +54,6 @@ from Cerebrum.modules.dns.IPv6Utils import IPv6Calc, IPv6Utils
 from Cerebrum.modules.dns.bofhd_dns_utils import DnsBofhdUtils
 from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cl_base
-
-
-class Constants(Constants.Constants):
-
-    # TODO: move these to Cerebrum/modules/bofhd/utils.py?
-    auth_dns_superuser = _AuthRoleOpCode(
-        'dns_superuser', 'Perform any DNS command')
-
-    auth_dns_lita = _AuthRoleOpCode(
-        'dns_lita', 'Perform LITA-level DNS commands')
 
 
 class DnsBofhdAuth(BofhdAuth):
