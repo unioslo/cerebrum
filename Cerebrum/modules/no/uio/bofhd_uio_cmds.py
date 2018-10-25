@@ -4013,7 +4013,7 @@ class BofhdExtension(BofhdCommonMethods):
         ou = self._get_ou(stedkode=ou)
         auth_systems = []
         for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp = getattr(self.const, auth_sys)
+            tmp = self.const.human2constant(auth_sys)
             auth_systems.append(int(tmp))
         self.ba.can_remove_affiliation(operator.get_entity_id(),
                                        person, ou, aff)
@@ -4046,11 +4046,17 @@ class BofhdExtension(BofhdCommonMethods):
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
+
+        auth_systems = []
+        for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
+            tmp = self.const.human2constant(auth_sys)
+            auth_systems.append(tmp)
         for a in person.get_affiliations():
-            if (int(a['source_system']) in [int(self.const.system_fs),
-                                            int(self.const.system_sap)]):
-                raise PermissionDenied("You are not allowed to alter "
-                                       "birth date for this person.")
+            if a['source_system'] in auth_systems:
+                raise PermissionDenied("You are not allowed to alter the "
+                                       "birth date for persons registered "
+                                       "in authoritative source systems.")
+
         bdate = self._parse_date(bdate)
         if bdate > self._today():
             raise CerebrumError("Please check the date of birth, "
@@ -4070,15 +4076,15 @@ class BofhdExtension(BofhdCommonMethods):
     def person_set_name(self, operator, person_id, first_name, last_name):
         auth_systems = []
         for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp = getattr(self.const, auth_sys)
-            auth_systems.append(int(tmp))
+            tmp = self.const.human2constant(auth_sys)
+            auth_systems.append(tmp)
         person = self._get_person(*self._map_person_id(person_id))
         self.ba.can_create_person(operator.get_entity_id())
         for a in person.get_affiliations():
-            if int(a['source_system']) in auth_systems:
+            if a['source_system'] in auth_systems:
                 raise PermissionDenied("You are not allowed to alter "
                                        "names registered in authoritative "
-                                       "source_systems.")
+                                       "source systems.")
 
         if last_name == "":
             raise CerebrumError("Last name is required.")
