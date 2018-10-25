@@ -2601,8 +2601,8 @@ class AccountEmailMixin(Account.Account):
             initials = [x[0] for x in names[given_names:]]
             if max_initials is not None:
                 initials = initials[:max_initials]
-            for i in range(len(names)):
-                if names[i] not in prefixes:
+            for i, name in enumerate(names):
+                if name not in prefixes:
                     names[i] = initials[i]
         names.append(last)
         return self.wash_email_local_part(".".join(names))
