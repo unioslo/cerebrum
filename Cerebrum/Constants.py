@@ -1406,7 +1406,7 @@ class CoreConstants(ConstantsBase):
     language_it = _LanguageCode("it", "Italiano")
     language_nl = _LanguageCode("nl", "Nederlands")
     language_sv = _LanguageCode("sv", "Svenska")
-    language_sv = _LanguageCode("fr", u"Français")
+    language_fr = _LanguageCode("fr", u"Français")
     language_ru = _LanguageCode("ru", "Russian")
 
     system_cached = _AuthoritativeSystemCode(

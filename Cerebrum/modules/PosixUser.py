@@ -199,7 +199,7 @@ class PosixUser(Account_class):
         """ % (efrom, ewhere), bind)
 
     def list_extended_posix_users(self,
-                                  auth_method=Constants.auth_type_md5_crypt,
+                                  auth_method=Constants.Constants.auth_type_md5_crypt,
                                   spread=None, include_quarantines=0,
                                   filter_expired=True):
         """Returns data required for building a password map.  It is
