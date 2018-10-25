@@ -1,3 +1,5 @@
+2018-10-25 kennethj <cerebrum@cleomedes.uit.no>
+	* Email.py: updated database import. it has been changed from Database  into database.<databasetype>
 2018-10-23  kennethj <cerebrum@gagarin.uit.no>
 	* ADsync.py:	updated to read json instead of pickle
 2018-10-23  kennethj <cerebrum@gagarin.uit.no>

@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Tromsø, Norway
+# Copyright 2003 University of Tromsï¿½, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,8 +22,8 @@ import sys
 import traceback
 import getopt
 import cerebrum_path
-from Cerebrum.Utils import Factory 
-from Cerebrum import Database
+from Cerebrum.Utils import Factory
+from Cerebrum.database import postgres
 from Cerebrum import Utils
 from Cerebrum import Account
 from Cerebrum import Person
