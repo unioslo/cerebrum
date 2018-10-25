@@ -566,6 +566,32 @@ def output_person(writer, person, ou_cache):
     writer.endElement("person")
 
 
+def has_valid_employment(person):
+    """
+    Check if a person has a valid employment record.
+
+    There can be (erroneous) employments is SAP with no place of employment..
+    Check if a person has at least one valid employment with place.
+    """
+
+    employments = [x for x in person.iteremployment()
+                   if x.kind in (x.HOVEDSTILLING, x.BISTILLING) and
+                   x.is_active()]
+
+    for employment in employments:
+        try:
+            a = employment.place[1]
+        except TypeError:
+            # Some employments, like 8;50, does not come with a placecode. It
+            # is perfectly natural to skip them at this stage.
+            continue
+
+        # Found a valid employment
+        return True
+
+    return False
+
+
 def get_consent(person):
     """
     Check if a person has given consent to the Cristin export.
@@ -649,14 +675,25 @@ def should_export_person(person):
     # Filter out persons without a scientific position
     scientific_employment = filter(lambda x: x.category == u'vitenskaplig',
                                    person.iteremployment())
+
+    # Check for invalid assignments
+    valid_employment = has_valid_employment(person)
+
     if not scientific_employment:
         # Export if consent is given.
         if get_consent(person):
+            logger.debug('Person %s ok for export, not scientific with '
+                         'consent', _get_redacted_person_id_list(person))
             return True
-
         logger.info('Skipping, person_id %s is not employed in a '
                     'scientific position',
                     _get_redacted_person_id_list(person))
+        return False
+
+    # Check consent if no valid employment.
+    if not valid_employment:
+        if get_consent(person):
+            return True
         return False
 
     logger.debug('Person %s ok for export',
