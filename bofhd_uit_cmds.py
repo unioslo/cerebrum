@@ -30,7 +30,7 @@ from mx import DateTime
 from flanker.addresslib import address as email_validator
 
 import cereconf
-from Cerebrum import Database
+from Cerebrum.database import postgres
 from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum import Metainfo
