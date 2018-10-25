@@ -72,9 +72,9 @@ class UiTStudent(access_FS.Student):
 
     def list(self, **kwargs):  # GetStudent_50
         """Hent personer med opptak til et studieprogram ved
-        institusjonen og som enten har v�rt registrert siste �ret
+        institusjonen og som enten har vært registrert siste året
         eller opptak efter 2003-01-01.  Henter ikke de som har
-        fremtidig opptak.  Disse kommer med 14 dager f�r dato for
+        fremtidig opptak.  Disse kommer med 14 dager før dato for
         tildelt opptak.  Alle disse skal ha affiliation med status
         kode 'opptak' til stedskoden sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.
@@ -84,7 +84,7 @@ class UiTStudent(access_FS.Student):
             + self._list_gammelopptak_semreg(**kwargs)
 
     def _list_gyldigopptak(self, fodselsdato=None, personnr=None):
-        """Alle med gyldig opptak tildelt for 2 �r eller mindre siden
+        """Alle med gyldig opptak tildelt for 2 år eller mindre siden
         samt alle med opptak som blir gyldig om 14 dager.
         """
 
@@ -125,7 +125,7 @@ class UiTStudent(access_FS.Student):
         return self.db.query(qry, locals())
 
     def _list_drgradsopptak(self, fodselsdato=None, personnr=None):
-        """Alle drgradsstudenter med ikke utg�tt opptak til drgrads-
+        """Alle drgradsstudenter med ikke utgått opptak til drgrads-
         studieprogram.
         """
 
@@ -165,7 +165,7 @@ class UiTStudent(access_FS.Student):
 
     def _list_gammelopptak_semreg(self, fodselsdato=None, personnr=None):
         """Alle med gyldig opptak som har hatt en forekomst i
-        registerkort i l�pet av fjor�ret.
+        registerkort i løpet av fjoråret.
         """
 
         extra = ""
@@ -205,18 +205,18 @@ class UiTStudent(access_FS.Student):
         return self.db.query(qry, locals())
 
     def list_aktiv(self, **kwargs):  # GetStudentAktiv_50
-        """Hent f�dselsnummer+studieprogram+studieretning+kull for
+        """Hent fødselsnummer+studieprogram+studieretning+kull for
         alle aktive studenter.  Som aktive studenter regner vi alle
         studenter med opptak til et studieprogram som samtidig har en
         eksamensmelding eller en avlagt eksamen inneverende semester i
-        et emne som kan inng� i dette studieprogrammet, eller som har
-        bekreftet sin utdanningsplan.  Disse f�r affiliation student
+        et emne som kan inngå i dette studieprogrammet, eller som har
+        bekreftet sin utdanningsplan.  Disse får affiliation student
         med kode aktiv til sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.  Vi har
         alt hentet opplysninger om adresse ol. efter som de har
-        opptak.  Henter derfor kun f�dselsnummer, studieprogram,
-        studieretning og kull.  M� gj�re et eget s�k for � finne
-        klasse for de som er registrert p� slikt. """
+        opptak.  Henter derfor kun fødselsnummer, studieprogram,
+        studieretning og kull.  Må gjøre et eget søk for å finne
+        klasse for de som er registrert på slikt. """
         return self._list_aktiv_semreg(**kwargs) \
             + self._list_aktiv_enkeltemne(**kwargs) \
             + self._list_aktiv_avlagteksamen(**kwargs) \
@@ -224,7 +224,7 @@ class UiTStudent(access_FS.Student):
 
     def _list_aktiv_semreg(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har en
-        eksamensmelding i et emne som kan inng� i et studieprogram som
+        eksamensmelding i et emne som kan inngå i et studieprogram som
         de har opptak til.
         """
 
@@ -270,7 +270,7 @@ class UiTStudent(access_FS.Student):
     def _list_aktiv_enkeltemne(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte med gyldig opptak til
         studieprogrammet 'ENKELTEMNE' som har en gyldig eksamensmelding
-        i et emne som kan inng� i et vilk�rlig studieprogram.
+        i et emne som kan inngå i et vilkårlig studieprogram.
         """
 
         extra = ""
@@ -311,7 +311,7 @@ class UiTStudent(access_FS.Student):
 
     def _list_aktiv_utdplan(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har bekreftet
-        utdanningsplan i innev�rende semester.
+        utdanningsplan i inneværende semester.
         """
 
         extra = ""
@@ -355,9 +355,9 @@ class UiTStudent(access_FS.Student):
         return self.db.query(qry, params)
 
     def _list_aktiv_avlagteksamen(self, fodselsdato=None, personnr=None):
-        """Alle semesterregistrerte som har avlagt eksamen i innev�rende
-        �r.  If�lge STA er dette det riktige kravet. mulig at vi �nsker
-        � mene noe annet etterhvert.
+        """Alle semesterregistrerte som har avlagt eksamen i inneværende
+        år.  Ifølge STA er dette det riktige kravet. mulig at vi ønsker
+        å mene noe annet etterhvert.
         """
 
         extra = ""
@@ -412,10 +412,10 @@ class UiTStudent(access_FS.Student):
         return self.db.query(qry, params)
 
     def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
-        """Hent informasjon om personer som anses som aktive studenter p�
+        """Hent informasjon om personer som anses som aktive studenter på
         grunnlag av eksisterende gyldig undervisningsmelding og gyldig
-        semesterkort i innev�rende semester. Merk at disse ikke n�dvendigvis har
-        studierett p� noen studieprogrammer og at det derfor m� hentes ut
+        semesterkort i inneværende semester. Merk at disse ikke nødvendigvis har
+        studierett på noen studieprogrammer og at det derfor må hentes ut
         personopplysninger i tillegg til opplysninger om studieaktivitet.
 
         """
@@ -1681,7 +1681,7 @@ class UiTUndervisning(access_FS.Undervisning):
           ue.institusjonsnr = e.institusjonsnr AND
           ue.emnekode       = e.emnekode AND
           ue.versjonskode   = e.versjonskode AND
-          ue.terminkode IN ('V�R', 'H�ST') AND
+          ue.terminkode IN ('VÅR', 'HØST') AND
           ue.terminkode = t.terminkode AND
           (ue.arstall > :aar OR
            (ue.arstall = :aar2 AND
@@ -1718,7 +1718,7 @@ class UiTUndervisning(access_FS.Undervisning):
           ua.undpartilopenr IS NOT NULL AND
           ua.disiplinkode IS NOT NULL AND
           ua.undformkode IS NOT NULL AND
-          ua.terminkode IN ('V�R', 'H�ST') AND
+          ua.terminkode IN ('VÅR', 'HØST') AND
           ua.terminkode = t.terminkode AND
           ((ua.arstall = :aar AND
             EXISTS (SELECT 'x' FROM fs.arstermin tt
@@ -1786,7 +1786,7 @@ class UiTUndervisning(access_FS.Undervisning):
         FROM
           fs.undervisningsmelding u, fs.tilbudsstatus t
         WHERE
-          u.terminkode in ('V�R', 'H�ST') AND
+          u.terminkode in ('VÅR', 'HØST') AND
           u.arstall >= :aar1 AND
           u.tilbudstatkode = t.tilbudstatkode AND
           t.status_gir_tilbud = 'J'
