@@ -4542,8 +4542,9 @@ class BofhdExtension(BofhdCommonMethods):
         ExternalIdType(),
         SourceSystem(help_ref="source_system"),
         fs=FormatSuggestion([
-            ("ID %s for person entity %d in %s: %s",
-             ("ext_id_type", "person_id", "source_system", "ext_id_value"))
+            ("ID %s for person %s (entity_id: %d) in %s: %s",
+             ("ext_id_type", "person_name", "person_id",
+              "source_system", "ext_id_value"))
         ]))
 
     def person_get_id(self, operator, person_id, ext_id, source_system):
@@ -4553,22 +4554,15 @@ class BofhdExtension(BofhdCommonMethods):
         IDs for a person entity in order to limit the exposure of sensitive
         personal info to the bare minimum.
         """
-        try:
-            ext_id_const = int(self.const.EntityExternalId(ext_id))
-        except Errors.NotFoundError:
-            raise CerebrumError("Unknown external id: {}".format(ext_id))
-        try:
-            ss_const = int(self.const.AuthoritativeSystem(source_system))
-        except Errors.NotFoundError:
-            raise CerebrumError("Unknown source system: {}"
-                                .format(source_system))
+        ext_id_const = self._get_constant(self.const.EntityExternalId,
+                                          ext_id, 'external id')
+        ss_const = self._get_constant(self.const.AuthoritativeSystem,
+                                      source_system, 'source system')
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
-
         self.ba.can_get_person_external_id(operator, person)
-
         external_id_list = person.get_external_id(
             id_type=ext_id_const,
             source_system=ss_const)
@@ -4576,6 +4570,7 @@ class BofhdExtension(BofhdCommonMethods):
             ext_id_value = external_id_list[0]['external_id']
             return [{
                 "ext_id_type": text_type(ext_id_const),
+                "person_name": text_type(person),
                 "person_id": person.entity_id,
                 "source_system": text_type(ss_const),
                 "ext_id_value": ext_id_value,
@@ -4583,8 +4578,8 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             raise CerebrumError(
                 "Could not find id %s for person entity %d in system %s" %
-                (text_type(ext_id_const), person.entity_id,
-                 text_type(ss_const)))
+                (text_type(ext_id), person.entity_id,
+                 text_type(source_system)))
 
     #
     # person set_id
