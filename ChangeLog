@@ -1,4 +1,7 @@
 2018-10-25  <kennethj@gagarin.uit.no>
+    * export_ad.py: added missing unicode_literals import
+
+2018-10-25  <kennethj@gagarin.uit.no>
     * import_tlf.py: added sendmail import (which was removed while testing)
 2018-10-25  <kennethj@gagarin.uit.no>
     * ADquickSync.py:   fixed indentation mess.
