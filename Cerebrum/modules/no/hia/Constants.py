@@ -34,7 +34,7 @@ from Cerebrum.Constants import (
 )
 from Cerebrum.modules.no.Constants import ConstantsHigherEdu
 from Cerebrum.modules.no.Constants import ConstantsUniversityColleges
-from Cerebrum.modules.PosixUser import _PosixShellCode
+from Cerebrum.modules.PosixConstants import _PosixShellCode
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
 from Cerebrum.modules.Email import _EmailSpamLevelCode
 from Cerebrum.modules.Email import _EmailSpamActionCode
