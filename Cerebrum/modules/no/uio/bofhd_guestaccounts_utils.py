@@ -156,8 +156,9 @@ class GuestUtils(object):
             raise GuestAccountException("Already available.")
         return int(owner['target_id'])
 
-    def list_guest_users(self, owner_id=NotSet, include_comment=False,
-                         include_date=False, prefix=None):
+    def list_guest_users(self, owner_id=NotSet, include_account_name=True,
+                         include_comment=False, include_date=False,
+                         prefix=None):
         """List guest users according to the given criterias. Info
         about the state of guest users are found from entity_trait and
         entity_quarantine tables.
@@ -168,11 +169,14 @@ class GuestUtils(object):
         If owner_id=NotSet, return all guest accounts.
         If owner_id=<entity_id>, return all guests owned by that entity
 
+        @param include_account_name: Return guest account name?
+        @type include_account_name: bool
+
         @param include_comment: Return guest comment?
-        @type owner_id: bool
+        @type include_comment: bool
 
         @param include_date: Return end date?
-        @type owner_id: bool
+        @type include_date: bool
 
         @param prefix: list guests users with given prefix. If prefix
         is None, list users with any prefix.
@@ -187,16 +191,29 @@ class GuestUtils(object):
             quarantine_types=self.co.quarantine_guest_release)]
 
         for row in ac.list_traits(self.co.trait_uio_guest_owner,
-                                  target_id=owner_id, return_name=True):
+                                  target_id=owner_id):
+            e_id = row['entity_id']
+
+            if include_account_name or prefix:
+                try:
+                    ac.clear()
+                    ac.find(e_id)
+                    uname = ac.account_name
+                except Errors.NotFoundError:
+                    self.logger.error("No account with entity_id=%r", e_id)
+                    continue
+
             # If prefix is given, only return guests with this prefix
-            if prefix and prefix != row['name'].rstrip("0123456789"):
+            if prefix and prefix != uname.rstrip("0123456789"):
                 continue
             # Must check if guest is available.
-            if owner_id is None and row['entity_id'] in quarantined_guests:
+            if owner_id is None and e_id in quarantined_guests:
                 continue
-            tmp = [row['name'], None, None]
+            tmp = [None, None, None]
+            if include_account_name:
+                tmp[0] = uname
             if include_date:
-                tmp[1] = self._get_end_date(row['entity_id'])
+                tmp[1] = self._get_end_date(e_id)
             if include_comment:
                 tmp[2] = row['strval'] or ""
             ret.append(tmp)
@@ -204,7 +221,7 @@ class GuestUtils(object):
 
     def list_guests_info(self):
         """Find status of all guest accounts. Status can be either
-        allocated, free or release_quarantine This is a convenience
+        allocated, free or release_quarantine. This is a convenience
         method for the command user guest_status verbose.
 
         @return: A list of lists to suit the method _pretty_print.
@@ -229,11 +246,18 @@ class GuestUtils(object):
         ])
         pending_q = set(all_q.keys()) - active_q
 
-        for row in ac.list_traits(self.co.trait_uio_guest_owner,
-                                  return_name=True):
+        for row in ac.list_traits(self.co.trait_uio_guest_owner):
             e_id = int(row['entity_id'])
             owner_id = row['target_id'] and int(row['target_id']) or None
-            uname = row['name']
+
+            try:
+                ac.clear()
+                ac.find(e_id)
+                uname = ac.account_name
+            except Errors.NotFoundError:
+                self.logger.error("No account with entity_id=%r", e_id)
+                continue
+
             if e_id in active_q:
                 # guest is in release_quarantine
                 release_date = all_q[e_id] + cereconf.GUESTS_QUARANTINE_PERIOD
@@ -253,13 +277,14 @@ class GuestUtils(object):
                     ownerid2name[owner_id], all_q[e_id].date)]
             else:
                 # guest is available
-                tmp = [row['name'], None, "available"]
+                tmp = [uname, None, "available"]
             ret.append(tmp)
         return ret
 
     def num_available_accounts(self, prefix=None):
         """Find num of available guest accounts."""
-        return len(self.list_guest_users(owner_id=None, prefix=prefix))
+        return len(self.list_guest_users(
+            owner_id=None, include_account_name=False, prefix=prefix))
 
     def find_new_guestusernames(self, num_new_guests, prefix="guest"):
         """Find next free guest user names for user_create_guest."""

@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2005-2017 University of Oslo, Norway
+# Copyright 2005-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,6 +20,7 @@
 """ Constant types and common constants for the DNS module. """
 
 from Cerebrum import Constants as cereconst
+from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
 
 
@@ -52,6 +53,13 @@ class _DnsZoneCode(cereconst._CerebrumCode):
 
 class Constants(cereconst.Constants):
     """ Common DNS module constants. """
+
+    # TODO: move these to Cerebrum/modules/bofhd/utils.py?
+    auth_dns_superuser = _AuthRoleOpCode(
+        'dns_superuser', 'Perform any DNS command')
+
+    auth_dns_lita = _AuthRoleOpCode(
+        'dns_lita', 'Perform LITA-level DNS commands')
 
     #
     # DNS Entities

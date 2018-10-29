@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2010-2015 University of Oslo, Norway
+# Copyright 2010-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,16 +22,10 @@
 """This module defines various constants for the voip module.
 """
 
-import cereconf
 
 from Cerebrum import Constants
-from Cerebrum.Constants import _EntityTypeCode as EntityTypeCode
-from Cerebrum.Constants import _CerebrumCode
-from Cerebrum.Constants import _AuthoritativeSystemCode
-from Cerebrum.modules.EntityTrait import _EntityTraitCode
-
-
-
+from Cerebrum.Constants import (_EntityTypeCode as EntityTypeCode,
+                                _CerebrumCode, _AuthoritativeSystemCode)
 
 
 class _VoipServiceTypeCode(_CerebrumCode):
@@ -56,7 +50,22 @@ class _VoipClientInfoCode(_CerebrumCode):
 # end _VoipClientInfoCode
 
 
+class _EntityAuthenticationCode(_CerebrumCode):
+    """Code class for various authentication codes."""
 
+    _lookup_table = '[:table schema=cerebrum name=entity_authentication_code]'
+# end class _EntityAuthenticationCode
+
+
+class VoipAuthConstants(Constants.Constants):
+    """Authentication constants for voip."""
+
+    EntityAuthenticationCode = _EntityAuthenticationCode
+
+    voip_auth_sip_secret = _EntityAuthenticationCode(
+        'voip-sipsecret',
+        'sipSecret value for voip clients')
+# end VoipAuthConstants
 
 
 class VoipConstants(Constants.Constants):

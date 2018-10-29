@@ -20,19 +20,12 @@
 """ Site specific auth.py for UiO. """
 import cereconf
 
-from Cerebrum import Constants
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
-
-
-class Constants(Constants.Constants):
-    auth_set_password_important = _AuthRoleOpCode(
-        'set_password_imp', 'Set password for important/critical accounts')
 
 
 class UioContactAuthMixin(BofhdContactAuth):
@@ -94,7 +87,8 @@ class UioAuth(UioContactAuthMixin, BofhdAuth):
     def _is_important_account(self, operator, account):
         """If an account is considered important."""
         # Accounts owned by a group, i.e. system account
-        # is_account_owner() will allow this if operator is a group member
+        # has_privileged_access_to_account_or_person() will allow this if
+        # operator is a group member
         if account.owner_type == self.const.entity_group:
             return True
         # Tagged sysadmin accounts

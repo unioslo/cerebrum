@@ -22,10 +22,7 @@ import cereconf
 from mx import DateTime
 import six
 
-from Cerebrum import Cache
-from Cerebrum import Constants
 from Cerebrum import database
-from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import Command, PersonId, SimpleString, FormatSuggestion, Integer
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -35,26 +32,6 @@ from Cerebrum.modules.no.uio.printer_quota import bofhd_pq_utils
 from Cerebrum.modules.no.uio.printer_quota import errors
 from Cerebrum.modules.no.uio import printer_quota
 from Cerebrum.modules.bofhd import auth
-from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
-
-
-class Constants(Constants.Constants):
-    auth_pquota_list_history = _AuthRoleOpCode(
-        'pq_list_hist', 'List printer quota history')
-    auth_pquota_list_extended_history = _AuthRoleOpCode(
-        'pq_list_ext_hist', 'List printer quota history')
-    auth_pquota_off = _AuthRoleOpCode(
-        'pq_off', 'Turn off printerquota')
-    auth_pquota_undo = _AuthRoleOpCode(
-        'pq_undo', 'Undo printjob < 72 hours')
-    auth_pquota_undo_old = _AuthRoleOpCode(
-        'pq_undo_old', 'Undo printjob of any age')
-    auth_pquota_job_info = _AuthRoleOpCode(
-        'pq_job_info', 'Job_info printjob < 72 hours')
-    auth_pquota_job_info_old = _AuthRoleOpCode(
-        'pq_job_info_old', 'Job_info printjob of any age')
-    auth_pquota_update = _AuthRoleOpCode(
-        'pq_update', 'Update printerquota')
 
 
 class PQBofhdAuth(auth.BofhdAuth):
@@ -258,7 +235,7 @@ The currently defined id-types are:
         person_id = self.bu.find_person(person)
         try:
             ppq_info = self.bu.get_pquota_status(person_id)
-        except errors.UserHasNoQuota, e:
+        except errors.UserHasNoQuota as e:
             return "%s: %s" % (person, e)
         has_quota = ppq_info['has_quota']
         has_blocked_quota = ppq_info['has_blocked_quota']
@@ -278,7 +255,7 @@ The currently defined id-types are:
                     fs = database.connect(user=cereconf.FS_USER,
                                           service=cereconf.FS_DATABASE_NAME,
                                           DB_driver=cereconf.DB_DRIVER_ORACLE)
-                except database.DatabaseError, e:
+                except database.DatabaseError as e:
                     self.logger.warn("Can't connect to FS (%s)" % e)
                     raise CerebrumError("Can't connect to FS, try later")
 

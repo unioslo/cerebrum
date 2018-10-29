@@ -46,6 +46,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import Utils
+from Cerebrum.modules import EmailConstants
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
@@ -774,7 +775,8 @@ class BofhdEmailAuth(BofhdAuth):
             self._query_maildomain_permissions(operator, operation,
                                                domain, None)
         if account:
-            self.is_account_owner(operator, operation, account)
+            self.has_privileged_access_to_account_or_person(
+                operator, operation, account)
         return True
 
     def can_email_address_add(self, operator, account=None, domain=None,
@@ -1679,7 +1681,7 @@ class BofhdEmailCommands(BofhdEmailBase):
         info = {}
         etf = Email.EmailTargetFilter(self.db)
         for f in etf.list_email_target_filter(target_id=target.entity_id):
-            filters.append(str(Email._EmailTargetFilterCode(f['filter'])))
+            filters.append(str(EmailConstants._EmailTargetFilterCode(f['filter'])))
         if len(filters) > 0:
             info["filters"] = ", ".join([x for x in filters]),
         else:

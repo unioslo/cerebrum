@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -65,8 +65,6 @@ Person aff source
 import collections
 from Cerebrum.Utils import argument_to_sql, Factory, prepare_string
 from .Group import VirtualGroup, populator
-from .Constants import Constants, _VirtualGroupType
-from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Entity import Entity
 from Cerebrum.Person import Person
 from Cerebrum.Account import Account
@@ -74,56 +72,6 @@ from Cerebrum.Errors import NotFoundError
 
 
 __version__ = "1.0"  # mod_virtualgroup_ou
-
-
-class _VirtualGroupOURecursionCode(_CerebrumCode):
-    """Recursion code from virtual_group_ou_recursion_code"""
-    _lookup_table = \
-        '[:table schema=cerebrum name=virtual_group_ou_recursion_code]'
-
-
-class _VirtualGroupOUMembershipType(_CerebrumCode):
-    """Membership type for virtual ou group (virtual_group_ou_membership_type"""
-    _lookup_table = \
-        '[:table schema=cerebrum name=virtual_group_ou_membership_type_code]'
-
-
-class OUGroupConstants(Constants):
-    """OU group contstants"""
-    vg_ougroup = _VirtualGroupType(
-        'ougroup',
-        'Virtual group based on OU structure, see '
-        '"cerebrum.virtual_group_ou_info" and friends')
-
-    # Recursion
-    VirtualGroupOURecursion = _VirtualGroupOURecursionCode
-
-    virtual_group_ou_recursive = _VirtualGroupOURecursionCode(
-        'recursive',
-        'Recursive OU group')
-
-    virtual_group_ou_flattened = _VirtualGroupOURecursionCode(
-        'flattened',
-        'Flattened OU group')
-
-    virtual_group_ou_nonrecursive = _VirtualGroupOURecursionCode(
-        'nonrecursive',
-        'Nonrecursive OU group')
-
-    # Memberships
-    VirtualGroupOUMembership = _VirtualGroupOUMembershipType
-
-    virtual_group_ou_person = _VirtualGroupOUMembershipType(
-        'person',
-        'Group of persons in OU')
-
-    virtual_group_ou_primary = _VirtualGroupOUMembershipType(
-        'primary_account',
-        'Group of primary accounts in OU')
-
-    virtual_group_ou_accounts = _VirtualGroupOUMembershipType(
-        'accounts',
-        'Group of accounts in OU')
 
 
 class OUGroup(VirtualGroup):

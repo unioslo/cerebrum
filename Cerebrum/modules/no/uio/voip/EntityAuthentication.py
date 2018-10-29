@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2010 University of Oslo, Norway
+# Copyright 2010-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,36 +35,10 @@ import cerebrum_path
 import cereconf
 
 
-from Cerebrum import Constants
-from Cerebrum.Constants import _CerebrumCode as CerebrumCode
 from Cerebrum import Errors
 from Cerebrum.Entity import Entity
 from Cerebrum.Utils import argument_to_sql
 from Cerebrum.Errors import CerebrumError
-
-
-
-
-
-class _EntityAuthenticationCode(CerebrumCode):
-    """Code class for various authentication codes."""
-    
-    _lookup_table = '[:table schema=cerebrum name=entity_authentication_code]'
-# end class _EntityAuthenticationCode
-
-
-
-class VoipAuthConstants(Constants.Constants):
-    """Authentication constants for voip.
-    """
-
-    EntityAuthenticationCode = _EntityAuthenticationCode
-
-    voip_auth_sip_secret = _EntityAuthenticationCode(
-        'voip-sipsecret',
-        'sipSecret value for voip clients')
-# end VoipAuthConstants
-    
 
 
 class EntityAuthentication(Entity):
@@ -85,8 +59,6 @@ class EntityAuthentication(Entity):
         self.__super.delete()
     # end delete
 
-
-
     def get_auth_methods(self):
         """Returns a list of the auth methods registered for this entity."""
 
@@ -95,8 +67,6 @@ class EntityAuthentication(Entity):
         FROM [:table schema=cererbum name=entity_authentication_info]
         WHERE entity_id = :entity_id""", {"entity_id": self.entity_id})
     # end get_auth_methods
-
-
 
     def get_auth_data(self, auth_method):
         """Return specific auth data for the method specified."""
@@ -112,8 +82,6 @@ class EntityAuthentication(Entity):
         except Errors.NotFoundError:
             return None
     # end get_auth_data
-
-
 
     def set_auth_data(self, auth_method, auth_data):
         """Register new auth data of the specified type.
@@ -158,8 +126,6 @@ class EntityAuthentication(Entity):
             """, binds)
     # end set_auth_data
 
-
-
     def validate_auth_data(self, auth_method, auth_data):
         """Check that auth_data follows the rules for auth_method.
 
@@ -169,8 +135,6 @@ class EntityAuthentication(Entity):
         # By default we delegate this task to the subclasses.
         return True
     # end validate_auth_data
-
-
 
     def list_auth_data(self, auth_methods=None):
         """Return all authentication data registered for the given methods.

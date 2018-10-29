@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2006 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -41,10 +41,6 @@ the populate() method of Account.
 
 """
 
-import random
-import re
-import string
-
 import cereconf
 from Cerebrum.Utils import Factory, argument_to_sql
 from Cerebrum.utils import transliterate
@@ -52,28 +48,12 @@ from Cerebrum import Errors
 from Cerebrum import Constants
 from Cerebrum.modules import PosixGroup
 
-__version__ = "1.1"
+__version__ = "1.0"
 
-## Module spesific constant.  Belongs somewhere else
-class _PosixShellCode(Constants._CerebrumCode):
-    "Mappings stored in the posix_shell_code table"
-    _lookup_table = '[:table schema=cerebrum name=posix_shell_code]'
-    _lookup_desc_column = 'shell'
-    pass
-
-class Constants(Constants.Constants):
-
-    PosixShell = _PosixShellCode
-
-    posix_shell_bash = _PosixShellCode('bash', '/bin/bash')
-    posix_shell_csh = _PosixShellCode('csh', '/bin/csh')
-    posix_shell_false = _PosixShellCode('false', '/bin/false')
-    posix_shell_nologin = _PosixShellCode('nologin', '/bin/nologin')
-    posix_shell_sh = _PosixShellCode('sh', '/bin/sh')
-    posix_shell_tcsh = _PosixShellCode('tcsh', '/bin/tcsh')
-    posix_shell_zsh = _PosixShellCode('zsh', '/bin/zsh')
 
 Account_class = Factory.get("Account")
+
+
 class PosixUser(Account_class):
     """'POSIX user' specialisation of core class `Account'.
 
@@ -94,9 +74,9 @@ class PosixUser(Account_class):
     def __eq__(self, other):
         assert isinstance(other, PosixUser)
         if (self.posix_uid == other.posix_uid and
-            self.gid_id   == other.gid_id and
+            self.gid_id == other.gid_id and
             self.gecos == other.gecos and
-            int(self.shell) == int(other.shell)):
+                int(self.shell) == int(other.shell)):
             return self.__super.__eq__(other)
         return False
 
@@ -200,7 +180,6 @@ class PosixUser(Account_class):
         WHERE posix_uid=:uid""", locals())
         self.find(account_id)
 
-
     def list_posix_users(self, spread=None, filter_expired=False):
         """Return account_id of all PosixUsers in database. Filters
         are spread which can be a single spread or a tuple or list of
@@ -219,8 +198,8 @@ class PosixUser(Account_class):
         FROM [:table schema=cerebrum name=posix_user] pu %s %s
         """ % (efrom, ewhere), bind)
 
-    def list_extended_posix_users(self, 
-                                  auth_method=Constants.auth_type_md5_crypt, 
+    def list_extended_posix_users(self,
+                                  auth_method=Constants.Constants.auth_type_md5_crypt,
                                   spread=None, include_quarantines=0,
                                   filter_expired=True):
         """Returns data required for building a password map.  It is
@@ -239,10 +218,10 @@ class PosixUser(Account_class):
             else:
                 spreads = []
                 spreads.append(spread)
-            esprd = ' AND (' + ' OR '.join(['es.spread=%i' % x for x \
-                        in spreads]) + ')'
-            asprd = ' AND (' + ' OR '.join(['ah.spread=%i' % x for x \
-                        in spreads]) + ')'
+            esprd = ' AND (' + ' OR '.join(['es.spread=%i' % x for x
+                                            in spreads]) + ')'
+            asprd = ' AND (' + ' OR '.join(['ah.spread=%i' % x for x
+                                            in spreads]) + ')'
             ecols += ", hd.home, hd.disk_id"
             efrom += """
             JOIN [:table schema=cerebrum name=entity_spread] es
@@ -254,7 +233,7 @@ class PosixUser(Account_class):
         if filter_expired:
             ewhere = "WHERE ai.expire_date IS NULL OR ai.expire_date > [:now]"
         return self.query("""
-        SELECT ai.account_id, posix_uid, shell, gecos, entity_name, 
+        SELECT ai.account_id, posix_uid, shell, gecos, entity_name,
           aa.auth_data, pg.posix_gid, pn.name %s, ai.owner_id
         FROM
           [:table schema=cerebrum name=posix_user] pu
@@ -277,7 +256,7 @@ class PosixUser(Account_class):
                            'spread': spread,
                            'pn_ss': int(self.const.system_cached),
                            'pn_nv': int(self.const.name_full)},
-                          fetchall = False)
+                          fetchall=False)
 
     def get_free_uid(self):
         """Returns the next free uid from ``posix_uid_seq``"""
@@ -349,4 +328,3 @@ class PosixUser(Account_class):
         return self.query("""
         SELECT code, shell
         FROM [:table schema=cerebrum name=posix_shell_code]""")
-

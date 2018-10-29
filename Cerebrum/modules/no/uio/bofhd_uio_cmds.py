@@ -4013,7 +4013,7 @@ class BofhdExtension(BofhdCommonMethods):
         ou = self._get_ou(stedkode=ou)
         auth_systems = []
         for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp = getattr(self.const, auth_sys)
+            tmp = self.const.human2constant(auth_sys)
             auth_systems.append(int(tmp))
         self.ba.can_remove_affiliation(operator.get_entity_id(),
                                        person, ou, aff)
@@ -4046,11 +4046,17 @@ class BofhdExtension(BofhdCommonMethods):
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
+
+        auth_systems = []
+        for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
+            tmp = self.const.human2constant(auth_sys)
+            auth_systems.append(tmp)
         for a in person.get_affiliations():
-            if (int(a['source_system']) in [int(self.const.system_fs),
-                                            int(self.const.system_sap)]):
-                raise PermissionDenied("You are not allowed to alter "
-                                       "birth date for this person.")
+            if a['source_system'] in auth_systems:
+                raise PermissionDenied("You are not allowed to alter the "
+                                       "birth date for persons registered "
+                                       "in authoritative source systems.")
+
         bdate = self._parse_date(bdate)
         if bdate > self._today():
             raise CerebrumError("Please check the date of birth, "
@@ -4070,15 +4076,15 @@ class BofhdExtension(BofhdCommonMethods):
     def person_set_name(self, operator, person_id, first_name, last_name):
         auth_systems = []
         for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp = getattr(self.const, auth_sys)
-            auth_systems.append(int(tmp))
+            tmp = self.const.human2constant(auth_sys)
+            auth_systems.append(tmp)
         person = self._get_person(*self._map_person_id(person_id))
         self.ba.can_create_person(operator.get_entity_id())
         for a in person.get_affiliations():
-            if int(a['source_system']) in auth_systems:
+            if a['source_system'] in auth_systems:
                 raise PermissionDenied("You are not allowed to alter "
                                        "names registered in authoritative "
-                                       "source_systems.")
+                                       "source systems.")
 
         if last_name == "":
             raise CerebrumError("Last name is required.")
@@ -4542,8 +4548,9 @@ class BofhdExtension(BofhdCommonMethods):
         ExternalIdType(),
         SourceSystem(help_ref="source_system"),
         fs=FormatSuggestion([
-            ("ID %s for person entity %d in %s: %s",
-             ("ext_id_type", "person_id", "source_system", "ext_id_value"))
+            ("ID %s for person %s (entity_id: %d) in %s: %s",
+             ("ext_id_type", "person_name", "person_id",
+              "source_system", "ext_id_value"))
         ]))
 
     def person_get_id(self, operator, person_id, ext_id, source_system):
@@ -4553,22 +4560,15 @@ class BofhdExtension(BofhdCommonMethods):
         IDs for a person entity in order to limit the exposure of sensitive
         personal info to the bare minimum.
         """
-        try:
-            ext_id_const = int(self.const.EntityExternalId(ext_id))
-        except Errors.NotFoundError:
-            raise CerebrumError("Unknown external id: {}".format(ext_id))
-        try:
-            ss_const = int(self.const.AuthoritativeSystem(source_system))
-        except Errors.NotFoundError:
-            raise CerebrumError("Unknown source system: {}"
-                                .format(source_system))
+        ext_id_const = self._get_constant(self.const.EntityExternalId,
+                                          ext_id, 'external id')
+        ss_const = self._get_constant(self.const.AuthoritativeSystem,
+                                      source_system, 'source system')
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
-
         self.ba.can_get_person_external_id(operator, person)
-
         external_id_list = person.get_external_id(
             id_type=ext_id_const,
             source_system=ss_const)
@@ -4576,6 +4576,7 @@ class BofhdExtension(BofhdCommonMethods):
             ext_id_value = external_id_list[0]['external_id']
             return [{
                 "ext_id_type": text_type(ext_id_const),
+                "person_name": text_type(person),
                 "person_id": person.entity_id,
                 "source_system": text_type(ss_const),
                 "ext_id_value": ext_id_value,
@@ -4583,8 +4584,8 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             raise CerebrumError(
                 "Could not find id %s for person entity %d in system %s" %
-                (text_type(ext_id_const), person.entity_id,
-                 text_type(ss_const)))
+                (text_type(ext_id), person.entity_id,
+                 text_type(source_system)))
 
     #
     # person set_id
@@ -5028,8 +5029,7 @@ class BofhdExtension(BofhdCommonMethods):
              format_day('disable_until'), 'who', 'why'),
             hdr="%-14s %-16s %-16s %-14s %-8s %s" %
             ('Type', 'Start', 'End', 'Disable until', 'Who', 'Why')
-        ),
-        perm_filter='can_show_quarantines')
+        ))
 
     def quarantine_show(self, operator, entity_type, id):
         ret = []
@@ -5249,16 +5249,39 @@ class BofhdExtension(BofhdCommonMethods):
     def trait_list(self, operator, trait_name):
         trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
         self.ba.can_list_trait(operator.get_entity_id(), trait=trait)
-        ety = self.Account_class(self.db)  # exact class doesn't matter
-        ret = []
         ety_type = self.const.EntityType(trait.entity_type)
-        for row in ety.list_traits(trait, return_name=True):
+
+        entity_type_namespace = getattr(
+            cereconf, 'ENTITY_TYPE_NAMESPACE', dict())
+        namespace = entity_type_namespace.get(text_type(ety_type))
+        if namespace is not None:
+            namespace = self.const.ValueDomain(namespace)
+
+        ety = self.Account_class(self.db)  # exact class doesn't matter
+        ety_name = Entity.EntityName(self.db)
+
+        def get_name(e_id):
+            if namespace is None:
+                return None
+            try:
+                ety_name.clear()
+                ety_name.find(e_id)
+                return ety_name.get_name(namespace)
+            except Errors.NotFoundError:
+                return None
+
+        ret = []
+        for row in ety.list_traits(trait):
+
+            e_id = row['entity_id']
+            name = get_name(e_id)
+
             # TODO: Host, Disk and Person don't use entity_name, so name will
             # be <not set>
             ret.append({
                 'trait': text_type(trait),
                 'type': text_type(ety_type),
-                'name': row['name'],
+                'name': name,
             })
         ret.sort(lambda x, y: cmp(x['name'], y['name']))
         return ret
