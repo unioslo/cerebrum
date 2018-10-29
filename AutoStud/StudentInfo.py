@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2003 University of Oslo, Norway
 #
@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+from __future__ import unicode_literals
 import xml.sax
 
 class StudentInfoParser(xml.sax.ContentHandler):
@@ -41,8 +41,8 @@ class StudentInfoParser(xml.sax.ContentHandler):
     def startElement(self, name, attrs):
         tmp = {}
         for k in attrs.keys():
-            tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
-        name = name.encode('iso8859-1')
+            tmp[k] = attrs[k]
+        name = name
         if len(self.elementstack) == 0:
             if name == "data":
                 pass
@@ -72,7 +72,7 @@ class GeneralDataParser(xml.sax.ContentHandler, object):
     def startElement(self, name, attrs):
         self.t_data = {}
         for k in attrs.keys():
-            self.t_data[k.encode('iso8859-1')] = attrs[k.encode('iso8859-1')].encode('iso8859-1')
+            self.t_data[k] = attrs[k]
 
     def endElement(self, name):
         if name == self.entry_tag:

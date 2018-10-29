@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 import re
-
+from six import python_2_unicode_compatible
 import cereconf
 from Cerebrum.Utils import Factory
 

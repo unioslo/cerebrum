@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 """How this stuff works:
 
@@ -15,6 +15,7 @@ apropriate, making SelectMap*._select_map look like:
   { <studieprogram="TVIJF">: <profile> }
 
 """
+from __future__ import unicode_literals
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -42,7 +43,7 @@ class SelectMapSuper(object):
             niva = 50
         elif niva >= 100 and niva < 500: # Laveregrad, Cand.Mag, Bachelor
             niva = 100
-        elif niva >= 500 and niva < 900: # Høyeregrad, Profesjon, hovedfag, master
+        elif niva >= 500 and niva < 900: # Hï¿½yeregrad, Profesjon, hovedfag, master
             niva = 500
         elif niva >= 900: # PHD
             niva = 900
@@ -277,7 +278,7 @@ class SelectMapEvuSted(SelectMapAktivtSted):
                                     int(entry['gruppenr_adm_ansvar']))
             for select_attrs in self._select_map.values():
                 if sko in select_attrs['steder']:
-                    # TBD: finnes det noen nivåkode vi kan bruke?
+                    # TBD: finnes det noen nivï¿½kode vi kan bruke?
                     super(SelectMapAktivtSted, self)._append_match(
                         matches, select_attrs['profiles'])
         return matches
@@ -391,7 +392,7 @@ class SelectTool(object):
         """Append all v in values to tgt_list iff they are not already
         there.  We also store the nivakode for the first time the
         value was seen.  We store the name of all profiles that has
-        this value at this nivåkode
+        this value at this nivï¿½kode
         """
         if not isinstance(values, (tuple, list)):
             values = (values,)
@@ -433,7 +434,7 @@ class SelectTool(object):
             matches = tmp
 
         self._logger.debug("Matching settings: %s" % matches)
-        # Sort matches on nivåkode, and remove duplicates
+        # Sort matches on nivï¿½kode, and remove duplicates
         matches.sort(self._matches_sort)
         matched_settings = {}
         for match in matches:

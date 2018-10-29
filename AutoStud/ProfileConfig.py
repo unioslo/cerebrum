@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2003 University of Oslo, Norway
 #
@@ -20,7 +20,7 @@
 
 """This module provides method for parsing the studconfig.xml file and
 translating it to an internal datastructure"""
-
+from __future__ import unicode_literals
 import sys
 import xml.sax
 import pprint
