@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2004 University of Oslo, Norway
 #
@@ -90,7 +90,7 @@ If expire_date is >= now() + default_stay_alive_time in weeks, expire_date is li
 If no expire_date is set at all, it will default to today
 
 """
-
+from __future__ import unicode_literals
 import sys
 import getopt
 
@@ -98,6 +98,7 @@ import xml.sax
 
 import cerebrum_path
 import cereconf
+from Cerebrum.utils import transliterate
 
 from mx import DateTime
 from Cerebrum.Utils import Factory
@@ -308,7 +309,8 @@ def process_account(account_data):
     old_gecos = ""
     if not new_account:
         old_gecos = pu.get_gecos()
-    new_gecos = pu.simplify_name(gecos.encode('iso-8859-1'), as_gecos=1).decode()
+    #new_gecos = pu.simplify_name(gecos.encode('iso-8859-1'), as_gecos=1).decode()
+    new_gecos = transliterate.for_gecos(gecos) 
     if (new_gecos != old_gecos):
         logger.info( "Updating gecos. Old name: %s, new name: %s" % (old_gecos, new_gecos))
         pu.gecos = new_gecos

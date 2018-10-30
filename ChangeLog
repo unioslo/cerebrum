@@ -1,3 +1,13 @@
+
+2018-10-25  <kennethj@gagarin.uit.no>
+    * export_ad.py: added missing unicode_literals import
+    * import_system_accounts.py:    updated to handle unicode, also replaced function that creates unicode to use transliterate
+    * .vscode: added code debug file
+2018-10-25  <kennethj@gagarin.uit.no>
+    * import_tlf.py: added sendmail import (which was removed while testing)
+2018-10-25  <kennethj@gagarin.uit.no>
+    * ADquickSync.py:   fixed indentation mess.
+
 2018-10-23    <kennethj@gagarin.uit.no>
     * ADquickSync.py:   updated to read json from changelog.
 2018-10-21    <kennethj@gagarin.uit.no>

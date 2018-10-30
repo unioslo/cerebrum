@@ -42,7 +42,7 @@ ADquickSync.py --url https://mydomain.local:8000 --dryrun
 
 """
 
-import getopt, sys, cPickle
+import getopt, sys
 import socket
 
 # cerebrum imports
@@ -88,18 +88,18 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
         for ans in answer:
             if ans['change_type_id'] == self.co.account_password:
                 try:
-		   pw = json.loads(ans['change_params'])['password']
-		except KeyError,m:
-                   logger.warn("Password probably wiped already for change_id %s" % (ans['change_id'],))
-		else:
-                   retval = self.change_pw(ans['subject_entity'],spread, pw, dry_run)
+                    pw = json.loads(ans['change_params'])['password']
+                except KeyError,m:
+                    logger.warn("Password probably wiped already for change_id %s" % (ans['change_id'],))
+                else:
+                   retval = self.change_pw(ans['subject_entity'],spread, pw.encode("iso-8859-1"), dry_run)
             else:
-               self.logger.debug("unknown change_type_id %i" % ans['change_type_id'])
+                self.logger.debug("unknown change_type_id %i" % ans['change_type_id'])
             #We always confirm event, but only if it was successfull
             if retval == True:
                 self.cl.confirm_event(ans)
             else:
-                 self.logger.warn('password change for account id:%s was not completed' % (ans['subject_entity']))
+                self.logger.warn('password change for account id:%s was not completed' % (ans['subject_entity']))
         self.cl.commit_confirmations()
 
 

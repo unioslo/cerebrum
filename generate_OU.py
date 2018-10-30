@@ -36,7 +36,7 @@ import time
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
-from Cerebrum import Database
+from Cerebrum import database
 from Cerebrum.modules.no.uit.access_FS import FS
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
@@ -74,9 +74,9 @@ class ou:
         # FS 
         user="I0186_UIT_BAS"
         #user="i0186_uit_bas"
-        service="FSDMO.uio.no"
+        service="FSUIT.uio.no"
         logger.info("Connecting to FS db")
-        self.fs_db = Database.connect(user=user,service=service,DB_driver='cx_Oracle', client_encoding='UTF-8')
+        self.fs_db = database.connect(user=user,service=service,DB_driver='cx_Oracle', client_encoding='UTF-8')
         #self.fs_db = Database.connect(user=user,service=service,DB_driver='cx_Oracle')
         self.fs = FS(self.fs_db)
         self.fs_data=dict()
