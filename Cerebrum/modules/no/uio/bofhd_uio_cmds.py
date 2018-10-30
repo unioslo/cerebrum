@@ -29,7 +29,7 @@ import warnings
 
 from mx import DateTime
 from six import text_type
-
+import six
 import cereconf
 from Cerebrum import Entity
 from Cerebrum import Errors
@@ -544,11 +544,11 @@ class BofhdExtension(BofhdCommonMethods):
         OpSet(),
         GroupName(help_ref="id:target:group"),
         EntityType(default='group', help_ref="auth_entity_type"),
-        SimpleString(help_ref="auth_target_entity"),
+        SimpleString(optional=True, help_ref="auth_target_entity"),
         SimpleString(optional=True, help_ref="auth_attribute"),
         perm_filter='can_grant_access')
 
-    def access_grant(self, operator, opset, group, entity_type, target_name,
+    def access_grant(self, operator, opset, group, entity_type, target_name=None,
                      attr=None):
         return self._manipulate_access(self._grant_auth, operator, opset,
                                        group, entity_type, target_name, attr)
@@ -1739,6 +1739,73 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError('An account exists with name: %s' % groupname)
         return super(BofhdExtension, self).group_create(operator, groupname,
                                                         description)
+
+    #
+    # group create prefix
+    #
+    all_commands['group_create_prefix'] = Command(
+        ("group", "create_prefix"),
+        GroupName(help_ref="group_name_new"),
+        SimpleString(help_ref="string_description"),
+        GroupName(help_ref="group_name_moderator"),
+        fs=FormatSuggestion([
+            ("Group %s created", "groupname")
+        ]))
+
+    def group_create_prefix(self, operator, groupname, description, mod_group):
+        """Command for creating groups with a prefix. Used when someone needs
+        to be able to create groups with prefix but we do not want to allow
+        creation of any group. Also sets the moderator group to whatever group
+        the user chooses.
+
+        Example: group create_prefix rt-testgroup test usit-local-it
+
+        :param operator: Operator object
+        :param groupname: Name of group we want to create
+        :param description: Description of group
+        :param mod_group: Name of the moderator group
+        :return: output text to user
+        """
+
+        # Check permissions
+        self.ba.can_create_group(operator.get_entity_id(), groupname)
+
+        # Check if group name already exists
+        gr = self.Group_class(self.db)
+        try:
+            gr.find_by_name(groupname)
+        except Errors.NotFoundError:
+            pass
+        else:
+            raise CerebrumError('A group exists with name: {}'
+                                .format(groupname))
+
+        # Check if moderator group exists
+        try:
+            mod_gr = self.Group_class(self.db)
+            mod_gr.find_by_name(mod_group)
+        except Errors.NotFoundError:
+            raise CerebrumError('No moderator group with name: {}'
+                                .format(mod_group))
+
+        # Create the group
+        gr.populate(creator_id=operator.get_entity_id(),
+                    visibility=self.const.group_visibility_all,
+                    name=groupname,
+                    description=description)
+        gr.write_db()
+
+        # Set moderator group
+        op_set = BofhdAuthOpSet(self.db)
+        op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
+        op_target = BofhdAuthOpTarget(self.db)
+        op_target.populate(gr.entity_id, 'group')
+        op_target.write_db()
+        role = BofhdAuthRole(self.db)
+        role.grant_auth(mod_gr.entity_id, op_set.op_set_id,
+                        op_target.op_target_id)
+
+        return 'Group {} created'.format(groupname)
 
     #
     # group request <name> <desc> <spread> <moderator-group>
