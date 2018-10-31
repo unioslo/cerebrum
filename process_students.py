@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2003-2011 University of Oslo, Norway
 #
@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
 
 import hotshot
 import hotshot.stats
@@ -345,8 +346,8 @@ class AccountUtil(object):
                 start_at = strftime('%Y-%m-%d', localtime(dta[1] + time()))
                 # Fix dette!
                 # sett --quarantine-exempt krever
-                # sjekk om opsjonen --quarantine-exempt er på
-                # sjekk om personen har en annen aff og hvis så skip
+                # sjekk om opsjonen --quarantine-exempt er pÃ¥
+                # sjekk om personen har en annen aff og hvis sÃ¥ skip
                 user.add_entity_quarantine(
                     dta[0], default_creator_id, 'automatic', start_at)
             elif c_id == 'disk_kvote':
@@ -486,7 +487,7 @@ class AccountUtil(object):
             for spread in accounts[account_id].get_home_spreads():
                 disk_id, homedir_id = accounts[account_id].get_home(spread)
                 if not autostud.disk_tool.get_diskdef_by_diskid(disk_id):
-                    # Setter kun kvote på student-disker
+                    # Setter kun kvote pÃ¥ student-disker
                     continue
                 quota = profile.get_disk_kvote(disk_id)
                 if (ac.get_disk_kvote(homedir_id) > quota and
@@ -627,7 +628,7 @@ class RecalcQuota(object):
             if row['has_printerquota'] == 'F' or has_quota.get(account_id, False):
                 continue
             logger.debug("Default quota for %i" % account_id)
-            # TODO: sjekk om det er nødvendig med oppdatering før vi gjør find.
+            # TODO: sjekk om det er nÃ¸dvendig med oppdatering fÃ¸r vi gjÃ¸r find.
             pq.clear()
             try:
                 pq.find(account_id)
@@ -787,7 +788,7 @@ class BuildAccounts(object):
     def _process_unprocessed_students():
         """Unprocessed students didn't match a profile, or didn't get a
         callback at all"""
-        # TBD: trenger vi skille på de?
+        # TBD: trenger vi skille pÃ¥ de?
         logger.info("process_unprocessed_students")
 
         for fnr, pinfo in persons.items():
@@ -986,13 +987,13 @@ def get_semester():
     t = time.localtime()[0:2]
     this_year = t[0]
     if t[1] <= 6:
-        this_sem = 'vår'
+        this_sem = 'vÃ¥r'
         next_year = this_year
-        next_sem = 'høst'
+        next_sem = 'hÃ¸st'
     else:
-        this_sem = 'høst'
+        this_sem = 'hÃ¸st'
         next_year = this_year + 1
-        next_sem = 'vår'
+        next_sem = 'vÃ¥r'
     return ((str(this_year), this_sem), (str(next_year), next_sem))
 
 #
@@ -1002,7 +1003,7 @@ def get_default_expire_date():
 
     this_sem, next_sem = get_semester()
     sem = this_sem[1]
-    if (sem=='vår'):
+    if (sem=='vÃ¥r'):
         month = 9
     else:        
         month = 2
@@ -1458,7 +1459,7 @@ def _filter_person_info(person_info):
     return ret
 
 def _debug_dump_profile_match(profile, fnr):
-    # TODO:  Hører ikke dette hjemme i ProfileHandler?
+    # TODO:  HÃ¸rer ikke dette hjemme i ProfileHandler?
     # Note that we don't pass current_disk to get_disks() here.
     # Thus this value may differ from the one used during an
     # update
@@ -1520,7 +1521,7 @@ def process_noncallback_users(reset_diskquota=False):
             continue
         if ac_id not in accounts:
             # This will happen if the accounts owner has no registered
-            # fødselsnummer.
+            # fÃ¸dselsnummer.
             logger.info("Not in list of existing accounts: %d" % ac_id)
             continue
         if not reset_diskquota:
