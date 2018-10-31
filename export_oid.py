@@ -449,19 +449,19 @@ def build_xml(outfile):
                 home_city = c['city']
                 
                 if home_address != None:
-                    home_address = str(home_address.encode('utf-8'))
+                    home_address = home_address
                     xml_attr['home_address'] = home_address
                 if home_postalnumber != None:
                     xml_attr['home_postal_code'] = home_postalnumber
                 if home_city != None:
-                    home_city = str(home_city.encode('utf-8'))
+                    home_city = home_city
                     xml_attr['home_city'] = home_city
 
         # get campus 
         campusinfo=attrs['campus']
         if campusinfo:            
             for c in campusinfo:
-                campus_name = str(c['address_text'].encode('utf-8'))
+                campus_name = c['address_text']
                 xml_attr['campus'] = campus_name
 
         #if attrs['worktitle']: xml_attr['worktitle'] = attrs['worktitle']
