@@ -548,8 +548,8 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(optional=True, help_ref="auth_attribute"),
         perm_filter='can_grant_access')
 
-    def access_grant(self, operator, opset, group, entity_type, target_name=None,
-                     attr=None):
+    def access_grant(self, operator, opset, group, entity_type,
+                     target_name=None, attr=None):
         return self._manipulate_access(self._grant_auth, operator, opset,
                                        group, entity_type, target_name, attr)
 

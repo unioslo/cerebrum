@@ -39,7 +39,8 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdUtils
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, BofhdAuthRole
+from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
+                                         BofhdAuthRole)
 
 
 class BofhdCommandBase(object):
@@ -473,8 +474,8 @@ class BofhdCommandBase(object):
             if idtype == 'name':
                 account.find_by_name(account_id, self.const.account_namespace)
             elif idtype == 'id':
-                if (isinstance(account_id, basestring)
-                        and not account_id.isdigit()):
+                if (isinstance(account_id, basestring) and
+                        not account_id.isdigit()):
                     raise CerebrumError("Entity id %r must be a number" %
                                         account_id)
                 account.find(int(account_id))
