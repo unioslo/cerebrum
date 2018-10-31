@@ -498,8 +498,8 @@ def build_xml(outfile):
                 xml.emptyElement('contact', 
                     {'source':source,
                     'type':ctype,
-                    'pref':str(c['contact_pref']),
-                    'value':str(c['contact_value'].encode('utf-8'))
+                    'pref':c['contact_pref'],
+                    'value':c['contact_value']
                     })
             xml.endElement('contactinfo')
         xml.endElement('person')
