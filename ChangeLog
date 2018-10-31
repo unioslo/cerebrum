@@ -1,4 +1,5 @@
-
+2018-10-31  <kennethj@gagarin.uit.no>
+    * process_systemx.py:   updated to handle utf-8 data. updated how to calculate gecos
 2018-10-25  <kennethj@gagarin.uit.no>
     * export_ad.py: added missing unicode_literals import
     * import_system_accounts.py:    updated to handle unicode, also replaced function that creates unicode to use transliterate

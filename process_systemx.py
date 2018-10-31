@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2004 University of Oslo, Norway
 #
@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+from __future__ import unicode_literals
 import getopt
 import sys
 import os
@@ -33,7 +33,7 @@ __doc__="""
     --logger-level level: loglevel to use
 """ % (progname)
 
-
+from Cerebrum.utils import transliterate
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
@@ -43,6 +43,8 @@ from Cerebrum.Constants import Constants
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit.access_SYSX import SYSX
 from Cerebrum.modules.no.uit import Email
+from Cerebrum.utils import email
+#from Cerebrum.modules.no.uit.Email import email_address
 from Cerebrum.Utils import Factory
 from Cerebrum import Entity
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
@@ -275,7 +277,7 @@ def send_mail(type, person_info, account_id):
         recipient=person_info.get('ansvarlig_epost')
         person_info['AD_MSG']=""
         if 'AD_account' in person_info.get('spreads'):
-            #person_info['AD_MSG']="Merk: Personen har ikke fått ferdigstilt AD konto enda. Dette må gjøres i samarbeid med den lokale IT-avdelingen."
+            #person_info['AD_MSG']="Merk: Personen har ikke fÃ¥tt ferdigstilt AD konto enda. Dette mÃ¥ gjÃ¸res i samarbeid med den lokale IT-avdelingen."
             person_info['AD_MSG']=""
     elif type=='bruker':
         recipient=person_info.get('bruker_epost',None)
@@ -300,7 +302,7 @@ def send_mail(type, person_info, account_id):
     
     #hrrmpfh.. We talk to Oracle in iso-8859-1 format. Convert text
     for k in person_info.keys():
-        person_info[k]=person_info[k].decode('iso-8859-1').encode('utf-8')
+        person_info[k]=person_info[k]
 
     # finally, send the message    
     debug=False
@@ -310,7 +312,9 @@ def send_mail(type, person_info, account_id):
     #
     # Deaktivert for testing. 2014-12-04
     #
-    ret=Utils.mail_template(recipient, template, sender=sender, cc=[cc],substitute=person_info, charset='utf-8', debug=debug)
+    #ea = Email.email_address(db)
+
+    ret = email.mail_template(recipient, template, sender=sender, cc=[cc],substitute=person_info, charset='utf-8', debug=debug)
     if debug:
         logger.debug("DRYRUN: mailmsg=\n%s" % (ret))
 
@@ -559,7 +563,8 @@ class Build(object):
             expire_date=today,
             posix_uid=account.get_free_uid(),
             gid_id=self.posix_group,
-            gecos=account.simplify_name(full_name,as_gecos=True),
+            gecos = transliterate.for_posix(full_name),
+            #gecos=account.simplify_name(full_name,as_gecos=True),
             shell=co.posix_shell_bash
             )
         
@@ -657,7 +662,7 @@ class Build(object):
         except KeyError:
             logger.info("person with sysxid: %s does not have active sys_x affiliation. Ignoring" % sysx_id)
             return None
-        # No external codes should have exchange spread, except GENØK (999510) and AK (999620) and KUNN (999410) and NorgesUniv (921000)
+        # No external codes should have exchange spread, except GENÃ˜K (999510) and AK (999620) and KUNN (999410) and NorgesUniv (921000)
         if person_sko[0:2] != '99' or person_sko[0:6] in  ('999510','999620','999410', '921000'):
             could_have_exchange = True
 
