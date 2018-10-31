@@ -1,0 +1,3 @@
+2018-10-31  <kennethj@gagarin.uit.no>
+    * email.py: added to repo. the original file had a few errors which made email_template fail. since this file is outside of uit directories we have
+                made a copy here to be installed into /home/cerebrum/cerebrum/Cerebrum/utils/ 
