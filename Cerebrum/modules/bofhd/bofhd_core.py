@@ -39,6 +39,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdUtils
+from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, BofhdAuthRole
 
 
 class BofhdCommandBase(object):
@@ -827,24 +828,40 @@ class BofhdCommonMethods(BofhdCommandBase):
         ("group", "create"),
         cmd.GroupName(help_ref="group_name_new"),
         cmd.SimpleString(help_ref="string_description"),
+        cmd.GroupName(optional=True, help_ref="group_name_moderator"),
         fs=cmd.FormatSuggestion(
             "Group created, internal id: %i", ("group_id",)
         ),
         perm_filter='can_create_group')
 
-    def group_create(self, operator, groupname, description):
+    def group_create(self, operator, groupname, description, mod_group=None):
         """ Standard method for creating normal groups.
 
         BofhdAuth's L{can_create_group} is first checked. The group gets the
         spreads as defined in L{cereconf.BOFHD_NEW_GROUP_SPREADS}.
+
+        :param operator:
+        :param groupname: str name of new group
+        :param description: str description of group
+        :param mod_group: str name of moderator group, optional
+        :return:
         """
         self.ba.can_create_group(operator.get_entity_id(),
                                  groupname=groupname)
         g = self.Group_class(self.db)
+        mod_gr = self.Group_class(self.db)
         # Check if group name is already in use, raise error if so
         duplicate_test = g.search(name=groupname, filter_expired=False)
         if len(duplicate_test) > 0:
             raise CerebrumError("Group name is already in use")
+        # Check if moderator group exists
+        if mod_group:
+            try:
+                mod_gr.find_by_name(mod_group)
+            except Errors.NotFoundError:
+                raise CerebrumError('No moderator group with name: {}'
+                                    .format(mod_group))
+
         g.populate(creator_id=operator.get_entity_id(),
                    visibility=self.const.group_visibility_all,
                    name=groupname,
@@ -853,6 +870,17 @@ class BofhdCommonMethods(BofhdCommandBase):
         for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
             g.add_spread(self.const.Spread(spread))
             g.write_db()
+
+        # Set moderator group
+        if mod_group:
+            op_set = BofhdAuthOpSet(self.db)
+            op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
+            op_target = BofhdAuthOpTarget(self.db)
+            op_target.populate(g.entity_id, 'group')
+            op_target.write_db()
+            role = BofhdAuthRole(self.db)
+            role.grant_auth(mod_gr.entity_id, op_set.op_set_id,
+                            op_target.op_target_id)
         return {'group_id': int(g.entity_id)}
 
     #
