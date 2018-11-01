@@ -2250,11 +2250,21 @@ class AccountEmailMixin(Account.Account):
                 # Person has more than one name, only use initials
                 given_names = 0
 
+        # List of prefixes that are not to be compressed
+        prefixes = ['de', 'van', 'von', 'der', 'af']
         if len(names) > given_names:
-            initials = [x[0] for x in names[given_names:]]
+            # Compress initials if not in prefix list
+            initials = []
+            for name in names[given_names:]:
+                if name not in prefixes:
+                    initials.append(name[0])
+                else:
+                    initials.append(name)
+            # Reduce number of initials to max_initials
             if max_initials is not None:
                 initials = initials[:max_initials]
             names = names[:given_names] + initials
+        # add last name
         names.append(last)
         return self.wash_email_local_part(".".join(names))
 
