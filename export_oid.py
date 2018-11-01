@@ -498,7 +498,7 @@ def build_xml(outfile):
                 xml.emptyElement('contact', 
                     {'source':source,
                     'type':ctype,
-                    'pref':c['contact_pref'],
+                    'pref':str(c['contact_pref']),
                     'value':c['contact_value']
                     })
             xml.endElement('contactinfo')
