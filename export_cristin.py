@@ -66,7 +66,7 @@ import cereconf
 from pprint import pprint
 from xml.sax import make_parser
 from Cerebrum import Errors
-from Cerebrum import Database
+from Cerebrum.database import postgres
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
@@ -113,7 +113,8 @@ class pers_handler(xml.sax.ContentHandler):
 
     def characters(self, ch):
         self.var = None
-        tmp = ch.encode('iso8859-1').strip()
+        #tmp = ch.encode('iso8859-1').strip()
+        tmp = ch.encode('utf-8').strip()
         if tmp:
             self.var = tmp
             self._elemdata.append(tmp)
@@ -595,11 +596,11 @@ def output_element(writer, value, element, attributes = dict()):
 
     # If there are no attributes and no textual value for the element, we do
     # not need it.
-    if not attributes and (value is None or not str(value)):
+    if not attributes and (value is None or not value):
         return
 
     writer.startElement(element, attributes)
-    writer.data(str(value))
+    writer.data(unicode(value))
     writer.endElement(element)
 
 
@@ -656,7 +657,7 @@ def output_OU_address(writer, db_ou, constants):
     address = db_ou.get_entity_address(constants.system_fs,
                                        constants.address_post)[0]
 
-    city = (address['city'] or 'Troms�').strip()
+    city = (address['city'] or 'Tromsø').strip()
     po_box = (address['p_o_box'] or '').strip()
     postal_number = (address['postal_number'] or "9037").strip()
     country = (address['country'] or "Norway").strip() 
@@ -781,7 +782,7 @@ def output_OU(writer, id, db_ou, stedkode, constants,db):
         #if language: 
         #    attributes = {"language": "nb"}
         writer.startElement("akronym", attributes)
-        writer.data(str(entry['acronym']).lower())
+        writer.data(entry['acronym'].lower())
         writer.endElement("akronym")
 
     # Addressline
@@ -968,9 +969,14 @@ def output_employment_information(writer, pobj):
 
             writer.startElement(output)
             # UIT: must minimize the element["tittel"] entry
-            element["tittel"] = element["tittel"].lower()
+            # element["tittel"] = element["tittel"].lower().decode('iso-8859-1')
 
-            writer.data(element[input])
+            value = element[input].decode('iso8859-1')
+            if input == 'tittel':
+                value = value.lower()
+
+            # writer.data(element[input])
+            writer.data(value)
             writer.endElement(output)
 
         writer.endElement("ansettelse")
@@ -1242,11 +1248,11 @@ def output_person(writer, pobj, phd_cache, system_source):
                                                     person_db,
                                                     constants))
     # surname
-    navn = str(person_db.get_name(system_cached,constants.name_last))
+    navn = person_db.get_name(system_cached,constants.name_last)
     output_element(writer,navn,"etternavn")
 
     # first name
-    navn = str(person_db.get_name(system_cached,constants.name_first))
+    navn = person_db.get_name(system_cached,constants.name_first)
     output_element(writer,navn,"fornavn")
 
     # if person in phd_cache, delete!
@@ -1503,18 +1509,17 @@ def output_xml(output_file,
     """
 
     # Nuke the old copy
-    output_stream = SimilarSizeWriter(output_file, "w")
+    output_stream = SimilarSizeWriter(output_file, "wb")
     output_stream.set_size_change_limit(15)
     writer = xmlprinter.xmlprinter(output_stream,
                                    indent_level = 2,
                                    # Output is for humans too
                                    data_mode = True,
-                                   input_encoding = 'latin1')
+                                   input_encoding = 'utf-8')
     db = Factory.get('Database')()
 
     # Here goes the hardcoded stuff
     writer.startDocument(encoding = "iso-8859-1")
-
     #writer.startElement("XML-export")
     xml_options = {'xmlns:xsi' : "http://www.w3.org/2001/XMLSchema-instance","xsi:noNamespaceSchemaLocation":"http://www.usit.uio.no/prosjekter/frida/dok/import/institusjonsdata/schema/Frida-import-1_0.xsd"}
     writer.startElement("fridaImport",xml_options)
