@@ -580,7 +580,7 @@ def has_valid_employment(person):
 
     for employment in employments:
         try:
-            a = employment.place[1]
+            employment.place[1]
         except TypeError:
             # Some employments, like 8;50, does not come with a placecode. It
             # is perfectly natural to skip them at this stage.
@@ -789,10 +789,6 @@ def main():
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
-
-    logger.info('START {0}'.format(parser.prog))
-    db = Factory.get('Database')()
-    db.cl_init(change_program='generate_cristin_export.py')
 
     logger.info("Generating Cristin export")
     sysname, personfile, oufile = args.spec.split(":")
