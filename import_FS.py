@@ -479,7 +479,7 @@ def process_person_callback(person_info):
             logger.debug2("No such affiliation type: %s, skipping", dta_type)
             
     if etternavn is None:
-        logger.debug("Ikke noe navn p� %s" % fnr)
+        logger.debug("Ikke noe navn på %s" % fnr)
         no_name += 1 
         return
 
