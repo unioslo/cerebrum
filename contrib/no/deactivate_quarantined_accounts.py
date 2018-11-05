@@ -312,8 +312,7 @@ def main():
             account.clear()
             account.find(entity_id)
         except Errors.NotFoundError:
-            logger.warn("Could not find account_id {} skipping"
-                        .format(entity_id))
+            logger.warn("Could not find account_id %s skipping", entity_id)
             continue
         if limit and i >= limit:
             logger.debug("Limit of deactivations reached (%d), stopping",
