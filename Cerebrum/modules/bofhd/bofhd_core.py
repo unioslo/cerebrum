@@ -772,6 +772,18 @@ class BofhdCommandBase(object):
             return None
         return DateTime.DateTimeFromTicks(ticks)
 
+    def _group_make_owner(self, owner, target):
+        op_set = BofhdAuthOpSet(self.db)
+        op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
+        op_target = BofhdAuthOpTarget(self.db)
+        op_target.populate(target.entity_id, 'group')
+        op_target.write_db()
+        role = BofhdAuthRole(self.db)
+        role.grant_auth(owner.entity_id, op_set.op_set_id,
+                        op_target.op_target_id)
+        return "OK, granted {} access {} to group {}".format(
+            owner, op_set.name, target)
+
 
 class BofhdCommonMethods(BofhdCommandBase):
     """Class with common methods that is used by most, 'normal' instances.
@@ -841,11 +853,11 @@ class BofhdCommonMethods(BofhdCommandBase):
         BofhdAuth's L{can_create_group} is first checked. The group gets the
         spreads as defined in L{cereconf.BOFHD_NEW_GROUP_SPREADS}.
 
-        :param operator:
+        :param operator: operator's account object
         :param groupname: str name of new group
         :param description: str description of group
         :param mod_group: str name of moderator group, optional
-        :return:
+        :return: Group id
         """
         self.ba.can_create_group(operator.get_entity_id(),
                                  groupname=groupname)
@@ -858,7 +870,8 @@ class BofhdCommonMethods(BofhdCommandBase):
         # Check if moderator group exists
         if mod_group:
             try:
-                mod_gr.find_by_name(mod_group)
+                mod_gr = self._get_group(mod_group, idtype=None,
+                                         grtype='Group')
             except Errors.NotFoundError:
                 raise CerebrumError('No moderator group with name: {}'
                                     .format(mod_group))
@@ -874,15 +887,8 @@ class BofhdCommonMethods(BofhdCommandBase):
 
         # Set moderator group
         if mod_group:
-            op_set = BofhdAuthOpSet(self.db)
-            op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
-            op_target = BofhdAuthOpTarget(self.db)
-            op_target.populate(g.entity_id, 'group')
-            op_target.write_db()
-            role = BofhdAuthRole(self.db)
-            role.grant_auth(mod_gr.entity_id, op_set.op_set_id,
-                            op_target.op_target_id)
-        return {'group_id': int(g.entity_id)}
+            self._group_make_owner(mod_gr, g)
+
 
     #
     # group rename
