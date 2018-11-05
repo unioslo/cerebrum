@@ -48,7 +48,6 @@ import sys
 import traceback
 import six
 
-# import cerebrum_path
 import Cerebrum.logutils
 
 from Cerebrum.Utils import Factory
@@ -59,8 +58,8 @@ from Cerebrum.utils.funcwrap import memoize
 from phonenumbers import NumberParseException
 
 logger = logging.getLogger(__name__)
-co = Factory.get("Constants")()
 db = Factory.get("Database")()
+co = Factory.get("Constants")(db)
 
 
 @six.python_2_unicode_compatible
@@ -135,7 +134,7 @@ class HR2FSSyncer(object):
     def __init__(self, person_affiliations, fagperson_affiliations,
                  authoritative_system, ou_perspective, use_cache=True,
                  fagperson_export_fields=None, email_cache=False,
-                 commit=False):
+                 commit=False, ansattnr_code_str='NO_SAPNO'):
         self.person_affiliations = person_affiliations
         self.fagperson_affiliations = fagperson_affiliations
         self.authoritative_system = authoritative_system
@@ -145,6 +144,14 @@ class HR2FSSyncer(object):
         self.fs = make_fs()
 
         self.commit = commit
+
+        self.ansattnr_code = co.EntityExternalId(ansattnr_code_str)
+
+        # Check if ansattnr_code is valid
+        try:
+            int(self.ansattnr_code)
+        except Errors.NotFoundError:
+            raise ValueError('Invalid "ansattnr" code')
 
         if not self.commit:
             logger.info('Dryrun, no changes committed')
@@ -286,7 +293,7 @@ class HR2FSSyncer(object):
                                              name_language=co.language_nb,
                                              default=None)
 
-    def find_ansattnr(self, person, ansattnr_code_str="NO_SAPNO"):
+    def find_ansattnr(self, person):
         """Find a person's ansattnr."""
         if self.ansattnr_cache:
             if person.entity_id in self.ansattnr_cache:
@@ -295,19 +302,10 @@ class HR2FSSyncer(object):
             return None
 
         pe = Factory.get('Person')(db)
-        ansattnr_code = co.EntityExternalId(ansattnr_code_str)
-        # We'll do this try/except/else stuff to insure that we get an existing
-        # constant.
-        try:
-            int(ansattnr_code)
-        except Errors.NotFoundError:
-            logger.error('Could not load "ansattnr" code. Skipping..')
-            return None
-
         for row in pe.list_external_ids(
                 entity_id=person.entity_id,
                 source_system=self.authoritative_system,
-                id_type=ansattnr_code):
+                id_type=self.ansattnr_code):
             if 'external_id' in row.keys():
                 return row['external_id']
         # No ansattnr found
