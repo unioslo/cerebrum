@@ -57,7 +57,7 @@ from Cerebrum.modules.no.uit.bofhd_auth import BofhdAuth
 from Cerebrum.modules.no.uit.access_FS import FS
 from Cerebrum.modules.no.uit.DiskQuota import DiskQuota
 from Cerebrum.modules.dns.Subnet import Subnet
-
+from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 
 # TBD: It would probably be cleaner if our time formats were specified
 # in a non-Java-SimpleDateTime-specific way.
@@ -100,7 +100,7 @@ class RTQueue(Parameter):
 
 
 # TODO: move more UiO cruft from bofhd/auth.py in here
-class UiOAuth(BofhdAuth):
+class UiOAuth(BofhdEmailAuth, BofhdAuth):
     """Authorisation.  UiO specific operations and business logic."""
 
     def can_rt_create(self, operator, domain=None, query_run_any=False):

@@ -1,3 +1,7 @@
+2018-11-06 kennethj <cerebrum@cleomedes.uit.no>
+	* bofhd_uit_cmds.py: Added new import from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth.
+						class UiOAuth now also needs to inherit from BofhdEmailAuth.
+
 2018-10-25 kennethj <cerebrum@cleomedes.uit.no>
 	* Email.py: updated database import. it has been changed from Database  into database.<databasetype>
 	* import_FS.py: changed encoding from iso-8859-1 to utf-8
