@@ -1300,7 +1300,13 @@ class BofhdAuth(DatabaseAccessor):
         return self.has_privileged_access_to_account_or_person(
             operator, self.const.auth_create_user, account)
 
-    def can_delete_group(self, operator, group=None, query_run_any=False):
+    def can_force_delete_group(self, operator, group=None,
+                               query_run_any=False):
+        """
+        Check if operator is allowed to force delete a group.
+
+        This removed the group at once, expire date is not used.
+        """
         if self.is_superuser(operator):
             return True
         if query_run_any:
@@ -1311,21 +1317,34 @@ class BofhdAuth(DatabaseAccessor):
                                         self.const.auth_target_type_group,
                                         group.entity_id, group.entity_id):
             return True
-        raise PermissionDenied("Not allowed to delete group")
+        raise PermissionDenied("Not allowed to force delete group")
 
-    def can_expire_group(self, operator, group=None, query_run_any=False):
-        """Check if operator is allowed to set expire date for a group."""
+    def can_delete_group(self, operator, group=None, query_run_any=False):
+        """
+        Check if operator is allowed to delete a group.
+
+        Group deletion is done by setting the expirte date to today.
+        """
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_expire_group)
+            return (self._has_operation_perm_somewhere(
+                operator, self.const.auth_expire_group) or
+                    self._has_operation_perm_somewhere(
+                operator, self.const.auth_delete_group))
         if self._has_target_permissions(operator,
                                         self.const.auth_expire_group,
                                         self.const.auth_target_type_group,
                                         group.entity_id, group.entity_id):
             return True
-        raise PermissionDenied("Not allowed to set expire date for group")
+
+        if self._has_target_permissions(operator,
+                                        self.const.auth_delete_group,
+                                        self.const.auth_target_type_group,
+                                        group.entity_id, group.entity_id):
+            return True
+
+        raise PermissionDenied("Not allowed to delete group")
 
     def can_search_group(self, operator, query_run_any=False):
         if self.is_superuser(operator):
