@@ -1867,6 +1867,22 @@ class BofhdExtension(BofhdCommonMethods):
                 raise CerebrumError(
                     'Cannot delete group %s, is type %r' % (
                         groupname, grp.get_extensions()))
+
+            self._remove_auth_target("group", grp.entity_id)
+            self._remove_auth_role(grp.entity_id)
+            try:
+                grp.delete()
+            except self.db.DatabaseError as msg:
+                if re.search("group_member_exists", exc_to_text(msg)):
+                    raise CerebrumError(
+                        ("Group is member of groups.  "
+                         "Use 'group memberships group %s'") % grp.group_name)
+                elif re.search("account_info_owner", exc_to_text(msg)):
+                    raise CerebrumError(
+                        ("Group is owner of an account.  "
+                         "Use 'entity accounts group %s'") % grp.group_name)
+                raise
+
             return "OK, deleted group '{0}'".format(groupname)
         else:
             # Normal delete. Set the expire date to today.
@@ -2474,6 +2490,23 @@ class BofhdExtension(BofhdCommonMethods):
             else:
                 raise CerebrumError('Expire date not set for {0}'.format(
                     group))
+
+    #
+    # group set_visibility
+    #
+    all_commands['group_set_visibility'] = Command(
+        ("group", "set_visibility"),
+        GroupName(),
+        GroupVisibility(),
+        perm_filter='can_delete_group')
+
+    def group_set_visibility(self, operator, group, visibility):
+        grp = self._get_group(group)
+        self.ba.can_delete_group(operator.get_entity_id(), grp)
+        grp.visibility = self._get_constant(self.const.GroupVisibility,
+                                            visibility, "visibility")
+        grp.write_db()
+        return "OK, set visibility for '%s'" % group
 
     #
     # group memberships
