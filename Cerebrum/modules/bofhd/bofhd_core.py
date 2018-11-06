@@ -781,8 +781,6 @@ class BofhdCommandBase(object):
         role = BofhdAuthRole(self.db)
         role.grant_auth(owner.entity_id, op_set.op_set_id,
                         op_target.op_target_id)
-        return "OK, granted {} access {} to group {}".format(
-            owner, op_set.name, target)
 
 
 class BofhdCommonMethods(BofhdCommandBase):
@@ -889,6 +887,7 @@ class BofhdCommonMethods(BofhdCommandBase):
         if mod_group:
             self._group_make_owner(mod_gr, g)
 
+        return {'group_id': int(g.entity_id)}
 
     #
     # group rename
