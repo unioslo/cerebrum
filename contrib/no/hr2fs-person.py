@@ -49,13 +49,14 @@ import traceback
 from phonenumbers import NumberParseException
 import six
 
-import Cerebrum.logutils
+import Cerebrum.logutils.options
 
-from Cerebrum.Utils import Factory
+from Cerebrum import Errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
-from Cerebrum import Errors
+from Cerebrum.utils.argutils import get_constant
 from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.Utils import Factory
 
 logger = logging.getLogger(__name__)
 
@@ -129,17 +130,27 @@ class SimplePerson(IterableUserDict, object):
 class HR2FSSyncer(object):
     """Syncs a selection of HR data to FS."""
 
-    def __init__(self, person_affiliations, fagperson_affiliations,
-                 authoritative_system, ou_perspective, db, co, use_cache=True,
-                 fagperson_export_fields=None, email_cache=False,
-                 commit=False, ansattnr_code_str='NO_SAPNO'):
+    def __init__(self,
+                 person_affiliations,
+                 fagperson_affiliations,
+                 authoritative_system,
+                 ou_perspective,
+                 db,
+                 fs,
+                 co,
+                 use_cache=True,
+                 fagperson_export_fields=None,
+                 email_cache=False,
+                 commit=False,
+                 ansattnr_code_str='NO_SAPNO'):
+
         self.person_affiliations = person_affiliations
         self.fagperson_affiliations = fagperson_affiliations
         self.authoritative_system = authoritative_system
         self.ou_perspective = ou_perspective
 
         self.use_cache = use_cache
-        self.fs = make_fs()
+        self.fs = fs
         self.co = co
         self.db = db
 
@@ -715,10 +726,10 @@ class HR2FSSyncer(object):
                                           person_data.birth_date,
                                           person_data.ansattnr)
 
-            except self.db.IntegrityError:
-                logger.info("Insertion of id=%s (fnr=%s, email=%s) failed: %s",
-                            person_id, person_data.fnr11, person_data.email,
-                            self.exc_to_message(sys.exc_info()))
+            except (self.db.IntegrityError, self.db.DatabaseError):
+                logger.error("Insertion of id=%s (email=%s) failed: %s",
+                             person_id, person_data.email,
+                             self.exc_to_message(sys.exc_info()))
 
         # Here we inject the ansattnummer for people that are already in the
         # DB.
@@ -866,73 +877,76 @@ class HR2FSSyncer(object):
         for person_id, person_data in people.iteritems():
             self.export_person(person_id, person_data)
 
-        if self.commit:
-            logger.info('Committing "personer" to FS')
-            self.fs.db.commit()
-        else:
-            logger.info('Rolling back changes to "personer" in FS')
-            self.fs.db.rollback()
-
         people = self.select_fs_candidates(self.fagperson_affiliations)
         for person_id, person_data in people.iteritems():
             self.export_fagperson(person_id, person_data,
                                   self.fagperson_affiliations)
 
-        if self.commit:
-            logger.info('Committing "fagpersoner" to FS')
-            self.fs.db.commit()
-        else:
-            logger.info('Rolling back changes to "fagpersoner" in FS')
-            self.fs.db.rollback()
-
-        logger.debug('Done syncing to FS')
-
 
 def main():
     """Argparser and script run."""
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawTextHelpFormatter
+    )
     parser.add_argument(
-        '-p', '--person-affiliations', dest='person_affs', nargs='+',
+        '-p', '--person-affiliations',
+        dest='person_affs',
+        action='append',
         required=True,
         help='List of person affiliations to use. On the form <affiliation> '
              'or <affiliation>/<status>. '
              'affiliation_ansatt/affiliation_status_ansatt_vit'
     )
     parser.add_argument(
-        '-f', '--fagperson-affiliation', dest='fagperson_affs', nargs='+',
-        required=True, help='TODO Fagperson aff'
+        '-f', '--fagperson-affiliation',
+        dest='fagperson_affs',
+        action='append',
+        required=True,
+        help='TODO Fagperson aff'
     )
     parser.add_argument(
-        '-a', '--authoritative-system', dest='authoritative_system',
-        required=True, help='TODO Authoritative system'
+        '-a', '--authoritative-system',
+        dest='authoritative_system',
+        required=True,
+        help='TODO Authoritative system'
     )
     parser.add_argument(
-        '-o', '--ou-perspective', dest='ou_perspective',
-        required=True, help='TODO The OU perspective'
+        '-o', '--ou-perspective',
+        dest='ou_perspective',
+        required=True,
+        help='TODO The OU perspective'
     )
     parser.add_argument(
-        '-e', '--fagperson-fields', dest='fagperson_fields', nargs='+',
+        '-e', '--fagperson-fields',
+        dest='fagperson_fields',
+        nargs='+',
         help='Fagperson data fields to be exported. Valid inputs are: '
              'work_title, phone, fax, mobile. Default is all'
     )
     parser.add_argument(
-        '-m', '--with-cache-email', action='store_true', dest='email_cache',
+        '-m', '--with-cache-email',
+        action='store_true',
+        dest='email_cache',
         help='Cache e-mail addresses'
     )
     parser.add_argument(
-        '-c', '--commit', action='store_true', dest='commit',
+        '-c', '--commit',
+        action='store_true',
+        dest='commit',
         help='Write data to FS'
     )
 
     db = Factory.get("Database")()
     co = Factory.get("Constants")(db)
+    fs = make_fs()
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
     logger.info('START {0}'.format(parser.prog))
 
-    def _parse_affiliation_string(affiliation):
+    def parse_affiliation_string(affiliation):
         """Splits string into aff and status."""
         if affiliation is None:
             return None
@@ -955,13 +969,22 @@ def main():
 
         return aff, status
 
-    person_affs = [_parse_affiliation_string(x) for x in args.person_affs]
-    fagperson_affs = [_parse_affiliation_string(x) for x in
+    person_affs = [parse_affiliation_string(x) for x in args.person_affs]
+    fagperson_affs = [parse_affiliation_string(x) for x in
                       args.fagperson_affs]
 
-    ou_perspective = co.human2constant(args.ou_perspective, co.OUPerspective)
-    authoritative_system = co.human2constant(args.authoritative_system,
-                                             co.AuthoritativeSystem)
+    ou_perspective = get_constant(db, parser, co.OUPerspective,
+                                  args.ou_perspective)
+    authoritative_system = get_constant(db, parser, co.AuthoritativeSystem,
+                                  args.authoritative_system)
+
+    if ou_perspective is None:
+        logger.error('No valid OU perspective given')
+        return None
+
+    if authoritative_system is None:
+        logger.error('No valid authoritative system given')
+        return None
 
     if args.commit:
         logger.info('Changes will be committed')
@@ -979,12 +1002,19 @@ def main():
         fagperson_fields = None
 
     syncer = HR2FSSyncer(person_affs, fagperson_affs, authoritative_system,
-                         ou_perspective, db, co,
+                         ou_perspective, db, fs, co,
                          fagperson_export_fields=fagperson_fields,
                          use_cache=True, email_cache=args.email_cache,
                          commit=args.commit)
 
     syncer.sync_to_fs()
+
+    if args.commit:
+        logger.info('Committing FS db')
+        fs.db.commit()
+    else:
+        logger.info('Rolling back changes in the FS db')
+        fs.db.rollback()
     logger.info('Done syncing to FS')
 
 
