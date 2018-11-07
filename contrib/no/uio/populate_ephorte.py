@@ -39,6 +39,8 @@ EPHORTE_KDTO_SKO = getattr(cereconf, 'EPHORTE_KDTO_SKO')
 EPHORTE_MAIL_TIME = getattr(cereconf, 'EPHORTE_MAIL_TIME', [])
 EPHORTE_MAIL_OU_MISMATCH = getattr(cereconf, 'EPHORTE_MAIL_OU_MISMATCH')
 
+MAX_OU_LEVELS_TO_CLIMB_IN_SEARCH_OF_EPHORTE_OU = 2
+
 #
 # Globals
 #
@@ -267,6 +269,9 @@ class PopulateEphorte(object):
         person_to_ou = {}
         non_ephorte_ous = []
 
+        unresolved_ous2persons = {}
+        level2nPersons = {}
+
         # Find where an employee has an ANSATT affiliation and check
         # if that ou is an ePhorte ou. If not try to map to nearest
         # ePhorte OU as specified in ephorte-sync-spec.rst
@@ -277,16 +282,35 @@ class PopulateEphorte(object):
                 pe.list_affiliations(
                     source_system=co.system_sap,
                     affiliation=co.affiliation_tilknyttet,
-                    status=co.affiliation_tilknyttet_ekst_forsker)):
-            ou_id = int(row['ou_id'])
-            if ou_id is not None and ou_id not in self.app_ephorte_ouid2name:
+                    status=[co.affiliation_tilknyttet_ekst_partner,
+                            co.affiliation_tilknyttet_innkjoper])):
+
+            starting_ou_id = int(row['ou_id'])
+            ou_id = starting_ou_id
+            levels_climbed = 0
+
+            while (ou_id is not None and
+                   ou_id not in self.app_ephorte_ouid2name):
+
+                levels_climbed += 1
+                parent_ou_id = self.ou_id2parent.get(ou_id)
+
+                if (levels_climbed >\
+                        MAX_OU_LEVELS_TO_CLIMB_IN_SEARCH_OF_EPHORTE_OU or
+                        # expression under: this ou is root ou
+                        parent_ou_id is None):
+                    unresolved_ous2persons \
+                        .setdefault(starting_ou_id, set()) \
+                        .add(row['person_id'])
+                    break
+
                 if ou_id not in non_ephorte_ous:
                     non_ephorte_ous.append(ou_id)
                     logger.debug(
-                        "OU %s is not an ePhorte OU. Try parent: %s" % (
-                            self.ouid2sko[ou_id],
-                            self.ouid2sko.get(self.ou_id2parent.get(ou_id))))
-                ou_id = self.ou_id2parent.get(ou_id)
+                        "OU %s is not an ePhorte OU. Trying parent: %s" % (
+                            self.ouid2sko[ou_id], self.ouid2sko[parent_ou_id]))
+
+                ou_id = parent_ou_id
 
             # No ePhorte OU found.
             if ou_id is None or ou_id not in self.app_ephorte_ouid2name:
@@ -304,7 +328,46 @@ class PopulateEphorte(object):
                 logger.warning(tmp_msg)
                 continue
 
+            if levels_climbed not in level2nPersons:
+                level2nPersons[levels_climbed] = 0
+            level2nPersons[levels_climbed] += 1
+
             person_to_ou.setdefault(int(row['person_id']), {})[ou_id] = 1
+
+        for ou_id, persons in unresolved_ous2persons.items():
+            logger.info('Couldn\'t resolve affiliation OU {} to ePhorte OU '
+                        'for {} persons:'
+                        .format(self.ouid2sko[ou_id], len(persons)))
+            for person_id in persons:
+                pe.clear()
+                pe.find(person_id)
+                account_id = pe.get_primary_account()
+                ac.clear()
+                if account_id is not None:
+                    ac.find(account_id)
+                    uname = ac.get_account_name()
+                else:
+                    uname = "<unknown username>"
+                affs = pe.list_affiliations(person_id)
+                aff_strings = []
+                for aff in affs:
+                    aff_strings.append("%s@%s" %
+                                       (co.PersonAffStatus(aff.status),
+                                        self.ouid2sko[aff.ou_id]))
+                line = uname + ", "
+                line += ", ".join(aff_strings)
+                logger.info("\t" + line)
+
+        for levels_climbed, nPersons in level2nPersons.items():
+            logger.info('Number of times where an ePhorte OU was found {} '
+                        'parent-levels above a persons affiliation OU: {}'
+                        .format(levels_climbed, nPersons))
+
+        logger.info('(The maximum number of parent-OU-levels above a persons '
+                    'affiliation OU that will be looked up in search of an '
+                    'ePhorte OU: {})'.format(
+            MAX_OU_LEVELS_TO_CLIMB_IN_SEARCH_OF_EPHORTE_OU))
+
         return person_to_ou
 
     def map_person_to_roles(self):
@@ -349,7 +412,7 @@ class PopulateEphorte(object):
         std_role = False
         for person_id, ous in person_to_ou.items():
             auto_roles = []  # The roles an employee automatically should get
-            existing_roles = person_to_roles.get(person_id, [])
+            existing_roles_to_be_removed = person_to_roles.get(person_id, [])
             # Add saksbehandler role for each ephorte ou where an
             # employee has an affiliation
             for t in ous:
@@ -364,19 +427,23 @@ class PopulateEphorte(object):
 
             for ar in auto_roles:
                 # Check if role should be added
-                if ar in existing_roles:
-                    existing_roles.remove(ar)
+                if ar in existing_roles_to_be_removed:
+                    existing_roles_to_be_removed.remove(ar)
                 else:
-                    logger.info("Adding role (pid=%i): %s" % (person_id, ar))
+                    uname = self.find_person_info(person_id)['uname']
+                    logger.info("Adding role (pid=%i, uname=%s): %s" %
+                                (person_id, uname, ar))
                     ephorte_role.add_role(person_id, ar.role_type,
                                           ar.adm_enhet, ar.arkivdel,
                                           ar.journalenhet)
-            for er in existing_roles:
+            for er in existing_roles_to_be_removed:
                 # Only saksbehandler role that has been given
                 # automatically can be removed. Any other roles have
                 # been given in bofh and should not be touched.
                 if er.auto_role and er.role_type == int(co.ephorte_role_sb):
-                    logger.info("Removing role (pid=%i): %s" % (person_id, er))
+                    uname = self.find_person_info(person_id)['uname']
+                    logger.info("Removing role (pid=%i, uname=%s): %s" %
+                                (person_id, uname, er))
                     ephorte_role.remove_role(person_id, er.role_type,
                                              er.adm_enhet, er.arkivdel,
                                              er.journalenhet)
@@ -385,7 +452,7 @@ class PopulateEphorte(object):
                     std_role = True
 
             if not std_role:
-                for er in existing_roles:
+                for er in existing_roles_to_be_removed:
                     if er.role_type == int(co.ephorte_role_sb):
                         ephorte_role.set_standard_role_val(
                             person_id,
@@ -417,8 +484,9 @@ class PopulateEphorte(object):
         logger.info('{} persons should lose ePhorte spread'.format(
             len(victims)))
         for person_id in victims:
-            logger.info('Removing ePhorte data for person_id:{}'.format(
-                person_id))
+            uname = self.find_person_info(person_id)['uname']
+            logger.info('Removing ePhorte data for person_id: {}, uname: {}'.
+                format(person_id, uname))
             pe.clear()
             pe.find(person_id)
             for perm in ephorte_perm.list_permission(person_id=person_id):
