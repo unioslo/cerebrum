@@ -46,6 +46,7 @@ import argparse
 import logging
 import sys
 import traceback
+from phonenumbers import NumberParseException
 import six
 
 import Cerebrum.logutils
@@ -55,11 +56,8 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum import Errors
 from Cerebrum.utils.funcwrap import memoize
-from phonenumbers import NumberParseException
 
 logger = logging.getLogger(__name__)
-db = Factory.get("Database")()
-co = Factory.get("Constants")(db)
 
 
 @six.python_2_unicode_compatible
@@ -132,7 +130,7 @@ class HR2FSSyncer(object):
     """Syncs a selection of HR data to FS."""
 
     def __init__(self, person_affiliations, fagperson_affiliations,
-                 authoritative_system, ou_perspective, use_cache=True,
+                 authoritative_system, ou_perspective, db, co, use_cache=True,
                  fagperson_export_fields=None, email_cache=False,
                  commit=False, ansattnr_code_str='NO_SAPNO'):
         self.person_affiliations = person_affiliations
@@ -142,6 +140,8 @@ class HR2FSSyncer(object):
 
         self.use_cache = use_cache
         self.fs = make_fs()
+        self.co = co
+        self.db = db
 
         self.commit = commit
 
@@ -251,9 +251,9 @@ class HR2FSSyncer(object):
                 return self.fnr_cache[person.entity_id]
             return None
 
-        permissible_sources = (int(co.system_fs),
+        permissible_sources = (int(self.co.system_fs),
                                int(self.authoritative_system))
-        fnrs = person.get_external_id(id_type=co.externalid_fodselsnr)
+        fnrs = person.get_external_id(id_type=self.co.externalid_fodselsnr)
         # It makes no sense to look at other systems than source
         # (i.e. authoritative_system) and target (i.e. system_fs)
         numbers = set(r["external_id"] for r in fnrs
@@ -289,8 +289,8 @@ class HR2FSSyncer(object):
             if person.entity_id in self.title_cache:
                 return self.title_cache[person.entity_id]
             return None
-        return person.get_name_with_language(name_variant=co.work_title,
-                                             name_language=co.language_nb,
+        return person.get_name_with_language(name_variant=self.co.work_title,
+                                             name_language=self.co.language_nb,
                                              default=None)
 
     def find_ansattnr(self, person):
@@ -301,7 +301,7 @@ class HR2FSSyncer(object):
                 return a
             return None
 
-        pe = Factory.get('Person')(db)
+        pe = Factory.get('Person')(self.db)
         for row in pe.list_external_ids(
                 entity_id=person.entity_id,
                 source_system=self.authoritative_system,
@@ -325,7 +325,7 @@ class HR2FSSyncer(object):
 
         try:
             account_id = person.get_primary_account()
-            account = Factory.get("Account")(db)
+            account = Factory.get("Account")(self.db)
             account.find(account_id)
             return account.get_primary_mailaddress()
         except Errors.NotFoundError:
@@ -367,7 +367,7 @@ class HR2FSSyncer(object):
 
         logger.debug("Person id=%s has affiliations: %s",
                      person.entity_id,
-                     [(x, six.text_type(co.PersonAffiliation(y)))
+                     [(x, six.text_type(self.co.PersonAffiliation(y)))
                       for x, y in my_affiliations])
         return my_affiliations
 
@@ -392,7 +392,7 @@ class HR2FSSyncer(object):
         :return: ou_id for what we believe to be person's primary ou.
         """
         # Locate all accounts with priorities
-        account = Factory.get("Account")(db)
+        account = Factory.get("Account")(self.db)
         accounts = []
         just_affiliations = self.criteria2affiliations(selection_criteria)
         for row in account.list_accounts_by_type(affiliation=just_affiliations,
@@ -439,7 +439,7 @@ class HR2FSSyncer(object):
         found is NOT known to FS (that happens), then we follow the
         OU-hierarchy until we find a parent that *is* known to FS.
         """
-        ou = Factory.get("OU")(db)
+        ou = Factory.get("OU")(self.db)
         try:
             ou.find(primary_ou_id)
             if self.fs.info.get_ou(ou.fakultet, ou.institutt, ou.avdeling,
@@ -453,15 +453,15 @@ class HR2FSSyncer(object):
     def _create_fnr_cache(self):
         """Create a person_id to fnr cache."""
         logger.info("Creating fnr cache")
-        pe = Factory.get("Person")(db)
+        pe = Factory.get("Person")(self.db)
 
         self.fnr_cache = {
             int(x["entity_id"]): x["external_id"] for x in
             pe.list_external_ids(source_system=self.authoritative_system,
-                                 id_type=co.externalid_fodselsnr)}
+                                 id_type=self.co.externalid_fodselsnr)}
 
-        for row in pe.list_external_ids(source_system=co.system_fs,
-                                        id_type=co.externalid_fodselsnr):
+        for row in pe.list_external_ids(source_system=self.co.system_fs,
+                                        id_type=self.co.externalid_fodselsnr):
             person_id = int(row["entity_id"])
             fs_fnr = row["external_id"]
             if (person_id in self.fnr_cache
@@ -477,12 +477,12 @@ class HR2FSSyncer(object):
 
     def _create_email_cache(self):
         """Creates a person_id to primary mail address cache."""
-        pe = Factory.get('Person')(db)
+        pe = Factory.get('Person')(self.db)
         logger.info("Create primary e-mail addresses cache")
 
         self.email_cache = {
             person_id: email for person_id, email in
-            pe.list_primary_email_address(co.entity_person)
+            pe.list_primary_email_address(self.co.entity_person)
             if person_id in self.fnr_cache
         }
 
@@ -492,17 +492,17 @@ class HR2FSSyncer(object):
     def _create_contact_info_cache(self, phone=True, fax=True, mobile=True):
         """Creates a person_id to contact info cache."""
         logger.info("Creating contact info cache")
-        pe = Factory.get('Person')(db)
+        pe = Factory.get('Person')(self.db)
 
         contact_types = []
 
         # Only cache the needed contact types
         if phone:
-            contact_types.append(co.contact_phone)
+            contact_types.append(self.co.contact_phone)
         if fax:
-            contact_types.append(co.contact_fax)
+            contact_types.append(self.co.contact_fax)
         if mobile:
-            contact_types.append(co.contact_mobile_phone)
+            contact_types.append(self.co.contact_mobile_phone)
 
         self.contact_cache = {}
         for contact_type in contact_types:
@@ -521,12 +521,12 @@ class HR2FSSyncer(object):
 
     def _create_name_cache(self):
         """Create a person_id to name cache."""
-        pe = Factory.get('Person')(db)
+        pe = Factory.get('Person')(self.db)
         logger.info('Creating name cache')
         self.name_cache = {}
         for row in pe.search_person_names(
                 source_system=self.authoritative_system,
-                name_variant=(co.name_first, co.name_last)):
+                name_variant=(self.co.name_first, self.co.name_last)):
 
             person_id = row['person_id']
             if person_id in self.fnr_cache:
@@ -540,20 +540,20 @@ class HR2FSSyncer(object):
     def _create_title_cache(self):
         """Create a person_id to work title cache."""
         logger.info("Creating work title cache")
-        pe = Factory.get('Person')(db)
+        pe = Factory.get('Person')(self.db)
         self.title_cache = {row["entity_id"]: row["name"] for row in
                             pe.search_name_with_language(
-                                entity_type=co.entity_person,
-                                name_variant=co.work_title,
-                                name_language=co.language_nb)}
+                                entity_type=self.co.entity_person,
+                                name_variant=self.co.work_title,
+                                name_language=self.co.language_nb)}
         logger.info("Done creating work title cache (%d entries)",
                     len(self.title_cache))
 
     def _create_ansattnr_cache(self, ansattnr_code_str="NO_SAPNO"):
         """Create a personnr to ansattnr cache."""
         logger.info('Creating ansattnr cache')
-        pe = Factory.get('Person')(db)
-        ansattnr_code = co.EntityExternalId(ansattnr_code_str)
+        pe = Factory.get('Person')(self.db)
+        ansattnr_code = self.co.EntityExternalId(ansattnr_code_str)
         # We'll do this try/except/else stuff to insure that we get an existing
         # constant.
         try:
@@ -596,18 +596,18 @@ class HR2FSSyncer(object):
                'fnr6': date6,
                'pnr': pnr,
                'birth_date': date.strftime('%Y-%m-%d'),
-               'gender': person.gender == co.gender_male and 'M' or 'K',
+               'gender': person.gender == self.co.gender_male and 'M' or 'K',
                'email': self.find_primary_mail_address(person),
-               'phone': self.find_contact_info(person, co.contact_phone),
+               'phone': self.find_contact_info(person, self.co.contact_phone),
                ''
-               'fax': self.find_contact_info(person, co.contact_fax),
+               'fax': self.find_contact_info(person, self.co.contact_fax),
                'ansattnr': self.find_ansattnr(person),
                'mobile': self.find_contact_info(person,
-                                                co.contact_mobile_phone)
+                                                self.co.contact_mobile_phone)
                })
 
-        for name_type, attr_name in ((co.name_first, 'name_first'),
-                                     (co.name_last, 'name_last'),):
+        for name_type, attr_name in ((self.co.name_first, 'name_first'),
+                                     (self.co.name_last, 'name_last'),):
             result[attr_name] = self.find_name(person, name_type)
 
         if self.fagperson_fields['work_title']:
@@ -665,7 +665,7 @@ class HR2FSSyncer(object):
         """
         logger.debug('Selecting persons to export')
         result = {}
-        person = Factory.get("Person")(db)
+        person = Factory.get("Person")(self.db)
         rows = list(self.select_rows(selection_criteria,
                                      person.list_affiliations,
                                      source_system=self.authoritative_system))
@@ -715,7 +715,7 @@ class HR2FSSyncer(object):
                                           person_data.birth_date,
                                           person_data.ansattnr)
 
-            except db.IntegrityError:
+            except self.db.IntegrityError:
                 logger.info("Insertion of id=%s (fnr=%s, email=%s) failed: %s",
                             person_id, person_data.fnr11, person_data.email,
                             self.exc_to_message(sys.exc_info()))
@@ -726,7 +726,7 @@ class HR2FSSyncer(object):
             try:
                 self.fs.person.set_ansattnr(person_data.fnr6, person_data.pnr,
                                             person_data.ansattnr)
-            except db.IntegrityError:
+            except self.db.IntegrityError:
                 logger.error("Setting of ansattnr=%s on id=%d failed: %s",
                              person_data.ansattnr, person_id,
                              self.exc_to_message(sys.exc_info()))
@@ -755,7 +755,7 @@ class HR2FSSyncer(object):
         # Basically, all we have to do is to push changes to FS.person,
         # calculate primary OU and push changes to FS.fagperson.
         self.export_person(person_id, person_data)
-        person = Factory.get("Person")(db)
+        person = Factory.get("Person")(self.db)
         person.find(person_id)
         primary_ou_id = self.find_primary_ou(person, selection_criteria)
 
@@ -795,7 +795,7 @@ class HR2FSSyncer(object):
                 values["status_aktiv"] = 'N'
                 self.fs.person.add_fagperson(**values)
 
-            except db.IntegrityError:
+            except self.db.IntegrityError:
                 logger.info("Failed updating person %s: %s",
                             person_id, self.exc_to_message(sys.exc_info()))
         else:
@@ -888,30 +888,6 @@ class HR2FSSyncer(object):
         logger.debug('Done syncing to FS')
 
 
-def _parse_affiliation_string(affiliation):
-    """Splits string into aff and status."""
-    if affiliation is None:
-        return None
-
-    if len(affiliation.split("/")) == 1:
-        aff, status = (
-            co.human2constant(affiliation, co.PersonAffiliation),
-            None)
-
-    elif len(affiliation.split("/")) == 2:
-        aff, status = affiliation.split("/")
-        aff, status = (co.human2constant(aff, co.PersonAffiliation),
-                       co.human2constant(status, co.PersonAffStatus))
-
-        if aff is None or status is None:
-            return None
-    else:
-        logger.error("Wrong syntax for affiliation %s", affiliation)
-        return None
-
-    return aff, status
-
-
 def main():
     """Argparser and script run."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -948,10 +924,36 @@ def main():
         help='Write data to FS'
     )
 
+    db = Factory.get("Database")()
+    co = Factory.get("Constants")(db)
+
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
     logger.info('START {0}'.format(parser.prog))
+
+    def _parse_affiliation_string(affiliation):
+        """Splits string into aff and status."""
+        if affiliation is None:
+            return None
+
+        if len(affiliation.split("/")) == 1:
+            aff, status = (
+                co.human2constant(affiliation, co.PersonAffiliation),
+                None)
+
+        elif len(affiliation.split("/")) == 2:
+            aff, status = affiliation.split("/")
+            aff, status = (co.human2constant(aff, co.PersonAffiliation),
+                           co.human2constant(status, co.PersonAffStatus))
+
+            if aff is None or status is None:
+                return None
+        else:
+            logger.error("Wrong syntax for affiliation %s", affiliation)
+            return None
+
+        return aff, status
 
     person_affs = [_parse_affiliation_string(x) for x in args.person_affs]
     fagperson_affs = [_parse_affiliation_string(x) for x in
@@ -977,7 +979,7 @@ def main():
         fagperson_fields = None
 
     syncer = HR2FSSyncer(person_affs, fagperson_affs, authoritative_system,
-                         ou_perspective,
+                         ou_perspective, db, co,
                          fagperson_export_fields=fagperson_fields,
                          use_cache=True, email_cache=args.email_cache,
                          commit=args.commit)
