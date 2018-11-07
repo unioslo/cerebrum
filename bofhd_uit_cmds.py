@@ -4345,22 +4345,28 @@ class BofhdExtension(BofhdCommonMethods):
     # person info
     #
     all_commands['person_info'] = Command(
-        ("person", "info"),
-        PersonId(help_ref="id:target:person"),
+        ("person", "info"), PersonId(help_ref="id:target:person"),
         fs=FormatSuggestion([
-            ("Name:          %s\n"
-             "Entity-id:     %i\n"
-             "Birth:         %s\n"
-             "Spreads:       %s", ("name", "entity_id", "birth", "spreads")),
-            ("Affiliations:  %s [from %s]", ("affiliation_1",
-                                             "source_system_1")),
-            ("               %s [from %s]", ("affiliation", "source_system")),
-            ("Names:         %s [from %s]", ("names", "name_src")),
-            ("Contact:       %s: %s [from %s]", ("contact_type", "contact",
-                                                 "contact_src")),
-            ("External id:   %s [from %s]", ("extid", "extid_src"))
-        ])
-    )
+        ("Name:          %s\n" +
+         "Entity-id:     %i\n" +
+         "Export ID:     %s\n" +
+         "Birth:         %s\n" +
+         "Deceased:      %s\n" +
+         "Spreads:       %s\n" +
+         "Affiliations:  %s [from %s]",
+         ("name", "entity_id", "export_id", "birth", "deceased", "spreads",
+          "affiliation_1", "source_system_1")),
+        ("               %s [from %s]",
+         ("affiliation", "source_system")),
+        ("Names:         %s[from %s]",
+         ("names", "name_src")),
+        ("Fnr:           %s [from %s]",
+         ("fnr", "fnr_src")),
+        ("Contact:       %s: %s [from %s]",
+         ("contact_type", "contact", "contact_src")),
+        ("External id:   %s [from %s]",
+         ("extid", "extid_src"))
+        ]))
 
     def person_info(self, operator, person_id):
         try:
@@ -4378,14 +4384,17 @@ class BofhdExtension(BofhdCommonMethods):
             'name': p_name,
             'entity_id': person.entity_id,
             'birth': date_to_string(person.birth_date),
-	    'deceased_date': date_to_string(person.deceased_date),
+	        'deceased_date': date_to_string(person.deceased_date),
             'spreads': ", ".join([text_type(self.const.Spread(x['spread']))
                                   for x in person.get_spread()]),
         }]
         affiliations = []
         sources = []
+        last_dates = []
         for row in person.get_affiliations():
             ou = self._get_ou(ou_id=row['ou_id'])
+            date = row['last_date'].strftime("%Y-%m-%d")
+            last_dates.append(date)
             affiliations.append("%s@%s" % (
                 text_type(self.const.PersonAffStatus(row['status'])),
                 self._format_ou_name(ou)))
@@ -4408,12 +4417,17 @@ class BofhdExtension(BofhdCommonMethods):
         if affiliations:
             data[0]['affiliation_1'] = affiliations[0]
             data[0]['source_system_1'] = sources[0]
+            data[0]['last_date_1'] = last_dates[0]
+
         else:
             data[0]['affiliation_1'] = "<none>"
             data[0]['source_system_1'] = "<nowhere>"
+            data[0]['last_date_1'] = "<none>"
         for i in range(1, len(affiliations)):
             data.append({'affiliation': affiliations[i],
-                         'source_system': sources[i]})
+                         'source_system': sources[i],
+                         'last_date': last_dates[i]})
+
         try:
             self.ba.can_get_person_external_id(operator, person)
             # Include fnr. Note that this is not displayed by the main
