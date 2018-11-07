@@ -1,3 +1,7 @@
+2018-11-07 kennethj <cerebrum@cleomedes.uit.no>
+	* bofhd_uit_cmds.py:	Due to lots of changes since last time we updated this file, it was decided to use the uio version of this file	
+							and instead include the few changes uit has into that file.
+
 2018-11-06 kennethj <cerebrum@cleomedes.uit.no>
 	* bofhd_uit_cmds.py: Added new import from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth.
 						class UiOAuth now also needs to inherit from BofhdEmailAuth.
