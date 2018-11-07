@@ -1849,7 +1849,7 @@ class BofhdExtension(BofhdCommonMethods):
         if force:
             # Force deletes the group directly. Expire date etc is not used.
             self.ba.can_force_delete_group(operator.get_entity_id(), grp)
-            self._group_deletable(grp)
+            self._assert_group_deletable(grp)
 
             # Exchange-relatert-jazz
             # It should not be possible to remove distribution groups via
@@ -1887,13 +1887,19 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             # Normal delete. Set the expire date to today.
             self.ba.can_delete_group(operator.get_entity_id(), grp)
-            self._group_deletable(grp)
+            self._assert_group_deletable(grp)
             # Set the groups expire date to today.
-            grp.expire_date = self._today()
-            grp.write_db()
-            return 'OK, set expire-date for {0}'.format(groupname)
 
-    def _group_deletable(self, grp):
+            if grp.expire_date:
+                raise CerebrumError('Group already expired')
+            else:
+                grp.expire_date = self._today()
+                grp.write_db()
+                return 'OK, set expire-date for {0} to {1}'.format(
+                    groupname,
+                    self._today().strftime('%Y-%m-%d'))
+
+    def _assert_group_deletable(self, grp):
         """
         Trows an exception if group is not deletable.
 
@@ -1905,7 +1911,8 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError('Cannot delete personal file group')
         elif grp.group_name == cereconf.BOFHD_SUPERUSER_GROUP:
             raise CerebrumError("Can't delete superuser group")
-
+        elif grp.group_name == cereconf.INITIAL_GROUPNAME:
+            raise CerebrumError("Can't delete bofhd initial group")
     #
     # group multi_remove
     #
@@ -2478,10 +2485,11 @@ class BofhdExtension(BofhdCommonMethods):
         grp = self._get_group(group)
         self.ba.can_delete_group(operator.get_entity_id(), grp)
         if expire:
-            self._group_deletable(grp)
+            self._assert_group_deletable(grp)
             grp.expire_date = self._parse_date(expire)
             grp.write_db()
-            return 'OK, set expire-date for {0}'.format(group)
+            return 'OK, set expire-date for {0} set to {1}'.format(group,
+                                                                   expire)
         else:
             if grp.expire_date:
                 grp.expire_date = None

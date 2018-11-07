@@ -1305,7 +1305,7 @@ class BofhdAuth(DatabaseAccessor):
         """
         Check if operator is allowed to force delete a group.
 
-        This removed the group at once, expire date is not used.
+        This removes the group at once, expire date is not used.
         """
         if self.is_superuser(operator):
             return True
@@ -1323,7 +1323,7 @@ class BofhdAuth(DatabaseAccessor):
         """
         Check if operator is allowed to delete a group.
 
-        Group deletion is done by setting the expirte date to today.
+        Group deletion is done by setting the expire date to today.
         """
         if self.is_superuser(operator):
             return True
