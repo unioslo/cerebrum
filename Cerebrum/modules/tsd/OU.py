@@ -672,7 +672,6 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
 
         person = Factory.get('Person')(self._db)
         user = Factory.get('PosixUser')(self._db)
-        password = user.make_passwd(username)
         try:
             user.find_by_name(username)
         except Errors.NotFoundError:
@@ -689,8 +688,6 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
                 np_type=None,
                 creator_id=creator_id,
                 expire_date=None)
-            user.write_db()
-            user.set_password(password)
             user.write_db()
         else:
             person.find(user.owner_id)

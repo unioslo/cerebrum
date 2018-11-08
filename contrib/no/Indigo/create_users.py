@@ -59,9 +59,7 @@ def build_account(person_id):
         account.clear()
         account.populate(unames[0], constants.entity_person, person_id,
                          None, default_creator_id, default_expire_date)
-        pwd =  account.make_passwd(unames[0])
         account.write_db()
-        account.set_password(pwd)
 
         for s in cereconf.BOFHD_NEW_USER_SPREADS:
             account.add_spread(constants.Spread(s))

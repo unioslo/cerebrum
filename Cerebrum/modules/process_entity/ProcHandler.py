@@ -109,10 +109,6 @@ class ProcHandler(object):
                 self.logger.debug("No uname for %s %s" % (firstname, lastname))
             self._ac.populate(unames[0], owner.entity_type, owner.entity_id,
                               None, self.default_creator_id, None)
-            # Give the account a password
-            pwd = self._ac.make_passwd(unames[0])
-            self._ac.write_db()
-            self._ac.set_password(pwd)
 
             # Set new-account-traits
             self._ac_add_new_traits(self._ac)
