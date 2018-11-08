@@ -1,3 +1,7 @@
+2018-11-08  Karen   <cerebrum@cleomedes.uit.no>
+
+    * fronter_lib.py: changed import Database into import database.postgres.
+
 2018-11-07 kennethj <cerebrum@cleomedes.uit.no>
 	* bofhd_uit_cmds.py:	Due to lots of changes since last time we updated this file, it was decided to use the uio version of this file	
 							and instead include the few changes uit has into that file.
