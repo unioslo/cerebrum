@@ -548,7 +548,7 @@ INSTITUTION_DOMAIN_NAME_LMS = None
 # email domain needs a default.  This should be a string, naming fully
 # qualified domain name that is registered in the installation's
 # 'email_domain' table.
-EMAIL_DEFAULT_DOMAIN = None
+EMAIL_DEFAULT_DOMAINS = []
 
 # If your CLASS_ACCOUNT uses Email/AccountEmailQuotaMixin you have to
 # set this variable in your cereconf.py. The purpose of this structure

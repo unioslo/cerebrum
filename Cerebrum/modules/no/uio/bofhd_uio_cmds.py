@@ -5505,8 +5505,9 @@ class BofhdExtension(BofhdCommonMethods):
         # TBD: Better way of checking if email forwards are in use, by
         # checking if bofhd command is available?
         if hasattr(self, '_email_create_forward_target'):
-            localaddr = '{}@{}'.format(account_name,
-                                       cereconf.EMAIL_DEFAULT_DOMAIN)
+            localaddr = '{}@{}'.format(
+                account_name,
+                Email.get_primary_default_email_domain())
             self._email_create_forward_target(localaddr, contact_address)
 
         quar = cereconf.BOFHD_CREATE_UNPERSONAL_QUARANTINE
