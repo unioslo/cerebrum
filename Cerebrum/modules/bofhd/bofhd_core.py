@@ -860,12 +860,25 @@ class BofhdCommonMethods(BofhdCommandBase):
         self.ba.can_create_group(operator.get_entity_id(),
                                  groupname=groupname)
         g = self.Group_class(self.db)
-        mod_gr = self.Group_class(self.db)
+
         # Check if group name is already in use, raise error if so
         duplicate_test = g.search(name=groupname, filter_expired=False)
         if len(duplicate_test) > 0:
             raise CerebrumError("Group name is already in use")
-        # Check if moderator group exists
+
+        # Populate group
+        g.populate(creator_id=operator.get_entity_id(),
+                   visibility=self.const.group_visibility_all,
+                   name=groupname,
+                   description=description)
+        g.write_db()
+
+        # Add spread
+        for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
+            g.add_spread(self.const.Spread(spread))
+            g.write_db()
+
+        # Set moderator group
         if mod_group:
             try:
                 mod_gr = self._get_group(mod_group, idtype=None,
@@ -873,20 +886,8 @@ class BofhdCommonMethods(BofhdCommandBase):
             except Errors.NotFoundError:
                 raise CerebrumError('No moderator group with name: {}'
                                     .format(mod_group))
-
-        g.populate(creator_id=operator.get_entity_id(),
-                   visibility=self.const.group_visibility_all,
-                   name=groupname,
-                   description=description)
-        g.write_db()
-        for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
-            g.add_spread(self.const.Spread(spread))
-            g.write_db()
-
-        # Set moderator group
-        if mod_group:
-            self._group_make_owner(mod_gr, g)
-
+            else:
+                self._group_make_owner(mod_gr, g)
         return {'group_id': int(g.entity_id)}
 
     #
