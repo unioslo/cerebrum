@@ -96,7 +96,7 @@ def process(db, trait, message, phone_types, affiliations, too_old,
             continue
 
         if ac.owner_type != co.entity_person:
-            logger.warn('Tagged new user %r not personal, skipping',
+            logger.info('Tagged new user %r not personal, skipping',
                         ac.account_name)
             # TODO: remove trait?
             continue
