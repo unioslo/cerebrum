@@ -96,13 +96,20 @@ def process(db, trait, message, phone_types, affiliations, too_old,
             continue
 
         if ac.owner_type != co.entity_person:
-            logger.warn('Tagged new user %r not personal, skipping',
+            logger.info('Tagged new user %r not personal, skipping',
                         ac.account_name)
             # TODO: remove trait?
             continue
         if ac.is_expired():
             logger.debug('New user %r is expired, skipping', ac.account_name)
             # TODO: remove trait?
+            continue
+
+        if list(ac.get_entity_quarantine(only_active=True,
+                                         filter_disable_until=False)):
+            # Skipping sms until all quarantines are removed.
+            logger.warn('Tagged new user %r with quarantine, skipping',
+                        ac.account_name)
             continue
 
         # Apply custom filters that deem if this user should be processed
