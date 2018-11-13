@@ -105,13 +105,11 @@ def process(db, trait, message, phone_types, affiliations, too_old,
             # TODO: remove trait?
             continue
 
-        if ac.get_entity_quarantine(qtype=co.quarantine_auto_tmp_student,
-                                    only_active=True,
-                                    filter_disable_until=False):
-            # Account quarantined by update_new_students.
-            # Skipping sms until the account is deemed active.
-            logger.warn('Tagged new user %r with auto_tmp_student quarantine, '
-                        'skipping', ac.account_name)
+        if list(ac.get_entity_quarantine(only_active=True,
+                                         filter_disable_until=False)):
+            # Skipping sms until all quarantines are removed.
+            logger.warn('Tagged new user %r with quarantine, skipping',
+                        ac.account_name)
             continue
 
         # Apply custom filters that deem if this user should be processed
