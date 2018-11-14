@@ -243,6 +243,10 @@ def join_consents(old_person, new_person):
             entity_id=new_person.entity_id,
             consent_code=old_consent['consent_code'],
             filter_expired=False)
+
+        if new_consent:
+            new_consent = new_consent[0]
+
         replace_expired = (new_consent and new_consent['expiry'] and
                            not old_consent['expiry'])
         old_expires_later = (new_consent and old_consent['expiry'] and
