@@ -267,9 +267,6 @@ class PopulateEphorte(object):
         logger.info("Mapping person affiliations to ePhorte OU")
         # person -> {ou_id:1, ...}
         person_to_ou = {}
-        non_ephorte_ous = []
-
-        unresolved_ous2persons = {}
         level2nPersons = {}
 
         # Find where an employee has an ANSATT affiliation and check
@@ -285,35 +282,11 @@ class PopulateEphorte(object):
                     status=[co.affiliation_tilknyttet_ekst_partner,
                             co.affiliation_tilknyttet_innkjoper])):
 
-            starting_ou_id = int(row['ou_id'])
-            ou_id = starting_ou_id
-            levels_climbed = 0
-
-            while (ou_id is not None and
-                   ou_id not in self.app_ephorte_ouid2name):
-
-                levels_climbed += 1
-                parent_ou_id = self.ou_id2parent.get(ou_id)
-
-                if (levels_climbed >\
-                        MAX_OU_LEVELS_TO_CLIMB_IN_SEARCH_OF_EPHORTE_OU or
-                        # expression under: this ou is root ou
-                        parent_ou_id is None):
-                    unresolved_ous2persons \
-                        .setdefault(starting_ou_id, set()) \
-                        .add(row['person_id'])
-                    break
-
-                if ou_id not in non_ephorte_ous:
-                    non_ephorte_ous.append(ou_id)
-                    logger.debug(
-                        "OU %s is not an ePhorte OU. Trying parent: %s" % (
-                            self.ouid2sko[ou_id], self.ouid2sko[parent_ou_id]))
-
-                ou_id = parent_ou_id
+            ephorte_ou_id, levels_climbed =\
+                self.resolve_to_ephorte_ou(int(row['ou_id']))
 
             # No ePhorte OU found.
-            if ou_id is None or ou_id not in self.app_ephorte_ouid2name:
+            if ephorte_ou_id is None:
                 sko = self.ouid2sko[int(row['ou_id'])]
                 tmp_msg = "Failed mapping '%s' to known ePhorte OU. " % sko
                 if self.find_person_info(row['person_id'])['uname']:
@@ -332,31 +305,8 @@ class PopulateEphorte(object):
                 level2nPersons[levels_climbed] = 0
             level2nPersons[levels_climbed] += 1
 
-            person_to_ou.setdefault(int(row['person_id']), {})[ou_id] = 1
-
-        for ou_id, persons in unresolved_ous2persons.items():
-            logger.info('Couldn\'t resolve affiliation OU {} to ePhorte OU '
-                        'for {} persons:'
-                        .format(self.ouid2sko[ou_id], len(persons)))
-            for person_id in persons:
-                pe.clear()
-                pe.find(person_id)
-                account_id = pe.get_primary_account()
-                ac.clear()
-                if account_id is not None:
-                    ac.find(account_id)
-                    uname = ac.get_account_name()
-                else:
-                    uname = "<unknown username>"
-                affs = pe.list_affiliations(person_id)
-                aff_strings = []
-                for aff in affs:
-                    aff_strings.append("%s@%s" %
-                                       (co.PersonAffStatus(aff.status),
-                                        self.ouid2sko[aff.ou_id]))
-                line = uname + ", "
-                line += ", ".join(aff_strings)
-                logger.info("\t" + line)
+            person_to_ou.setdefault(
+                int(row['person_id']), {})[ephorte_ou_id] = 1
 
         for levels_climbed, nPersons in level2nPersons.items():
             logger.info('Number of times where an ePhorte OU was found {} '
@@ -369,6 +319,31 @@ class PopulateEphorte(object):
             MAX_OU_LEVELS_TO_CLIMB_IN_SEARCH_OF_EPHORTE_OU))
 
         return person_to_ou
+
+    def resolve_to_ephorte_ou(self, ou_id):
+        levels_climbed = 0
+        non_ephorte_ous = []
+
+        while ou_id not in self.app_ephorte_ouid2name:
+
+            levels_climbed += 1
+            parent_ou_id = self.ou_id2parent.get(ou_id)
+
+            if (levels_climbed >
+                    MAX_OU_LEVELS_TO_CLIMB_IN_SEARCH_OF_EPHORTE_OU or
+                    # expression under: this ou is root ou
+                    parent_ou_id is None):
+                return None, 0
+
+            if ou_id not in non_ephorte_ous:
+                non_ephorte_ous.append(ou_id)
+                logger.debug(
+                    "OU %s is not an ePhorte OU. Trying parent: %s" % (
+                        self.ouid2sko[ou_id], self.ouid2sko[parent_ou_id]))
+
+            ou_id = parent_ou_id
+
+        return ou_id, levels_climbed
 
     def map_person_to_roles(self):
         logger.info("Mapping persons to existing ePhorte roles")
