@@ -110,9 +110,7 @@ def get_primary_default_email_domain():
 
 def has_default_domains():
     """Check if the instance has one or more default domains."""
-    if getattr(cereconf, 'EMAIL_DEFAULT_DOMAINS', []):
-        return True
-    return False
+    return bool(getattr(cereconf, 'EMAIL_DEFAULT_DOMAINS', []))
 
 
 @six.python_2_unicode_compatible
