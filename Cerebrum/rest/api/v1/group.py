@@ -179,7 +179,6 @@ GroupMember = api.model('GroupMember', {
         attribute='member_type',
         description='member type'),
     'name': base_fields.String(
-        attribute='member_name',
         description='member name'),
 })
 
@@ -522,7 +521,8 @@ class GroupMemberListResource(Resource):
         for row in gr.search_members(**filters):
             member = dict(row)
             member.update({
-                'id': row['member_name'],
+                'id': row['member_id'],
+                'name': row['member_name'],
             })
             members.append(member)
         return members

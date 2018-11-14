@@ -173,7 +173,7 @@ def process_account(account, delete=False, bofhdreq=False):
                                    entity_id=account.entity_id,
                                    destination_id=None)
             logger.debug("BofhdRequest-Id: %s", reqid)
-        except Errors.CerebrumError, e:
+        except Errors.CerebrumError as e:
             # A CerebrumError is thrown if there exists some move_user for the
             # same user...
             logger.warn("Couldn't delete %s: %s", account.account_name, e)
@@ -184,7 +184,7 @@ def process_account(account, delete=False, bofhdreq=False):
 
 
 def usage(exitcode=0):
-    print """Usage: deactivate_quarantined_accounts.py -q quarantine_type -s #days [-d]
+    print("""Usage: deactivate_quarantined_accounts.py -q quarantine_type -s #days [-d]
 
 Deactivate all accounts where given quarantine has been set for at least #days.
 
@@ -233,7 +233,7 @@ and not a person.
                             This can not be undone, so use with care!
 
     -h, --help              show this and quit.
-    """ % __doc__
+    """ % __doc__)
     sys.exit(exitcode)
 
 
@@ -285,13 +285,13 @@ def main():
                 try:
                     int(aff)
                 except Errors.NotFoundError:
-                    print "Unknown affiliation: %s" % af
+                    print("Unknown affiliation: %s" % af)
                     sys.exit(2)
                 affiliations.add(aff)
         elif option in ("-h", "--help"):
             usage()
         else:
-            print "Unknown argument: %s" % option
+            print("Unknown argument: %s" % option)
             usage(1)
 
     logger.info("Start deactivation, quar=%s, since=%s, terminate=%s, "
@@ -307,12 +307,13 @@ def main():
     logger.info("Got %s accounts to process", len(rel_accounts))
 
     i = 0
-    for account, accid in entitise(rel_accounts,
-                                   manager=entity.account.find,
-                                   key=None,
-                                   handler=lambda x:
-                                   logger.warn('Could not find account_id %s, '
-                                               'skipping', x)):
+    for entity_id in rel_accounts:
+        try:
+            account.clear()
+            account.find(entity_id)
+        except Errors.NotFoundError:
+            logger.warn("Could not find account_id %s skipping", entity_id)
+            continue
         if limit and i >= limit:
             logger.debug("Limit of deactivations reached (%d), stopping",
                          limit)
@@ -332,6 +333,7 @@ def main():
         database.commit()
         logger.info("changes commited")
     logger.info("Done deactivate_quarantined_accounts")
+
 
 if __name__ == '__main__':
     main()
