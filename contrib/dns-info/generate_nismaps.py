@@ -139,7 +139,6 @@ def generate_passwd(filename, shadow_file, spread=None):
         f.write(line+"\n")
         # convert to 7-bit
     user_iter = posix_user.list_extended_posix_users(
-        auth_method=co.auth_type_crypt3_des,
         spread=spread, include_quarantines=True)
     prev_user = None
     user_rows = []

@@ -345,14 +345,14 @@ class MultipleAccountsTest(BaseAccountTest):
         salt = 'somes4lt'
         password = 'ex-mpLe-p4~~'
 
-        must_encode = ['auth_type_md5_crypt', 'auth_type_crypt3_des',
+        must_encode = ['auth_type_md5_crypt',
                        'auth_type_sha256_crypt', 'auth_type_sha512_crypt',
                        'auth_type_ssha', 'auth_type_md4_nt',
                        'auth_type_plaintext', 'auth_type_md5_unsalt',
                        'auth_type_ha1_md5', ]
 
         # For some reason, md4_unsalt does not verify
-        must_verify = ['auth_type_md5_crypt', 'auth_type_crypt3_des',
+        must_verify = ['auth_type_md5_crypt',
                        'auth_type_sha256_crypt', 'auth_type_sha512_crypt',
                        'auth_type_ssha', 'auth_type_md4_nt',
                        'auth_type_plaintext', 'auth_type_ha1_md5', ]
