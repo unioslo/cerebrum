@@ -39,6 +39,8 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdUtils
+from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
+                                         BofhdAuthRole)
 
 
 class BofhdCommandBase(object):
@@ -472,8 +474,8 @@ class BofhdCommandBase(object):
             if idtype == 'name':
                 account.find_by_name(account_id, self.const.account_namespace)
             elif idtype == 'id':
-                if (isinstance(account_id, basestring)
-                        and not account_id.isdigit()):
+                if (isinstance(account_id, basestring) and
+                        not account_id.isdigit()):
                     raise CerebrumError("Entity id %r must be a number" %
                                         account_id)
                 account.find(int(account_id))
@@ -770,6 +772,16 @@ class BofhdCommandBase(object):
             return None
         return DateTime.DateTimeFromTicks(ticks)
 
+    def _group_make_owner(self, owner, target):
+        op_set = BofhdAuthOpSet(self.db)
+        op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
+        op_target = BofhdAuthOpTarget(self.db)
+        op_target.populate(target.entity_id, 'group')
+        op_target.write_db()
+        role = BofhdAuthRole(self.db)
+        role.grant_auth(owner.entity_id, op_set.op_set_id,
+                        op_target.op_target_id)
+
 
 class BofhdCommonMethods(BofhdCommandBase):
     """Class with common methods that is used by most, 'normal' instances.
@@ -827,32 +839,55 @@ class BofhdCommonMethods(BofhdCommandBase):
         ("group", "create"),
         cmd.GroupName(help_ref="group_name_new"),
         cmd.SimpleString(help_ref="string_description"),
+        cmd.GroupName(optional=True, help_ref="group_name_moderator"),
         fs=cmd.FormatSuggestion(
             "Group created, internal id: %i", ("group_id",)
         ),
         perm_filter='can_create_group')
 
-    def group_create(self, operator, groupname, description):
+    def group_create(self, operator, groupname, description, mod_group=None):
         """ Standard method for creating normal groups.
 
         BofhdAuth's L{can_create_group} is first checked. The group gets the
         spreads as defined in L{cereconf.BOFHD_NEW_GROUP_SPREADS}.
+
+        :param operator: operator's account object
+        :param groupname: str name of new group
+        :param description: str description of group
+        :param mod_group: str name of moderator group, optional
+        :return: Group id
         """
         self.ba.can_create_group(operator.get_entity_id(),
                                  groupname=groupname)
         g = self.Group_class(self.db)
+
         # Check if group name is already in use, raise error if so
         duplicate_test = g.search(name=groupname, filter_expired=False)
         if len(duplicate_test) > 0:
             raise CerebrumError("Group name is already in use")
+
+        # Populate group
         g.populate(creator_id=operator.get_entity_id(),
                    visibility=self.const.group_visibility_all,
                    name=groupname,
                    description=description)
         g.write_db()
+
+        # Add spread
         for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
             g.add_spread(self.const.Spread(spread))
             g.write_db()
+
+        # Set moderator group
+        if mod_group:
+            try:
+                mod_gr = self._get_group(mod_group, idtype=None,
+                                         grtype='Group')
+            except Errors.NotFoundError:
+                raise CerebrumError('No moderator group with name: {}'
+                                    .format(mod_group))
+            else:
+                self._group_make_owner(mod_gr, g)
         return {'group_id': int(g.entity_id)}
 
     #

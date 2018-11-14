@@ -544,12 +544,12 @@ class BofhdExtension(BofhdCommonMethods):
         OpSet(),
         GroupName(help_ref="id:target:group"),
         EntityType(default='group', help_ref="auth_entity_type"),
-        SimpleString(help_ref="auth_target_entity"),
+        SimpleString(optional=True, help_ref="auth_target_entity"),
         SimpleString(optional=True, help_ref="auth_attribute"),
         perm_filter='can_grant_access')
 
-    def access_grant(self, operator, opset, group, entity_type, target_name,
-                     attr=None):
+    def access_grant(self, operator, opset, group, entity_type,
+                     target_name=None, attr=None):
         return self._manipulate_access(self._grant_auth, operator, opset,
                                        group, entity_type, target_name, attr)
 
@@ -1726,7 +1726,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     # (all_commands is updated from BofhdCommonMethods)
     #
-    def group_create(self, operator, groupname, description):
+    def group_create(self, operator, groupname, description, mod_group=None):
         """Override group_create to double check that there doesn't exist an
         account with the same name.
         """
@@ -1738,7 +1738,7 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             raise CerebrumError('An account exists with name: %s' % groupname)
         return super(BofhdExtension, self).group_create(operator, groupname,
-                                                        description)
+                                                        description, mod_group)
 
     #
     # group request <name> <desc> <spread> <moderator-group>
