@@ -101,7 +101,7 @@ def get_primary_default_email_domain():
 
     The primary domain is the first domain in the EMAIL_DEFAULT_DOMAINS array.
     """
-    res = getattr(cereconf, 'EMAIL_DEFAULT_DOMAINS', [])
+    res = tuple(getattr(cereconf, 'EMAIL_DEFAULT_DOMAINS', []))
 
     if len(res) > 0:
         return res[0]
@@ -2321,12 +2321,10 @@ class AccountEmailMixin(Account.Account):
         """
         default_domains = []
 
-        if has_default_domains():
-
-            for domain in get_default_email_domains():
-                dom = EmailDomain(self._db)
-                dom.find_by_domain(domain)
-                default_domains.append(dom)
+        for domain in get_default_email_domains():
+            dom = EmailDomain(self._db)
+            dom.find_by_domain(domain)
+            default_domains.append(dom)
 
         entdom = EntityEmailDomain(self._db)
         domains = []
@@ -2338,12 +2336,10 @@ class AccountEmailMixin(Account.Account):
             entdom.clear()
             try:
                 entdom.find(ou, affiliation=aff)
-                # If one of the default domain is specified, ignore this
-                # affiliation.
-                if has_default_domains():
-                    for domain in default_domains:
-                        if entdom.entity_email_domain_id == domain.entity_id:
-                            continue
+                # Add default domains if specified.
+                for domain in default_domains:
+                    if entdom.entity_email_domain_id == domain.entity_id:
+                        continue
                 domains.append(entdom.entity_email_domain_id)
             except Errors.NotFoundError:
                 # Otherwise, try falling back to tha maildomain associated
@@ -2358,11 +2354,11 @@ class AccountEmailMixin(Account.Account):
                     domains.append(entdom.entity_email_domain_id)
                 except Errors.NotFoundError:
                     pass
-        if has_default_domains():
-            # Append cereconf.EMAIL_DEFAULT_DOMAINS last to return a vaild
-            # domain always
-            for domain in default_domains:
-                domains.append(domain.entity_id)
+        # Append cereconf.EMAIL_DEFAULT_DOMAINS last to return a vaild
+        # domain always
+        for domain in default_domains:
+            domains.append(domain.entity_id)
+
         return domains
 
     def get_primary_maildomain(self):
