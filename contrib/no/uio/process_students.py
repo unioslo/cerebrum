@@ -23,9 +23,6 @@
         ./contrib/no/uio/process_students.py -C .../studconfig.xml
         -S .../studieprogrammer.xml -s .../merged_persons.xml -c
 
-        To reprint letters of a given type:
-        ./contrib/no/uio/process_students.py --workdir tmp/ps-2003-09-25.1265
-        --type new_stud_account --reprint 1,2
 """
 
 from __future__ import unicode_literals
@@ -36,14 +33,9 @@ import hotshot.stats
 import argparse
 import sys
 import os
-import io
-import pickle
 import traceback
 from time import localtime, strftime, time
-from tempfile import mkdtemp
-from subprocess import Popen
 import pprint
-import shutil
 
 from mx.DateTime import now
 
@@ -58,16 +50,11 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio import DiskQuota
 from Cerebrum.modules.no.uio import PrinterQuotas
-from Cerebrum.modules.templates import config as _tmpl_config
-from Cerebrum.modules.templates import renderers
-from Cerebrum.modules.printutils.printer import LinePrinter
-from Cerebrum.modules.templates import mappers
 proffile = 'hotshot.prof'
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_students')
 const = Factory.get('Constants')(db)
-all_passwords = {}
 derived_person_affiliations = {}
 person_student_affiliations = {}
 has_quota = {}
@@ -96,7 +83,6 @@ with_quarantines = False
 remove_groupmembers = False
 ou_perspective = None
 workdir = None
-only_dump_to = None
 paper_money_file = None         # Default: don't check for paid paper money
 student_info_file = None
 studconfig_file = None
@@ -747,13 +733,6 @@ class BuildAccounts(object):
         logger.info("student_info_file processed")
         if not dryrun:
             db.commit()
-            logger.info("making letters")
-            if only_dump_to is not None:
-                f = open(only_dump_to, 'w')
-                pickle.dump(all_passwords, f)
-                f.close()
-            else:
-                make_letters()
         else:
             logger.info("Dryrun: Rolled back changed")
             db.rollback()
@@ -1110,166 +1089,6 @@ def get_existing_accounts():
     return tmp_persons, tmp_ac
 
 
-def make_letters(data_file=None, type=None, range=None):
-    tmpl_config = _tmpl_config.get_config()
-    if data_file is not None:  # Load info on letters to print from file
-        with io.open(data_file, 'rb') as f:
-            tmp_passwords = pickle.load(f)
-        if range == '*':
-            s = 0
-            while s <= len(tmp_passwords):
-                tmp = tmp_passwords["%s-%i" % (type, s)]
-                tmp.append(s)
-                all_passwords[tmp[0]] = tmp[1]
-                s = s + 1
-        else:
-            for r in [int(x) for x in range.split(",")]:
-                tmp = tmp_passwords["%s-%i" % (type, r)]
-                tmp.append(r)
-                all_passwords[tmp[0]] = tmp[1]
-    person = Factory.get('Person')(db)
-    account = Factory.get('Account')(db)
-    dta = {}
-    logger.debug("Making %i letters", len(all_passwords))
-    current_dir = os.getcwd()
-    for account_id in all_passwords.keys():
-        try:
-            account.clear()
-            account.find(account_id)
-            person.clear()
-            person.find(account.owner_id)  # should be account.owner_id
-        except Errors.NotFoundError:
-            logger.warn("NotFoundError for account_id=%s", account_id)
-            continue
-
-        address_lookups = ((const.system_fs, const.address_post),
-                           (const.system_fs, const.address_post_private))
-        address = mappers.get_person_address(person, address_lookups)
-
-        if not address:
-            logger.info("Could not find authoritative address for %s",
-                        account_id)
-            continue
-
-        mappings = mappers.get_account_mappings(
-            account, all_passwords[account_id][0]
-        )
-        mappings.update(mappers.get_account_primary_email(account))
-        mappings.update(mappers.get_person_info(person, const))
-        mappings.update(mappers.get_address_mappings(address))
-
-        # First we group letters by 'order_by', default is 'zip'
-        brev_profil = all_passwords[account_id][1]
-        order_by = (brev_profil['order_by'] if 'order_by' in brev_profil
-                    else 'zip')
-        if order_by not in dta:
-            dta[order_by] = {}
-        dta[order_by][account_id] = mappings
-
-    # Do the actual sorting. We end up with one array with account_id's
-    # sorted in groups on sorting criteria.
-    sorted_keys = []
-    for order in dta.keys():
-        keys = dta[order].keys()
-        keys.sort(key=lambda x: dta[order][x][order_by])
-        sorted_keys = sorted_keys + keys
-
-    # Each template type has its own letter number sequence
-    letter_info = {}
-    files = {}
-    counters = {}
-    printers = {}
-    send_abroad = cereconf.AUTOADMIN_PRODUCE_ABROAD_LETTERS
-    rendered_pdf_files = {}
-    for account_id in sorted_keys:
-        password, brev_profil = all_passwords[account_id][:2]
-        order_by = (brev_profil['order_by'] if 'order_by' in brev_profil
-                    else 'zip')
-        if not send_abroad:
-            if (not dta[order_by][account_id]['zip'] or
-                    dta[order_by][account_id]['country']):
-                # TODO: Improve this check, which is supposed to skip foreign
-                # addresses
-                logger.info("Not sending abroad: %s",
-                            dta[order_by][account_id]['username'])
-                continue
-        printer = brev_profil.get('printer', cereconf.PRINT_PRINTER)
-
-        letter_type = "{}-{}.pdf".format(brev_profil['mal'], printer)
-        if letter_type not in files:
-            counters[letter_type] = 1
-            files[letter_type] = "{}-{}".format(letter_type, time())
-            printers[letter_type] = printer
-        if data_file is not None:
-            dta[order_by][account_id]['serial_no'] = \
-                all_passwords[account_id][2]
-        else:
-            dta[order_by][account_id]['serial_no'] = counters[letter_type]
-            letter_info["{}-{}".format(
-                brev_profil['mal'], counters[letter_type])] = [
-                            account_id, [password, brev_profil,
-                                         counters[letter_type]]]
-
-        def get_template_config(template_name):
-            for t in tmpl_config.process_students_templates:
-                if template_name == t['file']:
-                    return t
-            raise Errors.NotFoundError(template_name)
-
-        try:
-            tmpl = get_template_config(brev_profil['mal'])
-            tmp_dir = mkdtemp(prefix='ps-letter-{}'.format(account_id))
-            barcode_file_path = os.path.join(
-                tmp_dir, 'barcode_{}.png'.format(account_id)
-            )
-            renderers.render_barcode(tmpl_config, account_id,
-                                     barcode_file_path)
-            pdf_file_path = os.path.join(
-                current_dir, 'account_{}.pdf'.format(account_id)
-            )
-            renderers.html_template_to_pdf(
-                tmpl_config, tmp_dir, tmpl['file'], dta[order_by][account_id],
-                lang='no', static_files=tmpl['static_files'],
-                pdf_abspath=pdf_file_path
-            )
-            shutil.rmtree(tmp_dir)
-        except Exception as e:
-            logger.info("Error while generating letter for account %s: %s",
-                        account_id, e)
-            continue
-        counters[letter_type] += 1
-        # Add the rendered pdf to the list of generated files for
-        # the given template type, so they can be merged together
-        # before they are printed.
-        if letter_type not in rendered_pdf_files:
-            rendered_pdf_files[letter_type] = [pdf_file_path]
-        else:
-            rendered_pdf_files[letter_type].append(pdf_file_path)
-    # Save passwords for created users so that letters may be
-    # re-printed at a later time in case of print-jam etc.
-    if data_file is None:
-        with io.open("letters.info", 'wb') as f:
-            pickle.dump(letter_info, f)
-
-    # Merge the generated PDFs into files for each template type that was used
-    for letter_type, file_name in files.items():
-        merged_file_name = os.path.join(current_dir, file_name)
-        pdf_files_str = ' '.join(rendered_pdf_files[letter_type])
-        try:
-            Popen(merge_pdfs_cmd.format(merged_file=merged_file_name,
-                                        pdf_files=pdf_files_str),
-                  shell=True).wait()
-        except Exception as e:
-            logger.warn('Failed to merge PDF-files: {}'.format(e))
-
-        if not skip_lpr:
-            line_printer = LinePrinter(
-                printers[letter_type], 'unknown', os.uname()[1],
-                'process_students_pw_letters.pdf'
-            )
-            line_printer.spool(file_name)
-
-
 def _filter_person_info(person_info):
     """Makes debugging easier by removing some of the irrelevant
     person-information."""
@@ -1466,20 +1285,6 @@ def main():
              'would do. TODO: also dryrun some parts of update/create user.')
 
     parser.add_argument(
-        '--with-lpr',
-        action='store_false',
-        help='Spool the file with new user letters to printer')
-
-    parser.add_argument(
-        '--type',
-        help='set type (=the mal attribute to <brev> in studconfig.xml) for '
-             '--reprint')
-
-    parser.add_argument(
-        '--reprint',
-        help='re-print letters in case of paper-jam etc. (comma separated)')
-
-    parser.add_argument(
         '--workdir',
         help='set workdir for --reprint')
 
@@ -1490,10 +1295,6 @@ def main():
     parser.add_argument(
         '--validate',
         help='parse the configuration file and report any errors, then exit.')
-
-    parser.add_argument(
-        '--only-dump-results',
-        help='just dump results with pickle without entering make_letters')
 
     parser.add_argument(
         '-C',
@@ -1546,14 +1347,8 @@ def main():
     if args.validate:
         validate = True
         workdir = '.'
-    if args.with_lpr:
-        skip_lpr = False
     if args.workdir:
         workdir = args.workdir
-    if args.type:
-        _type = args.type
-    if args.reprint:
-        _range = args.reprint
 
     if recalc_pq and (update_accounts or create_users):
         raise ValueError("recalc-pq cannot be combined with other operations")
@@ -1571,9 +1366,6 @@ def main():
         validate_config()
         print("The configuration was successfully validated.")
         sys.exit(0)
-    if _range is not None:
-        make_letters("letters.info", type=_type, range=_range)
-        return
 
     if not (recalc_pq or update_accounts or create_users or
             reset_diskquota):
