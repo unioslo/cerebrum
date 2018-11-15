@@ -2647,7 +2647,6 @@ class BofhdExtension(BofhdCommonMethods):
         AccountPassword(),
         fs=FormatSuggestion([
             ("OK.", ('password_ok', )),
-            ("crypt3-DES:    %s", ('des3', )),
             ("MD5-crypt:     %s", ('md5', )),
             ("SHA256-crypt:  %s", ('sha256', )),
             ("SHA512-crypt:  %s", ('sha512', )),
@@ -2665,13 +2664,11 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
         except PasswordNotGoodEnough as e:
             raise CerebrumError('Bad password: %s' % exc_to_text(e))
-        crypt = ac.encrypt_password(co.Authentication("crypt3-DES"), password)
         md5 = ac.encrypt_password(co.Authentication("MD5-crypt"), password)
         sha256 = ac.encrypt_password(co.auth_type_sha256_crypt, password)
         sha512 = ac.encrypt_password(co.auth_type_sha512_crypt, password)
         return {
             'password_ok': True,
-            'des3': crypt,
             'md5': md5,
             'sha256': sha256,
             'sha512': sha512,
