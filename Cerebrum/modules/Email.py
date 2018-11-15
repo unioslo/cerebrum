@@ -52,7 +52,17 @@ follows:
 See contrib/generate_mail_ldif.py for an example of a script exporting
 the email data.  Note, though, that this example assumes that your
 Cerebrum instance uses more than the minimal subset of email-related
-classes."""
+classes.
+
+Cereconf variables (not complete):
+
+EMAIL_DEFAULT_DOMAINS <array>:
+    Used to create default email addresses to all users. The addresses will
+    be on the form <uname>@<domain> or <cn>@<domain> depending on the domain
+    configuration. If more then one domain is used, the first element in the
+    array  will be treated as the primary default domain.
+
+"""
 from __future__ import unicode_literals
 
 import re
@@ -78,6 +88,29 @@ __version__ = "1.5"
 
 
 Entity_class = Utils.Factory.get("Entity")
+
+
+def get_default_email_domains():
+    """Get the default email domains"""
+    return getattr(cereconf, 'EMAIL_DEFAULT_DOMAINS', [])
+
+
+def get_primary_default_email_domain():
+    """
+    Get the primary default email domain.
+
+    The primary domain is the first domain in the EMAIL_DEFAULT_DOMAINS array.
+    """
+    res = tuple(getattr(cereconf, 'EMAIL_DEFAULT_DOMAINS', []))
+
+    if len(res) > 0:
+        return res[0]
+    return None
+
+
+def has_default_domains():
+    """Check if the instance has one or more default domains."""
+    return bool(getattr(cereconf, 'EMAIL_DEFAULT_DOMAINS', []))
 
 
 @six.python_2_unicode_compatible
@@ -2278,17 +2311,23 @@ class AccountEmailMixin(Account.Account):
         full = p.get_name(self.const.system_cached, self.const.name_full)
         return full
 
-    def get_prospect_maildomains(self, use_default_domain=True):
+    def get_prospect_maildomains(self):
         """
         Return correct `domain_id's for the account's account_types regardless
         of what's populated in email_address.
 
         Domains will be sorted based on account_type priority and have
-        cereconf.EMAIL_DEFAULT_DOMAIN last in the list.
+        cereconf.EMAIL_DEFAULT_DOMAINS last in the list.
         """
-        dom = EmailDomain(self._db)
-        if use_default_domain:
-            dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
+        default_domains = []
+
+        for domain in get_default_email_domains():
+            dom = EmailDomain(self._db)
+            dom.find_by_domain(domain)
+            default_domains.append(dom)
+
+        default_domains_ids = [x.entity_id for x in default_domains]
+
         entdom = EntityEmailDomain(self._db)
         domains = []
         # Find OU and affiliation for this account.
@@ -2299,11 +2338,11 @@ class AccountEmailMixin(Account.Account):
             entdom.clear()
             try:
                 entdom.find(ou, affiliation=aff)
-                # If the default domain is specified, ignore this
-                # affiliation.
-                if use_default_domain:
-                    if entdom.entity_email_domain_id == dom.entity_id:
-                        continue
+
+                # Ignore if one of the default domains is specified for OU
+                if entdom.entity_email_domain_id in default_domains_ids:
+                    continue
+
                 domains.append(entdom.entity_email_domain_id)
             except Errors.NotFoundError:
                 # Otherwise, try falling back to tha maildomain associated
@@ -2311,22 +2350,24 @@ class AccountEmailMixin(Account.Account):
                 entdom.clear()
                 try:
                     entdom.find(ou)
-                    if entdom.entity_email_domain_id == dom.entity_id:
+                    if entdom.entity_email_domain_id in default_domains_ids:
                         continue
                     domains.append(entdom.entity_email_domain_id)
                 except Errors.NotFoundError:
                     pass
-        if use_default_domain:
-            # Append cereconf.EMAIL_DEFAULT_DOMAIN last to return a vaild
-            # domain always
-            domains.append(dom.entity_id)
+        # Append cereconf.EMAIL_DEFAULT_DOMAINS last to return a vaild
+        # domain always
+        for domain in default_domains[::-1]:
+            domains.append(domain.entity_id)
+
         return domains
 
-    def get_primary_maildomain(self, use_default_domain=True):
+    def get_primary_maildomain(self):
         """Return correct `domain_id' for account's primary address."""
         dom = EmailDomain(self._db)
-        if use_default_domain:
-            dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
+
+        if has_default_domains():
+            dom.find_by_domain(get_primary_default_email_domain())
         entdom = EntityEmailDomain(self._db)
         # Find OU and affiliation for this user's best-priority
         # account_type entry.
@@ -2337,8 +2378,8 @@ class AccountEmailMixin(Account.Account):
             entdom.clear()
             try:
                 entdom.find(ou, affiliation=aff)
-                if use_default_domain:
-                    # If the default domai n is specified, ignore this
+                if has_default_domains():
+                    # If the default domain is specified, ignore this
                     # affiliation.
                     if entdom.entity_email_domain_id == dom.entity_id:
                         continue
@@ -2350,13 +2391,13 @@ class AccountEmailMixin(Account.Account):
             entdom.clear()
             try:
                 entdom.find(ou)
-                if use_default_domain:
+                if has_default_domains():
                     if entdom.entity_email_domain_id == dom.entity_id:
                         continue
                     return entdom.entity_email_domain_id
             except Errors.NotFoundError:
                 pass
-        if use_default_domain:
+        if has_default_domains():
             # Still no proper maildomain association has been found; fall
             # back to default maildomain.
             return dom.entity_id

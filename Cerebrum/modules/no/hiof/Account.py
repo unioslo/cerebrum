@@ -83,7 +83,7 @@ class AccountHiOfMixin(Account.Account):
         if self.is_deleted() or self.is_reserved():
             target_type = self.const.email_target_deleted
         try:
-            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            et.find_by_email_target_attrs(target_entity_id=self.entity_id)
             et.email_target_type = target_type
         except Errors.NotFoundError:
             # We don't want to create e-mail targets for reserved or
@@ -131,12 +131,13 @@ class AccountHiOfMixin(Account.Account):
                 if self.is_student():
                     self._update_email_server('epost.hiof.no')
                 else:
-                    # do not set email_server_target until account_type is registered
+                    # do not set email_server_target until account_type is
+                    # registered
                     return
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
-        # if the only address found is in EMAIL_DEFAULT_DOMAIN
+        # if the only address found is in EMAIL_DEFAULT_DOMAINS
         # don't set default address. This is done in order to prevent
         # adresses in default domain being sat as primary
         # TODO: account_types affiliated to OU's  without connected
@@ -145,8 +146,12 @@ class AccountHiOfMixin(Account.Account):
         ed = Email.EmailDomain(self._db)
         ed.find(self.get_primary_maildomain())
         domains = [ed.email_domain_name]
-        if cereconf.EMAIL_DEFAULT_DOMAIN not in domains:
-            domains.append(cereconf.EMAIL_DEFAULT_DOMAIN)
+
+        # Add the default domains if missing
+        for domain in Email.get_default_email_domains():
+            if domain not in domains:
+                domains.append(domain)
+
         # Iterate over the available domains, testing various
         # local_parts for availability.  Set user's primary address to
         # the first one found to be available.
@@ -165,7 +170,8 @@ class AccountHiOfMixin(Account.Account):
             ctgs = [int(r['category']) for r in ed.get_categories()]
             local_parts = []
             if int(self.const.email_domain_category_cnaddr) in ctgs:
-                local_parts.append(self.get_email_cn_local_part(given_names=1, max_initials=1))
+                local_parts.append(self.get_email_cn_local_part(
+                    given_names=1, max_initials=1))
                 local_parts.append(self.account_name)
             elif int(self.const.email_domain_category_uidaddr) in ctgs:
                 local_parts.append(self.account_name)
@@ -174,14 +180,14 @@ class AccountHiOfMixin(Account.Account):
                 # Is the address taken?
                 ea.clear()
                 try:
-                   ea.find_by_local_part_and_domain(lp, ed.entity_id)
-                   if ea.email_addr_target_id != et.entity_id:
-                       # Address already exists, and points to a
-                       # target not owned by this Account.
-                       continue
-                   # Address belongs to this account; make sure
-                   # there's no expire_date set on it.
-                   ea.email_addr_expire_date = None
+                    ea.find_by_local_part_and_domain(lp, ed.entity_id)
+                    if ea.email_addr_target_id != et.entity_id:
+                        # Address already exists, and points to a
+                        # target not owned by this Account.
+                        continue
+                    # Address belongs to this account; make sure
+                    # there's no expire_date set on it.
+                    ea.email_addr_expire_date = None
                 except Errors.NotFoundError:
                     # Address doesn't exist; create it.
                     ea.populate(lp, ed.entity_id, et.entity_id, expire=None)
@@ -202,9 +208,10 @@ class AccountHiOfMixin(Account.Account):
         et = Email.EmailTarget(self._db)
         es.find_by_name(server_name)
         try:
-            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            et.find_by_email_target_attrs(target_entity_id=self.entity_id)
         except Errors.NotFoundError:
-            # Not really sure about this. it is done at UiO, but maybe it is not
+            # Not really sure about this. it is done at UiO, but maybe it is
+            # not
             # right to make en email_target if one is not found??
             et.clear()
             et.populate(self.const.email_target_account,
@@ -226,7 +233,8 @@ class AccountHiOfMixin(Account.Account):
         person.clear()
         person.find(self.owner_id)
         for a in person.get_affiliations():
-            if a['status'] == self.const.affiliation_status_ansatt_vitenskapelig:
+            if (a['status'] ==
+                    self.const.affiliation_status_ansatt_vitenskapelig):
                 return True
         return False
 
@@ -304,7 +312,7 @@ class AccountHiOfMixin(Account.Account):
             return
 
         for atr, func in ((self.const.ad_attribute_homedir,
-                              self._calculate_homedir),
+                           self._calculate_homedir),
                           (self.const.ad_attribute_scriptpath,
                               self._calculate_scriptpath)):
             val = func()
@@ -335,18 +343,17 @@ class AccountHiOfMixin(Account.Account):
     def set_account_type(self, *args, **kwargs):
         """Update AD attributes when an account type is set.
 
-        This is in case the user had no account types to begin with, in which it
-        could have blank attribute values.
-
+        This is in case the user had no account types to begin with, in which
+        it could have blank attribute values.
         """
         ret = self.__super.set_account_type(*args, **kwargs)
         self.update_ad_attributes()
         return ret
 
-    ## Methods for manipulation accounts AD-attributes.
-    ## AD attributes OU, Homedir and Profile Path are stored in
-    ## entity_traits. The methods make it easier to get and set
-    ## these attributes.
+    # Methods for manipulation accounts AD-attributes.
+    # AD attributes OU, Homedir and Profile Path are stored in
+    # entity_traits. The methods make it easier to get and set
+    # these attributes.
 
     # TODO: The methods for updating traits for old AD-attributes should be
     # removed after the new AD sync is in production and the old ones are
@@ -371,7 +378,7 @@ class AccountHiOfMixin(Account.Account):
                 # unpickle_val is a spread -> attribute value mapping
                 for spread, attr_val in unpickle_val.items():
                     spread = int(spread)
-                    if not spread in ret:
+                    if spread not in ret:
                         ret[spread] = {}
                     ret[spread][attr_type] = attr_val
         return ret
@@ -418,7 +425,7 @@ class AccountHiOfMixin(Account.Account):
         # If we populate something wrong, all kinds of weird errors
         # will follow.
         assert type(ad_attr_map) is dict
-        for k,v in ad_attr_map.items():
+        for k, v in ad_attr_map.items():
             assert (type(k) is int and k in self.ad_account_spreads.keys())
             assert isinstance(v, basestring)
         self.populate_trait(trait_type, strval=cPickle.dumps(ad_attr_map))
@@ -446,4 +453,3 @@ class AccountHiOfMixin(Account.Account):
                     del tmp[spread]
                     # Populate the remaining mapping
                     self.populate_ad_attrs(trait_type, tmp)
-
