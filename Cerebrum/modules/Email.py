@@ -2326,6 +2326,8 @@ class AccountEmailMixin(Account.Account):
             dom.find_by_domain(domain)
             default_domains.append(dom)
 
+        default_domains_ids = [x.entity_id for x in default_domains]
+
         entdom = EntityEmailDomain(self._db)
         domains = []
         # Find OU and affiliation for this account.
@@ -2336,10 +2338,11 @@ class AccountEmailMixin(Account.Account):
             entdom.clear()
             try:
                 entdom.find(ou, affiliation=aff)
-                # Add default domains if specified.
-                for domain in default_domains:
-                    if entdom.entity_email_domain_id == domain.entity_id:
-                        continue
+
+                # Ignore if one of the default domains is specified for OU
+                if entdom.entity_email_domain_id in default_domains_ids:
+                    continue
+
                 domains.append(entdom.entity_email_domain_id)
             except Errors.NotFoundError:
                 # Otherwise, try falling back to tha maildomain associated
@@ -2347,16 +2350,14 @@ class AccountEmailMixin(Account.Account):
                 entdom.clear()
                 try:
                     entdom.find(ou)
-                    # Ignore if one of the default domains is specified for OU
-                    for domain in default_domains:
-                        if entdom.entity_email_domain_id == domain.entity_id:
-                            continue
+                    if entdom.entity_email_domain_id in default_domains_ids:
+                        continue
                     domains.append(entdom.entity_email_domain_id)
                 except Errors.NotFoundError:
                     pass
         # Append cereconf.EMAIL_DEFAULT_DOMAINS last to return a vaild
         # domain always
-        for domain in default_domains:
+        for domain in default_domains[::-1]:
             domains.append(domain.entity_id)
 
         return domains
