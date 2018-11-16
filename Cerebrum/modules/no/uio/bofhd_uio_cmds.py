@@ -1840,46 +1840,79 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['group_delete'] = Command(
         ("group", "delete"),
         GroupName(),
+        YesNo(help_ref="yes_no_force", optional=True, default="No"),
         perm_filter='can_delete_group')
 
-    def group_delete(self, operator, groupname):
+    def group_delete(self, operator, groupname, force=False):
+
         grp = self._get_group(groupname)
-        self.ba.can_delete_group(operator.get_entity_id(), grp)
-        if grp.group_name == cereconf.BOFHD_SUPERUSER_GROUP:
+        if force:
+            # Force deletes the group directly. Expire date etc is not used.
+            self.ba.can_force_delete_group(operator.get_entity_id(), grp)
+            self._assert_group_deletable(grp)
+
+            # Exchange-relatert-jazz
+            # It should not be possible to remove distribution groups via
+            # bofh, as that would "orphan" e-mail target. If need be such
+            # groups should be nuked using a cerebrum-side script.
+            if grp.has_extension('DistributionGroup'):
+                raise CerebrumError(
+                    'Cannot delete distribution groups, use "group'
+                    ' exchange_remove" to deactivate %s' % groupname)
+            elif grp.has_extension('PosixGroup'):
+                raise CerebrumError(
+                    'Cannot delete posix groups, use "group demote_posix %s"'
+                    ' before deleting.' % groupname)
+            elif grp.get_extensions():
+                raise CerebrumError(
+                    'Cannot delete group %s, is type %r' % (
+                        groupname, grp.get_extensions()))
+
+            self._remove_auth_target("group", grp.entity_id)
+            self._remove_auth_role(grp.entity_id)
+            try:
+                grp.delete()
+            except self.db.DatabaseError as msg:
+                if re.search("group_member_exists", exc_to_text(msg)):
+                    raise CerebrumError(
+                        ("Group is member of groups.  "
+                         "Use 'group memberships group %s'") % grp.group_name)
+                elif re.search("account_info_owner", exc_to_text(msg)):
+                    raise CerebrumError(
+                        ("Group is owner of an account.  "
+                         "Use 'entity accounts group %s'") % grp.group_name)
+                raise
+
+            return "OK, deleted group '{0}'".format(groupname)
+        else:
+            # Normal delete. Set the expire date to today.
+            self.ba.can_delete_group(operator.get_entity_id(), grp)
+            self._assert_group_deletable(grp)
+            # Set the groups expire date to today.
+
+            if grp.expire_date:
+                raise CerebrumError('Group already expired')
+            else:
+                grp.expire_date = self._today()
+                grp.write_db()
+                return 'OK, set expire-date for {0} to {1}'.format(
+                    groupname,
+                    self._today().strftime('%Y-%m-%d'))
+
+    def _assert_group_deletable(self, grp):
+        """
+        Trows an exception if group is not deletable.
+
+        The following groups are not deletable:
+        - BOFHD superuser group
+        - Personal file groups
+        """
+        if grp.get_trait(self.const.trait_personal_dfg):
+            raise CerebrumError('Cannot delete personal file group')
+        elif grp.group_name == cereconf.BOFHD_SUPERUSER_GROUP:
             raise CerebrumError("Can't delete superuser group")
-        # exchange-relatert-jazz
-        # it should not be possible to remove distribution groups via
-        # bofh, as that would "orphan" e-mail target. if need be such groups
-        # should be nuked using a cerebrum-side script.
-        if grp.has_extension('DistributionGroup'):
-            raise CerebrumError(
-                "Cannot delete distribution groups, use 'group"
-                " exchange_remove' to deactivate %s" % groupname)
-        elif grp.has_extension('PosixGroup'):
-            raise CerebrumError(
-                "Cannot delete posix groups, use 'group demote_posix %s'"
-                " before deleting." % groupname)
-        elif grp.get_extensions():
-            raise CerebrumError(
-                "Cannot delete group %s, is type %r" % (groupname,
-                                                        grp.get_extensions()))
-
-        self._remove_auth_target("group", grp.entity_id)
-        self._remove_auth_role(grp.entity_id)
-        try:
-            grp.delete()
-        except self.db.DatabaseError as msg:
-            if re.search("group_member_exists", exc_to_text(msg)):
-                raise CerebrumError(
-                    ("Group is member of groups.  "
-                     "Use 'group memberships group %s'") % grp.group_name)
-            elif re.search("account_info_owner", exc_to_text(msg)):
-                raise CerebrumError(
-                    ("Group is owner of an account.  "
-                     "Use 'entity accounts group %s'") % grp.group_name)
-            raise
-        return "OK, deleted group '%s'" % groupname
-
+        elif grp.group_name == cereconf.INITIAL_GROUPNAME:
+            raise CerebrumError("Can't delete bofhd initial group")
     #
     # group multi_remove
     #
@@ -2319,7 +2352,7 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['group_demote_posix'] = Command(
         ("group", "demote_posix"),
         GroupName(),
-        perm_filter='can_delete_group')
+        perm_filter='can_force_delete_group')
 
     def group_demote_posix(self, operator, group):
         try:
@@ -2331,7 +2364,7 @@ class BofhdExtension(BofhdCommonMethods):
                      "Use 'group list %s'") % grp.group_name)
             raise
 
-        self.ba.can_delete_group(operator.get_entity_id(), grp)
+        self.ba.can_force_delete_group(operator.get_entity_id(), grp)
         grp.demote_posix()
         return "OK, demoted '%s'" % group
 
@@ -2445,15 +2478,26 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['group_set_expire'] = Command(
         ("group", "set_expire"),
         GroupName(),
-        Date(),
-        perm_filter='can_expire_group')
+        Date(optional=True),
+        perm_filter='can_delete_group')
 
-    def group_set_expire(self, operator, group, expire):
+    def group_set_expire(self, operator, group, expire=None):
         grp = self._get_group(group)
-        self.ba.can_expire_group(operator.get_entity_id(), grp)
-        grp.expire_date = self._parse_date(expire)
-        grp.write_db()
-        return "OK, set expire-date for '%s'" % group
+        self.ba.can_delete_group(operator.get_entity_id(), grp)
+        if expire:
+            self._assert_group_deletable(grp)
+            grp.expire_date = self._parse_date(expire)
+            grp.write_db()
+            return 'OK, set expire-date for {0} set to {1}'.format(group,
+                                                                   expire)
+        else:
+            if grp.expire_date:
+                grp.expire_date = None
+                grp.write_db()
+                return 'OK, removed expire-date for {0}'.format(group)
+            else:
+                raise CerebrumError('Expire date not set for {0}'.format(
+                    group))
 
     #
     # group set_visibility
