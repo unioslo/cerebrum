@@ -2357,7 +2357,7 @@ class AccountEmailMixin(Account.Account):
                     pass
         # Append cereconf.EMAIL_DEFAULT_DOMAINS last to return a vaild
         # domain always
-        for domain in default_domains[::-1]:
+        for domain in default_domains:
             domains.append(domain.entity_id)
 
         return domains
