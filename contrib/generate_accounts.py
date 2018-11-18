@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2012 University of Oslo, Norway
+# Copyright 2012, 2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,21 +18,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Script for creating accounts for all persons that matches given criterias.
-If a person has previously had an account which is now deactivated, it will be
-restored.
 
-Note that a person will only get one account top. TBD: or should it be possible
-to override this?
+""" Make sure people with given affiliations have an account.
 
-Note that the script does not update already existing accounts. This might be
-the job for another script? We don't want this script to be too complex...
+The use case is to automatically create accounts for new employee.
 
-TODO: Whern restoring, the account does not get all the updates it should have.
-Maybe we should have a Account.restore() method that takes care of this?
+Supports restoring previously terminated accounts.
+
+Note: Existing accounts are not updated. This script's job is done after the
+creation.
 
 TODO: add functionality for only affecting new person affiliations instead,
-e.g. only new employees from the last 7 days. This is usable e.g. for UiO.
+e.g. only new employees from the last 7 days? This is usable e.g. for UiO.
 
 """
 
@@ -61,7 +58,57 @@ def str2aff(co, affstring):
     return aff
 
 
-def update_account(db, pe, creator, new_trait=None):
+def restore_account(db, pe, ac, remove_quars):
+    """Restore a previously expired account.
+
+    The account is cleaned from previous details, to avoid e.g. getting IT
+    privileges from the account's previous life.
+
+    TODO: This functionality should be moved to a Cerebrum module.
+
+    """
+    if not ac.is_expired():
+        logger.error("Account %s not expired anyway, it's a trap",
+                     ac.account_name)
+        return
+    ac.expire_date = None
+    ac.write_db()
+
+    existing_quars = [row['quarantine_type'] for row in
+                      ac.get_entity_quarantine(only_active=True)]
+    for q in remove_quars:
+        if int(q) in existing_quars:
+            ac.delete_entity_quarantine(q)
+
+    for s in ac.get_spread():
+        ac.delete_spread(s)
+
+    for row in ac.get_account_types(filter_expired=False):
+        ac.del_account_type(row['ou_id'], row['affiliation'])
+
+    ac.write_db()
+
+    pu = Factory.get('PosixUser')(db)
+    try:
+        pu.find(ac.entity_id)
+    except Errors.NotFoundError:
+        pass
+    else:
+        pu.delete_posixuser()
+
+    gr = Factory.get('Group')(db)
+    for row in gr.search(member_id=ac.entity_id):
+        # TODO: dfg still a problem?
+        gr.clear()
+        gr.find(row['group_id'])
+        gr.remove_member(ac.entity_id)
+        gr.write_db()
+
+    # TBD: remove old passwords?
+
+
+def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
+                   remove_quars=(), with_posix=False):
     """Make sure that the given person has an active account. It the person has
     no accounts, a new one will be created. If the person already has an
     account it will be 'restored'.
@@ -80,14 +127,7 @@ def update_account(db, pe, creator, new_trait=None):
         logger.info("Restore account %s for person %d", row['name'],
                     pe.entity_id)
         ac.find(row['account_id'])
-        if not ac.is_expired():
-            logger.error("Account %s not expired anyway, it's a trap",
-                         ac.account_name)
-            return True
-        ac.expire_date = None
-        ac.write_db()
-        # TODO: more 'recreate' settings here? Should we instead make use of a
-        # Account.recreate() or something?
+        restore_account(db, pe, ac, remove_quars)
         break
     else:
         # no account found, create a new one
@@ -98,8 +138,9 @@ def update_account(db, pe, creator, new_trait=None):
                                   lname=name[1])
         if len(names) < 1:
             logger.warn('Person %d has no name, skipping', pe.entity_id)
-            return False
+            return
 
+        logger.info("Create account for person %d: %s", pe.entity_id, names[0])
         ac.populate(names[0],
                     co.entity_person,
                     pe.entity_id,
@@ -108,25 +149,38 @@ def update_account(db, pe, creator, new_trait=None):
                     None)
         ac.write_db()
 
-        for s in getattr(cereconf, 'BOFHD_NEW_USER_SPREADS', ()):
-            ac.add_spread(int(co.Spread(s)))
-
-        # Creating an initial password
-        ac.set_password(ac.make_passwd(name))
-        ac.write_db()
-
-        logger.info("Account %s created for person %d", names[0], pe.entity_id)
-
     if new_trait:
+        logger.debug("Add trait to account %s: %s", ac.account_name, new_trait)
         ac.populate_trait(new_trait, date=DateTime.now())
 
-    # give the account all the person's affiliations
-    for row in pe.list_affiliations(person_id=pe.entity_id):
-        ac.set_account_type(ou_id=row['ou_id'], affiliation=row['affiliation'])
-        ac.write_db()
-        logger.debug("Gave %s aff %s to ou_id=%s", ac.account_name,
+    for s in spreads:
+        logger.debug("Add spread to account %s: %s", ac.account_name, s)
+        ac.add_spread(s)
+
+    for row in set((row['affiliation'], row['ou_id']) for row in
+                   pe.list_affiliations(person_id=pe.entity_id)
+                   if (row['affiliation'] not in ignore_affs and row['status']
+                       not in ignore_affs)):
+        # This only iterates once per affiliation per OU, even if person has
+        # several statuses for the same OU. Due to the account_type limit.
+        logger.debug("Give %s aff %s to ou_id=%s", ac.account_name,
                      co.PersonAffiliation(row['affiliation']), row['ou_id'])
-    return True
+        ac.set_account_type(ou_id=row['ou_id'], affiliation=row['affiliation'])
+
+    ac.write_db()
+
+    if with_posix:
+        pu = Factory.get('PosixUser')(db)
+        pu.populate(posix_uid=pu.get_free_uid(),
+                    gid_id=None,
+                    gecos=None,
+                    shell=co.posix_shell_bash,
+                    parent=ac)
+        pu.write_db()
+
+    # TODO:
+    # if home_path:
+    #
 
 
 def personal_accounts(db):
@@ -137,11 +191,12 @@ def personal_accounts(db):
         yield row['owner_id']
 
 
-def process(db, affiliations, commit=False, new_trait=None):
+def process(db, affiliations, commit=False, new_trait=None, spreads=(),
+            ignore_affs=(), remove_quars=(), with_posix=False):
     """Go through the database for new persons and give them accounts."""
 
     creator = Factory.get('Account')(db)
-    creator.find(cereconf.INITIAL_ACCOUNTNAME)
+    creator.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     logger.debug('Creator: {0} ({1})'.format(creator.account_name,
                                              creator.entity_id))
 
@@ -172,7 +227,8 @@ def process(db, affiliations, commit=False, new_trait=None):
         logger.debug("Processing person_id=%d", p_id)
         pe.clear()
         pe.find(p_id)
-        update_account(db, pe, creator, new_trait)
+        update_account(db, pe, creator, new_trait, spreads, ignore_affs,
+                       remove_quars, with_posix)
 
 
 class ExtendAction(argparse.Action):
@@ -215,11 +271,42 @@ def make_parser():
         help='If set, gives every new account the given trait. '
              'Usable e.g. for sending a welcome SMS for every new account.')
     parser.add_argument(
+        '--spread',
+        dest='spreads',
+        action=ExtendAction,
+        type=lambda arg: arg.split(','),
+        metavar='SPREADS',
+        help='Spreads to add to new accounts. Can be comma separated.')
+    parser.add_argument(
+        '--ignore-affs',
+        dest='ignore_affs',
+        action=ExtendAction,
+        type=lambda arg: arg.split(','),
+        metavar='AFFILIATIONS',
+        help='Affiliations to NOT copy from person to new account. '
+             'Can be comma separated. ')
+    parser.add_argument(
+        '--remove-quarantines',
+        dest='remove_quars',
+        metavar='QUARANTINE',
+        help='Quarantines to removes when restoring old accounts. '
+             'Avoid automatic quarantines.')
+    parser.add_argument(
+        '--with-posix',
+        action='store_true',
+        default=False,
+        help='Add default POSIX data to new accounts.')
+    # TODO: not sure if this is needed?
+    parser.add_argument(
+        '--home-path',
+        metavar='PATH',
+        help='The new accounts home directory, set to'
+             'cereconf.DEFAULT_HOME_SPREAD')
+    parser.add_argument(
         '--commit',
         action='store_true',
         default=False,
         help='Actually commit the work. The default is dryrun.')
-
     return parser
 
 
@@ -236,12 +323,17 @@ def main(inargs=None):
     # Lookup stuff
     affiliations = [str2aff(co, a) for a in args.affs]
     new_trait = int(co.EntityTrait(args.trait)) if args.trait else None
+    spreads = [co.Spread(s) for s in args.spreads]
+    ignore_affs = [str2aff(co, a) for a in args.ignore_affs]
+    remove_quars = [co.Quarantine(q) for q in args.remove_quars]
+    # TODO: posix details - args.posix_path etc?
 
     if not affiliations:
         raise RuntimeError("No affiliations given")
 
     db.cl_init(change_program="generate_accounts")
-    process(db, affiliations, args.commit, new_trait)
+    process(db, affiliations, args.commit, new_trait, spreads, ignore_affs,
+            remove_quars, args.with_posix)
 
     if args.commit:
         db.commit()
