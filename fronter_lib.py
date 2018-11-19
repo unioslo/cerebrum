@@ -30,7 +30,7 @@ import time
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uit.access_FS import FS
-from Cerebrum import Database
+from Cerebrum.database import postgres
 from Cerebrum.extlib import xmlprinter
 
 
