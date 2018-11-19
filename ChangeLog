@@ -1,3 +1,5 @@
+2018-11-19 <kennethj@gagarin.uit.no>
+    * populate_fronter_groups.py:   updated to handle utf-8 encoding instead of iso-8859-1
 2018-11-01  <kennethj@gagarin.uit.no>
     * export_oid.py: removed utf-8 encoding on contact_value. it has already been encoded.
     * export_cristin.py:    updated to handle utf-8 input and iso-8859-1 output. (we're really not happy about the solution, but it works :)
