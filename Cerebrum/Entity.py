@@ -511,17 +511,6 @@ class EntityNameWithLanguage(Entity):
 
         return where, binds
 
-    def find_by_name_with_language(self, name_variant=None, name_language=None,
-                                   name=None):
-        """Locate the one entity matching the language name filters."""
-        where, binds = self._query_builder(None, name_variant, name_language,
-                                           name)
-        entity_id = self.query_1("""
-        SELECT entity_id
-        FROM [:table schema=cerebrum name=entity_language_name] eln
-        %s""" % where, binds)
-        return self.find(entity_id)
-
     def add_name_with_language(self, name_variant, name_language, name):
         """Add or update a specific language name."""
 
