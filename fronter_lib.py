@@ -1,4 +1,4 @@
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2003 University of Oslo, Norway
 #
@@ -23,7 +23,7 @@
 NB! This module is used by other institutions as well. Be careful with
 shuffling the functionality around.
 """
-
+from __future__ import unicode_literals
 import re
 import time
 
@@ -96,12 +96,12 @@ host_config = {
 
 
 def UE2KursID(kurstype, *rest):
-    """Lag ureg2000-spesifikk 'kurs-ID' av primærnøkkelen til en
+    """Lag ureg2000-spesifikk 'kurs-ID' av primÃ¦rnÃ¸kkelen til en
     undervisningsenhet, et EVU-kurs eller et kull.  Denne kurs-IDen forblir
-    uforandret så lenge kurset pågår; den endres altså ikke når man
+    uforandret sÃ¥ lenge kurset pÃ¥gÃ¥r; den endres altsÃ¥ ikke nÃ¥r man
     f.eks. kommer til et nytt semester.
 
-    Første argument angir hvilken type FS-entitet de resterende argumentene
+    FÃ¸rste argument angir hvilken type FS-entitet de resterende argumentene
     stammer fra; enten 'KURS' (for undervisningsenhet), 'EVU' (for EVU-kurs),
     eller 'KULL' (for kull).
     """
@@ -130,7 +130,7 @@ def UE2KursID(kurstype, *rest):
     elif kurstype != 'kurs':
         raise ValueError, "ERROR: Ukjent kurstype <%s> (%s)" % (kurstype, rest)
 
-    # Vi vet her at $kurstype er 'KURS', og vet dermed også hvilke
+    # Vi vet her at $kurstype er 'KURS', og vet dermed ogsÃ¥ hvilke
     # elementer som er med i *rest:
     if len(rest) != 6:
         raise ValueError, \
@@ -144,29 +144,29 @@ def UE2KursID(kurstype, *rest):
     # Finn $termk og $aar for ($termnr - 1) semestere siden:
     if (tmp_termk == 'h_st'):
         if (termnr % 2) == 1:
-            termk = 'høst'
+            termk = 'hÃ¸st'
         else:
-            termk = 'vår'
+            termk = 'vÃ¥r'
         aar -= int((termnr - 1) / 2)
     elif tmp_termk == 'v_r':
         if (termnr % 2) == 1:
-            termk = 'vår'
+            termk = 'vÃ¥r'
         else:
-            termk = 'høst'
+            termk = 'hÃ¸st'
         aar -= int(termnr / 2)
     else:
-        # Vi krysser fingrene og håper at det aldri vil benyttes andre
-        # verdier for $termk enn 'vår' og 'høst', da det i så fall vil
-        # bli vanskelig å vite hvilket semester det var "for 2
+        # Vi krysser fingrene og hÃ¥per at det aldri vil benyttes andre
+        # verdier for $termk enn 'vÃ¥r' og 'hÃ¸st', da det i sÃ¥ fall vil
+        # bli vanskelig Ã¥ vite hvilket semester det var "for 2
         # semestere siden".
         raise ValueError, \
               "ERROR: Unknown terminkode <%s> for emnekode <%s>." % (
             termk, emnekode)
 
     # $termnr er ikke del av den returnerte strengen.  Vi har benyttet
-    # $termnr for å beregne $termk og $aar ved $termnr == 1; det er
-    # altså implisitt i kurs-IDen at $termnr er lik 1 (og dermed
-    # unødvendig å ta med).
+    # $termnr for Ã¥ beregne $termk og $aar ved $termnr == 1; det er
+    # altsÃ¥ implisitt i kurs-IDen at $termnr er lik 1 (og dermed
+    # unÃ¸dvendig Ã¥ ta med).
     return fields2key(kurstype, instnr, emnekode, versjon, termk, aar)
 # end UE2KursID
 
@@ -185,7 +185,7 @@ def fields2key(*fields):
     @param fields: tuple
     """
 
-    return (":".join([str(x) for x in fields])).lower()
+    return (":".join([unicode(x) for x in fields])).lower()
 # end make_key
 
 
@@ -228,7 +228,7 @@ class XMLWriter(object):   # TODO: Move to separate file
         a = {}
         # saxutils don't like integers as values (convert to str)
         for k, v in attrs.iteritems():
-            a[k] = str(attrs[k])
+            a[k] = unicode(attrs[k])
         self.gen.startElement(tag, a)
 
     def endTag(self, tag):
@@ -238,13 +238,13 @@ class XMLWriter(object):   # TODO: Move to separate file
         a = {}
         # saxutils don't like integers as values (convert to str)
         for k, v in attrs.iteritems():
-            a[k] = str(v)
+            a[k] = unicode(v)
         self.gen.emptyElement(tag, a)
 
     def dataElement(self, tag, data, attrs={}):
         a = {}
         for k, v in attrs.iteritems():
-            a[k] = str(v)
+            a[k] = unicode(v)
         self.gen.dataElement(tag, data, a)
 
     def comment(self, data):  # TODO: implement
@@ -274,9 +274,9 @@ def semester_number(start_year, start_semester,
     ss = start_semester.lower()
     years = int(current_year) - int(start_year)
     correction = 0
-    if cs == 'høst' and ss == 'vår':
+    if cs == 'hÃ¸st' and ss == 'vÃ¥r':
         correction = 1
-    elif cs == 'vår' and ss == 'høst':
+    elif cs == 'vÃ¥r' and ss == 'hÃ¸st':
         correction = -1
     return years*2 + correction+1
 # end semester_number
