@@ -660,18 +660,6 @@ def should_export_person(person):
             _get_redacted_person_id_list(person))
         return False
 
-    # Filter out people that have 8;50 as a HOVEDSTILLING
-    assignments = filter(lambda x: x.kind in [DataEmployment.HOVEDSTILLING],
-                         person.iteremployment())
-    assignments_8_50 = filter(lambda x: x.mg == 8 and x.mug == 50,
-                              assignments)
-
-    if assignments_8_50 and assignments_8_50 == assignments:
-        logger.info("Skipping, person_id %s only has MG/MUG 8;50 records and "
-                    "has no applicable role",
-                    _get_redacted_person_id_list(person))
-        return False
-
     # Filter out persons without a scientific position
     scientific_employment = filter(lambda x: x.category == u'vitenskaplig',
                                    person.iteremployment())
