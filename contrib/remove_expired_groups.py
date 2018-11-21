@@ -29,8 +29,10 @@ from six import text_type
 
 import cerebrum_path
 
+from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.Utils import Factory
 from Cerebrum.database import DatabaseError
+from Cerebrum.database import IntegrityError
 from mx.DateTime import now
 
 logger = Factory.get_logger('cronjob')
@@ -51,6 +53,7 @@ def remove_expired_groups(db, days, pretend):
         if pretend:
             logger.info('DRYRUN: Rolling back all changes')
         gr = Factory.get('Group')(db)
+        ba = BofhdAuth(db)
         expired_groups = gr.search(filter_expired=False, expired_only=True)
         for group in expired_groups:
             removal_deadline = group['expire_date'] + days
@@ -64,6 +67,10 @@ def remove_expired_groups(db, days, pretend):
                         logger.debug("Skipping group %r, has extensions %r",
                                      gr.group_name, exts)
                         continue
+                    if ba.list_alterable_entities(gr.entity_id, 'group'):
+                        logger.debug("Skipping group %r, is moderator of a "
+                                     "group", gr.group_name)
+                        continue
                     gr.delete()
                     if not pretend:
                         db.commit()
@@ -74,6 +81,11 @@ def remove_expired_groups(db, days, pretend):
                         'Expired group (%s - %s) removed' % (
                             group['name'],
                             group['description']))
+                except IntegrityError as e:
+                    logger.error('Integrity Error: %r', text_type(e))
+                    db.rollback()
+                    continue
+
                 except DatabaseError as e:
                     logger.error(
                         'Database error: Could not delete expired group '
