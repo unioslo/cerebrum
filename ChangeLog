@@ -1,3 +1,5 @@
+2018-11-22 <kennethj@gagarin.uit.no>
+    * ad_export_autogroups_undervisning.py:  added missing include unicode_literals
 2018-11-19 <kennethj@gagarin.uit.no>
     * populate_fronter_groups.py:   updated to handle utf-8 encoding instead of iso-8859-1
 2018-11-01  <kennethj@gagarin.uit.no>

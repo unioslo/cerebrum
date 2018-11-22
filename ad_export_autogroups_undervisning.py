@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+from __future__ import unicode_literals
 
 progname = __file__.split("/")[-1]
 __doc__="""
@@ -208,11 +208,11 @@ def GetUndenhGroups():
                 logger.warn("No members in group %s (%s)" % (group['group_id'], group['name']))
                 continue
 
-        # gname should look like this now "kurs:186:bed-2049:1:vår:2018:1:student"
+        # gname should look like this now "kurs:186:bed-2049:1:vï¿½r:2018:1:student"
         (type,org,emnekode,versjonskode,sem,aar,terminkode,rolle)=gname.split(":")
 
         ad_commonname= ".".join(("emner",emnekode,aar,sem,versjonskode,terminkode,rolle))
-        # ad_commonname should look like "emner.bed-2049.2018.vår.1.1.student"
+        # ad_commonname should look like "emner.bed-2049.2018.vï¿½r.1.1.student"
         ad_samaccountname=ad_commonname
         email_lp=ac.wash_email_local_part(ad_samaccountname)
         ad_samaccountname=email_lp
@@ -240,7 +240,7 @@ def GetUndenhGroups():
                            'mailNickName'  : ad_mailnickname,
                            'extensionAttribute1': type, #undenh 
                            'extensionAttribute2': emnekode,
-                           'extensionAttribute3': aar,  # år 
+                           'extensionAttribute3': aar,  # ï¿½r 
                            'extensionAttribute4': sem,  # sem
                            'extensionAttribute5': versjonskode,
                            'extensionAttribute6': terminkode,
@@ -262,7 +262,7 @@ def GetStudieprogramgroups():
     groups=gr.search(name=grp_search_term)
     for group in groups:
         gname=group['name'].replace("%s:" % fg_prefix,'')
-        # gname should look like this now "kull:barock:høst:2013:student"
+        # gname should look like this now "kull:barock:hï¿½st:2013:student"
         (type,stprogkode,sem,aar,rolle)=gname.split(":")
         type = 'studieprogram' # type should be "studieprogram", not "kull"
 
@@ -445,7 +445,7 @@ def writeXML(xmlfile=default_export_file):
                 <extensionAttribute1>type</extensionAttribute1>         #undenh or studierprogram
                 <extensionAttribute2>emnekode</extensionAttribute2>     # emnekode or studieprogramkode 
                 <extensionAttribute3>2014</extensionAttribute3>         # year  
-                <extensionAttribute4>høst</extensionAttribute4>         # semester
+                <extensionAttribute4>hï¿½st</extensionAttribute4>         # semester
                 <extensionAttribute5>versjonskode</extensionAttribute5> # only for emner
                 <extensionAttribute6>terminkode</extensionAttribute6>   # only for emner
                 <extensionAttribute7>rolle</extensionAttribute7>        # only student at present
