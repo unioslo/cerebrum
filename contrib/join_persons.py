@@ -19,7 +19,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import getopt
 import sys
 import time
 import logging
@@ -27,9 +26,11 @@ import argparse
 
 from Cerebrum import Constants
 from Cerebrum import Errors
+from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 
-logger=logging.getLogger('tee')
+logger = logging.getLogger(__name__)
+
 
 def get_constants_by_type(co, class_type):
     ret = []
@@ -41,7 +42,7 @@ def get_constants_by_type(co, class_type):
 
 
 def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
-                with_uio_ephorte, with_uio_voip):
+                with_uio_ephorte, with_uio_voip, db, co, source_systems):
     old_id = old_person.entity_id
     new_id = new_person.entity_id
 
@@ -57,7 +58,7 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
     types = types.keys()
     for ss in source_systems:
         logger.debug("person_external_id: %s" % ss)
-        new_person.clear()     # Avoid "Attribute '_extid_source' is read-only."
+        new_person.clear()   # Avoid "Attribute '_extid_source' is read-only."
         new_person.find(new_id)
         new_person.affect_external_id(ss, *types)
         old_person.clear()
@@ -75,7 +76,7 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
                                                 id['external_id'])
         except Errors.NotFoundError:
             pass
-        old_person.write_db()   # Avoids unique external_id constraint violation
+        old_person.write_db()  # Avoids unique external_id constraint violation
         new_person.write_db()
 
     # person_name
@@ -177,10 +178,10 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
             new_person.delete_affiliation(*d)
 
     if with_uio_pq:
-        join_uio_printerquotas(old_id, new_id)
+        join_uio_printerquotas(old_id, new_id, db, co)
 
     if with_uia_pq:
-        join_uia_printerquotas(old_id, new_id)
+        join_uia_printerquotas(old_id, new_id, db)
 
     # account_type
     account = Factory.get('Account')(db)
@@ -225,10 +226,10 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
         group.remove_member(old_person.entity_id)
 
     if with_uio_ephorte:
-        join_ephorte_roles(old_id, new_id)
+        join_ephorte_roles(old_id, new_id, db)
 
     if with_uio_voip:
-        join_uio_voip_objects(old_id, new_id)
+        join_uio_voip_objects(old_id, new_id, db)
 
     # EntityConsentMixin
     join_consents(old_person, new_person)
@@ -269,7 +270,7 @@ def join_consents(old_person, new_person):
     new_person.write_db()
 
 
-def join_ephorte_roles(old_id, new_id):
+def join_ephorte_roles(old_id, new_id, db):
     # All ephorte roles belonging to old_person must be deleted.
     # Any roles that are manual (auto=F) should be given to new person
     from Cerebrum.modules.no.uio.Ephorte import EphorteRole
@@ -304,7 +305,7 @@ def join_ephorte_roles(old_id, new_id):
                                  row['arkivdel'], row['journalenhet'])
 
 
-def join_uia_printerquotas(old_id, new_id):
+def join_uia_printerquotas(old_id, new_id, db):
     # import relevant, UiA-specific pq-module
     from Cerebrum.modules.no.hia.printerquotas import PQuota
     pq_old = PQuota.PQuota(db)
@@ -338,7 +339,7 @@ def join_uia_printerquotas(old_id, new_id):
                     old_id, new_id)
 
 
-def join_uio_printerquotas(old_id, new_id):
+def join_uio_printerquotas(old_id, new_id, db, co):
     # Delayed import in case module is not installed
     from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
     from Cerebrum.modules.no.uio.printer_quota import PPQUtil
@@ -385,7 +386,7 @@ def join_uio_printerquotas(old_id, new_id):
                     ignore_transaction_type=True)
 
 
-def join_uio_voip_objects(old_id, new_id):
+def join_uio_voip_objects(old_id, new_id, db):
     """Transfer voip objects from person old_id to person new_id.
 
     Respect that a person can have at most one voip_address, i.e.
@@ -429,24 +430,8 @@ def join_uio_voip_objects(old_id, new_id):
         sys.exit(1)
 
 
-def usage(exitcode=0):
-#     print """join_persons.py --old entity_id --new entity_id[options]
-#              --pq-uio transfer uio-printerquotas
-#              --pq-uia transfer uia-printerquotas
-#              --voip-uio transfer voip objects
-#              --ephorte-uio transfer uio-ephorte roles
-#              --dryrun
-#
-# Merges all information about a person identified by entity_id into the new
-# person, not overwriting existing values in new person.  The old_person entity
-# is permanently removed from the database.
-#
-# """
-    sys.exit(exitcode)
-
-
-def main2():
-    parser=argparse.ArgumentParser(
+def main():
+    parser = argparse.ArgumentParser(
         description='''Merges all information about a person identified by 
         entity_id into the new person, not overwriting existing values in 
         new person.  The old_person entity is permanently removed from the
@@ -487,77 +472,41 @@ def main2():
         help='Run without altering database',
         action='store_true')
 
-    args=parser.parse_args()
+    logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    logutils.autoconf('tee', args)
+
+    logger.info('Start of script %s', parser.prog)
+    logger.debug('args: %r', args)
+
     if not (args.old and args.new):
         sys.exit(1)
 
-    # db = Factory.get('Database')()
-    # db.cl_init(change_program="join_persons")
-    # co = Factory.get('Constants')(db)
-    # source_systems = get_constants_by_type(co, Constants._AuthoritativeSystemCode)
+    db = Factory.get('Database')()
+    db.cl_init(change_program="join_persons")
+    co = Factory.get('Constants')(db)
+    source_systems = \
+        get_constants_by_type(co, Constants._AuthoritativeSystemCode)
+    logger.debug(('source_systems: %r', source_systems))
 
     old_person = Factory.get('Person')(db)
     old_person.find(args.old)
     new_person = Factory.get('Person')(db)
     new_person.find(args.new)
     person_join(old_person, new_person, args.with_uio_pq, args.with_uia_pq,
-        args.with_uio_ephorte, args.with_uio_voip)
+                args.with_uio_ephorte, args.with_uio_voip, db, co,
+                source_systems)
     old_person.delete()
 
     if args.dryrun:
         db.rollback()
+        logger.info('Changes to the database were rolled back')
     else:
         db.commit()
+        logger.info('Changes were committed to the database')
 
+    logger.info('Done with script %s', parser.prog)
 
-def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], '',
-                                   ['old=', 'new=', 'dryrun',
-                                    'pq-uio', 'ephorte-uio',
-                                    'pq-uia', 'voip-uio'])
-    except getopt.GetoptError:
-        usage(1)
-
-    dryrun = with_uio_pq = with_uio_ephorte = with_uia_pq = False
-    with_uio_voip = False
-    old = new = 0
-    for opt, val in opts:
-        if opt == '--old':
-            old = int(val)
-        elif opt == '--pq-uio':
-            with_uio_pq = True
-        elif opt == '--pq-uia':
-            with_uia_pq = True
-        elif opt == '--new':
-            new = int(val)
-        elif opt == '--ephorte-uio':
-            with_uio_ephorte = True
-        elif opt == '--voip-uio':
-            with_uio_voip = True
-        elif opt == '--dryrun':
-            dryrun = True
-    if not (old and new):
-        usage(1)
-    old_person = Factory.get('Person')(db)
-    old_person.find(old)
-    new_person = Factory.get('Person')(db)
-    new_person.find(new)
-    person_join(old_person, new_person, with_uio_pq, with_uia_pq,
-                with_uio_ephorte, with_uio_voip)
-    old_person.delete()
-
-    if dryrun:
-        db.rollback()
-    else:
-        db.commit()
-
-
-db = Factory.get('Database')()
-db.cl_init(change_program="join_persons")
-co = Factory.get('Constants')(db)
-source_systems = get_constants_by_type(co, Constants._AuthoritativeSystemCode) #REMOVE LATER............
 
 if __name__ == '__main__':
-    # main()
-    main2()
+    main()
