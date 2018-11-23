@@ -22,11 +22,14 @@
 import getopt
 import sys
 import time
+import logging
+import argparse
 
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
+logger=logging.getLogger('tee')
 
 def get_constants_by_type(co, class_type):
     ret = []
@@ -427,19 +430,84 @@ def join_uio_voip_objects(old_id, new_id):
 
 
 def usage(exitcode=0):
-    print """join_persons.py --old entity_id --new entity_id[options]
-             --pq-uio transfer uio-printerquotas
-             --pq-uia transfer uia-printerquotas
-             --voip-uio transfer voip objects
-             --ephorte-uio transfer uio-ephorte roles
-             --dryrun
-
-Merges all information about a person identified by entity_id into the new
-person, not overwriting existing values in new person.  The old_person entity
-is permanently removed from the database.
-
-"""
+#     print """join_persons.py --old entity_id --new entity_id[options]
+#              --pq-uio transfer uio-printerquotas
+#              --pq-uia transfer uia-printerquotas
+#              --voip-uio transfer voip objects
+#              --ephorte-uio transfer uio-ephorte roles
+#              --dryrun
+#
+# Merges all information about a person identified by entity_id into the new
+# person, not overwriting existing values in new person.  The old_person entity
+# is permanently removed from the database.
+#
+# """
     sys.exit(exitcode)
+
+
+def main2():
+    parser=argparse.ArgumentParser(
+        description='''Merges all information about a person identified by 
+        entity_id into the new person, not overwriting existing values in 
+        new person.  The old_person entity is permanently removed from the
+         database.''')
+
+    parser.add_argument(
+        '--old',
+        default=0,
+        help='Old entity_id',
+        type=int)
+    parser.add_argument(
+        '--new',
+        help='New entity_id',
+        default=0,
+        type=int)
+    parser.add_argument(
+        '--pq-uio',
+        dest='with_uio_pq',
+        help="Transfer uio-printerquotas",
+        action='store_true')
+    parser.add_argument(
+        '--pq-uia',
+        dest='with_uia_pq',
+        help='Transfer uia-printerquotas',
+        action='store_true')
+    parser.add_argument(
+        '--ephorte-uio',
+        dest='with_uio_ephorte',
+        help='transfer uio-ephorte roles',
+        action='store_true')
+    parser.add_argument(
+        '--voip-uio',
+        dest='with_uio_voip',
+        help='transfer voip objects',
+        action='store_true')
+    parser.add_argument(
+        '--dryrun',
+        help='Run without altering database',
+        action='store_true')
+
+    args=parser.parse_args()
+    if not (args.old and args.new):
+        sys.exit(1)
+
+    # db = Factory.get('Database')()
+    # db.cl_init(change_program="join_persons")
+    # co = Factory.get('Constants')(db)
+    # source_systems = get_constants_by_type(co, Constants._AuthoritativeSystemCode)
+
+    old_person = Factory.get('Person')(db)
+    old_person.find(args.old)
+    new_person = Factory.get('Person')(db)
+    new_person.find(args.new)
+    person_join(old_person, new_person, args.with_uio_pq, args.with_uia_pq,
+        args.with_uio_ephorte, args.with_uio_voip)
+    old_person.delete()
+
+    if args.dryrun:
+        db.rollback()
+    else:
+        db.commit()
 
 
 def main():
@@ -484,11 +552,12 @@ def main():
     else:
         db.commit()
 
-logger = Factory.get_logger("tee")
+
 db = Factory.get('Database')()
 db.cl_init(change_program="join_persons")
 co = Factory.get('Constants')(db)
-source_systems = get_constants_by_type(co, Constants._AuthoritativeSystemCode)
+source_systems = get_constants_by_type(co, Constants._AuthoritativeSystemCode) #REMOVE LATER............
 
 if __name__ == '__main__':
-    main()
+    # main()
+    main2()
