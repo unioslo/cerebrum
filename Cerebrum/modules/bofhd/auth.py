@@ -223,6 +223,7 @@ from Cerebrum import Cache
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import Person
+from Cerebrum.Group import Group
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.Utils import argument_to_sql
@@ -2368,3 +2369,20 @@ class BofhdAuth(DatabaseAccessor):
         raise PermissionDenied("You don't have permission to view "
                                "external ids for person entity {}".format(
                                    person.entity_id))
+
+
+class BofhdAuthGroupMixin(Group):
+    """
+    This class is intended as a mixin to the base Group class, to enable
+    identification and cleanup of BodhAuth related data.
+    """
+    def __init__(self, database):
+        super(BofhdAuthGroupMixin, self).__init__(database)
+
+    def delete(self):
+        """Removes all moderator rights for a group."""
+        self.execute(
+            """
+            DELETE FROM [:table schema=cerebrum name=auth_role]
+            WHERE entity_id=:e_id
+            """, {'e_id': self.entity_id})
