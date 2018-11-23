@@ -718,8 +718,8 @@ class BofhdAuth(DatabaseAccessor):
             The account to check is operator is owner of.
         """
 
-        return (self._is_owner_of_personal_account(operator, account)
-                or self._is_owner_of_nonpersonal_account(operator, account))
+        return (self._is_owner_of_personal_account(operator, account) or
+                self._is_owner_of_nonpersonal_account(operator, account))
 
     def has_privileged_access_to_group(
             self, operator, operation, entity, operation_attr=None):
@@ -1586,8 +1586,7 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         return (self.can_give_user(operator, account,
-                                   query_run_any=query_run_any)
-                and
+                                   query_run_any=query_run_any) and
                 self.can_receive_user(operator, account, dest_disk,
                                       query_run_any=query_run_any))
 
@@ -2376,8 +2375,8 @@ class BofhdAuthGroupMixin(Group):
     This class is intended as a mixin to the base Group class, to enable
     identification and cleanup of BodhAuth related data.
     """
-    def __init__(self, database):
-        super(BofhdAuthGroupMixin, self).__init__(database)
+    # def __init__(self, database):
+    #     super(BofhdAuthGroupMixin, self).__init__(database)
 
     def delete(self):
         """Removes all moderator rights for a group."""
