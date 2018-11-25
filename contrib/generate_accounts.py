@@ -98,7 +98,6 @@ def restore_account(db, pe, ac, remove_quars):
 
     gr = Factory.get('Group')(db)
     for row in gr.search(member_id=ac.entity_id):
-        # TODO: dfg still a problem?
         gr.clear()
         gr.find(row['group_id'])
         gr.remove_member(ac.entity_id)
@@ -108,7 +107,7 @@ def restore_account(db, pe, ac, remove_quars):
 
 
 def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
-                   remove_quars=(), with_posix=False):
+                   remove_quars=(), with_posix=False, home=None):
     """Make sure that the given person has an active account. It the person has
     no accounts, a new one will be created. If the person already has an
     account it will be 'restored'.
@@ -131,11 +130,11 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
         break
     else:
         # no account found, create a new one
-        name = (pe.get_name(co.system_cached, co.name_first),
-                pe.get_name(co.system_cached, co.name_last))
         names = ac.suggest_unames(domain=co.account_namespace,
-                                  fname=name[0],
-                                  lname=name[1])
+                                  fname=pe.get_name(co.system_cached,
+                                                    co.name_first),
+                                  lname=pe.get_name(co.system_cached,
+                                                    co.name_last))
         if len(names) < 1:
             logger.warn('Person %d has no name, skipping', pe.entity_id)
             return
@@ -163,9 +162,10 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
                        not in ignore_affs)):
         # This only iterates once per affiliation per OU, even if person has
         # several statuses for the same OU. Due to the account_type limit.
+        affiliation, ou_id = row
         logger.debug("Give %s aff %s to ou_id=%s", ac.account_name,
-                     co.PersonAffiliation(row['affiliation']), row['ou_id'])
-        ac.set_account_type(ou_id=row['ou_id'], affiliation=row['affiliation'])
+                     co.PersonAffiliation(affiliation), ou_id)
+        ac.set_account_type(affiliation=affiliation, ou_id=ou_id)
 
     ac.write_db()
 
@@ -178,9 +178,14 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
                     parent=ac)
         pu.write_db()
 
-    # TODO:
-    # if home_path:
-    #
+    if home:
+        logger.debug("Set homedir for account %s to disk_id=%s",
+                     ac.account_name, home['disk_id'])
+        homedir_id = ac.set_homedir(
+                disk_id=home['disk_id'],
+                status=co.home_status_not_created)
+        ac.set_home(home['spread'], homedir_id)
+        ac.write_db()
 
 
 def personal_accounts(db):
@@ -191,8 +196,18 @@ def personal_accounts(db):
         yield row['owner_id']
 
 
-def process(db, affiliations, commit=False, new_trait=None, spreads=(),
-            ignore_affs=(), remove_quars=(), with_posix=False):
+def _get_disk(self, db, path):
+    """Stolen and modified from bofhd_uio_cmds"""
+    disk = Factory.get('Disk')(db)
+    try:
+        disk.find_by_path(path)
+    except Errors.NotFoundError:
+        raise Exception("Unknown disk: %s" % path)
+    return disk.entity_id
+
+
+def process(db, affiliations, new_trait=None, spreads=(), ignore_affs=(),
+            remove_quars=(), with_posix=False, home=None):
     """Go through the database for new persons and give them accounts."""
 
     creator = Factory.get('Account')(db)
@@ -228,7 +243,7 @@ def process(db, affiliations, commit=False, new_trait=None, spreads=(),
         pe.clear()
         pe.find(p_id)
         update_account(db, pe, creator, new_trait, spreads, ignore_affs,
-                       remove_quars, with_posix)
+                       remove_quars, with_posix, home)
 
 
 class ExtendAction(argparse.Action):
@@ -296,12 +311,20 @@ def make_parser():
         action='store_true',
         default=False,
         help='Add default POSIX data to new accounts.')
-    # TODO: not sure if this is needed?
+    parser.add_argument(
+        '--home-spread',
+        metavar='SPREAD',
+        default=cereconf.DEFAULT_HOME_SPREAD,
+        help='The spread for the new home directory. Defaults to'
+             'cereconf.DEFAULT_HOME_SPREAD')
+    parser.add_argument(
+        '--home-disk',
+        metavar='PATH',
+        help="Path to disk to put new accounts' home directory")
     parser.add_argument(
         '--home-path',
         metavar='PATH',
-        help='The new accounts home directory, set to'
-             'cereconf.DEFAULT_HOME_SPREAD')
+        help="Path to new accounts' homedir, if Disc isn't supported")
     parser.add_argument(
         '--commit',
         action='store_true',
@@ -326,14 +349,17 @@ def main(inargs=None):
     spreads = [co.Spread(s) for s in args.spreads]
     ignore_affs = [str2aff(co, a) for a in args.ignore_affs]
     remove_quars = [co.Quarantine(q) for q in args.remove_quars]
-    # TODO: posix details - args.posix_path etc?
+    home = {}
+    if args.home_disk:
+        home['disk_id'] = _get_disk(db, args.home_disk)
+        home['spread'] = int(co.Spread(args.home_spread))
 
     if not affiliations:
         raise RuntimeError("No affiliations given")
 
     db.cl_init(change_program="generate_accounts")
-    process(db, affiliations, args.commit, new_trait, spreads, ignore_affs,
-            remove_quars, args.with_posix)
+    process(db, affiliations, new_trait, spreads, ignore_affs, remove_quars,
+            args.with_posix, home)
 
     if args.commit:
         db.commit()
