@@ -107,7 +107,7 @@ def restore_account(db, pe, ac, remove_quars):
 
 
 def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
-                   remove_quars=(), with_posix=False, home=None):
+                   remove_quars=(), posix=False, home=None):
     """Make sure that the given person has an active account. It the person has
     no accounts, a new one will be created. If the person already has an
     account it will be 'restored'.
@@ -169,10 +169,11 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
 
     ac.write_db()
 
-    if with_posix:
+    if posix:
+        logger.debug("Add POSIX for account: %s", ac.account_name)
         pu = Factory.get('PosixUser')(db)
         pu.populate(posix_uid=pu.get_free_uid(),
-                    gid_id=None,
+                    gid_id=posix.get('dfg'),
                     gecos=None,
                     shell=co.posix_shell_bash,
                     parent=ac)
@@ -196,8 +197,7 @@ def personal_accounts(db):
         yield row['owner_id']
 
 
-def _get_disk(self, db, path):
-    """Stolen and modified from bofhd_uio_cmds"""
+def get_disk(db, path):
     disk = Factory.get('Disk')(db)
     try:
         disk.find_by_path(path)
@@ -206,8 +206,17 @@ def _get_disk(self, db, path):
     return disk.entity_id
 
 
+def get_posixgroup(db, groupname):
+    pg = Factory.get('PosixGroup')(db)
+    try:
+        pg.find_by_name(groupname)
+    except Errors.NotFoundError:
+        raise Exception("Unknown POSIX group: %s" % groupname)
+    return pg.entity_id
+
+
 def process(db, affiliations, new_trait=None, spreads=(), ignore_affs=(),
-            remove_quars=(), with_posix=False, home=None):
+            remove_quars=(), posix=False, home=None):
     """Go through the database for new persons and give them accounts."""
 
     creator = Factory.get('Account')(db)
@@ -243,7 +252,7 @@ def process(db, affiliations, new_trait=None, spreads=(), ignore_affs=(),
         pe.clear()
         pe.find(p_id)
         update_account(db, pe, creator, new_trait, spreads, ignore_affs,
-                       remove_quars, with_posix, home)
+                       remove_quars, posix, home)
 
 
 class ExtendAction(argparse.Action):
@@ -273,6 +282,7 @@ def make_parser():
     parser.add_argument(
         '--aff',
         dest='affs',
+        required=True,
         action=ExtendAction,
         type=lambda arg: arg.split(','),
         metavar='AFFILIATIONS',
@@ -294,7 +304,6 @@ def make_parser():
         help='Spreads to add to new accounts. Can be comma separated.')
     parser.add_argument(
         '--ignore-affs',
-        dest='ignore_affs',
         action=ExtendAction,
         type=lambda arg: arg.split(','),
         metavar='AFFILIATIONS',
@@ -303,6 +312,8 @@ def make_parser():
     parser.add_argument(
         '--remove-quarantines',
         dest='remove_quars',
+        action=ExtendAction,
+        type=lambda arg: arg.split(','),
         metavar='QUARANTINE',
         help='Quarantines to removes when restoring old accounts. '
              'Avoid automatic quarantines.')
@@ -312,19 +323,19 @@ def make_parser():
         default=False,
         help='Add default POSIX data to new accounts.')
     parser.add_argument(
+        '--posix-dfg',
+        metavar='POSIXGROUP',
+        help='POSIX GID - default file group')
+    parser.add_argument(
         '--home-spread',
         metavar='SPREAD',
         default=cereconf.DEFAULT_HOME_SPREAD,
-        help='The spread for the new home directory. Defaults to'
+        help='The spread for the new home directory. Defaults to '
              'cereconf.DEFAULT_HOME_SPREAD')
     parser.add_argument(
         '--home-disk',
         metavar='PATH',
         help="Path to disk to put new accounts' home directory")
-    parser.add_argument(
-        '--home-path',
-        metavar='PATH',
-        help="Path to new accounts' homedir, if Disc isn't supported")
     parser.add_argument(
         '--commit',
         action='store_true',
@@ -351,15 +362,20 @@ def main(inargs=None):
     remove_quars = [co.Quarantine(q) for q in args.remove_quars]
     home = {}
     if args.home_disk:
-        home['disk_id'] = _get_disk(db, args.home_disk)
+        home['disk_id'] = get_disk(db, args.home_disk)
         home['spread'] = int(co.Spread(args.home_spread))
+    posix = {}
+    if args.with_posix:
+        posix['enabled'] = True
+        if args.posix_dfg:
+            posix['dfg'] = get_posixgroup(db, args.posix_dfg)
 
     if not affiliations:
         raise RuntimeError("No affiliations given")
 
     db.cl_init(change_program="generate_accounts")
     process(db, affiliations, new_trait, spreads, ignore_affs, remove_quars,
-            args.with_posix, home)
+            posix, home)
 
     if args.commit:
         db.commit()
