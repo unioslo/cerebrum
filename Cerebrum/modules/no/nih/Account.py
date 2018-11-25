@@ -163,12 +163,12 @@ class AccountNIHMixin(Account.Account):
         ed = Email.EmailDomain(self._db)
         ea = Email.EmailAddress(self._db)
         try:
-            ed.find(self.get_primary_maildomain(use_default_domain=False))
+            ed.find(self.get_primary_maildomain())
         except Errors.NotFoundError:
             # no appropriate primary domain was found, no valid address may
             # be generated
             return
-        domains = self.get_prospect_maildomains(use_default_domain=False)
+        domains = self.get_prospect_maildomains()
         # Iterate over the available domains, testing various
         # local_parts for availability.  Set user's primary address to
         # the first one found to be available.

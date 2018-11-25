@@ -209,8 +209,6 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
                 return
         mapping = [(int(self.const.spread_uio_nis_user),
                     int(self.const.spread_uio_nis_fg)),
-                   (int(self.const.spread_uio_ad_account),
-                    int(self.const.spread_uio_ad_group)),
                    (int(self.const.spread_ifi_nis_user),
                     int(self.const.spread_ifi_nis_fg)), ]
         user_spreads = [int(r['spread']) for r in self.get_spread()]

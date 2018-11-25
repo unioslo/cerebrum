@@ -25,21 +25,22 @@ from Cerebrum.Utils import pgp_encrypt, pgp_decrypt
 storing each system as a seperate authentication code."""
 
 # To use, add something like this to the cereconf.py
-##AUTH_PGP = {
-##    "offline": "0x8f382f1",
-##    "ad_ntnu_no": "0x82f1821d",
-##}
-##CLASS_ACCOUNT = ['Cerebrum.Account/Account',
-##                 (..)
-##                 'Cerebrum.modules.AuthPGP/AuthPGPAccountMixin']
-##
-##CLASS_CONSTANTS = [(..)
-##                   'Cerebrum.modules.AuthPGP/Constants']
+# AUTH_PGP = {
+#    "offline": "0x8f382f1",
+#    "ad_ntnu_no": "0x82f1821d",
+# }
+# CLASS_ACCOUNT = ['Cerebrum.Account/Account',
+#                 (..)
+#                 'Cerebrum.modules.AuthPGP/AuthPGPAccountMixin']
+#
+# CLASS_CONSTANTS = [(..)
+#                   'Cerebrum.modules.AuthPGP/Constants']
 
 # Remember to run makedb --update-codes to add constants to the database
 
 from Cerebrum import Account
 from Cerebrum.Utils import read_password
+
 
 # Mixin for encryption methods
 class AuthPGPAccountMixin(Account.Account):
@@ -68,7 +69,15 @@ class AuthPGPAccountMixin(Account.Account):
                 return NotImplemented
         return self.__super.verify_password(method, plaintext, cryptstring)
 
-        
+    def delete(self):
+        # TODO: Implement a log_change for this operation
+        # Remove the entity from the gpg_data table when deleting an account
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=entity_gpg_data]
+        WHERE entity_id=:e_id""", {'e_id': self.entity_id})
+        self.__super.delete()
+
+
 class Constants:
     # Will add constants dynamically
     pass
@@ -87,4 +96,3 @@ for (system, pgpkey) in cereconf.AUTH_PGP.items():
         codename, "PGP encrypted password for the system %s" % system)
     name = "auth_type_pgp_%s" % system
     setattr(Constants, name, auth_code)
-
