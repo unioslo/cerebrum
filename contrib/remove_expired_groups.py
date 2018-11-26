@@ -29,10 +29,8 @@ from six import text_type
 
 import cerebrum_path
 
-from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.Utils import Factory
 from Cerebrum.database import DatabaseError
-from Cerebrum.database import IntegrityError
 from mx.DateTime import now
 
 logger = Factory.get_logger('cronjob')
