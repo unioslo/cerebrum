@@ -22,10 +22,10 @@
 """To create new users:
         ./contrib/no/uio/process_students.py -C .../studconfig.xml
         -S .../studieprogrammer.xml -s .../merged_persons.xml -c
-
 """
 
 from __future__ import unicode_literals
+from __future__ import print_function
 
 import hotshot
 import hotshot.stats
@@ -41,9 +41,10 @@ from mx.DateTime import now
 
 import cereconf
 
+import Cerebrum.logutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum import logutils
+from Cerebrum.utils.argutils import ParserContext
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr
@@ -1147,9 +1148,9 @@ def validate_config():
        studieprogs_file is None or \
        emne_info_file is None:
 
-        print ("Missing required parameter(s). 'studconfig_file' (-C), "
-               "studieprogs_file' (-S)\nand 'emne_info_file' (-e) needs "
-               "to be specified when running --validate.")
+        print("Missing required parameter(s). 'studconfig_file' (-C), "
+              "studieprogs_file' (-S)\nand 'emne_info_file' (-e) needs "
+              "to be specified when running --validate.")
         sys.exit(1)
 
     else:
@@ -1195,122 +1196,120 @@ def process_noncallback_users(reset_diskquota=False):
 def main():
 
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
-    global student_info_file, studconfig_file, only_dump_to, \
-        studieprogs_file, dryrun, emne_info_file, move_users, \
-        remove_groupmembers, workdir, paper_money_file, ou_perspective, \
-        with_quarantines, with_diskquota, posix_tables
-
-    recalc_pq = False
-    validate = False
-    _range = None
-    reset_diskquota = False
+    global student_info_file, studconfig_file, studieprogs_file, dryrun, \
+        emne_info_file, move_users, remove_groupmembers, workdir, \
+        paper_money_file, ou_perspective, with_quarantines, with_diskquota, \
+        posix_tables
 
     # Parse arguments
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        '-d', '--debug',
-        action='store_true',
-        help='increases debug verbosity')
-
-    parser.add_argument(
-        '-c', '--create-users',
-        action='store_true',
-        help='create new users')
-
-    parser.add_argument(
-        '-u', '--update-accounts',
-        action='store_true',
-        help='update existing accounts')
-
-    parser.add_argument(
+    input_grp = parser.add_argument_group('Input files')
+    input_grp.add_argument(
         '-s',
         '--student-info-file')
-
-    parser.add_argument(
+    input_grp.add_argument(
         '-e',
         '--emne-info-file')
-
-    parser.add_argument(
+    input_grp.add_argument(
         '-p', '--paper-file',
         help='check for paid-quota only done if set')
-
-    parser.add_argument(
+    input_grp.add_argument(
         '-S',
         '--studie-progs-file')
+    input_grp.add_argument(
+        '-C',
+        '--studconfig-file')
 
-    parser.add_argument(
+    act_group = parser.add_argument_group('Actions')
+    act_group.add_argument(
+        '-c', '--create-users',
+        action='store_true',
+        help='create new users',
+        default=False)
+    act_group.add_argument(
+        '-u', '--update-accounts',
+        action='store_true',
+        help='update existing accounts',
+        default=False)
+    act_group.add_argument(
         '--recalc-pq',
         action='store_true',
-        help='recalculate printerquota settings (does not update uota). '
-             'Cannot be combined with -c/-u')
-
-    parser.add_argument(
-        '--remove-groupmembers',
-        action='store_true',
-        help='remove groupmembers if profile says so')
-
-    parser.add_argument(
-        '--with-quarantines',
-        action='store_true',
-        help='Enables quarantine settings')
-
-    parser.add_argument(
-        '--with-diskquota',
-        action='store_true')
-
-    parser.add_argument(
-        '--posix-tables',
-        action='store_true')
-
-    parser.add_argument(
-        '--move-users',
-        action='store_true',
-        help='move users if profile says so')
-
-    parser.add_argument(
+        help='recalculate printerquota settings (does not update quota). '
+             'Cannot be combined with -c/-u',
+        default=False)
+    act_group.add_argument(
         '--reset-diskquota',
         action='store_true',
         help='remove disk quota from users on student disks that did not get '
-             'a callback')
+             'a callback',
+        default=False)
 
     parser.add_argument(
+        '-d', '--debug',
+        action='store_true',
+        help='increases debug verbosity',
+        default=False)
+    parser.add_argument(
+        '--remove-groupmembers',
+        action='store_true',
+        help='remove groupmembers if profile says so',
+        default=False)
+    parser.add_argument(
+        '--with-quarantines',
+        action='store_true',
+        help='Enables quarantine settings',
+        default=False)
+    parser.add_argument(
+        '--with-diskquota',
+        action='store_true',
+        default=False)
+    parser.add_argument(
+        '--posix-tables',
+        action='store_true',
+        default=False)
+    parser.add_argument(
+        '--move-users',
+        action='store_true',
+        help='move users if profile says so',
+        default=False)
+    parser.add_argument(
         '--fast-test',
-        action='store_true')
-
+        action='store_true',
+        default=False)
     parser.add_argument(
         '--dryrun',
         action='store_true',
         help='don\'t do any changes to the database. '
              'This can be used to get an idea of what changes a normal run '
-             'would do. TODO: also dryrun some parts of update/create user.')
-
+             'would do. TODO: also dryrun some parts of update/create user.',
+        default=False)
     parser.add_argument(
         '--workdir',
         help='set workdir for --reprint')
-
     parser.add_argument(
         '--ou-perspective',
         help='set ou_perspective (default: perspective_fs)')
-
     parser.add_argument(
         '--validate',
-        help='parse the configuration file and report any errors, then exit.')
+        action='store_true',
+        help='parse the configuration file and report any errors, then exit.',
+        default=False)
 
-    parser.add_argument(
-        '-C',
-        '--studconfig-file')
-
-    logutils.options.install_subparser(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
-    logutils.autoconf('studauto', args)
+    Cerebrum.logutils.autoconf('studauto', args)
 
     # Set values according to arguments
-    if args.debug:
-        debug += 1
-    if args.create_users:
-        create_users = True
-    if args.update_accounts:
-        update_accounts = True
+    debug = args.debug
+    create_users = args.create_users
+    update_accounts = args.update_accounts
+    remove_groupmembers = args.remove_groupmembers
+    with_quarantines = args.with_quarantines
+    with_diskquota = args.with_diskquota
+    posix_tables = args.posix_tables
+    move_users = args.move_users
+    fast_test = args.fast_test  # Internal debug use ONLY!
+
     if args.student_info_file:
         student_info_file = args.student_info_file
     if args.emne_info_file:
@@ -1319,40 +1318,16 @@ def main():
         paper_money_file = args.paper_file
     if args.studie_progs_file:
         studieprogs_file = args.studie_progs_file
-    if args.recalc_pq:
-        recalc_pq = True
-    if args.remove_groupmembers:
-        remove_groupmembers = True
-    if args.with_quarantines:
-        with_quarantines = True
-    if args.with_diskquota:
-        with_diskquota = True
-    if args.posix_tables:
-        posix_tables = True
-    if args.move_users:
-        move_users = True
     if args.studconfig_file:
         studconfig_file = args.studconfig_file
-    if args.reset_diskquota:
-        reset_diskquota = True
-    if args.fast_test:  # Internal debug use ONLY!
-        fast_test = True
+
     if args.ou_perspective:
         ou_perspective = const.OUPerspective(args.ou_perspective)
         int(ou_perspective)   # Assert that it is defined
-    if args.only_dump_results:
-        only_dump_to = args.only_dump_results
-    if args.dryrun:
-        dryrun = True
     if args.validate:
-        validate = True
         workdir = '.'
     if args.workdir:
         workdir = args.workdir
-
-    if recalc_pq and (update_accounts or create_users):
-        raise ValueError("recalc-pq cannot be combined with other operations")
-
     if workdir is None:
         workdir = "%s/ps-%s.%i" % (cereconf.AUTOADMIN_LOG_DIR,
                                    strftime("%Y-%m-%d", localtime()),
@@ -1362,26 +1337,25 @@ def main():
 
     logger = Factory.get_logger("studauto")
     bootstrap()
-    if validate:
+
+    if args.validate:
         validate_config()
         print("The configuration was successfully validated.")
         sys.exit(0)
 
-    if not (recalc_pq or update_accounts or create_users or
-            reset_diskquota):
-        usage("No action selected")
+    with ParserContext(parser):
+        if args.recalc_pq and (args.update_accounts or args.create_users):
+            raise ValueError("recalc-pq cannot be combined with other "
+                             "operations")
+        if not (args.recalc_pq or args.update_accounts or args.create_users):
+            raise ValueError('No action selected')
 
-    start_process_students(recalc_pq=recalc_pq,
-                           update_create=(create_users or reset_diskquota))
-    if reset_diskquota:
-        process_noncallback_users(reset_diskquota=reset_diskquota)
+    start_process_students(recalc_pq=args.recalc_pq,
+                           update_create=(args.create_users or
+                                          args.reset_diskquota))
+    if args.reset_diskquota:
+        process_noncallback_users(reset_diskquota=args.reset_diskquota)
     logger.debug("all done")
-
-
-def usage(error=None):
-    if error:
-        print("Error:", error)
-    sys.exit(0)
 
 
 if __name__ == '__main__':
