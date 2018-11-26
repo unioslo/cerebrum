@@ -28,6 +28,7 @@ from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import logutils
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import commit_db
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,12 @@ def get_constants_by_type(co, class_type):
 
 
 def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
-                with_uio_ephorte, with_uio_voip, db, co, source_systems):
+                with_uio_ephorte, with_uio_voip, db):
+    co = Factory.get('Constants')(db)
+    source_systems = get_constants_by_type(co,
+                                           Constants._AuthoritativeSystemCode)
+    logger.debug(('source_systems: %r', source_systems))
+
     old_id = old_person.entity_id
     new_id = new_person.entity_id
 
@@ -437,6 +443,9 @@ def main():
         new person.  The old_person entity is permanently removed from the
          database.''')
 
+    # Add commit/dryrun arguments
+    parser = commit_db(parser, default_commit=False)
+
     parser.add_argument(
         '--old',
         help='Old entity_id',
@@ -467,10 +476,6 @@ def main():
         dest='with_uio_voip',
         help='transfer voip objects',
         action='store_true')
-    parser.add_argument(
-        '--dryrun',
-        help='Run without altering database',
-        action='store_true')
 
     logutils.options.install_subparser(parser)
     args = parser.parse_args()
@@ -479,28 +484,26 @@ def main():
     logger.info('Start of script %s', parser.prog)
     logger.debug('args: %r', args)
 
+    #
+    # Initialize globals
+    #
     db = Factory.get('Database')()
     db.cl_init(change_program="join_persons")
-    co = Factory.get('Constants')(db)
-    source_systems = get_constants_by_type(co,
-                                           Constants._AuthoritativeSystemCode)
-    logger.debug(('source_systems: %r', source_systems))
 
     old_person = Factory.get('Person')(db)
     old_person.find(args.old)
     new_person = Factory.get('Person')(db)
     new_person.find(args.new)
     person_join(old_person, new_person, args.with_uio_pq, args.with_uia_pq,
-                args.with_uio_ephorte, args.with_uio_voip, db, co,
-                source_systems)
+                args.with_uio_ephorte, args.with_uio_voip, db)
     old_person.delete()
 
-    if args.dryrun:
-        db.rollback()
-        logger.info('Changes to the database were rolled back')
-    else:
+    if args.commit:
         db.commit()
         logger.info('Changes were committed to the database')
+    else:
+        db.rollback()
+        logger.info('Dry run. Changes to the database were rolled back')
 
     logger.info('Done with script %s', parser.prog)
 
