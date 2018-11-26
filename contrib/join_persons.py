@@ -439,13 +439,13 @@ def main():
 
     parser.add_argument(
         '--old',
-        default=0,
         help='Old entity_id',
+        required=True,
         type=int)
     parser.add_argument(
         '--new',
         help='New entity_id',
-        default=0,
+        required=True,
         type=int)
     parser.add_argument(
         '--pq-uio',
@@ -479,14 +479,11 @@ def main():
     logger.info('Start of script %s', parser.prog)
     logger.debug('args: %r', args)
 
-    if not (args.old and args.new):
-        sys.exit(1)
-
     db = Factory.get('Database')()
     db.cl_init(change_program="join_persons")
     co = Factory.get('Constants')(db)
-    source_systems = \
-        get_constants_by_type(co, Constants._AuthoritativeSystemCode)
+    source_systems = get_constants_by_type(co,
+                                           Constants._AuthoritativeSystemCode)
     logger.debug(('source_systems: %r', source_systems))
 
     old_person = Factory.get('Person')(db)
