@@ -1,4 +1,8 @@
 2018-11-22 <kennethj@gagarin.uit.no>
+    * import_PAGA.py:   remove fix for persons with 00000 as the last part of their fnr. Although the fix needs to be implemented(to avoid these persons to get a username owned by another person), 
+        we currently have no import mechanism for these persons. the fix is removed with the understanding that all new accounts generated for these kinds of persons, needs to be manually
+        verified until the mechanism for importing persons withouth fnr is implemented in import_PAGA.py (that means import persons with passnr)
+2018-11-22 <kennethj@gagarin.uit.no>
     * ad_export_autogroups_undervisning.py:  added missing include unicode_literals
 2018-11-19 <kennethj@gagarin.uit.no>
     * populate_fronter_groups.py:   updated to handle utf-8 encoding instead of iso-8859-1

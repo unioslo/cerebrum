@@ -339,10 +339,10 @@ def process_person(person):
         gender = const.gender_female
 
     # If a FNR is given, do a check of the values presented
-    if(person['fnr'][6:11] == "00000"):
-        logger.warn("Person with fnr:%s does not have valid fnr. Person not imported" % person['fnr'])
-        return
-    elif((person.get('fnr','') and (person['fnr'][6:11]!='00000'))):
+    #if(person['fnr'][6:11] == "00000"):
+    #    logger.warn("Person with fnr:%s does not have valid fnr. Person not imported" % person['fnr'])
+    #    return
+    if((person.get('fnr','') and (person['fnr'][6:11]!='00000'))):
         try:
             fodselsnr.personnr_ok(fnr)
         except:
