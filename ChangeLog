@@ -1,3 +1,10 @@
+2018-11-28  Karen   <cerebrum@cleomedes.uit.no>
+
+    * export_oid.py (load_cb_data): Removed co.affiliation_status_timelonnet_midlertidig 
+    from aff_status_filter. This because persons with this affiliation are to have access 
+    to intranett.uit.no. 
+
+
 2018-11-22 <kennethj@gagarin.uit.no>
     * import_PAGA.py:   remove fix for persons with 00000 as the last part of their fnr. Although the fix needs to be implemented(to avoid these persons to get a username owned by another person), 
         we currently have no import mechanism for these persons. the fix is removed with the understanding that all new accounts generated for these kinds of persons, needs to be manually

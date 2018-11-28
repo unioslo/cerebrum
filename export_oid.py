@@ -253,8 +253,7 @@ def load_cb_data():
     for aff in p.list_affiliations():
 
         # simple filtering
-        aff_status_filter=(co.affiliation_status_student_tilbud,co.affiliation_manuell_gjest,co.affiliation_manuell_gjest_u_konto,
-                           co.affiliation_status_timelonnet_midlertidig)
+        aff_status_filter=(co.affiliation_status_student_tilbud,co.affiliation_manuell_gjest,co.affiliation_manuell_gjest_u_konto)
         if aff['status'] in aff_status_filter:
             continue
 
