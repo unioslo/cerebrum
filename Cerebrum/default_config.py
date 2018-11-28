@@ -503,6 +503,15 @@ FS_EXCLUDE_AFFILIATIONS_FROM_GRACE = []
 FS_GROUP_NAME = "FS-aktivt-samtykke"
 FS_GROUP_DESC = "Internal group for students which will be shown online."
 
+# Configurations for import_fs
+FS_EMNEFILE_ARGUMENT=False
+FS_FNR_2_PERSON=False
+
+FS_RULES=[]
+FS_ADR_MAP={}
+FS_KEY_INCLUDE_INST=False
+
+
 # make autostud use studentnr as uname
 USE_STUDENTNR_AS_UNAME = False
 # Socket used to query the job-runner server, should not be writeable by
