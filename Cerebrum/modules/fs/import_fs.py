@@ -34,14 +34,13 @@ from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 import cereconf
 
 # Globals
-logger=logging.getLogger('cronjob')
-co = None
-no_name = 0
+logger = logging.getLogger('cronjob')
+
 
 def main():
     # global verbose, ou, db, co, logger, gen_groups, group, \
     #     old_aff, include_delete, no_name
-    global co
+    verbose = 0
 
     # "globals"
     db = Factory.get('Database')()
@@ -49,9 +48,6 @@ def main():
     co = Factory.get('Constants')(db)
     ou = Factory.get('OU')(db)
     group = Factory.get('Group')(db)
-
-    group_name = cereconf.FS_GROUP_NAME
-    group_desc = cereconf.FS_GROUP_DESC
 
     # parsing
     parser = argparse.ArgumentParser()
@@ -79,11 +75,13 @@ def main():
             '-e', '--emne-file',
             dest='emnefile',
             default=pj(cereconf.FS_DATA_DIR, "emner.xml"))
-    args=parser.parse_args()
+    args = parser.parse_args()
 
     if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
         raise SystemExit("Check cereconf, SYSTEM_LOOKUP_ORDER is wrong!")
 
+    group_name = cereconf.FS_GROUP_NAME
+    group_desc = cereconf.FS_GROUP_DESC
     try:
         group.find_by_name(group_name)
     except Errors.NotFoundError:
@@ -100,24 +98,28 @@ def main():
     for s in StudentInfo.StudieprogDefParser(args.studieprogramfile):
         studieprog2sko[s['studieprogramkode']] = _get_sko(
             s, 'faknr_studieansv', 'instituttnr_studieansv',
-            'gruppenr_studieansv')
+            'gruppenr_studieansv', ou)
 
     # if cereconf.FS_EMNEFILE_ARGUMENT:
     #     emne2sko = _get_emne2sko(args.emnefile, ou)
 
     if include_delete:
-        old_aff = _load_cere_aff()
+        old_aff = _load_cere_aff(db, co)
 
+    fnr2person_id = None
     if cereconf.FS_FIND_PERSON_BY == 'fnr':
-        fnr2person_id, person = _get_fnr2person(db)
+        fnr2person_id, person = _get_fnr2person(db, co)
 
-    StudentInfo.StudentInfoParser(args.personfile, process_person_callback,
+    person_processor = PersonProcessor(studieprog2sko, db, co, ou, gen_groups,
+                                       fnr2person_id, include_delete, old_aff)
+    StudentInfo.StudentInfoParser(args.personfile,
+                                  person_processor.process_person_callback,
                                   logger)
 
     if include_delete:
-        rem_old_aff(old_aff, db)
+        rem_old_aff(old_aff, db, co)
     db.commit()
-    logger.info("Found %d persons without name.", no_name)
+    logger.info("Found %d persons without name.", person_processor.no_name)
     logger.info("Completed")
 
 
@@ -156,53 +158,70 @@ def _get_sko(a_dict, kfak, kinst, kgr, ou, kinstitusjon=None):
     return ou_cache[key]
 
 
-def process_person_callback(person_info, studieprog2sko, db, gen_groups,
-                            fnr2person_id=None):
-    """Called when we have fetched all data on a person from the xml
-    file.  Updates/inserts name, address and affiliation
-    information."""
-    global no_name
-    try:
-        fnr = _get_fnr(person_info)
-    except fodselsnr.InvalidFnrError:
-        return
+class PersonProcessor(object):
+    def __init__(self, studieprog2sko, db, co, ou, gen_groups, fnr2person_id,
+                 include_delete, old_aff):
+        # Variables passed to/from main
+        self.no_name = 0
 
-    gender = _get_gender(fnr)
+        self.studieprog2sko = studieprog2sko
+        self.db = db
+        self.co = co
+        self.ou = ou
+        self.gen_groups = gen_groups
+        self.fnr2person_id = fnr2person_id
+        self.group = None
+        self.include_delete = include_delete
+        self.old_aff = old_aff
 
-    affiliations = aktiv_sted = []
+    def process_person_callback(self, person_info):
+        """Called when we have fetched all data on a person from the xml
+        file.  Updates/inserts name, address and affiliation
+        information."""
+        try:
+            fnr = _get_fnr(person_info)
+        except fodselsnr.InvalidFnrError:
+            return
 
-    if cereconf.FS_ITERATE_PERSONS == 'hiof':
-        etternavn, fornavn, studentnr, birth_date = _iterate_persons_hiof(
-            person_info, studieprog2sko, aktiv_sted, affiliations)
-    elif cereconf.FS_ITERATE_PERSONS == 'uia':
-        etternavn, fornavn, studentnr, birth_date, address_info = _iterate_persons_uia(
-            person_info, studieprog2sko, aktiv_sted, affiliations)
+        gender = _get_gender(fnr, self.co)
 
-    if etternavn is None:
-        logger.debug("Ikke noe navn på %s" % fnr)
-        no_name += 1
-        return
+        affiliations = aktiv_sted = []
 
-    if not birth_date:
-        logger.warn('No birth date registered for studentnr %s', studentnr)
+        if cereconf.FS_ITERATE_PERSONS == 'hiof':
+            etternavn, fornavn, studentnr, birth_date = _iterate_persons_hiof(
+                person_info, self.studieprog2sko, aktiv_sted, affiliations,
+                self.co)
+        elif cereconf.FS_ITERATE_PERSONS == 'uia':
+            etternavn, fornavn, studentnr, birth_date, address_info = \
+                _iterate_persons_uia(person_info, self.studieprog2sko,
+                                     aktiv_sted, affiliations, self.co,
+                                     self.ou, fnr)
 
-    # TODO: If the person already exist and has conflicting data from
-    # another source-system, some mechanism is needed to determine the
-    # superior setting.
-    if cereconf.FS_FIND_PERSON_BY == 'fnr':
-        new_person =_get_person_by_fnr(fnr, fnr2person_id, db)
-    elif cereconf.FS_FIND_PERSON_BY == 'studentnr':
-        new_person = _get_person_by_studentnr(fnr, studentnr, db)
+        if etternavn is None:
+            logger.debug("Ikke noe navn på %s" % fnr)
+            self.no_name += 1
+            return
 
-    new_person = _db_add_person(new_person, birth_date, gender, fornavn, etternavn,
-                   studentnr, fnr, person_info)
+        if not birth_date:
+            logger.warn('No birth date registered for studentnr %s', studentnr)
 
-    # Reservations
-    group = _add_reservations(gen_groups, person_info, new_person,
-                                          group)
+        # TODO: If the person already exist and has conflicting data from
+        # another source-system, some mechanism is needed to determine the
+        # superior setting.
+        if cereconf.FS_FIND_PERSON_BY == 'fnr':
+            new_person = _get_person_by_fnr(fnr, self.fnr2person_id, self.db)
+        elif cereconf.FS_FIND_PERSON_BY == 'studentnr':
+            new_person = _get_person_by_studentnr(fnr, studentnr, self.db,
+                                                  self.co)
 
-    db.commit()
-    return no_name, group
+        _db_add_person(new_person, birth_date, gender, fornavn, etternavn,
+                       studentnr, fnr, person_info, self.include_delete,
+                       self.old_aff, affiliations, self.db, self.co, self.ou)
+
+        if self.gen_groups:
+            self.group = _add_reservations(person_info, new_person, self.group)
+
+        self.db.commit()
 
 
 def _get_fnr(person_info):
@@ -218,9 +237,9 @@ def _get_fnr(person_info):
     return fnr
 
 
-def _get_gender(fnr):
+def _get_gender(fnr, co):
     gender = co.gender_male
-    if(fodselsnr.er_kvinne(fnr)):
+    if fodselsnr.er_kvinne(fnr):
         gender = co.gender_female
     return gender
 
@@ -231,7 +250,8 @@ def _get_person_by_fnr(fnr, fnr2person_id, db):
         new_person.find(fnr2person_id[fnr])
     return new_person
 
-def _get_person_by_studentnr(fnr, studentnr, db):
+
+def _get_person_by_studentnr(fnr, studentnr, db, co):
     fsids = [(co.externalid_fodselsnr, fnr)]
     if studentnr is not None:
         fsids.append((co.externalid_studentnr, studentnr))
@@ -247,93 +267,8 @@ def _get_person_by_studentnr(fnr, studentnr, db):
     return new_person
 
 
-def _db_add_person(new_person, birth_date, gender, fornavn, etternavn,
-                   studentnr, fnr, person_info, include_delete,
-                   old_aff, affiliations):
-
-    new_person.populate(birth_date, gender)
-    new_person.affect_names(co.system_fs, co.name_first, co.name_last)
-    new_person.populate_name(co.name_first, fornavn)
-    new_person.populate_name(co.name_last, etternavn)
-
-    if studentnr is not None:
-        new_person.affect_external_id(co.system_fs,
-                                      co.externalid_fodselsnr,
-                                      co.externalid_studentnr)
-        new_person.populate_external_id(co.system_fs, co.externalid_studentnr,
-                                        studentnr)
-    else:
-        new_person.affect_external_id(co.system_fs,
-                                      co.externalid_fodselsnr)
-    new_person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
-
-    ad_post, ad_post_private, ad_street = _calc_address(person_info)
-    for address_info, ad_const in ((ad_post, co.address_post),
-                                   (ad_post_private, co.address_post_private),
-                                   (ad_street, co.address_street)):
-        # TBD: Skal vi slette evt. eksisterende adresse v/None?
-        if address_info is not None:
-            logger.debug("Populating address...")
-            new_person.populate_address(co.system_fs, ad_const, **address_info)
-    # if this is a new Person, there is no entity_id assigned to it
-    # until written to the database.
-    op = new_person.write_db()
-
-    if cereconf.FS_FILTER_AFFILIATIONS:
-        affiliations = filter_affiliations(affiliations)
-
-    for ou, aff, aff_status in affiliations:
-        new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
-        if include_delete:
-            key_a = "%s:%s:%s" % (new_person.entity_id, ou, int(aff))
-            if key_a in old_aff:
-                old_aff[key_a] = False
-
-    register_cellphone(new_person, person_info)
-
-    op2 = new_person.write_db()
-    if op is None and op2 is None:
-        logger.info("**** EQUAL ****")
-    elif op == True:
-        logger.info("**** NEW ****")
-    else:
-        logger.info("**** UPDATE ****")
-
-
-def _add_reservations(gen_groups, person_info, new_person, group):
-    if gen_groups:
-        should_add = False
-        for dta_type in person_info.keys():
-            p = person_info[dta_type][0]
-            if isinstance(p, str):
-                continue
-            # Presence of 'fagperson' elements for a person should not
-            # affect that person's reservation status.
-            if dta_type in ('fagperson',):
-                continue
-            # We only fetch the column in these queries
-            if dta_type not in ('evu'):
-                continue
-            # If 'status_reserv_nettpubl' == "N": add to group
-            if p.get('status_reserv_nettpubl', "") == "N":
-                should_add = True
-            else:
-                should_add = False
-        if should_add:
-            # The student has explicitly given us permission to be
-            # published in the directory.
-            group = _add_res(group, new_person.entity_id)
-        else:
-            # The student either hasn't registered an answer to
-            # the "Can we publish info about you in the directory"
-            # question at all, or has given an explicit "I don't
-            # want to appear in the directory" answer.
-            _rem_res(new_person.entity_id)
-    return group
-
-
 def _iterate_persons_hiof(person_info, studieprog2sko, aktiv_sted,
-                          affiliations):
+                          affiliations, co):
     etternavn = fornavn = studentnr = birth_date = address_info = None
 
     # Iterate over all person_info entries and extract relevant data
@@ -370,9 +305,9 @@ def _iterate_persons_hiof(person_info, studieprog2sko, aktiv_sted,
             for row in x:
                 # aktiv_sted is necessary in order to avoid different
                 # affiliation statuses to a same 'stedkode' to be overwritten
-                # e.i. if a person has both affiliations status 'evu' and aktive
-                # to a single stedkode we want to register the status 'aktive'
-                # in cerebrum
+                # e.i. if a person has both affiliations status 'evu' and
+                # aktive to a single stedkode we want to register the status
+                # 'aktive' in cerebrum
                 if studieprog2sko[row['studieprogramkode']] is not None:
                     aktiv_sted.append(
                         int(studieprog2sko[row['studieprogramkode']]))
@@ -392,7 +327,7 @@ def _iterate_persons_hiof(person_info, studieprog2sko, aktiv_sted,
 
 
 def _iterate_persons_uia(person_info, studieprog2sko, aktiv_sted,
-                         affiliations):
+                         affiliations, co, ou, fnr):
     etternavn = fornavn = studentnr = birth_date = address_info = None
 
     # Iterate over all person_info entries and extract relevant data
@@ -407,7 +342,7 @@ def _iterate_persons_uia(person_info, studieprog2sko, aktiv_sted,
             else:
                 logger.info("\n%s mangler studentnr!", fnr)
         # Get name
-        if dta_type in ('aktiv', 'tilbud', 'evu', 'privatist_studieprogram', ):
+        if dta_type in ('aktiv', 'tilbud', 'evu', 'privatist_studieprogram',):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
 
@@ -415,13 +350,13 @@ def _iterate_persons_uia(person_info, studieprog2sko, aktiv_sted,
             birth_date = datetime.datetime.strptime(p['dato_fodt'],
                                                     "%Y-%m-%d %H:%M:%S.%f")
 
-        address_info = _get_address(address_info, dta_type)
+        address_info = _get_address(address_info, dta_type, p)
 
         # Get affiliations
         # Lots of changes here compared to import_FS.py @ uio
         # TODO: split import_FS into a common part and organization spesific
         # parts
-        if dta_type in ('aktiv', ):
+        if dta_type in ('aktiv',):
             for row in x:
                 # aktiv_sted is necessary in order to avoid different
                 # affiliation statuses to a same 'stedkode' to be overwritten
@@ -442,14 +377,14 @@ def _iterate_persons_uia(person_info, studieprog2sko, aktiv_sted,
                     co.affiliation_status_student_evu, affiliations,
                     _get_sko(p, 'faknr_adm_ansvar',
                              'instituttnr_adm_ansvar',
-                             'gruppenr_adm_ansvar'))
-        elif dta_type in ('privatist_studieprogram', ):
+                             'gruppenr_adm_ansvar', ou))
+        elif dta_type in ('privatist_studieprogram',):
             for row in x:
                 _process_affiliation(
                     co.affiliation_student,
                     co.affiliation_status_student_privatist,
                     affiliations, studieprog2sko[row['studieprogramkode']])
-        elif dta_type in ('tilbud', ):
+        elif dta_type in ('tilbud',):
             for row in x:
                 subtype = co.affiliation_status_student_tilbud
                 if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
@@ -460,7 +395,93 @@ def _iterate_persons_uia(person_info, studieprog2sko, aktiv_sted,
     return etternavn, fornavn, studentnr, birth_date, address_info
 
 
-def _get_fnr2person(db):
+def _db_add_person(new_person, birth_date, gender, fornavn, etternavn,
+                   studentnr, fnr, person_info, include_delete,
+                   old_aff, affiliations, db, co, ou):
+    """Fills in the necessary information about the new_person.
+    Then the new_person gets written to the database"""
+    new_person.populate(birth_date, gender)
+    new_person.affect_names(co.system_fs, co.name_first, co.name_last)
+    new_person.populate_name(co.name_first, fornavn)
+    new_person.populate_name(co.name_last, etternavn)
+
+    if studentnr is not None:
+        new_person.affect_external_id(co.system_fs,
+                                      co.externalid_fodselsnr,
+                                      co.externalid_studentnr)
+        new_person.populate_external_id(co.system_fs, co.externalid_studentnr,
+                                        studentnr)
+    else:
+        new_person.affect_external_id(co.system_fs,
+                                      co.externalid_fodselsnr)
+    new_person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
+
+    ad_post, ad_post_private, ad_street = _calc_address(person_info, db, co,
+                                                        ou)
+    for address_info, ad_const in ((ad_post, co.address_post),
+                                   (ad_post_private, co.address_post_private),
+                                   (ad_street, co.address_street)):
+        # TBD: Skal vi slette evt. eksisterende adresse v/None?
+        if address_info is not None:
+            logger.debug("Populating address...")
+            new_person.populate_address(co.system_fs, ad_const, **address_info)
+    # if this is a new Person, there is no entity_id assigned to it
+    # until written to the database.
+    op = new_person.write_db()
+
+    if cereconf.FS_FILTER_AFFILIATIONS:
+        affiliations = filter_affiliations(affiliations, co)
+
+    for ou, aff, aff_status in affiliations:
+        new_person.populate_affiliation(co.system_fs, ou, aff, aff_status)
+        if include_delete:
+            key_a = "%s:%s:%s" % (new_person.entity_id, ou, int(aff))
+            if key_a in old_aff:
+                old_aff[key_a] = False
+
+    register_cellphone(new_person, person_info, co)
+
+    op2 = new_person.write_db()
+    if op is None and op2 is None:
+        logger.info("**** EQUAL ****")
+    elif op:
+        logger.info("**** NEW ****")
+    else:
+        logger.info("**** UPDATE ****")
+
+
+def _add_reservations(person_info, new_person, group):
+    should_add = False
+    for dta_type in person_info.keys():
+        p = person_info[dta_type][0]
+        if isinstance(p, str):
+            continue
+        # Presence of 'fagperson' elements for a person should not
+        # affect that person's reservation status.
+        if dta_type in ('fagperson',):
+            continue
+        # We only fetch the column in these queries
+        if dta_type not in ('evu'):
+            continue
+        # If 'status_reserv_nettpubl' == "N": add to group
+        if p.get('status_reserv_nettpubl', "") == "N":
+            should_add = True
+        else:
+            should_add = False
+    if should_add:
+        # The student has explicitly given us permission to be
+        # published in the directory.
+        group = _add_res(group, new_person.entity_id)
+    else:
+        # The student either hasn't registered an answer to
+        # the "Can we publish info about you in the directory"
+        # question at all, or has given an explicit "I don't
+        # want to appear in the directory" answer.
+        _rem_res(group, new_person.entity_id)
+    return group
+
+
+def _get_fnr2person(db, co):
     person = Factory.get('person')(db)
     # create fnr2person_id mapping, always using fnr from FS when set
     fnr2person_id = {}
@@ -480,8 +501,7 @@ def _add_aktiv_sted(person_info, studieprog2sko, aktiv_sted):
             logger.debug("App2akrivts")
 
 
-# (hia only)
-def _get_address(address_info, dta_type):
+def _get_address(address_info, dta_type, p):
     if address_info is None:
         if dta_type in ('aktiv', 'privatist_studieprogram',):
             address_info = _ext_address_info(
@@ -515,19 +535,7 @@ def _get_address(address_info, dta_type):
     return address_info
 
 
-# def _get_name():
-#     if dta_type in ('fagperson', 'evu', 'aktiv'):
-#         etternavn = p['etternavn']
-#         fornavn = p['fornavn']
-#     if cereconf.FS_ASSIGN_STUDENTNR:
-#         if 'studentnr_tildelt' in p:
-#         studentnr = p['studentnr_tildelt']
-#     if not birth_date and 'dato_fodt' in p:
-#         birth_date = datetime.datetime.strptime(p['dato_fodt'],
-#                                                 "%Y-%m-%d %H:%M:%S.%f")
-
-
-def rem_old_aff(old_aff, db):
+def rem_old_aff(old_aff, db, co):
     """ Remove old affiliations.
 
     This method loops through the global `old_affs` mapping. The
@@ -551,7 +559,7 @@ def rem_old_aff(old_aff, db):
         person_id, ou_id, aff_id = (int(val) for val in k.split(':'))
         aff_const = co.PersonAffiliation(aff_id)
 
-        logger.debug2("Attempting to remove aff %r (%r)", k, aff_const)
+        logger.debug("Attempting to remove aff %r (%r)", k, aff_const)
         stats['old'] += 1
 
         aff = person.list_affiliations(person_id=person_id,
@@ -575,8 +583,8 @@ def rem_old_aff(old_aff, db):
         # removed at once.
         grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
         not_expired = aff['last_date'] > (mx.DateTime.now() - grace_days) and \
-                not (cereconf.FS_REMOVE_EVU_AFF and int(aff['status']) == \
-                 int(co.affiliation_status_student_evu))
+                      not (cereconf.FS_REMOVE_EVU_AFF and int(aff['status']) ==
+                           int(co.affiliation_status_student_evu))
         if not_expired:
             logger.debug("Sparing aff (%s) for person_id=%r at ou_id=%r",
                          aff_const, person_id, ou_id)
@@ -603,15 +611,20 @@ def rem_old_aff(old_aff, db):
     logger.info("Affiliations removed: %d", stats['delete'])
 
 
-def filter_affiliations(affiliations):
+def filter_affiliations(affiliations, co):
     """The affiliation list with cols (ou, affiliation, status) may
     contain multiple status values for the same (ou, affiliation)
     combination, while the db-schema only allows one.  Return a list
     where duplicates are removed, preserving the most important
     status.  """
+    aff_status_pri_order = [int(x) for x in (  # Most significant first
+        co.affiliation_status_student_aktiv,
+        co.affiliation_status_student_evu)]
+    aff_status_pri_order = dict([(aff_status_pri_order[i], i)
+                                 for i in range(len(aff_status_pri_order))])
 
     affiliations.sort(lambda x, y: aff_status_pri_order.get(int(y[2]), 99) -
-                      aff_status_pri_order.get(int(x[2]), 99))
+                                   aff_status_pri_order.get(int(x[2]), 99))
 
     ret = {}
     for ou, aff, aff_status in affiliations:
@@ -631,7 +644,7 @@ def _rem_res(group, entity_id):
     return group
 
 
-def register_cellphone(person, person_info):
+def register_cellphone(person, person_info, co):
     """Register person's cell phone number from person_info.
 
     @param person:
@@ -692,8 +705,11 @@ def _process_affiliation(aff, aff_status, new_affs, ou):
         new_affs.append((ou, aff, aff_status))
 
 
-def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
-    ou_id = _get_sko(a_dict, k_fak, k_inst, k_gruppe,
+def _get_sted_address(db, co, ou, a_dict, k_institusjon, k_fak, k_inst,
+                      k_gruppe):
+    ou_adr_cache = {}
+
+    ou_id = _get_sko(a_dict, k_fak, k_inst, k_gruppe, ou,
                      kinstitusjon=k_institusjon)
     if not ou_id:
         return None
@@ -703,21 +719,22 @@ def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
         ou.find(ou_id)
 
         rows = ou.get_entity_address(type=co.address_street,
-                        source=getattr(co, cereconf.FS_SOURCE_SYSTEM))
+                                     source=getattr(co,
+                                                    cereconf.FS_SOURCE_SYSTEM))
 
         if rows:
             ou_adr_cache[ou_id] = {
                 'address_text': rows[0]['address_text'],
                 'postal_number': rows[0]['postal_number'],
                 'city': rows[0]['city']
-                }
+            }
         else:
             ou_adr_cache[ou_id] = None
             logger.warn("No address for %i", ou_id)
     return ou_adr_cache[ou_id]
 
 
-def _calc_address(person_info):
+def _calc_address(person_info, db, co, ou):
     """Evaluerer personens adresser iht. til flereadresser_spek.txt og
     returnerer en tuple (address_post, address_post_private,
     address_street)"""
@@ -739,7 +756,7 @@ def _calc_address(person_info):
             if (ret[i] is not None) or not addr_cols:
                 continue
             if len(addr_cols) == 4:
-                ret[i] = _get_sted_address(tmp, *addr_cols)
+                ret[i] = _get_sted_address(db, co, ou, tmp, *addr_cols)
             else:
                 ret[i] = _ext_address_info(tmp, *addr_cols)
     return ret
@@ -767,13 +784,13 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     return ret
 
 
-def _load_cere_aff():
+def _load_cere_aff(db, co):
     fs_aff = {}
     person = Factory.get("Person")(db)
     for row in person.list_affiliations(source_system=co.system_fs):
         k = "%s:%s:%s" % (row['person_id'], row['ou_id'], row['affiliation'])
         fs_aff[str(k)] = True
-    return(fs_aff)
+    return (fs_aff)
 
 
 if __name__ == '__main__':
