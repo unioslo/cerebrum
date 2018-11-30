@@ -507,13 +507,17 @@ FS_GROUP_NAME = "FS-aktivt-samtykke"
 FS_GROUP_DESC = "Internal group for students which will be shown online."
 
 # Configurations for import_fs
-FS_EMNEFILE_ARGUMENT=False
-FS_FNR_2_PERSON=False
+FS_EMNEFILE_ARGUMENT = False
+FS_FIND_PERSON_BY = 'fnr'
 
-FS_RULES=[]
-FS_ADR_MAP={}
-FS_KEY_INCLUDE_INST=False
-
+FS_RULES = []
+FS_ADR_MAP = {}
+FS_KEY_INCLUDE_INST = False
+FS_GET_ADRESS_INFO = False
+FS_DTA_TYPE_CHECK = ()
+FS_REMOVE_EVU_AFF = False
+FS_SOURCE_SYSTEM = ''
+FS_ITERATE_PERSONS = ''
 
 # make autostud use studentnr as uname
 USE_STUDENTNR_AS_UNAME = False
