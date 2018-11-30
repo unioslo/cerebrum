@@ -506,6 +506,7 @@ FS_GROUP_DESC = "Internal group for students which will be shown online."
 # Configurations for import_fs
 FS_EMNEFILE_ARGUMENT = False
 FS_FIND_PERSON_BY = 'fnr'
+FS_FILTER_AFFILIATIONS = False
 
 FS_RULES = []
 FS_ADR_MAP = {}
