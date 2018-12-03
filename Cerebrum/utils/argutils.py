@@ -276,22 +276,25 @@ class ExtendConstAction(argparse.Action):
         setattr(namespace, self.dest, self.type(items))
 
 
-def commit_db(parser, default_commit=False):
-    """ Adds a mutually exclusive argument group containing the arguments
-    --commit and --dryrun to parser. default_commit specifies whether the
-    commit option should be set to True by default.
+def add_commit_args(parser, dest='commit', default=False):
+    """ Add --commit and --dryrun arguments to parser.
+
+    :param parser: argument parser or argument group
+    :param dest: variable name
+    :param default_commit: default value
     """
+
     commit_mutex = parser.add_mutually_exclusive_group()
     commit_mutex.add_argument(
         '--dryrun',
-        dest='commit',
+        dest=dest,
         action='store_false',
-        help='Run in dryrun mode' + ('' if default_commit else ' (default)'))
+        help='Run in dryrun mode' + ('' if default else ' (default)'))
     commit_mutex.add_argument(
         '--commit',
         dest='commit',
         action='store_true',
-        help='Commit changes to the database' + ('' if not default_commit
+        help='Commit changes to the database' + ('' if not default
                                                  else ' (default)'))
-    commit_mutex.set_defaults(commit=default_commit)
+    commit_mutex.set_defaults(commit=default)
     return parser

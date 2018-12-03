@@ -28,7 +28,7 @@ from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import logutils
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.argutils import commit_db
+from Cerebrum.utils.argutils import add_commit_args
 
 logger = logging.getLogger(__name__)
 
@@ -444,7 +444,7 @@ def main():
          database.''')
 
     # Add commit/dryrun arguments
-    parser = commit_db(parser, default_commit=False)
+    parser = add_commit_args(parser)
 
     parser.add_argument(
         '--old',
