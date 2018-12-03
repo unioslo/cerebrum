@@ -117,8 +117,8 @@ def main():
                                   logger)
 
     if include_delete:
-        rem_old_aff(old_aff, db, co)
-    db.commit()
+        rem_old_aff(person_processor.old_aff, person_processor.db, co)
+    person_processor.db.commit()
     logger.info("Found %d persons without name.", person_processor.no_name)
     logger.info("Completed")
 
