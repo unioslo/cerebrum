@@ -620,7 +620,6 @@ Examples:
         else:
             passwd = '{crypt}*Invalid'
             for uauth in filter(self.auth_format.has_key, self.a_meth):
-                #method = int(self.co.auth_type_crypt3_des)
                 try:
                     #if uauth in self.auth_format.keys():
                     fmt = self.auth_format[uauth]['format']

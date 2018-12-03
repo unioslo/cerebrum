@@ -407,7 +407,6 @@ QUARANTINE_FEIDE_NONLOCK = ()
 CEREBRUM_DDL_DIR = pj(prefix, 'share', 'cerebrum', 'design')
 BOFHD_SUPERUSER_GROUP = INITIAL_GROUPNAME
 BOFHD_STUDADM_GROUP = BOFHD_SUPERUSER_GROUP
-BOFHD_FNR_ACCESS_GROUP = None
 BOFHD_SU_CAN_SPECIFY_PASSWORDS = False
 # Should contain mapping lang: [('template-prefix', 'tpl-type)...]
 BOFHD_TEMPLATES = {}
@@ -549,7 +548,7 @@ INSTITUTION_DOMAIN_NAME_LMS = None
 # email domain needs a default.  This should be a string, naming fully
 # qualified domain name that is registered in the installation's
 # 'email_domain' table.
-EMAIL_DEFAULT_DOMAIN = None
+EMAIL_DEFAULT_DOMAINS = []
 
 # If your CLASS_ACCOUNT uses Email/AccountEmailQuotaMixin you have to
 # set this variable in your cereconf.py. The purpose of this structure

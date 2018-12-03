@@ -47,13 +47,15 @@ the necessary information from data files or cerebrum alone. Therefore:
 
 from __future__ import unicode_literals
 
-import getopt
-import sys
+import argparse
+import logging
 import time
 
+from Cerebrum.modules.consent.Consent import EntityConsentMixin
 from six import text_type
 
 import cereconf
+import Cerebrum.logutils
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -66,21 +68,45 @@ from Cerebrum.modules.xmlutils.xml2object import DataContact
 from Cerebrum.modules.xmlutils.xml2object import DataEmployment
 
 
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
+
 cerebrum_db = Factory.get("Database")()
 constants = Factory.get("Constants")(cerebrum_db)
 ou_db = Factory.get("OU")(cerebrum_db)
 person_db = Factory.get("Person")(cerebrum_db)
+co = Factory.get('Constants')(cerebrum_db)
 source_system = None
 
 
 class OUNotFoundException(Exception):
     """Exception for cases where OU is not defined in XML."""
+
     pass
 
 
-def output_element(writer, value, element, attributes=dict()):
-    """A helper function to output XML elements.
+def _get_redacted_person_id_list(person):
+    """
+    Create a lists of ids where SSN and Passport are redacted.
+
+    Used to avoid any personal info in the logs.
+    :param person: SAPPerson object
+    :return: List of ids with any SSN or passport nr redacted
+    """
+    ret = []
+    redact = ['NO SSN', 'Passport ID']
+
+    for i in person.iterids():
+        if i[0] in redact:
+            ret.append((i[0], '<REDACTED>'))
+        else:
+            ret.append(i)
+
+    return ret
+
+
+def output_element(writer, value, element, attributes={}):
+    """
+    Helper function to output XML elements.
 
     The output element would look like this:
 
@@ -115,7 +141,7 @@ def xml2dict(xmlobject, attributes):
     Returns a dictionary that represents the same information.
 
     """
-    result = dict()
+    result = {}
     for attr in attributes:
         value = getattr(xmlobject, attr)
         # FIXME: hack to make things easier afterwards
@@ -132,8 +158,7 @@ def xml2dict(xmlobject, attributes):
 
 def extract_names(person_db, kinds):
     """Return a mapping kind->name of names of the required kinds."""
-
-    result = dict()
+    result = {}
     all_names = person_db.get_all_names()
     for name in all_names:
         kind = int(name["name_variant"])
@@ -154,10 +179,10 @@ def extract_names(person_db, kinds):
 
 
 def output_contact(writer, xmlobject, *seq):
-    """Output contact information (seq) for xmlobject.
+    """
+    Output contact information (seq) for xmlobject.
 
     seq is a sequence of tuples (kind, xml-attribute-name).
-
     """
     for attribute, element in seq:
         # We have to respect the relative priority order
@@ -172,13 +197,12 @@ def output_contact(writer, xmlobject, *seq):
 
 
 def find_publishable_sko(sko, ou_cache):
-    """Locate a publishable OU starting from sko and return its sko.
+    """
+    Locate a publishable OU starting from sko and return its sko.
 
     We walk upwards the hierarchy tree until we run out of parents or a until
     a suitable publishable OU is located.
-
     """
-
     ou = ou_cache.get(sko)
     while ou:
         if ou.publishable:
@@ -197,8 +221,9 @@ def find_publishable_sko(sko, ou_cache):
     return None
 
 
-def output_OU(writer, ou):
-    """Publish a particular OU.
+def output_ou(writer, ou):
+    """
+    Publish a particular OU.
 
     Each OU is described thus:
 
@@ -238,9 +263,7 @@ def output_OU(writer, ou):
                                             LT.STEDKOMM.KOMMTYPEKODE = "URL"
                                             MIN(LT.STEDKOMM.TLFPREFTEGN) -->
       </enhet>
-
     """
-
     if ou is None:
         return
     sko = ou.get_id(ou.NO_SKO)
@@ -307,18 +330,17 @@ def output_OU(writer, ou):
     writer.endElement("enhet")
 
 
-def output_OUs(writer, sysname, oufile):
-    """Run through all OUs and publish the interesting ones.
+def output_ous(writer, sysname, oufile):
+    """
+    Run through all OUs and publish the interesting ones.
 
     An OU is interesting to FRIDA, if:
 
       - the OU is supposed to be published (marked as such in the data source)
       - it has been less than a year since the OU has been terminated.
-
     """
-
     # First we build an ID cache.
-    ou_cache = dict()
+    ou_cache = {}
     parser = system2parser(sysname)(oufile, logger, False)
     for ou in parser.iter_ou():
         sko = ou.get_id(ou.NO_SKO, None)
@@ -332,13 +354,13 @@ def output_OUs(writer, sysname, oufile):
     for sko in ou_cache:
         publishable_sko = find_publishable_sko(sko, ou_cache)
         if not publishable_sko:
-            logger.debug("Cannot find publishable sko starting from %s", sko)
+            logger.info("Cannot find publishable sko starting from %s", sko)
             continue
 
         if publishable_sko in result:
             continue
 
-        output_OU(writer, ou_cache[publishable_sko])
+        output_ou(writer, ou_cache[publishable_sko])
         result.add(publishable_sko)
 
     writer.endElement("organisasjon")
@@ -346,10 +368,10 @@ def output_OUs(writer, sysname, oufile):
 
 
 def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
-    """Output tilsetting/gjest information.
+    """
+    Output tilsetting/gjest information.
 
     The format is:
-
       <blockname>
         <elemname>
           <k1>x.v1</k1>
@@ -361,7 +383,6 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
     to be output.
 
     Parameters:
-
     :param xmliprinter writer: Helper class to generate XML output
     :param iter sequence: A sequence of objects that we want to output. each
         object can be indexed as a dictionary.
@@ -374,7 +395,6 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
         used to extract values from each member of sequence.
 
     """
-
     # if there is nothing to output we are done
     if not sequence:
         return
@@ -386,7 +406,7 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
         sko = item["place"]
         publishable_sko = find_publishable_sko(sko, ou_cache)
         if not publishable_sko:
-            logger.debug("Cannot locate publishable sko starting from %s", sko)
+            logger.info("Cannot locate publishable sko starting from %s", sko)
             continue
 
         writer.startElement(elemname)
@@ -416,7 +436,6 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
 
 def output_account_info(writer, person_db):
     """Output primary account and e-mail informatino for person_db."""
-
     primary_account = person_db.get_primary_account()
     if primary_account is None:
         logger.info("Person %s has no accounts", person_db.entity_id)
@@ -436,22 +455,20 @@ def output_account_info(writer, person_db):
 
 def output_employments(writer, person, ou_cache):
     """Output <ansettelser>-element."""
-
     employments = [x for x in person.iteremployment()
                    if x.kind in (x.HOVEDSTILLING, x.BISTILLING) and
                    x.is_active()]
 
     # Mapping from employment attribute to xml element name.
-    names = dict((("code", "stillingskode"),
-                  ("start", "datoFra"),
-                  ("end", "datoTil"),
-                  ("percentage", "stillingsandel"),))
+    names = {"code": "stillingskode",
+             "start": "datoFra",
+             "end": "datoTil",
+             "percentage": "stillingsandel"}
     languages = ("nb", "nn", "en")
 
-    output_sequence = list()
+    output_sequence = []
     for employment in employments:
-        values = dict((key, getattr(employment, key))
-                      for key in names)
+        values = {key: getattr(employment, key) for key in names}
         # grab sko
         try:
             values["place"] = employment.place[1]
@@ -472,7 +489,8 @@ def output_employments(writer, person, ou_cache):
 
 
 def output_person(writer, person, ou_cache):
-    """Output all information pertinent to a particular person.
+    """
+    Output all information pertinent to a particular person.
 
     Each <person> is described thus:
 
@@ -492,7 +510,6 @@ def output_person(writer, person, ou_cache):
         ...
       </gjester>
     <person>
-
     """
     reserved = {True: "J",
                 False: "N",
@@ -500,7 +517,8 @@ def output_person(writer, person, ou_cache):
     fnr = person.get_id(person.NO_SSN)
 
     if not fnr:
-        logger.info("Skipping person without fnr. person=%s", text_type(person))
+        logger.info("Skipping person without fnr. person=%s",
+                    _get_redacted_person_id_list(person))
         return
 
     writer.startElement("person", {"fnr": fnr,
@@ -520,9 +538,10 @@ def output_person(writer, person, ou_cache):
         person_db.find_by_external_id(constants.externalid_fodselsnr, fnr)
     except Errors.NotFoundError:
         logger.error("Person %s is in the datafile, but not in Cerebrum",
-                     list(person.iterids()))
+                     _get_redacted_person_id_list(person))
     except Errors.TooManyRowsError:
-        logger.error("Found more than one person with NO_SSN=%s", fnr)
+        logger.error("Found more than one person with the same NO_SSN. "
+                     "Person: %s", _get_redacted_person_id_list(person))
     else:
         output_account_info(writer, person_db)
 
@@ -537,18 +556,83 @@ def output_person(writer, person, ou_cache):
                     person.iteremployment())
     if guests:
         writer.startElement("gjester")
-        names = dict((("start", "datoFra"),
-                      ("end", "datoTil"),
-                      ("code", "gjestebetegnelse"),
-                      ("place", None)))
+        names = {"start": "datoFra",
+                 "end": "datoTil",
+                 "code": "gjestebetegnelse",
+                 "place": None}
         output_assignments(writer, [xml2dict(x, names) for x in guests],
                            ou_cache, None, "gjest", names)
         writer.endElement("gjester")
     writer.endElement("person")
 
 
+def has_valid_employment(person):
+    """
+    Check if a person has a valid employment record.
+
+    There can be (erroneous) employments is SAP with no place of employment..
+    Check if a person has at least one valid employment with place.
+    """
+
+    employments = [x for x in person.iteremployment()
+                   if x.kind in (x.HOVEDSTILLING, x.BISTILLING) and
+                   x.is_active()]
+
+    for employment in employments:
+        try:
+            employment.place[1]
+        except TypeError:
+            # Some employments, like 8;50, does not come with a placecode. It
+            # is perfectly natural to skip them at this stage.
+            continue
+
+        # Found a valid employment
+        return True
+
+    return False
+
+
+def get_consent(person):
+    """
+    Check if a person has given consent to the Cristin export.
+    :param person: SAPPerson object
+    :return: Boolean, True if consent has been given
+    """
+    if not isinstance(person_db, EntityConsentMixin):
+        logger.info('Skipping entity without support for consent')
+        return False
+
+    fnr = (constants.externalid_fodselsnr, person.get_id(person.NO_SSN))
+    sap_nr = (constants.externalid_sap_ansattnr, person.get_id(person.SAP_NR))
+    pass_nr = (constants.externalid_pass_number, person.get_id(person.PASSNR))
+    ids = [fnr, sap_nr, pass_nr]
+
+    try:
+        person_db.clear()
+        person_db.find_by_external_ids(*ids)
+
+    except Errors.NotFoundError:
+        logger.error("Person %s is in the datafile, but not in Cerebrum",
+                     _get_redacted_person_id_list(person))
+        return False
+    except Errors.TooManyRowsError:
+        logger.error("Found more than one person with the same "
+                     "ID. person=%s",
+                     _get_redacted_person_id_list(person))
+        return False
+
+    if person_db.list_consents(entity_id=person_db.entity_id,
+                               consent_code=co.consent_cristin):
+        # Found consent from user
+        logger.info('Found consent, person_id %s has consented to '
+                    'export', _get_redacted_person_id_list(person))
+        return True
+    return False
+
+
 def should_export_person(person):
-    """ Test to decide whether a person should be exported.
+    """
+    Test to decide whether a person should be exported.
 
     Returns True by default, unless some exception rule matches (i.e. any
     person from the SAP import file is exported, unless a filter rule applies).
@@ -556,66 +640,58 @@ def should_export_person(person):
     NOTE: Any person filtered out by this method can still get exported, if the
     person has a PhD-affiliation in Cerebrum. PhD-students gets processed
     separately.
-
     """
     # This step is added for clarity in the logs.
     # Filter out any person that has no employment record.
     employments = [e for e in person.iteremployment()]
     if not employments:
-        logger.debug2("Skipping, person_id %s has no employment records",
-                      list(person.iterids()))
-        return False
-
-    # All employments that are *NOT* MG/MUG 4;04
-    # Filters out persons that *only* has 4;04 employment records
-    employments = filter(lambda x: not (x.mg == 4 and x.mug == 4),
-                         person.iteremployment())
-    if not employments:
-        logger.debug2("Skipping, person_id %s only has MG/MUG 404 records",
-                      list(person.iterids()))
-        return False
-
-    # Filter out people that have 8;50 as a HOVEDSTILLING, unless they have a
-    # GJEST role of appropriate type:
-    assignments = filter(lambda x: x.kind in [DataEmployment.HOVEDSTILLING],
-                         person.iteremployment())
-    assignments_8_50 = filter(lambda x: x.mg == 8 and x.mug == 50,
-                              assignments)
-
-    guest_roles = filter(lambda x: (x.kind == DataEmployment.GJEST and
-                                    x.code in ['EF-FORSKER',
-                                               'EF-STIP',
-                                               'EMERITUS',
-                                               'ASSOSIERT',
-                                               'GJ-FORSKER',
-                                               'EKST-PART']),
-                         person.iteremployment())
-
-    if (assignments_8_50 and assignments_8_50 == assignments and
-            not guest_roles):
-        logger.debug2("Skipping, person_id %s only has MG/MUG 8;50 records and"
-                      " has no applicable role", list(person.iterids()))
+        logger.info("Skipping, person_id %s has no employment records",
+                    _get_redacted_person_id_list(person))
         return False
 
     # Filters out persons that has no *active* employment of types
-    # 'Hovedstilling', 'Bistilling' or 'Gjest'.
+    # 'Hovedstilling', 'Bistilling'.
     active = filter(lambda x: (x.is_active() and x.kind in (x.HOVEDSTILLING,
-                                                            x.BISTILLING,
-                                                            x.GJEST)),
+                                                            x.BISTILLING)),
                     person.iteremployment())
-    if not (active):
-        logger.debug2(
-            "Skipping, person_id %s has no active tils/gjest records",
-            list(person.iterids()))
+    if not active:
+        logger.info(
+            "Skipping, person_id %s has no active tils records",
+            _get_redacted_person_id_list(person))
         return False
 
-    # Future filters?
+    # Filter out persons without a scientific position
+    scientific_employment = filter(lambda x: x.category == u'vitenskaplig',
+                                   person.iteremployment())
 
+    # Check for invalid assignments
+    valid_employment = has_valid_employment(person)
+
+    if not scientific_employment:
+        # Export if consent is given.
+        if get_consent(person):
+            logger.debug('Person %s ok for export, not scientific with '
+                         'consent', _get_redacted_person_id_list(person))
+            return True
+        logger.info('Skipping, person_id %s is not employed in a '
+                    'scientific position',
+                    _get_redacted_person_id_list(person))
+        return False
+
+    # Check consent if no valid employment.
+    if not valid_employment:
+        if get_consent(person):
+            return True
+        return False
+
+    logger.debug('Person %s ok for export',
+                 _get_redacted_person_id_list(person))
     return True
 
 
 def output_people(writer, sysname, personfile, ou_cache):
-    """Output information about all interesting people.
+    """
+    Output information about all interesting people.
 
     A person is interesting for Cristin if it has active employments
     (tilsetting) or active guest records (gjest). A record is considered
@@ -635,7 +711,6 @@ def output_people(writer, sysname, personfile, ou_cache):
 
 def output_xml(output_file, sysname, personfile, oufile):
     """Output the data from sysname source."""
-
     with AtomicFileWriter(output_file, "wb") as output_stream:
         writer = xmlprinter.xmlprinter(output_stream,
                                        indent_level=2,
@@ -665,7 +740,7 @@ def output_xml(output_file, sysname, personfile, oufile):
         writer.endElement("institusjon")
 
         # Dump all OUs
-        ou_cache = output_OUs(writer, sysname, oufile)
+        ou_cache = output_ous(writer, sysname, oufile)
 
         # Dump all people
         output_people(writer, sysname, personfile, ou_cache)
@@ -674,41 +749,41 @@ def output_xml(output_file, sysname, personfile, oufile):
         writer.endDocument()
 
 
-def usage(exitcode=0):
-    print """Usage: generate_frida_export.py [options]
-
-    -o, --output-file  FILE  The ePhorte XML export file
-    -s, --source-spec  SPEC  The source data spec. Format:
-
-    The input SPEC is on the format <system>:<person-file>:<ou-file>, where
-      - system is the source system
-      - person-file is the person source xml file
-      - ou-file is the OU source xml file
-    """
-    sys.exit(exitcode)
-
-
 def main():
+    """
+    Input parsing.
+
+    :return: None
+    """
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '-o', '--output-file ',
+        dest='output',
+        default='frida.xml',
+        help='The ePhorte XML export file'
+    )
+    parser.add_argument(
+        '-s', '--source-spec ',
+        dest='spec',
+        required=True,
+        help='The ePhorte XML export file. The input SPEC is on the format '
+             '<system>:<person-file>:<ou-file> where: '
+             '<system> is the source system'
+             '<person-file> is the person source xml file'
+             '<ou-file> is the OU source xml file'
+
+    )
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
+
     logger.info("Generating Cristin export")
-
-    try:
-        options, rest = getopt.getopt(sys.argv[1:],
-                                      "o:s:", ["output-file=",
-                                               "source-spec=", ])
-    except getopt.GetoptError:
-        usage(1)
-
-    output_file = "frida.xml"
-
-    for option, value in options:
-        if option in ("-o", "--output-file"):
-            output_file = value
-        elif option in ("-s", "--source-spec"):
-            sysname, personfile, oufile = value.split(":")
+    sysname, personfile, oufile = args.spec.split(":")
 
     global source_system
     source_system = getattr(constants, sysname)
-    output_xml(output_file, sysname, personfile, oufile)
+    output_xml(args.output, sysname, personfile, oufile)
     logger.info("Finished generating Cristin export")
 
 

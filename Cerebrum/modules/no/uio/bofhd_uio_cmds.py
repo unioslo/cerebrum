@@ -510,6 +510,9 @@ class BofhdExtension(BofhdCommonMethods):
     def access_global_dns(self, operator):
         return self._list_access("global_dns")
 
+    def access_global_person(self, operator):
+        return self._list_access("global_person")
+
     def _list_access(self, target_type, target_name=None, empty_result="None"):
         target_id, target_type, target_auth = self._get_access_id(target_type,
                                                                   target_name)
@@ -541,12 +544,12 @@ class BofhdExtension(BofhdCommonMethods):
         OpSet(),
         GroupName(help_ref="id:target:group"),
         EntityType(default='group', help_ref="auth_entity_type"),
-        SimpleString(help_ref="auth_target_entity"),
+        SimpleString(optional=True, help_ref="auth_target_entity"),
         SimpleString(optional=True, help_ref="auth_attribute"),
         perm_filter='can_grant_access')
 
-    def access_grant(self, operator, opset, group, entity_type, target_name,
-                     attr=None):
+    def access_grant(self, operator, opset, group, entity_type,
+                     target_name=None, attr=None):
         return self._manipulate_access(self._grant_auth, operator, opset,
                                        group, entity_type, target_name, attr)
 
@@ -705,6 +708,16 @@ class BofhdExtension(BofhdCommonMethods):
         if attr is not None:
             raise CerebrumError("Can't specify attribute for global group")
 
+    def _get_access_id_global_person(self, person):
+        # if person is not None and person != "":
+        #     raise CerebrumError("Cannot set domain for global access")
+        return None, self.const.auth_target_type_global_person, None
+
+    def _validate_access_global_person(self, opset, attr):
+        if attr:
+            raise CerebrumError(
+                "You can't specify a pattern with global_person.")
+
     def _get_access_id_host(self, target_name):
         target = self._get_host(target_name)
         return (target.entity_id, self.const.auth_target_type_host,
@@ -717,7 +730,7 @@ class BofhdExtension(BofhdCommonMethods):
                                     "the last component of the path.")
             try:
                 re.compile(attr)
-            except re.error, e:
+            except re.error as e:
                 raise CerebrumError("Syntax error in regexp: {}".format(e))
 
     def _get_access_id_global_host(self, target_name):
@@ -1713,7 +1726,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     # (all_commands is updated from BofhdCommonMethods)
     #
-    def group_create(self, operator, groupname, description):
+    def group_create(self, operator, groupname, description, mod_group=None):
         """Override group_create to double check that there doesn't exist an
         account with the same name.
         """
@@ -1725,7 +1738,7 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             raise CerebrumError('An account exists with name: %s' % groupname)
         return super(BofhdExtension, self).group_create(operator, groupname,
-                                                        description)
+                                                        description, mod_group)
 
     #
     # group request <name> <desc> <spread> <moderator-group>
@@ -1827,46 +1840,79 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['group_delete'] = Command(
         ("group", "delete"),
         GroupName(),
+        YesNo(help_ref="yes_no_force", optional=True, default="No"),
         perm_filter='can_delete_group')
 
-    def group_delete(self, operator, groupname):
+    def group_delete(self, operator, groupname, force=False):
+
         grp = self._get_group(groupname)
-        self.ba.can_delete_group(operator.get_entity_id(), grp)
-        if grp.group_name == cereconf.BOFHD_SUPERUSER_GROUP:
+        if force:
+            # Force deletes the group directly. Expire date etc is not used.
+            self.ba.can_force_delete_group(operator.get_entity_id(), grp)
+            self._assert_group_deletable(grp)
+
+            # Exchange-relatert-jazz
+            # It should not be possible to remove distribution groups via
+            # bofh, as that would "orphan" e-mail target. If need be such
+            # groups should be nuked using a cerebrum-side script.
+            if grp.has_extension('DistributionGroup'):
+                raise CerebrumError(
+                    'Cannot delete distribution groups, use "group'
+                    ' exchange_remove" to deactivate %s' % groupname)
+            elif grp.has_extension('PosixGroup'):
+                raise CerebrumError(
+                    'Cannot delete posix groups, use "group demote_posix %s"'
+                    ' before deleting.' % groupname)
+            elif grp.get_extensions():
+                raise CerebrumError(
+                    'Cannot delete group %s, is type %r' % (
+                        groupname, grp.get_extensions()))
+
+            self._remove_auth_target("group", grp.entity_id)
+            self._remove_auth_role(grp.entity_id)
+            try:
+                grp.delete()
+            except self.db.DatabaseError as msg:
+                if re.search("group_member_exists", exc_to_text(msg)):
+                    raise CerebrumError(
+                        ("Group is member of groups.  "
+                         "Use 'group memberships group %s'") % grp.group_name)
+                elif re.search("account_info_owner", exc_to_text(msg)):
+                    raise CerebrumError(
+                        ("Group is owner of an account.  "
+                         "Use 'entity accounts group %s'") % grp.group_name)
+                raise
+
+            return "OK, deleted group '{0}'".format(groupname)
+        else:
+            # Normal delete. Set the expire date to today.
+            self.ba.can_delete_group(operator.get_entity_id(), grp)
+            self._assert_group_deletable(grp)
+            # Set the groups expire date to today.
+
+            if grp.expire_date:
+                raise CerebrumError('Group already expired')
+            else:
+                grp.expire_date = self._today()
+                grp.write_db()
+                return 'OK, set expire-date for {0} to {1}'.format(
+                    groupname,
+                    self._today().strftime('%Y-%m-%d'))
+
+    def _assert_group_deletable(self, grp):
+        """
+        Trows an exception if group is not deletable.
+
+        The following groups are not deletable:
+        - BOFHD superuser group
+        - Personal file groups
+        """
+        if grp.get_trait(self.const.trait_personal_dfg):
+            raise CerebrumError('Cannot delete personal file group')
+        elif grp.group_name == cereconf.BOFHD_SUPERUSER_GROUP:
             raise CerebrumError("Can't delete superuser group")
-        # exchange-relatert-jazz
-        # it should not be possible to remove distribution groups via
-        # bofh, as that would "orphan" e-mail target. if need be such groups
-        # should be nuked using a cerebrum-side script.
-        if grp.has_extension('DistributionGroup'):
-            raise CerebrumError(
-                "Cannot delete distribution groups, use 'group"
-                " exchange_remove' to deactivate %s" % groupname)
-        elif grp.has_extension('PosixGroup'):
-            raise CerebrumError(
-                "Cannot delete posix groups, use 'group demote_posix %s'"
-                " before deleting." % groupname)
-        elif grp.get_extensions():
-            raise CerebrumError(
-                "Cannot delete group %s, is type %r" % (groupname,
-                                                        grp.get_extensions()))
-
-        self._remove_auth_target("group", grp.entity_id)
-        self._remove_auth_role(grp.entity_id)
-        try:
-            grp.delete()
-        except self.db.DatabaseError as msg:
-            if re.search("group_member_exists", exc_to_text(msg)):
-                raise CerebrumError(
-                    ("Group is member of groups.  "
-                     "Use 'group memberships group %s'") % grp.group_name)
-            elif re.search("account_info_owner", exc_to_text(msg)):
-                raise CerebrumError(
-                    ("Group is owner of an account.  "
-                     "Use 'entity accounts group %s'") % grp.group_name)
-            raise
-        return "OK, deleted group '%s'" % groupname
-
+        elif grp.group_name == cereconf.INITIAL_GROUPNAME:
+            raise CerebrumError("Can't delete bofhd initial group")
     #
     # group multi_remove
     #
@@ -2306,7 +2352,7 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['group_demote_posix'] = Command(
         ("group", "demote_posix"),
         GroupName(),
-        perm_filter='can_delete_group')
+        perm_filter='can_force_delete_group')
 
     def group_demote_posix(self, operator, group):
         try:
@@ -2318,7 +2364,7 @@ class BofhdExtension(BofhdCommonMethods):
                      "Use 'group list %s'") % grp.group_name)
             raise
 
-        self.ba.can_delete_group(operator.get_entity_id(), grp)
+        self.ba.can_force_delete_group(operator.get_entity_id(), grp)
         grp.demote_posix()
         return "OK, demoted '%s'" % group
 
@@ -2432,15 +2478,26 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['group_set_expire'] = Command(
         ("group", "set_expire"),
         GroupName(),
-        Date(),
-        perm_filter='can_expire_group')
+        Date(optional=True),
+        perm_filter='can_delete_group')
 
-    def group_set_expire(self, operator, group, expire):
+    def group_set_expire(self, operator, group, expire=None):
         grp = self._get_group(group)
-        self.ba.can_expire_group(operator.get_entity_id(), grp)
-        grp.expire_date = self._parse_date(expire)
-        grp.write_db()
-        return "OK, set expire-date for '%s'" % group
+        self.ba.can_delete_group(operator.get_entity_id(), grp)
+        if expire:
+            self._assert_group_deletable(grp)
+            grp.expire_date = self._parse_date(expire)
+            grp.write_db()
+            return 'OK, set expire-date for {0} set to {1}'.format(group,
+                                                                   expire)
+        else:
+            if grp.expire_date:
+                grp.expire_date = None
+                grp.write_db()
+                return 'OK, removed expire-date for {0}'.format(group)
+            else:
+                raise CerebrumError('Expire date not set for {0}'.format(
+                    group))
 
     #
     # group set_visibility
@@ -2634,7 +2691,6 @@ class BofhdExtension(BofhdCommonMethods):
         AccountPassword(),
         fs=FormatSuggestion([
             ("OK.", ('password_ok', )),
-            ("crypt3-DES:    %s", ('des3', )),
             ("MD5-crypt:     %s", ('md5', )),
             ("SHA256-crypt:  %s", ('sha256', )),
             ("SHA512-crypt:  %s", ('sha512', )),
@@ -2652,13 +2708,11 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
         except PasswordNotGoodEnough as e:
             raise CerebrumError('Bad password: %s' % exc_to_text(e))
-        crypt = ac.encrypt_password(co.Authentication("crypt3-DES"), password)
         md5 = ac.encrypt_password(co.Authentication("MD5-crypt"), password)
         sha256 = ac.encrypt_password(co.auth_type_sha256_crypt, password)
         sha512 = ac.encrypt_password(co.auth_type_sha512_crypt, password)
         return {
             'password_ok': True,
-            'des3': crypt,
             'md5': md5,
             'sha256': sha256,
             'sha512': sha512,
@@ -4484,35 +4538,39 @@ class BofhdExtension(BofhdCommonMethods):
             data.append({'affiliation': affiliations[i],
                          'source_system': sources[i]})
         try:
-            self.ba.can_get_person_external_id(operator, person)
             # Include fnr. Note that this is not displayed by the main
             # bofh-client, but some other clients (Brukerinfo, cweb) rely
             # on this data.
+
             for row in person.get_external_id(
                     id_type=self.const.externalid_fodselsnr):
+                self.ba.can_get_person_external_id(
+                    operator, person,
+                    extid_type=self.const.externalid_fodselsnr,
+                    source_sys=row['source_system'])
                 data.append({
                     'fnr': row['external_id'],
                     'fnr_src': text_type(
                         self.const.AuthoritativeSystem(row['source_system'])),
                 })
             # Show external ids
-            for extid in (
-                    'externalid_fodselsnr',
-                    'externalid_sap_ansattnr',
-                    'externalid_studentnr',
-                    'externalid_pass_number',
-                    'externalid_social_security_number',
-                    'externalid_tax_identification_number',
-                    'externalid_value_added_tax_number'):
-                extid_const = getattr(self.const, extid, None)
-                if extid_const:
-                    for row in person.get_external_id(id_type=extid_const):
-                        data.append({
-                            'extid': text_type(extid_const),
-                            'extid_src': text_type(
-                                self.const.AuthoritativeSystem(
-                                    row['source_system'])),
-                        })
+            for row in person.get_external_id():
+                try:
+                    extid_type = str(self.const.EntityExternalId(
+                        row[0]))
+                    self.ba.can_get_person_external_id(
+                        operator, person,
+                        extid_type=extid_type,
+                        source_sys=row['source_system'])
+                except PermissionDenied:
+                    pass
+                else:
+                    data.append({
+                        'extid': text_type(extid_type),
+                        'extid_src': text_type(
+                            self.const.AuthoritativeSystem(
+                                row['source_system'])),
+                    })
         except PermissionDenied:
             pass
 
@@ -4553,22 +4611,28 @@ class BofhdExtension(BofhdCommonMethods):
               "source_system", "ext_id_value"))
         ]))
 
-    def person_get_id(self, operator, person_id, ext_id, source_system):
+    def person_get_id(self, operator, person_id, ext_id_type, source_system):
         """
         Returns an external id value for a person according to the specified
         source system. The command/function only returns one ID instead of all
         IDs for a person entity in order to limit the exposure of sensitive
         personal info to the bare minimum.
         """
-        ext_id_const = self._get_constant(self.const.EntityExternalId,
-                                          ext_id, 'external id')
-        ss_const = self._get_constant(self.const.AuthoritativeSystem,
-                                      source_system, 'source system')
+        try:
+            ext_id_const = int(self.const.EntityExternalId(ext_id_type))
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown external id: {}".format(ext_id_type))
+        try:
+            ss_const = int(self.const.AuthoritativeSystem(source_system))
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown source system: {}"
+                                .format(source_system))
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
-        self.ba.can_get_person_external_id(operator, person)
+        self.ba.can_get_person_external_id(
+            operator, person, ext_id_type, source_system)
         external_id_list = person.get_external_id(
             id_type=ext_id_const,
             source_system=ss_const)
@@ -4584,7 +4648,7 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             raise CerebrumError(
                 "Could not find id %s for person entity %d in system %s" %
-                (text_type(ext_id), person.entity_id,
+                (text_type(ext_id_const), person.entity_id,
                  text_type(source_system)))
 
     #
@@ -5482,8 +5546,9 @@ class BofhdExtension(BofhdCommonMethods):
         # TBD: Better way of checking if email forwards are in use, by
         # checking if bofhd command is available?
         if hasattr(self, '_email_create_forward_target'):
-            localaddr = '{}@{}'.format(account_name,
-                                       cereconf.EMAIL_DEFAULT_DOMAIN)
+            localaddr = '{}@{}'.format(
+                account_name,
+                Email.get_primary_default_email_domain())
             self._email_create_forward_target(localaddr, contact_address)
 
         quar = cereconf.BOFHD_CREATE_UNPERSONAL_QUARANTINE

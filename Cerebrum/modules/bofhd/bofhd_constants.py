@@ -144,6 +144,8 @@ class Constants(Constants.Constants):
         'add_affiliation', "Add affiliation")
     auth_remove_affiliation = _AuthRoleOpCode(
         'rem_affiliation', "Remove affiliation")
+    auth_view_external_id = _AuthRoleOpCode(
+        'view_external_ids', "View external IDs")
     # These are values used as auth_op_target.target_type.  This table
     # doesn't use a code table to map into integers, so we can't use
     # the CerebrumCode framework.  TODO: redefine the database table
