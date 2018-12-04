@@ -919,9 +919,9 @@ def main():
              'work_title, phone, fax, mobile. Default is all'
     )
     parser.add_argument(
-        '-n', '--do_not_export_extra_fields',
+        '-n', '--do-no-export-extra-fields',
         action='store_true',
-        dest='do_not_export_extra_fields',
+        dest='do_no_export_extra_fields',
         help='Do not export any of the "extra" fagperson fields (work_title, '
              'phone, fax, mobile)'
     )
@@ -994,7 +994,7 @@ def main():
 
     valid_fagperson_fields = ['work_title', 'phone', 'fax', 'mobile']
 
-    if args.do_not_export_extra_fields:
+    if args.do_no_export_extra_fields:
         fagperson_fields = {x: False for x in valid_fagperson_fields}
     elif args.fagperson_fields:
         fagperson_fields = {x: False for x in valid_fagperson_fields}
