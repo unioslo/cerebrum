@@ -20,27 +20,31 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import mx
+import sys
 import logging
 import argparse
 import datetime
 from os.path import join as pj
 from collections import defaultdict
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
+from Cerebrum.utils.argutils import add_commit_args
 
 import cereconf
 
 # Globals
-logger = logging.getLogger('cronjob')
+logger = logging.getLogger(__name__)
+ou_cache = {}
 
 
 def main():
     # global verbose, ou, db, co, logger, gen_groups, group, \
     #     old_aff, include_delete, no_name
-    verbose = 0
 
     # "globals"
     db = Factory.get('Database')()
@@ -51,9 +55,13 @@ def main():
 
     # parsing
     parser = argparse.ArgumentParser()
+
+    parser = add_commit_args(parser, default=True)
+
     parser.add_argument(
         '-v', '--verbose',
         action='count')
+        # Why doesn't verbose do anything?
     parser.add_argument(
         '-p', '--person-file',
         dest='personfile',
@@ -75,7 +83,9 @@ def main():
             '-e', '--emne-file',
             dest='emnefile',
             default=pj(cereconf.FS_DATA_DIR, "emner.xml"))
+    Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
         raise SystemExit("Check cereconf, SYSTEM_LOOKUP_ORDER is wrong!")
@@ -91,6 +101,7 @@ def main():
         group.populate(ac.entity_id, co.group_visibility_internal,
                        group_name, group_desc)
         group.write_db()
+
     if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
         logger.warn("Warning: ENABLE_MKTIME_WORKAROUND is set")
 
@@ -98,41 +109,53 @@ def main():
     for s in StudentInfo.StudieprogDefParser(args.studieprogramfile):
         studieprog2sko[s['studieprogramkode']] = _get_sko(
             s, 'faknr_studieansv', 'instituttnr_studieansv',
-            'gruppenr_studieansv', ou)
+            'gruppenr_studieansv', db)
 
     # if cereconf.FS_EMNEFILE_ARGUMENT:
     #     emne2sko = _get_emne2sko(args.emnefile, ou)
 
-    if include_delete:
+    if args.include_delete:
         old_aff = _load_cere_aff(db, co)
+    else:
+        old_aff = None
 
     fnr2person_id = None
     if cereconf.FS_FIND_PERSON_BY == 'fnr':
         fnr2person_id, person = _get_fnr2person(db, co)
 
-    person_processor = PersonProcessor(studieprog2sko, db, co, ou, gen_groups,
-                                       fnr2person_id, include_delete, old_aff)
+    person_processor = PersonProcessor(studieprog2sko, db, co, ou, group,
+                                       args.gen_groups, fnr2person_id,
+                                       args.include_delete, old_aff,
+                                       args.commit)
+
     StudentInfo.StudentInfoParser(args.personfile,
                                   person_processor.process_person_callback,
                                   logger)
 
-    if include_delete:
+    if args.include_delete:
         rem_old_aff(person_processor.old_aff, person_processor.db, co)
-    person_processor.db.commit()
+
+    if args.commit:
+        person_processor.db.commit()
+        logger.info('Changes were committed to the database')
+    else:
+        person_processor.db.rollback()
+        logger.info('Dry run. Changes to the database were rolled back')
+
     logger.info("Found %d persons without name.", person_processor.no_name)
     logger.info("Completed")
 
 
-def _get_emne2sko(emnefile, ou):
+def _get_emne2sko(emnefile, db):
     emne2sko = {}
     for e in StudentInfo.EmneDefParser(emnefile):
         emne2sko[e['emnekode']] = _get_sko(
             e, 'faknr_reglement', 'instituttnr_reglement',
-            'gruppenr_reglement', ou)
+            'gruppenr_reglement', db)
         return emne2sko
 
 
-def _get_sko(a_dict, kfak, kinst, kgr, ou, kinstitusjon=None):
+def _get_sko(a_dict, kfak, kinst, kgr, db, kinstitusjon=None):
     # We cannot ignore institusjon (inst A, sko x-y-z is NOT the same as
     # inst B, sko x-y-z)
     if kinstitusjon is not None:
@@ -146,8 +169,8 @@ def _get_sko(a_dict, kfak, kinst, kgr, ou, kinstitusjon=None):
     else:
         key = "-".join((a_dict[kfak], a_dict[kinst], a_dict[kgr]))
 
-    ou_cache = {}
     if key not in ou_cache:
+        ou = Factory.get("OU")(db)
         try:
             ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]),
                              int(a_dict[kgr]), institusjon=institusjon)
@@ -159,8 +182,8 @@ def _get_sko(a_dict, kfak, kinst, kgr, ou, kinstitusjon=None):
 
 
 class PersonProcessor(object):
-    def __init__(self, studieprog2sko, db, co, ou, gen_groups, fnr2person_id,
-                 include_delete, old_aff):
+    def __init__(self, studieprog2sko, db, co, ou, group, gen_groups, fnr2person_id,
+                 include_delete, old_aff, commit):
         # Variables passed to/from main
         self.no_name = 0
 
@@ -170,9 +193,10 @@ class PersonProcessor(object):
         self.ou = ou
         self.gen_groups = gen_groups
         self.fnr2person_id = fnr2person_id
-        self.group = None
+        self.group = group
         self.include_delete = include_delete
         self.old_aff = old_aff
+        self.commit = commit
 
     def process_person_callback(self, person_info):
         """Called when we have fetched all data on a person from the xml
@@ -185,17 +209,18 @@ class PersonProcessor(object):
 
         gender = _get_gender(fnr, self.co)
 
-        affiliations = aktiv_sted = []
+        affiliations = []
+        aktiv_sted = []
 
         if cereconf.FS_ITERATE_PERSONS == 'hiof':
             etternavn, fornavn, studentnr, birth_date = _iterate_persons_hiof(
                 person_info, self.studieprog2sko, aktiv_sted, affiliations,
-                self.co)
+                self.db, self.co)
         elif cereconf.FS_ITERATE_PERSONS == 'uia':
             etternavn, fornavn, studentnr, birth_date, address_info = \
                 _iterate_persons_uia(person_info, self.studieprog2sko,
                                      aktiv_sted, affiliations, self.co,
-                                     self.ou, fnr)
+                                     fnr, self.db)
 
         if etternavn is None:
             logger.debug("Ikke noe navn på %s" % fnr)
@@ -216,12 +241,39 @@ class PersonProcessor(object):
 
         _db_add_person(new_person, birth_date, gender, fornavn, etternavn,
                        studentnr, fnr, person_info, self.include_delete,
-                       self.old_aff, affiliations, self.db, self.co, self.ou)
+                       self.old_aff, affiliations, self.db, self.co)
 
         if self.gen_groups:
             self.group = _add_reservations(person_info, new_person, self.group)
 
-        self.db.commit()
+        if self.commit:
+            self.db.commit()
+        else:
+            self.db.rollback()
+
+#
+# class OuCache(object):
+#     def __init__(self, db):
+#         co = Factory.get('Constants')(db)
+#         ou = Factory.get('OU')(db)
+#
+#         self._ou2sko = dict(
+#             (row['ou_id'], ("%02d%02d%02d" % (row['fakultet'],
+#                                               row['institutt'],
+#                                               row['avdeling'])))
+#             for row in ou.get_stedkoder())
+#
+#         self._ou2name = dict(
+#             (row['entity_id'], row['name'])
+#             for row in ou.search_name_with_language(
+#                 name_variant=co.ou_name_display,
+#                 name_language=co.language_nb))
+#
+#     def get_sko(self, ou_id):
+#         return self._ou2sko[ou_id]
+#
+#     def get_name(self, ou_id):
+#         return self._ou2name[ou_id]
 
 
 def _get_fnr(person_info):
@@ -268,7 +320,7 @@ def _get_person_by_studentnr(fnr, studentnr, db, co):
 
 
 def _iterate_persons_hiof(person_info, studieprog2sko, aktiv_sted,
-                          affiliations, co):
+                          affiliations, db, co):
     etternavn = fornavn = studentnr = birth_date = address_info = None
 
     # Iterate over all person_info entries and extract relevant data
@@ -299,7 +351,7 @@ def _iterate_persons_hiof(person_info, studieprog2sko, aktiv_sted,
                 co.affiliation_tilknyttet,
                 co.affiliation_status_tilknyttet_fagperson,
                 affiliations,
-                _get_sko(p, 'faknr', 'instituttnr', 'gruppenr',
+                _get_sko(p, 'faknr', 'instituttnr', 'gruppenr', db,
                          'institusjonsnr'))
         elif dta_type in ('aktiv',):
             for row in x:
@@ -327,7 +379,7 @@ def _iterate_persons_hiof(person_info, studieprog2sko, aktiv_sted,
 
 
 def _iterate_persons_uia(person_info, studieprog2sko, aktiv_sted,
-                         affiliations, co, ou, fnr):
+                         affiliations, co, fnr, db):
     etternavn = fornavn = studentnr = birth_date = address_info = None
 
     # Iterate over all person_info entries and extract relevant data
@@ -377,7 +429,7 @@ def _iterate_persons_uia(person_info, studieprog2sko, aktiv_sted,
                     co.affiliation_status_student_evu, affiliations,
                     _get_sko(p, 'faknr_adm_ansvar',
                              'instituttnr_adm_ansvar',
-                             'gruppenr_adm_ansvar', ou))
+                             'gruppenr_adm_ansvar', db))
         elif dta_type in ('privatist_studieprogram',):
             for row in x:
                 _process_affiliation(
@@ -397,7 +449,7 @@ def _iterate_persons_uia(person_info, studieprog2sko, aktiv_sted,
 
 def _db_add_person(new_person, birth_date, gender, fornavn, etternavn,
                    studentnr, fnr, person_info, include_delete,
-                   old_aff, affiliations, db, co, ou):
+                   old_aff, affiliations, db, co):
     """Fills in the necessary information about the new_person.
     Then the new_person gets written to the database"""
     new_person.populate(birth_date, gender)
@@ -416,8 +468,7 @@ def _db_add_person(new_person, birth_date, gender, fornavn, etternavn,
                                       co.externalid_fodselsnr)
     new_person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
 
-    ad_post, ad_post_private, ad_street = _calc_address(person_info, db, co,
-                                                        ou)
+    ad_post, ad_post_private, ad_street = _calc_address(person_info, db, co)
     for address_info, ad_const in ((ad_post, co.address_post),
                                    (ad_post_private, co.address_post_private),
                                    (ad_street, co.address_street)):
@@ -442,6 +493,7 @@ def _db_add_person(new_person, birth_date, gender, fornavn, etternavn,
     register_cellphone(new_person, person_info, co)
 
     op2 = new_person.write_db()
+
     if op is None and op2 is None:
         logger.info("**** EQUAL ****")
     elif op:
@@ -482,7 +534,7 @@ def _add_reservations(person_info, new_person, group):
 
 
 def _get_fnr2person(db, co):
-    person = Factory.get('person')(db)
+    person = Factory.get('Person')(db)
     # create fnr2person_id mapping, always using fnr from FS when set
     fnr2person_id = {}
     for p in person.list_external_ids(id_type=co.externalid_fodselsnr):
@@ -545,8 +597,12 @@ def rem_old_aff(old_aff, db, co):
     For the rest, we check if they are past the
     cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS limit, and remove them if they
     are.
-
     """
+
+    omitted_affs = []
+    if 'STUDENT/evu' in cereconf.FS_EXCLUDE_AFFILIATIONS_FROM_GRACE:
+        omitted_affs.append(int(co.affiliation_status_student_evu))
+
     logger.info("Removing old FS affiliations")
     stats = defaultdict(lambda: 0)
     person = Factory.get("Person")(db)
@@ -579,13 +635,12 @@ def rem_old_aff(old_aff, db, co):
         aff = aff[0]
 
         # Check date, do not remove affiliation for active students until end
-        # of grace period. Some institutions' EVU affiliations should be
-        # removed at once.
+        # of grace period. Some affiliations are omitted from the grace period
+        # for certain institutions.
         grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
-        not_expired = aff['last_date'] > (mx.DateTime.now() - grace_days) and \
-                      not (cereconf.FS_REMOVE_EVU_AFF and int(aff['status']) ==
-                           int(co.affiliation_status_student_evu))
-        if not_expired:
+
+        if aff['last_date'] > (mx.DateTime.now() - grace_days) and \
+                      not int(aff['status']) in omitted_affs:
             logger.debug("Sparing aff (%s) for person_id=%r at ou_id=%r",
                          aff_const, person_id, ou_id)
             stats['grace'] += 1
@@ -624,7 +679,7 @@ def filter_affiliations(affiliations, co):
                                  for i in range(len(aff_status_pri_order))])
 
     affiliations.sort(lambda x, y: aff_status_pri_order.get(int(y[2]), 99) -
-                                   aff_status_pri_order.get(int(x[2]), 99))
+                      aff_status_pri_order.get(int(x[2]), 99))
 
     ret = {}
     for ou, aff, aff_status in affiliations:
@@ -635,12 +690,14 @@ def filter_affiliations(affiliations, co):
 def _add_res(group, entity_id):
     if not group.has_member(entity_id):
         group.add_member(entity_id)
+        logging.debug('Added member %r to group %r', entity_id, group)
     return group
 
 
 def _rem_res(group, entity_id):
     if group.has_member(entity_id):
         group.remove_member(entity_id)
+        logging.debug('Removed member %r from group %r', entity_id, group)
     return group
 
 
@@ -652,6 +709,9 @@ def register_cellphone(person, person_info, co):
 
     @param person_info:
       Dict returned by StudentInfoParser.
+
+    @param co:
+      Constants
     """
 
     def _fetch_cerebrum_contact():
@@ -705,11 +765,11 @@ def _process_affiliation(aff, aff_status, new_affs, ou):
         new_affs.append((ou, aff, aff_status))
 
 
-def _get_sted_address(db, co, ou, a_dict, k_institusjon, k_fak, k_inst,
+def _get_sted_address(db, co, a_dict, k_institusjon, k_fak, k_inst,
                       k_gruppe):
     ou_adr_cache = {}
 
-    ou_id = _get_sko(a_dict, k_fak, k_inst, k_gruppe, ou,
+    ou_id = _get_sko(a_dict, k_fak, k_inst, k_gruppe, db,
                      kinstitusjon=k_institusjon)
     if not ou_id:
         return None
@@ -734,7 +794,7 @@ def _get_sted_address(db, co, ou, a_dict, k_institusjon, k_fak, k_inst,
     return ou_adr_cache[ou_id]
 
 
-def _calc_address(person_info, db, co, ou):
+def _calc_address(person_info, db, co):
     """Evaluerer personens adresser iht. til flereadresser_spek.txt og
     returnerer en tuple (address_post, address_post_private,
     address_street)"""
@@ -756,7 +816,7 @@ def _calc_address(person_info, db, co, ou):
             if (ret[i] is not None) or not addr_cols:
                 continue
             if len(addr_cols) == 4:
-                ret[i] = _get_sted_address(db, co, ou, tmp, *addr_cols)
+                ret[i] = _get_sted_address(db, co, tmp, *addr_cols)
             else:
                 ret[i] = _ext_address_info(tmp, *addr_cols)
     return ret
@@ -767,11 +827,17 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     ret['address_text'] = "\n".join([a_dict.get(f, None)
                                      for f in (kline1, kline2)
                                      if a_dict.get(f, None)])
-    postal_number = a_dict.get(kpost, '')
+    postal_number = a_dict.get(kpost.strip(), '')
     if postal_number:
         postal_number = "%04i" % int(postal_number)
     ret['postal_number'] = postal_number
-    ret['city'] = a_dict.get(kline3, '')
+
+    city = a_dict.get(kline3.strip(), '')
+    if city:
+        ret['city'] = city
+    else:
+        ret['city'] = None
+    logger.debug('%s,  %s,  %s', ret['address_text'], postal_number, city)
     if len(ret['address_text']) == 1:
         logger.debug("Address might not be complete, "
                      "but we need to cover one-line addresses")
