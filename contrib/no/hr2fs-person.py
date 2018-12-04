@@ -812,18 +812,9 @@ class HR2FSSyncer(object):
         else:
             logger.debug("Fagperson %s exists in FS", person_id)
             tmp = fs_info[0]
-            changes = False
-            for key in values:
-                val_in_cerebrum = values[key]
-                val_in_fs = tmp[key]
-                if val_in_fs != val_in_cerebrum:
-                    changes = True
-                    break
-
-            if changes:
+            if any(values[k] != tmp[k] for k in values.keys()):
                 logger.debug("Updating data for fagperson %s", person_id)
                 self.fs.person.update_fagperson(**values)
-
             else:
                 logger.debug("Fagperson %s does not need updating",
                              person_id)
