@@ -919,6 +919,13 @@ def main():
              'work_title, phone, fax, mobile. Default is all'
     )
     parser.add_argument(
+        '-n', '--do_not_export_extra_fields',
+        action='store_true',
+        dest='do_not_export_extra_fields',
+        help='Do not export any of the "extra" fagperson fields (work_title, '
+             'phone, fax, mobile)'
+    )
+    parser.add_argument(
         '-m', '--with-cache-email',
         action='store_true',
         dest='email_cache',
@@ -970,7 +977,7 @@ def main():
     ou_perspective = get_constant(db, parser, co.OUPerspective,
                                   args.ou_perspective)
     authoritative_system = get_constant(db, parser, co.AuthoritativeSystem,
-                                  args.authoritative_system)
+                                        args.authoritative_system)
 
     if ou_perspective is None:
         logger.error('No valid OU perspective given')
@@ -987,7 +994,9 @@ def main():
 
     valid_fagperson_fields = ['work_title', 'phone', 'fax', 'mobile']
 
-    if args.fagperson_fields:
+    if args.do_not_export_extra_fields:
+        fagperson_fields = {x: False for x in valid_fagperson_fields}
+    elif args.fagperson_fields:
         fagperson_fields = {x: False for x in valid_fagperson_fields}
         for field in args.fagperson_fields:
             if field in fagperson_fields:
