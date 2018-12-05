@@ -22,21 +22,49 @@ The bofhd.bofhd_mixins contains mixins that should go into the base
 Group classes to support detection, deletion and cleanup of bofhd auth related
 data.
 """
-from Cerebrum.Group import Group
+from Cerebrum.Entity import Entity
+from Cerebrum.Utils import argument_to_sql
 
 
-class BofhdAuthGroupMixin(Group):
+class BofhdAuthEntityMixin(Entity):
     """
     This class is intended as a mixin to the base Group class, to enable
-    identification and cleanup of BodhAuth related data.
+    identification and cleanup of BofhdAuth related data.
     """
     # def __init__(self, database):
     #     super(BofhdAuthGroupMixin, self).__init__(database)
 
     def delete(self):
-        """Removes all moderator rights for a group upon deletion"""
+        """Removes all moderator rights for a group upon deletion, and removes
+        moderator rights for other groups over this group."""
+        # Delete entity from auth_role
         self.execute(
             """
             DELETE FROM [:table schema=cerebrum name=auth_role]
             WHERE entity_id=:e_id
             """, {'e_id': self.entity_id})
+        # Find references to entity as op_target in auth_op_target
+        target_list = self.query(
+            """
+            SELECT op_target_id
+            FROM [:table schema=cerebrum name=auth_op_target]
+            WHERE entity_id=:e_id
+            """, {'e_id': self.entity_id})
+        # If any references found, remove first from auth_role, then from
+        # auth_op_target
+        if target_list:
+            op_target_id = []
+            for row in target_list:
+                op_target_id.append(row['op_target_id'])
+            binds = dict()
+            targets = argument_to_sql(op_target_id, "op_target_id", binds, int)
+            # Delete entries from auth_role
+            query_str = """DELETE FROM [:table schema=cerebrum name=auth_role]
+            WHERE %s """ % targets
+            self.execute(query_str, binds)
+            # Delete references to entity in auth_op_target
+            self.execute(
+                """
+                DELETE FROM [:table schema=cerebrum name=auth_op_target]
+                WHERE entity_id=:e_id
+                """, {'e_id': self.entity_id})
