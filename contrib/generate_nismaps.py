@@ -77,7 +77,7 @@ def main():
     e_o_f = False
     user_spread = group_spread = None
     max_group_memberships = 16
-    auth_method = co.auth_type_crypt3_des
+    auth_method = co.auth_type_md5_crypt
     shadow_file = None
     for opt, val in opts:
         if opt in ('--help',):

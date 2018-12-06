@@ -1642,8 +1642,7 @@ class BofhdEmailCommands(BofhdEmailBase):
             # Tell what addresses can be deleted:
             ea = Email.EmailAddress(self.db)
             dom = Email.EmailDomain(self.db)
-            domains = acc.get_prospect_maildomains(
-                use_default_domain=cereconf.EMAIL_DEFAULT_DOMAIN)
+            domains = acc.get_prospect_maildomains()
             for domain in cereconf.EMAIL_NON_DELETABLE_DOMAINS:
                 dom.clear()
                 dom.find_by_domain(domain)

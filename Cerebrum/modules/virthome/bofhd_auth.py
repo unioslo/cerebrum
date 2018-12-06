@@ -335,7 +335,7 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
         """
 
         # can_delete_group() is available for owners only.
-        return self.can_delete_group(account_id, group_id)
+        return self.can_force_delete_group(account_id, group_id)
     # end can_change_moderators
 
 
@@ -347,7 +347,7 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
         """
 
         # can_delete_group() is available for owners only.
-        return self.can_delete_group(account_id, group_id)
+        return self.can_force_delete_group(account_id, group_id)
     # end can_change_moderators
 
 
@@ -358,7 +358,7 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
         Group owners are allowed to do that.
         """
         
-        return self.can_delete_group(account_id, group_id)
+        return self.can_force_delete_group(account_id, group_id)
     # end can_change_url
     
 
@@ -403,7 +403,7 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
         
 
 
-    def can_delete_group(self, account_id, group_id):
+    def can_force_delete_group(self, account_id, group_id):
         if self.is_superuser(account_id):
             return True
 

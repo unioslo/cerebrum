@@ -321,11 +321,16 @@ class AccountHiAMixin(Account.Account):
         ed = Email.EmailDomain(self._db)
         ed.find(self.get_primary_maildomain())
         domains = [ed.email_domain_name]
-        if ed.email_domain_name == cereconf.EMAIL_DEFAULT_DOMAIN:
+
+        if ed.email_domain_name == Email.get_primary_default_email_domain():
             if not self.owner_type == self.const.entity_group:
                 primary_set = True
-        if cereconf.EMAIL_DEFAULT_DOMAIN not in domains:
-            domains.append(cereconf.EMAIL_DEFAULT_DOMAIN)
+
+        # Add the default domains if missing
+        for domain in Email.get_default_email_domains():
+            if domain not in domains:
+                domains.append(domain)
+
         # Iterate over the available domains, testing various
         # local_parts for availability.  Set user's primary address to
         # the first one found to be available.
