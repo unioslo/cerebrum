@@ -20,7 +20,6 @@
 import re
 import cereconf
 import time
-import random
 
 from Cerebrum import Account
 from Cerebrum import Utils
@@ -260,7 +259,7 @@ class AccountHiAMixin(Account.Account):
                     et.write_db()
             except Errors.NotFoundError:
                 pass
-            return            
+            return
         # Find, create or update a proper EmailTarget for this
         # account.
         et = Email.EmailTarget(self._db)
@@ -437,21 +436,7 @@ class AccountHiAMixin(Account.Account):
             et.write_db()
         return et
 
-
-    def suggest_unames(self,
-                       domain,
-                       fname,
-                       lname,
-                       maxlen=8,
-                       suffix=None,
-                       prefix=""):
-        """
-        """
-        if suffix is None:
-            from time import localtime
-            t = localtime()[0:2]
-            year = str(t[0])[2:]
-            suffix = year
+    def suggest_unames(self, domain, fname, lname, maxlen=10, suffix=""):
         return self.__super.suggest_unames(domain,
                                            fname,
                                            lname,
