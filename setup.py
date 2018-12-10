@@ -316,7 +316,6 @@ sbin_files = [
     ('servers/cis/SoapIndividuationServer.py', 0755),
     ('servers/cis/SoapPostmasterServer.py', 0755),
     ('servers/cis/SoapGroupServer.py', 0755),
-    ('servers/cis/SoapServer.py', 0755),
     ('consumers/no/uio/tiny_scheduler.py', 0755),
     ('consumers/no/uio/consumer_sap.py', 0755),
     ('consumers/no/uio/consumer_enforce_forward_policy.py', 0755)
