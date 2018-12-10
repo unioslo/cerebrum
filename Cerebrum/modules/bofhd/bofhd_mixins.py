@@ -53,18 +53,16 @@ class BofhdAuthEntityMixin(Entity):
         # If any references found, remove first from auth_role, then from
         # auth_op_target
         if target_list:
-            op_target_id = []
-            for row in target_list:
-                op_target_id.append(row['op_target_id'])
+            op_target_id = [row['op_target_id'] for row in target_list]
             binds = dict()
             targets = argument_to_sql(op_target_id, "op_target_id", binds, int)
             # Delete entries from auth_role
-            query_str = """DELETE FROM [:table schema=cerebrum name=auth_role]
-            WHERE %s """ % targets
-            self.execute(query_str, binds)
+            self.execute(
+                """
+                DELETE FROM [:table schema=cerebrum name=auth_role]
+                WHERE %s """ % targets, binds)
             # Delete references to entity in auth_op_target
             self.execute(
                 """
                 DELETE FROM [:table schema=cerebrum name=auth_op_target]
-                WHERE entity_id=:e_id
-                """, {'e_id': self.entity_id})
+                WHERE %s """ % targets, binds)
