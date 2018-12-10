@@ -437,11 +437,8 @@ class AccountHiAMixin(Account.Account):
         return et
 
     def suggest_unames(self, domain, fname, lname, maxlen=10, suffix=""):
-        return self.__super.suggest_unames(domain,
-                                           fname,
-                                           lname,
-                                           maxlen,
-                                           suffix=suffix)
+        return super(AccountHiAMixin, self).suggest_unames(
+                domain, fname, lname, maxlen, suffix=suffix)
 
     def is_employee(self):
         for r in self.get_account_types():
