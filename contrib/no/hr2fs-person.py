@@ -914,9 +914,9 @@ def main():
     parser.add_argument(
         '-e', '--fagperson-fields',
         dest='fagperson_fields',
-        nargs='+',
-        help='Fagperson data fields to be exported. Valid inputs are: '
-             'work_title, phone, fax, mobile. Default is all'
+        action='append',
+        choices=['work_title', 'phone', 'fax', 'mobile'],
+        help='Fagperson data fields to be exported. Default is all'
     )
     parser.add_argument(
         '-n', '--no-extra-fields',
