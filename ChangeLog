@@ -1,3 +1,8 @@
+2018-12-10 <kennethj@gagarin.uit.no>
+    * export_cristin.py (output_element): changed: if not attributes and (value is None or not value):
+    to: if not attributes and (value is None):
+    this because value == 0 triggers on "not value"
+    
 2018-11-28  Karen   <cerebrum@cleomedes.uit.no>
 
     * export_oid.py (load_cb_data): Removed co.affiliation_status_timelonnet_midlertidig 

@@ -596,7 +596,7 @@ def output_element(writer, value, element, attributes = dict()):
 
     # If there are no attributes and no textual value for the element, we do
     # not need it.
-    if not attributes and (value is None or not value):
+    if not attributes and (value is None):
         return
 
     writer.startElement(element, attributes)
