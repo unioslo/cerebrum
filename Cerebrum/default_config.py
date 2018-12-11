@@ -102,6 +102,9 @@ PASSWORD_TEST_ARGUMENTS = {}
 # None is to be regarded as a wildcard.
 SMS_NUMBER_SELECTOR = []
 
+# Extra numbers to use in special circumstances.
+# Follows same setup and is used INSTEAD of SMS_NUMBER_SELECTOR if set.
+SMS_NUMBER_SELECTOR_PRIVATE = []
 # Look for things like person name by evaluating source systems in in
 # this order
 SYSTEM_LOOKUP_ORDER = ("system_manual",)
