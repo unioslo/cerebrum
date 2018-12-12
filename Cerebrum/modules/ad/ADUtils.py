@@ -333,6 +333,9 @@ class ADUserUtils(ADUtils):
             return
         self.logger.info("created user %s with sid %s", uname, sid)
 
+        # Set password
+        self.run_cmd("setPassword", self.ac.make_passwd(uname))
+
         # Set properties. First remove any properties that cannot be set like
         # this
         for a in ("distinguishedName", "cn"):
