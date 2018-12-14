@@ -67,7 +67,7 @@ class norEduLDIFMixin(OrgLDIF):
     extensibleObject = (cereconf.LDAP.get('use_extensibleObject', True) and
                         'extensibleObject') or None
 
-    FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.5')
+    FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.6')
     FEIDE_obsolete_version = cereconf.LDAP.get('FEIDE_obsolete_schema_version')
 
     if isinstance(FEIDE_schema_version, (tuple, list)):
@@ -256,7 +256,8 @@ class norEduLDIFMixin(OrgLDIF):
                 self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn)
         if (ldapconf('PERSON', 'entitlements_file') and
                 person_id in self.person2entitlements):
-            entry['eduPersonEntitlement'] = set(self.person2entitlements[person_id])
+            entry['eduPersonEntitlement'] = set(
+                self.person2entitlements[person_id])
 
         entry['objectClass'].append('schacContactLocation')
         entry['schacHomeOrganization'] = self.homeOrg
