@@ -19,8 +19,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-## Process changelog entries, create user for persons registered
-## by ABC-import 
+"""
+Process changelog entries, create user for persons registered
+by ABC-import
+"""
 
 import sys
 
@@ -31,9 +33,6 @@ from Cerebrum.modules import CLHandler
 
 
 def build_account(person_id):
-    fname = None
-    lname = None
-    uname = None
     person.clear()
     try:
         person.find(person_id)
@@ -43,15 +42,15 @@ def build_account(person_id):
 
     person_aff = person.get_affiliations()
 
-    acc_id = None
     acc_id = account.list_accounts_by_owner_id(person_id)
-    
+
     if acc_id == []:
         fname = person.get_name(constants.system_cached, constants.name_first)
         lname = person.get_name(constants.system_cached, constants.name_last)
-        unames = account.suggest_unames(constants.account_namespace, fname, lname)
+        unames = account.suggest_unames(constants.account_namespace, fname,
+                                        lname)
 
-        if unames[0] == None:
+        if unames[0] is None:
             logger.error('Could not generate user name for %s.', person_id)
             return None
         account.clear()
@@ -68,7 +67,8 @@ def build_account(person_id):
                 account.set_account_type(row['ou_id'], row['affiliation'])
         account.write_db()
         return account.entity_id
-        
+
+
 def main():
     global db, constants, logger, person, account
     global default_creator_id, default_expire_date
@@ -82,33 +82,31 @@ def main():
     logger = Factory.get_logger('cronjob')
     person = Factory.get('Person')(db)
     account = Factory.get('Account')(db)
-    
+
     acc.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     default_creator_id = acc.entity_id
     default_expire_date = None
 
-    cl_events = []
-    new_acc_id = None
-    
     try:
         cl_events = cl_handler.get_events('auto_create',
                                           (clconstants.person_create,))
         if cl_events == []:
             logger.info("Nothing to do.")
             sys.exit(0)
-            
+
         for event in cl_events:
             if event['change_type_id'] == clconstants.person_create:
                 new_acc_id = build_account(event['subject_entity'])
-                if new_acc_id == None:
+                if new_acc_id is None:
                     logger.error('Could not create an account for %s',
                                  event['subject_entity'])
                     continue
                 cl_handler.confirm_event(event)
-    except TypeError, e:
+    except TypeError as e:
         logger.warn("No such event, %s" % e)
         return None
     cl_handler.commit_confirmations()
-    
+
+
 if __name__ == '__main__':
     main()
