@@ -28,18 +28,20 @@ for o, a in opts:
     else:
         assert False, "unhandled option"
 
-fout = open(outputname, "w")
+# Read uit_paga_last.csv
+#fin = open(inputname1, "r")
+#filedata = fin.read()
+#fin.close()
+#fout.write(filedata)
 
-fin = open(inputname1, "r")
-filedata = fin.read()
-fin.close()
-fout.write(filedata)
-
+# read uit_paga_adminpeople_final
 fin = open(inputname2, "r")
 filedata = fin.read()
 fin.close()
-fout.write(filedata)
 
+# append to uit_paga_last.csv
+fout = open(outputname, "a")
+fout.write(filedata)
 fout.close()
 
 
