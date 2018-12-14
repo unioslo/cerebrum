@@ -45,10 +45,7 @@ def create_app(config=None):
     app.config.from_object('Cerebrum.rest.default_config')
     if config:
         app.config.from_object(config)
-        try:
-            trusted_hosts = app.config['TRUSTED_HOSTS']
-        except ValueError:
-            trusted_hosts = []
+        trusted_hosts = app.config.get('TRUSTED_HOSTS', [])
 
     app.config['RESTFUL_JSON'] = {'ensure_ascii': False, 'encoding': 'utf-8'}
     app.wsgi_app = ProxyFix(app.wsgi_app)
