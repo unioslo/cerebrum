@@ -104,7 +104,7 @@ def restore_account(db, pe, ac, remove_quars):
         gr.remove_member(ac.entity_id)
         gr.write_db()
 
-    # TBD: remove old passwords?
+    # TODO: remove old passwords
 
 
 def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
