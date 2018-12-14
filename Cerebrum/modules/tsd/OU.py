@@ -35,11 +35,9 @@ import six
 
 from mx import DateTime
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.database import DatabaseError
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import dns

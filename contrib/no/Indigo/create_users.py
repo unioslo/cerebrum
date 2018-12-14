@@ -22,15 +22,13 @@
 ## Process changelog entries, create user for persons registered
 ## by ABC-import 
 
-import sys, os, getopt, time, string, pickle, re
+import sys
 
-import cerebrum_path
 import cereconf
-from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
-from Cerebrum.Constants import _SpreadCode
+
 
 def build_account(person_id):
     fname = None
