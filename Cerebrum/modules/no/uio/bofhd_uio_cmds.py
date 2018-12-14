@@ -4618,15 +4618,10 @@ class BofhdExtension(BofhdCommonMethods):
         IDs for a person entity in order to limit the exposure of sensitive
         personal info to the bare minimum.
         """
-        try:
-            ext_id_const = int(self.const.EntityExternalId(ext_id_type))
-        except Errors.NotFoundError:
-            raise CerebrumError("Unknown external id: {}".format(ext_id_type))
-        try:
-            ss_const = int(self.const.AuthoritativeSystem(source_system))
-        except Errors.NotFoundError:
-            raise CerebrumError("Unknown source system: {}"
-                                .format(source_system))
+        ext_id_const = self._get_constant(self.const.EntityExternalId,
+                                          ext_id_type, 'external id')
+        ss_const = self._get_constant(self.const.AuthoritativeSystem,
+                                      source_system, 'source system')
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
