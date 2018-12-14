@@ -13,7 +13,7 @@ except getopt.GetoptError:
 
 inputname1 = "/cerebrum/var/dumps/paga/uit_paga_last.csv"
 inputname2 = "/home/cerebrum/cerebrum/contrib/no/uit/uit_addons/scripts/adm2020/uit_paga_adminpeople_final.csv"
-outputname = "/cerebrum/var/dumps/paga/uit_paga_last_full.csv"
+outputname = "/cerebrum/var/dumps/paga/uit_paga_last.csv"
 
 for o, a in opts:
     if o == "--input1":
