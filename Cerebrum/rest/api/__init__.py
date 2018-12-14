@@ -43,6 +43,8 @@ auth = _auth.Authentication()
 def create_app(config=None):
     app = Flask(__name__)
     app.config.from_object('Cerebrum.rest.default_config')
+
+    trusted_hosts = []
     if config:
         app.config.from_object(config)
         trusted_hosts = app.config.get('TRUSTED_HOSTS', [])
@@ -78,11 +80,10 @@ def create_app(config=None):
         req_time = time.time() - g.request_start
         req_time_millis = int(round(req_time * 1000))
 
-        ip_log = [i for i in request.access_route]
+        ip_log = list(request.access_route)
         for ip in ip_log:
-            if trusted_hosts:
-                if ip in trusted_hosts:
-                    ip_log.pop(ip_log.index(ip))
+            if ip in trusted_hosts:
+                ip_log.pop(ip_log.index(ip))
 
         app.logger.info('"{method} {path}" - {code} - {req_time}ms - {auth} - '
                         '{ip} - "{ua}"'.format(
