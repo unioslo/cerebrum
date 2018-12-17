@@ -20,6 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from __future__ import unicode_literals
+from __future__ import print_function
 
 """ Quarantine accounts without person affiliations.
 
@@ -34,14 +35,14 @@ The script should be extended to do the following:
     - Send an SMS to account owners.
 
 The flow of the script is something like this:
-    1. Parse args and initzialise globals in the main-function. This is
+    1. Parse args and initialise globals in the main-function. This is
         also where the rest of the action is sparked.
     2. Call the find_candidates-function to collect all person IDs that are
         affiliated and are not affiliated.
     3. Call the set_quarantine-function. This sets a given quarantine on
         all accounts associated with the persons collected in step 2 if
-        the notify_user-function sucessfully sends an email to the user.
-    4. Optionally call the remopve_quarantine-function, in order to remove
+        the notify_user-function successfully sends an email to the user.
+    4. Optionally call the remove_quarantine-function, in order to remove
         quarantines set on persons who are affiliated.
 """
 
@@ -63,8 +64,8 @@ logger = Factory.get_logger('cronjob')
 
 
 def usage(exitcode=0):
-    print __doc__
-    print """Usage: %s
+    print(__doc__)
+    print("""Usage: %s
 
 -q QUARANTINE   The quarantine to set (default 'auto_no_aff')
 
@@ -110,7 +111,7 @@ def usage(exitcode=0):
 
 -h --help       Show this and quit.
 
-    """ % sys.argv[0]
+    """ % sys.argv[0])
     sys.exit(exitcode)
 
 
@@ -142,13 +143,13 @@ def send_mail(mail_to, mail_from, subject, body, mail_cc=None):
         ret = sendmail(mail_to, mail_from, subject, body,
                        cc=mail_cc, debug=dryrun)
         if debug_verbose:
-            print "---- Mail: ---- \n" + ret
-    except smtplib.SMTPRecipientsRefused, e:
+            print("---- Mail: ---- \n" + ret)
+    except smtplib.SMTPRecipientsRefused as e:
         failed_recipients = e.recipients
         logger.info("Failed to notify <%d> users", len(failed_recipients))
         for _, condition in failed_recipients.iteritems():
             logger.info("Failed to notify: %s", condition)
-    except smtplib.SMTPException, msg:
+    except smtplib.SMTPException as msg:
         logger.warn("Error sending to %s: %s" % (mail_to, msg))
         return False
     return True
@@ -333,7 +334,8 @@ def set_quarantine(pids, quar, offset, quarantined):
 
     for pid in pids:
         for row in pid2acs.get(pid, ()):
-            if row['account_id'] in quarantined or row['account_id'] in success:
+            if (row['account_id'] in quarantined) or (
+                    row['account_id'] in success):
                 continue
             no_processed += 1
 
@@ -462,8 +464,8 @@ if __name__ == '__main__':
                                  'grace=',
                                  'help',
                                  'ignore-quarantines'])
-    except getopt.GetoptError, e:
-        print e
+    except getopt.GetoptError as e:
+        print(e)
         usage(1)
 
     for opt, val in opts:
@@ -502,19 +504,19 @@ if __name__ == '__main__':
                     'Cc': msg['Cc'],
                     'Body': msg.get_payload(decode=1)
                 }
-            except IOError, e:
-                print 'Mail body file: %s' % e
+            except IOError as e:
+                print('Mail body file: %s' % e)
                 sys.exit(2)
         elif opt in ('--grace',):
             grace = int(val)
         elif opt in ('-h', '--help'):
             usage()
         else:
-            print "Invalid argument: %s" % val
+            print("Invalid argument: %s" % val)
             usage(1)
 
     if not email_info:
-        print "Missing -m TEMPLATEFILE"
+        print("Missing -m TEMPLATEFILE")
         usage(1)
     if not quarantine:
         quarantine = co.quarantine_auto_no_aff
