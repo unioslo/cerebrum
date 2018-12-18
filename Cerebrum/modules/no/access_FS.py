@@ -104,7 +104,8 @@ class VersionSpec(object):
         self.start_open = start_open
         self.end_open = end_open
         if self.start and self.end and self.start > self.end:
-            raise Errors.ProgrammingError("VersionSpec cannot have end > start")
+            raise Errors.ProgrammingError(
+                "VersionSpec cannot have end > start")
         if start is None and end is None:
             raise Errors.ProgrammingError("VersionSpec empty")
 
@@ -129,8 +130,8 @@ class VersionSpec(object):
             return version_less(self.end, other.end)
         if self.start:
             if version_less(self.start, other.end):
-                raise Errors.ProgrammingError("version spec conflict: {} and {}"
-                                              .format(self, other))
+                raise Errors.ProgrammingError(
+                    "version spec conflict: {} and {}".format(self, other))
             return False
         if version_less(other.start, self.end):
             raise Errors.ProgrammingError("version spec conflict: {} and {}"
@@ -238,8 +239,8 @@ def fsobject(name, versions='>=1', version_to=None):
 
     :param str name: Name of accessor
     :param versions: Version spec, see parse_version_spec().
-    :param version_to: if set, versions param is interpreted as
-        from version, and (version, version_to) is sent to parse_version_spec().
+    :param version_to: if set, versions param is interpreted as from version,
+    and (version, version_to) is sent to parse_version_spec().
     :return: Decorating function
     """
     import inspect
@@ -297,7 +298,8 @@ def make_fs(db=None, user=None, database=None, override_version=None):
         version = override_version
     else:
         version = _get_fs_version(db)
-    module = getattr(cereconf, 'FS_MODULE', inspect.getmodule(make_fs).__name__)
+    module = getattr(cereconf, 'FS_MODULE', inspect.getmodule(
+        make_fs).__name__)
     dyn_import(module)
     cls = find_best_version(module, 'FS', version)
     if cls:
@@ -360,17 +362,18 @@ class FSObject(object):
         - From 15th of February to 30th of June: Only this year's 'VÅR' is
           returned.
 
-        - From 1st of July to 15th of September: This year's 'HØST' is returned.
-          If L{only_current} is False, also this year's 'VÅR' is included.
+        - From 1st of July to 15th of September: This year's 'HØST' is
+        returned. If L{only_current} is False, also this year's 'VÅR' is
+        included.
 
-        - From 15th of September to 31st of December: Only this year's 'HØST' is
-          returned.
+        - From 15th of September to 31st of December: Only this year's 'HØST'
+        is returned.
 
         @type only_current: bool
         @param only_current: If set to True, the query is limiting to only the
-            current term. If False, the previous term is also included if we are
-            early in the current term. This has no effect if the current date is
-            more than halfway into the current term.
+            current term. If False, the previous term is also included if we
+            are early in the current term. This has no effect if the current
+            date is more than halfway into the current term.
 
         @rtype: string
         @return: An SQL formatted string that should be put in a larger query.
@@ -381,16 +384,17 @@ class FSObject(object):
         """
         if self.mndnr <= 6:
             # Months January - June == Spring semester
-            current = u"(r.terminkode = :spring AND r.arstall=%s)\n" % self.year
-            if only_current or self.mndnr >= 3 or (self.mndnr == 2
-                                                   and self.dday > 15):
+            current = u"(r.terminkode = :spring AND r.arstall=%s)\n" % (
+                self.year)
+            if only_current or self.mndnr >= 3 or (self.mndnr == 2 and
+                                                   self.dday > 15):
                 return current
             return (u"(%s OR (r.terminkode = :autumn AND r.arstall=%d))\n" % (
                 current, self.year-1))
         # Months July - December == Autumn semester
         current = u"(r.terminkode = :autumn AND r.arstall=%d)\n" % self.year
-        if only_current or self.mndnr >= 10 or (self.mndnr == 9
-                                                and self.dday > 15):
+        if only_current or self.mndnr >= 10 or (self.mndnr == 9 and
+                                                self.dday > 15):
             return current
         return (u"(%s OR (r.terminkode = :spring AND r.arstall=%d))\n" % (
             current, self.year))
@@ -400,8 +404,8 @@ class FSObject(object):
         if self.mndnr <= 6:
             next = "(r.terminkode = :autumn AND r.arstall=%s)\n" % self.year
         else:
-            next = "(r.terminkode = :spring AND r.arstall=%s)\n" % (self.year
-                                                                    + 1)
+            next = "(r.terminkode = :spring AND r.arstall=%s)\n" % (
+                    self.year + 1)
         return next
 
 
@@ -1059,7 +1063,8 @@ class Student(FSObject):
         """Hent informasjon om alle som er vurderingsmeldt til
            EMNEKODE i inneværende semester"""
         query = """
-        SELECT DISTINCT p.fodselsdato, p.personnr, p.dato_fodt, p.fornavn, p.etternavn,
+        SELECT DISTINCT p.fodselsdato, p.personnr, p.dato_fodt, p.fornavn,
+             p.etternavn,
              vm.emnekode, vm.studieprogramkode, vm.arstall, vm.versjonskode,
              vt.terminkode_gjelder_i, vt.arstall_gjelder_i
         FROM fs.person p, fs.vurdkombmelding vm,
@@ -1165,7 +1170,8 @@ class Student(FSObject):
             fs.utvekslingsperson. Vi henter 14 dager før studenten står
             på trappa. """
         qry = """
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
+        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn,
+               p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -1909,7 +1915,8 @@ class Alumni(FSObject):
         studium frem til en grad, min. Cand.Mag.  Disse regnes
         som 'Alumni' ved UiO."""
         qry = u"""
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
+        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn,
+               p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr,
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
