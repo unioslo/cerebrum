@@ -325,12 +325,16 @@ class FSObject(object):
             self.sem = 'V'
             self.semester = 'VÅR'
             self.prev_semester = 'HØST'
+            self.next_semester = 'HØST'
             self.prev_semester_year = t[0] - 1
+            self.next_semester_year = t[0]
         else:
             self.sem = 'H'
             self.semester = 'HØST'
             self.prev_semester = 'VÅR'
+            self.next_semester = 'VÅR'
             self.prev_semester_year = t[0]
+            self.next_semester_year = t[0] + 1
         self.year = t[0]
         self.mndnr = t[1]
         self.dday = t[2]
@@ -392,12 +396,12 @@ class FSObject(object):
             current, self.year))
 
     def _get_next_termin_aar(self):
-        """henter neste semesters terminkode og årstal."""
+        """Henter neste semesters terminkode og årstall."""
         if self.mndnr <= 6:
-            next = "(r.terminkode LIKE 'H_ST' AND r.arstall=%s)\n" % self.year
+            next = "(r.terminkode = :autumn AND r.arstall=%s)\n" % self.year
         else:
-            next = "(r.terminkode LIKE 'V_R' AND r.arstall=%s)\n" % (self.year
-                                                                     + 1)
+            next = "(r.terminkode = :spring AND r.arstall=%s)\n" % (self.year
+                                                                    + 1)
         return next
 
 
@@ -878,18 +882,34 @@ class Student(FSObject):
         return self.db.query(qry, {'autumn': 'HØST',
                                    'spring': 'VÅR'})
 
-    def get_semreg(self, fnr, pnr, only_valid=True):  # GetStudentSemReg
+    # GetStudentSemReg
+    def get_semreg(self, fnr, pnr, only_valid=True, semester='current'):
         """Hent data om semesterregistrering for student i nåværende semester.
+        Henter for neste semester om man setter semester='next'.
         Om only_valid er True, vil berre gyldige registreringar bli
         returnerte, altså det som reknast som "gyldig registerkort"."""
         sjekk_betaling = ''
         if only_valid:
             sjekk_betaling = """r.status_bet_ok = 'J'
                                 AND r.status_reg_ok = 'J' AND"""
+        # Default dict for the query
+        qry_dict = {'semester': self.semester,
+                    'year': self.year,
+                    'termin': self._get_termin_aar(only_current=True),
+                    'is_alive': self._is_alive(),
+                    'sjekk_betaling': sjekk_betaling}
+        # Modified query for next semester
+        if semester == 'next':
+            qry_dict = {'semester': self.next_semester,
+                        'year': self.next_semester_year,
+                        'termin': self._get_next_termin_aar(),
+                        'is_alive': self._is_alive(),
+                        'sjekk_betaling': sjekk_betaling}
         qry = """
         SELECT DISTINCT
           r.regformkode, r.betformkode, r.dato_betaling,
           r.dato_regform_endret, r.status_bet_ok, r.status_reg_ok,
+          r.arstall, r.terminkode,
           (SELECT dato_endring from
             (SELECT f.dato_endring
              FROM fs.fakturareskontro f
@@ -908,11 +928,7 @@ class Student(FSObject):
               r.fodselsdato = p.fodselsdato AND
               r.personnr = p.personnr AND
               %(is_alive)s
-        """ % {'semester': self.semester,
-               'year': self.year,
-               'termin': self._get_termin_aar(only_current=1),
-               'is_alive': self._is_alive(),
-               'sjekk_betaling': sjekk_betaling}
+        """ % qry_dict
         return self.db.query(qry, {'fnr': fnr,
                                    'pnr': pnr,
                                    'autumn': 'HØST',
