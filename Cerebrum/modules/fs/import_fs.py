@@ -42,21 +42,30 @@ logger = logging.getLogger(__name__)
 
 
 class FsImporter(object):
-    def __init__(self, db, co, ou, group, gen_groups, include_delete, commit,
+    def __init__(self, gen_groups, include_delete, commit,
                  studieprogramfile, source, rules, adr_map,
-                 find_person_by='fnr', filter_affiliations=True):
+                 find_person_by='fnr'):
         # Variables passed to/from main
-        self.db = db
-        self.co = co
-        self.ou = ou
-        self.group = group
+        self.db = Factory.get('Database')()
+        self.db.cl_init(change_program='import_fs')
+        self.co = Factory.get('Constants')(self.db)
+        self.ou = Factory.get('OU')(self.db)
+        self.group = Factory.get('Group')(self.db)
         self.gen_groups = gen_groups
         self.include_delete = include_delete
         self.find_person_by = find_person_by
-        self.filter_affiliations = filter_affiliations
 
         self.rules = rules
         self.adr_map =adr_map
+
+        if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
+            raise SystemExit("Check cereconf, SYSTEM_LOOKUP_ORDER is wrong!")
+
+        if self.gen_groups:
+            self.init_reservation_group()
+
+        if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
+            logger.warn("Warning: ENABLE_MKTIME_WORKAROUND is set")
 
         self.ou_cache = {}
         self._init_studieprog2sko(studieprogramfile)
@@ -71,6 +80,21 @@ class FsImporter(object):
 
         self.commit = commit
         self.source = source
+
+    def init_reservation_group(self):
+        """ get callbacks to add/remove members in reservation group """
+        group_name = cereconf.FS_GROUP_NAME
+        group_desc = cereconf.FS_GROUP_DESC
+
+        try:
+            self.group.find_by_name(group_name)
+        except Errors.NotFoundError:
+            self.group.clear()
+            ac = Factory.get('Account')(self.db)
+            ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+            self.group.populate(ac.entity_id, self.co.group_visibility_internal,
+                           group_name, group_desc)
+            self.group.write_db()
 
     def _load_cere_aff(self):
         fs_aff = {}
@@ -140,11 +164,8 @@ class FsImporter(object):
 
         gender = self._get_gender(fnr)
 
-        affiliations = []
-        aktiv_sted = []
-
-        etternavn, fornavn, studentnr, birth_date, address_info = self._iterate_persons(
-                person_info, aktiv_sted, affiliations, fnr)
+        etternavn, fornavn, studentnr, birth_date, \
+        affiliations, aktiv_sted = self._ext_person_data(person_info, fnr)
 
         if etternavn is None:
             logger.debug("Ikke noe navn på %s" % fnr)
@@ -213,9 +234,13 @@ class FsImporter(object):
         return gender
 
 
-    def _iterate_persons(self, person_info, aktiv_sted, affiliations, fnr):
-        etternavn = fornavn = None
-        studentnr = birth_date = address_info = None
+    def _ext_person_data(self, person_info, fnr):
+        etternavn = None
+        fornavn = None
+        studentnr = None
+        birth_date = None
+        affiliations = []
+        aktiv_sted = []
 
         # Iterate over all person_info entries and extract relevant data
         if 'aktiv' in person_info:
@@ -270,7 +295,8 @@ class FsImporter(object):
                                           subtype, affiliations,
                                           self.studieprog2sko[row['studieprogramkode']])
         # end for-loop
-        return etternavn, fornavn, studentnr, birth_date, address_info
+        return etternavn, fornavn, studentnr, birth_date, \
+               affiliations, aktiv_sted
 
 
     def _process_affiliation(self, aff, aff_status, new_affs, ou):
@@ -316,8 +342,8 @@ class FsImporter(object):
         # if this is a new Person, there is no entity_id assigned to it
         # until written to the database.
         op = new_person.write_db()
-        if self.filter_affiliations:
-            affiliations = self._filter_affiliations(affiliations)
+
+        affiliations = self._filter_affiliations(affiliations)
 
         for ou, aff, aff_status in affiliations:
             new_person.populate_affiliation(self.co.system_fs, ou, aff,
@@ -549,9 +575,8 @@ class FsImporter(object):
         are.
         """
 
-        omitted_affs = []
-        if 'STUDENT/evu' in cereconf.FS_EXCLUDE_AFFILIATIONS_FROM_GRACE:
-            omitted_affs.append(int(self.co.affiliation_status_student_evu))
+        disregard_grace_for_affs = [self.co.human2constant(x) for x in
+                                    cereconf.FS_EXCLUDE_AFFILIATIONS_FROM_GRACE]
 
         logger.info("Removing old FS affiliations")
         stats = defaultdict(lambda: 0)
@@ -585,12 +610,11 @@ class FsImporter(object):
             aff = aff[0]
 
             # Check date, do not remove affiliation for active students until end
-            # of grace period. Some affiliations are omitted from the grace period
+            # of grace period. Some affiliations should be removed at once
             # for certain institutions.
             grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
-
-            if aff['last_date'] > (mx.DateTime.now() - grace_days) and \
-                          not int(aff['status']) in omitted_affs:
+            if (aff['last_date'] > (mx.DateTime.now() - grace_days) and
+                          int(aff['status']) not in disregard_grace_for_affs):
                 logger.debug("Sparing aff (%s) for person_id=%r at ou_id=%r",
                              aff_const, person_id, ou_id)
                 stats['grace'] += 1
@@ -614,115 +638,3 @@ class FsImporter(object):
                     stats['old'], len(person_ids))
         logger.info("Affiliations spared: %d", stats['grace'])
         logger.info("Affiliations removed: %d", stats['delete'])
-
-# def main():
-    # # global verbose, ou, db, co, logger, gen_groups, group, \
-    # #     old_aff, include_delete, no_name
-    #
-    # # "globals"
-    # db = Factory.get('Database')()
-    # db.cl_init(change_program='import_fs')
-    # co = Factory.get('Constants')(db)
-    # ou = Factory.get('OU')(db)
-    # group = Factory.get('Group')(db)
-    #
-    # # parsing
-    # parser = argparse.ArgumentParser()
-    #
-    # parser = add_commit_args(parser, default=True)
-    #
-    # parser.add_argument(
-    #     '-v', '--verbose',
-    #     action='count')
-    #     # Why doesn't verbose do anything?
-    # parser.add_argument(
-    #     '-p', '--person-file',
-    #     dest='personfile',
-    #     default=pj(cereconf.FS_DATA_DIR, "merged_persons.xml"))
-    # parser.add_argument(
-    #     '-s', '--studieprogram-file',
-    #     dest='studieprogramfile',
-    #     default=pj(cereconf.FS_DATA_DIR, "studieprog.xml"))
-    # parser.add_argument(
-    #     '-g', '--generate-groups',
-    #     dest='gen_groups',
-    #     action='store_true')
-    # parser.add_argument(
-    #     '-d', '--include-delete',
-    #     dest='include_delete',
-    #     action='store_true')
-    # if cereconf.FS_EMNEFILE_ARGUMENT:
-    #     parser.add_argument(
-    #         '-e', '--emne-file',
-    #         dest='emnefile',
-    #         default=pj(cereconf.FS_DATA_DIR, "emner.xml"))
-    # Cerebrum.logutils.options.install_subparser(parser)
-    # args = parser.parse_args()
-    # Cerebrum.logutils.autoconf('cronjob', args)
-    #
-    # if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
-    #     raise SystemExit("Check cereconf, SYSTEM_LOOKUP_ORDER is wrong!")
-    #
-    # group_name = cereconf.FS_GROUP_NAME
-    # group_desc = cereconf.FS_GROUP_DESC
-    # try:
-    #     group.find_by_name(group_name)
-    # except Errors.NotFoundError:
-    #     group.clear()
-    #     ac = Factory.get('Account')(db)
-    #     ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-    #     group.populate(ac.entity_id, co.group_visibility_internal,
-    #                    group_name, group_desc)
-    #     group.write_db()
-    #
-    # if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
-    #     logger.warn("Warning: ENABLE_MKTIME_WORKAROUND is set")
-    #
-    # studieprog2sko = {}
-    # for s in StudentInfo.StudieprogDefParser(args.studieprogramfile):
-    #     studieprog2sko[s['studieprogramkode']] = _get_sko(
-    #         s, 'faknr_studieansv', 'instituttnr_studieansv',
-    #         'gruppenr_studieansv', db)
-    #
-    # # if cereconf.FS_EMNEFILE_ARGUMENT:
-    # #     emne2sko = _get_emne2sko(args.emnefile, ou)
-    #
-    # if args.include_delete:
-    #     old_aff = _load_cere_aff(db, co)
-    # else:
-    #     old_aff = None
-    #
-    # fnr2person_id = None
-    # if cereconf.FS_FIND_PERSON_BY == 'fnr':
-    #     fnr2person_id, person = _get_fnr2person(db, co)
-    #
-    # person_processor = PersonProcessor(studieprog2sko, db, co, ou, group,
-    #                                    args.gen_groups, fnr2person_id,
-    #                                    args.include_delete, old_aff,
-    #                                    args.commit)
-    #
-    # StudentInfo.StudentInfoParser(args.personfile,
-    #                               person_processor.process_person_callback,
-    #                               logger)
-    #
-    # if args.include_delete:
-    #     rem_old_aff(person_processor.old_aff, person_processor.db, co)
-    #
-    # if args.commit:
-    #     person_processor.db.commit()
-    #     logger.info('Changes were committed to the database')
-    # else:
-    #     person_processor.db.rollback()
-    #     logger.info('Dry run. Changes to the database were rolled back')
-    #
-    # logger.info("Found %d persons without name.", person_processor.no_name)
-    # logger.info("Completed")
-
-
-# def _get_emne2sko(emnefile, db):
-#     emne2sko = {}
-#     for e in StudentInfo.EmneDefParser(emnefile):
-#         emne2sko[e['emnekode']] = _get_sko(
-#             e, 'faknr_reglement', 'instituttnr_reglement',
-#             'gruppenr_reglement', db)
-#         return emne2sko
