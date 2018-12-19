@@ -76,8 +76,9 @@ command_help = {
             "List who's authorised to operate on given dns target",
         'access_list':
             "List everything an account or group can operate on.  Only direct "
-            "ownership is reported: the entities an account can access "
-            "due to group memberships will not be listed.",
+            "ownership is reported: the entities an account can access due to "
+            "group memberships will not be listed. This does not include "
+            "unpersonal users owned by groups.",
         'access_list_opsets':
             "List all operation sets",
         'access_maildom':
@@ -675,6 +676,10 @@ arg_help = {
     'string_perm_target_type':
         ['type', 'Enter target type',
          'Legal types: host, disk, group'],
+    'string_perm_target_type_access':
+        ['type', 'Enter target type',
+         'Legal types: host, disk, group, dns, ou, maildom, global_host, '
+         'global_group, global_person, global_ou, global_dns, global_maildom'],
     'string_disk_status':
         ['disk_status', 'Enter disk status',
          'Legal values: archived create_failed not_created on_disk'],
