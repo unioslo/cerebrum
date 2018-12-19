@@ -523,11 +523,3 @@ setup(
         'install_locales': CerebrumLocales,
     }
 )
-
-setup(
-    name='ClientAPI',
-    packages=['ClientAPI'],
-    cmdclass={
-        'install_locales': LocaleInstaller,
-    }
-)
