@@ -480,7 +480,6 @@ setup(
         'Cerebrum/modules/no/uio/voip',
         'Cerebrum/modules/no/uio/AutoStud',
         'Cerebrum/modules/no/uio/exchange',
-        'Cerebrum/modules/no/uio/SoapAPI',
         'Cerebrum/modules/no/hia',
         'Cerebrum/modules/no/hia/exchange',
         'Cerebrum/modules/no/hiof',
