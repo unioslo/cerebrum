@@ -22,7 +22,6 @@ from __future__ import unicode_literals
 
 import logging
 import argparse
-import json
 from os.path import join as pj
 
 import Cerebrum.logutils
@@ -42,74 +41,24 @@ logger = logging.getLogger(__name__)
 
 
 class FsImporterNmh(FsImporter):
-    # def rem_old_aff(self):
-    #     person = Factory.get("Person")(self.db)
-    #     for k, v in self.old_aff.items():
-    #         if v:
-    #             ent_id, ou, affi = k.split(':')
-    #             person.clear()
-    #             person.find(int(ent_id))
-    #             person.delete_affiliation(ou, affi, self.co.system_fs)
     def _add_reservations(self, person_info, new_person):
-        self.register_fagomrade(new_person, person_info)
+        should_add = False
+        if person_info.has_key('nettpubl'):
+            for row in person_info['nettpubl']:
+                if row.get('akseptansetypekode', "") == "NETTPUBL" and row.get(
+                        'status_svar', "") == "J":
+                    should_add = True
 
-        # Reservations
-        if self.gen_groups:
-            should_add = False
-            if person_info.has_key('nettpubl'):
-                for row in person_info['nettpubl']:
-                    if row.get('akseptansetypekode', "") == "NETTPUBL" and row.get(
-                            'status_svar', "") == "J":
-                        should_add = True
-
-            if should_add:
-                # The student has explicitly given us permission to be
-                # published in the directory.
-                self._add_res(new_person.entity_id)
-            else:
-                # The student either hasn't registered an answer to
-                # the "Can we publish info about you in the directory"
-                # question at all, or has given an explicit "I don't
-                # want to appear in the directory" answer.
-                self._rem_res(new_person.entity_id)
-
-    def register_fagomrade(self, person, person_info):
-        """Register 'fagomrade'/'fagfelt' for a person.
-        This is stored in trait_fagomrade_fagfelt as a pickled list of strings.
-        The trait is not set if no 'fagfelt' is registered.
-
-        @param person:
-          Person db proxy associated with a newly created/fetched person.
-
-        @param person_info:
-          Dict returned by StudentInfoParser.
-
-        """
-        fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
-                            int(person_info["personnr"]))
-
-        fagfelt_trait = person.get_trait(trait=self.co.trait_fagomrade_fagfelt)
-        fagfelt = []
-
-        # Extract fagfelt from any fagperson rows
-        if 'fagperson' in person_info:
-            fagfelt = [data.get('fagfelt') for data in person_info['fagperson']
-                       if data.get('fagfelt') is not None]
-            # Sort alphabetically as the rows are returned in random order
-            fagfelt.sort()
-
-        if fagfelt_trait and not fagfelt:
-            logger.debug('Removing fagfelt for %s', fnr)
-            person.delete_trait(code=self.co.trait_fagomrade_fagfelt)
-        elif fagfelt:
-            logger.debug('Populating fagfelt for %s', fnr)
-            person.populate_trait(
-                code=self.co.trait_fagomrade_fagfelt,
-                date=mx.DateTime.now(),
-                strval=json.dumps(fagfelt))
-
-        person.write_db()
-
+        if should_add:
+            # The student has explicitly given us permission to be
+            # published in the directory.
+            self._add_res(new_person.entity_id)
+        else:
+            # The student either hasn't registered an answer to
+            # the "Can we publish info about you in the directory"
+            # question at all, or has given an explicit "I don't
+            # want to appear in the directory" answer.
+            self._rem_res(new_person.entity_id)
 
 def main():
     # parsing
@@ -160,9 +109,9 @@ def main():
         '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
         }
 
-    fs_importer = FsImporterNmh(args.gen_groups,
-                            args.include_delete, args.commit,
-                            args.studieprogramfile, source, rules, adr_map)
+    fs_importer = FsImporterNmh(args.gen_groups, args.include_delete,
+                                args.commit, args.studieprogramfile, source,
+                                rules, adr_map, reg_fagomr=True)
 
     StudentInfo.StudentInfoParser(args.personfile,
                                   fs_importer.process_person_callback,

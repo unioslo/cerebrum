@@ -21,10 +21,9 @@
 from __future__ import unicode_literals
 
 import mx
+import json
 import logging
-import argparse
 import datetime
-from os.path import join as pj
 from collections import defaultdict
 
 import Cerebrum.logutils
@@ -33,7 +32,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
-from Cerebrum.utils.argutils import add_commit_args
 
 import cereconf
 
@@ -44,18 +42,26 @@ logger = logging.getLogger(__name__)
 class FsImporter(object):
     def __init__(self, gen_groups, include_delete, commit,
                  studieprogramfile, source, rules, adr_map,
-                 find_person_by='fnr'):
+                 find_person_by='fnr', reg_fagomr=False,
+                 rule_map=None):
         # Variables passed to/from main
         self.db = Factory.get('Database')()
         self.db.cl_init(change_program='import_fs')
         self.co = Factory.get('Constants')(self.db)
         self.ou = Factory.get('OU')(self.db)
         self.group = Factory.get('Group')(self.db)
+
         self.gen_groups = gen_groups
         self.include_delete = include_delete
-        self.find_person_by = find_person_by
 
+        self.find_person_by = find_person_by
+        self.reg_fagomr = reg_fagomr
+        self._init_aff_status_pri_order()
         self.rules = rules
+        if rule_map:
+            self.rule_map = rule_map
+        else:
+            self.rule_map = {}
         self.adr_map =adr_map
 
         if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
@@ -67,6 +73,7 @@ class FsImporter(object):
         if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
             logger.warn("Warning: ENABLE_MKTIME_WORKAROUND is set")
 
+        self.ou_adr_cache = {}
         self.ou_cache = {}
         self._init_studieprog2sko(studieprogramfile)
 
@@ -112,6 +119,17 @@ class FsImporter(object):
                 s, 'faknr_studieansv', 'instituttnr_studieansv',
                 'gruppenr_studieansv')
 
+    def _init_aff_status_pri_order(self):
+        aff_status_pri_order = [int(x) for x in
+                                (  # Most significant first
+                                    self.co.affiliation_status_student_aktiv,
+                                    self.co.affiliation_status_student_evu)]
+        aff_status_pri_order = dict([(aff_status_pri_order[i], i)
+                                     for i in
+                                     range(len(aff_status_pri_order))])
+
+        self.aff_status_pri_order = aff_status_pri_order
+
     def _get_sko(self, a_dict, kfak, kinst, kgr, kinstitusjon=None):
         # We cannot ignore institusjon (inst A, sko x-y-z is NOT the same as
         # inst B, sko x-y-z)
@@ -120,8 +138,8 @@ class FsImporter(object):
         else:
             institusjon = cereconf.DEFAULT_INSTITUSJONSNR
 
-        key = self._get_key(a_dict, kfak, kinst, kgr, institusjon)
-
+        key = "-".join((str(institusjon), a_dict[kfak], a_dict[kinst],
+                         a_dict[kgr]))
         if key not in self.ou_cache:
             ou = Factory.get("OU")(self.db)
             try:
@@ -133,12 +151,6 @@ class FsImporter(object):
                             key)
                 self.ou_cache[key] = None
         return self.ou_cache[key]
-
-    def _get_key(self, a_dict, kfak, kinst, kgr, institusjon):
-        return "-".join((str(institusjon),
-                         a_dict[kfak],
-                         a_dict[kinst],
-                         a_dict[kgr]))
 
     def _get_fnr2person(self):
         person = Factory.get('Person')(self.db)
@@ -165,7 +177,7 @@ class FsImporter(object):
         gender = self._get_gender(fnr)
 
         etternavn, fornavn, studentnr, birth_date, \
-        affiliations, aktiv_sted = self._ext_person_data(person_info, fnr)
+        affiliations, aktiv_sted = self._get_person_data(person_info, fnr)
 
         if etternavn is None:
             logger.debug("Ikke noe navn på %s" % fnr)
@@ -175,7 +187,7 @@ class FsImporter(object):
         if not birth_date:
             logger.warn('No birth date registered for studentnr %s', studentnr)
 
-        # TODO: If the person already exist and has conflicting data from
+        # TODO: If the person already exists and has conflicting data from
         # another source-system, some mechanism is needed to determine the
         # superior setting.
         if self.find_person_by == 'fnr':
@@ -186,8 +198,11 @@ class FsImporter(object):
         self._db_add_person(new_person, birth_date, gender, fornavn, etternavn,
                        studentnr, fnr, person_info, affiliations)
 
+        if self.reg_fagomr:
+            self.register_fagomrade(new_person, person_info)
         if self.gen_groups:
             self._add_reservations(person_info, new_person)
+
         if self.commit:
             self.db.commit()
         else:
@@ -226,7 +241,6 @@ class FsImporter(object):
             raise fodselsnr.InvalidFnrError
         return fnr
 
-
     def _get_gender(self, fnr):
         gender = self.co.gender_male
         if fodselsnr.er_kvinne(fnr):
@@ -234,7 +248,7 @@ class FsImporter(object):
         return gender
 
 
-    def _ext_person_data(self, person_info, fnr):
+    def _get_person_data(self, person_info, fnr):
         etternavn = None
         fornavn = None
         studentnr = None
@@ -336,12 +350,18 @@ class FsImporter(object):
                                        (ad_street, self.co.address_street)):
             # TBD: Skal vi slette evt. eksisterende adresse v/None?
             if address_info is not None:
-                logger.debug("Populating address...")
+                logger.debug("Populating address %s for %s", ad_const, fnr)
                 new_person.populate_address(self.co.system_fs, ad_const,
                                             **address_info)
         # if this is a new Person, there is no entity_id assigned to it
         # until written to the database.
-        op = new_person.write_db()
+        try:
+            op = new_person.write_db()
+        except Exception, e:
+            logger.exception("write_db failed for person %s: %s", fnr, e)
+            # Roll back in case of db exceptions:
+            self.db.rollback()
+            return
 
         affiliations = self._filter_affiliations(affiliations)
 
@@ -425,17 +445,9 @@ class FsImporter(object):
         combination, while the db-schema only allows one.  Return a list
         where duplicates are removed, preserving the most important
         status.  """
-        aff_status_pri_order = [int(x) for x in
-                                (  # Most significant first
-                                    self.co.affiliation_status_student_aktiv,
-                                    self.co.affiliation_status_student_evu)]
-        aff_status_pri_order = dict([(aff_status_pri_order[i], i)
-                                     for i in
-                                     range(len(aff_status_pri_order))])
-
         affiliations.sort(
-            lambda x, y: aff_status_pri_order.get(int(y[2]), 99) -
-                         aff_status_pri_order.get(int(x[2]), 99))
+            lambda x, y: self.aff_status_pri_order.get(int(y[2]), 99) -
+                         self.aff_status_pri_order.get(int(x[2]), 99))
 
         ret = {}
         for ou, aff, aff_status in affiliations:
@@ -460,6 +472,12 @@ class FsImporter(object):
             if key not in person_info:
                 continue
             tmp = person_info[key][0].copy()
+
+            if key in self.rule_map:
+                if not self.rule_map[key] in person_info:
+                    continue
+                tmp = person_info[self.rule_map[key]][0].copy()
+
             for i in range(len(addr_src)):
                 addr_cols = self.adr_map.get(addr_src[i], None)
                 if (ret[i] is not None) or not addr_cols:
@@ -472,14 +490,12 @@ class FsImporter(object):
 
     def _get_sted_address(self, a_dict, k_institusjon, k_fak, k_inst,
                           k_gruppe):
-        ou_adr_cache = {}
-
         ou_id = self._get_sko(a_dict, k_fak, k_inst, k_gruppe,
                          kinstitusjon=k_institusjon)
         if not ou_id:
             return None
         ou_id = int(ou_id)
-        if ou_id not in ou_adr_cache:
+        if ou_id not in self.ou_adr_cache:
             ou = Factory.get('OU')(self.db)
             ou.find(ou_id)
 
@@ -487,15 +503,15 @@ class FsImporter(object):
                                          source=getattr(self.co, self.source))
 
             if rows:
-                ou_adr_cache[ou_id] = {
+                self.ou_adr_cache[ou_id] = {
                     'address_text': rows[0]['address_text'],
                     'postal_number': rows[0]['postal_number'],
                     'city': rows[0]['city']
                 }
             else:
-                ou_adr_cache[ou_id] = None
+                self.ou_adr_cache[ou_id] = None
                 logger.warn("No address for %i", ou_id)
-        return ou_adr_cache[ou_id]
+        return self.ou_adr_cache[ou_id]
 
     def _ext_address_info(self, a_dict, kline1, kline2, kline3, kpost, kland):
         ret = {}
@@ -557,11 +573,15 @@ class FsImporter(object):
         if not self.group.has_member(entity_id):
             self.group.add_member(entity_id)
             logging.debug('Added member %r to group %r', entity_id, self.group)
+            return True
+        return False
 
     def _rem_res(self, entity_id):
         if self.group.has_member(entity_id):
             self.group.remove_member(entity_id)
             logging.debug('Removed member %r from group %r', entity_id, self.group)
+            return True
+        return False
 
     def rem_old_aff(self):
         """ Remove old affiliations.
@@ -609,6 +629,8 @@ class FsImporter(object):
                 continue
             aff = aff[0]
 
+            self._remove_consent(person, person_id)
+
             # Check date, do not remove affiliation for active students until end
             # of grace period. Some affiliations should be removed at once
             # for certain institutions.
@@ -638,3 +660,79 @@ class FsImporter(object):
                     stats['old'], len(person_ids))
         logger.info("Affiliations spared: %d", stats['grace'])
         logger.info("Affiliations removed: %d", stats['delete'])
+
+    def _remove_consent(self, person, person_id):
+        # Consent removal:
+        # We want to check all existing FS affiliations
+        # We remove existing reservation consent if all FS-affiliations
+        # are about to be removed (if there is not a single active FS aff.)
+        logger.debug('Checking for consent removal for person: '
+                     '{person_id}'.format(person_id=person_id))
+        fs_affiliations = person.list_affiliations(
+            person_id=person_id,
+            source_system=self.co.system_fs)
+        for fs_aff in fs_affiliations:
+            aff_str = '{person_id}:{ou_id}:{affiliation_id}'.format(
+                person_id=fs_aff['person_id'],
+                ou_id=fs_aff['ou_id'],
+                affiliation_id=fs_aff['affiliation'])
+            logger.debug('Processing affiliation: {aff}={avalue}'.format(
+                aff=aff_str,
+                avalue=str(self.old_aff[aff_str])))
+            if aff_str not in self.old_aff:
+                # should not happen
+                logger.warn('Affiliation {affiliation_id} for person-id '
+                            '{person_id} not found in affiliation list'.format(
+                    affiliation_id=fs_aff['affiliation'],
+                    person_id=fs_aff['person_id']))
+                break  # we keep existing consent
+            if not self.old_aff[aff_str]:
+                # we found at least one active FS affiliation for this person
+                # we will not make any consent changes
+                break
+        else:
+            # we didn't find any active FS affiliations
+            logger.debug(
+                'No active FS affiliations for person {person_id}'.format(
+                    person_id=person_id))
+            if self._rem_res(person_id):
+                logger.info(
+                    'Removing publish consent for person {person_id} with '
+                    'expired FS affiliations'.format(person_id=person_id))
+
+    def register_fagomrade(self, person, person_info):
+        """Register 'fagomrade'/'fagfelt' for a person.
+        This is stored in trait_fagomrade_fagfelt as a pickled list of strings.
+        The trait is not set if no 'fagfelt' is registered.
+
+        @param person:
+          Person db proxy associated with a newly created/fetched person.
+
+        @param person_info:
+          Dict returned by StudentInfoParser.
+
+        """
+        fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
+                            int(person_info["personnr"]))
+
+        fagfelt_trait = person.get_trait(trait=self.co.trait_fagomrade_fagfelt)
+        fagfelt = []
+
+        # Extract fagfelt from any fagperson rows
+        if 'fagperson' in person_info:
+            fagfelt = [data.get('fagfelt') for data in person_info['fagperson']
+                       if data.get('fagfelt') is not None]
+            # Sort alphabetically as the rows are returned in random order
+            fagfelt.sort()
+
+        if fagfelt_trait and not fagfelt:
+            logger.debug('Removing fagfelt for %s', fnr)
+            person.delete_trait(code=self.co.trait_fagomrade_fagfelt)
+        elif fagfelt:
+            logger.debug('Populating fagfelt for %s', fnr)
+            person.populate_trait(
+                code=self.co.trait_fagomrade_fagfelt,
+                date=mx.DateTime.now(),
+                strval=json.dumps(fagfelt))
+
+        person.write_db()

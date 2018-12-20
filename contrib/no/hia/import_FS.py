@@ -44,10 +44,7 @@ logger = logging.getLogger(__name__)
 
 
 class FsImporterUia(FsImporter):
-    def _get_key(self, a_dict, kfak, kinst, kgr, institusjon):
-        return "-".join((a_dict[kfak], a_dict[kinst], a_dict[kgr]))
-
-    def _ext_person_data(self, person_info, fnr):
+    def _get_person_data(self, person_info, fnr):
         etternavn = None
         fornavn = None
         studentnr = None

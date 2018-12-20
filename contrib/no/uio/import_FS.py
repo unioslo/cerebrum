@@ -137,17 +137,12 @@ def _get_sko(a_dict, kfak, kinst, kgr, kinstitusjon=None):
     else:
         institusjon = cereconf.DEFAULT_INSTITUSJONSNR
 
-    key = "-".join(
-        (str(institusjon), a_dict[kfak], a_dict[kinst], a_dict[kgr]))
-
+    key = "-".join((str(institusjon), a_dict[kfak], a_dict[kinst], a_dict[kgr]))
     if key not in ou_cache:
         ou = Factory.get('OU')(db)
         try:
-            ou.find_stedkode(
-                int(a_dict[kfak]),
-                int(a_dict[kinst]),
-                int(a_dict[kgr]),
-                institusjon=institusjon)
+            ou.find_stedkode(int(a_dict[kfak]), int(a_dict[kinst]),
+                             int(a_dict[kgr]), institusjon=institusjon)
             ou_cache[key] = ou.entity_id
         except Errors.NotFoundError:
             logger.info("Cannot find an OU in Cerebrum with stedkode: %s", key)
@@ -165,8 +160,7 @@ def _process_affiliation(aff, aff_status, new_affs, ou):
 
 def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
     ou_adr_cache = _get_sted_address.cache
-    ou_id = _get_sko(a_dict,
-                     k_fak, k_inst, k_gruppe,
+    ou_id = _get_sko(a_dict, k_fak, k_inst, k_gruppe,
                      kinstitusjon=k_institusjon)
     if not ou_id:
         return None
@@ -231,6 +225,7 @@ def _calc_address(person_info):
         ('privatist_studieprogram', ('_semadr', '_hjemsted', None)),
         ('opptak', (None, '_hjemsted', None)),
         ]
+
     adr_map = {
         '_arbeide': ('adrlin1_arbeide', 'adrlin2_arbeide', 'adrlin3_arbeide',
                      'postnr_arbeide', 'adresseland_arbeide'),
@@ -296,6 +291,7 @@ def rem_old_aff():
     person = Factory.get("Person")(db)
     disregard_grace_for_affs = [co.human2constant(x) for x in
                                 cereconf.FS_EXCLUDE_AFFILIATIONS_FROM_GRACE]
+
     for k in old_aff:
         if not old_aff[k]:
             # The affiliation is still present
@@ -303,7 +299,8 @@ def rem_old_aff():
         ent_id, ou, affi = (int(x) for x in k.split(':'))
         aff = person.list_affiliations(person_id=ent_id,
                                        source_system=co.system_fs,
-                                       affiliation=affi, ou_id=ou)
+                                       affiliation=affi,
+                                       ou_id=ou)
         if not aff:
             logger.debug("No affiliation %s for person %s, skipping",
                          co.PersonAffiliation(affi), ent_id)
