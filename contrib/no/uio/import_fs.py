@@ -43,11 +43,11 @@ logger = logging.getLogger(__name__)
 class FsImporterUio(FsImporter):
     def __init__(self, gen_groups, include_delete, commit,
                  studieprogramfile, source, rules, adr_map, emnefile,
-                 find_person_by='fnr'):
+                 rule_map, find_person_by='fnr'):
 
         super(FsImporterUio, self).__init__(gen_groups, include_delete, commit,
                                             studieprogramfile, source, rules,
-                                            adr_map,
+                                            adr_map, rule_map=rule_map,
                                             find_person_by=find_person_by)
         self._init_emne2sko(emnefile)
         self._new_student_filter = self._get_admission_date_func(
@@ -62,13 +62,7 @@ class FsImporterUio(FsImporter):
                 'instituttnr_reglement',
                 'gruppenr_reglement')
 
-    def filter_affiliations(self, affiliations):
-        """The affiliation list with cols (ou, affiliation, status) may
-        contain multiple status values for the same (ou, affiliation)
-        combination, while the db-schema only allows one.  Return a list
-        where duplicates are removed, preserving the most important
-        status.  """
-
+    def _init_aff_status_pri_order(self):
         # Vekting av affiliation_status
         aff_status_pri_order = [
             self.co.affiliation_status_student_drgrad,
@@ -89,11 +83,19 @@ class FsImporterUio(FsImporter):
             (int(status), index) for index, status in
             enumerate(aff_status_pri_order))
 
+        self.aff_status_pri_order = aff_status_pri_order
+
+    def _filter_affiliations(self, affiliations):
+        """The affiliation list with cols (ou, affiliation, status) may
+        contain multiple status values for the same (ou, affiliation)
+        combination, while the db-schema only allows one.  Return a list
+        where duplicates are removed, preserving the most important
+        status.  """
         # Reverse sort affiliations list according to aff_status_pri_order
         affiliations.sort(
             lambda x, y: (
-                    aff_status_pri_order.get(int(y[2]), 99) -
-                    aff_status_pri_order.get(int(x[2]), 99)))
+                    self.aff_status_pri_order.get(int(y[2]), 99) -
+                    self.aff_status_pri_order.get(int(x[2]), 99)))
         aktiv = False
 
         for ou, aff, aff_status in affiliations:
@@ -114,19 +116,12 @@ class FsImporterUio(FsImporter):
                 ret[(ou, aff)] = aff_status
         return [(ou, aff, aff_status) for (ou, aff), aff_status in ret.items()]
 
-    def _add_res(self, entity_id):
-        raise NotImplementedError("init_reservation_group not called")
-
-    def _rem_res(self, entity_id):
-        raise NotImplementedError("init_reservation_group not called")
-
-    def _ext_person_data(self, person_info, fnr):
+    def _get_person_data(self, person_info, fnr):
         etternavn = None
         fornavn = None
         birth_date = None
         studentnr = None
         affiliations = []
-        address_info = None
         aktiv_sted = []
 
         # Iterate over all person_info entries and extract relevant data
@@ -259,39 +254,6 @@ class FsImporterUio(FsImporter):
         return etternavn, fornavn, studentnr, birth_date, \
                affiliations, aktiv_sted
 
-    def init_reservation_group(self):
-        """ get callbacks to add/remove members in reservation group """
-        group = Factory.get('Group')(self.db)
-        group_name = cereconf.FS_GROUP_NAME
-        group_desc = cereconf.FS_GROUP_DESC
-
-        try:
-            group.find_by_name(group_name)
-        except Errors.NotFoundError:
-            group.clear()
-            ac = Factory.get('Account')(db)
-            ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-            group.populate(ac.entity_id, self.co.group_visibility_internal,
-                           group_name, group_desc)
-            group.write_db()
-
-        def add_member(entity_id):
-            """ add person to reservation group """
-            if not group.has_member(entity_id):
-                group.add_member(entity_id)
-                return True
-            return False
-
-        def remove_member(entity_id):
-            """ remove person from reservation group """
-            if group.has_member(entity_id):
-                group.remove_member(entity_id)
-                return True
-            return False
-
-        return add_member, remove_member
-
-
     def _get_admission_date_func(self, for_date, grace_days=0):
         """ Get a admission date filter function to evaluate *new* students.
 
@@ -338,8 +300,6 @@ class FsImporterUio(FsImporter):
             return False
         return self._new_student_filter(date)
 
-
-
 def main():
     # parsing
     parser = argparse.ArgumentParser()
@@ -372,31 +332,39 @@ def main():
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    source = 'system_fs'
+    source = 'system_sap'
     rules = [
-    ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
-    ('aktiv', ('_hjemsted', None)),
-    ('evu', ('_job', '_hjem', None)),
-    ]
-    adr_map = {
-    '_arbeide': ('adrlin1_arbeide', 'adrlin2_arbeide', 'adrlin3_arbeide',
-                 'postnr_arbeide', 'adresseland_arbeide'),
-    '_hjemsted': ('adrlin1_hjemsted', 'adrlin2_hjemsted',
-                  'adrlin3_hjemsted', 'postnr_hjemsted',
-                  'adresseland_hjemsted'),
-    '_semadr': ('adrlin1_semadr', 'adrlin2_semadr', 'adrlin3_semadr',
-                'postnr_semadr', 'adresseland_semadr'),
-    '_job': ('adrlin1_job', 'adrlin2_job', 'adrlin3_job', 'postnr_job',
-             'adresseland_job'),
-    '_hjem': ('adrlin1_hjem', 'adrlin2_hjem', 'adrlin3_hjem',
-              'postnr_hjem', 'adresseland_hjem'),
-    '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
+        ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
+        ('aktiv', ('_semadr', '_hjemsted', None)),
+        ('emnestud', ('_semadr', '_hjemsted', None)),
+        ('evu', ('_job', '_hjem', None)),
+        ('drgrad', ('_semadr', '_hjemsted', None)),
+        ('privatist_emne', ('_semadr', '_hjemsted', None)),
+        ('privatist_studieprogram', ('_semadr', '_hjemsted', None)),
+        ('opptak', (None, '_hjemsted', None)),
+        ]
+    rule_map = {
+        'aktiv': 'opptak'
     }
+    adr_map = {
+        '_arbeide': ('adrlin1_arbeide', 'adrlin2_arbeide', 'adrlin3_arbeide',
+                     'postnr_arbeide', 'adresseland_arbeide'),
+        '_hjemsted': ('adrlin1_hjemsted', 'adrlin2_hjemsted',
+                      'adrlin3_hjemsted', 'postnr_hjemsted',
+                      'adresseland_hjemsted'),
+        '_semadr': ('adrlin1_semadr', 'adrlin2_semadr', 'adrlin3_semadr',
+                    'postnr_semadr', 'adresseland_semadr'),
+        '_job': ('adrlin1_job', 'adrlin2_job', 'adrlin3_job', 'postnr_job',
+                 'adresseland_job'),
+        '_hjem': ('adrlin1_hjem', 'adrlin2_hjem', 'adrlin3_hjem',
+                  'postnr_hjem', 'adresseland_hjem'),
+        '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
+        }
 
     fs_importer = FsImporterUio(args.gen_groups,
                                 args.include_delete, args.commit,
                                 args.studieprogramfile, source, rules, adr_map,
-                                args.emnefile)
+                                args.emnefile, rule_map)
 
     StudentInfo.StudentInfoParser(args.personfile,
                                   fs_importer.process_person_callback,
