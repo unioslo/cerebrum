@@ -276,18 +276,17 @@ class ExtendConstAction(argparse.Action):
         setattr(namespace, self.dest, self.type(items))
 
 
-def add_commit_args(parser, dest='commit', default=False):
+def add_commit_args(parser, default=False):
     """ Add --commit and --dryrun arguments to parser.
 
     :param parser: argument parser or argument group
-    :param dest: variable name
     :param default_commit: default value
     """
 
     commit_mutex = parser.add_mutually_exclusive_group()
     commit_mutex.add_argument(
         '--dryrun',
-        dest=dest,
+        dest='commit',
         action='store_false',
         help='Run in dryrun mode' + ('' if default else ' (default)'))
     commit_mutex.add_argument(
