@@ -114,6 +114,8 @@ class ProcHandler(object):
                 self.logger.debug("No uname for %s %s" % (firstname, lastname))
             self._ac.populate(unames[0], owner.entity_type, owner.entity_id,
                               None, self.default_creator_id, None)
+            # Write to db before adding traits
+            self._ac.write_db()
 
             # Set new-account-traits
             self._ac_add_new_traits(self._ac)
