@@ -1,3 +1,7 @@
+2019-01-03  Karen   <cerebrum@gagarin.uit.no>
+
+    * cim_datasource.py: updated to handle utf-8 data instead of iso-8859-1.
+
 2018-11-19 kennethj <cerebrum@gagarin.uit.no>
 	* fronter_lib:	updated to handle utf-8 data instead of riso-8859-1
 

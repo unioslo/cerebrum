@@ -23,6 +23,8 @@
 # from Cerebrum.Utils import Factory
 # from Cerebrum.Errors import NotFoundError
 
+from __future__ import unicode_literals
+
 import cerebrum_path
 import cereconf
 # from difflib import SequenceMatcher
@@ -252,7 +254,7 @@ class CIMDataSourceUit(CIMDataSource):
         Converts text to lowercase and correct encoding.
         The encoding stuff is needed so comparison works with norwegian characters.
         """
-        return text.strip().decode('utf-8').lower().encode('utf-8')
+        return text.strip().lower()
 
     def room_to_dist_list(self, room_info):
         """
