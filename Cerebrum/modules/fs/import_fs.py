@@ -42,20 +42,20 @@ logger = logging.getLogger(__name__)
 class FsImporter(object):
     def __init__(self, gen_groups, include_delete, commit,
                  studieprogramfile, source, rules, adr_map,
-                 find_person_by='fnr', reg_fagomr=False,
-                 rule_map=None):
+                 find_person_by='fnr', rule_map=None, reg_fagomr=False):
         # Variables passed to/from main
         self.db = Factory.get('Database')()
         self.db.cl_init(change_program='import_fs')
         self.co = Factory.get('Constants')(self.db)
         self.ou = Factory.get('OU')(self.db)
         self.group = Factory.get('Group')(self.db)
+        self.no_name = 0
 
         self.gen_groups = gen_groups
         self.include_delete = include_delete
 
-        self.find_person_by = find_person_by
         self.reg_fagomr = reg_fagomr
+        self.find_person_by = find_person_by
         self._init_aff_status_pri_order()
         self.rules = rules
         if rule_map:
@@ -168,7 +168,6 @@ class FsImporter(object):
         """Called when we have fetched all data on a person from the xml
         file.  Updates/inserts name, address and affiliation
         information."""
-        self.no_name = 0
         try:
             fnr = self._get_fnr(person_info)
         except fodselsnr.InvalidFnrError:
@@ -199,7 +198,7 @@ class FsImporter(object):
                        studentnr, fnr, person_info, affiliations)
 
         if self.reg_fagomr:
-            self.register_fagomrade(new_person, person_info)
+            self._register_fagomrade(new_person, person_info)
         if self.gen_groups:
             self._add_reservations(person_info, new_person)
 
@@ -246,7 +245,6 @@ class FsImporter(object):
         if fodselsnr.er_kvinne(fnr):
             gender = self.co.gender_female
         return gender
-
 
     def _get_person_data(self, person_info, fnr):
         etternavn = None
@@ -700,7 +698,7 @@ class FsImporter(object):
                     'Removing publish consent for person {person_id} with '
                     'expired FS affiliations'.format(person_id=person_id))
 
-    def register_fagomrade(self, person, person_info):
+    def _register_fagomrade(self, person, person_info):
         """Register 'fagomrade'/'fagfelt' for a person.
         This is stored in trait_fagomrade_fagfelt as a pickled list of strings.
         The trait is not set if no 'fagfelt' is registered.
