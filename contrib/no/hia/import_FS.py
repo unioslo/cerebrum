@@ -20,20 +20,14 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import unicode_literals
 
-import mx
-import sys
 import logging
 import argparse
 import datetime
 from os.path import join as pj
-from collections import defaultdict
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.modules.fs.import_fs import FsImporter
-from Cerebrum import Errors
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum.utils.argutils import add_commit_args
 
