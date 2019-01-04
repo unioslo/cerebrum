@@ -4771,11 +4771,12 @@ class BofhdExtension(BofhdCommonMethods):
             ("Utd. plan: %s, %s, %d, %s",
              ("studieprogramkode", "terminkode_bekreft", "arstall_bekreft",
               format_day("dato_bekreftet"))),
-            ("Semesterregistrert: %s - %s, registrert: %s, endret: %s",
-             ("regstatus", "regformkode", format_day("dato_endring"),
-              format_day("dato_regform_endret"))),
-            ("Semesterbetaling: %s - %s, betalt: %s",
-             ("betstatus", "betformkode", format_day('dato_betaling'))),
+            ("Semesterregistrert: %s - %s, %s, %s, registrert: %s, endret: %s",
+             ("regstatus", "regformkode", "terminkode", "arstall",
+              format_day("dato_endring"), format_day("dato_regform_endret"))),
+            ("Semesterbetaling: %s - %s, %s, %s, betalt: %s",
+             ("betstatus", "betformkode", "terminkode", "arstall",
+              format_day('dato_betaling'))),
             ("Registrert med status_dod: %s",
              ("status_dod",)),
         ]),
@@ -4874,11 +4875,15 @@ class BofhdExtension(BofhdCommonMethods):
                     'regformkode': row['regformkode'],
                     'dato_endring': row['dato_endring'],
                     'dato_regform_endret': row['dato_regform_endret'],
+                    'arstall': row['arstall'],
+                    'terminkode': row['terminkode'],
                 })
                 ret.append({
                     'betstatus': _ok_or_not(row['status_bet_ok']),
                     'betformkode': row['betformkode'],
                     'dato_betaling': row['dato_betaling'],
+                    'arstall': row['arstall'],
+                    'terminkode': row['terminkode'],
                 })
             # The semreg and sembet lines should always be sent, to make it
             # easier for the IT staff to see if a student have paid or not.
@@ -4888,11 +4893,52 @@ class BofhdExtension(BofhdCommonMethods):
                     'regformkode': None,
                     'dato_endring': None,
                     'dato_regform_endret': None,
+                    'arstall': fs.student.year,
+                    'terminkode': fs.student.semester,
                 })
                 ret.append({
                     'betstatus': 'Nei',
                     'betformkode': None,
                     'dato_betaling': None,
+                    'arstall': fs.student.year,
+                    'terminkode': fs.student.semester,
+                })
+
+            # Check if anything is registered for next semester
+            semreg_next_sem = tuple(fs.student.get_semreg(
+                fodselsdato, pnum, only_valid=False, semester='next'))
+            for row in semreg_next_sem:
+                ret.append({
+                    'regstatus': _ok_or_not(row['status_reg_ok']),
+                    'regformkode': row['regformkode'],
+                    'dato_endring': row['dato_endring'],
+                    'dato_regform_endret': row['dato_regform_endret'],
+                    'arstall': row['arstall'],
+                    'terminkode': row['terminkode'],
+                })
+                ret.append({
+                    'betstatus': _ok_or_not(row['status_bet_ok']),
+                    'betformkode': row['betformkode'],
+                    'dato_betaling': row['dato_betaling'],
+                    'arstall': row['arstall'],
+                    'terminkode': row['terminkode'],
+                })
+
+            if not semreg_next_sem:
+                ret.append({
+                    'regstatus': 'Nei',
+                    'regformkode': None,
+                    'dato_endring': None,
+                    'dato_regform_endret': None,
+                    'arstall': fs.student.next_semester_year,
+                    'terminkode': fs.student.next_semester,
+                })
+                ret.append({
+                    'betstatus': 'Nei',
+                    'betformkode': None,
+                    'dato_betaling': None,
+                    'arstall': fs.student.next_semester_year,
+                    'terminkode': fs.student.next_semester,
                 })
 
         db.close()
