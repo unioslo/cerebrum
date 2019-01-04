@@ -516,17 +516,13 @@ class FsImporter(object):
         ret['address_text'] = "\n".join([a_dict.get(f, None)
                                          for f in (kline1, kline2)
                                          if a_dict.get(f, None)])
-        postal_number = a_dict.get(kpost.strip(), '')
+        postal_number = a_dict.get(kpost, '')
         if postal_number:
             postal_number = "%04i" % int(postal_number)
         ret['postal_number'] = postal_number
+        ret['city'] = a_dict.get(kline3, '')
 
-        city = a_dict.get(kline3.strip(), '')
-        if city:
-            ret['city'] = city
-        else:
-            ret['city'] = None
-        logger.debug('%s,  %s,  %s', ret['address_text'], postal_number, city)
+        logger.debug('%s,  %s,  %s', ret['address_text'], postal_number, ret['city'])
         if len(ret['address_text']) == 1:
             logger.debug("Address might not be complete, "
                          "but we need to cover one-line addresses")
