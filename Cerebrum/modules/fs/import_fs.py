@@ -26,8 +26,6 @@ import logging
 import datetime
 from collections import defaultdict
 
-import Cerebrum.logutils
-import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
@@ -62,7 +60,7 @@ class FsImporter(object):
             self.rule_map = rule_map
         else:
             self.rule_map = {}
-        self.adr_map =adr_map
+        self.adr_map = adr_map
 
         if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
             raise SystemExit("Check cereconf, SYSTEM_LOOKUP_ORDER is wrong!")
@@ -99,16 +97,19 @@ class FsImporter(object):
             self.group.clear()
             ac = Factory.get('Account')(self.db)
             ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-            self.group.populate(ac.entity_id, self.co.group_visibility_internal,
-                           group_name, group_desc)
+            self.group.populate(ac.entity_id,
+                                self.co.group_visibility_internal,
+                                group_name,
+                                group_desc)
             self.group.write_db()
 
     def _load_cere_aff(self):
         fs_aff = {}
         person = Factory.get("Person")(self.db)
         for row in person.list_affiliations(source_system=self.co.system_fs):
-            k = "%s:%s:%s" % (
-            row['person_id'], row['ou_id'], row['affiliation'])
+            k = "%s:%s:%s" % (row['person_id'],
+                              row['ou_id'],
+                              row['affiliation'])
             fs_aff[str(k)] = True
         return (fs_aff)
 
@@ -139,7 +140,7 @@ class FsImporter(object):
             institusjon = cereconf.DEFAULT_INSTITUSJONSNR
 
         key = "-".join((str(institusjon), a_dict[kfak], a_dict[kinst],
-                         a_dict[kgr]))
+                        a_dict[kgr]))
         if key not in self.ou_cache:
             ou = Factory.get("OU")(self.db)
             try:
@@ -162,7 +163,6 @@ class FsImporter(object):
             elif p['external_id'] not in fnr2person_id:
                 fnr2person_id[p['external_id']] = p['entity_id']
         return fnr2person_id, person
-
 
     def process_person_callback(self, person_info):
         """Called when we have fetched all data on a person from the xml
@@ -283,14 +283,14 @@ class FsImporter(object):
                     self.co.affiliation_status_tilknyttet_fagperson,
                     affiliations,
                     self._get_sko(p, 'faknr', 'instituttnr', 'gruppenr',
-                             'institusjonsnr'))
+                                  'institusjonsnr'))
             elif dta_type in ('aktiv',):
                 for row in x:
                     # aktiv_sted is necessary in order to avoid different
-                    # affiliation statuses to a same 'stedkode' to be overwritten
-                    # e.i. if a person has both affiliations status 'evu' and
-                    # aktive to a single stedkode we want to register the status
-                    # 'aktive' in cerebrum
+                    # affiliation statuses to a same 'stedkode' to be
+                    # overwritten e.i. if a person has both affiliations status
+                    #  'evu' and aktive to a single stedkode we want to
+                    # register the status 'aktive' in cerebrum
                     if self.studieprog2sko[row['studieprogramkode']] is not None:
                         aktiv_sted.append(
                             int(self.studieprog2sko[row['studieprogramkode']]))
@@ -305,11 +305,11 @@ class FsImporter(object):
                     subtype = self.co.affiliation_status_student_aktiv
                 self._process_affiliation(self.co.affiliation_student,
                                           subtype, affiliations,
-                                          self.studieprog2sko[row['studieprogramkode']])
+                                          self.studieprog2sko[
+                                              row['studieprogramkode']])
         # end for-loop
         return etternavn, fornavn, studentnr, birth_date, \
                affiliations, aktiv_sted
-
 
     def _process_affiliation(self, aff, aff_status, new_affs, ou):
         # TBD: Should we for example remove the 'opptak' affiliation if we
@@ -395,11 +395,12 @@ class FsImporter(object):
 
         def _fetch_cerebrum_contact(co):
             return [x["contact_value"]
-                    for x in person.get_contact_info(source=co.system_fs,
-                                                     type=co.contact_mobile_phone)]
+                    for x in person.get_contact_info(
+                    source=co.system_fs,
+                    type=co.contact_mobile_phone)]
 
-        # NB! We may encounter several phone numbers. If they do not match, there
-        # is nothing we can do but to complain.
+        # NB! We may encounter several phone numbers. If they do not match,
+        # there is nothing we can do but to complain.
         fnr = "%06d%05d" % (int(person_info["fodselsdato"]),
                             int(person_info["personnr"]))
         phone_selector = "telefonnr_mobil"
@@ -489,7 +490,7 @@ class FsImporter(object):
     def _get_sted_address(self, a_dict, k_institusjon, k_fak, k_inst,
                           k_gruppe):
         ou_id = self._get_sko(a_dict, k_fak, k_inst, k_gruppe,
-                         kinstitusjon=k_institusjon)
+                              kinstitusjon=k_institusjon)
         if not ou_id:
             return None
         ou_id = int(ou_id)
@@ -522,13 +523,14 @@ class FsImporter(object):
         ret['postal_number'] = postal_number
         ret['city'] = a_dict.get(kline3, '')
 
-        logger.debug('%s,  %s,  %s', ret['address_text'], postal_number, ret['city'])
+        logger.debug('%s,  %s,  %s', ret['address_text'], postal_number,
+                     ret['city'])
         if len(ret['address_text']) == 1:
             logger.debug("Address might not be complete, "
                          "but we need to cover one-line addresses")
-        # we have to register at least the city in order to have a "proper" address
-        # this mean that addresses containing only ret['city'] will be imported
-        # as well
+        # we have to register at least the city in order to have a "proper"
+        # address this mean that addresses containing only ret['city'] will be
+        # imported as well
         if len(ret['address_text']) < 1 and not ret['city']:
             logger.debug("No address found")
             return None
@@ -573,7 +575,8 @@ class FsImporter(object):
     def _rem_res(self, entity_id):
         if self.group.has_member(entity_id):
             self.group.remove_member(entity_id)
-            logging.debug('Removed member %r from group %r', entity_id, self.group)
+            logging.debug('Removed member %r from group %r', entity_id,
+                          self.group)
             return True
         return False
 
@@ -581,8 +584,8 @@ class FsImporter(object):
         """ Remove old affiliations.
 
         This method loops through the global `old_affs` mapping. The
-        `process_person_callback` marks affs as False if they are still present in
-        the FS import files.
+        `process_person_callback` marks affs as False if they are still present
+         in the FS import files.
 
         For the rest, we check if they are past the
         cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS limit, and remove them if they
@@ -625,8 +628,8 @@ class FsImporter(object):
 
             self._remove_consent(person, person_id)
 
-            # Check date, do not remove affiliation for active students until end
-            # of grace period. Some affiliations should be removed at once
+            # Check date, do not remove affiliation for active students until
+            # end of grace period. Some affiliations should be removed at once
             # for certain institutions.
             grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
             if (aff['last_date'] > (mx.DateTime.now() - grace_days) and
