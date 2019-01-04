@@ -157,7 +157,8 @@ class FsImporter(object):
         person = Factory.get('Person')(self.db)
         # create fnr2person_id mapping, always using fnr from FS when set
         fnr2person_id = {}
-        for p in person.list_external_ids(id_type=self.co.externalid_fodselsnr):
+        for p in person.list_external_ids(
+                id_type=self.co.externalid_fodselsnr):
             if self.co.system_fs == p['source_system']:
                 fnr2person_id[p['external_id']] = p['entity_id']
             elif p['external_id'] not in fnr2person_id:
@@ -175,8 +176,8 @@ class FsImporter(object):
 
         gender = self._get_gender(fnr)
 
-        etternavn, fornavn, studentnr, birth_date, \
-        affiliations, aktiv_sted = self._get_person_data(person_info, fnr)
+        etternavn, fornavn, studentnr, birth_date, affiliations, aktiv_sted = \
+            self._get_person_data(person_info, fnr)
 
         if etternavn is None:
             logger.debug("Ikke noe navn på %s" % fnr)
@@ -195,7 +196,7 @@ class FsImporter(object):
             new_person = self._get_person_by_studentnr(fnr, studentnr)
 
         self._db_add_person(new_person, birth_date, gender, fornavn, etternavn,
-                       studentnr, fnr, person_info, affiliations)
+                            studentnr, fnr, person_info, affiliations)
 
         if self.reg_fagomr:
             self._register_fagomrade(new_person, person_info)
@@ -291,7 +292,8 @@ class FsImporter(object):
                     # overwritten e.i. if a person has both affiliations status
                     #  'evu' and aktive to a single stedkode we want to
                     # register the status 'aktive' in cerebrum
-                    if self.studieprog2sko[row['studieprogramkode']] is not None:
+                    if self.studieprog2sko[
+                            row['studieprogramkode']] is not None:
                         aktiv_sted.append(
                             int(self.studieprog2sko[row['studieprogramkode']]))
                         self._process_affiliation(
@@ -308,8 +310,8 @@ class FsImporter(object):
                                           self.studieprog2sko[
                                               row['studieprogramkode']])
         # end for-loop
-        return etternavn, fornavn, studentnr, birth_date, \
-               affiliations, aktiv_sted
+        return etternavn, fornavn, studentnr, birth_date, affiliations, \
+               aktiv_sted
 
     def _process_affiliation(self, aff, aff_status, new_affs, ou):
         # TBD: Should we for example remove the 'opptak' affiliation if we
@@ -367,8 +369,7 @@ class FsImporter(object):
             new_person.populate_affiliation(self.co.system_fs, ou, aff,
                                             aff_status)
             if self.include_delete:
-                key_a = "%s:%s:%s" % (
-                new_person.entity_id, ou, int(aff))
+                key_a = "%s:%s:%s" % (new_person.entity_id, ou, int(aff))
                 if key_a in self.old_aff:
                     self.old_aff[key_a] = False
 
@@ -446,7 +447,7 @@ class FsImporter(object):
         status.  """
         affiliations.sort(
             lambda x, y: self.aff_status_pri_order.get(int(y[2]), 99) -
-                         self.aff_status_pri_order.get(int(x[2]), 99))
+            self.aff_status_pri_order.get(int(x[2]), 99))
 
         ret = {}
         for ou, aff, aff_status in affiliations:
@@ -588,12 +589,13 @@ class FsImporter(object):
          in the FS import files.
 
         For the rest, we check if they are past the
-        cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS limit, and remove them if they
-        are.
+        cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS limit, and remove them if
+        they are.
         """
 
-        disregard_grace_for_affs = [self.co.human2constant(x) for x in
-                                    cereconf.FS_EXCLUDE_AFFILIATIONS_FROM_GRACE]
+        disregard_grace_for_affs = [
+            self.co.human2constant(x) for x in
+            cereconf.FS_EXCLUDE_AFFILIATIONS_FROM_GRACE]
 
         logger.info("Removing old FS affiliations")
         stats = defaultdict(lambda: 0)
@@ -633,7 +635,7 @@ class FsImporter(object):
             # for certain institutions.
             grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
             if (aff['last_date'] > (mx.DateTime.now() - grace_days) and
-                          int(aff['status']) not in disregard_grace_for_affs):
+                    int(aff['status']) not in disregard_grace_for_affs):
                 logger.debug("Sparing aff (%s) for person_id=%r at ou_id=%r",
                              aff_const, person_id, ou_id)
                 stats['grace'] += 1
@@ -680,8 +682,8 @@ class FsImporter(object):
                 # should not happen
                 logger.warn('Affiliation {affiliation_id} for person-id '
                             '{person_id} not found in affiliation list'.format(
-                    affiliation_id=fs_aff['affiliation'],
-                    person_id=fs_aff['person_id']))
+                                affiliation_id=fs_aff['affiliation'],
+                                person_id=fs_aff['person_id']))
                 break  # we keep existing consent
             if not self.old_aff[aff_str]:
                 # we found at least one active FS affiliation for this person
