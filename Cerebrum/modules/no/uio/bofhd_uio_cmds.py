@@ -917,7 +917,7 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['access_list'] = Command(
         ('access', 'list'),
         SimpleString(help_ref='id:target:group'),
-        SimpleString(help_ref='string_perm_target_type', optional=True),
+        SimpleString(help_ref='string_perm_target_type_access', optional=True),
         fs=FormatSuggestion(
             "%-14s %-16s %-30s %-7s",
             ("opset", "target_type", "target", "attr"),
@@ -926,6 +926,18 @@ class BofhdExtension(BofhdCommonMethods):
         ))
 
     def access_list(self, operator, owner, target_type=None):
+        """
+        List everything an account or group can operate on. Only direct
+        ownership is reported: the entities an account can access due to group
+        memberships will not be listed. This does not include unpersonal users
+        owned by groups.
+
+        :param operator: operator in bofh session
+        :param owner: str name of owner object
+        :param target_type: the type of the target
+        :return: List of everything an account or group can operate on
+        """
+
         ar = BofhdAuthRole(self.db)
         aot = BofhdAuthOpTarget(self.db)
         aos = BofhdAuthOpSet(self.db)
