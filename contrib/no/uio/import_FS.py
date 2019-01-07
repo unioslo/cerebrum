@@ -28,8 +28,6 @@ from os.path import join as pj
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.modules.fs.import_fs import FsImporter
-from Cerebrum import Errors
-from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum.utils.argutils import add_commit_args
 

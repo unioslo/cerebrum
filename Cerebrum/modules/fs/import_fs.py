@@ -40,7 +40,8 @@ logger = logging.getLogger(__name__)
 class FsImporter(object):
     def __init__(self, gen_groups, include_delete, commit,
                  studieprogramfile, source, rules, adr_map,
-                 find_person_by='fnr', rule_map=None, reg_fagomr=False):
+                 find_person_by='fnr', rule_map=None, reg_fagomr=False,
+                 reservation_query=None):
         # Variables passed to/from main
         self.db = Factory.get('Database')()
         self.db.cl_init(change_program='import_fs')
@@ -67,6 +68,7 @@ class FsImporter(object):
 
         if self.gen_groups:
             self.init_reservation_group()
+            self.reservation_query = reservation_query
 
         if getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1:
             logger.warn("Warning: ENABLE_MKTIME_WORKAROUND is set")
@@ -195,18 +197,20 @@ class FsImporter(object):
         elif self.find_person_by == 'studentnr':
             new_person = self._get_person_by_studentnr(fnr, studentnr)
 
-        self._db_add_person(new_person, birth_date, gender, fornavn, etternavn,
-                            studentnr, fnr, person_info, affiliations)
+        err = self._db_add_person(new_person, birth_date, gender, fornavn,
+                                  etternavn, studentnr, fnr, person_info,
+                                  affiliations)
 
-        if self.reg_fagomr:
-            self._register_fagomrade(new_person, person_info)
-        if self.gen_groups:
-            self._add_reservations(person_info, new_person)
+        if not err:
+            if self.reg_fagomr:
+                self._register_fagomrade(new_person, person_info)
+            if self.gen_groups:
+                self._add_reservations(person_info, new_person)
 
-        if self.commit:
-            self.db.commit()
-        else:
-            self.db.rollback()
+            if self.commit:
+                self.db.commit()
+            else:
+                self.db.rollback()
 
     def _get_person_by_fnr(self, fnr):
         new_person = Factory.get('Person')(self.db)
@@ -361,7 +365,7 @@ class FsImporter(object):
             logger.exception("write_db failed for person %s: %s", fnr, e)
             # Roll back in case of db exceptions:
             self.db.rollback()
-            return
+            return True
 
         affiliations = self._filter_affiliations(affiliations)
 
@@ -539,22 +543,31 @@ class FsImporter(object):
 
     def _add_reservations(self, person_info, new_person):
         should_add = False
-        for dta_type in person_info.keys():
-            p = person_info[dta_type][0]
-            if isinstance(p, str):
-                continue
-            # Presence of 'fagperson' elements for a person should not
-            # affect that person's reservation status.
-            if dta_type in ('fagperson',):
-                continue
-            # We only fetch the column in these queries
-            if dta_type not in ('evu'):
-                continue
-            # If 'status_reserv_nettpubl' == "N": add to group
-            if p.get('status_reserv_nettpubl', "") == "N":
-                should_add = True
-            else:
-                should_add = False
+        if self.reservation_query:
+            # Method currently used by uia, nih and hiof
+            for dta_type in person_info.keys():
+                p = person_info[dta_type][0]
+                if isinstance(p, str):
+                    continue
+                # We only fetch the column in these queries
+                if dta_type not in self.reservation_query:
+                    continue
+                # If 'status_reserv_nettpubl' == "N": add to group
+                if p.get('status_reserv_nettpubl', "") == "N":
+                    should_add = True
+                else:
+                    should_add = False
+        else:
+            # Method currently used by uio and nmh. Looks at 'nettpubl'
+            # instead of 'status_reserv_nettpubl'.
+            if 'nettpubl' in person_info:
+                for row in person_info['nettpubl']:
+                    if (
+                            row.get('akseptansetypekode', "") == "NETTPUBL" and
+                            row.get('status_svar', "") == "J"
+                    ):
+                        should_add = True
+
         if should_add:
             # The student has explicitly given us permission to be
             # published in the directory.
@@ -594,7 +607,7 @@ class FsImporter(object):
         """
 
         disregard_grace_for_affs = [
-            self.co.human2constant(x) for x in
+            int(self.co.human2constant(x)) for x in
             cereconf.FS_EXCLUDE_AFFILIATIONS_FROM_GRACE]
 
         logger.info("Removing old FS affiliations")
@@ -607,19 +620,16 @@ class FsImporter(object):
                 continue
 
             person_id, ou_id, aff_id = (int(val) for val in k.split(':'))
-            aff_const = self.co.PersonAffiliation(aff_id)
-
-            logger.debug("Attempting to remove aff %r (%r)", k, aff_const)
+            logger.debug("Attempting to remove aff %r (%r)", k, aff_id)
             stats['old'] += 1
-
             aff = person.list_affiliations(person_id=person_id,
                                            source_system=self.co.system_fs,
-                                           affiliation=aff_const,
+                                           affiliation=aff_id,
                                            ou_id=ou_id)
             if not aff:
                 logger.warn(
                     'Possible race condition when attempting to remove aff '
-                    '{} for {}'.format(aff_const, person_id))
+                    '{} for {}'.format(aff_id, person_id))
                 continue
             if len(aff) > 1:
                 logger.warn("More than one aff for person %s, what to do?",
@@ -637,7 +647,7 @@ class FsImporter(object):
             if (aff['last_date'] > (mx.DateTime.now() - grace_days) and
                     int(aff['status']) not in disregard_grace_for_affs):
                 logger.debug("Sparing aff (%s) for person_id=%r at ou_id=%r",
-                             aff_const, person_id, ou_id)
+                             aff_id, person_id, ou_id)
                 stats['grace'] += 1
                 continue
 
@@ -650,7 +660,7 @@ class FsImporter(object):
                 continue
             logger.info("Removing aff %s for person=%s, at ou_id=%s",
                         self.co.PersonAffiliation(aff_id), person_id, ou_id)
-            person.delete_affiliation(ou_id=ou_id, affiliation=aff_const,
+            person.delete_affiliation(ou_id=ou_id, affiliation=aff_id,
                                       source=self.co.system_fs)
             stats['delete'] += 1
             person_ids.add(person_id)

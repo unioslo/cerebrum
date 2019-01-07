@@ -58,7 +58,11 @@ class FsImporterUia(FsImporter):
                 else:
                     logger.info("\n%s mangler studentnr!", fnr)
             # Get name
-            if dta_type in ('aktiv', 'tilbud', 'evu', 'privatist_studieprogram',):
+            if dta_type in ('aktiv',
+                            'tilbud',
+                            'evu',
+                            'privatist_studieprogram',
+                            ):
                 etternavn = p['etternavn']
                 fornavn = p['fornavn']
 
@@ -70,41 +74,47 @@ class FsImporterUia(FsImporter):
             if dta_type in ('aktiv',):
                 for row in x:
                     # aktiv_sted is necessary in order to avoid different
-                    # affiliation statuses to a same 'stedkode' to be overwritten
-                    # e.i. if a person has both affiliations status 'tilbud' and
-                    # aktive to a single stedkode we want to register the status
-                    # 'aktive' in cerebrum
-                    if self.studieprog2sko[row['studieprogramkode']] is not None:
+                    # affiliation statuses to a same 'stedkode' to be
+                    # overwritten e.i. if a person has both affiliations status
+                    # 'tilbud' and aktive to a single stedkode we want to
+                    # register the  status 'aktive' in cerebrum
+                    if self.studieprog2sko[row['studieprogramkode']] is not \
+                            None:
                         aktiv_sted.append(
                             int(self.studieprog2sko[row['studieprogramkode']]))
                         self._process_affiliation(
                             self.co.affiliation_student,
-                            self.co.affiliation_status_student_aktiv, affiliations,
+                            self.co.affiliation_status_student_aktiv,
+                            affiliations,
                             self.studieprog2sko[row['studieprogramkode']])
             elif dta_type in ('evu',):
                 for row in x:
                     self._process_affiliation(
                         self.co.affiliation_student,
-                        self.co.affiliation_status_student_evu, affiliations,
+                        self.co.affiliation_status_student_evu,
+                        affiliations,
                         self._get_sko(p, 'faknr_adm_ansvar',
-                                 'instituttnr_adm_ansvar',
-                                 'gruppenr_adm_ansvar'))
+                                      'instituttnr_adm_ansvar',
+                                      'gruppenr_adm_ansvar'))
             elif dta_type in ('privatist_studieprogram',):
                 for row in x:
                     self._process_affiliation(
                         self.co.affiliation_student,
                         self.co.affiliation_status_student_privatist,
-                        affiliations, self.studieprog2sko[row['studieprogramkode']])
+                        affiliations, self.studieprog2sko[
+                            row['studieprogramkode']])
             elif dta_type in ('tilbud',):
                 for row in x:
                     subtype = self.co.affiliation_status_student_tilbud
-                    if self.studieprog2sko[row['studieprogramkode']] in aktiv_sted:
+                    if self.studieprog2sko[row['studieprogramkode']] in \
+                            aktiv_sted:
                         subtype = self.co.affiliation_status_student_aktiv
                     self._process_affiliation(self.co.affiliation_student,
-                                         subtype, affiliations,
-                                         self.studieprog2sko[row['studieprogramkode']])
-        return etternavn, fornavn, studentnr, birth_date, \
-               affiliations, aktiv_sted
+                                              subtype, affiliations,
+                                              self.studieprog2sko[
+                                                  row['studieprogramkode']])
+        return etternavn, fornavn, studentnr, birth_date, affiliations, \
+               aktiv_sted
 
 
 def main():
@@ -158,11 +168,12 @@ def main():
                      'postnr_kontakt', 'adresseland_kontakt'),
         '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
         }
-
+    reservation_query = ('tilbud', 'aktiv', 'privatist_studieprogram', 'evu',)
     fs_importer = FsImporterUia(args.gen_groups,
                                 args.include_delete, args.commit,
                                 args.studieprogramfile, source, rules, adr_map,
-                                find_person_by='studentnr')
+                                find_person_by='studentnr',
+                                reservation_query=reservation_query)
 
     StudentInfo.StudentInfoParser(args.personfile,
                                   fs_importer.process_person_callback,
