@@ -97,11 +97,9 @@ class FsImporterUio(FsImporter):
         aktiv = False
 
         for ou, aff, aff_status in affiliations:
-            if (
-                    aff_status == int(self.co.affiliation_status_student_aktiv) or
-                    aff_status == int(self.co.affiliation_status_student_drgrad) or
-                    aff_status == int(self.co.affiliation_status_student_evu)
-            ):
+            if (aff_status == int(self.co.affiliation_status_student_aktiv) or
+                aff_status == int(self.co.affiliation_status_student_drgrad) or
+                    aff_status == int(self.co.affiliation_status_student_evu)):
                 aktiv = True
 
         ret = {}
@@ -155,8 +153,9 @@ class FsImporterUio(FsImporter):
                 fornavn = p['fornavn']
 
                 if not birth_date and 'dato_fodt' in p:
-                    birth_date = datetime.datetime.strptime(p['dato_fodt'],
-                                                            "%Y-%m-%d %H:%M:%S.%f")
+                    birth_date = datetime.datetime.strptime(
+                        p['dato_fodt'],
+                        "%Y-%m-%d %H:%M:%S.%f")
 
             if 'studentnr_tildelt' in p:
                 studentnr = p['studentnr_tildelt']
@@ -174,7 +173,8 @@ class FsImporterUio(FsImporter):
             elif dta_type in ('opptak',):
                 for row in x:
                     subtype = self.co.affiliation_status_student_opptak
-                    if self.studieprog2sko[row['studieprogramkode']] in aktiv_sted:
+                    if (self.studieprog2sko[row['studieprogramkode']] in
+                            aktiv_sted):
                         subtype = self.co.affiliation_status_student_aktiv
                     elif row['studierettstatkode'] == 'EVU':
                         subtype = self.co.affiliation_status_student_evu
@@ -182,13 +182,14 @@ class FsImporterUio(FsImporter):
                         subtype = self.co.affiliation_status_student_alumni
                     elif int(row['studienivakode']) >= 900:
                         subtype = self.co.affiliation_status_student_drgrad
-                    elif self._is_new_admission(row.get('dato_studierett_tildelt')):
+                    elif self._is_new_admission(
+                            row.get('dato_studierett_tildelt')):
                         subtype = self.co.affiliation_status_student_ny
-                    self._process_affiliation(self.co.affiliation_student,
-                                         subtype,
-                                         affiliations,
-                                         self.studieprog2sko[
-                                             row['studieprogramkode']])
+                    self._process_affiliation(
+                        self.co.affiliation_student,
+                        subtype,
+                        affiliations,
+                        self.studieprog2sko[row['studieprogramkode']])
             elif dta_type in ('emnestud',):
                 for row in x:
                     subtype = self.co.affiliation_status_student_emnestud
@@ -203,8 +204,10 @@ class FsImporterUio(FsImporter):
                         continue
                     if sko in aktiv_sted:
                         subtype = self.co.affiliation_status_student_aktiv
-                    self._process_affiliation(self.co.affiliation_student, subtype,
-                                         affiliations, sko)
+                    self._process_affiliation(self.co.affiliation_student,
+                                              subtype,
+                                              affiliations,
+                                              sko)
             elif dta_type in ('privatist_studieprogram',):
                 self._process_affiliation(
                     self.co.affiliation_student,
@@ -247,7 +250,7 @@ class FsImporterUio(FsImporter):
                                   'gruppenr_adm_ansvar'))
             else:
                 logger.debug("No such affiliation type: %s, skipping",
-                              dta_type)
+                             dta_type)
 
         return etternavn, fornavn, studentnr, birth_date, \
                affiliations, aktiv_sted
@@ -255,9 +258,9 @@ class FsImporterUio(FsImporter):
     def _get_admission_date_func(self, for_date, grace_days=0):
         """ Get a admission date filter function to evaluate *new* students.
 
-        For any given date `for_date`, this method returns a filter function that
-        tests admission dates. Students with an admission date that passes this
-        filter are considered *new* students.
+        For any given date `for_date`, this method returns a filter function
+        that tests admission dates. Students with an admission date that passes
+        this filter are considered *new* students.
 
         """
         date_ranges = [
@@ -297,6 +300,7 @@ class FsImporterUio(FsImporter):
         except mx.DateTime.Error:
             return False
         return self._new_student_filter(date)
+
 
 def main():
     # parsing
