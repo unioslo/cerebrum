@@ -57,6 +57,7 @@ class SMSManager(object):
         self.db = db
         self.trait = trait
         self.ac = Factory.get('Account')(self.db)
+        self.co = Factory.get('Constants')(self.db)
 
 
 class ReminderManager(SMSManager):
@@ -64,7 +65,12 @@ class ReminderManager(SMSManager):
     #     super(ReminderManager, self).__init__(db, trait)
 
     def __iter__(self):
-        for row in self.ac.list_traits(code=self.trait, numval=1):
+        """
+        The iterator for the Reminder class only picks those who have the trait
+        and no numval set for that trait. This ensures that we do not keep
+        spamming our users with more than one reminder.
+        """
+        for row in self.ac.list_traits(code=self.trait, numval=None):
             yield row
 
     def remove_trait(self, ac, commit=False):
@@ -73,13 +79,24 @@ class ReminderManager(SMSManager):
                      self.trait, ac.account_name)
         pass
 
+    def populate_trait(self, ac):
+        """In reminder mode we don't populate traits, we only increment the
+        numval of the existing one, which the process function takes care of
+        for us."""
+        pass
+
 
 class WelcomeManager(SMSManager):
     # def __init__(self, db, trait):
     #     super(WelcomeManager, self).__init__(db, trait)
 
     def __iter__(self):
-        for row in self.ac.list_traits(code=self.trait, numval=None):
+        """
+        The iterator for the WelcomeManager only checks if the account has the
+        trait, since the trait we want to include everyone with the trait,
+        and remove it when we do send an SMS, or give up on it.
+        """
+        for row in self.ac.list_traits(code=self.trait):
             yield row
 
     def remove_trait(self, ac, commit=False):
@@ -93,19 +110,24 @@ class WelcomeManager(SMSManager):
         else:
             self.db.rollback()
 
+    def populate_trait(self, ac):
+        """In welcome mode we populate the new trait"""
+        ac.populate_trait(code=self.co.trait_sms_welcome, date=now())
+
 
 def process(manager, message, phone_types, affiliations, too_old,
-            min_attempts, commit=False, filters=[]):
+            min_attempts, commit=False, reminder=False, filters=[]):
     """Go through the given trait type and send out welcome SMSs to the users.
 
     Remove the traits, and set a new message-is-sent-trait, to avoid spamming
+    the users.
+    If in reminder mode, increment the message-is-sent-trait, to avoid spamming
     the users.
     """
     logger.info('send_welcome_sms started')
     if not commit:
         logger.debug('In dryrun mode')
 
-    co = Factory.get('Constants')(manager.db)
     ac = Factory.get('Account')(manager.db)
     pe = Factory.get('Person')(manager.db)
 
@@ -137,7 +159,7 @@ def process(manager, message, phone_types, affiliations, too_old,
             manager.remove_trait(ac, commit)
             continue
 
-        if ac.owner_type != co.entity_person:
+        if ac.owner_type != manager.co.entity_person:
             logger.info('Tagged new user %r not personal, skipping',
                         ac.account_name)
             # TODO: remove trait?
@@ -158,9 +180,10 @@ def process(manager, message, phone_types, affiliations, too_old,
         # further.
         def apply_filters(filter_name, filter_func):
             if isinstance(filter_func, list):
-                result = all(map(lambda fun: fun(manager.db, ac, row), filter_func))
+                result = all(map(lambda fun: fun(ac),
+                                 filter_func))
             else:
-                result = filter_func(manager.db, ac, row)
+                result = filter_func(ac)
 
             if result:
                 manager.remove_trait(ac, commit)
@@ -189,13 +212,17 @@ def process(manager, message, phone_types, affiliations, too_old,
         pe.clear()
         pe.find(ac.owner_id)
 
-        # Check if user already has been texted. If so, the trait is removed.
-        tr = ac.get_trait(co.trait_sms_welcome)
-        if tr and tr['date'] > (now() - 300):
-            logger.debug('User %r already texted last %d days, removing trait',
-                         ac.account_name, 180)
-            manager.remove_trait(ac, commit)
-            continue
+        #
+        if not reminder:
+            # Check if user already has been texted. If so, the trait is
+            # removed.
+            tr = ac.get_trait(manager.co.trait_sms_welcome)
+            if tr and tr['date'] > (now() - 300):
+                logger.debug(
+                    'User %r already texted last %d days, removing trait',
+                    ac.account_name, 300)
+                manager.remove_trait(ac, commit)
+                continue
 
         # get phone number
         phone = get_phone_number(pe=pe, phone_types=phone_types)
@@ -216,8 +243,8 @@ def process(manager, message, phone_types, affiliations, too_old,
         studentnumber = None
         try:
             studentnumber = pe.get_external_id(
-                co.system_fs,
-                co.externalid_studentnr)[0]['external_id']
+                manager.co.system_fs,
+                manager.co.externalid_studentnr)[0]['external_id']
         except (IndexError, AttributeError):
             pass
 
@@ -239,7 +266,7 @@ def process(manager, message, phone_types, affiliations, too_old,
 
         # sms sent, now update the traits
         manager.remove_trait(ac, commit)
-        ac.populate_trait(code=co.trait_sms_welcome, date=now())
+        manager.populate_trait(ac)
         ac.write_db()
         if commit:
             manager.db.commit()
@@ -286,19 +313,27 @@ def send_sms(phone, message, commit=False):
     return sms(phone, message)
 
 
-def skip_if_password_set(db, ac, trait):
-    """ Has the password been changed after the trait was set? """
-    clconst = Factory.get('CLConstants')(db)
-    # The trait and initial password is set in the same transaction. We add
-    # a minute to skip this initial password change event.
-    try:
-        after = trait['date'] + DateTimeDelta(0, 0, 1)  # delta = 1 minute
-    except:
-        after = ac.created_at + DateTimeDelta(0, 0, 1)
-    return True if [x for x in db.get_log_events(
-        subject_entity=ac.entity_id,
-        sdate=after,
-        types=clconst.account_password)] else False
+# def skip_if_password_set(db, ac, trait):
+#     """ Has the password been changed after the trait was set? """
+#     clconst = Factory.get('CLConstants')(db)
+#     # The trait and initial password is set in the same transaction. We add
+#     # a minute to skip this initial password change event.
+#     try:
+#         after = trait['date'] + DateTimeDelta(0, 0, 1)  # delta = 1 minute
+#     except:
+#         after = ac.created_at + DateTimeDelta(0, 0, 1)
+#     return True if [x for x in db.get_log_events(
+#         subject_entity=ac.entity_id,
+#         sdate=after,
+#         types=clconst.account_password)] else False
+
+
+def skip_if_password_set(ac):
+    """ Checks if the user has set a password. This assumes that any password
+        methods saved to their account is made by the user themselves. This was
+        not always the case but as of December 2018, new users are no longer
+        assigned a password upon creation. """
+    return bool(ac.get_account_authentication_methods())
 
 
 def lalign(s):
@@ -488,6 +523,7 @@ def main(inargs=None):
     logger.debug("min-attempts: %r", args.min_attempts)
     logger.debug("commit:       %r", args.commit)
     logger.debug("filters:      %r", args.filters)
+    logger.info("reminder:     %r", args.reminder)
 
     if args.reminder:
         manager = ReminderManager(db, trait)
@@ -502,6 +538,7 @@ def main(inargs=None):
         too_old=args.too_old,
         min_attempts=args.min_attempts,
         commit=args.commit,
+        reminder=args.reminder,
         filters=args.filters,
     )
 
