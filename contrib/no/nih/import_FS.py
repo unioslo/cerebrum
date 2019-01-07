@@ -84,10 +84,12 @@ def main():
                   'postnr_hjem', 'adresseland_hjem'),
         '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
         }
+    reservation_query = ('evu',)
 
     fs_importer = FsImporter(args.gen_groups,
                             args.include_delete, args.commit,
-                            args.studieprogramfile, source, rules, adr_map)
+                            args.studieprogramfile, source, rules, adr_map,
+                            reservation_query=reservation_query)
 
     StudentInfo.StudentInfoParser(args.personfile,
                                   fs_importer.process_person_callback,
