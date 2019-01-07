@@ -52,7 +52,49 @@ logger = logging.getLogger(__name__)
 sms = SMSSender(logger=logger)
 
 
-def process(db, trait, message, phone_types, affiliations, too_old,
+class SMSManager(object):
+    def __init__(self, db, trait):
+        self.db = db
+        self.trait = trait
+        self.ac = Factory.get('Account')(self.db)
+
+
+class ReminderManager(SMSManager):
+    # def __init__(self, db, trait):
+    #     super(ReminderManager, self).__init__(db, trait)
+
+    def __iter__(self):
+        for row in self.ac.list_traits(code=self.trait, numval=1):
+            yield row
+
+    def remove_trait(self, ac, commit=False):
+        """In reminder mode we skip all trait removal operations."""
+        logger.debug("In reminder mode, keeping trait %s on account %s",
+                     self.trait, ac.account_name)
+        pass
+
+
+class WelcomeManager(SMSManager):
+    # def __init__(self, db, trait):
+    #     super(WelcomeManager, self).__init__(db, trait)
+
+    def __iter__(self):
+        for row in self.ac.list_traits(code=self.trait, numval=None):
+            yield row
+
+    def remove_trait(self, ac, commit=False):
+        """Remove a given trait from an account."""
+        logger.debug("Deleting trait %s from account %s", self.trait,
+                     ac.account_name)
+        ac.delete_trait(code=self.trait)
+        ac.write_db()
+        if commit:
+            self.db.commit()
+        else:
+            self.db.rollback()
+
+
+def process(manager, message, phone_types, affiliations, too_old,
             min_attempts, commit=False, filters=[]):
     """Go through the given trait type and send out welcome SMSs to the users.
 
@@ -63,36 +105,36 @@ def process(db, trait, message, phone_types, affiliations, too_old,
     if not commit:
         logger.debug('In dryrun mode')
 
-    co = Factory.get('Constants')(db)
-    ac = Factory.get('Account')(db)
-    pe = Factory.get('Person')(db)
+    co = Factory.get('Constants')(manager.db)
+    ac = Factory.get('Account')(manager.db)
+    pe = Factory.get('Person')(manager.db)
 
-    for row in ac.list_traits(code=trait):
+    for row in manager:
         ac.clear()
         ac.find(row['entity_id'])
         logger.debug('Found user %s', ac.account_name)
 
         # increase attempt counter for this account
         if min_attempts:
-            attempt = inc_attempt(db, ac, row, commit)
+            attempt = inc_attempt(manager.db, ac, row, commit)
 
         is_too_old = (row['date'] < (now() - too_old))
 
         # remove trait if older than too_old days and min_attempts is not set
         if is_too_old and not min_attempts:
             logger.warn('Too old trait %s for entity_id=%s, giving up',
-                        text_type(trait), row['entity_id'])
-            remove_trait(db, ac, trait, commit)
+                        text_type(manager.trait), row['entity_id'])
+            manager.remove_trait(ac, commit)
             continue
 
         # remove trait if more than min_attempts attempts have been made and
         # trait is too old
-        if (min_attempts and is_too_old and min_attempts < attempt):
+        if min_attempts and is_too_old and min_attempts < attempt:
             logger.warn(
                 'Too old trait and too many attempts (%r) for '
                 'entity_id=%r, giving up',
                 attempt, row['entity_id'])
-            remove_trait(db, ac, trait, commit)
+            manager.remove_trait(ac, commit)
             continue
 
         if ac.owner_type != co.entity_person:
@@ -116,12 +158,12 @@ def process(db, trait, message, phone_types, affiliations, too_old,
         # further.
         def apply_filters(filter_name, filter_func):
             if isinstance(filter_func, list):
-                result = all(map(lambda fun: fun(db, ac, row), filter_func))
+                result = all(map(lambda fun: fun(manager.db, ac, row), filter_func))
             else:
-                result = filter_func(db, ac, row)
+                result = filter_func(manager.db, ac, row)
 
             if result:
-                remove_trait(db, ac, trait, commit)
+                manager.remove_trait(ac, commit)
                 logger.info(
                     'New user filtered out by %r function, '
                     'removing trait %r', filter_name, row)
@@ -152,7 +194,7 @@ def process(db, trait, message, phone_types, affiliations, too_old,
         if tr and tr['date'] > (now() - 300):
             logger.debug('User %r already texted last %d days, removing trait',
                          ac.account_name, 180)
-            remove_trait(db, ac, trait, commit)
+            manager.remove_trait(ac, commit)
             continue
 
         # get phone number
@@ -181,7 +223,7 @@ def process(db, trait, message, phone_types, affiliations, too_old,
 
         def u(db_value):
             if isinstance(db_value, bytes):
-                return db_value.decode(db.encoding)
+                return db_value.decode(manager.db.encoding)
             return text_type(db_value)
 
         msg = message % {
@@ -196,28 +238,17 @@ def process(db, trait, message, phone_types, affiliations, too_old,
             continue
 
         # sms sent, now update the traits
-        ac.delete_trait(trait)
+        manager.remove_trait(ac, commit)
         ac.populate_trait(code=co.trait_sms_welcome, date=now())
         ac.write_db()
         if commit:
-            db.commit()
+            manager.db.commit()
         else:
-            db.rollback()
+            manager.db.rollback()
         logger.debug('Traits updated for %r', ac.account_name)
     if not commit:
         logger.debug('Changes rolled back')
     logger.info('send_welcome_sms done')
-
-
-def remove_trait(db, ac, trait, commit=False):
-    """Remove a given trait from an account."""
-    logger.debug("Deleting trait %s from account %s", trait, ac.account_name)
-    ac.delete_trait(code=trait)
-    ac.write_db()
-    if commit:
-        db.commit()
-    else:
-        db.rollback()
 
 
 def inc_attempt(db, ac, row, commit=False):
@@ -416,6 +447,13 @@ def main(inargs=None):
         default=False,
         help="Actually send out the SMSs and update traits.")
 
+    parser.add_argument(
+        '--reminder',
+        action='store_true',
+        default=False,
+        help="Send reminder to users who have not set their password even "
+             "though they have gotten an sms before.")
+
     parser.set_defaults(filters=[])
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
@@ -451,9 +489,13 @@ def main(inargs=None):
     logger.debug("commit:       %r", args.commit)
     logger.debug("filters:      %r", args.filters)
 
+    if args.reminder:
+        manager = ReminderManager(db, trait)
+    else:
+        manager = WelcomeManager(db, trait)
+
     process(
-        db=db,
-        trait=trait,
+        manager=manager,
         message=args.message,
         phone_types=phone_types,
         affiliations=affiliations,
