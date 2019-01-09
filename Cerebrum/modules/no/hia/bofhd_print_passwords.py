@@ -71,7 +71,8 @@ class BofhdExtension(base.BofhdExtension):
             )
             address = mappers.get_person_address(person, address_lookups)
             if address:
-                mappings.update(mappers.get_address_mappings(address))
+                mappings.update(mappers.get_address_mappings(address,
+                                                             self.const))
             else:
                 mappings.update(dict.fromkeys(
                     ('address_line2', 'address_line3', 'zip', 'city',
