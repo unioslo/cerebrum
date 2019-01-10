@@ -61,9 +61,6 @@ class SMSManager(object):
 
 
 class ReminderManager(SMSManager):
-    # def __init__(self, db, trait):
-    #     super(ReminderManager, self).__init__(db, trait)
-
     def __iter__(self):
         """
         The iterator for the Reminder class only picks those who have the trait
@@ -90,9 +87,6 @@ class ReminderManager(SMSManager):
 
 
 class WelcomeManager(SMSManager):
-    # def __init__(self, db, trait):
-    #     super(WelcomeManager, self).__init__(db, trait)
-
     def __iter__(self):
         """
         The iterator for the WelcomeManager only checks if the account has the
