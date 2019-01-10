@@ -1,5 +1,7 @@
-# encoding: utf-8
-""" Log configuration.
+# -*- coding: utf-8 -*-
+
+"""
+Log configuration.
 
 Note that we are talking about two *types* of configuration here. 'logging' and
 'logger'.
@@ -30,7 +32,6 @@ stdout/stderr with their own format.
 
 The design here is that we have a config dir with log configs. The name of the
 config file corresponds to the logger name (--logger-name argument).
-
 """
 from __future__ import absolute_import, unicode_literals
 
@@ -38,6 +39,7 @@ import logging
 import logging.config
 import os
 import sys
+
 from Cerebrum.config import loader
 from Cerebrum.config import parsers
 from Cerebrum.config.configuration import (ConfigDescriptor,
@@ -46,10 +48,15 @@ from Cerebrum.config.configuration import (ConfigDescriptor,
 from Cerebrum.config.settings import String, Boolean, Iterable, Choice
 
 
-DEFAULT_LOGDIR = os.path.join(sys.prefix, 'var', 'log', 'cerebrum')
-DEFAULT_PRESET_DIR = os.path.join(sys.prefix, 'etc', 'cerebrum',
+# Make it possible to override sys.prefix for configuration path purposes
+sys_prefix = os.getenv('CEREBRUM_SYSTEM_PREFIX', sys.prefix)
+
+DEFAULT_LOGDIR = os.path.join(sys_prefix, 'var', 'log', 'cerebrum')
+DEFAULT_PRESET_DIR = os.path.join(sys_prefix, 'etc', 'cerebrum',
                                   'logger-presets')
-DEFAULT_LOGGING_CONFIG = 'logenv'
+
+# Make it possible to override DEFAULT_LOGGING_CONFIG
+DEFAULT_LOGGING_CONFIG = os.getenv('CEREBRUM_DEFAULT_LOGGING_CONFIG', 'logenv')
 
 DEFAULT_CAPTURE_EXC = True
 DEFAULT_CAPTURE_WARN = True
