@@ -82,10 +82,11 @@ def get_external_ids(db, source_system, id_type):
     """
     pe = Factory.get('Person')(db)
     co = Factory.get('Constants')(db)
-    for row in pe.list_external_ids(
+    for row in pe.search_external_ids(
             source_system=source_system,
             id_type=id_type,
-            entity_type=co.entity_person):
+            entity_type=co.entity_person,
+            fetchall=False):
         yield {
             'entity_id': row['entity_id'],
             'ext_id': row['external_id'],

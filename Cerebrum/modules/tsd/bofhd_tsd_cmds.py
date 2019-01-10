@@ -2417,8 +2417,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou = self.OU_class(self.db)
         # Project entity ID -> external project ID
         ent2ext = dict((x['entity_id'], x['external_id']) for x in
-                       ou.list_external_ids(
-                           id_type=self.const.externalid_project_id))
+                       ou.search_external_ids(
+                           id_type=self.const.externalid_project_id,
+                           fetchall=False))
 
         # Subnet -> external project ID
         subnet2project = {}

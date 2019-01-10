@@ -4417,9 +4417,10 @@ class BofhdExtension(BofhdCommonMethods):
         elif search_type in extids:
             idtype = getattr(self.const, extids[search_type], None)
             if idtype:
-                matches = person.list_external_ids(
+                matches = person.search_external_ids(
                     id_type=idtype,
-                    external_id=value)
+                    external_id=value,
+                    fetchall=False)
                 idcol = 'entity_id'
             else:
                 raise CerebrumError("Unknown search type (%s)" % search_type)

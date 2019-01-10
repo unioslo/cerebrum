@@ -313,10 +313,11 @@ class HR2FSSyncer(object):
             return None
 
         pe = Factory.get('Person')(self.db)
-        for row in pe.list_external_ids(
+        for row in pe.search_external_ids(
                 entity_id=person.entity_id,
                 source_system=self.authoritative_system,
-                id_type=self.ansattnr_code):
+                id_type=self.ansattnr_code,
+                fetchall=False):
             if 'external_id' in row.keys():
                 return row['external_id']
         # No ansattnr found
@@ -468,11 +469,13 @@ class HR2FSSyncer(object):
 
         self.fnr_cache = {
             int(x["entity_id"]): x["external_id"] for x in
-            pe.list_external_ids(source_system=self.authoritative_system,
-                                 id_type=self.co.externalid_fodselsnr)}
+            pe.search_external_ids(source_system=self.authoritative_system,
+                                   id_type=self.co.externalid_fodselsnr,
+                                   fetchall=False)}
 
-        for row in pe.list_external_ids(source_system=self.co.system_fs,
-                                        id_type=self.co.externalid_fodselsnr):
+        for row in pe.search_external_ids(source_system=self.co.system_fs,
+                                          id_type=self.co.externalid_fodselsnr,
+                                          fetchall=False):
             person_id = int(row["entity_id"])
             fs_fnr = row["external_id"]
             if (person_id in self.fnr_cache
@@ -574,9 +577,10 @@ class HR2FSSyncer(object):
             return
 
         self.ansattnr_cache = {}
-        for row in pe.list_external_ids(
+        for row in pe.search_external_ids(
                 source_system=self.authoritative_system,
-                id_type=ansattnr_code):
+                id_type=ansattnr_code,
+                fetchall=False):
             if 'external_id' in row.keys():
                 self.ansattnr_cache[row['entity_id']] = row['external_id']
 

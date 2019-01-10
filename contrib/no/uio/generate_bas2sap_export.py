@@ -165,9 +165,10 @@ def generate_people(db):
                                 owner_type=constants.entity_person))
     logger.debug("Collecting people set")
     # this yields a set of all persons with a SAP id.
-    for row in person.list_external_ids(
+    for row in person.search_external_ids(
             source_system=constants.system_sap,
-            id_type=constants.externalid_sap_ansattnr):
+            id_type=constants.externalid_sap_ansattnr,
+            fetchall=False):
         if int(row["entity_id"]) not in account_holders:
             continue
         yield int(row["entity_id"])

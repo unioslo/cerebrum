@@ -340,8 +340,9 @@ def fetch_external_ids(db_person):
     system_weights[None] = unknown_weight + 1
 
     tmp = dict()
-    seq = db_person.list_external_ids(entity_type=constants.entity_person)
-    for entity_id, id_type, source, external_id in seq:
+    seq = db_person.search_external_ids(entity_type=constants.entity_person,
+                                        fetchall=False)
+    for entity_id, entity_type, id_type, source, external_id in seq:
         external_id = u(external_id)
         entity_id, id_type, source = map(int, (entity_id, id_type, source))
 

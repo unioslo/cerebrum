@@ -71,9 +71,10 @@ class TsdProjectMixin(OU):
         for number in itertools.count():
             candidate = 'p%02d' % number
             if not list(
-                self.list_external_ids(
+                self.search_external_ids(
                     id_type=self.const.externalid_project_id,
-                    external_id=candidate)):
+                    external_id=candidate,
+                    fetchall=False)):
                 return candidate
 
     def get_project_id(self):
@@ -164,8 +165,9 @@ class TsdProjectMixin(OU):
         """
         # Check that the ID is not in use
         if id_type == self.const.externalid_project_id:
-            for row in self.list_external_ids(id_type=id_type,
-                                              external_id=external_id):
+            for row in self.search_external_ids(id_type=id_type,
+                                                external_id=external_id,
+                                                fetchall=False):
                 raise Errors.CerebrumError("Project ID already in use")
 
         return super(TsdProjectMixin, self).populate_external_id(

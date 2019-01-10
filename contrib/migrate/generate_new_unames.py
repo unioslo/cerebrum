@@ -78,14 +78,16 @@ def create_accounts(maxlen):
 
     # person_id -> {'fnr': <fnr>, 'old': <old uname>, 'new': <new uname>} 
     personinfo = dict() 
-    for p in person.list_external_ids(source_system=constants.system_migrate,
-                                      id_type=constants.externalid_fodselsnr,
-                                      entity_type=constants.entity_person):
+    for p in person.search_external_ids(source_system=constants.system_migrate,
+                                        id_type=constants.externalid_fodselsnr,
+                                        entity_type=constants.entity_person,
+                                        fetchall=False):
         personinfo.setdefault(int(p['entity_id']), {'fnr': p['external_id']})
 
-    for p in person.list_external_ids(source_system=constants.system_migrate,
-                                      id_type=constants.externalid_uname,
-                                      entity_type=constants.entity_person):
+    for p in person.search_external_ids(source_system=constants.system_migrate,
+                                        id_type=constants.externalid_uname,
+                                        entity_type=constants.entity_person,
+                                        fetchall=False):
         person.clear()
         person.find(p['entity_id'])
 

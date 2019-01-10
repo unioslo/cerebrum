@@ -927,8 +927,8 @@ class BaseSync(object):
         id_type = self.co.EntityExternalId(
             self.sidtype_map[self.config['target_type']])
         i = 0
-        for row in en.list_external_ids(source_system=self.co.system_ad,
-                                        id_type=id_type):
+        for row in en.search_external_ids(source_system=self.co.system_ad,
+                                          id_type=id_type, fetchall=False):
             # TODO: how should we get it per spread?
             e = self.id2entity.get(row['entity_id'], None)
             if e:
