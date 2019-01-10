@@ -1,3 +1,7 @@
+2019-01-10  Kenneth   <cerebrum@gagarin.uit.no>
+	email module has moved to Utils.py. updated import path. also updated script from iso-8859-1 to use utf-8
+
+
 2018-10-15  Karen   <cerebrum@gagarin.uit.no>
 
     * fetch_mobile.py: Added to repo. Collects mobile_numbers from Difi's "Kontakt- og reservasjonssregister" 

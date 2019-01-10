@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2002, 2003 University of Oslo, Norway
 #
@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+from __future__ import unicode_literals
 
 
 
@@ -39,7 +39,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.no.uit import Email
-
+from Cerebrum.utils import email
 
 
 today = time.strftime("%Y%m%d")
@@ -320,7 +320,7 @@ def main():
             if not dryrun:
                 account_expired = '';
                 if ac.is_expired():
-                    account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres når som helst.'
+                    account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres nï¿½r som helst.'
             
                 # TBD : remove comment below when leetah is removed
                 #Utils.sendmail('star-gru@orakel.uit.no', #TO
@@ -338,7 +338,7 @@ def main():
             if False and not dryrun:
                 account_expired = '';
                 if ac.is_expired():
-                    account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres når som helst.'
+                    account_expired = ' Imidlertid er ikke kontoen aktiv, men kan reaktiveres nï¿½r som helst.'
 
                 Utils.sendmail('vevportal@rt.uit.no', #TO
                                'bas-admin@cc.uit.no', #SENDER
@@ -365,7 +365,7 @@ def main():
             riktig_brukernavn = ' Nytt brukernavn er %s.' % (new_name)
 
             if ac.is_expired():
-                riktig_brukernavn += ' Imidlertid er ikke kontoen aktiv, og vil kun sendes til AD når den blir reaktivert.'
+                riktig_brukernavn += ' Imidlertid er ikke kontoen aktiv, og vil kun sendes til AD nï¿½r den blir reaktivert.'
 
             if False and mailto_ad and not dryrun:
                 Utils.sendmail('nybruker2@asp.uit.no', #TO
@@ -403,7 +403,7 @@ def main():
                 # BCC
                 recipient = 'bas-admin@cc.uit.no'
                 template = cereconf.CB_SOURCEDATA_PATH + '/templates/rename_account.tmpl'
-                result = Utils.mail_template(recipient, template, sender=sender,
+                result = email.mail_template(recipient, template, sender=sender,
                                         substitute=send_user_mail, charset='utf-8', debug=dryrun)
 
                 print "BCC sent to: %s" % (recipient)
