@@ -1380,17 +1380,25 @@ class EntityExternalId(Entity):
                            'ext_id': external_id})
 
     def get_external_id(self, source_system=None, id_type=None):
-        cols = {'entity_id': int(self.entity_id),
-                'entity_type': int(self.entity_type)}
+        binds = dict()
+        where = list()
+
+        where.append(argument_to_sql(self.entity_id, 'entity_id', binds, int))
+        where.append(argument_to_sql(self.entity_type, 'entity_type', binds,
+                                     int))
         if source_system is not None:
-            cols['source_system'] = int(source_system)
+            where.append(argument_to_sql(source_system, "source_system", binds,
+                                         int))
         if id_type is not None:
-            cols['id_type'] = int(id_type)
+            where.append(argument_to_sql(id_type, "id_type", binds, int))
+
+        where_str = 'WHERE %s' % ' AND '.join(where)
+
         return self.query("""
         SELECT id_type, source_system, external_id
         FROM [:table schema=cerebrum name=entity_external_id]
-        WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
-                                   for x in cols.keys()]), cols)
+        %s
+        """ % where_str, binds)
 
     def list_external_ids(self, source_system=None, id_type=None,
                           external_id=None, entity_type=None, entity_id=None):
