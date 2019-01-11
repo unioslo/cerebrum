@@ -44,9 +44,14 @@ def get_address_mappings(address, co):
     mappings['zip'] = address['postal_number']
     mappings['city'] = address['city']
     try:
-        mappings['country'] = six.text_type(co.Country(address['country']))
+        country = address['country']
     except NotFoundError:
         mappings['country'] = ''
+    else:
+        if type(country) is not int:
+            mappings['country'] = ''
+        else:
+            mappings['country'] = six.text_type(co.Country(country))
     return mappings
 
 
