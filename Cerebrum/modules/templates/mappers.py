@@ -21,6 +21,8 @@
 from __future__ import unicode_literals
 from Cerebrum.Errors import NotFoundError
 
+import six
+
 
 def get_person_address(person, address_lookups):
     for source, kind in address_lookups:
@@ -30,7 +32,7 @@ def get_person_address(person, address_lookups):
     return None
 
 
-def get_address_mappings(address):
+def get_address_mappings(address, co):
     mappings = dict()
     if address['address_text']:
         alines = address['address_text'].split("\n") + [""]
@@ -41,7 +43,10 @@ def get_address_mappings(address):
         mappings['address_line3'] = ''
     mappings['zip'] = address['postal_number']
     mappings['city'] = address['city']
-    mappings['country'] = address.get('country', '')
+    try:
+        mappings['country'] = six.text_type(co.Country(address['country']))
+    except NotFoundError:
+        mappings['country'] = ''
     return mappings
 
 
@@ -85,4 +90,3 @@ def get_group_mappings(group):
         'group': group.group_name,
         'fullname': group.group_name
     }
-
