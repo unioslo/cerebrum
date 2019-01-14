@@ -35,7 +35,7 @@ import argparse
 import functools
 import logging
 
-from mx.DateTime import now, DateTimeDelta
+import mx.DateTime
 from six import text_type
 
 import cereconf
@@ -52,50 +52,123 @@ logger = logging.getLogger(__name__)
 sms = SMSSender(logger=logger)
 
 
-def process(db, trait, message, phone_types, affiliations, too_old,
-            min_attempts, commit=False, filters=[]):
+class SMSManager(object):
+    def __init__(self, db, trait):
+        self.db = db
+        self.trait = trait
+        self.ac = Factory.get('Account')(self.db)
+        self.co = Factory.get('Constants')(self.db)
+
+
+class ReminderManager(SMSManager):
+    def __iter__(self):
+        """
+        The iterator for the Reminder class only picks those who have the trait
+        and no numval set for that trait. This ensures that we do not keep
+        spamming our users with more than one reminder.
+        Skips all users with traits newer than 7 days.
+        """
+        for row in self.ac.list_traits(code=self.trait, numval=None):
+            if row['date'] > mx.DateTime.today() - 7:
+                continue
+            yield row
+
+    def remove_trait(self, ac, commit=False):
+        """In reminder mode we skip all trait removal operations."""
+        logger.debug("In reminder mode, keeping trait %s on account %s",
+                     self.trait, ac.account_name)
+        pass
+
+    def populate_trait(self, ac):
+        """In reminder mode we don't populate traits, we only increment the
+        numval of the existing one, which the process function takes care of
+        for us."""
+        pass
+
+
+class WelcomeManager(SMSManager):
+    def __iter__(self):
+        """
+        The iterator for the WelcomeManager only checks if the account has the
+        trait. The reason for this is that we want to include everyone with the
+        trait, and remove it when we do send an SMS, or give up on it.
+        """
+        for row in self.ac.list_traits(code=self.trait):
+            yield row
+
+    def remove_trait(self, ac, commit=False):
+        """Remove a given trait from an account."""
+        logger.debug("Deleting trait %s from account %s", self.trait,
+                     ac.account_name)
+        ac.delete_trait(code=self.trait)
+        ac.write_db()
+        if commit:
+            self.db.commit()
+        else:
+            self.db.rollback()
+
+    def populate_trait(self, ac):
+        """In welcome mode we populate the new trait"""
+        ac.populate_trait(code=self.co.trait_sms_welcome,
+                          date=mx.DateTime.now())
+
+
+def process(manager, message, phone_types, affiliations, too_old,
+            min_attempts, commit=False, reminder=False, filters=[]):
     """Go through the given trait type and send out welcome SMSs to the users.
 
     Remove the traits, and set a new message-is-sent-trait, to avoid spamming
     the users.
+    If in reminder mode, increment the message-is-sent-trait, to avoid spamming
+    the users.
     """
-    logger.info('send_welcome_sms started')
     if not commit:
         logger.debug('In dryrun mode')
 
-    co = Factory.get('Constants')(db)
-    ac = Factory.get('Account')(db)
-    pe = Factory.get('Person')(db)
+    ac = Factory.get('Account')(manager.db)
+    pe = Factory.get('Person')(manager.db)
 
-    for row in ac.list_traits(code=trait):
+    for row in manager:
+
+        # Only send reminders if in the last week of july or december
+        if reminder and not (
+                (mx.DateTime.Date(mx.DateTime.today().year, 7, -7) <=
+                 mx.DateTime.today() <=
+                 mx.DateTime.Date(mx.DateTime.today().year, 7, -1)) or
+                (mx.DateTime.Date(mx.DateTime.today().year, 12, -7) <=
+                 mx.DateTime.today() <=
+                 mx.DateTime.Date(mx.DateTime.today().year, 12, -1))):
+            logger.debug('Not last week of july or december, breaking.')
+            break
+
         ac.clear()
         ac.find(row['entity_id'])
         logger.debug('Found user %s', ac.account_name)
 
         # increase attempt counter for this account
         if min_attempts:
-            attempt = inc_attempt(db, ac, row, commit)
+            attempt = inc_attempt(manager.db, ac, row, commit)
 
-        is_too_old = (row['date'] < (now() - too_old))
+        is_too_old = (row['date'] < (mx.DateTime.now() - too_old))
 
         # remove trait if older than too_old days and min_attempts is not set
         if is_too_old and not min_attempts:
             logger.warn('Too old trait %s for entity_id=%s, giving up',
-                        text_type(trait), row['entity_id'])
-            remove_trait(db, ac, trait, commit)
+                        text_type(manager.trait), row['entity_id'])
+            manager.remove_trait(ac, commit)
             continue
 
         # remove trait if more than min_attempts attempts have been made and
         # trait is too old
-        if (min_attempts and is_too_old and min_attempts < attempt):
+        if min_attempts and is_too_old and min_attempts < attempt:
             logger.warn(
                 'Too old trait and too many attempts (%r) for '
                 'entity_id=%r, giving up',
                 attempt, row['entity_id'])
-            remove_trait(db, ac, trait, commit)
+            manager.remove_trait(ac, commit)
             continue
 
-        if ac.owner_type != co.entity_person:
+        if ac.owner_type != manager.co.entity_person:
             logger.info('Tagged new user %r not personal, skipping',
                         ac.account_name)
             # TODO: remove trait?
@@ -116,12 +189,13 @@ def process(db, trait, message, phone_types, affiliations, too_old,
         # further.
         def apply_filters(filter_name, filter_func):
             if isinstance(filter_func, list):
-                result = all(map(lambda fun: fun(db, ac, row), filter_func))
+                result = all(map(lambda fun: fun(ac),
+                                 filter_func))
             else:
-                result = filter_func(db, ac, row)
+                result = filter_func(ac)
 
             if result:
-                remove_trait(db, ac, trait, commit)
+                manager.remove_trait(ac, commit)
                 logger.info(
                     'New user filtered out by %r function, '
                     'removing trait %r', filter_name, row)
@@ -147,13 +221,17 @@ def process(db, trait, message, phone_types, affiliations, too_old,
         pe.clear()
         pe.find(ac.owner_id)
 
-        # Check if user already has been texted. If so, the trait is removed.
-        tr = ac.get_trait(co.trait_sms_welcome)
-        if tr and tr['date'] > (now() - 300):
-            logger.debug('User %r already texted last %d days, removing trait',
-                         ac.account_name, 180)
-            remove_trait(db, ac, trait, commit)
-            continue
+        #
+        if not reminder:
+            # Check if user already has been texted. If so, the trait is
+            # removed.
+            tr = ac.get_trait(manager.co.trait_sms_welcome)
+            if tr and tr['date'] > (mx.DateTime.now() - 300):
+                logger.debug(
+                    'User %r already texted last %d days, removing trait',
+                    ac.account_name, 300)
+                manager.remove_trait(ac, commit)
+                continue
 
         # get phone number
         phone = get_phone_number(pe=pe, phone_types=phone_types)
@@ -174,14 +252,14 @@ def process(db, trait, message, phone_types, affiliations, too_old,
         studentnumber = None
         try:
             studentnumber = pe.get_external_id(
-                co.system_fs,
-                co.externalid_studentnr)[0]['external_id']
+                manager.co.system_fs,
+                manager.co.externalid_studentnr)[0]['external_id']
         except (IndexError, AttributeError):
             pass
 
         def u(db_value):
             if isinstance(db_value, bytes):
-                return db_value.decode(db.encoding)
+                return db_value.decode(manager.db.encoding)
             return text_type(db_value)
 
         msg = message % {
@@ -196,28 +274,17 @@ def process(db, trait, message, phone_types, affiliations, too_old,
             continue
 
         # sms sent, now update the traits
-        ac.delete_trait(trait)
-        ac.populate_trait(code=co.trait_sms_welcome, date=now())
+        manager.remove_trait(ac, commit)
+        manager.populate_trait(ac)
         ac.write_db()
         if commit:
-            db.commit()
+            manager.db.commit()
         else:
-            db.rollback()
+            manager.db.rollback()
         logger.debug('Traits updated for %r', ac.account_name)
     if not commit:
         logger.debug('Changes rolled back')
     logger.info('send_welcome_sms done')
-
-
-def remove_trait(db, ac, trait, commit=False):
-    """Remove a given trait from an account."""
-    logger.debug("Deleting trait %s from account %s", trait, ac.account_name)
-    ac.delete_trait(code=trait)
-    ac.write_db()
-    if commit:
-        db.commit()
-    else:
-        db.rollback()
 
 
 def inc_attempt(db, ac, row, commit=False):
@@ -255,19 +322,12 @@ def send_sms(phone, message, commit=False):
     return sms(phone, message)
 
 
-def skip_if_password_set(db, ac, trait):
-    """ Has the password been changed after the trait was set? """
-    clconst = Factory.get('CLConstants')(db)
-    # The trait and initial password is set in the same transaction. We add
-    # a minute to skip this initial password change event.
-    try:
-        after = trait['date'] + DateTimeDelta(0, 0, 1)  # delta = 1 minute
-    except:
-        after = ac.created_at + DateTimeDelta(0, 0, 1)
-    return True if [x for x in db.get_log_events(
-        subject_entity=ac.entity_id,
-        sdate=after,
-        types=clconst.account_password)] else False
+def skip_if_password_set(ac):
+    """ Checks if the user has set a password. This assumes that any password
+        methods saved to their account is made by the user themselves. This was
+        not always the case but as of December 2018, new users are no longer
+        assigned a password upon creation. """
+    return bool(ac.get_account_authentication_methods())
 
 
 def lalign(s):
@@ -416,6 +476,13 @@ def main(inargs=None):
         default=False,
         help="Actually send out the SMSs and update traits.")
 
+    parser.add_argument(
+        '--reminder',
+        action='store_true',
+        default=False,
+        help="Send reminder to users who have not set their password even "
+             "though they have gotten an sms before.")
+
     parser.set_defaults(filters=[])
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
@@ -450,16 +517,25 @@ def main(inargs=None):
     logger.debug("min-attempts: %r", args.min_attempts)
     logger.debug("commit:       %r", args.commit)
     logger.debug("filters:      %r", args.filters)
+    logger.info("reminder:     %r", args.reminder)
+
+    logger.info('send_welcome_sms started')
+    if args.reminder:
+        manager = ReminderManager(db, trait)
+        logger.info('In reminder mode')
+    else:
+        manager = WelcomeManager(db, trait)
+        logger.info('In welcome mode')
 
     process(
-        db=db,
-        trait=trait,
+        manager=manager,
         message=args.message,
         phone_types=phone_types,
         affiliations=affiliations,
         too_old=args.too_old,
         min_attempts=args.min_attempts,
         commit=args.commit,
+        reminder=args.reminder,
         filters=args.filters,
     )
 
