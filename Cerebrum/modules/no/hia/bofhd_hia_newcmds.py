@@ -1184,7 +1184,7 @@ class BofhdExtension(BofhdCommonMethods):
         posix_user = Factory.get('PosixUser')(self.db)
         uid = posix_user.get_free_uid()
         shell = self._get_shell(shell)
-        path = '/hia/ravn/u4'
+        path = '/hia/ravn/u5'
         disk_id, home = self._get_disk(path)[1:3]
         posix_user.clear()
         gecos = None
