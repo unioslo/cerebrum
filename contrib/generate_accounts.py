@@ -34,6 +34,7 @@ e.g. only new employees from the last 7 days? This is usable e.g. for UiO.
 """
 
 import argparse
+from operator import itemgetter
 from mx import DateTime
 
 import cereconf
@@ -103,7 +104,7 @@ def restore_account(db, pe, ac, remove_quars):
         gr.remove_member(ac.entity_id)
         gr.write_db()
 
-    # TBD: remove old passwords?
+    # TODO: remove old passwords
 
 
 def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
@@ -121,8 +122,11 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
     """
     ac = Factory.get('Account')(db)
     co = Factory.get('Constants')(db)
-    for row in ac.search(owner_id=pe.entity_id, expire_start=None,
-                         expire_stop=None):
+    # Restore the _last_ expired account, if any:
+    old_accounts = ac.search(owner_id=pe.entity_id, expire_start=None,
+                             expire_stop=None)
+    for row in sorted(old_accounts, key=itemgetter('expire_date'),
+                      reverse=True):
         logger.info("Restore account %s for person %d", row['name'],
                     pe.entity_id)
         ac.find(row['account_id'])
