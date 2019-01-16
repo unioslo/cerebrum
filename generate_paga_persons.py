@@ -113,6 +113,11 @@ def parse_paga_csv(pagafile):
         ssn=detail[KEY_FNR]     
         
         # some checks
+        if detail[KEY_TJFORH] == 'H':
+            #these persons are 'honorar' persons. Skip them entirely
+            logger.warn("skipping honorar: %s" % ssn)
+            continue
+            
         if detail[KEY_PERMISJONKODE] not in cereconf.PAGA_PERMKODER_ALLOWED:
             logger.warn("Dropping detail for %s, P.Kode=%s" % \
                 (ssn,detail[KEY_PERMISJONKODE]))

@@ -1,3 +1,6 @@
+2019-01-16 <kennethj@gagarin.uit.no>
+    * generate_paga_persons.py: Added code to skip processing honorar persons. These can be identfied by the value 'H' in Tj.Forh
+
 2018-12-10 <kennethj@gagarin.uit.no>
     * paga_adm2020_modify.py:   updated path of output file, it should now have the same name as the one generate_paga_persons.py generates (uit_paga_last.csv)
     * paga_adm2020_modify.py:   rewrote how we append to file. the previous version would fail if the output file is the same as the input file.
