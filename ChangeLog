@@ -1,3 +1,9 @@
+2019-01-16  Kenneth   <cerebrum@gagarin.uit.no>
+	* Account.py:	There is a bug in hashlib where it expects all input to be ascii encoded. This fails
+	when input is not ascii (in our case utf-8). Updated hashlib function call to force utf-8 encoding on all input.
+	Updated encrypt_password() method call to no longer send a binary variable as the variable input does not exist in the function. This
+	caused an error which resultet in password.uit.no to give wrong error message to users who tried setting new passwords. 
+
 2019-01-03  Karen   <cerebrum@gagarin.uit.no>
 
     * cim_datasource.py: updated to handle utf-8 data instead of iso-8859-1.

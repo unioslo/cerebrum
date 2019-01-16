@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2003, 2004 University of Oslo, Norway
 #
@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
 
 
 import random
@@ -194,11 +195,12 @@ class AccountUiTMixin(Account.Account):
             salt = cryptstring
             if method == self.const.auth_type_ssha:
                 salt = base64.decodestring(cryptstring)[20:]
-            return (self.encrypt_password(method, plaintext, salt=salt) ==
+            """ return (self.encrypt_password(method, plaintext, salt=salt) ==
                     cryptstring or self.encrypt_password(method, plaintext,
                                                          salt=salt,
                                                          binary=True) ==
-                    cryptstring)
+                    cryptstring) """
+            return (self.encrypt_password(method, plaintext, salt=salt) == cryptstring)
         raise ValueError("Unknown method %r" % method)
 
     #UIT: added encryption method
@@ -215,8 +217,9 @@ class AccountUiTMixin(Account.Account):
     #UIT: added encryption method
     # Added by: kennethj 20050803
     def enc_auth_type_md5_b64(self,plaintext,salt = None):
+        self.logger.warning('plaintext is:%s' % plaintext)
         m = hashlib.md5()
-        m.update(plaintext)
+        m.update(plaintext.encode('utf-8'))
         foo = m.digest()
         encrypted = base64.encodestring(foo)
         encrypted = encrypted.rstrip()
