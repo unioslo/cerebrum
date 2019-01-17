@@ -316,9 +316,6 @@ class Constants(Constants.Constants):
     posix_shell_sftp_server = _PosixShellCode(
         'sftp-server',
         '/local/openssh/libexec/sftp-server')
-    posix_shell_simonshell = _PosixShellCode(
-        'simonshell',
-        '/hom/simon/simonshell')
     posix_shell_sh = _PosixShellCode(
         'sh',
         '/bin/sh')
