@@ -142,6 +142,10 @@ def build_employee_cache(db, sysname, filename):
     pnr2uname = db_person.getdict_external_id2primary_account(
                                       const.externalid_pass_number)
     logger.debug("... done (%d mappings)", len(pnr2uname))
+    logger.debug("Fetching all ansatt-nr->account mappings...")
+    anr2uname = db_person.getdict_external_id2primary_account(
+                                      const.externalid_sap_ansattnr)
+    logger.debug("... done (%d mappings)", len(anr2uname))
 
     # Build mapping for the employees
     parser = system2parser(sysname)(filename, logger, False)
@@ -150,9 +154,10 @@ def build_employee_cache(db, sysname, filename):
     for xmlperson in parser.iter_person():
         fnr = xmlperson.get_id(xmlperson.NO_SSN)
         passport_nr = xmlperson.get_id(xmlperson.PASSNR)
+        ansatt_nr = xmlperson.get_id(xmlperson.SAP_NR)
 
-        if not fnr and not passport_nr:
-            logger.debug("Person %s has no fnr or passport-nr in XML source",
+        if not any([fnr, passport_nr, ansatt_nr]):
+            logger.debug("Person %s has no fnr, passport-nr or ansatt-nr in XML source",
                          list(xmlperson.iterids()))
             continue
 
@@ -163,25 +168,30 @@ def build_employee_cache(db, sysname, filename):
                        x.kind == x.BILAG,
                        xmlperson.iteremployment())
 
-        # Add to cache, if found in Cerebrum either by fnr or passport-nr.
+        # Add to cache, if found in Cerebrum either by fnr, passport-nr or anr.
         # each entry is a pair, telling whether the person has active
         # tilsetting and bilag (in that order). We do not need to know *what*
         # they are, only that they exist.
-        if fnr in fnr2uname:
-            employee_cache[fnr2uname[fnr]] = (xmlperson.
-                                              has_active_employments(),
-                                              bool(bilag))
-        elif passport_nr in pnr2uname:
-            employee_cache[pnr2uname[passport_nr]] = (xmlperson.
-                                                      has_active_employments(),
-                                                      bool(bilag))
-        else:
+        username = {anr2uname.get(ansatt_nr),
+                    fnr2uname.get(fnr),
+                    pnr2uname.get(passport_nr)}
+        username = filter(None, username)
+
+        if len(username) == 1:
+            employee_cache[username[0]] = (xmlperson.has_active_employments(), bool(bilag))
+        elif len(username) == 0:
             logger.debug("Cerebrum failed to find primary account for person "
-                         "with fnr: %s, passport-nr: %s.", fnr, passport_nr)
+                         "with fnr: %s, passport-nr: %s, ansatt-nr: %s.",
+                         fnr, passport_nr, ansatt_nr)
+        else:
+            logger.debug("This should probably not happen, "
+                         "different users with same info. "
+                         "usernames: %s", username)
 
     # IVR 2007-07-13 FIXME: Is this actually useful?
     del fnr2uname
     del pnr2uname
+    del anr2uname
     logger.debug("employee_cache has %d uname->employment status mappings",
                  len(employee_cache))
     return employee_cache
