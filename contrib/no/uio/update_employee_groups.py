@@ -156,11 +156,6 @@ def build_employee_cache(db, sysname, filename):
         passport_nr = xmlperson.get_id(xmlperson.PASSNR)
         ansatt_nr = xmlperson.get_id(xmlperson.SAP_NR)
 
-        if not any([fnr, passport_nr, ansatt_nr]):
-            logger.debug("Person %s has no fnr, passport-nr or ansatt-nr in XML source",
-                         list(xmlperson.iterids()))
-            continue
-
         # Everyone with bilag more recent than 180 days old is eligible
         bilag = filter(lambda x: ((not x.end) or
                                   (x.end >= (Date(*time.localtime()[:3]) -
@@ -175,18 +170,18 @@ def build_employee_cache(db, sysname, filename):
         username = {anr2uname.get(ansatt_nr),
                     fnr2uname.get(fnr),
                     pnr2uname.get(passport_nr)}
-        username = filter(None, username)
+        username = [un for un in username if un is not None]
 
-        if len(username) == 1:
-            employee_cache[username[0]] = (xmlperson.has_active_employments(), bool(bilag))
-        elif len(username) == 0:
-            logger.debug("Cerebrum failed to find primary account for person "
-                         "with fnr: %s, passport-nr: %s, ansatt-nr: %s.",
-                         fnr, passport_nr, ansatt_nr)
+        if not username:
+            logger.info("Cerebrum failed to find primary account for person "
+                        "with ansatt-nr: %s.", ansatt_nr)
+        elif len(username) == 1:
+            employee_cache[username[0]] = (xmlperson.has_active_employments(),
+                                           bool(bilag))
         else:
-            logger.debug("This should probably not happen, "
-                         "different users with same info. "
-                         "usernames: %s", username)
+            logger.warn("This should probably not happen, "
+                        "different users from the same person. "
+                        "usernames: %s", username)
 
     # IVR 2007-07-13 FIXME: Is this actually useful?
     del fnr2uname
