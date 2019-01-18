@@ -73,6 +73,7 @@ def date_to_string(date):
 
 # Helper methods from bofhd_uio_cmd
 uio_helpers = [
+    '_assert_group_deletable',
     '_entity_info',
     '_fetch_member_names',
     '_format_changelog_entry',

@@ -78,6 +78,7 @@ class NihEmailAuth(NihAuth, bofhd_email.BofhdEmailAuth):
 
 
 uio_helpers = [
+    '_assert_group_deletable',
     '_entity_info',
     '_fetch_member_names',
     '_format_changelog_entry',
