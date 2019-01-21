@@ -7644,7 +7644,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         if account.owner_type == self.const.entity_person:
             person = self._get_person('entity_id', account.owner_id)
             randsone_group = self._get_group("randsone-aktivt-samtykke")
-            if list(randsone_group.search_members(group_id = randsone_group.entity_id, member_id = person.entity_id, indirect_members=True)):
+            if list(randsone_group.search_members(group_id=randsone_group.entity_id, member_id=person.entity_id, indirect_members=True)):
                 hidden = False
             elif person.has_e_reservation():
                 hidden = True
