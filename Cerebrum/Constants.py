@@ -1436,11 +1436,6 @@ class CommonConstants(ConstantsBase):
         "Password hash generated with the 'traditional' Unix crypt(3)"
         " algorithm, based on DES.  See <URL:http://www.users.zetnet.co.uk"
         "/hopwood/crypto/scan/ph.html#Traditional-crypt3>.")
-    auth_type_pgp_crypt = _AuthenticationCode(
-        'PGP-crypt',
-        "PGP-encrypt the password so that we later can get at the plaintext "
-        "password if we want to populate new backends.  The secret key "
-        "should be stored offline.")
     auth_type_md4_nt = _AuthenticationCode(
         'MD4-NT',
         "MD4-derived password hash with Microsoft-added security.  "
@@ -1461,7 +1456,6 @@ class CommonConstants(ConstantsBase):
     auth_type_md5_unsalt = _AuthenticationCode(
         'md5-unsalted',
         "Unsalted MD5-crypt. Use with care!")
-
     contact_phone = _ContactInfoCode(
         'PHONE',
         'Phone')
