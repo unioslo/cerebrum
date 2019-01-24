@@ -131,9 +131,9 @@ during debugging."""
 # Used by run_privileged_command.py:
 CREATE_USER_SCRIPT = '/local/etc/reguser/mkhomedir'
 MVUSER_SCRIPT = '/cerebrum/sbin/mvuser'
-RMUSER_SCRIPT = '/cerebrum/sbin/aruser'
+RMUSER_SCRIPT = '/cerebrum/sbi:n/aruser'
 ARCHIVE_MAIL_SCRIPT = '/cerebrum/sbin/archivemail'
-LEGAL_BATCH_MOVE_TIMES = '20:00-08:00'
+LEGAL_BATCH_MOVE_TIMES = '22:00-07:00'
 SYMPA_SCRIPT = None
 CONVERT_MAILCONFIG_SCRIPT = None
 MVMAIL_SCRIPT = None

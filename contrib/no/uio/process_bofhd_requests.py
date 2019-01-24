@@ -30,11 +30,14 @@ import sys
 import time
 import socket
 import ssl
+import logging
+import argparse
 from contextlib import closing
 
 import cereconf
 
 from Cerebrum import Utils
+from Cerebrum import logutils
 from Cerebrum import Errors
 from Cerebrum.utils import json
 from Cerebrum.modules import Email
@@ -45,20 +48,12 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 
-logger = Utils.Factory.get_logger("bofhd_req")
-db = Utils.Factory.get('Database')()
-db.cl_init(change_program='process_bofhd_r')
-cl_const = Utils.Factory.get('CLConstants')(db)
-const = Utils.Factory.get('Constants')(db)
-
-max_requests = 999999
-ou_perspective = None
+logger = logging.getLogger(__name__)
 
 SSH_CMD = "/usr/bin/ssh"
 SUDO_CMD = "sudo"
 SSH_CEREBELLUM = [SSH_CMD, "cerebrum@cerebellum"]
 
-DEBUG = False
 EXIT_SUCCESS = 0
 
 # TODO: now that we support multiple homedirs, we need to which one an
@@ -155,9 +150,7 @@ def connect_cyrus(host=None, username=None, as_admin=True):
     return imapconn
 
 
-def process_requests(types):
-    global max_requests
-
+def process_requests(args, db, cl_const, const):
     operations = {
         'quarantine':
         [(const.bofh_quarantine_refresh, proc_quarantine_refresh, 0)],
@@ -914,74 +907,79 @@ def is_valid_request(req_id, local_db=db, local_co=const):
 
 
 def main():
-    global max_requests, ou_perspective, DEBUG
-    global emne_info_file, studconfig_file, studieprogs_file, student_info_file
-    try:
-        opts, args = getopt.getopt(
-            sys.argv[1:],
-            'dpt:m:',
-            ['debug',
-             'process',
-             'type=',
-             'max=',
-             'ou-perspective=',
-             'emne-info-file=',
-             'studconfig-file=',
-             'studie-progs-file=',
-             'student-info-file='])
-    except getopt.GetoptError:
-        usage(1)
-    if not opts:
-        usage(1)
-    types = []
-    for opt, val in opts:
-        if opt in ('-d', '--debug'):
-            DEBUG = True
-        elif opt in ('-t', '--type',):
-            types.append(val)
-        elif opt in ('-m', '--max',):
-            max_requests = int(val)
-        elif opt in ('-p', '--process'):
-            if not types:
-                types = ['quarantine', 'delete', 'move',
-                         'email', 'sympa', ]
-            process_requests(types)
-        elif opt in ('--ou-perspective',):
-            ou_perspective = const.OUPerspective(val)
-            int(ou_perspective)   # Assert that it is defined
-        elif opt in ('--emne-info-file',):
-            emne_info_file = val
-        elif opt in ('--studconfig-file',):
-            studconfig_file = val
-        elif opt in ('--studie-progs-file',):
-            studieprogs_file = val
-        elif opt in ('--student-info-file',):
-            student_info_file = val
+    parser = argparse.ArgumentParser(
+        description='''Arguments needed for move_student requests:
+    --ou-perspective code_str
+    --emne-info-file file
+    --studconfig-file file
+    --studie-progs-file file
+    --student-info-file file'''
+    )
+    parser.add_argument(
+        '-d', '--debug',
+        dest='debug',
+        action='store_true',
+        help='Turn on debugging')
+    parser.add_argument(
+        '-t', '--type',
+        dest='types',
+        action='append',
+        choices=['email', 'sympa', 'move', 'quarantine', 'delete'],
+        required=True)
+    parser.add_argument(
+        '-m', '--max',
+        dest='max_requests',
+        default=999999,
+        help='Perform up to this number of requests',
+        type=int)
+    parser.add_argument(
+        '-p', '--process',
+        dest='process',
+        action='store_true',
+        help='Perform the queued operations')
+    parser.add_argument(
+        '--ou-perspective',
+        dest='ou_perspective',
+        default=None,
+        help='Set ou_perspective'
+    )
+    parser.add_argument(
+        '--emne-info-file',
+        dest='emne_info_file',
+        default=None
+    )
+    parser.add_argument(
+        '--studconfig-file',
+        dest='studconfig_file',
+        default=None
+    )
+    parser.add_argument(
+        '--studie-progs-file',
+        dest='studieprogs_file',
+        default=None
+    )
+    parser.add_argument(
+        '--student-info-file',
+        dest='student_info_file',
+        default=None
+    )
+    logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    logutils.autoconf('bofhd_req', args)
 
+    logger.info('Start of script %s', parser.prog)
+    logger.debug('args: %r', args)
 
-def usage(exitcode=0):
-    print """Usage: process_bofhd_requests.py
-    -d | --debug: turn on debugging
-    -p | --process: perform the queued operations
-    -t | --type type: performe queued operations of this type.  May be
-         repeated, and must precede -p
-    -m | --max val: perform up to this number of requests
+    db = Utils.Factory.get('Database')()
+    db.cl_init(change_program='process_bofhd_r')
+    cl_const = Utils.Factory.get('CLConstants')(db)
+    const = Utils.Factory.get('Constants')(db)
 
-    Legal values for --type:
-      email
-      sympa
-      move
-      quarantine
-      delete
+    args.ou_perspective = const.OUPerspective(args.ou_perspective)
+    int(args.ou_perspective)  # Assert that it is defined
 
-    Needed for move_student requests:
-    --ou-perspective code_str: set ou_perspective (default: perspective_fs)
-    --emne-info-file file:
-    --studconfig-file file:
-    --studie-progs-file file:
-    --student-info-file file:
-    """
-    sys.exit(exitcode)
+    if args.process:
+        process_requests(args, db, cl_const, const)
 
 
 if __name__ == '__main__':
