@@ -32,8 +32,6 @@ from Cerebrum.utils.argutils import add_commit_args
 
 import cereconf
 
-import mx
-
 # Globals
 logger = logging.getLogger(__name__)
 
@@ -41,7 +39,7 @@ logger = logging.getLogger(__name__)
 class FsImporterNmh(FsImporter):
     def _add_reservations(self, person_info, new_person):
         should_add = False
-        if person_info.has_key('nettpubl'):
+        if 'nettpubl' in person_info:
             for row in person_info['nettpubl']:
                 if row.get('akseptansetypekode', "") == "NETTPUBL" and row.get(
                         'status_svar', "") == "J":
@@ -57,6 +55,7 @@ class FsImporterNmh(FsImporter):
             # question at all, or has given an explicit "I don't
             # want to appear in the directory" answer.
             self._rem_res(new_person.entity_id)
+
 
 def main():
     # parsing

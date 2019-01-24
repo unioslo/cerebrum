@@ -33,6 +33,7 @@ from Cerebrum.utils.argutils import add_commit_args
 
 import cereconf
 import mx
+import six
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -252,8 +253,8 @@ class FsImporterUio(FsImporter):
                 logger.debug("No such affiliation type: %s, skipping",
                              dta_type)
 
-        return etternavn, fornavn, studentnr, birth_date, \
-               affiliations, aktiv_sted
+        return (etternavn, fornavn, studentnr, birth_date, affiliations,
+                aktiv_sted)
 
     def _get_admission_date_func(self, for_date, grace_days=0):
         """ Get a admission date filter function to evaluate *new* students.
@@ -266,18 +267,30 @@ class FsImporterUio(FsImporter):
         date_ranges = [
             # Dec. 1 (previous year) - Feb. 1 (same year)
             (
-                mx.DateTime.DateTime(for_date.year - 1, mx.DateTime.December, 1),
-                mx.DateTime.DateTime(for_date.year, mx.DateTime.February, 1)
+                mx.DateTime.DateTime(for_date.year - 1,
+                                     mx.DateTime.December,
+                                     1),
+                mx.DateTime.DateTime(for_date.year,
+                                     mx.DateTime.February,
+                                     1)
             ),
             # June. 1 (same year) - Sept. 1 (same year)
             (
-                mx.DateTime.DateTime(for_date.year, mx.DateTime.June, 1),
-                mx.DateTime.DateTime(for_date.year, mx.DateTime.September, 1)
+                mx.DateTime.DateTime(for_date.year,
+                                     mx.DateTime.June,
+                                     1),
+                mx.DateTime.DateTime(for_date.year,
+                                     mx.DateTime.September,
+                                     1)
             ),
             # Dec 1. (same year) - Feb. 1 (next year)
             (
-                mx.DateTime.DateTime(for_date.year, mx.DateTime.December, 1),
-                mx.DateTime.DateTime(for_date.year + 1, mx.DateTime.February, 1)
+                mx.DateTime.DateTime(for_date.year,
+                                     mx.DateTime.December,
+                                     1),
+                mx.DateTime.DateTime(for_date.year + 1,
+                                     mx.DateTime.February,
+                                     1)
             )
         ]
 
@@ -291,7 +304,7 @@ class FsImporterUio(FsImporter):
 
     def _is_new_admission(self, admission_date_str):
         """ Parse date string and apply `_new_student_filter`. """
-        if not isinstance(admission_date_str, basestring):
+        if not isinstance(admission_date_str, six.string_types):
             return False
         try:
             # parse YYYY-mm-dd string

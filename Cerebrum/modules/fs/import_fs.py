@@ -314,8 +314,8 @@ class FsImporter(object):
                                           self.studieprog2sko[
                                               row['studieprogramkode']])
         # end for-loop
-        return etternavn, fornavn, studentnr, birth_date, affiliations, \
-               aktiv_sted
+        return (etternavn, fornavn, studentnr, birth_date, affiliations,
+                aktiv_sted)
 
     def _process_affiliation(self, aff, aff_status, new_affs, ou):
         # TBD: Should we for example remove the 'opptak' affiliation if we

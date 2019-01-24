@@ -113,8 +113,8 @@ class FsImporterUia(FsImporter):
                                               subtype, affiliations,
                                               self.studieprog2sko[
                                                   row['studieprogramkode']])
-        return etternavn, fornavn, studentnr, birth_date, affiliations, \
-               aktiv_sted
+        return (etternavn, fornavn, studentnr, birth_date, affiliations,
+                aktiv_sted)
 
 
 def main():
@@ -151,7 +151,7 @@ def main():
         ('aktiv', ('_semadr', '_hjemsted', None)),
         ('evu', ('_job', '_hjem', None)),
         ('privatist_studieprogram', ('_semadr', '_hjemsted', None)),
-        ]
+    ]
     adr_map = {
         '_arbeide': ('adrlin1_arbeide', 'adrlin2_arbeide', 'adrlin3_arbeide',
                      'postnr_arbeide', 'adresseland_arbeide'),
@@ -167,7 +167,7 @@ def main():
         '_kontakt': ('adrlin1_kontakt', 'adrlin2_kontakt', 'adrlin3_kontakt',
                      'postnr_kontakt', 'adresseland_kontakt'),
         '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
-        }
+    }
     reservation_query = ('tilbud', 'aktiv', 'privatist_studieprogram', 'evu',)
     fs_importer = FsImporterUia(args.gen_groups,
                                 args.include_delete, args.commit,

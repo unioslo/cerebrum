@@ -66,30 +66,30 @@ def main():
 
     source = 'system_fs'
     rules = [
-    ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
-    ('aktiv', ('_hjemsted', None)),
-    ('evu', ('_job', '_hjem', None)),
+        ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
+        ('aktiv', ('_hjemsted', None)),
+        ('evu', ('_job', '_hjem', None)),
     ]
     adr_map = {
-    '_arbeide': ('adrlin1_arbeide', 'adrlin2_arbeide', 'adrlin3_arbeide',
-                 'postnr_arbeide', 'adresseland_arbeide'),
-    '_hjemsted': ('adrlin1_hjemsted', 'adrlin2_hjemsted',
-                  'adrlin3_hjemsted', 'postnr_hjemsted',
-                  'adresseland_hjemsted'),
-    '_semadr': ('adrlin1_semadr', 'adrlin2_semadr', 'adrlin3_semadr',
-                'postnr_semadr', 'adresseland_semadr'),
-    '_job': ('adrlin1_job', 'adrlin2_job', 'adrlin3_job', 'postnr_job',
-             'adresseland_job'),
-    '_hjem': ('adrlin1_hjem', 'adrlin2_hjem', 'adrlin3_hjem',
-              'postnr_hjem', 'adresseland_hjem'),
-    '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
+        '_arbeide': ('adrlin1_arbeide', 'adrlin2_arbeide', 'adrlin3_arbeide',
+                     'postnr_arbeide', 'adresseland_arbeide'),
+        '_hjemsted': ('adrlin1_hjemsted', 'adrlin2_hjemsted',
+                      'adrlin3_hjemsted', 'postnr_hjemsted',
+                      'adresseland_hjemsted'),
+        '_semadr': ('adrlin1_semadr', 'adrlin2_semadr', 'adrlin3_semadr',
+                    'postnr_semadr', 'adresseland_semadr'),
+        '_job': ('adrlin1_job', 'adrlin2_job', 'adrlin3_job', 'postnr_job',
+                 'adresseland_job'),
+        '_hjem': ('adrlin1_hjem', 'adrlin2_hjem', 'adrlin3_hjem',
+                  'postnr_hjem', 'adresseland_hjem'),
+        '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
     }
     reservation_query = ('evu',)
 
     fs_importer = FsImporter(args.gen_groups,
-                            args.include_delete, args.commit,
-                            args.studieprogramfile, source, rules, adr_map,
-                            reservation_query=reservation_query)
+                             args.include_delete, args.commit,
+                             args.studieprogramfile, source, rules, adr_map,
+                             reservation_query=reservation_query)
 
     StudentInfo.StudentInfoParser(args.personfile,
                                   fs_importer.process_person_callback,
