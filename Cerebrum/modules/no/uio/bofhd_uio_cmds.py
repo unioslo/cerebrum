@@ -7644,14 +7644,20 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         if account.owner_type == self.const.entity_person:
             person = self._get_person('entity_id', account.owner_id)
             randsone_group = self._get_group("randsone-aktivt-samtykke")
-            if list(randsone_group.search_members(group_id=randsone_group.entity_id, member_id=person.entity_id, indirect_members=True)):
-                hidden = False
-            elif person.has_e_reservation():
+
+            if person.has_e_reservation():
                 hidden = True
             elif person.get_primary_account() != account.entity_id:
                 hidden = True
             else:
                 hidden = False
+
+            if (hidden):
+                members = list(randsone_group.search_members(group_id=randsone_group.entity_id, indirect_members=True))
+                for member in members:
+                    # check if person id matches id of a randsone group member
+                    if member[3] == person.entity_id:
+                        hidden = False
         return {
             'uname': uname,
             'hide': 'hidden' if hidden else 'visible',
