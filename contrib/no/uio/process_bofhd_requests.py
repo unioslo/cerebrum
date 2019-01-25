@@ -987,7 +987,7 @@ def main():
     )
     logutils.options.install_subparser(parser)
     args = parser.parse_args()
-    logutils.autoconf('console', args)
+    logutils.autoconf('bofhd_req', args)
 
     # Assigning global variables
     DEBUG = args.debug
