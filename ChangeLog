@@ -1,3 +1,5 @@
+2019-01-25 <kennethj@gagarin.uit.no>
+    * export_cristin.py:    updated script to handle utf-8 input
 2019-01-16 <kennethj@gagarin.uit.no>
     * generate_paga_persons.py: Added code to skip processing honorar persons. These can be identfied by the value 'H' in Tj.Forh
 

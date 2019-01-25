@@ -370,12 +370,13 @@ class LTPersonRepresentation(object):
         # the following test will fail for certain non-valid fnr (those coming from PAGA with 5 0(zero) at the end
         # removed check
         #fodselsnr.personnr_ok(self.fnr)
-        
-        self.fnr = self.fnr.encode("latin1")
+        logger.debug("for debugging purposes: working on fnr:%s" % self.fnr)
+        #self.fnr = self.fnr.encode("latin1")
         # we do not really need a name (it is in cerebrum), but it might
         # come in handy during debugging stages
 
-        self.name = "%s %s" % (attributes["fornavn"].encode("latin1"), attributes["etternavn"].encode("latin1"))
+        #self.name = "%s %s" % (attributes["fornavn"].encode("latin1"), attributes["etternavn"].encode("latin1"))
+        self.name = "%s %s" % (attributes["fornavn"], attributes["etternavn"])
         logger.debug("extracted new person element from FS (%s, %s)",
                      self.fnr, self.name)
 
@@ -392,8 +393,8 @@ class LTPersonRepresentation(object):
         for key, value in attributes.items():
             # We have to do this charset conversion. No worries, parsing xml
             # takes too little time to be of consideration
-            key = key.encode("latin1")
-            value = value.encode("latin1")
+            #key = key.encode("latin1")
+            #value = value.encode("latin1")
             encoded_attributes[key] = value
 
         self.elements[name].append(encoded_attributes)
@@ -971,7 +972,8 @@ def output_employment_information(writer, pobj):
             # UIT: must minimize the element["tittel"] entry
             # element["tittel"] = element["tittel"].lower().decode('iso-8859-1')
 
-            value = element[input].decode('iso8859-1')
+            #value = element[input].decode('iso8859-1')
+            value = element[input]
             if input == 'tittel':
                 value = value.lower()
 
