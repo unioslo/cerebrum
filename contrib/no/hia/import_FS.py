@@ -32,6 +32,7 @@ from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum.utils.argutils import add_commit_args
 
 import cereconf
+import six
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class FsImporterUia(FsImporter):
         for dta_type in person_info.keys():
             x = person_info[dta_type]
             p = x[0]
-            if isinstance(p, basestring):
+            if isinstance(p, six.string_types):
                 continue
             if dta_type not in ('tilbud', 'eksamen', 'evu'):
                 if 'studentnr_tildelt' in p:
