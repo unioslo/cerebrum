@@ -163,22 +163,22 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
         
         for old_password in old_passwords:
 
-            hash_func = "pbkdf2_hmac.SHA256"
+            hash_func = "pbkdf2_hmac_SHA256"
             iters = 100000
             salt = base64.b64encode(os.urandom(12))
             key = base64.b64encode(hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, iters))
 
             pas = "{}${}${}${}".format(hash_func, iters, salt, key)
-            print('1', pas)
+            print('1', pas[:-1])
 
             pas_part = pas.split('$')
-            alg = pas_part[0].split('.')[1]
+            alg = pas_part[0]
             iters = int(pas_part[1])
             salt = pas_part[2]
             keyzz = pas_part[3]
             
             encoded_password = ph.encode_for_history(iters, salt, password.encode('utf-8'))
-            print('2', encoded_password)
+            print('2', encoded_password[:-1])
 
             return
 
@@ -193,7 +193,7 @@ class PasswordHistory(DatabaseAccessor):
         # m = hashlib.md5(name.encode('utf-8') + password.encode('utf-8'))
         # return base64.b64encode(m.digest())[:22]
 
-        hash_func = "pbkdf2_hmac.SHA256"
+        hash_func = "pbkdf2_hmac_SHA256"
         key = base64.b64encode(hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, rounds))
 
         return "{}${}${}${}".format(hash_func, rounds, salt, key)
