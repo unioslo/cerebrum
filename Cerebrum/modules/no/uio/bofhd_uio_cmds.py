@@ -7652,11 +7652,10 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
             else:
                 hidden = False
 
-            if (hidden):
-                members = list(randsone_group.search_members(group_id=randsone_group.entity_id, indirect_members=True))
+            if hidden:
+                members = randsone_group.search_members(group_id=randsone_group.entity_id, indirect_members=True)
                 for member in members:
-                    # check if person id matches id of a randsone group member
-                    if member[3] == person.entity_id:
+                    if member['member_id'] == person.entity_id:
                         hidden = False
         return {
             'uname': uname,
