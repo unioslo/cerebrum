@@ -67,22 +67,10 @@ class Constants(Consts.Constants):
     externalid_ou_oid = _EntityExternalIdCode('OUOID',
                                               Consts.Constants.entity_ou,
                                               'OU OID')
-    externalid_elevnr = _EntityExternalIdCode(
-        'ELEVNR',
-        Consts.Constants.entity_person,
-        'Unik elevnummer fra SAS.')
-    externalid_ansattnr = _EntityExternalIdCode(
-        'ANSATTNR',
-        Consts.Constants.entity_person,
-        'Unik ansattnummer fra SAS')
     externalid_userid = _EntityExternalIdCode(
         'USERID',
         Consts.Constants.entity_person,
         'Bruker ID')
-    externalid_person_oid = _EntityExternalIdCode(
-        'POID',
-        Consts.Constants.entity_person,
-        'Person OID')
     externalid_klasse = _EntityExternalIdCode(
         'kl-ID',
         Consts.Constants.entity_group,
