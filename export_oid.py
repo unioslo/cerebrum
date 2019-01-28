@@ -195,7 +195,9 @@ def load_cache():
 
     logger.info("Retrieving account owners")
     owner2account=dict()
-    for a in ac.list_accounts_by_type(filter_expired=False, primary_only=True):
+    # filter out unwanted affiliations (only list those we want to export to oid)
+    valid_affs = (co.affiliation_manuell,co.affiliation_ansatt,co.affiliation_tilknyttet,co.affiliation_student)
+    for a in ac.list_accounts_by_type(affiliation=valid_affs,filter_expired=False, primary_only=True):
         owner2account[a['person_id']]=a['account_id']
 
     logger.info("Retrieving auth strings")
@@ -253,7 +255,7 @@ def load_cb_data():
     for aff in p.list_affiliations():
 
         # simple filtering
-        aff_status_filter=(co.affiliation_status_student_tilbud,co.affiliation_manuell_gjest,co.affiliation_manuell_gjest_u_konto)
+        aff_status_filter=(co.affiliation_status_student_tilbud,co.affiliation_manuell_gjest,co.affiliation_manuell_gjest_u_konto,co.affiliation_status_ansatt_sito)
         if aff['status'] in aff_status_filter:
             continue
 
