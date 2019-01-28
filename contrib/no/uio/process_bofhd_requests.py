@@ -21,12 +21,10 @@
 
 import errno
 import fcntl
-import getopt
 import mx
 import os
 import pickle
 import re
-import sys
 import time
 import socket
 import ssl
@@ -43,6 +41,7 @@ from Cerebrum.utils import json
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 
+from Cerebrum.utils.argutils import get_constant
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
@@ -190,7 +189,7 @@ def process_requests(types, max_requests):
     if 'move' in types:
         # Convert move_student requests into move_user requests
         process_move_student_requests()
-    operations = get_operations(const)
+    operations = get_operations()
     with closing(RequestLockHandler()) as reqlock:
         br = BofhdRequests(db, const)
         for t in types:
@@ -929,14 +928,7 @@ def main():
     global ou_perspective, DEBUG
     global emne_info_file, studconfig_file, studieprogs_file, student_info_file
 
-    parser = argparse.ArgumentParser(
-        description='''Arguments needed for move_student requests:
-    --ou-perspective code_str
-    --emne-info-file file
-    --studconfig-file file
-    --studie-progs-file file
-    --student-info-file file'''
-    )
+    parser = argparse.ArgumentParser()
     parser.add_argument(
         '-d', '--debug',
         dest='debug',
@@ -959,28 +951,28 @@ def main():
         dest='process',
         action='store_true',
         help='Perform the queued operations')
-    parser.add_argument(
+    arg_group = parser.add_argument_group('Required for move_student requests')
+    arg_group.add_argument(
         '--ou-perspective',
         dest='ou_perspective',
-        default=None,
-        help='Set ou_perspective'
+        default=None
     )
-    parser.add_argument(
+    arg_group.add_argument(
         '--emne-info-file',
         dest='emne_info_file',
         default=None
     )
-    parser.add_argument(
+    arg_group.add_argument(
         '--studconfig-file',
         dest='studconfig_file',
         default=None
     )
-    parser.add_argument(
+    arg_group.add_argument(
         '--studie-progs-file',
         dest='studieprogs_file',
         default=None
     )
-    parser.add_argument(
+    arg_group.add_argument(
         '--student-info-file',
         dest='student_info_file',
         default=None
@@ -991,10 +983,9 @@ def main():
 
     # Assigning global variables
     DEBUG = args.debug
-    ou_perspective = args.ou_perspective
-    if ou_perspective:
-        ou_perspective = const.OUPerspective(ou_perspective)
-        int(ou_perspective)  # Assert that it is defined
+    if args.ou_perspective:
+        ou_perspective = get_constant(db, parser, const.OUPerspective,
+                                      args.ou_perspective)
     emne_info_file = args.emne_info_file
     studconfig_file = args.studconfig_file
     studieprogs_file = args.studieprogs_file
