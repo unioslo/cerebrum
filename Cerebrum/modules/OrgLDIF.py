@@ -496,14 +496,23 @@ class OrgLDIF(object):
         self.acc_passwd = {}
         self.userpassword = {}
         self.acc_locked_quarantines = self.acc_quarantines = defaultdict(list)
-        crypt_methods = [self.const.human2constant(method) for method in
-                         cereconf.LDAP['auth_methods']]
+        crypt_methods = []
+        for entry in ldapconf('PERSON',
+                              'auth_methods',
+                              default='auth_type_md5_crypt'):
+            method = self.const.human2constant(entry)
+            if method is None:
+                raise Errors.NotFoundError(
+                    'No corresponding auth_type constant found for method {}'
+                    .format(method))
+            else:
+                crypt_methods.append(method)
         for row in self.account.list_account_authentication(
                 auth_type=crypt_methods):
             account_id = int(row['account_id'])
             crypt_method = row['method']
             # Add any method if nothing set for the account so far
-            if not self.acc_name.get(account_id):
+            if account_id not in self.acc_name:
                 self.acc_name[account_id] = row['entity_name']
                 self.acc_passwd_method[account_id] = row['method']
                 self.acc_passwd[account_id] = row['auth_data']
@@ -1229,5 +1238,5 @@ from None and LDAP_PERSON['dn'].""")
         elif method is None:
             return password
         else:
-            raise NotImplementedError('Unknown method {}. Please implement.'.
-                                      format(method))
+            raise Errors.NotImplementedAuthTypeError(
+                'Unknown method {}. Please implement.'.format(method))
