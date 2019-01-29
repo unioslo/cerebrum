@@ -1949,6 +1949,12 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_multi_remove(self, operator, member_type, src_name, dest_group):
         """Removes a person, account or group from a given group."""
+        # If int in any of the names we assume the user intended to write an
+        # entity id and prefix it with id: for them
+        if isinstance(src_name, int):
+            src_name = 'id:' + text_type(src_name)
+        if isinstance(dest_group, int):
+            dest_group = 'id:' + text_type(dest_group)
         if member_type not in ('group', 'account', 'person', ):
             return 'Unknown member_type "%s"' % (member_type)
         self.ba.can_alter_group(operator.get_entity_id(),
