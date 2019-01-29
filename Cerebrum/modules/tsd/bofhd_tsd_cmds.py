@@ -547,6 +547,13 @@ class TSDBofhdExtension(BofhdCommonMethods):
         @param dest_group: The name/id of the group the member should be
                            removed from.
         """
+        # If int in any of the names we assume the user intended to write an
+        # entity id and prefix it with id: for them
+        if isinstance(src_name, int):
+            src_name = 'id:' + six.text_type(src_name)
+        if isinstance(dest_group, int):
+            dest_group = 'id:' + six.text_type(dest_group)
+
         if member_type in ("group", self.const.entity_group):
             src_entity = self._get_group(src_name)
         elif member_type in ("account", self.const.entity_account):
