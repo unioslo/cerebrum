@@ -1330,6 +1330,14 @@ class BofhdExtension(BofhdCommonMethods):
                                member_type="group")
 
     def _group_add(self, operator, src_name, dest_group, member_type=None):
+        """Let src_group(s) join dest_group(s)
+
+        :param operator: operator in bofh session
+        :param src_name: str name of source group
+        :param dest_group: str name of destination group
+        :param member_type: str type of member
+        :return:
+        """
         if member_type == "group":
             src_entity = self._get_group(src_name)
         elif member_type == "account":
@@ -1340,6 +1348,8 @@ class BofhdExtension(BofhdCommonMethods):
                                                   restrict_to=['Person'])
             except Errors.TooManyRowsError:
                 raise CerebrumError("Unexpectedly found more than one person")
+        else:
+            raise CerebrumError("Unknown member_type: %r" % member_type)
         return self._group_add_entity(operator, src_entity, dest_group)
 
     def _group_add_entity(self, operator, src_entity, dest_group):
@@ -1368,7 +1378,7 @@ class BofhdExtension(BofhdCommonMethods):
         # different operation.
         try:
             group_d.add_member(src_entity.entity_id)
-        except self.db.DatabaseError, m:
+        except self.db.DatabaseError as m:
             raise CerebrumError("Database error: %s" % m)
         # Warn the user about NFS filegroup limitations.
         nis_warning = ''
@@ -2005,24 +2015,24 @@ class BofhdExtension(BofhdCommonMethods):
                                   member_type="person")
 
     def _group_remove(self, operator, src_name, dest_group, member_type=None):
-        # jokim 2008-12-02 TBD: Is this bad? Added support for removing
-        # members by their entity_id, as 'brukerinfo' (wofh) only knows
-        # the entity_id.
-        if isinstance(src_name, basestring) and not src_name.isdigit():
-            idtype = 'name'
-        else:
-            idtype = 'id'
+        """Remove src_group(s) from given dest_group(s)
 
+        Both src_name and dest_group can be in the formats group_name,
+        name:group_name, and id:entity_id.
+
+        :param operator: operator in bofh session
+        :param src_name: str name of source group.
+        :param dest_group: str name of destination group
+        :param member_type: str type of member
+        :return:
+        """
         if member_type == "group":
-            src_entity = self._get_group(src_name, idtype=idtype)
+            src_entity = self._get_group(src_name)
         elif member_type == "account":
-            src_entity = self._get_account(src_name, idtype=idtype)
+            src_entity = self._get_account(src_name)
         elif member_type == "person":
-            if idtype == 'name':
-                idtype = 'account'
             try:
                 src_entity = self.util.get_target(src_name,
-                                                  default_lookup=idtype,
                                                   restrict_to=['Person'])
             except Errors.TooManyRowsError:
                 raise CerebrumError("Unexpectedly found more than one person")
