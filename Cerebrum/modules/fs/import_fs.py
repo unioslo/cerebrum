@@ -159,8 +159,9 @@ class FsImporter(object):
         person = Factory.get('Person')(self.db)
         # create fnr2person_id mapping, always using fnr from FS when set
         fnr2person_id = {}
-        for p in person.list_external_ids(
-                id_type=self.co.externalid_fodselsnr):
+        for p in person.search_external_ids(
+                id_type=self.co.externalid_fodselsnr,
+                fetchall=False):
             if self.co.system_fs == p['source_system']:
                 fnr2person_id[p['external_id']] = p['entity_id']
             elif p['external_id'] not in fnr2person_id:
