@@ -4550,21 +4550,6 @@ class BofhdExtension(BofhdCommonMethods):
             data.append({'affiliation': affiliations[i],
                          'source_system': sources[i]})
         try:
-            # Include fnr. Note that this is not displayed by the main
-            # bofh-client, but some other clients (Brukerinfo, cweb) rely
-            # on this data.
-
-            for row in person.get_external_id(
-                    id_type=self.const.externalid_fodselsnr):
-                self.ba.can_get_person_external_id(
-                    operator, person,
-                    extid_type=self.const.externalid_fodselsnr,
-                    source_sys=row['source_system'])
-                data.append({
-                    'fnr': row['external_id'],
-                    'fnr_src': text_type(
-                        self.const.AuthoritativeSystem(row['source_system'])),
-                })
             # Show external ids
             for row in person.get_external_id():
                 try:
