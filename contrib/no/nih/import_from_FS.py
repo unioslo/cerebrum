@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2002-2018 University of Oslo, Norway
+#
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,9 +19,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""Script for gathering data from FS and put it into XML files for further
+processing by other scripts.
+
+"""
 from __future__ import unicode_literals
+from __future__ import print_function
 
 import io
+import os
 import six
 import sys
 import getopt
@@ -30,25 +36,26 @@ import logging
 import cereconf
 
 import Cerebrum.logutils
-from os.path import join as pj
-from Cerebrum import database
 from Cerebrum.extlib import xmlprinter
-from Cerebrum.Utils import XMLHelper
-from Cerebrum.utils.atomicfile import MinimumSizeWriter
-from Cerebrum.utils.atomicfile import AtomicFileWriter
-from Cerebrum.modules.no.nih.access_FS import FS
 from Cerebrum.Utils import Factory
+from Cerebrum.Utils import XMLHelper
+from Cerebrum.utils.atomicfile import MinimumSizeWriter, SimilarSizeWriter
+from Cerebrum.utils.atomicfile import AtomicFileWriter
+from Cerebrum.utils.atomicfile import FileChangeTooBigError
+from Cerebrum.modules.no.access_FS import make_fs
 
-default_person_file = pj(cereconf.FS_DATA_DIR, "person.xml")
-default_role_file = pj(cereconf.FS_DATA_DIR, "roles.xml")
-default_undvenh_file = pj(cereconf.FS_DATA_DIR, "underv_enhet.xml")
-default_undenh_student_file = pj(cereconf.FS_DATA_DIR, "student_undenh.xml")
-default_studieprogram_file = pj(cereconf.FS_DATA_DIR, "studieprog.xml")
-default_ou_file = pj(cereconf.FS_DATA_DIR, "ou.xml")
-default_emne_file = pj(cereconf.FS_DATA_DIR, "emner.xml")
-default_fnr_update_file = pj(cereconf.FS_DATA_DIR, "fnr_update.xml")
-default_evu_kursinfo_file = pj(cereconf.FS_DATA_DIR, "evu_kursinfo.xml")
-default_kull_info_file = pj(cereconf.FS_DATA_DIR, "kull_info.xml")
+default_datadir = cereconf.FS_DATA_DIR
+default_person_file = "person.xml"
+default_role_file = "roles.xml"
+default_studprog_file = "studieprog.xml"
+default_ou_file = "ou.xml"
+default_emne_file = "emner.xml"
+default_fnr_update_file = "fnr_update.xml"
+default_netpubl_file = "nettpublisering.xml"
+default_undvenh_file = "underv_enhet.xml"
+default_undenh_student_file = "student_undenh.xml"
+default_evu_kursinfo_file = "evu_kursinfo.xml"
+default_kull_info_file = "kull_info.xml"
 
 XML_ENCODING = 'utf-8'
 
@@ -60,6 +67,48 @@ KiB = 1024
 MiB = KiB**2
 
 
+def usage():
+    print("""Usage: %(filename)s [options]
+    
+    %(doc)s
+    
+    Settings:
+    --datadir: Override the directory where all files should be put. 
+                        Default: see cereconf.FS_DATA_DIR
+
+                        Note that the datadir can be overriden by the file path
+                        options, if these are absolute paths.
+    --studprog-file: Override studprog xml filename. Default: studieprogrammer.xml
+    --personinfo-file: Override person xml filename. Default: person.xml.
+    --roleinfo-file: Override role xml filename. Default: roles.xml.
+    --emneinfo-file: Override emne info xml filename. Default: emner.xml.
+    --fnr-update-file: Override fnr-update xml filename. Default: fnr_update.xml.
+    --netpubl-file: Override netpublication filename. Default: nettpublisering.xml.
+    --ou-file: Override ou xml filename. Default: ou.xml.
+    --misc-func: Name of extra function in access_FS to call. Will be called at the next given --misc-file.
+    --misc-file: Name of output file for previous set misc-func and misc-tag arguments. Note that a relative filename could be used for putting it into the set datadir.
+    --misc-tag: Tag to use in the next given --misc-file argument.
+    --undenh-file: override undenh_meta file
+    --student-undenh-file: override student on UE file
+    --evukursinfo-file: override evu-kurs xml filename
+    --db-user: connect with given database username
+    --db-service: connect to given database
+
+    Action:
+    -p: Generate person xml file
+    -s: Generate studprog xml file
+    -r: Generate role xml file
+    -e: Generate emne info xml file
+    -f: Generate fnr_update xml file
+    -o: Generate ou xml file
+    -n: Generate netpublication reservation xml file
+    -u: Generate undervisningsenhet xml file
+    -E: Generate evu_kurs xml file
+    -U: Generate student on UE xml file
+    """ % {'filename': os.path.basename(sys.argv[0]),
+           'doc': __doc__})
+
+
 def _ext_cols(db_rows):
     # TBD: One might consider letting xmlify_dbrow handle this
     cols = None
@@ -69,29 +118,43 @@ def _ext_cols(db_rows):
 
 
 def write_person_info(outfile):
+    """Lager fil med informasjon om alle personer registrert i FS som
+    vi muligens også ønsker å ha med i Cerebrum.  En person kan
+    forekomme flere ganger i filen."""
+
+    # TBD: Burde vi cache alle data, slik at vi i stedet kan lage en
+    # fil der all informasjon om en person er samlet under en egen
+    # <person> tag?
+
     logger.info("Writing person info to '%s'", outfile)
     f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
     f.min_size = 0
     f.write(xml.xml_hdr + "<data>\n")
 
+    # Aktive studenter
+    cols, students = _ext_cols(fs.student.list_aktiv())
+    for s in students:
+        f.write(
+            xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'aktiv') + "\n")
+
+    # Eksamensmeldinger
+    cols, students = _ext_cols(fs.student.list_eksamensmeldinger())
+    for s in students:
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
+
+    # EVU students
+    # En del EVU studenter vil være gitt av søket over
+    cols, students = _ext_cols(fs.evu.list())
+    for e in students:
+        f.write(
+            xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
+
     # Aktive fagpersoner ved NIH
     cols, fagperson = _ext_cols(fs.undervisning.list_fagperson_semester())
     for p in fagperson:
         f.write(
-            xml.xmlify_dbrow(p, xml.conv_colnames(cols), 'fagperson') + "\n")
-    # Aktive ordinære studenter ved NIH
-    cols, student = _ext_cols(fs.student.list_aktiv())
-    for a in student:
-        f.write(xml.xmlify_dbrow(a, xml.conv_colnames(cols), 'aktiv') + "\n")
-    # Eksamensmeldinger
-    cols, student = _ext_cols(fs.student.list_eksamensmeldinger())
-    for s in student:
-        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
-    # EVU-studenter ved NIH
-    cols, student = _ext_cols(fs.evu.list())
-    for e in student:
-        f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
-
+            xml.xmlify_dbrow(
+                p, xml.conv_colnames(cols), 'fagperson') + "\n")
     f.write("</data>\n")
     f.close()
 
@@ -129,8 +192,9 @@ def write_ou_info(outfile):
                 ('telefonnr', 'EKSTRA TLF'),
                 ('faxnr', 'FAX'),
                 ('emailadresse', 'EMAIL'),
-                ('url', 'URL')):
-            if o[fs_col]:               # Skip NULLs and empty strings
+                ('url', 'URL')
+        ):
+            if o[fs_col]:  # Skip NULLs and empty strings
                 komm.append({'kommtypekode': xml.escape_xml_attr(typekode),
                              'kommnrverdi': xml.escape_xml_attr(o[fs_col])})
         # TODO: Kolonnene 'url' og 'bibsysbeststedkode' hentes ut fra
@@ -147,11 +211,84 @@ def write_ou_info(outfile):
     f.close()
 
 
+def write_role_info(outfile):
+    """Lager fil med informasjon om alle roller definer i FS.PERSONROLLE"""
+    logger.info("Writing role info to '%s'", outfile)
+    f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
+    f.min_size = KiB / 4
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, role = _ext_cols(fs.undervisning.list_alle_personroller())
+    for r in role:
+        f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'rolle') + "\n")
+    f.write("</data>\n")
+    f.close()
+
+
+def write_netpubl_info(outfile):
+    """Lager fil med informasjon om status nettpublisering"""
+    logger.info("Writing nettpubl info to '%s'", outfile)
+    f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
+    f.max_pct_change = 50
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, nettpubl = _ext_cols(fs.person.list_status_nettpubl())
+    for n in nettpubl:
+        f.write(xml.xmlify_dbrow(n,
+                                 xml.conv_colnames(cols),
+                                 'nettpubl') + "\n")
+    f.write("</data>\n")
+    f.close()
+
+
+def write_studprog_info(outfile):
+    """Lager fil med informasjon om alle definerte studieprogrammer"""
+    logger.info("Writing studprog info to '%s'", outfile)
+    f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
+    f.min_size = 10 * KiB
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, dta = _ext_cols(fs.info.list_studieprogrammer())
+    for t in dta:
+        f.write(
+            xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog') + "\n")
+    f.write("</data>\n")
+    f.close()
+
+
+def write_emne_info(outfile):
+    """Lager fil med informasjon om alle definerte emner"""
+    logger.info("Writing emne info to '%s'", outfile)
+    f = io.open(outfile, mode='w', encoding=XML_ENCODING)
+    f.write(xml.xml_hdr + "<data>\n")
+    cols, dta = _ext_cols(fs.info.list_emner())
+    for t in dta:
+        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
+    f.write("</data>\n")
+    f.close()
+
+
+def write_undenh_metainfo(outfile):
+    """Skriv metadata om undervisningsenheter for inneværende+neste semester.
+    """
+    logger.info("Writing undenh_meta info to '%s'", outfile)
+    f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
+    f.min_size = 5 * KiB
+    f.write(xml.xml_hdr + "<undervenhet>\n")
+    for semester in ('current', 'next'):
+        cols, undenh = _ext_cols(
+            fs.undervisning.list_undervisningenheter(sem=semester))
+        for u in undenh:
+            f.write(
+                xml.xmlify_dbrow(u, xml.conv_colnames(cols), 'undenhet') +
+                "\n")
+    f.write("</undervenhet>\n")
+    f.close()
+
+
 def write_evukurs_info(outfile):
-    """Skriv data om alle EVU-kurs"""
+    """Skriv data om alle EVU-kurs (vi trenger dette bl.a. for å bygge
+    EVU-delen av CF)."""
     logger.info("Writing evukurs info to '%s'", outfile)
     f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
-    f.minsize = 1 * KiB
+    f.min_size = 1 * KiB
     f.write(xml.xml_hdr + "<data>\n")
     cols, evukurs = _ext_cols(fs.evu.list_kurs())
     for ek in evukurs:
@@ -161,43 +298,13 @@ def write_evukurs_info(outfile):
     f.close()
 
 
-def write_role_info(outfile):
-    """Skriv data om alle registrerte roller"""
-    logger.info("Writing role info to '%s'", outfile)
-    f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
-    f.minsize = KiB / 4
-    f.write(xml.xml_hdr + "<data>\n")
-    cols, role = _ext_cols(fs.undervisning.list_alle_personroller())
-    for r in role:
-        f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'rolle') + "\n")
-    f.write("</data>\n")
-    f.close()
-
-
-def write_undenh_metainfo(outfile):
-    "Skriv metadata om undervisningsenheter for inneværende+neste semester."
-    logger.info("Writing undenh_metainfo to '%s'", outfile)
-    f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
-    f.minsize = 5 * KiB
-    f.write(xml.xml_hdr + "<undervenhet>\n")
-    for semester in ('current', 'next'):
-        cols, undenh = _ext_cols(
-            fs.undervisning.list_undervisningenheter(sem=semester))
-        for u in undenh:
-            f.write(xml.xmlify_dbrow(u,
-                                     xml.conv_colnames(cols),
-                                     'undenhet') + "\n")
-    f.write("</undervenhet>\n")
-    f.close()
-
-
 def write_undenh_student(outfile):
     """Skriv oversikt over personer oppmeldt til undervisningsenheter.
     Tar med data for alle undervisingsenheter i inneværende+neste
     semester."""
     logger.info("Writing undenh_student info to '%s'", outfile)
     f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
-    f.minsize = 5 * KiB
+    f.min_size = 5 * KiB
     f.write(xml.xml_hdr + "<data>\n")
     for semester in ('current', 'next'):
         cols, undenh = _ext_cols(
@@ -242,31 +349,6 @@ def write_kull_info(outfile):
 
     f.write("</data>\n")
     f.close()
-
-
-def write_studprog_info(outfile):
-    """Lager fil med informasjon om alle definerte studieprogrammer"""
-    logger.info("Writing studprog info to '%s'", outfile)
-    f = MinimumSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
-    f.minsize = 10 * KiB
-    f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = _ext_cols(fs.info.list_studieprogrammer())
-    for t in dta:
-        f.write(
-            xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog') + "\n")
-    f.write("</data>\n")
-    f.close()
-
-
-def write_emne_info(outfile):
-    """Lager fil med informasjon om alle definerte emner"""
-    logger.info("Writing emne info to '%s'", outfile)
-    f = io.open(outfile, mode='w', encoding=XML_ENCODING)
-    f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = _ext_cols(fs.info.list_emner())
-    for t in dta:
-        f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'emne') + "\n")
-    f.write("</data>\n")
 
 
 class AtomicStreamRecoder(AtomicFileWriter):
@@ -330,11 +412,14 @@ def write_misc_info(outfile, tag, func_name):
     logger.info("Writing misc info to '%s'", outfile)
     f = io.open(outfile, mode='w', encoding=XML_ENCODING)
     f.write(xml.xml_hdr + "<data>\n")
-    cols, dta = _ext_cols(eval("fs.%s" % func_name)())
+    func = reduce(
+        lambda obj, attr: getattr(obj, attr), func_name.split('.'), fs)
+    cols, dta = _ext_cols(func())
     for t in dta:
         fix_float(t)
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), tag) + "\n")
     f.write("</data>\n")
+    f.close()
 
 
 def fix_float(row):
@@ -343,128 +428,123 @@ def fix_float(row):
             row[n] = int(row[n])
 
 
-def usage(exitcode=0):
-    print """Usage: [options]
-    --studprog-file name: override studprog xml filename
-    --personinfo-file: override person xml filename
-    --roleinfo-file: override role xml filename
-    --undenh-file: override 'topics' file
-    --emneinfo-file: override emne info
-    --student-undenh-file: override student on UE file
-    --fnr-update-file: override fnr_update file
-    --misc-func func: name of function in access_FS to call
-    --misc-file name: name of output file for misc-func
-    --misc-tag tag: tag to use in misc-file
-    --ou-file name: override ou xml filename
-    --evukursinfo-file: override evu-kurs xml filename
-    --db-user name: connect with given database username
-    --db-service name: connect to given database
-    -s: generate studprog xml file
-    -o: generate ou xml (sted.xml) file
-    -p: generate person file
-    -r: generate role file
-    -f: generate fnr_update file
-    -e: generate emne info file
-    -u: generate undervisningsenhet xml file
-    -E: generate evu_kurs xml file
-    -U: generate student on UE xml file
+def set_filepath(datadir, file):
+    """Return the string of path to a file. If the given file path is relative,
+    the datadir is used as a prefix, otherwise only the file path is returned.
+
     """
-    sys.exit(exitcode)
-
-
-def assert_connected(user="CEREBRUM", service="FSNIH.uio.no"):
-    global fs
-    if fs is None:
-        db = database.connect(user=user, service=service,
-                              DB_driver='cx_Oracle')
-        fs = FS(db)
+    if os.path.isabs(file):
+        return file
+    return os.path.join(datadir, file)
 
 
 def main():
     Cerebrum.logutils.autoconf('cronjob')
     logger.info("Starting import from FS")
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "fpsruUoeEk",
-                                   ["personinfo-file=", "studprog-file=",
-                                    "roleinfo-file=", "undenh-file=",
-                                    "student-undenh-file=",
+        opts, args = getopt.getopt(sys.argv[1:], "psrefonuUEk",
+                                   ["datadir=",
+                                    "personinfo-file=",
+                                    "studprog-file=",
+                                    "roleinfo-file=",
                                     "emneinfo-file=",
+                                    "fnr-update-file=",
+                                    "netpubl-file=",
+                                    "ou-file=",
+                                    "misc-func=",
+                                    "misc-file=",
+                                    "misc-tag=",
+                                    "undenh-file=",
                                     "evukursinfo-file=",
-                                    "fnr-update-file=", "misc-func=",
-                                    "misc-file=", "misc-tag=",
+                                    "student-undenh-file=",
                                     "kull-info-file=",
-                                    "ou-file=", "db-user=", "db-service="])
+                                    "db-user=",
+                                    "db-service="
+                                    ])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
 
+    datadir = default_datadir
     person_file = default_person_file
-    studprog_file = default_studieprogram_file
-    ou_file = default_ou_file
     role_file = default_role_file
-    undervenh_file = default_undvenh_file
+    studprog_file = default_studprog_file
+    ou_file = default_ou_file
     emne_info_file = default_emne_file
-    evu_kursinfo_file = default_evu_kursinfo_file
     fnr_update_file = default_fnr_update_file
+    netpubl_file = default_netpubl_file
+    undervenh_file = default_undvenh_file
     undenh_student_file = default_undenh_student_file
+    evu_kursinfo_file = default_evu_kursinfo_file
     kull_info_file = default_kull_info_file
-    db_user = None         # TBD: cereconf value?
-    db_service = None      # TBD: cereconf value?
+
+    db_user = None
+    db_service = None
     for o, val in opts:
-        if o in ('--emneinfo-file',):
+        if o in ('--datadir',):
+            datadir = val
+        elif o in ('--emneinfo-file',):
             emne_info_file = val
         elif o in ('--personinfo-file',):
             person_file = val
-        elif o in ('--evukursinfo-file',):
-            evu_kursinfo_file = val
         elif o in ('--studprog-file',):
             studprog_file = val
         elif o in ('--roleinfo-file',):
             role_file = val
-        elif o in ('--undenh-file',):
-            undervenh_file = val
-        elif o in ('--student-undenh-file',):
-            undenh_student_file = val
         elif o in ('--fnr-update-file',):
             fnr_update_file = val
-        elif o in ('--kull-info-file',):
-            kull_info_file = val
         elif o in ('--ou-file',):
             ou_file = val
+        elif o in ('--netpubl-file',):
+            netpubl_file = val
         elif o in ('--db-user',):
             db_user = val
         elif o in ('--db-service',):
             db_service = val
-    assert_connected(user=db_user, service=db_service)
-    for o, val in opts:
-        if o in ('-p',):
-            write_person_info(person_file)
-        elif o in ('-s',):
-            write_studprog_info(studprog_file)
-        elif o in ('-r',):
-            write_role_info(role_file)
-        elif o in ('-u',):
-            write_undenh_metainfo(undervenh_file)
-        elif o in ('-U',):
-            write_undenh_student(undenh_student_file)
-        elif o in ('-e',):
-            write_emne_info(emne_info_file)
-        elif o in ('-f',):
-            write_fnrupdate_info(fnr_update_file)
-        elif o in ('-o',):
-            write_ou_info(ou_file)
-        elif o in ('-k',):
-            write_kull_info(kull_info_file)
-        elif o in ('-E',):
-            write_evukurs_info(evu_kursinfo_file)
-        # We want misc-* to be able to produce multiple file in one script-run
-        elif o in ('--misc-func',):
-            misc_func = val
-        elif o in ('--misc-tag',):
-            misc_tag = val
-        elif o in ('--misc-file',):
-            write_misc_info(val, misc_tag, misc_func)
+        elif o in ('--undenh-file',):
+            undervenh_file = val
+        elif o in ('--student-undenh-file',):
+            undenh_student_file = val
+        elif o in ('--evukursinfo-file',):
+            evu_kursinfo_file = val
 
+    global fs
+    fs = make_fs(user=db_user, database=db_service)
+
+    for o, val in opts:
+        try:
+            if o in ('-p',):
+                write_person_info(set_filepath(datadir, person_file))
+            elif o in ('-s',):
+                write_studprog_info(set_filepath(datadir, studprog_file))
+            elif o in ('-r',):
+                write_role_info(set_filepath(datadir, role_file))
+            elif o in ('-e',):
+                write_emne_info(set_filepath(datadir, emne_info_file))
+            elif o in ('-f',):
+                write_fnrupdate_info(set_filepath(datadir, fnr_update_file))
+            elif o in ('-o',):
+                write_ou_info(set_filepath(datadir, ou_file))
+            elif o in ('-n',):
+                write_netpubl_info(set_filepath(datadir, netpubl_file))
+            elif o in ('-u',):
+                write_undenh_metainfo(set_filepath(datadir, undervenh_file))
+            elif o in ('-E',):
+                write_evukurs_info(set_filepath(datadir, evu_kursinfo_file))
+            elif o in ('-U',):
+                write_undenh_student(set_filepath(datadir, undenh_student_file))
+            elif o in ('-k',):
+                write_kull_info(kull_info_file)
+            # We want misc-* to be able to produce multiple file in one
+            # script-run
+            elif o in ('--misc-func',):
+                misc_func = val
+            elif o in ('--misc-tag',):
+                misc_tag = val
+            elif o in ('--misc-file',):
+                write_misc_info(set_filepath(datadir, val), misc_tag, misc_func)
+        except FileChangeTooBigError as msg:
+            logger.error("Manual intervention required: %s", msg)
     logger.info("Done with import from FS")
 
 
