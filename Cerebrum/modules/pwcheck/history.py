@@ -60,7 +60,7 @@ import hashlib
 import base64
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 
-__version__ = "1.0"
+__version__ = "1.1"
 
 
 class ClearPasswordHistoryMixin(DatabaseAccessor):
@@ -163,24 +163,36 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
         
         for old_password in old_passwords:
 
-            hash_func = "pbkdf2_hmac_SHA256"
-            iters = 100000
-            salt = base64.b64encode(os.urandom(12))
-            key = base64.b64encode(hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, iters))
 
-            pas = "{}${}${}${}".format(hash_func, iters, salt, key)
-            print('1', pas[:-1])
+            if (len(old_password) == 22):
+                encoded_password = ph.old_encode_for_history(name, password)
+                if encoded_password == old_password:
+                    return True
+                else:
+                    return False
 
-            pas_part = pas.split('$')
-            alg = pas_part[0]
-            iters = int(pas_part[1])
-            salt = pas_part[2]
-            keyzz = pas_part[3]
+            # hash_func = "pbkdf2_hmac_SHA256"
+            # iters = 100000
+            # salt = base64.b64encode(os.urandom(12))
+            # key = ph.encode_for_history(iters, salt, password.encode('utf-8'))
+            # print(key)
+
+            # pas = "{}${}${}${}".format(hash_func, iters, salt, key)
+            # print('1', pas[:-1])
+
+            # pas_part = pas.split('$')
+            # alg = pas_part[0]
+            # iters = int(pas_part[1])
+            # salt = pas_part[2]
+            # keyzz = pas_part[3]
+
+            password_parts = old_password.split('$')
+            alg = old_password[0]
+            iters = old_password[1]
+            salt = old_password[2]
+            key = old_password[3]
             
             encoded_password = ph.encode_for_history(iters, salt, password.encode('utf-8'))
-            print('2', encoded_password[:-1])
-
-            return
 
             if encoded_password in old_passwords:
                 return True
@@ -189,16 +201,17 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
 class PasswordHistory(DatabaseAccessor):
     """PasswordHistory contains an API for accessing password history."""
 
-    def encode_for_history(self, rounds, salt, password):
-        # m = hashlib.md5(name.encode('utf-8') + password.encode('utf-8'))
-        # return base64.b64encode(m.digest())[:22]
+    def old_encode_for_history(self, name, password):
+        """Hashes old password stored by md5hash """
+        m = hashlib.md5(name.encode('utf-8') + password.encode('utf-8'))
+        return base64.b64encode(m.digest())[:22]
 
+    def encode_for_history(self, rounds, salt, password):
+        """Hashes new passwords by pbkdf2 hash"""
         hash_func = "pbkdf2_hmac_SHA256"
         key = base64.b64encode(hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, rounds))
-
-        return "{}${}${}${}".format(hash_func, rounds, salt, key)
+        return "{}${}${}${}".format(hash_func, rounds, salt, key)[:86]
         
-
     def add_history(self, account, password, _csum=None, _when=None):
         """Add an entry to the password history."""
         name = getattr(account, 'account_name')
@@ -210,6 +223,7 @@ class PasswordHistory(DatabaseAccessor):
             iters = 100000
             salt = base64.b64encode(os.urandom(32))
             csum = self.encode_for_history(iters, salt, password)
+            print(csum)
         if _when is not None:
             col_when = ", set_at"
             val_when = ", :when"
