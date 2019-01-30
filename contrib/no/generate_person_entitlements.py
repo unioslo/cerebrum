@@ -64,7 +64,8 @@ def map_entitlements_to_persons(groups_entitlement):
     for group_id, group_entitlement in groups_entitlement.iteritems():
         group_members = gr.search_members(group_id=group_id,
                                           member_type=co.entity_account,
-                                          member_filter_expired=True,)
+                                          member_filter_expired=True,
+                                          indirect_members=True)
         for member in group_members:
             # Non-primary accounts are excluded
             if not member['member_id'] in primary_accounts_dict:
