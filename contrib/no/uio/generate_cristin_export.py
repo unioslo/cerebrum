@@ -684,6 +684,20 @@ def should_export_person(person):
             return True
         return False
 
+    # Check consent of only MG/MUG 4/04
+    employments = filter(lambda x: not (x.mg == 4 and x.mug == 4),
+                         person.iteremployment())
+    if not employments:
+        if get_consent(person):
+            logger.debug('Person %s ok for export, scientific MG/MUG 4/04 '
+                         'with consent', _get_redacted_person_id_list(person))
+            return True
+
+        logger.debug("Skipping person %s, scientific with only MG/MUG 404 "
+                     "records. No consent given.",
+                     _get_redacted_person_id_list(person))
+        return False
+
     logger.debug('Person %s ok for export',
                  _get_redacted_person_id_list(person))
     return True
