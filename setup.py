@@ -320,6 +320,7 @@ setup(
         'Cerebrum/modules/event_publisher',
         'Cerebrum/modules/exchange',
         'Cerebrum/modules/feide',
+        'Cerebrum/modules/fs',
         'Cerebrum/modules/gpg',
         'Cerebrum/modules/hostpolicy',
         'Cerebrum/modules/bofhd',
