@@ -17,7 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cerebrum import Constants as Consts
+from Cerebrum import Constants
 from Cerebrum.Constants import (_AuthoritativeSystemCode,
                                 _EntityExternalIdCode,
                                 _SpreadCode,
@@ -30,7 +30,7 @@ from Cerebrum.Constants import (_AuthoritativeSystemCode,
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
 
 
-class Constants(Consts.Constants):
+class Constants(Constants.Constants):
     # Org. hierarchy perspective
     perspective_ekstens = _OUPerspectiveCode('Ekstens', 'Ekstens')
     perspective_sats = _OUPerspectiveCode('SATS', 'SATS')
@@ -48,40 +48,40 @@ class Constants(Consts.Constants):
     system_migrate = _AuthoritativeSystemCode(
         'MIGRATE',
         'Personopplysninger hentet fra tidligere brukte systemer')
-    
+
     # External ID codes
     externalid_orgnr = _EntityExternalIdCode('ORGNR',
-                                             Consts.Constants.entity_ou,
+                                             Constants.Constants.entity_ou,
                                              'Organisasjonsnummer (fra SAS)')
     # Disse kodene er det foreløpig usikkert om skal brukes
     externalid_ouid = _EntityExternalIdCode(
         'OUID',
-        Consts.Constants.entity_ou,
+        Constants.Constants.entity_ou,
         'Organisasjonens unike identifikator')
     externalid_skolenr = _EntityExternalIdCode('SKOLENR',
-                                               Consts.Constants.entity_ou,
+                                               Constants.Constants.entity_ou,
                                                'Skolenummer')
     externalid_kommunenr = _EntityExternalIdCode('KOMMNR',
-                                                 Consts.Constants.entity_ou,
+                                                 Constants.Constants.entity_ou,
                                                  'Kommunenummer')
     externalid_ou_oid = _EntityExternalIdCode('OUOID',
-                                              Consts.Constants.entity_ou,
+                                              Constants.Constants.entity_ou,
                                               'OU OID')
     externalid_userid = _EntityExternalIdCode(
         'USERID',
-        Consts.Constants.entity_person,
+        Constants.Constants.entity_person,
         'Bruker ID')
     externalid_klasse = _EntityExternalIdCode(
         'kl-ID',
-        Consts.Constants.entity_group,
+        Constants.Constants.entity_group,
         'Klasse ID')
     externalid_faggruppe = _EntityExternalIdCode(
         'fg-ID',
-        Consts.Constants.entity_group,
+        Constants.Constants.entity_group,
         'Faggruppe ID')
     externalid_klassegruppe = _EntityExternalIdCode(
         'kg-ID',
-        Consts.Constants.entity_group,
+        Constants.Constants.entity_group,
         'klassegruppe ID')
 
 
@@ -89,54 +89,54 @@ class Constants(Consts.Constants):
     # AD
     spread_ad_acc = _SpreadCode(
         'account@ad',
-        Consts.Constants.entity_account,
+        Constants.Constants.entity_account,
         'Brukeren kan logge inn på Windows PC-er.')
     spread_ad_grp = _SpreadCode(
         'group@ad',
-        Consts.Constants.entity_group,
+        Constants.Constants.entity_group,
         'Gruppen brukes av Active Directory.')
     spread_ad_ou = _SpreadCode(
         'ou@ad',
-        Consts.Constants.entity_ou,
+        Constants.Constants.entity_ou,
         'OUen brukes av Active Directory.')
     # LMS
     spread_lms_acc = _SpreadCode(
         'account@lms',
-        Consts.Constants.entity_account,
+        Constants.Constants.entity_account,
         'Brukeren kan logge inn på LMS (f.eks. Classfronter).')
     spread_lms_grp = _SpreadCode(
         'group@lms',
-        Consts.Constants.entity_group,
+        Constants.Constants.entity_group,
         'Gruppen brukes av LMS-et.')
     spread_lms_per = _SpreadCode(
         'person@lms',
-        Consts.Constants.entity_person,
+        Constants.Constants.entity_person,
         'Person kjent i organisasjonens LMS')
     spread_lms_ou = _SpreadCode(
         'ou@lms',
-        Consts.Constants.entity_ou,
+        Constants.Constants.entity_ou,
         'Eksportere OU til LMS (f.eks. Classfronter).')
     # OID
     spread_oid_acc = _SpreadCode(
         'account@oid',
-        Consts.Constants.entity_account,
+        Constants.Constants.entity_account,
         'Brukeren kan logge inn på webportalen (OCS).')
     spread_oid_grp = _SpreadCode(
         'group@oid',
-        Consts.Constants.entity_group,
+        Constants.Constants.entity_group,
         'Gruppen brukes av webportalen (OCS).')
     spread_oid_ou = _SpreadCode(
         'ou@oid',
-        Consts.Constants.entity_ou,
+        Constants.Constants.entity_ou,
         'OU-en skal eksporteres til OID.')
     # LDAP
     spread_ldap_per = _SpreadCode(
         'person@ldap',
-        Consts.Constants.entity_person,
+        Constants.Constants.entity_person,
         'Brukeren kan benytte seg av FEIDE-innlogging.')
     spread_ldap_grp = _SpreadCode(
         'group@ldap',
-        Consts.Constants.entity_group,
+        Constants.Constants.entity_group,
         'Gruppen brukes i LDAP.')
 
 # Quarantine codes
@@ -191,7 +191,7 @@ class Constants(Consts.Constants):
         affiliation_affiliate,
         'aktiv',
         'Person aktiv ved organisasjonen.')
- 
+
 
 # Account_type codes
 
@@ -205,14 +205,14 @@ class Constants(Consts.Constants):
 
 # Mail traits
     trait_homedb_info = _EntityTraitCode(
-        'homeMDB', Consts.Constants.entity_account,
+        'homeMDB', Constants.Constants.entity_account,
         'Register Exchange homeMDB for e-mail accounts')
     trait_x400_addr = _EntityTraitCode(
-        'x400address', Consts.Constants.entity_account,
+        'x400address', Constants.Constants.entity_account,
         'Register old addresses for e-mail accounts')
     trait_x500_addr = _EntityTraitCode(
-        'x500address', Consts.Constants.entity_account,
-        'Register old addresses for e-mail accounts')    
+        'x500address', Constants.Constants.entity_account,
+        'Register old addresses for e-mail accounts')
 
     # Traits for migrating between versions of Exchange:
 
@@ -220,45 +220,45 @@ class Constants(Consts.Constants):
     # updated in AD until the migration is done.
     trait_exchange_under_migration = _EntityTraitCode(
         'under_migration',
-        Consts.Constants.entity_account,
+        Constants.Constants.entity_account,
         "Accounts that is under migrationt to another Exchange version.")
     # Need to differ between migrated and non-migrated accounts
     trait_exchange_migrated = _EntityTraitCode(
         'exch_migrated',
-        Consts.Constants.entity_account,
+        Constants.Constants.entity_account,
         "Account that has been migrated to a newer Exchange version.")
 
 # Group traits
     trait_group_imported = _EntityTraitCode(
-        'imported_group', Consts.Constants.entity_group,
+        'imported_group', Constants.Constants.entity_group,
         'Register last_seen date for groups imported from by ABC')
     trait_group_derived = _EntityTraitCode(
-        'internal_group', Consts.Constants.entity_group,
+        'internal_group', Constants.Constants.entity_group,
         'Register last_seen date for internaly created groups')
     trait_group_affiliation = _EntityTraitCode(
-        'aff_group', Consts.Constants.entity_group,
+        'aff_group', Constants.Constants.entity_group,
         'Tag groups created to become affiliation groups.')
     # tag shadow groups as "undervisningsgruppe" and "klassegruppe"
     trait_shdw_undv = _EntityTraitCode(
-        'undv_group', Consts.Constants.entity_group,
+        'undv_group', Constants.Constants.entity_group,
         'Tag groups created to represent "undervisningsgruppe".')
     trait_shdw_kls = _EntityTraitCode(
-        'kls_group', Consts.Constants.entity_group,
+        'kls_group', Constants.Constants.entity_group,
         'Tag groups created to represent "klassegruppe".')
     # tag affiliation based auto-groups
     trait_auto_aff = _EntityTraitCode(
-        'auto_group', Consts.Constants.entity_group,
+        'auto_group', Constants.Constants.entity_group,
         'Tag affiliations based automatic groups.')
     # Guardianship-related traits
     trait_guardian_of = _EntityTraitCode(
-        'guardian_of', Consts.Constants.entity_person,
+        'guardian_of', Constants.Constants.entity_person,
         'Register guardees for this person')
     trait_guardian_urls = _EntityTraitCode(
-        'guardian_urls', Consts.Constants.entity_person,
-        'Register urls for this person')    
+        'guardian_urls', Constants.Constants.entity_person,
+        'Register urls for this person')
 
 
 # SMS traits
     trait_sms_reminder = _EntityTraitCode(
-        'sms_reminder', Consts.Constants.entity_account,
-        'Tagging that an SMS has been sent')    
+        'sms_reminder', Constants.Constants.entity_account,
+        'Tagging that an SMS has been sent')
