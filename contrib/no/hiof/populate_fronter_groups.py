@@ -797,7 +797,8 @@ def fnr2person_id(db):
     result = dict()
 
     logger.debug("Loading all fnr -> person_id")
-    for row in person.list_external_ids(id_type=const.externalid_fodselsnr):
+    for row in person.search_external_ids(id_type=const.externalid_fodselsnr,
+                                          fetchall=False):
         person_id = row["entity_id"]
         fnr = row["external_id"]
         result[fnr] = person_id

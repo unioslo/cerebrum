@@ -1400,51 +1400,9 @@ class EntityExternalId(Entity):
         %s
         """ % where_str, binds)
 
-    def list_external_ids(self, source_system=None, id_type=None,
-                          external_id=None, entity_type=None, entity_id=None):
-        """We trust id_type's entity_type more than a supplemented
-        attribute, hence we try that first.
-
-        TODO: Migrate over to L{search_external_ids}?
-
-        @param source_system:
-          Source system for the external ID (SAP, LT, FS, etc.)
-        @param id_type:
-          Specific external ID type (like externalid_fodselsnr)
-        @param external_id:
-          Value for the external ID (useful for looking up the owner of a
-          particular external ID).
-        @param entity_type:
-          Looks for a specific entity type (i.e. Person, OU).
-        @param entity_id:
-          Looks for a specific entity (useful for looking up (all) external ids
-          belonging to a specific entity)
-        """
-        cols = {}
-        where = ""
-        if id_type:
-            cols['entity_type'] = int(id_type.entity_type)
-        elif entity_type:
-            cols['entity_type'] = int(entity_type)
-        if source_system is not None:
-            cols['source_system'] = int(source_system)
-        if id_type is not None:
-            cols['id_type'] = int(id_type)
-        if external_id is not None:
-            cols['external_id'] = six.text_type(external_id)
-        if entity_id is not None:
-            cols['entity_id'] = int(entity_id)
-        if cols:
-            where = ("WHERE " +
-                     " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()]))
-        return self.query("""
-        SELECT entity_id, id_type, source_system, external_id
-        FROM [:table schema=cerebrum name=entity_external_id]
-        %s""" % where, cols, fetchall=False)
-
     def search_external_ids(self, source_system=None, id_type=None,
                             external_id=None, entity_type=None,
-                            entity_id=None):
+                            entity_id=None, fetchall=True):
         """Search for external IDs matching specified criteria.
 
         @type source_system: int or AuthoritativeSystemCode or sequence thereof
@@ -1471,6 +1429,10 @@ class EntityExternalId(Entity):
         @param entity_id:
             Filter resulting IDs by given entitites. Useful for looking up
             (all) external ids belonging to a specific entity).
+
+        @type fetchall: bool
+        @param fetchall:
+            Fetch all results or return a generator object with the results.
 
         @rtype: iterable (yielding db-rows)
         @return:
@@ -1502,7 +1464,7 @@ class EntityExternalId(Entity):
         return self.query("""
             SELECT entity_id, entity_type, id_type, source_system, external_id
             FROM [:table schema=cerebrum name=entity_external_id]
-            %s""" % where_str, binds)
+            %s""" % where_str, binds, fetchall=fetchall)
         # TODO: might want to look at setting fetchall, but need to figure out
         # what the ups and downs are. Speed versus memory?
 

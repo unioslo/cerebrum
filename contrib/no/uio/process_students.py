@@ -960,8 +960,9 @@ def get_existing_accounts():
 
     logger.info("Listing persons")
     pid2fnr = {}
-    for row in person_obj.list_external_ids(
-            id_type=const.externalid_fodselsnr):
+    for row in person_obj.search_external_ids(
+            id_type=const.externalid_fodselsnr,
+            fetchall=False):
         if (row['source_system'] == int(const.system_fs) or
                 int(row['entity_id']) not in pid2fnr):
             pid2fnr[int(row['entity_id'])] = row['external_id']

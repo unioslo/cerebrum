@@ -165,9 +165,10 @@ def make_sapid_cache(db):
     extid_cache = dict()
     id_type = co.externalid_sap_ansattnr
     logger.debug('caching %s ids...', six.text_type(id_type))
-    for r in pe.list_external_ids(id_type=id_type,
-                                  entity_type=co.entity_person,
-                                  source_system=co.system_sap):
+    for r in pe.search_external_ids(id_type=id_type,
+                                    entity_type=co.entity_person,
+                                    source_system=co.system_sap,
+                                    fetchall=False):
         extid_cache[r['entity_id']] = r['external_id']
     logger.debug('cached sap id for %d persons', len(extid_cache))
 

@@ -316,7 +316,8 @@ class BofhdUtils(object):
             # insufficient. We need EntityExternalId here.
             en = Factory.get("Person")(self.db)
             # first, locate the entity_id
-            candidates = en.list_external_ids(external_id=ext_id)
+            candidates = en.search_external_ids(external_id=ext_id,
+                                                fetchall=False)
             only_ids = set([int(x["entity_id"]) for x in candidates])
             if len(only_ids) < 1:
                 raise CerebrumError("No entity with external id=%s" % ext_id)

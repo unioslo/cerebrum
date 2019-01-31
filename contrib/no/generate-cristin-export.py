@@ -289,9 +289,10 @@ def _cache_person_external_id(cache, source_system):
     person = Factory.get("Person")(db)
     const = Factory.get("Constants")()
 
-    for row in person.list_external_ids(source_system=source_system,
-                                        id_type=const.externalid_fodselsnr,
-                                        entity_type=const.entity_person):
+    for row in person.search_external_ids(source_system=source_system,
+                                          id_type=const.externalid_fodselsnr,
+                                          entity_type=const.entity_person,
+                                          fetchall=False):
         if row["entity_id"] not in cache:
             continue
         cache[row["entity_id"]][int(row["id_type"])] = row["external_id"]
