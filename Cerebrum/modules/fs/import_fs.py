@@ -54,7 +54,6 @@ class FsImporter(object):
         self.include_delete = include_delete
 
         self.reg_fagomr = reg_fagomr
-        self.find_person_by = find_person_by
         self._init_aff_status_pri_order()
         self.rules = rules
         if rule_map:
@@ -173,16 +172,16 @@ class FsImporter(object):
         if not birth_date:
             logger.warn('No birth date registered for studentnr %s', studentnr)
 
-        person = self._get_person(fnr, studentnr)
+        new_person = self._get_person(fnr, studentnr)
 
-        if self._db_add_person(person, birth_date, gender, fornavn,
+        if self._db_add_person(new_person, birth_date, gender, fornavn,
                                etternavn, studentnr, fnr, person_info,
                                affiliations):
             # Perform following operations only if _db_add_person didn't fail
             if self.reg_fagomr:
-                self._register_fagomrade(person, person_info)
+                self._register_fagomrade(new_person, person_info)
             if self.gen_groups:
-                self._add_reservations(person_info, person)
+                self._add_reservations(person_info, new_person)
 
             if self.commit:
                 self.db.commit()
