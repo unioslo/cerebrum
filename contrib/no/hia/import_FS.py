@@ -173,7 +173,6 @@ def main():
     fs_importer = FsImporterUia(args.gen_groups,
                                 args.include_delete, args.commit,
                                 args.studieprogramfile, source, rules, adr_map,
-                                find_person_by='studentnr',
                                 reservation_query=reservation_query)
 
     StudentInfo.StudentInfoParser(args.personfile,

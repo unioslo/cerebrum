@@ -42,12 +42,11 @@ logger = logging.getLogger(__name__)
 class FsImporterUio(FsImporter):
     def __init__(self, gen_groups, include_delete, commit,
                  studieprogramfile, source, rules, adr_map, emnefile,
-                 rule_map, find_person_by='fnr'):
+                 rule_map):
 
         super(FsImporterUio, self).__init__(gen_groups, include_delete, commit,
                                             studieprogramfile, source, rules,
-                                            adr_map, rule_map=rule_map,
-                                            find_person_by=find_person_by)
+                                            adr_map, rule_map=rule_map)
         self._init_emne2sko(emnefile)
         self._new_student_filter = self._get_admission_date_func(
             mx.DateTime.now(), grace_days=7)

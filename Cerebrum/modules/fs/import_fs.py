@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 class FsImporter(object):
     def __init__(self, gen_groups, include_delete, commit,
                  studieprogramfile, source, rules, adr_map,
-                 find_person_by='fnr', rule_map=None, reg_fagomr=False,
+                 rule_map=None, reg_fagomr=False,
                  reservation_query=None):
         # Variables passed to/from main
         self.db = Factory.get('Database')()
@@ -54,7 +54,6 @@ class FsImporter(object):
         self.include_delete = include_delete
 
         self.reg_fagomr = reg_fagomr
-        self.find_person_by = find_person_by
         self._init_aff_status_pri_order()
         self.rules = rules
         if rule_map:
@@ -80,10 +79,6 @@ class FsImporter(object):
         self.old_aff = None
         if self.include_delete:
             self.old_aff = self._load_cere_aff()
-
-        self.fnr2person_id = None
-        if self.find_person_by == 'fnr':
-            self.fnr2person_id, self.person = self._get_fnr2person()
 
         self.commit = commit
         self.source = source
@@ -155,19 +150,6 @@ class FsImporter(object):
                 self.ou_cache[key] = None
         return self.ou_cache[key]
 
-    def _get_fnr2person(self):
-        person = Factory.get('Person')(self.db)
-        # create fnr2person_id mapping, always using fnr from FS when set
-        fnr2person_id = {}
-        for p in person.search_external_ids(
-                id_type=self.co.externalid_fodselsnr,
-                fetchall=False):
-            if self.co.system_fs == p['source_system']:
-                fnr2person_id[p['external_id']] = p['entity_id']
-            elif p['external_id'] not in fnr2person_id:
-                fnr2person_id[p['external_id']] = p['entity_id']
-        return fnr2person_id, person
-
     def process_person_callback(self, person_info):
         """Called when we have fetched all data on a person from the xml
         file.  Updates/inserts name, address and affiliation
@@ -190,49 +172,36 @@ class FsImporter(object):
         if not birth_date:
             logger.warn('No birth date registered for studentnr %s', studentnr)
 
-        # TODO: If the person already exists and has conflicting data from
-        # another source-system, some mechanism is needed to determine the
-        # superior setting.
-        if self.find_person_by == 'fnr':
-            new_person = self._get_person_by_fnr(fnr)
-        elif self.find_person_by == 'studentnr':
-            new_person = self._get_person_by_studentnr(fnr, studentnr)
+        person = self._get_person(fnr, studentnr)
 
-        err = self._db_add_person(new_person, birth_date, gender, fornavn,
-                                  etternavn, studentnr, fnr, person_info,
-                                  affiliations)
-
-        if not err:
+        if self._db_add_person(person, birth_date, gender, fornavn,
+                               etternavn, studentnr, fnr, person_info,
+                               affiliations):
+            # Perform following operations only if _db_add_person didn't fail
             if self.reg_fagomr:
-                self._register_fagomrade(new_person, person_info)
+                self._register_fagomrade(person, person_info)
             if self.gen_groups:
-                self._add_reservations(person_info, new_person)
+                self._add_reservations(person_info, person)
 
             if self.commit:
                 self.db.commit()
             else:
                 self.db.rollback()
 
-    def _get_person_by_fnr(self, fnr):
-        new_person = Factory.get('Person')(self.db)
-        if fnr in self.fnr2person_id:
-            new_person.find(self.fnr2person_id[fnr])
-        return new_person
-
-    def _get_person_by_studentnr(self, fnr, studentnr):
+    def _get_person(self, fnr, studentnr):
         fsids = [(self.co.externalid_fodselsnr, fnr)]
         if studentnr is not None:
             fsids.append((self.co.externalid_studentnr, studentnr))
-        new_person = Factory.get('Person')(self.db)
+        person = Factory.get('Person')(self.db)
         try:
-            new_person.find_by_external_ids(*fsids)
+            person.find_by_external_ids(*fsids)
         except Errors.NotFoundError:
             pass
         except Errors.TooManyRowsError as e:
             logger.error("Trying to find studentnr %r, "
                          "getting several persons: %r",
                          studentnr, e)
-        return new_person
+        return person
 
     def _get_fnr(self, person_info):
         try:
@@ -324,27 +293,27 @@ class FsImporter(object):
         if ou is not None:
             new_affs.append((ou, aff, aff_status))
 
-    def _db_add_person(self, new_person, birth_date, gender, fornavn,
+    def _db_add_person(self, person, birth_date, gender, fornavn,
                        etternavn, studentnr, fnr, person_info, affiliations):
         """Fills in the necessary information about the new_person.
         Then the new_person gets written to the database"""
-        new_person.populate(birth_date, gender)
-        new_person.affect_names(self.co.system_fs, self.co.name_first,
-                                self.co.name_last)
-        new_person.populate_name(self.co.name_first, fornavn)
-        new_person.populate_name(self.co.name_last, etternavn)
+        person.populate(birth_date, gender)
+        person.affect_names(self.co.system_fs, self.co.name_first,
+                            self.co.name_last)
+        person.populate_name(self.co.name_first, fornavn)
+        person.populate_name(self.co.name_last, etternavn)
 
         if studentnr is not None:
-            new_person.affect_external_id(self.co.system_fs,
-                                          self.co.externalid_fodselsnr,
-                                          self.co.externalid_studentnr)
-            new_person.populate_external_id(self.co.system_fs,
-                                            self.co.externalid_studentnr,
-                                            studentnr)
+            person.affect_external_id(self.co.system_fs,
+                                      self.co.externalid_fodselsnr,
+                                      self.co.externalid_studentnr)
+            person.populate_external_id(self.co.system_fs,
+                                        self.co.externalid_studentnr,
+                                        studentnr)
         else:
-            new_person.affect_external_id(self.co.system_fs,
-                                          self.co.externalid_fodselsnr)
-        new_person.populate_external_id(self.co.system_fs,
+            person.affect_external_id(self.co.system_fs,
+                                      self.co.externalid_fodselsnr)
+            person.populate_external_id(self.co.system_fs,
                                         self.co.externalid_fodselsnr,
                                         fnr)
 
@@ -356,31 +325,31 @@ class FsImporter(object):
             # TBD: Skal vi slette evt. eksisterende adresse v/None?
             if address_info is not None:
                 logger.debug("Populating address %s for %s", ad_const, fnr)
-                new_person.populate_address(self.co.system_fs, ad_const,
-                                            **address_info)
+                person.populate_address(self.co.system_fs, ad_const,
+                                        **address_info)
         # if this is a new Person, there is no entity_id assigned to it
         # until written to the database.
         try:
-            op = new_person.write_db()
+            op = person.write_db()
         except Exception, e:
             logger.exception("write_db failed for person %s: %s", fnr, e)
             # Roll back in case of db exceptions:
             self.db.rollback()
-            return True
+            return False
 
         affiliations = self._filter_affiliations(affiliations)
 
         for ou, aff, aff_status in affiliations:
-            new_person.populate_affiliation(self.co.system_fs, ou, aff,
-                                            aff_status)
+            person.populate_affiliation(self.co.system_fs, ou, aff,
+                                        aff_status)
             if self.include_delete:
-                key_a = "%s:%s:%s" % (new_person.entity_id, ou, int(aff))
+                key_a = "%s:%s:%s" % (person.entity_id, ou, int(aff))
                 if key_a in self.old_aff:
                     self.old_aff[key_a] = False
 
-        self._register_cellphone(new_person, person_info)
+        self._register_cellphone(person, person_info)
 
-        op2 = new_person.write_db()
+        op2 = person.write_db()
 
         if op is None and op2 is None:
             logger.info("**** EQUAL ****")
@@ -388,6 +357,7 @@ class FsImporter(object):
             logger.info("**** NEW ****")
         else:
             logger.info("**** UPDATE ****")
+        return True
 
     def _register_cellphone(self, person, person_info):
         """Register person's cell phone number from person_info.
