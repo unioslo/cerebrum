@@ -172,16 +172,16 @@ class FsImporter(object):
         if not birth_date:
             logger.warn('No birth date registered for studentnr %s', studentnr)
 
-        new_person = self._get_person(fnr, studentnr)
+        person = self._get_person(fnr, studentnr)
 
-        if self._db_add_person(new_person, birth_date, gender, fornavn,
+        if self._db_add_person(person, birth_date, gender, fornavn,
                                etternavn, studentnr, fnr, person_info,
                                affiliations):
             # Perform following operations only if _db_add_person didn't fail
             if self.reg_fagomr:
-                self._register_fagomrade(new_person, person_info)
+                self._register_fagomrade(person, person_info)
             if self.gen_groups:
-                self._add_reservations(person_info, new_person)
+                self._add_reservations(person_info, person)
 
             if self.commit:
                 self.db.commit()
@@ -293,27 +293,27 @@ class FsImporter(object):
         if ou is not None:
             new_affs.append((ou, aff, aff_status))
 
-    def _db_add_person(self, new_person, birth_date, gender, fornavn,
+    def _db_add_person(self, person, birth_date, gender, fornavn,
                        etternavn, studentnr, fnr, person_info, affiliations):
         """Fills in the necessary information about the new_person.
         Then the new_person gets written to the database"""
-        new_person.populate(birth_date, gender)
-        new_person.affect_names(self.co.system_fs, self.co.name_first,
-                                self.co.name_last)
-        new_person.populate_name(self.co.name_first, fornavn)
-        new_person.populate_name(self.co.name_last, etternavn)
+        person.populate(birth_date, gender)
+        person.affect_names(self.co.system_fs, self.co.name_first,
+                            self.co.name_last)
+        person.populate_name(self.co.name_first, fornavn)
+        person.populate_name(self.co.name_last, etternavn)
 
         if studentnr is not None:
-            new_person.affect_external_id(self.co.system_fs,
-                                          self.co.externalid_fodselsnr,
-                                          self.co.externalid_studentnr)
-            new_person.populate_external_id(self.co.system_fs,
-                                            self.co.externalid_studentnr,
-                                            studentnr)
+            person.affect_external_id(self.co.system_fs,
+                                      self.co.externalid_fodselsnr,
+                                      self.co.externalid_studentnr)
+            person.populate_external_id(self.co.system_fs,
+                                        self.co.externalid_studentnr,
+                                        studentnr)
         else:
-            new_person.affect_external_id(self.co.system_fs,
-                                          self.co.externalid_fodselsnr)
-        new_person.populate_external_id(self.co.system_fs,
+            person.affect_external_id(self.co.system_fs,
+                                      self.co.externalid_fodselsnr)
+            person.populate_external_id(self.co.system_fs,
                                         self.co.externalid_fodselsnr,
                                         fnr)
 
@@ -325,12 +325,12 @@ class FsImporter(object):
             # TBD: Skal vi slette evt. eksisterende adresse v/None?
             if address_info is not None:
                 logger.debug("Populating address %s for %s", ad_const, fnr)
-                new_person.populate_address(self.co.system_fs, ad_const,
-                                            **address_info)
+                person.populate_address(self.co.system_fs, ad_const,
+                                        **address_info)
         # if this is a new Person, there is no entity_id assigned to it
         # until written to the database.
         try:
-            op = new_person.write_db()
+            op = person.write_db()
         except Exception, e:
             logger.exception("write_db failed for person %s: %s", fnr, e)
             # Roll back in case of db exceptions:
@@ -340,16 +340,16 @@ class FsImporter(object):
         affiliations = self._filter_affiliations(affiliations)
 
         for ou, aff, aff_status in affiliations:
-            new_person.populate_affiliation(self.co.system_fs, ou, aff,
-                                            aff_status)
+            person.populate_affiliation(self.co.system_fs, ou, aff,
+                                        aff_status)
             if self.include_delete:
-                key_a = "%s:%s:%s" % (new_person.entity_id, ou, int(aff))
+                key_a = "%s:%s:%s" % (person.entity_id, ou, int(aff))
                 if key_a in self.old_aff:
                     self.old_aff[key_a] = False
 
-        self._register_cellphone(new_person, person_info)
+        self._register_cellphone(person, person_info)
 
-        op2 = new_person.write_db()
+        op2 = person.write_db()
 
         if op is None and op2 is None:
             logger.info("**** EQUAL ****")
