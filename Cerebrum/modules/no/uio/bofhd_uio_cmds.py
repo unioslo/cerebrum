@@ -6761,12 +6761,16 @@ class BofhdExtension(BofhdCommonMethods):
             pu.delete_posixuser()
             pu = Utils.Factory.get('PosixUser')(self.db)
 
-        # We remove all old group memberships
+        # We remove all old group memberships, except the personal group, which
+        # should have its expire date removed
         grp = self.Group_class(self.db)
-        for row in grp.search(member_id=ac.entity_id):
+        for row in grp.search(member_id=ac.entity_id, filter_expired=False):
             grp.clear()
             grp.find(row['group_id'])
-            grp.remove_member(ac.entity_id)
+            if grp.get_trait('personal_group'):
+                grp.expire_date = None
+            else:
+                grp.remove_member(ac.entity_id)
             grp.write_db()
 
         # We remove all (the old) affiliations on the account
