@@ -308,6 +308,9 @@ class FsImporter(object):
                                       self.co.externalid_fodselsnr,
                                       self.co.externalid_studentnr)
             person.populate_external_id(self.co.system_fs,
+                                        self.co.externalid_fodselsnr,
+                                        fnr)
+            person.populate_external_id(self.co.system_fs,
                                         self.co.externalid_studentnr,
                                         studentnr)
         else:
