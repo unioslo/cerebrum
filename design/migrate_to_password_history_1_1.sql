@@ -20,4 +20,4 @@
 
 category:pre;
 ALTER TABLE password_history
-    ALTER COLUMN md5base64 TYPE CHAR VARYING(86);
+    ALTER COLUMN md5base64 TYPE CHAR VARYING(128);

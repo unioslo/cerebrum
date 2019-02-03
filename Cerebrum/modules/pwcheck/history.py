@@ -162,55 +162,36 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
         old_passwords = [r['md5base64'] for r in ph.get_history(entity_id)]
         
         for old_password in old_passwords:
-
-
             if (len(old_password) == 22):
                 encoded_password = ph.old_encode_for_history(name, password)
                 if encoded_password == old_password:
                     return True
-                else:
-                    return False
-
-            # hash_func = "pbkdf2_hmac_SHA256"
-            # iters = 100000
-            # salt = base64.b64encode(os.urandom(12))
-            # key = ph.encode_for_history(iters, salt, password.encode('utf-8'))
-            # print(key)
-
-            # pas = "{}${}${}${}".format(hash_func, iters, salt, key)
-            # print('1', pas[:-1])
-
-            # pas_part = pas.split('$')
-            # alg = pas_part[0]
-            # iters = int(pas_part[1])
-            # salt = pas_part[2]
-            # keyzz = pas_part[3]
-
-            password_parts = old_password.split('$')
-            alg = old_password[0]
-            iters = old_password[1]
-            salt = old_password[2]
-            key = old_password[3]
-            
-            encoded_password = ph.encode_for_history(iters, salt, password.encode('utf-8'))
-
-            if encoded_password in old_passwords:
-                return True
+            else:
+                password_parts = old_password.split('$')
+                alg = password_parts[0]
+                iters = int(password_parts[1])
+                salt = base64.b64decode(password_parts[2])
+                key = password_parts[3]
+                
+                encoded_password = ph.encode_for_history(iters, salt, password.encode('utf-8'))
+                if encoded_password in old_passwords:
+                    return True
+        return False
 
 
 class PasswordHistory(DatabaseAccessor):
     """PasswordHistory contains an API for accessing password history."""
 
     def old_encode_for_history(self, name, password):
-        """Hashes old password stored by md5hash """
+        """Hashes old password stored by md5hash."""
         m = hashlib.md5(name.encode('utf-8') + password.encode('utf-8'))
         return base64.b64encode(m.digest())[:22]
 
     def encode_for_history(self, rounds, salt, password):
         """Hashes new passwords by pbkdf2 hash"""
-        hash_func = "pbkdf2_hmac_SHA256"
-        key = base64.b64encode(hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, rounds))
-        return "{}${}${}${}".format(hash_func, rounds, salt, key)[:86]
+        hash_func = "pbkdf2_sha512"
+        key = base64.b64encode(hashlib.pbkdf2_hmac('sha512', password.encode('utf-8'), salt, rounds, 32))
+        return "{}${}${}${}".format(hash_func, rounds, base64.b64encode(salt), key)[:109]
         
     def add_history(self, account, password, _csum=None, _when=None):
         """Add an entry to the password history."""
@@ -221,9 +202,8 @@ class PasswordHistory(DatabaseAccessor):
             csum = _csum
         else:
             iters = 100000
-            salt = base64.b64encode(os.urandom(32))
+            salt = os.urandom(32)
             csum = self.encode_for_history(iters, salt, password)
-            print(csum)
         if _when is not None:
             col_when = ", set_at"
             val_when = ", :when"
