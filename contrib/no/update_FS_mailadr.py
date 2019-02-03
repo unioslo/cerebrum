@@ -117,8 +117,8 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup, fs_update, index,
         else:
 
             if fs_attribute is not None:
-                logger.debug1("Deleting %s for %s: %s",
-                              index, fnr, fs_attribute)
+                logger.info("Deleting %s for %s: %s",
+                            index, fnr, fs_attribute)
 
                 # None in FS means "no value"
                 fs_update(row['fodselsdato'], row['personnr'], None)
@@ -139,15 +139,15 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup, fs_update, index,
         if cere_value in updates:
             u_fs_value = cere_value
             u_fdato, u_persnr, u_cere_value = updates[u_fs_value]
-            logger.debug1("Changing cascading %s for %06d%05d: %s -> %s",
-                          index, u_fdato, u_persnr, u_fs_value, u_cere_value)
+            logger.info("Changing cascading %s for %06d%05d: %s -> %s",
+                        index, u_fdato, u_persnr, u_fs_value, u_cere_value)
             fs_update(u_fdato, u_persnr, u_cere_value)
             commit_handler()
             # Mark it as done
             updates[cere_value] = None
 
-        logger.debug1("Changing %s for %06d%05d: %s -> %s",
-                      index, fdato, persnr, fs_value, cere_value)
+        logger.info("Changing %s for %06d%05d: %s -> %s",
+                    index, fdato, persnr, fs_value, cere_value)
         try:
             fs_update(fdato, persnr, cere_value)
             commit_handler()
@@ -160,8 +160,8 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup, fs_update, index,
 
     for cere_value in additions.keys():
         fdato, persnr = additions[cere_value]
-        logger.debug1("Adding %s for %06d%05d: %s", index, fdato, persnr,
-                      cere_value)
+        logger.info("Adding %s for %06d%05d: %s",
+                    index, fdato, persnr, cere_value)
         try:
             fs_update(fdato, persnr, cere_value)
             commit_handler()
