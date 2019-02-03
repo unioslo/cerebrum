@@ -59,11 +59,9 @@ uname@ulrik.uio.no
 import sys
 import getopt
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import database
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.access_FS import FS
 
@@ -151,7 +149,7 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup, fs_update, index,
         try:
             fs_update(fdato, persnr, cere_value)
             commit_handler()
-        except Exception, e:
+        except Exception as e:
             logger.error("Failed updating %s for %06d%05d to %s: %s",
                          index, fdato, persnr, cere_value, e)
 
@@ -165,7 +163,7 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup, fs_update, index,
         try:
             fs_update(fdato, persnr, cere_value)
             commit_handler()
-        except Exception, e:
+        except Exception as e:
             logger.error("Failed adding %s for %06d%05d to %s: %s",
                          index, fdato, persnr, cere_value, e)
 
@@ -173,7 +171,7 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup, fs_update, index,
 
 
 def usage(exitcode=0):
-    print """
+    print("""
 %(doc)s
 
 Usage: update_FS_mailadr.py [options]
@@ -184,7 +182,7 @@ Usage: update_FS_mailadr.py [options]
 -s --db-service NAME Connect to given database
 -d --dryrun          Run synchronization, but do *not* update FS
 
-""" % {'doc': __doc__}
+""" % {'doc': __doc__})
     sys.exit(exitcode)
 
 
@@ -197,8 +195,8 @@ def main():
             sys.argv[1:],
             "hdu:s:ea",
             ["help", "dryrun", "db-user=", "db-service=", "email", "account"])
-    except getopt.GetoptError, e:
-        print e
+    except getopt.GetoptError as e:
+        print(e)
         usage(2)
 
     user = "I0185_ureg2000"
@@ -221,7 +219,7 @@ def main():
         elif option in ('-h', '--help'):
             usage()
         else:
-            print "Unknown argument: %s" % option
+            print("Unknown argument: %s" % option)
             usage(2)
 
     DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
