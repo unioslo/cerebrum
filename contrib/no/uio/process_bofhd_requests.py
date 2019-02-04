@@ -21,38 +21,33 @@
 
 import errno
 import fcntl
-import getopt
 import mx
 import os
 import pickle
 import re
-import sys
 import time
 import socket
 import ssl
+import logging
+import argparse
 from contextlib import closing
 
 import cereconf
 
 from Cerebrum import Utils
+from Cerebrum import logutils
 from Cerebrum import Errors
 from Cerebrum.utils import json
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 
+from Cerebrum.utils.argutils import get_constant
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 
-logger = Utils.Factory.get_logger("bofhd_req")
-db = Utils.Factory.get('Database')()
-db.cl_init(change_program='process_bofhd_r')
-cl_const = Utils.Factory.get('CLConstants')(db)
-const = Utils.Factory.get('Constants')(db)
-
-max_requests = 999999
-ou_perspective = None
+logger = logging.getLogger(__name__)
 
 SSH_CMD = "/usr/bin/ssh"
 SUDO_CMD = "sudo"
@@ -66,8 +61,13 @@ EXIT_SUCCESS = 0
 # state_data, but for e-mail commands this column is already used for
 # something else.  The proper solution is to change the databasetable
 # and/or letting state_data be pickled.
+db = Utils.Factory.get('Database')()
+db.cl_init(change_program='process_bofhd_r')
+cl_const = Utils.Factory.get('CLConstants')(db)
+const = Utils.Factory.get('Constants')(db)
 default_spread = const.spread_uio_nis_user
 
+ou_perspective = emne_info_file = studconfig_file = studieprogs_file = None
 
 class RequestLockHandler(object):
     def __init__(self, lockdir=None):
@@ -155,37 +155,44 @@ def connect_cyrus(host=None, username=None, as_admin=True):
     return imapconn
 
 
-def process_requests(types):
-    global max_requests
-
+def get_operations():
     operations = {
-        'quarantine':
-        [(const.bofh_quarantine_refresh, proc_quarantine_refresh, 0)],
-        'delete':
-        [(const.bofh_archive_user, proc_archive_user, 2 * 60),
-         (const.bofh_delete_user, proc_delete_user, 2 * 60)],
-        'move':
-        [(const.bofh_move_user_now, proc_move_user, 24 * 60),
-         (const.bofh_move_user, proc_move_user, 24 * 60)],
-        'email':
-        [(const.bofh_email_create, proc_email_create, 0),
-         (const.bofh_email_delete, proc_email_delete, 4 * 60),
-         ],
-        'sympa':
-        [(const.bofh_sympa_create, proc_sympa_create, 2 * 60),
-         (const.bofh_sympa_remove, proc_sympa_remove, 2 * 60)],
+        'quarantine': [
+            (const.bofh_quarantine_refresh, proc_quarantine_refresh, 0)
+        ],
+        'delete': [
+            (const.bofh_archive_user, proc_archive_user, 2 * 60),
+            (const.bofh_delete_user, proc_delete_user, 2 * 60)
+        ],
+        'move': [
+            (const.bofh_move_user_now, proc_move_user, 24 * 60),
+            (const.bofh_move_user, proc_move_user, 24 * 60)
+        ],
+        'email': [
+            (const.bofh_email_create, proc_email_create, 0),
+            (const.bofh_email_delete, proc_email_delete, 4 * 60)
+        ],
+        'sympa': [
+            (const.bofh_sympa_create, proc_sympa_create, 2 * 60),
+            (const.bofh_sympa_remove, proc_sympa_remove, 2 * 60)
+        ],
     }
     """Each type (or category) of requests consists of a list of which
     requests to process.  The tuples are operation, processing function,
     and how long to delay the request (in minutes) if the function returns
     False.
     """
+    return operations
+
+
+def process_requests(types, max_requests):
+    if 'move' in types:
+        # Convert move_student requests into move_user requests
+        process_move_student_requests()
+    operations = get_operations()
     with closing(RequestLockHandler()) as reqlock:
         br = BofhdRequests(db, const)
         for t in types:
-            if t == 'move' and is_ok_batch_time(time.strftime("%H:%M")):
-                # convert move_student into move_user requests
-                process_move_student_requests()
             for op, process, delay in operations[t]:
                 set_operator()
                 start_time = time.time()
@@ -197,6 +204,9 @@ def process_requests(types):
                         break
                     if r['run_at'] > mx.DateTime.now():
                         continue
+                    # Moving users only at ok times
+                    if op is const.bofh_move_user and not is_ok_batch_time():
+                        break
                     if not is_valid_request(reqid):
                         continue
                     if reqlock.grab(reqid):
@@ -458,7 +468,8 @@ def get_address(address_id):
                       ed.rewrite_special_domains(ed.email_domain_name))
 
 
-def is_ok_batch_time(now):
+def is_ok_batch_time():
+    now = time.strftime("%H:%M")
     times = cereconf.LEGAL_BATCH_MOVE_TIMES.split('-')
     if times[0] > times[1]:  # Like '20:00-08:00'
         if now > times[0] or now < times[1]:
@@ -914,74 +925,76 @@ def is_valid_request(req_id, local_db=db, local_co=const):
 
 
 def main():
-    global max_requests, ou_perspective, DEBUG
+    global ou_perspective, DEBUG
     global emne_info_file, studconfig_file, studieprogs_file, student_info_file
-    try:
-        opts, args = getopt.getopt(
-            sys.argv[1:],
-            'dpt:m:',
-            ['debug',
-             'process',
-             'type=',
-             'max=',
-             'ou-perspective=',
-             'emne-info-file=',
-             'studconfig-file=',
-             'studie-progs-file=',
-             'student-info-file='])
-    except getopt.GetoptError:
-        usage(1)
-    if not opts:
-        usage(1)
-    types = []
-    for opt, val in opts:
-        if opt in ('-d', '--debug'):
-            DEBUG = True
-        elif opt in ('-t', '--type',):
-            types.append(val)
-        elif opt in ('-m', '--max',):
-            max_requests = int(val)
-        elif opt in ('-p', '--process'):
-            if not types:
-                types = ['quarantine', 'delete', 'move',
-                         'email', 'sympa', ]
-            process_requests(types)
-        elif opt in ('--ou-perspective',):
-            ou_perspective = const.OUPerspective(val)
-            int(ou_perspective)   # Assert that it is defined
-        elif opt in ('--emne-info-file',):
-            emne_info_file = val
-        elif opt in ('--studconfig-file',):
-            studconfig_file = val
-        elif opt in ('--studie-progs-file',):
-            studieprogs_file = val
-        elif opt in ('--student-info-file',):
-            student_info_file = val
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-d', '--debug',
+        dest='debug',
+        action='store_true',
+        help='Turn on debugging')
+    parser.add_argument(
+        '-t', '--type',
+        dest='types',
+        action='append',
+        choices=['email', 'sympa', 'move', 'quarantine', 'delete'],
+        required=True)
+    parser.add_argument(
+        '-m', '--max',
+        dest='max_requests',
+        default=999999,
+        help='Perform up to this number of requests',
+        type=int)
+    parser.add_argument(
+        '-p', '--process',
+        dest='process',
+        action='store_true',
+        help='Perform the queued operations')
+    arg_group = parser.add_argument_group('Required for move_student requests')
+    arg_group.add_argument(
+        '--ou-perspective',
+        dest='ou_perspective',
+        default=None
+    )
+    arg_group.add_argument(
+        '--emne-info-file',
+        dest='emne_info_file',
+        default=None
+    )
+    arg_group.add_argument(
+        '--studconfig-file',
+        dest='studconfig_file',
+        default=None
+    )
+    arg_group.add_argument(
+        '--studie-progs-file',
+        dest='studieprogs_file',
+        default=None
+    )
+    arg_group.add_argument(
+        '--student-info-file',
+        dest='student_info_file',
+        default=None
+    )
+    logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    logutils.autoconf('bofhd_req', args)
 
-def usage(exitcode=0):
-    print """Usage: process_bofhd_requests.py
-    -d | --debug: turn on debugging
-    -p | --process: perform the queued operations
-    -t | --type type: performe queued operations of this type.  May be
-         repeated, and must precede -p
-    -m | --max val: perform up to this number of requests
+    # Assigning global variables
+    DEBUG = args.debug
+    if args.ou_perspective:
+        ou_perspective = get_constant(db, parser, const.OUPerspective,
+                                      args.ou_perspective)
+    emne_info_file = args.emne_info_file
+    studconfig_file = args.studconfig_file
+    studieprogs_file = args.studieprogs_file
 
-    Legal values for --type:
-      email
-      sympa
-      move
-      quarantine
-      delete
+    logger.info('Start of script %s', parser.prog)
+    logger.debug('args: %r', args)
 
-    Needed for move_student requests:
-    --ou-perspective code_str: set ou_perspective (default: perspective_fs)
-    --emne-info-file file:
-    --studconfig-file file:
-    --studie-progs-file file:
-    --student-info-file file:
-    """
-    sys.exit(exitcode)
+    if args.process:
+        process_requests(args.types, args.max_requests)
 
 
 if __name__ == '__main__':
