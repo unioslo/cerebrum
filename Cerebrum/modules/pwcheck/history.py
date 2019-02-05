@@ -160,7 +160,6 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
             return
 
         old_passwords = [r['md5base64'] for r in ph.get_history(entity_id)]
-        
         for old_password in old_passwords:
             if (len(old_password) == 22):
                 encoded_password = ph.old_encode_for_history(name, password)
@@ -172,8 +171,7 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
                 iters = int(password_parts[1])
                 salt = base64.b64decode(password_parts[2])
                 key = password_parts[3]
-                
-                encoded_password = ph.encode_for_history(iters, salt, password.encode('utf-8'))
+                encoded_password = ph.encode_for_history(iters, salt, password)
                 if encoded_password in old_passwords:
                     return True
         return False
@@ -190,9 +188,12 @@ class PasswordHistory(DatabaseAccessor):
     def encode_for_history(self, rounds, salt, password):
         """Hashes new passwords by pbkdf2 hash"""
         hash_func = "pbkdf2_sha512"
-        key = base64.b64encode(hashlib.pbkdf2_hmac('sha512', password.encode('utf-8'), salt, rounds, 32))
-        return "{}${}${}${}".format(hash_func, rounds, base64.b64encode(salt), key)[:109]
-        
+        password = password.encode('utf-8')
+        hash_out = hashlib.pbkdf2_hmac('sha512', password, salt, rounds, 32)
+        stored_salt = base64.b64encode(salt)
+        key = base64.b64encode(hash_out)
+        return "{}${}${}${}".format(hash_func, rounds, stored_salt, key)[:128]
+
     def add_history(self, account, password, _csum=None, _when=None):
         """Add an entry to the password history."""
         name = getattr(account, 'account_name')
