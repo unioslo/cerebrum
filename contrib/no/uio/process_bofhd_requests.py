@@ -19,18 +19,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import errno
-import fcntl
 import mx
-import os
 import pickle
 import re
-import time
 import socket
 import ssl
 import logging
 import argparse
-from contextlib import closing
 
 import cereconf
 
@@ -42,10 +37,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 
 from Cerebrum.utils.argutils import get_constant
-from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.uio import AutoStud
-from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
+from Cerebrum.modules.process_bofhd_requests import RequestProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -67,51 +59,7 @@ cl_const = Utils.Factory.get('CLConstants')(db)
 const = Utils.Factory.get('Constants')(db)
 default_spread = const.spread_uio_nis_user
 
-ou_perspective = emne_info_file = studconfig_file = studieprogs_file = None
-
-class RequestLockHandler(object):
-    def __init__(self, lockdir=None):
-        """lockdir should be a template holding exactly one %d."""
-        if lockdir is None:
-            lockdir = cereconf.BOFHD_REQUEST_LOCK_DIR
-        self.lockdir = lockdir
-        self.lockfd = None
-
-    def grab(self, reqid):
-        """Release the old lock if one is held, then grab the lock
-        corresponding to reqid.  Returns False if it fails.
-
-        """
-        if self.lockfd is not None:
-            self.close()
-
-        self.reqid = reqid
-        try:
-            lockfile = file(self.lockdir % reqid, "wb")
-        except IOError, e:
-            logger.error("Checking lock for %d failed: %s", reqid, e)
-            return False
-        try:
-            fcntl.flock(lockfile, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except IOError, e:
-            if e.errno == errno.EAGAIN:
-                logger.debug("Skipping locked request %d", reqid)
-            else:
-                logger.error("Locking request %d failed: %s", reqid, e)
-            return False
-        self.lockfd = lockfile
-        return True
-
-    def close(self):
-        """Release and clean up lock."""
-        if self.lockfd is not None:
-            fcntl.flock(self.lockfd, fcntl.LOCK_UN)
-            # There's a potential race here (someone else can grab and
-            # release this lock before the unlink), but users of this
-            # class should remove the request from the todo list
-            # before releasing the lock.
-            os.unlink(self.lockdir % self.reqid)
-            self.lockfd = None
+request_processor = RequestProcessor(db, const, default_spread)
 
 
 def get_email_server(account_id, local_db=db):
@@ -155,74 +103,7 @@ def connect_cyrus(host=None, username=None, as_admin=True):
     return imapconn
 
 
-def get_operations():
-    operations = {
-        'quarantine': [
-            (const.bofh_quarantine_refresh, proc_quarantine_refresh, 0)
-        ],
-        'delete': [
-            (const.bofh_archive_user, proc_archive_user, 2 * 60),
-            (const.bofh_delete_user, proc_delete_user, 2 * 60)
-        ],
-        'move': [
-            (const.bofh_move_user_now, proc_move_user, 24 * 60),
-            (const.bofh_move_user, proc_move_user, 24 * 60)
-        ],
-        'email': [
-            (const.bofh_email_create, proc_email_create, 0),
-            (const.bofh_email_delete, proc_email_delete, 4 * 60)
-        ],
-        'sympa': [
-            (const.bofh_sympa_create, proc_sympa_create, 2 * 60),
-            (const.bofh_sympa_remove, proc_sympa_remove, 2 * 60)
-        ],
-    }
-    """Each type (or category) of requests consists of a list of which
-    requests to process.  The tuples are operation, processing function,
-    and how long to delay the request (in minutes) if the function returns
-    False.
-    """
-    return operations
-
-
-def process_requests(types, max_requests):
-    if 'move' in types:
-        # Convert move_student requests into move_user requests
-        process_move_student_requests()
-    operations = get_operations()
-    with closing(RequestLockHandler()) as reqlock:
-        br = BofhdRequests(db, const)
-        for t in types:
-            for op, process, delay in operations[t]:
-                set_operator()
-                start_time = time.time()
-                for r in br.get_requests(operation=op, only_runnable=True):
-                    reqid = r['request_id']
-                    logger.debug("Req: %s %d at %s, state %r",
-                                 op, reqid, r['run_at'], r['state_data'])
-                    if time.time() - start_time > 30 * 60:
-                        break
-                    if r['run_at'] > mx.DateTime.now():
-                        continue
-                    # Moving users only at ok times
-                    if op is const.bofh_move_user and not is_ok_batch_time():
-                        break
-                    if not is_valid_request(reqid):
-                        continue
-                    if reqlock.grab(reqid):
-                        if max_requests <= 0:
-                            break
-                        max_requests -= 1
-                        if process(r):
-                            br.delete_request(request_id=reqid)
-                            db.commit()
-                        else:
-                            db.rollback()
-                            if delay:
-                                br.delay_request(reqid, minutes=delay)
-                                db.commit()
-
-
+@request_processor(const.bofh_email_create, delay=0)
 def proc_email_create(r):
     es = None
     if r['destination_id']:
@@ -231,6 +112,7 @@ def proc_email_create(r):
     return cyrus_create(r['entity_id'], host=es)
 
 
+@request_processor(const.bofh_email_delete, delay=4*60)
 def proc_email_delete(r):
     try:
         uname = get_account(r['entity_id']).account_name
@@ -372,6 +254,7 @@ def archive_cyrus_data(uname, mail_server, generation):
         EXIT_SUCCESS)
 
 
+@request_processor(const.bofh_sympa_create, delay=2*60)
 def proc_sympa_create(request):
     """Execute the request for creating a sympa mailing list.
 
@@ -421,6 +304,7 @@ def proc_sympa_create(request):
     return Utils.spawn_and_log_output(cmd) == EXIT_SUCCESS
 
 
+@request_processor(const.bofh_sympa_remove, delay=2*60)
 def proc_sympa_remove(request):
     """Execute the request for removing a sympa mailing list.
 
@@ -468,18 +352,7 @@ def get_address(address_id):
                       ed.rewrite_special_domains(ed.email_domain_name))
 
 
-def is_ok_batch_time():
-    now = time.strftime("%H:%M")
-    times = cereconf.LEGAL_BATCH_MOVE_TIMES.split('-')
-    if times[0] > times[1]:  # Like '20:00-08:00'
-        if now > times[0] or now < times[1]:
-            return True
-    else:  # Like '08:00-20:00'
-        if now > times[0] and now < times[1]:
-            return True
-    return False
-
-
+@request_processor(const.bofh_move_user, const.bofh_move_user_now, delay=24*60)
 def proc_move_user(r):
     try:
         account, uname, old_host, old_disk = get_account_and_home(
@@ -515,165 +388,7 @@ def proc_move_user(r):
         return new_disk == old_disk
 
 
-def process_move_student_requests():
-    global fnr2move_student, autostud
-    br = BofhdRequests(db, const)
-    rows = br.get_requests(operation=const.bofh_move_student)
-    if not rows:
-        return
-    logger.debug("Preparing autostud framework")
-    autostud = AutoStud.AutoStud(db, logger, debug=False,
-                                 cfg_file=studconfig_file,
-                                 studieprogs_file=studieprogs_file,
-                                 emne_info_file=emne_info_file,
-                                 ou_perspective=ou_perspective)
-
-    # Hent ut personens fodselsnummer + account_id
-    fnr2move_student = {}
-    account = Utils.Factory.get('Account')(db)
-    person = Utils.Factory.get('Person')(db)
-    for r in rows:
-        if not is_valid_request(r['request_id']):
-            continue
-        account.clear()
-        account.find(r['entity_id'])
-        person.clear()
-        person.find(account.owner_id)
-        fnr = person.get_external_id(id_type=const.externalid_fodselsnr,
-                                     source_system=const.system_fs)
-        if not fnr:
-            logger.warn("Not student fnr for: %i" % account.entity_id)
-            br.delete_request(request_id=r['request_id'])
-            db.commit()
-            continue
-        fnr = fnr[0]['external_id']
-        fnr2move_student.setdefault(fnr, []).append(
-            (int(account.entity_id),
-             int(r['request_id']),
-             int(r['requestee_id'])))
-    logger.debug("Starting callbacks to find: %s" % fnr2move_student)
-    autostud.start_student_callbacks(student_info_file, move_student_callback)
-
-    # Move remaining users to pending disk
-    disk = Utils.Factory.get('Disk')(db)
-    disk.find_by_path(cereconf.AUTOSTUD_PENDING_DISK)
-    logger.debug(str(fnr2move_student.values()))
-    for tmp_stud in fnr2move_student.values():
-        for account_id, request_id, requestee_id in tmp_stud:
-            logger.debug("Sending %s to pending disk" % repr(account_id))
-            br.delete_request(request_id=request_id)
-            br.add_request(requestee_id, br.batch_time,
-                           const.bofh_move_user,
-                           account_id, disk.entity_id,
-                           state_data=int(default_spread))
-            db.commit()
-
-
-class NextAccount(Exception):
-    pass
-
-
-def move_student_callback(person_info):
-    """We will only move the student if it has a valid fnr from FS,
-    and it is not currently on a student disk.
-
-    If the new homedir cannot be determined, user will be moved to a
-    pending disk.  process_students moves users from this disk as soon
-    as a proper disk can be determined.
-
-    Currently we only operate on the disk whose spread is
-    default_spread"""
-
-    fnr = "%06d%05d" % (int(person_info['fodselsdato']),
-                        int(person_info['personnr']))
-    logger.debug("Callback for %s" % fnr)
-    try:
-        fodselsnr.personnr_ok(fnr)
-    except Exception, e:
-        logger.exception(e)
-        return
-    if fnr not in fnr2move_student:
-        return
-    account = Utils.Factory.get('Account')(db)
-    group = Utils.Factory.get('Group')(db)
-    br = BofhdRequests(db, const)
-    for account_id, request_id, requestee_id in fnr2move_student.get(fnr, []):
-        account.clear()
-        account.find(account_id)
-        groups = list(int(x["group_id"]) for x in
-                      group.search(member_id=account_id,
-                                   indirect_members=False))
-        try:
-            profile = autostud.get_profile(person_info, member_groups=groups)
-            logger.debug(profile.matcher.debug_dump())
-        except AutostudError, msg:
-            logger.debug("Error getting profile, using pending: %s" % msg)
-            continue
-
-        # Determine disk
-        disks = []
-        spreads = [int(s) for s in profile.get_spreads()]
-        try:
-            for d_spread in profile.get_disk_spreads():
-                if d_spread != default_spread:
-                    # TBD:  How can all spreads be taken into account?
-                    continue
-                if d_spread in spreads:
-                    try:
-                        ah = account.get_home(d_spread)
-                        homedir_id = ah['homedir_id']
-                        current_disk_id = ah['disk_id']
-                    except Errors.NotFoundError:
-                        homedir_id, current_disk_id = None, None
-                    if autostud.disk_tool.get_diskdef_by_diskid(
-                            int(current_disk_id)):
-                        logger.debug("Already on a student disk")
-                        br.delete_request(request_id=request_id)
-                        db.commit()
-                        # actually, we remove a bit too much data from
-                        # the below dict, but remaining data will be
-                        # rebuilt on next run.
-
-                        del(fnr2move_student[fnr])
-                        raise NextAccount
-                    try:
-                        new_disk = profile.get_disk(d_spread, current_disk_id,
-                                                    do_check_move_ok=False)
-                        if new_disk == current_disk_id:
-                            continue
-                        disks.append((new_disk, d_spread))
-                        if (autostud.disk_tool.using_disk_kvote and
-                                homedir_id is not None):
-                            from Cerebrum.modules.no.uio import DiskQuota
-                            disk_quota_obj = DiskQuota.DiskQuota(db)
-                            try:
-                                cur_quota = disk_quota_obj.get_quota(
-                                    homedir_id)
-                            except Errors.NotFoundError:
-                                cur_quota = None
-                            quota = profile.get_disk_kvote(new_disk)
-                            if (cur_quota is None or
-                                    cur_quota['quota'] != int(quota)):
-                                disk_quota_obj.set_quota(homedir_id,
-                                                         quota=int(quota))
-                    except AutostudError, msg:
-                        # Will end up on pending (since we only use one spread)
-                        logger.debug("Error getting disk: %s" % msg)
-                        break
-        except NextAccount:
-            pass   # Stupid python don't have labeled breaks
-        logger.debug(str((fnr, account_id, disks)))
-        if disks:
-            logger.debug("Destination %s" % repr(disks))
-            del(fnr2move_student[fnr])
-            for disk, spread in disks:
-                br.delete_request(request_id=request_id)
-                br.add_request(requestee_id, br.batch_time,
-                               const.bofh_move_user,
-                               account_id, disk, state_data=spread)
-                db.commit()
-
-
+@request_processor(const.bofh_quarantine_refresh, delay=0)
 def proc_quarantine_refresh(r):
     """process_changes.py has added bofh_quarantine_refresh for the
     start/disable/end dates for the quarantines.  Register a
@@ -686,6 +401,7 @@ def proc_quarantine_refresh(r):
     return True
 
 
+@request_processor(const.bofh_archive_user, delay=2*60)
 def proc_archive_user(r):
     spread = default_spread  # TODO: check spread in r['state_data']
     account, uname, old_host, old_disk = get_account_and_home(r['entity_id'],
@@ -705,6 +421,7 @@ def proc_archive_user(r):
         return False
 
 
+@request_processor(const.bofh_delete_user, delay=2*60)
 def proc_delete_user(r):
     spread = default_spread  # TODO: check spread in r['state_data']
     #
@@ -916,17 +633,8 @@ def get_group(id, grtype="Group"):
     return group
 
 
-def is_valid_request(req_id, local_db=db, local_co=const):
-    # The request may have been canceled very recently
-    br = BofhdRequests(local_db, local_co)
-    for r in br.get_requests(request_id=req_id):
-        return True
-    return False
-
-
 def main():
-    global ou_perspective, DEBUG
-    global emne_info_file, studconfig_file, studieprogs_file, student_info_file
+    global DEBUG, fnr2move_student, autostud
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -981,20 +689,23 @@ def main():
     args = parser.parse_args()
     logutils.autoconf('bofhd_req', args)
 
-    # Assigning global variables
     DEBUG = args.debug
-    if args.ou_perspective:
-        ou_perspective = get_constant(db, parser, const.OUPerspective,
-                                      args.ou_perspective)
-    emne_info_file = args.emne_info_file
-    studconfig_file = args.studconfig_file
-    studieprogs_file = args.studieprogs_file
 
     logger.info('Start of script %s', parser.prog)
     logger.debug('args: %r', args)
 
     if args.process:
-        process_requests(args.types, args.max_requests)
+        if 'move' in args.types:
+            ou_perspective = get_constant(db, parser, const.OUPerspective,
+                                          args.ou_perspective)
+
+        request_processor.process_requests(args.types,
+                                           args.max_requests,
+                                           ou_perspective,
+                                           args.emne_info_file,
+                                           args.studconfig_file,
+                                           args.studieprogs_file,
+                                           args.student_info_file)
 
 
 if __name__ == '__main__':

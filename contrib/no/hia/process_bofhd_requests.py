@@ -24,29 +24,31 @@ from __future__ import unicode_literals
 import errno
 import fcntl
 import getopt
+import argparse
 import mx
 import os
 import pickle
 import sys
 import time
+import logging
 from contextlib import closing
 
 import cereconf
 
+from Cerebrum import logutils
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory, spawn_and_log_output
 from Cerebrum.utils import json
 from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.process_bofhd_requests import RequestProcessor
 
 
-logger = Factory.get_logger("bofhd_req")
+logger = logging.getLogger(__name__)
 db = Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')
 cl_const = Factory.get('CLConstants')(db)
 const = Factory.get('Constants')(db)
-
-max_requests = 999999
 
 EXIT_SUCCESS = 0
 
@@ -274,43 +276,34 @@ def is_valid_request(req_id, local_db=db, local_co=const):
 
 
 def main():
-    global max_requests
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dpt:m:',
-                                   ['debug', 'process', 'type=', 'max=', ])
-    except getopt.GetoptError:
-        usage(1)
-    if not opts:
-        usage(1)
-    types = []
-    for opt, val in opts:
-        if opt in ('-d', '--debug'):
-            print "debug mode has not been implemented"
-            sys.exit(1)
-        elif opt in ('-t', '--type',):
-            types.append(val)
-        elif opt in ('-m', '--max',):
-            max_requests = int(val)
-        elif opt in ('-p', '--process'):
-            if not types:
-                types = ['quarantine', 'delete', 'move',
-                         'email', 'sympa', ]
-            process_requests(types)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-t', '--type',
+        dest='types',
+        action='append',
+        choices=['sympa'],
+        required=True)
+    parser.add_argument(
+        '-m', '--max',
+        dest='max_requests',
+        default=999999,
+        help='Perform up to this number of requests',
+        type=int)
+    parser.add_argument(
+        '-p', '--process',
+        dest='process',
+        action='store_true',
+        help='Perform the queued operations')
 
+    logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    logutils.autoconf('bofhd_req', args)
 
-def usage(exitcode=0):
-    print """Usage: process_bofhd_requests.py
-    -d | --debug: turn on debugging
-    -p | --process: perform the queued operations
-    -t | --type type: performe queued operations of this type.  May be
-         repeated, and must precede -p
-    -m | --max val: perform up to this number of requests
+    logger.info('Start of script %s', parser.prog)
+    logger.debug('args: %r', args)
 
-    Legal values for --type:
-      sympa
-
-    """
-    sys.exit(exitcode)
+    if args.process:
+        process_requests(args.types, args.max_requests)
 
 
 if __name__ == '__main__':
