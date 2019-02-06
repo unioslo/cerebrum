@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2002, 2003 University of Oslo, Norway
 #
@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+from __future__ import unicode_literals
 
 progname = __file__.split("/")[-1]
 __doc__="""
@@ -52,6 +52,7 @@ from Cerebrum.modules.Email import EmailDomain, EmailAddress, EmailTarget
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from sets import Set
+from Cerebrum.modules.no import Stedkode
 
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 
@@ -60,10 +61,10 @@ ac = Factory.get('Account')(db)
 p = Factory.get('Person')(db)
 ou = Factory.get('OU')(db)
 co = Factory.get('Constants')(db)
-sko = Factory.get('Stedkode')(db)
+sko = Stedkode.Stedkode(db)
 db.cl_init(change_program=progname)
 
-logger=Factory.get_logger('cronjob')
+logger=Factory.get_logger("cronjob")
 
 
 def _get_alternatives(account_name):
