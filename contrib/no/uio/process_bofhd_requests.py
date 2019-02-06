@@ -40,6 +40,7 @@ from Cerebrum.utils.argutils import get_constant
 from Cerebrum.modules.process_bofhd_requests import RequestProcessor
 
 logger = logging.getLogger(__name__)
+# logger = Utils.Factory.get_logger('bofhd_req')
 
 SSH_CMD = "/usr/bin/ssh"
 SUDO_CMD = "sudo"
@@ -366,7 +367,7 @@ def proc_move_user(r):
         logger.warn("Account %s is expired, cancelling request",
                     account.account_name)
         return False
-    set_operator(r['requestee_id'])
+    request_processor.set_operator(r['requestee_id'])
     try:
         operator = get_account(r['requestee_id']).account_name
     except Errors.NotFoundError:
@@ -396,7 +397,7 @@ def proc_quarantine_refresh(r):
     quicksync script can revalidate the quarantines.
 
     """
-    set_operator(r['requestee_id'])
+    request_processor.set_operator(r['requestee_id'])
     db.log_change(r['entity_id'], cl_const.quarantine_refresh, None)
     return True
 
@@ -433,7 +434,7 @@ def proc_delete_user(r):
     if account.is_deleted():
         logger.warn("%s is already deleted" % uname)
         return True
-    set_operator(r['requestee_id'])
+    request_processor.set_operator(r['requestee_id'])
     operator = get_account(r['requestee_id']).account_name
     et = Email.EmailTarget(db)
     try:
@@ -572,13 +573,6 @@ def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk,
             EXIT_SUCCESS)
 
 
-def set_operator(entity_id=None):
-    if entity_id:
-        db.cl_init(change_by=entity_id)
-    else:
-        db.cl_init(change_program='process_bofhd_r')
-
-
 def get_disk(disk_id):
     disk = Utils.Factory.get('Disk')(db)
     disk.clear()
@@ -634,7 +628,7 @@ def get_group(id, grtype="Group"):
 
 
 def main():
-    global DEBUG, fnr2move_student, autostud
+    global DEBUG
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -659,32 +653,40 @@ def main():
         dest='process',
         action='store_true',
         help='Perform the queued operations')
+    args, _rest = parser.parse_known_args()
+
+    has_move_arg = 'move' in args.types
     arg_group = parser.add_argument_group('Required for move_student requests')
     arg_group.add_argument(
         '--ou-perspective',
         dest='ou_perspective',
-        default=None
+        default='perspective_fs'
     )
     arg_group.add_argument(
         '--emne-info-file',
         dest='emne_info_file',
-        default=None
+        default=None,
+        required=has_move_arg
     )
     arg_group.add_argument(
         '--studconfig-file',
         dest='studconfig_file',
-        default=None
+        default=None,
+        required=has_move_arg
     )
     arg_group.add_argument(
         '--studie-progs-file',
         dest='studieprogs_file',
-        default=None
+        default=None,
+        required=has_move_arg
     )
     arg_group.add_argument(
         '--student-info-file',
         dest='student_info_file',
-        default=None
+        default=None,
+        required=has_move_arg
     )
+
     logutils.options.install_subparser(parser)
     args = parser.parse_args()
     logutils.autoconf('bofhd_req', args)
@@ -696,12 +698,13 @@ def main():
 
     if args.process:
         if 'move' in args.types:
-            ou_perspective = get_constant(db, parser, const.OUPerspective,
-                                          args.ou_perspective)
+            # Asserting that required arguments are given
+            args.ou_perspective = get_constant(db, parser, const.OUPerspective,
+                                               args.ou_perspective)
 
         request_processor.process_requests(args.types,
                                            args.max_requests,
-                                           ou_perspective,
+                                           args.ou_perspective,
                                            args.emne_info_file,
                                            args.studconfig_file,
                                            args.studieprogs_file,

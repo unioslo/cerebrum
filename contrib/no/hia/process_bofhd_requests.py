@@ -23,12 +23,10 @@ from __future__ import unicode_literals
 
 import errno
 import fcntl
-import getopt
 import argparse
 import mx
 import os
 import pickle
-import sys
 import time
 import logging
 from contextlib import closing

@@ -28,7 +28,6 @@ import logging
 from contextlib import closing
 
 from Cerebrum import Errors
-from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.no import fodselsnr
@@ -38,8 +37,7 @@ from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 
 import cereconf
 
-
-logger = Factory.get_logger('tee')
+logger = logging.getLogger(__name__)
 
 
 class RequestLockHandler(object):
@@ -87,28 +85,8 @@ class RequestLockHandler(object):
             self.lockfd = None
 
 
-class RequestProcessor(object):
-
-    def __init__(self, db, const, default_spread):
-        self.db = db
-        self.const = const
-        self.default_spread = default_spread
-        self.operations = {
-            'quarantine':
-                [const.bofh_quarantine_refresh],
-            'delete':
-                [const.bofh_archive_user,
-                 const.bofh_delete_user],
-            'move':
-                [const.bofh_move_user_now,
-                 const.bofh_move_user],
-            'email':
-                [const.bofh_email_create,
-                 const.bofh_email_delete],
-            'sympa':
-                [const.bofh_sympa_create,
-                 const.bofh_sympa_remove],
-        }
+class OperationsMap(object):
+    def __init__(self):
         self.operations_map = {}
 
     def __call__(self, *keys, **kwargs):
@@ -129,9 +107,33 @@ class RequestProcessor(object):
             return func
         return register
 
+
+class RequestProcessor(OperationsMap):
+    def __init__(self, db, const, default_spread):
+        super(RequestProcessor, self).__init__()
+        self.db = db
+        self.const = const
+        self.default_spread = default_spread
+        self.operations = {
+            'quarantine':
+                [const.bofh_quarantine_refresh],
+            'delete':
+                [const.bofh_archive_user,
+                 const.bofh_delete_user],
+            'move':
+                [const.bofh_move_user_now,
+                 const.bofh_move_user],
+            'email':
+                [const.bofh_email_create,
+                 const.bofh_email_delete],
+            'sympa':
+                [const.bofh_sympa_create,
+                 const.bofh_sympa_remove],
+        }
+
     def process_requests(self, types, max_requests, *move_students_args):
-        # Convert move_student requests into move_user requests
         if 'move' in types:
+            # Convert move_student requests into move_user requests
             self.process_move_student_requests(*move_students_args)
         with closing(RequestLockHandler()) as reqlock:
             br = BofhdRequests(self.db, self.const)
@@ -142,7 +144,6 @@ class RequestProcessor(object):
                     self.set_operator()
                     start_time = time.time()
                     for r in br.get_requests(operation=op, only_runnable=True):
-                        print 'run'
                         reqid = r['request_id']
                         logger.debug("Req: %s %d at %s, state %r",
                                      op, reqid, r['run_at'], r['state_data'])
@@ -151,9 +152,9 @@ class RequestProcessor(object):
                         if r['run_at'] > mx.DateTime.now():
                             continue
                         # Moving users only at ok times
-                        # if (op is self.const.bofh_move_user
-                        #         and not self.is_ok_batch_time()):
-                        #     break
+                        if (op is self.const.bofh_move_user
+                                and not self.is_ok_batch_time()):
+                            break
                         if not self.is_valid_request(reqid):
                             continue
                         if reqlock.grab(reqid):
@@ -162,22 +163,22 @@ class RequestProcessor(object):
                             max_requests -= 1
                             if process(r):
                                 br.delete_request(request_id=reqid)
-                                self.db.rollback() # TODO replace this with commit and replace set_operator() in file
-                                print 'rund'
+                                self.db.commit()
                             else:
                                 self.db.rollback()
                                 if delay:
                                     br.delay_request(reqid, minutes=delay)
                                     self.db.commit()
 
-    def is_ok_batch_time(self):
+    @staticmethod
+    def is_ok_batch_time():
         now = time.strftime("%H:%M")
         times = cereconf.LEGAL_BATCH_MOVE_TIMES.split('-')
         if times[0] > times[1]:  # Like '20:00-08:00'
             if now > times[0] or now < times[1]:
                 return True
         else:  # Like '08:00-20:00'
-            if now > times[0] and now < times[1]:
+            if times[0] < now < times[1]:
                 return True
         return False
 
@@ -202,39 +203,24 @@ class RequestProcessor(object):
         if not rows:
             return
         logger.debug("Preparing autostud framework")
-        self.autostud = AutoStud.AutoStud(self.db, logger, debug=False,
+        self.autostud = AutoStud.AutoStud(self.db, logger.getChild('autostud'),
+                                          debug=False,
                                           cfg_file=studconfig_file,
                                           studieprogs_file=studieprogs_file,
                                           emne_info_file=emne_info_file,
                                           ou_perspective=ou_perspective)
 
-        # Hent ut personens fodselsnummer + account_id
-        self.fnr2move_student = {}
-        account = Factory.get('Account')(self.db)
-        person = Factory.get('Person')(self.db)
-        for r in rows:
-            if not self.is_valid_request(r['request_id']):
-                continue
-            account.clear()
-            account.find(r['entity_id'])
-            person.clear()
-            person.find(account.owner_id)
-            fnr = person.get_external_id(id_type=self.const.externalid_fodselsnr,
-                                         source_system=self.const.system_fs)
-            if not fnr:
-                logger.warn("Not student fnr for: %i" % account.entity_id)
-                br.delete_request(request_id=r['request_id'])
-                self.db.commit()
-                continue
-            fnr = fnr[0]['external_id']
-            self.fnr2move_student.setdefault(fnr, []).append(
-                (int(account.entity_id),
-                 int(r['request_id']),
-                 int(r['requestee_id'])))
-        logger.debug("Starting callbacks to find: %s" % self.fnr2move_student)
+        # Set self.fnr2move_student
+        self.set_fnr2move_student(rows, br)
+
+        logger.debug("Starting callbacks to find: %s" %
+                     self.fnr2move_student)
         self.autostud.start_student_callbacks(student_info_file,
                                               self.move_student_callback)
 
+        self.move_remaining_users(br)
+
+    def move_remaining_users(self, br):
         # Move remaining users to pending disk
         disk = Factory.get('Disk')(self.db)
         disk.find_by_path(cereconf.AUTOSTUD_PENDING_DISK)
@@ -248,6 +234,33 @@ class RequestProcessor(object):
                                account_id, disk.entity_id,
                                state_data=int(self.default_spread))
                 self.db.commit()
+
+    def set_fnr2move_student(self, rows, br):
+        # Hent ut personens fodselsnummer + account_id
+        self.fnr2move_student = {}
+        account = Factory.get('Account')(self.db)
+        person = Factory.get('Person')(self.db)
+        for r in rows:
+            if not self.is_valid_request(r['request_id']):
+                continue
+            account.clear()
+            account.find(r['entity_id'])
+            person.clear()
+            person.find(account.owner_id)
+            fnr = person.get_external_id(
+                id_type=self.const.externalid_fodselsnr,
+                source_system=self.const.system_fs
+            )
+            if not fnr:
+                logger.warn("Not student fnr for: %i" % account.entity_id)
+                br.delete_request(request_id=r['request_id'])
+                self.db.commit()
+                continue
+            fnr = fnr[0]['external_id']
+            self.fnr2move_student.setdefault(fnr, []).append(
+                (int(account.entity_id),
+                 int(r['request_id']),
+                 int(r['requestee_id'])))
 
     def move_student_callback(self, person_info):
         """We will only move the student if it has a valid fnr from FS,
@@ -273,8 +286,8 @@ class RequestProcessor(object):
         account = Factory.get('Account')(self.db)
         group = Factory.get('Group')(self.db)
         br = BofhdRequests(self.db, self.const)
-        for account_id, request_id, requestee_id in self.fnr2move_student.get(fnr,
-                                                                         []):
+        for account_id, request_id, requestee_id in \
+                self.fnr2move_student.get(fnr, []):
             account.clear()
             account.find(account_id)
             groups = list(int(x["group_id"]) for x in
@@ -282,7 +295,7 @@ class RequestProcessor(object):
                                        indirect_members=False))
             try:
                 profile = self.autostud.get_profile(person_info,
-                                               member_groups=groups)
+                                                    member_groups=groups)
                 logger.debug(profile.matcher.debug_dump())
             except AutostudError, msg:
                 logger.debug("Error getting profile, using pending: %s" % msg)
@@ -336,7 +349,8 @@ class RequestProcessor(object):
                                     disk_quota_obj.set_quota(homedir_id,
                                                              quota=int(quota))
                         except AutostudError, msg:
-                            # Will end up on pending (since we only use one spread)
+                            # Will end up on pending (since we only use one
+                            # spread)
                             logger.debug("Error getting disk: %s" % msg)
                             break
             except NextAccount:
@@ -356,28 +370,5 @@ class RequestProcessor(object):
 class NextAccount(Exception):
     pass
 
-
-
-# class OperationsMap(object):
-#     def __init__(self):
-#         self.operations = {}
-#
-#     def __call__(self, *keys, **kwargs):
-#         """ Registers decorated function with the given keys.
-#
-#         :param *list keys:
-#             A list of keys to add the decorated function to.
-#
-#         :param **dict kwargs:
-#             A dict of additional information about the operation
-#
-#         :return callable:
-#             Returns a function decorator.
-#         """
-#         def register(func):
-#             for key in keys:
-#                 self.operations[key] = [func, kwargs]
-#             return func
-#         return register
 
 
