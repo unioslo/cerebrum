@@ -21,15 +21,9 @@
 
 from __future__ import unicode_literals
 
-import errno
-import fcntl
 import argparse
-import mx
-import os
 import pickle
-import time
 import logging
-from contextlib import closing
 
 import cereconf
 
@@ -50,51 +44,7 @@ const = Factory.get('Constants')(db)
 
 EXIT_SUCCESS = 0
 
-
-class RequestLockHandler(object):
-    def __init__(self, lockdir=None):
-        """lockdir should be a template holding exactly one %d."""
-        if lockdir is None:
-            lockdir = cereconf.BOFHD_REQUEST_LOCK_DIR
-        self.lockdir = lockdir
-        self.lockfd = None
-
-    def grab(self, reqid):
-        """Release the old lock if one is held, then grab the lock
-        corresponding to reqid.  Returns False if it fails.
-
-        """
-        if self.lockfd is not None:
-            self.close()
-
-        self.reqid = reqid
-        try:
-            lockfile = file(self.lockdir % reqid, "w")
-        except IOError, e:
-            logger.error("Checking lock for %d failed: %s", reqid, e)
-            return False
-        try:
-            fcntl.flock(lockfile, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except IOError, e:
-            if e.errno == errno.EAGAIN:
-                logger.debug("Skipping locked request %d", reqid)
-            else:
-                logger.error("Locking request %d failed: %s", reqid, e)
-            return False
-        self.lockfd = lockfile
-        return True
-
-    def close(self):
-        """Release and clean up lock."""
-        if self.lockfd is not None:
-            fcntl.flock(self.lockfd, fcntl.LOCK_UN)
-            # There's a potential race here (someone else can grab and
-            # release this lock before the unlink), but users of this
-            # class should remove the request from the todo list
-            # before releasing the lock.
-            os.unlink(self.lockdir % self.reqid)
-            self.lockfd = None
-
+request_processor = RequestProcessor(db, const)
 
 def dependency_pending(dep_id, local_db=db, local_co=const):
     if not dep_id:
@@ -106,49 +56,7 @@ def dependency_pending(dep_id, local_db=db, local_co=const):
     return False
 
 
-def process_requests(types):
-    global max_requests
-
-    operations = {
-        'sympa':
-        [(const.bofh_sympa_create, proc_sympa_create, 2 * 60),
-         (const.bofh_sympa_remove, proc_sympa_remove, 2 * 60)],
-    }
-    """Each type (or category) of requests consists of a list of which
-    requests to process.  The tuples are operation, processing function,
-    and how long to delay the request (in minutes) if the function returns
-    False.
-    """
-    with closing(RequestLockHandler()) as reqlock:
-        br = BofhdRequests(db, const)
-        for t in types:
-            for op, process, delay in operations[t]:
-                set_operator()
-                start_time = time.time()
-                for r in br.get_requests(operation=op, only_runnable=True):
-                    reqid = r['request_id']
-                    logger.debug("Req: %s %d at %s, state %r",
-                                 op, reqid, r['run_at'], r['state_data'])
-                    if time.time() - start_time > 30 * 60:
-                        break
-                    if r['run_at'] > mx.DateTime.now():
-                        continue
-                    if not is_valid_request(reqid):
-                        continue
-                    if reqlock.grab(reqid):
-                        if max_requests <= 0:
-                            break
-                        max_requests -= 1
-                        if process(r):
-                            br.delete_request(request_id=reqid)
-                            db.commit()
-                        else:
-                            db.rollback()
-                            if delay:
-                                br.delay_request(reqid, minutes=delay)
-                                db.commit()
-
-
+@request_processor(const.bofh_sympa_create, delay=2*60)
 def proc_sympa_create(request):
     """Execute the request for creating a sympa mailing list.
 
@@ -198,6 +106,7 @@ def proc_sympa_create(request):
     return spawn_and_log_output(cmd) == EXIT_SUCCESS
 
 
+@request_processor(const.bofh_sympa_remove, delay=2*60)
 def proc_sympa_remove(request):
     """Execute the request for removing a sympa mailing list.
 
@@ -245,34 +154,6 @@ def get_address(address_id):
                       ed.rewrite_special_domains(ed.email_domain_name))
 
 
-def is_ok_batch_time(now):
-    times = cereconf.LEGAL_BATCH_MOVE_TIMES.split('-')
-    if times[0] > times[1]:
-        #  Like '20:00-08:00'
-        if now > times[0] or now < times[1]:
-            return True
-    else:
-        #  Like '08:00-20:00'
-        if now > times[0] and now < times[1]:
-            return True
-    return False
-
-
-def set_operator(entity_id=None):
-    if entity_id:
-        db.cl_init(change_by=entity_id)
-    else:
-        db.cl_init(change_program='process_bofhd_r')
-
-
-def is_valid_request(req_id, local_db=db, local_co=const):
-    # The request may have been canceled very recently
-    br = BofhdRequests(local_db, local_co)
-    for r in br.get_requests(request_id=req_id):
-        return True
-    return False
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -301,7 +182,7 @@ def main():
     logger.debug('args: %r', args)
 
     if args.process:
-        process_requests(args.types, args.max_requests)
+        request_processor.process_requests(args.types, args.max_requests)
 
 
 if __name__ == '__main__':

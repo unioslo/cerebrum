@@ -40,7 +40,6 @@ from Cerebrum.utils.argutils import get_constant
 from Cerebrum.modules.process_bofhd_requests import RequestProcessor
 
 logger = logging.getLogger(__name__)
-# logger = Utils.Factory.get_logger('bofhd_req')
 
 SSH_CMD = "/usr/bin/ssh"
 SUDO_CMD = "sudo"
@@ -60,7 +59,7 @@ cl_const = Utils.Factory.get('CLConstants')(db)
 const = Utils.Factory.get('Constants')(db)
 default_spread = const.spread_uio_nis_user
 
-request_processor = RequestProcessor(db, const, default_spread)
+request_processor = RequestProcessor(db, const, default_spread=default_spread)
 
 
 def get_email_server(account_id, local_db=db):
@@ -697,8 +696,8 @@ def main():
     logger.debug('args: %r', args)
 
     if args.process:
-        if 'move' in args.types:
-            # Asserting that required arguments are given
+        if has_move_arg:
+            # Asserting that a legal value is assigned to args.ou_perspective
             args.ou_perspective = get_constant(db, parser, const.OUPerspective,
                                                args.ou_perspective)
 

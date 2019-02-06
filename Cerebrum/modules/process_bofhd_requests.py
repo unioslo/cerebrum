@@ -109,7 +109,7 @@ class OperationsMap(object):
 
 
 class RequestProcessor(OperationsMap):
-    def __init__(self, db, const, default_spread):
+    def __init__(self, db, const, default_spread=None):
         super(RequestProcessor, self).__init__()
         self.db = db
         self.const = const
