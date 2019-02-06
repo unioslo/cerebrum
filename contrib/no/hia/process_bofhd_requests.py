@@ -46,6 +46,7 @@ EXIT_SUCCESS = 0
 
 request_processor = RequestProcessor(db, const)
 
+
 def dependency_pending(dep_id, local_db=db, local_co=const):
     if not dep_id:
         return False
