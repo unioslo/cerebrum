@@ -4395,9 +4395,6 @@ class BofhdExtension(BofhdCommonMethods):
         extids = {
             'fnr':    'externalid_fodselsnr',
             'passnr': 'externalid_pass_number',
-            'ssn':    'externalid_social_security_number',
-            'taxid':  'externalid_tax_identification_number',
-            'vatnr':  'externalid_value_added_tax_number',
             'studnr': 'externalid_studentnr',
             'sapnr':  'externalid_sap_ansattnr',
         }

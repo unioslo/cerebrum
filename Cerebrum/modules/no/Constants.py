@@ -89,18 +89,6 @@ class ConstantsCommon(Constants.Constants):
         'PASSNR', Constants.Constants.entity_person,
         "A persons passport number")
 
-    externalid_social_security_number = _EntityExternalIdCode(
-        'SSN', Constants.Constants.entity_person,
-        "A persons social security number")
-
-    externalid_tax_identification_number = _EntityExternalIdCode(
-        'TIN', Constants.Constants.entity_person,
-        "A persons tax identification number")
-
-    externalid_value_added_tax_number = _EntityExternalIdCode(
-        'VAT', Constants.Constants.entity_person,
-        "A persons value added tax identification number")
-
     system_override = _AuthoritativeSystemCode(
         'Override', 'Override information fetched from authoritative systems')
 
@@ -218,10 +206,6 @@ class ConstantsHigherEdu(Constants.Constants):
     externalid_uname = _EntityExternalIdCode(
         'UNAME', Constants.Constants.entity_person,
         'User name (external system)')
-
-    externalid_stedkode = _EntityExternalIdCode(
-        'STEDKODE', Constants.Constants.entity_ou,
-        'Stedkode')
 
     # OU-structure perspectives
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
