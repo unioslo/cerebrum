@@ -4428,7 +4428,11 @@ class BofhdExtension(BofhdCommonMethods):
             matches = person.list_affiliations(ou_id=ou.entity_id,
                                                affiliation=filter)
         elif search_type == 'ou':
-            ou = self._get_ou(ou_id=value)
+            if not value.isdigit():
+                raise CerebrumError("Expected OU as entity id. Got: {}"
+                                    .format(value))
+            else:
+                ou = self._get_ou(ou_id=value)
             matches = person.list_affiliations(ou_id=ou.entity_id,
                                                affiliation=filter)
         else:
