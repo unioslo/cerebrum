@@ -2716,7 +2716,11 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['misc_check_password'] = Command(
         ("misc", "check_password"),
-        AccountPassword())
+        AccountPassword(),
+        fs=FormatSuggestion([
+            ("%s", ('password_ok', )),
+        ])
+    )
 
     def misc_check_password(self, operator, password):
         ac = self.Account_class(self.db)
@@ -2728,7 +2732,9 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
         except PasswordNotGoodEnough as e:
             raise CerebrumError('Bad password: %s' % exc_to_text(e))
-        return "Password strength approved"
+        return {
+            'password_ok': 'Good password',
+        }
 
     #
     # misc clear_passwords [uname]
