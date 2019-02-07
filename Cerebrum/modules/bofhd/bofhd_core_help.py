@@ -580,10 +580,7 @@ arg_help = {
          - 'ou' (entity id)
          - 'studnr'
          - 'sapnr'
-         - 'passnr'
-         - 'ssn' (international social security number)
-         - 'taxid' (tax identification number)
-         - 'vatnr' (value added tax number)"""],
+         - 'passnr'"""],
     'posix_shell':
         ['shell', 'Enter shell',
          'Enter the required shell without path.  Example: bash'],
