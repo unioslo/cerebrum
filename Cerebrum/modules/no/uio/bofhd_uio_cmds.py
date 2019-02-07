@@ -6588,6 +6588,12 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_create_user')
 
     def user_promote_posix(self, operator, accountname, shell=None, home=None):
+        # Verify that account name is legal
+        pu = Utils.Factory.get('PosixUser')(self.db)
+        illegal_name = pu.illegal_name(accountname)
+        if illegal_name:
+            return "Illegal account name given. Account name " + illegal_name
+
         is_posix = False
         try:
             self._get_account(accountname, actype="PosixUser")
@@ -6597,7 +6603,6 @@ class BofhdExtension(BofhdCommonMethods):
         if is_posix:
             raise CerebrumError("%s is already a PosixUser" % accountname)
         account = self._get_account(accountname)
-        pu = Utils.Factory.get('PosixUser')(self.db)
         old_uid = self._lookup_old_uid(account.entity_id)
         if old_uid is None:
             uid = pu.get_free_uid()
