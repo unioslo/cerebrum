@@ -19,6 +19,7 @@ from Cerebrum.modules import PosixGroup
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
+from Cerebrum.utils.funcwrap import memoize
 
 
 del cerebrum_path
@@ -289,10 +290,13 @@ class FileGroup(NISGroupUtil):
             co.account_namespace, co.entity_account,
             group_spread, member_spread)
         self._group = PosixGroup.PosixGroup(db)
-        self._account2def_group = {}
-        for row in posix_user.list_extended_posix_users():
-            self._account2def_group[int(row['account_id'])] = int(
-                row['posix_gid'])
+        self._account2posix_gid = {}
+        for row in posix_user.list_posix_users():
+            account_id = int(row['account_id'])
+            self._group.clear()
+            self._group.find(int(row['gid']))
+            print self._group.posix_gid
+            self._account2posix_gid[account_id] = int(self._group.posix_gid)
         logger.debug("__init__ done")
 
     def _make_tmp_name(self, base):
@@ -325,7 +329,7 @@ class FileGroup(NISGroupUtil):
                 indirect_members=True,
                 member_type=co.entity_account):
             account_id = int(row["member_id"])
-            if (self._account2def_group.get(account_id, None) ==
+            if (self._account2posix_gid.get(account_id, None) ==
                     self._group.posix_gid):
                 continue  # Don't include the users primary group
             name = self._entity2name.get(account_id, None)
