@@ -1574,7 +1574,7 @@ def migrate_to_password_history_1_1():
     makedb('password_history_1_1', 'pre')
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_password_history", "1.1")
-    print("Migration to passowrd history 1.1 completed successfully")
+    print("Migration to password history 1.1 completed successfully")
     db.commit()
 
 
