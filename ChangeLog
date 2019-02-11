@@ -1,5 +1,6 @@
 2019-01-28 <kennethj@gagarin.uit.no>
     * export_ad.py: removed obsolete string convertions.
+    * ad_export_autogroups_undervisning.py: removed obsolete string conversions
 
 2019-01-28 <kennethj@gagarin.uit.no>
     * export_oid.py:    filter out sito employees, they are not to be exported to oid(portal)

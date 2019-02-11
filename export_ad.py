@@ -95,9 +95,9 @@ def get_ouinfo_sito(ou_id,perspective):
     #sko.find(ou_id)
     res=dict()
     #res['name']=str(sko.name)
-    res['name']=str(sko.get_name_with_language(co.ou_name,name_language).encode('utf-8'))
-    res['short_name']=str(sko.get_name_with_language(co.ou_name_short,name_language).encode('utf-8'))
-    res['acronym']=str(sko.get_name_with_language(co.ou_name_acronym,name_language).encode('utf-8'))
+    res['name']=sko.get_name_with_language(co.ou_name,name_language)
+    res['short_name']=sko.get_name_with_language(co.ou_name_short,name_language)
+    res['acronym']=sko.get_name_with_language(co.ou_name_acronym,name_language)
 
     #sko.clear()
     #logger.debug("got basic info about id=%s,persp=%s" % (ou_id,perspective))
@@ -121,7 +121,7 @@ def get_ouinfo_sito(ou_id,perspective):
         #logger.debug("parent_id:%s, sko.entity_id:%s" % (parent_id,sko.entity_id))
         if (parent_id is None) or (parent_id == sko.entity_id):
             #logger.debug("Root for %s is %s, name is  %s" % (ou_id,sko.entity_id,sko.name))
-            res['company']=str(sko.get_name_with_language(co.ou_name,name_language))
+            res['company']=sko.get_name_with_language(co.ou_name,name_language)
             break
         sko.clear()
         #logger.debug("Lookup %s in %s" % (parent_id,perspective))

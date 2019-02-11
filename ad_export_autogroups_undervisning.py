@@ -98,9 +98,9 @@ def get_skoinfo(fak,inst,avd):
     sko.clear()
     sko.find_stedkode(fakultet=fak,institutt=inst,avdeling=avd,institusjon=186) #TODO 186 from config
     res=dict()
-    res['name']=str(sko.get_name_with_language(co.ou_name, co.language_nb, default='').encode('utf-8'))
-    res['short_name']=str(sko.get_name_with_language(co.ou_name_short, co.language_nb, default='').encode('utf-8'))
-    res['acronym']=str(sko.get_name_with_language(co.ou_name_acronym, co.language_nb, default='').encode('utf-8'))    
+    res['name']=sko.get_name_with_language(co.ou_name, co.language_nb, default='')
+    res['short_name']=sko.get_name_with_language(co.ou_name_short, co.language_nb, default='')
+    res['acronym']=sko.get_name_with_language(co.ou_name_acronym, co.language_nb, default='')  
     perspective=co.perspective_fs
     root=False
     acrolist=list()
@@ -111,7 +111,7 @@ def get_skoinfo(fak,inst,avd):
         if parentid != None:
             sko.clear()
             sko.find(parentid)
-            acrolist.append(str(sko.get_name_with_language(co.ou_name_acronym, co.language_nb, default='').encode('utf-8')))
+            acrolist.append(sko.get_name_with_language(co.ou_name_acronym, co.language_nb, default=''))
         else:
             root=currentid
     acrolist.reverse()
@@ -224,9 +224,9 @@ def GetUndenhGroups():
             logger.debug("Emnekode: %s does not exist in undenh file. Continue to next entry" % (emnekode))
             continue
         ad_displayname=ad_descr
-        fak=str(emne_info[emnekode]['fak'])
-        inst=str(emne_info[emnekode]['inst'])
-        avd=str(emne_info[emnekode]['avd'])
+        fak=emne_info[emnekode]['fak']
+        inst=emne_info[emnekode]['inst']
+        avd=emne_info[emnekode]['avd']
         sko="%s%s%s" % (fak,inst,avd)
         skoinfo=get_skoinfo(fak,inst,avd)
 
@@ -296,9 +296,9 @@ def GetStudieprogramgroups():
                 logger.warn("No members in group %s (%s)" % (group['group_id'], group['name']))
                 continue
 
-        fak=str(stprog_info[stprogkode]['fak'])
-        inst=str(stprog_info[stprogkode]['inst'])
-        avd=str(stprog_info[stprogkode]['avd'])
+        fak=stprog_info[stprogkode]['fak']
+        inst=stprog_info[stprogkode]['inst']
+        avd=stprog_info[stprogkode]['avd']
         skoinfo=get_skoinfo(fak,inst,avd)
         group_dict[gname]={'name'          : ad_commonname,
 					       'samaccountname': ad_samaccountname,
