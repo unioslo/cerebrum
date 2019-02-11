@@ -37,7 +37,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 
 from Cerebrum.utils.argutils import get_constant
-from Cerebrum.modules.process_bofhd_requests import RequestProcessor
+from Cerebrum.modules.bofhd_requests import process_bofhd_requests
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ cl_const = Utils.Factory.get('CLConstants')(db)
 const = Utils.Factory.get('Constants')(db)
 default_spread = const.spread_uio_nis_user
 
-request_processor = RequestProcessor(db, const, default_spread=default_spread)
+operations_map = process_bofhd_requests.OperationsMap()
 
 
 def get_email_server(account_id, local_db=db):
@@ -103,7 +103,7 @@ def connect_cyrus(host=None, username=None, as_admin=True):
     return imapconn
 
 
-@request_processor(const.bofh_email_create, delay=0)
+@operations_map(const.bofh_email_create, delay=0)
 def proc_email_create(r):
     es = None
     if r['destination_id']:
@@ -112,7 +112,7 @@ def proc_email_create(r):
     return cyrus_create(r['entity_id'], host=es)
 
 
-@request_processor(const.bofh_email_delete, delay=4*60)
+@operations_map(const.bofh_email_delete, delay=4*60)
 def proc_email_delete(r):
     try:
         uname = get_account(r['entity_id']).account_name
@@ -254,7 +254,7 @@ def archive_cyrus_data(uname, mail_server, generation):
         EXIT_SUCCESS)
 
 
-@request_processor(const.bofh_sympa_create, delay=2*60)
+@operations_map(const.bofh_sympa_create, delay=2*60)
 def proc_sympa_create(request):
     """Execute the request for creating a sympa mailing list.
 
@@ -304,7 +304,7 @@ def proc_sympa_create(request):
     return Utils.spawn_and_log_output(cmd) == EXIT_SUCCESS
 
 
-@request_processor(const.bofh_sympa_remove, delay=2*60)
+@operations_map(const.bofh_sympa_remove, delay=2*60)
 def proc_sympa_remove(request):
     """Execute the request for removing a sympa mailing list.
 
@@ -352,7 +352,7 @@ def get_address(address_id):
                       ed.rewrite_special_domains(ed.email_domain_name))
 
 
-@request_processor(const.bofh_move_user, const.bofh_move_user_now, delay=24*60)
+@operations_map(const.bofh_move_user, const.bofh_move_user_now, delay=24*60)
 def proc_move_user(r):
     try:
         account, uname, old_host, old_disk = get_account_and_home(
@@ -366,7 +366,7 @@ def proc_move_user(r):
         logger.warn("Account %s is expired, cancelling request",
                     account.account_name)
         return False
-    request_processor.set_operator(r['requestee_id'])
+    process_bofhd_requests.set_operator(db, r['requestee_id'])
     try:
         operator = get_account(r['requestee_id']).account_name
     except Errors.NotFoundError:
@@ -388,7 +388,7 @@ def proc_move_user(r):
         return new_disk == old_disk
 
 
-@request_processor(const.bofh_quarantine_refresh, delay=0)
+@operations_map(const.bofh_quarantine_refresh, delay=0)
 def proc_quarantine_refresh(r):
     """process_changes.py has added bofh_quarantine_refresh for the
     start/disable/end dates for the quarantines.  Register a
@@ -396,12 +396,12 @@ def proc_quarantine_refresh(r):
     quicksync script can revalidate the quarantines.
 
     """
-    request_processor.set_operator(r['requestee_id'])
+    process_bofhd_requests.set_operator(db, r['requestee_id'])
     db.log_change(r['entity_id'], cl_const.quarantine_refresh, None)
     return True
 
 
-@request_processor(const.bofh_archive_user, delay=2*60)
+@operations_map(const.bofh_archive_user, delay=2*60)
 def proc_archive_user(r):
     spread = default_spread  # TODO: check spread in r['state_data']
     account, uname, old_host, old_disk = get_account_and_home(r['entity_id'],
@@ -421,7 +421,7 @@ def proc_archive_user(r):
         return False
 
 
-@request_processor(const.bofh_delete_user, delay=2*60)
+@operations_map(const.bofh_delete_user, delay=2*60)
 def proc_delete_user(r):
     spread = default_spread  # TODO: check spread in r['state_data']
     #
@@ -433,7 +433,7 @@ def proc_delete_user(r):
     if account.is_deleted():
         logger.warn("%s is already deleted" % uname)
         return True
-    request_processor.set_operator(r['requestee_id'])
+    process_bofhd_requests.set_operator(db, r['requestee_id'])
     operator = get_account(r['requestee_id']).account_name
     et = Email.EmailTarget(db)
     try:
@@ -700,14 +700,23 @@ def main():
             # Asserting that a legal value is assigned to args.ou_perspective
             args.ou_perspective = get_constant(db, parser, const.OUPerspective,
                                                args.ou_perspective)
+            msp = process_bofhd_requests.MoveStudentProcessor(
+                db,
+                const,
+                default_spread=default_spread
+            )
+            # Convert move_student requests into move_user requests
+            msp.process_requests(
+                args.ou_perspective,
+                args.emne_info_file,
+                args.studconfig_file,
+                args.studieprogs_file,
+                args.student_info_file
+            )
 
-        request_processor.process_requests(args.types,
-                                           args.max_requests,
-                                           args.ou_perspective,
-                                           args.emne_info_file,
-                                           args.studconfig_file,
-                                           args.studieprogs_file,
-                                           args.student_info_file)
+        rp = process_bofhd_requests.RequestProcessor(db, const)
+        rp.process_requests(operations_map, args.types, args.max_requests)
+
 
 
 if __name__ == '__main__':
