@@ -143,8 +143,6 @@ class RequestProcessor(object):
     def process_requests(self, operations_map, op_types, max_requests):
         with closing(RequestLockHandler()) as reqlock:
             br = BofhdRequests(self.db, self.co)
-            print br.get_requests(operation=self.co.bofh_move_student)
-            print br.get_requests(operation=self.co.bofh_move_user)
             for t in op_types:
                 for op in self.op_type_map[t]:
                     if op not in operations_map:

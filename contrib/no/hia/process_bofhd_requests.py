@@ -33,8 +33,7 @@ from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory, spawn_and_log_output
 from Cerebrum.utils import json
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.process_bofhd_requests import RequestProcessor
-
+from Cerebrum.modules.bofhd_requests import process_bofhd_requests
 
 logger = logging.getLogger(__name__)
 db = Factory.get('Database')()
@@ -44,7 +43,7 @@ const = Factory.get('Constants')(db)
 
 EXIT_SUCCESS = 0
 
-request_processor = RequestProcessor(db, const)
+operations_map = process_bofhd_requests.OperationsMap()
 
 
 def dependency_pending(dep_id, local_db=db, local_co=const):
@@ -57,7 +56,7 @@ def dependency_pending(dep_id, local_db=db, local_co=const):
     return False
 
 
-@request_processor(const.bofh_sympa_create, delay=2*60)
+@operations_map(const.bofh_sympa_create, delay=2*60)
 def proc_sympa_create(request):
     """Execute the request for creating a sympa mailing list.
 
@@ -107,7 +106,7 @@ def proc_sympa_create(request):
     return spawn_and_log_output(cmd) == EXIT_SUCCESS
 
 
-@request_processor(const.bofh_sympa_remove, delay=2*60)
+@operations_map(const.bofh_sympa_remove, delay=2*60)
 def proc_sympa_remove(request):
     """Execute the request for removing a sympa mailing list.
 
@@ -183,7 +182,8 @@ def main():
     logger.debug('args: %r', args)
 
     if args.process:
-        request_processor.process_requests(args.types, args.max_requests)
+        rp = process_bofhd_requests.RequestProcessor(db, const)
+        rp.process_requests(operations_map, args.types, args.max_requests)
 
 
 if __name__ == '__main__':
