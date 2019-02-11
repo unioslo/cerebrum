@@ -1,4 +1,7 @@
 2019-01-28 <kennethj@gagarin.uit.no>
+    * export_ad.py: removed obsolete string convertions.
+
+2019-01-28 <kennethj@gagarin.uit.no>
     * export_oid.py:    filter out sito employees, they are not to be exported to oid(portal)
 2019-01-25 <kennethj@gagarin.uit.no>
     * export_cristin.py:    updated script to handle utf-8 input

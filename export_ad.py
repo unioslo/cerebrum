@@ -154,13 +154,13 @@ def get_ouinfo(ou_id,perspective):
     #sko.find(ou_id)
     res=dict()
     #res['name']=str(sko.name)
-    res['name']=str(sko.get_name_with_language(co.ou_name,name_language).encode('utf-8'))
+    res['name']=sko.get_name_with_language(co.ou_name,name_language)
     try:
-        res['short_name']=str(sko.get_name_with_language(co.ou_name_short,name_language).encode('utf-8'))
+        res['short_name']=sko.get_name_with_language(co.ou_name_short,name_language)
     except Errors.NotFoundError:
         res['short_name'] = ""
     try:
-        res['acronym']=str(sko.get_name_with_language(co.ou_name_acronym,name_language).encode('utf-8'))
+        res['acronym']=sko.get_name_with_language(co.ou_name_acronym,name_language)
     except Errors.NotFoundError:
         res['acronym'] = ""
     sko.clear()
@@ -168,9 +168,7 @@ def get_ouinfo(ou_id,perspective):
 
     try:
         sko.find_by_perspective(ou_id,perspective)
-        sted_sko="%s%s%s" % (str(sko.fakultet).zfill(2),
-                        str(sko.institutt).zfill(2),
-                        str(sko.avdeling).zfill(2))
+        sted_sko = u'{:02}{:02}{:02}'.format(sko.fakultet, sko.institutt, sko.avdeling)
         #logger.debug("found sko for id=%s,persp=%s" % (ou_id,perspective))
 
     except Errors.NotFoundError:
@@ -185,19 +183,20 @@ def get_ouinfo(ou_id,perspective):
         #logger.debug("parent_id:%s, sko.entity_id:%s" % (parent_id,sko.entity_id))
         if (parent_id is None) or (parent_id == sko.entity_id):
             #logger.debug("Root for %s is %s, name is  %s" % (ou_id,sko.entity_id,sko.name))
-            res['company']=str(sko.get_name_with_language(co.ou_name,name_language))
+            res['company']=sko.get_name_with_language(co.ou_name,name_language)
             break
         sko.clear()
         #logger.debug("Lookup %s in %s" % (parent_id,perspective))
         sko.find_by_perspective(parent_id,perspective)
         #sko.find(parent_id)
-        #logger.debug("Lookup returned: id=%s,name=%s" % (sko.entity_id,sko.name))
+        logger.debug("Lookup returned: id=%s,name=%s" % (sko.entity_id,sko.name))
         # Detect infinite loops
         if sko.entity_id in visited:
             raise RuntimeError, "DEBUG: Loop detected: %r" % visited
         visited.append(sko.entity_id)
         parent_id = sko.get_parent(perspective)
         #logger.debug("New parentid is %s" % (parent_id,))
+    # import pprint; pprint.pprint(res); 1/0
     return res
 get_ouinfo=memoize(get_ouinfo)
 
