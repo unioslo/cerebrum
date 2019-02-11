@@ -943,7 +943,8 @@ class BofhdExtension(BofhdCommonMethods):
         pu = Factory.get('PosixUser')(self.db)
         illegal_name = pu.illegal_name(accountname)
         if illegal_name:
-            return "Illegal account name given. Account name " + illegal_name
+            raise CerebrumError("Illegal account name given. Account name " +
+                                illegal_name)
 
         is_posix = False
         try:
