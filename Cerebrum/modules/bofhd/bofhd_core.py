@@ -436,6 +436,30 @@ class BofhdCommandBase(object):
                                  ("sko=%r" % stedkode)))
         raise Errors.UnreachableCodeError("_get_ou")
 
+    def _get_disk(self, path, host_id=None, raise_not_found=True):
+        disk = Factory.get('Disk')(self.db)
+        try:
+            if isinstance(path, basestring):
+                disk.find_by_path(path, host_id)
+            else:
+                disk.find(path)
+            return disk, disk.entity_id, None
+        except Errors.NotFoundError:
+            if raise_not_found:
+                raise CerebrumError("Unknown disk: %s" % path)
+            return disk, None, path
+
+    def _get_host(self, name):
+        host = Factory.get('Host')(self.db)
+        try:
+            if isinstance(name, (int, long)):
+                host.find(name)
+            else:
+                host.find_by_name(name)
+            return host
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown host: %r" % name)
+
     def _get_account(self, account_id, idtype=None, actype="Account"):
         """ Fetch an account identified by account_id.
 
