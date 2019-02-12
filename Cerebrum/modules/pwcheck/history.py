@@ -67,13 +67,15 @@ pbkdf2_param = {
         'rounds': 10000,
         'salt_size': 32,
         'desired_key_len': 32,
-    }        
+    }
 }
+
 
 def old_encode_for_history(name, password):
     """Hashes old password stored by md5hash."""
     m = hashlib.md5(name.encode('utf-8') + password.encode('utf-8'))
     return base64.b64encode(m.digest())[:22]
+
 
 def encode_for_history(algo, rounds, salt, password, dkLen):
     """ Hashes new passwords by pbkdf2 hash function
@@ -94,6 +96,7 @@ def encode_for_history(algo, rounds, salt, password, dkLen):
     key = base64.b64encode(hash_out)
     return "{}${}${}${}".format(hash_alg, rounds, stored_salt, key)
 
+
 def check_password_history(password, old_passwords, name):
     for old_password in old_passwords:
         # check start to distinguish between old and new hash
@@ -102,8 +105,8 @@ def check_password_history(password, old_passwords, name):
             password_parts = old_password.split('$')
             iters = int(password_parts[1])
             salt = base64.b64decode(password_parts[2])
-            # get params for the pbkdf2 
-            algo = pbkdf2_param.items()[0][0] # gets the name of the algorithm
+            # get params for the pbkdf2
+            algo = pbkdf2_param.items()[0][0]  # gets the name of the algorithm
             dkLen = pbkdf2_param['sha512']['desired_key_len']
             encoded_password = encode_for_history(algo, iters, salt, password, dkLen)
             if encoded_password in old_passwords:
@@ -114,11 +117,13 @@ def check_password_history(password, old_passwords, name):
                 return True
     return False
 
+
 def check_passwords_history(variants, old_passwords, name):
     for variant in variants:
         if check_password_history(variant, old_passwords, name):
             return True
     return False
+
 
 class ClearPasswordHistoryMixin(DatabaseAccessor):
     """ A mixin that will delete password history. """
@@ -218,6 +223,7 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
         old_passwords = [r['md5base64'] for r in ph.get_history(entity_id)]
         return check_password_history(password, old_passwords, name)
 
+
 class PasswordHistory(DatabaseAccessor):
     """PasswordHistory contains an API for accessing password history."""
 
@@ -229,7 +235,7 @@ class PasswordHistory(DatabaseAccessor):
         if _csum is not None:
             csum = _csum
         else:
-            algo = pbkdf2_param.items()[0][0] # gets the name of the algorithm
+            algo = pbkdf2_param.items()[0][0]  # gets the name of the algorithm
             rounds = pbkdf2_param['sha512']['rounds']
             salt = os.urandom(pbkdf2_param['sha512']['salt_size'])
             dkLen = pbkdf2_param['sha512']['desired_key_len']
