@@ -31,11 +31,12 @@ moved to a separate module after:
     Date:  Fri Mar 18 10:34:58 2016 +0100
 
 """
-
-import sys
-import time
+import logging
+import signal
 import socket
 import SocketServer
+import sys
+import time
 
 from Cerebrum import Utils
 from Cerebrum import Cache
@@ -47,8 +48,24 @@ from Cerebrum.modules.bofhd.help import Help
 from Cerebrum.modules.statsd import config as statsd_config
 
 
+logger = logging.getLogger(__name__)
+
+
 class BofhdServerImplementation(object):
-    """ Common Server implementation. """
+    """
+    Common Server implementation.
+
+    To get a functional server implementation, this class should be mixed in
+    with a py:class:`SocketServer.BaseServer` implementation. E.g.:
+
+    ::
+
+        BofhdServer = type(
+            'BofhdServer',
+            (BofhdServerImplementation, SocketServer.TCPServer),
+            {})
+
+    """
 
     def __init__(
             self, bofhd_config=None, logRequests=False, logger=None, **kws):
@@ -58,8 +75,8 @@ class BofhdServerImplementation(object):
             A bofhd extension configuration.
 
         """
-        self.__logger = logger
         self.__config = bofhd_config
+        self.logger = logger.getChild('BofhdServerImplementation')
         super(BofhdServerImplementation, self).__init__(**kws)
         # TODO: logRequests is not really used anywhere?
         #       At least not here nor in SocketServer
@@ -67,13 +84,6 @@ class BofhdServerImplementation(object):
         self.load_extensions()
         # TODO: Not really used either
         self.server_start_time = time.time()
-
-    @property
-    def logger(self):
-        """ Server logger. """
-        if not self.__logger:
-            self.__logger = Factory.get_logger()
-        return self.__logger
 
     @property
     @memoize
@@ -225,25 +235,10 @@ class BofhdServerImplementation(object):
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         super(BofhdServerImplementation, self).server_bind()
         if hasattr(self, 'server_address'):
-            self.logger.info("Ready to accept connections on %r",
-                             format_addr(self.server_address))
+            logger.info("Ready to accept connections on %r",
+                        format_addr(self.server_address))
         else:
-            self.logger.info("Ready to accept connections")
-
-    def get_request(self):
-        """ Get request socket and client address.
-
-        This is used to log new connections.
-
-        :rtype: tuple
-        :return:
-            A tuple with the request socket, and client address. The client
-            address is a tuple consisting of address and port.
-
-        """
-        sock, addr = super(BofhdServerImplementation, self).get_request()
-        self.logger.debug2("new connection from %r", format_addr(addr))
-        return sock, addr
+            logger.info("Ready to accept connections")
 
     def close_request(self, request):
         """ Close request socket.
@@ -259,7 +254,39 @@ class BofhdServerImplementation(object):
 
         """
         super(BofhdServerImplementation, self).close_request(request)
-        self.logger.debug2("closed connection %r", request)
+        logger.debug("closed connection %r", request)
+
+
+class _AlarmSignalTimeoutReached(RuntimeError):
+    pass
+
+
+class _AlarmSignalTimeoutContext(object):
+    """
+    Context to handle timeouts in a block of code.
+
+    .. warning::
+        Signals are global! If anything else within the code block sets up or
+        resets a ``signal.alarm()``, or messes with the ``signal.SIGALRM``
+        handler without resetting handlers appropriately, this may fail
+        spectacularly!
+    """
+
+    def __init__(self, timeout):
+        self.timeout = int(timeout)
+
+    def timeout_handler(self, signum, frame):
+        raise _AlarmSignalTimeoutReached()
+
+    def __enter__(self):
+        self.__old_handler = signal.getsignal(signal.SIGALRM)
+        signal.signal(signal.SIGALRM, self.timeout_handler)
+        signal.alarm(self.timeout)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, self.__old_handler)
 
 
 class _TCPServer(SocketServer.TCPServer, object):
@@ -267,20 +294,73 @@ class _TCPServer(SocketServer.TCPServer, object):
     # Must override __init__ here to make the super() call work with only kw
     # args.
 
-    def __init__(self, server_address=None,
-                 RequestHandlerClass=BofhdRequestHandler,
-                 bind_and_activate=True, **kws):
+    get_request_timeout = 5
+
+    def __init__(
+            self,
+            server_address=None,
+            RequestHandlerClass=BofhdRequestHandler,
+            bind_and_activate=True,
+            get_request_timeout=get_request_timeout,
+            **kws):
         # This should always call SocketServer.TCPServer
         super(_TCPServer, self).__init__(
             server_address=server_address,
             RequestHandlerClass=RequestHandlerClass,
             bind_and_activate=bind_and_activate,
             **kws)
+        self.get_request_timeout = int(get_request_timeout)
+
+    def _handle_request_noblock(self):
+        """
+        Handle one request, without blocking.
+
+        Overrides py:class:`SocketServer.BaseServer` with a timeout for
+        ``get_request()``.  This should fix an issue where ``get_request()``
+        may actually block and wait for input.
+
+        As ``get_request()`` runs, other client connections will not be
+        accepted.  This is a known issue when calling ``socket.accept()`` on
+        SSL sockets, which may block and wait for a client handshake
+        indefinetely (PySSL_SSLdo_handshake).
+        """
+        # TODO: We really only support TCPServer implementations, so the
+        # timeout is placed here. We may want to move it to:
+        #  - BofhdServerImplementation, so it applies to all servers
+        #  - _SSLServer, so it only applies to ssl servers.
+        start = time.time()
+        try:
+            with _AlarmSignalTimeoutContext(self.get_request_timeout):
+                request, client_address = self.get_request()
+            logger.info('connection from %r', client_address)
+        except _AlarmSignalTimeoutReached as e:
+            logger.warn('connection timed out after %.02fs',
+                        time.time() - start)
+            return
+        except socket.error as e:
+            logger.warn('connection failed: %s', e)
+            return
+        except Exception:
+            logger.error('connection failed', exc_info=True)
+            return
+
+        if self.verify_request(request, client_address):
+            try:
+                self.process_request(request, client_address)
+            except:
+                self.handle_error(request, client_address)
+                self.shutdown_request(request)
+        else:
+            self.shutdown_request(request)
 
 
 class _ThreadingMixIn(SocketServer.ThreadingMixIn, object):
     """SocketServer.ThreadingMixIn as a new-style class."""
-    pass
+
+    def process_request_thread(self, request, client_address):
+        logger.debug("thread started for client %r", client_address)
+        super(_ThreadingMixIn, self).process_request_thread(request,
+                                                            client_address)
 
 
 class BofhdServer(BofhdServerImplementation, _TCPServer):
