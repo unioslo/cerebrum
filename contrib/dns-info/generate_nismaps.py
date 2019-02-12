@@ -3,9 +3,10 @@
 
 from __future__ import unicode_literals
 
-import getopt
 import sys
 import mx
+import getopt
+import argparse
 
 from six import text_type
 
@@ -19,8 +20,6 @@ from Cerebrum.modules import PosixGroup
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
-from Cerebrum.utils.funcwrap import memoize
-
 
 del cerebrum_path
 
@@ -63,54 +62,45 @@ class NoDisk(NISMapError):
     pass
 
 
-def generate_passwd(filename, shadow_file, spread=None):
-    logger.debug("generate_passwd: %s", (filename, shadow_file, spread))
-    if spread is None:
-        raise ValueError("Must set user_spread")
+def make_shells_cache(posix_user):
+    logger.debug('Making shells cache')
     shells = {}
     for s in posix_user.list_shells():
         shells[int(s['code'])] = s['shell']
-    f = SimilarSizeWriter(filename, "w", encoding='ISO-8859-1')
-    f.max_pct_change = 10
-    if shadow_file:
-        s = SimilarSizeWriter(shadow_file, "w", encoding='UTF-8')
-        s.max_pct_change = 10
-    diskid2path = {}
-    disk = Factory.get('Disk')(db)
-    for d in disk.list(spread=spread):
-        diskid2path[int(d['disk_id'])] = d['path']
+    return shells
 
-    def process_user(user_rows):
-        row = user_rows[0]
-        uname = row['entity_name']
-        tmp = posix_user.illegal_name(uname)
-        if tmp:
-            raise BadUsername("Bad username %s" % tmp)
+
+def generate_passwd(filename, shadow_file, spread):
+    def process_user(row):
+        account_id = row['account_id']
+        logger.debug('Processing account: %s', account_id)
+        row_auth = posix_user.list_account_authentication(
+            account_id=account_id
+        )[0]
+        uname = row_auth['entity_name']
+        is_illegal_name = posix_user.illegal_name(uname)
+        if is_illegal_name:
+            raise BadUsername("Bad username %s" % is_illegal_name)
         if len(uname) > 8:
             raise BadUsername("Bad username %s" % uname)
-        passwd = row['auth_data']
+        passwd = row_auth['auth_data']
         if passwd is None:
             passwd = '*'
-        posix_group.posix_gid = row['posix_gid']
+        posix_gid = get_posix_gid(row, posix_group)
         gecos = row['gecos']
-        if gecos is None:
-            gecos = row['name']
         if gecos is None:
             gecos = "GECOS NOT SET"
         gecos = transliterate.to_iso646_60(gecos)
         shell = shells[int(row['shell'])]
-        if row['quarantine_type'] is not None:
-            now = mx.DateTime.now()
-            quarantines = []
-            for qrow in user_rows:
-                if (qrow['start_date'] <= now
-                    and (qrow['end_date'] is None or qrow['end_date'] >= now)
-                    and (qrow['disable_until'] is None
-                         or qrow['disable_until'] < now)):
-                    # The quarantine found in this row is currently
-                    # active.
-                    quarantines.append(qrow['quarantine_type'])
-            qh = QuarantineHandler.QuarantineHandler(db, quarantines)
+
+        posix_user.clear()
+        posix_user.find(account_id)
+        quarantines = posix_user.get_entity_quarantine(only_active=True)
+        quarantine_types = []
+        if quarantines is not None:
+            for q in quarantines:
+                quarantine_types.append(q['quarantine_type'])
+            qh = QuarantineHandler.QuarantineHandler(db, quarantine_types)
             if qh.should_skip():
                 raise UserSkipQuarantine
             if qh.is_locked():
@@ -119,10 +109,7 @@ def generate_passwd(filename, shadow_file, spread=None):
             if qshell is not None:
                 shell = qshell
 
-        home = posix_user.resolve_homedir(
-            account_name=uname,
-            home=row['disk_id'],
-            disk_path=diskid2path[int(row['disk_id'])])
+        home = posix_user.get_posix_home(spread)
         if home is None:
             # TBD: Is this good enough?
             home = '/'
@@ -133,36 +120,33 @@ def generate_passwd(filename, shadow_file, spread=None):
                 passwd = "!!"
 
         line = ':'.join((uname, passwd, text_type(row['posix_uid']),
-                         text_type(posix_group.posix_gid), gecos,
+                         text_type(posix_gid), gecos,
                          text_type(home), shell))
         if debug:
             logger.debug(line)
         f.write(line+"\n")
         # convert to 7-bit
-    user_iter = posix_user.list_extended_posix_users(
-        spread=spread, include_quarantines=True)
-    prev_user = None
-    user_rows = []
+
+    logger.debug("generate_passwd: %s", (filename, shadow_file, spread))
+    shells = make_shells_cache(posix_user)
+
+    f = SimilarSizeWriter(filename, "w", encoding='ISO-8859-1')
+    f.max_pct_change = 10
+    if shadow_file:
+        s = SimilarSizeWriter(shadow_file, "w", encoding='UTF-8')
+        s.max_pct_change = 10
+
+    user_iter = posix_user.list_posix_users(spread=spread,
+                                            filter_expired=True)
+
     for row in user_iter:
-        if prev_user != row['account_id'] and prev_user is not None:
-            try:
-                process_user(user_rows)
-            except NISMapError:
-                logger.error("NISMapError", exc_info=1)
-            except NISMapException:
-                pass
-            user_rows = [row]
-        else:
-            user_rows.append(row)
-        prev_user = row['account_id']
-    else:
-        if user_rows:
-            try:
-                process_user(user_rows)
-            except NISMapError:
-                logger.error("NISMapError", exc_info=1)
-            except NISMapException:
-                pass
+        try:
+            process_user(row)
+        except NISMapError:
+            logger.error("NISMapError", exc_info=1)
+        except NISMapException:
+            pass
+
     if e_o_f:
         f.write('E_O_F\n')
     f.close()
@@ -284,19 +268,27 @@ class NISGroupUtil(object):
         return tmp_users
 
 
+def get_posix_gid(row, group):
+    group.clear()
+    group.find(int(row['gid']))
+    return int(group.posix_gid)
+
+
+def make_account_cache(posix_user, group):
+    logger.debug('Making account cache')
+    account2posix_gid = {}
+    for row in posix_user.list_posix_users(filter_expired=True):
+        account2posix_gid[int(row['account_id'])] = get_posix_gid(row, group)
+    return account2posix_gid
+
+
 class FileGroup(NISGroupUtil):
     def __init__(self, group_spread, member_spread):
         super(FileGroup, self).__init__(
             co.account_namespace, co.entity_account,
             group_spread, member_spread)
         self._group = PosixGroup.PosixGroup(db)
-        self._account2posix_gid = {}
-        for row in posix_user.list_posix_users():
-            account_id = int(row['account_id'])
-            self._group.clear()
-            self._group.find(int(row['gid']))
-            print self._group.posix_gid
-            self._account2posix_gid[account_id] = int(self._group.posix_gid)
+        self._account2posix_gid = make_account_cache(posix_user, self._group)
         logger.debug("__init__ done")
 
     def _make_tmp_name(self, base):
@@ -417,6 +409,14 @@ def map_spread(id):
 
 
 def main():
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument(
+    #     'd', '--debug',
+    #     dest='debug',
+    #
+    # )
+    # TODO: finish this and make sure job_runner doesn't crash
+
     global debug
     global e_o_f
     global max_group_memberships
