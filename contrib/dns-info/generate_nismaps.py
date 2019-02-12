@@ -70,10 +70,18 @@ def make_shells_cache(posix_user):
     return shells
 
 
-def generate_passwd(filename, shadow_file, spread):
+def generate_passwd(filename, spread, shadow_file=None):
+    """ Writes posix users' passwords to file
+
+    :type filename: str
+
+    :type spread: object
+    :param spread: spread of the posix users to be selected
+
+    :type shadow_file: str
+    """
     def process_user(row):
         account_id = row['account_id']
-        logger.debug('Processing account: %s', account_id)
         row_auth = posix_user.list_account_authentication(
             account_id=account_id
         )[0]
@@ -122,8 +130,7 @@ def generate_passwd(filename, shadow_file, spread):
         line = ':'.join((uname, passwd, text_type(row['posix_uid']),
                          text_type(posix_gid), gecos,
                          text_type(home), shell))
-        if debug:
-            logger.debug(line)
+        logger.debug(line)
         f.write(line+"\n")
         # convert to 7-bit
 
