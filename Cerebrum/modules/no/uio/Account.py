@@ -460,7 +460,7 @@ class AccountUiOMixin(Account.Account):
         if isinstance(self, PosixUser):
             # TODO: Kill the ARsystem user to limit range og legal characters
             if len(name) > 16:
-                return "too long (%s)" % name
+                return "is too long (%s)" % name
             if re.search("^[^A-Za-z]", name):
                 return "must start with a character (%s)" % name
             if re.search("[^A-Za-z0-9\-_]", name):
