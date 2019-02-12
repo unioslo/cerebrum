@@ -257,36 +257,39 @@ class BofhdServerImplementation(object):
         logger.debug("closed connection %r", request)
 
 
-class _AlarmSignalTimeoutReached(RuntimeError):
-    pass
-
-
-class _AlarmSignalTimeoutContext(object):
+class _SigAlrmTimeout(object):
     """
     Context to handle timeouts in a block of code.
 
     .. warning::
-        Signals are global! If anything else within the code block sets up or
-        resets a ``signal.alarm()``, or messes with the ``signal.SIGALRM``
-        handler without resetting handlers appropriately, this may fail
-        spectacularly!
+        Only one alarm signal can be scheduled at a time! If anything else
+        within the code block sets up or resets a ``signal.alarm()``, or messes
+        with the ``signal.SIGALRM`` handler without resetting handlers
+        appropriately, this may fail spectacularly!
     """
 
-    def __init__(self, timeout):
-        self.timeout = int(timeout)
+    class Timeout(Exception):
+        """ exception raised on SIGALRM. """
+        pass
 
-    def timeout_handler(self, signum, frame):
-        raise _AlarmSignalTimeoutReached()
+    def __init__(self, seconds):
+        self.timeout = int(seconds)
+
+    @classmethod
+    def timeout_handler(cls, signum, frame):
+        raise cls.Timeout()
 
     def __enter__(self):
-        self.__old_handler = signal.getsignal(signal.SIGALRM)
-        signal.signal(signal.SIGALRM, self.timeout_handler)
+        self._prev_handler = signal.signal(signal.SIGALRM,
+                                           self.timeout_handler)
         signal.alarm(self.timeout)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         signal.alarm(0)
-        signal.signal(signal.SIGALRM, self.__old_handler)
+        if self._prev_handler is not None:
+            signal.signal(signal.SIGALRM, self._prev_handler)
+        del self._prev_handler
 
 
 class _TCPServer(SocketServer.TCPServer, object):
@@ -330,10 +333,10 @@ class _TCPServer(SocketServer.TCPServer, object):
         #  - _SSLServer, so it only applies to ssl servers.
         start = time.time()
         try:
-            with _AlarmSignalTimeoutContext(self.get_request_timeout):
+            with _SigAlrmTimeout(self.get_request_timeout):
                 request, client_address = self.get_request()
             logger.info('connection from %r', client_address)
-        except _AlarmSignalTimeoutReached as e:
+        except _SigAlrmTimeout.Timeout as e:
             logger.warn('connection timed out after %.02fs',
                         time.time() - start)
             return
