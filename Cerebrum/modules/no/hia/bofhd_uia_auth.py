@@ -27,6 +27,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
+from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessAuth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.no.bofhd_note_cmds import EntityNoteBofhdAuth
 
@@ -142,3 +143,12 @@ class UiaEmailAuth(UiaAuth, BofhdEmailAuth):
         if query_run_any:
             return False
         raise PermissionDenied("Currently limited to superusers")
+
+
+class UiaAccessAuth(UiaAuth, BofhdAccessAuth):
+    """Nih specific authentication checks
+
+    Used for overriding default behavior
+
+    """
+    pass

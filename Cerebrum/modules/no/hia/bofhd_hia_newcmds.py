@@ -33,6 +33,7 @@ from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
                                          BofhdAuthRole)
+from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessCommands
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
@@ -47,6 +48,7 @@ from Cerebrum.modules.no.hia.bofhd_uia_auth import (
     UiaAuth,
     UiaContactAuth,
     UiaEmailAuth,
+    UiaAccessAuth,
 )
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as base
 
@@ -1472,6 +1474,11 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         et.email_server_id = es.entity_id
         et.write_db()
         return "OK, updated e-mail server for %s (to %s)" % (uname, server)
+
+
+class UiaAccessCommands(BofhdAccessCommands):
+    """This is the place for UiA specific bofhd access * commands"""
+    authz = UiaAccessAuth
 
 
 HELP_GROUPS = {

@@ -19,7 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ NMH bofhd module. """
 import mx
-from six import text_type
 
 from Cerebrum import database
 from Cerebrum import Utils
@@ -36,6 +35,7 @@ from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cmd_base
+from Cerebrum.modules.bofhd import bofhd_access
 
 
 def format_day(field):
@@ -59,6 +59,15 @@ class NmhContactAuth(NmhAuth):
 
 class NmhEmailAuth(NmhAuth, bofhd_email.BofhdEmailAuth):
     """ NMH specific email auth. """
+    pass
+
+
+class NmhAccessAuth(NmhAuth, bofhd_access.BofhdAccessAuth):
+    """Nmh specific authentication checks
+
+    Used for overriding default behavior or Nmh specific behavior
+
+    """
     pass
 
 
@@ -302,3 +311,10 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
     parent_commands = False  # copied with copy_command
     omit_parent_commands = set()
     authz = NmhEmailAuth
+
+
+class NmhAccessCommands(bofhd_access.BofhdAccessCommands):
+    """This is the place for Nmh specific bofhd access * commands
+
+    """
+    authz = NmhAccessAuth

@@ -84,6 +84,7 @@ from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.help import Help, merge_help_strings
+from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
@@ -91,6 +92,7 @@ from Cerebrum.modules.no.uio.bofhd_auth import (
     UioAuth,
     UioContactAuth,
     UioEmailAuth,
+    UioAccessAuth
 )
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
@@ -6924,3 +6926,8 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                                     "vacation messages via OWA!")
         return super(EmailCommands, self).email_tripnote_add(
             operator, uname, text, when=when)
+
+
+class UioAccessCommands(bofhd_access.BofhdAccessCommands):
+    """Uio specific access * commands"""
+    authz = UioAccessAuth

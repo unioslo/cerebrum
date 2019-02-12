@@ -1200,50 +1200,6 @@ class BofhdAuth(DatabaseAccessor):
                                 group is None and "N/A" or
                                 self._get_gname(group.entity_id)))
 
-    def list_alterable_entities(self, operator, target_type):
-        """Find entities of `target_type` that `operator` can moderate.
-
-        'Moderate' in this context is equivalent with `auth_operation_set`
-        defined in `cereconf.BOFHD_AUTH_GROUPMODERATOR`.
-
-        :param int operator:
-          The account on behalf of which the query is to be executed.
-
-        :param str target_type:
-          The kind of entities for which permissions are checked. The only
-          permissible values are 'group', 'disk', 'host' and 'maildom'.
-
-        """
-        legal_target_types = ('group', 'disk', 'host', 'maildom')
-
-        if target_type not in legal_target_types:
-            raise ValueError("Illegal target_type <%s>" % target_type)
-
-        operator_id = int(operator)
-        opset = BofhdAuthOpSet(self._db)
-        opset.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
-
-        sql = """
-        SELECT aot.entity_id
-        FROM [:table schema=cerebrum name=auth_op_target] aot,
-             [:table schema=cerebrum name=auth_role] ar
-        WHERE (
-            ar.entity_id = :operator_id OR
-            -- do NOT replace with EXISTS, it's much more expensive
-            ar.entity_id IN (
-                SELECT gm.group_id
-                FROM [:table schema=cerebrum name=group_member] gm
-                WHERE gm.member_id = :operator_id
-            ))
-        AND ar.op_target_id = aot.op_target_id
-        AND aot.target_type = :target_type
-        AND ar.op_set_id = :op_set_id
-        """
-
-        return self.query(sql, {"operator_id": operator_id,
-                                "target_type": target_type,
-                                "op_set_id": opset.op_set_id})
-
     def can_create_group(self, operator, groupname=None, query_run_any=False):
         """If an account should be allowed to create a group.
 
@@ -1754,28 +1710,6 @@ class BofhdAuth(DatabaseAccessor):
             if r['requestee_id'] and int(r['requestee_id']) == operator:
                 return True
         raise PermissionDenied("You are not requester")
-
-    def can_grant_access(self, operator, operation=None, target_type=None,
-                         target_id=None, opset=None, query_run_any=False):
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            for op in (self.const.auth_grant_disk,
-                       self.const.auth_grant_group,
-                       self.const.auth_grant_host,
-                       self.const.auth_grant_maildomain,
-                       self.const.auth_grant_dns,
-                       self.const.auth_grant_ou):
-                if self._has_operation_perm_somewhere(operator, op):
-                    return True
-            return False
-        if opset is not None:
-            opset = opset.name
-        if self._has_target_permissions(operator, operation,
-                                        target_type, target_id,
-                                        None, operation_attr=opset):
-            return True
-        raise PermissionDenied("No access to %s" % target_type)
 
     def can_request_guests(self, operator, groupname=None,
                            query_run_any=False):

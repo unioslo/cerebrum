@@ -19,7 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ NIH bofhd commands. """
 import mx
-from six import text_type
 
 from Cerebrum import Utils
 from Cerebrum import Errors
@@ -39,6 +38,7 @@ from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cmd_base
+from Cerebrum.modules.bofhd import bofhd_access
 
 
 def format_day(field):
@@ -75,6 +75,14 @@ class NihEmailAuth(NihAuth, bofhd_email.BofhdEmailAuth):
                                      query_run_any=query_run_any):
             return True
         raise PermissionDenied("Currently limited to postmasters")
+
+
+class NihAccessAuth(NihAuth, bofhd_access.BofhdAccessAuth):
+    """Nih specific access * command auth
+
+    Used for overriding default behavior
+    """
+    pass
 
 
 uio_helpers = [
@@ -379,6 +387,13 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         else:
             ret += self._email_info_detail(acc)
         return ret
+
+
+class NihAccessCommands(bofhd_access.BofhdAccessCommands):
+    """This is the place for Nih specific bofhd access * commands
+
+    """
+    authz = NihAccessAuth
 
 
 HELP_CMDS = {

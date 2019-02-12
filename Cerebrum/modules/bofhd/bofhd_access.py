@@ -31,6 +31,7 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.modules import Email
 from Cerebrum.modules.dns.Subnet import Subnet, SubnetError
+from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
                                          BofhdAuthOpTarget,
                                          BofhdAuthRole)
@@ -52,7 +53,71 @@ from Cerebrum.modules.bofhd.cmd_param import (
 
 class BofhdAccessAuth(BofhdAuth):
     """Auth for access * commands"""
-    pass
+    def can_grant_access(self, operator, operation=None, target_type=None,
+                         target_id=None, opset=None, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            for op in (self.const.auth_grant_disk,
+                       self.const.auth_grant_group,
+                       self.const.auth_grant_host,
+                       self.const.auth_grant_maildomain,
+                       self.const.auth_grant_dns,
+                       self.const.auth_grant_ou):
+                if self._has_operation_perm_somewhere(operator, op):
+                    return True
+            return False
+        if opset is not None:
+            opset = opset.name
+        if self._has_target_permissions(operator, operation,
+                                        target_type, target_id,
+                                        None, operation_attr=opset):
+            return True
+        raise PermissionDenied("No access to %s" % target_type)
+
+    def list_alterable_entities(self, operator, target_type):
+        """Find entities of `target_type` that `operator` can moderate.
+
+        'Moderate' in this context is equivalent with `auth_operation_set`
+        defined in `cereconf.BOFHD_AUTH_GROUPMODERATOR`.
+
+        :param int operator:
+          The account on behalf of which the query is to be executed.
+
+        :param str target_type:
+          The kind of entities for which permissions are checked. The only
+          permissible values are 'group', 'disk', 'host' and 'maildom'.
+
+        """
+        legal_target_types = ('group', 'disk', 'host', 'maildom')
+
+        if target_type not in legal_target_types:
+            raise ValueError("Illegal target_type <%s>" % target_type)
+
+        operator_id = int(operator)
+        opset = BofhdAuthOpSet(self._db)
+        opset.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
+
+        sql = """
+        SELECT aot.entity_id
+        FROM [:table schema=cerebrum name=auth_op_target] aot,
+             [:table schema=cerebrum name=auth_role] ar
+        WHERE (
+            ar.entity_id = :operator_id OR
+            -- do NOT replace with EXISTS, it's much more expensive
+            ar.entity_id IN (
+                SELECT gm.group_id
+                FROM [:table schema=cerebrum name=group_member] gm
+                WHERE gm.member_id = :operator_id
+            ))
+        AND ar.op_target_id = aot.op_target_id
+        AND aot.target_type = :target_type
+        AND ar.op_set_id = :op_set_id
+        """
+
+        return self.query(sql, {"operator_id": operator_id,
+                                "target_type": target_type,
+                                "op_set_id": opset.op_set_id})
 
 
 class BofhdAccessCommands(BofhdCommonMethods):
@@ -60,11 +125,13 @@ class BofhdAccessCommands(BofhdCommonMethods):
 
     all_commands = {}
     hidden_commands = {}
-
     authz = BofhdAccessAuth
-    omit_parent_commands = set()
-    parent_commands = False
 
+    @classmethod
+    def get_help_strings(cls):
+        return merge_help_strings(
+            super(BofhdAccessCommands, cls).get_help_strings(),
+            (HELP_ACCESS_GROUP, HELP_ACCESS_CMDS, HELP_ACCESS_ARGS))
     #
     # access disk <path>
     #
@@ -281,32 +348,9 @@ class BofhdAccessCommands(BofhdCommonMethods):
     def access_global_dns(self, operator):
         return self._list_access("global_dns")
 
+    # TODO: Define all_commands['access_global_dns']
     def access_global_person(self, operator):
         return self._list_access("global_person")
-
-    def _list_access(self, target_type, target_name=None, empty_result="None"):
-        target_id, target_type, target_auth = self._get_access_id(target_type,
-                                                                  target_name)
-        ret = []
-        ar = BofhdAuthRole(self.db)
-        aos = BofhdAuthOpSet(self.db)
-        for r in self._get_auth_op_target(target_id, target_type,
-                                          any_attr=True):
-            attr = str(r['attr'] or '')
-            for r2 in ar.list(op_target_id=r['op_target_id']):
-                aos.clear()
-                aos.find(r2['op_set_id'])
-                ety = self._get_entity(ident=r2['entity_id'])
-                ret.append({
-                    'opset': aos.name,
-                    'attr': attr,
-                    'type': six.text_type(self.const.EntityType(
-                        ety.entity_type)),
-                    'name': self._get_name_from_object(ety),
-                })
-        ret.sort(lambda a, b: (cmp(a['opset'], b['opset']) or
-                               cmp(a['name'], b['name'])))
-        return ret or empty_result
 
     #
     # access grant <opset name> <who> <type> <on what> [<attr>]
@@ -342,228 +386,7 @@ class BofhdAccessCommands(BofhdCommonMethods):
         return self._manipulate_access(self._revoke_auth, operator, opset,
                                        group, entity_type, target_name, attr)
 
-    def _manipulate_access(self, change_func, operator, opset, group,
-                           entity_type, target_name, attr):
-        """This function does no validation of types itself.  It uses
-        _get_access_id() to get a (target_type, entity_id) suitable for
-        insertion in auth_op_target.  Additional checking for validity
-        is done by _validate_access().
 
-        Those helper functions look for a function matching the
-        target_type, and call it.  There should be one
-        _get_access_id_XXX and one _validate_access_XXX for each known
-        target_type.
-
-        """
-        opset = self._get_opset(opset)
-        gr = self.util.get_target(group, default_lookup="group",
-                                  restrict_to=['Account', 'Group'])
-        target_id, target_type, target_auth = self._get_access_id(
-            entity_type, target_name)
-        operator_id = operator.get_entity_id()
-        if target_auth is None and not self.ba.is_superuser(operator_id):
-            raise PermissionDenied("Currently limited to superusers")
-        else:
-            self.ba.can_grant_access(operator_id, target_auth,
-                                     target_type, target_id, opset)
-        self._validate_access(entity_type, opset, attr)
-        return change_func(gr.entity_id, opset, target_id, target_type, attr,
-                           group, target_name)
-
-    def _get_access_id(self, target_type, target_name):
-        """Get required data for granting access to an operation target.
-
-        :param str target_type: The type of
-
-        :rtype: tuple
-        :returns:
-            A three element tuple with information about the operation target:
-
-              1. The entity_id of the target entity (int)
-              2. The target type (str)
-              3. The `intval` of the operation constant for granting access to
-                 the given target entity.
-
-        """
-        func_name = "_get_access_id_%s" % target_type
-        if func_name not in dir(self):
-            raise CerebrumError("Unknown id type {}".format(target_type))
-        return self.__getattribute__(func_name)(target_name)
-
-    def _validate_access(self, target_type, opset, attr):
-        func_name = "_validate_access_%s" % target_type
-        if func_name not in dir(self):
-            raise CerebrumError("Unknown type %s" % target_type)
-        return self.__getattribute__(func_name)(opset, attr)
-
-    def _get_access_id_disk(self, target_name):
-        return (self._get_disk(target_name)[1],
-                self.const.auth_target_type_disk,
-                self.const.auth_grant_disk)
-
-    def _validate_access_disk(self, opset, attr):
-        # TODO: check if the opset is relevant for a disk
-        if attr is not None:
-            raise CerebrumError("Can't specify attribute for disk access")
-
-    def _get_access_id_group(self, target_name):
-        target = self._get_group(target_name)
-        return (target.entity_id, self.const.auth_target_type_group,
-                self.const.auth_grant_group)
-
-    def _validate_access_group(self, opset, attr):
-        # TODO: check if the opset is relevant for a group
-        if attr is not None:
-            raise CerebrumError("Can't specify attribute for group access")
-
-    # These three should *really* not be here, but due to this being the
-    # place that "access grant" & friends are defined, this is where
-    # the dns-derived functions need to be too
-    def _get_access_id_dns(self, target):
-        sub = Subnet(self.db)
-        sub.find(target.split('/')[0])
-        return (sub.entity_id,
-                self.const.auth_target_type_dns,
-                self.const.auth_grant_dns)
-
-    def _validate_access_dns(self, opset, attr):
-        # TODO: check if the opset is relevant for a dns-target
-        if attr is not None:
-            raise CerebrumError("Can't specify attribute for dns access")
-
-    def _get_access_id_global_dns(self, target_name):
-        if target_name:
-            raise CerebrumError("You can't specify an address")
-        return None, self.const.auth_target_type_global_dns, None
-
-    def _validate_access_global_dns(self, opset, attr):
-        if attr:
-            raise CerebrumError("You can't specify a pattern with global_dns.")
-
-    # access dns <dns-target>
-    all_commands['access_dns'] = Command(
-        ('access', 'dns'),
-        SimpleString(),
-        fs=FormatSuggestion(
-            "%-16s %-9s %-9s %s", ("opset", "type", "level", "name"),
-            hdr="%-16s %-9s %-9s %s" % ("Operation set", "Type",
-                                        "Level", "Name")
-        ))
-
-    def access_dns(self, operator, dns_target):
-        ret = []
-        if '/' in dns_target:
-            # Asking for rights on subnet; IP not of interest
-            for accessor in self._list_access("dns", dns_target,
-                                              empty_result=[]):
-                accessor["level"] = "Subnet"
-                ret.append(accessor)
-        else:
-            # Asking for rights on IP; need to provide info about
-            # rights on the IP's subnet too
-            for accessor in self._list_access("dns", dns_target + '/',
-                                              empty_result=[]):
-                accessor["level"] = "Subnet"
-                ret.append(accessor)
-            for accessor in self._list_access("dns", dns_target,
-                                              empty_result=[]):
-                accessor["level"] = "IP"
-                ret.append(accessor)
-        return ret
-
-    def _get_access_id_global_group(self, group):
-        if group is not None and group != "":
-            raise CerebrumError("Cannot set domain for global access")
-        return None, self.const.auth_target_type_global_group, None
-
-    def _validate_access_global_group(self, opset, attr):
-        if attr is not None:
-            raise CerebrumError("Can't specify attribute for global group")
-
-    def _get_access_id_global_person(self, person):
-        # if person is not None and person != "":
-        #     raise CerebrumError("Cannot set domain for global access")
-        return None, self.const.auth_target_type_global_person, None
-
-    def _validate_access_global_person(self, opset, attr):
-        if attr:
-            raise CerebrumError(
-                "You can't specify a pattern with global_person.")
-
-    def _get_access_id_host(self, target_name):
-        target = self._get_host(target_name)
-        return (target.entity_id, self.const.auth_target_type_host,
-                self.const.auth_grant_host)
-
-    def _validate_access_host(self, opset, attr):
-        if attr is not None:
-            if attr.count('/'):
-                raise CerebrumError("The disk pattern should only contain "
-                                    "the last component of the path.")
-            try:
-                re.compile(attr)
-            except re.error as e:
-                raise CerebrumError("Syntax error in regexp: {}".format(e))
-
-    def _get_access_id_global_host(self, target_name):
-        if target_name is not None and target_name != "":
-            raise CerebrumError("You can't specify a hostname")
-        return None, self.const.auth_target_type_global_host, None
-
-    def _validate_access_global_host(self, opset, attr):
-        if attr is not None:
-            raise CerebrumError(
-                "You can't specify a pattern with global_host.")
-
-    def _get_access_id_maildom(self, dom):
-        ed = Email.EmailDomain(self.db)
-        try:
-            ed.find_by_domain(dom)
-        except Errors.NotFoundError:
-            raise CerebrumError("Unknown e-mail domain (%s)" % dom)
-        return (ed.entity_id, self.const.auth_target_type_maildomain,
-                self.const.auth_grant_maildomain)
-
-    def _validate_access_maildom(self, opset, attr):
-        if attr is not None:
-            raise CerebrumError("No attribute with maildom.")
-
-    def _get_access_id_global_maildom(self, dom):
-        if dom is not None and dom != '':
-            raise CerebrumError("Cannot set domain for global access")
-        return None, self.const.auth_target_type_global_maildomain, None
-
-    def _validate_access_global_maildom(self, opset, attr):
-        if attr is not None:
-            raise CerebrumError("No attribute with global maildom.")
-
-    def _get_access_id_ou(self, ou):
-        ou = self._get_ou(stedkode=ou)
-        return (ou.entity_id, self.const.auth_target_type_ou,
-                self.const.auth_grant_ou)
-
-    def _validate_access_ou(self, opset, attr):
-        if attr is not None:
-            try:
-                int(self.const.PersonAffiliation(attr))
-            except Errors.NotFoundError:
-                raise CerebrumError("Unknown affiliation '{}'".format(attr))
-
-    def _get_access_id_global_ou(self, ou):
-        if ou is not None and ou != '':
-            raise CerebrumError("Cannot set OU for global access")
-        return None, self.const.auth_target_type_global_ou, None
-
-    def _validate_access_global_ou(self, opset, attr):
-        if not attr:
-            # This is a policy decision, and should probably be
-            # elsewhere.
-            raise CerebrumError(
-                "Must specify affiliation for global ou access")
-        try:
-            int(self.const.PersonAffiliation(attr))
-        except Errors.NotFoundError:
-            raise CerebrumError("Unknown affiliation: %s" % attr)
 
     #
     # access list_opsets
@@ -780,6 +603,230 @@ class BofhdAccessCommands(BofhdCommonMethods):
                                cmp(a['target'], b['target'])))
         return ret
 
+    # access dns <dns-target>
+    all_commands['access_dns'] = Command(
+        ('access', 'dns'),
+        SimpleString(),
+        fs=FormatSuggestion(
+            "%-16s %-9s %-9s %s", ("opset", "type", "level", "name"),
+            hdr="%-16s %-9s %-9s %s" % ("Operation set", "Type",
+                                        "Level", "Name")
+        ))
+
+    def access_dns(self, operator, dns_target):
+        ret = []
+        if '/' in dns_target:
+            # Asking for rights on subnet; IP not of interest
+            for accessor in self._list_access("dns", dns_target,
+                                              empty_result=[]):
+                accessor["level"] = "Subnet"
+                ret.append(accessor)
+        else:
+            # Asking for rights on IP; need to provide info about
+            # rights on the IP's subnet too
+            for accessor in self._list_access("dns", dns_target + '/',
+                                              empty_result=[]):
+                accessor["level"] = "Subnet"
+                ret.append(accessor)
+            for accessor in self._list_access("dns", dns_target,
+                                              empty_result=[]):
+                accessor["level"] = "IP"
+                ret.append(accessor)
+        return ret
+
+    #
+    # Helper methods
+    #
+
+    def _list_access(self, target_type, target_name=None, empty_result="None"):
+        target_id, target_type, target_auth = self._get_access_id(target_type,
+                                                                  target_name)
+        ret = []
+        ar = BofhdAuthRole(self.db)
+        aos = BofhdAuthOpSet(self.db)
+        for r in self._get_auth_op_target(target_id, target_type,
+                                          any_attr=True):
+            attr = str(r['attr'] or '')
+            for r2 in ar.list(op_target_id=r['op_target_id']):
+                aos.clear()
+                aos.find(r2['op_set_id'])
+                ety = self._get_entity(ident=r2['entity_id'])
+                ret.append({
+                    'opset': aos.name,
+                    'attr': attr,
+                    'type': six.text_type(self.const.EntityType(
+                        ety.entity_type)),
+                    'name': self._get_name_from_object(ety),
+                })
+        ret.sort(lambda a, b: (cmp(a['opset'], b['opset']) or
+                               cmp(a['name'], b['name'])))
+        return ret or empty_result
+
+    def _manipulate_access(self, change_func, operator, opset, group,
+                           entity_type, target_name, attr):
+        """This function does no validation of types itself.  It uses
+        _get_access_id() to get a (target_type, entity_id) suitable for
+        insertion in auth_op_target.  Additional checking for validity
+        is done by _validate_access().
+
+        Those helper functions look for a function matching the
+        target_type, and call it.  There should be one
+        _get_access_id_XXX and one _validate_access_XXX for each known
+        target_type.
+
+        """
+        opset = self._get_opset(opset)
+        gr = self.util.get_target(group, default_lookup="group",
+                                  restrict_to=['Account', 'Group'])
+        target_id, target_type, target_auth = self._get_access_id(
+            entity_type, target_name)
+        operator_id = operator.get_entity_id()
+        if target_auth is None and not self.ba.is_superuser(operator_id):
+            raise PermissionDenied("Currently limited to superusers")
+        else:
+            self.ba.can_grant_access(operator_id, target_auth,
+                                     target_type, target_id, opset)
+        self._validate_access(entity_type, opset, attr)
+        return change_func(gr.entity_id, opset, target_id, target_type, attr,
+                           group, target_name)
+
+    def _get_access_id(self, target_type, target_name):
+        """Get required data for granting access to an operation target.
+
+        :param str target_type: The type of
+
+        :rtype: tuple
+        :returns:
+            A three element tuple with information about the operation target:
+
+              1. The entity_id of the target entity (int)
+              2. The target type (str)
+              3. The `intval` of the operation constant for granting access to
+                 the given target entity.
+
+        """
+        if target_type == 'disk':
+            return (self._get_disk(target_name)[1],
+                    self.const.auth_target_type_disk,
+                    self.const.auth_grant_disk)
+        elif target_type == 'group':
+            target = self._get_group(target_name)
+            return (target.entity_id, self.const.auth_target_type_group,
+                    self.const.auth_grant_group)
+        elif target_type == 'dns':
+            sub = Subnet(self.db)
+            sub.find(target_name.split('/')[0])
+            return (sub.entity_id,
+                    self.const.auth_target_type_dns,
+                    self.const.auth_grant_dns)
+        elif target_type == 'global_dns':
+            if target_name:
+                raise CerebrumError("You can't specify an address")
+            return None, self.const.auth_target_type_global_dns, None
+        elif target_type == 'global_group':
+            if target_name is not None and target_name != "":
+                raise CerebrumError("Cannot set domain for global access")
+            return None, self.const.auth_target_type_global_group, None
+        elif target_type == 'global_person':
+            # if person is not None and person != "":
+            #     raise CerebrumError("Cannot set domain for global access")
+            return None, self.const.auth_target_type_global_person, None
+        elif target_type == 'host':
+            target = self._get_host(target_name)
+            return (target.entity_id, self.const.auth_target_type_host,
+                    self.const.auth_grant_host)
+        elif target_type == 'global_host':
+            if target_name is not None and target_name != "":
+                raise CerebrumError("You can't specify a hostname")
+            return None, self.const.auth_target_type_global_host, None
+        elif target_type == 'maildom':
+            ed = Email.EmailDomain(self.db)
+            try:
+                ed.find_by_domain(target_name)
+            except Errors.NotFoundError:
+                raise CerebrumError("Unknown e-mail domain (%s)" % target_name)
+            return (ed.entity_id, self.const.auth_target_type_maildomain,
+                    self.const.auth_grant_maildomain)
+        elif target_type == 'global_maildom':
+            if target_name is not None and target_name != '':
+                raise CerebrumError("Cannot set domain for global access")
+            return None, self.const.auth_target_type_global_maildomain, None
+        elif target_type == 'ou':
+            target_name = self._get_ou(stedkode=target_name)
+            return (target_name.entity_id, self.const.auth_target_type_ou,
+                    self.const.auth_grant_ou)
+        elif target_type == 'global_ou':
+            if target_name is not None and target_name != '':
+                raise CerebrumError("Cannot set OU for global access")
+            return None, self.const.auth_target_type_global_ou, None
+
+        else:
+            raise CerebrumError("Unknown id type {}".format(target_type))
+
+    def _validate_access(self, target_type, opset, attr):
+        # func_name = "_validate_access_%s" % target_type
+        # if func_name not in dir(self):
+        #     raise CerebrumError("Unknown type %s" % target_type)
+        # return self.__getattribute__(func_name)(opset, attr)
+        if target_type == 'disk':
+            # TODO: check if the opset is relevant for a disk
+            if attr is not None:
+                raise CerebrumError("Can't specify attribute for disk access")
+        elif target_type == 'group':
+            # TODO: check if the opset is relevant for a group
+            if attr is not None:
+                raise CerebrumError("Can't specify attribute for group access")
+        elif target_type == 'dns':
+            # TODO: check if the opset is relevant for a dns-target
+            if attr is not None:
+                raise CerebrumError("Can't specify attribute for dns access")
+        elif target_type == 'global_dns':
+            if attr:
+                raise CerebrumError(
+                    "You can't specify a pattern with global_dns.")
+        elif target_type == 'global_group':
+            if attr is not None:
+                raise CerebrumError("Can't specify attribute for global group")
+        elif target_type == 'global_person':
+            if attr:
+                raise CerebrumError(
+                    "You can't specify a pattern with global_person.")
+        elif target_type == 'host':
+            if attr is not None:
+                if attr.count('/'):
+                    raise CerebrumError("The disk pattern should only contain "
+                                        "the last component of the path.")
+                try:
+                    re.compile(attr)
+                except re.error as e:
+                    raise CerebrumError("Syntax error in regexp: {}".format(e))
+        elif target_type == 'global_host':
+            if attr is not None:
+                raise CerebrumError(
+                    "You can't specify a pattern with global_host.")
+        elif target_type == 'maildom':
+            if attr is not None:
+                raise CerebrumError("No attribute with maildom.")
+        elif target_type == 'global_maildom':
+            if attr is not None:
+                raise CerebrumError("No attribute with global maildom.")
+        elif target_type == 'ou':
+            if attr is not None:
+                try:
+                    int(self.const.PersonAffiliation(attr))
+                except Errors.NotFoundError:
+                    raise CerebrumError("Unknown affiliation '{}'".format(attr))
+        elif target_type == 'global_ou':
+            if not attr:
+                # This is a policy decision, and should probably be
+                # elsewhere.
+                raise CerebrumError(
+                    "Must specify affiliation for global ou access")
+            try:
+                int(self.const.PersonAffiliation(attr))
+            except Errors.NotFoundError:
+                raise CerebrumError("Unknown affiliation: %s" % attr)
+
     def _revoke_auth(self, entity_id, opset, target_id, target_type, attr,
                      entity_name, target_name):
         op_target_id = self._get_auth_op_target(target_id, target_type, attr)
@@ -857,3 +904,60 @@ class BofhdAccessCommands(BofhdCommonMethods):
         except Errors.NotFoundError:
             raise CerebrumError("Could not find op set with name %s" % opset)
         return aos
+
+
+#
+# Access help strings
+#
+
+HELP_ACCESS_GROUP = {
+    'access': "Access (authorisation) related commands",
+}
+
+HELP_ACCESS_CMDS = {
+    'access': {
+        'access_grant':
+            "Grant authorisation to perform the operations in opset "
+            "<set> on <entity> of type <type> to the members of group <group>."
+            "  The meaning of <attr> depends on <type>.",
+        'access_disk':
+            "List who's authorised to operate on disk <disk>",
+        'access_global_dns':
+            "List who's authorised to operate on all dns targets",
+        'access_global_group':
+            "List who's authorised to operate on all groups",
+        'access_global_host':
+            "List who's authorised to operate on all hosts",
+        'access_global_maildom':
+            "List who's authorised to operate on all e-mail domains",
+        'access_global_ou':
+            "List who's authorised to operate on all OUs",
+        'access_group':
+            "List who's authorised to operate on group <gname>",
+        'access_host':
+            "List who's authorised to operate on host <hostname>",
+        'access_dns':
+            "List who's authorised to operate on given dns target",
+        'access_list':
+            "List everything an account or group can operate on.  Only direct "
+            "ownership is reported: the entities an account can access due to "
+            "group memberships will not be listed. This does not include "
+            "unpersonal users owned by groups.",
+        'access_list_opsets':
+            "List all operation sets",
+        'access_maildom':
+            "List who's authorised to operate on e-mail domain <domain>",
+        'access_ou':
+            "List who's authorised to operate on OU <ou>",
+        'access_revoke':
+            "Revoke authorisation",
+        'access_show_opset':
+            "List the operations included in the operation set",
+        'access_user':
+            "List who's authorised to operate on account <uname>",
+    },
+}
+
+HELP_ACCESS_ARGS = {
+
+}
