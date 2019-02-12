@@ -21,3 +21,7 @@
 category:pre;
 ALTER TABLE password_history
     ALTER COLUMN md5base64 TYPE CHAR VARYING(128);
+
+category:pre;
+ALTER TABLE password_history
+    RENAME md5base64 TO hashbase64;
