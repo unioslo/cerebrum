@@ -1,3 +1,6 @@
+2019-02-13 <kennethj@gagarin.uit.no>
+    * generate_paga_persons:    Persons with more than 1 employment record will now have their person info collected from the employment record
+                                having hovedarbeidsforhold == H. Among other things, This solves the problem of wrong campus exported to other systems
 2019-01-28 <kennethj@gagarin.uit.no>
     * export_ad.py: removed obsolete string convertions.
     * ad_export_autogroups_undervisning.py: removed obsolete string conversions

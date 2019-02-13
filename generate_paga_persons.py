@@ -111,7 +111,7 @@ def parse_paga_csv(pagafile):
     print CHARSEP
     for detail in csv.DictReader(open(pagafile,'r'),delimiter=str(CHARSEP)):
         ssn=detail[KEY_FNR]     
-        
+        logger.debug("processing:%s" % ssn)
         # some checks
         if detail[KEY_TJFORH] == 'H':
             #these persons are 'honorar' persons. Skip them entirely
@@ -178,6 +178,20 @@ def parse_paga_csv(pagafile):
 
         if persons.get(ssn,None):
             dupes.append(ssn)
+            #logger.debug("ssn:%s already exists in dataset. check if new data has hovedarbeidsforhold == H" % ssn)
+            #logger.debug("tilsdata:%s" % tils_data)hovedarbeidsforhold
+            if tils_data['hovedarbeidsforhold'] == 'H': # and persons[ssn]['hovedarbeidsforhold'] != 'H':
+                logger.debug("person %s already exists in dataset, but this instance has hovedarbeidsforhold == H. Update person data" % ssn)
+                #logger.debug("old_data:%s" % persons[ssn])
+
+                # DEBUG: how many changes do we get when updating person info to collect data from 'hovedarbeidsforhold' ? 
+                #diffkeys = [k for k in person_data if person_data[k] != persons[ssn][k]]
+                #for k in diffkeys:
+                #    print k, '### :', person_data[k], '->', persons[ssn][k], ':ssn:', ssn
+
+
+                persons[ssn]=person_data
+                #logger.debug("new_data:%s" % persons[ssn])
         else:
             persons[ssn]=person_data
 
@@ -300,7 +314,6 @@ class person_xml:
         writer.startElement("data")
 
         for fnr, person_data in persons.iteritems():
-            
             affs = affiliations.get(fnr)
             aff_keys=affs.keys()
             person_data['fnr']=fnr
