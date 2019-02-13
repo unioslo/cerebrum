@@ -318,14 +318,19 @@ class BofhdExtension(BofhdCommonMethods):
                     'default': str(n - 1)}
         all_args.pop(0)
 
-        # Ask for print user, default is primary account of logged in user
+        # Ask for print user, if logged in user is a personal account use
+        # the primary account associated with that person as default
         if self._can_set_spool_user(session, tpl):
             if not all_args:
-                owner = self._get_person('id', session.get_owner_id())
-                primary_acc = self._get_account(owner.get_primary_account(),
-                                                idtype='id')
+                try:
+                    owner = self._get_person('id', session.get_owner_id())
+                    user = self._get_account(owner.get_primary_account(),
+                                             idtype='id')
+                except CerebrumError:
+                    user = self._get_account(session.get_entity_id(),
+                                             idtype='id')
                 return {'prompt': 'Queue print job as user',
-                        'default': primary_acc.account_name,
+                        'default': user.get_account_name(),
                         'help_ref': 'print_enter_print_user',
                         'last_arg': True}
             all_args.pop(0)
