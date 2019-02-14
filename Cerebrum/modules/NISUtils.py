@@ -229,12 +229,14 @@ class Passwd(object):
 
         user_rows = []
         for row in user_iter:
-            try:
-                user_rows.append(self.process_user(row))
-            except NISMapError:
-                logger.error("NISMapError", exc_info=1)
-            except NISMapException:
-                pass
+            # We only want to append users with the selected auth_method
+            if self.account2auth_data.get(row['account_id'], None):
+                try:
+                    user_rows.append(self.process_user(row))
+                except NISMapError:
+                    logger.error("NISMapError", exc_info=1)
+                except NISMapException:
+                    pass
         return user_rows
 
     def write_passwd(self, filename, shadow_file, e_o_f=False):
@@ -459,23 +461,29 @@ class FileGroup(NISGroupUtil):
         ret = set()
         self._group.clear()
         self._group.find(gid)
-        for row in self._group.search_members(group_id=self._group.entity_id,
-                                              indirect_members=True,
-                                              member_type=co.entity_account,
-                                              member_spread=self._member_spread):
+        members = self._group.search_members(
+                group_id=self._group.entity_id,
+                indirect_members=True,
+                member_type=co.entity_account,
+                member_spread=self._member_spread
+        )
+        for row in members:
             account_id = int(row["member_id"])
-            if self._account2def_group.get(account_id, None) == self._group.posix_gid:
+            if (self._account2posix_gid.get(account_id, None) ==
+                    self._group.posix_gid):
                 continue  # Don't include the users primary group
             name = self._entity2name.get(account_id, None)
             if not name:
                 if not self._is_new(account_id):
-                    logger.warn("Was %i very recently created?" % int(account_id))
+                    logger.warn("Was %i very recently created?" %
+                                int(account_id))
                 continue
             ret.add(name)
         return set(), ret
 
     def generate_filegroup(self):
-        """Generates a list of lists. An entry looks like (gname, gid, [members])."""
+        """Generates a list of lists. An entry looks like (gname, gid,
+        [members])."""
         filegroups = []
         groups = self._exported_groups.keys()
         groups.sort()
@@ -506,7 +514,8 @@ class FileGroup(NISGroupUtil):
         with closing(SimilarSizeWriter(filename, "w")) as f:
             f.max_pct_change = 5
             for group_name, gid, users in self.generate_filegroup():
-                f.write(self._wrap_line(group_name, ",".join(users), ':*:%i:' % gid))
+                f.write(self._wrap_line(group_name, ",".join(users), ':*:%i:'
+                                        % gid))
             if e_o_f:
                 f.write('E_O_F\n')
 

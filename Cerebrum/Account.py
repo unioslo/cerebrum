@@ -1245,11 +1245,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
     def list_account_authentication(self, auth_method=None, filter_expired=True,
                                     account_id=None, spread=None):
+        if auth_method is None:
+            auth_method = self.const.auth_type_md5_crypt
         binds = dict()
         tables = []
         where = []
-        if auth_method is None:
-            auth_method = self.const.auth_type_md5_crypt
         aa_method = argument_to_sql(auth_method, 'aa.method', binds, int)
         if spread is not None:
             tables.append('[:table schema=cerebrum name=entity_spread] es')
