@@ -429,7 +429,7 @@ class FileGroup(NISGroupUtil):
         self._group = PosixGroup.PosixGroup(db)
         gid2posix_gid = make_posix_gid_cache(posix_group)
         self._account2posix_gid = {}
-        for row in posix_user.list_posix_users():
+        for row in posix_user.list_posix_users(filter_expired=True):
             self._account2posix_gid[row['account_id']] = gid2posix_gid[
                 row['gid']]
         logger.debug("__init__ done")
