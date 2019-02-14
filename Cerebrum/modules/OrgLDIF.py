@@ -492,14 +492,13 @@ class OrgLDIF(object):
         timer = make_timer(self.logger, "Fetching account information...")
         timer2 = make_timer(self.logger)
         self.acc_name = {}
-        self.acc_passwd_method = {}
-        self.acc_passwd = {}
+        self.account_auth = {}
         self.userpassword = {}
         self.acc_locked_quarantines = self.acc_quarantines = defaultdict(list)
         crypt_methods = []
         for entry in ldapconf('PERSON',
                               'auth_methods',
-                              default='auth_type_md5_crypt'):
+                              default=('auth_type_md5_crypt', )):
             method = self.const.human2constant(entry)
             if method is None:
                 raise Errors.NotFoundError(
@@ -514,20 +513,20 @@ class OrgLDIF(object):
             # Add any method if nothing set for the account so far
             if account_id not in self.acc_name:
                 self.acc_name[account_id] = row['entity_name']
-                self.acc_passwd_method[account_id] = row['method']
-                self.acc_passwd[account_id] = row['auth_data']
-                self.userpassword[account_id] = self.format_cryptstring(
-                    crypt_method, self.acc_passwd[account_id])
+                self.account_auth[account_id] = {
+                    'method': self.const.human2constant(row['method']),
+                    'password': row['auth_data']
+                }
             # Update with higher priority methods if available
             else:
                 assert(crypt_method in crypt_methods)
                 if crypt_methods.index(crypt_method) < crypt_methods.index(
-                        self.acc_passwd_method[account_id]):
+                        self.account_auth[account_id]['method']):
                     self.acc_name[account_id] = row['entity_name']
-                    self.acc_passwd_method[account_id] = row['method']
-                    self.acc_passwd[account_id] = row['auth_data']
-                    self.userpassword[account_id] = self.format_cryptstring(
-                        crypt_method, self.acc_passwd[account_id])
+                    self.account_auth[account_id] = {
+                        'method': row['method'],
+                        'password': row['auth_data']
+                    }
 
         timer2("...account quarantines...")
         nonlock_quarantines = [
@@ -720,6 +719,13 @@ from None and LDAP_PERSON['dn'].""")
         if account_id in self.acc_name:
             entry['uid'] = (self.acc_name[account_id],)
 
+        account_auth = self.account_auth.get(account_id)
+        try:
+            self.userpassword[account_id] = self.format_cryptstring(
+                account_auth['method'],
+                account_auth['password'])
+        except Errors.NotImplementedAuthTypeError:
+            pass
         passwd = self.userpassword.get(account_id)
         qt = self.acc_quarantines.get(account_id)
         if qt:
