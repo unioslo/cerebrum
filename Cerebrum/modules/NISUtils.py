@@ -218,10 +218,6 @@ class Passwd(object):
     def generate_passwd(self):
         """Data generating method. returns a list of lists which looks like
         (uname, passwd, uid, gid, gecos, home, shell)."""
-        if self.spread is None:
-            raise ValueError, "Must set user_spread"  #TODO handle this with parsing instead
-        # When auth method is not specified, the default method (md5_crypt)
-        # is used.
         user_iter = posix_user.list_posix_users(
             spread=self.spread,
             filter_expired=True
@@ -229,7 +225,9 @@ class Passwd(object):
 
         user_rows = []
         for row in user_iter:
-            # We only want to append users with the selected auth_method
+            # We only want to append users with the selected auth_method.
+            # When self.auth_method is None, accounts with MD5-crypt are
+            # appended.
             if self.account2auth_data.get(row['account_id'], None):
                 try:
                     user_rows.append(self.process_user(row))
@@ -249,16 +247,14 @@ class Passwd(object):
             s.max_pct_change = 10
 
         user_rows = self.generate_passwd()
-        for l in user_rows:  # TODO fix name of l
-            print l
-            uname = l[0]
-            if self.auth_method == None and l[1] != '*locked':
-                # substitute pwdcrypt with an 'x' if auth_method given to gen_nismaps
-                # is NOCRYPT. Jazz, 2010-05-31
+        for row in user_rows:
+            uname = row[0]
+            if self.auth_method is None and row[1] != '*locked':
+                # substitute pwdcrypt with an 'x' if auth_method is None
                 passwd = 'x'
             else:
-                passwd = l[1]
-            rest = l[2:]
+                passwd = row[1]
+            rest = row[2:]
             if shadow_file:
                 s.write("%s:%s:::\n" % (uname, passwd))
                 if not passwd[0] == '*':

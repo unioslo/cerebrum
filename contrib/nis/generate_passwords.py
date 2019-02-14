@@ -31,8 +31,9 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    parser = argparse.ArgumentParser("""Generates a password file for the 
-    requested spreads""")
+    parser = argparse.ArgumentParser(
+        'Generates a password file for the requested spreads'
+    )
     parser.add_argument(
         '--user_spread',
         dest='user_spread',
@@ -53,7 +54,7 @@ def main():
     parser.add_argument(
         '-a', '--auth_method',
         dest='auth_method',
-        default='MD5-crypt',
+        default=None,
     )
     parser.add_argument(
         '--eof',
@@ -70,8 +71,9 @@ def main():
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
 
-    args.auth_method = get_constant(db, parser, co.Authentication,
-                                    args.auth_method)
+    if args.auth_method:
+        args.auth_method = get_constant(db, parser, co.Authentication,
+                                        args.auth_method)
     args.user_spread = get_constant(db, parser, co.Spread, args.user_spread)
 
     p = Passwd(args.auth_method, args.user_spread)
