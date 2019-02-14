@@ -42,6 +42,36 @@ logger = logging.getLogger(__name__)
 default_lockdir = getattr(cereconf, 'BOFHD_REQUEST_LOCK_DIR', None)
 
 
+class NextAccount(Exception):
+    pass
+
+
+def is_ok_batch_time():
+    now = time.strftime("%H:%M")
+    times = cereconf.LEGAL_BATCH_MOVE_TIMES.split('-')
+    if times[0] > times[1]:  # Like '20:00-08:00'
+        if now > times[0] or now < times[1]:
+            return True
+    else:  # Like '08:00-20:00'
+        if times[0] < now < times[1]:
+            return True
+    return False
+
+
+def is_valid_request(br, req_id):
+    # The request may have been canceled very recently
+    for r in br.get_requests(request_id=req_id):
+        return True
+    return False
+
+
+def set_operator(db, entity_id=None):
+    if entity_id:
+        db.cl_init(change_by=entity_id)
+    else:
+        db.cl_init(change_program='process_bofhd_r')
+
+
 class RequestLockHandler(object):
     def __init__(self, lockdir=default_lockdir):
         """lockdir should be a template holding exactly one %d."""
@@ -164,7 +194,7 @@ class RequestProcessor(object):
                         if (op is self.co.bofh_move_user
                                 and not is_ok_batch_time()):
                             break
-                        if not is_valid_request(self.db, self.co, reqid):
+                        if not is_valid_request(br, reqid):
                             continue
                         if reqlock.grab(reqid):
                             if max_requests <= 0:
@@ -181,17 +211,12 @@ class RequestProcessor(object):
 
 
 class MoveStudentProcessor(object):
-    def __init__(self, db, co, default_spread=None):
+    def __init__(self, db, co, ou_perspective, emne_info_file, studconfig_file,
+                 studieprogs_file, default_spread=None):
         self.db = db
         self.co = co
         self.br = BofhdRequests(self.db, self.co)
         self.default_spread = default_spread
-
-    def process_requests(self, ou_perspective, emne_info_file, studconfig_file,
-                         studieprogs_file, student_info_file):
-        rows = self.br.get_requests(operation=self.co.bofh_move_student)
-        if not rows:
-            return
         logger.debug("Preparing autostud framework")
         self.autostud = AutoStud.AutoStud(self.db, logger.getChild('autostud'),
                                           debug=False,
@@ -199,6 +224,11 @@ class MoveStudentProcessor(object):
                                           studieprogs_file=studieprogs_file,
                                           emne_info_file=emne_info_file,
                                           ou_perspective=ou_perspective)
+
+    def process_requests(self, student_info_file):
+        rows = self.br.get_requests(operation=self.co.bofh_move_student)
+        if not rows:
+            return
 
         # Set self.fnr2move_student
         self.set_fnr2move_student(rows)
@@ -219,10 +249,12 @@ class MoveStudentProcessor(object):
             for account_id, request_id, requestee_id in tmp_stud:
                 logger.debug("Sending %s to pending disk" % repr(account_id))
                 self.br.delete_request(request_id=request_id)
-                self.br.add_request(requestee_id, self.br.batch_time,
-                               self.co.bofh_move_user,
-                               account_id, disk.entity_id,
-                               state_data=int(self.default_spread))
+                self.br.add_request(requestee_id,
+                                    self.br.batch_time,
+                                    self.co.bofh_move_user,
+                                    account_id,
+                                    disk.entity_id,
+                                    state_data=int(self.default_spread))
                 self.db.commit()
 
     def set_fnr2move_student(self, rows):
@@ -231,7 +263,7 @@ class MoveStudentProcessor(object):
         account = Factory.get('Account')(self.db)
         person = Factory.get('Person')(self.db)
         for r in rows:
-            if not is_valid_request(self.db, self.co, r['request_id']):
+            if not is_valid_request(self.br, r['request_id']):
                 continue
             account.clear()
             account.find(r['entity_id'])
@@ -357,37 +389,3 @@ class MoveStudentProcessor(object):
         except NextAccount:
             pass  # Stupid python don't have labeled breaks
         return disks
-
-
-def is_ok_batch_time():
-    now = time.strftime("%H:%M")
-    times = cereconf.LEGAL_BATCH_MOVE_TIMES.split('-')
-    if times[0] > times[1]:  # Like '20:00-08:00'
-        if now > times[0] or now < times[1]:
-            return True
-    else:  # Like '08:00-20:00'
-        if times[0] < now < times[1]:
-            return True
-    return False
-
-
-def is_valid_request(db, co, req_id):
-    # The request may have been canceled very recently
-    br = BofhdRequests(db, co)
-    for r in br.get_requests(request_id=req_id):
-        return True
-    return False
-
-
-def set_operator(db, entity_id=None):
-    if entity_id:
-        db.cl_init(change_by=entity_id)
-    else:
-        db.cl_init(change_program='process_bofhd_r')
-
-
-class NextAccount(Exception):
-    pass
-
-
-

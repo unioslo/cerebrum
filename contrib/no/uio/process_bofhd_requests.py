@@ -37,7 +37,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 
 from Cerebrum.utils.argutils import get_constant
-from Cerebrum.modules.bofhd_requests import process_bofhd_requests
+from Cerebrum.modules.bofhd_requests import process_requests
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ cl_const = Utils.Factory.get('CLConstants')(db)
 const = Utils.Factory.get('Constants')(db)
 default_spread = const.spread_uio_nis_user
 
-operations_map = process_bofhd_requests.OperationsMap()
+operations_map = process_requests.OperationsMap()
 
 
 def get_email_server(account_id, local_db=db):
@@ -258,9 +258,9 @@ def archive_cyrus_data(uname, mail_server, generation):
 def proc_sympa_create(request):
     """Execute the request for creating a sympa mailing list.
 
-    @type request: ??
-    @param request:
-      An object describing the sympa list creation request.
+    :type request: db_row
+    :param request:
+      A dict-like object describing the sympa list creation request.
     """
 
     try:
@@ -308,8 +308,8 @@ def proc_sympa_create(request):
 def proc_sympa_remove(request):
     """Execute the request for removing a sympa mailing list.
 
-    @type request: ??
-    @param request:
+    :type request: db_row
+    :param request:
       A dict-like object containing all the parameters for sympa list
       removal.
     """
@@ -366,7 +366,7 @@ def proc_move_user(r):
         logger.warn("Account %s is expired, cancelling request",
                     account.account_name)
         return False
-    process_bofhd_requests.set_operator(db, r['requestee_id'])
+    process_requests.set_operator(db, r['requestee_id'])
     try:
         operator = get_account(r['requestee_id']).account_name
     except Errors.NotFoundError:
@@ -396,7 +396,7 @@ def proc_quarantine_refresh(r):
     quicksync script can revalidate the quarantines.
 
     """
-    process_bofhd_requests.set_operator(db, r['requestee_id'])
+    process_requests.set_operator(db, r['requestee_id'])
     db.log_change(r['entity_id'], cl_const.quarantine_refresh, None)
     return True
 
@@ -433,7 +433,7 @@ def proc_delete_user(r):
     if account.is_deleted():
         logger.warn("%s is already deleted" % uname)
         return True
-    process_bofhd_requests.set_operator(db, r['requestee_id'])
+    process_requests.set_operator(db, r['requestee_id'])
     operator = get_account(r['requestee_id']).account_name
     et = Email.EmailTarget(db)
     try:
@@ -700,21 +700,19 @@ def main():
             # Asserting that a legal value is assigned to args.ou_perspective
             args.ou_perspective = get_constant(db, parser, const.OUPerspective,
                                                args.ou_perspective)
-            msp = process_bofhd_requests.MoveStudentProcessor(
+            msp = process_requests.MoveStudentProcessor(
                 db,
                 const,
-                default_spread=default_spread
-            )
-            # Convert move_student requests into move_user requests
-            msp.process_requests(
                 args.ou_perspective,
                 args.emne_info_file,
                 args.studconfig_file,
                 args.studieprogs_file,
-                args.student_info_file
+                default_spread=default_spread,
             )
+            # Convert move_student requests into move_user requests
+            msp.process_requests(args.student_info_file)
 
-        rp = process_bofhd_requests.RequestProcessor(db, const)
+        rp = process_requests.RequestProcessor(db, const)
         rp.process_requests(operations_map, args.types, args.max_requests)
 
 

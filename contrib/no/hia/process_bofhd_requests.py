@@ -33,7 +33,7 @@ from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory, spawn_and_log_output
 from Cerebrum.utils import json
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.modules.bofhd_requests import process_bofhd_requests
+from Cerebrum.modules.bofhd_requests import process_requests
 
 logger = logging.getLogger(__name__)
 db = Factory.get('Database')()
@@ -43,7 +43,7 @@ const = Factory.get('Constants')(db)
 
 EXIT_SUCCESS = 0
 
-operations_map = process_bofhd_requests.OperationsMap()
+operations_map = process_requests.OperationsMap()
 
 
 def dependency_pending(dep_id, local_db=db, local_co=const):
@@ -182,7 +182,7 @@ def main():
     logger.debug('args: %r', args)
 
     if args.process:
-        rp = process_bofhd_requests.RequestProcessor(db, const)
+        rp = process_requests.RequestProcessor(db, const)
         rp.process_requests(operations_map, args.types, args.max_requests)
 
 
