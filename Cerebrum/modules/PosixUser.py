@@ -48,7 +48,7 @@ from Cerebrum import Errors
 from Cerebrum import Constants
 from Cerebrum.modules import PosixGroup
 
-__version__ = "1.0"
+__version__ = "1.1"
 
 
 Account_class = Factory.get("Account")
@@ -166,7 +166,8 @@ class PosixUser(Account_class):
     def find(self, account_id):
         """Connect object to PosixUser with ``account_id`` in database."""
         self.__super.find(account_id)
-        (self.posix_uid, self.gid_id, self.gecos, self.shell) = self.query_1("""
+        (self.posix_uid, self.gid_id, self.gecos, self.shell) = self.query_1(
+            """
          SELECT posix_uid, gid, gecos, shell
          FROM [:table schema=cerebrum name=posix_user]
          WHERE account_id=:account_id""", locals())
@@ -198,10 +199,11 @@ class PosixUser(Account_class):
         FROM [:table schema=cerebrum name=posix_user] pu %s %s
         """ % (efrom, ewhere), bind)
 
-    def list_extended_posix_users(self,
-                                  auth_method=Constants.Constants.auth_type_md5_crypt,
-                                  spread=None, include_quarantines=0,
-                                  filter_expired=True):
+    def list_extended_posix_users(
+            self,
+            auth_method=Constants.Constants.auth_type_md5_crypt,
+            spread=None, include_quarantines=0,
+            filter_expired=True):
         """Returns data required for building a password map.  It is
         not recommended to use this method.  If you do, be prepared to
         update your code when the API changes"""
@@ -270,7 +272,7 @@ class PosixUser(Account_class):
                 # TODO: Move this check to some unit-testing stuff sometime
                 if x[1] < x[0]:
                     raise Errors.ProgrammingError(
-                            'Wrong order in cereconf.UID_RESERVED_RANGE')
+                        'Wrong order in cereconf.UID_RESERVED_RANGE')
                 if uid >= x[0] and uid <= x[1]:
                     self._db.setval('posix_uid_seq', x[1])
                     uid = self.nextval("posix_uid_seq")
