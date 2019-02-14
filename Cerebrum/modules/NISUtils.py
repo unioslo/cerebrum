@@ -23,6 +23,7 @@ from __future__ import with_statement, unicode_literals
 
 import mx
 import sys
+import logging
 from contextlib import closing
 from six import text_type
 
@@ -38,7 +39,7 @@ from Cerebrum import QuarantineHandler
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 clconst = Factory.get('CLConstants')(db)
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 posix_user = Factory.get('PosixUser')(db)
 posix_group = PosixGroup.PosixGroup(db)
 
@@ -71,59 +72,129 @@ class NoDisk(NISMapError):
     pass
 
 
+def join(fields, sep=':'):
+    for f in fields:
+        if not isinstance(f, text_type):
+            raise ValueError, "Type of '%r' is not text." % f
+        if f.find(sep) != -1:
+            raise ValueError, \
+                "Separator '%s' present in string '%s'" % (sep, f)
+    return sep.join(fields)
+
+
+def make_quarantine_cache(entity, spread):
+    logger.debug('Making quarantines cache')
+    quarantines = entity.list_entity_quarantines(
+        entity_types=co.entity_account,
+        spreads=spread,
+        only_active=True
+    )
+    quarantine_cache = {}
+    for row in quarantines:
+        ent_id = row['entity_id']
+        if ent_id in quarantine_cache:
+            quarantine_cache[ent_id].append(row['quarantine_type'])
+        else:
+            quarantine_cache[ent_id] = [row['quarantine_type']]
+    return quarantine_cache
+
+
+def make_shells_cache(posix_user):
+    logger.debug('Making shells cache')
+    shells = {}
+    for row in posix_user.list_shells():
+        shells[int(row['code'])] = row['shell']
+    return shells
+
+
+def make_posix_gid_cache(posix_group):
+    group_id2posix_gid = {}
+    for row in posix_group.list_posix_groups():
+        group_id2posix_gid[row['group_id']] = row['posix_gid']
+    return group_id2posix_gid
+
+
+def make_fullname_cache():
+    logger.debug('Making full name cache')
+    person = Factory.get('Person')(db)
+    names = person.search_person_names(name_variant=co.name_full,
+                                       source_system=co.system_cached)
+
+    person2fullname = {}
+    for row in names:
+        person2fullname[row['person_id']] = row['name']
+    return person2fullname
+
+
+def make_auth_cache(account, spread, auth_method):
+    logger.debug('Making posix user cache')
+    accounts = account.list_account_authentication(
+        spread=spread,
+        auth_method=auth_method
+    )
+
+    account2auth_data = {}
+    for row in accounts:
+        account2auth_data[row['account_id']] = (
+            row['entity_name'],
+            row['auth_data'],
+        )
+    return account2auth_data
+
+
+def make_home_cache(posix_user):
+    logger.debug('Making home cache')
+    person2fullname = make_fullname_cache()
+    homes = posix_user.list_account_home(include_nohome=True)
+    home_cache = {}
+    for row in homes:
+        home_cache[row['account_id']] = (
+            row['home'],
+            row['path'],
+            person2fullname.get(row['owner_id'], None),
+        )
+    return home_cache
+
+
 class Passwd(object):
 
     """Simple class for making a passwd map. generate_passwd() will make
     a list of list that translates to the info found in a passwd file."""
 
-    def __init__(self, auth_method, spread=None):
+    def __init__(self, auth_method=None, spread=None):
         self.spread = spread
         self.auth_method = auth_method
-        self.disk = Factory.get('Disk')(db)
-        self.shells = {}
-        for s in posix_user.list_shells():
-            self.shells[int(s['code'])] = s['shell']
-        self.diskid2path = {}
-        for d in self.disk.list(spread=self.spread):
-            self.diskid2path[int(d['disk_id'])] = d['path']
 
-    def join(self, fields, sep=':'):
-        for f in fields:
-            if not isinstance(f, text_type):
-                raise ValueError, "Type of '%r' is not text." % f
-            if f.find(sep) != -1:
-                raise ValueError, \
-                    "Separator '%s' present in string '%s'" % (sep, f)
-        return sep.join(fields)
+        self.shells = make_shells_cache(posix_user)
+        self.gid2posix_gid = make_posix_gid_cache(posix_group)
+        self.quarantine_cache = make_quarantine_cache(posix_user, spread)
+        self.account2auth_data = make_auth_cache(posix_user,
+                                                 spread,
+                                                 auth_method)
+        self.account2home = make_home_cache(posix_user)
 
-    def process_user(self, user_rows):
-        row = user_rows[0]
-        uname = row['entity_name']
+    def process_user(self, row):
+        account_id = row['account_id']
+        logger.debug('Processing %s', account_id)
+
+        uname, passwd = self.account2auth_data[account_id]
         if posix_user.illegal_name(uname):
             raise BadUsername, "Bad username %s" % uname
-        passwd = row['auth_data']
         if passwd is None:
             passwd = '*'
-        posix_group.posix_gid = row['posix_gid']
+
+        home, disk_path, full_name = self.account2home[account_id]
         gecos = row['gecos']
         if gecos is None:
-            gecos = row['name']
+            gecos = full_name
         if gecos is None:
             gecos = uname
         gecos = transliterate.to_iso646_60(gecos)
-        shell = self.shells[int(row['shell'])]
-        if row['quarantine_type'] is not None:
-            now = mx.DateTime.now()
-            quarantines = []
-            for qrow in user_rows:
-                if (qrow['start_date'] <= now
-                    and (qrow['end_date'] is None or qrow['end_date'] >= now)
-                    and (qrow['disable_until'] is None
-                         or qrow['disable_until'] < now)):
-                    # The quarantine found in this row is currently
-                    # active.
-                    quarantines.append(qrow['quarantine_type'])
-            qh = QuarantineHandler.QuarantineHandler(db, quarantines)
+
+        shell = self.shells[row['shell']]
+        quarantine_types = self.quarantine_cache.get(account_id, None)
+        if quarantine_types is not None:
+            qh = QuarantineHandler.QuarantineHandler(db, quarantine_types)
             if qh.should_skip():
                 raise UserSkipQuarantine
             if qh.is_locked():
@@ -132,65 +203,39 @@ class Passwd(object):
             if qshell is not None:
                 shell = qshell
 
-        if row['disk_id']:
-            disk_path = self.diskid2path[int(row['disk_id'])]
-        else:
-            disk_path = None
         home = posix_user.resolve_homedir(account_name=uname,
-                                          home=row['home'],
+                                          home=home,
                                           disk_path=disk_path)
-
         if home is None:
             # TBD: Is this good enough?
             home = '/'
 
+        posix_gid = self.gid2posix_gid[row['gid']]
         return [uname, passwd, text_type(row['posix_uid']),
-                text_type(posix_group.posix_gid), gecos,
+                text_type(posix_gid), gecos,
                 text_type(home), shell]
 
     def generate_passwd(self):
         """Data generating method. returns a list of lists which looks like
         (uname, passwd, uid, gid, gecos, home, shell)."""
         if self.spread is None:
-            raise ValueError, "Must set user_spread"
-        # NOCRYPT is not a registered auth_method, it is used to generate pwd-map
-        # with no pwd-crypt. This is not the best way to ensure that no crypt is used
-        # and should be amended in the new version of gen_nismaps.py (as should the usage
-        # of list_extended_posix_users-method). Jazz, 2010-05-31
-        if self.auth_method == 'NOCRYPT':
-            # use default value for auth_method (md5_crypt), the crypt will be
-            # removed at write
-            user_iter = posix_user.list_extended_posix_users(
-                spread=self.spread, include_quarantines=True)
-        else:
-            user_iter = posix_user.list_extended_posix_users(
-                # use given value for auth_method, crypt is used
-                auth_method=self.auth_method,
-                spread=self.spread, include_quarantines=True)
-        prev_user = None
+            raise ValueError, "Must set user_spread"  #TODO handle this with parsing instead
+        # When auth method is not specified, the default method (md5_crypt)
+        # is used.
+        user_iter = posix_user.list_posix_users(
+            spread=self.spread,
+            filter_expired=True
+        )
+
         user_rows = []
-        user_lines = []
         for row in user_iter:
-            if prev_user != row['account_id'] and prev_user is not None:
-                try:
-                    user_lines.append(self.process_user(user_rows))
-                except NISMapError, e:
-                    logger.error("NISMapError", exc_info=1)
-                except NISMapException:
-                    pass
-                user_rows = [row]
-            else:
-                user_rows.append(row)
-            prev_user = row['account_id']
-        else:
-            if user_rows:
-                try:
-                    user_lines.append(self.process_user(user_rows))
-                except NISMapError, e:
-                    logger.error("NISMapError", exc_info=1)
-                except NISMapException:
-                    pass
-        return user_lines
+            try:
+                user_rows.append(self.process_user(row))
+            except NISMapError:
+                logger.error("NISMapError", exc_info=1)
+            except NISMapException:
+                pass
+        return user_rows
 
     def write_passwd(self, filename, shadow_file, e_o_f=False):
         logger.debug("write_passwd: filename=%r, shadow_file=%r, spread=%r",
@@ -201,10 +246,11 @@ class Passwd(object):
             s = SimilarSizeWriter(shadow_file, "w")
             s.max_pct_change = 10
 
-        user_lines = self.generate_passwd()
-        for l in user_lines:
+        user_rows = self.generate_passwd()
+        for l in user_rows:  # TODO fix name of l
+            print l
             uname = l[0]
-            if self.auth_method == 'NOCRYPT' and l[1] != '*locked':
+            if self.auth_method == None and l[1] != '*locked':
                 # substitute pwdcrypt with an 'x' if auth_method given to gen_nismaps
                 # is NOCRYPT. Jazz, 2010-05-31
                 passwd = 'x'
@@ -215,7 +261,7 @@ class Passwd(object):
                 s.write("%s:%s:::\n" % (uname, passwd))
                 if not passwd[0] == '*':
                     passwd = "!!"
-            line = self.join([uname, passwd] + rest)
+            line = join([uname, passwd] + rest)
             f.write(line + "\n")
         if e_o_f:
             f.write('E_O_F\n')
@@ -379,9 +425,11 @@ class FileGroup(NISGroupUtil):
             co.account_namespace, co.entity_account,
             group_spread, member_spread)
         self._group = PosixGroup.PosixGroup(db)
-        self._account2def_group = {}
-        for row in posix_user.list_extended_posix_users():
-            self._account2def_group[int(row['account_id'])] = int(row['posix_gid'])
+        gid2posix_gid = make_posix_gid_cache(posix_group)
+        self._account2posix_gid = {}
+        for row in posix_user.list_posix_users():
+            self._account2posix_gid[row['account_id']] = gid2posix_gid[
+                row['gid']]
         logger.debug("__init__ done")
 
     def _make_tmp_name(self, base):

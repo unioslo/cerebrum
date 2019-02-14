@@ -2,16 +2,14 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
-
-import sys
-import mx
-import getopt
 import argparse
+import logging
 
 from six import text_type
 
 import cerebrum_path
 
+import Cerebrum.logutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import transliterate
@@ -23,7 +21,7 @@ from Cerebrum.Constants import _SpreadCode
 
 del cerebrum_path
 
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 posix_user = Factory.get('PosixUser')(db)
@@ -38,7 +36,6 @@ posix_group = PosixGroup.PosixGroup(db)
 MAX_LINE_LENGTH = 1000
 _SpreadCode.sql = db
 
-debug = 0
 e_o_f = False
 
 
@@ -62,12 +59,19 @@ class NoDisk(NISMapError):
     pass
 
 
-def make_shells_cache(posix_user):
-    logger.debug('Making shells cache')
-    shells = {}
-    for s in posix_user.list_shells():
-        shells[int(s['code'])] = s['shell']
-    return shells
+# TODO remove redundant methods, once finished with other scripts
+def get_posix_gid(row, group):
+    group.clear()
+    group.find(int(row['gid']))
+    return int(group.posix_gid)
+
+
+def make_account_cache(posix_user, group):
+    logger.debug('Making account cache')
+    account2posix_gid = {}
+    for row in posix_user.list_posix_users(filter_expired=True):
+        account2posix_gid[int(row['account_id'])] = get_posix_gid(row, group)
+    return account2posix_gid
 
 
 def generate_passwd(filename, spread, shadow_file=None):
@@ -275,112 +279,6 @@ class NISGroupUtil(object):
         return tmp_users
 
 
-def get_posix_gid(row, group):
-    group.clear()
-    group.find(int(row['gid']))
-    return int(group.posix_gid)
-
-
-def make_account_cache(posix_user, group):
-    logger.debug('Making account cache')
-    account2posix_gid = {}
-    for row in posix_user.list_posix_users(filter_expired=True):
-        account2posix_gid[int(row['account_id'])] = get_posix_gid(row, group)
-    return account2posix_gid
-
-
-class FileGroup(NISGroupUtil):
-    def __init__(self, group_spread, member_spread):
-        super(FileGroup, self).__init__(
-            co.account_namespace, co.entity_account,
-            group_spread, member_spread)
-        self._group = PosixGroup.PosixGroup(db)
-        self._account2posix_gid = make_account_cache(posix_user, self._group)
-        logger.debug("__init__ done")
-
-    def _make_tmp_name(self, base):
-        name = base
-        harder = False
-        while len(name) > 0:
-            i = 0
-            if harder:
-                name = name[:-1]
-            format = "%s%x"
-            if len(name) < 7:
-                format = "%s%02x"
-            while True:
-                tname = format % (name, i)
-                if len(tname) > 8:
-                    break
-                if tname not in self._exported_groups:
-                    self._exported_groups[tname] = True
-                    return tname
-                i += 1
-            harder = True
-
-    def _expand_group(self, gid):
-        ret = []
-        self._group.clear()
-        self._group.find(gid)
-        for row in self._group.search_members(
-                group_id=self._group.entity_id,
-                member_spread=self._member_spread,
-                indirect_members=True,
-                member_type=co.entity_account):
-            account_id = int(row["member_id"])
-            if (self._account2posix_gid.get(account_id, None) ==
-                    self._group.posix_gid):
-                continue  # Don't include the users primary group
-            name = self._entity2name.get(account_id, None)
-            if not name:
-                logger.warn("Was %i very recently created?" % int(account_id))
-                continue
-            ret.append(name)
-        return None, list(set(ret))
-
-    def generate_filegroup(self, filename):
-        logger.debug("generate_group: %s" % filename)
-        f = SimilarSizeWriter(filename, "w", encoding='UTF-8')
-        f.max_pct_change = 5
-
-        groups = self._exported_groups.keys()
-        groups.sort()
-        for group_id in groups:
-            group_name = self._exported_groups[group_id]
-            tmp = posix_group.illegal_name(group_name)
-            if tmp or len(group_name) > 8:
-                logger.warn("Bad groupname %s %s" % (group_name, tmp))
-                continue
-            try:
-                group_members, user_members = self._expand_group(group_id)
-            except Errors.NotFoundError:
-                logger.warn("Group %s has no GID", group_id)
-                continue
-            tmp_users = self._filter_illegal_usernames(user_members,
-                                                       group_name)
-
-            logger.debug("%s -> g=%s, u=%s" % (
-                group_id, group_members, tmp_users))
-            f.write(self._wrap_line(group_name, ",".join(tmp_users),
-                                    ':*:%i:' % self._group.posix_gid))
-        if e_o_f:
-            f.write('E_O_F\n')
-        f.close()
-
-
-class UserNetGroup(NISGroupUtil):
-    def __init__(self, group_spread, member_spread):
-        super(UserNetGroup, self).__init__(
-            co.account_namespace, co.entity_account,
-            group_spread, member_spread)
-
-    def _format_members(self, group_members, user_members, group_name):
-        tmp_users = self._filter_illegal_usernames(user_members, group_name)
-
-        return " ".join((" ".join(group_members),
-                         " ".join(["(,%s,)" % m for m in tmp_users])))
-
-
 class MachineNetGroup(NISGroupUtil):
     def __init__(self, group_spread, member_spread, zone):
         super(MachineNetGroup, self).__init__(
@@ -416,113 +314,43 @@ def map_spread(id):
 
 
 def main():
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument(
-    #     'd', '--debug',
-    #     dest='debug',
-    #
-    # )
-    # TODO: finish this and make sure job_runner doesn't crash
-
-    global debug
     global e_o_f
-    global max_group_memberships
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dg:p:n:s:m:Z:',
-                                   ['debug', 'help', 'eof', 'group=',
-                                    'passwd=', 'group_spread=',
-                                    'user_spread=', 'netgroup=',
-                                    'max_memberships=', 'shadow=',
-                                    'mnetgroup=', 'zone='])
-    except getopt.GetoptError:
-        usage(1)
+    parser = argparse.ArgumentParser(
+        'Generates a NIS map of the requested type for the requested spreads.'
+    )
+    parser.add_argument(
+        '--group-spread',
+        dest='group_spread',
+        required=True,
+        help='Filter by group_spread'
+    )
+    parser.add_argument(
+        '--eof',
+        dest='e_o_f',
+        action='store_true',
+        help='End dump file with E_O_F to mark successful completion'
+    )
+    parser.add_argument(
+        '-m', '--mnetgroup',
+        dest='mnetgroup',
+        required=True,
+        help='Write netgroup.host map to outfile'
+    )
+    parser.add_argument(
+        '-Z', '--zone',
+        dest='zone',
+        required=True,
+        help='dns zone postfix (example: .uio.no.)'
+    )
 
-    user_spread = group_spread = None
-    max_group_memberships = 16
-    shadow_file = None
-    zone = None
-    for opt, val in opts:
-        if opt in ('--help',):
-            usage()
-        elif opt in ('-d', '--debug'):
-            debug += 1
-        elif opt in ('--eof',):
-            e_o_f = True
-        elif opt in ('-g', '--group'):
-            if not (user_spread and group_spread):
-                sys.stderr.write("Must set user and group spread!\n")
-                sys.exit(1)
-            fg = FileGroup(group_spread, user_spread)
-            fg.generate_filegroup(val)
-        elif opt in ('-p', '--passwd'):
-            if not user_spread:
-                sys.stderr.write("Must set user spread!\n")
-                sys.exit(1)
-            generate_passwd(val, shadow_file, user_spread)
-            shadow_file = None
-        elif opt in ('-n', '--netgroup'):
-            if not (user_spread and user_spread):
-                sys.stderr.write("Must set user and group spread!\n")
-                sys.exit(1)
-            ung = UserNetGroup(group_spread, user_spread)
-            ung.generate_netgroup(val)
-        elif opt in ('-m', '--mnetgroup'):
-            ngu = MachineNetGroup(group_spread, None, zone)
-            ngu.generate_netgroup(val)
-        elif opt in ('--group_spread',):
-            group_spread = map_spread(val)
-        elif opt in ('-Z', '--zone',):
-            zone = co.DnsZone(val)
-        elif opt in ('--max_memberships',):
-            max_group_memberships = val
-        elif opt in ('--user_spread',):
-            user_spread = map_spread(val)
-        elif opt in ('-s', '--shadow'):
-            shadow_file = val
-        else:
-            usage()
-    if len(opts) == 0:
-        usage(1)
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-
-def usage(exitcode=0):
-    print("""Usage: [options]
-
-   [--user_spread spread [--shadow outfile]* [--passwd outfile]* \
-    [--group_spread spread [--group outfile]* [--netgroup outfile]*]*]+
-
-   Any of the two types may be repeated as many times as needed, and will
-   result in generate_nismaps making several maps based on spread. If eg.
-   user_spread is set, generate_nismaps will use this if a new one is not
-   set before later passwd files. This is not the case for shadow.
-
-   Misc options:
-    -d | --debug
-      Enable deubgging
-    --eof
-      End dump file with E_O_F to mark successful completion
-
-   Group options:
-    --group_spread value
-      Filter by group_spread
-    -g | --group outfile
-      Write posix group map to outfile
-    -n | --netgroup outfile
-      Write netgroup map to outfile
-    -m | --mnetgroup outfile
-      Write netgroup.host map to outfile
-    -Z | --zone dns zone postfix (example: .uio.no.)
-
-   User options:
-    --user_spread value
-      Filter by user_spread
-    -s | --shadow outfile
-      Write shadow file. Password hashes in passwd will then be '!!' or '*'.
-    -p | --passwd outfile
-      Write password map to outfile
-
-    Generates a NIS map of the requested type for the requested spreads.""")
-    sys.exit(exitcode)
+    zone = co.DnsZone(args.zone)
+    group_spread = map_spread(args.group_spread)
+    ngu = MachineNetGroup(group_spread, None, zone)
+    ngu.generate_netgroup(args.mnetgroup)
 
 
 if __name__ == '__main__':
