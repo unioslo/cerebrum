@@ -24,6 +24,7 @@
 
 import re
 import six
+import collections
 
 import cereconf
 
@@ -49,6 +50,35 @@ from Cerebrum.modules.bofhd.cmd_param import (
     OU,
     SimpleString,
 )
+
+
+class LookupClass(collections.Mapping):
+    def __init__(self, db, logger):
+        self.db = db
+        self.logger = logger
+        self.operations = {
+            'disk': AccessDisk(self.db, self.logger),
+            'group': AccessGroup(self.db, self.logger),
+            'dns': AccessDns(self.db, self.logger),
+            'global_dns': AccessGlobalDns(self.db, self.logger),
+            'global_group': AccessGlobalGroup(self.db, self.logger),
+            'global_person': AccessGlobalPerson(self.db, self.logger),
+            'host': AccessHost(self.db, self.logger),
+            'global_host': AccessGlobalHost(self.db, self.logger),
+            'maildom': AccessMaildom(self.db, self.logger),
+            'global_maildom': AccessGlobalMaildom(self.db, self.logger),
+            'ou': AccessOu(self.db, self.logger),
+            'global_ou': AccessOu(self.db, self.logger),
+        }
+
+    def __len__(self):
+        return len(self.operations)
+
+    def __getitem__(self, item):
+        return self.operations[item]
+
+    def __iter__(self):
+        return iter(self.operations)
 
 
 class BofhdAccessAuth(BofhdAuth):
@@ -386,8 +416,6 @@ class BofhdAccessCommands(BofhdCommonMethods):
         return self._manipulate_access(self._revoke_auth, operator, opset,
                                        group, entity_type, target_name, attr)
 
-
-
     #
     # access list_opsets
     #
@@ -705,127 +733,18 @@ class BofhdAccessCommands(BofhdCommonMethods):
                  the given target entity.
 
         """
-        if target_type == 'disk':
-            return (self._get_disk(target_name)[1],
-                    self.const.auth_target_type_disk,
-                    self.const.auth_grant_disk)
-        elif target_type == 'group':
-            target = self._get_group(target_name)
-            return (target.entity_id, self.const.auth_target_type_group,
-                    self.const.auth_grant_group)
-        elif target_type == 'dns':
-            sub = Subnet(self.db)
-            sub.find(target_name.split('/')[0])
-            return (sub.entity_id,
-                    self.const.auth_target_type_dns,
-                    self.const.auth_grant_dns)
-        elif target_type == 'global_dns':
-            if target_name:
-                raise CerebrumError("You can't specify an address")
-            return None, self.const.auth_target_type_global_dns, None
-        elif target_type == 'global_group':
-            if target_name is not None and target_name != "":
-                raise CerebrumError("Cannot set domain for global access")
-            return None, self.const.auth_target_type_global_group, None
-        elif target_type == 'global_person':
-            # if person is not None and person != "":
-            #     raise CerebrumError("Cannot set domain for global access")
-            return None, self.const.auth_target_type_global_person, None
-        elif target_type == 'host':
-            target = self._get_host(target_name)
-            return (target.entity_id, self.const.auth_target_type_host,
-                    self.const.auth_grant_host)
-        elif target_type == 'global_host':
-            if target_name is not None and target_name != "":
-                raise CerebrumError("You can't specify a hostname")
-            return None, self.const.auth_target_type_global_host, None
-        elif target_type == 'maildom':
-            ed = Email.EmailDomain(self.db)
-            try:
-                ed.find_by_domain(target_name)
-            except Errors.NotFoundError:
-                raise CerebrumError("Unknown e-mail domain (%s)" % target_name)
-            return (ed.entity_id, self.const.auth_target_type_maildomain,
-                    self.const.auth_grant_maildomain)
-        elif target_type == 'global_maildom':
-            if target_name is not None and target_name != '':
-                raise CerebrumError("Cannot set domain for global access")
-            return None, self.const.auth_target_type_global_maildomain, None
-        elif target_type == 'ou':
-            target_name = self._get_ou(stedkode=target_name)
-            return (target_name.entity_id, self.const.auth_target_type_ou,
-                    self.const.auth_grant_ou)
-        elif target_type == 'global_ou':
-            if target_name is not None and target_name != '':
-                raise CerebrumError("Cannot set OU for global access")
-            return None, self.const.auth_target_type_global_ou, None
-
+        lookup = LookupClass(self.db, self.logger)
+        if target_type in lookup:
+            return lookup[target_type].get(target_name)
         else:
             raise CerebrumError("Unknown id type {}".format(target_type))
 
     def _validate_access(self, target_type, opset, attr):
-        # func_name = "_validate_access_%s" % target_type
-        # if func_name not in dir(self):
-        #     raise CerebrumError("Unknown type %s" % target_type)
-        # return self.__getattribute__(func_name)(opset, attr)
-        if target_type == 'disk':
-            # TODO: check if the opset is relevant for a disk
-            if attr is not None:
-                raise CerebrumError("Can't specify attribute for disk access")
-        elif target_type == 'group':
-            # TODO: check if the opset is relevant for a group
-            if attr is not None:
-                raise CerebrumError("Can't specify attribute for group access")
-        elif target_type == 'dns':
-            # TODO: check if the opset is relevant for a dns-target
-            if attr is not None:
-                raise CerebrumError("Can't specify attribute for dns access")
-        elif target_type == 'global_dns':
-            if attr:
-                raise CerebrumError(
-                    "You can't specify a pattern with global_dns.")
-        elif target_type == 'global_group':
-            if attr is not None:
-                raise CerebrumError("Can't specify attribute for global group")
-        elif target_type == 'global_person':
-            if attr:
-                raise CerebrumError(
-                    "You can't specify a pattern with global_person.")
-        elif target_type == 'host':
-            if attr is not None:
-                if attr.count('/'):
-                    raise CerebrumError("The disk pattern should only contain "
-                                        "the last component of the path.")
-                try:
-                    re.compile(attr)
-                except re.error as e:
-                    raise CerebrumError("Syntax error in regexp: {}".format(e))
-        elif target_type == 'global_host':
-            if attr is not None:
-                raise CerebrumError(
-                    "You can't specify a pattern with global_host.")
-        elif target_type == 'maildom':
-            if attr is not None:
-                raise CerebrumError("No attribute with maildom.")
-        elif target_type == 'global_maildom':
-            if attr is not None:
-                raise CerebrumError("No attribute with global maildom.")
-        elif target_type == 'ou':
-            if attr is not None:
-                try:
-                    int(self.const.PersonAffiliation(attr))
-                except Errors.NotFoundError:
-                    raise CerebrumError("Unknown affiliation '{}'".format(attr))
-        elif target_type == 'global_ou':
-            if not attr:
-                # This is a policy decision, and should probably be
-                # elsewhere.
-                raise CerebrumError(
-                    "Must specify affiliation for global ou access")
-            try:
-                int(self.const.PersonAffiliation(attr))
-            except Errors.NotFoundError:
-                raise CerebrumError("Unknown affiliation: %s" % attr)
+        lookup = LookupClass(self.db, self.logger)
+        if target_type in lookup:
+            return lookup[target_type].validate(opset, attr)
+        else:
+            raise CerebrumError("Unknown type %s" % target_type)
 
     def _revoke_auth(self, entity_id, opset, target_id, target_type, attr,
                      entity_name, target_name):
@@ -849,40 +768,6 @@ class BofhdAccessCommands(BofhdCommonMethods):
         return "OK, revoked %s access for %s from %s %s" % (
             opset.name, entity_name, six.text_type(target_type), target_name)
 
-    def _get_auth_op_target(self, entity_id, target_type, attr=None,
-                            any_attr=False, create=False):
-
-        """Return auth_op_target(s) associated with (entity_id,
-        target_type, attr).  If any_attr is false, return one
-        op_target_id or None.  If any_attr is true, return list of
-        matching db_row objects.  If create is true, create a new
-        op_target if no matching row is found."""
-
-        if any_attr:
-            op_targets = []
-            assert attr is None and create is False
-        else:
-            op_targets = None
-
-        aot = BofhdAuthOpTarget(self.db)
-        for r in aot.list(entity_id=entity_id, target_type=target_type,
-                          attr=attr):
-            if attr is None and not any_attr and r['attr']:
-                continue
-            if any_attr:
-                op_targets.append(r)
-            else:
-                # There may be more than one matching op_target, but
-                # we don't care which one we use -- we will make sure
-                # not to make duplicates ourselves.
-                op_targets = int(r['op_target_id'])
-        if op_targets or not create:
-            return op_targets
-        # No op_target found, make a new one.
-        aot.populate(entity_id, target_type, attr)
-        aot.write_db()
-        return aot.op_target_id
-
     def _grant_auth(self, entity_id, opset, target_id, target_type, attr,
                     entity_name, target_name):
         op_target_id = self._get_auth_op_target(target_id, target_type, attr,
@@ -897,13 +782,168 @@ class BofhdAccessCommands(BofhdCommonMethods):
         return "%s already has %s access to %s %s" % (
             entity_name, opset.name, six.text_type(target_type), target_name)
 
-    def _get_opset(self, opset):
-        aos = BofhdAuthOpSet(self.db)
+
+class AccessBase(BofhdCommonMethods):
+    pass
+
+
+class AccessDisk(AccessBase):
+    def get(self, target_name):
+        return (self._get_disk(target_name)[1],
+                self.const.auth_target_type_disk,
+                self.const.auth_grant_disk)
+
+    def validate(self, opset, attr):
+        # TODO: check if the opset is relevant for a disk
+        if attr is not None:
+            raise CerebrumError("Can't specify attribute for disk access")
+
+
+class AccessGroup(AccessBase):
+    def get(self, target):
+        target = self._get_group(target)
+        return (target.entity_id, self.const.auth_target_type_group,
+                self.const.auth_grant_group)
+
+    def validate(self, opset, attr):
+        # TODO: check if the opset is relevant for a group
+        if attr is not None:
+            raise CerebrumError("Can't specify attribute for group access")
+
+
+class AccessHost(AccessBase):
+    def get(self, target_name):
+        target = self._get_host(target_name)
+        return (target.entity_id, self.const.auth_target_type_host,
+                self.const.auth_grant_host)
+
+    def validate(self, opset, attr):
+        if attr is not None:
+            if attr.count('/'):
+                raise CerebrumError("The disk pattern should only contain "
+                                    "the last component of the path.")
+            try:
+                re.compile(attr)
+            except re.error as e:
+                raise CerebrumError("Syntax error in regexp: {}".format(e))
+
+
+class AccessGlobalDns(AccessBase):
+    def get(self, target_name):
+        if target_name:
+            raise CerebrumError("You can't specify an address")
+        return None, self.const.auth_target_type_global_dns, None
+
+    def validate(self, opset, attr):
+        if attr:
+            raise CerebrumError("You can't specify a pattern with global_dns.")
+
+
+class AccessGlobalGroup(AccessBase):
+    def get(self, group):
+        if group is not None and group != "":
+            raise CerebrumError("Cannot set domain for global access")
+        return None, self.const.auth_target_type_global_group, None
+
+    def validate(self, opset, attr):
+        if attr is not None:
+            raise CerebrumError("Can't specify attribute for global group")
+
+
+class AccessGlobalHost(AccessBase):
+    def get(self, target_name):
+        if target_name is not None and target_name != "":
+            raise CerebrumError("You can't specify a hostname")
+        return None, self.const.auth_target_type_global_host, None
+
+    def validate(self, opset, attr):
+        if attr is not None:
+            raise CerebrumError(
+                "You can't specify a pattern with global_host.")
+
+
+class AccessGlobalMaildom(AccessBase):
+    def get(self, dom):
+        if dom is not None and dom != '':
+            raise CerebrumError("Cannot set domain for global access")
+        return None, self.const.auth_target_type_global_maildomain, None
+
+    def validate(self, opset, attr):
+        if attr is not None:
+            raise CerebrumError("No attribute with global maildom.")
+
+
+class AccessGlobalOu(AccessBase):
+    def get(self, ou):
+        if ou is not None and ou != '':
+            raise CerebrumError("Cannot set OU for global access")
+        return None, self.const.auth_target_type_global_ou, None
+
+    def validate(self, opset, attr):
+        if not attr:
+            # This is a policy decision, and should probably be
+            # elsewhere.
+            raise CerebrumError(
+                "Must specify affiliation for global ou access")
         try:
-            aos.find_by_name(opset)
+            int(self.const.PersonAffiliation(attr))
         except Errors.NotFoundError:
-            raise CerebrumError("Could not find op set with name %s" % opset)
-        return aos
+            raise CerebrumError("Unknown affiliation: %s" % attr)
+
+
+class AccessDns(AccessBase):
+    def get(self, target):
+        sub = Subnet(self.db)
+        sub.find(target.split('/')[0])
+        return (sub.entity_id,
+                self.const.auth_target_type_dns,
+                self.const.auth_grant_dns)
+
+    def validate(self, opset, attr):
+        # TODO: check if the opset is relevant for a dns-target
+        if attr is not None:
+            raise CerebrumError("Can't specify attribute for dns access")
+
+
+class AccessMaildom(AccessBase):
+    def get(self, dom):
+        ed = Email.EmailDomain(self.db)
+        try:
+            ed.find_by_domain(dom)
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown e-mail domain (%s)" % dom)
+        return (ed.entity_id, self.const.auth_target_type_maildomain,
+                self.const.auth_grant_maildomain)
+
+    def validate(self, opset, attr):
+        if attr is not None:
+            raise CerebrumError("No attribute with maildom.")
+
+
+class AccessOu(AccessBase):
+    def get(self, ou):
+        ou = self._get_ou(stedkode=ou)
+        return (ou.entity_id, self.const.auth_target_type_ou,
+                self.const.auth_grant_ou)
+
+    def validate(self, opset, attr):
+        if attr is not None:
+            try:
+                int(self.const.PersonAffiliation(attr))
+            except Errors.NotFoundError:
+                raise CerebrumError("Unknown affiliation '{}'".format(attr))
+
+
+class AccessGlobalPerson(AccessBase):
+    def get(self, person):
+        # if person is not None and person != "":
+        #     raise CerebrumError("Cannot set domain for global access")
+        return None, self.const.auth_target_type_global_person, None
+
+    def validate(self, opset, attr):
+        if attr:
+            raise CerebrumError(
+                "You can't specify a pattern with global_person.")
 
 
 #
