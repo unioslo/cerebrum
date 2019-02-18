@@ -55,6 +55,8 @@ def main():
         '-a', '--auth_method',
         dest='auth_method',
         default=None,
+        help="""If not given, passwords are replaced with 'x' in the password 
+             file"""
     )
     parser.add_argument(
         '--eof',
