@@ -130,7 +130,7 @@ def make_auth_cache(account, spread, auth_method):
     logger.debug('Making posix user cache')
     accounts = account.list_account_authentication(
         spread=spread,
-        auth_method=auth_method
+        auth_type=auth_method
     )
 
     account2auth_data = {}
