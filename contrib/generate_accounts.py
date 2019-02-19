@@ -81,8 +81,8 @@ def restore_account(db, pe, ac, remove_quars):
         if int(q) in existing_quars:
             ac.delete_entity_quarantine(q)
 
-    for s in ac.get_spread():
-        ac.delete_spread(s)
+    for row in ac.get_spread():
+        ac.delete_spread(row['spread'])
 
     for row in ac.get_account_types(filter_expired=False):
         ac.del_account_type(row['ou_id'], row['affiliation'])
