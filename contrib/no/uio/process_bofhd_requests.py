@@ -515,6 +515,11 @@ def proc_delete_user(r):
                          group.group_name, account.account_name)
             continue
         group.remove_member(account.entity_id)
+
+    # Remove password from user
+    account.execute("""
+    DELETE FROM [:table schema=cerebrum name=account_authentication]
+    WHERE account_id=:a_id""", {'a_id': account.entity_id})
     return True
 
 
