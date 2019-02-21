@@ -1404,7 +1404,11 @@ class BofhdAuth(DatabaseAccessor):
                 op_acc.owner_type == account.owner_type):
             myself = True
         else:
-            self.can_set_password(operator, account=account)
+            try:
+                self.can_set_password(operator, account=account)
+            except PermissionDenied:
+                raise PermissionDenied(
+                    "Not allowed to modify affiliation for {}".format(account))
 
         if account.owner_type != self.const.entity_person:
             raise PermissionDenied(
