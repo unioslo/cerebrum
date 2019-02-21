@@ -32,6 +32,7 @@ import string
 import mx
 import hashlib
 import base64
+import re
 
 import six
 
@@ -390,6 +391,8 @@ class AccountHome(object):
         do not end up with homedir rows without corresponding
         account_home entries.
         """
+        if re.search('[:*"?<>|]', home):
+            raise ValueError("Illegal character in disk path")
         binds = {'account_id': self.entity_id,
                  'home': home,
                  'disk_id': disk_id,
@@ -1027,7 +1030,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                                   'auth_data': self._auth_info[k]})
             elif self.__in_db and what == 'update':
                 self.execute("""
-                DELETE FROM [:table schema=cerebrum name=account_authentication]
+                DELETE FROM 
+                  [:table schema=cerebrum name=account_authentication]
                 WHERE account_id=:acc_id AND method=:method""",
                              {'acc_id': self.entity_id, 'method': k})
 

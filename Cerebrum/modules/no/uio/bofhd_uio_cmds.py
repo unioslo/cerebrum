@@ -6453,9 +6453,10 @@ class BofhdExtension(BofhdCommonMethods):
             if not self.ba.is_superuser(operator.get_entity_id()):
                 raise PermissionDenied("only superusers may use hard_nofile")
             ah = account.get_home(spread)
-            if re.search('[:*"?<>|]', args[0]):
-                raise CerebrumError("Illegal character in disk path")
-            account.set_homedir(current_id=ah['homedir_id'], home=args[0])
+            try:
+                account.set_homedir(current_id=ah['homedir_id'], home=args[0])
+            except ValueError as e:
+                raise CerebrumError(e)
             return "OK, user moved to hardcoded homedir"
         elif move_type in (
                 "student", "student_immediate", "confirm", "cancel"):
