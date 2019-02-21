@@ -549,7 +549,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def deactivate(self):
         """Deactivate is commonly thought of as removal of spreads and setting
         of expire_date < today. in addition a deactivated account should not
-        have any group memberships."""
+        have any group memberships or a password."""
         group = Utils.Factory.get("Group")(self._db)
         self.expire_date = mx.DateTime.now()
         for s in self.get_spread():
@@ -560,6 +560,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             group.remove_member(self.entity_id)
             group.write_db()
         self.write_db()
+
+        # Delete password
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=account_authentication]
+        WHERE account_id=:a_id""", {'a_id': self.entity_id})
 
     def delete(self):
         """Really, really remove the account, homedir, account types and the
