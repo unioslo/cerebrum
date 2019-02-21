@@ -25,6 +25,7 @@
 import re
 import six
 import collections
+import logging
 
 import cereconf
 
@@ -51,24 +52,24 @@ from Cerebrum.modules.bofhd.cmd_param import (
     SimpleString,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class LookupClass(collections.Mapping):
-    def __init__(self, db, logger):
-        self.db = db
-        self.logger = logger
+    def __init__(self):
         self.operations = {
-            'disk': AccessDisk(self.db, self.logger),
-            'group': AccessGroup(self.db, self.logger),
-            'dns': AccessDns(self.db, self.logger),
-            'global_dns': AccessGlobalDns(self.db, self.logger),
-            'global_group': AccessGlobalGroup(self.db, self.logger),
-            'global_person': AccessGlobalPerson(self.db, self.logger),
-            'host': AccessHost(self.db, self.logger),
-            'global_host': AccessGlobalHost(self.db, self.logger),
-            'maildom': AccessMaildom(self.db, self.logger),
-            'global_maildom': AccessGlobalMaildom(self.db, self.logger),
-            'ou': AccessOu(self.db, self.logger),
-            'global_ou': AccessOu(self.db, self.logger),
+            'disk': AccessDisk,
+            'group': AccessGroup,
+            'dns': AccessDns,
+            'global_dns': AccessGlobalDns,
+            'global_group': AccessGlobalGroup,
+            'global_person': AccessGlobalPerson,
+            'host': AccessHost,
+            'global_host': AccessGlobalHost,
+            'maildom': AccessMaildom,
+            'global_maildom': AccessGlobalMaildom,
+            'ou': AccessOu,
+            'global_ou': AccessGlobalOu,
         }
 
     def __len__(self):
@@ -733,16 +734,18 @@ class BofhdAccessCommands(BofhdCommonMethods):
                  the given target entity.
 
         """
-        lookup = LookupClass(self.db, self.logger)
+        lookup = LookupClass()
         if target_type in lookup:
-            return lookup[target_type].get(target_name)
+            lookupclass = lookup[target_type](self.db)
+            return lookupclass.get(target_name)
         else:
             raise CerebrumError("Unknown id type {}".format(target_type))
 
     def _validate_access(self, target_type, opset, attr):
-        lookup = LookupClass(self.db, self.logger)
+        lookup = LookupClass()
         if target_type in lookup:
-            return lookup[target_type].validate(opset, attr)
+            lookupclass = lookup[target_type](self.db)
+            return lookupclass.validate(opset, attr)
         else:
             raise CerebrumError("Unknown type %s" % target_type)
 
@@ -788,6 +791,10 @@ class AccessBase(BofhdCommonMethods):
 
 
 class AccessDisk(AccessBase):
+    def __init__(self, db):
+        childlogger = logger.getChild('AccessDisk')
+        super(AccessDisk, self).__init__(db, childlogger)
+
     def get(self, target_name):
         return (self._get_disk(target_name)[1],
                 self.const.auth_target_type_disk,
@@ -800,6 +807,10 @@ class AccessDisk(AccessBase):
 
 
 class AccessGroup(AccessBase):
+    def __init__(self, db):
+        childlogger = logger.getChild('AccessGroup')
+        super(AccessGroup, self).__init__(db, childlogger)
+
     def get(self, target):
         target = self._get_group(target)
         return (target.entity_id, self.const.auth_target_type_group,
@@ -812,6 +823,10 @@ class AccessGroup(AccessBase):
 
 
 class AccessHost(AccessBase):
+    def __init__(self, db):
+        childlogger = logger.getChild('AccessHost')
+        super(AccessHost, self).__init__(db, childlogger)
+
     def get(self, target_name):
         target = self._get_host(target_name)
         return (target.entity_id, self.const.auth_target_type_host,
@@ -829,6 +844,10 @@ class AccessHost(AccessBase):
 
 
 class AccessGlobalDns(AccessBase):
+    def __init__(self, db):
+        childlogger = logger.getChild('AccessGlobalDns')
+        super(AccessGlobalDns, self).__init__(db, childlogger)
+
     def get(self, target_name):
         if target_name:
             raise CerebrumError("You can't specify an address")
@@ -840,6 +859,10 @@ class AccessGlobalDns(AccessBase):
 
 
 class AccessGlobalGroup(AccessBase):
+    def __init__(self, db):
+        childlogger = logger.getChild('AccessGlobalGroup')
+        super(AccessGlobalGroup, self).__init__(db, childlogger)
+
     def get(self, group):
         if group is not None and group != "":
             raise CerebrumError("Cannot set domain for global access")
@@ -851,6 +874,10 @@ class AccessGlobalGroup(AccessBase):
 
 
 class AccessGlobalHost(AccessBase):
+    def __init__(self, db):
+        childlogger = logger.getChild('AccessGlobalHost')
+        super(AccessGlobalHost, self).__init__(db, childlogger)
+
     def get(self, target_name):
         if target_name is not None and target_name != "":
             raise CerebrumError("You can't specify a hostname")
@@ -863,6 +890,10 @@ class AccessGlobalHost(AccessBase):
 
 
 class AccessGlobalMaildom(AccessBase):
+    def __init__(self, db):
+        childlogger = logger.getChild('AccessGlobalMaildom')
+        super(AccessGlobalMaildom, self).__init__(db, childlogger)
+
     def get(self, dom):
         if dom is not None and dom != '':
             raise CerebrumError("Cannot set domain for global access")
@@ -874,6 +905,10 @@ class AccessGlobalMaildom(AccessBase):
 
 
 class AccessGlobalOu(AccessBase):
+    def __init__(self, db):
+        childlogger = logger.getChild('AccessGlobalOu')
+        super(AccessGlobalOu, self).__init__(db, childlogger)
+
     def get(self, ou):
         if ou is not None and ou != '':
             raise CerebrumError("Cannot set OU for global access")
@@ -892,6 +927,10 @@ class AccessGlobalOu(AccessBase):
 
 
 class AccessDns(AccessBase):
+    def __init__(self, db):
+        childlogger = logger.getChild('AccessDns')
+        super(AccessDns, self).__init__(db, childlogger)
+
     def get(self, target):
         sub = Subnet(self.db)
         sub.find(target.split('/')[0])
@@ -906,6 +945,10 @@ class AccessDns(AccessBase):
 
 
 class AccessMaildom(AccessBase):
+    def __init__(self, db):
+        childlogger = logger.getChild('AccessMaildom')
+        super(AccessMaildom, self).__init__(db, childlogger)
+
     def get(self, dom):
         ed = Email.EmailDomain(self.db)
         try:
@@ -921,6 +964,10 @@ class AccessMaildom(AccessBase):
 
 
 class AccessOu(AccessBase):
+    def __init__(self, db):
+        childlogger = logger.getChild('AccessOu')
+        super(AccessOu, self).__init__(db, childlogger)
+
     def get(self, ou):
         ou = self._get_ou(stedkode=ou)
         return (ou.entity_id, self.const.auth_target_type_ou,
@@ -935,6 +982,10 @@ class AccessOu(AccessBase):
 
 
 class AccessGlobalPerson(AccessBase):
+    def __init__(self, db):
+        childlogger = logger.getChild('AccessGlobalPerson')
+        super(AccessGlobalPerson, self).__init__(db, childlogger)
+
     def get(self, person):
         # if person is not None and person != "":
         #     raise CerebrumError("Cannot set domain for global access")
