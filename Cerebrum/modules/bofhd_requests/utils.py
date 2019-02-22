@@ -27,7 +27,7 @@ from mx import DateTime
 
 
 class BofhdRequests(object):
-    def __init__(self, db, const, id=None):
+    def __init__(self, db, const):
         self._db = db
         self.co = const
 
@@ -160,9 +160,10 @@ class BofhdRequests(object):
             cols['requestee_id'] = operator_id
         if operation is not None:
             cols['operation'] = int(operation)
-        self._db.execute("""DELETE FROM [:table schema=cerebrum name=bofhd_request]
-        WHERE %s""" % " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()]),
-                         cols)
+        self._db.execute(
+            """DELETE FROM [:table schema=cerebrum name=bofhd_request]
+            WHERE %s""" % " AND "
+            .join(["%s=:%s" % (x, x) for x in cols.keys()]), cols)
 
     def get_requests(self, request_id=None, operator_id=None, entity_id=None,
                      operation=None, destination_id=None, given=False,
@@ -211,4 +212,3 @@ class BofhdRequests(object):
         ORDER BY code_str
         """
         return self._db.query(qry)
-
