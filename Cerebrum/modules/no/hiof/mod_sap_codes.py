@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2007-2018 University of Oslo, Norway
+# Copyright 2007-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,7 +21,12 @@
 """
 This file provides code values to be used with HiØf's SAP extension to
 Cerebrum -- mod_sap.
+
+This file is meant for any extra codes needed by the institution, or other
+descriptions of the same codes for whatever reason. Make sure to link to this
+file after the general codes in cereconf.CLASS_CONSTANTS.
 """
+
 from __future__ import unicode_literals
 
 from Cerebrum import Constants
@@ -35,6 +40,12 @@ class SAPConstants(Constants.Constants):
     """
 
     # ----[ SAPLonnsTittelKode ]----------------------------------
+    sap_0214_rektor = SAPLonnsTittelKode(
+        "20000214",
+        "0214 Rektor",
+        "ØVR"
+    )
+
     sap_1004_rektor = SAPLonnsTittelKode(
         "20001004",
         "1004 Rektor",
@@ -341,6 +352,12 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    sap_1409_sekretaer = SAPLonnsTittelKode(
+        "20001409",
+        "1409 Sekretær",
+        "ØVR"
+    )
+
     sap_1410_bibliotekar = SAPLonnsTittelKode(
         "20001410",
         "1410 Bibliotekar",
@@ -404,17 +421,5 @@ class SAPConstants(Constants.Constants):
     sap_0000_ekstern_stillingskode = SAPLonnsTittelKode(
         "00000000",
         "0000 Ekstern tilsatt, ikke lønnet av HiØf",
-        "ØVR"
-    )
-
-    sap_0214_rektor = SAPLonnsTittelKode(
-        "20000214",
-        "0214 Rektor",
-        "ØVR"
-    )
-
-    sap_1409_sekretaer = SAPLonnsTittelKode(
-        "20001409",
-        "1409 Sekretær",
         "ØVR"
     )

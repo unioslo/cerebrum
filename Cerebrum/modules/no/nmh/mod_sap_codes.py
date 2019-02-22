@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,6 +21,10 @@
 """
 This file provides code values to be used with NMH's SAP extension to
 Cerebrum -- mod_sap.
+
+This file is meant for any extra codes needed by the institution, or other
+descriptions of the same codes for whatever reason. Make sure to link to this
+file after the general codes in cereconf.CLASS_CONSTANTS.
 """
 
 from __future__ import unicode_literals
@@ -57,7 +61,7 @@ class SAPConstants(Constants.Constants):
         "1011 Førsteamanuensis",
         "VIT"
     )
-    
+
     sap_1013_professor = SAPLonnsTittelKode(
         "20001013",
         "1013 Professor",
@@ -100,7 +104,6 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
-
     sap_1077_hovedbibliotekar = SAPLonnsTittelKode(
         "20001077",
         "1077 Hovedbibliotekar",
@@ -118,11 +121,23 @@ class SAPConstants(Constants.Constants):
         "1087 Overingeniør",
         "ØVR"
     )
-    
+
     sap_1091_tekniker = SAPLonnsTittelKode(
         "20001091",
         "1091 Tekniker",
         "ØVR"
+    )
+
+    sap_1108_forsker = SAPLonnsTittelKode(
+        "20001108",
+        "1108 Forsker",
+        "VIT"
+    )
+
+    sap_1109_forsker = SAPLonnsTittelKode(
+        "20001109",
+        "1109 Forsker",
+        "VIT"
     )
 
     sap_1113_prosjektleder = SAPLonnsTittelKode(
@@ -135,7 +150,7 @@ class SAPConstants(Constants.Constants):
         "20001136",
         "1136 Driftstekniker",
         "ØVR"
-    )        
+    )
 
     sap_1137_driftsleder = SAPLonnsTittelKode(
         "20001137",
@@ -154,7 +169,6 @@ class SAPConstants(Constants.Constants):
         "1198 Førstelektor",
         "VIT"
     )
-
 
     sap_1211_seksjonssjef = SAPLonnsTittelKode(
         "20001211",
@@ -179,7 +193,7 @@ class SAPConstants(Constants.Constants):
         "1364 Seniorrådgiver",
         "ØVR"
     )
-    
+
     sap_1407_avdelingsleder = SAPLonnsTittelKode(
         "20001407",
         "1407 Avdelingsleder",
@@ -219,18 +233,6 @@ class SAPConstants(Constants.Constants):
     sap_1532_dosent = SAPLonnsTittelKode(
         "20001532",
         "1532 Dosent",
-        "VIT"
-    )
-
-    sap_1108_forsker = SAPLonnsTittelKode(
-        "20001108",
-        "1108 Forsker",
-        "VIT"
-    )
-
-    sap_1109_forsker = SAPLonnsTittelKode(
-        "20001109",
-        "1109 Forsker",
         "VIT"
     )
 

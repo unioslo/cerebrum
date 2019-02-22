@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,6 +21,10 @@
 """
 This file provides code values to be used with HiA's SAP extension to
 Cerebrum -- mod_sap.
+
+This file is meant for any extra codes needed by the institution, or other
+descriptions of the same codes for whatever reason. Make sure to link to this
+file after the general codes in cereconf.CLASS_CONSTANTS.
 """
 
 from __future__ import unicode_literals
