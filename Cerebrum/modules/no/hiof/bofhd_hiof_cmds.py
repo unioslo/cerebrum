@@ -33,7 +33,7 @@ from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.utils import BofhdRequests
 
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cmd_base

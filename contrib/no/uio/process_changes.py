@@ -49,7 +49,7 @@ from Cerebrum.utils import json
 from Cerebrum import Errors
 from Cerebrum.Entity import EntityQuarantine
 from Cerebrum.modules import PosixGroup
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.utils import BofhdRequests
 
 logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()

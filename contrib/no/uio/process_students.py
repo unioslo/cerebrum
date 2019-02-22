@@ -45,7 +45,7 @@ import Cerebrum.logutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import ParserContext
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.utils import BofhdRequests
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud

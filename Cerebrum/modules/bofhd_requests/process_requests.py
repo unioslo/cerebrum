@@ -30,7 +30,7 @@ from collections import Mapping
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.utils import BofhdRequests
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
