@@ -391,7 +391,7 @@ class AccountHome(object):
         do not end up with homedir rows without corresponding
         account_home entries.
         """
-        if re.search('[:*"?<>|]', home):
+        if home and re.search('[:*"?<>|]', home):
             raise ValueError("Illegal character in disk path")
         binds = {'account_id': self.entity_id,
                  'home': home,
