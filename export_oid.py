@@ -208,7 +208,7 @@ def load_cache():
 
     logger.info("Retrieving contact info (phonenrs and such)")
     person2contact=dict()
-    for c in p.list_contact_info(entity_type=co.entity_person):
+    for c in p.list_contact_info(entity_type=co.entity_person, source_system=(co.system_tlf, co.system_fs)):
         person2contact.setdefault(c['entity_id'], list()).append(c)
 
     # get person campus location

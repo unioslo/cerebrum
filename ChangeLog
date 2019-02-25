@@ -1,3 +1,8 @@
+2019-02-25  Karen   <cerebrum@gagarin.uit.no>
+
+    * export_oid.py (load_cache): Made changes so only contact info from source systems 
+    TLF and FS is included in the oid file.
+
 2019-02-13 <kennethj@gagarin.uit.no>
     * generate_paga_persons:    Persons with more than 1 employment record will now have their person info collected from the employment record
                                 having hovedarbeidsforhold == H. Among other things, This solves the problem of wrong campus exported to other systems
