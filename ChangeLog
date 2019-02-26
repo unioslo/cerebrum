@@ -1,3 +1,6 @@
+2019-02-26  kennethj   <cerebrum@gagarin.uit.no>
+    * import_tlf.py:    updated to handle utf-8 input data
+
 2019-02-25  Karen   <cerebrum@gagarin.uit.no>
 
     * export_oid.py (load_cache): Made changes so only contact info from source systems 

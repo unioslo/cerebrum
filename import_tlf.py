@@ -85,6 +85,7 @@ ac_phone = Factory.get('Account')(db)
 logger=Factory.get_logger("cronjob")
 num_changes = 0
 max_changes_allowed = int(cereconf.MAX_NUM_ALLOWED_CHANGES)
+max_changes_allowed = 6000
 def str_upper_no(string, encoding='iso-8859-1'):
     '''Converts Norwegian iso strings to upper correctly. Eg. ��� -> ���
     Ex. Usage: my_string = str_upper_no('a�e��')'''
@@ -218,9 +219,10 @@ def process_contact(userid,data,checknames,checkmail):
         # check name spelling.
         if checknames:
             namelist= name_cache.get(ownerid,None)
-            if namelist:
-                cb_fname = str_upper_no(namelist.get(int(co.name_first),""))
-                cb_lname = str_upper_no( namelist.get(int(co.name_last),""))
+            if namelist:  
+                cb_fname = namelist.get(int(co.name_first),"")
+                cb_lname = namelist.get(int(co.name_last),"")
+
                 worktitle = namelist.get(int(co.name_work_title),"")
                 if cb_fname != tlf_fname or cb_lname != tlf_lname:
                     s_errors.setdefault(userid,list()).append( \
