@@ -85,7 +85,6 @@ ac_phone = Factory.get('Account')(db)
 logger=Factory.get_logger("cronjob")
 num_changes = 0
 max_changes_allowed = int(cereconf.MAX_NUM_ALLOWED_CHANGES)
-max_changes_allowed = 6000
 def str_upper_no(string, encoding='iso-8859-1'):
     '''Converts Norwegian iso strings to upper correctly. Eg. ��� -> ���
     Ex. Usage: my_string = str_upper_no('a�e��')'''
