@@ -39,11 +39,15 @@ from six import text_type
 
 import Cerebrum.logutils
 import cereconf
+from Cerebrum.utils.email import sendmail
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 logger = logging.getLogger(__name__)
+
+mail_from = 'cerebrum@ulrik.uio.no'
+mail_subject = 'Cerebrum invoice report'
 
 
 def process(output, mail):
@@ -100,7 +104,10 @@ def process(output, mail):
                        len(active_accounts),
                        last_event,
                        ))
-
+    if mail:
+        body = """Found {} active accounts in {} from {}""".format(
+            len(active_accounts), cereconf.CEREBRUM_DATABASE_NAME, last_event)
+        sendmail(mail, mail_from, mail_subject, body)
     logger.info("Invoice stats finished")
 
 
