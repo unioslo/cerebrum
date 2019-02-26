@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 #
-# Copyright 2013, 2017, 2018 University of Oslo, Norway
+# Copyright 2013, 2017, 2018, 2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,37 +18,42 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Count active accounts to be used for invoicing by USIT
+""" Count active accounts to be used for invoicing by UiO.
 
-USIT, at the University of Oslo, is hosting Cerebrum for various partners. The
-invoice is based on the number of «active accounts» in the Cerebrum instance.
+University of Oslo hosts Cerebrum for various partners. The invoice is based on
+the number of «active accounts» in the Cerebrum instance.
 
 The returned number is only for what is *right now*. No history is supported.
 To get data from previous dates, you need either to log the output, or get a
-copy from the database from that date. It is possible to fetch some number for
-previous dates, but there be dragons (missing/outdated data etc).
+copy from the database from that date.
 
 """
 
-import argparse
-import time
+from __future__ import unicode_literals
 
-import cerebrum_path
+import argparse
+import csv
+import logging
+import time
+from six import text_type
+
+import Cerebrum.logutils
 import cereconf
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
-logger = Factory.get_logger('console')
+logger = logging.getLogger(__name__)
 
 
-def process():
+def process(output, mail):
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
     ac = Factory.get('Account')(db)
     pe = Factory.get('Person')(db)
 
     logger.info("Invoice stats started")
-    logger.info("Using database: %s", cereconf.CEREBRUM_DATABASE_NAME)
+    logger.debug("Using database: %s", cereconf.CEREBRUM_DATABASE_NAME)
     last_event = None
     try:
         last_event = db.query_1('''
@@ -57,7 +62,7 @@ def process():
             LIMIT 1''')
     except Errors.NotFoundError:
         pass
-    logger.info("Last event found from db: %s" % last_event)
+    logger.debug("Last event found from db: %s", last_event)
 
     # Find active persons:
     affs = []
@@ -68,18 +73,18 @@ def process():
             affs.append(af)
         except Errors.NotFoundError:
             pass
-    logger.info("Active affiliations: %s" % ', '.join(str(a) for a in affs))
-
+    logger.debug("Active affiliations: %s" % ', '.join(text_type(a) for a in
+                                                       affs))
     all_affiliated = set(r['person_id'] for r in pe.list_affiliations(
                                 affiliation=affs,
                                 include_deleted=False))
-    logger.info("Found %d persons with active aff", len(all_affiliated))
+    logger.debug("Found %d persons with active aff", len(all_affiliated))
 
     # Find active accounts:
     quars = set(r['entity_id'] for r in
                 ac.list_entity_quarantines(only_active=True,
                                            entity_types=co.entity_account))
-    logger.info("Found %d quarantined accounts", len(quars))
+    logger.debug("Found %d quarantined accounts", len(quars))
 
     active_accounts = set(r['account_id'] for r in
                           ac.search(owner_type=co.entity_person) if
@@ -88,20 +93,36 @@ def process():
     logger.info("Found %d accounts for the active persons",
                 len(active_accounts))
 
-    print
-    print("Tidspunkt: {}".format(time.strftime('%Y-%m-%d')))
-    print("Database: {} (sist aktivitet: {})".format(
-        cereconf.CEREBRUM_DATABASE_NAME, last_event))
-    print
-    print("Antal aktive brukere: {}".format(len(active_accounts)))
-    print
+    if output:
+        csvw = csv.writer(output)
+        csvw.writerow((time.strftime('%Y-%m-%d'),
+                       cereconf.CEREBRUM_DATABASE_NAME,
+                       len(active_accounts),
+                       last_event,
+                       ))
+
     logger.info("Invoice stats finished")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.parse_args()
-    process()
+    parser.add_argument(
+        '-o', '--output-file',
+        dest='output', type=argparse.FileType('a'),
+        help='Append invoice data, in CSV format'
+    )
+    parser.add_argument(
+        '-m', '--mail',
+        dest='mail',
+        help='Send invoice report to given mail address'
+    )
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    process(args.output, args.mail)
+
 
 if __name__ == '__main__':
     main()
