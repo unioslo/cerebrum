@@ -24,9 +24,7 @@ The exchange.mixins module contains mixins that should go into the base
 Group classes to support detection, deletion and cleanup of exchange data.
 
 """
-import cerebrum_path
 import cereconf
-getattr(cerebrum_path, "linter", "should not bother!")
 getattr(cereconf, "linter", "should not bother!")
 
 from Cerebrum import Errors

@@ -34,7 +34,6 @@ import os
 import re
 import sys
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Utils
 

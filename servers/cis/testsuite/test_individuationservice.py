@@ -72,7 +72,6 @@ from twisted.trial import unittest
 import OpenSSL
 from M2Crypto import RSA, X509, EVP, m2, ASN1
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Errors, Utils
 from Cerebrum.Utils import Factory
@@ -80,7 +79,6 @@ from Cerebrum.modules import Email
 
 from Cerebrum.modules.cis import SoapListener, Individuation
 
-del cerebrum_path
 
 log.startLogging(sys.stdout)
 

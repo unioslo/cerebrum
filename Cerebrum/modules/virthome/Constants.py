@@ -4,7 +4,6 @@
 """Constants for the VirtHome project.
 """
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Constants import (Constants, CLConstants, _ChangeTypeCode)

@@ -29,7 +29,6 @@ import getopt
 import sys
 from lxml import etree
 
-import cerebrum_path
 import adconf
 from Cerebrum.Utils import Factory, read_password
 from Cerebrum import Errors

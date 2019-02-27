@@ -51,7 +51,6 @@ import getopt
 
 from collections import defaultdict
 
-import cerebrum_path
 from Cerebrum.Utils import Factory
 logger = Factory.get_logger("console")
 db = Factory.get('Database')()

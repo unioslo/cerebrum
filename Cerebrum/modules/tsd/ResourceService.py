@@ -33,7 +33,6 @@ from mx.DateTime import RelativeDateTime, now
 import twisted.python.log
 
 import cereconf
-import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import dns

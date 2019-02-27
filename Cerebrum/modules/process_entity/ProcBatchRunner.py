@@ -23,7 +23,6 @@ import re
 import sys
 import getopt
 
-import cerebrum_path
 import procconf
 
 from Cerebrum import Errors

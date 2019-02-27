@@ -49,12 +49,10 @@ import types
 import locale
 from six import text_type
 
-import cerebrum_path
 
 from Cerebrum.extlib.sets import Set
 from Cerebrum.Utils import Factory
 
-del cerebrum_path
 logger = None
 
 

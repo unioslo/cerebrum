@@ -45,7 +45,6 @@ import base64
 import functools
 import collections
 
-import cerebrum_path
 import cereconf
 from Cerebrum.Utils import read_password
 from Cerebrum.Utils import Factory

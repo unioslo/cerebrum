@@ -24,7 +24,6 @@ The posix.mixins module contains mixins that should go into the base Account
 and Group classes to support detection, deletion and cleanup of posix data.
 
 """
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors

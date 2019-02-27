@@ -29,7 +29,6 @@ registered in Cerebrum.
 import getopt
 import sys
 
-import cerebrum_path
 from Cerebrum.Utils import Factory
 
 

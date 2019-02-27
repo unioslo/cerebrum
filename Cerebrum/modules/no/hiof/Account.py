@@ -19,7 +19,6 @@
 
 """"""
 
-import cerebrum_path
 import cereconf
 
 import re

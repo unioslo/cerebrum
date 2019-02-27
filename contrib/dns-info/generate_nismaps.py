@@ -9,7 +9,6 @@ import mx
 
 from six import text_type
 
-import cerebrum_path
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -21,7 +20,6 @@ from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
 
 
-del cerebrum_path
 
 logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()

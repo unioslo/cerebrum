@@ -4,7 +4,6 @@
 import getopt
 import sys
 import re
-import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.dns import HostInfo

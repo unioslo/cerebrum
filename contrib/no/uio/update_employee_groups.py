@@ -53,7 +53,6 @@ import sys
 import time
 from mx.DateTime import Date, DateTimeDeltaFromDays
 
-# import cerebrum_path
 # import cereconf
 
 # import Cerebrum

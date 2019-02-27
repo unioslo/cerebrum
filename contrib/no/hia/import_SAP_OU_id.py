@@ -31,7 +31,6 @@ This file scans an XML file generated from FS and populates entity_external_id
 for the corresponding OUs.
 """
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory

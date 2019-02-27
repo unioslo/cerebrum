@@ -41,7 +41,7 @@ import getopt
 import re
 from mx.DateTime import now
 
-import cerebrum_path, cereconf
+import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import make_utvalg_iterator

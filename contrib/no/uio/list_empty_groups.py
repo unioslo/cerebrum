@@ -28,7 +28,6 @@ moderator (if available).
 
 import getopt
 import sys
-import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Utils

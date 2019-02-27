@@ -50,7 +50,6 @@ shell!
 import getopt
 import sys
 
-import cerebrum_path
 import adconf
 from Cerebrum.Utils import Factory, read_password
 from Cerebrum import Errors

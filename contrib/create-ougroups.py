@@ -22,7 +22,6 @@
 import sys
 import argparse
 
-import cerebrum_path
 import cereconf
 from Cerebrum.config.configuration import (ConfigDescriptor,
                                            Configuration,
@@ -33,7 +32,6 @@ from Cerebrum.config.settings import (Iterable,
 from Cerebrum.Utils import Factory
 from Cerebrum.config.loader import read, read_config
 
-del cerebrum_path
 
 
 """

@@ -60,7 +60,6 @@ import getopt
 import xml.sax
 import time
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors

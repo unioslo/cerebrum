@@ -47,7 +47,6 @@ Stuff that needs to be done:
 import getopt
 import sys
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
