@@ -35,7 +35,7 @@ import Cerebrum.logutils
 from Cerebrum.Utils import XMLHelper
 from Cerebrum.utils.atomicfile import FileChangeTooBigError
 from Cerebrum.modules.no.access_FS import make_fs
-from Cerebrum.modules.fs.import_from_FS import ImportFromFs
+from Cerebrum.modules.fs.import_from_FS import ImportFromFs, set_filepath
 
 XML_ENCODING = 'utf-8'
 
@@ -142,45 +142,25 @@ def main():
     for o, val in opts:
         try:
             if o in ('-p',):
-                fsimporter.write_person_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.person_file))
+                fsimporter.write_person_info()
             elif o in ('-s',):
-                fsimporter.write_studprog_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.studprog_file))
+                fsimporter.write_studprog_info()
             elif o in ('-r',):
-                fsimporter.write_role_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.role_file))
+                fsimporter.write_role_info()
             elif o in ('-e',):
-                fsimporter.write_emne_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.emne_info_file))
+                fsimporter.write_emne_info()
             elif o in ('-f',):
-                fsimporter.write_fnrupdate_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.fnr_update_file))
+                fsimporter.write_fnrupdate_info()
             elif o in ('-o',):
-                fsimporter.write_ou_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.ou_file))
+                fsimporter.write_ou_info()
             elif o in ('-n',):
-                fsimporter.write_netpubl_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.netpubl_file))
+                fsimporter.write_netpubl_info()
             elif o in ('-u',):
-                fsimporter.write_undenh_metainfo(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.undervenh_file))
+                fsimporter.write_undenh_metainfo()
             elif o in ('-E',):
-                fsimporter.write_evukurs_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.evu_kursinfo_file))
+                fsimporter.write_evukurs_info()
             elif o in ('-U',):
-                fsimporter.write_undenh_student(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.undenh_student_file))
+                fsimporter.write_undenh_student()
             # We want misc-* to be able to produce multiple file in one
             # script-run
             elif o in ('--misc-func',):
@@ -188,9 +168,8 @@ def main():
             elif o in ('--misc-tag',):
                 misc_tag = val
             elif o in ('--misc-file',):
-                fsimporter.write_misc_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, val), misc_tag, misc_func)
+                fsimporter.misc_file = set_filepath(fsimporter.datadir, val)
+                fsimporter.write_misc_info(misc_tag, misc_func)
         except FileChangeTooBigError as msg:
             logger.error("Manual intervention required: %s", msg)
     logger.info("Done with import from FS")

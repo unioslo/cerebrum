@@ -38,7 +38,7 @@ from Cerebrum.Utils import XMLHelper
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.utils.atomicfile import FileChangeTooBigError
 from Cerebrum.modules.no.access_FS import make_fs
-from Cerebrum.modules.fs.import_from_FS import ImportFromFs
+from Cerebrum.modules.fs.import_from_FS import ImportFromFs, set_filepath
 
 XML_ENCODING = 'utf-8'
 
@@ -129,7 +129,7 @@ class ImportFromFsUio(ImportFromFs):
             elif o in ('--pre-course-file',):
                 self.pre_course_file = val
 
-    def write_person_info(self, outfile):
+    def write_person_info(self):
         """Lager fil med informasjon om alle personer registrert i FS som
         vi muligens også ønsker å ha med i Cerebrum.  En person kan
         forekomme flere ganger i filen."""
@@ -138,8 +138,9 @@ class ImportFromFsUio(ImportFromFs):
         # fil der all informasjon om en person er samlet under en egen
         # <person> tag?
 
-        logger.info("Writing person info to '%s'", outfile)
-        f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
+        logger.info("Writing person info to '%s'", self.person_file)
+        f = SimilarSizeWriter(self.person_file, mode='w',
+                              encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
 
@@ -236,10 +237,10 @@ class ImportFromFsUio(ImportFromFs):
         f.write("</data>\n")
         f.close()
 
-    def write_ou_info(self, outfile):
+    def write_ou_info(self):
         """Lager fil med informasjon om alle OU-er"""
-        logger.info("Writing OU info to '%s'", outfile)
-        f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
+        logger.info("Writing OU info to '%s'", self.ou_file)
+        f = SimilarSizeWriter(self.ou_file, mode='w', encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
         cols, ouer = self._ext_cols(
@@ -286,11 +287,12 @@ class ImportFromFsUio(ImportFromFs):
         f.write("</data>\n")
         f.close()
 
-    def write_topic_info(self, outfile):
+    def write_topic_info(self):
         """Lager fil med informasjon om alle XXX"""
         # TODO: Denne filen blir endret med det nye opplegget :-(
-        logger.info("Writing topic info to '%s'", outfile)
-        f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
+        logger.info("Writing topic info to '%s'", self.topics_file)
+        f = SimilarSizeWriter(self.topics_file, mode='w',
+                              encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
         cols, topics = self._ext_cols(self.fs.student.list_eksamensmeldinger())
@@ -302,10 +304,11 @@ class ImportFromFsUio(ImportFromFs):
         f.write("</data>\n")
         f.close()
 
-    def write_forkurs_info(self, outfile):
+    def write_forkurs_info(self):
         from mx.DateTime import now
-        logger.info("Writing pre-course file to '%s'", outfile)
-        f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
+        logger.info("Writing pre-course file to '%s'", self.pre_course_file)
+        f = SimilarSizeWriter(self.pre_course_file, mode='w',
+                              encoding=XML_ENCODING)
         f.max_pct_change = 50
         cols, course_attendants = self._ext_cols(self.fs.forkurs.list())
         f.write(xml.xml_hdr + "<data>\n")
@@ -334,7 +337,7 @@ class ImportFromFsUio(ImportFromFs):
         f.write("</data>\n")
         f.close()
 
-    def write_edu_info(self, outfile):
+    def write_edu_info(self):
         """Lager en fil med undervisningsinformasjonen til alle studenter.
 
         For hver student, lister vi opp alle tilknytningene til undenh, undakt,
@@ -354,8 +357,8 @@ class ImportFromFsUio(ImportFromFs):
         fs.evu.list_studenter_alle_kursakt()            <- kursakt deltagelse
         fs.evu.list()                                   <- evu deltagelse
         """
-        logger.info("Writing edu info to '%s'", outfile)
-        f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
+        logger.info("Writing edu info to '%s'", self.edu_file)
+        f = SimilarSizeWriter(self.edu_file, mode='w', encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
 
@@ -387,11 +390,12 @@ class ImportFromFsUio(ImportFromFs):
         f.write("</data>\n")
         f.close()
 
-    def write_regkort_info(self, outfile):
+    def write_regkort_info(self):
         """Lager fil med informasjon om semesterregistreringer for
         inneværende semester"""
-        logger.info("Writing regkort info to '%s'", outfile)
-        f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
+        logger.info("Writing regkort info to '%s'", self.regkort_file)
+        f = SimilarSizeWriter(self.regkort_file, mode='w',
+                              encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
         cols, regkort = self._ext_cols(self.fs.student.list_semreg())
@@ -401,12 +405,13 @@ class ImportFromFsUio(ImportFromFs):
         f.write("</data>\n")
         f.close()
 
-    def write_betalt_papir_info(self, outfile):
+    def write_betalt_papir_info(self):
         """Lager fil med informasjon om alle som enten har fritak fra å
         betale kopiavgift eller har betalt kopiavgiften"""
 
-        logger.info("Writing betaltpapir info to '%s'", outfile)
-        f = SimilarSizeWriter(outfile, mode='w', encoding=XML_ENCODING)
+        logger.info("Writing betaltpapir info to '%s'", self.betalt_papir_file)
+        f = SimilarSizeWriter(self.betalt_papir_file, mode='w',
+                              encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
         cols, dta = self._ext_cols(
@@ -465,53 +470,29 @@ def main():
     for o, val in opts:
         try:
             if o in ('-p',):
-                fsimporter.write_person_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.person_file))
+                fsimporter.write_person_info()
             elif o in ('-s',):
-                fsimporter.write_studprog_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.studprog_file))
+                fsimporter.write_studprog_info()
             elif o in ('-r',):
-                fsimporter.write_role_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.role_file))
+                fsimporter.write_role_info()
             elif o in ('-e',):
-                fsimporter.write_emne_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.emne_info_file))
+                fsimporter.write_emne_info()
             elif o in ('-f',):
-                fsimporter.write_fnrupdate_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.fnr_update_file))
+                fsimporter.write_fnrupdate_info()
             elif o in ('-o',):
-                fsimporter.write_ou_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.ou_file))
+                fsimporter.write_ou_info()
             elif o in ('-n',):
-                fsimporter.write_netpubl_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.netpubl_file))
+                fsimporter.write_netpubl_info()
             elif o in ('-t',):
-                fsimporter.write_topic_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.topics_file))
+                fsimporter.write_topic_info()
             elif o in ('-b',):
-                fsimporter.write_betalt_papir_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.betalt_papir_file))
+                fsimporter.write_betalt_papir_info()
             elif o in ('-R',):
-                fsimporter.write_regkort_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.regkort_file))
+                fsimporter.write_regkort_info()
             elif o in ('-d',):
-                fsimporter.write_edu_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.edu_file))
+                fsimporter.write_edu_info()
             elif o in ('-P',):
-                fsimporter.write_forkurs_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, fsimporter.pre_course_file))
+                fsimporter.write_forkurs_info()
             # We want misc-* to be able to produce multiple file in one
             # script-run
             elif o in ('--misc-func',):
@@ -519,9 +500,8 @@ def main():
             elif o in ('--misc-tag',):
                 misc_tag = val
             elif o in ('--misc-file',):
-                fsimporter.write_misc_info(
-                    fsimporter.set_filepath(
-                        fsimporter.datadir, val), misc_tag, misc_func)
+                fsimporter.misc_file = set_filepath(fsimporter.datadir, val)
+                fsimporter.write_misc_info(misc_tag, misc_func)
         except FileChangeTooBigError as msg:
             logger.error("Manual intervention required: %s", msg)
     logger.info("Done with import from FS")
