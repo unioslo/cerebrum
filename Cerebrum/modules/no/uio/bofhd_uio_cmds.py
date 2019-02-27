@@ -2718,16 +2718,12 @@ class BofhdExtension(BofhdCommonMethods):
         ("misc", "check_password"),
         AccountPassword(),
         fs=FormatSuggestion([
-            ("OK.", ('password_ok', )),
-            ("MD5-crypt:     %s", ('md5', )),
-            ("SHA256-crypt:  %s", ('sha256', )),
-            ("SHA512-crypt:  %s", ('sha512', )),
+            ("%s", ('password_ok', )),
         ])
     )
 
     def misc_check_password(self, operator, password):
         ac = self.Account_class(self.db)
-        co = self.const
         try:
             check_password(password, ac, structured=False)
         except RigidPasswordNotGoodEnough as e:
@@ -2736,14 +2732,8 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
         except PasswordNotGoodEnough as e:
             raise CerebrumError('Bad password: %s' % exc_to_text(e))
-        md5 = ac.encrypt_password(co.Authentication("MD5-crypt"), password)
-        sha256 = ac.encrypt_password(co.auth_type_sha256_crypt, password)
-        sha512 = ac.encrypt_password(co.auth_type_sha512_crypt, password)
         return {
-            'password_ok': True,
-            'md5': md5,
-            'sha256': sha256,
-            'sha512': sha512,
+            'password_ok': 'Good password',
         }
 
     #
