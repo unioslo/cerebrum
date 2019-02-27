@@ -406,7 +406,7 @@ def sanity_check_person(person_id, selection_spread):
 
     try:
         get_user_id(pe)
-    except Errors.NotFoundError:
+    except (Errors.NotFoundError, ValueError):
         logger.info(
             'person_id:%s does not have a primary account, skipping',
             person_id)
