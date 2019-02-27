@@ -1248,21 +1248,16 @@ class BofhdExtension(BofhdCommonMethods):
             "%s [%s]: %s", ("timestamp", "change_by", "message")),
         perm_filter='can_show_history')
 
-    def entity_history(self, operator, entity, any="yes", limit=100):
+    def entity_history(self, operator, entity, any_entity="yes"):
         ent = self.util.get_target(entity, restrict_to=[])
         self.ba.can_show_history(operator.get_entity_id(), ent)
         ret = []
-        if self._get_boolean(any):
+        if self._get_boolean(any_entity):
             kw = {'any_entity': ent.entity_id}
         else:
             kw = {'subject_entity': ent.entity_id}
         rows = list(self.db.get_log_events(0, **kw))
-        try:
-            limit = int(limit)
-        except ValueError:
-            raise CerebrumError("Limit must be a number")
-
-        for r in rows[-limit:]:
+        for r in rows:
             ret.append(self._format_changelog_entry(r))
         return ret
 
