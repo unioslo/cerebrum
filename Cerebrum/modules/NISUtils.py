@@ -34,6 +34,7 @@ from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
+from Cerebrum.modules.posix.UserExporter import UserExporter
 
 
 db = Factory.get('Database')()
@@ -75,85 +76,11 @@ class NoDisk(NISMapError):
 def join(fields, sep=':'):
     for f in fields:
         if not isinstance(f, text_type):
-            raise ValueError, "Type of '%r' is not text." % f
+            raise ValueError("Type of '%r' is not text." % f)
         if f.find(sep) != -1:
-            raise ValueError, \
-                "Separator '%s' present in string '%s'" % (sep, f)
+            raise ValueError("Separator '%s' present in string '%s'" %
+                             (sep, f))
     return sep.join(fields)
-
-
-def make_quarantine_cache(entity, spread):
-    logger.debug('Making quarantines cache')
-    quarantines = entity.list_entity_quarantines(
-        entity_types=co.entity_account,
-        spreads=spread,
-        only_active=True
-    )
-    quarantine_cache = {}
-    for row in quarantines:
-        ent_id = row['entity_id']
-        if ent_id in quarantine_cache:
-            quarantine_cache[ent_id].append(row['quarantine_type'])
-        else:
-            quarantine_cache[ent_id] = [row['quarantine_type']]
-    return quarantine_cache
-
-
-def make_shells_cache(posix_user):
-    logger.debug('Making shells cache')
-    shells = {}
-    for row in posix_user.list_shells():
-        shells[int(row['code'])] = row['shell']
-    return shells
-
-
-def make_posix_gid_cache(posix_group):
-    group_id2posix_gid = {}
-    for row in posix_group.list_posix_groups():
-        group_id2posix_gid[row['group_id']] = row['posix_gid']
-    return group_id2posix_gid
-
-
-def make_fullname_cache():
-    logger.debug('Making full name cache')
-    person = Factory.get('Person')(db)
-    names = person.search_person_names(name_variant=co.name_full,
-                                       source_system=co.system_cached)
-
-    person2fullname = {}
-    for row in names:
-        person2fullname[row['person_id']] = row['name']
-    return person2fullname
-
-
-def make_auth_cache(account, spread, auth_method):
-    logger.debug('Making posix user cache')
-    accounts = account.list_account_authentication(
-        spread=spread,
-        auth_type=auth_method
-    )
-
-    account2auth_data = {}
-    for row in accounts:
-        account2auth_data[row['account_id']] = (
-            row['entity_name'],
-            row['auth_data'],
-        )
-    return account2auth_data
-
-
-def make_home_cache(posix_user):
-    logger.debug('Making home cache')
-    person2fullname = make_fullname_cache()
-    homes = posix_user.list_account_home(include_nohome=True)
-    home_cache = {}
-    for row in homes:
-        home_cache[row['account_id']] = (
-            row['home'],
-            row['path'],
-            person2fullname.get(row['owner_id'], None),
-        )
-    return home_cache
 
 
 class Passwd(object):
@@ -164,14 +91,18 @@ class Passwd(object):
     def __init__(self, auth_method=None, spread=None):
         self.spread = spread
         self.auth_method = auth_method
+        self.user_exporter = UserExporter()
 
-        self.shells = make_shells_cache(posix_user)
-        self.gid2posix_gid = make_posix_gid_cache(posix_group)
-        self.quarantine_cache = make_quarantine_cache(posix_user, spread)
-        self.account2auth_data = make_auth_cache(posix_user,
-                                                 spread,
-                                                 auth_method)
-        self.account2home = make_home_cache(posix_user)
+        self.shells = self.user_exporter.make_shells_cache()
+        self.gid2posix_gid = self.user_exporter.make_posix_gid_cache()
+        self.quarantine_cache = self.user_exporter.make_quarantine_cache(
+            spread
+        )
+        self.account2auth_data = self.user_exporter.make_auth_cache(
+            spread,
+            auth_method
+        )
+        self.account2home = self.user_exporter.make_home_cache()
 
     def process_user(self, row):
         account_id = row['account_id']
@@ -179,7 +110,7 @@ class Passwd(object):
 
         uname, passwd = self.account2auth_data[account_id]
         if posix_user.illegal_name(uname):
-            raise BadUsername, "Bad username %s" % uname
+            raise BadUsername("Bad username %s" % uname)
         if passwd is None:
             passwd = '*'
 
@@ -348,7 +279,7 @@ class NISGroupUtil(object):
         while True:
             tmp_gname = "%s%02x" % (self._tmp_group_prefix, self._num)
             self._num += 1
-            if not self._exported_groups.has_key(tmp_gname):
+            if tmp_gname in self._exported_groups:
                 return tmp_gname
 
     def _wrap_line(self, group_name, line, g_separator, is_ng=False):
@@ -378,11 +309,14 @@ class NISGroupUtil(object):
     def generate_netgroup(self):
         # TODO: What does the "subject to change to a python structure shortly"
         # part mean? Should this be fixed?
-        """Returns a list of lists. Data looks like (gname, string of groupmembers). This is subject to change to a python structure shortly."""
+        """Returns a list of lists. Data looks like (gname, string of
+        groupmembers). This is subject to change to a python structure
+        shortly."""
         netgroups = []
         for group_id in self._exported_groups.keys():
             group_name = self._exported_groups[group_id]
-            group_members, user_members = map(list, self._expand_group(group_id))
+            group_members, user_members = map(list,
+                                              self._expand_group(group_id))
             # logger.debug("%s -> g=%s, u=%s" % (
             #    group_id, group_members, user_members))
             netgroups.append((group_name,
@@ -423,7 +357,8 @@ class FileGroup(NISGroupUtil):
             co.account_namespace, co.entity_account,
             group_spread, member_spread)
         self._group = PosixGroup.PosixGroup(db)
-        gid2posix_gid = make_posix_gid_cache(posix_group)
+        user_exporter = UserExporter()
+        gid2posix_gid = user_exporter.make_posix_gid_cache()
         self._account2posix_gid = {}
         for row in posix_user.list_posix_users(filter_expired=True):
             self._account2posix_gid[row['account_id']] = gid2posix_gid[
@@ -447,7 +382,7 @@ class FileGroup(NISGroupUtil):
                 tname = format % (name, i)
                 if len(tname) > 8:
                     break
-                if not self._exported_groups.has_key(tname):
+                if tname not in self._exported_groups:
                     self._exported_groups[tname] = True
                     return tname
                 i += 1
@@ -486,7 +421,7 @@ class FileGroup(NISGroupUtil):
         for group_id in groups:
             group_name = self._exported_groups[group_id]
             if posix_group.illegal_name(group_name):
-                logger.warn("Bad groupname %s" % (group_name))
+                logger.warn("Bad groupname %s" % group_name)
                 continue
             try:
                 group_members, user_members = map(list,
@@ -494,7 +429,8 @@ class FileGroup(NISGroupUtil):
             except Errors.NotFoundError:
                 logger.warn("Group %s has no GID", group_id)
                 continue
-            tmp_users = self._filter_illegal_usernames(user_members, group_name)
+            tmp_users = self._filter_illegal_usernames(user_members,
+                                                       group_name)
 
             # logger.debug("%s -> g=%s, u=%s" % (
             #    group_id, group_members, tmp_users))
@@ -558,7 +494,7 @@ class MachineNetGroup(NISGroupUtil):
         while True:
             n += 1
             tmp_gname = "%s-%02x" % (group_name, n)
-            if not self._exported_groups.has_key(tmp_gname):
+            if tmp_gname not in self._exported_groups:
                 self._num_map[group_name] = n
                 return tmp_gname
 
