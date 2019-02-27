@@ -18,6 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from __future__ import unicode_literals
+from __future__ import print_function
 
 import sys
 
@@ -155,18 +156,18 @@ class OrgLDIF(object):
             if len(self.ou_tree[None]) == 1:
                 self.root_ou_id = self.ou_tree[None][0]
             else:
-                print "The OU tree has %d roots:" % len(self.ou_tree[None])
+                print("The OU tree has %d roots:" % len(self.ou_tree[None]))
                 for ou_id in self.ou_tree[None]:
                     self.ou.clear()
                     self.ou.find(ou_id)
-                    print "Org.unit: %-30s   ou_id=%s" % (
+                    print("Org.unit: %-30s   ou_id=%s" % (
                         self.ou.get_name_with_language(
                             name_variant=self.const.ou_name_display,
                             name_language=self.languages[0],
                             default=""),
-                        self.ou.entity_id)
-                print """\
-Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
+                        self.ou.entity_id))
+                print("Set cereconf.LDAP_ORG['ou_id'] = the organization's "
+                      "root ou_id or None.")
                 raise ValueError("No root-OU found.")
 
     def init_attr2id2contacts(self):
@@ -490,14 +491,33 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # Set acc_locked_quarantines = acc_quarantines or separate dict
         timer = make_timer(self.logger, "Fetching account information...")
         timer2 = make_timer(self.logger)
-        self.acc_name = acc_name = {}
-        self.acc_passwd = {}
+        self.acc_name = {}
+        self.account_auth = {}
         self.acc_locked_quarantines = self.acc_quarantines = defaultdict(list)
+        crypt_methods = []
+        for entry in ldapconf('PERSON',
+                              'auth_methods',
+                              default=('auth_type_md5_crypt', )):
+            method = self.const.human2constant(entry)
+            if method is None:
+                raise Errors.NotFoundError(
+                    'No corresponding auth_type constant found for method {}'
+                    .format(method))
+            else:
+                crypt_methods.append(method)
         for row in self.account.list_account_authentication(
-                auth_type=int(self.const.auth_type_md5_crypt)):
+                auth_type=crypt_methods):
             account_id = int(row['account_id'])
-            acc_name[account_id] = row['entity_name']
-            self.acc_passwd[account_id] = row['auth_data']
+            crypt_method = row['method']
+            # Add any method if nothing set for the account so far
+            if account_id not in self.acc_name:
+                self.update_password(account_id, row)
+            # Update with higher priority methods if available
+            else:
+                assert(crypt_method in crypt_methods)
+                if crypt_methods.index(crypt_method) < crypt_methods.index(
+                        self.account_auth[account_id]['method']):
+                    self.update_password(account_id, row)
 
         timer2("...account quarantines...")
         nonlock_quarantines = [
@@ -649,6 +669,13 @@ from None and LDAP_PERSON['dn'].""")
         # FIXME
         return [p_ou] + s_ous
 
+    def update_password(self, account_id, row):
+        self.acc_name[account_id] = row['entity_name']
+        self.account_auth[account_id] = {
+            'method': self.const.human2constant(row['method']),
+            'password': row['auth_data']
+        }
+
     def make_person_entry(self, row, person_id):
         # Return (dn, person entry, alias_info) for a person to output,
         # or (None, anything, anything) if the person should not be output.
@@ -690,7 +717,12 @@ from None and LDAP_PERSON['dn'].""")
         if account_id in self.acc_name:
             entry['uid'] = (self.acc_name[account_id],)
 
-        passwd = self.acc_passwd.get(account_id)
+        account_auth = self.account_auth.get(account_id)
+        try:
+            passwd = self.format_cryptstring(account_auth['method'],
+                                             account_auth['password'])
+        except Errors.NotImplementedAuthTypeError:
+            passwd = False
         qt = self.acc_quarantines.get(account_id)
         if qt:
             qh = QuarantineHandler(self.db, qt)
@@ -705,7 +737,7 @@ from None and LDAP_PERSON['dn'].""")
             if qt and qh.is_locked():
                 passwd = 0
         if passwd:
-            entry['userPassword'] = ("{crypt}" + passwd,)
+            entry['userPassword'] = passwd
         elif passwd != 0 and entry.get('uid'):
             self.logger.debug("User %s got no password-hash.", entry['uid'][0])
 
@@ -1173,3 +1205,40 @@ from None and LDAP_PERSON['dn'].""")
                 if not got_given:
                     given.extend(full)
         return [' '.join(n) for n in given, last]
+
+    def format_cryptstring(self, method, password):
+        """Formats cryptstring according to specifics of the encryption method
+
+        Makes a crypstring ready for export to the LDAP-attribute userPassword.
+        If the method is not supported a NotImplementedError is raised.
+
+        :param method: int of Cerebrum.Constants auth_type object. e.g
+        auth_type_md5_crypt
+
+        :param password: row['auth_data'] as returned by the
+                Cerebrum.Account.list_account_authentication method
+
+        :return: The cryptstring intended for export to LDAP
+        """
+        if method in (
+                int(self.const.auth_type_md5_crypt),
+                int(self.const.auth_type_sha256_crypt),
+                int(self.const.auth_type_sha512_crypt),
+                int(self.const.auth_type_crypt3_des),
+        ):
+            return "{crypt}" + password,
+        elif method == int(self.const.auth_type_ssha):
+            return "{SSHA}" + password,
+        elif method == int(self.const.auth_type_md5_unsalt):
+            return "{MD5}" + password,
+        elif method == int(self.const.auth_type_md4_nt):
+            return "{MD4}" + password,
+        elif method in (
+                int(self.const.auth_type_plaintext),
+        ):
+            return password,
+        elif method is None:
+            return password
+        else:
+            raise Errors.NotImplementedAuthTypeError(
+                'Unknown method {}. Please implement.'.format(method))

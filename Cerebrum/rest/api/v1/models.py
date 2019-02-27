@@ -80,7 +80,6 @@ class ExternalIdType(object):
         'NO_BIRTHNO': 'norwegianNationalId',
         'PASSNR': 'passportNumber',
         'NO_SAPNO': 'employeeNumber',
-        'SSN': 'socialSecurityNumber',
         'NO_STUDNO': 'studentNumber',
     }
 

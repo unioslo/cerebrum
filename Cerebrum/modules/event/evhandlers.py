@@ -153,8 +153,8 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
         if not isinstance(item, EventItem):
             self.logger.error(u'Invalid event: %r', item)
 
-        self.logger.debug2(u'Got a new event on channel %r: id=%r event=%r',
-                           item.channel, item.identifier, item.payload)
+        self.logger.debug2(u'Got a new event on channel %r: id=%r event=%s',
+                           item.channel, item.identifier, repr(item.payload))
 
         if not self.__lock_event(item.identifier):
             return
@@ -169,11 +169,13 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
             # If an event fails, we just release it, and let the
             # DelayedNotificationCollector enqueue it when appropriate
             self.logger.debug(u'Failed to process event_id %d: %s',
-                              item.identifier, e)
+                              item.identifier, repr(e))
             self.__release_event(item.identifier)
 
         except EventHandlerNotImplemented as e:
-            self.logger.debug(u'No event handlers for event %r: %s', item, e)
+            self.logger.debug(
+                u'No event handlers for event with channel %r: id=%r, %s',
+                item.channel, item.identifier, repr(e))
             self.__release_event(item.identifier)
 
         except Exception as e:

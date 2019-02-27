@@ -2718,16 +2718,12 @@ class BofhdExtension(BofhdCommonMethods):
         ("misc", "check_password"),
         AccountPassword(),
         fs=FormatSuggestion([
-            ("OK.", ('password_ok', )),
-            ("MD5-crypt:     %s", ('md5', )),
-            ("SHA256-crypt:  %s", ('sha256', )),
-            ("SHA512-crypt:  %s", ('sha512', )),
+            ("%s", ('password_ok', )),
         ])
     )
 
     def misc_check_password(self, operator, password):
         ac = self.Account_class(self.db)
-        co = self.const
         try:
             check_password(password, ac, structured=False)
         except RigidPasswordNotGoodEnough as e:
@@ -2736,14 +2732,8 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
         except PasswordNotGoodEnough as e:
             raise CerebrumError('Bad password: %s' % exc_to_text(e))
-        md5 = ac.encrypt_password(co.Authentication("MD5-crypt"), password)
-        sha256 = ac.encrypt_password(co.auth_type_sha256_crypt, password)
-        sha512 = ac.encrypt_password(co.auth_type_sha512_crypt, password)
         return {
-            'password_ok': True,
-            'md5': md5,
-            'sha256': sha256,
-            'sha512': sha512,
+            'password_ok': 'Good password',
         }
 
     #
@@ -4428,7 +4418,11 @@ class BofhdExtension(BofhdCommonMethods):
             matches = person.list_affiliations(ou_id=ou.entity_id,
                                                affiliation=filter)
         elif search_type == 'ou':
-            ou = self._get_ou(ou_id=value)
+            if not value.isdigit():
+                raise CerebrumError("Expected OU as entity id. Got: {}"
+                                    .format(value))
+            else:
+                ou = self._get_ou(ou_id=value)
             matches = person.list_affiliations(ou_id=ou.entity_id,
                                                affiliation=filter)
         else:
@@ -6449,7 +6443,10 @@ class BofhdExtension(BofhdCommonMethods):
             if not self.ba.is_superuser(operator.get_entity_id()):
                 raise PermissionDenied("only superusers may use hard_nofile")
             ah = account.get_home(spread)
-            account.set_homedir(current_id=ah['homedir_id'], home=args[0])
+            try:
+                account.set_homedir(current_id=ah['homedir_id'], home=args[0])
+            except ValueError as e:
+                raise CerebrumError(e)
             return "OK, user moved to hardcoded homedir"
         elif move_type in (
                 "student", "student_immediate", "confirm", "cancel"):
@@ -6585,6 +6582,13 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_create_user')
 
     def user_promote_posix(self, operator, accountname, shell=None, home=None):
+        # Verify that account name is legal
+        pu = Utils.Factory.get('PosixUser')(self.db)
+        illegal_name = pu.illegal_name(accountname)
+        if illegal_name:
+            raise CerebrumError("Illegal account name given. Account name " +
+                                illegal_name)
+
         is_posix = False
         try:
             self._get_account(accountname, actype="PosixUser")
@@ -6594,7 +6598,6 @@ class BofhdExtension(BofhdCommonMethods):
         if is_posix:
             raise CerebrumError("%s is already a PosixUser" % accountname)
         account = self._get_account(accountname)
-        pu = Utils.Factory.get('PosixUser')(self.db)
         old_uid = self._lookup_old_uid(account.entity_id)
         if old_uid is None:
             uid = pu.get_free_uid()
