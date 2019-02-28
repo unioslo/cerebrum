@@ -4,12 +4,6 @@
       info: site
   register: _virtualenv_info
 
-- name: place cerebrum_path module
-  template:
-      src: "cerebrum_path.j2"
-      dest: "{{ _virtualenv_info.site }}/cerebrum_path.py"
-      validate: "{{ virtualenv }}/bin/python -B %s"
-
 - name: place cereconf
   template:
       src: "{{ item }}"

@@ -82,7 +82,6 @@ AC_CONFIG_FILES([
     clients/cereweb/lib/Makefile
     clients/cereweb/lib/templates/Makefile
     servers/cerews/Makefile
-	cerebrum_path.py
 	])
 AC_OUTPUT
 

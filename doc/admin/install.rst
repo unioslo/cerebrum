@@ -323,7 +323,6 @@ use to add or update information about name, address and fax number to
 an Organizational Unit should look something like this::
 
   #!/usr/bin/env python
-  import cerebrum_path
 
   from Cerebrum import Errors
   from Cerebrum.Utils import Factory

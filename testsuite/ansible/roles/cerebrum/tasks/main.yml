@@ -20,6 +20,3 @@
   tags:
     - env
 
-- include: install_cerebrum.yml
-  tags:
-    - env
