@@ -191,11 +191,13 @@ class Entity(DatabaseAccessor):
         If ENTITY_ID isn't an existing entity identifier,
         NotFoundError is raised.
 
+        If entity_id input isn't an int, ValueError is raised.
+
         """
         self.entity_id, self.entity_type, self.created_at = self.query_1("""
         SELECT entity_id, entity_type, created_at
         FROM [:table schema=cerebrum name=entity_info]
-        WHERE entity_id=:e_id""", {'e_id': entity_id})
+        WHERE entity_id=:e_id""", {'e_id': int(entity_id)})
         try:
             del self.__in_db
         except AttributeError:

@@ -878,16 +878,17 @@ class BofhdCommonMethods(BofhdCommandBase):
             g.add_spread(self.const.Spread(spread))
             g.write_db()
 
-        # Set moderator group
+        # Set moderator group(s)
         if mod_group:
-            try:
-                mod_gr = self._get_group(mod_group, idtype=None,
-                                         grtype='Group')
-            except Errors.NotFoundError:
-                raise CerebrumError('No moderator group with name: {}'
-                                    .format(mod_group))
-            else:
-                self._group_make_owner(mod_gr, g)
+            for mod in mod_group.split(' '):
+                try:
+                    mod_gr = self._get_group(mod, idtype=None,
+                                             grtype='Group')
+                except Errors.NotFoundError:
+                    raise CerebrumError('No moderator group with name: {}'
+                                        .format(mod_group))
+                else:
+                    self._group_make_owner(mod_gr, g)
         return {'group_id': int(g.entity_id)}
 
     #
