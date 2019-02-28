@@ -786,19 +786,19 @@ class BofhdAccessCommands(BofhdCommonMethods):
             entity_name, opset.name, six.text_type(target_type), target_name)
 
 
-class AccessBase(BofhdCommonMethods):
-    pass
+class AccessBase(object):
+    def __init__(self, db):
+        self.db = db
+        child_logger = logger.getChild(type(self).__name__)
+        # TODO: Find a better way to pass the needed helper methods in here
+        self.am = BofhdCommonMethods(self.db, child_logger)
 
 
 class AccessDisk(AccessBase):
-    def __init__(self, db):
-        childlogger = logger.getChild('AccessDisk')
-        super(AccessDisk, self).__init__(db, childlogger)
-
     def get(self, target_name):
-        return (self._get_disk(target_name)[1],
-                self.const.auth_target_type_disk,
-                self.const.auth_grant_disk)
+        return (self.am._get_disk(target_name)[1],
+                self.am.const.auth_target_type_disk,
+                self.am.const.auth_grant_disk)
 
     def validate(self, opset, attr):
         # TODO: check if the opset is relevant for a disk
@@ -807,14 +807,10 @@ class AccessDisk(AccessBase):
 
 
 class AccessGroup(AccessBase):
-    def __init__(self, db):
-        childlogger = logger.getChild('AccessGroup')
-        super(AccessGroup, self).__init__(db, childlogger)
-
     def get(self, target):
-        target = self._get_group(target)
-        return (target.entity_id, self.const.auth_target_type_group,
-                self.const.auth_grant_group)
+        target = self.am._get_group(target)
+        return (target.entity_id, self.am.const.auth_target_type_group,
+                self.am.const.auth_grant_group)
 
     def validate(self, opset, attr):
         # TODO: check if the opset is relevant for a group
@@ -823,14 +819,10 @@ class AccessGroup(AccessBase):
 
 
 class AccessHost(AccessBase):
-    def __init__(self, db):
-        childlogger = logger.getChild('AccessHost')
-        super(AccessHost, self).__init__(db, childlogger)
-
     def get(self, target_name):
-        target = self._get_host(target_name)
-        return (target.entity_id, self.const.auth_target_type_host,
-                self.const.auth_grant_host)
+        target = self.am._get_host(target_name)
+        return (target.entity_id, self.am.const.auth_target_type_host,
+                self.am.const.auth_grant_host)
 
     def validate(self, opset, attr):
         if attr is not None:
@@ -844,14 +836,10 @@ class AccessHost(AccessBase):
 
 
 class AccessGlobalDns(AccessBase):
-    def __init__(self, db):
-        childlogger = logger.getChild('AccessGlobalDns')
-        super(AccessGlobalDns, self).__init__(db, childlogger)
-
     def get(self, target_name):
         if target_name:
             raise CerebrumError("You can't specify an address")
-        return None, self.const.auth_target_type_global_dns, None
+        return None, self.am.const.auth_target_type_global_dns, None
 
     def validate(self, opset, attr):
         if attr:
@@ -859,14 +847,10 @@ class AccessGlobalDns(AccessBase):
 
 
 class AccessGlobalGroup(AccessBase):
-    def __init__(self, db):
-        childlogger = logger.getChild('AccessGlobalGroup')
-        super(AccessGlobalGroup, self).__init__(db, childlogger)
-
     def get(self, group):
         if group is not None and group != "":
             raise CerebrumError("Cannot set domain for global access")
-        return None, self.const.auth_target_type_global_group, None
+        return None, self.am.const.auth_target_type_global_group, None
 
     def validate(self, opset, attr):
         if attr is not None:
@@ -874,14 +858,10 @@ class AccessGlobalGroup(AccessBase):
 
 
 class AccessGlobalHost(AccessBase):
-    def __init__(self, db):
-        childlogger = logger.getChild('AccessGlobalHost')
-        super(AccessGlobalHost, self).__init__(db, childlogger)
-
     def get(self, target_name):
         if target_name is not None and target_name != "":
             raise CerebrumError("You can't specify a hostname")
-        return None, self.const.auth_target_type_global_host, None
+        return None, self.am.const.auth_target_type_global_host, None
 
     def validate(self, opset, attr):
         if attr is not None:
@@ -890,14 +870,10 @@ class AccessGlobalHost(AccessBase):
 
 
 class AccessGlobalMaildom(AccessBase):
-    def __init__(self, db):
-        childlogger = logger.getChild('AccessGlobalMaildom')
-        super(AccessGlobalMaildom, self).__init__(db, childlogger)
-
     def get(self, dom):
         if dom is not None and dom != '':
             raise CerebrumError("Cannot set domain for global access")
-        return None, self.const.auth_target_type_global_maildomain, None
+        return None, self.am.const.auth_target_type_global_maildomain, None
 
     def validate(self, opset, attr):
         if attr is not None:
@@ -905,14 +881,10 @@ class AccessGlobalMaildom(AccessBase):
 
 
 class AccessGlobalOu(AccessBase):
-    def __init__(self, db):
-        childlogger = logger.getChild('AccessGlobalOu')
-        super(AccessGlobalOu, self).__init__(db, childlogger)
-
     def get(self, ou):
         if ou is not None and ou != '':
             raise CerebrumError("Cannot set OU for global access")
-        return None, self.const.auth_target_type_global_ou, None
+        return None, self.am.const.auth_target_type_global_ou, None
 
     def validate(self, opset, attr):
         if not attr:
@@ -921,22 +893,18 @@ class AccessGlobalOu(AccessBase):
             raise CerebrumError(
                 "Must specify affiliation for global ou access")
         try:
-            int(self.const.PersonAffiliation(attr))
+            int(self.am.const.PersonAffiliation(attr))
         except Errors.NotFoundError:
             raise CerebrumError("Unknown affiliation: %s" % attr)
 
 
 class AccessDns(AccessBase):
-    def __init__(self, db):
-        childlogger = logger.getChild('AccessDns')
-        super(AccessDns, self).__init__(db, childlogger)
-
     def get(self, target):
         sub = Subnet(self.db)
         sub.find(target.split('/')[0])
         return (sub.entity_id,
-                self.const.auth_target_type_dns,
-                self.const.auth_grant_dns)
+                self.am.const.auth_target_type_dns,
+                self.am.const.auth_grant_dns)
 
     def validate(self, opset, attr):
         # TODO: check if the opset is relevant for a dns-target
@@ -945,18 +913,15 @@ class AccessDns(AccessBase):
 
 
 class AccessMaildom(AccessBase):
-    def __init__(self, db):
-        childlogger = logger.getChild('AccessMaildom')
-        super(AccessMaildom, self).__init__(db, childlogger)
-
     def get(self, dom):
         ed = Email.EmailDomain(self.db)
         try:
             ed.find_by_domain(dom)
         except Errors.NotFoundError:
             raise CerebrumError("Unknown e-mail domain (%s)" % dom)
-        return (ed.entity_id, self.const.auth_target_type_maildomain,
-                self.const.auth_grant_maildomain)
+        return (ed.entity_id,
+                self.am.const.auth_target_type_maildomain,
+                self.am.const.auth_grant_maildomain)
 
     def validate(self, opset, attr):
         if attr is not None:
@@ -964,32 +929,24 @@ class AccessMaildom(AccessBase):
 
 
 class AccessOu(AccessBase):
-    def __init__(self, db):
-        childlogger = logger.getChild('AccessOu')
-        super(AccessOu, self).__init__(db, childlogger)
-
     def get(self, ou):
-        ou = self._get_ou(stedkode=ou)
-        return (ou.entity_id, self.const.auth_target_type_ou,
-                self.const.auth_grant_ou)
+        ou = self.am._get_ou(stedkode=ou)
+        return (ou.entity_id, self.am.const.auth_target_type_ou,
+                self.am.const.auth_grant_ou)
 
     def validate(self, opset, attr):
         if attr is not None:
             try:
-                int(self.const.PersonAffiliation(attr))
+                int(self.am.const.PersonAffiliation(attr))
             except Errors.NotFoundError:
                 raise CerebrumError("Unknown affiliation '{}'".format(attr))
 
 
 class AccessGlobalPerson(AccessBase):
-    def __init__(self, db):
-        childlogger = logger.getChild('AccessGlobalPerson')
-        super(AccessGlobalPerson, self).__init__(db, childlogger)
-
     def get(self, person):
         # if person is not None and person != "":
         #     raise CerebrumError("Cannot set domain for global access")
-        return None, self.const.auth_target_type_global_person, None
+        return None, self.am.const.auth_target_type_global_person, None
 
     def validate(self, opset, attr):
         if attr:
