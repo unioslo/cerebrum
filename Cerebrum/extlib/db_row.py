@@ -538,7 +538,6 @@ except ImportError:
         log_message = "Backtrace"
         for f in frames:
           log_message += " => " + "%s:%s (function %s)" % f[1:4]
-        import cerebrum_path
         from Cerebrum.Utils import Factory
         logger = Factory.get_logger()
         logger.warn("Deprecated usage of db_row, attr %s. %s" %

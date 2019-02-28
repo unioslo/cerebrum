@@ -57,7 +57,6 @@ import traceback
 import getopt
 import os
 
-import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory, dyn_import
 from Cerebrum import Metainfo
@@ -65,7 +64,6 @@ import Cerebrum
 
 all_ok = True
 meta = None
-del cerebrum_path
 
 
 def usage(exitcode=0):

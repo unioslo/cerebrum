@@ -42,7 +42,6 @@ import getopt
 import sys
 import os
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors

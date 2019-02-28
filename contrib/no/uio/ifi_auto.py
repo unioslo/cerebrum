@@ -32,7 +32,6 @@ import time
 from six import text_type
 
 from mx import DateTime
-import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -40,7 +39,6 @@ from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 
 
-del cerebrum_path
 db = co = logger = group_creator = dryrun = None
 
 

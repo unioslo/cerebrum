@@ -27,7 +27,6 @@ import os
 
 from xml.dom import minidom
 
-import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 

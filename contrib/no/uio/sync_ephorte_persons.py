@@ -37,7 +37,6 @@ from collections import defaultdict
 
 from six import text_type
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
@@ -49,7 +48,7 @@ from Cerebrum.modules.no.uio.Ephorte import EphortePermission
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.utils.context import entity
 
-cerebrum_path, cereconf  # Satisfy the linters.
+cereconf  # Satisfy the linters.
 
 logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()

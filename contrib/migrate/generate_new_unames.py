@@ -35,7 +35,6 @@ NB! This script should only be used during migration.
 import getopt
 import sys
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory

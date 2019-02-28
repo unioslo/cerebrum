@@ -25,7 +25,6 @@ This module contains the code necessary to support permission checks for
 virthome bofhd operations.
 """
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Constants import Constants
