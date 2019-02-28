@@ -1788,6 +1788,9 @@ class BofhdExtension(BofhdCommonMethods):
             for row in contact_rows:
                 if row['contact_type'] == int(self.const.contact_email):
                     fromaddr = row['contact_value']
+
+        if fromaddr is None:
+            raise CerebrumError('Request failed. Operator has no mail address')
         return fromaddr
 
     def group_request(self, operator,
