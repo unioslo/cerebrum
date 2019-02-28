@@ -106,7 +106,7 @@ def get_user_id(pe):
     user_id = _person_to_user_id.get(pe.entity_id)
 
     if user_id is None:
-        prim_acc_id = pe.get_primay_account()
+        prim_acc_id = pe.get_primary_account()
         if prim_acc_id is None:
             raise Errors.NotFoundError("No primary account for user %s",
                                        pe.entity_id)
