@@ -279,7 +279,7 @@ class NISGroupUtil(object):
         while True:
             tmp_gname = "%s%02x" % (self._tmp_group_prefix, self._num)
             self._num += 1
-            if tmp_gname in self._exported_groups:
+            if tmp_gname not in self._exported_groups:
                 return tmp_gname
 
     def _wrap_line(self, group_name, line, g_separator, is_ng=False):

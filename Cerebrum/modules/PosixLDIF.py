@@ -379,7 +379,7 @@ class PosixLDIF(object):
         self.fgrp_dn = LDIFutils.ldapconf('FILEGROUP', 'dn')
         self.filegroupcache = defaultdict(dict)
         self.cache_account2name()
-        self.self.group2gid = self.user_exporter.make_posix_gid_cache()
+        self.group2gid = self.user_exporter.make_posix_gid_cache()
         self.cache_groups_and_users()
 
     def create_filegroup_object(self, group_id):
