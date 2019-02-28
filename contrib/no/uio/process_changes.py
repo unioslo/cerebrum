@@ -159,9 +159,6 @@ class MakeUser(EvtHandler):
         disk.clear()
         home = posix_user.get_home(self.home_spread)
         homedir = posix_user.get_posix_home(self.home_spread)
-        if home['disk_id'] is None:
-            raise Errors.NotFoundError("No home disk id found found for user "
-                                       "%s", entity_id)
         disk.find(home['disk_id'])
         host.clear()
         host.find(disk.host_id)
