@@ -185,13 +185,21 @@ class EntityADMixin(Entity):
             If not set, all the elements of the given attribute is removed.
 
         """
-        # TODO: check if the attribute exists first?
+
         cols = [('entity_id', ':e_id'),
                 ('spread_code', ':spread'),
                 ('attr_code', ':attr')]
         values = {'e_id': self.entity_id,
                   'spread': int(spread),
                   'attr': int(attribute)}
+
+        # Raise error if the given attribute does not exist
+        self.query_1("""
+        SELECT entity_id
+        FROM [:table schema=cerebrum name=ad_attribute]
+        WHERE %s""" % ' AND '.join('%s=%s' % (x[0], x[1]) for x in cols),
+                values)
+
         if subattr_id is not None:
             if not attribute.multivalued:
                 raise RuntimeError('attribute is not multivalued')
