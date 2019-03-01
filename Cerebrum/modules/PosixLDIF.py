@@ -102,7 +102,6 @@ class PosixLDIF(object):
 
     @clock_time
     def init_user(self, auth_meth=None):
-        print self.spread_d['user']
         self.get_name = False
         self.qh = QuarantineHandler(self.db, None)
         self.posuser = Factory.get('PosixUser')(self.db)
@@ -291,7 +290,7 @@ class PosixLDIF(object):
             if qshell is not None:
                 shell = qshell
 
-        home, disk_path, full_name = self.account2home[account_id]
+        home, disk_path, owner_id, full_name = self.account2home[account_id]
         home = self.posuser.resolve_homedir(account_name=uname,
                                             home=home,
                                             disk_path=disk_path)
@@ -312,7 +311,7 @@ class PosixLDIF(object):
             'loginShell': (shell,),
             'gecos': (gecos,)
         }
-        self.update_user_entry(account_id, entry, row)
+        self.update_user_entry(account_id, entry, owner_id)
         if account_id not in self.id2uname:
             self.id2uname[account_id] = uname
         else:
@@ -388,7 +387,7 @@ class PosixLDIF(object):
         entry = {
             'objectClass': ('top', 'posixGroup'),
             'cn': cache['name'],
-            'gidNumber': self.group2gid[group_id],
+            'gidNumber': text_type(self.group2gid[group_id]),
         }
         if 'description' in cache:
             entry['description'] = (cache['description'],)
@@ -547,7 +546,7 @@ class PosixLDIFRadius(PosixLDIF):
         meth.append(int(self.const.auth_type_md4_nt))
         return meth
 
-    def update_user_entry(self, account_id, entry, row):
+    def update_user_entry(self, account_id, entry, owner_id):
         # sambaNTPassword (used by FreeRadius)
         try:
             hash = self.auth_data[account_id][int(self.const.auth_type_md4_nt)]
@@ -564,7 +563,7 @@ class PosixLDIFRadius(PosixLDIF):
                 # TODO: Remove sambaSamAccount and sambaSID after Radius-testing
                 entry['objectClass'].append('sambaSamAccount')
                 entry['sambaSID'] = entry['uidNumber']
-        return self.__super.update_user_entry(account_id, entry, row)
+        return self.__super.update_user_entry(account_id, entry, owner_id)
 
 
 class PosixLDIFMail(PosixLDIF):
@@ -590,7 +589,7 @@ class PosixLDIFMail(PosixLDIF):
 
         timer('...done PosixLDIFMail.init_user')
 
-    def update_user_entry(self, account_id, entry, row):
+    def update_user_entry(self, account_id, entry, owner_id):
         mail = None
         if account_id in self.accounts_with_email:
             mail = self.mail_template.substitute(uid=entry['uid'][0])
@@ -606,4 +605,4 @@ class PosixLDIFMail(PosixLDIF):
                 entry[attr] = (mail, )
         else:
             self.logger.warn('Account %s is missing mail', entry['uid'][0])
-        return self.__super.update_user_entry(account_id, entry, row)
+        return self.__super.update_user_entry(account_id, entry, owner_id)

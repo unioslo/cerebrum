@@ -114,7 +114,7 @@ class Passwd(object):
         if passwd is None:
             passwd = '*'
 
-        home, disk_path, full_name = self.account2home[account_id]
+        home, disk_path, _owner_id, full_name = self.account2home[account_id]
         gecos = row['gecos']
         if gecos is None:
             gecos = full_name

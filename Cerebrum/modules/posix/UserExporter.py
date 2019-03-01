@@ -111,6 +111,7 @@ class UserExporter(object):
             home_cache[row['account_id']] = (
                 row['home'],
                 row['path'],
+                row['owner_id'],
                 person2fullname.get(row['owner_id'], None),
             )
         return home_cache
