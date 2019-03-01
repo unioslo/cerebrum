@@ -27,7 +27,6 @@ meant to cover situations like phones in elevators, meeting rooms, etc. These
 voip_address is bound either to a person or to a voip_service entity.
 """
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.modules.EntityTrait import EntityTrait

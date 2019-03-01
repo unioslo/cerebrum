@@ -26,7 +26,6 @@ import sys
 import string
 import re
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors

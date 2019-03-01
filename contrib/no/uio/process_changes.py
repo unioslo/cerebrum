@@ -164,7 +164,6 @@ class MakeUser(EvtHandler):
         host.find(disk.host_id)
 
         return {'uname': posix_user.account_name,
-                'home': posix_user.get_posix_home(self.home_spread),
                 'uid': text_type(posix_user.posix_uid),
                 'gid': text_type(posix_group.posix_gid),
                 'gecos': posix_user.get_gecos(),

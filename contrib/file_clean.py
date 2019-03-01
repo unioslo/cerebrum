@@ -75,7 +75,6 @@ import time
 import re
 import tempfile
 import shutil
-import cerebrum_path
 from Cerebrum.Utils import Factory
 
 logger = Factory.get_logger("cronjob")

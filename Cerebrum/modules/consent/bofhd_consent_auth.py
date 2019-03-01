@@ -20,7 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 u""" This is an auth module for use with bofhd_consent_cmds. """
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
@@ -159,4 +158,3 @@ class BofhdAuth(auth.BofhdAuth):
 
 if __name__ == '__main__':
     del cereconf
-    del cerebrum_path

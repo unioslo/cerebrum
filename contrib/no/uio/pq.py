@@ -35,7 +35,6 @@ import os
 from time import gmtime, strftime, time
 import pwd
 
-import cerebrum_path
 
 from Cerebrum import Errors
 from Cerebrum.modules.no.uio import PrinterQuotas

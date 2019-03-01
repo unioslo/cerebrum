@@ -61,7 +61,6 @@ import os
 
 from six import text_type
 
-import cerebrum_path
 
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
@@ -70,7 +69,6 @@ from Cerebrum.modules.hostpolicy.PolicyComponent import Atom
 from Cerebrum.modules.hostpolicy.PolicyComponent import Role
 
 logger = Factory.get_logger('cronjob')
-del cerebrum_path
 
 
 def usage(exitcode=0):

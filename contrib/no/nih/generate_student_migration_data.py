@@ -24,7 +24,6 @@
 import sys
 import getopt
 
-import cerebrum_path
 import cereconf
 from Cerebrum.modules.no.access_FS import make_fs
 

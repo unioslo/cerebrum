@@ -39,7 +39,6 @@ Example:
 
 import sys
 import getopt
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors

@@ -27,7 +27,6 @@ Usage: remove_all_ad_traits.py -u uname [-d]
 
 import getopt
 import sys
-import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 

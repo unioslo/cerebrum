@@ -33,7 +33,6 @@ previous dates, but there be dragons (missing/outdated data etc).
 import argparse
 import time
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory

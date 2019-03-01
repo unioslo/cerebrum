@@ -33,7 +33,6 @@ import urlparse
 from mx.DateTime import now
 from mx.DateTime import DateTimeDelta
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Group

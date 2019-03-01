@@ -26,7 +26,6 @@
 import getopt
 import sys
 
-import cerebrum_path
 import cereconf
 from mx.DateTime import now
 

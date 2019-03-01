@@ -34,7 +34,6 @@ Future requests:
 
 import sys
 
-import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules import CLHandler

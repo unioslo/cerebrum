@@ -35,7 +35,6 @@ import getopt
 import sys
 import time
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.modules import PosixGroup

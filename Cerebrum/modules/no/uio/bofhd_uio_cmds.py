@@ -1775,12 +1775,26 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(help_ref="string_spread"),
         GroupName(help_ref="group_name_moderator"))
 
-    def group_request(self, operator,
-                      groupname, description, spread, moderator):
+    def _get_from_address(self, operator):
+        fromaddr = None
         opr = operator.get_entity_id()
         acc = self.Account_class(self.db)
         acc.find(opr)
 
+        try:
+            fromaddr = acc.get_primary_mailaddress()
+        except Errors.NotFoundError:
+            contact_rows = acc.get_contact_info()
+            for row in contact_rows:
+                if row['contact_type'] == int(self.const.contact_email):
+                    fromaddr = row['contact_value']
+
+        if fromaddr is None:
+            raise CerebrumError('Request failed. Operator has no mail address')
+        return fromaddr
+
+    def group_request(self, operator,
+                      groupname, description, spread, moderator):
         # checking if group already exists
         try:
             self._get_group(groupname)
@@ -1796,7 +1810,8 @@ class BofhdExtension(BofhdCommonMethods):
             except CerebrumError:
                 raise CerebrumError("Moderator group %s not found" % (mod))
 
-        fromaddr = acc.get_primary_mailaddress()
+        fromaddr = self._get_from_address(operator)
+
         toaddr = cereconf.GROUP_REQUESTS_SENDTO
         if spread is None:
             spread = ""

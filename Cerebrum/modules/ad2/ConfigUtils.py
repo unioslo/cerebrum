@@ -55,7 +55,6 @@ class or a list thereof. A short example on how the config classes are used:
 
 """
 
-import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory, NotSet
 

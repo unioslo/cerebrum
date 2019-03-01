@@ -24,7 +24,6 @@ Utility for purging and/or populating the event_to_target table
 import getopt
 import sys
 
-import cerebrum_path
 import cereconf
 
 import eventconf

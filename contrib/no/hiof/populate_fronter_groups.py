@@ -30,7 +30,6 @@ import os
 import re
 import sys
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
@@ -43,7 +42,6 @@ from Cerebrum.modules.no.hiof.fronter_lib import count_back_semesters
 from Cerebrum.modules.no.hiof.fronter_lib import timeslot_is_valid
 
 
-del cerebrum_path
 
 logger = None
 

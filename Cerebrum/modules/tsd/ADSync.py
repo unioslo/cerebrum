@@ -27,7 +27,6 @@ is not a part of the generic AD-sync.
 
 """
 
-import cerebrum_path
 import cereconf
 import adconf
 from Cerebrum.Utils import Factory

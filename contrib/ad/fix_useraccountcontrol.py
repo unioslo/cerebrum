@@ -27,7 +27,6 @@ Fix if necessary.
 import getopt
 import sys
 
-import cerebrum_path
 import adconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
