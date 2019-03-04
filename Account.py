@@ -217,7 +217,6 @@ class AccountUiTMixin(Account.Account):
     #UIT: added encryption method
     # Added by: kennethj 20050803
     def enc_auth_type_md5_b64(self,plaintext,salt = None):
-        self.logger.warning('plaintext is:%s' % plaintext)
         m = hashlib.md5()
         m.update(plaintext.encode('utf-8'))
         foo = m.digest()
