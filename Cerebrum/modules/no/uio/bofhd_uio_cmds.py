@@ -5841,7 +5841,7 @@ class BofhdExtension(BofhdCommonMethods):
 
         self.ba.can_create_sysadm(operator.get_entity_id())
 
-        res = re.search('^([a-z]+)-([a-z]+)$', accountname)
+        res = re.search('^([a-z0-9]+)-([a-z]+)$', accountname)
         if res is None:
             raise CerebrumError('Username must be on the form "foo-drift"')
         user, suffix = res.groups()
