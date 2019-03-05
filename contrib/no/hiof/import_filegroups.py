@@ -21,9 +21,9 @@
 
 """
 This file is a HiOf-specific extension of Cerebrum. It contains code which
-imports historical data about file and net groups from HiOf-nis (both 
+imports historical data about file and net groups from HiOf-nis (both
 common and employee-nis). The script will attempt to assign the given
-(option) spread to a group, creating the group if it is not already 
+(option) spread to a group, creating the group if it is not already
 registered. The groups registered may be assigned one or more of the
 spreads (single spread per read file): spread_nis_ng, spread_ans_nis_ng.
 Has to be run twice in order to create all groups and assign memberships
@@ -33,12 +33,12 @@ The files read are formated as:
 
 gname - name of the group to be registered/updated
 desc - description of the group (usually what it is used for)
-mgroup - name(s) of group(s) that are members 
+mgroup - name(s) of group(s) that are members
 maccount - user names of the groups account members
 
-* - zero or more 
+* - zero or more
 """
- 
+
 import getopt
 import sys
 import time
@@ -69,18 +69,20 @@ def process_line(infile, spread):
             process_group(sp, gname, gid, desc, mem)
 
 
-def process_group(sp, name, gid, description = None, members = None):
+def process_group(sp, name, gid, description=None, members=None):
     """
     Check whether a group with name is registered in Cerebrum, if not
     create (as normal group). If necessary assign spread and membership.
-    """ 
+    """
     try:
         posixgroup.clear()
         posixgroup.find_by_name(name)
         logger.debug4("Group |%s| exists.", name)
-    except Errors.NotFoundError:        
+    except Errors.NotFoundError:
         posixgroup.populate(default_creator_id, constants.group_visibility_all,
-                            name, description, time.strftime("%Y-%m-%d", time.localtime()), None, int(gid))
+                            name, description,
+                            time.strftime("%Y-%m-%d", time.localtime()), None,
+                            int(gid))
         posixgroup.write_db()
         if not dryrun:
             db.commit()
@@ -94,11 +96,12 @@ def process_group(sp, name, gid, description = None, members = None):
                     group.write_db()
                     if not dryrun:
                         db.commit()
-                        logger.debug3("Added spread |%s| to group |%s|.", sp, name)
+                        logger.debug3("Added spread |%s| to group |%s|.", sp,
+                                      name)
             except Errors.NotFoundError:
                 logger.error("Group |%s| not found!", name)
     if members:
-        process_members(name,members)
+        process_members(name, members)
 
 
 def process_members(gname, mem):
@@ -117,11 +120,14 @@ def process_members(gname, mem):
             group.write_db()
             if not dryrun:
                 db.commit()
-                logger.debug3("Added account |%s| to group |%s|.", member, gname)
+                logger.debug3("Added account |%s| to group |%s|.", member,
+                              gname)
         except Errors.NotFoundError:
             logger.warn("User |%s| not found!", member)
             if member == gname:
-                logger.error("Bang! Cannot continue adding members because a group cannot be its own member.")
+                logger.error(
+                    "Bang! Cannot continue adding members because a group "
+                    "cannot be its own member.")
                 continue
             try:
                 group_member.clear()
@@ -131,33 +137,37 @@ def process_members(gname, mem):
                     group.write_db()
                     if not dryrun:
                         db.commit()
-                        logger.debug3("Added group |%s| to group |%s|.", member, gname)
+                        logger.debug3("Added group |%s| to group |%s|.",
+                                      member, gname)
             except Errors.NotFoundError:
                 logger.warn("Group |%s| not found!", member)
-                logger.error("Trying to assign membership to a non-existing entity |%s|", member)
+                logger.error(
+                    "Trying to assign membership to a non-existing "
+                    "entity |%s|", member)
 
 
 def usage():
     print """Usage: import_filegroups.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
-    -s, --spread spread_nis_fg
+    -s, --spread (spread_nis_fg|spread_ans_nis_fg)
     """
 
 
 def main():
-    global db, constants, account_init, account_member, group, spread, posixgroup
+    global db, constants, account_init, account_member, group, spread
+    global posixgroup
     global default_creator_id, group_member
     global dryrun, logger
 
     logger = Factory.get_logger("console")
-    
+
     try:
         opts, args = getopt.getopt(sys.argv[1:],
                                    'f:ds:',
                                    ['file=',
                                     'dryrun',
-				    'spread='])
+                                    'spread='])
     except getopt.GetoptError:
         usage()
 
@@ -167,10 +177,10 @@ def main():
             dryrun = True
         elif opt in ('-f', '--file'):
             infile = val
-	elif opt in ('-s','--spread'):
-	    spread = val
-	    if (spread not in ['spread_nis_fg','spread_nis_ans_fg']):
-		usage()
+        elif opt in ('-s', '--spread'):
+            spread = val
+            if (spread not in ['spread_nis_fg', 'spread_nis_ans_fg']):
+                usage()
 
     db = Factory.get('Database')()
     db.cl_init(change_program='import_fg')
@@ -184,14 +194,13 @@ def main():
     posixgroup = PosixGroup.PosixGroup(db)
     db.cl_init(change_program='import_groups')
     if spread == "spread_nis_fg":
-	spread = constants.spread_nis_fg
+        spread = constants.spread_nis_fg
     elif spread == "spread_nis_ans_fg":
-	spread = constants.spread_nis_ans_fg
+        spread = constants.spread_nis_ans_fg
     else:
-	usage()
+        usage()
     process_line(infile, spread)
 
 
 if __name__ == '__main__':
     main()
-
