@@ -179,7 +179,7 @@ def main():
             infile = val
         elif opt in ('-s', '--spread'):
             spread = val
-            if (spread not in ['spread_nis_fg', 'spread_nis_ans_fg']):
+            if spread not in ['spread_nis_fg', ]:
                 usage()
 
     db = Factory.get('Database')()
@@ -195,8 +195,6 @@ def main():
     db.cl_init(change_program='import_groups')
     if spread == "spread_nis_fg":
         spread = constants.spread_nis_fg
-    elif spread == "spread_nis_ans_fg":
-        spread = constants.spread_nis_ans_fg
     else:
         usage()
     process_line(infile, spread)
