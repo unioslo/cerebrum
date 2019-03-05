@@ -141,7 +141,7 @@ def usage():
     print """Usage: import_filegroups.py
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
-    -s, --spread (spread_nis_fg|spread_ans_nis_fg)
+    -s, --spread spread_nis_fg
     """
 
 

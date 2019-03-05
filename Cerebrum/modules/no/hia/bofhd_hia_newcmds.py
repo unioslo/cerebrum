@@ -295,8 +295,7 @@ class BofhdExtension(BofhdCommonMethods):
 
         mapping = {int(self.const.spread_nis_user):
                    int(self.const.spread_nis_fg),
-                   int(self.const.spread_ans_nis_user):
-                   int(self.const.spread_ans_nis_fg)}
+                   }
         wanted = []
         for r in account.get_spread():
             spread = int(r['spread'])
