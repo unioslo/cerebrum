@@ -40,6 +40,7 @@ from Cerebrum.config.loader import read, read_config
 from Cerebrum.modules.event_consumer.config import AMQPClientConsumerConfig
 
 logger = Factory.get_logger('cronjob')
+AccountClass = Factory.get('Account')
 callback_functions = CallbackMap()
 callback_filters = CallbackMap()
 
@@ -511,6 +512,57 @@ def get_cerebrum_person(database, ids):
     return pe
 
 
+def update_account_affs(method):
+    def wrapper(database, cerebrum_person, ou_id, affiliation):
+        """Calls method if a person's account satisfies certain conditions
+
+        :param database: A database object
+        :param cerebrum_person: The Person object to be updated.
+        :param ou_id: The ou_id code
+        :param affiliation: The affiliation code
+        """
+        accounts = cerebrum_person.get_accounts()
+        if len(accounts) != 1:
+            logger.debug(u'Person %s does not have only one account' %
+                         cerebrum_person.entity_id)
+            return
+        ac = Factory.get('Account')(database)
+        ac.find(accounts[0]['account_id'])
+        co = Factory.get('Constants')(database)
+
+        account_types = ac.get_account_types()
+        if method.__name__ is 'del_account_type' and len(account_types) == 1:
+            logger.debug(u'Can not delete last account affiliation')
+            return
+        for account_type in account_types:
+            if not int(co.affiliation_ansatt) == account_type['affiliation']:
+                logger.debug(u'Account has affiliation(s) besides %s' %
+                             co.affiliation_ansatt)
+                return
+            aff_info = cerebrum_person.list_affiliations(
+                person_id=account_type['person_id'],
+                ou_id=account_type['ou_id'],
+                affiliation=account_type['affiliation'],
+            )
+            if aff_info:
+                if not int(co.system_sap) == aff_info[0]['source_system']:
+                    logger.debug(
+                        u'Account has affiliation from source(s) other than %s'
+                        % co.system_sap)
+                    return
+
+        logger.debug(u'{} for account: {}'.format(method.__name__,
+                                                  ac.entity_id))
+        method(ac, ou_id, affiliation)
+    return wrapper
+
+
+del_account_type = update_account_affs(AccountClass.del_account_type)
+
+
+set_account_type = update_account_affs(AccountClass.set_account_type)
+
+
 def _stringify_for_log(data):
     """Convert data to appropriate types for logging."""
     from Cerebrum.Constants import _CerebrumCode
@@ -600,6 +652,10 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
         cerebrum_person.delete_affiliation(**affiliation)
         logger.debug(u'Removing affiliation {} for id:{}'.format(
             _stringify_for_log(affiliation), cerebrum_person.entity_id))
+        del_account_type(database,
+                         cerebrum_person,
+                         affiliation['ou_id'],
+                         affiliation['affiliation'])
 
     for affiliation in _find_affiliations(
             cerebrum_person,
@@ -610,6 +666,10 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
         cerebrum_person.populate_affiliation(source_system, **affiliation)
         logger.debug(u'Adding affiliation {} for id:{}'.format(
             _stringify_for_log(affiliation), cerebrum_person.entity_id))
+        set_account_type(database,
+                         cerebrum_person,
+                         affiliation['ou_id'],
+                         affiliation['affiliation'])
 
 
 def update_roles(database, source_system, hr_person, cerebrum_person):
@@ -1016,6 +1076,7 @@ def main(args=None):
                 consumer.stop()
             consumer.close()
         logger.info('Stopping {}'.format(prog_name))
+
 
 if __name__ == "__main__":
     main()
