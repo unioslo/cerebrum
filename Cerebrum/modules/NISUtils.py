@@ -91,7 +91,7 @@ class Passwd(object):
     def __init__(self, auth_method=None, spread=None):
         self.spread = spread
         self.auth_method = auth_method
-        self.user_exporter = UserExporter()
+        self.user_exporter = UserExporter(db)
 
         self.shells = self.user_exporter.make_shells_cache()
         self.gid2posix_gid = self.user_exporter.make_posix_gid_cache()
@@ -357,7 +357,7 @@ class FileGroup(NISGroupUtil):
             co.account_namespace, co.entity_account,
             group_spread, member_spread)
         self._group = PosixGroup.PosixGroup(db)
-        user_exporter = UserExporter()
+        user_exporter = UserExporter(db)
         gid2posix_gid = user_exporter.make_posix_gid_cache()
         self._account2posix_gid = {}
         for row in posix_user.list_posix_users(filter_expired=True):

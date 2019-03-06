@@ -75,8 +75,9 @@ def parse_args():
     args, _rest = parser.parse_known_args()
     # Conditionally required arguments
     zone_required = args.mnetgroup is not None
-    user_spread_required = (args.netgroup is not None or args.hack is not None
-                            or args.group is not None)
+    user_spread_required = any(a is not None for a in (args.netgroup,
+                                                       args.hack,
+                                                       args.group))
 
     parser.add_argument(
         '--user_spread',

@@ -54,7 +54,7 @@ class PosixLDIF(object):
         self.grp = Factory.get('Group')(self.db)
         self.posuser = Factory.get('PosixUser')(self.db)
         self.posgrp = PosixGroup.PosixGroup(self.db)
-        self.user_exporter = UserExporter()
+        self.user_exporter = UserExporter(self.db)
         self.user_dn = LDIFutils.ldapconf('USER', 'dn', None)
         self.get_name = True
         self.fd = fd

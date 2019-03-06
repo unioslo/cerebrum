@@ -37,8 +37,8 @@ def clock_time(func):
 
 
 class UserExporter(object):
-    def __init__(self):
-        self.db = Factory.get('Database')()
+    def __init__(self, db):
+        self.db = db
         self.co = Factory.get('Constants')(self.db)
         self.posix_user = Factory.get('PosixUser')(self.db)
         self.posix_group = Factory.get('PosixGroup')(self.db)
