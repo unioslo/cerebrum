@@ -2407,6 +2407,11 @@ class BofhdExtension(BofhdCommonMethods):
                      "Use 'group list %s'") % grp.group_name)
             raise
 
+        if grp.is_user_group():
+            raise CerebrumError(
+                "Can't demote group because it is assigned as primary group "
+                "for posix user(s).")
+
         self.ba.can_force_delete_group(operator.get_entity_id(), grp)
         grp.demote_posix()
         return "OK, demoted '%s'" % group

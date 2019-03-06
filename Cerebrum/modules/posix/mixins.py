@@ -57,12 +57,26 @@ class PosixGroupMixin(Group):
         res = self.demote_posix()
         return super(PosixGroupMixin, self).demote() or res
 
+    def is_user_group(self):
+        """ Check if the posix_group is file group for a posix user. """
+        try:
+            self.query_1("""SELECT gid
+            FROM [:table schema=cerebrum name=posix_user]
+            WHERE gid=:g_id""", {'g_id': self.entity_id})
+        except Errors.NotFoundError:
+            return False
+        else:
+            return True
+
     def demote_posix(self):
         """ Remove all posix-related data for the group. """
         gid = None
         try:
             gid = self._get_posix_gid()
         except Errors.NotFoundError:
+            return False
+
+        if self.is_user_group():
             return False
 
         self._db.log_change(self.entity_id,
