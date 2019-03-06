@@ -53,7 +53,6 @@ import sys
 import time
 from sets import Set
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Group

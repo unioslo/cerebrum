@@ -8,7 +8,6 @@ from __future__ import unicode_literals
 
 import unittest
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors

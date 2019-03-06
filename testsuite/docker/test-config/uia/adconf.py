@@ -21,7 +21,6 @@
 # -*- coding: utf-8 -*-
 """The configuration for the AD sync."""
 
-import cerebrum_path
 from Cerebrum.Utils import Factory
 
 # Provide defaults for all settings.

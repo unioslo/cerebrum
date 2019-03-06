@@ -38,7 +38,6 @@ python create-account-for-person.py -a ANSATT
 import getopt
 import sys
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory

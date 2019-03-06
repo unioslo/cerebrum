@@ -33,14 +33,12 @@ able to pick it up (cereconf.PASSWORD_DICTIONARIES).
 import getopt
 import sys
 
-import cerebrum_path
 
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
 
 logger = Factory.get_logger("cronjob")
-del cerebrum_path
 
 
 def name_is_valid(name):

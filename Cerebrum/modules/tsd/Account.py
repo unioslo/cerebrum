@@ -31,7 +31,6 @@ import re
 
 import six
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory

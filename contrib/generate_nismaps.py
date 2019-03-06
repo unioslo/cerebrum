@@ -22,7 +22,6 @@
 import getopt
 import sys
 
-import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Constants import _SpreadCode, _AuthenticationCode

@@ -35,7 +35,6 @@ group:
 import getopt
 import sys
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors

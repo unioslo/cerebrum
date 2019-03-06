@@ -29,7 +29,6 @@ exception of name uniqueness (all EntityNames have to be unique within a given
 domain; this requirement has been lifted for EntityNonUniqueName)
 """
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Entity import Entity

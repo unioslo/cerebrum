@@ -26,7 +26,6 @@ Cerebrum/Entity.py plus a number of tables from design/mod_virthome.sql.
 import mx.DateTime
 import string
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Utils

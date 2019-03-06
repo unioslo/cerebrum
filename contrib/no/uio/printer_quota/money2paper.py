@@ -22,7 +22,6 @@
 import getopt
 import sys
 import time
-import cerebrum_path
 
 from Cerebrum import Errors
 from Cerebrum import Person

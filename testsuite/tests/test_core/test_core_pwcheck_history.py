@@ -7,7 +7,6 @@ from __future__ import unicode_literals
 from nose.tools import raises, with_setup
 from nose.plugins.skip import SkipTest
 
-import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.pwcheck.history import PasswordHistoryMixin

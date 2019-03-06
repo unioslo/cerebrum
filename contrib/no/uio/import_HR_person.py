@@ -31,8 +31,6 @@ different XML DTDs, but the interface to them is uniform (through
 modules.xmlutils.*)
 """
 
-import cerebrum_path
-getattr(cerebrum_path, "Silence the linters", None)
 import cereconf
 
 import sys
