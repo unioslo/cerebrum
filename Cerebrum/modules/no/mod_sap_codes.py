@@ -1818,7 +1818,7 @@ class SAPConstants(Constants.Constants):
     )
 
     sap_9405_dekksmann_ii = SAPLonnsTittelKode(
-        "200094065",
+        "20009405",
         "9405 Dekksmann II",
         "ØVR"
     )
@@ -1834,6 +1834,7 @@ class SAPConstants(Constants.Constants):
         "9407 Forpleiningsassistent",
         "ØVR"
     )
+
     sap_9999_dummy_stillingskode = SAPLonnsTittelKode(
         "20009999",
         "9999 Stillingskode udefinert",
@@ -1842,6 +1843,6 @@ class SAPConstants(Constants.Constants):
 
     sap_0000_ekstern_stillingskode = SAPLonnsTittelKode(
         "00000000",
-        "0000 Tilknyttet UiA",
+        "0000 Ekstern tilsatt",
         "ØVR"
     )
