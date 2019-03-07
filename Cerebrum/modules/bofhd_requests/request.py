@@ -25,6 +25,8 @@ from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum import Errors
 from mx import DateTime
 
+__version__ = "1.0"
+
 
 class BofhdRequests(object):
     def __init__(self, db, const):

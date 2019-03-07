@@ -82,7 +82,7 @@ from Cerebrum.modules.bofhd.cmd_param import (
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.bofhd_requests.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd.help import Help, merge_help_strings
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.no import fodselsnr

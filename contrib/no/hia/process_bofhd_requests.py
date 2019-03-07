@@ -32,7 +32,7 @@ from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory, spawn_and_log_output
 from Cerebrum.utils import json
-from Cerebrum.modules.bofhd_requests.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd_requests import process_requests
 
 logger = logging.getLogger(__name__)

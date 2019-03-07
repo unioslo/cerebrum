@@ -227,7 +227,7 @@ from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.Utils import argument_to_sql
 from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules.bofhd_requests.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 
 
 class AuthConstants(Constants._CerebrumCode):

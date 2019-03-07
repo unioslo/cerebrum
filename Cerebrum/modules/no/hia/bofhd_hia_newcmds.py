@@ -41,7 +41,7 @@ from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
-from Cerebrum.modules.bofhd_requests.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.access_FS import FS
 from Cerebrum.modules.no.hia.bofhd_uia_auth import (

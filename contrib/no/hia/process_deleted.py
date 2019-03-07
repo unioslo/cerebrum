@@ -48,7 +48,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd_requests.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 
 
 logger = Factory.get_logger("cronjob")
