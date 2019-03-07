@@ -5755,12 +5755,15 @@ class BofhdExtension(BofhdCommonMethods):
         gecos = None
         expire_date = None
         self.ba.can_create_user(operator.get_entity_id(), owner_id, disk_id)
+        try:
+            posix_user.populate(uid, None, gecos, shell, name=uname,
+                                owner_type=owner_type,
+                                owner_id=owner_id, np_type=np_type,
+                                creator_id=operator.get_entity_id(),
+                                expire_date=expire_date)
+        except self.db.IntegrityError as e:
+            raise CerebrumError('Integrity error: {}'.format(e))
 
-        posix_user.populate(uid, None, gecos, shell, name=uname,
-                            owner_type=owner_type,
-                            owner_id=owner_id, np_type=np_type,
-                            creator_id=operator.get_entity_id(),
-                            expire_date=expire_date)
         try:
             posix_user.write_db()
             for spread in cereconf.BOFHD_NEW_USER_SPREADS:
