@@ -46,9 +46,10 @@ system_lt, system_sap). However, only one perspective may be specified, and
 perspective-as-source and files-as-source are mutually exclusive.
 """
 
+from __future__ import unicode_literals
+
 from collections import deque
-import getopt
-import sys
+import argparse
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
@@ -56,7 +57,6 @@ from Cerebrum.modules.xmlutils.system2parser import system2parser
 
 def sko2str(fak, inst, grp):
     return "%02d%02d%02d" % (fak, inst, grp)
-# end sko2str
 
 
 def build_ids(seq):
@@ -347,32 +347,37 @@ def output_tree(root_set, boss_mode, indent=0):
 
 
 def main():
-    opts, args = getopt.getopt(sys.argv[1:],
-                               "f:p:b",
-                               ("file=",
-                                "perspective=",
-                                "boss-mode",))
-    sources = list()
-    perspective = None
-    boss_mode = False
-    for option, value in opts:
-        if option in ("-f", "--file",):
-            source_system, source_file = value.split(":", 1)
-            sources.append((source_system, source_file))
-        elif option in ("-p", "--perspective",):
-            perspective = value
-        elif option in ("-b", "--boss-mode",):
-            boss_mode = True
-
-    assert not (sources and perspective), \
-           "You cannot specify *both* perspective and source"
+    parser = argparse.ArgumentParser(
+                description="Print OU structure from certain perspective")
+    parser.add_argument(
+            '-b', '--boss-mode',
+            dest='boss_mode',
+            action='store_true',
+            help="Print less details in output"
+            )
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument(
+            '-p', '--perspective',
+            metavar='SYSTEM',
+            help="What system's perspective to use for hierarchy"
+            )
+    source.add_argument(
+            '-f', '--file',
+            dest='files',
+            metavar='SYSTEM:FILENAME',
+            action='append',
+            help="File to read OU structure from, e.g. system_fs:ou.xml"
+            )
+    args = parser.parse_args()
+    sources = [s.split(':', 1) for s in args.files]
+    # ((source_system, source_file)…)
 
     if sources:
-        root_set = build_tree_from_files(sources)
+        root_set = build_tree_from_files(args.sources)
     else:
-        root_set = build_tree_from_db(perspective)
+        root_set = build_tree_from_db(args.perspective)
 
-    output_tree(root_set, boss_mode)
+    output_tree(root_set, args.boss_mode)
 
 
 if __name__ == "__main__":
