@@ -1711,6 +1711,28 @@ class BofhdAuth(DatabaseAccessor):
                 return True
         raise PermissionDenied("You are not requester")
 
+    def can_grant_access(self, operator, operation=None, target_type=None,
+                         target_id=None, opset=None, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            for op in (self.const.auth_grant_disk,
+                       self.const.auth_grant_group,
+                       self.const.auth_grant_host,
+                       self.const.auth_grant_maildomain,
+                       self.const.auth_grant_dns,
+                       self.const.auth_grant_ou):
+                if self._has_operation_perm_somewhere(operator, op):
+                    return True
+            return False
+        if opset is not None:
+            opset = opset.name
+        if self._has_target_permissions(operator, operation,
+                                        target_type, target_id,
+                                        None, operation_attr=opset):
+            return True
+        raise PermissionDenied("No access to %s" % target_type)
+
     def can_request_guests(self, operator, groupname=None,
                            query_run_any=False):
         if self.is_superuser(operator):

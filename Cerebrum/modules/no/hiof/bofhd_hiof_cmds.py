@@ -66,8 +66,6 @@ class HiofAccessAuth(HiofAuth, bofhd_access.BofhdAccessAuth):
 
 
 uio_commands = [
-    'misc_cancel_request',
-    'misc_list_requests',
     'ou_info',
     'ou_search',
     'ou_tree',
