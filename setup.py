@@ -324,6 +324,7 @@ setup(
         'Cerebrum/modules/gpg',
         'Cerebrum/modules/hostpolicy',
         'Cerebrum/modules/bofhd',
+        'Cerebrum/modules/bofhd_requests',
         'Cerebrum/modules/guest',
         'Cerebrum/modules/job_runner',
         'Cerebrum/modules/no',

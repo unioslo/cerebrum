@@ -274,7 +274,8 @@ class ForwardMap(object):
                 self.zu.write(line)
             self.zu.write('; End of a-record owned entries\n')
             logger.debug("Check remaining data")
-            for row in DnsOwner.DnsOwner(db).list():
+            rows = DnsOwner.DnsOwner(db).list()
+            for row in sorted(rows, key=lambda i: i['dns_owner_id']):
                 line = ''
                 # Check for any remaining data.  Should only be srv_records
                 # and cnames with foreign targets

@@ -10,7 +10,6 @@ import unittest
 
 from mx import DateTime
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory

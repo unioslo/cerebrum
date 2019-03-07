@@ -19,7 +19,6 @@
 
 """"""
 
-import cerebrum_path
 import cereconf
 
 import re
@@ -118,22 +117,15 @@ class AccountHiOfMixin(Account.Account):
             pass
 
         if not old_server:
-            # we should update servers for employees as well, but we
-            # cannot do that for now as there are no clear criteria
-            # for when we should consider someone av fag-employee or
-            # adm-employee. we will therefore update servers for students
-            # only
             # if self.is_fag_employee():
             #    self._update_email_server('mail.fag.hiof.no')
             # elif self.is_adm_employee():
             #    self._update_email_server('mail.adm.hiof.no')
+            #
+            # This updates email servers for employees and students
             if entity.entity_type != self.const.entity_group:
-                if self.is_student():
-                    self._update_email_server('epost.hiof.no')
-                else:
-                    # do not set email_server_target until account_type is
-                    # registered
-                    return
+                self._update_email_server('epost.hiof.no')
+
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.

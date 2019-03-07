@@ -61,10 +61,8 @@ import sys
 import getopt
 from mx.DateTime import now
 
-import cerebrum_path
 from Cerebrum.Utils import Factory
 
-del cerebrum_path
 
 reservations = None
 

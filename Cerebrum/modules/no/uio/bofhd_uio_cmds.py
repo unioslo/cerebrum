@@ -1248,21 +1248,16 @@ class BofhdExtension(BofhdCommonMethods):
             "%s [%s]: %s", ("timestamp", "change_by", "message")),
         perm_filter='can_show_history')
 
-    def entity_history(self, operator, entity, any="yes", limit=100):
+    def entity_history(self, operator, entity, any_entity="yes"):
         ent = self.util.get_target(entity, restrict_to=[])
         self.ba.can_show_history(operator.get_entity_id(), ent)
         ret = []
-        if self._get_boolean(any):
+        if self._get_boolean(any_entity):
             kw = {'any_entity': ent.entity_id}
         else:
             kw = {'subject_entity': ent.entity_id}
         rows = list(self.db.get_log_events(0, **kw))
-        try:
-            limit = int(limit)
-        except ValueError:
-            raise CerebrumError("Limit must be a number")
-
-        for r in rows[-limit:]:
+        for r in rows:
             ret.append(self._format_changelog_entry(r))
         return ret
 
@@ -1775,12 +1770,26 @@ class BofhdExtension(BofhdCommonMethods):
         SimpleString(help_ref="string_spread"),
         GroupName(help_ref="group_name_moderator"))
 
-    def group_request(self, operator,
-                      groupname, description, spread, moderator):
+    def _get_from_address(self, operator):
+        fromaddr = None
         opr = operator.get_entity_id()
         acc = self.Account_class(self.db)
         acc.find(opr)
 
+        try:
+            fromaddr = acc.get_primary_mailaddress()
+        except Errors.NotFoundError:
+            contact_rows = acc.get_contact_info()
+            for row in contact_rows:
+                if row['contact_type'] == int(self.const.contact_email):
+                    fromaddr = row['contact_value']
+
+        if fromaddr is None:
+            raise CerebrumError('Request failed. Operator has no mail address')
+        return fromaddr
+
+    def group_request(self, operator,
+                      groupname, description, spread, moderator):
         # checking if group already exists
         try:
             self._get_group(groupname)
@@ -1796,7 +1805,8 @@ class BofhdExtension(BofhdCommonMethods):
             except CerebrumError:
                 raise CerebrumError("Moderator group %s not found" % (mod))
 
-        fromaddr = acc.get_primary_mailaddress()
+        fromaddr = self._get_from_address(operator)
+
         toaddr = cereconf.GROUP_REQUESTS_SENDTO
         if spread is None:
             spread = ""
@@ -2718,16 +2728,12 @@ class BofhdExtension(BofhdCommonMethods):
         ("misc", "check_password"),
         AccountPassword(),
         fs=FormatSuggestion([
-            ("OK.", ('password_ok', )),
-            ("MD5-crypt:     %s", ('md5', )),
-            ("SHA256-crypt:  %s", ('sha256', )),
-            ("SHA512-crypt:  %s", ('sha512', )),
+            ("%s", ('password_ok', )),
         ])
     )
 
     def misc_check_password(self, operator, password):
         ac = self.Account_class(self.db)
-        co = self.const
         try:
             check_password(password, ac, structured=False)
         except RigidPasswordNotGoodEnough as e:
@@ -2736,14 +2742,8 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
         except PasswordNotGoodEnough as e:
             raise CerebrumError('Bad password: %s' % exc_to_text(e))
-        md5 = ac.encrypt_password(co.Authentication("MD5-crypt"), password)
-        sha256 = ac.encrypt_password(co.auth_type_sha256_crypt, password)
-        sha512 = ac.encrypt_password(co.auth_type_sha512_crypt, password)
         return {
-            'password_ok': True,
-            'md5': md5,
-            'sha256': sha256,
-            'sha512': sha512,
+            'password_ok': 'Good password',
         }
 
     #
@@ -4395,9 +4395,6 @@ class BofhdExtension(BofhdCommonMethods):
         extids = {
             'fnr':    'externalid_fodselsnr',
             'passnr': 'externalid_pass_number',
-            'ssn':    'externalid_social_security_number',
-            'taxid':  'externalid_tax_identification_number',
-            'vatnr':  'externalid_value_added_tax_number',
             'studnr': 'externalid_studentnr',
             'sapnr':  'externalid_sap_ansattnr',
         }
@@ -4431,7 +4428,11 @@ class BofhdExtension(BofhdCommonMethods):
             matches = person.list_affiliations(ou_id=ou.entity_id,
                                                affiliation=filter)
         elif search_type == 'ou':
-            ou = self._get_ou(ou_id=value)
+            if not value.isdigit():
+                raise CerebrumError("Expected OU as entity id. Got: {}"
+                                    .format(value))
+            else:
+                ou = self._get_ou(ou_id=value)
             matches = person.list_affiliations(ou_id=ou.entity_id,
                                                affiliation=filter)
         else:
@@ -5749,12 +5750,15 @@ class BofhdExtension(BofhdCommonMethods):
         gecos = None
         expire_date = None
         self.ba.can_create_user(operator.get_entity_id(), owner_id, disk_id)
+        try:
+            posix_user.populate(uid, None, gecos, shell, name=uname,
+                                owner_type=owner_type,
+                                owner_id=owner_id, np_type=np_type,
+                                creator_id=operator.get_entity_id(),
+                                expire_date=expire_date)
+        except self.db.IntegrityError as e:
+            raise CerebrumError('Integrity error: {}'.format(e))
 
-        posix_user.populate(uid, None, gecos, shell, name=uname,
-                            owner_type=owner_type,
-                            owner_id=owner_id, np_type=np_type,
-                            creator_id=operator.get_entity_id(),
-                            expire_date=expire_date)
         try:
             posix_user.write_db()
             for spread in cereconf.BOFHD_NEW_USER_SPREADS:
@@ -5835,7 +5839,7 @@ class BofhdExtension(BofhdCommonMethods):
 
         self.ba.can_create_sysadm(operator.get_entity_id())
 
-        res = re.search('^([a-z]+)-([a-z]+)$', accountname)
+        res = re.search('^([a-z0-9]+)-([a-z]+)$', accountname)
         if res is None:
             raise CerebrumError('Username must be on the form "foo-drift"')
         user, suffix = res.groups()
@@ -6452,7 +6456,10 @@ class BofhdExtension(BofhdCommonMethods):
             if not self.ba.is_superuser(operator.get_entity_id()):
                 raise PermissionDenied("only superusers may use hard_nofile")
             ah = account.get_home(spread)
-            account.set_homedir(current_id=ah['homedir_id'], home=args[0])
+            try:
+                account.set_homedir(current_id=ah['homedir_id'], home=args[0])
+            except ValueError as e:
+                raise CerebrumError(e)
             return "OK, user moved to hardcoded homedir"
         elif move_type in (
                 "student", "student_immediate", "confirm", "cancel"):
@@ -6588,6 +6595,13 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_create_user')
 
     def user_promote_posix(self, operator, accountname, shell=None, home=None):
+        # Verify that account name is legal
+        pu = Utils.Factory.get('PosixUser')(self.db)
+        illegal_name = pu.illegal_name(accountname)
+        if illegal_name:
+            raise CerebrumError("Illegal account name given. Account name " +
+                                illegal_name)
+
         is_posix = False
         try:
             self._get_account(accountname, actype="PosixUser")
@@ -6597,7 +6611,6 @@ class BofhdExtension(BofhdCommonMethods):
         if is_posix:
             raise CerebrumError("%s is already a PosixUser" % accountname)
         account = self._get_account(accountname)
-        pu = Utils.Factory.get('PosixUser')(self.db)
         old_uid = self._lookup_old_uid(account.entity_id)
         if old_uid is None:
             uid = pu.get_free_uid()
@@ -6746,12 +6759,16 @@ class BofhdExtension(BofhdCommonMethods):
             pu.delete_posixuser()
             pu = Utils.Factory.get('PosixUser')(self.db)
 
-        # We remove all old group memberships
+        # We remove all old group memberships, except the personal group, which
+        # should have its expire date removed
         grp = self.Group_class(self.db)
-        for row in grp.search(member_id=ac.entity_id):
+        for row in grp.search(member_id=ac.entity_id, filter_expired=False):
             grp.clear()
             grp.find(row['group_id'])
-            grp.remove_member(ac.entity_id)
+            if grp.get_trait('personal_group'):
+                grp.expire_date = None
+            else:
+                grp.remove_member(ac.entity_id)
             grp.write_db()
 
         # We remove all (the old) affiliations on the account

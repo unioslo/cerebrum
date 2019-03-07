@@ -23,7 +23,6 @@ import getopt
 import sys
 import mx
 
-import cerebrum_path
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory

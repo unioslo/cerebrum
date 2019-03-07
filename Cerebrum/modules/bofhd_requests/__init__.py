@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,18 +17,3 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import print_function
-
-
-# Current Cerebrum version as a (major, minor, micro) tuple.
-_version = (0, 9, 20)
-
-__version__ = ".".join(map(str, _version))
-
-
-if __name__ == '__main__':
-    # When this module is invoked as a script, print the version.
-    #
-    # This can be useful for non-Python scripts that want to get at
-    # the Cerebrum release number.
-    print(__version__)

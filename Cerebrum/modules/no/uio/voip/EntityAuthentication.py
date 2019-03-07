@@ -31,7 +31,6 @@ account password storage.
 FIXME: Merge with PasswordChecker.py
 """
 
-import cerebrum_path
 import cereconf
 
 

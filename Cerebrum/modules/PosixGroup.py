@@ -30,7 +30,6 @@ group class. The PosixGroup class should be used when you're working with known
 posix groups.
 
 """
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory

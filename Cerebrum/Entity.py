@@ -188,14 +188,18 @@ class Entity(DatabaseAccessor):
     def find(self, entity_id):
         """Associate the object with the entity whose identifier is ENTITY_ID.
 
-        If ENTITY_ID isn't an existing entity identifier,
+        If ENTITY_ID isn't an existing entity identifier including None,
         NotFoundError is raised.
 
+        If ENTITY_ID input isn't an int, ValueError is raised.
+
         """
+        if entity_id is None:
+            raise Errors.NotFoundError
         self.entity_id, self.entity_type, self.created_at = self.query_1("""
         SELECT entity_id, entity_type, created_at
         FROM [:table schema=cerebrum name=entity_info]
-        WHERE entity_id=:e_id""", {'e_id': entity_id})
+        WHERE entity_id=:e_id""", {'e_id': int(entity_id)})
         try:
             del self.__in_db
         except AttributeError:

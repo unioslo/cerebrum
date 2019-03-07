@@ -27,13 +27,11 @@ import sys
 
 import six
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
-del cerebrum_path
 
 logger = Factory.get_logger("cronjob")
 

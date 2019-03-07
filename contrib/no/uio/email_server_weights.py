@@ -45,12 +45,10 @@ that of the fullest server.
 import sys
 import argparse
 import re
-import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.Email import EmailQuota, EmailServer
 
-del cerebrum_path
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)

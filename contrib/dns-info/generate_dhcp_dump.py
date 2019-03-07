@@ -24,14 +24,12 @@ from __future__ import unicode_literals
 import sys
 import getopt
 
-import cerebrum_path
 
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules.dns import IPNumber, IPv6Number
 
 
-del cerebrum_path
 
 progname = __file__.split("/")[-1]
 
