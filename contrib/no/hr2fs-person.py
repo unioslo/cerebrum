@@ -536,7 +536,6 @@ class HR2FSSyncer(object):
     def _create_ansattnr_cache(self, ansattnr_code_str="NO_SAPNO"):
         """Create a personnr to ansattnr cache."""
         pe = Factory.get('Person')(self.db)
-        self.ansattnr_code
         self.ansattnr_cache = {}
         for row in pe.search_external_ids(
                 source_system=self.authoritative_system,
