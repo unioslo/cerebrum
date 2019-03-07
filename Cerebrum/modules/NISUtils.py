@@ -93,7 +93,7 @@ class Passwd(object):
         self.auth_method = auth_method
         self.user_exporter = UserExporter(db)
 
-        self.shells = self.user_exporter.make_shells_cache()
+        self.shells = self.user_exporter.shell_code2str()
         self.gid2posix_gid = self.user_exporter.make_posix_gid_cache()
         self.quarantine_cache = self.user_exporter.make_quarantine_cache(
             spread

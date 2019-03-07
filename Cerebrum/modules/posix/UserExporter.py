@@ -61,7 +61,7 @@ class UserExporter(object):
         return quarantine_cache
 
     @clock_time
-    def make_shells_cache(self):
+    def shell_code2str(self):
         shells = dict(
             (int(c), six.text_type(c)) for c in
             self.co.fetch_constants(self.co.PosixShell)
