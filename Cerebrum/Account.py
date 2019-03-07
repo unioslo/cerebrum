@@ -561,10 +561,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             group.write_db()
         self.write_db()
 
-        # Delete password
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=account_authentication]
-        WHERE account_id=:a_id""", {'a_id': self.entity_id})
+        self.del_password()
 
     def delete(self):
         """Really, really remove the account, homedir, account types and the
@@ -745,6 +742,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
 
         if notimplemented:
             raise Errors.NotImplementedAuthTypeError("\n".join(notimplemented))
+
+    def delete_password(self):
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=account_authentication]
+        WHERE account_id=:a_id""", {'a_id': self.entity_id})
 
     def encrypt_password(self, method, plaintext, salt=None, binary=False):
         """Returns the plaintext hashed according to the specified
