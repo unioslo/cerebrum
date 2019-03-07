@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #
 # This script is based on the deprecated script contrib/generate_nismaps.py.
-# It can be viewed in commit fa5d2d10bcd.
+# It can be viewed in commit 851446bf25a6e69b87db7e7cea6c870a1ab3f0cd.
 
 import argparse
 import logging
