@@ -38,6 +38,7 @@ TODO: this script must be more robust and pretty (but first we make it work)
 """
 
 
+import argparse
 import time
 import os
 import mx
@@ -269,10 +270,16 @@ def set_operator(entity_id=None):
 def main():
     global start_time, max_requests
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'outfile_dir',
+        help='set output file directory')
+
+    args = parser.parse_args()
+
     del_list = []
     date = "%d-%d-%d" % time.localtime()[:3]
-    outfile_dir = '/cerebrum/var/cache/Delete/'
-    outfile = outfile_dir + str(date) + '-' + str(os.getpid()) + '-slettes.dat'
+    outfile = args.outfile_dir + date + '-' + str(os.getpid()) + '-slettes.dat'
     max_requests = 999999
     start_time = time.time()
 
@@ -284,6 +291,7 @@ def main():
             stream.write(i)
             stream.write('\n')
         stream.close()
+
 
 if __name__ == '__main__':
     main()
