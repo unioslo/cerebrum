@@ -29,13 +29,13 @@ affiliations).
 A typical usage is to check the OU structure for obvious organizational errors
 or to generate (part of) a report.
 
-To check a file, use something like this:
+To check a file, use something like this::
 
-python output-ou-structure.py -f system_fs:ou.xml
+    python output-ou-structure.py -f system_fs:ou.xml
 
-To check Cerebrum content, use something like this:
+To check Cerebrum content, use something like this::
 
-python output-ou-structure.py -p perspective_fs
+    python output-ou-structure.py -p perspective_fs
 
 This script will detect all cycles in the structure if any are present and will
 output them all. However, if the cycle is large, it may prove difficult to make
@@ -44,25 +44,27 @@ sense of it.
 Multiple files may be supplied (even from multiple sources -- system_fs,
 system_lt, system_sap). However, only one perspective may be specified, and
 perspective-as-source and files-as-source are mutually exclusive.
+
 """
 
 from __future__ import unicode_literals
 
-from collections import deque
 import argparse
+from collections import deque
+from six import text_type
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 
 
 def sko2str(fak, inst, grp):
-    return "%02d%02d%02d" % (fak, inst, grp)
+    return "{:02d}{:02d}{:02d}".format(fak, inst, grp)
 
 
 def build_ids(seq):
     """Try to normalize a bunch of ids.
 
-    Return a sequence of str representing identifications in seq.
+    Return a sequence of strings representing identifications in seq.
 
     seq can be a sequence of <T> or a sequence of pairs (x, y), where x is id
     tag and y the id itself.
@@ -71,10 +73,10 @@ def build_ids(seq):
     def stringify(obj):
         if isinstance(obj, (int, long)):
             if 0 <= obj < 100:
-                return "%02d" % obj
+                return "{:02d}".format(obj)
         elif isinstance(obj, (list, tuple, set)):
             return "".join(stringify(x) for x in obj)
-        return str(obj)
+        return text_type(obj)
 
     result = set()
     if not isinstance(seq, (set, list, tuple)):
@@ -82,7 +84,7 @@ def build_ids(seq):
 
     for entry in seq:
         if isinstance(entry, (list, tuple)) and len(entry) == 2:
-            entry = "%s=%s" % (stringify(entry[0]), stringify(entry[1]))
+            entry = "{}={}".format(stringify(entry[0]), stringify(entry[1]))
         elif isinstance(entry, (list, set, tuple)):
             entry = "".join(stringify(x) for x in entry)
         else:
@@ -102,12 +104,12 @@ def detect_cycles_from_node(n, remaining):
     """Determine if there is a cycle with n in it."""
 
     def output_cycle(n):
-        print("Cycle detected at node", n)
+        print("Cycle detected at node: {}".format(n).encode('utf-8'))
         tmp = n._parent
         while tmp != n:
-            print("-> {}".format(tmp))
+            print("-> {}".format(tmp).encode('utf-8'))
             tmp = tmp._parent
-        print("-> {}".format(n))
+        print("-> {}".format(n).encode('utf-8'))
 
     # nodes currently being processed
     marked = set()
@@ -183,7 +185,7 @@ class Node(object):
         return self._all_ids == other._all_ids
 
     def __str__(self):
-        return "%s %s %d child(ren)" % (
+        return "{} {} {} child(ren)".format(
             self.node_id,
             sorted(tuple(x for x in self._all_ids if x != self.node_id)),
             len(self._children))
@@ -198,16 +200,18 @@ class Node(object):
 
     def typeset(self, boss_mode):
         """Create a human-friendly representation of self."""
-        prefix = "%s %s %s" % (
+        prefix = "{} {} {}".format(
             self._has_affiliations and '*' or ' ',
-            self.node_id, self.name,)
-        postfix = " %d child node(s)" % len(self._children)
+            self.node_id,
+            self.name,
+        )
+        postfix = " - {} child node(s)".format(len(self._children))
 
         if boss_mode:
             return prefix + postfix
 
-        ids = "%s" % sorted(tuple(x for x in self._all_ids
-                                  if x != self.node_id))
+        ids = "{}".format(sorted(tuple(x for x in self._all_ids
+                                       if x != self.node_id)))
         return prefix + ids + postfix
 
     def children(self):
@@ -258,23 +262,24 @@ def create_root_set(nodes):
         if parent_node:
             parent_node.add_child(node)
 
-    print("Collected %d nodes (%d in the root set)" % (len(nodes),
-                                                       len(root_set)))
+    print("Collected {} nodes ({} in the root set)".format(len(nodes),
+                                                           len(root_set)))
     return root_set
 
 
 def build_tree_from_files(sources):
     """Scan sources and build the OU tree structure for that file."""
 
-    const = Factory.get("Constants")()
+    co = Factory.get("Constants")()
     nodes = dict()
 
     for (source_system, filename) in sources:
-        source = const.human2constant(source_system, const.AuthoritativeSystem)
-        parser = system2parser(str(source)) or system2parser(source_system)
+        source = co.human2constant(source_system, co.AuthoritativeSystem)
+        parser = (system2parser(text_type(source)) or
+                  system2parser(source_system))
         if not parser:
-            raise RuntimeError("Cannot determine source system from %s" %
-                               str(source_system))
+            raise RuntimeError("Cannot determine source system: {!s}"
+                               .format(source_system))
 
         parser = parser(filename, None)
         for xml_ou in parser.iter_ou():
@@ -289,16 +294,15 @@ def build_tree_from_files(sources):
 
 def build_tree_from_db(ou_perspective):
     """Use Cerebrum as source to build an OU root set."""
-
-    const = Factory.get("Constants")()
+    co = Factory.get("Constants")()
     db = Factory.get("Database")()
-    perspective = const.human2constant(ou_perspective,
-                                       const.OUPerspective)
+    perspective = co.human2constant(ou_perspective,
+                                    co.OUPerspective)
     if not perspective:
-        print("No match for perspective «%s». Available options: %s" % (
+        print("No match for perspective «{}». Available options: {}".format(
             ou_perspective,
-            ", ".join(str(x)
-                      for x in const.fetch_constants(const.OUPerspective))))
+            ", ".join(text_type(x) for x in
+                      co.fetch_constants(co.OUPerspective))))
         return set()
 
     ou = Factory.get("OU")(db)
@@ -312,7 +316,7 @@ def build_tree_from_db(ou_perspective):
         ou.find(row["ou_id"])
         sko = sko2str(ou.fakultet, ou.institutt, ou.avdeling)
         ids = set((("id", ou.entity_id), ("sko", sko)))
-        ids.update((str(const.EntityExternalId(x["id_type"])),
+        ids.update((text_type(co.EntityExternalId(x["id_type"])),
                     x["external_id"])
                    for x in ou.get_external_id())
         try:
@@ -320,12 +324,12 @@ def build_tree_from_db(ou_perspective):
         except Exception:
             parent = None
 
-        ou_name = ou.get_name_with_language(name_variant=const.ou_name,
-                                            name_language=const.language_nb,
+        ou_name = ou.get_name_with_language(name_variant=co.ou_name,
+                                            name_language=co.language_nb,
                                             default="")
         ou_acronym = ou.get_name_with_language(
-            name_variant=const.ou_name_acronym,
-            name_language=const.language_nb,
+            name_variant=co.ou_name_acronym,
+            name_language=co.language_nb,
             default="")
         node = Node(sko, ou_name, ou_acronym, parent, ids,
                     bool(person.list_affiliations(ou_id=ou.entity_id)))
@@ -339,41 +343,43 @@ def build_tree_from_db(ou_perspective):
 
 def output_tree(root_set, boss_mode, indent=0):
     """Output a tree in a human-friendly fashion."""
-
     prefix = "  "
     for node in sort_nodes(root_set):
-        print("%s[%d] %s" % (prefix*indent, indent+1, node.typeset(boss_mode)))
+        out = "{}[{}] {}".format(prefix*indent, indent+1,
+                                 node.typeset(boss_mode))
+        print(out.encode('utf-8'))
         output_tree(node.children(), boss_mode, indent+1)
 
 
 def main():
     parser = argparse.ArgumentParser(
-                description="Print OU structure from certain perspective")
+        description="Print an OU structure in human-friendly fashion."
+    )
     parser.add_argument(
-            '-b', '--boss-mode',
-            dest='boss_mode',
-            action='store_true',
-            help="Print less details in output"
-            )
+        '-b', '--boss-mode',
+        dest='boss_mode',
+        action='store_true',
+        help="Print less details in output"
+    )
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument(
-            '-p', '--perspective',
-            metavar='SYSTEM',
-            help="What system's perspective to use for hierarchy"
-            )
+        '-p', '--perspective',
+        help="What perspective to use for hierarchy, e.g. FS"
+    )
     source.add_argument(
-            '-f', '--file',
-            dest='files',
-            metavar='SYSTEM:FILENAME',
-            action='append',
-            help="File to read OU structure from, e.g. system_fs:ou.xml"
-            )
+        '-f', '--file',
+        dest='files',
+        metavar='SYSTEM:FILENAME',
+        action='append',
+        help="File to read OU structure from, e.g. system_fs:ou.xml. "
+             "Defaults to read from Cerebrum's db."
+    )
     args = parser.parse_args()
-    sources = [s.split(':', 1) for s in args.files]
-    # ((source_system, source_file)…)
 
-    if sources:
-        root_set = build_tree_from_files(args.sources)
+    if args.files:
+        sources = [s.split(':', 1) for s in args.files]
+        # ((source_system, source_file)…)
+        root_set = build_tree_from_files(sources)
     else:
         root_set = build_tree_from_db(args.perspective)
 
