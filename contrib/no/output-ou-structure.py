@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2011 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2011, 2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,7 +23,8 @@
 
 This script presents the OU structure in a human-friendly fashion. We look at
 either the OU structure from the specified data file OR from Cerebrum. The
-latter version fetches additional data (such as associated people affiliations).
+latter version fetches additional data (such as associated people
+affiliations).
 
 A typical usage is to check the OU structure for obvious organizational errors
 or to generate (part of) a report.
@@ -49,18 +50,13 @@ from collections import deque
 import getopt
 import sys
 
-import cerebrum_path
-import cereconf
-
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
-
 
 
 def sko2str(fak, inst, grp):
     return "%02d%02d%02d" % (fak, inst, grp)
 # end sko2str
-
 
 
 def build_ids(seq):
@@ -82,7 +78,7 @@ def build_ids(seq):
 
     result = set()
     if not isinstance(seq, (set, list, tuple)):
-        seq = [seq,]
+        seq = [seq]
 
     for entry in seq:
         if isinstance(entry, (list, tuple)) and len(entry) == 2:
@@ -92,32 +88,26 @@ def build_ids(seq):
         else:
             entry = stringify(entry)
         result.add(entry)
-            
-    return result
-# end build_ids
 
+    return result
 
 
 def sort_nodes(node_seq):
     """Return the same sequence, but sorted by node_id."""
-    
     return sorted(node_seq,
                   cmp=lambda x, y: cmp(x.node_id, y.node_id))
-# end sort_nodes
-
 
 
 def detect_cycles_from_node(n, remaining):
     """Determine if there is a cycle with n in it."""
 
     def output_cycle(n):
-        print "Cycle detected at node", n
+        print("Cycle detected at node", n)
         tmp = n._parent
         while tmp != n:
-            print "->", tmp
+            print("-> {}".format(tmp))
             tmp = tmp._parent
-        print "->", n
-    # end output_cycle
+        print("-> {}".format(n))
 
     # nodes currently being processed
     marked = set()
@@ -137,8 +127,6 @@ def detect_cycles_from_node(n, remaining):
         queue.extend(x.children())
 
     return has_cycles
-# end detect_cycles_from_node
-    
 
 
 def set_has_cycles(nodes):
@@ -152,10 +140,8 @@ def set_has_cycles(nodes):
     while remaining:
         n = remaining.pop()
         has_cycles |= detect_cycles_from_node(n, remaining)
-    
-    return has_cycles
-# end set_has_cycles
 
+    return has_cycles
 
 
 class Node(object):
@@ -172,8 +158,6 @@ class Node(object):
         self._parent = None
         self._children = dict()
         self._has_affiliations = has_affiliations
-    # end __init__
-
 
     def add_child(self, child_node):
         """Add a child node to this Node.
@@ -189,29 +173,20 @@ class Node(object):
 
         child_node._parent = self
         assert self.node_id == child_node.parent_id
-    # end add_child
-
 
     def __hash__(self):
         return hash(self.node_id)
-    # end __hash__
-    
 
     def __eq__(self, other):
         if self.__class__ != other.__class__:
             return False
-
         return self._all_ids == other._all_ids
-    # end __eq__
-
 
     def __str__(self):
         return "%s %s %d child(ren)" % (
             self.node_id,
             sorted(tuple(x for x in self._all_ids if x != self.node_id)),
             len(self._children))
-    # end __str__
-
 
     def is_root(self):
         """Is self a root node?
@@ -219,50 +194,42 @@ class Node(object):
         Root nodes are those without parent_id or with parent_id equal to own
         id.
         """
-
         return self.parent_id is None or self.parent_id == self.node_id
-    # end is_root
-    
 
     def typeset(self, boss_mode):
         """Create a human-friendly representation of self."""
-
         prefix = "%s %s %s" % (
             self._has_affiliations and '*' or ' ',
             self.node_id, self.name,)
         postfix = " %d child node(s)" % len(self._children)
-        
+
         if boss_mode:
             return prefix + postfix
 
-        ids = "%s" % sorted(tuple(x for x in self._all_ids if x != self.node_id))
+        ids = "%s" % sorted(tuple(x for x in self._all_ids
+                                  if x != self.node_id))
         return prefix + ids + postfix
-    # end typeset
-    
-    
+
     def children(self):
         """Return all children nodes sorted by node_id."""
-        
         return sort_nodes(self._children.itervalues())
-    # end children
-# end Node
-        
 
 
 def build_node_from_file(xml_ou):
     """Build an output node from XML data on file
 
     @param xml_ou:
-      A representation of the XML OU data on file -- xml2object.DataOU instance.
-    """
+      A representation of the XML OU data on file -- xml2object.DataOU
+      instance.
 
+    """
     def extract_value(thing):
         if thing:
             if isinstance(thing, (list, tuple)):
                 return thing[0].value
             return thing.value
         return None
-    
+
     node_id = sko2str(*xml_ou.get_id(xml_ou.NO_SKO))
     acronym = extract_value(xml_ou.get_name(xml_ou.NAME_ACRONYM))
     name = extract_value(xml_ou.get_name(xml_ou.NAME_LONG) or
@@ -274,8 +241,6 @@ def build_node_from_file(xml_ou):
         parent_id = None
 
     return Node(node_id, name, acronym, parent_id, tuple(xml_ou.iterids()))
-# end build_node_from_file
-
 
 
 def create_root_set(nodes):
@@ -293,11 +258,9 @@ def create_root_set(nodes):
         if parent_node:
             parent_node.add_child(node)
 
-    print "Collected %d nodes (%d in the root set)" % (len(nodes),
-                                                       len(root_set))
+    print("Collected %d nodes (%d in the root set)" % (len(nodes),
+                                                       len(root_set)))
     return root_set
-# end create_root_set
-
 
 
 def build_tree_from_files(sources):
@@ -305,7 +268,7 @@ def build_tree_from_files(sources):
 
     const = Factory.get("Constants")()
     nodes = dict()
-    
+
     for (source_system, filename) in sources:
         source = const.human2constant(source_system, const.AuthoritativeSystem)
         parser = system2parser(str(source)) or system2parser(source_system)
@@ -322,8 +285,6 @@ def build_tree_from_files(sources):
     if set_has_cycles(nodes):
         return set()
     return rs
-# end build_tree_from_files
-
 
 
 def build_tree_from_db(ou_perspective):
@@ -334,12 +295,12 @@ def build_tree_from_db(ou_perspective):
     perspective = const.human2constant(ou_perspective,
                                        const.OUPerspective)
     if not perspective:
-        print "No match for perspective «%s». Available options: %s" % (
+        print("No match for perspective Â«%sÂ». Available options: %s" % (
             ou_perspective,
             ", ".join(str(x)
-                      for x in const.fetch_constants(const.OUPerspective)))
+                      for x in const.fetch_constants(const.OUPerspective))))
         return set()
-        
+
     ou = Factory.get("OU")(db)
     person = Factory.get("Person")(db)
     ou_id2sko = dict((r["ou_id"],
@@ -351,11 +312,12 @@ def build_tree_from_db(ou_perspective):
         ou.find(row["ou_id"])
         sko = sko2str(ou.fakultet, ou.institutt, ou.avdeling)
         ids = set((("id", ou.entity_id), ("sko", sko)))
-        ids.update((str(const.EntityExternalId(x["id_type"])), x["external_id"])
+        ids.update((str(const.EntityExternalId(x["id_type"])),
+                    x["external_id"])
                    for x in ou.get_external_id())
         try:
             parent = ou_id2sko.get(ou.get_parent(perspective))
-        except:
+        except Exception:
             parent = None
 
         ou_name = ou.get_name_with_language(name_variant=const.ou_name,
@@ -373,8 +335,6 @@ def build_tree_from_db(ou_perspective):
     if set_has_cycles(nodes):
         return set()
     return rs
-# end build_tree_from_db
-
 
 
 def output_tree(root_set, boss_mode, indent=0):
@@ -382,10 +342,8 @@ def output_tree(root_set, boss_mode, indent=0):
 
     prefix = "  "
     for node in sort_nodes(root_set):
-        print "%s[%d] %s" % (prefix*indent, indent+1, node.typeset(boss_mode))
+        print("%s[%d] %s" % (prefix*indent, indent+1, node.typeset(boss_mode)))
         output_tree(node.children(), boss_mode, indent+1)
-# end output_tree
-
 
 
 def main():
@@ -394,7 +352,6 @@ def main():
                                ("file=",
                                 "perspective=",
                                 "boss-mode",))
-
     sources = list()
     perspective = None
     boss_mode = False
@@ -406,7 +363,7 @@ def main():
             perspective = value
         elif option in ("-b", "--boss-mode",):
             boss_mode = True
-    
+
     assert not (sources and perspective), \
            "You cannot specify *both* perspective and source"
 
@@ -416,8 +373,6 @@ def main():
         root_set = build_tree_from_db(perspective)
 
     output_tree(root_set, boss_mode)
-# end main
-
 
 
 if __name__ == "__main__":
