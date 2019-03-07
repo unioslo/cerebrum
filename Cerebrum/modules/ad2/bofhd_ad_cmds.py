@@ -293,7 +293,7 @@ class BofhdExtension(BofhdCommandBase):
         except Errors.NotFoundError:
             raise CerebrumError(
                 '%s does not have AD-attribute %s with spread %s' %
-                (self._get_entity_name(ent.entity_id),
+                (ent.entity_id,
                  six.text_type(atr),
                  six.text_type(spr))
             )
