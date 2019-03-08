@@ -154,7 +154,7 @@ class Entity(DatabaseAccessor):
             VALUES (:e_id, :e_type)
             RETURNING created_at""", {'e_id': self.entity_id,
                                       'e_type': int(self.entity_type)})
-            self._db.log_change(self.entity_id, self.const.entity_add, None)
+            self._db.log_change(self.entity_id, self.clconst.entity_add, None)
         else:
             # Don't need to do anything as entity type can't change
             pass
@@ -188,14 +188,18 @@ class Entity(DatabaseAccessor):
     def find(self, entity_id):
         """Associate the object with the entity whose identifier is ENTITY_ID.
 
-        If ENTITY_ID isn't an existing entity identifier,
+        If ENTITY_ID isn't an existing entity identifier including None,
         NotFoundError is raised.
 
+        If ENTITY_ID input isn't an int, ValueError is raised.
+
         """
+        if entity_id is None:
+            raise Errors.NotFoundError
         self.entity_id, self.entity_type, self.created_at = self.query_1("""
         SELECT entity_id, entity_type, created_at
         FROM [:table schema=cerebrum name=entity_info]
-        WHERE entity_id=:e_id""", {'e_id': entity_id})
+        WHERE entity_id=:e_id""", {'e_id': int(entity_id)})
         try:
             del self.__in_db
         except AttributeError:
@@ -211,7 +215,7 @@ class Entity(DatabaseAccessor):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:e_id""", {'e_id': self.entity_id})
-        self._db.log_change(self.entity_id, self.const.entity_del, None)
+        self._db.log_change(self.entity_id, self.clconst.entity_del, None)
         self.clear()
 
     def get_delete_blockers(self, ignore_group_memberships=False, **kw):
@@ -346,12 +350,12 @@ class EntitySpread(Entity):
             where.append(argument_to_sql(entity_types, "sc.entity_type", binds,
                                          int))
         return self.query("""
-            SELECT sc.code as spread_code, sc.code_str as spread,
-                   sc.description as description, sc.entity_type as entity_type,
-                   et.code_str as entity_type_str
-              FROM [:table schema=cerebrum name=spread_code] sc,
-                   [:table schema=cerebrum name=entity_type_code] et
-             WHERE """ + " AND ".join(where) + " ORDER BY entity_type", binds)
+           SELECT sc.code as spread_code, sc.code_str as spread,
+                  sc.description as description, sc.entity_type as entity_type,
+                  et.code_str as entity_type_str
+             FROM [:table schema=cerebrum name=spread_code] sc,
+                  [:table schema=cerebrum name=entity_type_code] et
+            WHERE """ + " AND ".join(where) + " ORDER BY entity_type", binds)
 
     def has_spread(self, spread):
         """Return true if entity has spread."""
@@ -386,7 +390,7 @@ class EntityName(Entity):
                           {'e_id': self.entity_id})
 
     def add_entity_name(self, domain, name):
-        self._db.log_change(self.entity_id, self.const.entity_name_add, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_name_add, None,
                             change_params={'domain': int(domain),
                                            'name': name})
         return self.execute("""
@@ -397,7 +401,7 @@ class EntityName(Entity):
                                             'name': name})
 
     def delete_entity_name(self, domain):
-        self._db.log_change(self.entity_id, self.const.entity_name_del, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_name_del, None,
                             change_params={'domain': int(domain),
                                            'name': self.get_name(int(domain))})
         return self.execute("""
@@ -407,7 +411,8 @@ class EntityName(Entity):
                              'domain': int(domain)})
 
     def update_entity_name(self, domain, name):
-        if int(domain) in [int(self.const.ValueDomain(code_str)) for code_str in
+        if int(domain) in [int(self.const.ValueDomain(code_str))
+                           for code_str in
                            cereconf.NAME_DOMAINS_THAT_DENY_CHANGE]:
             raise self._db.IntegrityError(
                 "Name change illegal for the domain: %s" % domain)
@@ -418,7 +423,7 @@ class EntityName(Entity):
                      {'e_id': self.entity_id,
                       'domain': int(domain),
                       'name': name})
-        self._db.log_change(self.entity_id, self.const.entity_name_mod, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_name_mod, None,
                             change_params={'domain': int(domain),
                                            'name': name})
 
@@ -475,7 +480,8 @@ class EntityNameWithLanguage(Entity):
         @return:
           A tuple <query, binds>, where query is a str containing the SQL and
           binds is a dict with free variables (if any) referenced by
-          query. include_where controls whether query is prefixed with 'WHERE '.
+          query. include_where controls whether query is prefixed with
+          'WHERE '.
         """
 
         binds = {}
@@ -497,7 +503,8 @@ class EntityNameWithLanguage(Entity):
                                 int))
         if name is not None:
             if exact_match:
-                where.append(argument_to_sql(name, "eln.name", binds, six.text_type))
+                where.append(argument_to_sql(name, "eln.name", binds,
+                                             six.text_type))
             else:
                 name_pattern = prepare_string(name)
                 if name_pattern.count('%') == 0:
@@ -510,17 +517,6 @@ class EntityNameWithLanguage(Entity):
             where = " WHERE " + where
 
         return where, binds
-
-    def find_by_name_with_language(self, name_variant=None, name_language=None,
-                                   name=None):
-        """Locate the one entity matching the language name filters."""
-        where, binds = self._query_builder(None, name_variant, name_language,
-                                           name)
-        entity_id = self.query_1("""
-        SELECT entity_id
-        FROM [:table schema=cerebrum name=entity_language_name] eln
-        %s""" % where, binds)
-        return self.find(entity_id)
 
     def add_name_with_language(self, name_variant, name_language, name):
         """Add or update a specific language name."""
@@ -550,7 +546,7 @@ class EntityNameWithLanguage(Entity):
                   name_language = :name_language
             """, binds)
             self._db.log_change(
-                self.entity_id, self.const.entity_name_mod, None,
+                self.entity_id, self.clconst.entity_name_mod, None,
                 change_params=change_params)
         else:
             rv = self.execute("""
@@ -558,7 +554,7 @@ class EntityNameWithLanguage(Entity):
             VALUES (:entity_id, :name_variant, :name_language, :name)
             """, binds)
             self._db.log_change(
-                self.entity_id, self.const.entity_name_add, None,
+                self.entity_id, self.clconst.entity_name_add, None,
                 change_params=change_params)
             return rv
 
@@ -595,7 +591,7 @@ class EntityNameWithLanguage(Entity):
             change_params = {'name_variant': six.text_type(name_variant),
                              'name_language': six.text_type(name_language),
                              'name': name}
-            self._db.log_change(self.entity_id, self.const.entity_name_del,
+            self._db.log_change(self.entity_id, self.clconst.entity_name_del,
                                 None, change_params=change_params)
         return rv
 
@@ -635,9 +631,9 @@ class EntityNameWithLanguage(Entity):
         @param name_language: Filter result by given languages.
 
         @type name: string
-        @param name: Filter by given name. Could contain wildcards, like % or ?.
-            The character * gets swapped out with %. Note that L{exact_match}
-            affects this string.
+        @param name: Filter by given name. Could contain wildcards, like % or
+        ?. The character * gets swapped out with %. Note that L{exact_match}
+        affects this string.
 
         @type exact_match: bool
         @param exact_match:
@@ -738,7 +734,8 @@ class EntityContactInfo(Entity):
                       'value': value,
                       'desc': description,
                       'alias': alias})
-        self._db.log_change(self.entity_id, self.const.entity_cinfo_add, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_cinfo_add,
+                            None,
                             change_params={'type': int(type),
                                            'value': value,
                                            'src': int(source)})
@@ -838,7 +835,8 @@ class EntityContactInfo(Entity):
           contact_type=:c_type"""
         if six.text_type(pref) != 'ALL':
             sql += """ AND contact_pref=:pref"""
-        self._db.log_change(self.entity_id, self.const.entity_cinfo_del, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_cinfo_del,
+                            None,
                             change_params={'type': int(contact_type),
                                            'src': int(source)})
         return self.execute(sql, {'e_id': self.entity_id,
@@ -1058,7 +1056,7 @@ class EntityAddress(Entity):
                       'p_num': postal_number,
                       'city': city,
                       'country': country})
-        self._db.log_change(self.entity_id, self.const.entity_addr_add, None)
+        self._db.log_change(self.entity_id, self.clconst.entity_addr_add, None)
 
     def delete_entity_address(self, source_type, a_type):
         self.execute("""
@@ -1069,7 +1067,7 @@ class EntityAddress(Entity):
                      {'e_id': self.entity_id,
                       'src': int(source_type),
                       'a_type': int(a_type)})
-        self._db.log_change(self.entity_id, self.const.entity_addr_del, None)
+        self._db.log_change(self.entity_id, self.clconst.entity_addr_del, None)
 
     def get_entity_address(self, source=None, type=None):
         cols = {'entity_id': int(self.entity_id)}
@@ -1103,10 +1101,12 @@ class EntityAddress(Entity):
             where.append(argument_to_sql(source_system, 'ea.source_system',
                                          binds, int))
         if address_type is not None:
-            where.append(argument_to_sql(address_type, 'ea.address_type', binds,
+            where.append(argument_to_sql(address_type, 'ea.address_type',
+                                         binds,
                                          int))
         if entity_id is not None:
-            where.append(argument_to_sql(entity_id, 'ea.entity_id', binds, int))
+            where.append(argument_to_sql(entity_id, 'ea.entity_id', binds,
+                                         int))
 
         where_str = ''
         if where:
@@ -1155,7 +1155,7 @@ class EntityQuarantine(Entity):
              'end_date': end})
 
         self._db.log_change(self.entity_id,
-                            self.const.quarantine_add,
+                            self.clconst.quarantine_add,
                             None,
                             change_params={'q_type': qtype,
                                            'start': start,
@@ -1220,7 +1220,7 @@ class EntityQuarantine(Entity):
                      {'e_id': self.entity_id,
                       'q_type': int(qtype),
                       'd_until': until})
-        self._db.log_change(self.entity_id, self.const.quarantine_mod,
+        self._db.log_change(self.entity_id, self.clconst.quarantine_mod,
                             None, change_params={'q_type': int(qtype)})
 
     def delete_entity_quarantine(self, qtype):
@@ -1238,7 +1238,7 @@ class EntityQuarantine(Entity):
                      {'e_id': self.entity_id,
                       'q_type': int(qtype)})
         if self._db.rowcount:
-            self._db.log_change(self.entity_id, self.const.quarantine_del,
+            self._db.log_change(self.entity_id, self.clconst.quarantine_del,
                                 None, change_params={'q_type': int(qtype)})
             return True
         return False
@@ -1350,7 +1350,8 @@ class EntityExternalId(Entity):
                      {'p_id': self.entity_id,
                       'id_type': int(id_type),
                       'src': int(source_system)})
-        self._db.log_change(self.entity_id, self.const.entity_ext_id_del, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_ext_id_del,
+                            None,
                             change_params={'id_type': int(id_type),
                                            'src': int(source_system)})
 
@@ -1359,18 +1360,20 @@ class EntityExternalId(Entity):
         if update:
             sql = """UPDATE [:table schema=cerebrum name=entity_external_id]
             SET external_id=:ext_id
-            WHERE entity_id=:e_id AND id_type=:id_type AND source_system=:src"""
+            WHERE entity_id=:e_id AND id_type=:id_type AND source_system=:src
+            """
             self._db.log_change(
-                self.entity_id, self.const.entity_ext_id_mod, None,
+                self.entity_id, self.clconst.entity_ext_id_mod, None,
                 change_params={'id_type': int(id_type),
                                'src': int(source_system),
                                'value': external_id})
         else:
-            sql = """INSERT INTO [:table schema=cerebrum name=entity_external_id]
+            sql = """
+            INSERT INTO [:table schema=cerebrum name=entity_external_id]
             (entity_id, entity_type, id_type, source_system, external_id)
             VALUES (:e_id, :e_type, :id_type, :src, :ext_id)"""
             self._db.log_change(
-                self.entity_id, self.const.entity_ext_id_add, None,
+                self.entity_id, self.clconst.entity_ext_id_add, None,
                 change_params={'id_type': int(id_type),
                                'src': int(source_system),
                                'value': external_id})
@@ -1381,62 +1384,29 @@ class EntityExternalId(Entity):
                            'ext_id': external_id})
 
     def get_external_id(self, source_system=None, id_type=None):
-        cols = {'entity_id': int(self.entity_id),
-                'entity_type': int(self.entity_type)}
+        binds = dict()
+        where = list()
+
+        where.append(argument_to_sql(self.entity_id, 'entity_id', binds, int))
+        where.append(argument_to_sql(self.entity_type, 'entity_type', binds,
+                                     int))
         if source_system is not None:
-            cols['source_system'] = int(source_system)
+            where.append(argument_to_sql(source_system, "source_system", binds,
+                                         int))
         if id_type is not None:
-            cols['id_type'] = int(id_type)
+            where.append(argument_to_sql(id_type, "id_type", binds, int))
+
+        where_str = 'WHERE %s' % ' AND '.join(where)
+
         return self.query("""
         SELECT id_type, source_system, external_id
         FROM [:table schema=cerebrum name=entity_external_id]
-        WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
-                                   for x in cols.keys()]), cols)
-
-    def list_external_ids(self, source_system=None, id_type=None,
-                          external_id=None, entity_type=None, entity_id=None):
-        """We trust id_type's entity_type more than a supplemented
-        attribute, hence we try that first.
-
-        TODO: Migrate over to L{search_external_ids}?
-
-        @param source_system:
-          Source system for the external ID (SAP, LT, FS, etc.)
-        @param id_type:
-          Specific external ID type (like externalid_fodselsnr)
-        @param external_id:
-          Value for the external ID (useful for looking up the owner of a
-          particular external ID).
-        @param entity_type:
-          Looks for a specific entity type (i.e. Person, OU).
-        @param entity_id:
-          Looks for a specific entity (useful for looking up (all) external ids
-          belonging to a specific entity)
-        """
-        cols = {}
-        where = ""
-        if id_type:
-            cols['entity_type'] = int(id_type.entity_type)
-        elif entity_type:
-            cols['entity_type'] = int(entity_type)
-        if source_system is not None:
-            cols['source_system'] = int(source_system)
-        if id_type is not None:
-            cols['id_type'] = int(id_type)
-        if external_id is not None:
-            cols['external_id'] = six.text_type(external_id)
-        if entity_id is not None:
-            cols['entity_id'] = int(entity_id)
-        if cols:
-            where = ("WHERE " +
-                     " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()]))
-        return self.query("""
-        SELECT entity_id, id_type, source_system, external_id
-        FROM [:table schema=cerebrum name=entity_external_id]
-        %s""" % where, cols, fetchall=False)
+        %s
+        """ % where_str, binds)
 
     def search_external_ids(self, source_system=None, id_type=None,
-                            external_id=None, entity_type=None, entity_id=None):
+                            external_id=None, entity_type=None,
+                            entity_id=None, fetchall=True):
         """Search for external IDs matching specified criteria.
 
         @type source_system: int or AuthoritativeSystemCode or sequence thereof
@@ -1461,8 +1431,12 @@ class EntityExternalId(Entity):
 
         @type entity_id: int or sequence therof
         @param entity_id:
-            Filter resulting IDs by given entitites. Useful for looking up (all)
-            external ids belonging to a specific entity).
+            Filter resulting IDs by given entitites. Useful for looking up
+            (all) external ids belonging to a specific entity).
+
+        @type fetchall: bool
+        @param fetchall:
+            Fetch all results or return a generator object with the results.
 
         @rtype: iterable (yielding db-rows)
         @return:
@@ -1494,7 +1468,7 @@ class EntityExternalId(Entity):
         return self.query("""
             SELECT entity_id, entity_type, id_type, source_system, external_id
             FROM [:table schema=cerebrum name=entity_external_id]
-            %s""" % where_str, binds)
+            %s""" % where_str, binds, fetchall=fetchall)
         # TODO: might want to look at setting fetchall, but need to figure out
         # what the ups and downs are. Speed versus memory?
 
@@ -1526,9 +1500,9 @@ class EntityExternalId(Entity):
         self is bound to this particular entity.
 
         :param ids: Each ID should either be a tuple where the first element
-                    denotes an id_type, and the second should be an external_id.
-                    The tuple can also have a third element being the source
-                    system.
+                    denotes an id_type, and the second should be an
+                    external_id. The tuple can also have a third element being
+                    the source system.
                     Else, the id could be a dict with keys 'id_type',
                     'external_id', and 'source_system' (optional). The
                     meaning of each element in ids matches arguments to

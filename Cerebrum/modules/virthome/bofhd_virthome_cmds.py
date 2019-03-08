@@ -202,7 +202,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         if "change_type_id" in event:
             event["change_type"] = str(
-                self.const.ChangeType(event["change_type_id"]))
+                self.clconst.ChangeType(event["change_type_id"]))
         return event
 
     # TODO: Move event processing to Cerebrum.modules.virthome.base
@@ -215,7 +215,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """Perform the necessary magic associated with confirming a freshly
         created account.
         """
-        assert event["change_type_id"] == self.const.va_pending_create
+        assert event["change_type_id"] == self.clconst.va_pending_create
         # Nuke the quarantine that locks this user out from bofhd
         account = self._get_account(event["subject_entity"])
         account.delete_entity_quarantine(self.const.quarantine_pending)
@@ -232,7 +232,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """Perform the necessary magic associated with confirming an e-mail
         change request.
         """
-        assert event["change_type_id"] == self.const.va_email_change
+        assert event["change_type_id"] == self.clconst.va_email_change
 
         params = event["change_params"]
         old_address = params["old"]
@@ -244,7 +244,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # Delete allt the e-mail change requests preceeding this one (why
         # would we want to pollute change_log?)
         for row in self.db.get_log_events(subject_entity=account.entity_id,
-                                          types=self.const.va_email_change,):
+                                          types=self.clconst.va_email_change,):
             if row["tstamp"] < event["tstamp"]:
                 self.db.remove_log_event(row["change_id"])
         # action e_account:pending_email
@@ -259,7 +259,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """Perform the necessary magic associated with letting an account join
         a group.
         """
-        assert event["change_type_id"] == self.const.va_group_invitation
+        assert event["change_type_id"] == self.clconst.va_group_invitation
 
         params = event["change_params"]
         group_id = int(params["group_id"])
@@ -315,7 +315,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         issuer_id MUST BE an FA.
         """
 
-        assert event["change_type_id"] == self.const.va_group_owner_swap
+        assert event["change_type_id"] == self.clconst.va_group_owner_swap
 
         params = event["change_params"]
         new_owner = self._get_account(issuer_id)
@@ -353,7 +353,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         issuer_id MUST BE an FA.
         """
 
-        assert event["change_type_id"] == self.const.va_group_moderator_add
+        assert event["change_type_id"] == self.clconst.va_group_moderator_add
 
         params = event["change_params"]
         new_moderator = self._get_account(issuer_id)
@@ -381,7 +381,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         The request itself carries the 'target' for the password change.
         """
 
-        assert event["change_type_id"] == self.const.va_password_recover
+        assert event["change_type_id"] == self.clconst.va_password_recover
         assert len(rest) == 1
         # FIXME: have a permission trap here for issuer_id?
         params = event["change_params"]
@@ -411,7 +411,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         event['subject_entity'].
         """
 
-        assert event["change_type_id"] == self.const.va_reset_expire_date
+        assert event["change_type_id"] == self.clconst.va_reset_expire_date
         account_id = event["subject_entity"]
         target = self._get_account(account_id)
         if target.np_type not in (self.const.virtaccount_type,
@@ -463,19 +463,19 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # processing can be delegated in a suitable fashion.
         #
         all_events = {
-            self.const.va_pending_create:
+            self.clconst.va_pending_create:
                 self.__process_new_account_request,
-            self.const.va_email_change:
+            self.clconst.va_email_change:
                 self.__process_email_change_request,
-            self.const.va_group_invitation:
+            self.clconst.va_group_invitation:
                 self.__process_group_invitation_request,
-            self.const.va_group_owner_swap:
+            self.clconst.va_group_owner_swap:
                 self.__process_owner_swap_request,
-            self.const.va_group_moderator_add:
+            self.clconst.va_group_moderator_add:
                 self.__process_moderator_add_request,
-            self.const.va_password_recover:
+            self.clconst.va_password_recover:
                 self.__process_password_recover_request,
-            self.const.va_reset_expire_date:
+            self.clconst.va_reset_expire_date:
                 self.__reset_expire_date,
         }
 
@@ -488,9 +488,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         if event_type not in all_events:
             self.logger.warn(
                 "Confirming event %s (id=%s): unknown event type %s",
-                magic_key, event_id, self.const.ChangeType(event_type))
+                magic_key, event_id, self.clconst.ChangeType(event_type))
             raise CerebrumError("Don't know how to process event %s (id=%s)",
-                                self.const.ChangeType(event_type),
+                                self.clconst.ChangeType(event_type),
                                 event_id)
 
         # Run request-specific magic
@@ -587,10 +587,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # check that there actually *is* a request for joining a group behind
         # magic_key.
         request = self.__get_request(magic_key)
-        if request["change_type_id"] != self.const.va_group_invitation:
+        if request["change_type_id"] != self.clconst.va_group_invitation:
             raise CerebrumError(
                 "Illegal command for request type %s",
-                str(self.const.ChangeType(request["change_type_id"])))
+                str(self.clconst.ChangeType(request["change_type_id"])))
 
         # ... check that the group is still there...
         params = request["change_params"]
@@ -922,7 +922,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         pending = "confirmed"
         if list(self.db.get_log_events(subject_entity=account.entity_id,
-                                       types=(self.const.va_pending_create,))):
+                                       types=(self.clconst.va_pending_create,))):
             pending = "pending confirmation"
 
         user_eula = account.get_trait(self.const.trait_user_eula)
@@ -1040,7 +1040,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         magic_key = self.vhutils.setup_event_request(
                         account.entity_id,
-                        self.const.va_email_change,
+                        self.clconst.va_email_change,
                         params={'old': account.get_email_address(),
                                 'new': new_email, })
         return {"entity_id": account.entity_id,
@@ -1106,7 +1106,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # Ok, we are good to go. Make the request.
         magic_key = self.vhutils.setup_event_request(
                         account.entity_id,
-                        self.const.va_password_recover,
+                        self.clconst.va_password_recover,
                         params={"account_id": account.entity_id})
         return {"confirmation_key": magic_key}
 
@@ -1220,7 +1220,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """
 
         group = self._get_group(gname)
-        self.ba.can_delete_group(operator.get_entity_id(), group.entity_id)
+        self.ba.can_force_delete_group(operator.get_entity_id(), group.entity_id)
 
         return {'group': self.virthome.group_disable(group)}
 
@@ -1313,7 +1313,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         ret = {}
         ret['confirmation_key'] = self.vhutils.setup_event_request(
                                       group.entity_id,
-                                      self.const.va_group_owner_swap,
+                                      self.clconst.va_group_owner_swap,
                                       params={'old': owner,
                                               'group_id': group.entity_id,
                                               'new': email, })
@@ -1396,7 +1396,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         ret = {}
         ret['confirmation_key'] = self.vhutils.setup_event_request(
             group.entity_id,
-            self.const.va_group_moderator_add,
+            self.clconst.va_group_moderator_add,
             params={'inviter_id': operator.get_entity_id(),
                     'group_id': group.entity_id,
                     'invitee_mail': email,
@@ -1519,9 +1519,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             "url": self._get_group_resource(group),
             "pending_moderator": self.__load_group_pending_events(
                                           group,
-                                          self.const.va_group_moderator_add),
+                                          self.clconst.va_group_moderator_add),
             "pending_member": self.__load_group_pending_events(
-                group, self.const.va_group_invitation),
+                group, self.clconst.va_group_invitation),
             "forward": self.vhutils.get_trait_val(
                 group, self.const.trait_group_forward), }
         members = dict()
@@ -1739,7 +1739,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         group = self._get_group(groupname)
         gname, gid = group.group_name, group.entity_id
-        self.ba.can_delete_group(operator.get_entity_id(), group.entity_id)
+        self.ba.can_force_delete_group(operator.get_entity_id(), group.entity_id)
         self.group_disable(operator, groupname)
         group.delete()
         return "OK, deleted group '%s' (id=%s)" % (gname, gid)

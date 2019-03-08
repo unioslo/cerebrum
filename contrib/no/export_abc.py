@@ -74,8 +74,6 @@ from Cerebrum.modules.no.access_FS import make_fs
 
 logger = logging.getLogger(__name__)
 
-XML_ENCODING = "iso8859-1"
-
 
 def text_decoder(encoding, allow_none=True):
     def to_text(value):
@@ -342,8 +340,9 @@ def fetch_external_ids(db_person):
     system_weights[None] = unknown_weight + 1
 
     tmp = dict()
-    seq = db_person.list_external_ids(entity_type=constants.entity_person)
-    for entity_id, id_type, source, external_id in seq:
+    seq = db_person.search_external_ids(entity_type=constants.entity_person,
+                                        fetchall=False)
+    for entity_id, entity_type, id_type, source, external_id in seq:
         external_id = u(external_id)
         entity_id, id_type, source = map(int, (entity_id, id_type, source))
 
@@ -921,10 +920,10 @@ def output_ue_relations(ue_info, person_info):
     logger.debug("Done with all UE <relation>s")
 
 
-def generate_report(orgname):
+def generate_report(orgname, encoding):
     """Main driver for the report generation."""
 
-    xmlwriter.startDocument(encoding=XML_ENCODING)
+    xmlwriter.startDocument(encoding=encoding)
     xmlwriter.startElement("document")
 
     # Write out the "header" with all the IDs used later in the file.
@@ -1005,6 +1004,10 @@ def main(inargs=None):
                               'Format: xml_name:contact_type:source_system. '
                               'contact_type and source_system must be valid '
                               'constant names.'))
+    parser.add_argument('-o', '--encoding',
+                        dest='encoding',
+                        default='iso8859-1',
+                        help='Override the default encoding (iso8859-1)')
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
@@ -1039,12 +1042,12 @@ def main(inargs=None):
     fs_db = make_fs()
     with AtomicStreamRecoder(args.filename,
                              mode='w',
-                             encoding=XML_ENCODING) as stream:
+                             encoding=args.encoding) as stream:
         xmlwriter = xmlprinter.xmlprinter(stream,
                                           indent_level=2,
                                           # human-friendly output
                                           data_mode=True)
-        generate_report(args.institution)
+        generate_report(args.institution, args.encoding)
         logger.info('Report written to %s', stream.name)
     logger.info('Done with script %s', parser.prog)
 

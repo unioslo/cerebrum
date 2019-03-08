@@ -127,16 +127,21 @@ annen rolle til Ifi-kursene havner i 'g'-ansvarlige-gruppene.
 
 from __future__ import unicode_literals
 
-import sys
-import getopt
-import re
+import argparse
 import locale
+import logging
+import os
+import re
+import sys
+
 from itertools import izip, repeat
 
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, latin1_wash, NotSet
+from Cerebrum.Utils import Factory, NotSet
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.modules.no.access_FS import roles_xml_parser, make_fs
@@ -144,6 +149,7 @@ from Cerebrum.modules.no.uio.fronter_lib import (UE2KursID, key2fields,
                                                  str2key, fields2key)
 from Cerebrum.modules.xmlutils.fsxml2object import EduGenericIterator
 from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
+from Cerebrum.utils import transliterate
 
 
 # IVR 2007-11-08 FIXME: Should this be in fronter_lib?
@@ -154,6 +160,9 @@ valid_roles = ("ADMIN", "DLO", "FAGANSVAR", "FORELESER", "GJESTEFORE",
 # Roles that are inherited by entities located at a certain sko or at a
 # certain stprog.
 recursive_roles = ("ADMIN", "DLO", "IT-ANSVARL", "STUDIEKONS", "TILSYN",)
+
+
+logger = logging.getLogger(__name__)
 
 
 def make_sko(row, suffix=""):
@@ -257,13 +266,13 @@ def process_role(enhet_id, template_id, roles_mapping,
     stprogroller = roles_mapping.get(fields2key("stprog", stprog), {})
 
     key = str2key(enhet_id)
-    logger.debug("Locating roles for enhet_id <<%s>> (description "
-                 "template: %s). template is %s; key is %s",
-                 enhet_id, description, template_id, key)
+    logger.debug("Locating roles for enhet_id=%r, template_id=%r, "
+                 "key=%r, description=%r",
+                 enhet_id, template_id, key, description)
     if ((key not in roles_mapping) and
             (not stedroller) and
             (not stprogroller)):
-        logger.debug("No roles for enhet %s found", enhet_id)
+        logger.debug("No roles for enhet_id=%r found", enhet_id)
         return
 
     my_roles = roles_mapping.get(key, {})
@@ -335,7 +344,8 @@ def prefetch_primaryusers():
 
     person = Factory.get('Person')(db)
     fnr_source = {}
-    for row in person.list_external_ids(id_type=co.externalid_fodselsnr):
+    for row in person.search_external_ids(id_type=co.externalid_fodselsnr,
+                                          fetchall=False):
         p_id = int(row['entity_id'])
         # It's a bad hack
         if p_id in exclude['persons']:
@@ -345,8 +355,8 @@ def prefetch_primaryusers():
         if fnr in fnr_source and fnr_source[fnr][0] != p_id:
             # Multiple person_info rows have the same fnr (presumably
             # the different fnrs come from different source systems).
-            logger.error("Multiple persons share fnr %s: (%d, %d)" % (
-                fnr, fnr_source[fnr][0], p_id))
+            logger.error("Persons share fnr, check entities: (%d, %d)",
+                         fnr_source[fnr][0], p_id)
             # Determine which person's fnr registration to use.
             source_weight = dict()
             count = len(cereconf.SYSTEM_LOOKUP_ORDER)
@@ -884,7 +894,7 @@ def get_kursakt(edu_info, kursakt_file, edu_file):
     for kursakt in EduDataGetter(kursakt_file, logger).iter_kursakt():
         evu_id = fields2key("evu", kursakt['etterutdkurskode'],
                             kursakt['kurstidsangivelsekode'])
-        logger.debug2('Processing EVU-kurs: %s', evu_id)
+        logger.debug('Processing EVU-kurs: %s', evu_id)
         aktkode = fields2key(kursakt["aktivitetskode"])
         if evu_id not in edu_info:
             logger.error("Ikke-eksisterende EVU-kurs <%s> har aktiviteter "
@@ -1152,8 +1162,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                     aktnavn = m.group(1)
                 else:
                     aktnavn = aktnavn.replace(" ", "-")
-                    aktnavn = latin1_wash(aktnavn, target_charset='POSIXname',
-                                          expand_chars=True).lower()
+                    aktnavn = transliterate.for_posix(aktnavn)
                 logger.debug("Aktivitetsnavn '%s' -> '%s'" %
                              (aktivitet["aktivitetsnavn"], aktnavn))
                 sync_group(kurs_id,
@@ -1193,12 +1202,11 @@ def populate_enhet_groups(enhet_id, role_mapping):
             for account_id in aktivitet['students']:
                 if account_id not in alle_stud:
                     account_name = account_id2uname(account_id)
-                    logger.warn("OBS: Bruker <%s> (fnr <%s>) er med i"
-                                " undaktivitet <%s>, men ikke i"
-                                " undervisningsenhet <%s>.\n" %
-                                (account_name and account_name or account_id,
-                                 account_id2fnr[account_id],
-                                 "%s:%s" % (enhet_id, aktkode), enhet_id))
+                    logger.warn("Bruker %r er med i undaktivitet <%s>,"
+                                " men ikke i undervisningsenhet <%s>",
+                                account_name or account_id,
+                                "%s:%s" % (enhet_id, aktkode),
+                                enhet_id)
                 akt_stud[account_id] = 1
 
             logger.debug("%d studenter ved undakt <%s> for undenh <%s>",
@@ -1389,11 +1397,10 @@ def populate_enhet_groups(enhet_id, role_mapping):
             for account_id in aktivitet['students']:
                 if account_id not in evustud:
                     account_name = account_id2uname(account_id)
-                    logger.warn("OBS: Bruker <%s> (fnr <%s>) er med i "
-                                "aktivitet <%s>, men ikke i kurset <%s>." %
-                                (account_name and account_name or account_id,
-                                 account_id2fnr[account_id],
-                                 "%s:%s" % (enhet_id, aktkode), enhet_id))
+                    logger.warn("Bruker %r er med i aktivitet <%s>,"
+                                " men ikke i kurset <%s>.",
+                                account_name or account_id,
+                                "%s:%s" % (enhet_id, aktkode), enhet_id)
                 evu_akt_stud[account_id] = 1
             sync_group(kurs_id,
                        fields2key(enhet_id, "student", aktkode),
@@ -1552,7 +1559,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
         else:
             remove_spread_from_group(gname, co.spread_fronter_dotcom)
     else:
-        logger.debug2("Spreads for group %s are unchanged", gname)
+        logger.debug("Spreads for group %s are unchanged", gname)
 # end sync_group
 
 
@@ -1663,7 +1670,7 @@ def remove_spread_from_group(group, spread):
 
 def get_group(id):
     gr = Factory.get('Group')(db)
-    if isinstance(id, str):
+    if isinstance(id, basestring):
         gr.find_by_name(id)
     else:
         gr.find(id)
@@ -1680,13 +1687,6 @@ def mkgname(id, prefix='internal:'):
     if id.startswith(prefix):
         return id.lower()
     return (prefix + id).lower()
-
-
-def usage(exitcode=0):
-    print """Usage: [options]
-    --db-user name: connect with given database username
-    --db-service name: connect to given database"""
-    sys.exit(exitcode)
 
 
 def parse_xml_roles(fname):
@@ -1717,11 +1717,14 @@ def parse_xml_roles(fname):
     """
 
     detailed_roles = dict()
+    stats = {'elem': 0}
 
     def element_to_role(element, data):
+        stats['elem'] += 1
         kind = data[roles_xml_parser.target_key]
         if len(kind) > 1:
-            logger.warn("Cannot decide on role kind for: %s", kind)
+            logger.warn("role[%d]: cannot decide on role kind for: %r",
+                        stats['elem'], kind)
             return
         kind = kind[0]
 
@@ -1751,37 +1754,42 @@ def parse_xml_roles(fname):
                    data["arstall"])
         elif kind in ("sted",):
             key = ("sted", make_sko(data))
-            logger.debug("Rekursiv rolle (%s): %s -> %s",
+            logger.debug("role[%d]: recursive role (%s): %r -> %r",
+                         stats['elem'],
                          data["rollekode"] in recursive_roles and
-                         "brukt" or "ignorert",
+                         "used" or "ignored",
                          key, data["rollekode"])
             if data["rollekode"] not in recursive_roles:
                 return
         elif kind in ("stprog",):
             key = ("stprog", data["studieprogramkode"])
-            logger.debug("Rekursiv rolle (%s): %s -> %s",
+            logger.debug("role[%d]: recursive role (%s): %r -> %r",
+                         stats['elem'],
                          data["rollekode"] in recursive_roles and
-                         "brukt" or "ignorert",
+                         "used" or "ignored",
                          key, data["rollekode"])
             if data["rollekode"] not in recursive_roles:
                 return
         else:
-            logger.warn("%s%s: Wrong role entry kind: %s",
-                        data["fodselsdato"], data["personnr"], kind)
+            logger.warn("role[%d]: wrong role entry, kind=%r, fodselsdato=%r",
+                        stats['elem'], kind, data["fodselsdato"])
             return
 
         key = fields2key(*key)
-        fnr = {"fodselsdato": int(data["fodselsdato"]),
-               "personnr": int(data["personnr"]), }
         if data["rollekode"] in valid_roles:
-            logger.debug("role %s given for %s to %s",
-                         data["rollekode"], key, fnr)
+            logger.debug("role[%d]: role=%r, unit=%r, fodselsdato=%r given",
+                         stats['elem'], data["rollekode"], key,
+                         data["fodselsdato"])
             detailed_roles.setdefault(key, dict()).setdefault(
-                data["rollekode"], list()).append(fnr)
+                data["rollekode"], list()).append({
+                    "fodselsdato": int(data["fodselsdato"]),
+                    "personnr": int(data["personnr"]),
+                })
         else:
-            logger.debug("role %s for person %s for unit %s is not recognized "
-                         "and will be ignored",
-                         data["rollekode"], fnr, key)
+            logger.debug("role[%d]: role=%r, unit=%r, fodselsdato=%r is not "
+                         "recognized and will be ignored",
+                         stats['elem'], data["rollekode"], key,
+                         data["fodselsdato"])
 
     logger.info("Parsing role file %s", fname)
     roles_xml_parser(fname, element_to_role)
@@ -1790,62 +1798,102 @@ def parse_xml_roles(fname):
     return detailed_roles
 
 
-def main():
-    global fs, db, co, logger, emne_versjon, emne_termnr, account_id2fnr
+DEFAULT_COMMIT = True
+
+
+def readable_file_type(filename):
+    if not os.path.isfile(filename):
+        raise ValueError("No file %r" % (filename, ))
+    if not os.access(filename, os.R_OK):
+        raise ValueError("Unable to read %r" % (filename, ))
+    return filename
+
+
+def main(inargs=None):
+    global fs, db, co, emne_versjon, emne_termnr, account_id2fnr
     global fnr2account_id, fnr2stud_account_id, AffiliatedGroups
     global known_FS_groups, fs_supergroup, auto_supergroup
     global group_creator, UndervEnhet
     global ifi_netgr_g, ifi_netgr_lkurs, dryrun
 
-    logger = Factory.get_logger("cronjob")
-    logger.debug("populating fronter groups")
-
+    # TODO: This shouldn't be need anymore?
     # Upper/lowercasing of Norwegian letters.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
+    parser = argparse.ArgumentParser()
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "",
-                                   ["role-file=",
-                                    "undenh-file=",
-                                    "undakt-file=",
-                                    "evu-file=",
-                                    "kursakt-file=",
-                                    "kull-file=",
-                                    "edu-file=",
-                                    "dryrun"])
+    db_commit = parser.add_argument_group('Database')
+    commit_mutex = db_commit.add_mutually_exclusive_group()
+    commit_mutex.add_argument(
+        '--dryrun',
+        dest='commit',
+        action='store_false',
+        help='Run in dryrun mode' + ('' if DEFAULT_COMMIT else ' (default)'))
+    commit_mutex.add_argument(
+        '--commit',
+        dest='commit',
+        action='store_true',
+        help='Commit changes to the database' + ('' if not DEFAULT_COMMIT
+                                                 else ' (default)'))
+    commit_mutex.set_defaults(commit=DEFAULT_COMMIT)
 
-    except getopt.GetoptError:
-        usage(2)
-    dryrun = False
-    role_file = None
-    undenh_file = None
-    undakt_file = None
-    evu_file = None
-    kursakt_file = None
-    kull_file = None
-    edu_file = None
-    for o, val in opts:
-        if o in ('--role-file',):
-            role_file = val
-        elif o in ('--undenh-file',):
-            undenh_file = val
-        elif o in ('--undakt-file',):
-            undakt_file = val
-        elif o in ('--evu-file',):
-            evu_file = val
-        elif o in ('--kursakt-file',):
-            kursakt_file = val
-        elif o in ('--kull-file',):
-            kull_file = val
-        elif o in ('--edu-file',):
-            edu_file = val
-        elif o in ('--dryrun',):
-            dryrun = True
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    # TODO: Require all these? I *think* they are required...
+    fs_files = parser.add_argument_group('Files',
+                                         'XML data files from import_FS')
+    fs_files.add_argument(
+        '--role-file',
+        type=readable_file_type,
+        help='Roller',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--undenh-file',
+        type=readable_file_type,
+        help='Undervisningsenheter',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--undakt-file',
+        type=readable_file_type,
+        help='Undervisningsaktiviteter',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--evu-file',
+        type=readable_file_type,
+        help='EVU-kurs',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--kursakt-file',
+        type=readable_file_type,
+        help='EVU-kursaktiviteter',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--kull-file',
+        type=readable_file_type,
+        help='Kull',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--edu-file',
+        type=readable_file_type,
+        help='edu_info?',
+        metavar='FILE')
+
+    args = parser.parse_args(inargs)
+
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start of script %s', parser.prog)
+    logger.debug("args: %r", args)
+
+    #
+    # Initialize globals
+    #
     fs = make_fs()
-
     db = Factory.get('Database')()
     db.cl_init(change_program='CF_gen_groups')
     co = Factory.get('Constants')(db)
+
+    dryrun = not args.commit
+
     emne_versjon = {}
     emne_termnr = {}
     account_id2fnr = {}
@@ -1868,15 +1916,23 @@ def main():
     auto_supergroup = "{autogroup}"
     group_creator = get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id
 
-    process_kursdata(role_file, undenh_file, undakt_file,
-                     evu_file, kursakt_file, kull_file, edu_file)
-    if dryrun:
-        logger.debug("Dry run. Rolling back all changes...")
-        db.rollback()
-    else:
-        logger.debug("Committing all changes...")
+    process_kursdata(
+        args.role_file,
+        args.undenh_file,
+        args.undakt_file,
+        args.evu_file,
+        args.kursakt_file,
+        args.kull_file,
+        args.edu_file)
+
+    if args.commit:
+        logger.info("Committing all changes...")
         db.commit()
-    logger.info("All done")
+    else:
+        logger.info("Dry run. Rolling back all changes...")
+        db.rollback()
+
+    logger.info('Done with script %s', parser.prog)
 
 
 if __name__ == '__main__':

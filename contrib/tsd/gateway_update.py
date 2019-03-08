@@ -31,7 +31,6 @@ from __future__ import unicode_literals
 
 import six
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
@@ -47,9 +46,8 @@ logger = Factory.get_logger('cronjob')
 
 
 def print_config():
-    """Print cerebrum_path and cereconf."""
+    """Print cereconf."""
     # Mostly to get rid of linter errors
-    print('cererbum_path: {}'.format(cerebrum_path))
     print('cereconf: {}'.format(cereconf))
 
 

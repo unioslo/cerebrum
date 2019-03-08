@@ -188,7 +188,7 @@ class GeneralDnsRecord(object):
         VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                  'binds': ", ".join([x[1] for x in cols])},
                      binds)
-        self._db.log_change(dns_owner_id, self.const.general_dns_record_add,
+        self._db.log_change(dns_owner_id, self.clconst.general_dns_record_add,
                             None, change_params={'field_type': int(field_type),
                                                  'data': data})
 
@@ -198,7 +198,7 @@ class GeneralDnsRecord(object):
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_general_dns_record]
         WHERE  %s """ % where, locals())
-        self._db.log_change(dns_owner_id, self.const.general_dns_record_del, None,
+        self._db.log_change(dns_owner_id, self.clconst.general_dns_record_del, None,
                             change_params={'field_type': int(field_type)})
 
     def update_general_dns_record(self, dns_owner_id, field_type, ttl, data):
@@ -208,7 +208,7 @@ class GeneralDnsRecord(object):
         SET %(defs)s
         WHERE dns_owner_id=:dns_owner_id AND field_type=:field_type""" % {'defs': ", ".join(
             ["%s=%s" % x for x in cols])}, binds)
-        self._db.log_change(dns_owner_id, self.const.general_dns_record_update,
+        self._db.log_change(dns_owner_id, self.clconst.general_dns_record_update,
                             None, change_params={'field_type': int(field_type),
                                                  'data': data})
 
@@ -301,7 +301,7 @@ class DnsOwner(GeneralDnsRecord, EntityName, EntitySpread, Entity_class):
               (dns_owner_id, entity_type, mx_set_id, zone_id)
             VALUES (:e_id, :e_type, :mx_set_id, :zone_id)""", binds)
             self.add_entity_name(self.const.dns_owner_namespace, self.name)
-            self._db.log_change(self.entity_id, self.const.dns_owner_add, None)
+            self._db.log_change(self.entity_id, self.clconst.dns_owner_add, None)
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=dns_owner]
@@ -309,7 +309,7 @@ class DnsOwner(GeneralDnsRecord, EntityName, EntitySpread, Entity_class):
             WHERE dns_owner_id=:e_id""", binds)
             if 'name' in self.__updated:
                 self.update_entity_name(self.const.dns_owner_namespace, self.name)
-            self._db.log_change(self.entity_id, self.const.dns_owner_update, None)
+            self._db.log_change(self.entity_id, self.clconst.dns_owner_update, None)
         del self.__in_db
         
         self.__in_db = True
@@ -345,7 +345,7 @@ class DnsOwner(GeneralDnsRecord, EntityName, EntitySpread, Entity_class):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_owner]
         WHERE dns_owner_id=:dns_owner_id""", {'dns_owner_id': self.entity_id})
-        self._db.log_change(self.entity_id, self.const.dns_owner_del, None)
+        self._db.log_change(self.entity_id, self.clconst.dns_owner_del, None)
         self.__super.delete()
 
     def list(self, zone=None):
@@ -385,7 +385,7 @@ class DnsOwner(GeneralDnsRecord, EntityName, EntitySpread, Entity_class):
         VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                  'binds': ", ".join([x[1] for x in cols])},
                                  binds)
-        self._db.log_change(service_owner_id, self.const.srv_record_add,
+        self._db.log_change(service_owner_id, self.clconst.srv_record_add,
                             target_owner_id)
         return ret_value
     
@@ -397,7 +397,7 @@ class DnsOwner(GeneralDnsRecord, EntityName, EntitySpread, Entity_class):
         DELETE FROM [:table schema=cerebrum name=dns_srv_record]
         WHERE %s""" % " AND ".join(["%s=%s" % (x[0], x[1])
                                     for x in cols]), binds)
-        self._db.log_change(service_owner_id, self.const.srv_record_del,
+        self._db.log_change(service_owner_id, self.clconst.srv_record_del,
                             target_owner_id)
         return ret_value
         

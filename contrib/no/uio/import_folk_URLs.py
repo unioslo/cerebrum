@@ -43,10 +43,8 @@ import sys
 import requests
 from collections import defaultdict
 
-import cerebrum_path
 from Cerebrum.Utils import Factory
 
-del cerebrum_path
 
 
 # List of users who have home pages.  One user per line.

@@ -43,6 +43,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.username import suggest_usernames
 from Cerebrum.modules import EntityTrait
 from Cerebrum.modules import dns
 from Cerebrum.modules.bofhd import cmd_param as cmd
@@ -62,7 +63,6 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
 from Cerebrum.modules.tsd.bofhd_auth import TsdBofhdAuth, TsdContactAuth
 from Cerebrum.modules.tsd import bofhd_help
 from Cerebrum.modules.tsd import Gateway
-from Cerebrum.modules.username_generator.generator import UsernameGenerator
 
 
 def format_day(field):
@@ -540,6 +540,13 @@ class TSDBofhdExtension(BofhdCommonMethods):
         @param dest_group: The name/id of the group the member should be
                            removed from.
         """
+        # If int in any of the names we assume the user intended to write an
+        # entity id and prefix it with id: for them
+        if isinstance(src_name, int):
+            src_name = 'id:' + six.text_type(src_name)
+        if isinstance(dest_group, int):
+            dest_group = 'id:' + six.text_type(dest_group)
+
         if member_type in ("group", self.const.entity_group):
             src_entity = self._get_group(src_name)
         elif member_type in ("account", self.const.entity_account):
@@ -751,6 +758,7 @@ class _Projects:
 
 
 admin_uio_helpers = [
+    '_assert_group_deletable',
     '_entity_info',
     '_fetch_member_names',
     '_format_changelog_entry',
@@ -795,6 +803,7 @@ admin_copy_uio = [
     'group_list',
     'group_list_expanded',
     'group_memberships',
+    'group_memberships_expanded',
     'group_promote_posix',
     'group_search',
     'group_set_description',
@@ -1897,12 +1906,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                         person.get_name(self.const.system_cached, v)
                         for v in (self.const.name_first, self.const.name_last)]
                     ou = self._get_ou(ou_id=affiliation['ou_id'])
-                    uname_generator = UsernameGenerator()
                     # create a validation callable (function)
                     vfunc = partial(posix_user.validate_new_uname,
                                     self.const.account_namespace,
                                     owner_id=owner_id)
-                    sugg = uname_generator.suggest_unames(
+                    sugg = suggest_usernames(
                         self.const.account_namespace,
                         fname,
                         lname,
@@ -2315,8 +2323,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou = self.OU_class(self.db)
         # Project entity ID -> external project ID
         ent2ext = dict((x['entity_id'], x['external_id']) for x in
-                       ou.list_external_ids(
-                           id_type=self.const.externalid_project_id))
+                       ou.search_external_ids(
+                           id_type=self.const.externalid_project_id,
+                           fetchall=False))
 
         # Subnet -> external project ID
         subnet2project = {}

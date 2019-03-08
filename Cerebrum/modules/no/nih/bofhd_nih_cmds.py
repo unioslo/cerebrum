@@ -78,6 +78,7 @@ class NihEmailAuth(NihAuth, bofhd_email.BofhdEmailAuth):
 
 
 uio_helpers = [
+    '_assert_group_deletable',
     '_entity_info',
     '_fetch_member_names',
     '_format_changelog_entry',
@@ -140,6 +141,7 @@ uio_commands = [
     'group_list',
     'group_list_expanded',
     'group_memberships',
+    'group_memberships_expanded',
     'group_remove',
     'group_remove_entity',
     'group_search',
@@ -345,11 +347,11 @@ class ContactCommands(bofhd_contact_info.BofhdContactCommands):
     bofhd_email.BofhdEmailCommands,
     'all_commands', 'all_commands',
     commands=[
-        'email_add_address',
+        'email_address_add',
         'email_info',
         'email_mod_name',
-        'email_reassign_address',
-        'email_remove_address',
+        'email_address_reassign',
+        'email_address_remove',
         'email_set_primary_address',
         'email_update',
     ]

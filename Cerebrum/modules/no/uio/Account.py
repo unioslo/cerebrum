@@ -25,6 +25,7 @@ from mx import DateTime
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
+from Cerebrum.modules import EmailConstants
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Utils import pgp_encrypt, Factory
@@ -244,7 +245,7 @@ class AccountUiOMixin(Account.Account):
         etf = Email.EmailTargetFilter(self._db)
         if tt_str in cereconf.EMAIL_DEFAULT_FILTERS:
             for f in cereconf.EMAIL_DEFAULT_FILTERS[tt_str]:
-                f_id = int(Email._EmailTargetFilterCode(f))
+                f_id = int(EmailConstants._EmailTargetFilterCode(f))
                 try:
                     etf.clear()
                     etf.find(t_id, f_id)
@@ -459,7 +460,7 @@ class AccountUiOMixin(Account.Account):
         if isinstance(self, PosixUser):
             # TODO: Kill the ARsystem user to limit range og legal characters
             if len(name) > 16:
-                return "too long (%s)" % name
+                return "is too long (%s)" % name
             if re.search("^[^A-Za-z]", name):
                 return "must start with a character (%s)" % name
             if re.search("[^A-Za-z0-9\-_]", name):

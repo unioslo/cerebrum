@@ -28,6 +28,7 @@ from collections import defaultdict
 from Cerebrum import Errors
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules import Email
+from Cerebrum.modules import EmailConstants
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.modules.bofhd.utils import BofhdRequests
@@ -48,6 +49,7 @@ class EmailLDAP(DatabaseAccessor):
         super(EmailLDAP, self).__init__(db)
         self.acc = Factory.get('Account')(db)
         self.const = Factory.get('Constants')(db)
+        self.clconst = Factory.get('CLConstants')(db)
         self.grp = Factory.get('Group')(db)
         # Internal structure:
         self.aid2addr = {}
@@ -69,7 +71,7 @@ class EmailLDAP(DatabaseAccessor):
         self.group2missing = defaultdict(set)
         self.multi_addr_cache = {}
         self.multi_missing_cache = {}
-        self.multi_reserved_cache = {}
+        self.multi_reserved_cache = set()
 
     def _build_addr(self, local_part, domain):
         return '@'.join((local_part, domain))
@@ -80,13 +82,16 @@ class EmailLDAP(DatabaseAccessor):
     def get_target_info(self, row):
         """Return additional EmailLDAP-entry derived from L{row}.
 
-        Return site-specific mail-ldap-information pertaining to the EmailTarget info in L{row}.
+        Return site-specific mail-ldap-information pertaining to the
+        EmailTarget info in L{row}.
 
         @type row: db-row instance
         @param row: A db-row holding one result of L{list_email_targets_ext}.
 
         @rtype: dict
-        @return: A dictinary mapping attributes to values for the specified EmailTarget in L{row}.
+        @return:
+            A dictinary mapping attributes to values for the specified
+            EmailTarget in L{row}.
         """
 
         co = self.const
@@ -173,7 +178,7 @@ class EmailLDAP(DatabaseAccessor):
         const2str = {}
         for c in dir(self.const):
             tmp = getattr(self.const, c)
-            if isinstance(tmp, Email._EmailTargetFilterCode):
+            if isinstance(tmp, EmailConstants._EmailTargetFilterCode):
                 const2str[int(tmp)] = str(tmp)
 
         mail_target_filter = Email.EmailTargetFilter(self._db)
@@ -200,7 +205,8 @@ class EmailLDAP(DatabaseAccessor):
 
     def read_local_delivery(self):
         mail_forw = Email.EmailForward(self._db)
-        self.targ2localdelivery = set([x['target_id'] for x in mail_forw.list_local_delivery()])
+        self.targ2localdelivery = set(
+            [x['target_id'] for x in mail_forw.list_local_delivery()])
 
     def read_vacation(self):
         mail_vaca = Email.EmailVacation(self._db)
@@ -243,8 +249,8 @@ class EmailLDAP(DatabaseAccessor):
     def read_multi_data(self, ignore_missing=False):
         et = Email.EmailTarget(self._db)
         multi_groups = set()
-        for row in et.list_email_targets_ext(target_type=
-                                             self.const.email_target_multi):
+        for row in et.list_email_targets_ext(
+                target_type=self.const.email_target_multi):
             multi_groups.add(row['target_entity_id'])
 
         group2groupmembers = defaultdict(set)
@@ -259,9 +265,11 @@ class EmailLDAP(DatabaseAccessor):
                 group2groupmembers[group_id].add(member_id)
             elif member_type == self.const.entity_account:
                 if member_id in self.multi_addr_cache:
-                    self.group2addr[group_id].add(self.multi_addr_cache[member_id])
+                    self.group2addr[group_id].add(
+                        self.multi_addr_cache[member_id])
                 elif member_id in self.multi_missing_cache:
-                    self.group2missing[group_id].add(self.multi_missing_cache[member_id])
+                    self.group2missing[group_id].add(
+                        self.multi_missing_cache[member_id])
                 elif member_id in self.multi_reserved_cache:
                     continue
                 else:
@@ -279,17 +287,20 @@ class EmailLDAP(DatabaseAccessor):
                         self.multi_addr_cache[member_id] = tmp
                         self.group2addr[group_id].add(tmp)
                     except Errors.NotFoundError:
-                        self.group2missing[group_id].add(self.acc.account_name)
-                        self.multi_missing_cache[member_id] = self.acc.account_name
+                        acc_name = self.acc.account_name
+                        self.group2missing[group_id].add(acc_name)
+                        self.multi_missing_cache[member_id] = acc_name
                         if not ignore_missing:
-                            raise ValueError('%s in group %s has no primary address' %
-                                             (self.acc.account_name, group_id))
+                            raise ValueError(
+                                '%s in group %s has no primary address' %
+                                (acc_name, group_id))
 
         def update_addr_and_missing(m_group, group_id):
             if group_id in self.group2addr:
                 self.group2addr[m_group].update(self.group2addr[group_id])
             if group_id in self.group2missing:
-                self.group2missing[m_group].update(self.group2missing[group_id])
+                self.group2missing[m_group].update(
+                    self.group2missing[group_id])
             if group_id in group2groupmembers:
                 for g in group2groupmembers[group_id]:
                     update_addr_and_missing(m_group, g)
@@ -313,9 +324,9 @@ class EmailLDAP(DatabaseAccessor):
     def read_misc_target(self):
         # Dummy method for Mixin-classes. By default it generates a hash with
         # nothing, but one could populate non-default attributes using this
-        # method(in a Mixin-class). Entry per target. If more than one attribute
-        # should be populated, cat it to the string in this hash with a '\n'
-        # between them.
+        # method(in a Mixin-class). Entry per target. If more than one
+        # attribute should be populated, cat it to the string in this hash
+        # with a '\n' between them.
         pass
 
     def get_misc(self, row):

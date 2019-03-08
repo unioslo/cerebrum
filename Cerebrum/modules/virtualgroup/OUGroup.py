@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -65,8 +65,6 @@ Person aff source
 import collections
 from Cerebrum.Utils import argument_to_sql, Factory, prepare_string
 from .Group import VirtualGroup, populator
-from .Constants import Constants, _VirtualGroupType
-from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Entity import Entity
 from Cerebrum.Person import Person
 from Cerebrum.Account import Account
@@ -74,56 +72,6 @@ from Cerebrum.Errors import NotFoundError
 
 
 __version__ = "1.0"  # mod_virtualgroup_ou
-
-
-class _VirtualGroupOURecursionCode(_CerebrumCode):
-    """Recursion code from virtual_group_ou_recursion_code"""
-    _lookup_table = \
-        '[:table schema=cerebrum name=virtual_group_ou_recursion_code]'
-
-
-class _VirtualGroupOUMembershipType(_CerebrumCode):
-    """Membership type for virtual ou group (virtual_group_ou_membership_type"""
-    _lookup_table = \
-        '[:table schema=cerebrum name=virtual_group_ou_membership_type_code]'
-
-
-class OUGroupConstants(Constants):
-    """OU group contstants"""
-    vg_ougroup = _VirtualGroupType(
-        'ougroup',
-        'Virtual group based on OU structure, see '
-        '"cerebrum.virtual_group_ou_info" and friends')
-
-    # Recursion
-    VirtualGroupOURecursion = _VirtualGroupOURecursionCode
-
-    virtual_group_ou_recursive = _VirtualGroupOURecursionCode(
-        'recursive',
-        'Recursive OU group')
-
-    virtual_group_ou_flattened = _VirtualGroupOURecursionCode(
-        'flattened',
-        'Flattened OU group')
-
-    virtual_group_ou_nonrecursive = _VirtualGroupOURecursionCode(
-        'nonrecursive',
-        'Nonrecursive OU group')
-
-    # Memberships
-    VirtualGroupOUMembership = _VirtualGroupOUMembershipType
-
-    virtual_group_ou_person = _VirtualGroupOUMembershipType(
-        'person',
-        'Group of persons in OU')
-
-    virtual_group_ou_primary = _VirtualGroupOUMembershipType(
-        'primary_account',
-        'Group of primary accounts in OU')
-
-    virtual_group_ou_accounts = _VirtualGroupOUMembershipType(
-        'accounts',
-        'Group of accounts in OU')
 
 
 class OUGroup(VirtualGroup):
@@ -282,8 +230,9 @@ class OUGroup(VirtualGroup):
                           'ou_perspective': self.ou_perspective,
                           'member_type': self.member_type})
             for member in self.list_members(self.entity_id, indirect=False):
-                self._db.log_change(member['member_id'], self.clconst.group_add,
-                                    self.entity_id)
+                self._db.log_change(self.entity_id,
+                                    self.clconst.group_add,
+                                    member['member_id'])
         else:
             args = dict(zip(self.__updated,
                             [getattr(self, x) for x in self.__updated]))
@@ -1124,37 +1073,39 @@ class PersonOuGroup(Person):
             else:
                 return c, s, p
             for i in adds:
-                self._db.log_change(myid, self.const.group_add, i)
+                self._db.log_change(i, self.clconst.group_add, myid)
             for i in aadds:
-                self._db.log_change(ac, self.const.group_add, i)
+                self._db.log_change(i, self.clconst.group_add, ac)
             for i in rems:
-                self._db.log_change(myid, self.const.group_rem, i)
+                self._db.log_change(i, self.clconst.group_rem, myid)
             for i in arems:
-                self._db.log_change(ac, self.const.group_rem, i)
+                self._db.log_change(i, self.clconst.group_rem, ac)
         return c, s, p
 
     def __delete_affiliation(self, ou_id, affiliation, source, status):
-        """Register group_del for deleted aff"""
+        """Register group_rem for deleted aff"""
         myid = self.entity_id
         gr = Factory.get('Group')(self._db)
         for row in gr.list_ou_groups_for(
                 ou_id=ou_id, affiliation=affiliation, status=status,
                 source=source, indirect=False,
                 member_types=self.const.virtual_group_ou_person):
-            self._db.log_change(myid, self.const.group_del, row['group_id'])
+            self._db.log_change(row['group_id'], self.clconst.group_rem, myid)
+
         for row in gr.list_ou_groups_for(
                 ou_id=ou_id, affiliation=affiliation, status=status,
                 source=source, indirect=False,
                 member_types=self.const.virtual_group_ou_person):
-            self._db.log_change(myid, self.const.group_del, row['group_id'])
+            self._db.log_change(row['group_id'], self.clconst.group_rem, myid)
         try:
             myid = self.get_primary_account()
             for row in gr.list_ou_groups_for(
                     ou_id=ou_id, affiliation=affiliation, status=status,
                     source=source, indirect=False,
                     member_types=self.const.virtual_group_ou_primary):
-                self._db.log_change(myid, self.const.group_del,
-                                    row['group_id'])
+                self._db.log_change(row['group_id'],
+                                    self.clconst.group_rem,
+                                    myid)
         except:
             pass
 
@@ -1195,8 +1146,8 @@ class AccountOuGroup(Account):
                     member_types=self.const.virtual_group_ou_primary):
                 grids.add(gid['group_id'])
         for grid in grids:
-            self._db.log_change(old, self.const.group_del, grid)
-            self._db.log_change(new, self.const.group_add, grid)
+            self._db.log_change(grid, self.clconst.group_rem, old)
+            self._db.log_change(grid, self.clconst.group_add, new)
 
     def set_account_type(self, ou_id, affiliation, priority=None):
         """Add or update account type -> add group memberships?"""
@@ -1216,7 +1167,9 @@ class AccountOuGroup(Account):
                 ou_id=ou_id, affiliation=affiliation, indirect=False,
                 member_types=self.const.virtual_group_ou_accounts)
             for grp in new:
-                self._db.log_change(myid, self.const.group_add, grp['group_id'])
+                self._db.log_change(grp['group_id'],
+                                    self.clconst.group_add,
+                                    myid)
         elif oldprim != self.entity_id and pri < lst[0]['priority']:
             self.__new_primary_account(oldprim, self.entity_id)
         elif (oldprim == self.entity_id and ou_id == lst[0]['ou_id'] and
@@ -1243,7 +1196,7 @@ class AccountOuGroup(Account):
             ou_id=ou_id, affiliation=affiliation, indirect=False,
             member_types=self.const.virtual_group_ou_accounts)
         for grp in rem:
-            self._db.log_change(myid, self.const.group_rem, grp['group_id'])
+            self._db.log_change(grp['group_id'], self.clconst.group_rem, myid)
         return ret
 
     def del_ac_types(self):
@@ -1271,6 +1224,7 @@ class AccountOuGroup(Account):
                     indirect=False,
                     member_types=self.const.virtual_group_ou_accounts)
                 for grp in rem:
-                    self._db.log_change(myid, self.const.group_rem,
-                                        grp['group_id'])
+                    self._db.log_change(grp['group_id'],
+                                        self.clconst.group_rem,
+                                        myid)
         return ret

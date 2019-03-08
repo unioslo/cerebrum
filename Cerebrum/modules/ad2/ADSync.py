@@ -165,18 +165,15 @@ class BaseSync(object):
         only use ADclient directly in this class instead? Depends on how
         complicated things are getting.
 
-        @type db: Cerebrum.CLDatabase.CLDatabase
-        @param db: The Cerebrum database connection that should be used.
-
-        @type logger: Cerebrum.modules.cerelog.CerebrumLogger
-        @param logger: The Cerebrum logger to use.
-
+        :type db: Cerebrum.CLDatabase.CLDatabase
+        :type logger: Cerebrum.logutils.loggers.CerebrumLogger
         """
         super(BaseSync, self).__init__()
 
         self.db = db
         self.logger = logger
         self.co = Factory.get("Constants")(self.db)
+        self.clconst = Factory.get("CLConstants")(self.db)
         self.ent = Factory.get('Entity')(self.db)
         self._ent_extid = Entity.EntityExternalId(self.db)
         self._entity_trait = EntityTrait(self.db)
@@ -362,7 +359,7 @@ class BaseSync(object):
         self.config['language'] = tuple(int(self.co.LanguageCode(l)) for l in
                                         self.config['language'])
         # Change-types are changed into their constants
-        self.config['change_types'] = tuple(self.co.ChangeType(*t) for t in
+        self.config['change_types'] = tuple(self.clconst.ChangeType(*t) for t in
                                             config_args.get('change_types',
                                                             ()))
         # Set the correct port
@@ -693,7 +690,7 @@ class BaseSync(object):
             handle_key = tuple((int(row['change_type_id']),
                                 row['subject_entity'],
                                 row['dest_entity']))
-            change_type = self.co.ChangeType(int(row['change_type_id']))
+            change_type = self.clconst.ChangeType(int(row['change_type_id']))
             stats['seen'] += 1
 
             # Ignore too old changes:
@@ -776,7 +773,7 @@ class BaseSync(object):
         """
         # TODO: Add functionality for generic changes here!
         self.logger.warn("Change type not handled: %s",
-                         self.co.ChangeType(row['change_type_id']))
+                         self.clconst.ChangeType(row['change_type_id']))
         # TODO: Or rather raise an UnhandledChangeTypeError?
         return False
 
@@ -930,8 +927,8 @@ class BaseSync(object):
         id_type = self.co.EntityExternalId(
             self.sidtype_map[self.config['target_type']])
         i = 0
-        for row in en.list_external_ids(source_system=self.co.system_ad,
-                                        id_type=id_type):
+        for row in en.search_external_ids(source_system=self.co.system_ad,
+                                          id_type=id_type, fetchall=False):
             # TODO: how should we get it per spread?
             e = self.id2entity.get(row['entity_id'], None)
             if e:
@@ -2468,7 +2465,8 @@ class UserSync(BaseSync):
         self.logger.debug("Fetching passwords for accounts not in AD")
         self.uname2pasw = {}
         for row in reversed(
-                tuple(self.db.get_log_events(types=self.co.account_password))):
+                tuple(self.db.get_log_events(
+                    types=self.clconst.account_password))):
             try:
                 ent = self.id2entity[row['subject_entity']]
             except KeyError:
@@ -2615,7 +2613,7 @@ class UserSync(BaseSync):
                 return False
 
         # TODO: clean up code when more functionality is added!
-        if row['change_type_id'] == self.co.account_password:
+        if row['change_type_id'] == self.clconst.account_password:
             if self.ac.is_expired():
                 self.logger.debug("Account %s is expired, ignoring",
                                   row['subject_entity'])
@@ -2659,11 +2657,11 @@ class UserSync(BaseSync):
                     pw = unicode(pw, 'ISO-8859-1')
             return self.server.set_password(name, pw, password_type=tag)
 
-        elif row['change_type_id'] in (self.co.quarantine_add,
-                                       self.co.quarantine_del,
-                                       self.co.quarantine_mod,
-                                       self.co.quarantine_refresh):
-            change = self.co.ChangeType(row['change_type_id'])
+        elif row['change_type_id'] in (self.clconst.quarantine_add,
+                                       self.clconst.quarantine_del,
+                                       self.clconst.quarantine_mod,
+                                       self.clconst.quarantine_refresh):
+            change = self.clconst.ChangeType(row['change_type_id'])
 
             if not hasattr(self.ac, 'entity_id'):
                 self.logger.debug(

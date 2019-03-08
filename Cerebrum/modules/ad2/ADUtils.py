@@ -45,7 +45,6 @@ import base64
 import functools
 import collections
 
-import cerebrum_path
 import cereconf
 from Cerebrum.Utils import read_password
 from Cerebrum.Utils import Factory
@@ -1643,28 +1642,13 @@ class ADUtils(object):
                  encrypted=True):
         """Set up sync and connect to the given Windows service.
 
-        @type db: Cerebrum.CLDatabase.CLDatabase
-        @param db: The Cerebrum database connection that should be used.
-
-        @type logger: Cerebrum.modules.cerelog.CerebrumLogger
-        @param logger: The Cerebrum logger to use.
-
-        @type host: str
-        @param host: Hostname of the Windows server to communicate with.
-
-        @type port: int
-        @param port: Port number at the Windows server. If not given, the
-            default port is used.
-
-        @type encrypted: bool
-        @param encrypted: If the communication should go encrypted. Do not set
-            this to False when in production or working with authentic data!
-
-        @type ad_domain_admin: str
-        @param ad_domain_admin: The username of our domain account in AD that
-            has the privileges to administrate our OUs.
-            TODO: Should this go to the configuration instead?
-
+        :type db: Cerebrum.CLDatabase.CLDatabase
+        :type logger: Cerebrum.logutils.loggers.CerebrumLogger
+        :param str host: Server where xmlrpc AD agent runs
+        :param int port: port number
+        :param str ad_domain_admin: The user we connect to the AD agent as
+        :param winrm_user:
+        :param bool encrypted: If the communication should go encrypted
         """
         pass
 

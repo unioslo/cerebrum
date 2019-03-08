@@ -247,8 +247,8 @@ class BofhdContactCommands(BofhdCommandBase):
         SimpleString(help_ref='entity_contact_type'),
         SimpleString(help_ref='entity_contact_value'),
         fs=FormatSuggestion(
-            "Added contact info %s:%s '%s' to '%s' with id=%s",
-            ('source_system', 'contact_type', 'value', 'entity_type',
+            "Added contact info %s:%s '%s' to '%s' with id=%d",
+            ('source_system', 'contact_type', 'contact_value', 'entity_type',
              'entity_id')
         ),
         perm_filter='can_add_contact_info',
@@ -355,9 +355,10 @@ class BofhdContactCommands(BofhdCommandBase):
         SourceSystem(help_ref='entity_contact_source_system'),
         SimpleString(help_ref='entity_contact_type'),
         fs=FormatSuggestion([
-            ("Removed contact info %s:%s from %s with id=%s",
-             ('source_system', 'contact_type', 'entity_type', 'entity_id')),
-            ("Old value: '%s'", ('contact_value',)),
+            ("Removed contact info %s:%s from %s with id=%d",
+             ('source_system', 'contact_type', 'entity_type', 'entity_id',)),
+            ("Old value: '%s'",
+             ('contact_value', )),
         ]),
         perm_filter='can_remove_contact_info')
 
@@ -437,8 +438,8 @@ class BofhdContactCommands(BofhdCommandBase):
             self.ba.can_get_contact_info(operator.get_entity_id(),
                                          entity=entity,
                                          contact_type=contact_type)
-            # TODO
-            result['contact_value'] = contact_info['contact_value']
+            result['contact_value'] = six.text_type(
+                contact_info['contact_value'])
         except PermissionDenied:
             pass
 
@@ -493,7 +494,7 @@ class BofhdContactCommands(BofhdCommandBase):
                     self.const.AuthoritativeSystem(row['source_system'])),
                 'contact_type': six.text_type(
                     self.const.ContactInfo(row['contact_type'])),
-                'contact_pref': row['contact_pref'],
+                'contact_pref': six.text_type(row['contact_pref']),
                 'contact_value': row['contact_value'],
                 'description': row['description'],
                 'contact_alias': row['contact_alias'],

@@ -30,7 +30,6 @@ import os
 import re
 import sys
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
@@ -43,7 +42,6 @@ from Cerebrum.modules.no.hiof.fronter_lib import count_back_semesters
 from Cerebrum.modules.no.hiof.fronter_lib import timeslot_is_valid
 
 
-del cerebrum_path
 
 logger = None
 
@@ -797,7 +795,8 @@ def fnr2person_id(db):
     result = dict()
 
     logger.debug("Loading all fnr -> person_id")
-    for row in person.list_external_ids(id_type=const.externalid_fodselsnr):
+    for row in person.search_external_ids(id_type=const.externalid_fodselsnr,
+                                          fetchall=False):
         person_id = row["entity_id"]
         fnr = row["external_id"]
         result[fnr] = person_id
@@ -935,10 +934,15 @@ def collect_existing_cf_groups(db):
     group = Factory.get("Group")(db)
     const = Factory.get("Constants")(db)
     logger.debug("Collecting all CF groups in Cerebrum")
-    for row in group.list_traits(return_name=True,
-                                 code=const.trait_cf_group):
+    for row in group.list_traits(code=const.trait_cf_group):
         group_id = row["entity_id"]
-        group_name = row["name"]
+        try:
+            group.clear()
+            group.find(group_id)
+            group_name = group.group_name
+        except Errors.NotFoundError:
+            logger.error("No group with entity_id=%r", group_id)
+            continue
         result[group_name] = set(row["member_id"]
                                  for row in
                                  group.search_members(

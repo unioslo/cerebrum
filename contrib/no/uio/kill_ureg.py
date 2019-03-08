@@ -51,7 +51,6 @@ import getopt
 
 from collections import defaultdict
 
-import cerebrum_path
 from Cerebrum.Utils import Factory
 logger = Factory.get_logger("console")
 db = Factory.get('Database')()
@@ -174,8 +173,10 @@ def fnr():
 
     # All entity_ids with fnr from ureg
     ids = [int(row['entity_id'])
-           for row in person.list_external_ids(
-        source_system=system_ureg, id_type=idtype_fnr, entity_type=type_person)]
+           for row in person.search_external_ids(source_system=system_ureg,
+                                                 id_type=idtype_fnr,
+                                                 entity_type=type_person,
+                                                 fetchall=False)]
 
     for entity_id in ids:
         count_del += 1

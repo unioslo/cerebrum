@@ -113,6 +113,12 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    sap_1057_informasjonssjef = SAPLonnsTittelKode(
+        "20001057",
+        "1057 Informasjonssjef",
+        "ØVR"
+    )
+
     sap_1058_administrasjonssjef = SAPLonnsTittelKode(
         "20001058",
         "1058 Administrasjonssjef",
@@ -398,6 +404,12 @@ class SAPConstants(Constants.Constants):
     sap_0000_ekstern_stillingskode = SAPLonnsTittelKode(
         "00000000",
         "0000 Ekstern tilsatt, ikke lønnet av HiØf",
+        "ØVR"
+    )
+
+    sap_0214_rektor = SAPLonnsTittelKode(
+        "20000214",
+        "0214 Rektor",
         "ØVR"
     )
 

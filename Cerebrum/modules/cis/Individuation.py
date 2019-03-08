@@ -165,6 +165,7 @@ class Individuation:
         self.db = Factory.get('Database')()
         self.db.cl_init(change_program='individuation_service')
         self.co = Factory.get('Constants')(self.db)
+        self.clconst = Factory.get('CLConstants')(self.db)
 
         # Do some tests, just to make sure that the service is set up properly.
         # This is so that the service crashes at once, and not after the first
@@ -336,7 +337,7 @@ class Individuation:
                          phone_no, uname, exc_info=True)
             raise Errors.CerebrumRPCException('token_notsent')
         account._db.log_change(account.entity_id,
-                               self.co.account_password_token,
+                               self.clconst.account_password_token,
                                None,
                                change_params={'phone_to': phone_no})
         # store password token as a trait
@@ -649,7 +650,7 @@ class Individuation:
                 return True
             delay = self.get_delay(num['system_name'], num['type'])
 
-            for row in self.db.get_log_events(types=self.co.entity_cinfo_add,
+            for row in self.db.get_log_events(types=self.clconst.entity_cinfo_add,
                                               any_entity=person.entity_id,
                                               sdate=delay):
                 data = json.loads(row['change_params'])
@@ -684,7 +685,7 @@ class Individuation:
                              'so considered fresh', tr, account.account_name)
                 return True
         # Check if person has recently been created:
-        for row in self.db.get_log_events(types=(self.co.person_create),
+        for row in self.db.get_log_events(types=(self.clconst.person_create),
                                           any_entity=person.entity_id,
                                           sdate=delay):
             logger.debug("Person %r is fresh", person.entity_id)

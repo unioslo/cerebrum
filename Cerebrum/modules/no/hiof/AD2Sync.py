@@ -32,7 +32,6 @@ manner, move it upwards!
 
 """
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.modules.Email import EmailTarget, EmailQuota

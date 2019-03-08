@@ -26,7 +26,8 @@ from six import text_type
 import cereconf
 from Cerebrum.modules import LDIFutils
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.Utils import Factory, latin1_to_iso646_60, auto_super, make_timer
+from Cerebrum.Utils import Factory, auto_super, make_timer
+from Cerebrum.utils import transliterate
 from Cerebrum import Errors
 
 
@@ -287,7 +288,7 @@ class PosixLDIF(object):
                 except KeyError:
                     pass
         if not row['shell']:
-            self.logger.warn("User %s have no posix-shell!" % uname)
+            self.logger.warn("User %s has no POSIX shell", uname)
             return None, None
         else:
             shell = self.shell_tab[int(row['shell'])]
@@ -311,7 +312,7 @@ class PosixLDIF(object):
             self.logger.warn("User %s has no home directory", uname)
             return None, None
         cn = row['name'] or row['gecos'] or uname
-        gecos = latin1_to_iso646_60(row['gecos'] or cn)
+        gecos = transliterate.to_iso646_60(row['gecos'] or cn)
         entry = {
             'objectClass': ['top', 'account', 'posixAccount'],
             'cn': (cn,),
@@ -509,7 +510,7 @@ class PosixLDIF(object):
         }
         if 'description' in cache:
             entry['description'] = \
-                latin1_to_iso646_60(cache['description']).rstrip(),
+                transliterate.to_iso646_60(cache['description']).rstrip(),
         self.netgroupcache[group_id] = entry
 
     def init_netgroup(self):
@@ -578,4 +579,46 @@ class PosixLDIFRadius(PosixLDIF):
                 # TODO: Remove sambaSamAccount and sambaSID after Radius-testing
                 entry['objectClass'].append('sambaSamAccount')
                 entry['sambaSID'] = entry['uidNumber']
+        return self.__super.update_user_entry(account_id, entry, row)
+
+
+class PosixLDIFMail(PosixLDIF):
+    """ PosixLDIF mixin for mail attributes. """
+
+    def init_user(self, *args, **kwargs):
+        self.__super.init_user(*args, **kwargs)
+        timer = make_timer(self.logger, 'Starting PosixLDIFMail.init_user...')
+
+        self.mail_attrs = cereconf.LDAP_USER.get('mail_attrs', ['mail'])
+
+        from string import Template
+        self.mail_template = Template(cereconf.LDAP_USER.get(
+            'mail_default_template'))
+
+        mail_spreads = LDIFutils.map_spreads(
+            cereconf.LDAP_USER.get('mail_spreads'), list)
+        self.accounts_with_email = set()
+        for account_id, spread in self.posuser.list_entity_spreads(
+                entity_types=self.const.entity_account):
+            if spread in mail_spreads:
+                self.accounts_with_email.add(account_id)
+
+        timer('...done PosixLDIFMail.init_user')
+
+    def update_user_entry(self, account_id, entry, row):
+        mail = None
+        if account_id in self.accounts_with_email:
+            mail = self.mail_template.substitute(uid=entry['uid'][0])
+        else:
+            contacts = self.posuser.list_contact_info(
+                entity_id=account_id,
+                source_system=self.const.system_manual,
+                contact_type=self.const.contact_email)
+            if contacts:
+                mail = contacts[0]['contact_value']
+        if mail:
+            for attr in self.mail_attrs:
+                entry[attr] = (mail, )
+        else:
+            self.logger.warn('Account %s is missing mail', entry['uid'][0])
         return self.__super.update_user_entry(account_id, entry, row)

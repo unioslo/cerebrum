@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,45 +21,10 @@
 
 import re
 
-import Cerebrum.Constants as cereconst
-from Cerebrum.Utils import (Factory,
-                            prepare_string,
-                            argument_to_sql)
+from Cerebrum.Utils import Factory, prepare_string, argument_to_sql
 
 
 Entity_class = Factory.get("Entity")
-
-
-class Constants(cereconst.Constants):
-    # Entity type
-    entity_feide_service = cereconst._EntityTypeCode('feide_service',
-                                                     'Feide service')
-    # Change log
-    feide_service_add = cereconst._ChangeTypeCode(
-        'feide_service', 'add',
-        'added feide service %(subject)s',
-        ("feide_id=%(int:feide_id)s", "name=%(string:name)s"))
-    feide_service_mod = cereconst._ChangeTypeCode(
-        'feide_service', 'mod',
-        'modified feide service %(subject)s',
-        ("feide_id=%(int:feide_id)s", "name=%(string:name)s"))
-    feide_service_del = cereconst._ChangeTypeCode(
-        'feide_service', 'del',
-        'deleted feide service %(subject)s',
-        ("feide_id=%(int:feide_id)s", "name=%(string:name)s"))
-
-    feide_service_authn_level_add = cereconst._ChangeTypeCode(
-        'feide_service_authn_level', 'add',
-        'added authn level for %(subject)s, service=%(dest)s',
-        ("level=%(int:level)s"))
-    feide_service_authn_level_mod = cereconst._ChangeTypeCode(
-        'feide_service_authn_level', 'mod',
-        'modified authn level for %(subject)s, service=%(dest)s',
-        ("level=%(int:level)s"))
-    feide_service_authn_level_del = cereconst._ChangeTypeCode(
-        'feide_service_authn_level', 'del',
-        'deleted authn level for %(subject)s, service=%(dest)s',
-        ("level=%(int:level)s"))
 
 
 class FeideService(Entity_class):
@@ -98,7 +63,7 @@ class FeideService(Entity_class):
                           'feide_id': self.feide_id,
                           'name': self.name})
             self._db.log_change(
-                self.entity_id, self.const.feide_service_add, None,
+                self.entity_id, self.clconst.feide_service_add, None,
                 change_params={'service_id': self.entity_id,
                                'feide_id': self.feide_id,
                                'name': self.name})
@@ -111,7 +76,7 @@ class FeideService(Entity_class):
                           'feide_id': self.feide_id,
                           'name': self.name})
             self._db.log_change(
-                self.entity_id, self.const.feide_service_mod, None,
+                self.entity_id, self.clconst.feide_service_mod, None,
                 change_params={'feide_id': self.feide_id,
                                'name': self.name})
         del self.__in_db
@@ -129,7 +94,7 @@ class FeideService(Entity_class):
             DELETE FROM [:table schema=cerebrum name=feide_service_info]
             WHERE service_id = :service_id""", {'service_id': self.entity_id})
             self._db.log_change(
-                self.entity_id, self.const.feide_service_del, None,
+                self.entity_id, self.clconst.feide_service_del, None,
                 change_params={'feide_id': self.feide_id,
                                'name': self.name})
         self.__super.delete()
@@ -288,7 +253,7 @@ class FeideServiceAuthnLevelMixin(Entity_class):
                       'level': level})
         self._db.log_change(
             entity_id,
-            self.const.feide_service_authn_level_add,
+            self.clconst.feide_service_authn_level_add,
             service_id,
             change_params={'level': level})
 
@@ -298,7 +263,7 @@ class FeideServiceAuthnLevelMixin(Entity_class):
             entity_id = self.entity_id
         self._db.log_change(
             entity_id,
-            self.const.feide_service_authn_level_del,
+            self.clconst.feide_service_authn_level_del,
             service_id,
             change_params={'level': level})
         return self.execute(

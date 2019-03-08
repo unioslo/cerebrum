@@ -68,7 +68,7 @@ class BofhdExtension(base.BofhdExtension):
                     "Couldn't get authoritative address for {}"
                     .format(account.account_name)
                 )
-            mappings.update(mappers.get_address_mappings(address))
+            mappings.update(mappers.get_address_mappings(address, self.const))
         return mappings
 
     def _get_mappings(self, account, password, tpl):

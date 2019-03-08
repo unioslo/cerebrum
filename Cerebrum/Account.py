@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,11 +27,12 @@ default username is stored in is yet to be determined.
 from __future__ import unicode_literals
 
 import crypt
+import functools
 import string
-import re
 import mx
 import hashlib
 import base64
+import re
 
 import six
 
@@ -45,6 +46,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import (NotSet,
                             argument_to_sql,
                             prepare_string)
+from Cerebrum.utils.username import suggest_usernames
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough)
 from Cerebrum.modules.password_generator.generator import PasswordGenerator
@@ -140,7 +142,7 @@ class AccountType(object):
                                      'binds': ", ".join(
                                          [":%s" % t for t in cols.keys()])},
                          cols)
-            self._db.log_change(self.entity_id, self.const.account_type_add,
+            self._db.log_change(self.entity_id, self.clconst.account_type_add,
                                 None, change_params={
                                     'ou_id': int(ou_id),
                                     'affiliation': int(affiliation),
@@ -168,7 +170,7 @@ class AccountType(object):
         WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
                                     for x in cols.keys() if x != "priority"]),
                      cols)
-        self._db.log_change(self.entity_id, self.const.account_type_mod,
+        self._db.log_change(self.entity_id, self.clconst.account_type_mod,
                             None, change_params={'new_pri': int(new_pri),
                                                  'old_pri': int(orig_pri)})
 
@@ -184,7 +186,7 @@ class AccountType(object):
         self.execute("""
                      DELETE FROM [:table schema=cerebrum name=account_type]
                      WHERE {}""".format(where), cols)
-        self._db.log_change(self.entity_id, self.const.account_type_del,
+        self._db.log_change(self.entity_id, self.clconst.account_type_del,
                             None,
                             change_params={'ou_id': int(ou_id),
                                            'affiliation': int(affiliation),
@@ -362,7 +364,7 @@ class AccountHome(object):
             'account_id': self.entity_id,
             'spread': int(spread)})
         self._db.log_change(
-            self.entity_id, self.const.account_home_removed, None,
+            self.entity_id, self.clconst.account_home_removed, None,
             change_params={'spread': int(spread),
                            'home': old_home,
                            'homedir_id': ah['homedir_id']})
@@ -389,6 +391,8 @@ class AccountHome(object):
         do not end up with homedir rows without corresponding
         account_home entries.
         """
+        if home and re.search('[:*"?<>|]', home):
+            raise ValueError("Illegal character in disk path")
         binds = {'account_id': self.entity_id,
                  'home': home,
                  'disk_id': disk_id,
@@ -411,7 +415,7 @@ class AccountHome(object):
                 ", ".join(binds.keys()),
                 ", ".join([":%s" % t for t in binds]))
 
-            change_type = self.const.homedir_add
+            change_type = self.clconst.homedir_add
         else:
             # Leave previous value alone if update
             for key, value in binds.items():
@@ -426,7 +430,7 @@ class AccountHome(object):
             WHERE homedir_id=:homedir_id""" % (
                 ", ".join(["%s=:%s" % (t, t) for t in binds]))
 
-            change_type = self.const.homedir_update
+            change_type = self.clconst.homedir_update
 
         self.execute(sql, binds)
 
@@ -455,7 +459,7 @@ class AccountHome(object):
         WHERE homedir_id=:homedir_id""",
                      {'homedir_id': homedir_id})
         self._db.log_change(
-            self.entity_id, self.const.homedir_remove, None,
+            self.entity_id, self.clconst.homedir_remove, None,
             change_params={'homedir_id': homedir_id,
                            'home': tmp})
 
@@ -489,7 +493,7 @@ class AccountHome(object):
             SET homedir_id=:homedir_id
             WHERE account_id=:account_id AND spread=:spread""", binds)
             self._db.log_change(
-                self.entity_id, self.const.account_home_updated, None,
+                self.entity_id, self.clconst.account_home_updated, None,
                 change_params={
                     'spread': int(spread),
                     'home': tmp,
@@ -506,7 +510,7 @@ class AccountHome(object):
             VALUES
               (:account_id, :spread, :homedir_id)""", binds)
             self._db.log_change(
-                self.entity_id, self.const.account_home_added, None,
+                self.entity_id, self.clconst.account_home_added, None,
                 change_params={'spread': int(spread),
                                'home': tmp,
                                'homedir_id': homedir_id})
@@ -582,7 +586,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             self.delete_entity_name(self.const.account_namespace)
             self._db.log_change(
                 self.entity_id,
-                self.const.account_destroy,
+                self.clconst.account_destroy,
                 None)
 
         # AccountHome is the class "breaking" the MRO-delete() "chain".
@@ -766,7 +770,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             assert(isinstance(unicode_plaintext, six.text_type))
             utf8_plaintext = unicode_plaintext.encode('utf-8')
         if method in (self.const.auth_type_md5_crypt,
-                      self.const.auth_type_crypt3_des,
                       self.const.auth_type_sha256_crypt,
                       self.const.auth_type_sha512_crypt,
                       self.const.auth_type_ssha):
@@ -781,13 +784,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 else:
                     salt = Utils.random_string(2, saltchars)
             if method == self.const.auth_type_ssha:
-                # encodestring annoyingly adds a '\n' at the end of
-                # the string, and OpenLDAP won't accept that.
-                # b64encode does not, but it requires Python 2.4
-                return base64.encodestring(
+                return base64.b64encode(
                     hashlib.sha1(
                         utf8_plaintext + salt.encode('utf-8')
-                    ).digest() + salt.encode('utf-8')).strip().decode()
+                    ).digest() + salt.encode('utf-8')).decode()
             return crypt.crypt(
                 plaintext if binary else utf8_plaintext,
                 salt.encode('utf-8')).decode()
@@ -817,7 +817,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         """
         if method in (self.const.auth_type_md5_crypt,
                       self.const.auth_type_ha1_md5,
-                      self.const.auth_type_crypt3_des,
                       self.const.auth_type_sha256_crypt,
                       self.const.auth_type_sha512_crypt,
                       self.const.auth_type_md4_nt):
@@ -834,7 +833,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         """
         if method not in (self.const.auth_type_md5_crypt,
                           self.const.auth_type_ha1_md5,
-                          self.const.auth_type_crypt3_des,
                           self.const.auth_type_md4_nt,
                           self.const.auth_type_ssha,
                           self.const.auth_type_sha256_crypt,
@@ -950,7 +948,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                           'np_type': np_type,
                           'exp_date': self.expire_date,
                           'desc': self.description})
-            self._db.log_change(self.entity_id, self.const.account_create,
+            self._db.log_change(self.entity_id, self.clconst.account_create,
                                 None, change_params=newvalues)
             self.add_entity_name(
                 self.const.account_namespace,
@@ -974,7 +972,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                  'exp_date': self.expire_date,
                  'desc': self.description,
                  'acc_id': self.entity_id})
-            self._db.log_change(self.entity_id, self.const.account_mod,
+            self._db.log_change(self.entity_id, self.clconst.account_mod,
                                 None, change_params=newvalues)
             if 'account_name' in self.__updated:
                 self.update_entity_name(self.const.account_namespace,
@@ -997,7 +995,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             if cereconf.PASSWORD_PLAINTEXT_IN_CHANGE_LOG:
                 change_params = {'password': self.__plaintext_password}
             self._db.log_change(self.entity_id,
-                                self.const.account_password,
+                                self.clconst.account_password,
                                 None,
                                 change_params=change_params)
         # Store the authentication data.
@@ -1032,7 +1030,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                                   'auth_data': self._auth_info[k]})
             elif self.__in_db and what == 'update':
                 self.execute("""
-                DELETE FROM [:table schema=cerebrum name=account_authentication]
+                DELETE FROM 
+                  [:table schema=cerebrum name=account_authentication]
                 WHERE account_id=:acc_id AND method=:method""",
                              {'acc_id': self.entity_id, 'method': k})
 
@@ -1319,130 +1318,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         maxlen: maximum length of a username (incl. the suffix)
         suffix: string to append to every generated username
         """
-        goal = 15       # We may return more than this
-        maxlen -= len(suffix)
-        assert maxlen > 0, "maxlen - suffix = no characters left"
-        potuname = ()
-
-        lastname = self.simplify_name(lname, alt=1)
-        if lastname == "":
-            raise ValueError(
-                "Must supply last name, got '%s', '%s'" % (fname, lname))
-
-        fname = self.simplify_name(fname, alt=1)
-        lname = lastname
-
-        if fname == "":
-            # This is a person with no first name.  We "fool" the
-            # algorithm below by switching the names around.  This
-            # will always lead to suggesting names with numerals added
-            # to the end since there are only 8 possible usernames for
-            # a name of length 8 or more.  (assuming maxlen=8)
-            fname = lname
-            lname = ""
-
-        # We ignore hyphens in the last name, but extract the
-        # initials from the first name(s).
-        lname = lname.replace('-', '').replace(' ', '')
-        initials = [n[0] for n in re.split(r'[ -]', fname)]
-
-        # firstinit is set to the initials of the first two names if
-        # the person has three or more first names, so firstinit and
-        # initial never overlap.
-        firstinit = ""
-        initial = None
-        if len(initials) >= 3:
-            firstinit = "".join(initials[:2])
-        # initial is taken from the last first name.
-        if len(initials) > 1:
-            initial = initials[-1]
-
-        # Now remove all hyphens and keep just the first name.  People
-        # called "Geir-Ove Johnsen Hansen" generally prefer "geirove"
-        # to just "geir".
-
-        fname = fname.replace('-', '').split(" ")[0][0:maxlen]
-
-        # For people with many (more than three) names, we prefer to
-        # use all initials.
-        # Example:  Geir-Ove Johnsen Hansen
-        #           ffff fff i       llllll
-        # Here, firstinit is "GO" and initial is "J".
-        #
-        # gohansen gojhanse gohanse gojhanse ... goh gojh
-        # ssllllll ssilllll sslllll ssilllll     ssl ssil
-        #
-        # ("ss" means firstinit, "i" means initial, "l" means last name)
-
-        if len(firstinit) > 1:
-            llen = min(len(lname), maxlen - len(firstinit))
-            for j in range(llen, 0, -1):
-                un = firstinit + lname[0:j] + suffix
-                if self.validate_new_uname(domain, un):
-                    potuname += (un, )
-
-                if initial and len(firstinit) + 1 + j <= maxlen:
-                    un = firstinit + initial + lname[0:j] + suffix
-                    if self.validate_new_uname(domain, un):
-                        potuname += (un, )
-
-                if len(potuname) >= goal:
-                    break
-
-        # Now try different substrings from first and last name.
-        #
-        # geiroveh,
-        # fffffffl
-        # geirovjh geirovh geirovha,
-        # ffffffil ffffffl ffffffll
-        # geirojh geiroh geirojha geiroha geirohan,
-        # fffffil fffffl fffffill fffffll ffffflll
-        # geirjh geirh geirjha geirha geirjhan geirhan geirhans
-        # ffffil ffffl ffffill ffffll ffffilll fffflll ffffllll
-        # ...
-        # gjh gh gjha gha gjhan ghan ... gjhansen ghansen
-        # fil fl fill fll filll flll     fillllll fllllll
-
-        flen = min(len(fname), maxlen - 1)
-        for i in range(flen, 0, -1):
-            llim = min(len(lname), maxlen - i)
-            for j in range(1, llim + 1):
-                if initial:
-                    # Is there room for an initial?
-                    if j < llim:
-                        un = fname[0:i] + initial + lname[0:j] + suffix
-                        if self.validate_new_uname(domain, un):
-                            potuname += (un, )
-                un = fname[0:i] + lname[0:j] + suffix
-                if self.validate_new_uname(domain, un):
-                    potuname += (un, )
-            if len(potuname) >= goal:
-                break
-
-        # Try prefixes of the first name with nothing added.  This is
-        # the only rule which generates usernames for persons with no
-        # _first_ name.
-        #
-        # geirove, geirov, geiro, geir, gei, ge
-
-        flen = min(len(fname), maxlen)
-        for i in range(flen, 1, -1):
-            un = fname[0:i] + suffix
-            if self.validate_new_uname(domain, un):
-                potuname += (un, )
-            if len(potuname) >= goal:
-                break
-
-        # Absolutely last ditch effort:  geirov1, geirov2 etc.
-        i = 1
-        prefix = (fname + lname)[:maxlen - 2]
-
-        while len(potuname) < goal and i < 100:
-            un = prefix + str(i) + suffix
-            i += 1
-            if self.validate_new_uname(domain, un):
-                potuname += (un, )
-        return potuname
+        validate_func = functools.partial(self.validate_new_uname,
+                                          self.const.account_namespace)
+        return suggest_usernames(domain, fname, lname,
+                                 maxlen=maxlen, suffix=suffix,
+                                 validate_func=validate_func)
 
     def validate_new_uname(self, domain, uname):
         """Check that the requested username is legal and free"""
@@ -1455,76 +1335,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             return False
         except Errors.NotFoundError:
             return True
-
-    _simplify_name_cache = [None] * 4
-
-    def simplify_name(self, s, alt=0, as_gecos=0):
-        """Convert string so that it only contains characters that are
-        legal in a posix username.  If as_gecos=1, it may also be
-        used for the gecos field"""
-
-        try:
-            # make sure that s contains only latin1 compatible characters
-            s.encode('ISO_8859-1')
-        except UnicodeEncodeError:
-            self.logger.error(
-                u'latin1 incompatible characters detected in '
-                u'simplify_name for: {name}'.format(
-                    name=s))
-            raise ValueError('latin1 incompatible characters detected')
-        key = bool(alt) + (bool(as_gecos) * 2)
-        try:
-            (tr, xlate_subst, xlate_match) = self._simplify_name_cache[key]
-        except TypeError:
-            xlate = {u'Ð': u'Dh',
-                     u'ð': u'dh',
-                     u'Þ': u'Th',
-                     u'þ': u'th',
-                     u'ß': u'ss'}
-            if alt:
-                xlate.update({u'Æ': u'ae',
-                              u'æ': u'ae',
-                              u'Å': u'aa',
-                              u'å': u'aa'})
-            xlate_subst = re.compile(r'[^a-zA-Z0-9 -]').sub
-
-            def xlate_match(match):
-                return xlate.get(match.group(), u'')
-            tr = dict(zip(map(six.unichr, xrange(0200, 0400)), (u'x',) * 0200))
-            tr.update(dict(zip(
-                u'ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝàáâãäçèéêëìíîïñòóôõöùúûüýÿ'
-                u'{[}]|¦\\¨­¯´',
-                u'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
-                u'aAaAooO"--\'')))
-            for ch in filter(lambda x: x in tr, xlate):
-                del tr[ch]
-            if not as_gecos:
-                # lowercase the result
-                xlate = dict(zip(xlate.keys(), map(six.text_type.lower,
-                                                   xlate.values())))
-            self._simplify_name_cache[key] = (tr, xlate_subst, xlate_match)
-
-        # this is intended to be a replacement for s.translate until Python3
-        for key, value in tr.items():
-            s = s.replace(key, value)
-        if not as_gecos:
-            s = s.lower()
-
-        xlated = xlate_subst(xlate_match, s)
-
-        # normalise whitespace and hyphens: only ordinary SPC, only
-        # one of them between words, and none leading or trailing.
-        xlated = re.sub(r'\s+', u' ', xlated)
-        xlated = re.sub(r' ?-+ ?', u'-', xlated).strip(u' -')
-        try:
-            xlated.encode('ascii')
-        except UnicodeEncodeError:
-            self.logger.error(
-                u'ASCII incompatible output produced in '
-                u'simplify_name for: {output}'.format(
-                    output=xlated))
-            raise ValueError('ASCII incompatible output produced')
-        return xlated
 
     def search(self,
                spread=None,

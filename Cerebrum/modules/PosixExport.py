@@ -32,7 +32,8 @@ from six import text_type
 import posixconf
 
 from Cerebrum.Entity import EntityName
-from Cerebrum.Utils import Factory, auto_super, latin1_to_iso646_60
+from Cerebrum.Utils import Factory, auto_super
+from Cerebrum.utils import transliterate
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.utils.atomicfile import FileSizeChangeError
 from Cerebrum.QuarantineHandler import QuarantineHandler
@@ -125,6 +126,7 @@ Examples:
 
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
+        self.clconst = Factory.get('CLConstants')(self.db)
         self.group = Factory.get('Group')(self.db)
         self.posix_user = Factory.get('PosixUser')(self.db)
         self.posix_group = PosixGroup.PosixGroup(self.db)
@@ -607,8 +609,8 @@ Examples:
         cn = gecos = row['gecos']
         if data.account_id in self.a_id2owner:
             cn = self.p_id2name.get(self.a_id2owner[data.account_id], gecos)
-        data.cn    = cn or data.uname
-        data.gecos = latin1_to_iso646_60(gecos or data.cn)
+        data.cn = cn or data.uname
+        data.gecos = transliterate.to_iso646_60(gecos or data.cn)
         return data
 
     def ldif_user(self, data):
@@ -618,7 +620,6 @@ Examples:
         else:
             passwd = '{crypt}*Invalid'
             for uauth in filter(self.auth_format.has_key, self.a_meth):
-                #method = int(self.co.auth_type_crypt3_des)
                 try:
                     #if uauth in self.auth_format.keys():
                     fmt = self.auth_format[uauth]['format']
@@ -652,7 +653,7 @@ Examples:
                  'memberUid':   members}
         desc = self.group2desc(group_id)
         if desc:
-            # latin1_to_iso646_60 later
+            # becomes iso646_60 later
             entry['description'] = (desc,)
         return ','.join(('cn=' + name, self.fgrp_dn)), entry
 
@@ -666,7 +667,7 @@ Examples:
                  'memberNisNetgroup': group_members}
         desc = self.group2desc(group_id)
         if desc:
-            entry['description'] = (latin1_to_iso646_60(desc),)
+            entry['description'] = (transliterate.to_iso646_60(desc),)
         return ','.join(('cn=' + name, self.ngrp_dn)), entry
 
 
@@ -749,7 +750,8 @@ Examples:
         try:
             # TODO: Try 'for event in self.db.get_log_events(): return True'.
             events = list(self.db.get_log_events(
-                    types=(self.co.group_create, self.co.account_create),
+                    types=(self.clconst.group_create,
+                           self.clconst.account_create),
                     subject_entity=entity_id,
                     sdate=self._namecachedtime))
             return bool(events)

@@ -27,14 +27,12 @@ from __future__ import unicode_literals
 
 from six import text_type
 
-import cerebrum_path
 
 from Cerebrum.Utils import Factory
 from Cerebrum.database import DatabaseError
 from mx.DateTime import now
 
 logger = Factory.get_logger('cronjob')
-del cerebrum_path
 
 
 def remove_expired_groups(db, days, pretend):

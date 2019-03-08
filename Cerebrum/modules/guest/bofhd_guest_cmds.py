@@ -43,8 +43,8 @@ from Cerebrum.modules.bofhd.cmd_param import (AccountName,
                                               PersonName)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.guest.bofhd_guest_auth import BofhdAuth
-from Cerebrum.modules.username_generator.generator import UsernameGenerator
 from Cerebrum.utils.sms import SMSSender
+from Cerebrum.utils.username import suggest_usernames
 
 
 def format_date(field):
@@ -317,7 +317,7 @@ class BofhdExtension(BofhdCommonMethods):
                                         mobile, guest_group)
 
         # An extra change log is required in the responsible's log
-        ac._db.log_change(responsible, ac.const.guest_create, ac.entity_id,
+        ac._db.log_change(responsible, ac.clconst.guest_create, ac.entity_id,
                           change_params={'owner': responsible,
                                          'mobile': mobile,
                                          'name': '%s %s' % (fname, lname)},
@@ -326,7 +326,7 @@ class BofhdExtension(BofhdCommonMethods):
         # In case a superuser has set a specific account as the responsible,
         # the event should be logged for both operator and responsible:
         if operator.get_entity_id() != responsible:
-            ac._db.log_change(operator.get_entity_id(), ac.const.guest_create,
+            ac._db.log_change(operator.get_entity_id(), ac.clconst.guest_create,
                               ac.entity_id, change_params={
                                   'owner': responsible,
                                   'mobile': mobile,
@@ -379,11 +379,10 @@ class BofhdExtension(BofhdCommonMethods):
         settings = guestconfig.GUEST_TYPES[guest_group.group_name]
 
         ac = self.Account_class(self.db)
-        uname_generator = UsernameGenerator()
         # create a validation callable (function)
         vfunc = functools.partial(ac.validate_new_uname,
                                   self.const.account_namespace)
-        name = uname_generator.suggest_unames(
+        name = suggest_usernames(
             self.const.account_namespace,
             fname,
             lname,

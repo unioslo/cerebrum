@@ -41,6 +41,7 @@ from Cerebrum.modules import CLHandler
 logger = Factory.get_logger('cronjob')
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
+clconst = Factory.get('CLConstants')(db)
 ac = Factory.get('Account')(db)
 cl = CLHandler.CLHandler(db)
 
@@ -63,7 +64,7 @@ def check_changelog_for_quarantine_triggers(logger, sendmail):
                     % quarantine)
         quar_data = cereconf.QUARANTINE_NOTIFY_DATA[quarantine]
         triggers = tuple(
-            getattr(co, trigger) for trigger in quar_data['triggers'])
+            getattr(clconst, trigger) for trigger in quar_data['triggers'])
         for event in cl.get_events(quar_data['cl_key'],
                                    triggers):
             change_params = {}
@@ -113,7 +114,7 @@ def generate_quarantine_info(quarantine, metadata):
 def generate_event_info(event):
     event_info = dict()
     event_info['change_id'] = event['change_id']
-    change_type = str(co.ChangeType(event['change_type_id']))
+    change_type = str(clconst.ChangeType(event['change_type_id']))
     event_info['change_type'] = change_type
     ac.clear()
     ac.find(event['subject_entity'])

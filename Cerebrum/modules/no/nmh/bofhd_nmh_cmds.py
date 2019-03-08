@@ -63,6 +63,7 @@ class NmhEmailAuth(NmhAuth, bofhd_email.BofhdEmailAuth):
 
 
 uio_helpers = [
+    '_assert_group_deletable',
     '_entity_info',
     '_fetch_member_names',
     '_format_changelog_entry',
@@ -124,6 +125,7 @@ uio_commands = [
     'group_list',
     'group_list_expanded',
     'group_memberships',
+    'group_memberships_expanded',
     'group_remove',
     'group_remove_entity',
     'group_search',

@@ -926,10 +926,14 @@ class SMSPasswordNotifier(PasswordNotifier):
                 return False
             self.person.clear()
             self.person.find(account.owner_id)
+            if cereconf.SMS_NUMBER_SELECTOR_PRIVATE:
+                sms_numbers = cereconf.SMS_NUMBER_SELECTOR_PRIVATE
+            else:
+                sms_numbers = cereconf.SMS_NUMBER_SELECTOR
             try:
                 spec = map(lambda (s, t): (self.constants.human2constant(s),
                                            self.constants.human2constant(t)),
-                           cereconf.SMS_NUMBER_SELECTOR)
+                           sms_numbers)
                 mobile = self.person.sort_contact_info(
                     spec, self.person.get_contact_info())
                 person_in_systems = [int(af['source_system']) for af in

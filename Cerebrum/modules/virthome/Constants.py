@@ -4,15 +4,57 @@
 """Constants for the VirtHome project.
 """
 
-import cerebrum_path
 import cereconf
 
-from Cerebrum.Constants import Constants
-from Cerebrum.modules.CLConstants import _ChangeTypeCode as ChangeType
+from Cerebrum.Constants import (Constants, CLConstants, _ChangeTypeCode)
 from Cerebrum.Constants import _SpreadCode as SpreadCode
 from Cerebrum.Constants import _QuarantineCode as QuarantineCode
-from Cerebrum.modules.EntityTrait import _EntityTraitCode as EntityTrait
+from Cerebrum.modules.EntityTraitConstants import _EntityTraitCode as EntityTrait
 
+
+class BofhdVirtHomeAuthConstants(Constants):
+    pass
+# end BofhdVirtHomeAuthConstants
+
+
+class VirtHomeCLConstants(CLConstants):
+    #
+    # Bofhd requests
+    #####
+    va_pending_create = _ChangeTypeCode(
+        'e_account',
+        'pending_create',
+        'waiting for creation confirmation on %(subject)s')
+
+    va_email_change = _ChangeTypeCode(
+        'e_account',
+        'pending_email',
+        'waiting for e-mail change confirmation on %(subject)s')
+
+    va_group_invitation = _ChangeTypeCode(
+        'e_group',
+        'pending_invitation',
+        'issued invitation to join group')
+
+    va_group_owner_swap = _ChangeTypeCode(
+        'e_group',
+        'pending_owner_change',
+        'waiting for a group owner change')
+
+    va_group_moderator_add = _ChangeTypeCode(
+        'e_group',
+        'pending_moderator_add',
+        'waiting for a new group moderator')
+
+    va_password_recover = _ChangeTypeCode(
+        'e_account',
+        'password_recover',
+        'a pending password recovery request')
+
+    va_reset_expire_date = _ChangeTypeCode(
+        'e_account',
+        'reset_expire_date',
+        "push VA/FA's expire date into the future")
 
 
 class VirtHomeMiscConstants(Constants):
@@ -41,30 +83,6 @@ class VirtHomeMiscConstants(Constants):
     virthome_group_url = Constants.ContactInfo(
                                "VH-GROUP-URL",
                                "Group resource url in VirtHome")
-
-    #
-    # Bofhd requests
-    #####
-    va_pending_create = ChangeType('e_account', 'pending_create',
-                                   'waiting for creation confirmation on %(subject)s')
-
-    va_email_change = ChangeType('e_account', 'pending_email',
-                                 'waiting for e-mail change confirmation on %(subject)s')
-
-    va_group_invitation = ChangeType('e_group', 'pending_invitation',
-                                     'issued invitation to join group')
-
-    va_group_owner_swap = ChangeType('e_group', 'pending_owner_change',
-                                     'waiting for a group owner change')
-
-    va_group_moderator_add = ChangeType('e_group', 'pending_moderator_add',
-                                        'waiting for a new group moderator')
-
-    va_password_recover = ChangeType('e_account', 'password_recover',
-                                     'a pending password recovery request')
-
-    va_reset_expire_date = ChangeType('e_account', 'reset_expire_date',
-                                      "push VA/FA's expire date into the future")
 
     #
     # Various spreads ...

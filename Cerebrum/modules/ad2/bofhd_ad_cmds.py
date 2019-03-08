@@ -187,9 +187,9 @@ class BofhdExtension(BofhdCommandBase):
         ent = self._get_entity(entity_type, ident)
         # TODO: check if operator has access to the entity?
         ret = []
-        for row in ent.list_external_ids(
+        for row in ent.search_external_ids(
                 source_system=self.const.system_ad,
-                entity_id=ent.entity_id):
+                entity_id=ent.entity_id, fetchall=False):
             ret.append({
                 'id_type': six.text_type(
                     self.const.EntityExternalId(row['id_type'])),

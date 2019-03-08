@@ -36,7 +36,6 @@ import io
 
 from six import text_type
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
@@ -48,6 +47,8 @@ from Cerebrum.modules.xmlutils.xml2object import DataOU
 logger = Factory.get_logger("cronjob")
 database = Factory.get('Database')()
 constants = Factory.get('Constants')(database)
+
+DEFAULT_OUTPUT_ENCODING = 'utf-8'
 
 
 @memoize
@@ -328,6 +329,7 @@ def main():
     filename = None
     sources = list()
     faculty = None
+    output_encoding = None
     for option, value in opts:
         if option in ("-s", "--source-spec",):
             sysname, personfile = value.split(":")
@@ -337,13 +339,16 @@ def main():
         elif option in ("-f", "--faculty",):
             faculty = int(value)
             assert 0 < faculty < 100, "Faculty is a 2-digit number"
+        elif option in ("-e", "--encoding"):
+            output_encoding = value
 
     assert filename, "Need an output file name"
     assert faculty, "Need a faculty to operate on"
     logger.debug("sources is %s", sources)
 
     # TODO: Ask per if we can use UTF-8
-    stream = io.open(filename, "w", encoding='ISO-8859-1')
+    stream = io.open(filename, "w", encoding=(output_encoding or
+                                              DEFAULT_OUTPUT_ENCODING))
     for system_name, filename in sources:
         # Locate the appropriate Cerebrum constant
         source_system = getattr(constants, system_name)
@@ -355,9 +360,7 @@ def main():
                    stream)
 
     stream.close()
-# end main
 
 
 if __name__ == "__main__":
     main()
-    del cerebrum_path

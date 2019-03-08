@@ -160,7 +160,7 @@ def mail_template(recipient, template_file, sender=None, cc=None,
                      'to': recipient,
                      'subject': '<none>'}
     for header in headers.split('\n'):
-        field, value = map(six.text_type.strip, header.split(':', 1))
+        field, value = map(header.strip, header.split(':', 1))
         field = field.lower()
         if field in preset_fields:
             preset_fields[field] = value

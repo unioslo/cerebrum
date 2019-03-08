@@ -73,6 +73,7 @@ def date_to_string(date):
 
 # Helper methods from bofhd_uio_cmd
 uio_helpers = [
+    '_assert_group_deletable',
     '_entity_info',
     '_fetch_member_names',
     '_format_changelog_entry',
@@ -142,6 +143,7 @@ copy_uio = [
     'group_list',
     'group_list_expanded',
     'group_memberships',
+    'group_memberships_expanded',
     'group_padd',
     'group_personal',
     'group_promote_posix',
@@ -590,7 +592,10 @@ class BofhdExtension(BofhdCommonMethods):
                 })
         # Fetch primary email
         if acc_id:
-            data.append({'prim_email': account.get_primary_mailaddress()})
+            try:
+                data.append({'prim_email': account.get_primary_mailaddress()})
+            except Errors.NotFoundError:
+                data.append({'prim_email': None})
         else:
             data.append({'prim_email': None})
         return data
@@ -938,6 +943,13 @@ class BofhdExtension(BofhdCommonMethods):
 
     def user_promote_posix(self, operator, accountname, dfg=None, shell=None,
                            home=None):
+        # Verify that account name is legal
+        pu = Factory.get('PosixUser')(self.db)
+        illegal_name = pu.illegal_name(accountname)
+        if illegal_name:
+            raise CerebrumError("Illegal account name given. Account name " +
+                                illegal_name)
+
         is_posix = False
         try:
             self._get_account(accountname, actype="PosixUser")
@@ -947,7 +959,6 @@ class BofhdExtension(BofhdCommonMethods):
         if is_posix:
             raise CerebrumError("%s is already a PosixUser" % accountname)
         account = self._get_account(accountname)
-        pu = Factory.get('PosixUser')(self.db)
         old_uid = self._lookup_old_uid(account.entity_id)
         if old_uid is None:
             uid = pu.get_free_uid()
@@ -1184,7 +1195,7 @@ class BofhdExtension(BofhdCommonMethods):
         posix_user = Factory.get('PosixUser')(self.db)
         uid = posix_user.get_free_uid()
         shell = self._get_shell(shell)
-        path = '/hia/ravn/u4'
+        path = '/hia/ravn/u5'
         disk_id, home = self._get_disk(path)[1:3]
         posix_user.clear()
         gecos = None
@@ -1362,6 +1373,12 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_multi_remove(self, operator, member_type, src_name, dest_group):
         """ Remove a person, account or group from a given group. """
+        # If int in any of the names we assume the user intended to write an
+        # entity id and prefix it with id: for them
+        if isinstance(src_name, int):
+            src_name = 'id:' + text_type(src_name)
+        if isinstance(dest_group, int):
+            dest_group = 'id:' + text_type(dest_group)
         if member_type not in ('group', 'account', 'person'):
             return 'Unknown member_type %r' % (member_type)
         return self._group_remove(operator, src_name, dest_group,
@@ -1380,19 +1397,19 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
     parent_commands = True
     omit_parent_commands = {
         # Commands that are *not* included from BofhdEmailCommands
-        'email_create_multi',
-        'email_create_pipe',
-        'email_delete_domain',
+        'email_address_set_primary',
+        'email_domain_delete',
         'email_delete_forward_target',
-        'email_delete_multi',
-        'email_delete_pipe',
         'email_domain_set_description',
-        'email_edit_pipe_command',
-        'email_edit_pipe_user',
         'email_failure_message',
-        'email_list_pause',
+        'email_multi_create',
+        'email_multi_delete',
+        'email_pipe_create',
+        'email_pipe_delete',
+        'email_pipe_edit_command',
+        'email_pipe_edit_user',
         'email_pause',
-        'email_primary_address',
+        'email_pause_list',
     }
     authz = UiaEmailAuth
 

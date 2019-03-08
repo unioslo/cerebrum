@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2007-2018 University of Oslo, Norway
 #
@@ -20,197 +20,39 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum import Constants
-from Cerebrum.Constants import (ConstantsBase, _CerebrumCode, _SpreadCode,
-                                _get_code)
-from Cerebrum.modules.CLConstants import _ChangeTypeCode
+from Cerebrum.Constants import _get_code
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 
 
-class _EphorteRoleTypeCode(_CerebrumCode):
-    "Mappings stored in the contact_info_code table"
-    _lookup_table = '[:table schema=cerebrum name=ephorte_role_type_code]'
-    pass
-
-
-class _EphortePermTypeCode(_CerebrumCode):
-    "Mappings stored for 'tilgangskoder' i UiOs Ephorte"
-    _lookup_table = ' [:table schema=cerebrum name=ephorte_perm_type_code]'
-    pass
-
-
-class _EphorteArkivdelCode(_CerebrumCode):
-    "Mappings stored in the contact_info_code table"
-    _lookup_table = '[:table schema=cerebrum name=ephorte_arkivdel_code]'
-    pass
-
-
-class _EphorteJournalenhetCode(_CerebrumCode):
-    "Mappings stored in the contact_info_code table"
-    _lookup_table = '[:table schema=cerebrum name=ephorte_journalenhet_code]'
-    pass
-
-
-class EphorteConstants(ConstantsBase):
-    # Values from the ePhorte table ROLE
-    ephorte_role_ar1 = _EphorteRoleTypeCode('AR1', 'Arkivansvarlig')
-    ephorte_role_ar2 = _EphorteRoleTypeCode('AR2', 'Arkivar')
-    ephorte_role_ar3 = _EphorteRoleTypeCode('AR3', 'Arkivledelsen')
-    ephorte_role_ld = _EphorteRoleTypeCode('LD', 'Leder/saksfordeler')
-    ephorte_role_ld_les = _EphorteRoleTypeCode('LD LES', 'Leserolle - leder')
-    ephorte_role_sb = _EphorteRoleTypeCode('SB', 'Saksbehandler')
-    ephorte_role_sb2 = _EphorteRoleTypeCode('SB2', 'Consultant')
-    ephorte_role_sy = _EphorteRoleTypeCode('SY', 'Systemansvarlig')
-    ephorte_role_mal = _EphorteRoleTypeCode('MAL', 'Mal-ansvarlige')
-    ephorte_role_sub = _EphorteRoleTypeCode('SUB', 'Superbruker')
-
-    # Values from the ePhorte table tilgang_type_code
-    ephorte_perm_us = _EphortePermTypeCode('US', 'Unntatt etter offentlighetsloven ved SO')
-    ephorte_perm_un = _EphortePermTypeCode('UN', 'Unntatt etter offentlighetsloven ved NIKK')
-    ephorte_perm_ua = _EphortePermTypeCode('UA', 'Under arbeid')
-    ephorte_perm_uo = _EphortePermTypeCode('UO', 'Unntatt etter offentlighetsloven')
-    ephorte_perm_p = _EphortePermTypeCode('P', 'Personalsaker')
-    ephorte_perm_p2 = _EphortePermTypeCode('P2', 'Personers økonomiske forhold')
-    ephorte_perm_p3 = _EphortePermTypeCode('P3', 'Disiplinærsaker personal')
-    ephorte_perm_p4 = _EphortePermTypeCode('P4', 'Rettssaker')
-    ephorte_perm_s = _EphortePermTypeCode('S', 'Studentsaker')
-    ephorte_perm_s2 = _EphortePermTypeCode('S2', 'Disiplinærsaker studenter')
-    ephorte_perm_b = _EphortePermTypeCode('B', 'Begrenset etter sikkerhetsloven')
-    ephorte_perm_f = _EphortePermTypeCode('F', 'Fortrolig etter beskyttelsesinstruksen')
-    ephorte_perm_k = _EphortePermTypeCode('K', 'Kontrakter og avtaler')
-    ephorte_perm_of = _EphortePermTypeCode('OF', 'Unntatt etter offentlighetsloven')
-    ephorte_perm_pv = _EphortePermTypeCode('PV', 'Personalsaker')
-    ephorte_perm_po = _EphortePermTypeCode('PO', 'Personers økonomiske forhold')
-    ephorte_perm_pd = _EphortePermTypeCode('PD', 'Disiplinærsaker personal')
-    ephorte_perm_pr = _EphortePermTypeCode('PR', 'Rettssaker')
-    ephorte_perm_sv = _EphortePermTypeCode('SV', 'Studentsaker')
-    ephorte_perm_sd = _EphortePermTypeCode('SD', 'Disiplinærsaker studenter')
-    ephorte_perm_ar = _EphortePermTypeCode('AR', 'Under arbeid')
-    ephorte_perm_pa = _EphortePermTypeCode('PA', 'Personalsaker AKAN')
-    ephorte_perm_fo = _EphortePermTypeCode('FO', 'Forskningssaker')
-    ephorte_perm_st = _EphortePermTypeCode('ST', 'Studenttilrettelegging')
-    ephorte_perm_va = _EphortePermTypeCode('VA', 'Varsling ansatte')
-    ephorte_perm_vs = _EphortePermTypeCode('VS', 'Varsling studenter')
-    ephorte_perm_pb = _EphortePermTypeCode('PB', 'Personalsaker bilagslønn')
-    ephorte_perm_os = _EphortePermTypeCode('OS', 'Studentombud')
-    ephorte_perm_ai = _EphortePermTypeCode('AI', 'Anskaffelse Innkjøp')
-    ephorte_perm_af = _EphortePermTypeCode('AF', 'Forskningsavvik')
-
-    # Values from the ePhorte table ARKIVDEL
-    ephorte_arkivdel_avtale_uio = _EphorteArkivdelCode(
-        'AVTALE UIO', 'Avtalearkiv ved Universitetet i Oslo')
-    ephorte_arkivdel_cristin = _EphorteArkivdelCode(
-        'CRISTIN', 'Current Research Information System in Norway')
-    ephorte_arkivdel_fs = _EphorteArkivdelCode(
-        'FS', 'FS - Felles studentsystem')
-    ephorte_arkivdel_eiend_uio = _EphorteArkivdelCode(
-        'EIEND UIO', 'Eiendomsarkiv ved Universitetet i Oslo')
-    ephorte_arkivdel_khm_forn = _EphorteArkivdelCode(
-        'KHM FORN', 'KHM (Kulturhistorisk museum) - Fornminnneforvaltning')
-    ephorte_arkivdel_pers_uio = _EphorteArkivdelCode(
-        'PERS UIO', 'Personalarkiv ved Universitetet i Oslo')
-    ephorte_arkivdel_persav_uio = _EphorteArkivdelCode(
-        'PERSAV UIO', 'Avsluttede personalmapper ved UiO')
-    ephorte_arkivdel_sak_romani = _EphorteArkivdelCode(
-        'ROMANI', 'Romani og taterutvalget')
-    ephorte_arkivdel_sak_nikk = _EphorteArkivdelCode(
-        'SAK NIKK', 'Saksarkiv ved NIKK')
-    ephorte_arkivdel_sak_so = _EphorteArkivdelCode(
-        'SAK SO', 'Saksarkiv ved Samordna Opptak')
-    ephorte_arkivdel_sak_uio = _EphorteArkivdelCode(
-        'SAK UIO', 'Saksarkiv ved Universitetet i Oslo')
-    ephorte_arkivdel_stud_uio = _EphorteArkivdelCode(
-        'STUD UIO', 'Studentarkiv ved Universitetet i Oslo')
-    ephorte_arkivdel_studav_uio = _EphorteArkivdelCode(
-        'STUDAV UIO', 'Avsluttede studentmapper ved UiO')
-    ephorte_arkivdel_sak_fsat = _EphorteArkivdelCode(
-        'SAK FSAT', 'Saksarkiv ved Felles studieadministrativt tjenestesenter')
-    ephorte_arkivdel_sak_kdto = _EphorteArkivdelCode(
-        'SAK KDTO', 'Saksarkiv ved KDTO - KDs tjenesteorgan')
-    ephorte_arkivdel_pers_kdto = _EphorteArkivdelCode(
-        'PERS KDTO', 'Personalarkiv ved KDTO - KDs tjenesteorgan')
-    ephorte_arkivdel_nasjonklag_kdto = _EphorteArkivdelCode(
-        'NASJONKLAG KDTO', 'Nasjonal klagenemnd')
-    ephorte_arkivdel_nasjonfag_kdto = _EphorteArkivdelCode(
-        'NASJONFAG KDTO', 'Nasjonal klagenemnd for fagskoleutdanning')
-    ephorte_arkivdel_fellesklag_kdto = _EphorteArkivdelCode(
-        'FELLESKLAG KDTO', 'Felles klagenemnd')
-
-    # Values from the ePhorte table JOURNENHET
-    ephorte_journenhet_uio = _EphorteJournalenhetCode(
-        'J-UIO', 'Journalenhet for UiO - Universitetet i Oslo')
-    ephorte_journenhet_so = _EphorteJournalenhetCode(
-        'J-SO', 'Journalenhet for SO - Samordna Opptak')
-    ephorte_journenhet_nikk = _EphorteJournalenhetCode(
-        'J-NIKK', 'Journalenhet for NIKK - Nordisk institutt for kvinne- og kjønnsforskn')
-    ephorte_journenhet_romani = _EphorteJournalenhetCode(
-        'J-ROMANI', 'Journalenhet for ROMANI - prosjektet')
-    ephorte_journenhet_fsat = _EphorteJournalenhetCode(
-        'J-FSAT', 'Journalenhet for FSAT - Felles studieadministrativt tjenestesenter')
-    ephorte_journenhet_kdto = _EphorteJournalenhetCode(
-        'J-KDTO', 'Journalenhet for KDTO - KDs tjenesteorgan')
-
-    # Spreads relevant for ephorte
-    spread_ephorte_person = _SpreadCode('ePhorte_person',
-                                        Constants.Constants.entity_person,
-                                        'Person included in ePhorte export')
-    spread_ephorte_ou = _SpreadCode('ePhorte_ou',
-                                    Constants.Constants.entity_ou,
-                                    'OU included in ePhorte export')
-
-    EphorteRole = _EphorteRoleTypeCode
-    EphorteArkivdel = _EphorteArkivdelCode
-    EphorteJournalenhet = _EphorteJournalenhetCode
-    EphortePermission = _EphortePermTypeCode
-
-    # ChangeLog constants
-    ephorte_role_add = _ChangeTypeCode(
-        'ephorte', 'role_add', 'add ephorte role @ %(dest)s',
-        ('type=%(rolle_type:rolle_type)s',))
-
-    ephorte_role_upd = _ChangeTypeCode(
-        'ephorte', 'role_upd', 'update ephorte role @ %(dest)s')
-
-    ephorte_role_rem = _ChangeTypeCode(
-        'ephorte', 'role_rem', 'remove ephorte role @ %(dest)s',
-        ('type=%(rolle_type:rolle_type)s',))
-
-    ephorte_perm_add = _ChangeTypeCode(
-        'ephorte', 'perm_add', 'add ephorte perm @ %(dest)s',
-        ('type=%(perm_type:perm_type)s',))
-
-    ephorte_perm_rem = _ChangeTypeCode(
-        'ephorte', 'perm_rem', 'remove ephorte perm @ %(dest)s',
-        ('type=%(perm_type:perm_type)s',))
-
-
-@_ChangeTypeCode.formatter('rolle_type')
+@Constants._ChangeTypeCode.formatter('rolle_type')
 def format_cl_role_type(co, val):
     return _get_code(co.EphorteRole, val)
 
 
-@_ChangeTypeCode.formatter('perm_type')
+@Constants._ChangeTypeCode.formatter('perm_type')
 def format_cl_perm_type(co, val):
     return _get_code(co.EphortePermission, val)
 
 
 ##
-## TBD: Bør denne klassen egentlig være en PersonMixin? Fordi alle
-##      disse funksjonene er relative til personer. Da vil det være
-##      lettere å få til følgende businesslogikk som nå er
-##      implementert litt teit:
-##      
-##        * hvis en person slettes skal dens ephorte-roller,
-##          -tilganger og spreads automatisk fjernes
-##        * hvis en person mister alle sine roller, skal også
-##          tilganger og spread fjernes automatisk.
-##        * Hvis en person får en ny rolle og personen ikke har noen
-##          standardrolle skal den nye rollen settes som standardrolle
+# TBD: BÃ¸r denne klassen egentlig vÃ¦re en PersonMixin? Fordi alle
+#      disse funksjonene er relative til personer. Da vil det vÃ¦re
+#      lettere Ã¥ fÃ¥ til fÃ¸lgende businesslogikk som nÃ¥ er
+#      implementert litt teit:
+#
+#        * hvis en person slettes skal dens ephorte-roller,
+#          -tilganger og spreads automatisk fjernes
+#        * hvis en person mister alle sine roller, skal ogsÃ¥
+#          tilganger og spread fjernes automatisk.
+#        * Hvis en person fÃ¥r en ny rolle og personen ikke har noen
+#          standardrolle skal den nye rollen settes som standardrolle
 
 class EphorteRole(DatabaseAccessor):
     def __init__(self, database):
         super(EphorteRole, self).__init__(database)
         self.co = Factory.get('Constants')(database)
+        self.clconst = Factory.get('CLConstants')(database)
         self.pe = Factory.get('Person')(database)
         self.ephorte_perm = EphortePermission(database)
 
@@ -234,7 +76,7 @@ class EphorteRole(DatabaseAccessor):
                                  ", ".join([":%s" % k for k in binds])),
                      binds)
         self._db.log_change(
-            person_id, self.co.ephorte_role_add, sko,
+            person_id, self.clconst.ephorte_role_add, sko,
             change_params={
                 'arkivdel': arkivdel and str(arkivdel) or '',
                 'rolle_type': str(role)
@@ -266,7 +108,7 @@ class EphorteRole(DatabaseAccessor):
             ["%s=:%s" % (x, x) for x in binds if binds[x]]))
         self.execute(query, binds)
         self._db.log_change(
-            person_id, self.co.ephorte_role_upd, sko,
+            person_id, self.clconst.ephorte_role_upd, sko,
             change_params={'standard_role': standard_role})
 
     def _remove_role(self, person_id, role, sko, arkivdel, journalenhet):
@@ -284,7 +126,7 @@ class EphorteRole(DatabaseAccessor):
             ["%s IS NULL" % x for x in binds if binds[x] is None]),
             binds)
         self._db.log_change(
-            person_id, self.co.ephorte_role_rem, sko,
+            person_id, self.clconst.ephorte_role_rem, sko,
             change_params={
                 'arkivdel': arkivdel and str(arkivdel) or '',
                 'rolle_type': str(role)
@@ -358,7 +200,7 @@ class EphorteRole(DatabaseAccessor):
 class EphortePermission(DatabaseAccessor):
     def __init__(self, database):
         super(EphortePermission, self).__init__(database)
-        self.co = Factory.get('Constants')(database)
+        self.clconst = Factory.get('CLConstants')(database)
         self.pe = Factory.get('Person')(database)
 
     def add_permission(self, person_id, perm_type, sko, requestee):
@@ -374,7 +216,7 @@ class EphortePermission(DatabaseAccessor):
                                  ", ".join([":%s" % k for k in binds])),
                      binds)
         self._db.log_change(
-            person_id, self.co.ephorte_perm_add, sko,
+            person_id, self.clconst.ephorte_perm_add, sko,
             change_params={
                 'adm_enhet': sko or '',
                 'perm_type': str(perm_type)
@@ -393,7 +235,7 @@ class EphortePermission(DatabaseAccessor):
             ["%s IS NULL" % x for x in binds if binds[x] is None]),
             binds)
         self._db.log_change(
-            person_id, self.co.ephorte_perm_rem, sko,
+            person_id, self.clconst.ephorte_perm_rem, sko,
             change_params={
                 'adm_enhet': sko or '',
                 'perm_type': str(perm_type)

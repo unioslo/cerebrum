@@ -1350,6 +1350,13 @@ class ConstantsBase(DatabaseAccessor):
                 obj = None
         return obj
 
+    @classmethod
+    def resolve_constant(cls, database, constant, const_type=None):
+        for t in ('Constants', 'CLConstants'):
+            c = Factory.get(t)(database).human2constant(constant, const_type)
+            if c:
+                return c
+
 
 class CoreConstants(ConstantsBase):
 
@@ -1399,7 +1406,7 @@ class CoreConstants(ConstantsBase):
     language_it = _LanguageCode("it", "Italiano")
     language_nl = _LanguageCode("nl", "Nederlands")
     language_sv = _LanguageCode("sv", "Svenska")
-    language_sv = _LanguageCode("fr", u"Français")
+    language_fr = _LanguageCode("fr", u"Français")
     language_ru = _LanguageCode("ru", "Russian")
 
     system_cached = _AuthoritativeSystemCode(
@@ -1429,11 +1436,6 @@ class CommonConstants(ConstantsBase):
         "Password hash generated with the 'traditional' Unix crypt(3)"
         " algorithm, based on DES.  See <URL:http://www.users.zetnet.co.uk"
         "/hopwood/crypto/scan/ph.html#Traditional-crypt3>.")
-    auth_type_pgp_crypt = _AuthenticationCode(
-        'PGP-crypt',
-        "PGP-encrypt the password so that we later can get at the plaintext "
-        "password if we want to populate new backends.  The secret key "
-        "should be stored offline.")
     auth_type_md4_nt = _AuthenticationCode(
         'MD4-NT',
         "MD4-derived password hash with Microsoft-added security.  "
@@ -1454,7 +1456,6 @@ class CommonConstants(ConstantsBase):
     auth_type_md5_unsalt = _AuthenticationCode(
         'md5-unsalted',
         "Unsalted MD5-crypt. Use with care!")
-
     contact_phone = _ContactInfoCode(
         'PHONE',
         'Phone')
@@ -1631,14 +1632,7 @@ class Constants(CoreConstants, CommonConstants):
             return aff, status
 
 
-# TODO: CLConstants are typically included in the CLASS_CONSTANTS definition.
-#       This is probably a hack that is done to make makedb create and update
-#       the constants in the database.
-#       We need to clean up all use of CLConstants from the CLASS_CONSTANTS
-#       object.
-
-# TODO: CLConstants should inherit from ConstantsBase.
-class CLConstants(Constants):
+class CLConstants(ConstantsBase):
 
     """Singleton whose members make up all needed coding values.
 
@@ -1650,9 +1644,9 @@ class CLConstants(Constants):
     # Group changes
 
     group_add = _ChangeTypeCode(
-        'e_group', 'add', 'added %(subject)s to %(dest)s')
+        'e_group', 'add', 'added %(dest)s to %(subject)s')
     group_rem = _ChangeTypeCode(
-        'e_group', 'rem', 'removed %(subject)s from %(dest)s')
+        'e_group', 'rem', 'removed %(dest)s from %(subject)s')
     group_create = _ChangeTypeCode(
         'e_group', 'create', 'created %(subject)s')
     group_mod = _ChangeTypeCode(

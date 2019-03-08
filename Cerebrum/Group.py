@@ -146,7 +146,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                           'visib': int(self.visibility),
                           'creator_id': self.creator_id,
                           'exp_date': self.expire_date})
-            self._db.log_change(self.entity_id, self.const.group_create, None)
+            self._db.log_change(self.entity_id, self.clconst.group_create, None)
             self.add_entity_name(self.const.group_namespace, self.group_name)
         else:
             cols = [('description', ':desc'),
@@ -164,7 +164,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                  'creator_id': self.creator_id,
                  'exp_date': self.expire_date})
             self._db.log_change(self.entity_id,
-                                self.const.group_mod,
+                                self.clconst.group_mod,
                                 None,
                                 change_params=self.__updated)
             if 'group_name' in self.__updated:
@@ -218,7 +218,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             DELETE FROM [:table schema=cerebrum name=group_info]
             WHERE group_id=:g_id""", {'g_id': self.entity_id})
             self._db.log_change(self.entity_id,
-                                self.const.group_destroy,
+                                self.clconst.group_destroy,
                                 None,
                                 {'name': self.group_name})
         # Class Group is a core class; when its delete() method is
@@ -327,7 +327,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                      {'g_id': self.entity_id,
                       'm_type': int(member_type),
                       'm_id': member_id})
-        self._db.log_change(member_id, self.const.group_add, self.entity_id)
+        self._db.log_change(self.entity_id, self.clconst.group_add, member_id)
 
     def has_member(self, member_id):
         """Check whether L{member_id} is a member of this group.
@@ -366,7 +366,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           group_id=:g_id AND
           member_id=:m_id""", {'g_id': self.entity_id,
                                'm_id': member_id})
-        self._db.log_change(member_id, self.clconst.group_rem, self.entity_id)
+        self._db.log_change(self.entity_id, self.clconst.group_rem, member_id)
 
     def search(self,
                group_id=None,
@@ -903,137 +903,3 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if hasattr(self, 'entity_id'):
             return self.group_name
         return '<unbound group>'
-
-
-class GroupAPI(object):
-    """Functional and generalized API that provides common operations."""
-
-    @staticmethod
-    def group_info(gr):
-        """Get information about a group.
-
-          :type gr: <Cerebrum.Group.Group>
-          :param gr: A Cerebrum group object.
-
-          :rtype: dict
-        """
-        co = Utils.Factory.get('Constants')(gr._db)
-
-        info = {
-            'name': gr.group_name,
-            'description': gr.description,
-            'expire_date': gr.expire_date,
-            'visibility': (six.text_type(co.GroupVisibility(gr.visibility)) if
-                           gr.visibility else None),
-        }
-
-        return info
-
-    @staticmethod
-    def group_list(gr):
-        """List members of a group.
-
-        :type gr: <Cerebrum.Group.Group>
-        :param gr: A Cerebrum group object.
-
-        :rtype: list(<subclass of Cerebrum.Entity.Entity>)
-        """
-        entity = Utils.Factory.get('Entity')(gr._db)
-
-        ret = []
-        for row in gr.search_members(group_id=gr.entity_id):
-            entity.clear()
-            entity.find(row['member_id'])
-            member = entity.get_subclassed_object()
-            ret.append(member)
-        return ret
-
-    @staticmethod
-    def group_create(gr, creator, visibility, name, description,
-                     expire_date=None):
-        """Create a group.
-
-        :type gr: <Cerebrum.Group.Group>
-        :param gr: A Cerebrum group object.
-
-        :type creator: int
-        :param creator: The creators entity id.
-
-        :type name: str
-        :param name: The groups name.
-
-        :type description: str
-        :param description: The groups description.
-
-        :type expire_date: DateTime
-        :param expire_date: The groups expiration date.
-
-        :type visibility: _GroupVisibilityCode
-        :param visibility: The groups visibility.
-        """
-        gr.populate(creator, visibility, name, description,
-                    expire_date=expire_date)
-        gr.write_db()
-
-    @staticmethod
-    def add_member(gr, member_id):
-        """Add a member to a group.
-
-        :type gr: <Cerebrum.Group.Group>
-        :param gr: A Cerebrum group object.
-
-        :type member_id: int
-        :param member_id: Entity ID of the member to be added
-        """
-        gr.add_member(member_id)
-
-    @staticmethod
-    def remove_member(gr, member_id):
-        """Remove a member from a group.
-
-        :type gr: <Cerebrum.Group.Group>
-        :param gr: A Cerebrum group object.
-
-        :type member_id: int
-        :param member_id: Entity ID of the member to be removed
-        """
-        gr.remove_member(member_id)
-
-    @staticmethod
-    def grant_auth(en, gr, opset):
-        """Grant authorization to a group.
-
-        :type en: <Cerebrum.Entity.Entity>
-        :param en: The entity to grant auth to.
-
-        :type gr: <Cerebrum.Group.Group>
-        :param gr: The group to grant auth on.
-
-        :type opset: str
-        :param opset: The OpSet to be granted."""
-        # TODO: ._db? 'group' to op_target.populate ok? should be derived from
-        # gr, but that means we'll need to do Factory.get in here... :(
-        # TODO: Can this be generalized and moved to utils??
-        from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
-            BofhdAuthOpTarget, BofhdAuthRole
-        op_set = BofhdAuthOpSet(en._db)
-        op_set.find_by_name(opset)
-        op_target = BofhdAuthOpTarget(en._db)
-        op_target.populate(gr.entity_id, 'group')
-        op_target.write_db()
-        role = BofhdAuthRole(en._db)
-        role.grant_auth(en.entity_id, op_set.op_set_id,
-                        op_target.op_target_id)
-
-    @staticmethod
-    def set_expire_date(gr, expire_date=None):
-        """Set expire-date on a group.
-
-        :type gr: <Cerebrum.Group.Group>
-        :param gr: A Cerebrum group object.
-
-        :type expire_date: <mx.DateTime>
-        :param expire_date: The expire-date to set, or None.
-        """
-        gr.expire_date = expire_date
-        gr.write_db()

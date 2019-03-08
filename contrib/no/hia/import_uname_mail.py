@@ -41,7 +41,6 @@ import getopt
 import sys
 import string
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
@@ -313,7 +312,8 @@ def main():
     person = Factory.get('Person')(db)
 
     fnr2person_id = dict()
-    for p in person.list_external_ids(id_type=constants.externalid_fodselsnr):
+    for p in person.search_external_ids(id_type=constants.externalid_fodselsnr,
+                                        fetchall=False):
         fnr2person_id[p['external_id']] = p['person_id']
     # od
 

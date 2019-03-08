@@ -36,7 +36,7 @@ logger = Factory.get_logger('cronjob')
 def migrate_passwords(db):
     """Migrates GPG messages saved in the change_log to the entity_gpg_data
     table."""
-    co = Factory.get('Constants')(db)
+    clconst = Factory.get('CLConstants')(db)
     ac = Factory.get('Account')(db)
 
     stats = defaultdict(int)
@@ -44,7 +44,7 @@ def migrate_passwords(db):
     logger.info("GPG recipient ID: {}".format(recipient))
 
     logger.info("Fetching password events...")
-    for e in db.get_log_events(types=(co.account_password, )):
+    for e in db.get_log_events(types=(clconst.account_password, )):
         stats['events'] += 1
         if stats['events'] % 1000 == 0:
             logger.info('{} events and counting...'.format(stats['events']))

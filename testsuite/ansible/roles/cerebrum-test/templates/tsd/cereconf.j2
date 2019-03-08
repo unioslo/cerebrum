@@ -37,15 +37,18 @@ CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
 CLASS_CONSTANTS=('Cerebrum.modules.no.Constants/ConstantsCommon',
                  'Cerebrum.modules.tsd.Constants/Constants',
                  'Cerebrum.modules.ad2.Entity/ConstantsActiveDirectory',
-                 'Cerebrum.modules.ad2.CLConstants/CLConstants',
-                 'Cerebrum.modules.EntityTrait/TraitConstants',
-                 'Cerebrum.modules.PosixUser/Constants',
-                 'Cerebrum.modules.CLConstants/CLConstants',
-                 'Cerebrum.modules.bofhd.utils/Constants',
+                 'Cerebrum.modules.EntityTraitConstants/Constants',
+                 'Cerebrum.modules.PosixConstants/Constants',
+                 'Cerebrum.modules.bofhd.bofhd_constants/Constants',
                  'Cerebrum.modules.password_notifier.constants/Constants',
                  'Cerebrum.modules.dns.DnsConstants/Constants',
-                 'Cerebrum.modules.dns.bofhd_dns_cmds/Constants',
                  'Cerebrum.modules.hostpolicy.HostPolicyConstants/Constants',)
+
+CLASS_CL_CONSTANTS=('Cerebrum.modules.ad2.CLConstants/CLConstants',
+                    'Cerebrum.modules.EntityTraitConstants/CLConstants',
+                    'Cerebrum.modules.dns.DnsConstants/CLConstants',
+                    'Cerebrum.modules.hostpolicy.HostPolicyConstants/CLConstants',
+                    'Cerebrum.Constants/CLConstants', )
 
 CLASS_ENTITY = ['Cerebrum.modules.EntityTrait/EntityTrait',
                 'Cerebrum.modules.ad2.Entity/EntityADMixin',

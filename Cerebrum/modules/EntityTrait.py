@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2005-2009 University of Oslo, Norway
+# Copyright 2005-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,11 +19,11 @@
 
 
 from Cerebrum.Entity import Entity
-from Cerebrum.Constants import (_CerebrumCodeWithEntityType, Constants,
-                                _get_code)
-from Cerebrum.modules.CLConstants import _ChangeTypeCode
+from Cerebrum.Constants import _ChangeTypeCode, _get_code
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
+from EntityTraitConstants import _EntityTraitCode
+
 try:
     set()
 except:
@@ -31,43 +31,11 @@ except:
 
 __version__ = "1.1"
 
-class _EntityTraitCode(_CerebrumCodeWithEntityType):
-    """Code values for entity traits, used in table entity_trait."""
-    _lookup_table = '[:table schema=cerebrum name=entity_trait_code]'
-    pass
-
-
-class TraitConstants(Constants):
-    trait_add = _ChangeTypeCode("trait", "add",
-                                "new trait for %(subject)s",
-                                ("%(trait:code)s",
-                                 "numval=%(int:numval)s",
-                                 "strval=%(string:strval)s",
-                                 "date=%(string:date)s",
-                                 "target=%(entity:target_id)s"))
-    trait_del = _ChangeTypeCode("trait", "del",
-                                "removed trait from %(subject)s",
-                                ("%(trait:code)s",
-                                 "numval=%(int:numval)s",
-                                 "strval=%(string:strval)s",
-                                 "date=%(string:date)s",
-                                 "target=%(entity:target_id)s"))
-    trait_mod = _ChangeTypeCode("trait", "mod",
-                                "modified trait for %(subject)s",
-                                ("%(trait:code)s",
-                                 "numval=%(int:numval)s",
-                                 "strval=%(string:strval)s",
-                                 "date=%(string:date)s",
-                                 "target=%(entity:target_id)s"))
-
-    # There are no mandatory EntityTraitCodes
-
-    EntityTrait = _EntityTraitCode
-
 
 @_ChangeTypeCode.formatter('trait')
 def format_cl_trait(co, val):
     return _get_code(co.EntityTrait, val, '<unknown>')
+
 
 class EntityTrait(Entity):
     """Mixin class which adds generic traits to an entity."""
@@ -84,7 +52,6 @@ class EntityTrait(Entity):
             params['date'] = str(params['date'])
         return params
 
-
     def write_db(self):
         self.__super.write_db()
 
@@ -96,7 +63,8 @@ class EntityTrait(Entity):
                 # Find out if we are simply "touch"-ing a trait thus
                 # updating its date. We shouldn't changelog such an event.
                 #
-                # Old trait is fished out of the database with a query. get_traits()
+                # Old trait is fished out of the database with a
+                # query. get_traits()
                 # ignore the database when self.__traits is set (as it should).
                 changelog = True
                 try:
@@ -119,7 +87,8 @@ class EntityTrait(Entity):
                 """ % binds,
                              self.__traits[code])
                 if changelog:
-                    self._db.log_change(self.entity_id, self.const.trait_mod, None,
+                    self._db.log_change(self.entity_id, self.clconst.trait_mod,
+                                        None,
                                         change_params=params)
             else:
                 binds = ", ".join([":%s" % c
@@ -129,7 +98,8 @@ class EntityTrait(Entity):
                 (%s) VALUES (%s)
                 """ % (", ".join(self.__traits[code].keys()), binds),
                              self.__traits[code])
-                self._db.log_change(self.entity_id, self.const.trait_add, None,
+                self._db.log_change(self.entity_id, self.clconst.trait_add,
+                                    None,
                                     change_params=params)
         self.__trait_updates = {}
 
@@ -139,7 +109,7 @@ class EntityTrait(Entity):
         code = _EntityTraitCode(code)
         # get_traits populates __traits as a side effect
         if code not in self.get_traits():
-            raise Errors.NotFoundError, code
+            raise Errors.NotFoundError(code)
         if code in self.__trait_updates:
             if self.__trait_updates[code] == 'INSERT':
                 del self.__trait_updates[code]
@@ -151,7 +121,7 @@ class EntityTrait(Entity):
         DELETE FROM [:table schema=cerebrum name=entity_trait]
         WHERE entity_id=:entity_id AND code=:code
         """, {'entity_id': self.entity_id, 'code': int(code)})
-        self._db.log_change(self.entity_id, self.const.trait_del, None,
+        self._db.log_change(self.entity_id, self.clconst.trait_del, None,
                             change_params=params)
         del self.__traits[code]
 
@@ -212,12 +182,12 @@ class EntityTrait(Entity):
 
     def list_traits(self, code=NotSet, target_id=NotSet, entity_id=NotSet,
                     date=NotSet, numval=NotSet, strval=NotSet,
-                    strval_like=NotSet, return_name=False, fetchall=False):
-        """Returns all the occurences of specified trait(s), optionally
+                    strval_like=NotSet, fetchall=False):
+        """Returns all the occurrences of specified trait(s), optionally
         filtered on values.
 
         Multiple filters work akin to set intersection; i.e. specifying both
-        code and target_id would constrait the result to those rows that match
+        code and target_id would constrain the result to those rows that match
         *both* code and trait_id. If a specified filter is a sequence, then
         any row matching any one of the values in that sequence will be
         returned. E.g. specifying code=(trait1, trait2) will result in rows
@@ -268,11 +238,6 @@ class EntityTrait(Entity):
           Filter the result by specific strval associated with the
           trait. strval_like will apply DWIM case sensitivity (see
           Utils.prepare_sql_pattern).
-
-        @type return_name: bool
-        @param return_name:
-          Controls whether to return the entity name, if available, for
-          entities that have traits.
 
         @type fetchall: bool
         @param fetchall:
@@ -326,19 +291,12 @@ class EntityTrait(Entity):
         else:
             # strval_like has precedence over strval
             strval = add_cond("strval", strval, normalise=str)
-        attrs = join = ""
-        if return_name:
-            attrs += ", en.entity_name AS name"
-            join += """
-            LEFT JOIN [:table schema=cerebrum name=entity_name] en
-              ON en.entity_id = t.entity_id"""
         where = ""
         if conditions:
             where = "WHERE " + " AND ".join(conditions)
 
         return self.query("""
         SELECT t.entity_id, t.entity_type, t.code, t.target_id,
-               t.date, t.numval, t.strval %s
+               t.date, t.numval, t.strval
         FROM [:table schema=cerebrum name=entity_trait] t
-        %s
-        %s""" % (attrs, join, where), locals(), fetchall=fetchall)
+        %s""" % where, locals(), fetchall=fetchall)

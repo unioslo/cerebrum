@@ -30,7 +30,6 @@ group class. The PosixGroup class should be used when you're working with known
 posix groups.
 
 """
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
@@ -96,7 +95,7 @@ class PosixGroup(Group_class):
                                       'posix_gid': self.posix_gid})
 
         self._db.log_change(self.entity_id,
-                            self.const.posix_group_promote,
+                            self.clconst.posix_group_promote,
                             None,
                             change_params={'gid': int(self.posix_gid), })
         del self.__in_db

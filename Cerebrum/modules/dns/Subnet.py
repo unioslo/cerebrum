@@ -331,7 +331,7 @@ class Subnet(Entity):
                  'desc': self.description,
                  'res_adr': self.no_of_reserved_adr,
                  'vlan': self.vlan, })
-            self._db.log_change(self.entity_id, self.const.subnet_create, None)
+            self._db.log_change(self.entity_id, self.clconst.subnet_create, None)
 
         else:
             if perform_checks:
@@ -354,7 +354,7 @@ class Subnet(Entity):
             SET %(defs)s
             WHERE entity_id=:e_id""" % {'defs': ", ".join(
                 ["%s=%s" % x for x in cols if x[0] != 'entity_id'])}, binds)
-            self._db.log_change(self.entity_id, self.const.subnet_mod, None,
+            self._db.log_change(self.entity_id, self.clconst.subnet_mod, None,
                                 change_params=binds)
 
         del self.__in_db
@@ -390,7 +390,7 @@ class Subnet(Entity):
             except NotFoundError:
                 pass
 
-        self._db.log_change(self.entity_id, self.const.subnet_delete, None)
+        self._db.log_change(self.entity_id, self.clconst.subnet_delete, None)
         if self.__in_db:
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=dns_subnet]

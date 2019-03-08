@@ -33,10 +33,12 @@ CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
 # Should CLASS_CHANGELOG be empty?!
 #
 CLASS_CONSTANTS = [
-    'Cerebrum.modules.CLConstants/CLConstants',
     'Cerebrum.Constants/Constants',
     'Cerebrum.modules.no.uio.Ephorte/EphorteConstants'
     ]
+
+CLASS_CL_CONSTANTS = ['Cerebrum.Constants/CLConstants',
+                      'Cerebrum.modules.no.uio.Ephorte/CLConstants', ]
 
 CLASS_ENTITY = [
     'Cerebrum.modules.EntityTrait/EntityTrait',

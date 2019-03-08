@@ -35,7 +35,6 @@ This script take the following arguments:
              Defaults to guestconfig.LDAP['dn']
 
 """
-import cerebrum_path
 import guestconfig  # Need guest config for this
 
 import sys

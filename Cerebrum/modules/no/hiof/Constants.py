@@ -25,24 +25,24 @@ Address, Gender etc. type.
 """
 from __future__ import unicode_literals
 
-from Cerebrum import Constants
+from Cerebrum import Constants as CereConst
 from Cerebrum.Constants import (
     _SpreadCode,
     _PersonAffiliationCode,
     _PersonAffStatusCode,
 )
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
-from Cerebrum.modules.PosixUser import _PosixShellCode
+from Cerebrum.modules.PosixConstants import _PosixShellCode
 from Cerebrum.modules.ad2.Entity import ConstantsActiveDirectory
 from Cerebrum.modules.ad2.Entity import _ADAttrCode
-from Cerebrum.modules.bofhd.utils import _BofhdRequestOpCode
+from Cerebrum.modules.bofhd.bofhd_constants import _BofhdRequestOpCode
 from Cerebrum.modules.no.Constants import (
     ConstantsUniversityColleges,
     ConstantsHigherEdu,
 )
 
 
-class Constants(Constants.Constants):
+class Constants(CereConst.Constants):
 
     # Affiliations for students
     affiliation_student = ConstantsHigherEdu.affiliation_student
@@ -95,23 +95,23 @@ class Constants(Constants.Constants):
         'Account in NIS')
     spread_email_account = _SpreadCode(
         'account@imap',
-        Constants.Constants.entity_account,
+        CereConst.Constants.entity_account,
         'Email account at HiOf')
     spread_ad_account = _SpreadCode(
         'account@ad',
-        Constants.Constants.entity_account,
+        CereConst.Constants.entity_account,
         'Account included in domain in Active Directory')
     spread_ad_account_fag = _SpreadCode(
         'account@ad_fag',
-        Constants.Constants.entity_account,
+        CereConst.Constants.entity_account,
         'Account included in domain FAG in Active Directory')
     spread_ad_account_adm = _SpreadCode(
         'account@ad_adm',
-        Constants.Constants.entity_account,
+        CereConst.Constants.entity_account,
         'Account included in domain ADM in Active Directory')
     spread_ad_account_stud = _SpreadCode(
         'account@ad_stud',
-        Constants.Constants.entity_account,
+        CereConst.Constants.entity_account,
         'Account included in domain STUD in Active Directory')
 
     # Spread definitions - group related
@@ -136,31 +136,31 @@ class Constants(Constants.Constants):
         ConstantsUniversityColleges.entity_group,
         'Net group in NIS')
     spread_ad_group = _SpreadCode(
-        'group@ad', Constants.Constants.entity_group,
+        'group@ad', CereConst.Constants.entity_group,
         'Group included in domain in Active Directory')
 
     # Traits
     trait_ad_homedir = _EntityTraitCode(
         'ad_homedir',
-        Constants.Constants.entity_account,
+        CereConst.Constants.entity_account,
         "AD homedir for account")
     trait_ad_profile_path = _EntityTraitCode(
         'ad_profile_path',
-        Constants.Constants.entity_account,
+        CereConst.Constants.entity_account,
         "AD profile path for account")
     trait_ad_account_ou = _EntityTraitCode(
         'ad_account_ou',
-        Constants.Constants.entity_account,
+        CereConst.Constants.entity_account,
         "AD OU for account")
 
     trait_phone_exchange = _EntityTraitCode(
         'phone_exchange',
-        Constants.Constants.entity_account,
+        CereConst.Constants.entity_account,
         "ID of telephone exchange, PBX")
 
     trait_cf_group = _EntityTraitCode(
         'cf_group',
-        Constants.Constants.entity_group,
+        CereConst.Constants.entity_group,
         'Trait for tagging Fronter groups')
 
     # BofhdRequests constants

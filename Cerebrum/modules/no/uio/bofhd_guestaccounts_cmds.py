@@ -82,7 +82,8 @@ class BofhdExtension(BofhdCommonMethods):
                 " guest007 or guest010-040.", ],
             'guest_owner_group': [
                 'guest_owner_group',
-                'Enter name of owner group', ],
+                'Enter name of owner group (those responsible for the guest)',
+            ],
             'nr_guests': [
                 'nr_guests',
                 'Enter number of guests', ],

@@ -52,6 +52,7 @@ logger = Factory.get_logger('cronjob')
 db = Factory.get('Database')()
 db.cl_init(change_program='SMS-reminder')
 co = Factory.get('Constants')(db)
+clconst = Factory.get('CLConstants')(db)
 sms = SMSSender(logger=logger)
 
 commit = False
@@ -176,7 +177,7 @@ def process(check_trait, set_trait, days, phone_types, message, only_aff):
     logger.info("SMS-reminder done, %d accounts processed" % processed)
 
 def have_changed_password(ac):
-    for event in db.get_log_events(types=co.account_password,
+    for event in db.get_log_events(types=clconst.account_password,
                                    subject_entity=ac.entity_id,
                                    return_last_only=True):
         # If the user has change it himself, we know for sure:

@@ -24,9 +24,7 @@ The exchange.mixins module contains mixins that should go into the base
 Group classes to support detection, deletion and cleanup of exchange data.
 
 """
-import cerebrum_path
 import cereconf
-getattr(cerebrum_path, "linter", "should not bother!")
 getattr(cereconf, "linter", "should not bother!")
 
 from Cerebrum import Errors
@@ -85,7 +83,7 @@ class DistributionGroupMixin(Group):
             return False
 
         self._db.log_change(self.entity_id,
-                            self.const.dl_group_remove,
+                            self.clconst.dl_group_remove,
                             None,
                             change_params={'name': self.group_name,
                                            'roomlist': is_roomlist})

@@ -98,10 +98,9 @@ def collect_warned_accounts(database, account_ids=None):
     @param account_ids:
       Specific accounts the expire warning status of which we want.
     """
-    account = Factory.get("Account")(database)
-    const = Factory.get("Constants")
+    clconst = Factory.get("CLConstants")
     already_warned = set()
-    for event in database.get_log_events(types=const.va_reset_expire_date,
+    for event in database.get_log_events(types=clconst.va_reset_expire_date,
                                          subject_entity=account_ids):
         account_id = event["subject_entity"]
         if account_id is None:
@@ -109,7 +108,7 @@ def collect_warned_accounts(database, account_ids=None):
                          "(change_id=%s) without an associated subject_entity."
                          "This is a serious error and should be fixed "
                          "manually (ninja-sql?)",
-                         str(const.va_reset_expire_date),
+                         str(clconst.va_reset_expire_date),
                          event["change_id"])
             continue
         already_warned.add(account_id)
@@ -179,7 +178,7 @@ def generate_requests(database):
     warnable_accounts = collect_warnable_accounts(database)
     already_warned = collect_warned_accounts(database)
 
-    const = Factory.get("Constants")()
+    clconst = Factory.get("CLConstants")()
     # Ok, we have the warnable set and the exception set. Let's go.
     # 'addresses' maps account_ids to the info pertaining to the warn request.
     addresses = dict()
@@ -192,7 +191,7 @@ def generate_requests(database):
                          attrs.uname, account_id)
             continue
 
-        if create_request(attrs, const.va_reset_expire_date, database):
+        if create_request(attrs, clconst.va_reset_expire_date, database):
             addresses[account_id] = attrs
 
     return addresses
@@ -270,7 +269,7 @@ def get_account(ident, database):
 
 def typeset_change_log_row(row, database):
     account = get_account(row["subject_entity"], database)
-    const = Factory.get("Constants")()
+    clconst = Factory.get("CLConstants")()
     entity = (account is not None and
               "account: %s/id=%s" % (account.account_name,
                                      account.entity_id) or
@@ -281,7 +280,7 @@ def typeset_change_log_row(row, database):
         magic = ""
 
     return "Event %s %sregistered @ %s for %s%s" % (
-        str(const.ChangeType(row["change_type_id"])),
+        str(clconst.ChangeType(row["change_type_id"])),
         magic,
         row["tstamp"].strftime("%F %R"),
         entity,
@@ -330,7 +329,7 @@ def send_expire_warning(ident, dryrun, database):
     reason or we want to preempt the scheduled warning for some reason.
     """
     account = get_account(ident, database)
-    const = Factory.get("Constants")()
+    clconst = Factory.get("CLConstants")()
     if account is None:
         logger.debug("No account matches %s. No warning will be generated",
                      ident)
@@ -346,7 +345,7 @@ def send_expire_warning(ident, dryrun, database):
 
     attrs = account_id2attributes(account.entity_id, database)
     addresses = dict()
-    if create_request(attrs, const.va_reset_expire_date, database):
+    if create_request(attrs, clconst.va_reset_expire_date, database):
         addresses[account.entity_id] = attrs
 
     return send_email(addresses, dryrun, database)
@@ -359,12 +358,13 @@ def remove_request(ident, dryrun, database):
     automatic routines for some reason. It should not be run from cron, but
     rather be available as a tool for manual fixing of reset expire requests.
     """
-    const = Factory.get("Constants")(database)
+    clconst = Factory.get("CLConstants")(database)
     account = get_account(ident, database)
     if account is not None:
         # Let's fish out the requests based on the account
-        results = database.get_pending_events(subject_entity=account.entity_id,
-                                              types=const.va_reset_expire_date)
+        results = database.get_pending_events(
+            subject_entity=account.entity_id,
+            types=clconst.va_reset_expire_date)
     else:
         # assume that ident means a request key
         results = database.get_pending_events(confirmation_key=ident)

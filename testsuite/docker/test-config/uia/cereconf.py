@@ -33,10 +33,6 @@ CLASS_CONSTANTS = [
     'Cerebrum.modules.exchange.Constants/Constants',
     'Cerebrum.modules.exchange.TargetSystemConstants/TargetSystemConstants',
     'Cerebrum.modules.PosixUser/Constants',
-    'Cerebrum.modules.Email/CLConstants',
-    'Cerebrum.modules.exchange.CLConstants/CLConstants',
-    'Cerebrum.modules.ad2.CLConstants/CLConstants',
-    'Cerebrum.modules.CLConstants/CLConstants',
     'Cerebrum.modules.bofhd.utils/Constants',
     'Cerebrum.modules.Email/EmailConstants',
     'Cerebrum.modules.EntityTrait/TraitConstants',
@@ -56,6 +52,17 @@ CLASS_CONSTANTS = [
     'Cerebrum.modules.hostpolicy.HostPolicyConstants/Constants',
 ]
 
+CLASS_CL_CONSTANTS = [
+    'Cerebrum.modules.Email/CLConstants',
+    'Cerebrum.modules.exchange.CLConstants/CLConstants',
+    'Cerebrum.modules.ad2.CLConstants/CLConstants',
+    'Cerebrum.modules.EntityTrait/CLConstants',
+    'Cerebrum.modules.no.uio.DiskQuota/CLConstants',
+    'Cerebrum.modules.no.uio.Ephorte/CLConstants',
+    'Cerebrum.modules.consent.Consent/CLConstants',
+    'Cerebrum.modules.dns.DnsConstants/CLConstants',
+    'Cerebrum.modules.hostpolicy.HostPolicyConstants/CLConstants',
+    'Cerebrum.Constants/CLConstants', ]
 
 CLASS_ENTITY = ['Cerebrum.modules.EntityTrait/EntityTrait',]
 

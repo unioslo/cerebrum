@@ -4,6 +4,7 @@ from __future__ import absolute_import, unicode_literals
 
 import inspect
 import logging
+import warnings
 import threading
 
 from . import config
@@ -12,8 +13,8 @@ from . import handlers
 from . import options
 
 
-DEFAULT_NAME = 'default'
-LOGGER_NAME = "Cerebrum"
+LOGGER_NAME_GLOBAL = '<cerebrum>'
+LOGGER_NAME_UNKNOWN = '<unknown>'
 
 
 _global_logger = None
@@ -34,29 +35,67 @@ def _install():
         return False
 
 
-def getLogger(name=None):
+def get_logger(name=None, _stacklevel=2):
+    """ Legacy utility for autoconfiguring cerebrum-logging. """
+    warnings.warn(
+        ('%s.get_logger() is deprecated, please use logging.getLogger()') %
+        (__name__, ),
+        DeprecationWarning,
+        stacklevel=_stacklevel)
+    if name:
+        logger = _get_legacy_logger(name)
+    else:
+        logger = _get_module_logger(stacklevel=_stacklevel)
+    return logger
+
+
+def _get_module_logger(stacklevel=1):
+    """ Get a module logger for the caller.
+
+    This function will look through the stack (up to `stacklevel` number of
+    frames) to find the caller module, and return a "module logger" for that
+    module.
+    """
+    caller_frame = inspect.currentframe()
+    for _ in range(stacklevel):
+        if caller_frame.f_back:
+            caller_frame = caller_frame.f_back
+        else:
+            # TODO: warnings.warn() ?
+            break
+    caller_module = inspect.getmodule(caller_frame)
+    if caller_module:
+        name = caller_module.__name__
+    else:
+        # We use a unique name that indicates that there's something wrong with
+        # fetching a logger.
+        # TODO/TBD: Should we solve this differently? E.g. return the root
+        # logger, and issue a warning using warnings.warn()?
+        name = LOGGER_NAME_UNKNOWN
+    return logging.getLogger(name)
+
+
+def _get_legacy_logger(name):
+    """ Get the 'global' cerebrum logger.
+
+    This method will:
+
+    1. Configure the logging framework with default preset 'some-name', if not
+       already configured
+    2. Return a generic 'cerebrum' logger
+
+    This is legacy behaviour, emulating the logger previously returned by the
+    discontinued module `Cerebrum.modules.cerelog`.
+    """
     global _global_logger
 
     # TODO: This could do with some improvements.
-
-    if not name:
-        # No longer use a 'global logger' when we try to fetch getLogger().
-        # TODO: Move this to Utils or call this from utils and add a frame
-        caller_frame = inspect.currentframe().f_back
-        caller_module = inspect.getmodule(caller_frame)
-        if caller_module:
-            name = caller_module.__name__
-        else:
-            name = '<unknown>'
-
-        return logging.getLogger(name)
-
     with _get_logger_lock:
         if _global_logger:
             return _global_logger
         if not _configured:
             autoconf(name)
-        _global_logger = logging.getLogger('<cerebrum>')
+        _global_logger = logging.getLogger(LOGGER_NAME_GLOBAL)
         return _global_logger
 
 

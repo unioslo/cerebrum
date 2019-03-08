@@ -133,6 +133,14 @@ class EventsAccessor(DatabaseAccessor):
             """,
             {'event_id': int(event_id)})
 
+    def release_all(self):
+        """Release all locked events."""
+        self.execute(
+            """
+            UPDATE [:table schema=cerebrum name=events]
+            SET taken_time = NULL
+            WHERE taken_time IS NOT NULL""")
+
     def fail_count_inc(self, event_id):
         """ Increment the failed count on an event
 

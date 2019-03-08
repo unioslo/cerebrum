@@ -47,9 +47,11 @@ TARGET_SYSTEM = 'CIM'
 
 class Manager(utils.Manager):
     pass
-# Inject Queue implementations:
+
+
+# Inject our queue implementation:
+# TODO: This should probably be a Queue.Queue, since it's handled by a Manager!
 Manager.register('queue', Queue)
-Manager.register('log_queue', Queue)
 
 
 def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
@@ -62,29 +64,32 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
 
     for i in range(0, num_workers):
         cimd.add_process(
-            CimConsumer,
-            queue=event_queue,
-            log_queue=cimd.log_queue,
-            running=cimd.run_trigger,
-            cim_config=cim_config)
+            CimConsumer(
+                daemon=True,
+                queue=event_queue,
+                log_queue=cimd.log_queue,
+                running=cimd.run_trigger,
+                cim_config=cim_config))
 
     if enable_listener:
         cimd.add_process(
-            evhandlers.EventLogListener,
-            queue=event_queue,
-            log_queue=cimd.log_queue,
-            running=cimd.run_trigger,
-            channels=channels)
+            evhandlers.EventLogListener(
+                daemon=True,
+                queue=event_queue,
+                log_queue=cimd.log_queue,
+                running=cimd.run_trigger,
+                channels=channels))
 
     if enable_collectors:
         for chan in channels:
             cimd.add_process(
-                evhandlers.EventLogCollector,
-                queue=event_queue,
-                log_queue=cimd.log_queue,
-                running=cimd.run_trigger,
-                channel=chan,
-                config=cim_config.eventcollector)
+                evhandlers.EventLogCollector(
+                    daemon=True,
+                    queue=event_queue,
+                    log_queue=cimd.log_queue,
+                    running=cimd.run_trigger,
+                    channel=chan,
+                    config=cim_config.eventcollector))
 
     cimd.serve()
 

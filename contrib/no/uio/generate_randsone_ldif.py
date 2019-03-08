@@ -29,7 +29,6 @@ import getopt
 import sys
 import importlib
 
-import cerebrum_path
 
 # Save default values of LDAP vars which cereconf will modify.
 # Must be done before anything imports cereconf.

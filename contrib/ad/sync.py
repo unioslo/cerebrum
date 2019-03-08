@@ -34,7 +34,6 @@ the changes to AD. If AD complains, the changes will be processed later on.
 import getopt
 import sys
 
-import cerebrum_path
 import adconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors

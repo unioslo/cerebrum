@@ -30,7 +30,6 @@ Improvements: - add some options to allow removal of some
 
 """
 
-import cerebrum_path
 import cereconf
 
 import os

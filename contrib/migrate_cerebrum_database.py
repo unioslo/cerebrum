@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -44,22 +44,24 @@ targets = {
              'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9',
              'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
              'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',
-             'rel_0_9_18', 'rel_0_9_19', ),
+             'rel_0_9_18', 'rel_0_9_19', 'rel_0_9_20', ),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
     'bofhd_auth': ('bofhd_auth_1_1', 'bofhd_auth_1_2',),
-    'changelog': ('changelog_1_2', 'changelog_1_3', 'changelog_1_4'),
+    'changelog': ('changelog_1_2', 'changelog_1_3', 'changelog_1_4',
+                  'changelog_1_5'),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4',
               'email_1_5',),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     'eventlog': ('eventlog_1_1', ),
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
-    'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2', 'dns_1_3', 'dns_1_4'),
+    'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2', 'dns_1_3', 'dns_1_4', 'dns_1_5'),
     'sap': ('sap_1_0', 'sap_1_1',),
     'printer_quota': ('printer_quota_1_1', 'printer_quota_1_2',),
     'entity_trait': ('entity_trait_1_1',),
     'hostpolicy': ('hostpolicy_1_1',),
     'note': ('note_1_1',),
+    'job_runner': ('job_runner_1_1',),
 }
 
 # Global variables
@@ -666,7 +668,7 @@ def migrate_to_rel_0_9_18():
              'FROM [:table schema=cerebrum name=change_log] '
              'WHERE change_type_id = :change_type_id')
     cl_entry_rows = db.query(query,
-                             {'change_type_id': int(co.entity_cinfo_add)})
+                             {'change_type_id': int(clconst.entity_cinfo_add)})
     print('Processing {count} CL-entries'.format(count=len(cl_entry_rows)))
     for row in cl_entry_rows:
         if not row.get('change_params'):
@@ -781,6 +783,17 @@ def migrate_to_rel_0_9_19():
     db.commit()
 
 
+def migrate_to_rel_0_9_20():
+    """Migrate from 0.9.19 database to the 0.9.20 database schema."""
+    assert_db_version("0.9.19")
+    makedb('0_9_20', 'pre')
+    print("\ndone.")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 20))
+    print("Migration to 0.9.20 completed successfully")
+    db.commit()
+
+
 def migrate_to_bofhd_1_1():
     print("\ndone.")
     assert_db_version("1.0", component='bofhd')
@@ -892,8 +905,8 @@ def fix_change_params(params):
 
 
 @memoize
-def get_change_type(co, code):
-    return co.ChangeType(code)
+def get_change_type(cl, code):
+    return cl.ChangeType(code)
 
 
 def fix_changerows(process, qin, qout, mn, mx):
@@ -906,7 +919,6 @@ def fix_changerows(process, qin, qout, mn, mx):
     loads = pickle.loads
     try:
         db = Utils.Factory.get('Database')()
-        co = Utils.Factory.get('Constants')(db)
         rows = db.query(
             'SELECT change_id, change_params, change_type_id FROM '
             '[:table schema=cerebrum name=change_log] '
@@ -922,7 +934,7 @@ def fix_changerows(process, qin, qout, mn, mx):
                 print('process {} at {}%'.format(
                     process, int(round(float(n) / num_rows * 100))))
             p = fix_change_params(loads(params.encode('ISO-8859-1')))
-            ct = get_change_type(co, ct)
+            ct = get_change_type(clconst, ct)
             orig = ct.format_params(p)
             new = ct.format_params(_params_to_db(p))
             if orig != new:
@@ -1011,16 +1023,34 @@ def migrate_to_changelog_1_4():
         db.commit()
 
 
+def migrate_to_changelog_1_5():
+    assert_db_version("1.4", component='changelog')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_changelog", "1.5")
+
+    print("Swapping dest_entity and subject_entity for e_group:{add,rem} "
+          "and dlgroup:{add,rem}")
+    q = ("UPDATE change_log SET "
+         "subject_entity = dest_entity, dest_entity = subject_entity "
+         "WHERE change_type_id IN "
+         "(SELECT change_type_id FROM change_type "
+         "WHERE category IN ('e_group', 'dlgroup') "
+         "AND type IN ('add', 'rem'));")
+    db.execute(q)
+
+    print("Migration to changelog 1.5 completed successfully")
+    db.commit()
+
+
 def migrate_to_eventlog_1_1():
     assert_db_version("1.0", component='eventlog')
-    co = Utils.Factory.get('Constants')(db)
     from Cerebrum.modules.ChangeLog import _params_to_db
 
     for event_id, event_type, params in db.query(
             'SELECT event_id, event_type, change_params FROM event_log '
             'WHERE change_params IS NOT NULL'):
         p = fix_change_params(cPickle.loads(params.encode('ISO-8859-1')))
-        ct = get_change_type(co, event_type)
+        ct = get_change_type(clconst, event_type)
         orig = ct.format_params(p)
         new = ct.format_params(_params_to_db(p))
         if orig != new:
@@ -1537,6 +1567,16 @@ def migrate_to_dns_1_4():
     db.commit()
 
 
+def migrate_to_dns_1_5():
+    print("\ndone.")
+    assert_db_version("1.4", component='dns')
+    makedb('dns_1_5', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_dns", "1.5")
+    print("Migration to DNS 1.5 completed successfully")
+    db.commit()
+
+
 def migrate_to_sap_1_1():
     assert_db_version("1.0", component="sap")
     # We just need to drop a couple of tables...
@@ -1638,13 +1678,30 @@ def migrate_to_hostpolicy_1_1():
     print("Migration to hostpolicy 1.1 completed successfully")
 
 
+def migrate_to_job_runner_1_1():
+    print("\ndone.")
+    meta = Metainfo.Metainfo(db)
+    try:
+        meta.get_metainfo("sqlmodule_job_runner")
+    except Errors.NotFoundError:
+        print("Schema version for sqlmodule_job_runner "
+              "is missing, setting to 1.0")
+        meta.set_metainfo("sqlmodule_job_runner", "1.0")
+    assert_db_version("1.0", component='job_runner')
+    makedb('job_runner_1_1', 'pre')
+    meta.set_metainfo("sqlmodule_job_runner", "1.1")
+    print("Migration to job_runner 1.1 completed successfully")
+    db.commit()
+
+
 def init():
-    global db, co
+    global db, co, clconst
 
     Factory = Utils.Factory
     db = Factory.get('Database')()
     db.cl_init(change_program="migrate")
     co = Factory.get('Constants')(db)
+    clconst = Factory.get('CLConstants')(db)
 
 
 def show_migration_info():

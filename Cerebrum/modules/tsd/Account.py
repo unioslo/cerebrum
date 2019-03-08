@@ -29,7 +29,8 @@ import base64
 import os
 import re
 
-import cerebrum_path
+import six
+
 import cereconf
 
 from Cerebrum.Utils import Factory

@@ -52,10 +52,11 @@ class BofhdAuth(BofhdAuth):
         # Superusers can see and run command
         if self.is_superuser(operator):
             return True
-        # Allow access if users can create other users
-        if self.can_create_user(operator, query_run_any=True):
+        # TBD: Should we check if operator is "owner" of the entity and given
+        # operation? I can't see use cases where that limitation is necessary.
+        if self._has_operation_perm_somewhere(
+                operator, self.const.auth_send_sms_welcome):
             return True
-        # Hide command if not in the above groups
         if query_run_any:
             return False
         raise PermissionDenied("Not allowed to send Welcome SMS")
@@ -211,6 +212,7 @@ class BofhdExtension(BofhdCommonMethods):
         # TODO: The whole templating system is getting re-worked, ~tgk can deal
         # with this...
         message = cereconf.AUTOADMIN_WELCOME_SMS % {"username": username,
+                                                    "studentnumber": '',
                                                     "email": mailaddr}
         if not sms(mobile, message):
             raise CerebrumError("Could not send SMS to %r" % mobile)

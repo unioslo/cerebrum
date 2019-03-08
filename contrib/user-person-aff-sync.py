@@ -73,7 +73,6 @@ user-person-aff-sync.py --is-employee ANSATT --is-employee TILKNYTTET -d
 import getopt
 import sys
 
-import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors

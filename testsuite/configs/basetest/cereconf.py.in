@@ -32,7 +32,6 @@ CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase']
 #
 # Should CLASS_CHANGELOG be empty?!
 #
-CLASS_CONSTANTS = [
-    'Cerebrum.modules.CLConstants/CLConstants',
-    'Cerebrum.Constants/Constants', ]
+CLASS_CONSTANTS = ['Cerebrum.Constants/Constants', ]
 
+CLASS_CL_CONSTANTS = ['Cerebrum.modules.CLConstants/CLConstants', ]

@@ -28,7 +28,7 @@ from six import text_type
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import latin1_to_iso646_60
+from Cerebrum.utils import transliterate
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Entity import EntityName
@@ -37,6 +37,7 @@ from Cerebrum import QuarantineHandler
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
+clconst = Factory.get('CLConstants')(db)
 logger = Factory.get_logger("cronjob")
 posix_user = Factory.get('PosixUser')(db)
 posix_group = PosixGroup.PosixGroup(db)
@@ -109,7 +110,7 @@ class Passwd(object):
             gecos = row['name']
         if gecos is None:
             gecos = uname
-        gecos = text_type(latin1_to_iso646_60(gecos))
+        gecos = transliterate.to_iso646_60(gecos)
         shell = self.shells[int(row['shell'])]
         if row['quarantine_type'] is not None:
             now = mx.DateTime.now()
@@ -255,7 +256,7 @@ class NISGroupUtil(object):
         """
         try:
             events = list(db.get_log_events(
-                types=(co.group_create, co.account_create),
+                types=(clconst.group_create, clconst.account_create),
                 subject_entity=entity_id,
                 sdate=self._namecachedtime))
             return bool(events)

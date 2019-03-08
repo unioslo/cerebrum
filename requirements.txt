@@ -14,6 +14,7 @@ jsonschema
 lxml
 nose
 phonenumbers
+pid
 pika
 psycopg2-binary
 pygpgme
@@ -28,6 +29,7 @@ rpclib==2.7.0-beta
 sasl
 six>=1.10
 smbpasswd
-statsd>=3.2.1
+statsd==3.2.2
 suds
+unidecode
 Twisted==10.2.0

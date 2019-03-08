@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+
+# Copyright 2013 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,33 +17,3 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Group models."""
-
-from __future__ import unicode_literals
-
-from rpclib.model.complex import ComplexModel
-# TODO: Fix'n move
-from Cerebrum.modules.cis.Utils import Unicode, DateTime
-
-NAMESPACE = 'GroupAPI'
-
-
-class GroupInfo(ComplexModel):
-    """Information about a group."""
-    __namespace__ = NAMESPACE
-    __tns__ = NAMESPACE
-
-    name = Unicode
-    description = Unicode
-    expire_date = DateTime
-    visibility = Unicode
-
-
-class GroupMember(ComplexModel):
-    """Information about a group member."""
-    __namespace__ = NAMESPACE
-    __tns__ = NAMESPACE
-
-    type = Unicode
-    name = Unicode
-    # TBD: Not here: id, expire1, expire2, expire_date

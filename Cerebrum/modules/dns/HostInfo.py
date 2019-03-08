@@ -97,7 +97,7 @@ class HostInfo(Entity):
                 'tcols': ", ".join([x[0] for x in cols]),
                 'binds': ", ".join([x[1] for x in cols])},
                          binds)
-            self._db.log_change(self.entity_id, self.const.host_info_add, None,
+            self._db.log_change(self.entity_id, self.clconst.host_info_add, None,
                                 change_params={'hinfo': self.hinfo})
         else:
             self.execute("""
@@ -106,7 +106,7 @@ class HostInfo(Entity):
             WHERE host_id=:e_id""" % {'defs': ", ".join(
                 ["%s=%s" % x for x in cols])},
                          binds)
-            self._db.log_change(self.entity_id, self.const.host_info_update, None,
+            self._db.log_change(self.entity_id, self.clconst.host_info_update, None,
                                 change_params={'hinfo': self.hinfo})
         del self.__in_db
         
@@ -172,7 +172,7 @@ class HostInfo(Entity):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_host_info]
         WHERE host_id=:e_id""", {'e_id': self.entity_id})
-        self._db.log_change(self.entity_id, self.const.host_info_del, None)
+        self._db.log_change(self.entity_id, self.clconst.host_info_del, None)
         self.__super.delete()
 
     def search(self, spread=None, host_id=None, dns_owner_id=None,

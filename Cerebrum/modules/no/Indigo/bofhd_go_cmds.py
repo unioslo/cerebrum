@@ -105,6 +105,7 @@ copy_helpers = [
 copy_uio = [
     'person_list_user_priorities',
     'group_memberships',
+    'group_memberships_expanded',
     'group_search',
     'group_list',
     'misc_list_passwords',
@@ -718,8 +719,8 @@ class BofhdExtension(BofhdCommonMethods):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
 
-        types = (self.const.account_create, self.const.account_password,
-                 self.const.ou_create, self.const.person_create)
+        types = (self.clconst.account_create, self.clconst.account_password,
+                 self.clconst.ou_create, self.clconst.person_create)
         sdate = mx.DateTime.now() - mx.DateTime.oneDay * int(days)
         # Collect in a dict to remove duplicates etc.
         tmp = {}
@@ -729,13 +730,13 @@ class BofhdExtension(BofhdCommonMethods):
 
         ret = []
         for entity_id, changes in tmp.items():
-            if (int(self.const.account_password) in changes
-                    and int(self.const.account_create) not in changes):
+            if (int(self.clconst.account_password) in changes
+                    and int(self.clconst.account_create) not in changes):
                 # TBD: naa er det OK aa vise passordet?
-                del(changes[int(self.const.account_password)])
+                del(changes[int(self.clconst.account_password)])
 
             for k, v in changes.items():
-                change_type = self.const.ChangeType(int(k))
+                change_type = self.clconst.ChangeType(int(k))
                 params = ''
                 if k == self.const.account_password:
                     if v['change_params']:
@@ -998,8 +999,8 @@ class ContactCommands(bofhd_contact_info.BofhdContactCommands):
     bofhd_email.BofhdEmailCommands,
     'all_commands', 'all_commands',
     commands=[
-        'email_add_address',
-        'email_remove_address',
+        'email_address_add',
+        'email_address_remove',
         'email_info',
     ]
 )

@@ -20,7 +20,6 @@
 import re
 import cereconf
 import time
-import random
 
 from Cerebrum import Account
 from Cerebrum import Utils
@@ -185,8 +184,8 @@ class AccountHiAMixin(Account.Account):
             return 'contains upper case letter(s) ({})'.format(name)
 
         if isinstance(self, PosixUser):
-            if len(name) > 8:
-                return "too long (%s)" % name
+            if len(name) > 16:
+                return "is too long (%s)" % name
             if re.search("^[^A-Za-z]", name):
                 return "must start with a character (%s)" % name
             if re.search("[^A-Za-z0-9\-_]", name):
@@ -260,7 +259,7 @@ class AccountHiAMixin(Account.Account):
                     et.write_db()
             except Errors.NotFoundError:
                 pass
-            return            
+            return
         # Find, create or update a proper EmailTarget for this
         # account.
         et = Email.EmailTarget(self._db)
@@ -321,11 +320,16 @@ class AccountHiAMixin(Account.Account):
         ed = Email.EmailDomain(self._db)
         ed.find(self.get_primary_maildomain())
         domains = [ed.email_domain_name]
-        if ed.email_domain_name == cereconf.EMAIL_DEFAULT_DOMAIN:
+
+        if ed.email_domain_name == Email.get_primary_default_email_domain():
             if not self.owner_type == self.const.entity_group:
                 primary_set = True
-        if cereconf.EMAIL_DEFAULT_DOMAIN not in domains:
-            domains.append(cereconf.EMAIL_DEFAULT_DOMAIN)
+
+        # Add the default domains if missing
+        for domain in Email.get_default_email_domains():
+            if domain not in domains:
+                domains.append(domain)
+
         # Iterate over the available domains, testing various
         # local_parts for availability.  Set user's primary address to
         # the first one found to be available.
@@ -432,26 +436,9 @@ class AccountHiAMixin(Account.Account):
             et.write_db()
         return et
 
-
-    def suggest_unames(self,
-                       domain,
-                       fname,
-                       lname,
-                       maxlen=8,
-                       suffix=None,
-                       prefix=""):
-        """
-        """
-        if suffix is None:
-            from time import localtime
-            t = localtime()[0:2]
-            year = str(t[0])[2:]
-            suffix = year
-        return self.__super.suggest_unames(domain,
-                                           fname,
-                                           lname,
-                                           maxlen,
-                                           suffix=suffix)
+    def suggest_unames(self, domain, fname, lname, maxlen=10, suffix=""):
+        return super(AccountHiAMixin, self).suggest_unames(
+                domain, fname, lname, maxlen, suffix=suffix)
 
     def is_employee(self):
         for r in self.get_account_types():

@@ -42,13 +42,19 @@ def main():
     p = argparse.ArgumentParser(__doc__)
     p.add_argument('-c', '--commit', action='store_true', help='commit')
     config = p.parse_args()
-    consts = Factory.get('Constants'.encode('ascii'))
     db = Factory.get('Database')(client_encoding='UTF-8')
     tables = set()
-    for name in dir(consts):
-        const = getattr(consts, name)
-        if isinstance(const, _CerebrumCode):
-            tables.add((const._lookup_table, const._lookup_code_column))
+
+    def search_for_tables(consts):
+        for name in dir(consts):
+            const = getattr(consts, name)
+            if isinstance(const, _CerebrumCode):
+                yield (const._lookup_table, const._lookup_code_column)
+
+    for e in search_for_tables([Factory.get('Constants'),
+                                Factory.get('CLConstants')]):
+                tables.add(e)
+
     for table, code in tables:
         print('fixing table {}'.format(table))
         rows = db.query('SELECT * FROM {}'.format(table))

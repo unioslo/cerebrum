@@ -37,7 +37,6 @@ from collections import defaultdict
 
 from six import text_type
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
@@ -49,11 +48,12 @@ from Cerebrum.modules.no.uio.Ephorte import EphortePermission
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.utils.context import entity
 
-cerebrum_path, cereconf  # Satisfy the linters.
+cereconf  # Satisfy the linters.
 
 logger = Factory.get_logger("cronjob")
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
+clconst = Factory.get('CLConstants')(db)
 ou = Factory.get('OU')(db)
 ephorte_role = EphorteRole(db)
 
@@ -218,8 +218,8 @@ def update_person_info(pe, client):
                            initials, email_address, telephone, mobile,
                            street_address, zip_code, city)
         return True
-    except EphorteWSError, e:
-        # Temporary hack to return prettier error-message if EphorteWS returns
+    except EphorteWSError as e:
+        # Return prettier error-message if EphorteWS returns
         # an unspecified rule violation for field length.
         # Should be removed once the WS itself returns the specific field
         # that caused the exception.
@@ -464,10 +464,10 @@ def quicksync_roles_and_perms(client, selection_spread, config, commit):
     clh = CLHandler.CLHandler(db)
     pe = Factory.get('Person')(db)
 
-    change_types_roles = (co.ephorte_role_add,
-                          co.ephorte_role_rem,
-                          co.ephorte_role_upd)
-    change_types_perms = (co.ephorte_perm_add, co.ephorte_perm_rem)
+    change_types_roles = (clconst.ephorte_role_add,
+                          clconst.ephorte_role_rem,
+                          clconst.ephorte_role_upd)
+    change_types_perms = (clconst.ephorte_perm_add, clconst.ephorte_perm_rem)
     change_types = change_types_roles + change_types_perms
 
     event_selector = select_events_by_person(

@@ -104,7 +104,6 @@ import StringIO
 
 from six import text_type
 
-import cerebrum_path
 import cereconf
 
 import Cerebrum
@@ -122,7 +121,6 @@ from Cerebrum.config.settings import String, Iterable, Boolean
 import Cerebrum.config.loader
 
 
-del cerebrum_path
 logger = """Global variable for logger."""
 dryrun = """Global flag for dryrun."""
 account2name = """Global variable mapping account ids to usernames."""

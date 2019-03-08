@@ -104,7 +104,7 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
             self.db.commit()
             return True
         else:
-            self.logger.debug(u'Unable to lock event %r', identifier)
+            self.logger.warn(u'Unable to lock event %r', identifier)
             self.db.rollback()
             return False
 
@@ -153,8 +153,8 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
         if not isinstance(item, EventItem):
             self.logger.error(u'Invalid event: %r', item)
 
-        self.logger.debug2(u'Got a new event on channel %r: id=%r event=%r',
-                           item.channel, item.identifier, item.payload)
+        self.logger.debug2(u'Got a new event on channel %r: id=%r event=%s',
+                           item.channel, item.identifier, repr(item.payload))
 
         if not self.__lock_event(item.identifier):
             return
@@ -169,11 +169,13 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
             # If an event fails, we just release it, and let the
             # DelayedNotificationCollector enqueue it when appropriate
             self.logger.debug(u'Failed to process event_id %d: %s',
-                              item.identifier, e)
+                              item.identifier, repr(e))
             self.__release_event(item.identifier)
 
         except EventHandlerNotImplemented as e:
-            self.logger.debug(u'No event handlers for event %r: %s', item, e)
+            self.logger.debug(
+                u'No event handlers for event with channel %r: id=%r, %s',
+                item.channel, item.identifier, repr(e))
             self.__release_event(item.identifier)
 
         except Exception as e:
@@ -364,7 +366,7 @@ class EventLogConsumer(DBConsumer):
             Returns the ChangeType code referred to in the event['event_type'].
         """
         try:
-            return self.co.ChangeType(int(event['event_type']))
+            return self.clconst.ChangeType(int(event['event_type']))
         except KeyError as e:
             self.logger.warn(u'Invalid event format for %r: %s', event, e)
         except Exception as e:

@@ -45,7 +45,7 @@ class NMHStudent(access_FS.Student):
         """
         qry = u"""
         SELECT DISTINCT
-          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -120,7 +120,7 @@ class NMHStudent78(NMHStudent, access_FS.Student78):
         """
         qry = u"""
         SELECT DISTINCT
-          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+          s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
@@ -284,7 +284,7 @@ class NMHUndervisning(access_FS.Undervisning):
         # explicitly do a JOIN with the regular table fs.fagperson:
         qry = """
         SELECT DISTINCT
-              fp.fodselsdato, fp.personnr, p.etternavn, p.fornavn,
+              fp.fodselsdato, fp.personnr, p.dato_fodt, p.etternavn, p.fornavn,
               fp.adrlin1_arbeide, fp.adrlin2_arbeide, fp.postnr_arbeide,
               fp.adrlin3_arbeide, fp.adresseland_arbeide,
               fp.telefonnr_arbeide, fp.telefonnr_fax_arb,
@@ -331,7 +331,7 @@ class NMHUndervisning78(NMHUndervisning, access_FS.Undervisning78):
         # explicitly do a JOIN with the regular table fs.fagperson:
         qry = """
         SELECT DISTINCT
-              fp.fodselsdato, fp.personnr, p.etternavn, p.fornavn,
+              fp.fodselsdato, fp.personnr, p.dato_fodt, p.etternavn, p.fornavn,
               fp.adrlin1_arbeide, fp.adrlin2_arbeide, fp.postnr_arbeide,
               fp.adrlin3_arbeide, fp.adresseland_arbeide,
               ptw.telefonnr telefonnr_arbeide,

@@ -35,11 +35,9 @@ import six
 
 from mx import DateTime
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.database import DatabaseError
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import dns
@@ -73,9 +71,10 @@ class TsdProjectMixin(OU):
         for number in itertools.count():
             candidate = 'p%02d' % number
             if not list(
-                self.list_external_ids(
+                self.search_external_ids(
                     id_type=self.const.externalid_project_id,
-                    external_id=candidate)):
+                    external_id=candidate,
+                    fetchall=False)):
                 return candidate
 
     def get_project_id(self):
@@ -166,8 +165,9 @@ class TsdProjectMixin(OU):
         """
         # Check that the ID is not in use
         if id_type == self.const.externalid_project_id:
-            for row in self.list_external_ids(id_type=id_type,
-                                              external_id=external_id):
+            for row in self.search_external_ids(id_type=id_type,
+                                                external_id=external_id,
+                                                fetchall=False):
                 raise Errors.CerebrumError("Project ID already in use")
 
         return super(TsdProjectMixin, self).populate_external_id(
@@ -672,7 +672,6 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
 
         person = Factory.get('Person')(self._db)
         user = Factory.get('PosixUser')(self._db)
-        password = user.make_passwd(username)
         try:
             user.find_by_name(username)
         except Errors.NotFoundError:
@@ -689,8 +688,6 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
                 np_type=None,
                 creator_id=creator_id,
                 expire_date=None)
-            user.write_db()
-            user.set_password(password)
             user.write_db()
         else:
             person.find(user.owner_id)

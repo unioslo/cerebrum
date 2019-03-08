@@ -132,9 +132,9 @@ class JobRunner(object):
                         # We sleep a little so that we don't risk entering
                         # a tight loop with lots of logging
                         time.sleep(1)
-                        logger.error("%s (pid %d) has run for %d seconds, "
-                                     "sending SIGTERM" %
-                                     (job['name'], job['pid'], run_for))
+                        logger.error("{} (pid %d) has run for %d seconds, "
+                                     "sending SIGTERM".format(job['name']),
+                                     job['pid'], run_for)
                         try:
                             os.kill(job['pid'], signal.SIGTERM)
                             # By setting did_wait to True, the main loop
