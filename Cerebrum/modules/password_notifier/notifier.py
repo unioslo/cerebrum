@@ -214,7 +214,15 @@ class PasswordNotifier(object):
             entity_types=self.constants.entity_account,
             entity_ids=old_ids)
 
-        old_ids = old_ids - quarantined_ids
+        disabled_quarantine_ids = QuarantineHandler.get_locked_entities(
+            self.db,
+            quarantine_types=self.constants.quarantine_autopassord,
+            entity_types=self.constants.entity_account,
+            only_active=False,
+            only_disabled=True,
+            entity_ids=old_ids)
+
+        old_ids = old_ids - quarantined_ids - disabled_quarantine_ids
         return old_ids
 
     def get_notified_ids(self):
