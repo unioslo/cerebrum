@@ -1244,8 +1244,9 @@ class EntityQuarantine(Entity):
         return False
 
     def list_entity_quarantines(self, entity_types=None, quarantine_types=None,
-                                only_active=False, entity_ids=None,
-                                ignore_quarantine_types=None, spreads=None):
+                                only_active=False, only_disabled=False,
+                                entity_ids=None, ignore_quarantine_types=None,
+                                spreads=None):
         sel = ""
         where = ""
         binds = dict()
@@ -1260,6 +1261,9 @@ class EntityQuarantine(Entity):
         if quarantine_types and ignore_quarantine_types:
             raise Errors.CerebrumError(
                 "Can't use both quarantine_types and ignore_quarantine_types")
+        if only_active and only_disabled:
+            raise Errors.CerebrumError(
+                "Can't use both only_active and only_disabled")
         if quarantine_types:
             conditions.append(
                 argument_to_sql(quarantine_types, "quarantine_type",
@@ -1272,6 +1276,8 @@ class EntityQuarantine(Entity):
             conditions.append("""start_date <= [:now] AND
             (end_date IS NULL OR end_date > [:now]) AND
             (disable_until IS NULL OR disable_until <= [:now])""")
+        if only_disabled:
+            conditions.append("""(disable_until > [:now]""")
         if entity_ids:
             conditions.append(
                 argument_to_sql(entity_ids, "eq.entity_id", binds, int))
