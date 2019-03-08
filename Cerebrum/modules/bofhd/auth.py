@@ -807,6 +807,10 @@ class BofhdAuth(DatabaseAccessor):
                 return True
             raise PermissionDenied("No access to account")
 
+    def can_view_user(self, operator, account=None, query_run_any=False):
+        """See if operator can view basic information about an account."""
+        return True
+
     def can_set_disk_quota(self, operator, account=None, unlimited=False,
                            forever=False, query_run_any=False):
         if self.is_superuser(operator):
@@ -966,6 +970,10 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return False
         raise PermissionDenied("Not allowed to create persons")
+
+    def can_view_person(self, operator, person=None, query_run_any=False):
+        """Check if operator can view basic information about a person."""
+        return True
 
     def can_set_person_id(self, operator, person=None, idtype=None,
                           query_run_any=False):
