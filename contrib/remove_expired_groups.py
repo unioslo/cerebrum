@@ -49,6 +49,7 @@ def remove_expired_groups(db, days, pretend):
         if pretend:
             logger.info('DRYRUN: Rolling back all changes')
         gr = Factory.get('Group')(db)
+        co = Factory.get('Constants')(db)
         expired_groups = gr.search(filter_expired=False, expired_only=True)
         for group in expired_groups:
             removal_deadline = group['expire_date'] + days
@@ -60,7 +61,11 @@ def remove_expired_groups(db, days, pretend):
                     exts = gr.get_extensions()
                     if exts:
                         logger.debug("Skipping group %r, has extensions %r",
-                                     gr.group_name, exts)
+                                     gr.entity_id, exts)
+                        continue
+                    if gr.virtual_group_type == int(co.vg_ougroup):
+                        logger.debug("Skipping group %r, is %r",
+                                     gr.entity_id, str(co.vg_ougroup))
                         continue
                     gr.delete()
                     if not pretend:
