@@ -171,7 +171,7 @@ class Updater(object):
             return              # No deletion needed
         hi._delete()
         if try_dns_remove:
-            self.remove_dns_owner(dns.entity_id)
+            self.remove_dns_owner(dns_owner_id)
 
     def remove_cname(self, dns_owner_id, try_dns_remove=False):
         c = CNameRecord.CNameRecord(self._db)
@@ -181,7 +181,7 @@ class Updater(object):
             return              # No deletion needed
         c._delete()
         if try_dns_remove:
-            self.remove_dns_owner(dns.entity_id)
+            self.remove_dns_owner(dns_owner_id)
 
     def remove_dns_owner(self, dns_owner_id):
         refs = self._find.find_referers(dns_owner_id=dns_owner_id)
@@ -197,7 +197,7 @@ class Updater(object):
             for t in dns_owner.get_traits().keys():
                 try:
                     dns_owner.delete_trait(t)
-                except errors.NotFoundError:
+                except Errors.NotFoundError:
                     pass
             dns_owner.mx_set_id = None
             dns_owner.write_db()

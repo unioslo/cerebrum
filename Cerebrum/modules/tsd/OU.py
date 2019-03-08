@@ -40,7 +40,10 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.OU import OU
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import dns
+from Cerebrum.modules.dns import (Subnet, IPv6Subnet, HostInfo, DnsOwner,
+                                  Utils, IPv6Number, AAAARecord, IPNumber,
+                                  ARecord, IntegrityHelper)
+from Cerebrum.modules.dns import Errors as dnsErrors
 from Cerebrum.modules.hostpolicy.PolicyComponent import PolicyComponent
 from Cerebrum.modules.EntityTrait import EntityTrait
 
@@ -817,10 +820,10 @@ class OUTSDMixin(TsdDefaultEntityMixin,
         :raise Errors.CerebrumError: If no VLAN is available.
         """
         taken_vlans = set()
-        subnet = dns.Subnet.Subnet(self._db)
+        subnet = Subnet.Subnet(self._db)
         for row in subnet.search():
             taken_vlans.add(row['vlan_number'])
-        subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
+        subnet6 = IPv6Subnet.IPv6Subnet(self._db)
         for row in subnet6.search():
             taken_vlans.add(row['vlan_number'])
         # TODO: Do we need a max value?
@@ -848,7 +851,7 @@ class OUTSDMixin(TsdDefaultEntityMixin,
         if not vlan:
             try:
                 # Check if a VLAN is already assigned
-                sub = dns.Subnet.Subnet(self._db)
+                sub = Subnet.Subnet(self._db)
                 sub.find(self.ipv4_subnets.next())
                 vlan = sub.vlan_number
             except:
@@ -870,12 +873,12 @@ class OUTSDMixin(TsdDefaultEntityMixin,
             project_id=intpid)
 
         for cls, start, my_subnets in (
-                (dns.Subnet.Subnet, subnetstart, self.ipv4_subnets),
-                (dns.IPv6Subnet.IPv6Subnet, subnet6start, self.ipv6_subnets)):
+                (Subnet.Subnet, subnetstart, self.ipv4_subnets),
+                (IPv6Subnet.IPv6Subnet, subnet6start, self.ipv6_subnets)):
             sub = cls(self._db)
             try:
                 sub.find(start)
-            except dns.Errors.SubnetError:
+            except dnsErrors.SubnetError:
                 sub.populate(start, "Subnet for project %s" % projectid, vlan)
                 sub.write_db()
             else:
@@ -912,8 +915,8 @@ class OUTSDMixin(TsdDefaultEntityMixin,
     def _setup_project_hosts(self, creator_id):
         """Setup the hosts initially needed for the given project."""
         projectid = self.get_project_id()
-        host = dns.HostInfo.HostInfo(self._db)
-        dns_owner = dns.DnsOwner.DnsOwner(self._db)
+        host = HostInfo.HostInfo(self._db)
+        dns_owner = DnsOwner.DnsOwner(self._db)
         vm_trait = self.get_trait(self.const.trait_project_vm_type)
 
         if vm_trait:
@@ -1020,12 +1023,12 @@ class OUTSDMixin(TsdDefaultEntityMixin,
         :return:
             The DnsOwner object that is created or updated.
         """
-        dns_owner = dns.DnsOwner.DnsOwner(self._db)
-        dnsfind = dns.Utils.Find(self._db, cereconf.DNS_DEFAULT_ZONE)
-        ipv6number = dns.IPv6Number.IPv6Number(self._db)
-        aaaarecord = dns.AAAARecord.AAAARecord(self._db)
-        ipnumber = dns.IPNumber.IPNumber(self._db)
-        arecord = dns.ARecord.ARecord(self._db)
+        dns_owner = DnsOwner.DnsOwner(self._db)
+        dnsfind = Utils.Find(self._db, cereconf.DNS_DEFAULT_ZONE)
+        ipv6number = IPv6Number.IPv6Number(self._db)
+        aaaarecord = AAAARecord.AAAARecord(self._db)
+        ipnumber = IPNumber.IPNumber(self._db)
+        arecord = ARecord.ARecord(self._db)
 
         try:
             dns_owner.find_by_name(hostname)
@@ -1166,9 +1169,9 @@ class OUTSDMixin(TsdDefaultEntityMixin,
                                 status=row['status'])
             pe.write_db()
         # Remove all project's DnsOwners (hosts):
-        dnsowner = dns.DnsOwner.DnsOwner(self._db)
+        dnsowner = DnsOwner.DnsOwner(self._db)
         policy = PolicyComponent(self._db)
-        update_helper = dns.IntegrityHelper.Updater(self._db)
+        update_helper = IntegrityHelper.Updater(self._db)
         for row in ent.list_traits(code=self.const.trait_project_host,
                                    target_id=self.entity_id):
             # TODO: Could we instead update the Subnet classes to use
@@ -1187,8 +1190,8 @@ class OUTSDMixin(TsdDefaultEntityMixin,
             # delete the DNS owner
             update_helper.full_remove_dns_owner(owner_id)
         # Delete all subnets
-        subnet = dns.Subnet.Subnet(self._db)
-        subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
+        subnet = Subnet.Subnet(self._db)
+        subnet6 = IPv6Subnet.IPv6Subnet(self._db)
         for row in ent.list_traits(code=(self.const.trait_project_subnet6,
                                          self.const.trait_project_subnet),
                                    target_id=self.entity_id):
