@@ -157,7 +157,6 @@ class HR2FSSyncer(object):
         self.commit = commit
 
         self.ansattnr_code = co.EntityExternalId(ansattnr_code_str)
-
         # Check if ansattnr_code is valid
         try:
             int(self.ansattnr_code)
@@ -249,8 +248,7 @@ class HR2FSSyncer(object):
                          for affiliation, status in selection_criteria))
 
     def find_fnr(self, person):
-        """
-        Find a person's fnr.
+        """Find a person's fnr.
 
         We require that *all* fnrs for this particular person match. Otherwise
         we risk stuffing weird fnrs into FS and wrecking havoc there. E.g.
@@ -272,11 +270,11 @@ class HR2FSSyncer(object):
                       if int(r["source_system"]) in permissible_sources)
 
         if len(numbers) == 0:
-            logger.info("Skipping person_id=%s, missing fnr", person.entity_id)
+            logger.info("Skipping person_id=%r, missing fnr", person.entity_id)
             return None
 
         if len(numbers) != 1:
-            logger.warn("Skipping person_id=%s, due to multiple fnrs",
+            logger.warn("Skipping person_id=%r, due to multiple fnrs",
                         person.entity_id)
             return None
 
@@ -471,7 +469,7 @@ class HR2FSSyncer(object):
                     and self.fnr_cache[person_id] != fs_fnr):
                 # Mismatch between fnr in SAP and FS
                 # Skipping
-                logger.info("Skipping person_id=%s, due to mismatching fnrs",
+                logger.info("Skipping person_id=%r, due to mismatching fnrs",
                             person_id)
                 del self.fnr_cache[person_id]
 
@@ -557,7 +555,7 @@ class HR2FSSyncer(object):
         try:
             date6, pnr = fodselsnr.del_fnr(fnr)
         except fodselsnr.InvalidFnrError:
-            logger.warn('Skipping person_id=%s, invalid fnr', person_id)
+            logger.warn('Skipping person_id=%r, invalid fnr', person_id)
             return None
 
         date = person.birth_date
@@ -584,7 +582,7 @@ class HR2FSSyncer(object):
             # ... and work title
             result['work_title'] = self.find_title(person)
             if None in (result['name_first'], result['name_last']):
-                logger.warn('Missing name for person_id=%s, skipping',
+                logger.warn('Missing name for person_id=%r, skipping',
                             person_id)
                 return None
 
@@ -624,13 +622,14 @@ class HR2FSSyncer(object):
             yield row
 
     def select_fs_candidates(self, selection_criteria):
-        """
-        Find all people to be exported to FS.
+        """Find all people to be exported to FS.
 
         :param selection_criteria: Affiliation selection
-        :return: A dict mapping person_ids to information chunks that will be
-        pushed to FS. The information chunks support a dict interface to give
-        easier access to several attributes
+        :return:
+            A dict mapping person_ids to information chunks that will be pushed
+            to FS. The information chunks support a dict interface to give
+            easier access to several attributes
+
         """
         result = {}
         person = Factory.get("Person")(self.db)
@@ -650,15 +649,14 @@ class HR2FSSyncer(object):
         return result
 
     def export_person(self, person_id, person_data):
-        """
-        Push information to FS.person.
+        """Push information to FS.person.
 
         Register information in FS about a person with person_id. The
         necessary entries are created in FS, if they did not exist beforehand.
 
         :param person_id: Cerebrum person_id
         :param person_data: person data to export
-        :return:
+
         """
         if person_id in self.exported_to_fs_person:
             return
@@ -666,7 +664,7 @@ class HR2FSSyncer(object):
         if 'ansattnr' not in person_data:
             person_data.ansattnr = None
         if not self.fs.person.get_person(person_data.fnr6, person_data.pnr):
-            logger.info("Add new entry to FS.person: person_id=%s", person_id)
+            logger.info("Add new entry to FS.person: person_id=%r", person_id)
             values = (person_data.fnr6, person_data.pnr,
                       person_data.name_first,
                       person_data.name_last,
@@ -674,11 +672,10 @@ class HR2FSSyncer(object):
                       person_data.gender,
                       person_data.birth_date,
                       person_data.ansattnr)
-            logger.debug("Values for person_id=%s: %r", person_id, values)
             try:
                 self.fs.person.add_person(*values)
             except (self.db.IntegrityError, self.db.DatabaseError):
-                logger.warn("Insertion of person_id=%s failed: %s", person_id,
+                logger.warn("Insertion of person_id=%r failed: %r", person_id,
                             self.exc_to_message(sys.exc_info()))
 
         # Here we inject the ansattnummer for people that are already in the
@@ -688,7 +685,7 @@ class HR2FSSyncer(object):
                 self.fs.person.set_ansattnr(person_data.fnr6, person_data.pnr,
                                             person_data.ansattnr)
             except self.db.IntegrityError:
-                logger.warn("Setting ansattnr=%s for person_id=%d failed: %s",
+                logger.warn("Setting ansattnr=%r for person_id=%r failed: %r",
                             person_data.ansattnr, person_id,
                             self.exc_to_message(sys.exc_info()))
 
@@ -719,7 +716,7 @@ class HR2FSSyncer(object):
 
         primary_sko = self.find_primary_sko(primary_ou_id)
         if primary_sko is None:
-            logger.warn("Missing primary OU for person_id=%s, skipping "
+            logger.warn("Missing primary OU for person_id=%r, skipping "
                         "fagperson", person_id)
             return
 
@@ -747,22 +744,18 @@ class HR2FSSyncer(object):
             # entries and left untouched for already existing entries.
             values["status_aktiv"] = 'N'
 
-            logger.info("Add new entry to FS.fagperson: person_id=%s",
+            logger.info("Add new entry to FS.fagperson: person_id=%r",
                         person_id)
-            logger.debug("Fagperson values for person_id=%s: %r", person_id,
-                         values)
             try:
                 self.fs.person.add_fagperson(**values)
             except self.db.IntegrityError:
-                logger.info("Failed updating person_id=%s: %s", person_id,
+                logger.info("Failed updating person_id=%r: %r", person_id,
                             self.exc_to_message(sys.exc_info()))
         else:
             tmp = fs_info[0]
             if any(values[k] != tmp[k] for k in values.keys()):
-                logger.info("Update fagperson values for person_id=%s",
+                logger.info("Update fagperson values for person_id=%r",
                             person_id)
-                logger.debug("Fagperson values for person_id=%s: %r",
-                             person_id, values)
                 self.fs.person.update_fagperson(**values)
 
         instno = primary_sko[0]
@@ -794,19 +787,19 @@ class HR2FSSyncer(object):
                 contact = contact[0]['telefonnr']
         try:
             if nr and not contact:
-                logger.info("Set phone (%s) for person_id=%s: %s", phone_type,
+                logger.info("Set phone (%r) for person_id=%r: %r", phone_type,
                             person_id, nr)
                 self.fs.person.add_telephone(person_data.fnr6,
                                              person_data.pnr, phone_type, nr)
 
             elif nr and contact != nr:
-                logger.info("Update phone (%s) for person_id=%s: %s --> %s",
+                logger.info("Update phone (%r) for person_id=%r: %r --> %r",
                             phone_type, person_id, contact, nr)
                 self.fs.person.update_telephone(person_data.fnr6,
                                                 person_data.pnr, phone_type,
                                                 nr)
         except (ValueError, NumberParseException) as e:
-            logger.warn("Could not set phone (%s) for person_id=%s to %s: %s",
+            logger.warn("Could not set phone (%r) for person_id=%r to %r: %r",
                         phone_type, person_id, nr, e)
 
     def sync_to_fs(self):
@@ -910,7 +903,7 @@ def main():
             if aff is None or status is None:
                 return None
         else:
-            logger.error("Wrong syntax for affiliation %s", affiliation)
+            logger.error("Wrong syntax for affiliation: %r", affiliation)
             return None
 
         return aff, status
