@@ -688,19 +688,19 @@ class ADFullUserSync(ADutils.ADuserUtil):
                          spread, delete, dry_run, store_sid, pwd_sync)
 
         # Fetch cerebrum data.
-        self.logger.debug("Fetching cerebrum data...")
+        self.logger.info("Fetching cerebrum data...")
         cerebrumdump = self.fetch_cerebrum_data(spread)
-        self.logger.debug("Fetched %i cerebrum users", len(cerebrumdump))
+        self.logger.info("Fetched %i cerebrum users", len(cerebrumdump))
 
         # Fetch AD-data.
-        self.logger.debug("Fetching AD data...")
+        self.logger.info("Fetching AD data...")
         addump = self.fetch_ad_data(self.ad_ldap)
-        self.logger.debug("Fetched %i ad-users", len(addump))
+        self.logger.info("Fetched %i ad-users", len(addump))
 
         # compare cerebrum and ad-data.
-        self.logger.debug("Comparing Cerebrum and AD data...")
+        self.logger.info("Comparing Cerebrum and AD data...")
         changelist = self.compare(delete, cerebrumdump, addump)
-        self.logger.debug("Found %i number of user changes", len(changelist))
+        self.logger.info("Found %i number of user changes", len(changelist))
 
         # Perform changes.
         self.perform_changes(changelist, dry_run, store_sid)
@@ -1196,7 +1196,6 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
                     else:
                         members.append("%s%s" % (entity2name[group_id],
                                                  cereconf.AD_GROUP_POSTFIX))
-                self.logger.debug("Group: %r: %d members", grp, len(members))
 
                 if sendDN_boost:
                     members_in_ad = ad_dict.get(grp, {}).get("member", [])
