@@ -62,6 +62,7 @@ def remove_expired_groups(db, days, pretend):
                         logger.debug("Skipping group %r, has extensions %r",
                                      gr.entity_id, exts)
                         continue
+                    gr.delete()
                     if not pretend:
                         db.commit()
                     else:  # do not actually remove when running with -d
