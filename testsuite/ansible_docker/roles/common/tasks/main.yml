@@ -1,2 +1,1 @@
-- include: install_cerebrum.yml
 - include: setup_gpg.yml

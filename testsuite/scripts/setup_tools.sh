@@ -456,7 +456,6 @@ Options:
               find the following:
                 - logging.ini.in: Log config template
                 - cereconf.py.in: Cereconf template
-                - cerebrum_path.py.in: cerebrum_path template
                 - extras.txt: List of DB design mod_*.sql-files
                 - pip.txt: PIP requirements file
     -o DIR    Make PIP work offline, and supply a directory with the neccessary
@@ -529,7 +528,7 @@ USAGE
     # Verify that our mandatory config files are in place before we actually do
     # something
 
-    local mandatory_files=('cereconf.py.in' 'cerebrum_path.py.in' \
+    local mandatory_files=('cereconf.py.in' \
                            'logging.ini.in' 'extras.txt' )
     for f in $mandatory_files
     do
@@ -547,7 +546,6 @@ USAGE
     local pip_cache=${test_env}/cache
 
     local crb_db_extras=${config_dir}/extras.txt
-    local crb_path_config=${config_dir}/cerebrum_path.py.in
     local crb_cereconf=${config_dir}/cereconf.py.in
     local crb_log_config=${config_dir}/logging.ini.in
 
@@ -604,15 +602,6 @@ USAGE
 
     info "Installing Cerebrum into '${test_env}'"
     if ! install_crb ${crb_src} ${test_env}
-    then 
-        return 4
-    fi
-
-    # cerebrum_path.py
-    # 'setup.py' fails to create 'cerebrum_path.py' if the effective user is not
-    # root (uid 0). This is a bug, kind of. We will have to do this ourselves.
-    info "Writing config '${crb_path_config}' to '${crb_confdir}'"
-    if ! write_conf ${crb_path_config} ${crb_confdir}
     then 
         return 4
     fi

@@ -44,11 +44,6 @@ following files:
   ``/path/to/virtenv`` by the setup function. Other text replacements can be
   configured as well
 
-* ``cerebrum_path.py.in``
-
-  Template cerebrum_path.py file. This file will usually be empty, and we'll set
-  our own PYTHONPATH.
-
 * ``logging.ini.in``
 
   Template logging.ini file.
