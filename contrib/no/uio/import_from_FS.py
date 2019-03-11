@@ -89,6 +89,8 @@ def usage():
                 Default edu_info.xml.
     --db-user: connect with given database username
     --db-service: connect to given database
+    --institution: Override insitution number. 
+                   Default: see cereconf.DEFAULT_INSTITUSJONSNR
 
     Action:
     -p: Generate person xml file
@@ -107,9 +109,22 @@ def usage():
            'doc': __doc__})
 
 
-class ImportFromFsUio(ImportFromFs):
-    def __init__(self, opts, fs):
-        super(ImportFromFsUio, self).__init__(opts, fs)
+class FilePaths(object):
+    def __init__(self, opts):
+        # Default filepaths
+        self.datadir = cereconf.FS_DATA_DIR
+        self.person_file = "person.xml"
+        self.role_file = "roles.xml"
+        self.studprog_file = "studieprog.xml"
+        self.ou_file = "ou.xml"
+        self.emne_info_file = "emner.xml"
+        self.fnr_update_file = "fnr_update.xml"
+        self.netpubl_file = "nettpublisering.xml"
+        self.undervenh_file = "underv_enhet.xml"
+        self.undenh_student_file = "student_undenh.xml"
+        self.evu_kursinfo_file = "evu_kursinfo.xml"
+        self.misc_file = None
+        # Uio Extras
         self.topics_file = "topics.xml"
         self.regkort_file = "regkort.xml"
         self.betalt_papir_file = "betalt_papir.xml"
@@ -118,7 +133,30 @@ class ImportFromFsUio(ImportFromFs):
 
         # Parse arguments
         for o, val in opts:
-            if o in ('--topics-file',):
+            if o in ('--datadir',):
+                self.datadir = val
+            elif o in ('--emneinfo-file',):
+                self.emne_info_file = val
+            elif o in ('--personinfo-file',):
+                self.person_file = val
+            elif o in ('--studprog-file',):
+                self.studprog_file = val
+            elif o in ('--roleinfo-file',):
+                self.role_file = val
+            elif o in ('--fnr-update-file',):
+                self.fnr_update_file = val
+            elif o in ('--ou-file',):
+                self.ou_file = val
+            elif o in ('--netpubl-file',):
+                self.netpubl_file = val
+            elif o in ('--undenh-file',):
+                self.undervenh_file = val
+            elif o in ('--student-undenh-file',):
+                self.undenh_student_file = val
+            elif o in ('--evukursinfo-file',):
+                self.evu_kursinfo_file = val
+            # Uio Extras
+            elif o in ('--topics-file',):
                 self.topics_file = val
             elif o in ('--regkort-file',):
                 self.regkort_file = val
@@ -129,7 +167,12 @@ class ImportFromFsUio(ImportFromFs):
             elif o in ('--pre-course-file',):
                 self.pre_course_file = val
 
-    def write_person_info(self):
+
+class ImportFromFsUio(ImportFromFs):
+    def __init__(self, fs):
+        super(ImportFromFsUio, self).__init__(fs)
+
+    def write_person_info(self, person_file):
         """Lager fil med informasjon om alle personer registrert i FS som
         vi muligens også ønsker å ha med i Cerebrum.  En person kan
         forekomme flere ganger i filen."""
@@ -138,8 +181,8 @@ class ImportFromFsUio(ImportFromFs):
         # fil der all informasjon om en person er samlet under en egen
         # <person> tag?
 
-        logger.info("Writing person info to '%s'", self.person_file)
-        f = SimilarSizeWriter(self.person_file, mode='w',
+        logger.info("Writing person info to '%s'", person_file)
+        f = SimilarSizeWriter(person_file, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
@@ -237,14 +280,14 @@ class ImportFromFsUio(ImportFromFs):
         f.write("</data>\n")
         f.close()
 
-    def write_ou_info(self):
+    def write_ou_info(self, institution_number, ou_file):
         """Lager fil med informasjon om alle OU-er"""
-        logger.info("Writing OU info to '%s'", self.ou_file)
-        f = SimilarSizeWriter(self.ou_file, mode='w', encoding=XML_ENCODING)
+        logger.info("Writing OU info to '%s'", ou_file)
+        f = SimilarSizeWriter(ou_file, mode='w', encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
         cols, ouer = self._ext_cols(
-            self.fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR))
+            self.fs.info.list_ou(institution_number))
         for o in ouer:
             sted = {}
             for fs_col, xml_attr in (
@@ -287,11 +330,11 @@ class ImportFromFsUio(ImportFromFs):
         f.write("</data>\n")
         f.close()
 
-    def write_topic_info(self):
+    def write_topic_info(self, topics_file):
         """Lager fil med informasjon om alle XXX"""
         # TODO: Denne filen blir endret med det nye opplegget :-(
-        logger.info("Writing topic info to '%s'", self.topics_file)
-        f = SimilarSizeWriter(self.topics_file, mode='w',
+        logger.info("Writing topic info to '%s'", topics_file)
+        f = SimilarSizeWriter(topics_file, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
@@ -304,10 +347,10 @@ class ImportFromFsUio(ImportFromFs):
         f.write("</data>\n")
         f.close()
 
-    def write_forkurs_info(self):
+    def write_forkurs_info(self, pre_course_file):
         from mx.DateTime import now
-        logger.info("Writing pre-course file to '%s'", self.pre_course_file)
-        f = SimilarSizeWriter(self.pre_course_file, mode='w',
+        logger.info("Writing pre-course file to '%s'", pre_course_file)
+        f = SimilarSizeWriter(pre_course_file, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         cols, course_attendants = self._ext_cols(self.fs.forkurs.list())
@@ -337,7 +380,7 @@ class ImportFromFsUio(ImportFromFs):
         f.write("</data>\n")
         f.close()
 
-    def write_edu_info(self):
+    def write_edu_info(self, edu_file):
         """Lager en fil med undervisningsinformasjonen til alle studenter.
 
         For hver student, lister vi opp alle tilknytningene til undenh, undakt,
@@ -357,8 +400,8 @@ class ImportFromFsUio(ImportFromFs):
         fs.evu.list_studenter_alle_kursakt()            <- kursakt deltagelse
         fs.evu.list()                                   <- evu deltagelse
         """
-        logger.info("Writing edu info to '%s'", self.edu_file)
-        f = SimilarSizeWriter(self.edu_file, mode='w', encoding=XML_ENCODING)
+        logger.info("Writing edu info to '%s'", edu_file)
+        f = SimilarSizeWriter(edu_file, mode='w', encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
 
@@ -390,11 +433,11 @@ class ImportFromFsUio(ImportFromFs):
         f.write("</data>\n")
         f.close()
 
-    def write_regkort_info(self):
+    def write_regkort_info(self, regkort_file):
         """Lager fil med informasjon om semesterregistreringer for
         inneværende semester"""
-        logger.info("Writing regkort info to '%s'", self.regkort_file)
-        f = SimilarSizeWriter(self.regkort_file, mode='w',
+        logger.info("Writing regkort info to '%s'", regkort_file)
+        f = SimilarSizeWriter(regkort_file, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
@@ -405,12 +448,12 @@ class ImportFromFsUio(ImportFromFs):
         f.write("</data>\n")
         f.close()
 
-    def write_betalt_papir_info(self):
+    def write_betalt_papir_info(self, betalt_papir_file):
         """Lager fil med informasjon om alle som enten har fritak fra å
         betale kopiavgift eller har betalt kopiavgiften"""
 
-        logger.info("Writing betaltpapir info to '%s'", self.betalt_papir_file)
-        f = SimilarSizeWriter(self.betalt_papir_file, mode='w',
+        logger.info("Writing betaltpapir info to '%s'", betalt_papir_file)
+        f = SimilarSizeWriter(betalt_papir_file, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
@@ -447,7 +490,8 @@ def main():
                                     "edu-file=",
                                     "pre-course-file=",
                                     "db-user=",
-                                    "db-service="
+                                    "db-service=",
+                                    "institution="
                                     ])
     except getopt.GetoptError as error:
         print(error)
@@ -456,43 +500,48 @@ def main():
 
     db_user = None
     db_service = None
+    institution_number = cereconf.DEFAULT_INSTITUSJONSNR
     for o, val in opts:
         if o in ('--db-user',):
             db_user = val
         elif o in ('--db-service',):
             db_service = val
-
+        elif o in ('--institution',):
+            institution_number = val
     fs = make_fs(user=db_user, database=db_service)
-    fsimporter = ImportFromFsUio(opts, fs)
+    file_paths = FilePaths(opts)
+    fsimporter = ImportFromFsUio(fs)
 
     misc_tag = None
     misc_func = None
     for o, val in opts:
         try:
             if o in ('-p',):
-                fsimporter.write_person_info()
+                fsimporter.write_person_info(file_paths.person_file)
             elif o in ('-s',):
-                fsimporter.write_studprog_info()
+                fsimporter.write_studprog_info(file_paths.studprog_file)
             elif o in ('-r',):
-                fsimporter.write_role_info()
+                fsimporter.write_role_info(file_paths.role_file)
             elif o in ('-e',):
-                fsimporter.write_emne_info()
+                fsimporter.write_emne_info(file_paths.emne_info_file)
             elif o in ('-f',):
-                fsimporter.write_fnrupdate_info()
+                fsimporter.write_fnrupdate_info(file_paths.fnr_update_file)
             elif o in ('-o',):
-                fsimporter.write_ou_info()
+                fsimporter.write_ou_info(institution_number,
+                                         file_paths.ou_file)
             elif o in ('-n',):
-                fsimporter.write_netpubl_info()
+                fsimporter.write_netpubl_info(file_paths.netpubl_file)
             elif o in ('-t',):
-                fsimporter.write_topic_info()
+                fsimporter.write_topic_info(file_paths.topics_file)
             elif o in ('-b',):
-                fsimporter.write_betalt_papir_info()
+                fsimporter.write_betalt_papir_info(
+                    file_paths.betalt_papir_file)
             elif o in ('-R',):
-                fsimporter.write_regkort_info()
+                fsimporter.write_regkort_info(file_paths.regkort_file)
             elif o in ('-d',):
-                fsimporter.write_edu_info()
+                fsimporter.write_edu_info(file_paths.edu_file)
             elif o in ('-P',):
-                fsimporter.write_forkurs_info()
+                fsimporter.write_forkurs_info(file_paths.pre_course_file)
             # We want misc-* to be able to produce multiple file in one
             # script-run
             elif o in ('--misc-func',):
@@ -500,8 +549,8 @@ def main():
             elif o in ('--misc-tag',):
                 misc_tag = val
             elif o in ('--misc-file',):
-                fsimporter.misc_file = set_filepath(fsimporter.datadir, val)
-                fsimporter.write_misc_info(misc_tag, misc_func)
+                misc_file = set_filepath(file_paths.datadir, val)
+                fsimporter.write_misc_info(misc_file, misc_tag, misc_func)
         except FileChangeTooBigError as msg:
             logger.error("Manual intervention required: %s", msg)
     logger.info("Done with import from FS")

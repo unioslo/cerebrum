@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2019 University of Oslo, Norway
@@ -34,8 +33,6 @@ import os
 import six
 import logging
 
-import cereconf
-
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import XMLHelper
@@ -49,47 +46,8 @@ xml = XMLHelper(encoding=XML_ENCODING)
 
 
 class ImportFromFs(object):
-    def __init__(self, opts, fs):
+    def __init__(self, fs):
         self.fs = fs
-
-        # Default filepaths
-        self.datadir = cereconf.FS_DATA_DIR
-        self.person_file = "person.xml"
-        self.role_file = "roles.xml"
-        self.studprog_file = "studieprog.xml"
-        self.ou_file = "ou.xml"
-        self.emne_info_file = "emner.xml"
-        self.fnr_update_file = "fnr_update.xml"
-        self.netpubl_file = "nettpublisering.xml"
-        self.undervenh_file = "underv_enhet.xml"
-        self.undenh_student_file = "student_undenh.xml"
-        self.evu_kursinfo_file = "evu_kursinfo.xml"
-        self.misc_file = None
-
-        # Parse arguments
-        for o, val in opts:
-            if o in ('--datadir',):
-                self.datadir = val
-            elif o in ('--emneinfo-file',):
-                self.emne_info_file = val
-            elif o in ('--personinfo-file',):
-                self.person_file = val
-            elif o in ('--studprog-file',):
-                self.studprog_file = val
-            elif o in ('--roleinfo-file',):
-                self.role_file = val
-            elif o in ('--fnr-update-file',):
-                self.fnr_update_file = val
-            elif o in ('--ou-file',):
-                self.ou_file = val
-            elif o in ('--netpubl-file',):
-                self.netpubl_file = val
-            elif o in ('--undenh-file',):
-                self.undervenh_file = val
-            elif o in ('--student-undenh-file',):
-                self.undenh_student_file = val
-            elif o in ('--evukursinfo-file',):
-                self.evu_kursinfo_file = val
 
     @staticmethod
     def _ext_cols(db_rows):
@@ -99,7 +57,7 @@ class ImportFromFs(object):
             cols = list(db_rows[0].keys())
         return cols, db_rows
 
-    def write_person_info(self):
+    def write_person_info(self, person_file):
         """Lager fil med informasjon om alle personer registrert i FS som
         vi muligens også ønsker å ha med i Cerebrum.  En person kan
         forekomme flere ganger i filen."""
@@ -108,8 +66,8 @@ class ImportFromFs(object):
         # fil der all informasjon om en person er samlet under en egen
         # <person> tag?
 
-        logger.info("Writing person info to '%s'", self.person_file)
-        f = SimilarSizeWriter(self.person_file, mode='w',
+        logger.info("Writing person info to '%s'", person_file)
+        f = SimilarSizeWriter(person_file, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
@@ -146,14 +104,14 @@ class ImportFromFs(object):
         f.write("</data>\n")
         f.close()
 
-    def write_ou_info(self):
+    def write_ou_info(self, institution_number, ou_file):
         """Lager fil med informasjon om alle OU-er"""
-        logger.info("Writing OU info to '%s'", self.ou_file)
-        f = SimilarSizeWriter(self.ou_file, mode='w', encoding=XML_ENCODING)
+        logger.info("Writing OU info to '%s'", ou_file)
+        f = SimilarSizeWriter(ou_file, mode='w', encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
         cols, ouer = self._ext_cols(
-            self.fs.info.list_ou(cereconf.DEFAULT_INSTITUSJONSNR))
+            self.fs.info.list_ou(institution_number))
         for o in ouer:
             sted = {}
             for fs_col, xml_attr in (
@@ -199,10 +157,10 @@ class ImportFromFs(object):
         f.write("</data>\n")
         f.close()
 
-    def write_netpubl_info(self):
+    def write_netpubl_info(self, netpubl_file):
         """Lager fil med informasjon om status nettpublisering"""
-        logger.info("Writing nettpubl info to '%s'", self.netpubl_file)
-        f = SimilarSizeWriter(self.netpubl_file, mode='w',
+        logger.info("Writing nettpubl info to '%s'", netpubl_file)
+        f = SimilarSizeWriter(netpubl_file, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
@@ -214,10 +172,10 @@ class ImportFromFs(object):
         f.write("</data>\n")
         f.close()
 
-    def write_emne_info(self):
+    def write_emne_info(self, emne_info_file):
         """Lager fil med informasjon om alle definerte emner"""
-        logger.info("Writing emne info to '%s'", self.emne_info_file)
-        f = SimilarSizeWriter(self.emne_info_file, mode='w',
+        logger.info("Writing emne info to '%s'", emne_info_file)
+        f = SimilarSizeWriter(emne_info_file, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
@@ -228,10 +186,10 @@ class ImportFromFs(object):
         f.write("</data>\n")
         f.close()
 
-    def write_role_info(self):
+    def write_role_info(self, role_file):
         """Lager fil med informasjon om alle roller definer i FS.PERSONROLLE"""
-        logger.info("Writing role info to '%s'", self.role_file)
-        f = SimilarSizeWriter(self.role_file, mode='w', encoding=XML_ENCODING)
+        logger.info("Writing role info to '%s'", role_file)
+        f = SimilarSizeWriter(role_file, mode='w', encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
         cols, role = self._ext_cols(
@@ -242,10 +200,10 @@ class ImportFromFs(object):
         f.write("</data>\n")
         f.close()
 
-    def write_studprog_info(self):
+    def write_studprog_info(self, studprog_file):
         """Lager fil med informasjon om alle definerte studieprogrammer"""
-        logger.info("Writing studprog info to '%s'", self.studprog_file)
-        f = SimilarSizeWriter(self.studprog_file, mode='w',
+        logger.info("Writing studprog info to '%s'", studprog_file)
+        f = SimilarSizeWriter(studprog_file, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
@@ -257,11 +215,11 @@ class ImportFromFs(object):
         f.write("</data>\n")
         f.close()
 
-    def write_undenh_metainfo(self):
+    def write_undenh_metainfo(self, undervenh_file):
         """Skriv metadata om undervisningsenheter for inneværende+neste
         semester."""
-        logger.info("Writing undenh_meta info to '%s'", self.undervenh_file)
-        f = SimilarSizeWriter(self.undervenh_file, mode='w',
+        logger.info("Writing undenh_meta info to '%s'", undervenh_file)
+        f = SimilarSizeWriter(undervenh_file, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<undervenhet>\n")
@@ -275,11 +233,11 @@ class ImportFromFs(object):
         f.write("</undervenhet>\n")
         f.close()
 
-    def write_evukurs_info(self):
+    def write_evukurs_info(self, evu_kursinfo_file):
         """Skriv data om alle EVU-kurs (vi trenger dette bl.a. for å bygge
         EVU-delen av CF)."""
-        logger.info("Writing evukurs info to '%s'", self.evu_kursinfo_file)
-        f = SimilarSizeWriter(self.evu_kursinfo_file, mode='w',
+        logger.info("Writing evukurs info to '%s'", evu_kursinfo_file)
+        f = SimilarSizeWriter(evu_kursinfo_file, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
@@ -291,13 +249,13 @@ class ImportFromFs(object):
         f.write("</data>\n")
         f.close()
 
-    def write_undenh_student(self):
+    def write_undenh_student(self, undenh_student_file):
         """Skriv oversikt over personer oppmeldt til undervisningsenheter.
         Tar med data for alle undervisingsenheter i inneværende+neste
         semester."""
         logger.info("Writing undenh_student info to '%s'",
-                    self.undenh_student_file)
-        f = SimilarSizeWriter(self.undenh_student_file, mode='w',
+                    undenh_student_file)
+        f = SimilarSizeWriter(undenh_student_file, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
@@ -320,10 +278,10 @@ class ImportFromFs(object):
         f.write("</data>\n")
         f.close()
 
-    def write_fnrupdate_info(self):
+    def write_fnrupdate_info(self, fnr_update_file):
         """Lager fil med informasjon om alle fødselsnummerendringer"""
-        logger.info("Writing fnrupdate info to '%s'", self.fnr_update_file)
-        stream = AtomicStreamRecoder(self.fnr_update_file, mode='w',
+        logger.info("Writing fnrupdate info to '%s'", fnr_update_file)
+        stream = AtomicStreamRecoder(fnr_update_file, mode='w',
                                      encoding=XML_ENCODING)
         writer = xmlprinter.xmlprinter(stream,
                                        indent_level=2,
@@ -354,10 +312,10 @@ class ImportFromFs(object):
         writer.endDocument()
         stream.close()
 
-    def write_misc_info(self, tag, func_name):
+    def write_misc_info(self, misc_file, tag, func_name):
         """Lager fil med data fra gitt funksjon i access_FS"""
-        logger.info("Writing misc info to '%s'", self.misc_file)
-        f = SimilarSizeWriter(self.misc_file, mode='w', encoding=XML_ENCODING)
+        logger.info("Writing misc info to '%s'", misc_file)
+        f = SimilarSizeWriter(misc_file, mode='w', encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
         func = reduce(

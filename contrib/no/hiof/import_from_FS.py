@@ -31,6 +31,7 @@ import sys
 import getopt
 import logging
 
+import cereconf
 import Cerebrum.logutils
 from Cerebrum.Utils import XMLHelper
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
@@ -79,6 +80,8 @@ def usage():
     --edu-info-file: edu info file (undenh/undakt/kullklass)
     --db-user: Connect with given database username
     --db-service: Connect to given database
+    --institution: Override insitution number.
+                   Default: see cereconf.DEFAULT_INSTITUSJONSNR
 
     Action:
     -p: Generate person xml file
@@ -94,17 +97,60 @@ def usage():
            'doc': __doc__})
 
 
-class ImportFromFsHiof(ImportFromFs):
-    def __init__(self, opts, fs):
-        super(ImportFromFsHiof, self).__init__(opts, fs)
+class FilePaths(object):
+    def __init__(self, opts):
+        # Default filepaths
+        self.datadir = cereconf.FS_DATA_DIR
+        self.person_file = "person.xml"
+        self.role_file = "roles.xml"
+        self.studprog_file = "studieprog.xml"
+        self.ou_file = "ou.xml"
+        self.emne_info_file = "emner.xml"
+        self.fnr_update_file = "fnr_update.xml"
+        self.netpubl_file = "nettpublisering.xml"
+        self.undervenh_file = "underv_enhet.xml"
+        self.undenh_student_file = "student_undenh.xml"
+        self.evu_kursinfo_file = "evu_kursinfo.xml"
+        self.misc_file = None
+        # Hiof extras
         self.edu_info_file = "edu-info.xml"
 
         # Parse arguments
         for o, val in opts:
-            if o in ('--edu-info-file',):
+            if o in ('--datadir',):
+                self.datadir = val
+            elif o in ('--emneinfo-file',):
+                self.emne_info_file = val
+            elif o in ('--personinfo-file',):
+                self.person_file = val
+            elif o in ('--studprog-file',):
+                self.studprog_file = val
+            elif o in ('--roleinfo-file',):
+                self.role_file = val
+            elif o in ('--fnr-update-file',):
+                self.fnr_update_file = val
+            elif o in ('--ou-file',):
+                self.ou_file = val
+            elif o in ('--netpubl-file',):
+                self.netpubl_file = val
+            elif o in ('--undenh-file',):
+                self.undervenh_file = val
+            elif o in ('--student-undenh-file',):
+                self.undenh_student_file = val
+            elif o in ('--evukursinfo-file',):
+                self.evu_kursinfo_file = val
+            elif o in ('--institution',):
+                self.institution_number = val
+            # Hiof extras
+            elif o in ('--edu-info-file',):
                 self.edu_info_file = val
 
-    def write_person_info(self):
+
+class ImportFromFsHiof(ImportFromFs):
+    def __init__(self, fs):
+        super(ImportFromFsHiof, self).__init__(fs)
+
+    def write_person_info(self, person_file):
         """Lager fil med informasjon om alle personer registrert i FS som
         vi muligens også ønsker å ha med i Cerebrum.  En person kan
         forekomme flere ganger i filen."""
@@ -113,8 +159,8 @@ class ImportFromFsHiof(ImportFromFs):
         # fil der all informasjon om en person er samlet under en egen
         # <person> tag?
 
-        logger.info("Writing person info to '%s'", self.person_file)
-        f = SimilarSizeWriter(self.person_file, mode='w',
+        logger.info("Writing person info to '%s'", person_file)
+        f = SimilarSizeWriter(person_file, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
@@ -143,7 +189,7 @@ class ImportFromFsHiof(ImportFromFs):
         f.write("</data>\n")
         f.close()
 
-    def write_edu_info(self):
+    def write_edu_info(self, edu_info_file):
         """Lag en fil med informasjon om alle studentenes 'aktiviteter'
         registrert i FS.
 
@@ -156,7 +202,7 @@ class ImportFromFsHiof(ImportFromFs):
         """
 
         logger.info("Writing edu info for all students")
-        f = SimilarSizeWriter(self.edu_info_file, mode='w',
+        f = SimilarSizeWriter(edu_info_file, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
@@ -198,7 +244,8 @@ def main():
                                     "undenh-file=",
                                     "edu-info-file=",
                                     "db-user=",
-                                    "db-service="
+                                    "db-service=",
+                                    "institution="
                                     ])
     except getopt.GetoptError:
         usage()
@@ -206,37 +253,42 @@ def main():
 
     db_user = None
     db_service = None
+    institution_number = cereconf.DEFAULT_INSTITUSJONSNR
     for o, val in opts:
         if o in ('--db-user',):
             db_user = val
         elif o in ('--db-service',):
             db_service = val
+        elif o in ('--institution',):
+            institution_number = val
 
     fs = make_fs(user=db_user, database=db_service)
-    fsimporter = ImportFromFsHiof(opts, fs)
+    file_paths = FilePaths(opts)
+    fsimporter = ImportFromFsHiof(fs)
 
     misc_tag = None
     misc_func = None
     for o, val in opts:
         try:
             if o in ('-p',):
-                fsimporter.write_person_info()
+                fsimporter.write_person_info(file_paths.person_file)
             elif o in ('-s',):
-                fsimporter.write_studprog_info()
+                fsimporter.write_studprog_info(file_paths.studprog_file)
             elif o in ('-r',):
-                fsimporter.write_role_info()
+                fsimporter.write_role_info(file_paths.role_file)
             elif o in ('-e',):
-                fsimporter.write_emne_info()
+                fsimporter.write_emne_info(file_paths.emne_info_file)
             elif o in ('-f',):
-                fsimporter.write_fnrupdate_info()
+                fsimporter.write_fnrupdate_info(file_paths.fnr_update_file)
             elif o in ('-o',):
-                fsimporter.write_ou_info()
+                fsimporter.write_ou_info(institution_number,
+                                         file_paths.ou_file)
             elif o in ('-n',):
-                fsimporter.write_netpubl_info()
+                fsimporter.write_netpubl_info(file_paths.netpubl_file)
             elif o in ('-u',):
-                fsimporter.write_undenh_metainfo()
+                fsimporter.write_undenh_metainfo(file_paths.undervenh_file)
             elif o in ('-i',):
-                fsimporter.write_edu_info()
+                fsimporter.write_edu_info(file_paths.edu_info_file)
             # We want misc-* to be able to produce multiple file in one
             # script-run
             elif o in ('--misc-func',):
@@ -244,8 +296,8 @@ def main():
             elif o in ('--misc-tag',):
                 misc_tag = val
             elif o in ('--misc-file',):
-                fsimporter.misc_file = set_filepath(fsimporter.datadir, val)
-                fsimporter.write_misc_info(misc_tag, misc_func)
+                misc_file = set_filepath(file_paths.datadir, val)
+                fsimporter.write_misc_info(misc_file, misc_tag, misc_func)
         except FileChangeTooBigError as msg:
             logger.error("Manual intervention required: %s", msg)
     logger.info("Done with import from FS")
