@@ -196,6 +196,37 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                                    for p_id, t in titles.items()])
         timer("...personal titles done.")
 
+    def init_account_mail(self, use_mail_module):
+        u""" Cache account mail addresses.
+
+        This method overrides the general method with emails of the type
+        username@uio.no if that email is tied to that account.
+
+        :param bool use_mail_module:
+            If True, Cerebrum.modules.Email will be used to populate this
+            cache; otherwise the `self.account_mail` method will be None (not
+            implemented).
+
+        """
+        super(OrgLDIFUiOMixin, self).init_account_mail(use_mail_module)
+        if use_mail_module:
+            timer = make_timer(
+                self.logger,
+                "Doing UiO specific changes to account e-mail addresses...")
+            # We don't want to import this if mod_email isn't present.
+            from Cerebrum.modules.Email import EmailTarget
+            targets = EmailTarget(self.db).list_email_target_addresses
+            mail = {}
+            for row in targets(target_type=self.const.email_target_account):
+                if (row['domain'] in ('uio.no',) and row['local_part'] in (
+                        row['entity_name'],)):
+                    mail[int(row['target_entity_id'])] = "@".join(
+                        (row['local_part'], row['domain']))
+            self.account_mail = mail.get
+            timer("...UiO specfic account e-mail addresses done.")
+        else:
+            self.account_mail = None
+
     def make_uioPersonScopedAffiliation(self, p_id, pri_aff, pri_ou):
         # [primary|secondary]:<affiliation>@<status>/<stedkode>
         ret = []
@@ -213,8 +244,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 status_str = str(self.const.PersonAffStatus(status).str)
                 self.status_cache[status] = status_str
             p = 'secondary'
-            if (aff_str == pri_aff_str
-                    and status_str == pri_status_str and ou == pri_ou):
+            if (aff_str == pri_aff_str and
+                    status_str == pri_status_str and ou == pri_ou):
                 p = 'primary'
             ou = self.ou_id2ou_uniq_id[ou]
             if ou:
