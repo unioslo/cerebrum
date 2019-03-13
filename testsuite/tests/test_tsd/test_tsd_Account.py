@@ -11,7 +11,7 @@ import unittest
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import dns
+from Cerebrum.modules.dns import DnsOwner
 
 from datasource import BasicAccountSource, BasicPersonSource
 from dbtools import DatabaseTools
@@ -169,7 +169,7 @@ class SimpleAccountsTest(TSDAccountTest):
         self._ac.write_db()
         self._ac.setup_for_project()
         # Check data
-        dnsowner = dns.DnsOwner.DnsOwner(self._db)
+        dnsowner = DnsOwner.DnsOwner(self._db)
         # User should have its own host:
         dnsowner.find_by_name('%s-l.tsd.usit.no.' % self._ac.account_name)
 

@@ -35,7 +35,7 @@ import twisted.python.log
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import dns
+from Cerebrum.modules.dns import Utils, Subnet, AAAARecord, IPv6Number
 
 from Cerebrum.modules.cis import Utils
 log = Utils.SimpleLogger()
@@ -63,10 +63,10 @@ class ResourceService(object):
         self.db = Factory.get('Database')()
         self.db.cl_init(change_program='resource_service')
         self.co = Factory.get('Constants')(self.db)
-        self.finder = dns.Utils.Find(self.db, self.default_zone)
-        self.subnet = dns.Subnet.Subnet(self.db)
-        self.aaaa = dns.AAAARecord.AAAARecord(self.db)
-        self.ip = dns.IPv6Number.IPv6Number(self.db)
+        self.finder = Utils.Find(self.db, self.default_zone)
+        self.subnet = Subnet.Subnet(self.db)
+        self.aaaa = AAAARecord.AAAARecord(self.db)
+        self.ip = IPv6Number.IPv6Number(self.db)
 
         # TODO: could we save work by only using a single, shared object of
         # the auth class? It is supposed to be thread safe.
