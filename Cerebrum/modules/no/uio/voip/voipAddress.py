@@ -199,13 +199,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
     _voip_prefix = "sip:"
 
-    def _voipify(self, value, suffix="@voip.uio.no"):
-        prefix = self._voip_prefix
-        if suffix and not value.endswith(suffix):
-            return prefix + value + suffix
-        return prefix + value
-
-    def _voipify_short(self, value, suffix="@uio.no"):
+    def _voipify(self, value, suffix="@uio.no"):
         prefix = self._voip_prefix
         if suffix and not value.endswith(suffix):
             return prefix + value + suffix
@@ -224,7 +218,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         * voipSipUri (alle gyldige sip urier for denne uid, inkludert sip
           urier som  inneholder extensions og mail-addresser) e.g.
 
-            o sip:+4722852426@voip.uio.no
+            o sip:+4722852426@uio.no
             o sip:52426@uio.no
             o sip:marius.pedersen@usit.uio.no
 
@@ -232,7 +226,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
           e.g. sip:marius.pedersen@usit.uio.no
 
         * voipE164Uri (sip uri generet fra 8-sifret uio-nummer)e.g.
-          sip:+4722852426@voip.uio.no
+          sip:+4722852426@uio.no
 
         * voipExtensionUri (sip uri generert fra 5-sifret uio-nummer)
           e.g. sip:52426@uio.no
@@ -240,7 +234,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         * voipSKO (6 digit "stedkode") e.g. 112233
         """
         voipify = self._voipify
-        voipify_short = self._voipify_short
 
         owner = self.get_owner()
         result = dict((key, None) for key in self._required_voip_attributes)
@@ -251,7 +244,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         for row in owner.get_contact_info(source=self.const.system_voip):
             uris.append(voipify(row["contact_value"]))
             if row["contact_alias"]:
-                uris.append(voipify_short(row["contact_alias"]))
+                uris.append(voipify(row["contact_alias"]))
 
         if result["mail"]:
             value = voipify(result["mail"], None)
@@ -265,7 +258,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         if e164:
             result["voipE164Uri"] = voipify(e164[0]["contact_value"])
             if e164[0]["contact_alias"]:
-                result["voipExtensionUri"] = voipify_short(
+                result["voipExtensionUri"] = voipify(
                     e164[0]["contact_alias"])
 
         return result
@@ -423,7 +416,6 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         owner_data = self._cache_owner_voip_service_attrs(ou2sko)
         owner_data.update(self._cache_owner_person_attrs(ou2sko, *args))
         voipify = self._voipify
-        voipify_short = self._voipify_short
 
         # owner_id -> sequence of contact info (value, alias)-pairs
         owner2contact_info = dict()
@@ -464,7 +456,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                 full, alias = item
                 entry["voipSipUri"].append(voipify(full))
                 if alias:
-                    entry["voipSipUri"].append(voipify_short(alias))
+                    entry["voipSipUri"].append(voipify(alias))
             if entry["mail"]:
                 value = self._voipify(entry["mail"], None)
                 entry["voipSipPrimaryUri"] = value
@@ -478,7 +470,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                 full, alias = owner2contact_info[owner_id][0]
                 entry["voipE164Uri"] = voipify(full)
                 if alias:
-                    entry["voipExtensionUri"] = voipify_short(alias)
+                    entry["voipExtensionUri"] = voipify(alias)
 
             yield entry
 
