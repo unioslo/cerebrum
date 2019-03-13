@@ -4,7 +4,6 @@ celery
 cffi
 cx-Oracle>=5
 egenix-mx-base
-flanker
 Flask==0.12.4
 flask-restplus==0.10.1
 functools32

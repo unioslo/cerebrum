@@ -38,7 +38,6 @@ to handle addresses and targets of that type.
 """
 import re
 
-from flanker.addresslib import address as email_validator
 from mx import DateTime
 from six import text_type
 
@@ -89,7 +88,7 @@ def check_email_address(address):
         - Any string where a substring wrapped in <> brackets matches the
           above rule.
         - Valid examples: jdoe@example.com
-                          <jdoe>@<example.com>
+                          <jdoe@example.com>
                           Jane Doe <jdoe@example.com>
 
     NOTE: Raises CerebrumError if address is invalid
@@ -106,20 +105,18 @@ def check_email_address(address):
     error_msg = ("Invalid e-mail address: %s\n"
                  "Valid input:\n"
                  "jdoe@example.com\n"
-                 "<jdoe>@<example.com>\n"
+                 "<jdoe@example.com>\n"
                  "Jane Doe <jdoe@example.com>" % address)
     # Check if we either have a string consisting only of an address,
     # or if we have an bracketed address prefixed by a name. At last,
     # verify that the email is RFC-compliant.
-    if not ((re.match(r'[^@\s]+@[^@\s.]+\.[^@\s]+$', address) or
-            re.search(r'<[^@>\s]+@[^@>\s.]+\.[^@>\s]+>$', address))):
+    bracketed = re.search('(?<=<).*?(?=>)', address)
+    if bracketed:
+        if not Email.is_email(bracketed.group(0)):
+            raise CerebrumError(error_msg)
+    elif not Email.is_email(address):
         raise CerebrumError(error_msg)
 
-    # Strip out angle brackets before running proper validation, as the
-    # flanker address parser gets upset if domain is wrapped in them.
-    val_adr = address.replace('<', '').replace('>', '')
-    if not email_validator.parse(val_adr):
-        raise CerebrumError(error_msg)
     return address
 
 

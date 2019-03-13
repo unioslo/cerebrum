@@ -64,7 +64,6 @@ from email.mime.text import MIMEText
 from email.utils import formatdate
 from io import StringIO
 
-import flanker.addresslib.address
 import six
 
 import cereconf
@@ -75,6 +74,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import ParserContext, UnicodeType, codec_type, get_constant
 from Cerebrum.utils.email import send_message
 from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.modules import Email
 
 
 logger = logging.getLogger(__name__)
@@ -598,7 +598,7 @@ def group_rule(value):
 
 def email_address(value):
     value = value.decode('ascii').strip()
-    if flanker.addresslib.address.is_email(value):
+    if Email.is_email(value):
         return value
     raise ValueError('invalid email address')
 
