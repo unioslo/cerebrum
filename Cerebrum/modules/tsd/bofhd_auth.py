@@ -34,7 +34,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
 
 
 class TSDBofhdAuthConstants(Constants.Constants):
