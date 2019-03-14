@@ -69,6 +69,7 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.utils import json
+from Cerebrum.utils import email as email_utils
 
 
 def format_day(field):
@@ -112,9 +113,9 @@ def check_email_address(address):
     # verify that the email is RFC-compliant.
     bracketed = re.search('(?<=<).*?(?=>)', address)
     if bracketed:
-        if not Email.is_email(bracketed.group(0)):
+        if not email_utils.is_email(bracketed.group(0)):
             raise CerebrumError(error_msg)
-    elif not Email.is_email(address):
+    elif not email_utils.is_email(address):
         raise CerebrumError(error_msg)
 
     return address
