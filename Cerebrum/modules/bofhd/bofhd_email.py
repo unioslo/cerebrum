@@ -83,14 +83,10 @@ def check_email_address(address):
 
     Accepted syntax:
         - <localpart>@<domain>
-            localpart cannot contain @ or whitespace
-            domain cannot contain @ or whitespace
+            localpart made of numbers, letters and some special symbols
+            domain made of numbers and letters sepereated by '.'
             domain must have at least one '.'
-        - Any string where a substring wrapped in <> brackets matches the
-          above rule.
-        - Valid examples: jdoe@example.com
-                          <jdoe@example.com>
-                          Jane Doe <jdoe@example.com>
+        - Valid example: jdoe@example.com
 
     NOTE: Raises CerebrumError if address is invalid
 
@@ -99,23 +95,10 @@ def check_email_address(address):
 
     """
     address = address.strip()
-    if address.find("@") == -1:
-        raise CerebrumError(
-            "E-mail addresses must include the domain name")
-
     error_msg = ("Invalid e-mail address: %s\n"
-                 "Valid input:\n"
-                 "jdoe@example.com\n"
-                 "<jdoe@example.com>\n"
-                 "Jane Doe <jdoe@example.com>" % address)
-    # Check if we either have a string consisting only of an address,
-    # or if we have an bracketed address prefixed by a name. At last,
-    # verify that the email is RFC-compliant.
-    bracketed = re.search('(?<=<).*?(?=>)', address)
-    if bracketed:
-        if not email_utils.is_email(bracketed.group(0)):
-            raise CerebrumError(error_msg)
-    elif not email_utils.is_email(address):
+                 "Valid input example: name@example.com" % address)
+    # Verify that the email is RFC-compliant.
+    if not email_utils.is_email(address):
         raise CerebrumError(error_msg)
 
     return address
