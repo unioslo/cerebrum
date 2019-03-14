@@ -13,7 +13,8 @@ from mx import DateTime
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import dns
+from Cerebrum.modules.dns import Subnet, IPv6Subnet
+from Cerebrum.modules.dns import Errors as dnsErrors
 from Cerebrum.modules.EntityTrait import EntityTrait
 
 from datasource import BasicAccountSource, BasicPersonSource
@@ -164,8 +165,8 @@ class SimpleOUTests(TSDOUTest):
 
     def get_project_vlans(self, ou):
         """Return a set with a project's VLANs."""
-        subnet = dns.Subnet.Subnet(self._db)
-        subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
+        subnet = Subnet.Subnet(self._db)
+        subnet6 = IPv6Subnet.IPv6Subnet(self._db)
         vlans = set()
         for row in ou.get_project_subnets():
             if row['entity_type'] == self._co.entity_dns_subnet:
@@ -275,8 +276,8 @@ class SimpleOUTests(TSDOUTest):
     def test_new_project_reuse_vlan(self):
         """Two projects could share the same VLAN."""
         cereconf.VLAN_RANGES = ((100, 110),)
-        # subnet = dns.Subnet.Subnet(self._db)
-        # subnet6 = dns.IPv6Subnet.IPv6Subnet(self._db)
+        # subnet = Subnet.Subnet(self._db)
+        # subnet6 = IPv6Subnet.IPv6Subnet(self._db)
 
         self.setup_project('reuse1', vlan=105)
         # This should not fail:
@@ -291,4 +292,4 @@ class SimpleOUTests(TSDOUTest):
         # TODO: Create a subnet that would be in the new project's area, and
         # affiliate it with subn1
         # TODO: Assert that it fails
-        self.assertRaises(dns.Errors.SubnetError, self.setup_project, 'subn2')
+        self.assertRaises(dnsErrors.SubnetError, self.setup_project, 'subn2')
