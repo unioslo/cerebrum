@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002, 2003, 2014 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -43,13 +43,15 @@ The files include SQL operations for the different stages/phases of management:
 
 
 Note that the SQL file parser are somewhat limited. For instance, long comments
-(/* ... */) can not start or stop on the same line as proper SQL statements, but
-have to be on their own lines.
+(/* ... */) can not start or stop on the same line as proper SQL statements,
+but have to be on their own lines.
 
 TODO: Describe the format of the SQL definitions, or add a reference to where
 that is located.
 
 """
+from __future__ import print_function
+
 
 import sys
 import re
@@ -67,8 +69,8 @@ meta = None
 
 
 def usage(exitcode=0):
-    print __doc__
-    print """Usage: makedb.py [options] [sql-file ...]
+    print(__doc__)
+    print("""Usage: makedb.py [options] [sql-file ...]
 
   --extra-file=file
         For each phase, do SQL statements for core Cerebrum first,
@@ -95,8 +97,8 @@ def usage(exitcode=0):
         Only perform this stage in the files.
 
   -d --debug
-        Print out more debug information. If added twice, you will get even more
-        information.
+        Print out more debug information. If added twice, you will get even
+        more information.
 
   -c file | --country-file=file
 
@@ -104,7 +106,7 @@ If one or more 'sql-file' arguments are given, each phase will include
 only statements from those files.  The statements for core Cerebrum
 won't be included.
 
-"""
+""")
     sys.exit(exitcode)
 
 
@@ -116,8 +118,8 @@ def main():
                                     'only-insert-codes', 'country-file=',
                                     'clean-codes-from-cl',
                                     'extra-file=', 'stage='])
-    except getopt.GetoptError, e:
-        print e
+    except getopt.GetoptError as e:
+        print(e)
         usage(1)
 
     debug = 0
@@ -128,8 +130,8 @@ def main():
     if db_user is None:
         db_user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA['user']
         if db_user is not None:
-            print "'table_owner' not set in CEREBRUM_DATABASE_CONNECT_DATA."
-            print "Will use regular 'user' (%s) instead." % db_user
+            print("'table_owner' not set in CEREBRUM_DATABASE_CONNECT_DATA.")
+            print("Will use regular 'user' (%s) instead." % db_user)
     db = Factory.get('Database')(user=db_user)
     db.cl_init(change_program="makedb")
 
@@ -169,7 +171,7 @@ def main():
             read_country_file(val)
             sys.exit()
         else:
-            print "Unknown argument: %s" % opt
+            print("Unknown argument: %s" % opt)
             usage(1)
 
     # By having two leading spaces in the '  insert' literal below, we
@@ -220,16 +222,16 @@ def main():
 
 def read_country_file(fname):
     const = Factory.get('Constants')()
-    f = file(fname, "r")
-    for line in f.readlines():
-        if line[0] == '#':
-            continue
-        dta = [x.strip() for x in line.split("\t") if x.strip() != ""]
-        if len(dta) == 4:
-            code_str, foo, country, phone_prefix = dta
-            code_obj = const.Country(code_str, country, phone_prefix,
-                                     description=country)
-            code_obj.insert()
+    with open(fname, "r") as f:
+        for line in f.readlines():
+            if line[0] == '#':
+                continue
+            dta = [x.strip() for x in line.split("\t") if x.strip() != ""]
+            if len(dta) == 4:
+                code_str, foo, country, phone_prefix = dta
+                code_obj = const.Country(code_str, country, phone_prefix,
+                                         description=country)
+                code_obj.insert()
     const.commit()
 
 
@@ -240,23 +242,23 @@ def insert_code_values(db, delete_extra_codes=False):
             stats = const.initialize(delete=delete_extra_codes)
         except db.DatabaseError:
             traceback.print_exc(file=sys.stdout)
-            print ("Error initializing constants, check that you include "
-                   "the sql files referenced by CLASS_CONSTANTS and "
-                   "CLASS_CL_CONSTANTS")
+            print("Error initializing constants, check that you include "
+                  "the sql files referenced by CLASS_CONSTANTS and "
+                  "CLASS_CL_CONSTANTS")
             sys.exit(1)
         if delete_extra_codes:
             print('  Inserted {inserted} new {kind} (new total: {total}), '
-                  'updated {updated}, deleted {deleted}').format(
-                      kind=kind, **stats)
+                  'updated {updated}, deleted {deleted}'.format(
+                      kind=kind, **stats))
         else:
             print('  Inserted {inserted} new {kind} (new total: {total}), '
-                  'updated {updated}, superfluous {superfluous}').format(
-                      kind=kind, **stats)
+                  'updated {updated}, superfluous {superfluous}'.format(
+                      kind=kind, **stats))
         if stats['details']:
-            print "  Details:\n    %s" % "\n    ".join(stats['details'])
+            print("  Details:\n    %s" % "\n    ".join(stats['details']))
         const.commit()
 
-    print "Inserting code values."
+    print("Inserting code values.")
     # TODO: Generalize the two following lines
     for kind in ('Constants', 'CLConstants'):
         do(kind)
@@ -268,23 +270,23 @@ def clean_codes_from_change_log(db):
     codes = [x for x in co._get_superfluous_codes()
              if x[0] is co.ChangeType]
     for cls, code, name in codes:
-        print 'Found superfluous change type: {}'.format((cls, code, name))
+        print('Found superfluous change type: {}'.format((cls, code, name)))
         num_entries = db.query_1(
             "SELECT count(*) FROM change_log "
             "WHERE change_type_id = {}".format(code))
-        print '{} has {} change log entries'.format(name, num_entries)
+        print('{} has {} change log entries'.format(name, num_entries))
         if num_entries:
-            print 'Deleting changes of type {}'.format(name)
+            print('Deleting changes of type {}'.format(name))
             db.execute(
                 "DELETE FROM change_log "
                 "WHERE change_type_id = {}".format(code))
-    print 'Committing...'
+    print('Committing...')
     db.commit()
-    print 'Done.'
+    print('Done.')
 
 
 def makeInitialUsers(db):
-    print "Creating initial entities."
+    print("Creating initial entities.")
     from Cerebrum import Constants
     from Cerebrum import Group
     from Cerebrum import Account
@@ -357,12 +359,16 @@ def check_schema_versions(db, strict=False):
     }
     meta = Metainfo.Metainfo(db)
     for name, value in meta.list():
+        if isinstance(value, tuple):
+            print("WARNING: The version number of module {modulename} is "
+                  "saved as a tuple.".format(modulename=name))
+            value = "%d.%d.%d" % value
         if name == Metainfo.SCHEMA_VERSION_KEY:
-            if not Cerebrum._version == value:
+            if not Cerebrum.__version__ == value:
                 print("WARNING: cerebrum version %s does not"
                       " match schema version %s" % (
-                          "%d.%d.%d" % Cerebrum._version,
-                          "%d.%d.%d" % value))
+                          Cerebrum.__version__,
+                          value))
                 if strict:
                     exit(1)
         elif name.startswith('sqlmodule_'):
@@ -374,9 +380,9 @@ def check_schema_versions(db, strict=False):
             try:
                 module = dyn_import(modules[name])
                 version = module.__version__
-            except Exception, e:
-                print "ERROR: can't find version of module %s: %s" % (
-                    name, e)
+            except Exception as e:
+                print("ERROR: can't find version of module %s: %s" % (
+                    name, e))
                 continue
             if not version == value:
                 print("WARNING: module %s version %s does"
@@ -385,13 +391,15 @@ def check_schema_versions(db, strict=False):
                 if strict:
                     exit(1)
         else:
-            print "ERROR: unknown metainfo %s: %s" % (
-                name, value)
+            print("ERROR: unknown metainfo %s: %s" % (
+                name, value))
             if strict:
                 exit(1)
 
 
-def get_filelist(db, extra_files=[]):
+def get_filelist(db, extra_files=None):
+    if extra_files is None:
+        extra_files = []
     core_files = ['core_tables.sql']
     files = core_files[:]
     files.extend(extra_files)
@@ -420,10 +428,10 @@ def parsefile(fname):
     Iterates through all lines in the file and generate statements from the
     lines. Comments are for instance filtered out.
 
-    Note that the parser is somewhat limited. Long comments can for instance not
-    be on the same line as SQL statements. Long comments have to start and stop
-    on their own lines. Also, you can't stop and then start a new long comment
-    on the same line.
+    Note that the parser is somewhat limited. Long comments can for instance
+    not be on the same line as SQL statements. Long comments have to start and
+    stop on their own lines. Also, you can't stop and then start a new long
+    comment on the same line.
 
     @type fname: str
     @param fname:
@@ -529,7 +537,7 @@ def runfile(fname, db, debug, phase):
 
     """
     global all_ok
-    print "Reading file (phase=%s): <%s>" % (phase, fname)
+    print("Reading file (phase=%s): <%s>" % (phase, fname))
     statements = parsefile(fname)
 
     NO_CATEGORY, WRONG_CATEGORY, CORRECT_CATEGORY, SET_METAINFO = (
@@ -568,24 +576,24 @@ def runfile(fname, db, debug, phase):
                 status = "."
                 try:
                     db.execute(stmt)
-                except db.DatabaseError, e:
+                except db.DatabaseError as e:
                     all_ok = False
                     status = "E"
-                    print "\n  ERROR: [%s]" % stmt
-                    print e
+                    print("\n  ERROR: [%s]" % stmt)
+                    print(e)
                     if debug:
-                        print "  Database error: ",
+                        print("  Database error: ")
                         if debug >= 2:
                             # Re-raise error, causing us to (at least)
                             # break out of this for loop.
                             raise
                         else:
                             traceback.print_exc(file=sys.stdout)
-                except Exception, e:
+                except Exception as e:
                     all_ok = False
                     status = "E"
-                    print "\n  ERROR: [%s]" % (stmt,)
-                    print e
+                    print("\n  ERROR: [%s]" % (stmt,))
+                    print(e)
                     traceback.print_exc(file=sys.stdout)
                     raise
             finally:
@@ -599,7 +607,7 @@ def runfile(fname, db, debug, phase):
                     output_col = 0
                 sys.stdout.flush()
                 db.commit()
-    if (phase == 'main' or phase == 'metainfo'):
+    if phase == 'main' or phase == 'metainfo':
         if metainfo['name'] == 'core':
             name = Metainfo.SCHEMA_VERSION_KEY
             version = tuple([int(i) for i in metainfo['version'].split('.')])
@@ -609,10 +617,11 @@ def runfile(fname, db, debug, phase):
         meta.set_metainfo(name, version)
         db.commit()
     if state != NO_CATEGORY:
-        raise ValueError("Found more category specs than statements in file %s."
-                         % fname)
+        raise ValueError(
+            "Found more category specs than statements in file %s." % fname)
     if output_col is not None:
-        print
+        print()
+
 
 if __name__ == '__main__':
     main()
