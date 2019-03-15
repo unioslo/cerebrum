@@ -707,7 +707,10 @@ class EmailTarget(Entity_class):
         where = list()
         binds = dict()
         if target_type:
-            where.append("et.target_type = %d" % int(target_type))
+            where.append(argument_to_sql(target_type,
+                                         "et.target_type",
+                                         binds,
+                                         int))
 
         if target_entity_id is not None:
             where.append(argument_to_sql(target_entity_id,
