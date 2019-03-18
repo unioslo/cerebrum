@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1151,7 +1151,7 @@ class Student(FSObject):
               p.adrlin1_hjemsted, p.adrlin2_hjemsted,
               p.postnr_hjemsted, p.adrlin3_hjemsted, p.adresseland_hjemsted,
               p.sprakkode_malform, osp.studieprogramkode,
-              p.status_reserv_nettpubl, p.kjonn, p.status_dod
+              p.kjonn, p.status_dod
         FROM fs.soknadsalternativ sa, fs.person p, fs.opptakstudieprogram osp,
              fs.studieprogram sp
         WHERE p.fodselsdato=sa.fodselsdato AND
@@ -1175,7 +1175,7 @@ class Student(FSObject):
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, p.status_reserv_nettpubl,
+               p.adresseland_hjemsted,
                p.sprakkode_malform, p.kjonn, u.institusjonsnr_internt,
                u.faknr_internt, u.instituttnr_internt, u.gruppenr_internt
         FROM fs.student s, fs.person p, fs.utvekslingsperson u
@@ -1754,7 +1754,7 @@ class EVU(FSObject):
                d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
                d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,
                d.adresseland_hjem, p.adrlin1_hjemsted,
-               p.status_reserv_nettpubl, p.adrlin2_hjemsted,
+               p.adrlin2_hjemsted,
                p.postnr_hjemsted, p.adrlin3_hjemsted,
                p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
                nvl(trim(leading '0' from
@@ -1877,7 +1877,7 @@ class EVU78(EVU):
                d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
                d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,
                d.adresseland_hjem, p.adrlin1_hjemsted,
-               p.status_reserv_nettpubl, p.adrlin2_hjemsted,
+               p.adrlin2_hjemsted,
                p.postnr_hjemsted, p.adrlin3_hjemsted,
                p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
                pt.telefonlandnr telefonlandnr_mobil,
@@ -1921,7 +1921,7 @@ class Alumni(FSObject):
                s.adrlin3_semadr, s.adresseland_semadr,
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
                p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, p.status_reserv_nettpubl,
+               p.adresseland_hjemsted,
                p.sprakkode_malform,sps.studieprogramkode,
                sps.studierettstatkode, p.kjonn, p.status_dod
 
