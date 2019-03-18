@@ -88,10 +88,6 @@ class Constants(Constants.Constants):
         affiliation_ansatt,
         'bilag',
         'Bilagslønnet')
-    affiliation_status_ansatt_ltreg = Constants._PersonAffStatusCode(
-        affiliation_ansatt,
-        'ltreg',
-        'Registert som gjest, utdatert')
     affiliation_status_ansatt_tekadm = Constants._PersonAffStatusCode(
         affiliation_ansatt,
         'tekadm',
