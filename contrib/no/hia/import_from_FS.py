@@ -103,42 +103,44 @@ class FilePaths(object):
     def __init__(self, opts):
         # Default filepaths
         self.datadir = cereconf.FS_DATA_DIR
-        self.person_file = "person.xml"
-        self.role_file = "roles.xml"
-        self.studprog_file = "studieprog.xml"
-        self.ou_file = "ou.xml"
-        self.emne_info_file = "emner.xml"
-        self.fnr_update_file = "fnr_update.xml"
-        self.netpubl_file = "nettpublisering.xml"
-        self.undervenh_file = "underv_enhet.xml"
-        self.undenh_student_file = "student_undenh.xml"
-        self.evu_kursinfo_file = "evu_kursinfo.xml"
+        self.person_file = os.path.join(self.datadir, "person.xml")
+        self.role_file = os.path.join(self.datadir, "roles.xml")
+        self.studprog_file = os.path.join(self.datadir, "studieprog.xml")
+        self.ou_file = os.path.join(self.datadir, "ou.xml")
+        self.emne_info_file = os.path.join(self.datadir, "emner.xml")
+        self.fnr_update_file = os.path.join(self.datadir, "fnr_update.xml")
+        self.netpubl_file = os.path.join(self.datadir, "nettpublisering.xml")
+        self.undervenh_file = os.path.join(self.datadir, "underv_enhet.xml")
+        self.undenh_student_file = os.path.join(self.datadir,
+                                                "student_undenh.xml")
+        self.evu_kursinfo_file = os.path.join(self.datadir, "evu_kursinfo.xml")
         self.misc_file = None
 
         # Parse arguments
         for o, val in opts:
             if o in ('--datadir',):
                 self.datadir = val
-            elif o in ('--emneinfo-file',):
-                self.emne_info_file = val
+        for o, val in opts:
+            if o in ('--emneinfo-file',):
+                self.emne_info_file = set_filepath(self.datadir, val)
             elif o in ('--personinfo-file',):
-                self.person_file = val
+                self.person_file = set_filepath(self.datadir, val)
             elif o in ('--studprog-file',):
-                self.studprog_file = val
+                self.studprog_file = set_filepath(self.datadir, val)
             elif o in ('--roleinfo-file',):
-                self.role_file = val
+                self.role_file = set_filepath(self.datadir, val)
             elif o in ('--fnr-update-file',):
-                self.fnr_update_file = val
+                self.fnr_update_file = set_filepath(self.datadir, val)
             elif o in ('--ou-file',):
-                self.ou_file = val
+                self.ou_file = set_filepath(self.datadir, val)
             elif o in ('--netpubl-file',):
-                self.netpubl_file = val
+                self.netpubl_file = set_filepath(self.datadir, val)
             elif o in ('--undenh-file',):
-                self.undervenh_file = val
+                self.undervenh_file = set_filepath(self.datadir, val)
             elif o in ('--student-undenh-file',):
-                self.undenh_student_file = val
+                self.undenh_student_file = set_filepath(self.datadir, val)
             elif o in ('--evukursinfo-file',):
-                self.evu_kursinfo_file = val
+                self.evu_kursinfo_file = set_filepath(self.datadir, val)
 
 
 class ImportFromFsUia(ImportFromFs):
