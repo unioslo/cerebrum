@@ -154,7 +154,7 @@ def yamldata(source_data):
 
 def yaml2data(yamlstr):
     yaml = pytest.importorskip("yaml")
-    return yaml.load(yamlstr)
+    return yaml.load(yamlstr, Loader=yaml.FullLoader)
 
 
 @pytest.yield_fixture
