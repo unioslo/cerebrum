@@ -2321,7 +2321,8 @@ class deltaker_xml_parser(xml.sax.ContentHandler, object):
         self._callback = callback
         self._in_person = False
         self._legal_elements = ("person", "evu", "aktiv", "tilbud",
-                                "data", "privatist_studieprogram", "eksamen",)
+                                "data", "privatist_studieprogram", "eksamen",
+                                "nettpubl")
         xml.sax.parse(filename, self)
 
     def startElement(self, name, attrs):
