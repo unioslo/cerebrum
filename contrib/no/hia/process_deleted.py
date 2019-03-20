@@ -44,6 +44,7 @@ import os
 import mx
 import string
 
+import cereconf
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
@@ -272,14 +273,16 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        'outfile_dir',
-        help='set output file directory')
+        '-o', '--outfile_dir',
+        help='set output file directory',
+        default=os.path.join(cereconf.CACHE_DIR, 'Delete/'))
 
     args = parser.parse_args()
 
     del_list = []
     date = "%d-%d-%d" % time.localtime()[:3]
-    outfile = args.outfile_dir + date + '-' + str(os.getpid()) + '-slettes.dat'
+    filename = date + '-' + str(os.getpid()) + '-slettes.dat'
+    outfile = os.path.join(args.outfile_dir, filename)
     max_requests = 999999
     start_time = time.time()
 
