@@ -1,0 +1,470 @@
+2019-01-16  Kenneth   <cerebrum@gagarin.uit.no>
+	* Account.py:	There is a bug in hashlib where it expects all input to be ascii encoded. This fails
+	when input is not ascii (in our case utf-8). Updated hashlib function call to force utf-8 encoding on all input.
+	Updated encrypt_password() method call to no longer send a binary variable as the variable input does not exist in the function. This
+	caused an error which resultet in password.uit.no to give wrong error message to users who tried setting new passwords. 
+
+2019-01-03  Karen   <cerebrum@gagarin.uit.no>
+
+    * cim_datasource.py: updated to handle utf-8 data instead of iso-8859-1.
+
+2018-11-19 kennethj <cerebrum@gagarin.uit.no>
+	* fronter_lib:	updated to handle utf-8 data instead of riso-8859-1
+
+2018-11-08  Karen   <cerebrum@cleomedes.uit.no>
+
+    * fronter_lib.py: changed import Database into import database.postgres.
+
+
+2018-11-07 kennethj <cerebrum@cleomedes.uit.no>
+	* bofhd_uit_cmds.py:	Due to lots of changes since last time we updated this file, it was decided to use the uio version of this file	
+							and instead include the few changes uit has into that file.
+
+2018-11-06 kennethj <cerebrum@cleomedes.uit.no>
+	* bofhd_uit_cmds.py: Added new import from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth.
+						class UiOAuth now also needs to inherit from BofhdEmailAuth.
+
+2018-10-25 kennethj <cerebrum@cleomedes.uit.no>
+	* Email.py: updated database import. it has been changed from Database  into database.<databasetype>
+	* import_FS.py: changed encoding from iso-8859-1 to utf-8
+	* bofhd_uit_cmds.py: changed import Database into import database.postgres
+2018-10-23  kennethj <cerebrum@gagarin.uit.no>
+	* ADsync.py:	updated to read json instead of pickle
+2018-10-23  kennethj <cerebrum@gagarin.uit.no>
+	* bofhd_uit_cmds.py:	updated to read json instead of pickle
+
+2018-10-21  kennethj <cerebrum@gagarin.uit.no>
+	* PosixLDIF.py: updated to handle UTF-8
+
+2018-10-21  kennethj <cerebrum@gagarin.uit.no>
+	* OrgLDIF.py: updated to handle UTF-8
+
+2018-10-21  kennethj <cerebrum@gagarin.uit.no>
+	* access_SYSX:	updated to handle unicode
+
+2018-10-20  kennethj <cerebrum@gagarin.uit.no>
+	* sito_utils.py:	updated to handle unicode
+
+2018-10-20  kennethj <cerebrum@gagarin.uit.no>
+	* PagaDataParser.py:	updated to handle unicode
+	
+2018-10-19  kennethj <cerebrum@gagarin.uit.no>
+    * Account.py: account.simplify_name() has been replaced by Cerebrum.utils.transliterate..for_posix()
+	
+2018-10-15  Karen   <cerebrum@gagarin.uit.no>
+
+    * cim_datasource.py: Added functionality to add ICE number to persons in CIM.
+
+    * Contacts.py: Added to repo. Contains class PhoneNums which provides functionality for converting 
+    phone numbers to e164 format ("+<Country code><phone number>").
+
+2018-10-10	  <cerebrum@gagarin.uit.no>
+	* prepared access_FS.py to use UTF-8
+	
+2018-08-21	  <cerebrum@gagarin.uit.no>
+	* Constants.py added constant system_kr_reg. to be used as a source system for CIM phone numbers
+				   added constant system_intern_ice to be used as a source system for CIM phone numbers
+				   added constant contact_ice_phone to be used as a contact info code for CIM phone numbers
+
+2018-06-28    <cerebrum@gagarin.uit.no>
+
+	* access_FS.py (_list_gyldigopptak): UiT needs to create accounts for new students earlier than the +14 days from sps.dato_studierett_tildelt which is currently in use. 
+	The value 14 has now been changed to 80(days)
+2018-06-06    <cerebrum@gagarin.uit.no>
+
+	* bofhd_uit_cmds.py
+	(BofhdExtension._person_affiliation_add_helper): initially bofd
+	does not support adding student/ansatt affiliation on
+	persons. unfortunately uit needs this now. we have a case where a
+	person is not employed by UiT, but the person needs propper
+	employee access and the only we can do this is to import the
+	person via system-x and then set propper ansatt affiliation via
+	bofhd. removing this constraint now
+
+2018-05-23    <cerebrum@cleomedes.uit.no>
+
+	* Person.py (UiTPersonMixin.list_persons_name): this function was
+	removed in new Person.py. since uit has several scripts using this
+	function, it was added in our uit Person module
+
+2018-04-24  Karen   <cerebrum@gagarin.uit.no>
+
+    * access_FS.py: Merged uio version of this file into our version of it.
+
+    * access_FS.py (undervisning.list_studenter_alle_kull): Students with studentstatkode 'DELTID' 
+    are now included in the results from this method.
+
+2018-03-15    <cerebrum@gagarin.uit.no>
+
+	* Constants.py (Constants): Added 2 new constants
+	contact_sito_mobile and contact_uit_mobile. these are needed to
+	differentiate between sito and uit skype phonenumbers (for those
+	with 2 accounts).
+
+2018-03-02    <cerebrum@gagarin.uit.no>
+
+	* bofhd_uit_cmds.py (BofhdExtension): person info formatSuggestion expects 'deceased' variable name, but gets 'deceased_date'. this caused NullPointerException in jbofh. renamed 'deceased_date' to 'deceased'
+
+2018-02-23    <cerebrum@gagarin.uit.no>
+
+	* OU.py (OUMixin.find): fixed but in finf function where it
+	wouldnt use the propper find function for ous with stedkode.
+
+2018-02-22    <cerebrum@gagarin.uit.no>
+
+	* OU.py (OUMixin): Override Stedkode.py find(). If OU does not have stedkode, use OU.find() instead.
+
+	* bofhd_uit_cmds.py (BofhdExtension._format_ou_name): Return None if OU does not have stedkode
+
+2018-02-12    <cerebrum@cleomedes.uit.no>
+
+	* OrgLDIF.py: UiT does not wish to populate the postalAddress
+	attribute with neither person home address or work
+	address. setting this to empty string
+
+2018-01-29    <cerebrum@cleomedes.uit.no>
+
+	* OrgLdif.py (OrgLdifUitMixin.update_org_object_entry): updated o and eduOrgLegalName attributes
+	(OrgLdifUitMixin.generate_org_object): updated o and eduOrgLegalName attributes
+
+2017-11-24    <cerebrum@cleomedes.uit.no>
+
+	* bofhd_uit_cmds.py (BofhdExtension.user_history_filtered): this
+	function was unable to return a string on the right format. the
+	join() function did not work as intended on the list containing
+	all the dicts holding changelog info. rewrote the function to
+	return a single string as it should be
+	(BofhdExtension._format_from_cl): val does not have a .date
+	field. returning val instead
+
+2017-11-08    <cerebrum@cleomedes.uit.no>
+
+	* access_FS.py (studieprog_xml_parser): Added this function to
+	override similar function in no tree. this to make
+	ad_export_autogroups_undervisning run withouth failure
+
+2017-20-12	Håvard <cerebrum@cleomedes.uit.no>
+
+        * bofhd_uit_cmds.py: Added user_history_filtered command from our old fork.
+
+2017-10-02    <cerebrum@cleomedes.uit.no>
+
+	* Constants.py (Constants): added constant to identify new students
+
+2017-09-20  Karen   <cerebrum@metius.uit.no>
+
+    * cim_datasource.py (create_dist_lists): Minor tidy-up of how things are logged when location info is missing or unrecognized.
+
+2017-09-19    <cerebrum@cleomedes.uit.no>
+
+	* Constants.py (Constants): added trait for primary accounts. used
+	by brukerinfo
+
+2017-09-15  Karen   <cerebrum@metius.uit.no>
+
+    * cim_datasource.py: Comparison of words that contain norwegian letters should now be correct.
+
+2017-08-07  Karen   <cerebrum@metius.uit.no>
+
+    * Constants.py: Updated affiliation_status_timelonnet_fast and affiliation_status_timelonnet_midlertidig
+    so that they don't have norwegian character in their status string.
+
+2017-07-20    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Stedkode.py (StedkodeMixin.find_by_perspective_old): Added try/catch functionality to make the program finish even if some names are missing
+
+2017-07-18  Karen   <cerebrum@metius.uit.no>
+
+    * Constants.py: Added affiliation_status_timelonnet_fast and affiliation_status_timelonnet_midlertidig.
+
+2017-07-18    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Account.py: create date has been removed from account_info. it is now found in the entity_info table as created_at. sql in list_all() has been changed to reflect this change
+
+2017-06-12  Karen   <cerebrum@metius.uit.no>
+
+    * cim_datasource.py: Adding dist_list stuff. WORK IN PROGRESS.
+
+2017-04-26    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Account.py (AccountUiTMixin.verify_password): updated verify_password to include b64 encoded md5 crypts
+
+2017-04-03    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* bofhd_uit_cmds.py: replaced uit version with uio version. this
+	because sertain uio bofhd commands have uio constants defined in
+	the script. this breaks brukerinfo webportal for uit.
+
+2017-03-20    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* PosixLDIF.py (PosixLDIF_UiTMixin.user_object): revert this change. we need to filter sito accounts for a while more
+
+	* Constants.py (Constants): added the spreads system@ldap, people@ldap, securimaster, portal, paga and fs
+	removed spread_uit_ldap_account
+
+2017-03-17  Karen   <cerebrum@metius.uit.no>
+
+    * cim_datasource.py: Added to repo. Contains CIMDataSourceUit that provides a UiT-specific 
+    extension to the CIMDataSource class.
+
+2017-03-15    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* account_bridge.py (AccountBridge.get_uname): Function to filter
+	out admin accounts erroneously filtered out all accounts ending
+	with 8 or 9.  Function has been fixed and should not only filter
+	out accounts ending with 998 or 999
+
+2017-03-02    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* account_bridge.py (AccountBridge.get_uname): do not collect usernames on the form aaa99(8,9) from old cerebrum. these are to be deleted
+
+2017-02-24    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* OrgLDIF.py (OrgLDIFUiTMixin.make_person_entry): need to make uit spesific make_person_entry in order to get correct group membership
+
+2017-02-08    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Email.py (email_address.process_mail): Added option to set
+	expire_date when creating email accounts
+
+	* OrgLDIF.py (OrgLDIFUiTMixin.update_org_object_entry): org rootnode need mail attribute
+
+2017-02-08  Karen   <cerebrum@metius.uit.no>
+
+    * account_bridge.py: Added get_all_email_aliases().
+
+    * account_bridge.py (get_all_primary_emails): Moved code for getting username for a given target id into 
+    separate method, get_username_from_target_id().
+
+    * account_bridge.py (get_all_primary_emails): Changed name of get_all_emails() to get_all_primary_emails() 
+    and moved code for getting information about domains into separate method, get_domains().
+
+2017-02-07  Karen   <cerebrum@metius.uit.no>
+
+    * account_bridge.py: Added get_all_emails(). Returns a dict of all primary email addresses.
+
+2017-02-02    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* PosixLDIF.py (PosixLDIF_UiTMixin.user_ldif): moved generate_system_object from OrgLDIF.py in here
+
+	* OrgLDIF.py (OrgLDIFUiTMixin.make_uioPersonScopedAffiliation): moved generate_system_object into PosixLdif.py
+
+2017-01-30    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* PosixLDIF.py (PosixLDIF_UiTMixin.user_object): added sito filter
+
+2017-01-17    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* OrgLDIF.py (OrgLDIFUiTMixin.init_account_info): init_account_info will now filter out sito accounts
+
+2016-11-24  Karen   <cerebrum@metius.uit.no>
+
+    * OU.py: Added get_structure_mappings(). Overrides OU.get_structure_mappings() with added 
+    option to filter away expired ous.
+
+    * OrgLDIF.py: Added init_ou_structure(). Overrides OrgLDIF.init_ou_structure(), calling 
+    OU.get_structure_mappings() with the added filtering of expired ous.
+
+2016-11-21  Karen   <cerebrum@metius.uit.no>
+
+    * OU.py: Commented out populate_withouth_sko() and get_stedkoder(). This was done in the 
+    /cerebrum version of the file in May, but not copied to the /home/cerebrum version until now.
+
+2016-10-28  Karen   <cerebrum@metius.uit.no>
+
+    * account_bridge.py: Added get_email_aliases().
+
+    * Account.py (AccountUiTMixin.set_auth_data): Added temporarily. For use while running old 
+    and new Cerebrum in parallel.
+
+2016-10-03  Karen   <cerebrum@metius.uit.no>
+
+    * Account.py (AccountUiTMixin): Now using md5 from the hashlib library instead of the deprecated md5 library.
+    Also removed import of sha, which isn't used.
+
+2016-09-28    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Account.py (AccountUiTMixin.suggest_unames): username needs to
+	be returned in a list so as not to break code in
+	process_students.py (now stolen from uio)
+
+2016-09-09  Karen   <cerebrum@cleomedes.uit.no>
+
+    * account_bridge.py: Added to repo. Contains class to use for getting information about accounts 
+    from the existing Cerebrum database on Caesar.
+
+2016-07-01  Karen   <cerebrum@cleomedes.uit.no>
+
+    * access_FS.py: Added get_semester(), class underv_enhet_xml_parser and class undakt_xml_parser.
+
+    * fronter_lib (XMLWriter): Added method data().
+
+2016-06-17    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* OrgLDIF.py (OrgLDIFUiTMixin.generate_person): removed debug lines
+
+2016-06-15    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* OrgLDIF.py: need to import LDIFUtils.py.
+	use make_timer, not self.make_timer.
+	make_timer also need self.logger as first parameter.
+	make_person_entry need 2nd parameter as person_id
+
+	* sito_utils.py (sitoFactory.get): removed debug line
+
+2016-06-10    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Account.py (AccountUiTMixin.get_serial): updated get_serial to
+	handle postfix argument from get_sito_uname()
+
+2016-06-09    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Account.py (AccountUiTMixin.suggest_unames_sito): Added functions to creatre sito usernames
+
+2016-05-10    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* access_SYSX.py (SYSX): Renamed systemx guest file path
+
+2016-05-04    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* OU.py (OUMixin.get_stedkoder): removed old code. we will manually add code if its needed at a later stage. This is done so we can get rid of old uit code which may be out of date
+
+2015-06-23    <cerebrum@cleomedes.uit.no>
+
+	* OrgLDIF.py (OrgLDIFUiTMixin.make_person_entry): removed uioPerson objectclass. not wanted in uit ldap
+
+2015-06-10    <cerebrum@cleomedes.uit.no>
+
+	* OrgLDIF.py (OrgLDIFUiTMixin.make_person_entry): Added functions to add groups and members in groups in the ldap export files. (shamelessly stolen from uio.OrgLDIF.py)
+
+2015-02-18  Karen   <cerebrum@cleomedes.uit.no>
+
+    * OrgLDIF.py (OrgLDIFUiTMixin): Added update_org_object_entry(), update_ou_entry(), generate_person() and generate_system_object(). These are for adding object classes and attributes that are needed at uit.
+
+2015-05-13  Karen   <cerebrum@cleomedes.uit.no>
+
+    * PosixLDIF.py (PosixLDIF_UiTMixin): Added user_object(), which adds displayName, norEduPersonLegalName 
+    and objectClass: norEduPerson to the ldif entries.
+
+    * PosixLDIF.py (PosixLDIF_UiTMixin.update_user_entry): Removed the 'uitAccountObject' object class things.
+    Added the 'eduPerson' object class.
+
+    * PosixExport.py (PosixExport_AffiliationMixin.ldif_user): Removed the 'uitAccountObject' object class things.
+
+2015-04-20    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Constants.py (Constants): Added affiliations for HiN flyt persons
+
+2015-04-17    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Stedkode.py (StedkodeMixin.find_by_perspective): removed comments
+
+2015-02-18  Karen   <cerebrum@cleomedes.uit.no>
+
+    * PosixLDIF.py (PosixLDIF_UiTMixin): Removed the printer quota things. Fixed indentation.
+
+    * OrgLDIF.py: Replaced the uio version of OrgLDIF.py with the hih version of it.
+
+2015-01-21    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Account.py (AccountUiTMixin.suggest_unames_sito): Added function to create sito usernames. Also updated serial function to generate correct serial value for sito accounts
+
+2014-12-23    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Constants.py (Constants): added fronter spread used by populate_fronter_groups.py... not sure if we REALLY want it.. for now it remains in the code..
+
+2014-12-16    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* sito_utils.py: added to repo
+
+	* OU.py (OUEntityExpireMixin.populate_withouth_sko): added function to call popualte for ous withouth stedkode
+
+2014-12-05    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Constants.py: added missing spread and trait constants needed by
+	process_system-x (and probably all the other process scripts as
+	well)
+
+	* Account.py: renamed all 'uio' spreads to 'uit'. added missing
+	code from uio.
+
+2014-11-28    <cerebrum@cleomedes.uit.no-cleomedes>
+
+ 	* ADsync.py: replaced all references to uio with uit in the following files:	ADsync.py, Account.py, Constants.py, Disk.py, EmailLDAP.py, Ephorte.py, Group.py, OrgLDIF.py, PosixExport.py, PosixLDIF.py, PosixUser.py, access_FS.py, bofhd_auth.py, bofhd_ephorte_cmds.py, bofhd_guestaccounts_cmds.py, bofhd_uit_cmds.py, fronter_lib.py
+2014-11-21    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Constants.py (Constants): added new spreads needed by new Account code
+	added new quarantine constant
+
+	* Account.py (AccountUiTMixin.delete_spread): updated spreadname to reflect uit spreadname
+
+2014-11-20    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Constants.py: added quarantine_auto_emailonly and quarantine_auto_inaktiv constants
+
+	* access_FS.py:changed all references to uio to uit
+
+	* DiskQuota.py:changed all references to uio to uit
+
+	* Account.py:changed all references to uio to uit
+
+2014-11-18    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* ADsync.py: added to repo (from uio code)
+	* Disk.py: added to repo (from uio code)
+	* DiskQuota.py: added to repo (from uio code)
+	* EmailLDAP.py: added to repo (from uio code)
+	* Ephorte.py: added to repo (from uio code)
+	* Group.py: added to repo (from uio code)
+	* OrgLDIF.py: added to repo (from uio code)
+	* PosixExport.py: added to repo (from uio code)
+	* PosixLDIF.py: added to repo (from uio code)
+	* PosixUser.py: added to repo (from uio code)
+	* PostmasterCommands.py: added to repo (from uio code)
+	* PrinterQuotas.py: added to repo (from uio code)
+	* bofhd_auth.py: added to repo (from uio code)
+	* bofhd_ephorte_cmds.py: added to repo (from uio code)
+	* bofhd_guestaccounts_cmds.py: added to repo (from uio code)
+	* bofhd_guestaccounts_utils.py: added to repo (from uio code)
+	* bofhd_uit_cmds.py: added to repo (from uio code)
+	* fronter_lib.py: added to repo (from uio code)
+
+
+	* Person.py (UiTPersonMixin.has_e_reservation): updated with new function from uio person.py
+
+	* Constants.py: updated with new constants required by new cerebrum installation
+
+	* Account.py: Added new functions from uio.account.py
+
+2014-11-12    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Constants.py: Added ContactInfoCode as new constant type. Also added workPhone2 as new contactinfocode
+	(Constants): added contact_room and contact_building
+
+2014-11-03    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* Constants.py: Added new Constants
+
+	* access_FS.py (UiOStudieInfo): Copied newest access_FS from uio and added UiTOU class
+
+2014-09-05  Karen   <cerebrum@metius.uit.no>
+
+    * Account.py (AccountUiTMixin): Now using md5 from the hashlib library instead of the deprecated md5 library.
+
+2014-08-26  Karen   <cerebrum@metius.uit.no>
+
+    * access_SYSY.py (SystemY): Changed DB_driver to PsycoPG2.
+
+2014-05-23  Karen   <cerebrum@metius.uit.no>
+
+    * Constants.py (Constants): Added externalid_sito_ou and perspective_sito.
+        
+    * OU.py (OUEntityExpireMixin): Added list_all_with_perspective().
+
+2014-03-27  Karen   <cerebrum@metius.uit.no>
+
+    * Constants.py (Constants): Added system_sito as an authoritative system.
+
+2014-03-18  Karen   <cerebrum@metius.uit.no>
+
+    * Database.py: Made change so that cx_Oracle is used instead of DCOracle2.
