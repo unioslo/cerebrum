@@ -38,11 +38,13 @@ TODO: this script must be more robust and pretty (but first we make it work)
 """
 
 
+import argparse
 import time
 import os
 import mx
 import string
 
+import cereconf
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
@@ -269,10 +271,18 @@ def set_operator(entity_id=None):
 def main():
     global start_time, max_requests
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-o', '--outfile_dir',
+        help='set output file directory',
+        default=os.path.join(cereconf.CACHE_DIR, 'Delete/'))
+
+    args = parser.parse_args()
+
     del_list = []
     date = "%d-%d-%d" % time.localtime()[:3]
-    outfile_dir = '/cerebrum/var/cache/Delete/'
-    outfile = outfile_dir + str(date) + '-' + str(os.getpid()) + '-slettes.dat'
+    filename = date + '-' + str(os.getpid()) + '-slettes.dat'
+    outfile = os.path.join(args.outfile_dir, filename)
     max_requests = 999999
     start_time = time.time()
 
@@ -284,6 +294,7 @@ def main():
             stream.write(i)
             stream.write('\n')
         stream.close()
+
 
 if __name__ == '__main__':
     main()
