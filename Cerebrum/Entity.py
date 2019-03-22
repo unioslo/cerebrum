@@ -1277,7 +1277,7 @@ class EntityQuarantine(Entity):
             (end_date IS NULL OR end_date > [:now]) AND
             (disable_until IS NULL OR disable_until <= [:now])""")
         if only_disabled:
-            conditions.append("""(disable_until > [:now]""")
+            conditions.append("""disable_until > [:now]""")
         if entity_ids:
             conditions.append(
                 argument_to_sql(entity_ids, "eq.entity_id", binds, int))

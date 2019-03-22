@@ -171,11 +171,13 @@ class QuarantineHandler(object):
     def get_locked_entities(db, entity_types=None, quarantine_types=None,
                             only_active=True, only_disabled=False,
                             entity_ids=None, ignore_quarantine_types=None):
-        """Utility method that the returns the entity-id of all locked accounts.
+        """Utility method that the returns the entity-id of all locked entities.
 
         :param db: A database object
         :param entity_types: Entity types to filter on
+        :param quarantine_types: Quarantine types to filter on
         :param only_active: Only return locked and active quarantines
+        :param only_disabled: Only return disabled quarantines
         :param entity_ids: Spesific entity-ids to check
         :param ignore_quarantine_types: Quarantines to ignore"""
         cache = defaultdict(list)
