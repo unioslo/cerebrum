@@ -202,7 +202,7 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
                     tmp = chr(r)+password[m+1:]
                 tmp = old_encode_for_history(name, tmp)
                 variants.append(tmp)
-        old_passwords = [r['hashbase64'] for r in ph.get_history(entity_id)]
+        old_passwords = [r['hash'] for r in ph.get_history(entity_id)]
         return check_passwords_history(variants, old_passwords, name)
 
     def _check_password_history(self, password):
@@ -220,7 +220,7 @@ class PasswordHistoryMixin(ClearPasswordHistoryMixin):
         if not name or not entity_id:
             return
 
-        old_passwords = [r['hashbase64'] for r in ph.get_history(entity_id)]
+        old_passwords = [r['hash'] for r in ph.get_history(entity_id)]
         return check_password_history(password, old_passwords, name)
 
 
@@ -247,7 +247,7 @@ class PasswordHistory(DatabaseAccessor):
             col_when = val_when = ""
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=password_history]
-          (entity_id, hashbase64 %s) VALUES (:e_id, :md5 %s)""" % (
+          (entity_id, hash %s) VALUES (:e_id, :md5 %s)""" % (
             col_when, val_when), {'e_id': entity_id,
                                   'md5': csum,
                                   'when': _when})
@@ -269,7 +269,7 @@ class PasswordHistory(DatabaseAccessor):
 
     def get_history(self, entity_id):
         return self.query("""
-        SELECT hashbase64, set_at
+        SELECT hash, set_at
         FROM [:table schema=cerebrum name=password_history]
         WHERE entity_id=:e_id""", {'e_id': entity_id})
 

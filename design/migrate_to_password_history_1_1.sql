@@ -24,4 +24,4 @@ ALTER TABLE password_history
 
 category:pre;
 ALTER TABLE password_history
-    RENAME md5base64 TO hashbase64;
+    RENAME md5base64 TO hash;
