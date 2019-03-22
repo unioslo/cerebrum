@@ -62,7 +62,7 @@ from Cerebrum.DatabaseAccessor import DatabaseAccessor
 
 __version__ = "1.1"
 
-pbkdf2_param = {
+pbkdf2_params = {
     'algo': 'sha512',
     'rounds': 100000,
     'salt_size': 32,
@@ -105,8 +105,8 @@ def check_password_history(password, old_passwords, name):
             iters = int(password_parts[1])
             salt = base64.b64decode(password_parts[2])
             # get params for the pbkdf2
-            algo = pbkdf2_param['algo']
-            dkLen = pbkdf2_param['desired_key_len']
+            algo = pbkdf2_params['algo']
+            dkLen = pbkdf2_params['desired_key_len']
             encoded_password = encode_for_history(algo, iters, salt, password, dkLen)
             if encoded_password in old_passwords:
                 return True
@@ -234,10 +234,10 @@ class PasswordHistory(DatabaseAccessor):
         if _csum is not None:
             csum = _csum
         else:
-            algo = pbkdf2_param['algo']  # gets the name of the algorithm
-            rounds = pbkdf2_param['rounds']
-            salt = os.urandom(pbkdf2_param['salt_size'])
-            dkLen = pbkdf2_param['desired_key_len']
+            algo = pbkdf2_params['algo']  # gets the name of the algorithm
+            rounds = pbkdf2_params['rounds']
+            salt = os.urandom(pbkdf2_params['salt_size'])
+            dkLen = pbkdf2_params['desired_key_len']
             csum = encode_for_history(algo, rounds, salt, password, dkLen)
         if _when is not None:
             col_when = ", set_at"
