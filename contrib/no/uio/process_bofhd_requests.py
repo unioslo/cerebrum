@@ -517,7 +517,7 @@ def proc_delete_user(r):
         group.remove_member(account.entity_id)
 
     # Remove password from user
-    account.del_password()
+    account.delete_password()
 
     return True
 

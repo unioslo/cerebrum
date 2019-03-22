@@ -564,7 +564,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             group.write_db()
         self.write_db()
 
-        self.del_password()
+        self.delete_password()
 
     def delete(self):
         """Really, really remove the account, homedir, account types and the
