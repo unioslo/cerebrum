@@ -1,7 +1,6 @@
-#!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2003, 2004 University of Oslo, Norway
+# Copyright 2003, 2004, 2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -62,28 +61,9 @@ from exceptions import Exception
 import cerebrum_path
 import cereconf
 
-from Cerebrum.Constants import Constants
 from Cerebrum.Utils import NotSet
-from Cerebrum.modules.CLConstants import _ChangeTypeCode
 from Cerebrum.Entity import Entity
 from Cerebrum import Errors
-
-
-class EntityExpireConstants(Constants):
-    """Constants specific for C{EntityExpire}."""
-    entity_expire_add = _ChangeTypeCode(
-        "entity_expire", "add",
-        "added expire date for %(subject)s",
-        ("new_expire_date=%(new_expire_date)s",))
-    entity_expire_del = _ChangeTypeCode(
-        "entity_expire", "del",
-        "deleted expire date for %(subject)s",
-        ("old_expire_date=%(old_expire_date)s",))
-    entity_expire_mod = _ChangeTypeCode(
-        "entity_expire", "mod",
-        "modified expire date for %(subject)s",
-        ("old_expire_date=%(old_expire_date)s",
-         "new_expire_date=%(new_expire_date)s"))
 
 
 class EntityExpiredError(Exception):
