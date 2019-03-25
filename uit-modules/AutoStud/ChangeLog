@@ -1,0 +1,10 @@
+2014-11-20    <cerebrum@cleomedes.uit.no-cleomedes>
+
+	* __init__.py:changed all references to uio to uit
+
+	* ProfileHandler.py:changed all references to uio to uit
+
+	* ProfileConfig.py: changed all references to uio to uit
+
+	* Select.py: added mappings for evu and fagperson
+
