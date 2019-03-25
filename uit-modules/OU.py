@@ -26,8 +26,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 import cereconf
 from Cerebrum.OU import OU
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpire
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
 
 class OUMixin(OU):
