@@ -341,6 +341,7 @@ def check_schema_versions(db, strict=False):
         'changelog': 'Cerebrum.modules.ChangeLog',
         'dns': 'Cerebrum.modules.dns',
         'email': 'Cerebrum.modules.Email',
+        'entity_expire': 'Cerebrum.modules.entity_expire',
         'entity_trait': 'Cerebrum.modules.EntityTrait',
         'eventlog': 'Cerebrum.modules.EventLog',
         'events': 'Cerebrum.modules.event_publisher',

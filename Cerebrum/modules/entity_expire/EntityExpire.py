@@ -54,13 +54,6 @@ dates and should be followed religiously.
 
 """
 
-
-import sys
-from exceptions import Exception
-
-import cerebrum_path
-import cereconf
-
 from Cerebrum.Utils import NotSet
 from Cerebrum.Entity import Entity
 from Cerebrum import Errors
@@ -165,10 +158,7 @@ class EntityExpire(Entity):
                                 change_params=parameters)
 
     def _delete_expire_date(self):
-        """
-        Removes expire_date for current entity.
-
-        """
+        """ Removes expire_date for current entity."""
 
         expiry_set = None
         try:
@@ -193,7 +183,7 @@ class EntityExpire(Entity):
                             change_params=parameters)
 
     def find(self, entity_id, expired_before=None):
-        """Find with filter on expire date.
+        """ Find with filter on expire date.
 
         @param expired_before: See L{EntityExpire.is_expired}.
 
@@ -217,8 +207,7 @@ class EntityExpire(Entity):
         self.__updated = []
 
     def is_expired(self, entity_id=None, expired_before=None):
-        """
-        Will check if an entity has expired or not.
+        """ Will check if an entity has expired or not.
 
         @param entity_id: Will be used instead of C{self.entity_id} if
                   C{entity_id is not None}. This function may therefore
@@ -272,8 +261,7 @@ class EntityExpire(Entity):
             return False
 
     def get_expire_date(self, entity_id=None):
-        """
-        Obtains the expire_date of the given entity.
+        """ Obtains the expire_date of the given entity.
 
         @param entity_id: Will be used instead of C{self.entity_id} if
                   C{entity_id is not None}. This function may
@@ -302,8 +290,7 @@ class EntityExpire(Entity):
             return None
 
     def list_expired(self, entity_type=None, expired_before=None):
-        """
-        Obtains a list over expired entities.
+        """ Obtains a list over expired entities.
 
         @param entity_type: The type of entities one wishes to be
                   returned from the function. If C{entity_type is None},
