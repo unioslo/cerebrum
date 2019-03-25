@@ -56,7 +56,7 @@ dates and should be followed religiously.
 
 from Cerebrum.Utils import NotSet
 from Cerebrum.Entity import Entity
-from Cerebrum import Errors
+from Cerebrum.modules.entity_expire import entity_expire_db
 
 
 class EntityExpiredError(Exception):
@@ -79,11 +79,9 @@ class EntityExpire(Entity):
         self.__updated = []
         self.__super.clear()
 
-    def delete(self):
+    def delete_expire_date(self):
         """Deletes current object from DB."""
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=entity_expire]
-        WHERE entity_id=:e_id""", {'e_id': self.entity_id})
+        entity_expire_db.delete_expire_date(self._db, self.entity_id)
         self.__super.delete()
 
     def populate_expire_date(self, expire_date):
@@ -102,90 +100,20 @@ class EntityExpire(Entity):
         if self._expire_date is not NotSet:
             if '_expire_date' in self.__updated:
                 if self._expire_date is None:
-                    self._delete_expire_date()
+                    entity_expire_db.delete_expire_date(self._db,
+                                                        self.entity_id)
                 else:
-                    self._set_expire_date(self._expire_date)
-
-    def _set_expire_date(self, expire_date=None):
-        """
-        Will set C{expire_date} on an entity. C{expire_date} should not
-        be set for entitites that do not have a defined date on
-        which they seize to exist.
-
-        @param expire_date: If expire_date is None, [:now] is assumed.
-        @type expire_date: String on format YYYYMMDD or Date/Time.
-        @return: Void.
-
-        """
-
-        expiry_set = None
-        try:
-            expiry_set = self.query_1(
-                """SELECT expire_date
-                FROM [:table schema=cerebrum name=entity_expire]
-                WHERE entity_id=:e_id""", {'e_id': self.entity_id})
-        except Errors.TooManyRowsError:
-            raise Errors.TooManyRowsError
-        except Errors.NotFoundError:
-            expiry_set = None
-
-        if expiry_set is not None:
-            self.execute("""
-                UPDATE [:table schema=cerebrum name=entity_expire]
-                SET expire_date=:exp_date
-                WHERE entity_id=:e_id""",
-                         {'exp_date': expire_date,
-                          'e_id': self.entity_id})
-            parameters = {}
-            parameters['old_expire_date'] = str(expiry_set)
-            parameters['new_expire_date'] = str(expire_date)
-            self._db.log_change(self.entity_id,
-                                self.const.entity_expire_mod,
-                                None,
-                                change_params=parameters)
-        else:
-            self.execute("""
-                INSERT INTO
-                    [:table schema=cerebrum name=entity_expire]
-                (entity_id, expire_date) VALUES (:e_id, :exp_date)""",
-                         {'e_id': self.entity_id,
-                          'exp_date': expire_date})
-            parameters = {}
-            parameters['new_expire_date'] = str(expire_date)
-            self._db.log_change(self.entity_id,
-                                self.const.entity_expire_add,
-                                None,
-                                change_params=parameters)
-
-    def _delete_expire_date(self):
-        """ Removes expire_date for current entity."""
-
-        expiry_set = None
-        try:
-            expiry_set = self.query_1(
-                """SELECT expire_date
-                FROM [:table schema=cerebrum name=entity_expire]
-                WHERE entity_id=:e_id""", {'e_id': self.entity_id})
-        except Errors.TooManyRowsError:
-            raise Errors.TooManyRowsError
-        except Errors.NotFoundError:
-            expiry_set = None
-
-        self.execute("""
-            DELETE FROM [:table schema=cerebrum name=entity_expire]
-            WHERE entity_id=:e_id""",
-                     {'e_id': self.entity_id})
-        parameters = {}
-        parameters['old_expire_date'] = str(expiry_set)
-        self._db.log_change(self.entity_id,
-                            self.const.entity_expire_del,
-                            None,
-                            change_params=parameters)
+                    entity_expire_db.set_expire_date(self._db,
+                                                     self.entity_id,
+                                                     self._expire_date)
 
     def find(self, entity_id, expired_before=None):
         """ Find with filter on expire date.
 
-        @param expired_before: See L{EntityExpire.is_expired}.
+        :param entity_id: Cerebrum.Entity entity_id
+        :type entity_id: int
+
+        :param expired_before: See L{entity_expire_db.is_expired}.
 
         """
 
@@ -194,7 +122,8 @@ class EntityExpire(Entity):
 
         # If the find doesn't fail, we can assume the OU is found and
         # already in memory. Now check if it's not expired!
-        if self.is_expired(expired_before=expired_before):
+        if entity_expire_db.is_expired(self.db, self.entity_id,
+                                       expired_before=expired_before):
             tmp_id = self.entity_id
             self.__super.clear()
             raise EntityExpiredError('Entity %s expired.' % tmp_id)
@@ -205,128 +134,3 @@ class EntityExpire(Entity):
             pass
         self.__in_db = True
         self.__updated = []
-
-    def is_expired(self, entity_id=None, expired_before=None):
-        """ Will check if an entity has expired or not.
-
-        @param entity_id: Will be used instead of C{self.entity_id} if
-                  C{entity_id is not None}. This function may therefore
-                  be used to check the expired status of any entity, not
-                  only the current one.
-        @type entity_id: Integer.
-        @param expired_before: Date for which the query should be done.
-                  If C{expire_date} of an entity is C{20070101} and
-                  C{expired_before > 20070101}, the entity  will be
-                  considered expired. Otherwise, the entity will be
-                  considered non-expired. If expired_before is None,
-                  B{current time} will be used. Note, this also includes
-                  hours and minutes, so immediately after midnight,
-                  any entity with C{expire_date} set to that day will be
-                  considered expired.
-        @type expired_before: String (YYYYMMDD), or DateTime var.
-        @return: Bolean.
-            - True if expired.
-            - False otherwise.
-
-        """
-
-        if entity_id is None:
-            entity_id = self.entity_id
-
-        tables = []
-        where = []
-        tables.append("[:table schema=cerebrum name=entity_expire] ee")
-        where.append("ee.entity_id=:entity_id")
-
-        if expired_before is None:
-            where.append("(ee.expire_date < [:now])")
-        else:
-            where.append("(ee.expire_date < :date)")
-
-        where_str = ""
-        if where:
-            where_str = "WHERE " + " AND ".join(where)
-
-        try:
-            self.query_1("""
-                    SELECT ee.entity_id
-                    FROM %s %s""" %
-                         (','.join(tables), where_str),
-                         {'entity_id': entity_id,
-                          'date': expired_before})
-            return True
-        except Errors.TooManyRowsError:
-            raise Errors.TooManyRowsError
-        except Errors.NotFoundError:
-            return False
-
-    def get_expire_date(self, entity_id=None):
-        """ Obtains the expire_date of the given entity.
-
-        @param entity_id: Will be used instead of C{self.entity_id} if
-                  C{entity_id is not None}. This function may
-                  therefore be used to get the expire date of any
-                  entity, not only the current one.
-        @type entity_id: Integer.
-        @return: DateTime.
-            - Current 'expire_date'.
-            - None if no date is set.
-
-        """
-
-        if entity_id is None:
-            entity_id = self.entity_id
-
-        try:
-            res = self.query_1(
-                """SELECT expire_date
-                FROM [:table schema=cerebrum name=entity_expire]
-                WHERE entity_id=:e_id""",
-                {'e_id': entity_id})
-            return res  # ('expire_date')
-        except Errors.TooManyRowsError:
-            raise Errors.TooManyRowsError
-        except Errors.NotFoundError:
-            return None
-
-    def list_expired(self, entity_type=None, expired_before=None):
-        """ Obtains a list over expired entities.
-
-        @param entity_type: The type of entities one wishes to be
-                  returned from the function. If C{entity_type is None},
-                  entities of all kinds will be listed.
-        @type entity_type: Integer (C{entity_type_code}).
-        @param expired_before: See L{is_expired}
-        @type expired_before:
-        @return: List of Tuples C{[(entity_id, DateTime),]}
-            A list with C{entity_id}s and their C{expire_date}s. Note
-            That the list only will include entities with expire
-            dates before C{[:now]} or C{expired_before}.
-
-        """
-
-        tables = []
-        where = []
-        tables.append("[:table schema=cerebrum name=entity_expire] ee")
-
-        if entity_type is not None:
-            tables.append("[:table schema=cerebrum \
-                             name=entity_info] ei")
-            where.append("ee.entity_id=ei.entity_id")
-            where.append("ei.entity_type=:entity_type")
-
-        if expired_before is None:
-            where.append("(ee.expire_date < [:now])")
-        else:
-            where.append("(ee.expire_date < :date)")
-
-        where_str = ""
-        if where:
-            where_str = "WHERE " + " AND ".join(where)
-
-        return self.query("""
-                            SELECT ee.entity_id, ee.expire_date
-                            FROM %s %s""" %
-                          (','.join(tables), where_str),
-                          {'entity_type': entity_type,
-                           'date': expired_before})
