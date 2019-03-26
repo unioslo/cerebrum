@@ -134,21 +134,12 @@ class Constants(Constants.Constants):
     spread_nis_user = _SpreadCode(
         'account@nis', Constants.Constants.entity_account,
         'User in NIS domain "stud"')
-    spread_ans_nis_user = _SpreadCode(
-        'account@nisans', Constants.Constants.entity_account,
-        'User in NIS domain "ans"')
     spread_nis_fg = _SpreadCode(
         'group@nis', Constants.Constants.entity_group,
         'File group in NIS domain "stud"')
     spread_nis_ng = _SpreadCode(
         'netgroup@nis', Constants.Constants.entity_group,
         'Net group in NIS domain "stud"')
-    spread_ans_nis_fg = _SpreadCode(
-        'group@nisans', Constants.Constants.entity_group,
-        'File group in NIS domain "ans"')
-    spread_ans_nis_ng = _SpreadCode(
-        'netgroup@nisans', Constants.Constants.entity_group,
-        'Net group in NIS domain "ans"')
     spread_hia_adgang = _SpreadCode(
         'account@adgang', Constants.Constants.entity_person,
         'Person exported to Adgang system')

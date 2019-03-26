@@ -123,18 +123,6 @@ class Constants(CereConst.Constants):
         'netgroup@nis',
         ConstantsUniversityColleges.entity_group,
         'Net group in NIS')
-    spread_nis_ans_account = _SpreadCode(
-        'account@nisans',
-        ConstantsUniversityColleges.entity_account,
-        'Account in NIS')
-    spread_nis_ans_fg = _SpreadCode(
-        'fgroup@nisans',
-        ConstantsUniversityColleges.entity_group,
-        'File group in NIS')
-    spread_nis_ans_ng = _SpreadCode(
-        'netgroup@nisans',
-        ConstantsUniversityColleges.entity_group,
-        'Net group in NIS')
     spread_ad_group = _SpreadCode(
         'group@ad', CereConst.Constants.entity_group,
         'Group included in domain in Active Directory')

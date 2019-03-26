@@ -199,28 +199,6 @@ def process_delete_requests():
                 account.clear_home(row['spread'])
                 logger.debug("clear_home in %s", row['spread'])
                 account.delete_spread(row['spread'])
-            # Account is valid in nisans@hia, remove account@nisans spread,
-            # register nisans-home delete
-            elif row['spread'] == const.spread_ans_nis_user:
-                posix_home = posix_user.get_posix_home(row['spread'])
-                uid = posix_user.posix_uid
-                gid = posix_user.gid_id
-                shell = posix_user.shell
-                line = string.join([account.account_name, pwd, str(uid),
-                                    str(gid), gecos, posix_home, str(shell)],
-                                   ':')
-                line = 'NISANS:' + line
-                del_file.append(line)
-                try:
-                    home = account.get_home(row['spread'])
-                except Errors.NotFoundError:
-                    continue
-                account.set_homedir(current_id=home['homedir_id'],
-                                    status=const.home_status_archived)
-                logger.debug("Set home to archived %s (%s)",
-                             home['homedir_id'], row['spread'])
-                account.clear_home(row['spread'])
-                account.delete_spread(row['spread'])
             else:
                 account.delete_spread(row['spread'])
         if posix_user:
