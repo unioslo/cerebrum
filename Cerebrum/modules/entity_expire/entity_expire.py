@@ -77,12 +77,12 @@ class EntityExpire(Entity):
         """Clears current object instance."""
         self._expire_date = NotSet
         self.__updated = []
-        self.__super.clear()
+        super(EntityExpire, self).clear()
 
-    def delete_expire_date(self):
+    def delete(self):
         """Deletes current object from DB."""
-        entity_expire_db.delete_expire_date(self._db, self.entity_id)
-        self.__super.delete()
+        self._expire_date = None
+        super(EntityExpire, self).delete()
 
     def populate_expire_date(self, expire_date):
         """Sets expire date on current object instance.
@@ -96,7 +96,7 @@ class EntityExpire(Entity):
 
     def write_db(self):
         """Writes changes in current object to database."""
-        self.__super.write_db()
+        super(EntityExpire, self).write_db()
         if self._expire_date is not NotSet:
             if '_expire_date' in self.__updated:
                 if self._expire_date is None:
@@ -106,6 +106,10 @@ class EntityExpire(Entity):
                     entity_expire_db.set_expire_date(self._db,
                                                      self.entity_id,
                                                      self._expire_date)
+
+    def _delete_expire_date(self):
+        """ Removes expire_date for current entity."""
+        entity_expire_db.delete_expire_date(self._db, self.entity_id)
 
     def find(self, entity_id, expired_before=None):
         """ Find with filter on expire date.
@@ -118,14 +122,14 @@ class EntityExpire(Entity):
         """
 
         # Find object
-        self.__super.find(entity_id)
+        super(EntityExpire, self).find(entity_id)
 
         # If the find doesn't fail, we can assume the OU is found and
         # already in memory. Now check if it's not expired!
         if entity_expire_db.is_expired(self.db, self.entity_id,
                                        expired_before=expired_before):
             tmp_id = self.entity_id
-            self.__super.clear()
+            self.clear()
             raise EntityExpiredError('Entity %s expired.' % tmp_id)
 
         try:

@@ -41,8 +41,8 @@ from Cerebrum.modules.no.uit.sito_utils import sitoFactory
 from Cerebrum import Errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.Person import PersonFnrMixin
-from Cerebrum.modules.entity_expire.EntityExpire import EntityExpire
-from Cerebrum.modules.entity_expire.EntityExpire import EntityExpiredError
+from Cerebrum.modules.entity_expire.entity_expire import EntityExpire
+from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 
 
 
@@ -857,7 +857,7 @@ def import_OU(ou_list,dryrun):
                 
                 e = EntityExpire(db)
                 e.find(entity_id,expired_before="1970-01-01") # linux epoch date
-                e.delete_expire_date()
+                e._delete_expire_date()
                 e.write_db()
                 if(dryrun == False):
                     e.commit()

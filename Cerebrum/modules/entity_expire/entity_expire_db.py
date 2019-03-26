@@ -69,8 +69,6 @@ def is_expired(db, entity_id, expired_before=None):
                    {'entity_id': entity_id,
                     'date': expired_before})
         return True
-    except Errors.TooManyRowsError:
-        raise Errors.TooManyRowsError
     except Errors.NotFoundError:
         return False
 

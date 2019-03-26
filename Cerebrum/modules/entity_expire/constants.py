@@ -21,7 +21,7 @@
 from Cerebrum import Constants
 
 
-class EntityExpireConstants(Constants.Constants):
+class EntityExpireConstants(Constants.CLConstants):
     """Constants specific for C{EntityExpire}."""
     entity_expire_add = Constants._ChangeTypeCode(
         "entity_expire", "add",

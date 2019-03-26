@@ -314,6 +314,7 @@ setup(
         'Cerebrum/modules/consent',
         'Cerebrum/modules/cim',
         'Cerebrum/modules/dns',
+        'Cerebrum/modules/entity_expire',
         'Cerebrum/modules/event',
         'Cerebrum/modules/event/clients',
         'Cerebrum/modules/event_consumer',
