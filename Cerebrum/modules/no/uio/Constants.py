@@ -586,23 +586,6 @@ class Constants(Constants.Constants):
         EmailConstants.EmailConstants.entity_email_target,
         'Pauses delivery of email')
 
-    #
-    # Traits
-    #
-    # TBD: These may fit better into mod_disk_quota as actual mixin
-    # tables for disk_info and host_info
-    trait_host_disk_quota = _EntityTraitCode(
-        'host_disk_quota',
-        Constants.Constants.entity_host,
-        "The default quota each user gets for disks on this host, "
-        "stored in numval.")
-    trait_disk_quota = _EntityTraitCode(
-        'disk_quota',
-        Constants.Constants.entity_disk,
-        "The existence of this trait means this disk has quota. "
-        "numval contains the default quota.  If it is NULL, the default "
-        "quota value is taken from the host_disk_quota trait.")
-
     # Owner trait for GuestUsers module.
     trait_uio_guest_owner = _EntityTraitCode(
         'guest_owner_uio',

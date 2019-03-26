@@ -556,6 +556,7 @@ class AccountUiOMixin(Account.Account):
         if kw.get('current_id') and kw.get('disk_id'):
             disk = Factory.get("Disk")(self._db)
             disk.find(kw['disk_id'])
+            has_quota = disk.has_quota()
             def_quota = disk.get_default_quota()
             dq = DiskQuota(self._db)
             try:
@@ -563,7 +564,7 @@ class AccountUiOMixin(Account.Account):
             except Errors.NotFoundError:
                 pass
             else:
-                if def_quota is False:
+                if not has_quota:
                     # No quota on new disk, so remove the quota information.
                     dq.clear(kw['current_id'])
                 elif def_quota is None:

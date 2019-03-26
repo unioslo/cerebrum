@@ -236,6 +236,22 @@ class Disk(EntitySpread, Entity_class):
             return self.path
         return '<unbound disk>'
 
+    def has_quota(self):
+        """
+        Abstract API for checking if the disk has disk quotas.
+
+        The default is `False` - i.e. no disk quota.
+        """
+        return False
+
+    def get_default_quota(self):
+        """
+        Abstract API for getting disk quota.
+
+        The default quota is `None` - i.e. no quota.
+        """
+        return None
+
 
 @six.python_2_unicode_compatible
 class Host(EntityName, EntitySpread, Entity_class):
