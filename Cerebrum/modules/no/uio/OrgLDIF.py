@@ -218,11 +218,11 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             targets = EmailTarget(self.db).list_email_target_addresses
             mail = {}
             for row in targets(target_type=self.const.email_target_account):
-                if (row['domain'] in ('uio.no',) and row['local_part'] in (
-                        row['entity_name'],)):
+                if (row['domain'] == 'uio.no' and
+                        row['local_part'] == row['entity_name']):
                     mail[int(row['target_entity_id'])] = "@".join(
                         (row['local_part'], row['domain']))
-            self.account_mail = mail.get
+            self.account_mail.update(mail)
             timer("...UiO specfic account e-mail addresses done.")
         else:
             self.account_mail = None
