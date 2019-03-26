@@ -188,7 +188,7 @@ class DBConsumer(ProcessDBMixin, ProcessLoggingMixin, QueueListener):
             tb = traceback.format_exc()
             tb = '\t' + tb.replace('\n', '\t\n')
             self.logger.error(u'Unhandled error!\n%s\n%s',
-                              item.payload, tb)
+                              repr(item.payload), tb)
 
 
 class DBProducer(
