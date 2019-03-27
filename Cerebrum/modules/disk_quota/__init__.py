@@ -31,7 +31,7 @@ If mod_disk_quota is in use, the following cereconf-variables needs to be
 configured:
 
 CLASS_DISK
-    Should be set to/include 'Cerebrum.modules.disk_quota/DiskQuotaMixin'
+    Should be set to/include 'Cerebrum.modules.disk_quota.mixins/DiskQuotaMixin'
 
 CLASS_CONSTANTS
     Should include Cerebrum.modules.disk_quota.constants/Constants
