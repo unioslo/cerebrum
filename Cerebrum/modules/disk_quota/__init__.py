@@ -36,7 +36,7 @@ CLASS_DISK
 CLASS_CONSTANTS
     Should include Cerebrum.modules.disk_quota.constants/Constants
 
-CLASS_CLCONSTANTS
+CLASS_CL_CONSTANTS
     Should include 'Cerebrum.modules.disk_quota.constants/CLConstants'
 
 History
