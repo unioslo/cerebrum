@@ -237,7 +237,7 @@ class DiskQuota(DatabaseAccessor):
             [:table schema=cerebrum name=entity_name] en,
             [:table schema=cerebrum name=homedir] hi
         {if_left} JOIN
-            [:table schema=cerebrum name=disk_quota] dq"
+            [:table schema=cerebrum name=disk_quota] dq
         ON
             dq.homedir_id = hi.homedir_id
         WHERE
