@@ -344,6 +344,7 @@ setup(
         'Cerebrum/modules/no/hiof',
         'Cerebrum/modules/no/nmh',
         'Cerebrum/modules/no/nih',
+        'Cerebrum/modules/no/uit',
         'Cerebrum/modules/password_notifier',
         'Cerebrum/modules/password_generator',
         'Cerebrum/modules/posix',
