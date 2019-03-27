@@ -67,6 +67,10 @@ class Constants(Constants.Constants):
         'SITO_OU',
         Constants.Constants.entity_ou,
         'internal sito ou identifier')
+    externalid_nsd = _EntityExternalIdCode(
+        'NSD',
+        Constants.Constants.entity_ou,
+        'Nsd code for OU')
 
 
     # Authoritative systems
