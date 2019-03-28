@@ -477,9 +477,15 @@ AUTOADMIN_MAKE_ABROAD_LETTERS = False
 # directory where the letter templates used by proc_stud are found
 AUTOADMIN_PRINT_LETTER_DIRECTORY = 'no_NO/letter'
 
-# Default message: can contain either of those 2 variables: 'username' /
-# 'email'
+# AUTOADMIN_WELCOME_SMS
+# Default SMS text for the send_welcome_sms module: can contain either of those
+# 2 variables: 'username' / 'email'
 AUTOADMIN_WELCOME_SMS = 'Welcome\nYour username is: %(username)s'
+# Additional SMS text message variabel for the send_welcome_sms module
+# especially when there is a need to differentiate the sending to the employee
+# accounts from the student ones (needs to be explicitly defined and can remain
+# empty if not used and an additional sending to employees is not set up).
+AUTOADMIN_WELCOME_SMS_EMPLOYEE = ''
 
 # The default directory for where the data from FS is put. This could be used
 # by jobs that needs to get many of the XML files with data from FS. If this is

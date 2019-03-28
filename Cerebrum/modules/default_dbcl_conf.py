@@ -163,7 +163,7 @@ togglers = [
      'triggers': ('account_password', )},
 
     # AccountType
-    # TBD:  Hvordan håndtere account_type_mod der vi bare logger old_pri og new_pri
+    # TBD:  Hvordan hÃ¥ndtere account_type_mod der vi bare logger old/new_pri
     {'columns': ('subject_entity', ),
      # may remove a bit too much, but we log too little to filter better...
      # 'change_params': ('ou_id', 'affiliation', ),

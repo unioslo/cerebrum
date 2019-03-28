@@ -481,7 +481,8 @@ def main(inargs=None):
         action='store_true',
         default=False,
         help="Send reminder to users who have not set their password even "
-             "though they have gotten an sms before.")
+             "though they have gotten an sms before. Valid for SMS's sent in "
+             "the last weeks of July and December.")
 
     parser.set_defaults(filters=[])
     Cerebrum.logutils.options.install_subparser(parser)
