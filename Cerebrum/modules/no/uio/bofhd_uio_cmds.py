@@ -82,6 +82,7 @@ from Cerebrum.modules.bofhd.cmd_param import (
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
+from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd.help import Help, merge_help_strings
 from Cerebrum.modules.bofhd import bofhd_access
@@ -90,6 +91,7 @@ from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.bofhd_auth import (
     UioAuth,
+    UiOBofhdRequestsAuth,
     UioContactAuth,
     UioEmailAuth,
     UioAccessAuth
@@ -6861,6 +6863,10 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                                     "vacation messages via OWA!")
         return super(EmailCommands, self).email_tripnote_add(
             operator, uname, text, when=when)
+
+
+class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
+    authz = UiOBofhdRequestsAuth
 
 
 class UioAccessCommands(bofhd_access.BofhdAccessCommands):

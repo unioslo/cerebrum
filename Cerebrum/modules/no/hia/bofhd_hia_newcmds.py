@@ -42,10 +42,12 @@ from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
+from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.access_FS import FS
 from Cerebrum.modules.no.hia.bofhd_uia_auth import (
     UiaAuth,
+    UiaBofhdRequestsAuth,
     UiaContactAuth,
     UiaEmailAuth,
     UiaAccessAuth,
@@ -1470,6 +1472,10 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         et.email_server_id = es.entity_id
         et.write_db()
         return "OK, updated e-mail server for %s (to %s)" % (uname, server)
+
+
+class RequestCommands(bofhd_requests_cmds.BofhdExtension):
+    authz = UiaBofhdRequestsAuth
 
 
 class UiaAccessCommands(BofhdAccessCommands):

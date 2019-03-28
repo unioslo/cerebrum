@@ -34,6 +34,8 @@ from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
+from Cerebrum.modules.bofhd_requests import bofhd_requests_auth
+from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cmd_base
@@ -57,6 +59,11 @@ class HiofAuth(BofhdAuth):
 
 class HiofContactAuth(HiofAuth, bofhd_contact_info.BofhdContactAuth):
     """ Indigo specific contact info auth. """
+    pass
+
+
+class HiofBofhdRequestsAuth(HiofAuth, bofhd_requests_auth.RequestsAuth):
+    """ Hiof specific Bofhd Requests auth. """
     pass
 
 
@@ -385,6 +392,10 @@ class BofhdExtension(BofhdCommonMethods):
 
 class ContactCommands(bofhd_contact_info.BofhdContactCommands):
     authz = HiofContactAuth
+
+
+class RequestCommands(bofhd_requests_cmds.BofhdExtension):
+    authz = HiofBofhdRequestsAuth
 
 
 class HiofAccessCommands(bofhd_access.BofhdAccessCommands):
