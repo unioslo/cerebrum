@@ -20,7 +20,7 @@
 import six
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
-from Cerebrum.modules.bofhd_requests.auth import RequestsAuth
+from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import format_time
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules import Email
