@@ -224,8 +224,6 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                         (row['local_part'], row['domain']))
             self.account_mail.update(mail)
             timer("...UiO specfic account e-mail addresses done.")
-        else:
-            self.account_mail = None
 
     def make_uioPersonScopedAffiliation(self, p_id, pri_aff, pri_ou):
         # [primary|secondary]:<affiliation>@<status>/<stedkode>
