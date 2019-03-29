@@ -41,37 +41,43 @@ CLASS_CONSTANTS = [
     'Cerebrum.modules.no.Constants/ConstantsCommon',
     'Cerebrum.modules.no.Constants/ConstantsHigherEdu',
     'Cerebrum.modules.no.uio.Constants/Constants',
-    # exchange-relatert-jazz
     'Cerebrum.modules.exchange.Constants/Constants',
     'Cerebrum.modules.exchange.TargetSystemConstants/TargetSystemConstants',
     'Cerebrum.modules.PosixConstants/Constants',
     'Cerebrum.modules.bofhd.bofhd_constants/Constants',
     'Cerebrum.modules.EmailConstants/EmailConstants',
-    'Cerebrum.modules.EntityTraitConstants/Constants',
     'Cerebrum.modules.AuthPGP/Constants',
-    'Cerebrum.modules.no.uio.DiskQuota/DiskQuotaConstants',
     'Cerebrum.modules.no.uio.EphorteConstants/EphorteConstants',
     'Cerebrum.modules.password_notifier.constants/Constants',
     'Cerebrum.modules.guest.Constants/GuestConstants',
-    'Cerebrum.modules.consent.Consent/Constants',
+    'Cerebrum.modules.consent.ConsentConstants/Constants',
     'Cerebrum.modules.cim.constants/ConstantsMixin',
-    'Cerebrum.modules.no.uio.printer_quota.PPQConstants/Constants',
-    'Cerebrum.modules.no.uio.printer_quota.bofhd_pq_Constants/Constants',
+    'Cerebrum.modules.disk_quota.constants/Constants',
+    'Cerebrum.modules.virtualgroup.Constants/OUGroupConstants',
+    'Cerebrum.modules.feide.Constants/Constants',
+    "Cerebrum.modules.no.uio.printer_quota.PPQConstants/Constants",
+    "Cerebrum.modules.no.uio.printer_quota.bofhd_pq_Constants/Constants",
     'Cerebrum.modules.no.uio.voip.Constants/VoipConstants',
     'Cerebrum.modules.no.uio.voip.Constants/VoipAuthConstants',
     'Cerebrum.modules.dns.DnsConstants/Constants',
-    'Cerebrum.modules.hostpolicy.HostPolicyConstants/Constants',
+    'Cerebrum.modules.EntityTraitConstants/Constants',
+    'Cerebrum.modules.hostpolicy.HostPolicyConstants/Constants'
 ]
 
 CLASS_CL_CONSTANTS = [
-    'Cerebrum.modules.dns.DnsConstants/CLConstants',
     'Cerebrum.modules.hostpolicy.HostPolicyConstants/CLConstants',
+    'Cerebrum.modules.disk_quota.constants/CLConstants',
+    'Cerebrum.modules.dns.DnsConstants/CLConstants',
+    'Cerebrum.modules.feide.Constants/CLConstants',
+    'Cerebrum.modules.consent.ConsentConstants/CLConstants',
+    'Cerebrum.modules.no.uio.EphorteConstants/CLConstants',
+    'Cerebrum.modules.EntityTraitConstants/CLConstants',
     'Cerebrum.modules.EmailConstants/CLConstants',
     'Cerebrum.modules.exchange.CLConstants/CLConstants',
-    'Cerebrum.modules.no.uio.DiskQuota/CLConstants',
     'Cerebrum.modules.ad2.CLConstants/CLConstants',
-    'Cerebrum.modules.EntityTraitConstants/CLConstants',
-    'Cerebrum.Constants/CLConstants', ]
+    'Cerebrum.Constants/CLConstants',
+]
+
 
 CLASS_ENTITY = ['Cerebrum.modules.EntityTrait/EntityTrait',]
 
@@ -93,7 +99,7 @@ CLASS_GROUP = (
 )
 
 CLASS_OU = ('Cerebrum.modules.no.Stedkode/Stedkode',)
-CLASS_DISK = ('Cerebrum.modules.no.uio.Disk/DiskUiOMixin',)
+CLASS_DISK = ('Cerebrum.modules.disk_quota.mixins/DiskQuotaMixin',)
 CLASS_PERSON = (
     'Cerebrum.modules.Email/PersonEmailMixin',
     'Cerebrum.modules.no.Person/PersonFnrMixin',

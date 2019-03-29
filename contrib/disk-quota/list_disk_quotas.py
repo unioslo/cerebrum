@@ -27,7 +27,7 @@ import mx
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
-from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
+from Cerebrum.modules.disk_quota import DiskQuota
 
 
 db = Factory.get('Database')()

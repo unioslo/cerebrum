@@ -44,7 +44,7 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uit import AutoStud
-from Cerebrum.modules.no.uit import DiskQuota
+from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uit import PrinterQuotas
 from Cerebrum.modules.templates.letters import TemplateHandler
 
@@ -67,7 +67,7 @@ posix_user_obj = Factory.get('PosixUser')(db)
 account_obj = Factory.get('Account')(db)
 person_obj = Factory.get('Person')(db)
 group_obj = Factory.get('Group')(db)
-disk_quota_obj = DiskQuota.DiskQuota(db)
+disk_quota_obj = DiskQuota(db)
 
 debug = 0
 max_errors = 50          # Max number of errors to accept in person-callback
