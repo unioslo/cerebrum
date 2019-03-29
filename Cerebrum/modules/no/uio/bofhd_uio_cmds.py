@@ -87,7 +87,7 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.help import Help, merge_help_strings
 from Cerebrum.modules.dns.Subnet import Subnet, SubnetError
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
+from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.bofhd_auth import (
     UioAuth,

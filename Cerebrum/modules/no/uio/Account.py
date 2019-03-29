@@ -27,7 +27,7 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.modules import EmailConstants
-from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
+from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Utils import pgp_encrypt, Factory
 
