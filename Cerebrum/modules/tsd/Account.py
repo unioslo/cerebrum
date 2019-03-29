@@ -37,10 +37,9 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import EntityTrait
-from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules import dns
-from Cerebrum.Utils import pgp_encrypt, Factory
+from Cerebrum.Utils import pgp_encrypt
 
 from Cerebrum.modules.tsd import TSDUtils
 

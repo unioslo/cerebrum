@@ -369,8 +369,8 @@ class MoveStudentProcessor(object):
                         disks.append((new_disk, d_spread))
                         if (self.autostud.disk_tool.using_disk_kvote and
                                 homedir_id is not None):
-                            from Cerebrum.modules.no.uio import DiskQuota
-                            disk_quota_obj = DiskQuota.DiskQuota(self.db)
+                            from Cerebrum.modules.disk_quota import DiskQuota
+                            disk_quota_obj = DiskQuota(self.db)
                             try:
                                 cur_quota = disk_quota_obj.get_quota(
                                     homedir_id)
