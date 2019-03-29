@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005 University of Oslo, Norway
+# Copyright 2005-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -58,18 +58,19 @@ def list_disk_quotas(f, disk_id, spread):
     account = Factory.get("Account")(db)
     disk = Factory.get("Disk")(db)
     disk.find(disk_id)
-    default_quota = disk.get_default_quota()
-    if default_quota is False:
+
+    if not disk.has_quota():
         logger.debug("Skipping %s, no quotas on disk" % disk.path)
         return
 
+    default_quota = disk.get_default_quota()
     logger.debug("Listing quotas on %s" % disk.path)
 
     if default_quota is None:
-        default_quota = '' # Unlimited
-        all_users=False
+        default_quota = ''  # Unlimited
+        all_users = False
     else:
-        all_users=True
+        all_users = True
 
     now = mx.DateTime.now()
     dq = DiskQuota(db)
@@ -80,8 +81,10 @@ def list_disk_quotas(f, disk_id, spread):
             quota = row['override_quota']
         if quota is None:
             quota = default_quota
-        home=account.resolve_homedir(account_name=row['entity_name'],
-                                     home=row['home'], disk_path=row['path'])
+        home = account.resolve_homedir(
+            account_name=row['entity_name'],
+            home=row['home'],
+            disk_path=row['path'])
         f.write("%s:%s:%s\n" % (row['entity_name'], home, quota))
 
 
