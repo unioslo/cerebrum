@@ -531,9 +531,15 @@ def update_account_affs(method):
         co = Factory.get('Constants')(database)
 
         account_types = ac.get_account_types()
-        if method.__name__ is 'del_account_type' and len(account_types) == 1:
-            logger.debug(u'Can not delete last account affiliation')
-            return
+        if method.__name__ is 'del_account_type':
+            if len(account_types) == 1:
+                logger.debug(u'Can not delete last account affiliation')
+                return
+            if not ac.list_accounts_by_type(ou_id=ou_id,
+                                            affiliation=affiliation,
+                                            account_id=ac.entity_id):
+                logger.debug(u'Account does not have affiliation %s at ou %s' %
+                             affiliation, ou_id)
         for account_type in account_types:
             if not int(co.affiliation_ansatt) == account_type['affiliation']:
                 logger.debug(u'Account has affiliation(s) besides %s' %
@@ -649,13 +655,13 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
             _sap_assignments_to_affiliation_map,
             source_system,
             u'remove'):
-        cerebrum_person.delete_affiliation(**affiliation)
-        logger.debug(u'Removing affiliation {} for id:{}'.format(
-            _stringify_for_log(affiliation), cerebrum_person.entity_id))
         del_account_type(database,
                          cerebrum_person,
                          affiliation['ou_id'],
                          affiliation['affiliation'])
+        cerebrum_person.delete_affiliation(**affiliation)
+        logger.debug(u'Removing affiliation {} for id:{}'.format(
+            _stringify_for_log(affiliation), cerebrum_person.entity_id))
 
     for affiliation in _find_affiliations(
             cerebrum_person,
@@ -664,6 +670,7 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
             source_system,
             u'add'):
         cerebrum_person.populate_affiliation(source_system, **affiliation)
+        cerebrum_person.write_db()
         logger.debug(u'Adding affiliation {} for id:{}'.format(
             _stringify_for_log(affiliation), cerebrum_person.entity_id))
         set_account_type(database,
