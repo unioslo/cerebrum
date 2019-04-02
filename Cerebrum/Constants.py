@@ -18,14 +18,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Access to Cerebrum code values.
+"""
+Access to Cerebrum code values.
 
 The Constants class defines a set of methods that should be used to
 get the actual database code/code_str representing a given Entity,
-Address, Gender etc. type."""
-
+Address, Gender etc. type.
+"""
 import copy
+import logging
 import threading
 import re
 
@@ -37,6 +38,8 @@ from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import context
+
+logger = logging.getLogger(__name__)
 
 
 def _uchlp(arg):
@@ -56,6 +59,7 @@ def _uchlp(arg):
 class CodeValuePresentError(RuntimeError):
     """Error raised when an already existing code value is inserted."""
     pass
+
 
 Database_class = Factory.get("DBDriver")  # Don't need changelog and stuff
 
@@ -138,7 +142,12 @@ class _CerebrumCode(DatabaseAccessor):
         with _CerebrumCode._db_proxy_lock:
             try:
                 _CerebrumCode._private_db_proxy.ping()
-            except:
+            except Exception:
+                if _CerebrumCode._private_db_proxy is None:
+                    logger.debug('No _CerebrumCode.sql, creating new')
+                else:
+                    logger.error('unable to use _CerebrumCode.sql, recreating',
+                                 exc_info=True)
                 _CerebrumCode._private_db_proxy = SynchronizedDatabase()
             return _CerebrumCode._private_db_proxy
 
@@ -148,7 +157,9 @@ class _CerebrumCode(DatabaseAccessor):
             try:
                 db.ping()
                 _CerebrumCode._private_db_proxy = db
-            except:
+            except Exception:
+                logger.error('unable to set _CerebrumCode.sql, recreating',
+                             exc_info=True)
                 _CerebrumCode._private_db_proxy = SynchronizedDatabase()
 
     _lookup_table = None                # Abstract class.
