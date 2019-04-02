@@ -539,7 +539,8 @@ def update_account_affs(method):
                                             affiliation=affiliation,
                                             account_id=ac.entity_id):
                 logger.debug(u'Account does not have affiliation %s at ou %s' %
-                             affiliation, ou_id)
+                             (affiliation, ou_id))
+                return
         for account_type in account_types:
             if not int(co.affiliation_ansatt) == account_type['affiliation']:
                 logger.debug(u'Account has affiliation(s) besides %s' %
