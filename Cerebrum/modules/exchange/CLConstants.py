@@ -68,25 +68,6 @@ class CLConstants(cereconst.CLConstants):
         'exchange', 'per_e_reserv',
         'address book visibility changed', ('visible = %(string:visible)s',))
 
-    # Distribution group create/deleted
-    dl_mbox_create = cereconst._ChangeTypeCode('exchange', 'dl_mbox_create',
-                                               'dist group mailbox added')
-    dl_mbox_delete = cereconst._ChangeTypeCode('exchange', 'dl_mbox_delete',
-                                               'dist group mailbox deleted')
-    # Dist group add/remove address
-    dl_addr_add = cereconst._ChangeTypeCode('exchange', 'dl_addr_add',
-                                            'dist group address added')
-    dl_addr_rem = cereconst._ChangeTypeCode('exchange', 'dl_addr_rem',
-                                            'dist group address deleted')
-    # Dist group set hidden
-    dl_hidden_set = cereconst._ChangeTypeCode('exchange', 'dl_hidden_set',
-                                              'dist group set HiddenAddr')
-    # Dist group set join/depart restrictions
-    dl_join_set = cereconst._ChangeTypeCode('exchange', 'dl_join_set',
-                                            'dist group set JoinRestr')
-    dl_depart_set = cereconst._ChangeTypeCode('exchange', 'dl_depart_set',
-                                              'dist group set DepartRestr')
-
     # register when a distribution group has been created or removed
     # should probably log and show more data about groups
     dl_group_create = cereconst._ChangeTypeCode(

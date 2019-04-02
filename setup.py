@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -222,6 +222,10 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/dns-info/*.py', 0755)]),
+    ({'path': "%s/cerebrum/contrib/disk-quota" % sharedir,
+      'owner': cerebrum_user,
+      'mode': 0755},
+     [('contrib/disk-quota/*.py', 0755)]),
     ({'path': "%s/cerebrum/contrib/hostpolicy" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
@@ -313,6 +317,7 @@ setup(
         'Cerebrum/modules/celery_tasks/apps',
         'Cerebrum/modules/consent',
         'Cerebrum/modules/cim',
+        'Cerebrum/modules/disk_quota',
         'Cerebrum/modules/dns',
         'Cerebrum/modules/event',
         'Cerebrum/modules/event/clients',
@@ -339,6 +344,7 @@ setup(
         'Cerebrum/modules/no/hiof',
         'Cerebrum/modules/no/nmh',
         'Cerebrum/modules/no/nih',
+        'Cerebrum/modules/no/uit',
         'Cerebrum/modules/password_notifier',
         'Cerebrum/modules/password_generator',
         'Cerebrum/modules/posix',

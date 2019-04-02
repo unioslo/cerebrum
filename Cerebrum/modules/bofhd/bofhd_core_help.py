@@ -656,7 +656,7 @@ arg_help = {
          'Enter a positive integer (1..999), lower integers give higher '
          'priority'],
     'string_np_type':
-        ['np_type', 'Enter np_type',
+        ['np_type', 'Enter non-personal account type',
          """Type of non-personal account.  Valid values include:
          'kursbruker'  - Course related
          'programvare' - Software packages

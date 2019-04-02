@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2003-2005 University of Oslo, Norway
+#
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,7 +27,7 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.modules import EmailConstants
-from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
+from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Utils import pgp_encrypt, Factory
 
@@ -556,6 +557,7 @@ class AccountUiOMixin(Account.Account):
         if kw.get('current_id') and kw.get('disk_id'):
             disk = Factory.get("Disk")(self._db)
             disk.find(kw['disk_id'])
+            has_quota = disk.has_quota()
             def_quota = disk.get_default_quota()
             dq = DiskQuota(self._db)
             try:
@@ -563,7 +565,7 @@ class AccountUiOMixin(Account.Account):
             except Errors.NotFoundError:
                 pass
             else:
-                if def_quota is False:
+                if not has_quota:
                     # No quota on new disk, so remove the quota information.
                     dq.clear(kw['current_id'])
                 elif def_quota is None:

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -87,7 +87,7 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.bofhd.help import Help, merge_help_strings
 from Cerebrum.modules.dns.Subnet import Subnet, SubnetError
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
+from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.bofhd_auth import (
     UioAuth,
@@ -2401,6 +2401,11 @@ class BofhdExtension(BofhdCommonMethods):
                     ("Assigned as primary group for posix user(s). "
                      "Use 'group list %s'") % grp.group_name)
             raise
+
+        if grp.is_user_group():
+            raise CerebrumError(
+                "Can't demote group because it is assigned as primary group "
+                "for posix user(s).")
 
         self.ba.can_force_delete_group(operator.get_entity_id(), grp)
         grp.demote_posix()
@@ -6131,11 +6136,12 @@ class BofhdExtension(BofhdCommonMethods):
         if tmp['disk_id'] and can_see_quota:
             disk = Utils.Factory.get("Disk")(self.db)
             disk.find(tmp['disk_id'])
+            has_quota = disk.has_quota()
             def_quota = disk.get_default_quota()
             try:
                 dq = DiskQuota(self.db)
                 dq_row = dq.get_quota(tmp['homedir_id'])
-                if not(dq_row['quota'] is None or def_quota is False):
+                if has_quota and dq_row['quota'] is not None:
                     ret['disk_quota'] = str(int(dq_row['quota']))
                 # Only display recent quotas
                 days_left = ((dq_row['override_expiration'] or
@@ -6399,6 +6405,7 @@ class BofhdExtension(BofhdCommonMethods):
             # Let's check the disk quota settings.  We only give a an
             # information message, the actual change happens when
             # set_homedir is done.
+            has_dest_quota = disk.has_quota()
             default_dest_quota = disk.get_default_quota()
             current_quota = None
             dq = DiskQuota(self.db)
@@ -6422,7 +6429,7 @@ class BofhdExtension(BofhdCommonMethods):
             if current_quota is None:
                 # this is OK
                 pass
-            elif default_dest_quota is False:
+            elif not has_dest_quota:
                 message += ("Destination disk has no quota, so the current "
                             "quota (%d) will be cleared.\n" % current_quota)
             elif current_quota <= default_dest_quota:

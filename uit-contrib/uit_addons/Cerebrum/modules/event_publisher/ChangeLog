@@ -1,0 +1,7 @@
+
+2019-01-10  Karen   <cerebrum@cleomedes.uit.no>
+
+    * event.py: Had to make our own version of Cerebrum.modules.event_publisher.event.py to fix a bug 
+    that was making import_OU.py crash with "TypeError: Invalid datetime <type 'str'> ('2019-01-08')".
+    Fixed this by converting the string to a datetime object.
+

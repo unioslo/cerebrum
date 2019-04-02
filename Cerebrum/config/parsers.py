@@ -217,7 +217,9 @@ try:
 
         @classmethod
         def loads(cls, data):
-            return yaml.load(data)
+            # TODO: Decide if we actually want to use the FullLoader with all
+            #  the functionality
+            return yaml.load(data, Loader=yaml.FullLoader)
 
         @classmethod
         def dumps(cls, data):

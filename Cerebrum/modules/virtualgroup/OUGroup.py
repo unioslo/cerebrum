@@ -1022,6 +1022,12 @@ class OUGroup(VirtualGroup):
                         yield entry
             return
 
+    def get_extensions(self):
+        exts = super(OUGroup, self).get_extensions()
+        if self.virtual_group_type == self.const.vg_ougroup:
+            return exts + ['OUGroup']
+        else:
+            return exts
 
 class PersonOuGroup(Person):
     """Update affiliation changes with group membership changes."""

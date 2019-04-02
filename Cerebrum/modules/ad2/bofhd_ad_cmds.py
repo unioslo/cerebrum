@@ -285,11 +285,18 @@ class BofhdExtension(BofhdCommandBase):
         """Remove an AD-attribute for a given entity."""
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Only for superusers, for now")
-        # TODO: check if operator has access to the entity
         ent = self._get_entity(entity_type, id)
         atr = _get_attr(self.const, attr_type)
         spr = _get_spread(self.const, spread)
-        ent.delete_ad_attribute(spread=spr, attribute=atr)
+        try:
+            ent.delete_ad_attribute(spread=spr, attribute=atr)
+        except Errors.NotFoundError:
+            raise CerebrumError(
+                '%s does not have AD-attribute %s with spread %s' %
+                (ent.entity_id,
+                 six.text_type(atr),
+                 six.text_type(spr))
+            )
         ent.write_db()
 
         return {

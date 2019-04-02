@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -46,7 +46,7 @@ class HiOfStudent(access_FS.Student):
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.adresseland_hjemsted,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           nvl(trim(leading '0' from
                    trim(leading '+' from p.telefonlandnr_mobil)), '47')
@@ -125,7 +125,7 @@ class HiOfStudent78(HiOfStudent, access_FS.Student78):
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.adresseland_hjemsted,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           pt.telefonlandnr telefonlandnr_mobil,
           '' telefonretnnr_mobil, pt.telefonnr telefonnr_mobil,

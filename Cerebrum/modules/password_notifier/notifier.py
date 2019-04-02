@@ -190,9 +190,6 @@ class PasswordNotifier(object):
             [int(x['account_id']) for x in ph.find_old_password_accounts((
                 self.today - dt.DateTimeDelta(
                     self.config.max_password_age)).strftime(DATE_FORMAT))])
-        logger.info('Fetching accounts with no password history')
-        old_ids.update(
-            set([int(x['account_id']) for x in ph.find_no_history_accounts()]))
         # Do we have special rules for certain person affiliations?
         # We want to end with the smallest 'max_password_age'
         aff_mappings = sorted(self.config.affiliation_mappings,

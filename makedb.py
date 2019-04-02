@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+#
 # Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -18,8 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-""" Management tool for Cerebrum's database.
+"""
+Management tool for Cerebrum's database.
 
 This script is the main tool for managing Cerebrum's postgres database. It
 supports creating and updating the required tables and Cerebrum constants. The
@@ -48,24 +48,22 @@ but have to be on their own lines.
 
 TODO: Describe the format of the SQL definitions, or add a reference to where
 that is located.
-
 """
 from __future__ import print_function
 
-
-import sys
-import re
-import traceback
 import getopt
 import os
+import re
+import sys
+import traceback
+
+import Cerebrum
+from Cerebrum import Metainfo
+from Cerebrum.Utils import Factory, dyn_import
 
 import cereconf
-from Cerebrum.Utils import Factory, dyn_import
-from Cerebrum import Metainfo
-import Cerebrum
 
 all_ok = True
-meta = None
 
 
 def usage(exitcode=0):
@@ -111,7 +109,6 @@ won't be included.
 
 
 def main():
-    global meta
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dc:h',
                                    ['debug', 'help', 'drop', 'update-codes',
@@ -142,7 +139,6 @@ def main():
     from Cerebrum.Constants import _CerebrumCode
     _CerebrumCode.sql.fset(None, db)
 
-    meta = Metainfo.Metainfo(db)
     for opt, val in opts:
         if opt in ('-h', '--help'):
             usage()
@@ -212,7 +208,7 @@ def main():
     if do_bootstrap:
         # When bootstrapping, make sure the versions match
         check_schema_versions(db, strict=True)
-        makeInitialUsers(db)
+        make_inital_users(db)
         db.commit()
     else:
         check_schema_versions(db)
@@ -285,7 +281,7 @@ def clean_codes_from_change_log(db):
     print('Done.')
 
 
-def makeInitialUsers(db):
+def make_inital_users(db):
     print("Creating initial entities.")
     from Cerebrum import Constants
     from Cerebrum import Group
@@ -341,6 +337,7 @@ def check_schema_versions(db, strict=False):
     modules = {
         'ad': 'Cerebrum.modules.ADObject',
         'changelog': 'Cerebrum.modules.ChangeLog',
+        'disk_quota': 'Cerebrum.modules.disk_quota',
         'dns': 'Cerebrum.modules.dns',
         'email': 'Cerebrum.modules.Email',
         'entity_trait': 'Cerebrum.modules.EntityTrait',
@@ -381,8 +378,8 @@ def check_schema_versions(db, strict=False):
                 module = dyn_import(modules[name])
                 version = module.__version__
             except Exception as e:
-                print("ERROR: can't find version of module %s: %s" % (
-                    name, e))
+                print("ERROR: can't find version of module %s: %s" %
+                      (name, e))
                 continue
             if not version == value:
                 print("WARNING: module %s version %s does"
@@ -391,8 +388,8 @@ def check_schema_versions(db, strict=False):
                 if strict:
                     exit(1)
         else:
-            print("ERROR: unknown metainfo %s: %s" % (
-                name, value))
+            print("ERROR: unknown metainfo %s: %s" %
+                  (name, value))
             if strict:
                 exit(1)
 
@@ -582,7 +579,7 @@ def runfile(fname, db, debug, phase):
                     print("\n  ERROR: [%s]" % stmt)
                     print(e)
                     if debug:
-                        print("  Database error: ")
+                        print("  Database error: ", end="")
                         if debug >= 2:
                             # Re-raise error, causing us to (at least)
                             # break out of this for loop.
@@ -608,6 +605,7 @@ def runfile(fname, db, debug, phase):
                 sys.stdout.flush()
                 db.commit()
     if phase == 'main' or phase == 'metainfo':
+        meta = Metainfo.Metainfo(db)
         if metainfo['name'] == 'core':
             name = Metainfo.SCHEMA_VERSION_KEY
             version = tuple([int(i) for i in metainfo['version'].split('.')])
@@ -618,9 +616,10 @@ def runfile(fname, db, debug, phase):
         db.commit()
     if state != NO_CATEGORY:
         raise ValueError(
-            "Found more category specs than statements in file %s." % fname)
+            'Found more category specs than statements in file {}'
+            ''.format(repr(fname)))
     if output_col is not None:
-        print()
+        print("")
 
 
 if __name__ == '__main__':

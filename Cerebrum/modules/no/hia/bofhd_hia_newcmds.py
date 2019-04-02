@@ -287,16 +287,15 @@ class BofhdExtension(BofhdCommonMethods):
         bar = BofhdAuthRole(self.db)
         is_moderator = False
         for auth in bar.list(op_target_id=targets[0]['op_target_id']):
-            if (auth['entity_id'] == account.entity_id
-                    and auth['op_set_id'] == op_set.op_set_id):
+            if (auth['entity_id'] == account.entity_id and
+                    auth['op_set_id'] == op_set.op_set_id):
                 is_moderator = True
         if not is_moderator:
             return
 
         mapping = {int(self.const.spread_nis_user):
                    int(self.const.spread_nis_fg),
-                   int(self.const.spread_ans_nis_user):
-                   int(self.const.spread_ans_nis_fg)}
+                   }
         wanted = []
         for r in account.get_spread():
             spread = int(r['spread'])
@@ -828,8 +827,8 @@ class BofhdExtension(BofhdCommonMethods):
         except CerebrumError:
             account = self._get_account(accountname)
         self.ba.can_view_user(operator.get_entity_id(), account)
-        if (account.is_deleted()
-                and not self.ba.is_superuser(operator.get_entity_id())):
+        if (account.is_deleted() and
+                not self.ba.is_superuser(operator.get_entity_id())):
             raise CerebrumError("User is deleted")
         affiliations = []
         for row in account.get_account_types(filter_expired=False):
@@ -911,11 +910,10 @@ class BofhdExtension(BofhdCommonMethods):
         now = DateTime.now()
         for q in account.get_entity_quarantine():
             if q['start_date'] <= now:
-                if (q['end_date'] is not None
-                        and q['end_date'] < now):
+                if q['end_date'] is not None and q['end_date'] < now:
                     quarantined = 'expired'
-                elif (q['disable_until'] is not None
-                        and q['disable_until'] > now):
+                elif (q['disable_until'] is not None and
+                      q['disable_until'] > now):
                     quarantined = 'disabled'
                 else:
                     quarantined = 'active'
@@ -1257,9 +1255,9 @@ class BofhdExtension(BofhdCommonMethods):
         acc = Factory.get('Account')(self.db)
         acc.clear()
         acc.find(acc_id)
-        if (acc.is_employee() or acc.is_affiliate()
-                or self._person_is_employee_or_affiliate(acc.owner_id,
-                                                         operator)):
+        if (acc.is_employee() or acc.is_affiliate() or
+                self._person_is_employee_or_affiliate(acc.owner_id,
+                                                      operator)):
             if not acc.has_spread(self.const.spread_ans_radius_user):
                 acc.add_spread(self.const.spread_ans_radius_user)
                 acc.write_db()

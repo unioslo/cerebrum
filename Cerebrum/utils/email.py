@@ -50,6 +50,7 @@ from __future__ import absolute_import
 import copy
 import logging
 import smtplib
+import re
 from email.header import Header
 from email.mime.text import MIMEText
 from email.utils import formatdate, getaddresses
@@ -68,6 +69,37 @@ def _is_disabled(disable_flag):
                     global_disable)
         return True
     return False
+
+
+def is_email(address):
+    """Return whether an email address follows the legal syntax or not
+
+    An email address is compromised of a local and domain part, seperated by @
+
+    Local name consists of letters, numbers and some special characters
+    Can have dot . as well, but not first, last or consecutively
+
+    Domain name consists of labels seperated by the dot character .
+    Labels are made of letters, numbers and the hyphen symbol,
+    labels can not start or end with a hyphen.
+
+    NOTE: does not allow utf8 symbols even though the official standard does
+
+    Keyword arguments:
+    address -- string to be checked
+
+    Returns:
+    boolean -- is address a legal email address
+    """
+    letnums = "a-zA-Z0-9"
+    special = "!#$%&'*+-/=?^_`{|}~"
+
+    local = r'[' + letnums + special + r'](\.?[' + letnums + special + ']+)*'
+    label = r'[' + letnums + '][' + letnums + '-]*[' + letnums + r']'
+    domain = '(' + label + r'\.)+' + label
+    regex = local + '@' + domain
+
+    return bool(re.match(regex+'$', address))
 
 
 def get_charset(message, default='ascii'):

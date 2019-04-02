@@ -334,7 +334,7 @@ class FsImporter(object):
         # until written to the database.
         try:
             op = person.write_db()
-        except Exception, e:
+        except Exception as e:
             logger.exception("write_db failed for person %s: %s", fnr, e)
             # Roll back in case of db exceptions:
             self.db.rollback()
@@ -518,6 +518,8 @@ class FsImporter(object):
     def _add_reservations(self, person_info, new_person):
         should_add = False
         if self.reservation_query:
+            # For use when the institution only wants to check publishing
+            # rights for specific groups of users
             # Method currently used by uia, nih and hiof
             for dta_type in person_info.keys():
                 p = person_info[dta_type][0]
@@ -526,12 +528,22 @@ class FsImporter(object):
                 # We only fetch the column in these queries
                 if dta_type not in self.reservation_query:
                     continue
-                # If 'status_reserv_nettpubl' == "N": add to group
-                if p.get('status_reserv_nettpubl', "") == "N":
-                    should_add = True
-                else:
-                    should_add = False
+                # This method used to check if 'status_reserv_nettpubl' == "N"
+                # to add to group. That field in the fs database is outdated
+                # and the right one to use is the table fs.personakseptanse
+                # with the fields 'akseptansetypekode'=="NETTPUBL" and
+                # 'status_svar' ==  "J".
+                if 'nettpubl' in person_info:
+                    for row in person_info['nettpubl']:
+                        if (
+                                row.get('akseptansetypekode',
+                                        "") == "NETTPUBL" and
+                                row.get('status_svar', "") == "J"
+                        ):
+                            should_add = True
         else:
+            # For use where we want to check every user and then publish anyone
+            # who has said yes to being published
             # Method currently used by uio and nmh. Looks at 'nettpubl'
             # instead of 'status_reserv_nettpubl'.
             if 'nettpubl' in person_info:
