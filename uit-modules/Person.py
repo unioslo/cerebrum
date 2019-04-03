@@ -68,21 +68,6 @@ class UiTPersonMixin(Person.Person):
       return ret
 
 
-
-
-  def get_primary_account(self,filter_expired=True):
-    """Returns the account_id of SELF.entity_id's primary account"""
-    acc = Utils.Factory.get("Account")(self._db)
-    # get_account_types returns its results sorted
-    accounts = acc.get_account_types(all_persons_types=True,
-                                     owner_id=self.entity_id,
-                                     filter_expired=filter_expired)
-    if accounts:
-      return accounts[0]["account_id"]
-    else:
-      return None
-
-
   def _compare_names(self, type, other):
         """Returns True if names are equal.
 
