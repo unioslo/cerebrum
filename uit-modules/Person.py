@@ -25,6 +25,7 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum import Utils
+from Cerebrum.Utils import argument_to_sql
 from Cerebrum import Person
 from Cerebrum import Errors
 
@@ -87,22 +88,24 @@ class UiTPersonMixin(Person.Person):
 #            return unicode(tmp, 'iso8859-1') == myname
         return tmp == myname
 
-  def list_persons_name(self, source_system=None, name_type=None):
-        type_str = ""
-        if name_type == None:
-            type_str = "= %d" % int(self.const.name_full)
-        elif isinstance(name_type, (list, tuple)):
-            type_str = "IN ("
-            type_str += ", ".join(["%d" % x for x in name_type])
-            type_str += ")"
-        else:
-            type_str = "= %d" % int(name_type)
-        if source_system:
-            type_str += " AND source_system = %d" % int(source_system)
+  def list_names(self, source_system=None, variant=None):
+    """Return all names, optionally filtered on source_system or variant"""
+    binds = dict()
+    where = ''
 
-        return self.query("""
-        SELECT DISTINCT person_id, name_variant, name, source_system
-        FROM [:table schema=cerebrum name=person_name]
-        WHERE name_variant %s""" % type_str)
+    if source_system is not None:
+      where += 'WHERE ' + argument_to_sql(source_system, 'source_system',
+                                          binds, int)
+      if variant is not None:
+        where += ' AND ' + argument_to_sql(variant, 'name_variant',
+                                           binds, int)
+    elif variant is not None:
+      where += 'WHERE ' + argument_to_sql(variant, 'name_variant',
+                                          binds, int)
+
+    return self.query("""
+    SELECT *
+    FROM [:table schema=cerebrum name=person_name]
+    """ + where, binds)
 
 # arch-tag: 07747944-da97-11da-854b-ac67a6778cc2
