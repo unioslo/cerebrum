@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,45 +31,26 @@ import sys
 from Cerebrum.utils import transliterate
 import cereconf
 from Cerebrum import Errors
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit.access_SYSX import SYSX
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.utils import email
 from Cerebrum.Utils import Factory
-from Cerebrum import Entity
+from Cerebrum.Entity import EntityName
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
-from Cerebrum.modules.no.Stedkode import Stedkode
-
-progname = __file__.split(os.sep)[-1]
-__doc__ = """
-    usage:: %s [-d|--dryrun]
-    --dryrun : do no commit changes to database
-    --logger-name name: name of logger to use
-    --logger-level level: loglevel to use
-""" % progname
-
-accounts = persons = None
-sysx = None
-skipped = added = updated = unchanged = deletedaff = 0
-TODAY = mx.DateTime.today().strftime("%Y-%m-%d")
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_systemx')
 co = Factory.get('Constants')(db)
-# Used for touching spreads
-s_acc = Factory.get('Account')(db)
+
 logger = Factory.get_logger("cronjob")
 
 # Used for getting OU names
-# sko = Factory.get('Stedkode')(db)
-sko = Stedkode(db)
+sko = Factory.get('Stedkode')(db)
 sys_x_affs = {}
 
 
 def get_existing_accounts():
     ou = Factory.get('OU')(db)
-    # sko = Factory.get('Stedkode')(db)
-    sko = Stedkode(db)
 
     stedkoder = sko.get_stedkoder()
     ou_stedkode_mapping = {}
@@ -145,7 +126,6 @@ def get_existing_accounts():
     #
     # hente alle kontoer for en person
     #
-    sorted_account = []
     for row in account_obj.list(filter_expired=False, fetchall=False):
         sysx_id = pid2sysxid.get(int(row['owner_id']), None)
 
@@ -180,7 +160,7 @@ def get_existing_accounts():
                                                     row['expire_date'])
 
     # Posixusers
-    posix_user_obj = PosixUser.PosixUser(db)
+    posix_user_obj = Factory.get('PosixUser')(db)
     for row in posix_user_obj.list_posix_users():
         tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None:
@@ -343,30 +323,9 @@ def send_mail(type, person_info, account_id):
     ac.write_db()
 
 
-def _populate_account_affiliations(account_id, sysx_id):
-    """Assert that the account has the same sysX affiliations as the person.
-    """
-
-    changes = []
-    account_affs = accounts[account_id].get_affiliations()
-
-    logger.debug("-->Person SysXID=%s has affs=%s",
-                 sysx_id,
-                 persons[sysx_id].get_affiliations())
-    logger.debug(
-        "-->Account_id=%s,SysXID=%s has account affs=%s" % (account_id,
-                                                            sysx_id,
-                                                            account_affs))
-    for aff, ou, status in persons[sysx_id].get_affiliations():
-        if not (aff, ou) in account_affs:
-            changes.append(('set_ac_type', (ou, aff)))
-    #  TODO: Fix removal of account affs
-    return changes
-
-
 def _promote_posix(acc_obj):
     group = Factory.get('Group')(db)
-    pu = PosixUser.PosixUser(db)
+    pu = Factory.get('PosixUser')(db)
     uid = pu.get_free_uid()
     shell = co.posix_shell_bash
     grp_name = "posixgroup"
@@ -385,7 +344,7 @@ def _promote_posix(acc_obj):
 
 
 def get_creator_id():
-    entity_name = Entity.EntityName(db)
+    entity_name = EntityName(db)
     entity_name.find_by_name(cereconf.INITIAL_ACCOUNTNAME,
                              co.account_namespace)
     id = entity_name.entity_id
@@ -395,6 +354,7 @@ def get_creator_id():
 # get_creator_id=simple_memoize(get_creator_id)
 
 def _handle_changes(a_id, changes):
+    TODAY = mx.DateTime.today().strftime("%Y-%m-%d")
     do_promote_posix = False
     ac = Factory.get('Account')(db)
     ac.find(a_id)
@@ -486,7 +446,7 @@ def _update_email(acc_id, bruker_epost):
 
 class Build(object):
 
-    def __init__(self):
+    def __init__(self, sysx, persons, accounts):
         # init variables
         ac = Factory.get('Account')(db)
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
@@ -495,6 +455,9 @@ class Build(object):
         gr.find_by_name("posixgroup", domain=co.group_namespace)
         self.posix_group = gr.entity_id
         self.num_expired = 0
+        self.sysx = sysx
+        self.persons = persons
+        self.accounts = accounts
 
     # RMI000 2009-05-07
     # convert_entity and unquote_html should be utility functions.
@@ -522,7 +485,7 @@ class Build(object):
         return re.sub(r'&(#?)(.+?);', self.convert_entity, string)
 
     def process_all(self):
-        for item in sysx.sysxids.items():
+        for item in self.sysx.sysxids.items():
             logger.debug("-----------------------------")
             sysx_id, sysx_person = item
             self._process_sysx(int(sysx_id), sysx_person)
@@ -544,7 +507,7 @@ class Build(object):
         else:
             person_id = p_obj.entity_id
 
-        if not persons[sysx_id].get_affiliations():
+        if not self.persons[sysx_id].get_affiliations():
             logger.error("Person (sysx_id=%s) has no sysX affs" % sysx_id)
             return None
 
@@ -569,7 +532,7 @@ class Build(object):
         except IndexError:
             fnr = sysx_id
 
-        account = PosixUser.PosixUser(db)
+        account = Factory.get('PosixUser')(db)
         fnr = str(fnr)
         uname = account.suggest_unames(fnr, first_name, last_name)[0]
         account.populate(name=uname,
@@ -594,14 +557,15 @@ class Build(object):
         acc_obj = ExistingAccount(sysx_id, today)
         # register new account as posix
         acc_obj.set_posix(int(account.posix_uid))
-        accounts[account.entity_id] = acc_obj
+        self.accounts[account.entity_id] = acc_obj
         return account.entity_id
 
     def _process_sysx(self, sysx_id, person_info):
+        spread_acc = Factory.get('Account')(db)
         new_account = False
         user_mail_message = False
         logger.info("Starting process of sysXid=%s", sysx_id)
-        p_obj = persons.get(sysx_id, None)
+        p_obj = self.persons.get(sysx_id, None)
         if not p_obj:
             logger.error("ERROR Nonexistent sysx_id %s. Skipping", sysx_id)
             return None
@@ -620,12 +584,12 @@ class Build(object):
             user_mail_message = True
         else:
             acc_id = p_obj.get_account()
-            s_acc.clear()
-            s_acc.find(acc_id)
-            is_expired = s_acc.is_expired()
+            spread_acc.clear()
+            spread_acc.find(acc_id)
+            is_expired = spread_acc.is_expired()
 
         if acc_id is not None:
-            acc_obj = accounts[acc_id]
+            acc_obj = self.accounts[acc_id]
         else:
             # unable to find account object. return None
             return None
@@ -665,7 +629,7 @@ class Build(object):
             changes.append(('expire_date', "%s" % new_expire))
 
         # check account affiliation and status
-        changes.extend(_populate_account_affiliations(acc_id, sysx_id))
+        changes.extend(self._populate_account_affiliations(acc_id, sysx_id))
 
         # check gecos?
 
@@ -702,7 +666,7 @@ class Build(object):
             aff_status = person_info['affiliation_status']
             logger.debug("sysx id:%s has affs:'%s'" % (sysx_id, aff_status))
             aff_str = str(co.affiliation_manuell_gjest_u_konto).split("/")
-            if (aff_status == aff_str[1]):
+            if aff_status == aff_str[1]:
                 no_account = True
         except:
             logger.debug("sysx id:%s has no affs" % (sysx_id))
@@ -748,8 +712,8 @@ class Build(object):
         # Use new_expire in order to guarantee that SystemX specific spreads
         # get SystemX specific expiry_dates
         for ss in sysX_spreads:
-            s_acc.set_spread_expire(spread=ss, expire_date=new_expire,
-                                    entity_id=acc_id)
+            spread_acc.set_spread_expire(spread=ss, expire_date=new_expire,
+                                         entity_id=acc_id)
 
         cb_spreads = Set(acc_obj.get_spreads())
         to_add = sysX_spreads - cb_spreads
@@ -815,10 +779,32 @@ class Build(object):
     def check_expired_sourcedata(self, expire_date):
         expire = mx.DateTime.DateFrom(expire_date)
         today = mx.DateTime.today()
-        if (expire < today):
+        if expire < today:
             return True
         else:
             return False
+
+    def _populate_account_affiliations(self, account_id, sysx_id):
+        """
+        Assert that the account has the same sysX affiliations as the person.
+
+        """
+
+        changes = []
+        account_affs = self.accounts[account_id].get_affiliations()
+
+        logger.debug("-->Person SysXID=%s has affs=%s",
+                     sysx_id,
+                     self.persons[sysx_id].get_affiliations())
+        logger.debug(
+            "-->Account_id=%s,SysXID=%s has account affs=%s" % (account_id,
+                                                                sysx_id,
+                                                                account_affs))
+        for aff, ou, status in self.persons[sysx_id].get_affiliations():
+            if not (aff, ou) in account_affs:
+                changes.append(('set_ac_type', (ou, aff)))
+        #  TODO: Fix removal of account affs
+        return changes
 
 
 class ExistingAccount(object):
@@ -928,28 +914,25 @@ class ExistingPerson(object):
 
 
 def main():
-    global sysx
-    global accounts, persons, dryrun
+    skipped = added = updated = unchanged = deletedaff = 0
 
     dryrun = False
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'd', ['dryrun'])
-    except getopt.GetoptError, m:
-        print "Unknown option: %s" % (m)
+    except getopt.GetoptError as m:
+        print("Unknown option: {}".format(m))
         usage()
 
-    ret = 0
-    update = 0
     for opt, val in opts:
-        if opt in ('--dryrun'):
+        if opt in ('--dryrun',):
             dryrun = True
 
     sysx = SYSX()
     sysx.list()
     persons, accounts = get_existing_accounts()
 
-    build = Build()
+    build = Build(sysx, persons, accounts)
     build.process_all()
 
     if dryrun:
@@ -961,7 +944,13 @@ def main():
 
 
 def usage():
-    print __doc__
+    progname = __file__.split(os.sep)[-1]
+    print("""
+    usage:: %s [-d|--dryrun]
+    --dryrun : do no commit changes to database
+    --logger-name name: name of logger to use
+    --logger-level level: loglevel to use
+    """ % progname)
     sys.exit(1)
 
 

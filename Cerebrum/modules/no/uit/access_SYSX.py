@@ -1,5 +1,5 @@
 # -*- coding: utf-8-*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002, 2003, 2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,18 +22,18 @@ Uit specific extension for Cerebrum. Read data from SystemX
 from __future__ import unicode_literals
 
 import io
+import logging
 import os
 import sys
 import getopt
 import mx.DateTime
 
 import cereconf
-from Cerebrum.Utils import Factory
 
-db = Factory.get('Database')()
+logger = logging.getLogger(__name__)
 
 
-class SYSX:
+class SYSX(object):
     _default_datafile = os.path.join(cereconf.DUMPDIR, 'system_x',
                                      'guest_data')
     _guest_host = cereconf.GUEST_HOST
@@ -47,7 +47,6 @@ class SYSX:
     SPLIT_CHAR = ':'
 
     def __init__(self, data_file=None, update=False):
-
         if data_file:
             self.sysx_data = data_file
         else:
@@ -88,29 +87,18 @@ class SYSX:
     def _prepare_data(self, data_list):
         data_list = data_list.rstrip()
         try:
-            id, fodsels_dato, personnr, gender, fornavn, etternavn, ou, \
-                affiliation, affiliation_status, expire_date, spreads,\
-                hjemmel, kontaktinfo, ansvarlig_epost, bruker_epost, \
-                national_id, approved = data_list.split(self.SPLIT_CHAR)
+            (id, fodsels_dato, personnr, gender, fornavn, etternavn, ou,
+             affiliation, affiliation_status, expire_date, spreads,
+             hjemmel, kontaktinfo, ansvarlig_epost, bruker_epost,
+             national_id, approved) = data_list.split(self.SPLIT_CHAR)
         except ValueError as m:
-            self.logger.error("data_list:%s##%s", data_list, m)
+            logger.error("data_list:%s##%s", data_list, m)
             sys.exit(1)
         else:
 
             def fixname(name):
                 # Cerebrum populate expects iso-8859-1.
                 return name.strip()
-
-            ##########################
-            # collect right stedkode #
-            ##########################
-            # lets check if the ou referenced as affiliation exists in cerebrum
-            query = "select new_ou_id from ou_history where old_ou_id='%s'" % (
-                ou)
-            new_ou = db.query(query)
-            if len(new_ou) != 0:
-                # print ou,"-->",new_ou[0][0]
-                ou = "%s" % new_ou[0][0]
 
             # Fix for people placed on top OU
             if ou == '0':

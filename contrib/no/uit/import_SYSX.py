@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,6 +26,7 @@ import getopt
 import sys
 import os
 import mx.DateTime
+import logging
 
 import cereconf
 from Cerebrum import Errors
@@ -47,7 +48,6 @@ __doc__ = """
 
 SPLIT_CHAR = ':'
 logger_name = cereconf.DEFAULT_LOGGER_TARGET
-logger = sysx = old_aff = None
 include_delete = True
 skipped = added = updated = unchanged = deletedaff = 0
 
@@ -55,6 +55,8 @@ db = Factory.get('Database')()
 db.cl_init(change_program='import_SYSX')
 person = Factory.get('Person')(db)
 co = Factory.get('Constants')(db)
+
+logger = logging.getLogger(__name__)
 
 
 def _load_cere_aff():
@@ -113,7 +115,7 @@ def check_expired_sourcedata(expire_date):
 # sxp =  dict from access_SYSX.prepare_data funtion
 def create_sysx_person(sxp):
     global skipped, added, updated, unchanged, include_delete, old_aff
-    add_nobirthno = add_sysx_id = fnr_found = False
+    add_sysx_id = fnr_found = False
 
     id = sxp['id']
     personnr = sxp['personnr']
@@ -138,7 +140,6 @@ def create_sysx_person(sxp):
         return
 
     my_stedkode = Factory.get('OU')(db)
-    my_stedkode.clear()
     pers_sysx = Factory.get('Person')(db)
     pers_fnr = Factory.get('Person')(db)
 
@@ -162,7 +163,7 @@ def create_sysx_person(sxp):
         try:
             pers_fnr.find_by_external_id(co.externalid_fodselsnr, fnr)
         except Errors.NotFoundError:
-            add_nobirthno = True
+            pass
         except Errors.TooManyRowsError:
             # This persons fnr has multiple rows in entity_external_id table
             # This is an error, person should not have not more than one entry.
@@ -302,9 +303,6 @@ def create_sysx_person(sxp):
 
 
 def main():
-    global sysx, logger
-    logger = Factory.get_logger(logger_name)
-
     dryrun = False
 
     try:
@@ -314,7 +312,6 @@ def main():
         print("Unknown option: {}".format(m))
         usage()
 
-    ret = 0
     source_file = None
     update = 0
     for opt, val in opts:
