@@ -195,8 +195,6 @@ def get_constant(db, parser, const_types, value, argument=None):
         if const_value is None:
             raise ValueError(
                 "invalid constant value: %r" % (value, ))
-    # Assert same database connection is used
-    const_value.sql = db
     return const_value
 
 
