@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2003, 2004 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -105,34 +105,4 @@ class UiTPersonMixin(Person.Person):
         FROM [:table schema=cerebrum name=person_name]
         WHERE name_variant %s""" % type_str)
 
-  def set_affiliation_last_date(self, source, ou_id, affiliation, status):
-        binds = {'ou_id': int(ou_id),
-                 'affiliation': int(affiliation),
-                 'source': int(source),
-                 'status': int(status),
-                 'p_id': self.entity_id,
-                 }
-        try:
-            self.query_1("""
-            SELECT 'yes' AS yes
-            FROM [:table schema=cerebrum name=person_affiliation_source]
-            WHERE
-              person_id=:p_id AND
-              ou_id=:ou_id AND
-              affiliation=:affiliation AND
-              source_system=:source""", binds)
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=person_affiliation_source]
-            SET last_date=[:now]
-            WHERE
-              person_id=:p_id AND
-              ou_id=:ou_id AND
-              affiliation=:affiliation AND
-              source_system=:source""", binds)
-            #self._db.log_change(self.entity_id,
-            #                    self.const.person_aff_src_mod, None)
-        
-        except Errors.NotFoundError:
-            raise Errors.ProgrammingError, "set_affiliation_last_date() failed. Called before person.populate_affiliations()?"
-         
 # arch-tag: 07747944-da97-11da-854b-ac67a6778cc2

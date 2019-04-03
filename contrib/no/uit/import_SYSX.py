@@ -272,18 +272,6 @@ def create_sysx_person(sxp):
             logger.debug("Don't delete affiliation: %s", key_a)
             old_aff[key_a] = False
     op2 = person.write_db()
-    # Update last-seen date
-    try:
-        person.set_affiliation_last_date(co.system_x,
-                                         ou_id,
-                                         affiliation,
-                                         affiliation_status
-                                         )
-    except AttributeError as m:
-        logger.warn("WHOOOO. AttributeErrror: %s" % m)
-        # in case this is a new person object...
-    except Errors.ProgrammingError as m:
-        logger.warn("WHOOOO. Programming errror: %s" % m)
 
     logger.debug("OP codes: op=%s,op2=%s" % (op, op2))
 

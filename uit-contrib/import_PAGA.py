@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-#from __future__ import unicode_literals
+
 from __future__ import unicode_literals
 
 progname = __file__.split("/")[-1]
@@ -525,14 +525,6 @@ def process_person(person):
         new_person.populate_address(const.system_paga,const.address_post_private,address_text,p_o_box,postal_number, city, country)
 
     op2 = new_person.write_db()
-
-    # UIT: Update last_date field
-    # must be done after write_db() to ensure that affiliation table entry exist
-    # in database
-    for k,v in affiliations.items():
-        ou_id, aff, aff_stat = v
-        new_person.set_affiliation_last_date(const.system_paga, ou_id,\
-                                         int(aff), int(aff_stat))
 
     set_person_spreads(person, new_person)
 
