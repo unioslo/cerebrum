@@ -107,7 +107,7 @@ class PosixLDIF(object):
         self.posuser = Factory.get('PosixUser')(self.db)
         self.load_disk_tab()
 
-        self.shell_tab = self.user_exporter.shell_code2str()
+        self.shell_tab = self.user_exporter.shell_codes()
         self.quarantines = self.user_exporter.make_quarantine_cache(
             self.spread_d['user']
         )

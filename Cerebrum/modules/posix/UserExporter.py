@@ -61,12 +61,14 @@ class UserExporter(object):
         return quarantine_cache
 
     @clock_time
-    def shell_code2str(self):
-        shells = dict(
-            (int(c), six.text_type(c)) for c in
-            self.co.fetch_constants(self.co.PosixShell)
-        )
-        return shells
+    def shell_codes(self):
+        def _iter_shell_map():
+            for c in self.co.fetch_constants(self.co.PosixShell):
+                if not c.description:
+                    logger.warn('No path for shell %s', repr(c))
+                    continue
+                yield int(c), six.text_type(c.description)
+        return dict(_iter_shell_map())
 
     @clock_time
     def make_posix_gid_cache(self):
