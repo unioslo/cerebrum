@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -75,7 +75,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         # Remove person from person_name, person_affiliation,
         # person_affiliation_source, person_info. Super will remove
         # the entity from the mix-in classes
-        for r in self.get_all_names():
+        for r in self.get_names():
             self._delete_name(r['source_system'], r['name_variant'])
         for r in self.get_affiliations(include_deleted=True):
             self.nuke_affiliation(r['ou_id'], r['affiliation'],
@@ -507,15 +507,23 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                              'n_variant': int(variant),
                              'src': int(source_system)})
 
-    def get_all_names(self):
-        # TBD: It may be a misdesign that we have this method.  Could
-        # change get_name's args into optional keyword args to this
-        # method for the same effect (like get_external_id).
+    def get_names(self, source_system=None, variant=None):
+        """Return all names connected to this person,
+        optionally filtered on source_system or variant.
+        """
+        binds = dict()
+        where = 'WHERE person_id = %d' % self.entity_id
+        if source_system is not None:
+            where += ' AND ' + argument_to_sql(source_system, 'source_system',
+                                               binds, int)
+        if variant is not None:
+            where += ' AND ' + argument_to_sql(variant, 'name_variant',
+                                               binds, int)
+
         return self.query("""
         SELECT *
         FROM [:table schema=cerebrum name=person_name]
-        WHERE person_id=:p_id""",
-                          {'p_id': self.entity_id})
+        """ + where, binds)
 
     def affect_names(self, source, *variants):
         self._pn_affect_source = source

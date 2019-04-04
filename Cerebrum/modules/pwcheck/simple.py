@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2017 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -564,7 +564,7 @@ class CheckOwnerNameMixin(PasswordChecker):
 
         password = password.lower()
 
-        for row in person.get_all_names():
+        for row in person.get_names():
             for name in row["name"].split():
                 if (
                         self.min_length and len(filter(
@@ -610,7 +610,7 @@ class CheckOwnerNameMixin(PasswordChecker):
         # Which name to use? Let's grab the first full name we find
         # TODO: Why not check _ALL_ the names? What if there are multiple
         # `name_full' names, but they are different between source systems?
-        for row in person.get_all_names():
+        for row in person.get_names():
             if row["name_variant"] == const.name_full:
                 name = row["name"]
                 break

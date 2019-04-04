@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1162,7 +1162,7 @@ class BofhdExtension(BofhdCommonMethods):
             # make boolean
             result['deceased'] = entity.deceased_date
             names = []
-            for name in entity.get_all_names():
+            for name in entity.get_names():
                 source_system = text_type(
                     co.AuthoritativeSystem(name.source_system))
                 name_variant = text_type(co.PersonName(name.name_variant))

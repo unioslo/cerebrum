@@ -394,7 +394,7 @@ def populate_address(person, fields):
     postal_number = fields.sap_zip
     if postal_number is not None and len(postal_number) > 32:
         logger.warn("Cannot register zip code for %s (%s): len(%s) > 32",
-                    person.entity_id, person.get_all_names(),
+                    person.entity_id, person.get_names(),
                     postal_number)
         postal_number = None
 

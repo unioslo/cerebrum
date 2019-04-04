@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2017 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -228,7 +228,7 @@ class UioEmailAuth(UioAuth, BofhdEmailAuth):
         if person.entity_id != account.owner_id:
             raise PermissionDenied('Cannot modify name for other persons')
 
-        all_names = person.get_all_names()
+        all_names = person.get_names()
 
         # Last name must match one of the registered last names
         last_names = [x['name'] for x in all_names
