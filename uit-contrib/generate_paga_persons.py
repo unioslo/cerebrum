@@ -158,23 +158,6 @@ def parse_paga_csv(pagafile):
             'permisjonskode':detail[KEY_PERMISJONKODE]
         }
         stedkode=detail[KEY_ORGSTED]
-        # check if stedkode should be mapped to something else
-        # query="""
-        # SELECT new_ou_id 
-        # FROM [:table schema=cerebrum name=ou_history]
-        # where old_ou_id=:stedkode
-        # """ 
-        #query="select new_ou_id from ou_history where old_ou_id='%s'"% stedkode
-        # try:
-        #     new_sko=db.query_1(query,{'stedkode':stedkode})
-        # except Errors.TooManyRowsError:
-        #     logger.error("stedkode %s repeated in ou_history" % stedkode)
-        # except Errors.NotFoundError:
-        #     pass
-        # else:            
-        #     logger.warn("Stedkode %s for person %s remapped to %s" % \
-        #         (stedkode, ssn, new_sko))
-        #     stedkode = "%s" % new_sko
 
         if persons.get(ssn,None):
             dupes.append(ssn)
