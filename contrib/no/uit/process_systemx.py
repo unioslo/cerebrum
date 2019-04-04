@@ -45,14 +45,12 @@ co = Factory.get('Constants')(db)
 logger = Factory.get_logger("cronjob")
 
 # Used for getting OU names
-sko = Factory.get('Stedkode')(db)
+ou = Factory.get('OU')(db)
 sys_x_affs = {}
 
 
 def get_existing_accounts():
-    ou = Factory.get('OU')(db)
-
-    stedkoder = sko.get_stedkoder()
+    stedkoder = ou.get_stedkoder()
     ou_stedkode_mapping = {}
     for stedkode in stedkoder:
         ou_stedkode_mapping[stedkode['ou_id']] = str(
@@ -750,13 +748,14 @@ class Build(object):
                                           0:6] + "xxxxx"
             person_info['ou_navn'] = 'N/A'
 
-            sko.clear()
+            ou.clear()
             try:
-                sko.find_stedkode(int(person_info['ou'][0:2]),
-                                  int(person_info['ou'][2:4]),
-                                  int(person_info['ou'][4:6]),
-                                  cereconf.DEFAULT_INSTITUSJONSNR)
-                person_info['ou_navn'] = sko.name
+                ou.find_stedkode(int(person_info['ou'][0:2]),
+                                 int(person_info['ou'][2:4]),
+                                 int(person_info['ou'][4:6]),
+                                 cereconf.DEFAULT_INSTITUSJONSNR)
+                person_info['ou_navn'] = ou.name_with_language(co.ou_name,
+                                                               co.language_nb)
             except Exception as m:
                 logger.warn('OU not found from stedkode: %s. Error was: %s',
                             person_info['ou'], m)
