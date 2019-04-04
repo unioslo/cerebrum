@@ -361,6 +361,7 @@ def _sap_roles_to_affiliation_map():
              (u'EKST-KONS', co.affiliation_tilknyttet_ekst_partner),
              (u'PCVAKT', co.affiliation_tilknyttet_pcvakt),
              (u'EKST-PART', co.affiliation_tilknyttet_ekst_partner),
+             (u'KOMITEMEDLEM', co.affiliation_tilknyttet_bilag),  # JOBBNORGE
              (u'STEDOPPLYS', None),
              (u'POLS-ANSAT', None)])
 
