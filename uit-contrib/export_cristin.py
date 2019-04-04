@@ -72,7 +72,6 @@ from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules import Email
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.uit.nsd import nsd
 from Cerebrum.modules.no.uit.Email import email_address
 
 from Cerebrum.modules.no.Stedkode import Stedkode
@@ -803,24 +802,18 @@ def output_OU(writer, id, db_ou, stedkode, constants,db):
     #writer.startElement("URLBokmal")
     #writer.data("Not implemented")
     #writer.endElement("URLBokmal")
-    
 
     # UIT ADDITION:
     # insert NSD kode
-    my_nsd = nsd()
-    nsd_kode = 0
-    nsd_kode = my_nsd.get_nsd(stedkode.fakultet,stedkode.institutt,stedkode.avdeling,db)
+    nsd_kode = db_ou.get_external_id(id_type=constants.externalid_nsd)
     if nsd_kode:
-        nsd_kode=nsd_kode[0]['nsd']
+        nsd_kode = nsd_kode[0]['external_id']
     else:
-        #nsd_kode="MISSING %02d%02d%02d" % (stedkode.fakultet,stedkode.institutt,stedkode.avdeling)
-        nsd_kode=""
+        nsd_kode = ""
     output_element(writer, str(nsd_kode), "NSDKode")
-
 
     writer.endElement("enhet")
 # end output_OU
-    
 
 
 def output_OUs(writer, db):
