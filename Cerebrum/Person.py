@@ -511,8 +511,9 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         """Return all names connected to this person,
         optionally filtered on source_system or variant.
         """
-        binds = dict()
-        where = 'WHERE person_id = %d' % self.entity_id
+        binds = dict(person_id=int(self.entity_id))
+        where = 'WHERE person_id = :person_id'
+
         if source_system is not None:
             where += ' AND ' + argument_to_sql(source_system, 'source_system',
                                                binds, int)

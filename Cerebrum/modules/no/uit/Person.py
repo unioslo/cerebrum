@@ -82,19 +82,17 @@ class UiTPersonMixin(Person.Person):
     def list_names(self, source_system=None, variant=None):
         """Return all names, optionally filtered on source_system or variant"""
         binds = dict()
-        where = ''
+        conditions = []
 
         if source_system is not None:
-            where += 'WHERE ' + argument_to_sql(source_system, 'source_system',
-                                                binds, int)
-            if variant is not None:
-                where += ' AND ' + argument_to_sql(variant, 'name_variant',
-                                                   binds, int)
-        elif variant is not None:
-            where += 'WHERE ' + argument_to_sql(variant, 'name_variant',
-                                                binds, int)
+            cond = argument_to_sql(source_system, 'source_system', binds, int)
+            conditions.append(cond)
+        if variant is not None:
+            cond = argument_to_sql(variant, 'name_variant', binds, int)
+            conditions.append(cond)
 
-            return self.query("""
-            SELECT *
-            FROM [:table schema=cerebrum name=person_name]
-            """ + where, binds)
+        where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
+        return self.query("""
+        SELECT *
+        FROM [:table schema=cerebrum name=person_name]
+        """ + where, binds)
