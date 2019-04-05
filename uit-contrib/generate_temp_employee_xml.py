@@ -46,7 +46,6 @@ import cereconf
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
 from Cerebrum import Group
-from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum import Errors
 db = Factory.get('Database')()
 group = Factory.get('Group')(db)
@@ -54,7 +53,6 @@ person = Factory.get('Person')(db)
 const = Factory.get('Constants')(db)
 account = Factory.get('Account')(db)
 ou = Factory.get('OU')(db)
-sko = Stedkode(db)
 #
 # Global variables
 #
@@ -345,28 +343,28 @@ def get_persons(aff_status):
                 except Errors.NotFoundError:
                     logger.warning("Account %s (%s) has no primary email address", acc_id, acc_name)
                     email = None
-                sko.clear()
+                ou.clear()
                 try:
-                    sko.find(row['ou_id'])
+                    ou.find(row['ou_id'])
                 except:
                     logger.warning("unable to find ou_id:%s. Is it expired?"% row['ou_id'])
                     continue
-                faculty_sko = sko.fakultet
-                my_fakultet = sko.fakultet
-                my_institutt = sko.institutt
-                my_avdeling = sko.avdeling
+                faculty_sko = ou.fakultet
+                my_fakultet = ou.fakultet
+                my_institutt = ou.institutt
+                my_avdeling = ou.avdeling
                 #print "sko fakultet:%s" % sko.fakultet
 
                 if str(my_fakultet).__len__() == 1:
                     my_fakultet = "0%s" % my_fakultet
-                if str(sko.institutt).__len__() == 1:
+                if str(ou.institutt).__len__() == 1:
                     my_institutt = "0%s" % my_institutt
-                if str(sko.avdeling).__len__() == 1:
+                if str(ou.avdeling).__len__() == 1:
                     my_avdeling = "0%s" % my_avdeling
                     
                 my_stedkode = "%s%s%s" % (my_fakultet,my_institutt,my_avdeling)
                 #print "calculated my_stedkode:%s" % my_stedkode
-                sko_ou_id = sko.get_stedkoder(fakultet=faculty_sko,institutt=0, avdeling=0)
+                sko_ou_id = ou.get_stedkoder(fakultet=faculty_sko, institutt=0, avdeling=0)
                 my_ou_id = sko_ou_id[0]['ou_id']
                 ou.clear()
                 ou.find(my_ou_id)

@@ -39,7 +39,6 @@ from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
-from Cerebrum.modules.no.uit.Stedkode import StedkodeMixin
 
 logger = Factory.get_logger('cronjob')
 today_tmp=mx.DateTime.today()
@@ -55,30 +54,28 @@ db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 person = Factory.get('Person')(db)
 account = Factory.get('Account')(db)
-ou=Factory.get('OU')(db)
-#sko=Factory.get('Stedkode')(db)
-sko = StedkodeMixin(db)
+ou = Factory.get('OU')(db)
 
 
 def get_sko(ou_id):
-    sko.clear()
-    sko.find(ou_id)
-    return "%s%s%s" % (str(sko.fakultet).zfill(2),
-                       str(sko.institutt).zfill(2),
-                       str(sko.avdeling).zfill(2))
+    ou.clear()
+    ou.find(ou_id)
+    return "%s%s%s" % (str(ou.fakultet).zfill(2),
+                       str(ou.institutt).zfill(2),
+                       str(ou.avdeling).zfill(2))
 get_sko=memoize(get_sko)
 
 
 def get_ouinfo(ou_id,perspective):
     #logger.debug("Enter get_ouinfo with id=%s,persp=%s" % (ou_id,perspective))
-    #sko=Factory.get('Stedkode')(db)
-    sko=StedkodeMixin(db)
-    sko.clear()
-    sko.find_by_perspective(ou_id,perspective)
-    ou_short_name = sko.get_name_with_language(name_variant=co.ou_name_short,name_language=co.language_nb)
-    ou_name = sko.get_name_with_language(name_variant=co.ou_name,name_language=co.language_nb)
-    ou_acronym = sko.get_name_with_language(name_variant=co.ou_name_acronym,name_language=co.language_nb)
-    #sko.find(ou_id)
+    ou.clear()
+    ou.find_by_perspective(ou_id,perspective)
+    ou_short_name = ou.get_name_with_language(name_variant=co.ou_name_short,
+                                              name_language=co.language_nb)
+    ou_name = ou.get_name_with_language(name_variant=co.ou_name,
+                                        name_language=co.language_nb)
+    ou_acronym = ou.get_name_with_language(name_variant=co.ou_name_acronym,
+                                           name_language=co.language_nb)
     res=dict()
     res['name']=ou_name
     res['short_name']=ou_short_name
@@ -95,25 +92,24 @@ def get_ouinfo(ou_id,perspective):
 
     # Find company name for this ou_id by going to parent
     visited = []
-    parent_id=sko.get_parent(perspective)
+    parent_id = ou.get_parent(perspective)
     #logger.debug("Find parent to OU id=%s, parent has %s, perspective is %s" % (ou_id,parent_id,perspective))
     while True:
-        if (parent_id is None) or (parent_id == sko.entity_id):
-            #logger.debug("Root for %s is %s, name is  %s" % (ou_id,sko.entity_id,sko.name))
+        if (parent_id is None) or (parent_id == ou.entity_id):
             res['company']=ou_name
             break
-        sko.clear()
+        ou.clear()
         #logger.debug("Lookup %s in %s" % (parent_id,perspective))
-        sko.find(parent_id)
+        ou.find(parent_id)
         #logger.debug("THIS line is never reached when processing sito orgunits")
-        ou_acronym = sko.get_name_with_language(name_variant=co.ou_name_acronym,name_language=co.language_nb)
-        #logger.debug("Lookup returned: id=%s,name=%s" % (sko.entity_id,sko.name))
+        ou_acronym = ou.get_name_with_language(name_variant=co.ou_name_acronym,
+                                               name_language=co.language_nb)
         # Detect infinite loops
-        if sko.entity_id in visited:
+        if ou.entity_id in visited:
             raise RuntimeError, "DEBUG: Loop detected: %r" % visited
-        visited.append(sko.entity_id)
-	acropath.append(ou_acronym)
-        parent_id = sko.get_parent(perspective)
+        visited.append(ou.entity_id)
+        acropath.append(ou_acronym)
+        parent_id = ou.get_parent(perspective)
         #logger.debug("New parentid is %s" % (parent_id,))
     acropath.reverse()
     res['path']=".".join(acropath)

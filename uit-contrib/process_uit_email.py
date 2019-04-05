@@ -51,14 +51,12 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.Email import EmailDomain,EmailAddress
 from  Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
-from Cerebrum.modules.no import Stedkode
 
 db = Factory.get('Database')()
 ac = Factory.get('Account')(db)
 p = Factory.get('Person')(db)
 co = Factory.get('Constants')(db)
-#sko=Factory.get('Stedkode')(db)
-sko = Stedkode.Stedkode(db)
+ou = Factory.get('OU')(db)
 db.cl_init(change_program=progname)
 
 logger=Factory.get_logger('cronjob')
@@ -77,11 +75,11 @@ uit_mails=dict()
 num2const=dict()
 
 def get_sko(ou_id):
-    sko.clear()
-    sko.find(ou_id)
-    return "%s%s%s" % (str(sko.fakultet).zfill(2),
-                       str(sko.institutt).zfill(2),
-                       str(sko.avdeling).zfill(2))
+    ou.clear()
+    ou.find(ou_id)
+    return "%s%s%s" % (str(ou.fakultet).zfill(2),
+                       str(ou.institutt).zfill(2),
+                       str(ou.avdeling).zfill(2))
 get_sko=memoize(get_sko)
 
 

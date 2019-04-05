@@ -43,11 +43,8 @@ const = Factory.get('Constants')(db)
 ou = Factory.get('OU')(db)
 db_person = Factory.get('Person')(db)
 e = Factory.get('Entity')(db)
-#sko = Factory.get('Stedkode')(db)
-sko = ou
 dryrun = False
 include_del = False
-#stedkode = Factory.get('Stedkode')(db)
 logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
 progname = __file__.split("/")[-1]
 db.cl_init(change_program=progname)
@@ -286,15 +283,19 @@ def import_person(persons,all_nodes):
             for single_aff in det_affiliation:                
                 new_aff = getattr(const,single_aff)
                 new_aff_stat = getattr(const,det_affiliation[single_aff])
-                sko.clear()
-                sko.find_stedkode(single_ou[0:2],single_ou[2:4],single_ou[4:6],cereconf.DEFAULT_INSTITUSJONSNR)
-                logger.debug("setting:: ou_id:%s, aff:%s, aff_stat:%s for person:%s" % (int(sko.ou_id),int(new_aff),int(new_aff_stat),db_person.entity_id))
+                ou.clear()
+                ou.find_stedkode(single_ou[0:2],single_ou[2:4],single_ou[4:6],cereconf.DEFAULT_INSTITUSJONSNR)
+                logger.debug(
+                    "setting:: ou_id:%s, aff:%s, aff_stat:%s for person:%s" % (
+                        int(ou.entity_id), int(new_aff), int(new_aff_stat),
+                        db_person.entity_id))
 
                 db_person.populate_affiliation(const.system_flyt,
-                                               sko.ou_id,
+                                               ou.entity_id,
                                                new_aff,
                                                new_aff_stat)
-                k = "%s:%s:%s" % (db_person.entity_id,int(sko.ou_id),int(new_aff))
+                k = "%s:%s:%s" % (db_person.entity_id, int(ou.entity_id),
+                                  int(new_aff))
                 if include_del:
                     if cere_list.has_key(k):
                         cere_list[k] = False
@@ -325,9 +326,12 @@ def import_person(persons,all_nodes):
             for single_aff in det_affiliation:
                 new_aff = getattr(const,single_aff)
                 new_aff_stat = getattr(const,det_affiliation[single_aff])
-                sko.clear()
-                sko.find_stedkode(single_ou[0:2],single_ou[2:4],single_ou[4:6],cereconf.DEFAULT_INSTITUSJONSNR) 
-                db_person.set_affiliation_last_date(const.system_flyt,sko.ou_id,new_aff,new_aff_stat)
+                ou.clear()
+                ou.find_stedkode(single_ou[0:2], single_ou[2:4],
+                                 single_ou[4:6],
+                                 cereconf.DEFAULT_INSTITUSJONSNR)
+                db_person.set_affiliation_last_date(
+                    const.system_flyt, ou.entity_id, new_aff, new_aff_stat)
 
         if op is None and op2 is None:
             logger.info("**** EQUAL ****")

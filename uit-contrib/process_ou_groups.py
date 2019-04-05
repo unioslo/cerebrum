@@ -42,7 +42,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Constants import Constants
 from Cerebrum import Entity
-from Cerebrum.modules.no.Stedkode import Stedkode
 logger = db = None
 group_dict = members_dict = ou_affiliates_dict = group_description_dict = stedkode_dict = description_group_dict = {}
 group_delete_list = members_delete_dict = None 
@@ -66,7 +65,7 @@ db = Factory.get('Database')()
 db.cl_init(change_program='process_ou_groups.py')
 
 co = Factory.get('Constants')(db)
-sko = Stedkode(db)
+ou = Factory.get('OU')(db)
 # Used to create container groups for account members
 possible_member_types = ['VITENSKAPELIG','TEKNISK','STUDENT','DRGRAD']
 # Used to determine which aff_code_statuses correspond to which container group
@@ -325,8 +324,7 @@ def main():
     group_dict = {}
     group_description_dict = {}
     group_delete_list = []
-    #stedkoder = sko.get_stedkoder(expired_before = '19680328') # No OU can be expired before UiT's birthday!
-    stedkoder = sko.get_stedkoder() # No OU can be expired before UiT's birthday!
+    stedkoder = ou.get_stedkoder()
     groups = gr.search(description = 'ou_group:*')
 
     for stedkode in stedkoder:

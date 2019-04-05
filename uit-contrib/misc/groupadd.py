@@ -36,7 +36,6 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uit import Email
-from Cerebrum.modules.no import Stedkode
 
 #
 # Global variables
@@ -48,7 +47,6 @@ account = Factory.get('Account')(db)
 const = Factory.get('Constants')(db)
 Cgroup = Factory.get('Group')(db)
 ou = Factory.get('OU')(db)
-sko = Stedkode.Stedkode(db)
 
 group = []
 current_group = None
