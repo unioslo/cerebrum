@@ -21,7 +21,6 @@
 #
 # This script is based on the deprecated script contrib/generate_nismaps.py.
 # It can be viewed in commit 851446bf25a6e69b87db7e7cea6c870a1ab3f0cd.
-
 import argparse
 import logging
 
@@ -34,59 +33,44 @@ from Cerebrum.modules.NISUtils import HackUserNetGroupUIO
 logger = logging.getLogger(__name__)
 
 
-def verify_args(args, parser):
-    db = Factory.get('Database')()
-    co = Factory.get('Constants')(db)
-
-    args.group_spread = get_constant(db, parser, co.Spread, args.group_spread)
-    if args.user_spread:
-        args.user_spread = get_constant(db, parser, co.Spread, args.user_spread)
-    if args.zone:
-        args.zone = get_constant(db, parser, co.DnsZone, args.zone)
-    return args
-
-
-def parse_args():
+def main():
     parser = argparse.ArgumentParser(
-        'Generates a nismap file for the requested spreads'
+        description='Generate a NSS groups file for a given spread',
     )
     parser.add_argument(
         '-g', '--group',
         dest='group',
         default=None,
-        help='Write posix group map to outfile'
+        help='Write a filegroups file to %(metavar)s',
+        metavar='FILE',
     )
     parser.add_argument(
         '-n', '--netgroup',
         dest='netgroup',
         default=None,
-        help='Write netgroup map to outfile'
+        help='Write a netgroups file to %(metavar)s',
+        metavar='FILE',
     )
     parser.add_argument(
         '-m', '--mnetgroup',
         dest='mnetgroup',
         default=None,
-        help='Write netgroup.host map to outfile'
+        help='Write netgroups file with hosts to %(metavar)s',
+        metavar='FILE',
     )
     parser.add_argument(
         '--this-is-an-ugly-hack',
         dest='hack',
         default=None,
-        help='Write hack netgroup map to outfile'
+        help=('Write a netgroups file that includes the primary account '
+              'of persons to %(metavar)s'),
+        metavar='FILE',
     )
-
-    args, _rest = parser.parse_known_args()
-    # Conditionally required arguments
-    zone_required = args.mnetgroup is not None
-    user_spread_required = any(a is not None for a in (args.netgroup,
-                                                       args.hack,
-                                                       args.group))
 
     parser.add_argument(
         '--user_spread',
         dest='user_spread',
-        required=user_spread_required,
-        help='Filter by user_spread'
+        help='Filter by user_spread',
     )
     parser.add_argument(
         '--group_spread',
@@ -103,7 +87,6 @@ def parse_args():
     parser.add_argument(
         '-Z', '--zone',
         dest='zone',
-        required=zone_required,
         help='dns zone postfix (example: .uio.no.)'
     )
 
@@ -111,28 +94,52 @@ def parse_args():
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    args = verify_args(args, parser)
-    return args
+    db = Factory.get('Database')()
+    co = Factory.get('Constants')(db)
 
+    if args.mnetgroup and not args.zone:
+        parser.error('--mnetgroup requires --zone')
 
-def main():
-    args = parse_args()
+    need_user_spread = any(a is not None for a in (args.netgroup, args.hack,
+                                                   args.group))
+    if need_user_spread and not args.user_spread:
+        parser.error('No --user_spread given')
+
+    args.group_spread = get_constant(db, parser, co.Spread, args.group_spread)
+    if args.user_spread:
+        args.user_spread = get_constant(db, parser, co.Spread,
+                                        args.user_spread)
+    if args.zone:
+        args.zone = get_constant(db, parser, co.DnsZone, args.zone)
+
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %r', args)
 
     if args.group:
+        logger.debug('generating filegroups...')
         fg = FileGroup(args.group_spread, args.user_spread)
         fg.write_filegroup(args.group, args.e_o_f)
+        logger.info('filegroups written to %s', args.group)
 
     if args.netgroup:
+        logger.debug('generating netgroups...')
         ung = UserNetGroup(args.group_spread, args.user_spread)
         ung.write_netgroup(args.netgroup, args.e_o_f)
+        logger.info('netgroups written to %s', args.netgroup)
 
     if args.mnetgroup:
+        logger.debug('generating host netgroups...')
         ngu = MachineNetGroup(args.group_spread, None, args.zone)
         ngu.write_netgroup(args.mnetgroup, args.e_o_f)
+        logger.info('host netgroups written to %s', args.mnetgroup)
 
     if args.hack:
+        logger.debug('generating netgroups that includes persons...')
         ung = HackUserNetGroupUIO(args.group_spread, args.user_spread)
         ung.write_netgroup(args.hack, args.e_o_f)
+        logger.info('netgroups written to %s', args.hack)
+
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':

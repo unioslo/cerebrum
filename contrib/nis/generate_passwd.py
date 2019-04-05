@@ -18,7 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 import argparse
 import logging
 
@@ -32,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser(
-        'Generates a password file for the requested spreads'
+        description='Generate a NSS passwd file for users with a given spread',
     )
     parser.add_argument(
         '--user_spread',
@@ -43,20 +42,22 @@ def main():
         '-p', '--passwd',
         dest='passwd_file',
         required=True,
-        help='Path to file where passwords should be written',
+        help='Write a passwd file to %(metavar)s',
+        metavar='FILE',
     )
     parser.add_argument(
         '-s', '--shadow',
         dest='shadow_file',
         default=None,
-        help='Path to shadow file',
+        help='Optionally split out passwords to %(metavar)s',
+        metavar='FILE',
     )
     parser.add_argument(
         '-a', '--auth_method',
         dest='auth_method',
         default=None,
-        help="""If not given, passwords are replaced with 'x' in the password 
-             file"""
+        help=("If not given, passwords are replaced with 'x'"
+              " in the password file"),
     )
     parser.add_argument(
         '--eof',
@@ -69,9 +70,11 @@ def main():
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    Factory = Utils.Factory
-    db = Factory.get('Database')()
-    co = Factory.get('Constants')(db)
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %r', args)
+
+    db = Utils.Factory.get('Database')()
+    co = Utils.Factory.get('Constants')(db)
 
     if args.auth_method:
         args.auth_method = get_constant(db, parser, co.Authentication,
@@ -80,6 +83,11 @@ def main():
 
     p = Passwd(args.auth_method, args.user_spread)
     p.write_passwd(args.passwd_file, args.shadow_file, args.e_o_f)
+
+    logger.info('passwd written to %s', args.passwd_file)
+    if args.shadow_file:
+        logger.info('shadow written to %s', args.shadow_file)
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':
