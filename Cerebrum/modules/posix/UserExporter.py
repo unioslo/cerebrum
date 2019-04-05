@@ -219,18 +219,6 @@ class UserExporter(object):
         return account2auth_data
 
     @clock_time
-    def make_home_cache(self):
-        person2fullname = self.make_fullname_cache()
-        homes = self.posix_user.list_account_home(include_nohome=True)
-        home_cache = {}
-        for row in homes:
-            entry = dict(row)
-            entry['fullname'] = person2fullname.get(row['owner_id'], None)
-            home_cache.setdefault(row['account_id'], []).append(entry)
-            home_cache[row['account_id'], row['spread']] = entry
-        return home_cache
-
-    @clock_time
     def make_disk_cache(self, spread):
         disk_cache = {}
         for row in self.disk.list(spread=spread):
