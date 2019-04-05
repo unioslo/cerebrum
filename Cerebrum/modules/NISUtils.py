@@ -34,6 +34,8 @@ from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
+from Cerebrum.modules.posix.UserExporter import HomedirResolver
+from Cerebrum.modules.posix.UserExporter import OwnerResolver
 from Cerebrum.modules.posix.UserExporter import UserExporter
 
 
@@ -89,6 +91,8 @@ class Passwd(object):
     a list of list that translates to the info found in a passwd file."""
 
     def __init__(self, auth_method=None, spread=None):
+        if spread is None:
+            raise ValueError('spread is required')
         self.spread = spread
         self.auth_method = auth_method
         self.user_exporter = UserExporter(db)
@@ -102,7 +106,12 @@ class Passwd(object):
             spread,
             auth_method
         )
-        self.account2home = self.user_exporter.make_home_cache()
+
+        self.homedirs = HomedirResolver(db, spread)
+        self.homedirs.make_home_cache()
+        self.owners = OwnerResolver(db)
+        self.owners.make_owner_cache()
+        self.owners.make_name_cache()
 
     def process_user(self, row):
         account_id = row['account_id']
@@ -114,10 +123,9 @@ class Passwd(object):
         if passwd is None:
             passwd = '*'
 
-        home, disk_path, _owner_id, full_name = self.account2home[account_id]
         gecos = row['gecos']
         if gecos is None:
-            gecos = full_name
+            gecos = self.owners.get_name(account_id)
         if gecos is None:
             gecos = uname
         gecos = transliterate.to_iso646_60(gecos)
@@ -134,9 +142,7 @@ class Passwd(object):
             if qshell is not None:
                 shell = qshell
 
-        home = posix_user.resolve_homedir(account_name=uname,
-                                          home=home,
-                                          disk_path=disk_path)
+        home = self.homedirs.get_homedir(account_id, allow_no_disk=True)
         if home is None:
             # TBD: Is this good enough?
             home = '/'

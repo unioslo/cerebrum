@@ -17,9 +17,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Common POSIX LDIF generator. """
-
 from __future__ import unicode_literals
 
+import logging
 from collections import defaultdict
 from six import text_type
 
@@ -29,7 +29,14 @@ from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory, auto_super, make_timer
 from Cerebrum.utils import transliterate
 from Cerebrum import Errors
-from Cerebrum.modules.posix.UserExporter import UserExporter, clock_time
+from Cerebrum.modules.posix.UserExporter import HomedirResolver
+from Cerebrum.modules.posix.UserExporter import OwnerResolver
+from Cerebrum.modules.posix.UserExporter import UserExporter
+from Cerebrum.modules.posix.UserExporter import make_clock_time
+
+
+logger = logging.getLogger(__name__)
+clock_time = make_clock_time(logger)
 
 
 class PosixLDIF(object):
@@ -54,11 +61,9 @@ class PosixLDIF(object):
         self.grp = Factory.get('Group')(self.db)
         self.posuser = Factory.get('PosixUser')(self.db)
         self.posgrp = PosixGroup.PosixGroup(self.db)
-        self.user_exporter = UserExporter(self.db)
         self.user_dn = LDIFutils.ldapconf('USER', 'dn', None)
         self.get_name = True
         self.fd = fd
-
         self.spread_d = {}
         # Validate spread from arg or from cereconf
         for x, y in zip(['USER', 'FILEGROUP', 'NETGROUP'],
@@ -71,15 +76,21 @@ class PosixLDIF(object):
             raise Errors.ProgrammingError(
                 "Must specify spread-value as 'arg' or in cereconf")
         self.account2name = dict()
-        self.account2home = dict()
         self.group2gid = dict()
         self.groupcache = defaultdict(dict)
         self.group2groups = defaultdict(set)
         self.group2users = defaultdict(set)
         self.group2persons = defaultdict(list)
-
         self.shell_tab = dict()
         self.quarantines = dict()
+
+        self.user_exporter = UserExporter(self.db)
+        if len(self.spread_d['user']) > 1:
+            logger.warning('Exporting users with multiple spreads, '
+                           'ignoring homedirs from %r',
+                           self.spread_d['user'][1:])
+        self.homedirs = HomedirResolver(db, self.spread_d['user'][0])
+        self.owners = OwnerResolver(db)
         timer('... done initing PosixLDIF.')
 
     @clock_time
@@ -105,13 +116,14 @@ class PosixLDIF(object):
         self.get_name = False
         self.qh = QuarantineHandler(self.db, None)
         self.posuser = Factory.get('PosixUser')(self.db)
-        self.load_disk_tab()
 
         self.shell_tab = self.user_exporter.shell_codes()
         self.quarantines = self.user_exporter.make_quarantine_cache(
             self.spread_d['user']
         )
-        self.account2home = self.user_exporter.make_home_cache()
+        self.owners.make_owner_cache()
+        self.owners.make_name_cache()
+        self.homedirs.make_home_cache()
         self.group2gid = self.user_exporter.make_posix_gid_cache()
         self.account2auth = self.user_exporter.make_auth_cache(
             spread=self.spread_d['user'],
@@ -246,13 +258,6 @@ class PosixLDIF(object):
             acc_id, meth = int(x['account_id']), int(x['method'])
             self.auth_data[acc_id][meth] = x['auth_data']
 
-    @clock_time
-    def load_disk_tab(self):
-        self.disk = Factory.get('Disk')(self.db)
-        self.disk_tab = {}
-        for hd in self.disk.list():
-            self.disk_tab[int(hd['disk_id'])] = hd['path']
-
     def user_object(self, row):
         account_id = int(row['account_id'])
         uname, auth_data = self.account2auth[account_id]
@@ -290,14 +295,14 @@ class PosixLDIF(object):
             if qshell is not None:
                 shell = qshell
 
-        home, disk_path, owner_id, full_name = self.account2home[account_id]
-        home = self.posuser.resolve_homedir(account_name=uname,
-                                            home=home,
-                                            disk_path=disk_path)
+        home = self.homedirs.get_homedir(row['account_id'], allow_no_disk=True)
         if not home:
             self.logger.warn("User %s has no home directory", uname)
             return None, None
-        cn = full_name or row['gecos'] or uname
+
+        owner_id = self.owners.get_owner_id(row['account_id'])
+        fullname = self.owners.get_name(row['account_id'])
+        cn = fullname or row['gecos'] or uname
         gecos = transliterate.to_iso646_60(row['gecos'] or cn)
         posix_gid = self.group2gid[row['gid']]
         entry = {
