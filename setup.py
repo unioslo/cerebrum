@@ -319,6 +319,7 @@ setup(
         'Cerebrum/modules/cim',
         'Cerebrum/modules/disk_quota',
         'Cerebrum/modules/dns',
+        'Cerebrum/modules/entity_expire',
         'Cerebrum/modules/event',
         'Cerebrum/modules/event/clients',
         'Cerebrum/modules/event_consumer',
