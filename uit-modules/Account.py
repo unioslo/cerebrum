@@ -327,9 +327,6 @@ class AccountUiTMixin(Account.Account):
             step = 1
             legacy_type = 'P'
 
-        lu = LegacyUsers(self._db)
-        legacy_data = lu.search(ssn=fnr, type=legacy_type)
-
         new_ac = Factory.get('Account')(self._db)
         p = Factory.get('Person')(self._db)
         try:
@@ -353,9 +350,10 @@ class AccountUiTMixin(Account.Account):
         # regexp for checking username format
         p = re.compile('^[a-z]{3}[0-9]{3}$')
 
-        for legacy_username in (
-                row['username'] for row in sorted(
-                    legacy_data, key=lambda r: (r['source'], r['username']))):
+        for row in sorted(
+                LegacyUsers(self._db).search(ssn=fnr, type=legacy_type),
+                key=lambda r: (r['source'], r['user_name'])):
+            legacy_username = row['user_name']
             if not p.match(legacy_username):
                 # legacy username not in <three letters><three digits> format
                 continue
