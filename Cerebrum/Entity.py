@@ -455,7 +455,7 @@ class EntityName(Entity):
             """,
             {'value_domain': int(value_domain)})
 
-    def exists_name(self, name, domain=None):
+    def entity_name_exists(self, name, domain=None):
         """
         Check if a given entity_name exists.
         """
