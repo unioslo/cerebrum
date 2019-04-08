@@ -455,6 +455,23 @@ class EntityName(Entity):
             """,
             {'value_domain': int(value_domain)})
 
+    def exists_name(self, name, domain=None):
+        """
+        Check if a given entity_name exists.
+        """
+        cond = ['entity_name = :entity_name']
+        binds = {'entity_name': six.text_type(name)}
+        if domain is not None:
+            cond.append(argument_to_sql(domain, 'value_domain', binds, int))
+        stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=entity_name]
+            {where}
+          )
+        """.format(where=('WHERE ' + ' AND '.join(cond)))
+        return self._db.query_1(stmt, binds)
+
 
 class EntityNameWithLanguage(Entity):
     """Mixin class for dealing with name-with-language data in Cerebrum.
