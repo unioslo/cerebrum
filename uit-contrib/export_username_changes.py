@@ -35,12 +35,14 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.legacy_users import LegacyUsers
 
 db=Factory.get('Database')()
 co=Factory.get('Constants')(db)
 ac=Factory.get('Account')(db)
 pe=Factory.get('Person')(db)
 logger_name = cereconf.DEFAULT_LOGGER_TARGET
+lu = LegacyUsers(db)
 
 date = time.localtime()
 date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
@@ -81,7 +83,7 @@ def main():
     logger = Factory.get_logger(logger_name)
 
     # Get all legacy info
-    legacy = ac.search_legacy()
+    legacy = lu.search()
 
     export = []
     fnr2leg = {}

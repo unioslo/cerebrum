@@ -38,6 +38,7 @@ from Cerebrum import Utils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
+from Cerebrum.modules.legacy_users import LegacyUsers
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.utils import email
 
@@ -254,7 +255,7 @@ def main():
     co = Factory.get('Constants')(worker.db)
     ac = Factory.get('Account')(worker.db)
     pe = Factory.get('Person')(worker.db)
-        
+
     # Find person full name (old)
     ac.find_by_name(old_name)
     pe.find(ac.owner_id)
@@ -284,14 +285,10 @@ def main():
             resp = raw_input("Please answer Y or N: ")
             resp = resp.capitalize()
         if (resp == 'Y'):
- 
-            legacy_info = {}
-
             print old_name, new_name
-            #ac.find_by_name(new_name)
-            #pe.find(ac.owner_id)
-            
-            legacy_info['user_name'] = old_name
+
+            legacy_info = {}
+            legacy_info['username'] = old_name
             try:
                 legacy_info['ssn'] = pe.get_external_id(id_type=co.externalid_fodselsnr)[0]['external_id']
             except:
@@ -299,22 +296,15 @@ def main():
             legacy_info['source'] = 'MANUELL'
             legacy_info['type'] = 'P'
             legacy_info['comment'] = '%s - Renamed from %s to %s.' % (today, old_name, new_name)
-            legacy_info['name'] = pe.get_name(co.system_cached, co.name_full)           
-            
+            legacy_info['name'] = pe.get_name(co.system_cached, co.name_full)
+
             try:
                 mydb = Factory.get('Database')()
-                query = "insert into legacy_users values ('%s', '%s', '%s', '%s', '%s', '%s')" % (legacy_info['user_name'],
-                                                                                                  legacy_info['ssn'],
-                                                                                                  legacy_info['source'],
-                                                                                                  legacy_info['type'],
-                                                                                                  legacy_info['comment'],
-                                                                                                  legacy_info['name'])
-                print "query=%s\n" % query
-                mydb.query(query)
+                lu = LegacyUsers(mydb)
+                lu.set(**legacy_info)
                 mydb.commit()
-            except:
+            except Exception:
                 print "Could not write to legacy_users. Username is probably already reserved.\n"
-
 
             # Sending email to SUT queue in RT
             if not dryrun:
