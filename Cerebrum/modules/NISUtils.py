@@ -21,10 +21,12 @@
 
 from __future__ import with_statement, unicode_literals
 
+import logging
+import operator
 import mx
 import sys
-import logging
 from contextlib import closing
+
 from six import text_type
 
 from Cerebrum import Errors
@@ -160,19 +162,17 @@ class Passwd(object):
             filter_expired=True
         )
 
-        user_rows = []
         for row in user_iter:
             # We only want to append users with the selected auth_method.
             # When self.auth_method is None, accounts with MD5-crypt are
             # appended.
             if self.account2auth_data.get(row['account_id'], None):
                 try:
-                    user_rows.append(self.process_user(row))
+                    yield self.process_user(row)
                 except NISMapError:
                     logger.error("NISMapError", exc_info=1)
                 except NISMapException:
                     pass
-        return user_rows
 
     def write_passwd(self, filename, shadow_file, e_o_f=False):
         logger.debug("write_passwd: filename=%r, shadow_file=%r, spread=%r",
@@ -183,7 +183,8 @@ class Passwd(object):
             s = SimilarSizeWriter(shadow_file, "w")
             s.max_pct_change = 10
 
-        user_rows = self.generate_passwd()
+        user_rows = sorted(self.generate_passwd(),
+                           key=operator.itemgetter(0))
         for row in user_rows:
             uname = row[0]
             if self.auth_method is None and row[1] != '*locked':
