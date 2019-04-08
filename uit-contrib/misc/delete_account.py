@@ -30,7 +30,7 @@ class delete:
         co = Factory.get('Constants')(db)
 
         legacy_info = {}
-        legacy_info['user_name'] = ac.account_name
+        legacy_info['username'] = ac.account_name
         try:
             legacy_info['ssn'] = pe.get_external_id(id_type=co.externalid_fodselsnr)[0]['external_id']
         except:
