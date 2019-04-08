@@ -344,6 +344,7 @@ def check_schema_versions(db, strict=False):
         'eventlog': 'Cerebrum.modules.EventLog',
         'events': 'Cerebrum.modules.event_publisher',
         'hostpolicy': 'Cerebrum.modules.hostpolicy',
+        'legacy_users': 'Cerebrum.modules.legacy_users',
         'note': 'Cerebrum.modules.Note',
         'password_history': 'Cerebrum.modules.pwcheck.history',
         'posixuser': 'Cerebrum.modules.PosixUser',
