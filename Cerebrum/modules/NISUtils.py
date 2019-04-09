@@ -23,6 +23,7 @@ from __future__ import with_statement, unicode_literals
 
 import mx
 import sys
+import logging
 from contextlib import closing
 from six import text_type
 
@@ -33,12 +34,15 @@ from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
+from Cerebrum.modules.posix.UserExporter import HomedirResolver
+from Cerebrum.modules.posix.UserExporter import OwnerResolver
+from Cerebrum.modules.posix.UserExporter import UserExporter
 
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 clconst = Factory.get('CLConstants')(db)
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 posix_user = Factory.get('PosixUser')(db)
 posix_group = PosixGroup.PosixGroup(db)
 
@@ -71,59 +75,65 @@ class NoDisk(NISMapError):
     pass
 
 
+def join(fields, sep=':'):
+    for f in fields:
+        if not isinstance(f, text_type):
+            raise ValueError("Type of '%r' is not text." % f)
+        if f.find(sep) != -1:
+            raise ValueError("Separator '%s' present in string '%s'" %
+                             (sep, f))
+    return sep.join(fields)
+
+
 class Passwd(object):
 
     """Simple class for making a passwd map. generate_passwd() will make
     a list of list that translates to the info found in a passwd file."""
 
-    def __init__(self, auth_method, spread=None):
+    def __init__(self, auth_method=None, spread=None):
+        if spread is None:
+            raise ValueError('spread is required')
         self.spread = spread
         self.auth_method = auth_method
-        self.disk = Factory.get('Disk')(db)
-        self.shells = {}
-        for s in posix_user.list_shells():
-            self.shells[int(s['code'])] = s['shell']
-        self.diskid2path = {}
-        for d in self.disk.list(spread=self.spread):
-            self.diskid2path[int(d['disk_id'])] = d['path']
+        self.user_exporter = UserExporter(db)
 
-    def join(self, fields, sep=':'):
-        for f in fields:
-            if not isinstance(f, text_type):
-                raise ValueError, "Type of '%r' is not text." % f
-            if f.find(sep) != -1:
-                raise ValueError, \
-                    "Separator '%s' present in string '%s'" % (sep, f)
-        return sep.join(fields)
+        self.shells = self.user_exporter.shell_codes()
+        self.gid2posix_gid = self.user_exporter.make_posix_gid_cache()
+        self.quarantine_cache = self.user_exporter.make_quarantine_cache(
+            spread
+        )
+        self.account2auth_data = self.user_exporter.make_auth_cache(
+            spread,
+            auth_method
+        )
 
-    def process_user(self, user_rows):
-        row = user_rows[0]
-        uname = row['entity_name']
+        self.homedirs = HomedirResolver(db, spread)
+        self.homedirs.make_home_cache()
+        self.owners = OwnerResolver(db)
+        self.owners.make_owner_cache()
+        self.owners.make_name_cache()
+
+    def process_user(self, row):
+        account_id = row['account_id']
+        logger.debug('Processing %s', account_id)
+
+        uname, passwd = self.account2auth_data[account_id]
         if posix_user.illegal_name(uname):
-            raise BadUsername, "Bad username %s" % uname
-        passwd = row['auth_data']
+            raise BadUsername("Bad username %s" % uname)
         if passwd is None:
             passwd = '*'
-        posix_group.posix_gid = row['posix_gid']
+
         gecos = row['gecos']
         if gecos is None:
-            gecos = row['name']
+            gecos = self.owners.get_name(account_id)
         if gecos is None:
             gecos = uname
         gecos = transliterate.to_iso646_60(gecos)
-        shell = self.shells[int(row['shell'])]
-        if row['quarantine_type'] is not None:
-            now = mx.DateTime.now()
-            quarantines = []
-            for qrow in user_rows:
-                if (qrow['start_date'] <= now
-                    and (qrow['end_date'] is None or qrow['end_date'] >= now)
-                    and (qrow['disable_until'] is None
-                         or qrow['disable_until'] < now)):
-                    # The quarantine found in this row is currently
-                    # active.
-                    quarantines.append(qrow['quarantine_type'])
-            qh = QuarantineHandler.QuarantineHandler(db, quarantines)
+
+        shell = self.shells[row['shell']]
+        quarantine_types = self.quarantine_cache.get(account_id, None)
+        if quarantine_types is not None:
+            qh = QuarantineHandler.QuarantineHandler(db, quarantine_types)
             if qh.should_skip():
                 raise UserSkipQuarantine
             if qh.is_locked():
@@ -132,65 +142,37 @@ class Passwd(object):
             if qshell is not None:
                 shell = qshell
 
-        if row['disk_id']:
-            disk_path = self.diskid2path[int(row['disk_id'])]
-        else:
-            disk_path = None
-        home = posix_user.resolve_homedir(account_name=uname,
-                                          home=row['home'],
-                                          disk_path=disk_path)
-
+        home = self.homedirs.get_homedir(account_id, allow_no_disk=True)
         if home is None:
             # TBD: Is this good enough?
             home = '/'
 
+        posix_gid = self.gid2posix_gid[row['gid']]
         return [uname, passwd, text_type(row['posix_uid']),
-                text_type(posix_group.posix_gid), gecos,
+                text_type(posix_gid), gecos,
                 text_type(home), shell]
 
     def generate_passwd(self):
         """Data generating method. returns a list of lists which looks like
         (uname, passwd, uid, gid, gecos, home, shell)."""
-        if self.spread is None:
-            raise ValueError, "Must set user_spread"
-        # NOCRYPT is not a registered auth_method, it is used to generate pwd-map
-        # with no pwd-crypt. This is not the best way to ensure that no crypt is used
-        # and should be amended in the new version of gen_nismaps.py (as should the usage
-        # of list_extended_posix_users-method). Jazz, 2010-05-31
-        if self.auth_method == 'NOCRYPT':
-            # use default value for auth_method (md5_crypt), the crypt will be
-            # removed at write
-            user_iter = posix_user.list_extended_posix_users(
-                spread=self.spread, include_quarantines=True)
-        else:
-            user_iter = posix_user.list_extended_posix_users(
-                # use given value for auth_method, crypt is used
-                auth_method=self.auth_method,
-                spread=self.spread, include_quarantines=True)
-        prev_user = None
+        user_iter = posix_user.list_posix_users(
+            spread=self.spread,
+            filter_expired=True
+        )
+
         user_rows = []
-        user_lines = []
         for row in user_iter:
-            if prev_user != row['account_id'] and prev_user is not None:
+            # We only want to append users with the selected auth_method.
+            # When self.auth_method is None, accounts with MD5-crypt are
+            # appended.
+            if self.account2auth_data.get(row['account_id'], None):
                 try:
-                    user_lines.append(self.process_user(user_rows))
-                except NISMapError, e:
+                    user_rows.append(self.process_user(row))
+                except NISMapError:
                     logger.error("NISMapError", exc_info=1)
                 except NISMapException:
                     pass
-                user_rows = [row]
-            else:
-                user_rows.append(row)
-            prev_user = row['account_id']
-        else:
-            if user_rows:
-                try:
-                    user_lines.append(self.process_user(user_rows))
-                except NISMapError, e:
-                    logger.error("NISMapError", exc_info=1)
-                except NISMapException:
-                    pass
-        return user_lines
+        return user_rows
 
     def write_passwd(self, filename, shadow_file, e_o_f=False):
         logger.debug("write_passwd: filename=%r, shadow_file=%r, spread=%r",
@@ -201,21 +183,20 @@ class Passwd(object):
             s = SimilarSizeWriter(shadow_file, "w")
             s.max_pct_change = 10
 
-        user_lines = self.generate_passwd()
-        for l in user_lines:
-            uname = l[0]
-            if self.auth_method == 'NOCRYPT' and l[1] != '*locked':
-                # substitute pwdcrypt with an 'x' if auth_method given to gen_nismaps
-                # is NOCRYPT. Jazz, 2010-05-31
+        user_rows = self.generate_passwd()
+        for row in user_rows:
+            uname = row[0]
+            if self.auth_method is None and row[1] != '*locked':
+                # substitute pwdcrypt with an 'x' if auth_method is None
                 passwd = 'x'
             else:
-                passwd = l[1]
-            rest = l[2:]
+                passwd = row[1]
+            rest = row[2:]
             if shadow_file:
                 s.write("%s:%s:::\n" % (uname, passwd))
                 if not passwd[0] == '*':
                     passwd = "!!"
-            line = self.join([uname, passwd] + rest)
+            line = join([uname, passwd] + rest)
             f.write(line + "\n")
         if e_o_f:
             f.write('E_O_F\n')
@@ -304,7 +285,7 @@ class NISGroupUtil(object):
         while True:
             tmp_gname = "%s%02x" % (self._tmp_group_prefix, self._num)
             self._num += 1
-            if not self._exported_groups.has_key(tmp_gname):
+            if tmp_gname not in self._exported_groups:
                 return tmp_gname
 
     def _wrap_line(self, group_name, line, g_separator, is_ng=False):
@@ -334,11 +315,14 @@ class NISGroupUtil(object):
     def generate_netgroup(self):
         # TODO: What does the "subject to change to a python structure shortly"
         # part mean? Should this be fixed?
-        """Returns a list of lists. Data looks like (gname, string of groupmembers). This is subject to change to a python structure shortly."""
+        """Returns a list of lists. Data looks like (gname, string of
+        groupmembers). This is subject to change to a python structure
+        shortly."""
         netgroups = []
         for group_id in self._exported_groups.keys():
             group_name = self._exported_groups[group_id]
-            group_members, user_members = map(list, self._expand_group(group_id))
+            group_members, user_members = map(list,
+                                              self._expand_group(group_id))
             # logger.debug("%s -> g=%s, u=%s" % (
             #    group_id, group_members, user_members))
             netgroups.append((group_name,
@@ -379,9 +363,12 @@ class FileGroup(NISGroupUtil):
             co.account_namespace, co.entity_account,
             group_spread, member_spread)
         self._group = PosixGroup.PosixGroup(db)
-        self._account2def_group = {}
-        for row in posix_user.list_extended_posix_users():
-            self._account2def_group[int(row['account_id'])] = int(row['posix_gid'])
+        user_exporter = UserExporter(db)
+        gid2posix_gid = user_exporter.make_posix_gid_cache()
+        self._account2posix_gid = {}
+        for row in posix_user.list_posix_users(filter_expired=True):
+            self._account2posix_gid[row['account_id']] = gid2posix_gid[
+                row['gid']]
         logger.debug("__init__ done")
 
     def _make_tmp_name(self, base):
@@ -401,7 +388,7 @@ class FileGroup(NISGroupUtil):
                 tname = format % (name, i)
                 if len(tname) > 8:
                     break
-                if not self._exported_groups.has_key(tname):
+                if tname not in self._exported_groups:
                     self._exported_groups[tname] = True
                     return tname
                 i += 1
@@ -411,30 +398,36 @@ class FileGroup(NISGroupUtil):
         ret = set()
         self._group.clear()
         self._group.find(gid)
-        for row in self._group.search_members(group_id=self._group.entity_id,
-                                              indirect_members=True,
-                                              member_type=co.entity_account,
-                                              member_spread=self._member_spread):
+        members = self._group.search_members(
+                group_id=self._group.entity_id,
+                indirect_members=True,
+                member_type=co.entity_account,
+                member_spread=self._member_spread
+        )
+        for row in members:
             account_id = int(row["member_id"])
-            if self._account2def_group.get(account_id, None) == self._group.posix_gid:
+            if (self._account2posix_gid.get(account_id, None) ==
+                    self._group.posix_gid):
                 continue  # Don't include the users primary group
             name = self._entity2name.get(account_id, None)
             if not name:
                 if not self._is_new(account_id):
-                    logger.warn("Was %i very recently created?" % int(account_id))
+                    logger.warn("Was %i very recently created?" %
+                                int(account_id))
                 continue
             ret.add(name)
         return set(), ret
 
     def generate_filegroup(self):
-        """Generates a list of lists. An entry looks like (gname, gid, [members])."""
+        """Generates a list of lists. An entry looks like (gname, gid,
+        [members])."""
         filegroups = []
         groups = self._exported_groups.keys()
         groups.sort()
         for group_id in groups:
             group_name = self._exported_groups[group_id]
             if posix_group.illegal_name(group_name):
-                logger.warn("Bad groupname %s" % (group_name))
+                logger.warn("Bad groupname %s" % group_name)
                 continue
             try:
                 group_members, user_members = map(list,
@@ -442,7 +435,8 @@ class FileGroup(NISGroupUtil):
             except Errors.NotFoundError:
                 logger.warn("Group %s has no GID", group_id)
                 continue
-            tmp_users = self._filter_illegal_usernames(user_members, group_name)
+            tmp_users = self._filter_illegal_usernames(user_members,
+                                                       group_name)
 
             # logger.debug("%s -> g=%s, u=%s" % (
             #    group_id, group_members, tmp_users))
@@ -458,7 +452,8 @@ class FileGroup(NISGroupUtil):
         with closing(SimilarSizeWriter(filename, "w")) as f:
             f.max_pct_change = 5
             for group_name, gid, users in self.generate_filegroup():
-                f.write(self._wrap_line(group_name, ",".join(users), ':*:%i:' % gid))
+                f.write(self._wrap_line(group_name, ",".join(users), ':*:%i:'
+                                        % gid))
             if e_o_f:
                 f.write('E_O_F\n')
 
@@ -505,7 +500,7 @@ class MachineNetGroup(NISGroupUtil):
         while True:
             n += 1
             tmp_gname = "%s-%02x" % (group_name, n)
-            if not self._exported_groups.has_key(tmp_gname):
+            if tmp_gname not in self._exported_groups:
                 self._num_map[group_name] = n
                 return tmp_gname
 

@@ -17,9 +17,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Common POSIX LDIF generator. """
-
 from __future__ import unicode_literals
 
+import logging
 from collections import defaultdict
 from six import text_type
 
@@ -29,6 +29,14 @@ from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory, auto_super, make_timer
 from Cerebrum.utils import transliterate
 from Cerebrum import Errors
+from Cerebrum.modules.posix.UserExporter import HomedirResolver
+from Cerebrum.modules.posix.UserExporter import OwnerResolver
+from Cerebrum.modules.posix.UserExporter import UserExporter
+from Cerebrum.modules.posix.UserExporter import make_clock_time
+
+
+logger = logging.getLogger(__name__)
+clock_time = make_clock_time(logger)
 
 
 class PosixLDIF(object):
@@ -56,7 +64,6 @@ class PosixLDIF(object):
         self.user_dn = LDIFutils.ldapconf('USER', 'dn', None)
         self.get_name = True
         self.fd = fd
-
         self.spread_d = {}
         # Validate spread from arg or from cereconf
         for x, y in zip(['USER', 'FILEGROUP', 'NETGROUP'],
@@ -69,41 +76,64 @@ class PosixLDIF(object):
             raise Errors.ProgrammingError(
                 "Must specify spread-value as 'arg' or in cereconf")
         self.account2name = dict()
+        self.group2gid = dict()
         self.groupcache = defaultdict(dict)
         self.group2groups = defaultdict(set)
         self.group2users = defaultdict(set)
         self.group2persons = defaultdict(list)
+        self.shell_tab = dict()
+        self.quarantines = dict()
+
+        self.user_exporter = UserExporter(self.db)
+        if len(self.spread_d['user']) > 1:
+            logger.warning('Exporting users with multiple spreads, '
+                           'ignoring homedirs from %r',
+                           self.spread_d['user'][1:])
+        self.homedirs = HomedirResolver(db, self.spread_d['user'][0])
+        self.owners = OwnerResolver(db)
         timer('... done initing PosixLDIF.')
 
+    @clock_time
     def user_ldif(self, filename=None, auth_meth=None):
         """Generate posix-user."""
-        timer = make_timer(self.logger, 'Starting user_ldif...')
         self.init_user(auth_meth)
         f = LDIFutils.ldif_outfile('USER', filename, self.fd)
         f.write(LDIFutils.container_entry_string('USER'))
-        for row in self.posuser.list_extended_posix_users(
-                self.user_auth,
-                spread=self.spread_d['user'],
-                include_quarantines=False):
+        for row in self.posuser.list_posix_users(
+            spread=self.spread_d['user'],
+            filter_expired=True
+        ):
+            if (row['account_id'] not in
+                    self.account2auth):
+                continue
             dn, entry = self.user_object(row)
             if dn:
                 f.write(LDIFutils.entry_string(dn, entry, False))
         LDIFutils.end_ldif_outfile('USER', f, self.fd)
-        timer('... done user_ldif')
 
+    @clock_time
     def init_user(self, auth_meth=None):
-        timer = make_timer(self.logger, 'Starting init_user...')
         self.get_name = False
         self.qh = QuarantineHandler(self.db, None)
         self.posuser = Factory.get('PosixUser')(self.db)
-        self.load_disk_tab()
-        self.load_shell_tab()
-        self.load_quaratines()
+
+        self.shell_tab = self.user_exporter.shell_codes()
+        self.quarantines = self.user_exporter.make_quarantine_cache(
+            self.spread_d['user']
+        )
+        self.owners.make_owner_cache()
+        self.owners.make_name_cache()
+        self.homedirs.make_home_cache()
+        self.group2gid = self.user_exporter.make_posix_gid_cache()
+        self.account2auth = self.user_exporter.make_auth_cache(
+            spread=self.spread_d['user'],
+            auth_method=auth_meth,
+        )
         self.load_auth_tab(auth_meth)
         self.cache_account2name()
         self.id2uname = {}
-        timer('... init_user done.')
 
+    @clock_time
     def cache_account2name(self):
         """Cache account_id to username.
            This one is a bit more lenient that what the self.id2uname
@@ -113,21 +143,13 @@ class PosixLDIF(object):
             return
         if len(self.account2name) > 0:
             return
-        timer = make_timer(self.logger, 'Starting cache_account2name...')
         self.account2name = dict(
             (r['account_id'], r['name']) for r in
             self.posuser.search(spread=self.spread_d['user'],
                                 expire_start=None,
                                 expire_stop=None))
-        timer('... done cache_account2name')
 
-    def cache_group2gid(self):
-        timer = make_timer(self.logger, 'Starting cache_group2gid...')
-        self.group2gid = dict()
-        for row in self.posgrp.list_posix_groups():
-            self.group2gid[row['group_id']] = text_type(row['posix_gid'])
-        timer('... done cache_group2gid')
-
+    @clock_time
     def cache_groups_and_users(self):
         if len(self.group2groups) or len(self.group2users):
             return
@@ -136,8 +158,6 @@ class PosixLDIF(object):
             children = set()
             map(children.update, self.group2groups.itervalues())
             return children.difference(self.group2groups.keys())
-
-        timer = make_timer(self.logger, 'Starting cache_groups_and_users...')
 
         spread = []
         for s in ('filegroup', 'netgroup'):
@@ -176,8 +196,6 @@ class PosixLDIF(object):
                     member_spread=self.spread_d['user'][0],
                     group_id=extra_groups):
                 self.group2users[row['group_id']].add(row['member_id'])
-
-        timer('... done cache_groups_and_users')
 
     def cache_group2persons(self):
         """Cache person members in groups. Not used in main module."""
@@ -225,57 +243,32 @@ class PosixLDIF(object):
             self.user_auth = int(getattr(self.const, auth))
         return auth_meth_l
 
+    @clock_time
     def load_auth_tab(self, auth_meth=None):
-        timer = make_timer(self.logger, 'Starting load_auth_tab...')
         self.a_meth = self.auth_methods(auth_meth)
         if not self.a_meth:
-            timer('... done load_auth_tab')
             return
         self.auth_data = defaultdict(dict)
-        for x in self.posuser.list_account_authentication(auth_type=self.a_meth,
-                                                          spread=self.spread_d['user']):
+        for x in self.posuser.list_account_authentication(
+                auth_type=self.a_meth,
+                spread=self.spread_d['user']
+        ):
             if not x['account_id'] or not x['method']:
                 continue
             acc_id, meth = int(x['account_id']), int(x['method'])
             self.auth_data[acc_id][meth] = x['auth_data']
-        timer('... done load_auth_tab')
-
-    def load_disk_tab(self):
-        timer = make_timer(self.logger, 'Starting load_disk_tab...')
-        self.disk = Factory.get('Disk')(self.db)
-        self.disk_tab = {}
-        for hd in self.disk.list():
-            self.disk_tab[int(hd['disk_id'])] = hd['path']
-        timer('... done load_disk_tab')
-
-    def load_shell_tab(self):
-        timer = make_timer(self.logger, 'Starting load_shell_tab...')
-        self.shell_tab = {}
-        for sh in self.posuser.list_shells():
-            self.shell_tab[int(sh['code'])] = sh['shell']
-        timer('... done load_shell_tab')
-
-    def load_quaratines(self):
-        timer = make_timer(self.logger, 'Starting load_quaratines...')
-        self.quarantines = defaultdict(list)
-        for row in self.posuser.list_entity_quarantines(
-                entity_types=self.const.entity_account,
-                only_active=True,
-                spreads=self.spread_d['user']):
-            self.quarantines[int(row['entity_id'])].append(
-                    int(row['quarantine_type']))
-        timer('... done load_quaratines')
 
     def user_object(self, row):
         account_id = int(row['account_id'])
-        uname = row['entity_name']
+        uname, auth_data = self.account2auth[account_id]
         passwd = '{crypt}*Invalid'
-        if row['auth_data']:
+
+        if auth_data:
             if self.auth_format[self.user_auth]['format']:
                 passwd = self.auth_format[self.user_auth]['format'] % \
-                        row['auth_data']
+                        auth_data
             else:
-                passwd = row['auth_data']
+                passwd = auth_data
         else:
             for uauth in [x for x in self.a_meth if x in self.auth_format]:
                 try:
@@ -301,30 +294,29 @@ class PosixLDIF(object):
             qshell = self.qh.get_shell()
             if qshell is not None:
                 shell = qshell
-        if row['disk_id']:
-            disk_path = self.disk_tab[int(row['disk_id'])]
-        else:
-            disk_path = None
-        home = self.posuser.resolve_homedir(account_name=uname,
-                                            home=row['home'],
-                                            disk_path=disk_path)
+
+        home = self.homedirs.get_homedir(row['account_id'], allow_no_disk=True)
         if not home:
             self.logger.warn("User %s has no home directory", uname)
             return None, None
-        cn = row['name'] or row['gecos'] or uname
+
+        owner_id = self.owners.get_owner_id(row['account_id'])
+        fullname = self.owners.get_name(row['account_id'])
+        cn = fullname or row['gecos'] or uname
         gecos = transliterate.to_iso646_60(row['gecos'] or cn)
+        posix_gid = self.group2gid[row['gid']]
         entry = {
             'objectClass': ['top', 'account', 'posixAccount'],
             'cn': (cn,),
             'uid': (uname,),
             'uidNumber': (text_type(row['posix_uid']),),
-            'gidNumber': (text_type(row['posix_gid']),),
+            'gidNumber': (text_type(posix_gid),),
             'homeDirectory': (home,),
             'userPassword': (passwd,),
             'loginShell': (shell,),
             'gecos': (gecos,)
         }
-        self.update_user_entry(account_id, entry, row)
+        self.update_user_entry(account_id, entry, owner_id)
         if account_id not in self.id2uname:
             self.id2uname[account_id] = uname
         else:
@@ -338,6 +330,7 @@ class PosixLDIF(object):
         """ Called by user_object(). Inject additional data here. """
         pass
 
+    @clock_time
     def filegroup_ldif(self, filename=None):
         """ Generate filegroup.
 
@@ -345,7 +338,6 @@ class PosixLDIF(object):
         internal groups.
 
         """
-        timer = make_timer(self.logger, 'Starting filegroup_ldif...')
         if 'filegroup' not in self.spread_d:
             self.logger.warn("No spread is given for filegroup!")
             return
@@ -383,7 +375,6 @@ class PosixLDIF(object):
         timer2('... done writing group objects')
         self.filegroupcache = None
         LDIFutils.end_ldif_outfile('FILEGROUP', f, self.fd)
-        timer('... done  filegroup_ldif')
 
     def init_filegroup(self):
         """Initiate modules and constants for posixgroup"""
@@ -392,7 +383,7 @@ class PosixLDIF(object):
         self.fgrp_dn = LDIFutils.ldapconf('FILEGROUP', 'dn')
         self.filegroupcache = defaultdict(dict)
         self.cache_account2name()
-        self.cache_group2gid()
+        self.group2gid = self.user_exporter.make_posix_gid_cache()
         self.cache_groups_and_users()
 
     def create_filegroup_object(self, group_id):
@@ -401,7 +392,7 @@ class PosixLDIF(object):
         entry = {
             'objectClass': ('top', 'posixGroup'),
             'cn': cache['name'],
-            'gidNumber': self.group2gid[group_id],
+            'gidNumber': text_type(self.group2gid[group_id]),
         }
         if 'description' in cache:
             entry['description'] = (cache['description'],)
@@ -411,10 +402,10 @@ class PosixLDIF(object):
         """Future use of mixin-classes"""
         pass
 
+    @clock_time
     def netgroup_ldif(self, filename=None):
         """Generate netgroup with only users."""
 
-        timer = make_timer(self.logger, 'Starting netgroup_ldif...')
         if 'netgroup' not in self.spread_d:
             self.logger.warn("No valid netgroup-spread in cereconf or arg!")
             return
@@ -456,10 +447,9 @@ class PosixLDIF(object):
         LDIFutils.end_ldif_outfile('NETGROUP', f, self.fd)
         timer2('... done writing group objects')
         self.netgroupcache = None
-        timer('... done netgroup_ldif')
 
+    @clock_time
     def cache_uncached_children(self):
-        timer = make_timer(self.logger, 'Starting cache_uncached_children...')
         children = set()
         map(children.update, self.group2groups.itervalues())
         extra = children.difference(self.groupcache.keys())
@@ -467,7 +457,6 @@ class PosixLDIF(object):
             for row in self.grp.search(group_id=extra):
                 self.create_group_object(row['group_id'], row['name'],
                                          row['description'])
-        timer('... done cache_uncached_children')
 
     def get_users_and_groups(self, group_id, users, groups, add_persons=False):
         """Recursive method to get members and groups in a group."""
@@ -562,7 +551,7 @@ class PosixLDIFRadius(PosixLDIF):
         meth.append(int(self.const.auth_type_md4_nt))
         return meth
 
-    def update_user_entry(self, account_id, entry, row):
+    def update_user_entry(self, account_id, entry, owner_id):
         # sambaNTPassword (used by FreeRadius)
         try:
             hash = self.auth_data[account_id][int(self.const.auth_type_md4_nt)]
@@ -579,7 +568,7 @@ class PosixLDIFRadius(PosixLDIF):
                 # TODO: Remove sambaSamAccount and sambaSID after Radius-testing
                 entry['objectClass'].append('sambaSamAccount')
                 entry['sambaSID'] = entry['uidNumber']
-        return self.__super.update_user_entry(account_id, entry, row)
+        return self.__super.update_user_entry(account_id, entry, owner_id)
 
 
 class PosixLDIFMail(PosixLDIF):
@@ -605,7 +594,7 @@ class PosixLDIFMail(PosixLDIF):
 
         timer('...done PosixLDIFMail.init_user')
 
-    def update_user_entry(self, account_id, entry, row):
+    def update_user_entry(self, account_id, entry, owner_id):
         mail = None
         if account_id in self.accounts_with_email:
             mail = self.mail_template.substitute(uid=entry['uid'][0])
@@ -621,4 +610,4 @@ class PosixLDIFMail(PosixLDIF):
                 entry[attr] = (mail, )
         else:
             self.logger.warn('Account %s is missing mail', entry['uid'][0])
-        return self.__super.update_user_entry(account_id, entry, row)
+        return self.__super.update_user_entry(account_id, entry, owner_id)
