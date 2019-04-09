@@ -542,7 +542,6 @@ class Build(object):
                          posix_uid=account.get_free_uid(),
                          gid_id=self.posix_group,
                          gecos=transliterate.for_posix(full_name),
-                         # gecos=account.simplify_name(full_name,as_gecos=True),
                          shell=co.posix_shell_bash
                          )
 
