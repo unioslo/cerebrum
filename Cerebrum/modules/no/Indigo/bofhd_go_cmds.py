@@ -92,7 +92,6 @@ class IndigoEmailAuth(IndigoAuth, bofhd_email.BofhdEmailAuth):
 
 # Helper methods from uio
 copy_helpers = [
-    '_get_disk',
     '_entity_info',
     '_fetch_member_names',
     '_get_cached_passwords',
