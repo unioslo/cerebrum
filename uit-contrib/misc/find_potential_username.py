@@ -12,6 +12,7 @@ from Cerebrum import Account
 from Cerebrum.modules.no.uit import Account
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from Cerebrum.modules.legacy_users import LegacyUsers
 
 sys.path = ['/home/cerebrum/CVS/cerebrum/contrib/no/uit/cerebrum_import/']+sys.path
 
@@ -19,7 +20,7 @@ sys.path = ['/home/cerebrum/CVS/cerebrum/contrib/no/uit/cerebrum_import/']+sys.p
 class process:
     def __init__(self,db):
         print "init"
-        self.db=db
+        self.db = db
 
     def find_uname(self,ssn,name,cstart):
         uname = get_uit_uname(ssn,name,cstart)
@@ -43,8 +44,8 @@ class process:
             resp = raw_input("Please answer Y or N: ")
         if (resp == 'Y'):
             # we are to store the information into the legacy table
-            query = "insert into legacy_users (user_name,ssn,source,type) values ('%s','%s','%s','%s')" % (uname,ssn,source,type)
-            db_row = self.db.query(query)
+            lu = LegacyUsers(self.db)
+            lu.set(uname, ssn=ssn, source=source, type=type)
             self.db.commit()
             print "Person stored in legacy_users. Do not forget to notify SUT (paal) about the new user"
         else:

@@ -8,6 +8,8 @@ from Cerebrum import Utils
 from Cerebrum.Utils import Factory
 import cereconf
 from Cerebrum import Errors
+from Cerebrum.modules.legacy_users import LegacyUsers
+
 
 class delete:
     def delete_account(self, db, account_id, target_id=None, dryrun=False):
@@ -17,6 +19,7 @@ class delete:
         print "processing acocunt:%s" % account_id
 
         ac = Factory.get('Account')(db)
+        lu = LegacyUsers(db)
         try:
             ac.find(account_id)
         except Errors.NotFoundError,m:
@@ -27,7 +30,7 @@ class delete:
         co = Factory.get('Constants')(db)
 
         legacy_info = {}
-        legacy_info['user_name'] = ac.account_name
+        legacy_info['username'] = ac.account_name
         try:
             legacy_info['ssn'] = pe.get_external_id(id_type=co.externalid_fodselsnr)[0]['external_id']
         except:
@@ -124,12 +127,11 @@ class delete:
             print "Could not find primary account"
             
         try:
-            ac.write_legacy_user(legacy_info['user_name'],ssn=legacy_info['ssn'],source=legacy_info['source'], type=legacy_info['type'],comment=legacy_info['comment'],name=legacy_info['name'])
-            print "Updated legacy table\n"
-        except Exception, m:
-            print "Could not write to legacy_users: %s\n" % (m)
-            sys.exit()
-
+            lu.set(**legacy_info)
+            print("Updated legacy table\n")
+        except Exception as m:
+            print("Could not write to legacy_users: %s\n" % m)
+            sys.exit(1)
 
         # Sending email to SUT queue in RT if necessary
         if mailto_rt and not dryrun:

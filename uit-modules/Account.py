@@ -33,9 +33,11 @@ import cereconf
 
 from Cerebrum import Account
 from Cerebrum import Errors
-from Cerebrum.utils import transliterate
+from Cerebrum.Entity import EntityName
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-from Cerebrum.Utils import Factory, prepare_string
+from Cerebrum.modules.legacy_users import LegacyUsers
+from Cerebrum.utils import transliterate
 
 logger = logging.getLogger(__name__)
 
@@ -243,7 +245,8 @@ class AccountUiTMixin(Account.Account):
     #
     # Create sito usernames
     #
-    def get_sito_uname(self, fnr, name, Regime=None):
+    def get_sito_uname(self, fnr, name, regime=None):
+        # get_sito_uname() is never called with regime-kwarg
         create_new = True
         cstart = 0
         step = 1
@@ -282,7 +285,7 @@ class AccountUiTMixin(Account.Account):
 
         return username
 
-    def get_uit_uname(self, fnr, name, Regime=None):
+    def get_uit_uname(self, fnr, name, regime=None):
         """
         UiT function that generates a username.
 
@@ -315,7 +318,7 @@ class AccountUiTMixin(Account.Account):
         # assume not found in
         create_new = True
 
-        if Regime == "ADMIN":
+        if regime == "ADMIN":
             cstart = 999
             step = -1
             legacy_type = 'SYS'
@@ -323,18 +326,6 @@ class AccountUiTMixin(Account.Account):
             cstart = 0
             step = 1
             legacy_type = 'P'
-
-        legacy_sql = """
-        SELECT user_name FROM [:table schema=cerebrum name=legacy_users]
-        WHERE ssn=:ssn and type=:type
-        ORDER BY source,user_name
-        """
-        legacy_binds = {
-            'ssn': fnr,
-            'type': legacy_type,
-        }
-
-        legacy_data = self._db.query(legacy_sql, legacy_binds)
 
         new_ac = Factory.get('Account')(self._db)
         p = Factory.get('Person')(self._db)
@@ -356,13 +347,13 @@ class AccountUiTMixin(Account.Account):
         else:
             person_id = p.entity_id
 
-        person_accounts = self.list_accounts_by_owner_id(person_id, filter_expired=False)
-
         # regexp for checking username format
         p = re.compile('^[a-z]{3}[0-9]{3}$')
 
-        for legacy_row in legacy_data:
-            legacy_username = legacy_row['user_name']
+        for row in sorted(
+                LegacyUsers(self._db).search(ssn=fnr, type=legacy_type),
+                key=lambda r: (r['source'], r['user_name'])):
+            legacy_username = row['user_name']
             if not p.match(legacy_username):
                 # legacy username not in <three letters><three digits> format
                 continue
@@ -408,112 +399,27 @@ class AccountUiTMixin(Account.Account):
 
         return username
 
-    def get_uit_uname_old(self, fnr, name, Regime=None):
-        ssn = fnr
-        step = 1
-        if Regime is None:
-            cstart = 22
-            query = """
-            select user_name from legacy_users
-            where ssn='%s' and source <>'AD' and type='P'
-            """ % (ssn)
-        elif Regime == "ONE":
-            cstart = 0
-            query = """
-            select user_name from legacy_users
-            where ssn='%s' and type='P'
-            """ % (ssn)
-        elif Regime == "ADMIN":
-            cstart = 999
-            step = -1
-            query = """
-            select user_name from legacy_users
-            where ssn='%s' and type='SYS'
-            """ % (ssn)
-        else:
-            cstart = 0
-            query = """
-            select user_name from legacy_users
-            where ssn='%s' and source ='AD' and type='P'
-            """ % (ssn)
-        db = self._db
-        db_row = db.query(query)
-        for row in db_row:
-            # lets see if this person already has an account in cerebrum with
-            # this username (From legacy_user)
-            username = row['user_name']
-            query = """
-            select e.entity_id from entity_name e, account_info ai,
-                   entity_external_id eei
-            where e.entity_name='%s' and
-                  e.entity_id = ai.account_id and
-                  ai.owner_id = eei.entity_id and
-                  eei.external_id='%s'
-            """ % (username, ssn)
-
-            db_row2 = db.query(query)
-            if len(db_row2) > 0:
-                # This user already has an account in cerebrum with the
-                # username from the legacy table
-                # Returning existing account_name
-                raise Errors.IntegrityError(
-                    "ssn:%s already has an account=%s.  Error trying to "
-                    "create a new account" % (ssn, username))
-
-            # was unable to find any existing accounts in cerebrum for this
-            # person with the username from the legacy table.
-            # lets return the first user_name in legacy_users for this person,
-            # that no one alrady has.
-            for row3 in db_row:
-                username = row3['user_name']
-                query = """
-                select entity_id from entity_name where entity_name='%s'
-                """ % (username, )
-                db_row2 = db.query(query)
-                if len(db_row2) == 0 and not username.isalpha():
-                    # print("registered username %s for %s is free. "
-                    #       "returning this" % (ssn,username))
-                    return username
-
-        # getting here means either that:
-        # 1. the person does not have a previous account
-        # 2. the persons username is already taken, and a new has to be created
-        inits = self.get_uit_inits(name)
-        if inits == 0:
-            return inits
-        new_username = self.get_serial(inits, cstart, step=step)
-        # print("no legacy usernames for %s were free. created new %s" %
-        #       (ssn, new_username))
-        return new_username
-
     def get_serial(self, inits, cstart, step=1, postfix=None):
+        lu = LegacyUsers(self._db)
+        en = EntityName(self._db)
         found = False
-        db = self._db
-        ac = Factory.get('Account')(db)
+        postfix = postfix or ''
         while ((not found) and (cstart <= 999) and (cstart >= 0)):
             # xxx999 is reserved for admin use
-
-            if postfix is not None:
-                uname = "%s%03d%s" % (inits, cstart, postfix)
-            else:
-                uname = "%s%03d" % (inits, cstart)
-            ac.clear()
-            query = "select * from entity_name where entity_name='%s'" % uname
-            db_row = db.query(query)
-            query2 = "select * from legacy_users where user_name='%s'" % uname
-            db_row2 = db.query(query2)
-
-            if((len(db_row) != 0) or (len(db_row2) != 0)):
+            uname = "%s%03d%s" % (inits, cstart, postfix)
+            if en.entity_name_exists(uname) or lu.exists(uname):
                 cstart += step
             else:
                 found = True
+                break
 
         if not found:
             # did not find free serial...
-            print("CRITICAL: Unable to find serial: inits=%s,cstart=%d,step=%d"
-                  % (inits, cstart, step))
+            logger.critical(
+                "Unable to find serial using inits=%r, cstart=%r, step=%r",
+                inits, cstart, step)
+            # TODO: Raise exception here!
             sys.exit(1)
-
         return uname
 
     def get_uit_inits(self, dname):
@@ -629,164 +535,3 @@ class AccountUiTMixin(Account.Account):
             if r['affiliation'] == self.const.affiliation_ansatt:
                 return True
         return False
-
-    def write_legacy_user(self,
-                          user_name,
-                          ssn=None,
-                          source=None,
-                          type=None,
-                          comment=None,
-                          name=None):
-        """
-        Insert or update legacy user info in our legacy_users table
-
-        @param user_name: Legacy username. Required.
-        @type user_name: String.
-
-        @param ssn: A norwegian ssn. No validation is done on this.
-        @type ssn: String.
-
-        @param source: Describes legacy system user_name comes from
-        @type ssn: String.
-
-        @param type: What type is this legacy name. Examples. P for personal,
-            SYS for system account.
-        @type ssn: String.
-
-        @param comment: A description of this entry
-        @type ssn: String.
-
-        @param name: Name of owner.
-        @type ssn: String.
-        """
-
-        if not user_name:
-            raise Errors.ProgrammingError(
-                "user_name parameter cannot be empty")
-
-        params = dict()
-        values = list()
-        if ssn:
-            values.append('ssn')
-            params['ssn'] = ssn
-        if source:
-            values.append('source')
-            params['source'] = source
-        if type:
-            values.append('type')
-            params['type'] = type
-        if comment:
-            values.append('comment')
-            params['comment'] = comment
-        if name:
-            values.append('name')
-            params['name'] = name
-
-        legacy = self.search_legacy(user_name=user_name)
-        if legacy:
-            valuelist = list()
-            for attr in values:
-                valuelist.append("%s=:%s" % (attr, attr))
-            qry = """
-            UPDATE [:table schema=cerebrum name=legacy_users]
-            SET %s
-            WHERE user_name=:user_name
-            """ % (','.join(valuelist))
-        else:
-            values.append('user_name')
-            valuelist = ','.join(values)
-            paramlist = list()
-            for attr in values:
-                paramlist.append(":%s" % attr)
-            qry = """
-            INSERT INTO [:table schema=cerebrum name=legacy_users]
-            (%s)
-            VALUES (%s)
-            """ % (','.join(values), ','.join(paramlist))
-
-        params['user_name'] = user_name
-        self.execute(qry, params)
-
-    def delete_legacy_user(self, user_name):
-        """
-        Delete a user from our legacy user table
-
-        @param user_name: Name of legacy account to delete.
-        @type user_name: String.
-        """
-        if not user_name:
-            raise Errors.ProgrammingError(
-                "user_name parameter cannot be empty")
-
-        self.execute(
-            """
-            DELETE FROM [:table schema=cerebrum name=legacy_users]
-            WHERE user_name=:user_name
-            """,
-            {'user_name': user_name})
-
-    def search_legacy(self,
-                      user_name=None,
-                      ssn=None,
-                      source=None,
-                      type=None,
-                      comment=None,
-                      name=None):
-        """
-        Search for infomations from our legacy table
-        Comment and Name may contain wild-cards. Other parameters
-        are tested for equality.
-
-        @param user_name: Legacy username
-        @type user_name: String.
-
-        @param ssn: A norwegian ssn.
-        @type ssn: String.
-
-        @param source: Describe where it comes from
-        @type ssn: String.
-
-        @param type: What type is it
-        @type ssn: String.
-
-        @param comment:A description of this entry
-        @type ssn: String.
-
-        @param name: Name of owner
-        @type ssn: String.
-
-        """
-        filter = []
-        params = dict()
-
-        if user_name:
-            filter.append('user_name=:user_name')
-            params['user_name'] = user_name
-        if ssn:
-            filter.append('ssn=:ssn')
-            params['ssn'] = ssn
-        if source:
-            filter.append('source=:source')
-            params['source'] = source
-        if type:
-            filter.append('type=:type')
-            params['type'] = type
-        if comment:
-            comment = prepare_string(comment, None)
-            filter.append('comment like :comment')
-            params['comment'] = comment
-        if name:
-            name = prepare_string(name, None)
-            filter.append('name like :name')
-            params['name'] = name
-
-        where = ""
-        if filter:
-            where = "WHERE %s" % (" AND ".join(filter))
-
-        qry = """
-        SELECT user_name, ssn, source, type, comment, name
-        FROM [:table schema=cerebrum name=legacy_users]
-        %s
-        """ % where
-        return self.query(qry, params)
