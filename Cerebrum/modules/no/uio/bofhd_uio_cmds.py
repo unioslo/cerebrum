@@ -45,7 +45,7 @@ from Cerebrum.modules.bofhd.auth import (AuthConstants,
                                          BofhdAuthRole)
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func, format_time
 from Cerebrum.modules.bofhd.cmd_param import (
     AccountName,
     AccountPassword,
@@ -110,11 +110,6 @@ from Cerebrum.utils import json
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
-
-
-def format_time(field):
-    fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
-    return ':'.join((field, "date", fmt))
 
 
 def date_to_string(date):
