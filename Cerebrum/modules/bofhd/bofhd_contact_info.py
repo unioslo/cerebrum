@@ -50,6 +50,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd.bofhd_utils import format_time
 from Cerebrum.modules.bofhd.cmd_param import (Command, FormatSuggestion,
                                               SimpleString, SourceSystem)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -58,15 +59,6 @@ from Cerebrum.modules.bofhd.utils import BofhdUtils
 
 
 logger = logging.getLogger(__name__)
-
-
-def format_time(field):
-    """ build a FormatSuggestion field for DateTime.
-
-    Note: The client should format a 16 char long datetime string.
-    """
-    fmt = "yyyy-MM-dd HH:mm"
-    return ':'.join((field, "date", fmt))
 
 
 class BofhdContactAuth(BofhdAuth):

@@ -82,8 +82,9 @@ from Cerebrum.modules.bofhd.cmd_param import (
 )
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
+from Cerebrum.modules.bofhd.bofhd_utils import format_time
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd.help import Help, merge_help_strings
 from Cerebrum.modules.dns.Subnet import Subnet
 from Cerebrum.modules.no import fodselsnr
@@ -108,11 +109,6 @@ from Cerebrum.utils import json
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
-
-
-def format_time(field):
-    fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
-    return ':'.join((field, "date", fmt))
 
 
 def date_to_string(date):

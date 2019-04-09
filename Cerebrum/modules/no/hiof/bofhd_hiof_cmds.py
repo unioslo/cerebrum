@@ -33,7 +33,9 @@ from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
+from Cerebrum.modules.bofhd_requests import bofhd_requests_auth
+from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cmd_base
@@ -43,9 +45,9 @@ from Cerebrum.modules.bofhd import bofhd_access
 # BofhdRequests are unfortunately very UiO specific. Let's try to keep
 # Hiof stuff here to avoid making things worse.
 class HiofBofhdRequests(BofhdRequests):
-    def __init__(self, db, const, id=None):
+    def __init__(self, db, const):
         # Do normal extension of baseclass constructor
-        super(HiofBofhdRequests, self).__init__(db, const, id)
+        super(HiofBofhdRequests, self).__init__(db, const)
         # Hiofs BohfdRequest constant must be added to self.conflicts
         self.conflicts[int(const.bofh_ad_attrs_remove)] = None
 
@@ -60,14 +62,17 @@ class HiofContactAuth(HiofAuth, bofhd_contact_info.BofhdContactAuth):
     pass
 
 
+class HiofBofhdRequestsAuth(HiofAuth, bofhd_requests_auth.RequestsAuth):
+    """ Hiof specific Bofhd Requests auth. """
+    pass
+
+
 class HiofAccessAuth(HiofAuth, bofhd_access.BofhdAccessAuth):
     """Hiof specific access auth"""
     pass
 
 
 uio_commands = [
-    'misc_cancel_request',
-    'misc_list_requests',
     'ou_info',
     'ou_search',
     'ou_tree',
@@ -387,6 +392,10 @@ class BofhdExtension(BofhdCommonMethods):
 
 class ContactCommands(bofhd_contact_info.BofhdContactCommands):
     authz = HiofContactAuth
+
+
+class RequestCommands(bofhd_requests_cmds.BofhdExtension):
+    authz = HiofBofhdRequestsAuth
 
 
 class HiofAccessCommands(bofhd_access.BofhdAccessCommands):

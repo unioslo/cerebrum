@@ -227,7 +227,7 @@ from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.Utils import argument_to_sql
 from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 
 
 class AuthConstants(Constants._CerebrumCode):
@@ -1699,17 +1699,6 @@ class BofhdAuth(DatabaseAccessor):
             return self.has_privileged_access_to_group(
                 operator, self.const.auth_view_history, entity)
         raise PermissionDenied("no access for that entity_type")
-
-    def can_cancel_request(self, operator, req_id, query_run_any=False):
-        if query_run_any:
-            return True
-        if self.is_superuser(operator):
-            return True
-        br = BofhdRequests(self._db, self.const)
-        for r in br.get_requests(request_id=req_id):
-            if r['requestee_id'] and int(r['requestee_id']) == operator:
-                return True
-        raise PermissionDenied("You are not requester")
 
     def can_request_guests(self, operator, groupname=None,
                            query_run_any=False):

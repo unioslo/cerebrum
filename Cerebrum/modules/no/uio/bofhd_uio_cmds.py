@@ -45,7 +45,7 @@ from Cerebrum.modules.bofhd.auth import (AuthConstants,
                                          BofhdAuthRole)
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func, format_time
 from Cerebrum.modules.bofhd.cmd_param import (
     AccountName,
     AccountPassword,
@@ -82,7 +82,8 @@ from Cerebrum.modules.bofhd.cmd_param import (
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd.help import Help, merge_help_strings
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.no import fodselsnr
@@ -90,6 +91,7 @@ from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.bofhd_auth import (
     UioAuth,
+    UiOBofhdRequestsAuth,
     UioContactAuth,
     UioEmailAuth,
     UioAccessAuth
@@ -108,11 +110,6 @@ from Cerebrum.utils import json
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
-
-
-def format_time(field):
-    fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
-    return ':'.join((field, "date", fmt))
 
 
 def date_to_string(date):
@@ -1913,38 +1910,6 @@ class BofhdExtension(BofhdCommonMethods):
         return ret
 
     #
-    # misc change_request <request-id> <datetime>
-    #
-    all_commands['misc_change_request'] = Command(
-        ("misc", "change_request"),
-        Id(help_ref="id:request_id"),
-        DateTimeString())
-
-    def misc_change_request(self, operator, request_id, datetime):
-        if not request_id:
-            raise CerebrumError('Request id required')
-        if not datetime:
-            raise CerebrumError('Date required')
-        datetime = self._parse_date(datetime)
-        br = BofhdRequests(self.db, self.const)
-        old_req = br.get_requests(request_id=request_id)
-        if not old_req:
-            raise CerebrumError("There is no request with id=%r" % request_id)
-        else:
-            # If there is anything, it's at most one
-            old_req = old_req[0]
-        # If you are allowed to cancel a request, you can change it :)
-        self.ba.can_cancel_request(operator.get_entity_id(), request_id)
-        br.delete_request(request_id=request_id)
-        br.add_request(operator.get_entity_id(),
-                       datetime,
-                       old_req['operation'],
-                       old_req['entity_id'],
-                       old_req['destination_id'],
-                       old_req['state_data'])
-        return "OK, altered request %s" % request_id
-
-    #
     # misc check_password <password>
     #
     all_commands['misc_check_password'] = Command(
@@ -2381,27 +2346,6 @@ class BofhdExtension(BofhdCommonMethods):
         return cache
 
     #
-    # misc list_bofhd_request_types
-    #
-    all_commands['misc_list_bofhd_request_types'] = Command(
-        ("misc", "list_bofhd_request_types"),
-        fs=FormatSuggestion(
-            "%-20s %s", ("code_str", "description"),
-            hdr="%-20s %s" % ("Code", "Description")
-        ))
-
-    def misc_list_bofhd_request_types(self, operator):
-        br = BofhdRequests(self.db, self.const)
-        result = []
-        for row in br.get_operations():
-            br_code = self.const.BofhdRequestOp(row['code_str'])
-            result.append({
-                'code_str': text_type(br_code).lstrip('br_'),
-                'description': br_code.description,
-            })
-        return result
-
-    #
     # misc list_requests
     #
     all_commands['misc_list_requests'] = Command(
@@ -2493,25 +2437,6 @@ class BofhdExtension(BofhdCommonMethods):
                         })
         ret.sort(lambda a, b: cmp(a['id'], b['id']))
         return ret
-
-    #
-    # misc cancel_request
-    #
-    all_commands['misc_cancel_request'] = Command(
-        ("misc", "cancel_request"),
-        SimpleString(help_ref='id:request_id'))
-
-    def misc_cancel_request(self, operator, req):
-        if req.isdigit():
-            req_id = int(req)
-        else:
-            raise CerebrumError("Request-ID must be a number")
-        br = BofhdRequests(self.db, self.const)
-        if not br.get_requests(request_id=req_id):
-            raise CerebrumError("Request ID %d not found" % req_id)
-        self.ba.can_cancel_request(operator.get_entity_id(), req_id)
-        br.delete_request(request_id=req_id)
-        return "OK, %d canceled" % req_id
 
     #
     # misc reload
@@ -6933,6 +6858,10 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                                     "vacation messages via OWA!")
         return super(EmailCommands, self).email_tripnote_add(
             operator, uname, text, when=when)
+
+
+class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
+    authz = UiOBofhdRequestsAuth
 
 
 class UioAccessCommands(bofhd_access.BofhdAccessCommands):

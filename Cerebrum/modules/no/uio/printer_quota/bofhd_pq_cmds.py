@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2004-2018 University of Oslo, Norway
+# Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,6 +24,7 @@ import six
 
 from Cerebrum import database
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_utils import format_time
 from Cerebrum.modules.bofhd.cmd_param import Command, PersonId, SimpleString, FormatSuggestion, Integer
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.uio.printer_quota import PPQUtil
@@ -128,11 +129,6 @@ class PQBofhdAuth(auth.BofhdAuth):
                                              self.const.auth_pquota_update,
                                              person,
                                              query_run_any)
-
-
-def format_time(field):
-    fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
-    return ':'.join((field, "date", fmt))
 
 
 class BofhdExtension(BofhdCommandBase):

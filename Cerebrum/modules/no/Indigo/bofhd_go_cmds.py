@@ -46,10 +46,6 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.Indigo import bofhd_go_help
-from Cerebrum.modules.bofhd.bofhd_contact_info import (
-    BofhdContactAuth,
-    BofhdContactCommands,
-)
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as base
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import ConnectException
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import TimeoutException
