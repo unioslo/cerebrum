@@ -19,8 +19,9 @@
 """
 PostgreSQL / PsycoPG2 DB functionality for the people
 """
-import uuid
+import os
 import sys
+import uuid
 
 import psycopg2
 import psycopg2.extensions
@@ -28,6 +29,7 @@ from mx import DateTime
 
 from Cerebrum.database import Cursor, Database, OraPgLock, kickstart
 from Cerebrum.Utils import read_password
+from Cerebrum.utils.transliterate import to_ascii
 
 import cereconf
 
@@ -150,6 +152,23 @@ def get_pg_savepoint_id():
     return "unique" + str(uuid.uuid4()).replace('-', '_')
 
 
+def _format_pg_app_name(progname=None):
+    """
+    Format an application_name for use with postgresql.
+
+    Postgresql supports setting an application_name for connections, which can
+    be seen e.g. in pg_stat_activity.  The name must consist of ascii chars and
+    be 64 chars or less.
+    """
+    fmt = u'cerebrum (%s)'
+    # application_name can be 64 chars total, ascii only
+    remaining = 64 - len(fmt) + 2
+    progname = to_ascii(progname or u'no name')
+    if len(progname) > remaining:
+        progname = progname[:remaining-3] + u'...'
+    return fmt % progname
+
+
 class PsycoPG2Cursor(Cursor):
     """
     """
@@ -248,7 +267,9 @@ class PsycoPG2(PostgreSQLBase):
         else:
             self.encoding = client_encoding
 
-        super(PsycoPG2, self).connect(dsn_string)
+        app_name = _format_pg_app_name(os.path.basename(sys.argv[0]))
+        super(PsycoPG2, self).connect(dsn_string, application_name=app_name)
+
         self._db.set_isolation_level(1)  # read-committed
         self.execute("SET CLIENT_ENCODING TO '%s'" % client_encoding)
         self.commit()
