@@ -46,7 +46,7 @@ cerebrum_user = "cerebrum"
 prefix = './'  # Is this 'safeguard' really neccessary?
 sharedir = prefix + 'share'
 sbindir = prefix + 'sbin'
-locale_dir = os.path.join(sys.prefix, 'share', 'locale')
+default_locale_dir = os.path.join(sys.prefix, 'share', 'locale')
 
 
 def _execute_wrapper(*args):
@@ -54,41 +54,57 @@ def _execute_wrapper(*args):
 
 
 class LocaleInstaller(Command):
-    """ Abstract install class for building locales. """
+    """Abstract command class for installing gettext locales."""
 
     description = 'Compile and install locales'
     user_options = [
         ('locale-dir=', None, "Install directory for locale files."),
     ]
 
+    namespaces = tuple()
+
     def initialize_options(self):
-        self.locale_dir = locale_dir
+        self.locale_dir = default_locale_dir
 
     def finalize_options(self):
         pass
 
     def run(self):
-        pass
+        for namespace in self.namespaces:
+            self.announce('Installing locale namespace ' + repr(namespace))
+            self._install_locale_namespace(namespace)
 
     def _install_locale_namespace(self, namespace):
+        """
+        Builds and installs gettext translations from locales/
+
+        For each language directory in ``locales/*``:
+
+        - If a LC_MESSAGES/<namespace>.mo machine object file exists, it is
+          copied directly to the appopriate directory in *locale_dir*.
+        - Otherwise, if a LC_MESSAGES/<namespace>.po portable object source
+          file exists, it is compiled with *msgfmt* and written to
+          *locale_dir*
+        """
         # go through all top dirs in 'locales/'
-        lang_base = os.path.join(os.path.dirname(__file__), 'locales')
+        source_dir = os.path.join(os.path.dirname(__file__), 'locales')
         mo_basename = os.path.extsep.join((namespace, 'mo'))
         po_basename = os.path.extsep.join((namespace, 'po'))
-        for lang_dir in os.listdir(lang_base):
+        for lang in os.listdir(source_dir):
             # Source dir
-            messages_dir = os.path.join(lang_base, lang_dir, 'LC_MESSAGES')
+            messages_dir = os.path.join(source_dir, lang, 'LC_MESSAGES')
 
-            # the abs. path for this specific language
-            lang_path = os.path.join(self.locale_dir, lang_dir, 'LC_MESSAGES')
-            if not os.path.exists(lang_path):
+            # the absolute target path for this specific language
+            install_dir = os.path.join(self.locale_dir, lang, 'LC_MESSAGES')
+            if not os.path.exists(install_dir):
                 # create the path if it doesn't exist
-                os.makedirs(lang_path)
+                self.announce('Making locale dir ' + repr(install_dir))
+                os.makedirs(install_dir)
 
             mo_file = os.path.join(messages_dir, mo_basename)
             if os.path.isfile(mo_file):
                 # .mo file exists for this language. Use it!
-                self.copy_file(mo_file, lang_path)
+                self.copy_file(mo_file, install_dir)
                 continue
             # no .mo file found. See is there is a .po file
             po_file = os.path.join(messages_dir, po_basename)
@@ -97,16 +113,19 @@ class LocaleInstaller(Command):
                 self.execute(_execute_wrapper,
                              ('msgfmt',
                               '-o',
-                              os.path.join(lang_path, mo_basename),
+                              os.path.join(install_dir, mo_basename),
                               po_file))
                 continue
-            self.warn('No locale for {!r} in language {!r}'.format(namespace,
-                                                                   lang_dir))
+            self.warn('Missing locale files for {namespace!r} in '
+                      'language {lang!r}'.format(namespace=namespace,
+                                                 lang=lang))
 
 
 class CerebrumLocales(LocaleInstaller):
-    def run(self):
-        self._install_locale_namespace('cerebrum')
+    """
+    Build and install gettext locales.
+    """
+    namespaces = ('cerebrum', )
 
 
 class CerebrumData(install_data.install_data, object):
@@ -234,6 +253,10 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/migrate/*.py', 0755)]),
+    ({'path': "%s/cerebrum/contrib/nis" % sharedir,
+      'owner': cerebrum_user,
+      'mode': 0755},
+     [('contrib/nis/*.py', 0755)]),
     ({'path': "%s/cerebrum/contrib/no" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},

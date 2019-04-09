@@ -436,6 +436,72 @@ class BofhdCommandBase(object):
                                  ("sko=%r" % stedkode)))
         raise Errors.UnreachableCodeError("_get_ou")
 
+    def _get_disk(self, path, host_id=None, raise_not_found=True):
+        disk = Factory.get('Disk')(self.db)
+        try:
+            if isinstance(path, basestring):
+                disk.find_by_path(path, host_id)
+            else:
+                disk.find(path)
+            return disk, disk.entity_id, None
+        except Errors.NotFoundError:
+            if raise_not_found:
+                raise CerebrumError("Unknown disk: %s" % path)
+            return disk, None, path
+
+    def _get_host(self, name):
+        host = Factory.get('Host')(self.db)
+        try:
+            if isinstance(name, (int, long)):
+                host.find(name)
+            else:
+                host.find_by_name(name)
+            return host
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown host: %r" % name)
+
+    def _get_opset(self, opset):
+        aos = BofhdAuthOpSet(self.db)
+        try:
+            aos.find_by_name(opset)
+        except Errors.NotFoundError:
+            raise CerebrumError("Could not find op set with name %s" % opset)
+        return aos
+
+    def _get_auth_op_target(self, entity_id, target_type, attr=None,
+                            any_attr=False, create=False):
+
+        """Return auth_op_target(s) associated with (entity_id,
+        target_type, attr).  If any_attr is false, return one
+        op_target_id or None.  If any_attr is true, return list of
+        matching db_row objects.  If create is true, create a new
+        op_target if no matching row is found."""
+
+        if any_attr:
+            op_targets = []
+            assert attr is None and create is False
+        else:
+            op_targets = None
+
+        aot = BofhdAuthOpTarget(self.db)
+        for r in aot.list(entity_id=entity_id, target_type=target_type,
+                          attr=attr):
+            if attr is None and not any_attr and r['attr']:
+                continue
+            if any_attr:
+                op_targets.append(r)
+            else:
+                # There may be more than one matching op_target, but
+                # we don't care which one we use -- we will make sure
+                # not to make duplicates ourselves.
+                op_targets = int(r['op_target_id'])
+        if op_targets or not create:
+            return op_targets
+        # No op_target found, make a new one.
+        aot.populate(entity_id, target_type, attr)
+        aot.write_db()
+        return aot.op_target_id
+
     def _get_account(self, account_id, idtype=None, actype="Account"):
         """ Fetch an account identified by account_id.
 
@@ -547,6 +613,19 @@ class BofhdCommandBase(object):
             return ""
         return u",".join(six.text_type(self.const.Spread(x['spread']))
                          for x in entity.get_spread())
+
+    def _get_disk(self, path, host_id=None, raise_not_found=True):
+        disk = Factory.get('Disk')(self.db)
+        try:
+            if isinstance(path, basestring):
+                disk.find_by_path(path, host_id)
+            else:
+                disk.find(path)
+            return disk, disk.entity_id, None
+        except Errors.NotFoundError:
+            if raise_not_found:
+                raise CerebrumError("Unknown disk: %s" % path)
+            return disk, None, path
 
     def _get_person(self, idtype, id):
         """ Get person. """

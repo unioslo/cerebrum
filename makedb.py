@@ -336,6 +336,7 @@ def make_inital_users(db):
 def check_schema_versions(db, strict=False):
     modules = {
         'ad': 'Cerebrum.modules.ADObject',
+        'bofhd_requests': 'Cerebrum.modules.bofhd_requests.request',
         'changelog': 'Cerebrum.modules.ChangeLog',
         'disk_quota': 'Cerebrum.modules.disk_quota',
         'dns': 'Cerebrum.modules.dns',
@@ -345,6 +346,7 @@ def check_schema_versions(db, strict=False):
         'eventlog': 'Cerebrum.modules.EventLog',
         'events': 'Cerebrum.modules.event_publisher',
         'hostpolicy': 'Cerebrum.modules.hostpolicy',
+        'legacy_users': 'Cerebrum.modules.legacy_users',
         'note': 'Cerebrum.modules.Note',
         'password_history': 'Cerebrum.modules.pwcheck.history',
         'posixuser': 'Cerebrum.modules.PosixUser',

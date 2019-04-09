@@ -64,7 +64,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.context import entity, entitise
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 
 logger = Factory.get_logger("cronjob")
 database = Factory.get("Database")()

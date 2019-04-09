@@ -60,7 +60,9 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
                                               PhrasePasswordNotGoodEnough)
-from Cerebrum.modules.tsd.bofhd_auth import TsdBofhdAuth, TsdContactAuth
+from Cerebrum.modules.tsd.bofhd_auth import (TsdBofhdAuth, TsdContactAuth,
+                                             TsdAccessAuth)
+from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.tsd import bofhd_help
 from Cerebrum.modules.tsd import Gateway
 
@@ -763,39 +765,19 @@ admin_uio_helpers = [
     '_fetch_member_names',
     '_format_changelog_entry',
     '_format_from_cl',
-    '_get_access_id',
-    '_get_access_id_group',
-    '_get_access_id_global_group',
     '_get_affiliation_statusid',
     '_get_affiliationid',
-    '_get_auth_op_target',
     '_get_cached_passwords',
-    '_get_disk',
-    '_get_opset',
     '_get_posix_account',
     '_get_shell',
-    '_grant_auth',
-    '_list_access',
-    '_manipulate_access',
     '_person_create_externalid_helper',
     '_remove_auth_role',
     '_remove_auth_target',
-    '_revoke_auth',
-    '_validate_access',
-    '_validate_access_group',
-    '_validate_access_global_group',
     'user_set_owner_prompt_func',
 ]
 
 
 admin_copy_uio = [
-    'access_grant',
-    'access_group',
-    'access_global_group',
-    'access_list',
-    'access_list_opsets',
-    'access_revoke',
-    'access_show_opset',
     'entity_history',
     'group_delete',
     'group_demote_posix',
@@ -2451,7 +2433,6 @@ uio_helpers = [
 copy_hidden = filter(
     lambda x: x in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS,
     [
-        'access_list_alterable',
         'get_constant_description',
     ]
 )
@@ -2507,3 +2488,8 @@ class EnduserBofhdExtension(TSDBofhdExtension):
 
 class ContactCommands(bofhd_contact_info.BofhdContactCommands):
     authz = TsdContactAuth
+
+
+class TsdAccessCommands(bofhd_access.BofhdAccessCommands):
+    """Tds specific access commands"""
+    authz = TsdAccessAuth

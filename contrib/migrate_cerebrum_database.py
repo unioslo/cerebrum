@@ -45,7 +45,7 @@ targets = {
              'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
              'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',
              'rel_0_9_18', 'rel_0_9_19', 'rel_0_9_20', ),
-    'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
+    'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3', 'bofhd_1_4',),
     'bofhd_auth': ('bofhd_auth_1_1', 'bofhd_auth_1_2',),
     'changelog': ('changelog_1_2', 'changelog_1_3', 'changelog_1_4',
                   'changelog_1_5'),
@@ -822,6 +822,23 @@ def migrate_to_bofhd_1_3():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_bofhd", "1.3")
     print("Migration to bofhd 1.3 completed successfully")
+    db.commit()
+
+
+def migrate_to_bofhd_1_4():
+    """Bumps the version number of bofhd_table to 1.4
+
+    This is done because of the move of the bofhd_requests tables to their own
+    design file mod_bofhd_requests.sql
+
+    We don't actually do anything here since the tables already exist.
+    """
+    print("\ndone.")
+    assert_db_version("1.3", component='bofhd')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_bofhd", "1.4")
+    meta.set_metainfo("sqlmodule_bofhd_requests", "1.0")
+    print("Migration to bofhd 1.4 completed successfully")
     db.commit()
 
 

@@ -31,7 +31,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 
 
 class GuestAccountException(Exception):
