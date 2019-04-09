@@ -69,7 +69,7 @@ get_sko=memoize(get_sko)
 def get_ouinfo(ou_id,perspective):
     #logger.debug("Enter get_ouinfo with id=%s,persp=%s" % (ou_id,perspective))
     ou.clear()
-    ou.find_by_perspective(ou_id,perspective)
+    ou.find(ou_id)
     ou_short_name = ou.get_name_with_language(name_variant=co.ou_name_short,
                                               name_language=co.language_nb)
     ou_name = ou.get_name_with_language(name_variant=co.ou_name,
@@ -132,7 +132,8 @@ def get_samskipnadstedinfo(ou_id,perspective):
     ou.clear()
     ou.find(ou_id)
     ou_name = ou.get_name_with_language(name_variant=co.ou_name,name_language=co.language_nb)
-    depname=wash_sitosted(ou.display_name)
+    depname=wash_sitosted(ou.get_name_with_language(co.ou_name_display,
+                                                    co.language_nb))
     res['sted']=depname
     # Find company name for this ou_id by going to parents
     visited = []
@@ -151,7 +152,8 @@ def get_samskipnadstedinfo(ou_id,perspective):
         if ou.entity_id in visited:
             raise RuntimeError, "DEBUG: Loop detected: %r" % visited
         visited.append(ou.entity_id)
-        parentname=wash_sitosted(ou.display_name)
+        parentname = wash_sitosted(ou.get_name_with_language(
+            co.ou_name_display, co.language_nb))
         res.setdefault('parents',list()).append(parentname)
     res['acropath'].remove(res['company'])
     return res

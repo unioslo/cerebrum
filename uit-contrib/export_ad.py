@@ -117,7 +117,7 @@ def get_ouinfo(ou_id,perspective):
     #logger.debug("Enter get_ouinfo with id=%s,persp=%s" % (ou_id,perspective))
 
     ou.clear()
-    ou.find_by_perspective(ou_id, perspective)
+    ou.find(ou_id)
 
     # Determine if OU is quarantined
     if ou.get_entity_quarantine(qtype=co.quarantine_ou_notvalid) != []:
@@ -139,7 +139,7 @@ def get_ouinfo(ou_id,perspective):
     #logger.debug("got basic info about id=%s,persp=%s" % (ou_id,perspective))
 
     try:
-        ou.find_by_perspective(ou_id, perspective)
+        ou.find(ou_id)
         sted_sko = u'{:02}{:02}{:02}'.format(ou.fakultet, ou.institutt,
                                              ou.avdeling)
         #logger.debug("found sko for id=%s,persp=%s" % (ou_id,perspective))
@@ -159,7 +159,7 @@ def get_ouinfo(ou_id,perspective):
             break
         ou.clear()
         #logger.debug("Lookup %s in %s" % (parent_id,perspective))
-        ou.find_by_perspective(parent_id,perspective)
+        ou.find(parent_id)
         logger.debug("Lookup returned: id=%s,name=%s" % (ou.entity_id,
                                                          ou.name))
         # Detect infinite loops

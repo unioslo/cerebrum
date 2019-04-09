@@ -78,7 +78,7 @@ def get_ouinfo(ou_id,perspective):
     #logger.debug("Enter get_ouinfo with id=%s,persp=%s" % (ou_id,perspective))
 
     ou.clear()
-    ou.find_by_perspective(ou_id,perspective)
+    ou.find(ou_id)
     res=dict()
     res['name'] = str(ou.get_name_with_language(co.ou_name,
                                                 name_language))
@@ -91,7 +91,7 @@ def get_ouinfo(ou_id,perspective):
     #logger.debug("got basic info about id=%s,persp=%s" % (ou_id,perspective))
 
     try:
-        ou.find_by_perspective(ou_id,perspective)
+        ou.find(ou_id)
         sted_sko="%s%s%s" % (str(ou.fakultet).zfill(2),
                              str(ou.institutt).zfill(2),
                              str(ou.avdeling).zfill(2))
@@ -112,7 +112,7 @@ def get_ouinfo(ou_id,perspective):
             break
         ou.clear()
         #logger.debug("Lookup %s in %s" % (parent_id,perspective))
-        ou.find_by_perspective(parent_id, perspective)
+        ou.find(parent_id)
         # Detect infinite loops
         if ou.entity_id in visited:
             raise RuntimeError, "DEBUG: Loop detected: %r" % visited

@@ -827,7 +827,8 @@ get_creator_id=simple_memoize(get_creator_id)
 def get_sko(ou_id):
     ou.clear()
     try:
-        ou.find_by_perspective(ou_id, const.perspective_fs)
+        ou.find(ou_id)
+        ou.get_parent(const.perspective_fs)
     except Errors.NotFoundError:
         # Persons has an affiliation to a non-fs ou.
         # Return NoneNoneNone
