@@ -33,6 +33,7 @@ from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
                                          BofhdAuthRole)
+from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessCommands
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
@@ -47,6 +48,7 @@ from Cerebrum.modules.no.hia.bofhd_uia_auth import (
     UiaAuth,
     UiaContactAuth,
     UiaEmailAuth,
+    UiaAccessAuth,
 )
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as base
 
@@ -78,59 +80,27 @@ uio_helpers = [
     '_fetch_member_names',
     '_format_changelog_entry',
     '_format_from_cl',
-    '_get_access_id',
-    '_get_access_id_disk',
-    '_get_access_id_global_group',
-    '_get_access_id_global_ou',
-    '_get_access_id_group',
-    '_get_access_id_host',
-    '_get_access_id_ou',
     '_get_affiliation_statusid',
     '_get_affiliationid',
-    '_get_auth_op_target',
     '_get_cached_passwords',
-    '_get_disk',
     '_get_group_opcode',
-    '_get_host',
-    '_get_opset',
     '_get_posix_account',
     '_get_shell',
-    '_grant_auth',
     '_group_add',
     '_group_add_entity',
     '_group_count_memberships',
     '_group_remove',
     '_group_remove_entity',
-    '_list_access',
     '_lookup_old_uid',
-    '_manipulate_access',
     '_person_affiliation_add_helper',
     '_person_create_externalid_helper',
     '_remove_auth_role',
     '_remove_auth_target',
-    '_revoke_auth',
-    '_validate_access',
-    '_validate_access_disk',
-    '_validate_access_global_group',
-    '_validate_access_global_ou',
-    '_validate_access_group',
-    '_validate_access_ou',
     'user_set_owner_prompt_func',
 ]
 
 # Methods and commands from bofhd_uio_cmd
 copy_uio = [
-    'access_disk',
-    'access_global_group',
-    'access_global_ou',
-    'access_grant',
-    'access_group',
-    'access_list',
-    'access_list_opsets',
-    'access_ou',
-    'access_revoke',
-    'access_show_opset',
-    'access_user',
     'entity_history',
     'group_add',
     'group_add_entity',
@@ -204,7 +174,6 @@ copy_uio = [
 ]
 
 copy_uio_hidden = [
-    'access_list_alterable',
     'group_multi_add',
     'person_name_suggestions',
     'get_constant_description',
@@ -1503,6 +1472,11 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         et.email_server_id = es.entity_id
         et.write_db()
         return "OK, updated e-mail server for %s (to %s)" % (uname, server)
+
+
+class UiaAccessCommands(BofhdAccessCommands):
+    """This is the place for UiA specific bofhd access * commands"""
+    authz = UiaAccessAuth
 
 
 HELP_GROUPS = {

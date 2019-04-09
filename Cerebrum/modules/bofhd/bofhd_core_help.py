@@ -31,8 +31,9 @@ directory of the given instance.
 
 """
 
+from __future__ import unicode_literals
+
 group_help = {
-    'access': "Access (authorisation) related commands",
     'disk': "Disk related commands",
     'entity': "Entity commands",
     'group': "Group commands",
@@ -51,47 +52,6 @@ group_help = {
 # The texts in command_help are automatically line-wrapped, and should
 # not contain \n
 command_help = {
-    'access': {
-        'access_grant':
-            "Grant authorisation to perform the operations in opset "
-            "<set> on <entity> of type <type> to the members of group <group>."
-            "  The meaning of <attr> depends on <type>.",
-        'access_disk':
-            "List who's authorised to operate on disk <disk>",
-        'access_global_dns':
-            "List who's authorised to operate on all dns targets",
-        'access_global_group':
-            "List who's authorised to operate on all groups",
-        'access_global_host':
-            "List who's authorised to operate on all hosts",
-        'access_global_maildom':
-            "List who's authorised to operate on all e-mail domains",
-        'access_global_ou':
-            "List who's authorised to operate on all OUs",
-        'access_group':
-            "List who's authorised to operate on group <gname>",
-        'access_host':
-            "List who's authorised to operate on host <hostname>",
-        'access_dns':
-            "List who's authorised to operate on given dns target",
-        'access_list':
-            "List everything an account or group can operate on.  Only direct "
-            "ownership is reported: the entities an account can access due to "
-            "group memberships will not be listed. This does not include "
-            "unpersonal users owned by groups.",
-        'access_list_opsets':
-            "List all operation sets",
-        'access_maildom':
-            "List who's authorised to operate on e-mail domain <domain>",
-        'access_ou':
-            "List who's authorised to operate on OU <ou>",
-        'access_revoke':
-            "Revoke authorisation",
-        'access_show_opset':
-            "List the operations included in the operation set",
-        'access_user':
-            "List who's authorised to operate on account <uname>",
-    },
     'disk': {
         "disk_list":
             "List the disks registered with a host.  A quota value in "

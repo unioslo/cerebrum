@@ -37,6 +37,7 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cmd_base
+from Cerebrum.modules.bofhd import bofhd_access
 
 
 # BofhdRequests are unfortunately very UiO specific. Let's try to keep
@@ -56,6 +57,11 @@ class HiofAuth(BofhdAuth):
 
 class HiofContactAuth(HiofAuth, bofhd_contact_info.BofhdContactAuth):
     """ Indigo specific contact info auth. """
+    pass
+
+
+class HiofAccessAuth(HiofAuth, bofhd_access.BofhdAccessAuth):
+    """Hiof specific access auth"""
     pass
 
 
@@ -381,6 +387,11 @@ class BofhdExtension(BofhdCommonMethods):
 
 class ContactCommands(bofhd_contact_info.BofhdContactCommands):
     authz = HiofContactAuth
+
+
+class HiofAccessCommands(bofhd_access.BofhdAccessCommands):
+    """Hiof specific bofhd access * commands"""
+    authz = HiofAccessAuth
 
 
 HELP_CMDS = {

@@ -35,6 +35,7 @@ from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
+from Cerebrum.modules.bofhd import bofhd_access
 
 
 class TSDBofhdAuthConstants(Constants.Constants):
@@ -386,3 +387,20 @@ class TsdContactAuth(TsdBofhdAuth, bofhd_contact_info.BofhdContactAuth):
                             self.const.auth_remove_contactinfo,
                             'remove contact information',
                             query_run_any)
+
+
+class TsdAccessAuth(TsdBofhdAuth, bofhd_access.BofhdAccessAuth):
+    """Tsd specific bofhd access auth"""
+    def _can_any(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return True
+        raise PermissionDenied("Restricted to superusers")
+
+    def can_grant_access(self, operator, operation=None, target_type=None,
+                         target_id=None, opset=None, query_run_any=False):
+        return self._can_any(operator, query_run_any=query_run_any)
+
+    def list_alterable_entities(self, operator, target_type):
+        return self._can_any(operator)
