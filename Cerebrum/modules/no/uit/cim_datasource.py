@@ -18,12 +18,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# import phonenumbers
-# from Cerebrum.Utils import Factory
-# from Cerebrum.Errors import NotFoundError
-
 from __future__ import unicode_literals
 
+import cereconf
 from Cerebrum.modules.cim.datasource import CIMDataSource
 
 
@@ -365,15 +362,13 @@ class CIMDataSourceUit(CIMDataSource):
                  CIM-WS-schema.
         :rtype: dict
         """
-        # TODO: move 'CIM_SYSTEM_LOOKUP_ORDER' to cereconf
-        CIM_SYSTEM_LOOKUP_ORDER = ['system_paga', 'system_fs', 'system_x']
 
         orig_auth_system = self.authoritative_system
         person = None
 
         # get data about person using CIM_SYSTEM_LOOKUP_ORDER to determine
         # source_system to use
-        for sys in CIM_SYSTEM_LOOKUP_ORDER:
+        for sys in cereconf.CIM_SYSTEM_LOOKUP_ORDER:
             source_system = getattr(self.co, sys)
             self.authoritative_system = source_system
 
