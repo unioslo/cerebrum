@@ -30,7 +30,8 @@ import base64
 import hashlib
 import logging
 import re
-import sys
+
+import six
 
 import cereconf
 
@@ -139,8 +140,7 @@ class AccountUiTMixin(Account.Account):
     #
     def suggest_unames_sito(self, ssn, fname, lname):
         full_name = "%s %s" % (fname, lname)
-        sito_username = self.get_sito_uname(ssn, full_name)
-        return sito_username
+        return UsernamePolicy(self._db).get_sito_uname(ssn, full_name)
 
     #
     # Override username generator in core Account.py
@@ -148,8 +148,7 @@ class AccountUiTMixin(Account.Account):
     #
     def suggest_unames(self, ssn, fname, lname):
         full_name = "%s %s" % (fname, lname)
-        username = self.get_uit_uname(ssn, full_name)
-        return [username]
+        return [UsernamePolicy(self._db).get_uit_uname(ssn, full_name)]
 
     def encrypt_password(self, method, plaintext, salt=None):
         """
@@ -205,199 +204,18 @@ class AccountUiTMixin(Account.Account):
         update_homedir(self, spread)
 
     def get_sito_uname(self, fnr, name, regime=None):
-        """
-        Generate a SITO account_name.
-        """
-        # get_sito_uname() is never called with regime-kwarg
-        cstart = 0
-        step = 1
-
-        p = Factory.get('Person')(self._db)
-        try:
-            p.find_by_external_id(self.const.externalid_fodselsnr, fnr)
-        except Errors.NotFoundError:
-            logger.warning("sito person is missing fnr. Account not created")
-            raise Errors.ProgrammingError(
-                "Trying to create account for person:%s that does not exist!"
-                % fnr)
-        except Exception as m:
-            raise Errors.ProgrammingError("Unhandled exception: %s" % str(m))
-
-        # regexp for checking username format
-        p = re.compile('^[a-z]{3}[0-9]{3}-s$')
-
-        # getting here implies that  person does not have a previous account in
-        # BAS create a new username
-        inits = self.get_uit_inits(name)
-        if inits == 0:
-            return inits
-        sito_post = cereconf.USERNAME_POSTFIX['sito']
-        new_username = self.get_serial(inits, cstart, step=step,
-                                       postfix=sito_post)
-        username = "%s" % (new_username,)
-
-        return username
+        return UsernamePolicy(self._db).get_sito_uname(fnr, name,
+                                                       regime=regime)
 
     def get_uit_uname(self, fnr, name, regime=None):
-        """
-        UiT function that generates a username.
-
-        It checks our legacy_users table for entries from our legacy systems
-
-        Input:
-        fnr=Norwegian Fødselsnr, 11 digits
-        name=Name of the person we are generating a username for
-        Regime=Optional
-
-        Returns:
-        a username on the form 'abc012' <three letters><tree digits>
-
-        When we get here we know that this person does not have any account
-        in BAS from before! That is someone else's responibility, sp no need
-        to check for that.
-
-        We must check:
-        legacy_user => any entries where ssn matches fnr param?
-          yes:
-            if one or more usernames
-              use first that matches username format
-              if none matches username
-                format genereate new
-            else genereate new username
-          no:
-            generate new username,
-
-        """
-        # assume not found in
-        create_new = True
-
-        if regime == "ADMIN":
-            cstart = 999
-            step = -1
-            legacy_type = 'SYS'
-        else:
-            cstart = 0
-            step = 1
-            legacy_type = 'P'
-
-        new_ac = Factory.get('Account')(self._db)
-        p = Factory.get('Person')(self._db)
-        try:
-            p.find_by_external_id(self.const.externalid_fodselsnr, fnr)
-        except Errors.NotFoundError:
-            try:
-                p.find_by_external_id(self.const.externalid_sys_x_id, fnr)
-            except Errors.NotFoundError:
-                raise Errors.ProgrammingError(
-                    "Trying to create account for person:%s that "
-                    "does not exist!" % fnr)
-            else:
-                person_id = p.entity_id
-
-        except Exception as m:
-            raise Errors.ProgrammingError("Unhandled exception: %s" % str(m))
-        else:
-            person_id = p.entity_id
-
-        # regexp for checking username format
-        p = re.compile('^[a-z]{3}[0-9]{3}$')
-
-        for row in sorted(
-                LegacyUsers(self._db).search(ssn=fnr, type=legacy_type),
-                key=lambda r: (r['source'], r['user_name'])):
-            legacy_username = row['user_name']
-            if not p.match(legacy_username):
-                # legacy username not in <three letters><three digits> format
-                continue
-
-            # valid username found in legacy for this ssn
-            # check that its not already used in BAS!
-            new_ac.clear()
-            try:
-                new_ac.find_by_name(legacy_username)
-            except Errors.NotFoundError:
-                # legacy username not found in BAS.
-                # print "Legacy '%s' found, and free. using..." %
-                #  (legacy_username)
-                username = legacy_username
-                create_new = False
-                break
-            else:
-                # legacy_username tied to fnr already used in BAS. We have an
-                # error situation!
-                if new_ac.owner_id == person_id:
-                    # and used by same person
-                    raise Errors.ProgrammingError(
-                        "Person %s already has account %s in BAS!"
-                        % (fnr, new_ac.account_name))
-                else:
-                    # and used by another person!
-                    # raise Errors.IntegrityError("Legacy account %s not owned
-                    # by person %s in BAS!" (legacy_username,fnr))
-                    logger.warn(
-                        "Legacy account %s not owned by person %s in BAS,"
-                        " continue with next (if any) legacy username",
-                        legacy_username, fnr)
-                    continue
-
-        if create_new:
-            # getting here implies that  person does not have a previous
-            # account in BAS create a new username
-            inits = self.get_uit_inits(name)
-            if inits == 0:
-                return inits
-            new_username = self.get_serial(inits, cstart, step=step)
-            username = new_username
-
-        return username
+        return UsernamePolicy(self._db).get_uit_uname(fnr, name, regime=regime)
 
     def get_serial(self, inits, cstart, step=1, postfix=None):
-        lu = LegacyUsers(self._db)
-        en = EntityName(self._db)
-        found = False
-        postfix = postfix or ''
-        while ((not found) and (cstart <= 999) and (cstart >= 0)):
-            # xxx999 is reserved for admin use
-            uname = "%s%03d%s" % (inits, cstart, postfix)
-            if en.entity_name_exists(uname) or lu.exists(uname):
-                cstart += step
-            else:
-                found = True
-                break
-
-        if not found:
-            # did not find free serial...
-            logger.critical(
-                "Unable to find serial using inits=%r, cstart=%r, step=%r",
-                inits, cstart, step)
-            # TODO: Raise exception here!
-            sys.exit(1)
-        return uname
+        return UsernamePolicy(self._db).get_serial(inits, cstart, step=step,
+                                                   postfix=postfix)
 
     def get_uit_inits(self, dname):
-        # Gets the first 3 letters based upon the name of the user.
-        orgname = dname
-        dname = transliterate.for_posix(dname)
-
-        dname = dname.replace('.', ' ')
-        dname = dname.replace('\'', '')
-        name = dname.split()
-        name_length = len(name)
-
-        if name_length == 1:
-            inits = name[0][0:3]
-        else:
-            inits = name[0][0:1] + name[-1][0:2]
-
-        # sanity check
-        p = re.compile('^[a-z]{3}$')
-        if (p.match(inits)):
-            return inits
-        else:
-            print("Sanity check failed: Returning %s for %s" %
-                  (inits, orgname))
-            raise ValueError(
-                "ProgrammingError: A Non ascii-letter in uname!: '%s'" % inits)
+        return UsernamePolicy(self._db).get_initials(dname)
 
     def list_all(self, spread=None, filter_expired=False):
         """
@@ -405,7 +223,6 @@ class AccountUiTMixin(Account.Account):
 
         optionally filtering the results on account spread and expiry.
         """
-
         where = ["en.entity_id=ai.account_id and en.entity_id=ei.entity_id"]
         tables = ['[:table schema=cerebrum name=entity_name] en']
         params = {}
@@ -433,29 +250,30 @@ class AccountUiTMixin(Account.Account):
 
     def getdict_accid2mailaddr(self, filter_expired=True):
         ret = {}
-        target_type = int(self.const.email_target_account)
-        namespace = int(self.const.account_namespace)
         ed = Email.EmailDomain(self._db)
-        where = "en.value_domain = :namespace"
+        binds = {
+            'targ_type': int(self.const.email_target_account),
+            'namespace': int(self.const.account_namespace),
+        }
+        stmt = """
+          SELECT en.entity_id, ea.local_part, ed.domain
+          FROM [:table schema=cerebrum name=account_info] ai
+          JOIN [:table schema=cerebrum name=entity_name] en
+            ON en.entity_id = ai.account_id
+          JOIN [:table schema=cerebrum name=email_target] et
+            ON et.target_type = :targ_type AND
+               et.target_entity_id = ai.account_id
+          JOIN [:table schema=cerebrum name=email_primary_address] epa
+            ON epa.target_id = et.target_id
+          JOIN [:table schema=cerebrum name=email_address] ea
+            ON ea.address_id = epa.address_id
+          JOIN [:table schema=cerebrum name=email_domain] ed
+            ON ed.domain_id = ea.domain_id
+          WHERE en.value_domain = :namespace
+        """
         if filter_expired:
-            where += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
-        for row in self.query("""
-        SELECT en.entity_id, ea.local_part, ed.domain
-        FROM [:table schema=cerebrum name=account_info] ai
-        JOIN [:table schema=cerebrum name=entity_name] en
-          ON en.entity_id = ai.account_id
-        JOIN [:table schema=cerebrum name=email_target] et
-          ON et.target_type = :targ_type AND
-             et.target_entity_id = ai.account_id
-        JOIN [:table schema=cerebrum name=email_primary_address] epa
-          ON epa.target_id = et.target_id
-        JOIN [:table schema=cerebrum name=email_address] ea
-          ON ea.address_id = epa.address_id
-        JOIN [:table schema=cerebrum name=email_domain] ed
-          ON ed.domain_id = ea.domain_id
-        WHERE """ + where,
-                              {'targ_type': target_type,
-                               'namespace': namespace}):
+            stmt += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
+        for row in self.query(stmt, binds):
             ret[row['entity_id']] = '@'.join((
                 row['local_part'],
                 ed.rewrite_special_domains(row['domain'])))
@@ -490,4 +308,178 @@ class AccountUiTMixin(Account.Account):
 
 
 class UsernamePolicy(DatabaseAccessor):
-    pass
+    """
+    Object to generate available usernames for UiT.
+    """
+
+    def _get_person_by_extid(self, id_type, id_value):
+        pe = Factory.get('Person')(self._db)
+        pe.find_by_external_id(id_type, id_value)
+        return pe
+
+    def _find_legacy_username(self, person, ssn, legacy_type):
+        new_ac = Factory.get('Account')(self._db)
+        valid_uname_re = re.compile('^[a-z]{3}[0-9]{3}$')
+
+        for row in sorted(
+                LegacyUsers(self._db).search(ssn=ssn, type=legacy_type),
+                key=lambda r: (r['source'], r['user_name'])):
+            legacy_username = row['user_name']
+            if not valid_uname_re.match(legacy_username):
+                logger.debug('skipping invalid legacy_username %r',
+                             legacy_username)
+                continue
+
+            # valid username found in legacy for this ssn
+            # check that its not already used in BAS!
+            new_ac.clear()
+            try:
+                new_ac.find_by_name(legacy_username)
+            except Errors.NotFoundError:
+                logger.debug('Found free legacy username %r', legacy_username)
+                return legacy_username
+
+            # legacy_username tied to fnr already used in BAS. We have an
+            # error situation!
+            if new_ac.owner_id == person.entity_id:
+                raise RuntimeError(
+                    "Person %s already has account %s in BAS!"
+                    % (ssn, new_ac.account_name))
+            else:
+                # and used by another person!
+                # raise Errors.IntegrityError("Legacy account %s not owned
+                # by person %s in BAS!" (legacy_username,fnr))
+                logger.warning(
+                    "Legacy account %s not owned by person %s in BAS,"
+                    " continue with next (if any) legacy username",
+                    legacy_username, ssn)
+                continue
+        raise Errors.NotFoundError("No avaliable legacy username found")
+
+    def get_sito_uname(self, fnr, name):
+        """
+        Generate a SITO account_name.
+
+        SITO accounts have their own namespace. SITO usernames are named
+        "XXXNNN-s", where:
+
+            XXX = letters generated based on *name*
+            NNN = unique numeric identifier
+            s = The letter s
+        """
+        cstart = 0
+        step = 1
+
+        co = Factory.get('Constants')(self._db)
+        try:
+            self._get_person_by_extid(co.externalid_fodselsnr, fnr)
+        except Errors.NotFoundError:
+            raise Errors.ProgrammingError(
+                "Trying to create account for person:%s that does not exist!"
+                % fnr)
+
+        # getting here implies that person does not have a previous account in
+        # BAS create a new username
+        inits = self.get_initials(name)
+        sito_post = cereconf.USERNAME_POSTFIX['sito']
+        return self.get_serial(inits, cstart, step=step, postfix=sito_post)
+
+    def get_uit_uname(self, fnr, name, regime=None):
+        """
+        UiT function that generates a username.
+
+        Generate a regular UiT account_name.  Accounts are named "XXXNNN",
+        where:
+
+            XXX = letters generated based on *name*
+            NNN = unique numeric identifier
+
+        This method will also check for pre-existing, available usernames for
+        the owner identified by *fnr*, as usernames from legacy systems may be
+        recorded in the *LegacyUsers* module.  If more than one legacy username
+        exists, the first found will be used.  If no legacy usernames exists, a
+        new one will be generated.
+
+        :param fnr:
+            Norwegian national id of the account owner, 11 digits
+        :param name:
+            Name of the account owner
+        :param: regime:
+            Optional account type (affects numeric identifiers for "ADMIN"
+            accounts).
+
+        :returns:
+            A username on the form 'abc012' <three letters><tree digits>
+        """
+        if regime == "ADMIN":
+            cstart = 999
+            step = -1
+            legacy_type = 'SYS'
+        else:
+            cstart = 0
+            step = 1
+            legacy_type = 'P'
+
+        co = Factory.get('Constants')(self._db)
+
+        for id_type in (co.externalid_fodselsnr, co.externalid_sys_x_id):
+            try:
+                pe = self._get_person_by_extid(id_type, fnr)
+                break
+            except Errors.NotFoundError:
+                continue
+        else:
+            raise RuntimeError(
+                "Trying to create account for person:%s that "
+                "does not exist!" % fnr)
+
+        try:
+            return self._find_legacy_username(pe, fnr, legacy_type)
+        except Errors.NotFoundError:
+            inits = self.get_initials(name)
+            return self.get_serial(inits, cstart, step=step)
+
+    def get_serial(self, inits, cstart, step=1, postfix=None):
+        """
+        Generate a new, numbered username.
+        """
+        lu = LegacyUsers(self._db)
+        en = EntityName(self._db)
+        found = False
+        postfix = postfix or ''
+        while cstart <= 999 and cstart >= 0:
+            # xxx999 is reserved for admin use
+            uname = "%s%03d%s" % (inits, cstart, postfix)
+            if en.entity_name_exists(uname) or lu.exists(uname):
+                cstart += step
+            else:
+                found = True
+                break
+
+        if not found:
+            raise RuntimeError(
+                "Unable to find serial using inits=%r, cstart=%r, step=%r" %
+                (inits, cstart, step))
+        return six.text_type(uname)
+
+    def get_initials(self, full_name):
+        """
+        Generate a set of three-letter initials for a name
+        """
+        # Gets the first 3 letters based upon the name of the user.
+        full_name = transliterate.for_posix(full_name)
+        name = full_name.replace('.', ' ').replace('\'', '').split()
+        name_length = len(name)
+
+        if name_length == 1:
+            inits = name[0][0:3]
+        else:
+            inits = name[0][0:1] + name[-1][0:2]
+
+        # sanity check
+        p = re.compile('^[a-z]{3}$')
+        if p.match(inits):
+            return inits
+        else:
+            raise RuntimeError(
+                "Generated invalid initials %r for %r" % (inits, full_name))
