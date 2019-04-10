@@ -130,19 +130,6 @@ class AccountUiTMixin(Account.Account):
     """
 
     #
-    # SITO accounts will have their own namespace as describe here
-    #
-    # sito username will be on the following format:S-XXXNNN
-    #
-    # S = The letter S
-    # XXX = letters generated based on fname and lname
-    # NNN = unique numeric identifier
-    #
-    def suggest_unames_sito(self, ssn, fname, lname):
-        full_name = "%s %s" % (fname, lname)
-        return UsernamePolicy(self._db).get_sito_uname(ssn, full_name)
-
-    #
     # Override username generator in core Account.py
     # Do it the UiT way!
     #
@@ -202,20 +189,6 @@ class AccountUiTMixin(Account.Account):
         Auto-configure a homedir for a given spread.
         """
         update_homedir(self, spread)
-
-    def get_sito_uname(self, fnr, name, regime=None):
-        return UsernamePolicy(self._db).get_sito_uname(fnr, name,
-                                                       regime=regime)
-
-    def get_uit_uname(self, fnr, name, regime=None):
-        return UsernamePolicy(self._db).get_uit_uname(fnr, name, regime=regime)
-
-    def get_serial(self, inits, cstart, step=1, postfix=None):
-        return UsernamePolicy(self._db).get_serial(inits, cstart, step=step,
-                                                   postfix=postfix)
-
-    def get_uit_inits(self, dname):
-        return UsernamePolicy(self._db).get_initials(dname)
 
     def list_all(self, spread=None, filter_expired=False):
         """
