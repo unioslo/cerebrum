@@ -18,21 +18,25 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Account mixin for UiT.
+
+TODO:
+- Move everything related to generating usernames into a separate class.
+"""
 from __future__ import unicode_literals
 
 import base64
-import crypt
 import hashlib
 import logging
-import random
 import re
-import string
 import sys
 
 import cereconf
 
 from Cerebrum import Account
 from Cerebrum import Errors
+from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Entity import EntityName
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
@@ -40,6 +44,68 @@ from Cerebrum.modules.legacy_users import LegacyUsers
 from Cerebrum.utils import transliterate
 
 logger = logging.getLogger(__name__)
+
+
+def enc_auth_type_md5_crypt_hex(plaintext, salt=None):
+    """
+    Unsalted md5 hex-digest for UiT.
+
+    Added by kennethj, 2005-08-03
+    """
+    plaintext = plaintext.rstrip("\n")
+    m = hashlib.md5()
+    m.update(plaintext)
+    encrypted = m.hexdigest()
+    return encrypted
+
+
+def enc_auth_type_md5_b64(plaintext, salt=None):
+    """
+    Unsalted md5 b64-digest for UiT.
+
+    Added by kennethj, 2005-08-03
+    """
+    m = hashlib.md5()
+    m.update(plaintext.encode('utf-8'))
+    foo = m.digest()
+    encrypted = base64.encodestring(foo)
+    encrypted = encrypted.rstrip()
+    return encrypted
+
+
+def generate_homedir(account_name):
+    """
+    Generate an appropriate homedir for a given username.
+    """
+    path_prefix = cereconf.UIT_DEFAULT_HOMEPATH_PREFIX
+    return '%s/%s/%s/%s' % (path_prefix,
+                            account_name[0],
+                            account_name[0:2],
+                            account_name)
+
+
+def update_homedir(account, spread):
+    """
+    Auto-configure homedir for a given account and spread.
+    """
+    new_path = generate_homedir(account.account_name)
+
+    try:
+        old_home = account.get_home(spread)
+    except Errors.NotFoundError:
+        homedir_id = account.set_homedir(
+            home=new_path,
+            status=account.const.home_status_not_created)
+        account.set_home(spread, homedir_id)
+        logger.debug('added homedir %s for account_id=%r',
+                     new_path, account.entity_id)
+    else:
+        old_path = old_home['home']
+        old_id = old_home['homedir_id']
+        if old_path != new_path:
+            account.set_homedir(current_id=old_id, home=new_path)
+            logger.debug('updated homedir %s -> %s for account_id=%r',
+                         old_path, new_path, account.entity_id)
 
 
 class AccountUiTMixin(Account.Account):
@@ -91,10 +157,13 @@ class AccountUiTMixin(Account.Account):
         """
 
         if method == self.const.auth_type_md5_crypt_hex:
-            return self.enc_auth_type_md5_crypt_hex(plaintext)
+            return enc_auth_type_md5_crypt_hex(plaintext)
         elif method == self.const.auth_type_md5_b64:
-            return self.enc_auth_type_md5_b64(plaintext)
-        return self.__super.encrypt_password(method, plaintext, salt=salt)
+            return enc_auth_type_md5_b64(plaintext)
+        else:
+            return super(AccountUiTMixin, self).encrypt_password(method,
+                                                                 plaintext,
+                                                                 salt=salt)
 
     def decrypt_password(self, method, cryptstring):
         """
@@ -103,107 +172,46 @@ class AccountUiTMixin(Account.Account):
         if method in (self.const.auth_type_md5_crypt_hex,
                       self.const.auth_type_md5_b64):
             raise NotImplementedError("Cant decrypt %s" % repr(method))
-        return self.__super.decrypt_password(method, cryptstring)
-
-    def verify_password_old(self, method, plaintext, cryptstring):
-        """
-        Support UiT added encryption methods, for other methods call super()
-        """
-        if method in (self.const.auth_type_md5_crypt_hex,
-                      self.const.auth_type_md5_b64):
-            raise NotImplementedError("Verification for %s not implemened yet"
-                                      % repr(method))
-        return self.__super.verify_password(method, plaintext, cryptstring)
+        return super(AccountUiTMixin, self).decrypt_password(method,
+                                                             cryptstring)
 
     def verify_password(self, method, plaintext, cryptstring):
-        """Returns True if the plaintext matches the cryptstring,
-        False if it doesn't.  If the method doesn't support
-        verification, NotImplemented is returned.
+        """ Verify a password against a cryptstring.
+
+        Returns True if the plaintext matches the cryptstring, False if it
+        doesn't.  Raises a ValueError if the method is unsupported.
         """
-        logger.warn("method:%s, cryptstring:%s", method, cryptstring)
-        if method in (self.const.auth_type_md5_crypt,
-                      self.const.auth_type_md5_b64,
-                      self.const.auth_type_ha1_md5,
-                      self.const.auth_type_crypt3_des,
-                      self.const.auth_type_md4_nt,
-                      self.const.auth_type_ssha,
-                      self.const.auth_type_sha256_crypt,
-                      self.const.auth_type_sha512_crypt,
-                      self.const.auth_type_plaintext):
+        if method in (
+                self.const.auth_type_md5_crypt,
+                self.const.auth_type_md5_b64,
+                self.const.auth_type_ha1_md5,
+                self.const.auth_type_crypt3_des,
+                self.const.auth_type_md4_nt,
+                self.const.auth_type_ssha,
+                self.const.auth_type_sha256_crypt,
+                self.const.auth_type_sha512_crypt,
+                self.const.auth_type_plaintext,
+        ):
             salt = cryptstring
-            if method == self.const.auth_type_ssha:
-                salt = base64.decodestring(cryptstring)[20:]
-            """ return (self.encrypt_password(method, plaintext, salt=salt) ==
-                    cryptstring or self.encrypt_password(method, plaintext,
-                                                         salt=salt,
-                                                         binary=True) ==
-                    cryptstring) """
             return self.encrypt_password(method,
                                          plaintext,
                                          salt=salt) == cryptstring
         raise ValueError("Unknown method %r" % method)
 
-    # UIT: added encryption method
-    # Added by: kennethj 20050803
-    def enc_auth_type_md5_crypt_hex(self, plaintext, salt=None):
-        plaintext = plaintext.rstrip("\n")
-        m = hashlib.md5()
-        m.update(plaintext)
-        encrypted = m.hexdigest()
-        return encrypted
-
-    # UIT: added encryption method
-    # Added by: kennethj 20050803
-    def enc_auth_type_md5_b64(self, plaintext, salt=None):
-        m = hashlib.md5()
-        m.update(plaintext.encode('utf-8'))
-        foo = m.digest()
-        encrypted = base64.encodestring(foo)
-        encrypted = encrypted.rstrip()
-        return encrypted
-
-    def enc_auth_type_md5_crypt(self, plaintext, salt=None):
-        if salt is None:
-            saltchars = string.ascii_letters + string.digits + "./"
-            s = []
-            for i in range(8):
-                s.append(random.choice(saltchars))
-            salt = "$1$" + "".join(s)
-        return crypt.crypt(plaintext, salt)
-
     def set_home_dir(self, spread):
-        path_prefix = cereconf.UIT_DEFAULT_HOMEPATH_PREFIX
-        account_name = self.account_name
-        new_path = ('%s/%s/%s/%s') % (path_prefix,
-                                      account_name[0],
-                                      account_name[0:2],
-                                      account_name)
-        try:
-            old_home = self.get_home(spread)
-        except Errors.NotFoundError:
-            h_id = self.set_homedir(home=new_path,
-                                    status=self.const.home_status_not_created)
-            self.set_home(spread, h_id)
-        else:
-            old_path = old_home['home']
-            old_id = old_home['homedir_id']
-            if old_path != new_path:
-                # update needed for this spread!
-                print("old home (%s) not equal to new (%s), update "
-                      " homedir entry" % (old_path, new_path))
-                self.set_homedir(current_id=old_id, home=new_path)
+        """
+        Auto-configure a homedir for a given spread.
+        """
+        update_homedir(self, spread)
 
-    #
-    # Create sito usernames
-    #
     def get_sito_uname(self, fnr, name, regime=None):
+        """
+        Generate a SITO account_name.
+        """
         # get_sito_uname() is never called with regime-kwarg
-        create_new = True
         cstart = 0
         step = 1
-        legacy_type = 'P'
 
-        new_ac = Factory.get('Account')(self._db)
         p = Factory.get('Person')(self._db)
         try:
             p.find_by_external_id(self.const.externalid_fodselsnr, fnr)
@@ -213,13 +221,7 @@ class AccountUiTMixin(Account.Account):
                 "Trying to create account for person:%s that does not exist!"
                 % fnr)
         except Exception as m:
-            print(m)
             raise Errors.ProgrammingError("Unhandled exception: %s" % str(m))
-        else:
-            person_id = p.entity_id
-
-        person_accounts = self.list_accounts_by_owner_id(person_id,
-                                                         filter_expired=False)
 
         # regexp for checking username format
         p = re.compile('^[a-z]{3}[0-9]{3}-s$')
@@ -293,7 +295,6 @@ class AccountUiTMixin(Account.Account):
                 person_id = p.entity_id
 
         except Exception as m:
-            print(m)
             raise Errors.ProgrammingError("Unhandled exception: %s" % str(m))
         else:
             person_id = p.entity_id
@@ -486,3 +487,7 @@ class AccountUiTMixin(Account.Account):
             if r['affiliation'] == self.const.affiliation_ansatt:
                 return True
         return False
+
+
+class UsernamePolicy(DatabaseAccessor):
+    pass
