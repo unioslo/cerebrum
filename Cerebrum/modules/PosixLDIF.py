@@ -20,6 +20,7 @@
 from __future__ import unicode_literals
 
 import logging
+import operator
 from collections import defaultdict
 from six import text_type
 
@@ -99,16 +100,25 @@ class PosixLDIF(object):
         self.init_user(auth_meth)
         f = LDIFutils.ldif_outfile('USER', filename, self.fd)
         f.write(LDIFutils.container_entry_string('USER'))
-        for row in self.posuser.list_posix_users(
-            spread=self.spread_d['user'],
-            filter_expired=True
-        ):
-            if (row['account_id'] not in
-                    self.account2auth):
-                continue
-            dn, entry = self.user_object(row)
-            if dn:
-                f.write(LDIFutils.entry_string(dn, entry, False))
+
+        def generate_users():
+            for row in self.posuser.list_posix_users(
+                    spread=self.spread_d['user'],
+                    filter_expired=True):
+                account_id = row['account_id']
+                if (account_id not in self.account2auth):
+                    logger.debug('no auth method for account_id=%r',
+                                 account_id)
+                    continue
+                dn, entry = self.user_object(row)
+                if not dn:
+                    logger.debug('no dn for account_id=%r', account_id)
+                    continue
+                yield dn, entry
+
+        for dn, entry in sorted(generate_users(),
+                                key=operator.itemgetter(0)):
+            f.write(LDIFutils.entry_string(dn, entry, False))
         LDIFutils.end_ldif_outfile('USER', f, self.fd)
 
     @clock_time
