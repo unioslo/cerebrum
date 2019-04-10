@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2003, 2004 University of Oslo, Norway
+#
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,7 +22,10 @@
 Account mixin for UiT.
 
 TODO:
-- Move everything related to generating usernames into a separate class.
+- Remove AccountUiTMixin.set_home_dir() and replace usage with update_homedir()
+- Revise auth-methods and usage
+- Revise AccountUiTMixin.list_all() -- can we use generalize some of our
+  queries?
 """
 from __future__ import unicode_literals
 
