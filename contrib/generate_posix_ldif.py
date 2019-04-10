@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2002-2018 University of Oslo, Norway
+#
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,24 +18,28 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Write user and group information to an LDIF file."""
-
+"""
+Write user and group information to an LDIF file.
+"""
 from __future__ import unicode_literals
 
 import argparse
+import logging
+
 from six import text_type
 
 import cereconf
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.LDIFutils import (ldif_outfile,
                                         end_ldif_outfile,
                                         container_entry_string)
 
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 
 
-def main():
+def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '--user-file',
@@ -81,13 +85,19 @@ def main():
         action='store_true',
         dest='all',
         help='write everything as configured in cereconf')
-    args = parser.parse_args()
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
 
     got_file = args.user_file or args.filegroup_file or args.netgroup_file
     if args.all and got_file:
         parser.error('Cannot specify --all with --*-file')
     elif not args.all and not got_file:
         parser.error('Need one of --all or --*-file')
+
+    Cerebrum.logutils.autoconf('cronjob', args)
+    logger.info('Start of script %s', parser.prog)
+    logger.debug('args: %r', args)
 
     fd = None
     if args.all:
@@ -116,6 +126,8 @@ def main():
 
     if fd:
         end_ldif_outfile('POSIX', fd)
+
+    logger.info('End of script %s', parser.prog)
 
 
 if __name__ == '__main__':
