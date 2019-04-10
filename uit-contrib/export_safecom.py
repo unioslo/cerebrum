@@ -132,8 +132,9 @@ def get_samskipnadstedinfo(ou_id,perspective):
     ou.clear()
     ou.find(ou_id)
     ou_name = ou.get_name_with_language(name_variant=co.ou_name,name_language=co.language_nb)
-    depname=wash_sitosted(ou.get_name_with_language(co.ou_name_display,
-                                                    co.language_nb))
+    depname = wash_sitosted(ou.get_name_with_language(co.ou_name_display,
+                                                      co.language_nb,
+                                                      default=''))
     res['sted']=depname
     # Find company name for this ou_id by going to parents
     visited = []
@@ -153,7 +154,7 @@ def get_samskipnadstedinfo(ou_id,perspective):
             raise RuntimeError, "DEBUG: Loop detected: %r" % visited
         visited.append(ou.entity_id)
         parentname = wash_sitosted(ou.get_name_with_language(
-            co.ou_name_display, co.language_nb))
+            co.ou_name_display, co.language_nb, default=''))
         res.setdefault('parents',list()).append(parentname)
     res['acropath'].remove(res['company'])
     return res

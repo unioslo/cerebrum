@@ -950,7 +950,8 @@ class BofhdExtension(BofhdCommonMethods):
                         ou.institutt,
                         ou.avdeling,
                         ou.get_name_with_language(co.ou_name_short,
-                                                  co.language_nb))
+                                                  co.language_nb,
+                                                  default=''))
                 elif r['target_type'] == co.auth_target_type_dns:
                     s = Subnet(self.db)
                     # TODO: should Subnet.find() support ints as input?
