@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -79,7 +79,7 @@ class CIMDataSource(object):
         person['username'] = self.ac.get_account_name()
 
         # Get and add first and last names from authoritative system
-        pe_names = self.pe.get_all_names()
+        pe_names = self.pe.get_names()
         names = self._attr_filter(
             'source_system', self.authoritative_system, pe_names)
         first_name_list = self._attr_filter(

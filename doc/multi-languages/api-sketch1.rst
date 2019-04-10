@@ -352,11 +352,11 @@ Following that, we can run whichever job processes titles to populate the
 Example
 ~~~~~~~~
 >>> p.find(20905)
->>> [x for x in p.get_all_names() if x["name_variant"] not in 
+>>> [x for x in p.get_names() if x["name_variant"] not in
     (co.name_first, co.name_last, co.name_full)]
 []
 >>> p.add_name_with_language(co.work_title, co.language_en, "Ruler of the world")
->>> [x for x in p.get_all_names() if x["name_variant"] not in 
+>>> [x for x in p.get_names() if x["name_variant"] not in
 ... (co.name_first, co.name_last, co.name_full)]
 []
 >>> p.search_name_with_language(entity_id=p.entity_id)

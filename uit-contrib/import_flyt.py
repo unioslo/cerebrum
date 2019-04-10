@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2013 University of Tromsø, Norway
+# Copyright 2013-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -298,10 +298,7 @@ def import_person(persons,all_nodes):
                 if include_del:
                     if cere_list.has_key(k):
                         cere_list[k] = False
-                #db_person.write_db()
-                #db_person.set_affiliation_last_date(const.system_flyt,int(single_ou),int(new_aff),int(new_aff_stat))
 
-                
         # store mobile for those that has it
         #contact = determine_contact(db_person)
         if(len(person_list[13])> 1):
@@ -320,14 +317,6 @@ def import_person(persons,all_nodes):
             
 
         op2 = db_person.write_db()
-
-        for single_ou in det_ou:
-            for single_aff in det_affiliation:
-                new_aff = getattr(const,single_aff)
-                new_aff_stat = getattr(const,det_affiliation[single_aff])
-                sko.clear()
-                sko.find_stedkode(single_ou[0:2],single_ou[2:4],single_ou[4:6],cereconf.DEFAULT_INSTITUSJONSNR) 
-                db_person.set_affiliation_last_date(const.system_flyt,sko.ou_id,new_aff,new_aff_stat)
 
         if op is None and op2 is None:
             logger.info("**** EQUAL ****")

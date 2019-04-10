@@ -341,7 +341,7 @@ Ser man også på Person, har klassen følgende grensesnitt mot navn:
     affect_names, populate_name, write_db
   * en del spesiallogikk for ``system_cached``
   * get_name
-  * get_all_names
+  * get_names
   * getdict_persons_names
   * search
 

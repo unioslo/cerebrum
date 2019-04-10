@@ -113,7 +113,7 @@ def name(refresh_only=False):
         if not refresh_only:
             # Find which name variants we need to copy to Manual
             need_variants = set(ureg_variant2name).difference(drop_names)
-            for row in person.get_all_names():
+            for row in person.get_names():
                 if int(row['source_system']) in better_systems:
                     need_variants.discard(int(row['name_variant']))
             # Copy them
