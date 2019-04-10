@@ -63,55 +63,6 @@ class AccountUiTMixin(Account.Account):
     """
 
     #
-    # UiO has discontinued this function in cerebrum. copied their now-deleted
-    # version into our Account.py
-    #
-    _simplify_name_cache = [None] * 4
-
-    # TODO: These charmaps are broken - replace with
-    # Cerebrum.utils.transliterate
-    def simplify_name(self, s, alt=0, as_gecos=0):
-        """Convert string so that it only contains characters that are
-        legal in a posix username.  If as_gecos=1, it may also be
-        used for the gecos field"""
-        key = bool(alt) + (bool(as_gecos) * 2)
-        try:
-            (tr, xlate_subst, xlate_match) = self._simplify_name_cache[key]
-        except TypeError:
-            xlate = {'�': 'Dh', '�': 'dh',
-                     '�': 'Th', '�': 'th',
-                     '�': 'ss'}
-            if alt:
-                xlate.update({'�': 'ae', '�': 'ae',
-                              '�': 'aa', '�': 'aa'})
-            xlate_subst = re.compile(r'[^a-zA-Z0-9 -]').sub
-
-            def xlate_match(match):
-                return xlate.get(match.group(), "")
-            tr = dict(zip(map(chr, xrange(0200, 0400)), ('x',) * 0200))
-            tr.update(dict(zip(
-                '����������������������������������������������������������'
-                '{[}]|�\\����',
-                'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
-                'aAaAooO"--\'')))
-            for ch in filter(tr.has_key, xlate):
-                del tr[ch]
-            tr = string.maketrans("".join(tr.keys()), "".join(tr.values()))
-            if not as_gecos:
-                # lowercase the result
-                tr = tr.lower()
-                xlate = dict(zip(xlate.keys(), map(str.lower, xlate.values())))
-            self._simplify_name_cache[key] = (tr, xlate_subst, xlate_match)
-
-        xlated = xlate_subst(xlate_match, s.translate(tr))
-
-        # normalise whitespace and hyphens: only ordinary SPC, only
-        # one of them between words, and none leading or trailing.
-        xlated = re.sub(r'\s+', " ", xlated)
-        xlated = re.sub(r' ?-+ ?', "-", xlated).strip(" -")
-        return xlated
-
-    #
     # SITO accounts will have their own namespace as describe here
     #
     # sito username will be on the following format:S-XXXNNN

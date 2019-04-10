@@ -201,13 +201,12 @@ def system_account_callback(account):
 # ********** </XML FILE PARSING>
 
 
-
 # ********* <ACCOUNT CREATION AND UPDATING>
 
 def process_account(account_data):
-    global db, default_creator_id, default_owner_id,default_owner_type, \
+    global db, default_creator_id, default_owner_id, default_owner_type, \
            default_source_system, valid_contact_types, default_stay_alive_time
-    
+
     gr = Factory.get('Group')(db)
     ac = Factory.get('Account')(db)
     co = Factory.get('Constants')(db)
@@ -218,13 +217,14 @@ def process_account(account_data):
     try:
         account_name = account_data['account_name']
         account_type = account_data['account_type']
-        account_type_id = int(co.Account(account_type.encode('iso-8859-1')))        
+        account_type_id = int(co.Account(account_type.encode('iso-8859-1')))
         initial_pass = account_data['initial_pass']
         gecos = account_data['gecos']
         contact_info = account_data['contact_info']
         spreads = account_data['spreads']
 
-        # Max time an account will stay valid after account stops coming from the file
+        # Max time an account will stay valid after account stops coming from
+        # the file
         base_date = DateTime.now() + DateTime.oneWeek * default_stay_alive_time
         if account_data['expire_date'] == 'Never':
             expire_date = base_date
@@ -232,8 +232,8 @@ def process_account(account_data):
             expire_date = base_date
         else:
             expire_date = DateTime.Parser.DateFromString(account_data['expire_date'])
-    except Exception, msg:
-        logger.error("Invalid account data, account not processed. %s" % (msg))
+    except Exception as msg:
+        logger.error("Invalid account data, account not processed. %s", msg)
         return
 
     logger.info("Processing system account: %s" % account_name)
@@ -258,18 +258,19 @@ def process_account(account_data):
 
     # Check if owner change is needed
     if ac.owner_id != default_owner_id:
-        logger.info("Owner must be changed from %s to %s" % (ac.owner_id, default_owner_id))
+        logger.info("Owner must be changed from %s to %s", ac.owner_id,
+                    default_owner_id)
         # Delete account types (affiliations)
         for acc_aff in ac.get_account_types():
             ac.del_account_type(acc_aff['ou_id'], acc_aff['affiliation'])
 
         # Change owner and owner type of account
-        ac.owner_id =  default_owner_id
+        ac.owner_id = default_owner_id
         ac.owner_type = default_owner_type
         ac.np_type = account_type_id
         ac.write_db()
-        logger.info("Changed owner, owner type and np_type to %s, %s and %s" %
-                                    (default_owner_id, default_owner_type, account_type_id))
+        logger.info("Changed owner, owner type and np_type to %s, %s and %s",
+                    default_owner_id, default_owner_type, account_type_id)
 
     # Check for np_type changes
     if (ac.np_type != account_type_id):
@@ -277,7 +278,8 @@ def process_account(account_data):
         ac.write_db()
         logger.info("Changed np_type to %s" % (account_type_id))
 
-    # If account has quarantines - remove them and reset password for security reasons (?)
+    # If account has quarantines - remove them and reset password for security
+    # reasons (?)
     # Don't do it for now... .maybe later. (20080222)
 
     # Assure posix user is ok
@@ -295,8 +297,8 @@ def process_account(account_data):
             pu.populate(uid, gr.entity_id, None, shell, parent=ac)
             pu.write_db()
             logger.info("...promotion ok!")
-        except Exception,msg:
-            logger.error("Error promoting. Error message follows: %s" % msg)
+        except Exception as msg:
+            logger.error("Error promoting. Error message follows: %s", msg)
             sys.exit(1)
 
     # Update account type (np_type)
@@ -309,10 +311,10 @@ def process_account(account_data):
     old_gecos = ""
     if not new_account:
         old_gecos = pu.get_gecos()
-    #new_gecos = pu.simplify_name(gecos.encode('iso-8859-1'), as_gecos=1).decode()
-    new_gecos = transliterate.for_gecos(gecos) 
+    new_gecos = transliterate.for_gecos(gecos)
     if (new_gecos != old_gecos):
-        logger.info( "Updating gecos. Old name: %s, new name: %s" % (old_gecos, new_gecos))
+        logger.info("Updating gecos. Old name: %s, new name: %s", old_gecos,
+                    new_gecos)
         pu.gecos = new_gecos
         pu.write_db()
 
@@ -326,19 +328,21 @@ def process_account(account_data):
     cur_spreads = pu.get_spread()
     for spread in cur_spreads:
         pu.set_home_dir(spread['spread'])
-        
+
     # Adding spreads
     for spread in spreads:
         if spread == '':
             continue
-        
+
         try:
             spread_id = int(co.Spread(spread.encode("iso-8859-1")))
         except Exception, msg:
             logger.error("Skipping invalid spread (%s)." % spread)
             continue
 
-        ac.set_spread_expire(spread=spread_id, expire_date=expire_date, entity_id=ac.entity_id)
+        ac.set_spread_expire(spread=spread_id,
+                             expire_date=expire_date,
+                             entity_id=ac.entity_id)
 
         if (not pu.has_spread(spread_id)):
             logger.info("Adding spread %s and setting homedir for it" % spread)
@@ -348,32 +352,37 @@ def process_account(account_data):
     # Deleting spreads not in authoritative system accounts XML file
     old_spreads = ac.get_spread()
     for spread in old_spreads:
-        spread = spread[0] # WHY THIS???
+        spread = spread[0]  # WHY THIS???
         if not str(co.Spread(spread)).decode() in spreads:
             logger.info("Deleting obsolete spread %s" % str(co.Spread(spread)))
             ac.clear_home(spread)
             ac.delete_spread(spread)
-           
 
     # Adding / Updating contact information
     for contact in contact_info:
         logger.info("Processing contact info %s" % contact)
         # Check if contact type already exists
-        old_contact = ac.get_contact_info(default_source_system, valid_contact_types[contact.upper()])
+        old_contact = ac.get_contact_info(default_source_system,
+                                          valid_contact_types[contact.upper()])
         if old_contact != []:
-            logger.info("Contact info already exists - check if update is needed...")
+            logger.info("Contact info exists - check if update is needed...")
             # If contact type exists, check if it needs updating
             if old_contact[0]['contact_value'] != contact_info[contact]:
                 logger.info("Update needed, will delete value and add later.")
-                ac.delete_contact_info(default_source_system, valid_contact_types[contact.upper()], pref='ALL')
+                ac.delete_contact_info(default_source_system,
+                                       valid_contact_types[contact.upper()],
+                                       pref='ALL')
                 old_contact = []
             else:
                 logger.info("No update needed.")
 
         # Add or "Update" contact info
         if old_contact == []:
-            logger.info("Adding contact info %s with value %s" % (contact, contact_info[contact]))
-            ac.add_contact_info(default_source_system, valid_contact_types[contact.upper()], contact_info[contact])
+            logger.info("Adding contact info %s with value %s", contact,
+                        contact_info[contact])
+            ac.add_contact_info(default_source_system,
+                                valid_contact_types[contact.upper()],
+                                contact_info[contact])
 
 # ********* </ACCOUNT CREATION AND UPDATING>
 

@@ -38,6 +38,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.no.uit import access_SYSY
+from Cerebrum.utils import transliterate
 
 __doc__="""
 Populate role groups from SystemY
@@ -158,8 +159,7 @@ class ITRole(object):
                 pr.add_spread(const.spread_uit_ad_group)
             return pg
 
-
-    def maybe_create_admin(self,person_id):
+    def maybe_create_admin(self, person_id):
         # this person should have two accounts.
         # a primary account, eg bto001
         # and a admin account, eg bto999
@@ -169,38 +169,42 @@ class ITRole(object):
         person.find(person_id)
         pri_account_id = person.get_primary_account()
         if pri_account_id is None:
-            logger.warn("Primary account for personID=%s not found, acc expired?" % (person_id))
+            logger.warn("Primary account for person_id=%r not found, "
+                        "account expired?", person_id)
             return
         pri_ac.find(pri_account_id)
-        existing_acc_types = pri_ac.get_account_types(owner_id=person_id, \
-            filter_expired=False)
+        existing_acc_types = pri_ac.get_account_types(owner_id=person_id,
+                                                      filter_expired=False)
         default_expire_date = pri_ac.expire_date
         admin_priority = 920
-        accounts = new_ac.search(spread=const.spread_uit_ad_lit_admin, \
-            owner_id=person_id,expire_start=None)
-        if (len(accounts)==0):
-            #does not have account in spread ad_lit_admin, create and set spread
-            logger.debug("Create admin account for %s" % (person_id))
+        accounts = new_ac.search(spread=const.spread_uit_ad_lit_admin,
+                                 owner_id=person_id,
+                                 expire_start=None)
+        if len(accounts) == 0:
+            # does not have account in spread ad_lit_admin, create and set
+            # spread
+            logger.debug("Create admin account for %s", person_id)
             ext_id = person.get_external_id(id_type=const.externalid_fodselsnr)
             # FIXME: may bang if person only from sysX !??
-            ssn = ext_id[0]['external_id']  
+            ssn = ext_id[0]['external_id']
             full_name = person.get_name(const.system_cached, const.name_full)
             new_username = new_ac.get_uit_uname(ssn, full_name, regime='ADMIN')
-            logger.debug("GOT acc_name=%s" % new_username)
-            creator =  get_account(cereconf.INITIAL_ACCOUNTNAME)
+            logger.debug("GOT account_name=%r", new_username)
+            creator = get_account(cereconf.INITIAL_ACCOUNTNAME)
             creator_id = creator.entity_id
             new_ac.clear()
-            new_ac.populate(name = new_username,
-                            owner_id = person.entity_id,
-                            owner_type = const.entity_person,
-                            np_type = None,
-                            creator_id = creator_id,
-                            expire_date = default_expire_date,
-                            posix_uid = new_ac.get_free_uid(),
-                            gid_id = 1623, #int(group.entity_id),
-                            gecos = new_ac.simplify_name(full_name,as_gecos=1),
-                            shell = const.posix_shell_bash
-                            )
+            new_ac.populate(
+                name=new_username,
+                owner_id=person.entity_id,
+                owner_type=const.entity_person,
+                np_type=None,
+                creator_id=creator_id,
+                expire_date=default_expire_date,
+                posix_uid=new_ac.get_free_uid(),
+                gid_id=1623,  # int(group.entity_id),
+                gecos=transliterate.for_gecos(full_name),
+                shell=const.posix_shell_bash,
+            )
             new_ac.write_db()
 
             # AD litadmin spread
@@ -208,14 +212,8 @@ class ITRole(object):
             new_ac.set_home_dir(const.spread_uit_ad_lit_admin)
 
             # Set spread expire date
-            new_ac.set_spread_expire(spread=const.spread_uit_ad_lit_admin, expire_date=default_expire_date)
-
-            # also add SUT spread
-            #new_ac.add_spread(const.spread_uit_sut_user)
-            #new_ac.set_home_dir(const.spread_uit_sut_user)
-
-            # Set spread expire date
-            #new_ac.set_spread_expire(spread=const.spread_uit_sut_user, expire_date=default_expire_date)
+            new_ac.set_spread_expire(spread=const.spread_uit_ad_lit_admin,
+                                     expire_date=default_expire_date)
 
             password = new_ac.make_passwd(new_username)
             new_ac.set_password(password)
@@ -223,30 +221,25 @@ class ITRole(object):
             new_ac.set_account_type(existing_acc_types[0]['ou_id'],
                                     existing_acc_types[0]['affiliation'],
                                     admin_priority)
-            
+
             new_ac.write_db()
-            return new_ac.account_name            
+            return new_ac.account_name
         elif len(accounts) == 1:
             # sync account to person's primary account. expire date that is...
             new_ac.clear()
             new_ac.find(accounts[0]['account_id'])
             new_ac.expire_date = default_expire_date
-            #if not new_ac.has_spread(const.spread_uit_sut_user):
-            #    new_ac.add_spread(const.spread_uit_sut_user)
-            #    new_ac.set_home_dir(const.spread_uit_sut_user)
-            #    logger.info("Added %s spread to account %s" % \
-            #        (const.spread_uit_sut_user,accounts[0]['name']))
 
             # Set spread expire date
-            new_ac.set_spread_expire(spread=const.spread_uit_ad_lit_admin, expire_date=default_expire_date)
-            #new_ac.set_spread_expire(spread=const.spread_uit_sut_user, expire_date=default_expire_date)
+            new_ac.set_spread_expire(spread=const.spread_uit_ad_lit_admin,
+                                     expire_date=default_expire_date)
 
-            new_ac.write_db()            
+            new_ac.write_db()
             return accounts[0]['name']
         else:
-            logger.error("TOO MANY ACCOUNTS FOUND for with spread_uit_ad_lit_admin for %s!" % (person_id))
+            logger.error("TOO MANY ACCOUNTS FOUND for with "
+                         "spread_uit_ad_lit_admin for %s!", person_id)
             raise Errors.IntegrityError
-
 
     def translate2admins(self,accountList):
         admlist = []
