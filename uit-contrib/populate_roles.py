@@ -39,6 +39,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.no.uit import access_SYSY
 from Cerebrum.utils import transliterate
+from Cerebrum.modules.no.uit.Account import UsernamePolicy
 
 __doc__="""
 Populate role groups from SystemY
@@ -57,6 +58,7 @@ const = Factory.get('Constants')(db)
 logger = Factory.get_logger('cronjob')
 account2name = dict((x["entity_id"], x["entity_name"]) for x in
                  Factory.get("Group")(db).list_names(const.account_namespace))
+name_gen = UsernamePolicy(db)
 
 
 TODAY=time.strftime("%Y%m%d")
@@ -188,7 +190,8 @@ class ITRole(object):
             # FIXME: may bang if person only from sysX !??
             ssn = ext_id[0]['external_id']
             full_name = person.get_name(const.system_cached, const.name_full)
-            new_username = new_ac.get_uit_uname(ssn, full_name, regime='ADMIN')
+            new_username = name_gen.get_uit_uname(ssn, full_name,
+                                                  regime='ADMIN')
             logger.debug("GOT account_name=%r", new_username)
             creator = get_account(cereconf.INITIAL_ACCOUNTNAME)
             creator_id = creator.entity_id

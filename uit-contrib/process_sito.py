@@ -49,6 +49,7 @@ from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.no.uit import OU
 #from Cerebrum.modules.no.uit.EntityExpire import EntityExpire
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.no.uit.Account import UsernamePolicy
 from pprint import pprint
 
 accounts=persons=logger=None
@@ -602,30 +603,31 @@ class Build:
             _handle_changes(acc_id,changes)
 
 
-
-
 def create_sito_account(fnr):
-    
-    owner=persons.get(fnr)
+    owner = persons.get(fnr)
     if not owner:
         logger.error("Cannot create account to person %s, not from sito" % fnr)
         return None
 
-    p_obj=Factory.get('Person')(db)
+    p_obj = Factory.get('Person')(db)
     p_obj.find(owner.get_personid())
-    
-    first_name=p_obj.get_name(co.system_cached, co.name_first)
-    last_name=p_obj.get_name(co.system_cached, co.name_last)    
+
+    first_name = p_obj.get_name(co.system_cached, co.name_first)
+    last_name = p_obj.get_name(co.system_cached, co.name_last)
+    full_name = "%s %s" % (first_name, last_name)
+
+    name_gen = UsernamePolicy(db)
+    uname = name_gen.get_sito_uname(fnr, full_name)
 
     acc_obj = Factory.get('Account')(db)
-    uname = acc_obj.suggest_unames_sito(fnr, first_name, last_name)
-    acc_obj.populate(uname,
-                     co.entity_person,
-                     p_obj.entity_id,
-                     None,
-                     get_creator_id(), 
-                     get_expire_date())
-                     
+    acc_obj.populate(
+        uname,
+        co.entity_person,
+        p_obj.entity_id,
+        None,
+        get_creator_id(),
+        get_expire_date())
+
     try:
         acc_obj.write_db()
     except Exception,m:
