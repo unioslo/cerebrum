@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding:utf-8 -*-
 #
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1284,7 +1284,7 @@ def extract_names(person_db, kinds):
     """Return a mapping kind->name of names of the required kinds."""
 
     result = dict()
-    all_names = person_db.get_all_names()
+    all_names = person_db.get_names()
     for name in all_names:
         kind = int(name["name_variant"])
         source = int(name["source_system"])

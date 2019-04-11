@@ -111,17 +111,6 @@ class HomedirResolver(object):
         self.disk = Factory.get('Disk')(db)
 
     @clock_time
-    def make_uname_cache(self):
-        """
-        Cache homedirs upfront.
-        """
-        cache = dict()
-        for row in self.account.list_account_home(home_spread=self.spread):
-            cache[row['account_id']] = dict(row)
-        self.home_cache = cache
-        return cache
-
-    @clock_time
     def make_home_cache(self):
         """
         Cache homedirs upfront.

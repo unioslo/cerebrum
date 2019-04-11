@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -191,7 +191,7 @@ class PersonResource(Resource):
 
         # Filter out appropriate fields from db_row objects
         names = [filter(lambda (k, _): k in name_keys, e.items()) for
-                 e in pe.get_all_names()]
+                 e in pe.get_names()]
         names = [dict(n) for n in names]
 
         return {

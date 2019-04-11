@@ -159,7 +159,7 @@ def xml2dict(xmlobject, attributes):
 def extract_names(person_db, kinds):
     """Return a mapping kind->name of names of the required kinds."""
     result = {}
-    all_names = person_db.get_all_names()
+    all_names = person_db.get_names()
     for name in all_names:
         kind = int(name["name_variant"])
         source = int(name["source_system"])

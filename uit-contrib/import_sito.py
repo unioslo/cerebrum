@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -343,11 +343,6 @@ def import_person(person_list):
             logger.debug("system:%s, c_type:%s, number:%s, pref:%s" %(const.system_sito, c_type, number, pref))
             pref = c_prefs[c_type] = pref = 1
 
-        op2 = new_person.write_db()
-        # set affiliation last seen date
-        for k,v in affiliation.items():
-            ou_id, aff, aff_stat = v
-            new_person.set_affiliation_last_date(const.system_sito, ou_id, int(aff), int(aff_stat))
         op2 = new_person.write_db()
         logger.info("WriteDB after affs: %s" % (op2,))
 

@@ -623,12 +623,6 @@ def create_flyt_account(fnr,expire_date):
         logger.warn("Failed create for %s, uname=%s, reason: %s. Processing stopped for this person" % \
             (fnr, uname, m))
     else:
-        #if(activate == True):
-        #    password = acc_obj.make_hifm_passwd(last_name,fnr)
-        #    simplified_password = acc_obj.simplify_name(password)
-        #    logger.info("Account password/activation code is set to <fnr><etternavn>:%s" % (simplified_password))
-        #else:
-         #   simplified_password = acc_obj.make_passwd(uname)
         pwd = acc_obj.make_passwd(uname)
         acc_obj.set_password(pwd)
 

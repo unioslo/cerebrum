@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2003-2014 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -179,7 +179,7 @@ class BofhdAuth(auth.BofhdAuth):
 
         # check that all names already exists
         names = []
-        for row in person.get_all_names():
+        for row in person.get_names():
             if row['name_variant'] != self.const.name_first:
                 continue
             names.extend(row['name'].split(' '))
