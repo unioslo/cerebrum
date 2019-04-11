@@ -48,6 +48,9 @@ class CIMDataSource(object):
         self.ou_perspective = self.co.OUPerspective(
             self.config.ou_perspective)
         self.spread = self.co.Spread(self.config.spread)
+        self.auth_system_lookup_order = [self.co.AuthoritativeSystem(sys) for
+                                         sys in
+                                         self.config.auth_system_lookup_order]
 
     def is_eligible(self, person_id):
         """Decide whether a person should be exported to CIM.

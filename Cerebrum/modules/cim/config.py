@@ -31,7 +31,7 @@ from Cerebrum.config.settings import (Boolean,
                                       Integer,
                                       String,
                                       Iterable,
-                                      NotSet)
+                                      )
 
 
 class CIMClientConfig(Configuration):
@@ -102,6 +102,12 @@ class CIMDataSourceConfig(Configuration):
         default="SAP",
         doc='Authoritative system to fetch contact information from.')
 
+    auth_system_lookup_order = ConfigDescriptor(
+        Iterable,
+        default=["SAP"],
+        doc='List of Authoritative systems to fetch contact information from, '
+            'in decending order of priority')
+
     ou_perspective = ConfigDescriptor(
         String,
         default="SAP",
@@ -142,7 +148,7 @@ class CIMDataSourceConfig(Configuration):
                  'subdep9',
                  'subdep10',
                  ],
-        doc=('Hierarchy of field names expected by the CIM web service.'))
+        doc='Hierarchy of field names expected by the CIM web service.')
 
 
 class CIMEventCollectorConfig(Configuration):
@@ -197,3 +203,11 @@ def load_config(filepath=None):
         read(config_cls, 'cim')
     config_cls.validate()
     return config_cls
+
+
+def main():
+    load_config()
+
+
+if __name__ == '__main__':
+    main()
