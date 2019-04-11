@@ -1,9 +1,13 @@
 # TODO: insert license text
+import logging
+
 from Cerebrum import Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory, argument_to_sql
 
 __version__ = '1.0'
+
+logger = logging.getLogger(__name__)
 
 
 class AdEmail(DatabaseAccessor):
@@ -65,8 +69,10 @@ class AdEmail(DatabaseAccessor):
             if not (res['local_part'] == local_part and
                     res['domain_part'] == domain_part):
                 self._update_ad_email(account_name, local_part, domain_part)
+                logger.debug("updated ad_email for account:%s", account_name)
         except Errors.NotFounderror:
             self._insert_ad_email(account_name, local_part, domain_part)
+            logger.debug("inserted ad_email for account:%s", account_name)
 
     def delete_ad_email(self, account_name):
         """Delete ad email entry for the account"""
@@ -76,3 +82,4 @@ class AdEmail(DatabaseAccessor):
         """
         binds = {'account_name': account_name}
         self.execute(query, binds)
+        logger.debug("deleted ad_email for account:%s", account_name)
