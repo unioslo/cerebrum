@@ -43,8 +43,6 @@ from Cerebrum.Utils import Factory, simple_memoize
 from Cerebrum import Utils
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
-#from Cerebrum.modules.no import Stedkode
-from Cerebrum.modules.no.uit.Stedkode import StedkodeMixin
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.Constants import Constants
 from Cerebrum.modules.no.uit import Email
@@ -59,8 +57,6 @@ const = Factory.get('Constants')(db)
 person = Factory.get('Person')(db)
 ou = Factory.get('OU')(db)
 account = Factory.get('Account')(db)
-#sko = Factory.get('Stedkode')(db)
-sko = StedkodeMixin(db)
 group = Factory.get('Group')(db)
 progname=__file__.split(os.sep)[-1]
 db.cl_init(change_program=progname)
@@ -823,15 +819,16 @@ def get_creator_id():
 get_creator_id=simple_memoize(get_creator_id)
 
 def get_sko(ou_id):
-    sko.clear()
+    ou.clear()
     try:
-        sko.find_by_perspective(ou_id,const.perspective_fs)
+        ou.find(ou_id)
+        ou.get_parent(const.perspective_fs)
     except Errors.NotFoundError:
         # Persons has an affiliation to a non-fs ou.
         # Return NoneNoneNone
         #print "unable to find stedkode. Return NoneNoneNone"
         return "NoneNoneNone"
-    return "%02s%02s%02s" % (sko.fakultet,sko.institutt,sko.avdeling)
+    return "%02s%02s%02s" % (ou.fakultet, ou.institutt, ou.avdeling)
 get_sko=simple_memoize(get_sko)
 
 

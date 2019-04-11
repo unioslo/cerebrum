@@ -54,7 +54,6 @@ from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.no.uit import access_FS
-from Cerebrum.modules.no.Stedkode import Stedkode
 
 db = Factory.get('Database')()
 ac = Factory.get('Account')(db)
@@ -93,25 +92,28 @@ def get_skoinfo(fak,inst,avd):
     # Two digit stings each
 
     logger.debug("Enter get_skoinfo with sko=%s%s%s" % (fak,inst,avd))
-    #sko=Factory.get('Stedkode')(db)
-    sko = Stedkode(db)
-    sko.clear()
-    sko.find_stedkode(fakultet=fak,institutt=inst,avdeling=avd,institusjon=186) #TODO 186 from config
+    ou = Factory.get('OU')(db)
+    ou.clear()
+    ou.find_stedkode(fakultet=fak,institutt=inst,avdeling=avd,institusjon=186) #TODO 186 from config
     res=dict()
-    res['name']=sko.get_name_with_language(co.ou_name, co.language_nb, default='')
-    res['short_name']=sko.get_name_with_language(co.ou_name_short, co.language_nb, default='')
-    res['acronym']=sko.get_name_with_language(co.ou_name_acronym, co.language_nb, default='')  
+    res['name'] = ou.get_name_with_language(co.ou_name, co.language_nb, default='')
+    res['short_name'] = ou.get_name_with_language(co.ou_name_short,
+                                                  co.language_nb, default='')
+    res['acronym'] = ou.get_name_with_language(co.ou_name_acronym,
+                                               co.language_nb, default='')
     perspective=co.perspective_fs
     root=False
     acrolist=list()
     acrolist.append(res['acronym'])
     while not root:
-        currentid=sko.entity_id
-        parentid=sko.get_parent(perspective)
+        currentid=ou.entity_id
+        parentid=ou.get_parent(perspective)
         if parentid != None:
-            sko.clear()
-            sko.find(parentid)
-            acrolist.append(sko.get_name_with_language(co.ou_name_acronym, co.language_nb, default=''))
+            ou.clear()
+            ou.find(parentid)
+            acrolist.append(ou.get_name_with_language(co.ou_name_acronym,
+                                                      co.language_nb,
+                                                      default=''))
         else:
             root=currentid
     acrolist.reverse()

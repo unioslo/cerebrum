@@ -52,7 +52,6 @@ from Cerebrum.modules.Email import EmailDomain, EmailAddress, EmailTarget
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from sets import Set
-from Cerebrum.modules.no import Stedkode
 
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 
@@ -61,7 +60,6 @@ ac = Factory.get('Account')(db)
 p = Factory.get('Person')(db)
 ou = Factory.get('OU')(db)
 co = Factory.get('Constants')(db)
-sko = Stedkode.Stedkode(db)
 db.cl_init(change_program=progname)
 
 logger=Factory.get_logger("cronjob")
@@ -160,13 +158,11 @@ def get_cn_addr(username):
     return None,dom_part
 
 def get_sko(ou_id):
-    sko.clear()
     ou.clear()
     try:
-        sko.find(ou_id)
-        return "%02d%02d%02d" % (sko.fakultet,sko.institutt,sko.avdeling)
-    except Errors.NotFoundError:
         ou.find(ou_id)
+        return "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
+    except Errors.NotFoundError:
         return ''
     
 get_sko=memoize(get_sko)

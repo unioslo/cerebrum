@@ -59,7 +59,6 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.email import sendmail
 from Cerebrum import Errors
-from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 
 

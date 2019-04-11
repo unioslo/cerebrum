@@ -42,11 +42,9 @@ from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.modules.Email import EmailTarget, EmailForward
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
-from Cerebrum.modules.no.uit.Stedkode import StedkodeMixin
 #from Cerebrum.modules import PosixUser
 #from Cerebrum.modules import PosixGroup
 #from Cerebrum.modules.no.uit import Email
-from Cerebrum.modules.no.uit.sito_utils import sitoFactory
 
 logger = Factory.get_logger('console')
 today_tmp=mx.DateTime.today()
@@ -62,44 +60,41 @@ db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 person = Factory.get('Person')(db)
 account = Factory.get('Account')(db)
-ou=Factory.get('OU')(db)
-sito_ou = sitoFactory.get('sito_ou')(db)
-#sko=Factory.get('Stedkode')(db)
-sko = StedkodeMixin(db)
+ou = Factory.get('OU')(db)
 ef = EmailForward(db)
 et = EmailTarget(db)
 name_language = co.language_nb
 
 def get_sko(ou_id):
-    sko.clear()
-    sko.find(ou_id)
-    return "%s%s%s" % (str(sko.fakultet).zfill(2),
-                       str(sko.institutt).zfill(2),
-                       str(sko.avdeling).zfill(2))
+    ou.clear()
+    ou.find(ou_id)
+    return "%s%s%s" % (str(ou.fakultet).zfill(2),
+                       str(ou.institutt).zfill(2),
+                       str(ou.avdeling).zfill(2))
 get_sko=memoize(get_sko)
 
 
 def get_ouinfo(ou_id,perspective):
     #logger.debug("Enter get_ouinfo with id=%s,persp=%s" % (ou_id,perspective))
-    #sko=Factory.get('Stedkode')(db)
-    sko = StedkodeMixin(db)
-    sko.clear()
-    sko.find_by_perspective(ou_id,perspective)
-    #sko.find(ou_id)
-    res=dict()
-    #res['name']=str(sko.name)
-    res['name']=str(sko.get_name_with_language(co.ou_name,name_language))
-    res['short_name']=str(sko.get_name_with_language(co.ou_name_short,name_language))
-    res['acronym']=str(sko.get_name_with_language(co.ou_name_acronym,name_language))
 
-    sko.clear()
+    ou.clear()
+    ou.find(ou_id)
+    res=dict()
+    res['name'] = str(ou.get_name_with_language(co.ou_name,
+                                                name_language))
+    res['short_name'] = str(ou.get_name_with_language(co.ou_name_short,
+                                                      name_language))
+    res['acronym'] = str(ou.get_name_with_language(co.ou_name_acronym,
+                                                   name_language))
+
+    ou.clear()
     #logger.debug("got basic info about id=%s,persp=%s" % (ou_id,perspective))
 
     try:
-        sko.find_by_perspective(ou_id,perspective)
-        sted_sko="%s%s%s" % (str(sko.fakultet).zfill(2),
-                        str(sko.institutt).zfill(2),
-                        str(sko.avdeling).zfill(2))
+        ou.find(ou_id)
+        sted_sko="%s%s%s" % (str(ou.fakultet).zfill(2),
+                             str(ou.institutt).zfill(2),
+                             str(ou.avdeling).zfill(2))
         #logger.debug("found sko for id=%s,persp=%s" % (ou_id,perspective))
 
     except Errors.NotFoundError:
@@ -108,24 +103,21 @@ def get_ouinfo(ou_id,perspective):
     #logger.debug("..processing..")
     # Find company name for this ou_id by going to parent
     visited = []
-    parent_id=sko.get_parent(perspective)
+    parent_id = ou.get_parent(perspective)
     #logger.debug("Find parent to OU id=%s, parent has %s, perspective is %s" % (ou_id,parent_id,perspective))
     while True:
-        #logger.debug("parent_id:%s, sko.entity_id:%s" % (parent_id,sko.entity_id))
-        if (parent_id is None) or (parent_id == sko.entity_id):
-            #logger.debug("Root for %s is %s, name is  %s" % (ou_id,sko.entity_id,sko.name))
-            res['company']=str(sko.get_name_with_language(co.ou_name,name_language))
+        if (parent_id is None) or (parent_id == ou.entity_id):
+            res['company'] = str(ou.get_name_with_language(co.ou_name,
+                                                           name_language))
             break
-        sko.clear()
+        ou.clear()
         #logger.debug("Lookup %s in %s" % (parent_id,perspective))
-        sko.find_by_perspective(parent_id,perspective)
-        #sko.find(parent_id)
-        #logger.debug("Lookup returned: id=%s,name=%s" % (sko.entity_id,sko.name))
+        ou.find(parent_id)
         # Detect infinite loops
-        if sko.entity_id in visited:
+        if ou.entity_id in visited:
             raise RuntimeError, "DEBUG: Loop detected: %r" % visited
-        visited.append(sko.entity_id)
-        parent_id = sko.get_parent(perspective)
+        visited.append(ou.entity_id)
+        parent_id = ou.get_parent(perspective)
         #logger.debug("New parentid is %s" % (parent_id,))
     return res
 get_ouinfo=memoize(get_ouinfo)
@@ -142,27 +134,29 @@ def wash_sitosted(name):
 def get_samskipnadstedinfo(ou_id,perspective):
 
     res=dict()
-    sito_ou.clear()
-    sito_ou.find(ou_id)
-    depname=wash_sitosted(sito_ou.display_name)
+    ou.clear()
+    ou.find(ou_id)
+    depname = wash_sitosted(ou.get_name_with_language(co.ou_name_display,
+                                                      co.language_nb))
+
     res['sted']=depname
     # Find company name for this ou_id by going to parents
     visited = []
     while True:
-        parent_id=sito_ou.get_parent(perspective)
+        parent_id = ou.get_parent(perspective)
         #logger.debug("Parent to id=%s is %s" % (ou_id,parent_id))
-        if (parent_id is None) or (parent_id == sito_ou.entity_id):
-            #logger.debug("Root for %s is %s, name is  %s" % (ou_id,sito_ou.entity_id,sito_ou.name))
-            res['company']=sito_ou.name
+        if (parent_id is None) or (parent_id == ou.entity_id):
+            res['company'] = ou.get_name_with_language(co.ou_name,
+                                                       co.language_nb)
             break
-        sito_ou.clear()
-        sito_ou.find(parent_id)
-        #logger.debug("Current id=%s, name is %s" % (sito_ou.entity_id,sito_ou.name))
+        ou.clear()
+        ou.find(parent_id)
         # Detect infinite loops
-        if sito_ou.entity_id in visited:
+        if ou.entity_id in visited:
             raise RuntimeError, "DEBUG: Loop detected: %r" % visited
-        visited.append(sito_ou.entity_id)
-        parentname=wash_sitosted(sito_ou.display_name)
+        visited.append(ou.entity_id)
+        parentname=wash_sitosted(ou.get_name_with_language(co.ou_name_display,
+                                                           co.language_nb))
         res.setdefault('parents',list()).append(parentname)
     res['parents'].remove(res['company'])
     return res
@@ -173,7 +167,6 @@ num2const=dict()
 class ad_export:
 
     def __init__(self, userfile):
-        #self.sko = Factory.get('Stedkode')(db)
         self.userfile = userfile
 
 

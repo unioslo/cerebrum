@@ -55,7 +55,6 @@ from Cerebrum.Utils import Factory # , simple_memoize
 from Cerebrum.Constants import Constants
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.xmlutils import GeneralXMLParser
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
@@ -72,8 +71,6 @@ account = Factory.get('Account')(db)
 const = Factory.get('Constants')(db)
 group = Factory.get('Group')(db)
 ou = Factory.get('OU')(db)
-sko = Stedkode.Stedkode(db)
-#sko = Factory.get('Stedkode')(db)
 person_list = []
 TODAY=mx.DateTime.today().strftime("%Y-%m-%d")
 default_filename='paga_persons_%s.xml' % (TODAY,)
@@ -292,16 +289,15 @@ def get_creator_id():
 #get_creator_id=simple_memoize(get_creator_id)
 
 def get_sko(ou_id):
-    sko.clear()
+    ou.clear()
     try:
-        #sko.find_by_perspective(ou_id,const.perspective_fs)
-        sko.find(ou_id)
+        ou.find(ou_id)
     except Errors.NotFoundError:
         # Persons has an affiliation to a non-fs ou.
         # Return NoneNoneNone
         #print "unable to find stedkode. Return NoneNoneNone"
         return "NoneNoneNone"
-    return "%02s%02s%02s" % (sko.fakultet,sko.institutt,sko.avdeling)
+    return "%02s%02s%02s" % (ou.fakultet, ou.institutt, ou.avdeling)
 #get_sko=simple_memoize(get_sko)
 
 def get_expire_date():

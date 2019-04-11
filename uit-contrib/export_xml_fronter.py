@@ -38,7 +38,6 @@ from Cerebrum import Database
 from Cerebrum import Entity
 from Cerebrum import Person
 from Cerebrum import Group
-from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.uit import fronter_lib
 from Cerebrum.modules import Email
 from Cerebrum.modules.no.uit.Email import email_address
@@ -451,11 +450,11 @@ def load_acc2name():
 def get_ans_fak(fak_list, ent2uname):
     fak_res = {}
     person = Factory.get('Person')(db)
-    stdk = Stedkode.Stedkode(db)
+    ou = Factory.get('OU')(db)
     for fak in fak_list:
         ans_list = []
         # Get all stedkoder in one faculty
-        for ou in stdk.get_stedkoder(fakultet=int(fak)):
+        for ou in ou.get_stedkoder(fakultet=int(fak)):
             # get persons in the stedkode
             for pers in person.list_affiliations(source_system=const.system_paga,
                                         affiliation=const.affiliation_ansatt,
@@ -1073,23 +1072,25 @@ def main():
     ans_dict = get_ans_fak(fak_temp,acc2names)  # UIT
 
     # Opprett de forskjellige stedkode-korridorene.
-    ou = Stedkode.Stedkode(db)
+    ou = Factory.get('OU')(db)
 
     for faknr in fak_temp: # UIT
         fak_sko = "%02d0000" % faknr
         #logger.warn("fak_sko:%s" % (fak_sko))
         ou.clear()
         try:
-	    ou.find_stedkode(faknr, 0, 0,
+            ou.find_stedkode(faknr, 0, 0,
                              institusjon = cereconf.DEFAULT_INSTITUSJONSNR)
-	except Errors.NotFoundError:
-	    logger.error("Finner ikke stedkode for fakultet %d", faknr)
+        except Errors.NotFoundError:
+            logger.error("Finner ikke stedkode for fakultet %d", faknr)
             faknavn = '*Ikke registrert som fakultet i FS*'
         else:
             if ou.acronym:
-                faknavn = ou.acronym
+                faknavn = ou.get_name_with_language(const.ou_name_acronym,
+                                                    const.language_nb)
             else:
-                faknavn = ou.short_name
+                faknavn = ou.get_name_with_language(const.ou_name_short,
+                                                    const.language_nb)
         fak_ans_id = "%s:sap:gruppe:%s:%s:ansatte" % \
                      (cereconf.INSTITUTION_DOMAIN_NAME,
                       cereconf.DEFAULT_INSTITUSJONSNR,

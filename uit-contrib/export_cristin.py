@@ -74,7 +74,6 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uit.Email import email_address
 
-from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
@@ -85,7 +84,7 @@ cerebrum_db = Factory.get("Database")()
 constants = Factory.get("Constants")(cerebrum_db)
 person_db = Factory.get("Person")(cerebrum_db)
 account_db = Factory.get("Account")(cerebrum_db)
-ou_db = Stedkode(cerebrum_db)
+ou_db = Factory.get('OU')(cerebrum_db)
 source_system=constants.system_paga
 system_cached = constants.system_cached
 
@@ -163,7 +162,7 @@ class system_xRepresentation(object):
         person = Factory.get('Person')(db)
         account = Factory.get('Account')(db)
         const = Factory.get('Constants')(db)
-        stedkode = Stedkode(db)
+        stedkode = Factory.get('OU')(db)
         
         current_source_system= const.system_x
         # Get all persons that come from SysX  ONLY, _and_ has a norwegian SSN! 
@@ -826,7 +825,7 @@ def output_OUs(writer, db):
     """
     db = Factory.get('Database')()
     db_ou = Factory.get("OU")(db)
-    stedkode = Stedkode(db)
+    stedkode = Factory.get("OU")(db)
     constants = Factory.get("Constants")(db)
 
     writer.startElement("organisasjon")
@@ -1464,9 +1463,8 @@ def output_OUs_new(writer, sysname, oufile):
 
     db = Factory.get('Database')()
     #db_ou = Factory.get("OU")(db)
-    #sko_class = Factory.get("Stedkode")(db)
-    sko_class = Stedkode(db)
-    stedkode = Stedkode(db)
+    sko_class = Factory.get("OU")(db)
+    stedkode = Factory.get("OU")(db)
     constants = Factory.get("Constants")(db)
 
     writer.startElement("organisasjon")

@@ -35,15 +35,13 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 
 db  = Factory.get('Database')()
-ou  = Factory.get('OU')(db)
-sko = Stedkode(db)
+ou = Factory.get('OU')(db)
 p  = Factory.get('Person')(db)
 co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
@@ -134,7 +132,7 @@ def load_cache():
     logger.info("Generating mapping dict for ou_id based on stedkode mappings for the portal")
 
     # Caching stedkode -> ou
-    stedkoder = sko.get_stedkoder()
+    stedkoder = ou.get_stedkoder()
     stedkode_ou_mapping = {}
     ou_stedkode_mapping = {}
     for stedkode in stedkoder:
@@ -284,10 +282,10 @@ def load_cb_data():
         last_date=aff['last_date'].strftime("%Y-%m-%d")
         
         if not ou_cache.get(ou_id,None):
-            sko.clear()
+            ou.clear()
             
             try:
-                sko.find(ou_id)
+                ou.find(ou_id)
             except EntityExpiredError:
                 logger.warn('Expired ou (%s) for person: %s' % (aff['ou_id'], aff['person_id']))
                 continue
@@ -300,10 +298,10 @@ def load_cb_data():
             ou.find(ou_id)
             ou_name = ou.get_name_with_language(co.ou_name, co.language_nb, default='')
 
-            sko.clear()
-            sko.find(ou_id)
-            sko_sted="%02d%02d%02d"  % ( sko.fakultet,sko.institutt,
-                sko.avdeling)
+            ou.clear()
+            ou.find(ou_id)
+            sko_sted="%02d%02d%02d" % (ou.fakultet, ou.institutt,
+                                       ou.avdeling)
 
             if bas_portal_mapping.has_key(ou_id):
 
@@ -311,7 +309,8 @@ def load_cb_data():
                     logger.info('Skipped affiliation to ou=%s due to bas to portal mapping rule saying to do so' % (sko))
                     continue
 
-                logger.info('Mapped %s to %s' % (sko, bas_portal_mapping[ou_id]))
+                logger.info('Mapped %s to %s' % (ou,
+                                                 bas_portal_mapping[ou_id]))
                 sko_sted = bas_portal_mapping[ou_id]
                 ou_name = "%s - MAPPED" % (ou_name)
 
