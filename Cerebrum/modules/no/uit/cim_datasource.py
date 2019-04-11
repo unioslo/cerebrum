@@ -20,7 +20,6 @@
 
 from __future__ import unicode_literals
 
-import cereconf
 from Cerebrum.modules.cim.datasource import CIMDataSource
 
 
@@ -362,15 +361,16 @@ class CIMDataSourceUit(CIMDataSource):
                  CIM-WS-schema.
         :rtype: dict
         """
-
+        # TODO: Add lookup order to the super method so we don't have to do
+        #  this hack of storing auth system and putting it back after running
+        #  super() ?
         orig_auth_system = self.authoritative_system
         person = None
 
         # get data about person using CIM_SYSTEM_LOOKUP_ORDER to determine
         # source_system to use
-        for sys in cereconf.CIM_SYSTEM_LOOKUP_ORDER:
-            source_system = getattr(self.co, sys)
-            self.authoritative_system = source_system
+        for sys in self.auth_system_lookup_order:
+            self.authoritative_system = sys
 
             try:
                 person = super(CIMDataSourceUit, self).get_person_data(
