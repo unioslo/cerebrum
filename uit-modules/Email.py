@@ -29,6 +29,7 @@ from Cerebrum import Account
 from Cerebrum import Person
 from Cerebrum import Errors
 from Cerebrum.modules import Email
+from Cerebrum.modules.no.uit.ad_email import AdEmail
 
 from Cerebrum.modules.Email import AccountEmailMixin
 import re
@@ -146,6 +147,7 @@ class email_address:
         self.constants = Factory.get("Constants")(db)
         self.person = Factory.get("Person")(db)
         self.ou = Factory.get("OU")(db)
+        self.ad_email = AdEmail(db)
         self.et = Email.EmailTarget(db)
         self.ea = Email.EmailAddress(db)
         self.edom = Email.EmailDomain(db)
@@ -157,27 +159,19 @@ class email_address:
 
     def build_email_list(self):
         email_list = {}
-        #print "creating email list"
-        res = self.db.query("""SELECT account_name,local_part,domain_part
-        FROM ad_email""")
+        res = self.ad_email.search_ad_email()
         for entity in res:
-            email="%s@%s" % (entity['local_part'],entity['domain_part'])
+            email = "%s@%s" % (entity['local_part'], entity['domain_part'])
             email_list[entity['account_name']] = email
+        return email_list
 
-        #print "...done"
-        return email_list
-    
-    def get_employee_email(self,account_id,db):
-        email_list={}
-        res = db.query("""SELECT ae.account_name,ae.local_part,ae.domain_part
-        FROM ad_email ae, entity_name e
-        WHERE ae.account_name = e.entity_name
-        AND e.entity_id =:account_id""",{"account_id" : account_id})
+    def get_employee_email(self, account_name):
+        email_list = {}
+        res = self.ad_email.search_ad_email(account_name=account_name)
         for entity in res:
-            email="%s@%s" % (entity['local_part'],entity['domain_part'])
+            email = "%s@%s" % (entity['local_part'], entity['domain_part'])
             email_list[entity['account_name']] = email
         return email_list
-    
 
     def process_mail(self, account_id, addr, is_primary=False,expire_date = None):
         self.logger.debug("account_id to email.process_mail = %s" % account_id)

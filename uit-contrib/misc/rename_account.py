@@ -135,7 +135,7 @@ class Changer:
             pass
         
         em = Email.email_address(self.db)
-        ad_email = em.get_employee_email(account_obj.entity_id,self.db)
+        ad_email = em.get_employee_email(account_obj.account_name)
         if (len(ad_email)>0):
             ad_email = ad_email[account_obj.account_name]
 
