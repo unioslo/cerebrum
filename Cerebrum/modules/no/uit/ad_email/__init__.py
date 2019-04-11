@@ -3,6 +3,8 @@ from Cerebrum import Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory, argument_to_sql
 
+__version__ = '1.0'
+
 
 class AdEmail(DatabaseAccessor):
     def __init__(self, database):
