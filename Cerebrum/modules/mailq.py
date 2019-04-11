@@ -20,366 +20,576 @@
 """
 Implementation of mod_mailq.
 
-This module provides automatic mail template processing, mail queues and
-scheduled mass-sending of e-mail.
+This module implements a notification system with:
+
+- An email notification queue.
+- A dispatcher that processes the queue and sends out emails.
+
+The mail queue is implemented through a table with the following values:
+
+entity_id
+    Reference to an entity to notify using the given template.
+
+    When issuing email notifications, the recipient address will be fetched
+    from this entity.
+
+template
+    A template to use for notification.
+
+    This is a reference to a set of template files on disk (one per supported
+    language) to use for this notification.
+
+parameters
+    A serialized dict of extra substitution arguments for the template.
+
+scheduled
+    When the notification should be sent out.
+
+    When processing the queue, we'll look at all entries where the scheduled
+    date is in the past.
+
+status
+    Status of this notification. ``1`` means the notification has failed, ``0``
+    means that the notification has not been processed yet. Notifications that
+    are successfully processed are deleted.
+
+status_time
+    When the status flag was last updated.
 """
+from __future__ import unicode_literals
+
+import itertools
+import io
 import logging
+import os
 import pickle
-import warnings
 
 import mx.DateTime
-from exceptions import Exception
+import six
 
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum import Utils
-from Cerebrum.Utils import Factory
+from Cerebrum.DatabaseAccessor import DatabaseAccessor
+from Cerebrum.Utils import Factory, NotSet, argument_to_sql
+from Cerebrum.utils import email
 
 logger = logging.getLogger(__name__)
 
 
-class MailQ(object):
+# Columns and column order when selecting from the mailq table
+SELECT_COLUMNS = (
+    'entity_id',
+    'template',
+    'parameters',
+    'scheduled',
+    'status',
+    'status_time',
+)
+
+# Values of the 'status' column
+STATUS_PENDING = 0
+STATUS_ERROR = 1
+
+
+def sql_insert(db, entity_id, template, parameters, scheduled, status,
+               status_time):
     """
-    The mailer class that implements the mailer system
+    Insert a new row into mailq.
+    """
+    # All cols are manatory
+    binds = {
+        'entity_id': int(entity_id),
+        'template': six.text_type(template),
+        'parameters': parameters,
+        'scheduled': scheduled,
+        'status': status,
+        'status_time': status_time,
+    }
+
+    stmt = """
+      INSERT INTO [:table schema=cerebrum name=mailq]
+      ({cols}) VALUES ({params})
+    """.format(
+        cols=', '.join(sorted(binds)),
+        params=', '.join(':' + k for k in sorted(binds)))
+    logger.debug('Inserting mailq entity_id=%r template=%r',
+                 entity_id, template)
+    db.execute(stmt, binds)
+
+
+def sql_update(db, entity_id, template, parameters=NotSet, scheduled=NotSet,
+               status=NotSet, status_time=NotSet):
+    """
+    Update an existing row in mailq.
+    """
+    binds = {
+        'entity_id': int(entity_id),
+        'template': six.text_type(template),
+    }
+    changes = {}
+    if parameters is not NotSet:
+        changes['parameters'] = parameters
+    if scheduled is not NotSet:
+        changes['scheduled'] = scheduled
+    if status is not NotSet:
+        changes['status'] = status
+    if status_time is not NotSet:
+        changes['status_time'] = status_time
+    binds.update(changes)
+
+    stmt = """
+      UPDATE [:table schema=cerebrum name=mailq]
+      SET {assign}
+      WHERE entity_id = :entity_id AND
+            template = :template
+    """.format(assign=', '.join(k + ' = :' + k for k in sorted(changes)))
+    logger.debug('Updating mailq entity_id=%r template=%r columns=%r',
+                 entity_id, template, tuple(changes.keys()))
+    db.execute(stmt, binds)
+
+
+def sql_exists(db, entity_id, template):
+    """ Check if this primary key exists in mailq. """
+    if not entity_id or not template:
+        raise ValueError("Missing args")
+    binds = {
+        'entity_id': int(entity_id),
+        'template': six.text_type(template),
+    }
+    stmt = """
+      SELECT EXISTS (
+        SELECT 1
+        FROM [:table schema=cerebrum name=mailq]
+        WHERE entity_id = :entity_id AND
+              template = :template
+      )
+    """
+    return db.query_1(stmt, binds)
+
+
+def sql_delete(db, entity_id=None, template=None):
+    """
+    Delete rows from mailq.
+
+    Optionally limited by entity_id and/or template.
+    """
+    binds = {}
+
+    conditions = []
+    if entity_id is not None:
+        conditions.append(
+            argument_to_sql(entity_id, 'entity_id', binds, int))
+    if template is not None:
+        conditions.append(
+            argument_to_sql(template, 'template', binds, six.text_type))
+
+    stmt = """
+      DELETE FROM [:table schema=cerebrum name=mailq]
+      {limit}
+    """.format(
+        limit=(('WHERE ' + ' AND '.join(conditions))
+               if conditions else ''))
+    logger.debug('Deleting mailq entity_id=%r template=%r',
+                 entity_id, template)
+    db.execute(stmt, binds)
+
+
+def sql_get(db, entity_id, template):
+    """ Get row identified by primary key. """
+    if not entity_id or not template:
+        raise ValueError("Missing args")
+    binds = {
+        'entity_id': int(entity_id),
+        'template': six.text_type(template),
+    }
+    stmt = """
+      SELECT {columns}
+      FROM [:table schema=cerebrum name=mailq]
+      WHERE entity_id = :entity_id AND
+            template = :template
+    """.format(columns=', '.join(SELECT_COLUMNS))
+    return db.query_1(stmt, binds)
+
+
+def sql_search(db, entity_id=None, template=None, scheduled=None, status=None,
+               status_time=None, fetchall=False):
+    """
+    Find rows in mailq.
+
+    Returns all rows, or optionally filters by the following keyword arguments:
+
+    :type entity_id: int
+    :param entity_id: One or more entity_ids
+
+    :type template: str
+    :param template: One or more template names.
+
+    :type scheduled: mx.DateTime
+    :param scheduled: Only entries with a scheduled date before this date.
+
+    :type status: int
+    :param status: Filter by status
+
+    :type status_time: mx.DateTime
+    :param status_time: Only entries with a status_time before this date.
+    """
+    binds = {}
+    conditions = []
+
+    if entity_id is not None:
+        conditions.append(
+            argument_to_sql(entity_id, 'entity_id', binds, int))
+    if template is not None:
+        conditions.append(
+            argument_to_sql(template, 'template', binds, six.text_type))
+    if scheduled is not None:
+        binds['scheduled'] = _to_date(scheduled)
+        conditions.append('scheduled <= :scheduled')
+    if status is not None:
+        conditions.append(
+            argument_to_sql(status, 'status', binds, int))
+    if status_time is not None:
+        binds['status_time'] = _to_date(status_time)
+        conditions.append('status_time <= :status_time')
+
+    stmt = """
+      SELECT {columns}
+      FROM [:table schema=cerebrum name=mailq]
+      {where}
+    """.format(
+        columns=', '.join(SELECT_COLUMNS),
+        where=(('WHERE ' + ' AND '.join(conditions))
+               if conditions else ''))
+    return db.query(stmt, binds, fetchall=fetchall)
+
+
+# TODO: Change serialization to JSON?
+
+def serialize_params(obj):
+    return pickle.dumps(obj)
+
+
+def deserialize_params(data):
+    return pickle.loads(data)
+
+
+def _to_date(obj):
+    return mx.DateTime.DateFrom(obj)
+
+
+def _conv(fn, obj, default=None):
+    if obj is None:
+        return default
+    else:
+        return fn(obj)
+
+
+class MailQueueEntry(object):
+    """
+    Object representing a notification in the mail queue.
     """
 
-    # possible mailq status values
-    NEW = 0
-    ERR = 1
+    def __init__(self, entity_id, template, parameters=None, scheduled=None,
+                 status=None, status_time=None):
+        self.entity_id = int(entity_id)
+        self.template = six.text_type(template)
+        self.parameters = dict(parameters or ())
+        self.scheduled = _conv(_to_date, scheduled, mx.DateTime.now())
+        self.status = int(status or 0)
+        self.status_time = _conv(_to_date, status_time, mx.DateTime.now())
 
-    def __init__(self, db, logger_name=None):
-        self.db = db
-        if logger_name:
-            warnings.warn("Passing logger_name is deprecated",
-                          DeprecationWarning,
-                          stacklevel=2)
+    def __repr__(self):
+        # TODO: make the _ChangeTypeCode repr better?
+        return ('<{cls.__name__} entity_id={obj.entity_id!r}'
+                ' template={obj.template!r}>').format(
+                    cls=type(self),
+                    obj=self)
 
-    # adding msg to mailq
-    def add(self, entity_id, template, parameters, scheduled=None):
+    def to_dict(self):
+        return {
+            'entity_id': self.entity_id,
+            'template': self.template,
+            'parameters': serialize_params(self.parameters),
+            'scheduled': self.scheduled,
+            'status': self.status,
+            'status_time': self.status_time,
+        }
 
-        if scheduled is None:
-            scheduled = mx.DateTime.now()
+    @classmethod
+    def from_dict(cls, d):
+        args = {k: d[k] for k in ('entity_id', 'template', 'scheduled',
+                                  'parameters', 'status', 'status_time')}
+        if not isinstance(args['parameters'], dict):
+            args['parameters'] = deserialize_params(args['parameters'])
+        return cls(**args)
+
+
+class MailQueueDb(DatabaseAccessor):
+    """
+    Access to the mail queue using MailQueueEntry objects.
+    """
+
+    def in_db(self, entry):
+        """ Check if a template is queued for a given entity. """
+        return sql_exists(self._db, entry.entity_id, entry.template)
+
+    def get(self, entity_id, template):
+        return MailQueueEntry.from_dict(
+            sql_get(self._db, entity_id, template))
+
+    def __insert(self, entry):
+        binds = entry.to_dict()
+        return sql_insert(self._db, **binds)
+
+    def __update(self, entry):
+        old = sql_get(self._db, entry.entity_id, entry.template)
+        new = entry.to_dict()
+        changes = {}
+        for k in ('parameters', 'scheduled', 'status'):
+            if old[k] != new[k]:
+                changes[k] = new[k]
+
+        if 'status' in changes:
+            changes['status_time'] = '[:now]'
+
+        if not changes:
+            logger.debug('No change in mail queue entry %r', entry)
+            return
+        return sql_update(self._db, entry.entity_id, entry.template, **changes)
+
+    def store(self, entry):
+        if self.in_db(entry):
+            self.__update(entry)
         else:
-            scheduled = mx.DateTime.DateFrom(scheduled)
+            self.__insert(entry)
 
-        # Prepare query to check if adding is necessary
-        sel_query = """
-        SELECT scheduled FROM mailq
-        WHERE entity_id=:entity_id AND template=:template
+    def remove(self, entry):
         """
-        sel_binds = {'entity_id': entity_id,
-                     'template': template}
+        Delete a single mail entry.
+        """
+        if not self.in_db(entry):
+            raise Errors.NotFoundError("no %r in db" % (entry, ))
+        sql_delete(self._db, entity_id=entry.entity_id,
+                   template=entry.template)
 
-        # Prepare add query
-        add_sql = """
-          INSERT INTO mailq
-          (entity_id, template, parameters, scheduled, status, status_time)
-          VALUES
-          (:entity_id, :template, :parameters, :scheduled, :status, now())
-        """
-        add_val = {
-            'entity_id': entity_id,
-            'template': template,
-            'parameters': pickle.dumps(parameters),
-            'scheduled': scheduled,
-            'status': self.NEW,
+    def search(self, **kwargs):
+        kwargs['fetchall'] = False
+        for row in sql_search(self._db, **kwargs):
+            yield MailQueueEntry.from_dict(row)
+
+
+class EntityCache(DatabaseAccessor):
+    """
+    Entity metadata cache for the MailProcessor
+    """
+
+    def __init__(self, db):
+        self.db = db
+        self._co = Factory.get('Constants')(db)
+        self._en = Factory.get('Entity')(db)
+        self._cache = dict()
+        self._errors = dict()
+
+    def get_entity(self, entity_id, entity_type):
+        if entity_type == self._co.entity_account:
+            obj = Factory.get('Account')(self.db)
+            obj.find(entity_id)
+            return obj
+        raise NotImplementedError("Unsupported entity_type=%r" % entity_type)
+
+    def get_metadata(self, entity_id):
+        self._en.clear()
+        self._en.find(entity_id)
+        entity_type = self._co.EntityType(self._en.entity_type)
+        entity = self.get_entity(entity_id, entity_type)
+        return {
+            'epost': entity.get_primary_mailaddress(),
+            'brukernavn': entity.account_name,
+            'entity_id': entity.entity_id,
         }
 
-        # Prepare update query
-        upd_sql = """
-          UPDATE mailq SET
-            parameters = :parameters,
-            scheduled = :scheduled,
-            status = :status,
-            status_time = now()
-          WHERE
-            entity_id = :entity_id AND template = :template
+    def __getitem__(self, entity_id):
+        if entity_id in self._errors:
+            raise self._errors[entity_id]
+        if entity_id in self._cache:
+            return self._cache[entity_id]
+
+        logger.debug("caching metadata for entity_id=%r", entity_id)
+        try:
+            self._cache[entity_id] = data = self.get_metadata(entity_id)
+            return data
+        except Exception as e:
+            self._errors = e
+            raise
+
+
+class MailProcessor(object):
+    """
+    Process and send out notifications from the mail queue.
+    """
+
+    languages = ('no', 'en')
+    template_path = os.path.join(cereconf.CB_SOURCEDATA_PATH,
+                                 'templates/MailQ')
+
+    encoding = 'utf-8'
+    master_template = 'Master_Default'
+    sender = cereconf.USER_NOTIFICATION_SENDER
+
+    def __init__(self,
+                 db,
+                 dryrun=True,
+                 encoding=encoding,
+                 master_template=master_template,
+                 sender=sender):
+        self.db = db
+        self.mq = MailQueueDb(db)
+        self.cache = EntityCache(db)
+        self.dryrun = dryrun
+        self.encoding = encoding
+        self.master_template = master_template
+        self.sender = sender
+
+    def format_template(self, lang, entry):
         """
-        upd_val = {
-            'entity_id': entity_id,
-            'template': template,
-            'parameters': pickle.dumps(parameters),
-            'scheduled': scheduled,
-            'status': self.NEW,
-        }
+        Format a single template.
 
+        :param lang:
+            Language (this selects the template named (entry.template + lang)
+        :param entry:
+            The MailQueueEntry object to render a template for.
+
+        :returns: A message formatted from the entry.template.
+        """
+        substitute = {}
+        substitute.update(self.cache[entry.entity_id])
+        substitute.update(entry.parameters)
+        filename = os.path.join(self.template_path,
+                                ".".join((entry.template, lang)))
+
+        logger.info("Preparing template %s.%s for user %s (%s)",
+                    entry.template, lang, substitute['brukernavn'],
+                    substitute['entity_id'])
+        with io.open(filename, encoding=self.encoding, mode='r') as f:
+            message = "".join(f.readlines())
+            for key, value in substitute.items():
+                if not isinstance(value, six.text_type):
+                    value = six.text_type(value)
+                message = message.replace("${%s}" % key, value)
+            return message
+
+    def prepare_email_substitutions(self, entity_id, entries):
+        """
+        Prepare substitutions for the master template.
+
+        :param metadata:
+            A dict with keys 'username', 'recipient' and 'entity_id'.
+
+        :param entries:
+            An iterable with MailQueueEntry objects to prepare.
+
+        :returns:
+            A dict that can be used with the master template. The dict contains
+            the mentioned fields from *metadata*, and a 'body_<lang>' key for
+            each <lang> in ``self.langauges``.
+
+        """
+        msg_body = dict()
+        for lang in self.languages:
+            out = io.StringIO()
+            for e in entries:
+                out.write(self.format_template(lang, e))
+                out.write("\n")
+            msg_body[lang] = out.getvalue()
+
+        substitute = {}
+        substitute.update(self.cache[entity_id])
+        for lang in self.languages:
+            substitute['body_'+lang] = msg_body[lang]
+        return substitute
+
+    def send_mail(self, email_data):
+        """
+        Format template and send email.
+
+        :param email_data:
+            A dict with substitutions from `prepare_email_substitutions`.
+        """
+        tpl = self.master_template
+        rcp = email_data['epost']
+        filename = os.path.join(self.template_path, tpl)
+
+        logger.info("Sending template %s to user %s (%s)",
+                    tpl, email_data['brukernavn'], email_data['entity_id'])
+
+        output = email.mail_template(
+            rcp,
+            filename,
+            sender=self.sender,
+            cc=None,
+            substitute=email_data,
+            charset='ascii',
+            debug=self.dryrun)
+
+        if self.dryrun:
+            logger.info(
+                "Debug enabled, would have sent message of size %s to %s",
+                len(output), rcp)
+            logger.debug("Content:\n%s", output)
+
+    def process_entity(self, entity_id, entries):
+        """
+        Prepare and send mail for a given entity.
+
+        :param entity_id:
+            The entity to send email to
+        :param entries:
+            A sequence of MailQueueEntry objects to send.
+        """
+        entries = list(entries)
+        if {entity_id, } != {e.entity_id for e in entries}:
+            raise ValueError(
+                "process_entity got entries for multiple entity_ids")
         try:
-            res = self.db.query_1(sel_query, sel_binds)
-            if scheduled < mx.DateTime.DateFrom(res):
-                res = self.db.execute(upd_sql, upd_val)
-                logger.info("Updated message in mailq")
-                return True
-            else:
-                logger.info("Template %s is already scheduled at %s for "
-                            "entity %s", template, res, entity_id)
-                return True
-        except Errors.NotFoundError:
-            res = self.db.execute(add_sql, add_val)
-            logger.info("Added message to mailq")
-            return True
-        except Errors.DatabaseException as e:
-            logger.error("Adding message to mailq failed: %s" % e)
-            return False
+            tpl_sub = self.prepare_email_substitutions(entity_id, entries)
+            self.send_mail(tpl_sub)
+        except Exception:
+            logger.error("Unable to process entries: %r", entries,
+                         exc_info=True)
+            for e in entries:
+                e.status = STATUS_ERROR
+                self.mq.store(e)
+        else:
+            for e in entries:
+                self.mq.remove(e)
 
-    # deleting msg from mailq
-    def delete(self, entity_id, template=None):
+    def process(self, **terms):
+        """
+        Find and process entries matching *terms*
+        """
+        for entity_id, entries in itertools.groupby(
+                sorted(self.mq.search(**terms),
+                       key=lambda e: (e.entity_id, e.scheduled)),
+                lambda e: e.entity_id):
 
-        tpl_sql = ""
-        if template is not None:
-            tpl_sql = " AND template=:template"
-
-        sql = """
-              DELETE FROM mailq
-              WHERE entity_id=:entity_id %s
-              """ % (tpl_sql)
-        val = {'entity_id': entity_id,
-               'template': template}
-
-        try:
-            self.db.execute(sql, val)
-            logger.info("Deleted message from mailq")
-            return True
-        except Errors.DatabaseException, e:
-            logger.error("Deleting message from mailq failed %s" % e)
-            return False
-
-    # updating msg in mailq
-    def update(self, entity_id, template, parameters=None, scheduled=None,
-               status=None):
-
-        set_sql = []
-        set_val = {}
-        if parameters is not None:
-            set_sql.append("parameters=:parameters")
-            set_val['parameters'] = pickle.dumps(parameters)
-        if scheduled is not None:
-            set_sql.append("scheduled=:scheduled")
-            set_val['scheduled'] = mx.DateTime.DateFrom(scheduled)
-        if status is not None:
-            if status == self.NEW or status == self.ERR:
-                set_sql.append("status=:status")
-                set_val['status'] = status
-            else:
-                logger.error("Illegal status (%s) given for mailq update for "
-                             "entity_id %s with template %s", status,
-                             entity_id, template)
-                return False
-
-        if len(set_sql) > 0:
-            set_sql = "SET " + ", ".join(set_sql)
-
-            sql = """
-                  UPDATE mailq
-                  %s
-                  WHERE entity_id=:entity_id AND template=:template
-                  """ % set_sql
-            val = {'entity_id': entity_id,
-                   'template': template}
-            val.update(set_val)
+            entries = list(entries)
+            templates = {e.template for e in entries}
 
             try:
-                self.db.execute(sql, val)
-                logger.info("Updated message in mailq")
-                return True
-            except Errors.DatabaseException, e:
-                logger.error("Updating message in mailq failed: %s" % e)
-                return False
+                self.cache[entity_id]
+            except NotImplementedError as e:
+                logger.error(
+                    "Invalid entity_type (id=%r, templates=%r, error=%s)",
+                    entity_id, templates, e)
+                continue
+            except Exception:
+                logger.error(
+                    "Error retrieving metadata for for entity_id=%r,"
+                    " removing templates=%r from queue!",
+                    entity_id, templates, exc_info=True)
+                for e in entries:
+                    self.mq.remove(e)
+                continue
 
-        else:
-            logger.error("Update with no content attempted for entity_id %s "
-                         "on template %s. Update ignored.", entity_id,
-                         template)
-            return False
-
-    # search the mailq table with a variety of filters
-    def search(self, entity_id=None, template=None, scheduled=None,
-               status=None, status_time=None):
-        where_sql = []
-        where_val = {}
-        if entity_id is not None:
-            where_sql.append("entity_id=:entity_id")
-            where_val['entity_id'] = entity_id
-        if template is not None:
-            where_sql.append("template=:template")
-            where_val['template'] = template
-        if scheduled is not None:
-            where_sql.append("scheduled<=:scheduled")
-            where_val['scheduled'] = mx.DateTime.DateFrom(scheduled)
-        if status is not None:
-            if status == self.NEW or status == self.ERR:
-                where_sql.append("status=:status")
-                where_val['status'] = status
-            else:
-                logger.error("Illegal status (%s) given for mailq search",
-                             status)
-                return False
-        if status_time is not None:
-            where_sql.append("status_time<=:status_time")
-            where_val['status_time'] = mx.DateTime.DateFrom(status_time)
-
-        if len(where_sql) > 0:
-            where_sql = "WHERE " + " AND ".join(where_sql)
-        else:
-            where_sql = ""
-
-        sql = """
-              SELECT *
-              FROM mailq
-              %s
-              ORDER BY entity_id, scheduled
-              """ % where_sql
-
-        try:
-            res = self.db.query(sql, where_val)
-            return res
-        except Errors.DatabaseException, e:
-            logger.error("Searching mailq failed: %s" % e)
-            raise Errors.DatabaseException, e
-
-    # process the mailq table with a variety of filters
-    def process(self, entity_id=None, template=None,
-                scheduled=mx.DateTime.now(), status=None, status_time=None,
-                master_template="Master_Default", dryrun=False):
-
-        template_path = cereconf.CB_SOURCEDATA_PATH + '/templates/MailQ/'
-        sender = cereconf.USER_NOTIFICATION_SENDER
-        cc = None
-        charset = 'utf-8'
-        debug = dryrun
-
-        languages = ['no', 'en']
-
-        ac = Factory.get('Account')(self.db)
-        en = Factory.get('Entity')(self.db)
-        co = Factory.get('Constants')(self.db)
-
-        valid_entity_types = [co.entity_account, ]
-        list = self.search(entity_id, template, scheduled, status, status_time)
-
-        current_entity_id = None
-        for tmp in list:
-
-            # Aggregating on entity_id - each entity_id will pass here only
-            # once because of order by clause in search function
-            if tmp['entity_id'] != current_entity_id:
-
-                current_entity_id = tmp['entity_id']
-                msg_body = {}
-                for lang in languages:
-                    msg_body[lang] = ""
-                empty_mail = True
-
-                # Validade entity_id
-                try:
-                    en.clear()
-                    try:
-                        en.find(current_entity_id)
-                    except Exception, e:
-                        logger.error("Error retrieving information on entity "
-                                     "with entity_id %s", current_entity_id)
-                        continue
-
-                    _en_type = en.const.EntityType(en.entity_type)
-                    if _en_type not in valid_entity_types:
-                        logger.error("Invalid entity_type (%s) placed in "
-                                     "mailq. entity_id: %s",
-                                     str(en.const.EntityType(en.entity_type)),
-                                     current_entity_id)
-                        continue
-
-                    ac.clear()
-                    try:
-                        ac.find(current_entity_id)
-                    except Exception, e:
-                        logger.error("Error retrieving information on account"
-                                     " with entity_id %s", current_entity_id)
-                        continue
-
-                    try:
-                        recipient = ac.get_primary_mailaddress()
-                    except Exception, e:
-                        self.delete(current_entity_id)
-                        logger.error("Error retrieving primary e-mailaddress "
-                                     "for entity_id %s. Removing from queue!",
-                                     current_entity_id)
-                        continue
-
-                except Exception as e:
-                    logger.error("Failed on entity_id: %s", current_entity_id)
-                    continue
-
-                # Aggregating pending sub-templates into a message body in
-                # scheduling order because of order by clause in search
-                # function
-                for msg in list:
-                    if msg['entity_id'] == current_entity_id:
-                        try:
-                            substitute = {}
-                            substitute['brukernavn'] = ac.account_name
-                            substitute['epost'] = recipient
-                            substitute.update(pickle.loads(msg['parameters']))
-
-                            logger.info("Preparing sub-template %s for user "
-                                        "%s (%s)", msg['template'],
-                                        ac.account_name,
-                                        msg['entity_id'])
-
-                            template = template_path + msg['template']
-                            sub_message = {}
-                            for lang in languages:
-                                f = open(template + '.' + lang)
-                                sub_message[lang] = "".join(f.readlines())
-                                f.close()
-
-                                for key in substitute:
-                                    v = sub_message[lang]
-                                    sub_message[lang] = v.replace(
-                                        "${%s}" % key,
-                                        substitute[key])
-
-                            for lang in languages:
-                                if msg_body[lang] != "":
-                                    msg_body[lang] = msg_body[lang] + "\n"
-                                msg_body[lang] = ''.join((
-                                    msg_body[lang],
-                                    sub_message[lang]))
-                                empty_mail = False
-
-                            # Delete sub-template from db
-                            self.delete(msg['entity_id'], msg['template'])
-
-                        except Exception as e:
-                            logger.error(
-                                "Error processing sub-template. "
-                                "entity_id: %s template: %s error: %s",
-                                msg['entity_id'], msg['template'], e)
-                            # Update status to error
-                            self.update(msg['entity_id'], msg['template'],
-                                        parameters=None, scheduled=None,
-                                        status=self.ERR)
-
-                # Send aggregated mail
-                if not empty_mail:
-                    logger.info("Sending template %s to user %s (%s)",
-                                master_template, ac.account_name,
-                                current_entity_id)
-
-                    substitute = {
-                        'brukernavn': ac.account_name,
-                        'epost': recipient,
-                    }
-                    for lang in languages:
-                        substitute['body_'+lang] = msg_body[lang]
-
-                    debug_msg = Utils.mail_template(
-                        recipient,
-                        template_path + master_template,
-                        sender=sender,
-                        cc=cc,
-                        substitute=substitute,
-                        charset=charset,
-                        debug=debug)
-
-                    if (dryrun):
-                        logger.info(debug_msg)
+            self.process_entity(entity_id, entries)
