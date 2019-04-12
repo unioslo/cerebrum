@@ -62,9 +62,10 @@ DROP TABLE mailq;
  * scheduled
  *   When notification should be sent.
  * status
- *   TODO: ?
+ *   0 if pending, 1 if failed - entries that are processed successfully are
+ *   removed.
  * status_time:
- *   TODO: ?
+ *   When the status was last altered
 **/
 category:main;
 CREATE TABLE mailq (
