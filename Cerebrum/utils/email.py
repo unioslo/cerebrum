@@ -48,6 +48,7 @@ TODO
 from __future__ import absolute_import
 
 import copy
+import io
 import logging
 import smtplib
 import re
@@ -150,39 +151,69 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
 
 
 def mail_template(recipient, template_file, sender=None, cc=None,
-                  substitute={}, charset='utf-8', debug=False):
-    """ Send e-mail template.
+                  substitute=None, charset='utf-8', debug=False):
+    """
+    Send e-mail template to a recipient.
 
-    Reads template from file, performs substitutions based on the
-    dict, and sends e-mail to recipient.  The recipient and sender
-    e-mail address will be used as the defaults for the To and From
-    headers, and vice versa for sender.  These values are also made
-    available in the substitution dict as the keys 'RECIPIENT' and
-    'SENDER'.
+    :type recipient: str
+    :param recipient:
+        Email address for the receiver of this email.
 
-    When looking for replacements in the template text, it has to be
-    enclosed in ${}, ie. '${SENDER}', not just 'SENDER'.  The template
-    should contain at least a Subject header.  Make each header in the
-    template a single line, it will be folded when sent.  Note that
-    due to braindamage in Python's email module, only Subject and the
-    body will be automatically MIME encoded.  The lines in the
-    template should be terminated by LF, not CRLF.
+        This value is also used as the default 'To' header, and made available
+        as 'RECIPIENT' in the `substitute`_ dict.
 
+    :type template_file: str
+    :param template_file:
+        Filename of the template to send.
+
+        If a relative path is given, it will be relative to
+        ``cereconf.TEMPLATE_DIR``.
+
+        The template may contain email headers, and should contain at least a
+        Subject header.  It may also contain substitution strings e.g.
+        ``${SOME_KEY}``.
+
+    :type sender: str
+    :param sender:
+        Email address for the sender of this email.
+
+        This value is also used as the default 'From' header, and made
+        available as 'SENDER' in the substitute dict.
+
+    :type substitute: dict
+    :param substitute:
+        A dict with substitution mappings for the template.
+
+        The substitution strings ${RECIPIENT} and ${SENDER} are available by
+        default, but this can be extended and replaced by this dict.
+
+    :type charset: str
+    :param charset:
+        Charset for the email. The template must use this encoding as well.
+
+    :type debug: bool
+    :param debug:
+        If ``True``, don't send email - just return the email contents.
     """
     if not template_file.startswith('/'):
         template_file = cereconf.TEMPLATE_DIR + "/" + template_file
-    f = open(template_file)
-    message = "".join(f.readlines())
-    f.close()
+    with io.open(template_file, encoding=charset, mode='r') as f:
+        message = u''.join(f.readlines())
+
+    substitute = dict(substitute or ())
     substitute['RECIPIENT'] = recipient
     if sender:
         substitute['SENDER'] = sender
-    for key in substitute:
-        if isinstance(substitute[key], six.text_type):
-            message = message.replace("${%s}" % key, substitute[key].encode(
-                charset))
-        else:
-            message = message.replace("${%s}" % key, substitute[key])
+
+    for key, value in substitute.items():
+        try:
+            if not isinstance(value, six.text_type):
+                value = six.text_type(charset)
+            message = message.replace("${%s}" % key, value)
+        except Exception:
+            logger.error("unable to insert key %r into template %r",
+                         key, template_file)
+            raise
 
     headers, body = message.split('\n\n', 1)
     msg = MIMEText(body, _charset=charset)
@@ -192,7 +223,7 @@ def mail_template(recipient, template_file, sender=None, cc=None,
                      'to': recipient,
                      'subject': '<none>'}
     for header in headers.split('\n'):
-        field, value = map(header.strip, header.split(':', 1))
+        field, value = map(six.text_type.strip, header.split(':', 1))
         field = field.lower()
         if field in preset_fields:
             preset_fields[field] = value

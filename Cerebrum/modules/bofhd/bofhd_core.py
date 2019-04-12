@@ -725,8 +725,11 @@ class BofhdCommandBase(object):
             ou = self._get_ou(ou_id=entity_id)
             return self._format_ou_name(ou)
         elif entity_type in (self.const.entity_group, ):
-            group = self._get_group(entity_id, idtype='id')
-            return group.group_name
+            try:
+                group = self._get_group(entity_id, idtype='id')
+                return group.group_name
+            except CerebrumError:
+                return "notfound:%r" % entity_id
         elif entity_type == self.const.entity_disk:
             disk = Factory.get('Disk')(self.db)
             disk.find(entity_id)
