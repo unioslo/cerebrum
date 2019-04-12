@@ -29,6 +29,7 @@ from Cerebrum import Account
 from Cerebrum import Person
 from Cerebrum import Errors
 from Cerebrum.modules import Email
+from Cerebrum.modules.no.uit.ad_email import AdEmail
 
 from Cerebrum.modules.Email import AccountEmailMixin
 import re
@@ -137,94 +138,6 @@ class UiTAccountEmailMixin(AccountEmailMixin):
             
         return ret
 
-    # UIT Extension to manipulate AD EMAIL table (sets/overrides primary emails)
-
-    # Add or update email entry for user
-    def set_ad_email(self, local_part, domain_part):
-
-        uname = self.get_account_name()
-
-        # Query to check if update is necessary 
-        sel_query = """
-        SELECT account_name, local_part, domain_part from [:table schema=cerebrum name=ad_email]
-        WHERE account_name=:account_name
-        """
-        sel_binds = {'account_name': uname}
-
-        # Insert query
-        ins_query = """
-        INSERT INTO [:table schema=cerebrum name=ad_email]
-        (account_name, local_part, domain_part, create_date, update_date)
-        VALUES (:account_name, :local_part, :domain_part, [:now], [:now])
-        """
-        ins_binds = {'account_name':uname,
-                     'local_part': local_part,
-                     'domain_part': domain_part}
-        
-        # Update query
-        upd_query = """
-        UPDATE [:table schema=cerebrum name=ad_email]
-        SET local_part=:local_part, domain_part=:domain_part, update_date=[:now]
-        WHERE account_name=:account_name
-        """
-        upd_binds = { 'local_part' : local_part,
-                      'domain_part' : domain_part,
-                      'account_name': uname}
-
-        try:
-            res = self.query_1(sel_query, sel_binds)
-            if res['local_part'] != local_part or res['domain_part'] != domain_part:
-                res = self.execute(upd_query, upd_binds)
-                self.logger.info("Updated ad_email table: %s to %s@%s" % (uname, local_part, domain_part))
-            else:
-                self.logger.info("ad_email table already up to date: %s had %s@%s"  % (uname, local_part, domain_part))
-        except Errors.NotFoundError:
-            res = self.execute(ins_query, ins_binds)
-            self.logger.info("Inserted into ad_email table: %s to %s@%s" % (uname, local_part, domain_part))
-
-
-    # Deletes ad email entry for user
-    def delete_ad_email(self):
-
-        uname = self.get_account_name()
-
-        # Delete query
-        sql = """
-        DELETE from [:table schema=cerebrum name=ad_email]
-        WHERE account_name=:account_name
-        """
-        binds = {'account_name': uname }
-        self.execute(sql, binds)
-        self.logger.info("Deleted %s from ad_email table" % (uname))
-
-
-    # Searches ad email table
-    def search_ad_email(self,account_name=None,local_part=None,domain_part=None):
-
-        tables = list()
-        where = list()
-        binds = dict()
-        if account_name:
-            where.append('account_name=:account_name')
-            binds['account_name']=account_name
-
-        if local_part:
-            where.append('local_part=:local_part')
-            binds['local_part']=local_part
-        
-        if domain_part:
-            where.append('domain_part=:domain_part')
-            binds['domain_part']=domain_part
-
-        where_str=""
-        if where:
-            where_str = "WHERE " + " AND ".join(where)
-        sql = """
-        SELECT account_name, local_part, domain_part
-        FROM [:table schema=cerebrum name=ad_email]
-        %s""" % (where_str)
-        return self.query(sql,binds)
-
 
 class email_address:
 
@@ -234,6 +147,7 @@ class email_address:
         self.constants = Factory.get("Constants")(db)
         self.person = Factory.get("Person")(db)
         self.ou = Factory.get("OU")(db)
+        self.ad_email = AdEmail(db)
         self.et = Email.EmailTarget(db)
         self.ea = Email.EmailAddress(db)
         self.edom = Email.EmailDomain(db)
@@ -245,27 +159,19 @@ class email_address:
 
     def build_email_list(self):
         email_list = {}
-        #print "creating email list"
-        res = self.db.query("""SELECT account_name,local_part,domain_part
-        FROM ad_email""")
+        res = self.ad_email.search_ad_email()
         for entity in res:
-            email="%s@%s" % (entity['local_part'],entity['domain_part'])
+            email = "%s@%s" % (entity['local_part'], entity['domain_part'])
             email_list[entity['account_name']] = email
+        return email_list
 
-        #print "...done"
-        return email_list
-    
-    def get_employee_email(self,account_id,db):
-        email_list={}
-        res = db.query("""SELECT ae.account_name,ae.local_part,ae.domain_part
-        FROM ad_email ae, entity_name e
-        WHERE ae.account_name = e.entity_name
-        AND e.entity_id =:account_id""",{"account_id" : account_id})
+    def get_employee_email(self, account_name):
+        email_list = {}
+        res = self.ad_email.search_ad_email(account_name=account_name)
         for entity in res:
-            email="%s@%s" % (entity['local_part'],entity['domain_part'])
+            email = "%s@%s" % (entity['local_part'], entity['domain_part'])
             email_list[entity['account_name']] = email
         return email_list
-    
 
     def process_mail(self, account_id, addr, is_primary=False,expire_date = None):
         self.logger.debug("account_id to email.process_mail = %s" % account_id)
