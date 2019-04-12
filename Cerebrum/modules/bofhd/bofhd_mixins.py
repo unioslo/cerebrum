@@ -66,3 +66,4 @@ class BofhdAuthEntityMixin(Entity):
                 """
                 DELETE FROM [:table schema=cerebrum name=auth_op_target]
                 WHERE %s """ % targets, binds)
+        super(BofhdAuthEntityMixin, self).delete()
