@@ -2853,7 +2853,7 @@ class BofhdExtension(BofhdCommonMethods):
         ph = PasswordHistory(self.db)
         histhash = ph.encode_for_history(ac.account_name, password)
         for r in ph.get_history(ac.entity_id):
-            if histhash == r['md5base64']:
+            if histhash == r['hash']:
                 return ("The password is obsolete, it was set on %s" %
                         r['set_at'])
         return "Incorrect password"
