@@ -1586,16 +1586,6 @@ def migrate_to_dns_1_4():
     db.commit()
 
 
-def migrate_to_password_history_1_1():
-    print("\ndone.")
-    assert_db_version("0.9.20")
-    makedb('password_history_1_1', 'pre')
-    meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_password_history", "1.1")
-    print("Migration to password history 1.1 completed successfully")
-    db.commit()
-
-
 def migrate_to_dns_1_5():
     print("\ndone.")
     assert_db_version("1.4", component='dns')
@@ -1603,6 +1593,16 @@ def migrate_to_dns_1_5():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_dns", "1.5")
     print("Migration to DNS 1.5 completed successfully")
+    db.commit()
+
+
+def migrate_to_password_history_1_1():
+    print("\ndone.")
+    assert_db_version("0.9.20")
+    makedb('password_history_1_1', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_password_history", "1.1")
+    print("Migration to password history 1.1 completed successfully")
     db.commit()
 
 
