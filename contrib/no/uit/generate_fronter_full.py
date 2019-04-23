@@ -50,7 +50,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uit.fronter_lib \
-     import XMLWriter, UE2KursID, key2fields, fields2key, host_config
+     import XMLWriter, UE2KursID, key2fields, fields2key, get_host_config
 from Cerebrum.modules.no.uit.fronter_lib import semester_number
 from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 
@@ -88,7 +88,7 @@ class Fronter(object):
         self.db = db
         self.const = const
         self.logger = logger
-        _config = host_config[fronter_host]
+        _config = get_host_config(fronter_host)
         for k in ('DBinst', 'admins', 'export'):
            setattr(self, k, _config[k])
         self.plain_users = _config.get('plain_users', ())
