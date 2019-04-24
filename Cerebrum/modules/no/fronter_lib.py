@@ -1,7 +1,6 @@
-
 # -*- coding: utf-8 -*-
 
-# Copyright 2003-2017 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,74 +27,9 @@ shuffling the functionality around.
 from __future__ import unicode_literals
 
 import re
-
-from six import text_type
-
-from Cerebrum import Errors
-from Cerebrum.Utils import Factory
+import six
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.utils.atomicfile import AtomicFileWriter
-
-
-def get_member_names(db, group_name):
-    group = Factory.get("Group")(db)
-    usernames = ()
-    try:
-        group.find_by_name(group_name)
-    except Errors.NotFoundError:
-        pass
-    else:
-        account = Factory.get("Account")(db)
-        const = Factory.get("Constants")()
-        usernames = list()
-        for row in group.search_members(group_id=group.entity_id,
-                                        indirect_members=True,
-                                        member_type=const.entity_account):
-            account.clear()
-            account.find(row["member_id"])
-            usernames.append(account.account_name)
-
-    return usernames
-
-
-def get_host_config(db, hostname):
-    """ Get config for one of the hardcoded hosts. """
-    # Ugly, but better than running get_member_names on import.
-
-    host_config = {
-        'internkurs.uio.no': {
-            'DBinst': 'DLOUIO.uio.no',
-            'admins': get_member_names(db, 'classfronter-internkurs-drift'),
-            'export': ['All_users'], },
-        'tavle.uio.no': {
-            'DBinst': 'DLOOPEN.uio.no',
-            'admins': get_member_names(db, 'classfronter-tavle-drift'),
-            'export': ['All_users'], },
-        'kladdebok.uio.no': {
-            'DBinst': 'DLOUTV.uio.no',
-            'admins': get_member_names(db, 'classfronter-kladdebok-drift'),
-            'export': ['FS'],
-            'plain_users': get_member_names(db,
-                                            'classfronter-kladdebok-plain'),
-            'spread': 'spread_fronter_kladdebok', },
-        'petra.uio.no': {
-            'DBinst': 'DLODEMO.uio.no',
-            'admins': get_member_names(db, 'classfronter-petra-drift'),
-            'export': ['FS', 'All_users'],
-            'spread': 'spread_fronter_petra', },
-        'blyant.uio.no': {
-            'DBinst': 'DLOPROD.uio.no',
-            'admins': get_member_names(db, 'classfronter-blyant-drift'),
-            'export': ['FS', 'All_users'],
-            'spread': 'spread_fronter_blyant', },
-        'fronter.com': {
-            'DBinst': 'DLOPROD.uio.no',
-            'admins': get_member_names(db, 'classfronter-fronterdotcom-drift'),
-            'export': ['FS', 'All_users'],
-            'spread': 'spread_fronter_dotcom', }
-        }
-
-    return host_config[hostname]
 
 
 def UE2KursID(kurstype, *rest):
@@ -145,7 +79,7 @@ def UE2KursID(kurstype, *rest):
     aar = int(aar)
     tmp_termk = re.sub('[^a-zA-Z0-9]', '_', termk).lower()
     # Finn $termk og $aar for ($termnr - 1) semestere siden:
-    if (tmp_termk == 'h_st'):
+    if tmp_termk == 'h_st':
         if (termnr % 2) == 1:
             termk = 'høst'
         else:
@@ -187,7 +121,7 @@ def fields2key(*fields):
     @param fields: tuple
     """
 
-    return (":".join([text_type(x) for x in fields])).lower()
+    return (":".join([six.text_type(x) for x in fields])).lower()
 
 
 def str2key(s):
@@ -256,23 +190,3 @@ class XMLWriter(object):
     def endDocument(self):
         self.gen.endDocument()
         self.__file.close()
-
-
-def semester_number(start_year, start_semester,
-                    current_year, current_semester):
-    """Return the semester number given a specific start point.
-
-    For entities spanning multiple semester we need to know the semester
-    number of (current_year, current_semester) relative to the starting
-    point.
-
-    """
-    cs = current_semester.lower()
-    ss = start_semester.lower()
-    years = int(current_year) - int(start_year)
-    correction = 0
-    if cs == 'høst' and ss == 'vår':
-        correction = 1
-    elif cs == 'vår' and ss == 'høst':
-        correction = -1
-    return years*2 + correction+1
