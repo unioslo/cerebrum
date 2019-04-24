@@ -57,6 +57,7 @@ targets = {
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
     'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2', 'dns_1_3', 'dns_1_4', 'dns_1_5'),
+    'password_history': ('password_history_1_1',),
     'sap': ('sap_1_0', 'sap_1_1',),
     'printer_quota': ('printer_quota_1_1', 'printer_quota_1_2',),
     'entity_trait': ('entity_trait_1_1',),
@@ -1592,6 +1593,16 @@ def migrate_to_dns_1_5():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_dns", "1.5")
     print("Migration to DNS 1.5 completed successfully")
+    db.commit()
+
+
+def migrate_to_password_history_1_1():
+    print("\ndone.")
+    assert_db_version("0.9.20")
+    makedb('password_history_1_1', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_password_history", "1.1")
+    print("Migration to password history 1.1 completed successfully")
     db.commit()
 
 
