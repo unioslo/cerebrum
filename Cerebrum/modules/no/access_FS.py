@@ -346,7 +346,7 @@ class FSObject(object):
     def _is_alive(self):
         return "NVL(p.status_dod, 'N') = 'N'\n"
 
-    def _get_termin_aar(self, only_current=0):
+    def _get_termin_aar(self, only_current=False):
         """Generate an SQL query part for limiting registerkort to the current
         term and maybe also the previous term. The output from this method
         should be a part of an SQL query, and must have a reference to

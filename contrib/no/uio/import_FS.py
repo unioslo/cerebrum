@@ -32,7 +32,7 @@ from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum.utils.argutils import add_commit_args
 
 import cereconf
-import mx
+import mx.DateTime
 import six
 
 # Globals
