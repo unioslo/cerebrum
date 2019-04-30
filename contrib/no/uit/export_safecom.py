@@ -23,6 +23,7 @@
 # Uit specific extension to Cerebrum
 
 import argparse
+import logging
 import mx.DateTime
 import os
 import re
@@ -41,7 +42,8 @@ from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 from Cerebrum.utils.funcwrap import memoize
 
-logger = Factory.get_logger('cronjob')
+logger = logging.getLogger(__name__)
+
 today_tmp = mx.DateTime.today()
 tomorrow_tmp = today_tmp + 1
 TODAY = today_tmp.strftime("%Y%m%d")
