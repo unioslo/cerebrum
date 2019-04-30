@@ -18,22 +18,24 @@ We strive for:
 
 - Writing code that is ready for python3
 
-- New code should pass `flake8` (or `pep8`?).
-
-
 Cerebrum is sometimes messy, but we work on fixing this.
 
 
 ## Logging
 
-In general, write log messages that are easy to parse and use by the ELK suite
-(Elasticsearch, Logstash and Kibana), both for debugging, tracing and
-statistics.
+Write short and clear log messages, and use string interpolation for variable
+content.
 
 Some guidelines:
 
-- Log identities that are easy to copy-paste to bofhd, e.g. `account:jokim` and
-  `person_id:1234`.
+- Use string interpolation: `logging.info('foo=%r', foo)`, not
+  `logging.info('foo=%r' % (foo, ))`.
+
+- Only log serializable arguments: `logging.info('foo=%s', repr(foo))` if `foo`
+  is not serializable.
+
+- Clarify what values you log, e.g.: `account_name=jokim` and
+  `person_id=1234`.
 
 - Use Cerebrum terms, or what is commonly used elsewhere in Cerebrum.
 
@@ -43,46 +45,48 @@ Some guidelines:
   details about persons, prefer to log the person's `entity_id`, or some other
   identities, and not their birth numbers. This includes at the *DEBUG* level.
 
+- Log exception tracebacks if caught.  Tracebacks can be omitted for really,
+  really known and expected exceptions, otherwise log a message with the
+  appropriate level (usually `ERROR`) and with `exc_info=True`.
+
 Log levels: For now, the production environment logs at level *DEBUG*. This
 might change in the future.
 
 - **CRITICAL**: Only for emergencies where sysadmins need to take action
-  immediately. 
-  
-  TODO: Crashes?
+  immediately.
 
-- **ERROR**: Only use when really in trouble, and sysadmins need to take action
-  ASAP. Examples:
+  This is typically when a batch script or daemon process crashes.
 
-  - When an integration doesn't work.
+- **ERROR**: Whenever something that *should* succeed doesn't succeed.
+  Everything logged at this level or higher should be followed up by a person.
+  Examples:
 
-  For exceptions, prefer to use `logger.exception` for including the
-  stacktrace, as long as the exception is not expected.
+  - Tried to communicate with an external system, but the system is unreachable.
 
-- **WARNING**: Used for errors that are not critical, but where sysadmins still
-  need to take a look at it. Errors that should not be handled by sysadmins
-  should rather be set to *INFO*.
+  - Tried to communicate with a system, but the system returns an error
+
+  - Tried to process a request, but an exception was raised.
+
+- **WARNING**: Used for somewhat expected errors, and situations that should be
+  *noticed*.  A warning indicates that something is odd or wrong, but it may not
+  require follow-up.
 
   Examples:
 
-  - When a single user can't be handled in an integration, but the rest works.
+  - A user was omitted from batch import/export because of bad data.
 
 - **INFO**: Details that document state changes. Examples:
 
-  - All changes to external systems.
+  - All changes to internal/external systems.
 
-  - Start and stop of scripts (`contrib/`), with parameters.
+  - Start and stop of scripts (`contrib/`).
 
   - Vital details
   
   - Milestones in the process
 
-  - Non-critical errors where Cerebrum or its sysadmins shouldn't do anything?
-    E.g. bad data for a single entity from a source system.
-
-- **DEBUG**: Details only necessary for debugging, but not for daily
+- **DEBUG**: Useful details for debugging, but not for daily
   operations, a.k.a. *the rest*. Still, no sensitive data, please.
-
 
 Please don't blindly reuse existing logging in Cerebrum. There are a lot of
 mess we haven't fixed yet. :)
