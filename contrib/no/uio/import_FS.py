@@ -92,8 +92,8 @@ class FsImporterUio(FsImporter):
         # Reverse sort affiliations list according to aff_status_pri_order
         affiliations.sort(
             lambda x, y: (
-                    self.aff_status_pri_order.get(int(y[2]), 99) -
-                    self.aff_status_pri_order.get(int(x[2]), 99)))
+                self.aff_status_pri_order.get(int(y[2]), 99) -
+                self.aff_status_pri_order.get(int(x[2]), 99)))
         aktiv = False
 
         for ou, aff, aff_status in affiliations:

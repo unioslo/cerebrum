@@ -405,7 +405,7 @@ class FSObject(object):
             next = "(r.terminkode = :autumn AND r.arstall=%s)\n" % self.year
         else:
             next = "(r.terminkode = :spring AND r.arstall=%s)\n" % (
-                    self.year + 1)
+                self.year + 1)
         return next
 
 
@@ -1646,17 +1646,17 @@ class Undervisning(FSObject):
             instituttnr, gruppenr, status_aktiv, status_publiseres)
             VALUES
             (:fnr, :pnr, :termin, :arstall, :institusjonsnr, :fakultetnr,
-            :instiuttnr, :gruppenr, :status_aktiv, :status_publiseres)""", {
-                'fnr': fnr,
-                'pnr': pnr,
-                'institusjonsnr': institusjonsnr,
-                'fakultetnr': fakultetnr,
-                'instiuttnr': instiuttnr,
-                'gruppenr': gruppenr,
-                'termin': termin,
-                'arstall': arstall,
-                'status_aktiv': status_aktiv,
-                'status_publiseres': status_publiseres})
+            :instiuttnr, :gruppenr, :status_aktiv, :status_publiseres)""",
+            {'fnr': fnr,
+             'pnr': pnr,
+             'institusjonsnr': institusjonsnr,
+             'fakultetnr': fakultetnr,
+             'instiuttnr': instiuttnr,
+             'gruppenr': gruppenr,
+             'termin': termin,
+             'arstall': arstall,
+             'status_aktiv': status_aktiv,
+             'status_publiseres': status_publiseres})
 
     def list_studenter_alle_undakt(self):
         """Hent alle studenter på alle undakt.

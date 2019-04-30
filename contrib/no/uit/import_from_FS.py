@@ -89,7 +89,7 @@ def usage():
                 Default edu_info.xml.
     --db-user: connect with given database username
     --db-service: connect to given database
-    --institution: Override insitution number. 
+    --institution: Override institution number.
                    Default: see cereconf.DEFAULT_INSTITUSJONSNR
 
     Action:
@@ -236,7 +236,8 @@ class ImportFromFsUiT(ImportFromFs):
                 xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'regkort') + "\n")
 
         # Eksamensmeldinger
-        cols, students = self._ext_cols(self.fs.student.list_eksamensmeldinger())
+        cols, students = self._ext_cols(
+            self.fs.student.list_eksamensmeldinger())
         for s in students:
             f.write(
                 xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")

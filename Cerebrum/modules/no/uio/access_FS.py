@@ -97,7 +97,7 @@ class UiOStudent(access_FS.Student):
            s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
            s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
            p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-           p.adresseland_hjemsted, 
+           p.adresseland_hjemsted,
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
@@ -136,7 +136,7 @@ class UiOStudent(access_FS.Student):
            s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
            s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
            p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-           p.adresseland_hjemsted, 
+           p.adresseland_hjemsted,
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
@@ -369,12 +369,11 @@ class UiOStudent(access_FS.Student):
         params['autumn'] = 'HØST'
         return self.db.query(qry, params)
 
-
     def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
         """Hent informasjon om personer som anses som aktive studenter på
         grunnlag av eksisterende gyldig undervisningsmelding og gyldig
-        semesterkort i inneværende semester. Merk at disse ikke nødvendigvis har
-        studierett på noen studieprogrammer og at det derfor må hentes ut
+        semesterkort i inneværende semester. Merk at disse ikke nødvendigvis
+        har studierett på noen studieprogrammer og at det derfor må hentes ut
         personopplysninger i tillegg til opplysninger om studieaktivitet.
 
         """
@@ -387,7 +386,7 @@ class UiOStudent(access_FS.Student):
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, 
+               p.adresseland_hjemsted,
                p.sprakkode_malform, p.kjonn, p.status_dod,
                s.studentnr_tildelt, u.emnekode, u.versjonskode,
                u.terminkode, u.arstall,
@@ -439,7 +438,7 @@ class UiOStudent(access_FS.Student):
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, 
+               p.adresseland_hjemsted,
                p.sprakkode_malform, p.kjonn, p.status_dod, ve.emnekode,
                s.studentnr_tildelt,
                nvl(trim(leading '0' from
@@ -504,15 +503,17 @@ class UiOStudent(access_FS.Student):
             # We can't use the same bind variable in two different SELECT
             # expressions.
             extra1 = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
-            extra2 = "s.fodselsdato=:fodselsdato2 AND s.personnr=:personnr2 AND"
+            extra2 = """"s.fodselsdato=:fodselsdato2 AND s.personnr=:personnr2
+                     AND"""
 
         qry = """
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
+        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn,
+               p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr,
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
                p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, 
+               p.adresseland_hjemsted,
                p.sprakkode_malform, sps.studieprogramkode,
                sps.studieretningkode, sps.studierettstatkode,
                sps.studentstatkode, sps.terminkode_kull,
@@ -535,7 +536,8 @@ class UiOStudent(access_FS.Student):
                %s
         """ % (extra1, self._is_alive())
         qry += """ UNION
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
+        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn,
+               p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr,
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
@@ -732,7 +734,8 @@ class UiOStudent(access_FS.Student):
     def list_fodselsnr_changes(self, last_updated=None):
         """
         Import changes in fodselsnummere. Check how long back we want
-        to look. Hardcoded to 30 days, so last_updated param is not used at all.
+        to look. Hardcoded to 30 days, so last_updated param is not used at
+        all.
         """
         raise NotImplementedError("Implementation is not yet available.")
         # extra = ""
@@ -786,7 +789,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
            s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
            p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-           p.adresseland_hjemsted, 
+           p.adresseland_hjemsted,
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
@@ -869,7 +872,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
            s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
            p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-           p.adresseland_hjemsted, 
+           p.adresseland_hjemsted,
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
@@ -1107,8 +1110,8 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
     def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
         """Hent informasjon om personer som anses som aktive studenter på
         grunnlag av eksisterende gyldig undervisningsmelding og gyldig
-        semesterkort i inneværende semester. Merk at disse ikke nødvendigvis har
-        studierett på noen studieprogrammer og at det derfor må hentes ut
+        semesterkort i inneværende semester. Merk at disse ikke nødvendigvis
+        har studierett på noen studieprogrammer og at det derfor må hentes ut
         personopplysninger i tillegg til opplysninger om studieaktivitet.
 
         """
@@ -1121,7 +1124,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, 
+               p.adresseland_hjemsted,
                p.sprakkode_malform, p.kjonn, p.status_dod,
                s.studentnr_tildelt, u.emnekode, u.versjonskode,
                u.terminkode, u.arstall,
@@ -1175,7 +1178,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, 
+               p.adresseland_hjemsted,
                p.sprakkode_malform, p.kjonn, p.status_dod, ve.emnekode,
                s.studentnr_tildelt,
                pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
@@ -1241,15 +1244,17 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
             # We can't use the same bind variable in two different SELECT
             # expressions.
             extra1 = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
-            extra2 = "s.fodselsdato=:fodselsdato2 AND s.personnr=:personnr2 AND"
+            extra2 = """s.fodselsdato=:fodselsdato2 AND s.personnr=:personnr2
+                     AND"""
 
         qry = """
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
+        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn,
+               p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr,
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
                p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, 
+               p.adresseland_hjemsted,
                p.sprakkode_malform, sps.studieprogramkode,
                sps.studieretningkode, sps.studierettstatkode,
                sps.studentstatkode, sps.terminkode_kull,
@@ -1274,12 +1279,13 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
                %s
         """ % (extra1, self._is_alive())
         qry += """ UNION
-        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
+        SELECT DISTINCT s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn,
+               p.fornavn,
                s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
                s.adrlin3_semadr, s.adresseland_semadr,
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
                p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, 
+               p.adresseland_hjemsted,
                p.sprakkode_malform, sps.studieprogramkode,
                sps.studieretningkode, sps.studierettstatkode,
                sps.studentstatkode, sps.terminkode_kull,
@@ -1473,7 +1479,8 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
     def list_fodselsnr_changes(self, last_updated=None):
         """
         Import changes in fodselsnummere. Check how long back we want
-        to look. Hardcoded to 30 days, so last_updated param is not used at all.
+        to look. Hardcoded to 30 days, so last_updated param is not used at
+        all.
         """
         raise NotImplementedError("Implementation is not yet available.")
         # extra = ""
@@ -1554,7 +1561,8 @@ class UiOBetaling(access_FS.FSObject):
         if fodselsdato and personnr:
             extra1 = ("frk.fodselsdato=:fodselsdato AND "
                       "frk.personnr=:personnr AND")
-            extra2 = "r.fodselsdato=:fodselsdato2 AND r.personnr=:personnr2 AND"
+            extra2 = """r.fodselsdato=:fodselsdato2 AND r.personnr=:personnr2
+                     AND"""
 
         if semreg:
             extra_semreg2 = """r.status_reg_ok = 'J' AND
@@ -1665,8 +1673,8 @@ class UiOUndervisning(access_FS.Undervisning):
         SELECT
           ua.institusjonsnr, ua.emnekode, ua.versjonskode,
           ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode,
-          ua.undpartilopenr, ua.disiplinkode, ua.undformkode, ua.aktivitetsnavn,
-          ua.lmsrommalkode, ua.status_eksport_lms,
+          ua.undpartilopenr, ua.disiplinkode, ua.undformkode,
+          ua.aktivitetsnavn, ua.lmsrommalkode, ua.status_eksport_lms,
           e.institusjonsnr_kontroll, e.faknr_kontroll,
           e.instituttnr_kontroll, e.gruppenr_kontroll
         FROM
@@ -2017,28 +2025,28 @@ class UiOForkurs(access_FS.FSObject):
         """
         return self.db.query("""
         SELECT
-            FS.VURDKOMBMELDING.FODSELSDATO,
-            FS.VURDKOMBMELDING.PERSONNR,
-            FS.PERSON.DATO_FODT,
-            FS.STUDENT.STUDENTNR_TILDELT,
-            FS.PERSON.FORNAVN,
-            FS.PERSON.ETTERNAVN,
-            FS.PERSONTELEFON.TELEFONLANDNR,
-            FS.PERSONTELEFON.TELEFONNR
+          FS.VURDKOMBMELDING.FODSELSDATO,
+          FS.VURDKOMBMELDING.PERSONNR,
+          FS.PERSON.DATO_FODT,
+          FS.STUDENT.STUDENTNR_TILDELT,
+          FS.PERSON.FORNAVN,
+          FS.PERSON.ETTERNAVN,
+          FS.PERSONTELEFON.TELEFONLANDNR,
+          FS.PERSONTELEFON.TELEFONNR
         FROM FS.VURDKOMBMELDING
         INNER JOIN FS.STUDENT
-            ON FS.STUDENT.FODSELSDATO = FS.VURDKOMBMELDING.FODSELSDATO
-                AND FS.STUDENT.PERSONNR = FS.VURDKOMBMELDING.PERSONNR
-                AND FS.STUDENT.INSTITUSJONSNR_EIER = FS.VURDKOMBMELDING.INSTITUSJONSNR_EIER
+          ON FS.STUDENT.FODSELSDATO = FS.VURDKOMBMELDING.FODSELSDATO
+            AND FS.STUDENT.PERSONNR = FS.VURDKOMBMELDING.PERSONNR
+            AND FS.STUDENT.INSTITUSJONSNR_EIER = FS.VURDKOMBMELDING.INSTITUSJONSNR_EIER
         INNER JOIN FS.PERSON
-            ON FS.PERSON.FODSELSDATO = FS.STUDENT.FODSELSDATO
-                AND FS.PERSON.PERSONNR = FS.STUDENT.PERSONNR
-                AND FS.PERSON.INSTITUSJONSNR_EIER = FS.STUDENT.INSTITUSJONSNR_EIER
+          ON FS.PERSON.FODSELSDATO = FS.STUDENT.FODSELSDATO
+            AND FS.PERSON.PERSONNR = FS.STUDENT.PERSONNR
+            AND FS.PERSON.INSTITUSJONSNR_EIER = FS.STUDENT.INSTITUSJONSNR_EIER
         LEFT JOIN FS.PERSONTELEFON
-            ON FS.PERSON.FODSELSDATO = FS.PERSONTELEFON.FODSELSDATO
-                AND FS.PERSON.PERSONNR = FS.PERSONTELEFON.PERSONNR
-                AND FS.PERSON.INSTITUSJONSNR_EIER = FS.PERSONTELEFON.INSTITUSJONSNR_EIER
-                AND FS.PERSONTELEFON.TELEFONNRTYPEKODE LIKE 'MOBIL'
+          ON FS.PERSON.FODSELSDATO = FS.PERSONTELEFON.FODSELSDATO
+            AND FS.PERSON.PERSONNR = FS.PERSONTELEFON.PERSONNR
+            AND FS.PERSON.INSTITUSJONSNR_EIER = FS.PERSONTELEFON.INSTITUSJONSNR_EIER
+            AND FS.PERSONTELEFON.TELEFONNRTYPEKODE LIKE 'MOBIL'
         WHERE FS.VURDKOMBMELDING.EMNEKODE LIKE '{}'""".format(course_code))
 
 

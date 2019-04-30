@@ -89,7 +89,7 @@ def usage():
                 Default edu_info.xml.
     --db-user: connect with given database username
     --db-service: connect to given database
-    --institution: Override insitution number. 
+    --institution: Override institution number.
                    Default: see cereconf.DEFAULT_INSTITUSJONSNR
 
     Action:

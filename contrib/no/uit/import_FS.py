@@ -230,9 +230,9 @@ def _load_cere_aff():
 
 
 def rem_old_aff():
-    """Deleting the remaining person affiliations that were not processed by the
-    import. This is all student affiliations from FS which should not be here
-    anymore.
+    """Deleting the remaining person affiliations that were not processed by
+    the import. This is all student affiliations from FS which should not be
+    here anymore.
 
     Note that affiliations are really not removed until 365 days after they are
     not found from FS any more. This is a workaround to prolong the XXX
@@ -262,9 +262,9 @@ def rem_old_aff():
         grace_days = cereconf.FS_STUDENT_REMOVE_AFF_GRACE_DAYS
         if (aff['last_date'] > (mx.DateTime.now() - grace_days) and
                 ((int(aff['status']) != int(
-                    co.affiliation_status_student_evu)) and (
-                        int(aff['status']) != int(
-                            co.affiliation_tilknyttet_fagperson)))):
+                    co.affiliation_status_student_evu)) and
+                 (int(aff['status']) != int(
+                     co.affiliation_tilknyttet_fagperson)))):
             logger.info(
                 "Too fresh aff for person %s with affiliation:%s skipping" % (
                     ent_id, int(aff['status'])))
@@ -499,12 +499,14 @@ def process_person_callback(person_info):
                                      affiliations,
                                      studieprog2sko[row['studieprogramkode']])
         elif dta_type in ('evu',):
-            _process_affiliation(co.affiliation_student,
-                                 co.affiliation_status_student_evu,
-                                 affiliations, _get_sko(
-                                    p, 'faknr_adm_ansvar',
-                                    'instituttnr_adm_ansvar',
-                                    'gruppenr_adm_ansvar'))
+            _process_affiliation(
+                co.affiliation_student,
+                co.affiliation_status_student_evu,
+                affiliations,
+                _get_sko(p,
+                         'faknr_adm_ansvar',
+                         'instituttnr_adm_ansvar',
+                         'gruppenr_adm_ansvar'))
         else:
             logger.debug2("No such affiliation type: %s, skipping", dta_type)
 
