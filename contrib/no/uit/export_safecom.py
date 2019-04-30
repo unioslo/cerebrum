@@ -22,23 +22,24 @@
 
 # Uit specific extension to Cerebrum
 
-import os
-import sys
-import re
-import getopt
+import argparse
 import mx.DateTime
-from pprint import pprint
+import os
+import re
+import sys
 
+import Cerebrum.logutils
 import cerebrum_path
 import cereconf
+
+# from Cerebrum import Entity
 from Cerebrum import Constants
 from Cerebrum import Errors
-# from Cerebrum import Entity
-from Cerebrum.Utils import Factory
-from Cerebrum.utils.funcwrap import memoize
-from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
+from Cerebrum.Utils import Factory
+from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.utils.funcwrap import memoize
 
 logger = Factory.get_logger('cronjob')
 today_tmp = mx.DateTime.today()
@@ -451,44 +452,47 @@ class safecom_export:
         logger.info("Writing done")
 
 
-#
-# program usage
-#
-def usage(exitcode=0):
-    print """Usage: [options]
-    -p | --payfile filename   : write Safecom Pay users to filename
-    -t | --trackfile filename : write Safecom Track user to filename
-    -h | --help               : show this message
-    -o | --out filname        : writes to given filename
-    --logger-name name        : Use logger target name, ex console or cronjob
-    --logger-level level      : level can be: DEBUG, INFO, WARNING, ERROR,
-                                CRITICAL
-    """
-    sys.exit(exitcode)
-
-
 def main():
+
+    parser = argparse.ArgumentParser(description=__doc__)
+
+    # TODO do we write to these or do we read from?
+    parser.add_argument('-p',
+                        '--payfile',
+                        dest='payfile',
+                        help='Write Safecom Pay users to file')
+    parser.add_argument('-t',
+                        '--trackfile',
+                        dest='trackfile',
+                        help='Write Safecom Track user to file'
+                        )
+    parser.add_argument('-o',
+                        '--outfile',
+                        dest='outfile',
+                        help='Writes to given filename')
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Creating Safecom export')
+
     global payfile
     global trackfile
 
+    # TODO lookup
     payfile = DEFAULT_PAYXML
     trackfile = DEFAULT_TRACKXML
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'ho:p:t:',
-                                   ['help', "out=", "payfile=", "trackfile="])
-    except getopt.GetoptError:
-        usage(1)
-    for opt, val in opts:
-        if opt in ['-o', '--out']:
-            outfile = val
-        elif opt in ['-p', '--payfile']:
-            payfile = val
-        elif opt in ['-t', '--trackfile']:
-            trackfile = val
-        elif opt in ['-h', '--help']:
-            usage(0)
-        else:
-            usage(1)
+
+    if args.payfile:
+        payfile = args.payfile
+
+    if args.trackfile:
+        trackfile = args.trackfile
+
+    if args.outfile:
+        # Not in use?
+        outfile = args.outfile
 
     start = mx.DateTime.now()
     worker = safecom_export(payfile, trackfile)
