@@ -159,7 +159,8 @@ def get_samskipnadstedinfo(ou_id, perspective):
         ou.clear()
         ou.find(parent_id)
         ou_name = ou.get_name_with_language(name_variant=co.ou_name,
-                                            name_language=const.language_nb)
+                                            # const.language_nb
+                                            name_language=co.language_nb)
         logger.debug("Current id=%s, name is %s" % (ou.entity_id, ou_name))
         # Detect infinite loops
         if ou.entity_id in visited:
@@ -177,61 +178,81 @@ get_samskipnadstedinfo = memoize(get_samskipnadstedinfo)
 num2const = dict()
 
 
-class safecom_export:
+class SafecomExporter:
 
     def __init__(self, payfile, trackfile):
         self.userfile_pay = payfile
         self.userfile_track = trackfile
-        logger.debug("Will write payfile to %s" % payfile)
-        logger.debug("Will write trackfile to %s" % trackfile)
 
-    def load_cbdata(self):
+        self.pay = []
+        self.track = []
+
+        # Initialize cache
+        self.ad_accounts = None
+        self._account_id_to_owner_id = {}
+        self._owner_id_to_account_id = {}
+        self._account_name_to_account_id = {}
+        self._account_id_to_account_name = {}
+        self._account_id_to_account_aff = {}
+        self._account_affs = {}
+        self._person_affs = {}
+        self._cached_names = {}
+        self._uname_to_primary_mail = {}
+
+        self.create_cache()
+
+    def create_cache(self):
+        """
+        Create caches.
+        """
+
         logger.info("Start get constants")
         for c in dir(co):
             tmp = getattr(co, c)
             if isinstance(tmp, _CerebrumCode):
                 num2const[int(tmp)] = tmp
 
-        logger.info("Cache AD accounts")
+        logger.info("Create AD account cache")
         self.ad_accounts = account.search(
             spread=int(co.spread_uit_ad_account),
             expire_start=TOMORROW)
-        logger.info("Build helper translation tables")
-        self.accid2ownerid = dict()
-        self.ownerid2accid = dict()
-        self.accname2accid = dict()
-        self.accid2accname = dict()
-        self.accid2accaff = dict()
-        for acct in self.ad_accounts:
-            self.accid2ownerid[int(acct['account_id'])] = int(acct['owner_id'])
-            self.ownerid2accid[int(acct['owner_id'])] = int(acct['account_id'])
-            self.accname2accid[acct['name']] = int(acct['account_id'])
-            self.accid2accname[int(acct['account_id'])] = acct['name']
 
-        self.account_affs = dict()
+        logger.info("Build helper translation tables")
+        for acct in self.ad_accounts:
+            self._account_id_to_owner_id[int(acct['account_id'])] = int(
+                acct['owner_id'])
+            self._owner_id_to_account_id[int(acct['owner_id'])] = int(
+                acct['account_id'])
+            self._account_name_to_account_id[acct['name']] = int(
+                acct['account_id'])
+            self._account_id_to_account_name[int(acct['account_id'])] = acct[
+                'name']
+
         logger.info("Caching account primary affiliations.")
         for row in account.list_accounts_by_type(filter_expired=True,
                                                  primary_only=False,
                                                  fetchall=False):
-            self.account_affs.setdefault(row['account_id'], list()).append(
+            self._account_affs.setdefault(row['account_id'], list()).append(
                 (row['affiliation'], row['ou_id']))
 
-        logger.info("Cache person affs")
-        self.person_affs = self.list_affiliations()
+        logger.info("Cache person affiliations")
+        self._person_affs = self.list_affiliations()
+
+        # Remove?
         pay_accounts = self.get_safecom_mode()
 
         logger.info("Cache person names")
-        self.cached_names = person.getdict_persons_names(
+        self._cached_names = person.getdict_persons_names(
             source_system=co.system_cached,
             name_types=(co.name_first, co.name_last))
 
         logger.info("Retrieving account primaryemailaddrs")
-        self.uname2primarymail = account.getdict_uname2mailaddr(
+        self._uname_to_primary_mail = account.getdict_uname2mailaddr(
             primary_only=True)
 
     def get_safecom_mode(self):
-        self.pay = []
-        self.track = []
+
+        # TODO: Move to config?
         pay_filter = [co.affiliation_status_student_aktiv,
                       co.affiliation_status_student_alumni,
                       co.affiliation_status_student_evu,
@@ -244,17 +265,17 @@ class safecom_export:
                       co.affiliation_status_flyt_hin_student_aktiv,
                       co.affiliation_status_student_emnestud]
 
-        for account, values in self.account_affs.iteritems():
+        for account, values in self._account_affs.iteritems():
             pay = True
             try:
-                account_owner_id = self.accid2ownerid[account]
+                account_owner_id = self._account_id_to_owner_id[account]
                 for single_aff in values:
                     aff = single_aff[0]
                     ou = single_aff[1]
 
                     # have account aff and ou. find correct entry in
                     # person_affiliation_source
-                    aff_data = self.person_affs.get(account_owner_id, None)
+                    aff_data = self._person_affs.get(account_owner_id, None)
                     if not aff_data:
                         # no valid person_affiliation_source entry (exipred ?)
                         logger.debug(
@@ -287,7 +308,7 @@ class safecom_export:
                     self.track.append(account)
                 elif pay is True:
                     self.pay.append(account)
-            except KeyError, m:
+            except KeyError:
                 logger.warn("account:%s has no valid owner" % account)
                 continue
 
@@ -317,7 +338,7 @@ class safecom_export:
                 # logger.debug("sko is:%s" % sko)
                 path = ou_info['path']
                 # logger.debug("path is:%s" % path)
-            except EntityExpiredError, msg:
+            except EntityExpiredError:
                 logger.error(
                     "person id:%s affiliated to expired ou:%s. Do not export"
                     % (p_id, ou_id))
@@ -327,7 +348,7 @@ class safecom_export:
                     ("OU id=%s not found on person %s. DB integrety error " +
                      "(this MAY be caused by parent sito ou not having " +
                      "stedkode).") % (
-                            ou_id, p_id))
+                        ou_id, p_id))
                 # sys.exit(1)
 
             if source_system == co.system_sito:
@@ -359,10 +380,9 @@ class safecom_export:
             name = item['name']
             owner_id = item['owner_id']
 
-            accaffs = self.account_affs.get(acc_id, None)
-            persaffs = self.person_affs.get(owner_id, None)
-            # logger.debug("%s: ACCAFF: %s" % (name,accaffs))
-            # logger.debug("%s: PERAFF: %s" % (name,persaffs))
+            accaffs = self._account_affs.get(acc_id, None)
+            persaffs = self._person_affs.get(owner_id, None)
+
             costcode = ""
             if accaffs is None:
                 costcode = ""
@@ -403,13 +423,15 @@ class safecom_export:
                         "No name found for a_id/o_id=%s/%s, ownertype was %s" %
                         (acc_id, owner_id, owner_type))
 
+            # TODO, to dict literal
             entry = dict()
             entry['UserLogon'] = "%s" % (name,)
             entry['FullName'] = "%s %s" % (first_name, last_name)
-            primaryemail = self.uname2primarymail.get(item['name'], "")
-            entry['Email'] = primaryemail
+            primary_mail = self._uname_to_primary_mail.get(item['name'], "")
+            entry['Email'] = primary_mail
             entry['CostCode'] = costcode
             entry['Mode'] = mode
+
             self.userexport.append(entry)
 
     def build_xml(self):
@@ -421,6 +443,7 @@ class safecom_export:
                              input_encoding='ISO-8859-1')
         xml_pay.startDocument(encoding='utf-8')
         xml_pay.startElement('UserList')
+
         logger.info(
             "Start building track export, writing to %s" % self.userfile_track)
         fh_trk = file(self.userfile_track, 'w')
@@ -428,6 +451,7 @@ class safecom_export:
                              input_encoding='ISO-8859-1')
         xml_trk.startDocument(encoding='utf-8')
         xml_trk.startElement('UserList')
+
         for item in self.userexport:
             # logger.debug("Processing user:%s" % item['UserLogon'])
             if item['Mode'] == "Pay":
@@ -455,7 +479,6 @@ class safecom_export:
 
 
 def main():
-
     parser = argparse.ArgumentParser(description=__doc__)
 
     # TODO do we write to these or do we read from?
@@ -497,7 +520,7 @@ def main():
         outfile = args.outfile
 
     start = mx.DateTime.now()
-    worker = safecom_export(payfile, trackfile)
+    worker = SafecomExporter(payfile, trackfile)
     worker.load_cbdata()
     worker.build_cbdata()
     worker.build_xml()
