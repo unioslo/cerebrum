@@ -2078,51 +2078,6 @@ class FS(access_FS.FS):
         self.info = self._component('studieinfo')(self.db)
         self.ou = self._component('ou')(self.db)
 
-    def list_dbfg_usernames(self, fetchall=False):
-        """Get all usernames and return them as a sequence of db_rows.
-
-        Usernames may be prefixed with a institution specific tag, if the db
-        has defined this. If defined, only usernames with the prefix are
-        returned, and the prefix is stripped out.
-
-        NB! This function does *not* return a 2-tuple. Only a sequence of
-        all usernames (the column names can be obtains from db_row objects)
-        """
-        prefix = self.get_username_prefix()
-        ret = ({'username': row['username'][len(prefix):]} for row in
-               self.db.query("""
-                            SELECT username as username
-                            FROM all_users
-                            WHERE username LIKE :prefixed
-                        """, {'prefixed': '%s%%' % prefix},
-                             fetchall=fetchall))
-        if fetchall:
-            return list(ret)
-        return ret
-
-    def list_dba_usernames(self, fetchall=False):
-        """Get all usernames for internal statistics."""
-
-        query = """
-        SELECT
-           lower(username) as username
-        FROM
-           dba_users
-        WHERE
-           default_tablespace = 'USERS' and account_status = 'OPEN'
-        """
-
-        return self.db.query(query, fetchall=fetchall)
-
-    def get_username_prefix(self):
-        """Get the database' defined username prefix, or '' if not defined."""
-        try:
-            return self.db.query_1(
-                "SELECT brukerprefiks FROM fs.systemverdier")
-        except self.db.DatabaseError:
-            pass
-        return ''
-
 
 @fsobject('person', '<7.8')
 class UiTPerson(access_FS.Person):

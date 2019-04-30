@@ -218,7 +218,7 @@ class UiOStudent(access_FS.Student):
            NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s AND
-           %s""" % (extra, self._get_termin_aar(only_current=1),
+           %s""" % (extra, self._get_termin_aar(only_current=True),
                     self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
@@ -260,7 +260,7 @@ class UiOStudent(access_FS.Student):
            NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s AND
-           %s""" % (extra, self._get_termin_aar(only_current=1),
+           %s""" % (extra, self._get_termin_aar(only_current=True),
                     self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
@@ -306,7 +306,7 @@ class UiOStudent(access_FS.Student):
            NVL(r.status_ugyldig, 'N') = 'N' AND
            %s AND
            %s""" % (extra, self.year, self.semester,
-                    self._get_termin_aar(only_current=1), self._is_alive())
+                    self._get_termin_aar(only_current=True), self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
         params['autumn'] = 'HØST'
@@ -362,7 +362,7 @@ class UiOStudent(access_FS.Student):
            %s AND
            %s
         """ % (self.year, extra,
-               self._get_termin_aar(only_current=1),
+               self._get_termin_aar(only_current=True),
                self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
@@ -412,7 +412,7 @@ class UiOStudent(access_FS.Student):
               u.terminkode = r.terminkode AND
               u.arstall = r.arstall AND
               NVL(u.status_opptatt, 'N') = 'J'
-              """ % (self._is_alive(), self._get_termin_aar(only_current=1),
+              """ % (self._is_alive(), self._get_termin_aar(only_current=True),
                      extra)
         params = locals()
         params['spring'] = 'VÅR'
@@ -482,7 +482,7 @@ class UiOStudent(access_FS.Student):
               AND
               %s
         """ % (self.year, self.year, extra,
-               self._get_termin_aar(only_current=1), self._is_alive())
+               self._get_termin_aar(only_current=True), self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
         params['autumn'] = 'HØST'
@@ -953,7 +953,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s AND
-           %s""" % (extra, self._get_termin_aar(only_current=1),
+           %s""" % (extra, self._get_termin_aar(only_current=True),
                     self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
@@ -995,7 +995,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s AND
-           %s""" % (extra, self._get_termin_aar(only_current=1),
+           %s""" % (extra, self._get_termin_aar(only_current=True),
                     self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
@@ -1041,7 +1041,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            NVL(r.status_ugyldig, 'N') = 'N' AND
            %s AND
            %s""" % (extra, self.year, self.semester,
-                    self._get_termin_aar(only_current=1), self._is_alive())
+                    self._get_termin_aar(only_current=True), self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
         params['autumn'] = 'HØST'
@@ -1097,7 +1097,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            %s AND
            %s
         """ % (self.year, extra,
-               self._get_termin_aar(only_current=1),
+               self._get_termin_aar(only_current=True),
                self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
@@ -1148,7 +1148,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
               u.terminkode = r.terminkode AND
               u.arstall = r.arstall AND
               NVL(u.status_opptatt, 'N') = 'J'
-              """ % (self._is_alive(), self._get_termin_aar(only_current=1),
+              """ % (self._is_alive(), self._get_termin_aar(only_current=True),
                      extra)
         params = locals()
         params['spring'] = 'VÅR'
@@ -1219,7 +1219,7 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
               AND
               %s
         """ % (self.year, self.year, extra,
-               self._get_termin_aar(only_current=1), self._is_alive())
+               self._get_termin_aar(only_current=True), self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
         params['autumn'] = 'HØST'
@@ -2054,50 +2054,6 @@ class FS(access_FS.FS):
         # self.portal = UiOPortal(self.db)
         self.betaling = UiOBetaling(self.db)
         self.info = self._component('studieinfo')(self.db)
-
-    def list_dbfg_usernames(self, fetchall=False):
-        """Get all usernames and return them as a sequence of db_rows.
-
-        Usernames may be prefixed with a institution specific tag, if the db has
-        defined this. If defined, only usernames with the prefix are returned,
-        and the prefix is stripped out.
-
-        NB! This function does *not* return a 2-tuple. Only a sequence of
-        all usernames (the column names can be obtains from db_row objects)
-        """
-        prefix = self.get_username_prefix()
-        ret = ({'username': row['username'][len(prefix):]} for row in
-               self.db.query("""
-                            SELECT username as username
-                            FROM all_users
-                            WHERE username LIKE :prefixed
-                        """, {'prefixed': '%s%%' % prefix},
-                             fetchall=fetchall))
-        if fetchall:
-            return list(ret)
-        return ret
-
-    def list_dba_usernames(self, fetchall=False):
-        """Get all usernames for internal statistics."""
-
-        query = """
-        SELECT
-           lower(username) as username
-        FROM
-           dba_users
-        WHERE
-           default_tablespace = 'USERS' and account_status = 'OPEN'
-        """
-
-        return self.db.query(query, fetchall=fetchall)
-
-    def get_username_prefix(self):
-        """Get the database' defined username prefix, or '' if not defined."""
-        try:
-            return self.db.query_1("SELECT brukerprefiks FROM fs.systemverdier")
-        except self.db.DatabaseError:
-            pass
-        return ''
 
 
 @fsobject('person', '<7.8')
