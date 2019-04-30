@@ -39,7 +39,7 @@ from Cerebrum import Errors
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib.xmlprinter import xmlprinter
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
@@ -477,7 +477,7 @@ def main():
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    logger.info('Creating Safecom export')
+    logger.info('Starting Safecom exports')
 
     global payfile
     global trackfile
