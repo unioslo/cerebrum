@@ -34,8 +34,8 @@ from Cerebrum.Constants import (
      _AddressCode,
      _AuthenticationCode,
 )
-from Cerebrum.modules.PosixUser import _PosixShellCode
-from Cerebrum.modules.Email import _EmailServerTypeCode
+from Cerebrum.modules.PosixConstants import _PosixShellCode
+from Cerebrum.modules.EmailConstants import _EmailServerTypeCode
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
 
 
