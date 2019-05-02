@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-# Global imports
 """
 import_sito.py can import person and/or ou data into BAS.
 
@@ -31,7 +29,6 @@ import argparse
 import datetime
 import logging
 import os
-import string
 import xml.etree.ElementTree
 
 import mx.DateTime
@@ -42,23 +39,17 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.entity_expire.entity_expire import EntityExpire
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.utils.argutils import add_commit_args
-
-
-# Global variables
-progname = __file__.split(os.sep)[-1]
-db = Factory.get('Database')()
-db.cl_init(change_program=progname)
-const = Factory.get('Constants')(db)
-ou = Factory.get('OU')(db)
-person = Factory.get('Person')(db)
-new_person = Factory.get('Person')(db)
-e = Factory.get('Entity')(db)
+from Cerebrum.modules.no.uit import OU
 
 logger = logging.getLogger(__name__)
+
+
+# SITO OUs does not have a Stedkode - we'll need to populate and use the raw
+# OU-class without Stedkode mixin.
+OU_Class = OU.OUMixin
 
 
 def parse_date(date_str):
@@ -68,14 +59,12 @@ def parse_date(date_str):
     :rtype: datetime.date
     :return: Returns the date object, or ``None`` if an invalid date is given.
     """
-    try:
-        args = (int(date_str[0:4]),
-                int(date_str[5:7]),
-                int(date_str[8:10]))
-        return datetime.date(*args)
-    except Exception:
-        logger.warning('Invalid date %r', date_str)
-        return None
+    if not date_str:
+        raise ValueError('Invalid date %r' % (date_str, ))
+    args = (int(date_str[0:4]),
+            int(date_str[5:7]),
+            int(date_str[8:10]))
+    return datetime.date(*args)
 
 
 def date_in_range(date, from_date=None, to_date=None):
@@ -94,21 +83,17 @@ def date_in_range(date, from_date=None, to_date=None):
     :return: True if date is within the given range.
     """
     if from_date is not None and date < from_date:
-        logger.debug('date=%r before from_date=%r', date, from_date)
         return False
     if to_date is not None and date >= to_date:
-        logger.debug('date=%r after to_date=%r', date, from_date)
         return False
-    logger.debug('date=%r within from_date=%r to_date=%r',
-                 date, from_date, to_date)
     return True
 
 
-# XML-Type to csv type
+# XML-Type to contact info code
 phone_mapping = {
-    'CellPhone': 'Cellphone',
-    'Home': 'Home',
-    'DirectNumber': 'Work',
+    'CellPhone': 'contact_mobile_phone',
+    'Home': 'contact_phone_private',
+    'DirectNumber': 'contact_phone',
 }
 
 
@@ -123,12 +108,12 @@ def parse_person_phones(person):
     """
     for phone in person.findall('./Phones/Phone'):
         try:
-            p_type = phone.find('./Type').text
-            p_number = phone.find('./Number').text
+            p_type = (phone.find('./Type').text or '').strip()
+            p_number = (phone.find('./Number').text or '').strip()
         except AttributeError as e:
             logger.debug('Skipping phone=%r: %s', phone, e)
 
-        if p_type in phone_mapping.keys():
+        if p_number and p_type in phone_mapping.keys():
             yield phone_mapping[p_type], p_number
 
 
@@ -143,6 +128,7 @@ def parse_person_employments(person):
         A generator that yields (employment_title, employment_unit) pairs
     """
     today = datetime.date.today()
+    employee_id = person['employee_id']
 
     for employment in person.findall('EmploymentInfo/Employee/'
                                      'Employment/Employment'):
@@ -150,77 +136,72 @@ def parse_person_employments(person):
         unit = employment.find('EmploymentDistributionList/'
                                'EmploymentDistribution/Unit/Value').text
 
-        from_date = parse_date(employment.find('FromDate').text)
-        to_date = parse_date(employment.find('ToDate').text)
+        try:
+            from_date = parse_date(employment.find('FromDate').text)
+        except ValueError:
+            from_date = None
+        try:
+            to_date = parse_date(employment.find('ToDate').text)
+        except ValueError:
+            to_date = None
 
         if not date_in_range(today, from_date, to_date):
-            logger.debug('Skipping non-current employment at unit=%r', unit)
+            logger.debug('Skipping non-current employment for employee_id=%r '
+                         'at unit=%r', employee_id, unit)
             continue
 
         try:
             title = employment.find('Position/Name').text
         except Exception:
-            logger.info("Unable to get title for unit=%r", unit)
+            logger.info('Unable to get employment title for employee_id=%r '
+                        'at unit=%r', employee_id, unit)
             title = None
 
         yield title, unit
 
 
 def parse_person(person):
+    """
+    Parse a Person xml element.
 
+    :param person: A //Persons/Person element
+
+    :rtype: dict
+    :return: A dictionary with normalized values.
+    """
+    required = object()
     employee_id = None
-
-    def get_required(xpath):
-        elem = person.find(xpath)
-        if elem is None:
-            raise ValueError(
-                'Missing required element %r in person=%r, employee_id=%r' %
-                (xpath, person, employee_id))
-        else:
-            return elem.text
-
-    # Mandatory params
-    employee_id = get_required('EmploymentInfo/Employee/EmployeeNumber')
-    fname = get_required('FirstName')
-    lname = get_required('LastName')
-    deactivated = get_required('IsDeactivated') != 'false'
 
     def get(xpath, default=None):
         elem = person.find(xpath)
-        if elem is None:
+        if elem is None or not elem.text:
             logger.warning('Missing element %r for employee_id=%r',
                            xpath, employee_id)
-            return default
+            if default is required:
+                raise ValueError(
+                    'Missing required element %r, employee_id=%r'
+                    % (xpath, employee_id))
+            else:
+                return default
         else:
-            return elem.text or ''
+            return (elem.text or '').strip()
+
+    # Mandatory params
+    employee_id = get('EmploymentInfo/Employee/EmployeeNumber', required)
+    deactivated = get('IsDeactivated', required) != 'false'
 
     person_dict = {
-        'EmploymentNumber': employee_id,
-        'Ssn': get('SocialSecurityNumber', ''),
-        'Gender': get('Gender', ''),
-        'Birthdate': get('BirthDate', ''),
-        'Firstname': fname,
-        'Lastname': lname,
-        'Countrycode': get('CountryCode', ''),
-        'Postalarea': get('Addresses/Address/PostalArea', ''),
-        'Streetname': get('Addresses/Address/StreetName1', ''),
-        'Zipcode': get('Addresses/Address/ZipCode', ''),
-        'PositionCode': get('EmploymentInfo/Employee/Employment/'
-                            'Employment/Position/SsbCode', ''),
-        'PositionName': get('EmploymentInfo/Employee/Employment/'
-                            'Employment/Position/SsbName', ''),
-        'isDeactivated': deactivated,
-        'Employment_description': get('EmploymentInfo/Employee/Employment/'
-                                      'Employment/Category/Name', ''),
+        'employee_id': employee_id,
+        'ssn': get('SocialSecurityNumber', ''),
+        'gender': get('Gender'),
+        'birthdate': get('BirthDate', ''),
+        'first_name': get('FirstName', required),
+        'middle_name': get('MiddleName'),
+        'last_name': get('LastName', required),
+        'title': None,
+        'Email': get('EMailAddresses/EMailAddress/Address'),
+        'is_deactivated': deactivated,
     }
-
-    mname = get('MiddleName')
-    if mname is not None:
-        person_dict['Middlename'] = mname
-
-    email = get('EMailAddresses/EMailAddress/Address')
-    if email is not None:
-        person_dict['Email'] = email
 
     # Affiliation and title
     #
@@ -234,15 +215,13 @@ def parse_person(person):
     if len(afflist) > 0:
         logger.debug('Got %d affiliations for employee_id=%r',
                      len(afflist), employee_id)
-        person_dict['Affiliation'] = ",".join(afflist)
+    person_dict['Affiliation'] = tuple(afflist)
 
     # Phone
     #
-    phone_numbers = list(parse_person_phones(person))
-    person_dict['Phone'] = ','.join('{}:{}'.format(k, v)
-                                    for k, v in phone_numbers)
+    person_dict['phone'] = dict(parse_person_phones(person))
     logger.debug('Got %d phone numbers for employee_id=%r',
-                 len(phone_numbers), employee_id)
+                 len(person_dict['phone']), employee_id)
     return person_dict
 
 
@@ -254,9 +233,8 @@ def generate_persons(filename):
         raise OSError('No file %r' % (filename, ))
 
     tree = xml.etree.ElementTree.parse(filename)
-
-    # TODO: Future versions: just do tree.findall('//Persons/Person')
     root = tree.getroot()
+
     for i, person in enumerate(root.findall(".//Persons/Person"), 1):
         try:
             person_dict = parse_person(person)
@@ -265,15 +243,15 @@ def generate_persons(filename):
                          i, person, exc_info=True)
             continue
 
-        if person_dict['isDeactivated']:
+        if person_dict['is_deactivated']:
             logger.info('Skipping person #%d (employee_id=%r), deactivated',
-                        i, person_dict['EmploymentNumber'])
+                        i, person_dict['employee_id'])
             continue
 
-        if not person_dict.get('Affiliation'):
+        if not person_dict['Affiliation']:
             logger.info('Skipping person #%d (employee_id=%r), '
                         'no affiliations',
-                        i, person_dict['EmploymentNumber'])
+                        i, person_dict['employee_id'])
             continue
 
         yield person_dict
@@ -289,14 +267,13 @@ def parse_unit(unit):
     """
     ou_dict = {
         'unit_id': unit.find('InternalInfo/Guid').text,
-        'Name': unit.find('Name').text,
-        'ID': unit.find('InternalInfo/Guid').text,
-        'IsDeactivated': unit.find('IsDeactivated').text != 'false',
+        'name': unit.find('Name').text,
+        'is_deactivated': unit.find('IsDeactivated').text != 'false',
     }
 
     parent_id = unit.find('ParentUnitIdentifier/Value')
     if parent_id is not None:
-        ou_dict['ParentID'] = parent_id.text
+        ou_dict['parent_id'] = parent_id.text
 
     return ou_dict
 
@@ -309,8 +286,6 @@ def generate_ous(filename):
         raise OSError('No file %r' % (filename, ))
 
     tree = xml.etree.ElementTree.parse(filename)
-
-    # TODO: Future versions: just to tree.findall('//Units/Unit')
     root = tree.getroot()
 
     for i, unit in enumerate(root.findall(".//Units/Unit"), 1):
@@ -320,324 +295,266 @@ def generate_ous(filename):
             logger.error('Unable to parse unit #%d, unit=%r', i, unit)
             raise
 
-        if ou_dict['IsDeactivated']:
+        if ou_dict['is_deactivated']:
             logger.info('Skipping unit #%d, disabled', i)
             continue
 
         yield ou_dict
 
 
-def load_all_affi_entry():
+def load_sito_affiliations(db):
     person = Factory.get('Person')(db)
-    affi_list = {}
+    const = Factory.get('Constants')(db)
+    affi_list = set()
     for row in person.list_affiliations(source_system=const.system_sito):
         key_l = "%s:%s:%s" % (row['person_id'], row['ou_id'],
                               row['affiliation'])
-        affi_list[key_l] = True
+        affi_list.add(key_l)
     return affi_list
 
 
-def clean_affi_s_list(cere_list):
-    for k, v in cere_list.items():
-        if v:
-            [ent_id, ou, affi] = [int(x) for x in k.split(':')]
-            new_person.clear()
-            new_person.entity_id = int(ent_id)
-            affs = new_person.list_affiliations(
-                ent_id,
-                affiliation=affi,
-                ou_id=ou,
-                source_system=const.system_sito)
-            for aff in affs:
-                last_date = datetime.datetime.fromtimestamp(aff['last_date'])
-                end_grace_period = (
-                    last_date +
-                    datetime.timedelta(
-                        days=cereconf.GRACEPERIOD_EMPLOYEE_SITO))
-                if datetime.datetime.today() > end_grace_period:
-                    logger.warn(
-                        "Deleting system_sito affiliation for "
-                        "person_id=%s,ou=%s,affi=%s last_date=%s,grace=%s",
-                        ent_id, ou, affi, last_date,
-                        cereconf.GRACEPERIOD_EMPLOYEE_SITO)
-                    new_person.delete_affiliation(ou, affi, const.system_sito)
+def remove_old_affiliations(db, affiliations):
+    new_person = Factory.get('Person')(db)
+    const = Factory.get('Constants')(db)
+
+    for aff_key in affiliations:
+        [ent_id, ou, affi] = [int(x) for x in aff_key.split(':')]
+        new_person.clear()
+        new_person.entity_id = int(ent_id)
+        affs = new_person.list_affiliations(
+            ent_id,
+            affiliation=affi,
+            ou_id=ou,
+            source_system=const.system_sito)
+        for aff in affs:
+            last_date = datetime.datetime.fromtimestamp(aff['last_date'])
+            end_grace_period = (
+                last_date +
+                datetime.timedelta(
+                    days=cereconf.GRACEPERIOD_EMPLOYEE_SITO))
+            if datetime.datetime.today() > end_grace_period:
+                logger.warn(
+                    "Deleting system_sito affiliation for "
+                    "person_id=%s,ou=%s,affi=%s last_date=%s,grace=%s",
+                    ent_id, ou, affi, last_date,
+                    cereconf.GRACEPERIOD_EMPLOYEE_SITO)
+                new_person.delete_affiliation(ou, affi, const.system_sito)
+
+
+class SkipPerson(Exception):
+    pass
+
+
+def import_person(db, person, update_affs=None):
+    """
+    Import a single person.
+
+    :param person:
+        A dict from py:func:`parse_person`
+    :param update_affs:
+        A set of affiliations from py:func:`load_sito_affiliations`.
+        Affiliations imported by this function will be removed from the set.
+    """
+    new_person = Factory.get('Person')(db)
+    const = Factory.get('Constants')(db)
+
+    if update_affs is None:
+        update_affs = set()
+
+    employee_id = person['employee_id']
+    logger.info("Processing employee_id=%r", employee_id)
+
+    #
+    # Validate person data
+    #
+
+    # Birthdate
+    try:
+        birthdate = parse_date(person['birthdate'])
+        valid_birthdate = True
+    except ValueError:
+        logger.warning('Invalid birth date for employee_id=%r (%r)',
+                       person['employee_id'], person['birthdate'])
+        valid_birthdate = False
+        birthdate = None
+
+    # SSN
+    try:
+        fodselsnr.personnr_ok(person['ssn'])
+        valid_ssn = True
+    except fodselsnr.InvalidFnrError:
+        logger.warning("Empty SSN for employee_id=%r",
+                       person['employee_id'])
+        valid_ssn = False
+
+    # set person gender (checking both SSN and gender from sito input file)
+    if valid_ssn:
+        if fodselsnr.er_kvinne(person['ssn']):
+            gender = const.gender_female
+        else:
+            gender = const.gender_male
+    elif person['gender'] == 'Female':
+        gender = const.gender_female
+    elif person['gender'] == 'Male':
+        gender = const.gender_male
+    else:
+        logger.warning('Unknown gender value for employee_id=%r (%r)',
+                       employee_id, person['gender'])
+        gender = const.gender_unknown
+
+    # Validate Birthdate against SSN
+    if valid_ssn and valid_birthdate:
+        ssndate = datetime.date(*fodselsnr.fodt_dato(person['ssn']))
+        if birthdate != ssndate:
+            raise SkipPerson('inconsistent birth date and ssn (%r, %r)',
+                             birthdate, ssndate)
+    elif valid_ssn and not valid_birthdate:
+        logger.warn('Missing birth date for employee_id=%r, using date'
+                    ' from ssn', person['employee_id'])
+        birthdate = datetime.date(*fodselsnr.fodt_dato(person['ssn']))
+    elif not valid_ssn and valid_birthdate:
+        # person have birthdate but NOT ssn. Nothing to do here
+        pass
+    elif not valid_ssn and not valid_birthdate:
+        # person does not have birthdate nor ssn. This person cannot be
+        # built.  SSN or Birthdate required. Return error message and
+        # continue with NEXT person
+        raise SkipPerson('missing ssn and birth date')
+
+    # Check names
+    if not person['first_name']:
+        raise SkipPerson('Missing first name')
+    if not person['last_name']:
+        raise SkipPerson('Missing last name')
+
+    if person['middle_name']:
+        fname = person['first_name'] + ' ' + person['middle_name']
+    else:
+        fname = person['first_name']
+    lname = person['last_name']
+
+    #
+    # Get person object som DB if it exists
+    #
+
+    found = False
+    new_person.clear()
+    try:
+        new_person.find_by_external_id(const.externalid_sito_ansattnr,
+                                       employee_id)
+        found = True
+    except Errors.NotFoundError:
+        # could not find person in DB based on ansattnr.
+        if valid_ssn:
+            # try to find person using ssn if ssn is valid
+            try:
+                new_person.clear()
+                new_person.find_by_external_id(const.externalid_fodselsnr,
+                                               person['ssn'])
+                found = True
+            except Errors.NotFoundError:
+                pass
+    if found:
+        logger.info('Updating person object for employee_id=%r', employee_id)
+    else:
+        logger.info('Creating person object for employee_id=%r', employee_id)
+
+    #
+    # Populate the person object
+    #
+
+    new_person.populate(mx.DateTime.DateFrom(birthdate), gender)
+    new_person.affect_names(const.system_sito, const.name_first,
+                            const.name_last, const.name_work_title)
+    new_person.affect_external_id(const.system_sito,
+                                  const.externalid_fodselsnr,
+                                  const.externalid_sito_ansattnr)
+    new_person.populate_name(const.name_first, fname)
+    new_person.populate_name(const.name_last, lname)
+
+    if person['title']:
+        new_person.populate_name(const.name_work_title,
+                                 person['title'])
+    if valid_ssn:
+        new_person.populate_external_id(const.system_sito,
+                                        const.externalid_fodselsnr,
+                                        person['ssn'])
+    new_person.populate_external_id(const.system_sito,
+                                    const.externalid_sito_ansattnr,
+                                    employee_id)
+
+    # intermediary write to get an entity_id if this is a new person.
+    new_person.write_db()
+
+    new_person.populate_affiliation(const.system_sito)
+    new_person.populate_contact_info(const.system_sito)
+
+    # set person affiliation
+    for key, ou_id, aff, status in determine_affiliations(
+            db, new_person.entity_id, person):
+        logger.info("affiliation for employee_id=%r to ou_id=%r",
+                    employee_id, ou_id)
+        new_person.populate_affiliation(const.system_sito, ou_id,
+                                        int(aff), int(status))
+
+        # set this persons affiliation entry to False
+        # this ensures that this persons affiliations will not be removed
+        # when the clean_affiliation function is called after import person
+        update_affs.discard(key)
+
+    # get person work, cellular and home phone numbers
+    c_prefs = {}
+    for con, number in person['phone'].items():
+        c_type = int(const.human2constant(con, const.ContactInfo))
+        if c_type in c_prefs:
+            pref = c_prefs[c_type]
+        else:
+            pref = 0
+            c_prefs[c_type] = 1
+        new_person.populate_contact_info(const.system_sito,
+                                         c_type, number, pref)
+        logger.debug("contact for employee_id=%r, system=%s, "
+                     "c_type=%s, number=%s, pref=%s",
+                     employee_id, const.system_sito, c_type, number, pref)
+    new_person.write_db()
+    return not found
 
 
 #
 # import SITO persons into BAS
 #
-def import_person(person_list, cere_list):
+def import_persons(db, person_list, affiliations):
     """
-    Persons (from person_list) being processed in this function will have the
-    following variables
-
-    - ssn = 11 digit | ''
-    - gender = Male/Female | ''
-    - Birthdate = YYYY-MM-DDT00:00:00
-    - Firstname = somename
-    - Lastname = somename
-    - countrycode = NN | ''
-    - postalarea = someaddress | ''
-    - streetname = somestreet | ''
-    - zipcode = somezipcode | ''
-    - employmentnumber = somenumber
-    - positioncode = somenumber | ''
-    - positionname = somename | ''
-    - affiliation = some_organization_id
+    Import persons.
     """
-    for person in person_list:
-        ssn_not_valid = False
-        valid_birthdate = True
-        person_processed = {}
-
-        logger.info("--- Processing employee number:%s ---",
-                    person['EmploymentNumber'])
-
-        #
-        # Get Person Birthdate
-        #
+    stats = {'added': 0, 'updated': 0, 'skipped': 0, 'failed': 0}
+    for person_dict in person_list:
+        employee_id = person_dict['employee_id']
         try:
-            person_processed.update({
-                'birth_year': int(person['Birthdate'][0:4]),
-                'birth_month': int(person['Birthdate'][5:7]),
-                'birth_day': int(person['Birthdate'][8:10]),
-            })
-        except ValueError:
-            valid_birthdate = False
-            logger.warning("Empty Birthdate string for employee number:%s.",
-                           person['EmploymentNumber'])
-
-        #
-        # check if SSN is registered and valid
-        #
-        try:
-            fodselsnr.personnr_ok(person['Ssn'])
-            person_processed['ssn'] = person['Ssn']
-        except fodselsnr.InvalidFnrError:
-            logger.warning("Empty SSN for employee number:%s",
-                           person['EmploymentNumber'])
-            ssn_not_valid = True
-            person_processed['ssn'] = ''
-
-        #
-        # set person gender (checking both SSN and gender from sito input file)
-        #
-        gender = const.gender_male
-        if not ssn_not_valid:
-            if fodselsnr.er_kvinne(person['Ssn']):
-                gender = const.gender_female
-        elif gender != person['Gender'][0] == 'F':
-            # ssn is not valid. use Gender variable from sito import file
-            # instead.
-            gender = const.gender_female
-        else:
-            # person has neither ssn nor gender set in import file. impossible
-            # to set gender.
-            logger.warning("impossible to set gender for employee number:%s."
-                           " using Unknown", person['EmploymentNumber'])
-            gender = const.gender_unknown
-
-        person_processed['gender'] = gender
-
-        #
-        # Validate Birthdate against SSN
-        #
-        if not ssn_not_valid and valid_birthdate:
-            (year_check,
-             month_check,
-             day_check) = fodselsnr.fodt_dato(person['Ssn'])
-            # person has ssn and birthdate. verify the data
-            if year_check != person_processed['birth_year']:
-                logger.warn("Year inconsistent between XML (%s) and FNR (%s) "
-                            "for employee:%s", person_processed['birth_year'],
-                            year_check, person['EmploymentNumber'])
-                continue
-            if month_check != person_processed['birth_month']:
-                logger.warn("Month inconsistent between XML (%s) and FNR (%s) "
-                            "for employee %s", person_processed['birth_month'],
-                            month_check, person['EmploymentNumber'])
-                continue
-            if day_check != person_processed['birth_day']:
-                logger.warn("Day inconsistent between XML (%s) and FNR (%s) "
-                            "for person %s", person_processed['birth_day'],
-                            day_check, person['EmploymentNumber'])
-                continue
-        elif not ssn_not_valid and not valid_birthdate:
-            # person has ssn but not birthdate. set birthdate based on ssn.
-            logger.warn("person:%s is missing birthdate. Setting it based "
-                        "on SSN", person['Ssn'])
-            if fodselsnr.personnr_ok(person['Ssn']):
-                year, mon, day = fodselsnr.fodt_dato(person['Ssn'])
-                person_processed.update({
-                    'birth_year':  year,
-                    'birth_month':  mon,
-                    'birth_day':  day,
-                })
+            if import_person(db, person_dict, affiliations):
+                stats['added'] += 1
             else:
-                continue
+                stats['updated'] += 1
+        except SkipPerson as e:
+            logger.error('Skipping employee_id=%r: %s', employee_id, e)
+            stats['skipped'] += 1
+        except Exception as e:
+            logger.error('Skipping employee_id=%r: unhandled exception',
+                         employee_id, exc_info=True)
+            stats['import-person-error'] += 1
 
-        elif valid_birthdate and ssn_not_valid:
-            # person have birthdate but NOT ssn. Nothing to do here
-            pass
-
-        elif not valid_birthdate and ssn_not_valid:
-            # person does not have birthdate nor ssn. This person cannot be
-            # built.  SSN or Birthdate required. Return error message and
-            # continue with NEXT person
-            logger.warn("Employee number: %s is missing SSN and Birthdate. "
-                        "NOT imported", person['EmploymentNumber'])
-            continue
-
-        #################################################
-        # collect various person data from person list  #
-        #################################################
-
-        person_processed.update({
-            'ansattnr': person['EmploymentNumber'],
-            'Firstname': person['Firstname'],
-            'Lastname': person['Lastname'],
-            'PositionName': person['PositionName'],
-            'title': person['title'],
-        })
-        if 'Middlename' in person:
-            person_processed['Middlename'] = person['Middlename']
-
-        #
-        # Get person object som DB if it exists
-        #
-
-        new_person.clear()
-        try:
-            new_person.find_by_external_id(const.externalid_sito_ansattnr,
-                                           person_processed['ansattnr'])
-        except Errors.NotFoundError:
-            # could not find person in DB based on ansattnr.
-            if not ssn_not_valid:
-                # try to find person using ssn if ssn is valid
-                try:
-                    new_person.clear()
-                    new_person.find_by_external_id(const.externalid_fodselsnr,
-                                                   person_processed['ssn'])
-                except Errors.NotFoundError:
-                    # Could not find person in DB based on fnr
-                    logger.info("-- Create new person object for ssn:%s --",
-                                person_processed['ssn'])
-                    pass
-
-        if (person_processed['Firstname'].isspace() or
-                person_processed['Lastname'].isspace()):
-            # Firstname and/or lastname is made of whitespace ONLY.
-            # generate error message and continue with NEXT person
-            logger.error("missing first and/or lastname for person:%s. "
-                         "Person NOT imported", person)
-            continue
-
-        #
-        # Populate the person object
-        #
-        try:
-            new_person.populate(
-                mx.DateTime.Date(person_processed['birth_year'],
-                                 person_processed['birth_month'],
-                                 person_processed['birth_day']),
-                gender)
-        except Errors.CerebrumError as m:
-            logger.error("Person: %s populate failed: %s",
-                         person_processed['ssn'] or
-                         person_processed['ansattnr'], m)
-            # population of person object failes. Continue
-            continue
-        new_person.affect_names(const.system_sito, const.name_first,
-                                const.name_last, const.name_work_title)
-        new_person.affect_external_id(const.system_sito,
-                                      const.externalid_fodselsnr,
-                                      const.externalid_sito_ansattnr)
-        try:
-            person_processed['Middlename']
-            concat_firstname = "%s %s" % (person_processed['Firstname'],
-                                          person_processed['Middlename'])
-            person_processed['Firstname'] = concat_firstname
-            logger.debug("CONCAT FIRSTNAME:%s", person_processed['Firstname'])
-        except KeyError:
-            # person has no middlename. use original firstname
-            pass
-        new_person.populate_name(const.name_first,
-                                 person_processed['Firstname'])
-        new_person.populate_name(const.name_last, person_processed['Lastname'])
-
-        logger.warning("person_processed title is:%s",
-                       person_processed['title'])
-        if person_processed['title'] != '':
-            new_person.populate_name(const.name_work_title,
-                                     person_processed['title'])
-        if person_processed['ssn'] != '':
-            new_person.populate_external_id(const.system_sito,
-                                            const.externalid_fodselsnr,
-                                            person_processed['ssn'])
-            logger.info("setting external_id to:%s", person_processed['ssn'])
-        new_person.populate_external_id(const.system_sito,
-                                        const.externalid_sito_ansattnr,
-                                        person_processed['ansattnr'])
-
-        # In case this is a new person, we will need to write to DB before we
-        # can continue.
-        new_person.write_db()
-
-        affiliation = determine_affiliations(person)
-        new_person.populate_affiliation(const.system_sito)
-        contact = determine_contact(person)
-        new_person.populate_contact_info(const.system_sito)
-
-        # set person affiliation
-        for k, v in affiliation.items():
-            ou_id, aff, aff_stat = v
-            logger.info("Has affiliation %s towards ou:%s", aff_stat, ou_id)
-            new_person.populate_affiliation(const.system_sito, ou_id,
-                                            int(aff), int(aff_stat))
-
-            # set this persons affiliation entry to False
-            # this ensures that this persons affiliations will not be removed
-            # when the clean_affiliation function is called after import person
-            if k in cere_list:
-                cere_list[k] = False
-
-        # get person work, cellular and home phone numbers
-        c_prefs = {}
-        for con, number in contact.items():
-            if con == 'Cellphone':
-                c_type = int(const.contact_mobile_phone)
-            if con == 'Home':
-                c_type = int(const.contact_phone_private)
-            if con == 'Work':
-                c_type = int(const.contact_phone)
-            pref = c_prefs.get(c_type, 0)
-            new_person.populate_contact_info(const.system_sito, c_type, number,
-                                             pref)
-            logger.debug("system:%s, c_type:%s, number:%s, pref:%s",
-                         const.system_sito, c_type, number, pref)
-            pref = c_prefs[c_type] = pref = 1
-
-        op2 = new_person.write_db()
-        logger.info("WriteDB after affs: %s" % (op2,))
-
-
-def determine_contact(person):
-    phone_info = {}
-    phone = string.split(person['Phone'], ',')
-    for single_phone in phone:
-        single_phone = single_phone.strip()
-        if(len(single_phone) > 0):
-            # append each phone type to returning object
-            type, number = single_phone.split(":")
-            phone_info[type] = number
-    return phone_info
+    logger.info("Processed %d persons: imported: %d, skipped: %d",
+                sum(stats.values()),
+                stats['added'] + stats['updated'],
+                stats['skipped'] + stats['failed'])
 
 
 #
 # Get ou_id based on external_id
 #
-def get_ou(a, person):
-
+def get_ou(db, a, person):
+    ou = OU_Class(db)
+    const = Factory.get('Constants')(db)
     external_id = a.split(",")
 
     for single_id in external_id:
@@ -650,201 +567,156 @@ def get_ou(a, person):
         except EntityExpiredError:
             # person registered to expired OU. return error message.
             logger.error("person:%s is registered to expired OU "
-                         "with external_id:%s", person['Ssn'], single_id)
+                         "with external_id:%s", person['ssn'], single_id)
             return -1
         except Errors.NotFoundError:
             logger.error("WARNING - person:%s %s is registered to a "
                          "nonexisting OU with external id:%s",
-                         person['Firstname'], person['Lastname'], single_id)
+                         person['first_name'], person['last_name'], single_id)
             return -1
 
         if single_id == cereconf.DEFAULT_SITO_ROOT_HASH:
             logger.info("person:%s has affiliation to SITO root node",
-                        person['Ssn'])
+                        person['ssn'])
         return ou.entity_id
 
 
-#
-# will return a list of:
-# ou_id              - organizational ID
-# affiliation        - Ansatt
-# affiliation type   - (tekadn,adm)
-#
-# For all person affiliations
-#
-def determine_affiliations(person):
-    ret = {}
-    # percentage = []
+def determine_affiliations(db, entity_id, person):
+    """
+    Determine affiliations for a given person dict:
+
+    :param entity_id: The person entity_id in cerebrum
+    :param person: A dict with person info
+
+    :rtype: generator
+    :return:
+        Returns a generator that yield tuples with:
+
+        - key (string of "<person_id>:<ou_id>:<aff>")
+        - ou_id
+        - affiliation (Ansatt)
+        - affiliation status (tekadn,adm)
+    """
+    const = Factory.get('Constants')(db)
+    seen = set()
     aff = const.affiliation_ansatt_sito
-    aff_stat = ''
-    t = person['Affiliation'].split(",")
-    for a in t:
-        person['Employment_description']
-        aff_stat = const.affiliation_status_ansatt_sito
-        ou = get_ou(a, person)
-        if ou == -1:
+    status = const.affiliation_status_ansatt_sito
+    for a in person['Affiliation']:
+        ou_id = get_ou(db, a, person)
+        if ou_id == -1:
             # unable to find OU.
             logger.error("Got -1 from get_ou %s" % a)
             continue
         else:
             # valid ou id found. continue processing
-            k = "%s:%s:%s" % (new_person.entity_id, ou, int(aff))
-            if k not in ret:
-                ret[k] = ou, const.affiliation_ansatt_sito, aff_stat
-    return ret
+            key = "%s:%s:%s" % (entity_id, ou_id, int(aff))
+            if key not in seen:
+                seen.add(key)
+                yield key, ou_id, aff, status
 
 
-# KEB
-# ou.populate() no longer sets name, acronym, short_name, display_name or
-# sort_name this must handled with add_name_with_language()
+def import_ous(db, ou_list):
+    """
+    Import OUs.
 
-def populate_the_rest(name, acronym, short_name, display_name, sort_name):
-    name_language = const.language_nb
-    ou.add_name_with_language(const.ou_name, name_language, name)
-    ou.add_name_with_language(const.ou_name_acronym, name_language, acronym)
-    ou.add_name_with_language(const.ou_name_short, name_language, short_name)
-    ou.add_name_with_language(const.ou_name_display, name_language,
-                              display_name)
-    # TODO: don't know what to do with sort_name, ignoring it for now.
+    :param ou_list: list of dicts with sito ou data (from py:func:`parse_unit`)
+    """
+    ou = OU_Class(db)
+    const = Factory.get('Constants')(db)
 
+    stats = {'added': 0, 'updated': 0, 'skipped': 0, 'failed': 0}
 
-def import_ou(ou_list, dryrun):
     # get sito ou's from BAS
-    expire_list = None
     parent_list = []
-    perspective = getattr(const, "perspective_sito")
-    all = ou.list_all_with_perspective(perspective)  # also expired ou's
 
-    try:
-        expire_list = list(all)
-    except TypeError:
-        logger.warning("no ou's in bas with perspective perspective_sito")
-        return -1
+    def populate_names(name, acronym, short_name, display_name, sort_name):
+        lang = const.language_nb
+        ou.add_name_with_language(const.ou_name, lang, name)
+        ou.add_name_with_language(const.ou_name_acronym, lang, acronym)
+        ou.add_name_with_language(const.ou_name_short, lang, short_name)
+        ou.add_name_with_language(const.ou_name_display, lang, display_name)
+        # TODO: don't know what to do with sort_name, ignoring it for now.
+
     #
     # insert or update SITO ou's in BAS
     #
     for sito_ou in ou_list:
-        if(sito_ou['IsDeactivated'] == 'false'):
-            logger.debug("--- Proccessing ou from ou file ---")
-            # clear ou structure
-            ou.clear()
+        unit_id = sito_ou['unit_id']
+
+        if sito_ou['is_deactivated']:
+            logger.debug('Ignoring deactivated sito unit=%r', unit_id)
+            continue
+        else:
+            logger.info("Processing sito unit=%r", unit_id)
+
+        # clear ou structure
+        ou.clear()
+
+        # find ou in database if it already exists
+        try:
+            ou.find_by_external_id(id_type=const.externalid_sito_ou,
+                                   external_id=unit_id,
+                                   source_system=const.system_sito,
+                                   entity_type=const.externalid_sito_ou)
+        except Errors.NotFoundError:
+            # New ou.
+            logger.info("Creating OU for unit_id=%r (%s)", unit_id,
+                        sito_ou['name'])
+            ou.populate()
+            ou.write_db()
+            ou.affect_external_id(const.system_sito,
+                                  const.externalid_sito_ou)
+            ou.populate_external_id(source_system=const.system_sito,
+                                    id_type=const.externalid_sito_ou,
+                                    external_id=unit_id)
+            ou.write_db()
+            new_ou = True
+        else:
+            logger.info('Updating OU for unit_id=%r, entity_id=%r',
+                        unit_id, ou.entity_id)
             new_ou = False
-            #
-            # find ou in database if it already exists
-            #
+
+        #
+        # Update OU names.
+        #
+        populate_names(sito_ou['name'], sito_ou['name'],
+                       sito_ou['name'], sito_ou['name'], None)
+
+        #
+        # Create ou structure
+        #
+        found_parent = False
+        for i in ou_list:
+            parentid = {}
             try:
-                ou.find_by_external_id(id_type=const.externalid_sito_ou,
-                                       external_id=sito_ou['unit_id'],
-                                       source_system=const.system_sito,
-                                       entity_type=const.externalid_sito_ou)
-            except Errors.NotFoundError:
-                # New ou.
-                logger.info("new OU [%s, %s, %s] ", sito_ou['Name'],
-                            sito_ou['unit_id'], sito_ou['IsDeactivated'])
-                ou.populate()
-                ou.write_db()
-                populate_the_rest(sito_ou['Name'], sito_ou['Name'],
-                                  sito_ou['Name'], sito_ou['Name'], 1)
-                ou.write_db()
-                ou.affect_external_id(const.system_sito,
-                                      const.externalid_sito_ou)
-                ou.populate_external_id(source_system=const.system_sito,
-                                        id_type=const.externalid_sito_ou,
-                                        external_id=sito_ou['unit_id'])
-                ou.write_db()
-                new_ou = True
-
-            except EntityExpiredError as m:
-                # ou is marked as active in import file, but inactive in
-                # database.
-                # remove expire date from database
-                # HACK: in order to get the ou_id of the expired ou we turn to
-                # some ugly string operations.  This because we want to remove
-                # the expire date on the ou being processed.
-                tmp_str = str(m)
-                tmps = tmp_str.find(" ")
-                tmps2 = tmp_str.rfind(" ")
-                entity_id = tmp_str[tmps:tmps2]
-                logger.warning("ReActivating OU, Removing expire date "
-                               "for ou_id:%s", entity_id)
-
-                e = EntityExpire(db)
-                e.find(entity_id, expired_before="1970-01-01")  # linux epoch
-                e._delete_expire_date()
-                e.write_db()
-                if not dryrun:
-                    e.commit()
-                e.clear()
-                ou.clear()
-                ou.find_by_external_id(id_type=const.externalid_sito_ou,
-                                       external_id=sito_ou['unit_id'],
-                                       source_system=const.system_sito,
-                                       entity_type=const.externalid_sito_ou)
-            else:
-                # Found old ou. Overwrite old data.
+                # TODO: What if i['unit_id'] Is i['is_deactivated']?
+                if sito_ou['parent_id'] == i['unit_id']:
+                    parentid = {
+                        'child': sito_ou['unit_id'],
+                        'parent': i['unit_id'],
+                    }
+                    parent_list.append(parentid)
+                    found_parent = True
+                    break
+            except:
                 pass
 
-            #
-            # populate OU structure. If it was "found" above, the old
-            # information will be overwritten
-            #
-            if not new_ou:
-                logger.info("DepartmentID:%s already has entity_id:%s.",
-                            sito_ou['unit_id'], ou.entity_id)
-                ou.populate()
-                populate_the_rest(sito_ou['Name'], sito_ou['Name'],
-                                  sito_ou['Name'], sito_ou['Name'], 1)
-                ou.write_db()
+        if not found_parent:
+            # ou has no parent, set parentID to 0 (root node)
+            parentid = {
+                'child': sito_ou['unit_id'],
+                'parent': '0',
+            }
+            parent_list.append(parentid)
 
-            #
-            # Create ou structure
-            #
-            found_parent = False
-            for i in ou_list:
-                parentid = {}
-                try:
-                    if sito_ou['ParentID'] == i['ID']:
-                        parentid = {
-                            'child': sito_ou['unit_id'],
-                            'parent': i['unit_id'],
-                        }
-                        parent_list.append(parentid)
-                        found_parent = True
-                        break
-                except:
-                    pass
+        if new_ou:
+            stats['added'] += 1
+        else:
+            stats['updated'] += 1
 
-            if not found_parent:
-                # ou has no parent, set parentID to 0 (root node)
-                parentid = {
-                    'child': sito_ou['unit_id'],
-                    'parent': '0',
-                }
-                parent_list.append(parentid)
-
-            #
-            # Remove active OU's from ou expire list
-            #
-            if sito_ou['IsDeactivated'] == 'false':
-                # remove ou from list of inactive ou's
-                if len(expire_list) > 0:
-                    for unit in expire_list:
-                        if unit[0] == ou.entity_id:
-                            expire_list.remove(unit)
-
-    #
-    # Need to commit to DB in order to set ou_structure
-    # NOTE: we only commit if dryrun == False
-    #
-    if not dryrun:
-        db.commit()
-        logger.debug("Commit changes")
-
-    #
     # Set parent for all ou's
-    #
     for parent in parent_list:
-        if(parent['parent'] == '0'):
+        if parent['parent'] == '0':
             parent_entity_id = None
         else:
             ou.clear()
@@ -866,8 +738,9 @@ def import_ou(ou_list, dryrun):
                                    entity_type=const.externalid_sito_ou)
 
         except Errors.NotFoundError:
-            # unable to find child ou. This is fatal error.
-            logger.error("UNABLE to find child ou with external id:%s",
+            # Unable to find child ou. This should be impossible, we've just
+            # seen it when we build the parent_list...
+            logger.error("Unable to find child ou with unit_id=%r",
                          parent['child'])
 
         #
@@ -877,25 +750,9 @@ def import_ou(ou_list, dryrun):
         ou.set_parent(const.perspective_sito, parent_entity_id)
         ou.write_db()
 
-    #
-    # Set expire date on ou's missing from import file, or has set
-    # IsDeactivated = true
-    #
-
-    try:
-        for expired_ou in expire_list:
-            ou.clear()
-            try:
-                ou.find(expired_ou[0])
-            except EntityExpiredError:
-                # This ou has already expired. Do nothing
-                pass
-            else:
-                # This ou is expired in input file, but
-                # active in DB. set expire_date in DB
-                ou.write_db()
-    except TypeError:
-        logger.warning("cannot set expire date from empty list")
+    logger.info("Processed %d OUs: added: %d, updated: %d",
+                sum(stats.values()),
+                stats['added'], stats['updated'])
 
 
 default_log_preset = getattr(cereconf, 'DEFAULT_LOGGER_TARGET', 'console')
@@ -907,9 +764,13 @@ def main(inargs=None):
 
     parser.add_argument(
         '-p', '--person-file',
+        help='Read and import persons from %(metavar)s',
+        metavar='xml-file',
     )
     parser.add_argument(
         '-o', '--ou-file',
+        help='Read and import org units from %(metavar)s',
+        metavar='xml-file',
     )
     add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
@@ -920,24 +781,26 @@ def main(inargs=None):
     logger.info('Start of %s', parser.prog)
     logger.debug('args: %r', args)
 
-    dryrun = not args.commit
+    db = Factory.get('Database')()
+    db.cl_init(change_program=parser.prog)
 
     if args.ou_file:
         logger.info('Fetching OUs from %r', args.ou_file)
         ou_list = list(generate_ous(args.ou_file))
         logger.info('Importing %d OUs', len(ou_list))
-        import_ou(ou_list, dryrun)
+        import_ous(db, ou_list)
         logger.info('OU import done')
 
     if args.person_file:
         logger.info('Loading existing affiliations')
-        cere_list = load_all_affi_entry()
+        aff_set = load_sito_affiliations(db)
         logger.info('Fetching persons from %r', args.person_file)
         person_list = list(generate_persons(args.person_file))
         logger.info('Importing %d persons', len(person_list))
-        import_person(person_list, cere_list)
+        # Note: import_person updates the aff_set
+        import_persons(db, person_list, aff_set)
         logger.info('Cleaning old affiliations')
-        clean_affi_s_list(cere_list)
+        remove_old_affiliations(db, aff_set)
         logger.info('Person import done')
 
     if args.commit:
