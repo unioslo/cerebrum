@@ -21,7 +21,6 @@ import time
 
 from Cerebrum.modules.no import access_FS
 
-
 fsobject = access_FS.fsobject
 
 
@@ -37,9 +36,9 @@ class UiOStudent(access_FS.Student):
         kode 'opptak' til stedskoden sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.
         """
-        return self._list_gyldigopptak(**kwargs) \
-            + self._list_drgradsopptak(**kwargs) \
-            + self._list_gammelopptak_semreg(**kwargs)
+        return (self._list_gyldigopptak(**kwargs) +
+                self._list_drgradsopptak(**kwargs) +
+                self._list_gammelopptak_semreg(**kwargs))
 
     def _list_gyldigopptak(self, fodselsdato=None, personnr=None):
         """Alle med gyldig opptak tildelt for 2 år eller mindre siden
@@ -175,10 +174,10 @@ class UiOStudent(access_FS.Student):
         opptak.  Henter derfor kun fødselsnummer, studieprogram,
         studieretning og kull.  Må gjøre et eget søk for å finne
         klasse for de som er registrert på slikt. """
-        return self._list_aktiv_semreg(**kwargs) \
-            + self._list_aktiv_enkeltemne(**kwargs) \
-            + self._list_aktiv_avlagteksamen(**kwargs) \
-            + self._list_aktiv_utdplan(**kwargs)
+        return (self._list_aktiv_semreg(**kwargs) +
+                self._list_aktiv_enkeltemne(**kwargs) +
+                self._list_aktiv_avlagteksamen(**kwargs) +
+                self._list_aktiv_utdplan(**kwargs))
 
     def _list_aktiv_semreg(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har en
@@ -503,7 +502,7 @@ class UiOStudent(access_FS.Student):
             # We can't use the same bind variable in two different SELECT
             # expressions.
             extra1 = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
-            extra2 = """"s.fodselsdato=:fodselsdato2 AND s.personnr=:personnr2
+            extra2 = """s.fodselsdato=:fodselsdato2 AND s.personnr=:personnr2
                      AND"""
 
         qry = """
@@ -770,9 +769,9 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
         kode 'opptak' til stedskoden sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.
         """
-        return self._list_gyldigopptak(**kwargs) \
-            + self._list_drgradsopptak(**kwargs) \
-            + self._list_gammelopptak_semreg(**kwargs)
+        return (self._list_gyldigopptak(**kwargs) +
+                self._list_drgradsopptak(**kwargs) +
+                self._list_gammelopptak_semreg(**kwargs))
 
     def _list_gyldigopptak(self, fodselsdato=None, personnr=None):
         """Alle med gyldig opptak tildelt for 2 år eller mindre siden
@@ -899,213 +898,6 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
            r.arstall >= (%s - 1) AND
            %s""" % (extra, self.year, self._is_alive())
         return self.db.query(qry, locals())
-
-    def list_aktiv(self, **kwargs):  # GetStudentAktiv_50
-        """Hent fødselsnummer+studieprogram+studieretning+kull for
-        alle aktive studenter.  Som aktive studenter regner vi alle
-        studenter med opptak til et studieprogram som samtidig har en
-        eksamensmelding eller en avlagt eksamen inneverende semester i
-        et emne som kan inngå i dette studieprogrammet, eller som har
-        bekreftet sin utdanningsplan.  Disse får affiliation student
-        med kode aktiv til sp.faknr_studieansv +
-        sp.instituttnr_studieansv + sp.gruppenr_studieansv.  Vi har
-        alt hentet opplysninger om adresse ol. efter som de har
-        opptak.  Henter derfor kun fødselsnummer, studieprogram,
-        studieretning og kull.  Må gjøre et eget søk for å finne
-        klasse for de som er registrert på slikt. """
-        return self._list_aktiv_semreg(**kwargs) \
-            + self._list_aktiv_enkeltemne(**kwargs) \
-            + self._list_aktiv_avlagteksamen(**kwargs) \
-            + self._list_aktiv_utdplan(**kwargs)
-
-    def _list_aktiv_semreg(self, fodselsdato=None, personnr=None):
-        """Alle semesterregistrerte som i tillegg har en
-        eksamensmelding i et emne som kan inngå i et studieprogram som
-        de har opptak til.
-        """
-
-        extra = ""
-        if fodselsdato and personnr:
-            extra = "p.fodselsdato=:fodselsdato AND p.personnr=:personnr AND"
-
-        qry = """
-        SELECT DISTINCT
-           p.fodselsdato, p.personnr, p.dato_fodt, sp.studieprogramkode,
-           sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           vm.emnekode, vm.versjonskode, s.studentnr_tildelt
-        FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
-           fs.registerkort r, fs.vurdkombmelding vm,
-           fs.emne_i_studieprogram es, fs.person p
-        WHERE p.fodselsdato=r.fodselsdato AND
-           p.personnr=r.personnr AND
-           p.fodselsdato=s.fodselsdato AND
-           p.personnr=s.personnr AND
-           p.fodselsdato=sps.fodselsdato AND
-           p.personnr=sps.personnr AND
-           p.fodselsdato=vm.fodselsdato AND
-           p.personnr=vm.personnr AND
-           %s
-           sp.studieprogramkode=es.studieprogramkode AND
-           vm.institusjonsnr=es.institusjonsnr AND
-           vm.emnekode=es.emnekode AND
-           vm.versjonskode=es.versjonskode AND
-           sps.status_privatist='N' AND
-           sps.studieprogramkode=sp.studieprogramkode AND
-           r.status_reg_ok = 'J' AND
-           r.status_bet_ok = 'J' AND
-           NVL(r.status_ugyldig, 'N') = 'N' AND
-           NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
-           %s AND
-           %s""" % (extra, self._get_termin_aar(only_current=True),
-                    self._is_alive())
-        params = locals()
-        params['spring'] = 'VÅR'
-        params['autumn'] = 'HØST'
-        return self.db.query(qry, params)
-
-    def _list_aktiv_enkeltemne(self, fodselsdato=None, personnr=None):
-        """Alle semesterregistrerte med gyldig opptak til
-        studieprogrammet 'ENKELTEMNE' som har en gyldig eksamensmelding
-        i et emne som kan inngå i et vilkårlig studieprogram.
-        """
-
-        extra = ""
-        if fodselsdato and personnr:
-            extra = "p.fodselsdato=:fodselsdato AND p.personnr=:personnr AND"
-
-        qry = """
-        SELECT DISTINCT
-           p.fodselsdato, p.personnr, p.dato_fodt, sp.studieprogramkode,
-           sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           vm.emnekode, vm.versjonskode, s.studentnr_tildelt
-        FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
-           fs.registerkort r, fs.vurdkombmelding vm,
-           fs.person p
-        WHERE sp.studieprogramkode='ENKELTEMNE' AND
-           p.fodselsdato=r.fodselsdato AND
-           p.personnr=r.personnr AND
-           p.fodselsdato=s.fodselsdato AND
-           p.personnr=s.personnr AND
-           p.fodselsdato=sps.fodselsdato AND
-           p.personnr=sps.personnr AND
-           p.fodselsdato=vm.fodselsdato AND
-           p.personnr=vm.personnr AND
-           %s
-           sps.status_privatist='N' AND
-           sps.studieprogramkode=sp.studieprogramkode AND
-           r.status_reg_ok = 'J' AND
-           r.status_bet_ok = 'J' AND
-           NVL(r.status_ugyldig, 'N') = 'N' AND
-           NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
-           %s AND
-           %s""" % (extra, self._get_termin_aar(only_current=True),
-                    self._is_alive())
-        params = locals()
-        params['spring'] = 'VÅR'
-        params['autumn'] = 'HØST'
-        return self.db.query(qry, params)
-
-    def _list_aktiv_utdplan(self, fodselsdato=None, personnr=None):
-        """Alle semesterregistrerte som i tillegg har bekreftet
-        utdanningsplan i inneværende semester.
-        """
-
-        extra = ""
-        if fodselsdato and personnr:
-            extra = "p.fodselsdato=:fodselsdato AND p.personnr=:personnr AND"
-
-        qry = """
-        SELECT DISTINCT
-           p.fodselsdato, p.personnr, p.dato_fodt, sp.studieprogramkode,
-           sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           NULL as emnekode, NULL as versjonskode, s.studentnr_tildelt
-        FROM fs.student s, fs.studieprogramstudent sps, fs.registerkort r,
-           fs.studprogstud_planbekreft spp, fs.studieprogram sp,
-           fs.person p
-        WHERE p.fodselsdato=sps.fodselsdato AND
-           p.personnr=sps.personnr AND
-           p.fodselsdato=s.fodselsdato AND
-           p.personnr=s.personnr AND
-           p.fodselsdato=r.fodselsdato AND
-           p.personnr=r.personnr AND
-           p.fodselsdato=spp.fodselsdato AND
-           p.personnr=spp.personnr AND
-           %s
-           sps.studieprogramkode=sp.studieprogramkode AND
-           sp.status_utdplan='J' AND
-           sps.status_privatist='N' AND
-           spp.studieprogramkode=sps.studieprogramkode AND
-           NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
-           spp.dato_bekreftet < SYSDATE AND
-           spp.arstall_bekreft=%d AND
-           spp.terminkode_bekreft='%s' AND
-           r.status_reg_ok = 'J' AND
-           r.status_bet_ok = 'J' AND
-           NVL(r.status_ugyldig, 'N') = 'N' AND
-           %s AND
-           %s""" % (extra, self.year, self.semester,
-                    self._get_termin_aar(only_current=True), self._is_alive())
-        params = locals()
-        params['spring'] = 'VÅR'
-        params['autumn'] = 'HØST'
-        return self.db.query(qry, params)
-
-    def _list_aktiv_avlagteksamen(self, fodselsdato=None, personnr=None):
-        """Alle semesterregistrerte som har avlagt eksamen i inneværende
-        år.  Ifølge STA er dette det riktige kravet. mulig at vi ønsker
-        å mene noe annet etterhvert.
-        """
-
-        extra = ""
-        if fodselsdato and personnr:
-            extra = "p.fodselsdato=:fodselsdato AND p.personnr=:personnr AND"
-
-        qry = """
-        SELECT DISTINCT
-           p.fodselsdato, p.personnr, p.dato_fodt, sps.studieprogramkode,
-           sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           svp.emnekode, svp.versjonskode, s.studentnr_tildelt
-        FROM fs.studentvurdkombprotokoll svp, fs.studieprogramstudent sps,
-           fs.emne_i_studieprogram es, fs.registerkort r,
-           fs.person p, fs.student s,
-           fs.vurderingstid vt, fs.vurdkombenhet ve
-        WHERE svp.arstall=%s AND
-           p.fodselsdato=sps.fodselsdato AND
-           p.personnr=sps.personnr AND
-           p.fodselsdato=svp.fodselsdato AND
-           p.personnr=svp.personnr AND
-           p.fodselsdato=s.fodselsdato AND
-           p.personnr=s.personnr AND
-           p.fodselsdato=r.fodselsdato AND
-           p.personnr=r.personnr AND
-           %s
-           svp.institusjonsnr='185' AND
-           svp.emnekode=es.emnekode AND
-           svp.versjonskode=es.versjonskode AND
-           svp.institusjonsnr = es.institusjonsnr AND
-           svp.vurdtidkode=vt.vurdtidkode AND
-           svp.arstall=vt.arstall AND
-           svp.vurdtidkode=ve.vurdtidkode AND
-           svp.arstall=ve.arstall AND
-           svp.institusjonsnr=ve.institusjonsnr AND
-           svp.emnekode=ve.emnekode AND
-           svp.versjonskode=ve.versjonskode AND
-           svp.vurdkombkode=ve.vurdkombkode AND
-           es.studieprogramkode=sps.studieprogramkode AND
-           NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
-           sps.status_privatist='N' AND
-           r.status_reg_ok = 'J' AND
-           r.status_bet_ok = 'J' AND
-           NVL(r.status_ugyldig, 'N') = 'N' AND
-           %s AND
-           %s
-        """ % (self.year, extra,
-               self._get_termin_aar(only_current=True),
-               self._is_alive())
-        params = locals()
-        params['spring'] = 'VÅR'
-        params['autumn'] = 'HØST'
-        return self.db.query(qry, params)
 
     def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
         """Hent informasjon om personer som anses som aktive studenter på
@@ -1316,134 +1108,6 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
                                    'personnr2': personnr})
 
     # New queries
-    def list_new_students(self, last_updated=None):
-        extra = ""
-        if last_updated:
-            extra = """
-            AND
-            (NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-            NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated)
-            """
-        qry = """
-        SELECT DISTINCT
-            s.studentnr_tildelt
-        FROM
-            fs.student s, fs.person p
-        WHERE
-            s.fodselsdato = p.fodselsdato AND
-            s.personnr = p.personnr AND
-            NVL(s.dato_opprettet, TO_DATE('1970', 'YYYY')) >= (SYSDATE - 180)
-            AND NVL(p.status_dod, 'N') = 'N'
-            %s
-        """ % extra
-        return self.db.query(qry, {'last_updated': last_updated})
-
-    def list_gyldige_regkort(self, last_updated=None):
-        extra = ""
-        if last_updated:
-            extra = """
-            AND
-            (NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated
-            OR NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated
-            OR NVL(r.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated)
-            """
-        qry = """
-        SELECT DISTINCT
-            s.studentnr_tildelt, r.arstall, r.terminkode
-        FROM
-            fs.person p, fs.student s, fs.registerkort r
-        WHERE
-            p.fodselsdato   = s.fodselsdato AND
-            p.personnr      = s.personnr AND
-            p.fodselsdato   = r.fodselsdato AND
-            p.personnr      = r.personnr AND
-            r.status_reg_ok = 'J' AND
-            r.status_bet_ok = 'J' AND
-            NVL(r.status_ugyldig, 'N') = 'N' AND
-            r.arstall >= (TO_CHAR(SYSDATE, 'YYYY') - 1) AND
-            NVL(p.status_dod, 'N') = 'N'
-            %s
-        """ % extra
-        return self.db.query(qry, {'last_updated': last_updated})
-
-    def list_studieopptak(self, last_updated=None):
-        extra = ""
-        if last_updated:
-            extra = """
-            AND
-            (NVL(sps.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated
-            OR NVL(r.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated
-            OR NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated
-            OR NVL(sp.dato_sist_endret, TO_DATE('1970', 'YYYY'))>= :last_updated
-            OR NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated)
-            """
-        qry = """
-        SELECT DISTINCT
-            s.studentnr_tildelt
-            /*
-            , sp.faknr_studieansv, sp.instituttnr_studieansv,
-            sp.gruppenr_studieansv, sps.dato_studierett_gyldig_til
-            */
-        FROM
-            fs.student s, fs.person p, fs.registerkort r,
-            fs.studieprogramstudent sps, fs.studieprogram sp
-        WHERE
-            p.fodselsdato   = s.fodselsdato AND
-            p.personnr      = s.personnr AND
-            p.fodselsdato   = sps.fodselsdato AND
-            p.personnr      = sps.personnr AND
-            p.fodselsdato   = r.fodselsdato AND
-            p.personnr      = r.personnr AND
-            sps.studieprogramkode = sp.studieprogramkode AND
-            NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= SYSDATE AND
-            r.status_reg_ok = 'J' AND
-            r.status_bet_ok = 'J' AND
-            r.arstall >= (TO_CHAR(SYSDATE, 'YYYY') - 1) AND
-            /* TODO: må vi sjekke terminen også? */
-            NVL(r.status_ugyldig, 'N') = 'N' AND
-            NVL(p.status_dod, 'N') = 'N'
-            %s
-        """ % extra
-        return self.db.query(qry, {'last_updated': last_updated})
-
-    def list_tidligere_students(self, last_updated=None):
-        raise NotImplementedError("Design SQL-query  before calling this.")
-        # return self.db.query(qry, {'last_updated': last_updated})
-
-    def list_drgrad_students(self, last_updated=None):
-        extra = ""
-        if last_updated:
-            extra = """
-            AND
-            (NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated
-            OR NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-            NVL(sps.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated OR
-            NVL(sp.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated)
-            """
-        qry = """
-        SELECT DISTINCT
-            s.studentnr_tildelt
-            /*
-            , sp.faknr_studieansv, sp.instituttnr_studieansv,
-            sp.gruppenr_studieansv, sps.dato_studierett_gyldig_til
-            */
-        FROM
-            fs.person p, fs.student s,
-            fs.studieprogramstudent sps, fs.studieprogram sp
-        WHERE
-            p.fodselsdato = s.fodselsdato AND
-            p.personnr    = s.personnr AND
-            p.fodselsdato = sps.fodselsdato AND
-            p.personnr    = sps.personnr AND
-            sps.studieprogramkode = sp.studieprogramkode AND
-            NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= (SYSDATE - 365) AND
-            /* TODO: er det poeng i å ta med studieprogram eit år tilbake? */
-            sp.studienivakode in (900, 980) AND
-            NVL(p.status_dod, 'N') = 'N'
-            %s
-        """ % extra
-        return self.db.query(qry, {'last_updated': last_updated})
-
     def list_all_students_information(self, last_updated=None):
         extra = ""
         if last_updated:
@@ -1475,43 +1139,6 @@ class UiOStudent78(UiOStudent, access_FS.Student78):
             %s
         """ % extra
         return self.db.query(qry, {'last_updated': last_updated})
-
-    def list_fodselsnr_changes(self, last_updated=None):
-        """
-        Import changes in fodselsnummere. Check how long back we want
-        to look. Hardcoded to 30 days, so last_updated param is not used at
-        all.
-        """
-        raise NotImplementedError("Implementation is not yet available.")
-        # extra = ""
-        # if last_updated:
-        #    extra = """
-        #    WHERE
-        #        dato_foretatt > SYSDATE - 30
-        #    """
-        # qry = """
-        # SELECT DISTINCT
-        #    fodselsdato_naverende, personnr_naverende,
-        #    fodselsdato_tidligere, personnr_tidligere,
-        #    TO_CHAR(dato_foretatt, 'YYYY-MM-DD HH24:MI:SS') AS dato_foretatt
-        # FROM
-        #    fs.fnr_endring
-        # %s
-        # ORDER BY
-        #    dato_foretatt
-        # """ %extra
-        # return self.db.query(qry, {'last_updated': last_updated})
-
-
-@fsobject('portal')
-class UiOPortal(access_FS.FSObject):
-    """Denne funksjonen er ikke lenger i bruk, da portal-ting ikke er i bruk
-    lenger. Dersom jobben cerebrum/contrib/no/uio/generate_portal_export.py
-    skal settes i produksjon igjen, må denne funksjonen oppdateres til
-    gjeldende FS versjon, med vurderingsmodul.
-
-    """
-    pass
 
 
 @fsobject('betaling')
@@ -1700,44 +1327,6 @@ class UiOUndervisning(access_FS.Undervisning):
                               'autumn': 'HØST',
                               'spring': 'VÅR'})
 
-    def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
-        """Hent alle studentene som er oppført på et gitt kull."""
-
-        query = """
-        SELECT DISTINCT
-            fodselsdato, personnr
-        FROM
-            fs.studieprogramstudent
-        WHERE
-            studentstatkode IN ('AKTIV', 'PERMISJON') AND
-            NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
-            studieprogramkode = :studieprogramkode AND
-            terminkode_kull = :terminkode_kull AND
-            arstall_kull = :arstall_kull
-        """
-
-        return self.db.query(query, {"studieprogramkode": studieprogramkode,
-                                     "terminkode_kull": terminkode,
-                                     "arstall_kull": arstall})
-
-    def list_studenter_alle_kull(self):
-        query = """
-        SELECT DISTINCT
-            fodselsdato, personnr, studieprogramkode, terminkode_kull,
-            arstall_kull
-        FROM
-            fs.studieprogramstudent
-        WHERE
-            studentstatkode IN ('AKTIV', 'PERMISJON') AND
-            NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
-            /* IVR 2007-11-12: According to baardj, it makes no sense to
-               register 'kull' for earlier timeframes. */
-            arstall_kull >= 2002
-        """
-
-        return self.db.query(query)
-    # end list_studenter_alle_kull
-
     def list_studenter_alle_undenh(self):
         """Hent alle studenter på alle undenh.
 
@@ -1894,6 +1483,7 @@ class UiOEVU(access_FS.EVU):
           NVL(dato_til, SYSDATE) >= (SYSDATE - 30)
         """
         return self.db.query(qry)
+
     # end list_kurs
 
     def get_kurs_aktivitet(self, kurs, tid):  # GetAktivitetEvuKurs
@@ -1910,6 +1500,7 @@ class UiOEVU(access_FS.EVU):
         """ % (kurs, tid)
 
         return self.db.query(qry)
+
     # end get_kurs_aktivitet
 
     def list_kurs_aktiviteter(self):
@@ -1931,6 +1522,7 @@ class UiOEVU(access_FS.EVU):
         """
 
         return self.db.query(qry)
+
     # end list_kurs_aktiviteter
 
     def list_studenter_alle_kursakt(self):
@@ -1943,7 +1535,6 @@ class UiOEVU(access_FS.EVU):
         """
         return self.db.query(qry)
     # end list_studenter_alle_kursakt
-# end UiOEVU
 
 
 @fsobject('evu', '>=7.8')
@@ -2009,12 +1600,12 @@ class UiOStudieInfo(access_FS.StudieInfo):
         """
         return self.db.query(qry)
     # end list_kull
-# end UiOStudieInfo
 
 
 @fsobject('forkurs')
 class UiOForkurs(access_FS.FSObject):
     """Class for fetching specially registred forkurs students."""
+
     def list(self, course_code='FORGLU'):
         """List students registred for a pre-course.
 
@@ -2059,7 +1650,6 @@ class FS(access_FS.FS):
         # Override with uio-spesific classes
         for comp in 'person student undervisning evu'.split():
             setattr(self, comp, self._component(comp)(self.db))
-        # self.portal = UiOPortal(self.db)
         self.betaling = UiOBetaling(self.db)
         self.info = self._component('studieinfo')(self.db)
 

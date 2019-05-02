@@ -1687,7 +1687,43 @@ class Undervisning(FSObject):
         """
 
         return self.db.query(qry, {"aar": self.year}, fetchall=False)
-    # end list_studenter_alle_undakt
+
+    def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
+        """Hent alle studentene som er oppført på et gitt kull."""
+
+        query = """
+        SELECT DISTINCT
+            fodselsdato, personnr
+        FROM
+            fs.studieprogramstudent
+        WHERE
+            studentstatkode IN ('AKTIV', 'PERMISJON') AND
+            NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
+            studieprogramkode = :studieprogramkode AND
+            terminkode_kull = :terminkode_kull AND
+            arstall_kull = :arstall_kull
+        """
+
+        return self.db.query(query, {"studieprogramkode": studieprogramkode,
+                                     "terminkode_kull": terminkode,
+                                     "arstall_kull": arstall})
+
+    def list_studenter_alle_kull(self):
+        query = """
+        SELECT DISTINCT
+            fodselsdato, personnr, studieprogramkode, terminkode_kull,
+            arstall_kull
+        FROM
+            fs.studieprogramstudent
+        WHERE
+            studentstatkode IN ('AKTIV', 'PERMISJON') AND
+            NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
+            /* IVR 2007-11-12: According to baardj, it makes no sense to
+               register 'kull' for earlier timeframes. */
+            arstall_kull >= 2002
+        """
+
+        return self.db.query(query)
 
 
 @fsobject('undervisning', '>=7.8')
