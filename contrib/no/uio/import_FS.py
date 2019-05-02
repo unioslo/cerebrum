@@ -127,12 +127,6 @@ class FsImporterUio(FsImporter):
                     aktiv_sted.append(
                         int(self.studieprog2sko[row['studieprogramkode']]))
                     logger.debug("App2akrivts")
-        if 'emnestud' in person_info:
-            for row in person_info['emnestud']:
-                if self.emne2sko[row['emnekode']] is not None:
-                    logger.debug('Add sko %s based on emne %s',
-                                 int(self.emne2sko[row['emnekode']]),
-                                 row['emnekode'])
 
         for dta_type in person_info.keys():
             x = person_info[dta_type]
