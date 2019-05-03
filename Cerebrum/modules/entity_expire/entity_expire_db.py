@@ -120,7 +120,7 @@ def set_expire_date(db, entity_id, expire_date=None):
     :type expire_date: String on format YYYYMMDD or Date/Time.
 
     """
-    const = Factory.get('Constants')(db)
+    clconst = Factory.get('CLConstants')(db)
 
     try:
         expiry_set = db.query_1(
@@ -143,7 +143,7 @@ def set_expire_date(db, entity_id, expire_date=None):
         parameters['old_expire_date'] = str(expiry_set)
         parameters['new_expire_date'] = str(expire_date)
         db.log_change(entity_id,
-                      const.entity_expire_mod,
+                      clconst.entity_expire_mod,
                       None,
                       change_params=parameters)
     else:
@@ -155,14 +155,14 @@ def set_expire_date(db, entity_id, expire_date=None):
                     'exp_date': expire_date})
         parameters['new_expire_date'] = str(expire_date)
         db.log_change(entity_id,
-                      const.entity_expire_add,
+                      clconst.entity_expire_add,
                       None,
                       change_params=parameters)
 
 
 def delete_expire_date(db, entity_id):
     """ Removes expire_date for current entity."""
-    const = Factory.get('Constants')(db)
+    clconst = Factory.get('Constants')(db)
 
     try:
         expiry_set = db.query_1(
@@ -181,7 +181,7 @@ def delete_expire_date(db, entity_id):
     parameters = dict()
     parameters['old_expire_date'] = str(expiry_set)
     db.log_change(entity_id,
-                  const.entity_expire_del,
+                  clconst.entity_expire_del,
                   None,
                   change_params=parameters)
 
