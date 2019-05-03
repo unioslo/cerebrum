@@ -162,7 +162,7 @@ def set_expire_date(db, entity_id, expire_date=None):
 
 def delete_expire_date(db, entity_id):
     """ Removes expire_date for current entity."""
-    clconst = Factory.get('Constants')(db)
+    clconst = Factory.get('CLConstants')(db)
 
     try:
         expiry_set = db.query_1(
