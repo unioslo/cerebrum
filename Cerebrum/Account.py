@@ -34,6 +34,7 @@ import hashlib
 import base64
 import re
 
+import passlib.hash
 import six
 
 from Cerebrum import Utils, Disk
@@ -799,10 +800,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 plaintext if binary else utf8_plaintext,
                 salt.encode('utf-8')).decode()
         elif method == self.const.auth_type_md4_nt:
-            # Do the import locally to avoid adding a dependency for
-            # those who don't want to support this method.
-            import smbpasswd
-            return smbpasswd.nthash(unicode_plaintext).decode()
+            return passlib.hash.nthash.hash(utf8_plaintext).decode()
         elif method == self.const.auth_type_plaintext:
             return unicode_plaintext
         elif method == self.const.auth_type_md5_unsalt:
@@ -850,9 +848,13 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         if method == self.const.auth_type_ssha:
             salt = base64.decodestring(
                 cryptstring.encode())[20:].decode()
-        return (self.encrypt_password(method,
-                                      plaintext,
-                                      salt=salt) == cryptstring)
+
+        if method == self.const.auth_type_md4_nt:
+            return passlib.hash.nthash.verify(plaintext, cryptstring)
+        else:
+            return (self.encrypt_password(method,
+                                          plaintext,
+                                          salt=salt) == cryptstring)
 
     def verify_auth(self, plaintext):
         """Try to verify all authentication data stored for an
