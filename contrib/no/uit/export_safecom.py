@@ -31,13 +31,10 @@ import os
 import re
 
 import Cerebrum.logutils
-import cerebrum_path
 import cereconf
 
-# from Cerebrum import Entity
-from Cerebrum import Constants
 from Cerebrum import Errors
-from Cerebrum.Constants import _CerebrumCode, _SpreadCode
+from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
@@ -76,7 +73,6 @@ get_sko = memoize(get_sko)
 
 
 def get_ouinfo(ou_id, perspective):
-    # logger.debug("Enter get_ouinfo, id=%s,persp=%s" % (ou_id,perspective))
     ou.clear()
     ou.find(ou_id)
     ou_short_name = ou.get_name_with_language(name_variant=co.ou_name_short,
@@ -85,13 +81,12 @@ def get_ouinfo(ou_id, perspective):
                                         name_language=co.language_nb)
     ou_acronym = ou.get_name_with_language(name_variant=co.ou_name_acronym,
                                            name_language=co.language_nb)
-    res = dict()
-    res['name'] = ou_name
-    res['short_name'] = ou_short_name
-    res['acronym'] = ou_acronym
-    acropath = []
-    acropath.append(res['acronym'])
-    # logger.debug("got basic info about id=%s,persp=%s" % (ou_id,perspective))
+    res = {
+        'name': ou_name,
+        'short_name': ou_short_name,
+        'acronym': ou_acronym,
+    }
+    acronym_path = [res['acronym']]
 
     try:
         sted_sko = get_sko(ou_id)
@@ -102,29 +97,22 @@ def get_ouinfo(ou_id, perspective):
     # Find company name for this ou_id by going to parent
     visited = []
     parent_id = ou.get_parent(perspective)
-    # logger.debug("Find parent to OU id=%s, parent has %s, perspective is %s"
-    # % (ou_id,parent_id,perspective))
     while True:
         if (parent_id is None) or (parent_id == ou.entity_id):
             res['company'] = ou_name
             break
         ou.clear()
-        # logger.debug("Lookup %s in %s" % (parent_id,perspective))
         ou.find(parent_id)
-        # logger.debug("THIS line is never reached when processing "
-        # "sito orgunits")
         ou_acronym = ou.get_name_with_language(name_variant=co.ou_name_acronym,
                                                name_language=co.language_nb)
         # Detect infinite loops
         if ou.entity_id in visited:
             raise RuntimeError("DEBUG: Loop detected: %r" % visited)
         visited.append(ou.entity_id)
-        acropath.append(ou_acronym)
+        acronym_path.append(ou_acronym)
         parent_id = ou.get_parent(perspective)
-        # logger.debug("New parentid is %s" % (parent_id,))
-    acropath.reverse()
-    res['path'] = ".".join(acropath)
-    # logger.debug("get_ouinfo: return %s" % res)
+    acronym_path.reverse()
+    res['path'] = ".".join(acronym_path)
     return res
 
 
@@ -134,13 +122,13 @@ get_ouinfo = memoize(get_ouinfo)
 def wash_sitosted(name):
     # removes preceeding and trailing numbers and whitespaces
     # samskipnaden has a habit of putting metadata (numbers) in the name... :(
-    washed = re.sub(r"^[0-9\ ]+|\,|\&\ |[0-9\ -\.]+$", "", name)
+    washed = re.sub(r"^[0-9 ]+|,|& |[0-9 -.]+$", "", name)
     logger.debug("WASH: '%s'->'%s' " % (name, washed))
     return washed
 
 
 def get_samskipnadstedinfo(ou_id, perspective):
-    res = dict()
+    res = {}
     ou.clear()
     ou.find(ou_id)
     ou_name = ou.get_name_with_language(name_variant=co.ou_name,
@@ -171,7 +159,7 @@ def get_samskipnadstedinfo(ou_id, perspective):
         visited.append(ou.entity_id)
         parentname = wash_sitosted(ou.get_name_with_language(
             co.ou_name_display, co.language_nb, default=''))
-        res.setdefault('parents', list()).append(parentname)
+        res.setdefault('parents', []).append(parentname)
     res['acropath'].remove(res['company'])
     return res
 
@@ -209,10 +197,7 @@ class SafecomExporter:
         self._build_xml()
 
     def _build_cache(self):
-        """
-        Create caches.
-        """
-
+        """Create caches."""
         logger.info("Start get constants")
         for c in dir(co):
             tmp = getattr(co, c)
@@ -239,14 +224,13 @@ class SafecomExporter:
         for row in account.list_accounts_by_type(filter_expired=True,
                                                  primary_only=False,
                                                  fetchall=False):
-            self._account_affs.setdefault(row['account_id'], list()).append(
+            self._account_affs.setdefault(row['account_id'], []).append(
                 (row['affiliation'], row['ou_id']))
 
         logger.info("Cache person affiliations")
         self._person_affs = self.list_affiliations()
 
-        # Remove?
-        pay_accounts = self.get_safecom_mode()
+        self.get_safecom_mode()
 
         logger.info("Cache person names")
         self._cached_names = person.getdict_persons_names(
@@ -258,13 +242,6 @@ class SafecomExporter:
             primary_only=True)
 
     def get_safecom_mode(self):
-        """
-        Does not return anything? Change name etc?
-        :return:
-        :rtype:
-        """
-
-        # TODO: Move to config?
         pay_filter = [co.affiliation_status_student_aktiv,
                       co.affiliation_status_student_alumni,
                       co.affiliation_status_student_evu,
@@ -315,22 +292,15 @@ class SafecomExporter:
                                     pay = False
                                     continue
 
-                # print "PAY == %s " % pay
-                if pay is False:
+                if not pay:
                     self.track.append(account)
-                elif pay is True:
+                elif pay:
                     self.pay.append(account)
             except KeyError:
                 logger.warn("account:%s has no valid owner" % account)
                 continue
 
     def list_affiliations(self):
-        """
-
-        :return:
-        :rtype:
-        """
-
         person_affs = {}
         skip_source = [co.system_lt]
 
@@ -349,6 +319,7 @@ class SafecomExporter:
             else:
                 perspective_code = co.perspective_fs
 
+            sko = path = ''
             try:
                 ou_info = get_ouinfo(ou_id, perspective_code)
                 sko = ou_info['sko']
@@ -360,7 +331,7 @@ class SafecomExporter:
                 continue
             except Errors.NotFoundError:
                 logger.debug(
-                    ("OU id=%s not found on person %s. DB integrety error " +
+                    ("OU id=%s not found on person %s. DB integrity error " +
                      "(this MAY be caused by parent sito ou not having " +
                      "stedkode).") % (
                         ou_id, person_id))
@@ -371,22 +342,21 @@ class SafecomExporter:
                 path = "Norges arktiske studentsamskipnad"
 
             aff_stat = self._num_to_const[aff['status']]
-            affinfo = {'affstr': str(aff_stat),
-                       'affiliation': aff['affiliation'],
-                       'ou_id': ou_id,
-                       'affstatus': aff['status'],
-                       'sko': sko,
-                       'path': path,
-                       }
-            tmp = person_affs.get(person_id, list())
-            if affinfo not in tmp:
-                tmp.append(affinfo)
+            aff_info = {'affstr': str(aff_stat),
+                        'affiliation': aff['affiliation'],
+                        'ou_id': ou_id,
+                        'affstatus': aff['status'],
+                        'sko': sko,
+                        'path': path,
+                        }
+            tmp = person_affs.get(person_id, [])
+            if aff_info not in tmp:
+                tmp.append(aff_info)
                 person_affs[person_id] = tmp
         return person_affs
 
     def _build_data(self):
         """Fetch and build the user data that will be export."""
-
         logger.info("Processing cerebrum info...")
         count = 0
         for item in self.ad_accounts:
@@ -401,27 +371,27 @@ class SafecomExporter:
             person_affiliations = self._person_affs.get(owner_id, None)
 
             if account_affiliations is None or person_affiliations is None:
-                cost_code = ""
+                cost_code = ''
             else:
                 primary_aff, primary_ou = account_affiliations[0]
-                cost_code = ""
+                cost_code = ''
                 for aff in person_affiliations:
                     if aff['affiliation'] == primary_aff and \
                             aff['ou_id'] == primary_ou:
                         cost_code = "{0}@{1}".format(aff['affstr'],
                                                      aff['path'])
 
-            if cost_code == "":
+            if cost_code == '':
                 # account in grace to be closed, cannot calculate new status.
-                logger.debug(
-                    "Account %s without affiliations. Do not process" % name)
+                logger.debug("Account %s without affiliations. Do not process"
+                             % name)
                 continue
 
             mode = 'Pay' if acc_id in self.pay else 'Track'
 
             owner_type = item['owner_type']
             namelist = self._cached_names.get(owner_id, None)
-            first_name = last_name = ""
+            first_name = last_name = ''
             try:
                 first_name = namelist.get(int(co.name_first))
                 last_name = namelist.get(int(co.name_last))
@@ -434,7 +404,7 @@ class SafecomExporter:
                         "No name found for a_id/o_id=%s/%s, ownertype was %s" %
                         (acc_id, owner_id, owner_type))
 
-            primary_mail = self._uname_to_primary_mail.get(item['name'], "")
+            primary_mail = self._uname_to_primary_mail.get(item['name'], '')
             entry = {
                 'UserLogon': '{0}'.format(name),
                 'FullName': '{0} {1}'.format(first_name, last_name),
@@ -446,7 +416,6 @@ class SafecomExporter:
 
     def _build_xml(self):
         """Generate the xml files."""
-
         with AtomicFileWriter(self.userfile_pay, 'wb') as fh_pay, \
                 AtomicFileWriter(self.userfile_track, 'wb') as fh_trk:
 
@@ -469,7 +438,6 @@ class SafecomExporter:
             xml_trk.startElement('UserList')
 
             for item in self.export_users:
-                # logger.debug("Processing user:%s" % item['UserLogon'])
                 if item['Mode'] == "Pay":
                     xml_pay.startElement('User')
                     xml_pay.dataElement('UserLogon', item['UserLogon'])
@@ -507,10 +475,6 @@ def main():
                         dest='trackfile',
                         help='Write Safecom Track user to file'
                         )
-    parser.add_argument('-o',
-                        '--outfile',
-                        dest='outfile',
-                        help='Writes to given filename')
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
@@ -518,10 +482,6 @@ def main():
 
     logger.info('Starting Safecom exports')
 
-    global payfile
-    global trackfile
-
-    # TODO lookup
     payfile = DEFAULT_PAYXML
     trackfile = DEFAULT_TRACKXML
 
@@ -530,10 +490,6 @@ def main():
 
     if args.trackfile:
         trackfile = args.trackfile
-
-    if args.outfile:
-        # Not in use?
-        outfile = args.outfile
 
     start = datetime.datetime.now()
     worker = SafecomExporter(payfile, trackfile)
