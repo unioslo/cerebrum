@@ -126,7 +126,7 @@ class EntityExpire(Entity):
 
         # If the find doesn't fail, we can assume the OU is found and
         # already in memory. Now check if it's not expired!
-        if entity_expire_db.is_expired(self.db, self.entity_id,
+        if entity_expire_db.is_expired(self._db, self.entity_id,
                                        expired_before=expired_before):
             tmp_id = self.entity_id
             self.clear()
