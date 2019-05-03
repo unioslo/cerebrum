@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2003, 2004 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2003, 2004, 2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,8 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
 """
 Uit specific extension to access a simple role source system
 
@@ -27,9 +25,8 @@ Refine later....
 
 """
 
-import cerebrum_path
 import cereconf
-from Cerebrum import Database
+from Cerebrum.database import Database
 
 
 class SystemY(object):
@@ -38,20 +35,17 @@ class SystemY(object):
         if db is None:
             user = user or cereconf.SYSY_USER
             database = database or cereconf.SYSY_DATABASE_NAME
-            db = Database.connect(user=user, service=database, 
-                                  host=host, DB_driver = 'PsycoPG2')
+            db = Database.connect(user=user, service=database,
+                                  host=host, DB_driver='PsycoPG2')
         self.db = db
-
 
     def list_role_types(self):
         pass
 
-
-    def list_role_members(self,rolename):
+    def list_role_members(self, rolename):
         pass
 
-
-    def _rolefilter(self,rolename):
+    def _rolefilter(self, rolename):
 
         excluded_roles = ['administrator']
         if rolename in excluded_roles:
@@ -60,9 +54,8 @@ class SystemY(object):
             return True
 
         return False
-        
 
-    def list_roles(self,):
+    def list_roles(self, ):
 
         items = []
 
@@ -74,6 +67,5 @@ class SystemY(object):
         """
         for r in self.db.query(sql):
             if not self._rolefilter(r['gname']):
-                items.append({ 'uname': r['uname'], 'gname': r['gname']})                 
+                items.append({'uname': r['uname'], 'gname': r['gname']})
         return items
-

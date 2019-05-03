@@ -1,7 +1,7 @@
 #!/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2003, 2004 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2003, 2004, 2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,37 +24,36 @@ import os
 import time
 import sys
 import getopt
-import xml
 
-import cerebrum_path
 import cereconf
 
-from Cerebrum import Database
 from Cerebrum.extlib import xmlprinter
-from Cerebrum.Utils import Factory
-from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
-from Cerebrum.modules.no.uit.access_SYSY import SystemY 
+from Cerebrum.Utils import XMLHelper
+from Cerebrum.utils.atomicfile import MinimumSizeWriter
+from Cerebrum.modules.no.uit.access_SYSY import SystemY
 
 default_role_file = os.path.join(cereconf.DUMPDIR,
-                                 'sysY','sysY_%s.xml' % (time.strftime("%Y%m%d")))
+                                 'sysY',
+                                 'sysY_%s.xml' % (time.strftime("%Y%m%d")))
 
 xml = XMLHelper()
 
 sys_y = None
-KiB=1024
+KiB = 1024
+
 
 def write_role_info(outfile):
     stream = MinimumSizeWriter(outfile)
-    stream.set_minimum_size_limit(2*KiB)
-    write_roles(stream,sys_y.list_roles())
+    stream.min_size = 2 * KiB
+    write_roles(stream, sys_y.list_roles())
     stream.close()
 
 
-def write_roles(stream,items):
+def write_roles(stream, items):
     xml_data = {}
     for data in items:
         current = xml_data.get(data['gname'])
-        if (current):
+        if current:
             xml_data[data['gname']].append(data['uname'])
         else:
             xml_data[data['gname']] = [data['uname']]
@@ -62,18 +61,18 @@ def write_roles(stream,items):
     keys.sort()
 
     writer = xmlprinter.xmlprinter(stream,
-                                   indent_level = 2,
-                                   data_mode = True,
-                                   input_encoding = "iso-8859-1")
-    writer.startDocument(encoding = "iso-8859-1")
+                                   indent_level=2,
+                                   data_mode=True,
+                                   input_encoding="iso-8859-1")
+    writer.startDocument(encoding="iso-8859-1")
     writer.startElement("roles")
     for data in keys:
         admin = 'no'
         if data.find('admin') >= 0:
             admin = 'yes'
-        writer.startElement("role", { "name" : data, "admin": admin })
-        list = xml_data.get(data)
-        for x in list:
+        writer.startElement("role", {"name": data, "admin": admin})
+        xml_list = xml_data.get(data)
+        for x in xml_list:
             writer.dataElement("member", x)
         writer.endElement("role")
 
@@ -81,28 +80,29 @@ def write_roles(stream,items):
     writer.endDocument()
 
 
-def assert_connected(db=None,user=None, service=None, host=None):
+def assert_connected(user=None, service=None, host=None):
     global sys_y
     if sys_y is None:
-        sys_y = SystemY(user=user,database=service,host=host)
+        sys_y = SystemY(user=user, database=service, host=host)
 
-    
-def usage(exit_code=0,msg=None):
 
+def usage(exit_code=0, msg=None):
     if msg:
-        print msg
+        print(msg)
 
-    print """ CREATE DOCSTRING"""
+    print(""" CREATE DOCSTRING""")
     sys.exit(exit_code)
 
+
 def main():
-    
     try:
         opts, args = getopt.getopt(sys.argv[1:], "r",
-                                   ["role-file","db-user=",
-                                    "db-service=","db-host="])
-    except getopt.GetoptError,m:
-        usage(1,m)
+                                   ["role-file",
+                                    "db-user=",
+                                    "db-service=",
+                                    "db-host="])
+    except getopt.GetoptError as m:
+        usage(1, m)
 
     role_file = default_role_file
     db_user = cereconf.SYS_Y['db_user']
@@ -121,6 +121,7 @@ def main():
     for o, val in opts:
         if o in ('-r',):
             write_role_info(role_file)
+
 
 if __name__ == '__main__':
     main()
