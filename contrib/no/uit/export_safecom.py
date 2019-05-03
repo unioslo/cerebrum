@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2002-2019 University of Oslo, Norway
 #
@@ -21,6 +21,8 @@
 
 
 # Uit specific extension to Cerebrum
+
+from __future__ import unicode_literals
 
 import argparse
 import datetime
@@ -444,26 +446,29 @@ class SafecomExporter:
 
     def _build_xml(self):
         """Generate the xml files."""
-        logger.info(
-            "Start building pay export, writing to %s" % self.userfile_pay)
 
-        with AtomicFileWriter(self.userfile_pay, 'w') as fh_pay, \
-                AtomicFileWriter(self.userfile_track, 'w') as fh_trk:
+        with AtomicFileWriter(self.userfile_pay, 'wb') as fh_pay, \
+                AtomicFileWriter(self.userfile_track, 'wb') as fh_trk:
 
-            xml_pay = xmlprinter(fh_pay, indent_level=2, data_mode=True,
-                                 input_encoding='ISO-8859-1')
+            logger.info(
+                "Start building pay export, writing to %s" % self.userfile_pay)
+            xml_pay = xmlprinter(fh_pay,
+                                 indent_level=2,
+                                 data_mode=True,
+                                 input_encoding='utf-8')
             xml_pay.startDocument(encoding='utf-8')
             xml_pay.startElement('UserList')
-
             logger.info(
                 "Start building track export, writing to %s" %
                 self.userfile_track)
-            xml_trk = xmlprinter(fh_trk, indent_level=2, data_mode=True,
-                                 input_encoding='ISO-8859-1')
+            xml_trk = xmlprinter(fh_trk,
+                                 indent_level=2,
+                                 data_mode=True,
+                                 input_encoding='utf-8')
             xml_trk.startDocument(encoding='utf-8')
             xml_trk.startElement('UserList')
 
-            for item in self.userexport:
+            for item in self.export_users:
                 # logger.debug("Processing user:%s" % item['UserLogon'])
                 if item['Mode'] == "Pay":
                     xml_pay.startElement('User')
