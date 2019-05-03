@@ -32,8 +32,10 @@ import sys
 import time
 import xml.sax
 import getopt
+import logging
 
 import cereconf
+import Cerebrum.logutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
@@ -41,12 +43,14 @@ from Cerebrum.modules import PosixGroup
 from Cerebrum.utils import transliterate
 from Cerebrum.modules.no.uit.Account import UsernamePolicy
 
+logger = logging.getLogger(__name__)
+
 db = Factory.get('Database')()
 db.cl_init(change_program='pop_itroles')
 account = Factory.get('Account')(db)
 person = Factory.get('Person')(db)
 const = Factory.get('Constants')(db)
-logger = Factory.get_logger('cronjob')
+
 account2name = dict((x["entity_id"], x["entity_name"]) for x in
                     Factory.get("Group")(db).list_names(
                         const.account_namespace))
@@ -84,7 +88,7 @@ class RolesXmlParser(xml.sax.ContentHandler):
 
     def characters(self, ch):
         self.var = None
-        tmp = ch.encode('iso8859-1').strip()
+        tmp = ch.encode('iso8859-1').strip()  # TODO: Should this be changed?
         if tmp:
             self.var = tmp
             self._elemdata.append(tmp)
@@ -333,6 +337,8 @@ def usage(msg=None):
 def main():
     dryrun = False
     role_file = sys_y_default_file
+
+    Cerebrum.logutils.autoconf('cronjob')
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'r:dh',

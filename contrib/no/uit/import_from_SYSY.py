@@ -38,11 +38,10 @@ default_role_file = os.path.join(cereconf.DUMPDIR,
 
 xml = XMLHelper()
 
-sys_y = None
 KiB = 1024
 
 
-def write_role_info(outfile):
+def write_role_info(sys_y, outfile):
     stream = MinimumSizeWriter(outfile)
     stream.min_size = 2 * KiB
     write_roles(stream, sys_y.list_roles())
@@ -64,6 +63,7 @@ def write_roles(stream, items):
                                    indent_level=2,
                                    data_mode=True,
                                    input_encoding="iso-8859-1")
+    # TODO: Do we want to change the encoding here?
     writer.startDocument(encoding="iso-8859-1")
     writer.startElement("roles")
     for data in keys:
@@ -78,12 +78,6 @@ def write_roles(stream, items):
 
     writer.endElement("roles")
     writer.endDocument()
-
-
-def assert_connected(user=None, service=None, host=None):
-    global sys_y
-    if sys_y is None:
-        sys_y = SystemY(user=user, database=service, host=host)
 
 
 def usage(exit_code=0, msg=None):
@@ -117,10 +111,11 @@ def main():
             db_host = val
         elif o in ('--db-service',):
             db_service = val
-    assert_connected(user=db_user, service=db_service, host=db_host)
+    sys_y = SystemY(user=db_user, database=db_service, host=db_host)
+
     for o, val in opts:
         if o in ('-r',):
-            write_role_info(role_file)
+            write_role_info(sys_y, role_file)
 
 
 if __name__ == '__main__':

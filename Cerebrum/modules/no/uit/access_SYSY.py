@@ -33,8 +33,8 @@ class SystemY(object):
 
     def __init__(self, db=None, user=None, database=None, host=None):
         if db is None:
-            user = user or cereconf.SYSY_USER
-            database = database or cereconf.SYSY_DATABASE_NAME
+            user = user or cereconf.SYS_Y['db_user']
+            database = database or cereconf.SYS_Y['db_service']
             db = Database.connect(user=user, service=database,
                                   host=host, DB_driver='PsycoPG2')
         self.db = db
@@ -55,7 +55,7 @@ class SystemY(object):
 
         return False
 
-    def list_roles(self, ):
+    def list_roles(self):
 
         items = []
 
