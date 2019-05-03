@@ -40,6 +40,7 @@ from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
+from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
@@ -175,8 +176,6 @@ def get_samskipnadstedinfo(ou_id, perspective):
 
 get_samskipnadstedinfo = memoize(get_samskipnadstedinfo)
 
-num2const = dict()
-
 
 class SafecomExporter:
 
@@ -186,6 +185,8 @@ class SafecomExporter:
 
         self.pay = []
         self.track = []
+
+        self.export_users = []
 
         # Initialize cache
         self.ad_accounts = None
@@ -198,10 +199,14 @@ class SafecomExporter:
         self._person_affs = {}
         self._cached_names = {}
         self._uname_to_primary_mail = {}
+        self._num_to_const = {}
 
-        self.create_cache()
+    def create_exports(self):
+        self._build_cache()
+        self._build_data()
+        self._build_xml()
 
-    def create_cache(self):
+    def _build_cache(self):
         """
         Create caches.
         """
@@ -210,7 +215,7 @@ class SafecomExporter:
         for c in dir(co):
             tmp = getattr(co, c)
             if isinstance(tmp, _CerebrumCode):
-                num2const[int(tmp)] = tmp
+                self._num_to_const[int(tmp)] = tmp
 
         logger.info("Create AD account cache")
         self.ad_accounts = account.search(
@@ -251,6 +256,11 @@ class SafecomExporter:
             primary_only=True)
 
     def get_safecom_mode(self):
+        """
+        Does not return anything? Change name etc?
+        :return:
+        :rtype:
+        """
 
         # TODO: Move to config?
         pay_filter = [co.affiliation_status_student_aktiv,
@@ -313,48 +323,52 @@ class SafecomExporter:
                 continue
 
     def list_affiliations(self):
-        person_affs = dict()
-        skip_source = []
-        skip_source.append(co.system_lt)
+        """
+
+        :return:
+        :rtype:
+        """
+
+        person_affs = {}
+        skip_source = [co.system_lt]
+
         for aff in person.list_affiliations():
             # simple filtering
             if aff['source_system'] in skip_source:
                 logger.warn(
                     'Skip affiliation, unwanted source system %s' % aff)
                 continue
-            p_id = aff['person_id']
+            person_id = aff['person_id']
             ou_id = aff['ou_id']
             source_system = aff['source_system']
-            if (source_system == co.system_sito):
+
+            if source_system == co.system_sito:
                 perspective_code = co.perspective_sito
             else:
                 perspective_code = co.perspective_fs
-            # logger.debug("perspective code is:%s" % perspective_code)
-            try:
 
+            try:
                 ou_info = get_ouinfo(ou_id, perspective_code)
-                # logger.debug("-- line check --")
                 sko = ou_info['sko']
-                # logger.debug("sko is:%s" % sko)
                 path = ou_info['path']
-                # logger.debug("path is:%s" % path)
             except EntityExpiredError:
                 logger.error(
                     "person id:%s affiliated to expired ou:%s. Do not export"
-                    % (p_id, ou_id))
+                    % (person_id, ou_id))
                 continue
             except Errors.NotFoundError:
                 logger.debug(
                     ("OU id=%s not found on person %s. DB integrety error " +
                      "(this MAY be caused by parent sito ou not having " +
                      "stedkode).") % (
-                        ou_id, p_id))
+                        ou_id, person_id))
                 # sys.exit(1)
 
             if source_system == co.system_sito:
                 # TODO fix hardcoding!!
                 path = "Norges arktiske studentsamskipnad"
-            aff_stat = num2const[aff['status']]
+
+            aff_stat = self._num_to_const[aff['status']]
             affinfo = {'affstr': str(aff_stat),
                        'affiliation': aff['affiliation'],
                        'ou_id': ou_id,
@@ -362,55 +376,50 @@ class SafecomExporter:
                        'sko': sko,
                        'path': path,
                        }
-            tmp = person_affs.get(p_id, list())
+            tmp = person_affs.get(person_id, list())
             if affinfo not in tmp:
                 tmp.append(affinfo)
-                person_affs[p_id] = tmp
+                person_affs[person_id] = tmp
         return person_affs
 
-    def build_cbdata(self):
+    def _build_data(self):
+        """Fetch and build the user data that will be export."""
+
         logger.info("Processing cerebrum info...")
         count = 0
-        self.userexport = list()
         for item in self.ad_accounts:
             count += 1
-            if (count % 500 == 0):
+            if count % 500 == 0:
                 logger.info("Processed %d accounts" % count)
             acc_id = item['account_id']
             name = item['name']
             owner_id = item['owner_id']
 
-            accaffs = self._account_affs.get(acc_id, None)
-            persaffs = self._person_affs.get(owner_id, None)
+            account_affiliations = self._account_affs.get(acc_id, None)
+            person_affiliations = self._person_affs.get(owner_id, None)
 
-            costcode = ""
-            if accaffs is None:
-                costcode = ""
-            elif persaffs is None:
-                costcode = ""
+            if account_affiliations is None or person_affiliations is None:
+                cost_code = ""
             else:
-                primaryaff, primary_ou = accaffs[0]
-                costcode = ""
-                for paff in persaffs:
-                    if paff['affiliation'] == primaryaff and \
-                            paff['ou_id'] == primary_ou:
-                        costcode = "%s@%s" % (paff['affstr'], paff['path'])
-            # logger.debug("%s: CostCode is %s" % (name,costcode))
-            if costcode == "":
+                primary_aff, primary_ou = account_affiliations[0]
+                cost_code = ""
+                for aff in person_affiliations:
+                    if aff['affiliation'] == primary_aff and \
+                            aff['ou_id'] == primary_ou:
+                        cost_code = "{0}@{1}".format(aff['affstr'],
+                                                     aff['path'])
+
+            if cost_code == "":
+                # account in grace to be closed, cannot calculate new status.
                 logger.debug(
                     "Account %s without affiliations. Do not process" % name)
-                # account in grace to be closed, cannot calculate new status.
                 continue
 
-            if acc_id in self.pay:
-                mode = "Pay"
-            # logger.debug("%s has mode pay" % acc_id)
-            else:
-                mode = "Track"
-            # logger.debug("%s has mode track" % acc_id)
+            mode = 'Pay' if acc_id in self.pay else 'Track'
+
             owner_type = item['owner_type']
-            namelist = self.cached_names.get(owner_id, None)
-            first_name = last_name = worktitle = ""
+            namelist = self._cached_names.get(owner_id, None)
+            first_name = last_name = ""
             try:
                 first_name = namelist.get(int(co.name_first))
                 last_name = namelist.get(int(co.name_last))
@@ -423,59 +432,61 @@ class SafecomExporter:
                         "No name found for a_id/o_id=%s/%s, ownertype was %s" %
                         (acc_id, owner_id, owner_type))
 
-            # TODO, to dict literal
-            entry = dict()
-            entry['UserLogon'] = "%s" % (name,)
-            entry['FullName'] = "%s %s" % (first_name, last_name)
             primary_mail = self._uname_to_primary_mail.get(item['name'], "")
-            entry['Email'] = primary_mail
-            entry['CostCode'] = costcode
-            entry['Mode'] = mode
+            entry = {
+                'UserLogon': '{0}'.format(name),
+                'FullName': '{0} {1}'.format(first_name, last_name),
+                'Email': primary_mail,
+                'CostCode': cost_code,
+                'Mode': mode,
+            }
+            self.export_users.append(entry)
 
-            self.userexport.append(entry)
-
-    def build_xml(self):
-
+    def _build_xml(self):
+        """Generate the xml files."""
         logger.info(
             "Start building pay export, writing to %s" % self.userfile_pay)
-        fh_pay = file(self.userfile_pay, 'w')
-        xml_pay = xmlprinter(fh_pay, indent_level=2, data_mode=True,
-                             input_encoding='ISO-8859-1')
-        xml_pay.startDocument(encoding='utf-8')
-        xml_pay.startElement('UserList')
 
-        logger.info(
-            "Start building track export, writing to %s" % self.userfile_track)
-        fh_trk = file(self.userfile_track, 'w')
-        xml_trk = xmlprinter(fh_trk, indent_level=2, data_mode=True,
-                             input_encoding='ISO-8859-1')
-        xml_trk.startDocument(encoding='utf-8')
-        xml_trk.startElement('UserList')
+        with AtomicFileWriter(self.userfile_pay, 'w') as fh_pay, \
+                AtomicFileWriter(self.userfile_track, 'w') as fh_trk:
 
-        for item in self.userexport:
-            # logger.debug("Processing user:%s" % item['UserLogon'])
-            if item['Mode'] == "Pay":
-                xml_pay.startElement('User')
-                xml_pay.dataElement('UserLogon', item['UserLogon'])
-                xml_pay.dataElement('CostCode', item['CostCode'])
-                xml_pay.dataElement('FullName', item['FullName'])
-                xml_pay.dataElement('Email', item['Email'])
-                xml_pay.endElement('User')
-            elif item['Mode'] == "Track":
-                xml_trk.startElement('User')
-                xml_trk.dataElement('UserLogon', item['UserLogon'])
-                xml_trk.dataElement('CostCode', item['CostCode'])
-                xml_trk.dataElement('FullName', item['FullName'])
-                xml_trk.dataElement('Email', item['Email'])
-                xml_trk.endElement('User')
-            else:
-                logger.error("MODE invalid: %s" % (item['Mode'],))
+            xml_pay = xmlprinter(fh_pay, indent_level=2, data_mode=True,
+                                 input_encoding='ISO-8859-1')
+            xml_pay.startDocument(encoding='utf-8')
+            xml_pay.startElement('UserList')
 
-        xml_pay.endElement('UserList')
-        xml_pay.endDocument()
-        xml_trk.endElement('UserList')
-        xml_trk.endDocument()
-        logger.info("Writing done")
+            logger.info(
+                "Start building track export, writing to %s" %
+                self.userfile_track)
+            xml_trk = xmlprinter(fh_trk, indent_level=2, data_mode=True,
+                                 input_encoding='ISO-8859-1')
+            xml_trk.startDocument(encoding='utf-8')
+            xml_trk.startElement('UserList')
+
+            for item in self.userexport:
+                # logger.debug("Processing user:%s" % item['UserLogon'])
+                if item['Mode'] == "Pay":
+                    xml_pay.startElement('User')
+                    xml_pay.dataElement('UserLogon', item['UserLogon'])
+                    xml_pay.dataElement('CostCode', item['CostCode'])
+                    xml_pay.dataElement('FullName', item['FullName'])
+                    xml_pay.dataElement('Email', item['Email'])
+                    xml_pay.endElement('User')
+                elif item['Mode'] == "Track":
+                    xml_trk.startElement('User')
+                    xml_trk.dataElement('UserLogon', item['UserLogon'])
+                    xml_trk.dataElement('CostCode', item['CostCode'])
+                    xml_trk.dataElement('FullName', item['FullName'])
+                    xml_trk.dataElement('Email', item['Email'])
+                    xml_trk.endElement('User')
+                else:
+                    logger.error("MODE invalid: %s" % (item['Mode'],))
+
+            xml_pay.endElement('UserList')
+            xml_pay.endDocument()
+            xml_trk.endElement('UserList')
+            xml_trk.endDocument()
+            logger.info("Writing done")
 
 
 def main():
@@ -521,9 +532,7 @@ def main():
 
     start = mx.DateTime.now()
     worker = SafecomExporter(payfile, trackfile)
-    worker.load_cbdata()
-    worker.build_cbdata()
-    worker.build_xml()
+    worker.create_exports()
     stop = mx.DateTime.now()
     logger.info("Started %s ended %s" % (start, stop))
     logger.info("Script running time was %s " % (
