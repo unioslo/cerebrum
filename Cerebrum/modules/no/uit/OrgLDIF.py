@@ -121,74 +121,20 @@ class OrgLDIFUiTMixin(OrgLDIF):
             self.ou_tree.setdefault(parent_id, []).append(int(ou_id))
         timer("...OU tree done.")
 
-    def make_uioPersonScopedAffiliation(self, p_id, pri_aff, pri_ou):
-        # [primary|secondary]:<affiliation>@<status>/<stedkode>
-        ret = []
-        pri_aff_str, pri_status_str = pri_aff
-        for aff, status, ou in self.affiliations[p_id]:
-            # populate the caches
-            if aff in self.aff_cache:
-                aff_str = self.aff_cache[aff]
-            else:
-                aff_str = str(self.const.PersonAffiliation(aff))
-                self.aff_cache[aff] = aff_str
-            if status in self.status_cache:
-                status_str = self.status_cache[status]
-            else:
-                status_str = str(self.const.PersonAffStatus(status).str)
-                self.status_cache[status] = status_str
-            p = 'secondary'
-            if (aff_str == pri_aff_str and
-                    status_str == pri_status_str and ou == pri_ou):
-                p = 'primary'
-            ou = self.ou_id2ou_uniq_id[ou]
-            if ou:
-                ret.append(
-                    ''.join((p, ':', aff_str, '/', status_str, '@', ou)))
-        return ret
-
     def init_account_info(self):
-        # Set self.acc_name        = dict {account_id: user name}.
-        # Set self.acc_passwd      = dict {account_id: password hash}.
-        # Set self.acc_quarantines = dict {account_id: [quarantine list]}.
-        # Set acc_locked_quarantines = acc_quarantines or separate dict
-        timer = make_timer(self.logger, "Fetching account information...")
-        timer2 = make_timer(self.logger)
-        self.acc_name = {}
-        self.acc_passwd = {}
-        self.acc_locked_quarantines = self.acc_quarantines = defaultdict(
-            list)
-        for row in self.account.list_account_authentication(
-                auth_type=int(self.const.auth_type_md5_crypt)):
+        super(OrgLDIFUiTMixin, self).init_account_info()
 
-            # filter out sito accounts
-            self.logger.debug("processing account:%s" % row['entity_name'])
-            if len(row['entity_name']) == 7:
-                if row['entity_name'][-1] == 's':
+        # Filter out sito accounts
+        acc_names = self.acc_name.copy()
+        for account_id in acc_names:
+            self.logger.debug("processing account:%s" % acc_names[account_id])
+            if len(acc_names[account_id]) == 7:
+                if acc_names[account_id][-1] == 's':
                     self.logger.debug(
-                        "filtering out account:%s" % row['entity_name'])
-                    continue
-
-            account_id = int(row['account_id'])
-            self.acc_name[account_id] = row['entity_name']
-            self.acc_passwd[account_id] = row['auth_data']
-
-        timer2("...account quarantines...")
-        nonlock_quarantines = [
-            int(self.const.Quarantine(code))
-            for code in getattr(cereconf, 'QUARANTINE_FEIDE_NONLOCK', ())]
-        if nonlock_quarantines:
-            self.acc_locked_quarantines = defaultdict(list)
-        for row in self.account.list_entity_quarantines(
-                entity_ids=self.accounts,
-                only_active=True,
-                entity_types=self.const.entity_account):
-            qt = int(row['quarantine_type'])
-            entity_id = int(row['entity_id'])
-            self.acc_quarantines[entity_id].append(qt)
-            if nonlock_quarantines and qt not in nonlock_quarantines:
-                self.acc_locked_quarantines[entity_id].append(qt)
-        timer("...account information done.")
+                        "filtering out account:%s" % acc_names[account_id])
+                    self.acc_name.pop(account_id)
+                    self.account_auth.pop(account_id)
+        del acc_names
 
     def make_person_entry(self, row, person_id):
         """ Extend with UiO functionality. """
