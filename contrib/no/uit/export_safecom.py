@@ -23,11 +23,10 @@
 # Uit specific extension to Cerebrum
 
 import argparse
+import datetime
 import logging
-import mx.DateTime
 import os
 import re
-import sys
 
 import Cerebrum.logutils
 import cerebrum_path
@@ -45,8 +44,9 @@ from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
 
-today_tmp = mx.DateTime.today()
-tomorrow_tmp = today_tmp + 1
+
+today_tmp = datetime.datetime.today()
+tomorrow_tmp = today_tmp + datetime.timedelta(days=1)
 TODAY = today_tmp.strftime("%Y%m%d")
 TOMORROW = tomorrow_tmp.strftime("%Y%m%d")
 
@@ -530,13 +530,14 @@ def main():
         # Not in use?
         outfile = args.outfile
 
-    start = mx.DateTime.now()
+    start = datetime.datetime.now()
     worker = SafecomExporter(payfile, trackfile)
     worker.create_exports()
-    stop = mx.DateTime.now()
+    stop = datetime.datetime.now()
+    runtime = stop - start
     logger.info("Started %s ended %s" % (start, stop))
-    logger.info("Script running time was %s " % (
-        (stop - start).strftime("%M minutes %S secs")))
+    logger.info("Script running time was %d seconds" % (
+        int(runtime.total_seconds())))
 
 
 if __name__ == '__main__':
