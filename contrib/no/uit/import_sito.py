@@ -128,7 +128,8 @@ def parse_person_employments(person):
         A generator that yields (employment_title, employment_unit) pairs
     """
     today = datetime.date.today()
-    employee_id = person['employee_id']
+    # We know this exists from parse_person
+    employee_id = person.find('EmploymentInfo/Employee/EmployeeNumber').text
 
     for employment in person.findall('EmploymentInfo/Employee/'
                                      'Employment/Employment'):
