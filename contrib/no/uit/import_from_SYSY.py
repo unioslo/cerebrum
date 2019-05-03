@@ -20,17 +20,17 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
+import argparse
+import logging
 import os
 import time
-import sys
-import getopt
 
 import cereconf
-
-from Cerebrum.extlib import xmlprinter
+from Cerebrum import logutils
 from Cerebrum.Utils import XMLHelper
-from Cerebrum.utils.atomicfile import MinimumSizeWriter
+from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no.uit.access_SYSY import SystemY
+from Cerebrum.utils.atomicfile import MinimumSizeWriter
 
 default_role_file = os.path.join(cereconf.DUMPDIR,
                                  'sysY',
@@ -39,6 +39,7 @@ default_role_file = os.path.join(cereconf.DUMPDIR,
 xml = XMLHelper()
 
 KiB = 1024
+logger = logging.getLogger(__name__)
 
 
 def write_role_info(sys_y, outfile):
@@ -80,42 +81,35 @@ def write_roles(stream, items):
     writer.endDocument()
 
 
-def usage(exit_code=0, msg=None):
-    if msg:
-        print(msg)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(description=__doc__)
 
-    print(""" CREATE DOCSTRING""")
-    sys.exit(exit_code)
+    parser.add_argument('-r',
+                        action='store_true',
+                        default=False,
+                        dest='write_roles',
+                        help='write role info file')
 
+    parser.add_argument('--role-file',
+                        required=False,
+                        metavar='filename',
+                        default=default_role_file)
+    parser.add_argument('--db-user',
+                        default=cereconf.SYS_Y['db_user'])
+    parser.add_argument('--db-host',
+                        default=cereconf.SYS_Y['db_host'])
+    parser.add_argument('--db-service',
+                        default=cereconf.SYS_Y['db_service'])
 
-def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "r",
-                                   ["role-file",
-                                    "db-user=",
-                                    "db-service=",
-                                    "db-host="])
-    except getopt.GetoptError as m:
-        usage(1, m)
+    logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    logutils.autoconf('cronjob', args)
 
-    role_file = default_role_file
-    db_user = cereconf.SYS_Y['db_user']
-    db_service = cereconf.SYS_Y['db_service']
-    db_host = cereconf.SYS_Y['db_host']
-    for o, val in opts:
-        if o in ('--role-file',):
-            role_file = val
-        elif o in ('--db-user',):
-            db_user = val
-        elif o in ('--db-host',):
-            db_host = val
-        elif o in ('--db-service',):
-            db_service = val
-    sys_y = SystemY(user=db_user, database=db_service, host=db_host)
+    sys_y = SystemY(user=args.db_user, database=args.db_service,
+                    host=args.db_host)
 
-    for o, val in opts:
-        if o in ('-r',):
-            write_role_info(sys_y, role_file)
+    if args.write_roles:
+        write_role_info(sys_y, args.role_file)
 
 
 if __name__ == '__main__':

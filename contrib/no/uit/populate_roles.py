@@ -27,21 +27,21 @@ if rolename has admin attr=yes
   build an admin accont ( 999-style)
 """
 
+import argparse
+import logging
 import os
-import sys
 import time
 import xml.sax
-import getopt
-import logging
 
-import cereconf
 import Cerebrum.logutils
+import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
-from Cerebrum.utils import transliterate
+from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit.Account import UsernamePolicy
+from Cerebrum.utils import transliterate
+from Cerebrum.utils.argutils import add_commit_args
 
 logger = logging.getLogger(__name__)
 
@@ -318,50 +318,25 @@ def rolle_helper(obj, el_name):
     return
 
 
-def usage(msg=None):
-    if msg:
-        print(msg)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(__doc__)
+    parser.add_argument('-r', '--role_file',
+                        help='role filename',
+                        default=sys_y_default_file)
+    parser = add_commit_args(parser)
 
-    print("""
-     Skriv usage melding her
-     populate_roles.py
-     -r name | --role_file=name    use file named "name" as input file
-     --logger-name=name  use logger target named "name"
-     --logger-level=level  set logger level
-     -d | --dryrun                 dryrun, do not change database.
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-    """)
-    sys.exit(1)
+    RolesXmlParser(args.role_file, rolle_helper)
 
-
-def main():
-    dryrun = False
-    role_file = sys_y_default_file
-
-    Cerebrum.logutils.autoconf('cronjob')
-
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'r:dh',
-                                   ['role_file', 'dryrun', 'help'])
-    except getopt.GetoptError as m:
-        usage(m)
-
-    for opt, val in opts:
-        if opt in ('-r', '--role_file'):
-            role_file = val
-        if opt in ('-d', '--dryrun'):
-            dryrun = True
-        if opt in ('-h', '--help'):
-            usage()
-
-    RolesXmlParser(role_file, rolle_helper)
-
-    if dryrun:
-        logger.info("Dryrun, rollback changes")
-        db.rollback()
-    else:
+    if args.commit:
         logger.info("Commiting changes")
         db.commit()
+    else:
+        logger.info("Dryrun, rollback changes")
+        db.rollback()
 
 
 if __name__ == '__main__':
