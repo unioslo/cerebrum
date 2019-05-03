@@ -8,4 +8,4 @@ egenix-mx-base  # cerebrum
 psycopg2  # cerebrum
 virtualenvwrapper
 pygpgme
-smbpasswd
+passlib
