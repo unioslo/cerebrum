@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -35,45 +35,29 @@ History
 -------
 kbj005 2015.02.25: Copied from Leetah.
 """
+from __future__ import print_function, unicode_literals
 
+import argparse
 import csv
-import getopt
+import datetime
+import io
+import logging
 import os
+import shutil
 import sys
 
-import mx.DateTime
-
 import cereconf
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
-
-progname = __file__.split("/")[-1]
-__doc__ = """Usage: %s [options]
-    Generate file with paganr, username and e-mail
-
-    options:
-    -o | --out_file   : file to store output
-    -p | --paga-file  : file to read from
-    -h | --help       : show this
-    --logger-name     : name of logger to use
-    --logger-level    : loglevel to use
-
-""" % progname
+logger = logging.getLogger(__name__)
 
 # Define defaults
-TODAY = mx.DateTime.today().strftime("%Y-%m-%d")
-CHARSEP = ';'
-dumpdir_paga = os.path.join(cereconf.DUMPDIR, "paga")
-default_paga_file = 'uit_paga_last.csv'
-
-default_out_path = os.path.join(cereconf.DUMPDIR, "pagaweb")
-default_out_file = 'last.csv'
-export_marker_file = 'copy_to_paga'
-
-# some common vars
-db = Factory.get('Database')()
-logger = Factory.get_logger("cronjob")
+default_in_charsep = ';'
+default_in_encoding = 'iso-8859-1'
+default_out_encoding = 'iso-8859-1'
 
 # define field positions in PAGA csv-data
 # First line in PAGA csv file contains field names. Use them.
@@ -83,11 +67,11 @@ KEY_ANSATTNR = 'Ansattnr'
 KEY_AV = 'Av'
 KEY_BRUKERNAVN = 'Brukernavn'
 KEY_DBHKAT = 'DBH stillingskategori'
-KEY_DATOFRA = 'F.lønnsdag'
-KEY_DATOTIL = 'S.lønnsdag'
+KEY_DATOFRA = 'F.lÃ¸nnsdag'
+KEY_DATOTIL = 'S.lÃ¸nnsdag'
 KEY_EPOST = 'E-postadresse'
 KEY_ETTERNAVN = 'Etternavn'
-KEY_FNR = 'Fødselsnummer'
+KEY_FNR = 'FÃ¸dselsnummer'
 KEY_FORNAVN = 'Fornavn'
 KEY_HOVEDARBFORH = 'HovedAF'
 KEY_KOSTNADSTED = 'K.sted'
@@ -100,31 +84,41 @@ KEY_TITTEL = 'St.bet'
 KEY_TJFORH = 'Tj.forh.'
 KEY_UNIKAT = 'Univkat'
 KEY_UITKAT = 'UITkat'
-KEY_KJONN = 'Kjønn'
-KEY_FODSELSDATO = 'Fødselsdato'
+KEY_KJONN = 'KjÃ¸nn'
+KEY_FODSELSDATO = 'FÃ¸dselsdato'
 
 
-def parse_paga_csv(pagafile):
+def read_csv_file(filename, encoding, charsep):
+    logger.info("reading csv file=%r (encoding=%r, charsep=%r)",
+                filename, encoding, charsep)
+    with open(filename, mode='r') as f:
+        for data in csv.DictReader(f, delimiter=charsep.encode(encoding)):
+            yield {k.decode(encoding): v.decode(encoding)
+                   for k, v in data.items()}
+
+
+def parse_paga_csv(db, pagafile):
     persons = {}
+    sito_postfix = cereconf.USERNAME_POSTFIX['sito']
 
-    logger.info("Loading paga file...")
-    for detail in csv.DictReader(open(pagafile, 'r'),
-                                 delimiter=CHARSEP):
-        # De vi ønsker skal overføres er alle med ansattforhold:
+    for detail in read_csv_file(pagafile,
+                                encoding=default_in_encoding,
+                                charsep=default_in_charsep):
+        # De vi Ã¸nsker skal overfÃ¸res er alle med ansattforhold:
         #  E (engasjert)
         #  F (fast)
         #  K (kvalifisering)
         #  U (utdanningsstilling)
         #  V (vikar)
-        #  Å (åremål).
+        #  Ã… (Ã¥remÃ¥l).
         #  P (permisjon)
         #  B (bistilling)
-        #  ÅP (postdoc)
-        #  L (lærling)
-        #  T (timelønnet)
+        #  Ã…P (postdoc)
+        #  L (lÃ¦rling)
+        #  T (timelÃ¸nnet)
         if (detail[KEY_HOVEDARBFORH] == 'H' and
                 detail[KEY_TJFORH].upper() in ['E', 'F', 'K', 'U', 'V',
-                                               'Å', 'P', 'B', 'ÅP', 'L', 'T']):
+                                               'Ã…', 'P', 'B', 'Ã…P', 'L', 'T']):
             persons[detail[KEY_ANSATTNR]] = {}
 
     ac = Factory.get('Account')(db)
@@ -146,7 +140,7 @@ def parse_paga_csv(pagafile):
             )[0]['external_id']
             personid_ansattnr[pe.entity_id] = ansattnr
         except Errors.NotFoundError:
-            logger.error("Person not found in BAS ansattnr:%s" % ansattnr)
+            logger.error("Person not found in BAS with ansattnr=%r", ansattnr)
             continue
 
     logger.info("Caching e-mails...")
@@ -155,11 +149,12 @@ def parse_paga_csv(pagafile):
     logger.info("Loading accounts...")
     for row in ac.search(expire_start=None):
         if row['name'][3:5] == '99':
-            logger.debug("Skipping 999 account: %s" % (row['name']))
+            logger.debug("Skipping 999 account id=%r, name=%r",
+                         row['account_id'], row['name'])
             continue
-        elif row['name'].endswith(cereconf.USERNAME_POSTFIX['sito']):
-            # elif row['name'][6:8] == '-s':
-            logger.debug("Skipping sito account:%s" % (row['name']))
+        elif row['name'].endswith(sito_postfix):
+            logger.debug("Skipping sito account id=%r, name=%r",
+                         row['account_id'], row['name'])
             continue
         pid = row['owner_id']
         if (pid in personid_ansattnr and
@@ -169,83 +164,108 @@ def parse_paga_csv(pagafile):
                 persons[personid_ansattnr[pid]]['epost'] = \
                     uname_mail[row['name']]
             else:
-                logger.warn("E-mail not found for ansatt: %s" % row['name'])
+                logger.warning("E-mail not found for account id=%r, name=%r",
+                               row['account_id'], row['name'])
     return persons
 
 
-def main():
-    out_file = os.path.join(default_out_path, default_out_file)
-    paga_file = os.path.join(dumpdir_paga, default_paga_file)
+def get_file_sequence(filename):
+    """
+    Fetch output file sequence number.
+    """
+    delim = ';'.encode(default_out_encoding)
     try:
-        opts, args = getopt.getopt(
-            sys.argv[1:],
-            'hp:o:',
-            ['paga-file=', 'out-file=', 'help'])
-    except getopt.GetoptError as m:
-        usage(1, m)
+        with open(filename, 'r') as fp:
+            lines = csv.reader(fp, delimiter=delim)
+            sequence = int(lines.next()[3])
+        logger.info('Got sequence %r from %r', sequence, filename)
+    except IOError:
+        # Sekvens starter pÃ¥ 1 for nye filer
+        logger.error("No output file=%r, starting sequence at 1",
+                     filename)
+        sequence = 0
+    return sequence + 1
 
-    for opt, val in opts:
-        if opt in ('-o', '--out-file'):
-            out_file = val
-        if opt in ('-p', '--paga-file'):
-            paga_file = val
-        if opt in ('-h', '--help'):
-            usage()
 
-    pers = parse_paga_csv(paga_file)
+def write_persons(filename, pers, sequence, encoding=default_out_encoding):
+    """
+    Write person dicts to a cvs file.
+    """
+    today = datetime.date.today().strftime("%Y-%m-%d")
+
+    with io.open(filename, mode='w', encoding=encoding) as fp:
+        fp.write("00; UiT; %s; %s" % (today, sequence))
+        count = 0
+        for ansattnr in pers.keys():
+            if pers[ansattnr].get('brukernavn', None) is None:
+                logger.error("Username empty: %s", ansattnr)
+
+            if pers[ansattnr].get('epost', None) is None:
+                logger.warning("E-post empty: %s (%s)", ansattnr,
+                               pers[ansattnr].get('brukernavn', 'N/A'))
+
+            if pers[ansattnr].get('fnr', None) is None:
+                logger.error("FNR empty: %s (%s)", ansattnr,
+                             pers[ansattnr].get('brukernavn', 'N/A'))
+
+            fp.write("\n10; UiT; %s; %s; %s; %s" % (
+                ansattnr,
+                pers[ansattnr].get('fnr', ''),
+                pers[ansattnr].get('brukernavn', ''),
+                pers[ansattnr].get('epost', '')))
+            count += 1
+
+        fp.write("\n99; UiT; %s; %s" % (today, count))
+        fp.close()
+
+
+default_infile = os.path.join(sys.prefix, 'var/cache/paga',
+                              'uit_paga_last.csv')
+default_outfile = os.path.join(sys.prefix, 'var/cache/pagaweb', 'last.csv')
+default_log_preset = getattr(cereconf, 'DEFAULT_LOGGER_TARGET', 'console')
+
+
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description="Generate file with paganr, username and e-mail")
+
+    parser.add_argument(
+        '-p', '--paga-file',
+        dest='infile',
+        default=default_infile,
+        help='Read and parse data from csv-file %(metavar)s',
+        metavar='file',
+    )
+    parser.add_argument(
+        '-o', '--out-file',
+        dest='outfile',
+        default=default_outfile,
+        help='Write output to XML-file %(metavar)s',
+        metavar='file',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf(default_log_preset, args)
+
+    logger.info('Start of %s', parser.prog)
+    logger.debug('args: %r', args)
+
+    db = Factory.get('Database')()
+    pers = parse_paga_csv(db, args.infile)
     logger.debug("Information collected. Processed %d persons", len(pers))
 
-    # Før filen skrives, hent sist sendte sekvens. Starter på 1 og teller
+    # FÃ¸r filen skrives, hent sist sendte sekvens. Starter pÃ¥ 1 og teller
     # oppover for hver fil
-    try:
-        fp = open(out_file, 'r')
-        lines = csv.reader(fp, delimiter=';')
-        sequence = int(lines.next()[3]) + 1
-        fp.close()
-    except IOError:
-        # Sekvens starter på 1 for nye filer
-        logger.error("Output file (%s) not found, "
-                     "defaulting to sequence number 1",
-                     out_file)
-        sequence = 1
+    sequence = get_file_sequence(args.outfile)
+    write_persons(args.outfile, pers, sequence)
+    logger.info('Wrote output to %r', args.outfile)
 
-    fp = open(out_file, 'w')
-    fp.write("00; UiT; %s; %s" % (TODAY, sequence))
-    count = 0
-    for ansattnr in pers.keys():
-        if pers[ansattnr].get('brukernavn', None) is None:
-            logger.error("Username empty: %s", ansattnr)
+    new_copy = args.outfile + '.new'
+    shutil.copyfile(args.outfile, new_copy)
+    logger.info('Wrote copy to %r', new_copy)
 
-        if pers[ansattnr].get('epost', None) is None:
-            logger.warning("E-post empty: %s (%s)", ansattnr,
-                           pers[ansattnr].get('brukernavn', 'N/A'))
-
-        if pers[ansattnr].get('fnr', None) is None:
-            logger.error("FNR empty: %s (%s)", ansattnr,
-                         pers[ansattnr].get('brukernavn', 'N/A'))
-
-        fp.write("\n10; UiT; %s; %s; %s; %s" % (
-            ansattnr,
-            pers[ansattnr].get('fnr', ''),
-            pers[ansattnr].get('brukernavn', ''),
-            pers[ansattnr].get('epost', '')))
-        count += 1
-
-    fp.write("\n99; UiT; %s; %s" % (TODAY, count))
-    fp.close()
-    logger.debug("File written.")
-
-    # This file will be deleted by the SCP script to ensure that files aren't
-    # repeatedly copied with the same sequence number
-    fp = open(out_file + '.new', 'w')
-    fp.close()
-
-
-def usage(exit_code=0, msg=None):
-    if msg:
-        print msg
-    print __doc__
-    sys.exit(exit_code)
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':
