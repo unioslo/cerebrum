@@ -299,7 +299,7 @@ def write_ldif():
                     t, ldap.targ2prim[t])
 
         # Find addresses for target:
-        for a in ldap.targ2addr[t]:
+        for a in sorted(ldap.targ2addr[t]):
             f.write("mail: %s\n" % a)
 
         # Find forward-settings:
