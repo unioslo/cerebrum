@@ -226,12 +226,6 @@ def main():
 
     logger.info("Generating Securimaster export")
 
-    disk_spread = None
-    outfile = None
-
-    print(args)
-    exit(0)
-
     load_cache()
     load_cb_data()
     build_export(args.outfile)
