@@ -28,16 +28,16 @@
 
 from __future__ import unicode_literals
 
-import getopt
+import argparse
 import os
-import sys
 import time
 
 import cereconf
+import Cerebrum.logutils
 from Cerebrum import Errors
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 
 db = Factory.get('Database')()
 ou = Factory.get('OU')(db)
@@ -205,40 +205,38 @@ def build_export(outfile):
     logger.info("Export finished")
 
 
-def usage(exitcode=0):
-    print """Usage: [options]
-    -h | --help             : show this message
-    -o | --outfile=filname  : write result to filename
-    --logger-name=loggername: write logs to logtarget loggername
-    --logger-level=loglevel : use this loglevel
-    """
-    sys.exit(exitcode)
-
-
 def main():
-    default_outfile = os.path.join(cereconf.DUMPDIR, \
+    default_outfile = os.path.join(cereconf.DUMPDIR,
                                    "securimaster",
-                                   "securimaster_dump_%s.csv" % time.strftime(
-                                       "%Y%m%d"))
-    user_outfile = None
+                                   "securimaster_dump_{0}.csv".format(
+                                        time.strftime("%Y%m%d"))
+                                   )
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'o:h',
-                                   ['outfile=', 'help'])
-    except getopt.GetoptError:
-        usage(1)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '-o', '--outfile',
+        dest='outfile',
+        default=default_outfile,
+        help='The ePhorte XML export file'
+    )
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info("Generating Securimaster export")
+
     disk_spread = None
     outfile = None
-    for opt, val in opts:
-        if opt in ['-o', '--outfile']:
-            user_outfile = val
-        elif opt in ['-h', '--help']:
-            usage(0)
 
-    outfile = user_outfile or default_outfile
+    print(args)
+    exit(0)
+
     load_cache()
     load_cb_data()
-    build_export(outfile)
+    build_export(args.outfile)
+
+    logger.info("Finished generating Securimaster export")
 
 
 if __name__ == "__main__":
