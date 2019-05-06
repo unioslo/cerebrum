@@ -25,30 +25,21 @@ from __future__ import print_function, unicode_literals
 import argparse
 import csv
 import datetime
+import logging
 import os
 import sys
 # import time
 
-import mx.DateTime
-
 import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
-from Cerebrum.Utils import Factory
 from Cerebrum.extlib import xmlprinter
 
 
 # Define defaults
-TODAY = mx.DateTime.today().strftime("%Y-%m-%d")
 CHARSEP = ';'
-dumpdir_employees = os.path.join(cereconf.DUMPDIR, "employees")
-dumpdir_paga = os.path.join(cereconf.DUMPDIR, "paga")
-default_employee_file = 'paga_persons_%s.xml' % (TODAY,)
-default_paga_file = 'uit_paga_last.csv'
 
-# some common vars
-db = Factory.get('Database')()
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 
 # define field positions in PAGA csv-data
 # First line in PAGA csv file contains field names. Use them.
@@ -83,6 +74,30 @@ KEY_FODSELSDATO = 'Fødselsdato'.encode('ISO-8859-1')
 KEY_LOKASJON = 'Lokasjon'.encode('ISO-8859-1')
 
 
+def parse_date(date_str):
+    """
+    Parse a date on the strfdate format "%Y-%m-%d".
+
+    :rtype: datetime.date
+    :return: Returns the date object, or ``None`` if an invalid date is given.
+    """
+    if not date_str:
+        raise ValueError('Invalid date %r' % (date_str, ))
+    args = (int(date_str[0:4]),
+            int(date_str[5:7]),
+            int(date_str[8:10]))
+    return datetime.date(*args)
+
+
+default_end_date = datetime.date(2070, 1, 1)
+
+
+def read_csv_file(filename):
+    with open(filename, 'r') as f:
+        for data in csv.DictReader(f, delimiter=str(CHARSEP)):
+            yield data
+
+
 def parse_paga_csv(pagafile):
     persons = dict()
     tilsettinger = dict()
@@ -90,7 +105,10 @@ def parse_paga_csv(pagafile):
     dupes = list()
     logger.info("Reading %s", pagafile)
     logger.debug('using charsep=%r', CHARSEP)
-    for detail in csv.DictReader(open(pagafile, 'r'), delimiter=str(CHARSEP)):
+
+    today = datetime.date.today()
+
+    for detail in read_csv_file(pagafile):
         ssn = detail[KEY_FNR]
         logger.debug("processing:%s", ssn)
         # some checks
@@ -172,49 +190,28 @@ def parse_paga_csv(pagafile):
 
                 insert_person = False
 
-                if tils_data['dato_til'] == '':
-                    tils_dato_til_str = '20700101'
+                if tils_data['dato_til']:
+                    dato_til = parse_date(tils_data['dato_til'])
                 else:
-                    tils_dato_til_str = "%s%s%s" % (
-                        tils_data['dato_til'][0:4],
-                        tils_data['dato_til'][5:7],
-                        tils_data['dato_til'][8:11])
+                    dato_til = default_end_date
 
-                if tmp['dato_til'] == '':
-                    tmp_dato_til_str = '20700101'
+                if tmp['dato_til']:
+                    tmp_til = parse_date(tmp['dato_til'])
                 else:
-                    tmp_dato_til_str = "%s%s%s" % (
-                        tmp['dato_til'][0:4],
-                        tmp['dato_til'][5:7],
-                        tmp['dato_til'][8:11])
+                    tmp_til = default_end_date
 
-                # konverted to a format easily tested on
-
-                tils_dato_fra_str = "%s%s%s" % (
-                    tils_data['dato_fra'][0:4],
-                    tils_data['dato_fra'][5:7],
-                    tils_data['dato_fra'][8:11])
-
-                # tmp_dato_fra_konverted = "%s%s%s" % (
-                #     tmp['dato_fra'][0:4],
-                #     tmp['dato_fra'][5:7],
-                #     tmp['dato_fra'][8:11])
-
-                today_konverted = "%s%s%s" % (TODAY[0:4],
-                                              TODAY[5:7],
-                                              TODAY[8:11])
+                dato_fra = parse_date(tils_data['dato_fra'])
 
                 if (tils_data['hovedarbeidsforhold'] == 'H' and
-                        int(tils_dato_til_str) > int(today_konverted)):
+                        dato_til > today):
                     logger.debug("on_hovedarbeidsforhold: inserting person:%s",
                                  tils_data)
                     insert_person = True
 
-                elif (tmp['hovedarbeidsforhold'] == 'H' and
-                      int(tmp_dato_til_str) < int(today_konverted)):
-                    if (int(tils_dato_fra_str) < int(today_konverted) and
-                            int(tils_dato_fra_str) >= int(tmp_dato_til_str) and
-                            int(tils_dato_til_str) > int(today_konverted)):
+                elif (tmp['hovedarbeidsforhold'] == 'H' and tmp_til < today):
+                    if (dato_fra < today and
+                            dato_fra >= tmp_til and
+                            dato_til > today):
                         logger.error("generating person object with ssn:%s, "
                                      "based on dato_fra/dato_til. Verify this",
                                      ssn)
