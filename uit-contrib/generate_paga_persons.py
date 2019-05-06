@@ -28,50 +28,51 @@ import datetime
 import logging
 import os
 import sys
-# import time
+from pprint import pprint
 
 import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.extlib import xmlprinter
 
-
-# Define defaults
-CHARSEP = ';'
-
 logger = logging.getLogger(__name__)
+
+default_charsep = ';'
+default_encoding = 'iso-8859-1'
+default_end_date = datetime.date(2070, 1, 1)
+
 
 # define field positions in PAGA csv-data
 # First line in PAGA csv file contains field names. Use them.
-KEY_AKSJONKODE = 'A.kode'.encode('ISO-8859-1')
-KEY_AKSJONDATO = 'A.dato'.encode('ISO-8859-1')
-KEY_ANSATTNR = 'Ansattnr'.encode('ISO-8859-1')
-KEY_HJEMSTED_ADRESSE = 'Adresse'.encode('ISO-8859-1')
-KEY_HJEMSTED_POSTSTED = 'Poststed'.encode('ISO-8859-1')
-KEY_HJEMSTED_POSTNR = 'Postnr'.encode('ISO-8859-1')
-KEY_AV = 'Av'.encode('ISO-8859-1')
-KEY_BRUKERNAVN = 'Brukernavn'.encode('ISO-8859-1')
-KEY_DBHKAT = 'DBH stillingskategori'.encode('ISO-8859-1')
-KEY_DATOFRA = 'F.lønnsdag'.encode('ISO-8859-1')
-KEY_DATOTIL = 'S.lønnsdag'.encode('ISO-8859-1')
-KEY_EPOST = 'E-postadresse'.encode('ISO-8859-1')
-KEY_ETTERNAVN = 'Etternavn'.encode('ISO-8859-1')
-KEY_FNR = 'Fødselsnummer'.encode('ISO-8859-1')
-KEY_FORNAVN = 'Fornavn'.encode('ISO-8859-1')
-KEY_HOVEDARBFORH = 'HovedAF'.encode('ISO-8859-1')
-KEY_KOSTNADSTED = 'K.sted'.encode('ISO-8859-1')
-KEY_NR = 'Nr'.encode('ISO-8859-1')
-KEY_ORGSTED = 'Org.nr.'.encode('ISO-8859-1')
-KEY_PERMISJONKODE = 'P.kode'.encode('ISO-8859-1')
-KEY_STANDEL = 'St.andel'.encode('ISO-8859-1')
-KEY_STILLKODE = 'St. kode'.encode('ISO-8859-1')
-KEY_TITTEL = 'St.bet'.encode('ISO-8859-1')
-KEY_TJFORH = 'Tj.forh.'.encode('ISO-8859-1')
-KEY_UNIKAT = 'Univkat'.encode('ISO-8859-1')
-KEY_UITKAT = 'UITkat'.encode('ISO-8859-1')
-KEY_KJONN = 'Kjønn'.encode("iso-8859-1")
-KEY_FODSELSDATO = 'Fødselsdato'.encode('ISO-8859-1')
-KEY_LOKASJON = 'Lokasjon'.encode('ISO-8859-1')
+KEY_AKSJONKODE = 'A.kode'
+KEY_AKSJONDATO = 'A.dato'
+KEY_ANSATTNR = 'Ansattnr'
+KEY_HJEMSTED_ADRESSE = 'Adresse'
+KEY_HJEMSTED_POSTSTED = 'Poststed'
+KEY_HJEMSTED_POSTNR = 'Postnr'
+KEY_AV = 'Av'
+KEY_BRUKERNAVN = 'Brukernavn'
+KEY_DBHKAT = 'DBH stillingskategori'
+KEY_DATOFRA = 'F.lønnsdag'
+KEY_DATOTIL = 'S.lønnsdag'
+KEY_EPOST = 'E-postadresse'
+KEY_ETTERNAVN = 'Etternavn'
+KEY_FNR = 'Fødselsnummer'
+KEY_FORNAVN = 'Fornavn'
+KEY_HOVEDARBFORH = 'HovedAF'
+KEY_KOSTNADSTED = 'K.sted'
+KEY_NR = 'Nr'
+KEY_ORGSTED = 'Org.nr.'
+KEY_PERMISJONKODE = 'P.kode'
+KEY_STANDEL = 'St.andel'
+KEY_STILLKODE = 'St. kode'
+KEY_TITTEL = 'St.bet'
+KEY_TJFORH = 'Tj.forh.'
+KEY_UNIKAT = 'Univkat'
+KEY_UITKAT = 'UITkat'
+KEY_KJONN = 'Kjønn'
+KEY_FODSELSDATO = 'Fødselsdato'
+KEY_LOKASJON = 'Lokasjon'
 
 
 def parse_date(date_str):
@@ -89,13 +90,15 @@ def parse_date(date_str):
     return datetime.date(*args)
 
 
-default_end_date = datetime.date(2070, 1, 1)
-
-
-def read_csv_file(filename):
-    with open(filename, 'r') as f:
-        for data in csv.DictReader(f, delimiter=str(CHARSEP)):
-            yield data
+def read_csv_file(filename,
+                  encoding=default_encoding,
+                  charsep=default_charsep):
+    logger.info("reading csv file=%r (encoding=%r, charsep=%r)",
+                filename, encoding, charsep)
+    with open(filename, mode='r') as f:
+        for data in csv.DictReader(f, delimiter=charsep.encode(encoding)):
+            yield {k.decode(encoding): v.decode(encoding)
+                   for k, v in data.items()}
 
 
 def parse_paga_csv(pagafile):
@@ -103,27 +106,25 @@ def parse_paga_csv(pagafile):
     tilsettinger = dict()
     permisjoner = dict()
     dupes = list()
-    logger.info("Reading %s", pagafile)
-    logger.debug('using charsep=%r', CHARSEP)
 
     today = datetime.date.today()
 
     for detail in read_csv_file(pagafile):
         ssn = detail[KEY_FNR]
-        logger.debug("processing:%s", ssn)
+        logger.debug("processing: %r", ssn)
         # some checks
         if detail[KEY_TJFORH] == 'H':
             # these persons are 'honorar' persons. Skip them entirely
-            logger.warning("skipping honorar: %s", ssn)
+            logger.warning("skipping honorar: %r", ssn)
             continue
 
         if detail[KEY_PERMISJONKODE] not in cereconf.PAGA_PERMKODER_ALLOWED:
-            logger.warn("Dropping detail for %s, P.Kode=%s",
+            logger.warn("Dropping detail for %r, P.Kode=%r",
                         ssn, detail[KEY_PERMISJONKODE])
             permisjoner[ssn] = detail[KEY_PERMISJONKODE]
             continue
         elif detail[KEY_AKSJONKODE]:
-            logger.warning("Detail contains A.Kode for %s, A.Kode=%s",
+            logger.warning("Detail contains A.Kode for %r, A.Kode=%r",
                            ssn, detail[KEY_AKSJONKODE])
 
         person_data = {
@@ -139,7 +140,6 @@ def parse_paga_csv(pagafile):
             'postnr': detail[KEY_HJEMSTED_POSTNR],
             'lokasjon': detail[KEY_LOKASJON],
         }
-        # tilskey = "%s:%s" % (detail[KEY_NR], detail[KEY_AV])
         tils_data = {
             'stillingskode': detail[KEY_STILLKODE],
             'tittel': detail[KEY_TITTEL],
@@ -259,12 +259,10 @@ class PagaPersonsXml:
         <bilag stedkode=""/>
         </person>
         """
-
         stream = open(self.out_file, "wb")
         writer = xmlprinter.xmlprinter(stream,
                                        indent_level=2,
-                                       data_mode=True,
-                                       input_encoding="latin1")
+                                       data_mode=True)
         writer.startDocument(encoding="iso8859-1")
         writer.startElement("data")
 
@@ -344,29 +342,27 @@ def main(inargs=None):
     logger.info('Start of %s', parser.prog)
     logger.debug('args: %r', args)
 
-    out_file = args.outfile
-    paga_file = args.infile
     show_person = args.show
-
-    pers, tils, perms = parse_paga_csv(paga_file)
-    logger.debug("File parsed. Got %d persons", len(pers))
+    pers, tils, perms = parse_paga_csv(args.infile)
+    logger.info('Read %d persons from %r', len(pers), args.infile)
 
     if show_person is not None:
         if show_person in pers:
             print("*** Personinfo ***")
-            print(pers[show_person])
+            pprint(pers[show_person])
             print("")
         if show_person in tils:
             print("*** Tilsettingsinfo ***")
-            print(tils[show_person])
+            pprint(tils[show_person])
             print("")
         if show_person in perms:
             print("*** Permisjonsinfo ***")
-            print(perms[show_person])
+            pprint(perms[show_person])
             print("")
     else:
-        xml = PagaPersonsXml(out_file)
+        xml = PagaPersonsXml(args.outfile)
         xml.create(pers, tils, perms)
+        logger.info('Wrote output to %r', args.outfile)
 
     logger.info('Done %s', parser.prog)
 
