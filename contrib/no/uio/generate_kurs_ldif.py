@@ -16,7 +16,6 @@ role=Learner for studenter og Instructor for gruppe-lærer/foreleser.
 --ldiffile fname.ldif : trigger generering av ldif fil med angitt navn
 --picklefile fname : brukes av person-ldif exporten til å sette eduCourseMember
 """
-
 from __future__ import unicode_literals
 
 import getopt
@@ -30,12 +29,13 @@ import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import make_timer
-from Cerebrum.modules.LDIFutils import (ldapconf,
-                                        entry_string,
-                                        ldif_outfile,
-                                        end_ldif_outfile,
-                                        container_entry_string)
-
+from Cerebrum.modules.LDIFutils import (
+    ldapconf,
+    entry_string,
+    ldif_outfile,
+    end_ldif_outfile,
+    container_entry_string,
+)
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
 
 logger = Factory.get_logger("cronjob")
@@ -115,7 +115,8 @@ class StudinfoParsers(object):
     def __init__(self, emne_file, aktivitet_file, enhet_file):
         timer = make_timer(logger, 'Initing StudinfoParsers...')
         self.emnekode2info = self._parse_emner(emne_file)
-        self.undervisningsaktiviteter = self._parse_undervisningsaktivitet(aktivitet_file)
+        self.undervisningsaktiviteter = self._parse_undervisningsaktivitet(
+            aktivitet_file)
         self.undervisningsenheter = self._parse_undervisningenheter(enhet_file)
         # The current emne query does not fetch emnenavn_bokmal.  If it did,
         # we could avoid this pre-parsing and use generators instead
