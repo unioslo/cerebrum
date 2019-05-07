@@ -28,6 +28,25 @@ employee affiliations and:
 - assign default spreads
 - creates email address
 - creates homedir
+
+Configuration
+-------------
+The following cereconf values affects the Paga account maintenance:
+
+INITIAL_ACCOUNTNAME
+    Creator of Paga accounts.
+
+USERNAME_POSTFIX['sito']
+    Postfix that identifies Sito accounts (we don't touch sito accounts).
+
+EMPLOYEE_SPREADLIST
+    A list of spreads to load (and maintain) for Paga accounts.
+
+EMPLOYEE_DEFAULT_SPREADS
+    A list of default spreads for Paga accounts.
+
+EMPLOYEE_FILTER_EXCHANGE_SKO
+    A list of stedkode codes to exclude from exchange spreads.
 """
 import argparse
 import datetime
@@ -46,29 +65,17 @@ from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 from Cerebrum.utils.argutils import add_commit_args
-
+from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
-
-# init variables
-db = None
-person = None
-temp_acc = None
-account = None
-const = None
-group = None
-ou = None
-dryrun = True
-
-person_list = []
 
 
 class PagaDataParser(xml.sax.ContentHandler):
     """
     This class is used to iterate over all users in PAGA.
     """
+    # TODO: Move this to Cerebrum.modules.no.uit.PagaDataParser
 
     def __init__(self, filename, callback):
         self.callback = callback
@@ -92,7 +99,12 @@ class PagaDataParser(xml.sax.ContentHandler):
             self.callback(self.p_data)
 
 
+# TODO: Combine duplicated code from import_sito, import_paga, other imports
+# (ExistingAccount, ExistingPerson, get_existing_accounts, _handle_changes,
+# ...)
+
 class ExistingAccount(object):
+
     def __init__(self, fnr, uname, expire_date):
         self._affs = list()
         self._new_affs = list()
@@ -182,6 +194,7 @@ class ExistingAccount(object):
 
 
 class ExistingPerson(object):
+
     def __init__(self, person_id=None):
         self._affs = list()
         self._groups = list()
@@ -255,17 +268,9 @@ class ExistingPerson(object):
         return self._deceased_date
 
 
-def is_ou_expired(ou_id):
-    ou.clear()
-    try:
-        ou.find(ou_id)
-    except EntityExpiredError:
-        return True
-    else:
-        return False
-
-
-def get_creator_id():
+@memoize
+def get_creator_id(db):
+    const = Factory.get('Constants')(db)
     entity_name = Entity.EntityName(db)
     entity_name.find_by_name(cereconf.INITIAL_ACCOUNTNAME,
                              const.account_namespace)
@@ -273,15 +278,20 @@ def get_creator_id():
     return id
 
 
-def get_sko(ou_id):
-    ou.clear()
+@memoize
+def get_sko(db, ou_id):
+    ou = Factory.get('OU')(db)
     try:
         ou.find(ou_id)
     except Errors.NotFoundError:
         # Persons has an affiliation to a non-fs ou.
         # Return NoneNoneNone
-        return "NoneNoneNone"
-    return "%02s%02s%02s" % (ou.fakultet, ou.institutt, ou.avdeling)
+        return None
+    try:
+        return "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
+    except AttributeError:
+        # OU without SKO?
+        return None
 
 
 def get_expire_date():
@@ -302,74 +312,77 @@ def get_expire_date():
         return nextmonth
 
 
-def get_existing_accounts():
-    # get persons that comes from Paga and their accounts
+def get_existing_accounts(db):
+    """
+    Get persons that comes from Paga and their accounts.
+    """
+    const = Factory.get('Constants')(db)
+    person = Factory.get('Person')(db)
+    account_obj = Factory.get('Account')(db)
+
     logger.info("Loading persons...")
-    tmp_persons = {}
+    person_cache = {}
+    account_cache = {}
     pid2fnr = {}
-    person_obj = Factory.get('Person')(db)
 
     # getting deceased persons
-    deceased = person_obj.list_deceased()
+    deceased = person.list_deceased()
 
-    for row in person_obj.search_external_ids(
+    for row in person.search_external_ids(
             id_type=const.externalid_fodselsnr,
             source_system=const.system_paga,
             fetchall=False):
-        if int(row['entity_id']) not in pid2fnr:
-            pid2fnr[int(row['entity_id'])] = row['external_id']
-            tmp_persons[row['external_id']] = \
-                ExistingPerson(person_id=int(row['entity_id']))
-
-        if int(row['entity_id']) in deceased:
-            tmp_persons[row['external_id']].set_deceased_date(
-                deceased[int(row['entity_id'])])
+        p_id = int(row['entity_id'])
+        if p_id not in pid2fnr:
+            pid2fnr[p_id] = row['external_id']
+            person_cache[row['external_id']] = ExistingPerson(person_id=p_id)
+        if p_id in deceased:
+            person_cache[row['external_id']].set_deceased_date(deceased[p_id])
+        del p_id
 
     logger.info("Loading person affiliations...")
     for row in person.list_affiliations(source_system=const.system_paga,
                                         fetchall=False):
-        tmp = pid2fnr.get(int(row['person_id']), None)
-        if tmp is not None:
-            if is_ou_expired(row['ou_id']):
-                logger.error("Skipping affiliation to ou_id %s (expired) for "
-                             "person %s", row['ou_id'], int(row['person_id']))
-                continue
-            tmp_persons[tmp].append_affiliation(int(row['affiliation']),
-                                                int(row['ou_id']),
-                                                int(row['status']))
+        p_id = int(row['person_id'])
+        if p_id in pid2fnr:
+            person_cache[pid2fnr[p_id]].append_affiliation(
+                int(row['affiliation']),
+                int(row['ou_id']),
+                int(row['status']))
+        del p_id
 
     logger.info("Loading accounts...")
-    tmp_ac = {}
-    account_obj = Factory.get('Account')(db)
+    sito_postfix = cereconf.USERNAME_POSTFIX['sito']
     for row in account_obj.search(expire_start=None):
-        a_id = row['account_id']
+        a_id = int(row['account_id'])
         if not row['owner_id'] or int(row['owner_id']) not in pid2fnr:
             continue
-        account_name = row.name
-        if account_name.endswith(cereconf.USERNAME_POSTFIX['sito']):
+        if row['name'].endswith(sito_postfix):
             # this is a sito account, do not process as part of uit employees
-            logger.debug("%s is a sito account", account_name)
+            logger.debug("Omitting account id=%r (%s), sito account",
+                         a_id, row['name'])
             continue
-
-        tmp_ac[int(a_id)] = ExistingAccount(pid2fnr[int(row['owner_id'])],
-                                            row['name'],
-                                            row['expire_date'])
+        account_cache[a_id] = ExistingAccount(
+            pid2fnr[int(row['owner_id'])], row['name'], row['expire_date'])
+        del a_id
 
     # Posixusers
     logger.info("Loading posixinfo...")
     posix_user_obj = PosixUser.PosixUser(db)
     for row in posix_user_obj.list_posix_users():
-        tmp = tmp_ac.get(int(row['account_id']), None)
-        if tmp is not None:
-            tmp.set_posix(int(row['posix_uid']))
+        a_obj = account_cache.get(int(row['account_id']), None)
+        if a_obj is not None:
+            a_obj.set_posix(int(row['posix_uid']))
+        del a_obj
 
     # quarantines
     logger.info("Loading account quarantines...")
     for row in account_obj.list_entity_quarantines(
             entity_types=const.entity_account):
-        tmp = tmp_ac.get(int(row['entity_id']), None)
-        if tmp is not None:
-            tmp.append_quarantine(int(row['quarantine_type']))
+        a_obj = account_cache.get(int(row['entity_id']), None)
+        if a_obj is not None:
+            a_obj.append_quarantine(int(row['quarantine_type']))
+        del a_obj
 
     # Spreads
     logger.info("Loading spreads... %r ", cereconf.EMPLOYEE_SPREADLIST)
@@ -382,55 +395,53 @@ def get_existing_accounts():
         elif spread.entity_type == const.entity_person:
             is_person_spread = True
         else:
-            logger.warning("Unknown spread type")
+            logger.warning("Unknown spread type (%r)", spread)
             continue
         for row in account_obj.list_all_with_spread(spread_id):
-            if is_account_spread:
-                tmp = tmp_ac.get(int(row['entity_id']), None)
-            if is_person_spread:
-                tmp = tmp_persons.get(int(row['entity_id']), None)
-            if tmp is not None:
-                tmp.append_spread(int(spread_id))
+            e_id = int(row['entity_id'])
+            if is_account_spread and e_id in account_cache:
+                account_cache[e_id].append_spread(spread_id)
+            elif is_person_spread and e_id in person_cache:
+                person_cache[e_id].append_spread(spread_id)
+            del e_id
 
     # Account Affiliations
     logger.info("Loading account affs...")
     for row in account_obj.list_accounts_by_type(filter_expired=False,
                                                  primary_only=False,
                                                  fetchall=False):
-        tmp = tmp_ac.get(int(row['account_id']), None)
+        tmp = account_cache.get(int(row['account_id']))
         if tmp is not None:
-            if is_ou_expired(int(row['ou_id'])):
-                continue
             tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']),
                                    int(row['priority']))
+        del tmp
 
     # persons accounts....
-    for ac_id, tmp in tmp_ac.items():
-        fnr = tmp_ac[ac_id].get_fnr()
-        tmp_persons[fnr].append_account(ac_id)
-        for aff in tmp.get_affiliations():
+    for ac_id, ac_obj in account_cache.items():
+        fnr = account_cache[ac_id].get_fnr()
+        person_cache[fnr].append_account(ac_id)
+        for aff in ac_obj.get_affiliations():
             aff, ou_id, pri = aff
-            tmp_persons[fnr].set_primary_account(ac_id, pri)
+            person_cache[fnr].set_primary_account(ac_id, pri)
 
-    logger.info("found %d persons and %d accounts", len(tmp_persons),
-                len(tmp_ac))
-    return tmp_persons, tmp_ac
+    logger.info("Found %d persons and %d accounts",
+                len(person_cache), len(account_cache))
+    return person_cache, account_cache
 
 
-def _promote_posix(acc_obj):
-
+def _promote_posix(db, acc_obj):
     group = Factory.get('Group')(db)
+    const = Factory.get('Constants')(db)
     pu = PosixUser.PosixUser(db)
     uid = pu.get_free_uid()
     shell = const.posix_shell_bash
     grp_name = "posixgroup"
-    group.clear()
     group.find_by_name(grp_name, domain=const.group_namespace)
     try:
         pu.populate(uid, group.entity_id, None, shell, parent=acc_obj)
         pu.write_db()
-    except Exception as msg:
-        logger.error("Unable to promote_posix: %s", msg)
+    except Exception:
+        logger.error("Unable to promote_posix", exc_info=True)
         return False
     # only gets here if posix user created successfully
     logger.info("%s promoted to posixaccount (uidnumber=%s)",
@@ -438,49 +449,8 @@ def _promote_posix(acc_obj):
     return True
 
 
-def create_employee_account(fnr):
-    owner = persons.get(fnr)
-    if not owner:
-        logger.error("Cannot create account to person %s, not from paga", fnr)
-        return None
-
-    p_obj = Factory.get('Person')(db)
-    p_obj.find(owner.get_personid())
-
-    first_name = p_obj.get_name(const.system_cached, const.name_first)
-    last_name = p_obj.get_name(const.system_cached, const.name_last)
-
-    acc_obj = Factory.get('Account')(db)
-    uname = acc_obj.suggest_unames(fnr, first_name, last_name)[0]
-    acc_obj.populate(uname,
-                     const.entity_person,
-                     p_obj.entity_id,
-                     None,
-                     get_creator_id(),
-                     get_expire_date())
-
-    try:
-        acc_obj.write_db()
-    except Exception as m:
-        logger.error("Failed create for %s, uname=%s, reason: %s",
-                     fnr, uname, m)
-    else:
-        password = acc_obj.make_passwd(uname)
-        acc_obj.set_password(password)
-    tmp = acc_obj.write_db()
-    logger.debug("Created account %s(%s), write_db=%s",
-                 uname, acc_obj.entity_id, tmp)
-
-    # register new account obj in existing accounts list
-    accounts[acc_obj.entity_id] = ExistingAccount(fnr, uname, None)
-    return acc_obj.entity_id
-
-
-def _handle_changes(a_id, changes):
-
+def _handle_changes(db, ac, changes):
     do_promote_posix = False
-    ac = Factory.get('Account')(db)
-    ac.find(a_id)
     for chg in changes:
         ccode, cdata = chg
         if ccode == 'spreads_add':
@@ -489,7 +459,7 @@ def _handle_changes(a_id, changes):
                 ac.add_spread(s)
                 ac.set_home_dir(s)
         elif ccode == 'quarantine_add':
-            ac.add_entity_quarantine(cdata, get_creator_id())
+            ac.add_entity_quarantine(cdata, get_creator_id(db))
         elif ccode == 'quarantine_del':
             ac.delete_entity_quarantine(cdata)
         elif ccode == 'set_ac_type':
@@ -500,81 +470,90 @@ def _handle_changes(a_id, changes):
             ac.expire_date = cdata
         elif ccode == 'promote_posix':
             do_promote_posix = True
-        # TODO: No update_email name in scope?
-        # elif ccode == 'update_mail':
-        #     update_email(a_id, cdata)
         else:
-            logger.error("Changing %s/%d: Unknown changecode: %s, "
-                         "changedata=%s", ac.account_name, a_id, ccode, cdata)
+            logger.error("Invalid change for account id=%r (%s) change=%r "
+                         "(%r)", ac.entity_id, ac.account_name, ccode, cdata)
             continue
     ac.write_db()
     if do_promote_posix:
-        _promote_posix(ac)
-    logger.info("All changes written for %s/%d", ac.account_name, a_id)
+        _promote_posix(db, ac)
+    logger.info("All changes written for account id=%r (%s)",
+                ac.entity_id, ac.account_name)
 
 
-def _populate_account_affiliations(account_id, fnr):
+def generate_persons(filename):
     """
-    Assert that the account has the same employee affiliations as the person.
+    Fetch person data from a Paga xml file.
+
+    :rtype: lis
+    :return: A list of dicts, each dict represents a person in Paga.
     """
-    tmp_ou = Factory.get('OU')(db)
-    changes = []
-    tmp_affs = accounts[account_id].get_affiliations()
-    account_affs = list()
-    for aff, ou, pri in tmp_affs:
-        account_affs.append((aff, ou))
-
-    logger.debug("Person %s has affs=%s", fnr, persons[fnr].get_affiliations())
-    logger.debug("Account_id=%s,Fnr=%s has account affs=%s", account_id,
-                 fnr, account_affs)
-
-    ou_list = tmp_ou.list_all_with_perspective(const.perspective_fs)
-
-    for aff, ou, status in persons[fnr].get_affiliations():
-        valid_ou = False
-        for i in ou_list:
-            if i[0] == ou:
-                valid_ou = True
-
-        if not valid_ou:
-            logger.debug("ignoring aff:%s, ou:%s, status:%s", aff, ou, status)
-            # we have an account affiliation towards and none FS ou. ignore it.
-            continue
-        if (aff, ou) not in account_affs:
-            changes.append(('set_ac_type', (ou, aff)))
-            accounts[account_id].append_new_affiliations(aff, ou)
-    return changes
+    logger.info('Loading data from %r', filename)
+    persons = list()
+    PagaDataParser(filename, persons.append)
+    logger.info('Found %d persons from file', len(persons))
+    return persons
 
 
-class Build:
+class SkipPerson(Exception):
+    """Skip processing a person."""
+    pass
 
-    def __init__(self):
-        self.source_personlist = list()
 
-    def load_fnr_from_xml(self, person):
-        self.source_personlist.append(person['fnr'])
+class Build(object):
 
-    def parse(self, person_file):
-        logger.info("Loading %r", person_file)
-        PagaDataParser(person_file, self.load_fnr_from_xml)
-        logger.info("File parsed")
+    def __init__(self, db, persons=None, accounts=None):
+        self.db = db
+        self.co = Factory.get('Constants')(db)
+        self.persons = persons or {}
+        self.accounts = accounts or {}
 
-    def process_all(self):
-        for fnr in self.source_personlist:
-            self.process_person(fnr)
+    def process(self, person_data):
+        """
+        Process a list of persons from the Paga import data.
+
+        :param person_data:
+            A list of dicts with person data. Each dict must a 'fnr'
+        """
+        stats = {'ok': 0, 'skipped': 0, 'failed': 0}
+
+        # TODO: Should use ansattnr, not fnr
+        for i, person_dict in enumerate(person_data, 1):
+            if 'fnr' in person_dict:
+                ssn = person_dict['fnr']
+            else:
+                logger.error('Skipping person #%d: missing fnr', i)
+                stats['skipped'] += 1
+                continue
+
+            try:
+                logger.info("Processing person #%d (ssn=%r)", i, ssn)
+                self.process_person(ssn)
+            except SkipPerson as e:
+                logger.warning('Skipping person #%d (ssn=%r): %s', i, ssn, e)
+                stats['skipped'] += 1
+            except Exception:
+                logger.error('Skipping person #%d (ssn=%r): unhandled error',
+                             i, ssn, exc_info=True)
+                stats['failed'] += 1
+            else:
+                stats['ok'] += 1
+
+        logger.info('Processed %d persons (%d ok)',
+                    sum(stats.values()), stats['ok'])
 
     def _calculate_spreads(self, acc_affs, new_affs):
-
+        const = self.co
         default_spreads = [int(const.Spread(x))
                            for x in cereconf.EMPLOYEE_DEFAULT_SPREADS]
         logger.debug("acc_affs=%s, new_affs=%s", acc_affs, new_affs)
-        all_affs = acc_affs+new_affs
+        all_affs = acc_affs + new_affs
         logger.debug("all_affs=%s", all_affs)
         # do not build uit.no addresses for affs in these sko's
         no_exchange_skos = cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO
         tmp = set()
         for aff, ou_id, pri in all_affs:
-            sko = get_sko(ou_id)
+            sko = get_sko(self.db, ou_id)
             for x in no_exchange_skos:
                 if sko.startswith(x):
                     tmp.add((aff, ou_id, pri))
@@ -589,47 +568,43 @@ class Build:
         return default_spreads
 
     def process_person(self, fnr):
-        logger.info("Process person %s", fnr)
-        p_obj = persons.get(fnr, None)
-        if not p_obj:
-            logger.error("Unknown person %s.", fnr)
-            return None
+        if fnr in self.persons:
+            p_obj = self.persons[fnr]
+        else:
+            raise SkipPerson('not in cerebrum')
 
         changes = []
         # check if person has an account
-        if not p_obj.has_account():
-            logger.warning("fnr: %s does not have an account", fnr)
-            acc_id = create_employee_account(fnr)
+        if p_obj.has_account():
+            acc_id, acc_obj = self.get_employee_account(p_obj)
         else:
-            acc_id = p_obj.get_primary_account()
-        acc_obj = accounts[acc_id]
-        logger.info("Update account %s/%d", acc_obj.get_uname(), acc_id)
+            acc_id, acc_obj = self.create_employee_account(p_obj, fnr)
 
+        account = Factory.get('Account')(self.db)
+        account.find(acc_id)
         # check if account is a posix account
         if not acc_obj.get_posix():
             changes.append(('promote_posix', True))
 
         # Update expire if needed
-        current_expire = str(acc_obj.get_expire_date())
-        new_expire = str(get_expire_date())
+        current_expire = acc_obj.get_expire_date()
+        new_expire = get_expire_date()
 
         # expire account if person is deceased
         new_deceased = False
         if p_obj.get_deceased_date() is not None:
-            new_expire = str(p_obj.get_deceased_date())
-            logger.debug("current_expire:%s, new_expire:%s",
-                         current_expire, new_expire)
+            new_expire = p_obj.get_deceased_date()
             if current_expire != new_expire:
                 logger.warning("Account owner deceased: %s",
                                acc_obj.get_uname())
                 new_deceased = True
-        if ((new_expire > current_expire) or
+        if (new_expire > current_expire or
                 new_deceased or
-                current_expire == 'None'):
+                current_expire is None):
             changes.append(('expire_date', str(new_expire)))
 
         # check account affiliation and status
-        changes.extend(_populate_account_affiliations(acc_id, fnr))
+        changes.extend(self._populate_account_affiliations(acc_id, p_obj))
 
         # make sure user has correct spreads
         if p_obj.get_affiliations():
@@ -654,14 +629,89 @@ class Build:
         # check quarantines
         for qt in acc_obj.get_quarantines():
             # employees should not have tilbud quarantine.
-            if qt == const.quarantine_tilbud:
+            if qt == self.co.quarantine_tilbud:
                 changes.append(('quarantine_del', qt))
 
         if changes:
-            logger.debug("Changes [%i/%s]: %s", acc_id, fnr, repr(changes))
-            _handle_changes(acc_id, changes)
-        if not dryrun:
-            db.commit()
+            logger.info("Changes for account id=%r: %s", acc_id, repr(changes))
+            _handle_changes(self.db, account, changes)
+
+    def create_employee_account(self, existing_person, fnr):
+        """
+        Create a new employee account for a given person object.
+
+        :type existing_person: ExistingPerson
+
+        :rtype: tuple
+        :returns: A tuple with (<account-id>, <ExistingAccount object>)
+        """
+        const = self.co
+        pe = Factory.get('Person')(self.db)
+        ac = Factory.get('Account')(self.db)
+
+        pe.find(existing_person.get_personid())
+
+        first_name = pe.get_name(const.system_cached, const.name_first)
+        last_name = pe.get_name(const.system_cached, const.name_last)
+
+        uname = ac.suggest_unames(fnr, first_name, last_name)[0]
+        ac.populate(uname,
+                    const.entity_person,
+                    pe.entity_id,
+                    None,
+                    get_creator_id(self.db),
+                    get_expire_date())
+
+        ac.write_db()
+        password = ac.make_passwd(uname)
+        ac.set_password(password)
+        tmp = ac.write_db()
+        logger.info("Created account id=%r (%s) for person_id=%r, write_db=%r",
+                    ac.entity_id, uname, pe.entity_id, tmp)
+
+        acc_id = ac.entity_id
+        acc_obj = self.accounts[acc_id] = ExistingAccount(fnr, uname, None)
+        return acc_id, acc_obj
+
+    def get_employee_account(self, existing_person):
+        acc_id = existing_person.get_primary_account()
+        acc_obj = self.accounts[acc_id]
+        logger.info("Found employee account_id=%r (%s) for person_id=%r",
+                    acc_id, acc_obj.get_uname(),
+                    existing_person.get_personid())
+        return acc_id, acc_obj
+
+    def _populate_account_affiliations(self, account_id, existing_person):
+        """
+        Update account affiliations from person affiliations.
+        """
+        ou = Factory.get('OU')(self.db)
+        changes = []
+
+        existing_account = self.accounts[account_id]
+        p_id = existing_person.get_personid()
+        p_affs = existing_person.get_affiliations()
+        account_affs = [(aff, ou_id) for aff, ou_id, _ in
+                        existing_account.get_affiliations()]
+
+        logger.debug("person_id=%r has affs=%r", p_id, p_affs)
+        logger.debug("account_id=%r has account affs=%r",
+                     account_id, account_affs)
+
+        ou_list = set(r['ou_id'] for r in
+                      ou.list_all_with_perspective(self.co.perspective_fs))
+
+        for aff, ou_id, status in p_affs:
+            if ou_id not in ou_list:
+                logger.debug("ignoring aff:%s, ou:%s, status:%s",
+                             aff, ou_id, status)
+                # we have an account affiliation towards and none FS ou. ignore
+                # it.
+                continue
+            if (aff, ou_id) not in account_affs:
+                changes.append(('set_ac_type', (ou_id, aff)))
+                existing_account.append_new_affiliations(aff, ou_id)
+        return changes
 
 
 def check_cereconf():
@@ -686,9 +736,6 @@ default_log_preset = getattr(cereconf, 'DEFAULT_LOGGER_TARGET', 'console')
 
 
 def main(inargs=None):
-    global persons, accounts, dryrun
-    global db, const, group, ou, account, temp_acc, person
-
     parser = argparse.ArgumentParser(
         description="Import Paga XML files into the Cerebrum database")
 
@@ -714,27 +761,23 @@ def main(inargs=None):
     logger.info('Start of %s', parser.prog)
     logger.debug('args: %r', args)
 
-    dryrun = not args.commit
     check_cereconf()
 
     db = Factory.get('Database')()
     db.cl_init(change_program=parser.prog)
 
-    person = Factory.get('Person')(db)
-    temp_acc = Factory.get('Account')(db)
-    account = Factory.get('Account')(db)
-    const = Factory.get('Constants')(db)
-    group = Factory.get('Group')(db)
-    ou = Factory.get('OU')(db)
+    builder = Build(db)
 
-    persons, accounts = get_existing_accounts()
-    build = Build()
-    build.parse(args.filename)
+    logger.info('Fetching cerebrum data')
+    builder.persons, builder.accounts = get_existing_accounts(db)
+
+    logger.info('Reading persons from %r', args.filename)
+    source_data = generate_persons(args.filename)
 
     if args.ssn:
-        build.process_person(args.ssn)
+        builder.process_person(args.ssn)
     else:
-        build.process_all()
+        builder.process(source_data)
 
     if args.commit:
         logger.info('Commiting changes')
