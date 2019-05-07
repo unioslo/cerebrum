@@ -19,46 +19,69 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Import data from paga.
+Import data from Paga.
+
+Creates/updates person objects in Cerebrum from an XML file.
+
+Configuration
+-------------
+The following cereconf values affects the Paga import:
+
+DEFAULT_INSTITUSJONSNR
+    Default institution number for OUs to use in the Cerebrum database.
+
+DEFAULT_LOGGER_TARGET
+    The default log preset to use for this script
+
+EMPLOYEE_PERSON_SPREADS
+    Default spreads for person objects from Paga
+
+EMPLOYEE_PERSON_SPREADS_PERCENTAGE
+    Required employment percentage required to get the default
+    ``EMPLOYEE_PERSON_SPREADS`` spreads.
+
+GRACEPERIOD_EMPLOYEE
+    Keep old affiliation for ``GRACEPERIOD_EMPLOYEE`` days after it was last
+    seen in an import.
+
+PAGA_EARLYDAYS
+    Accept roles from Paga with a start date that is ``PAGA_EARLYDAYS`` days
+    into the future.
 """
 from __future__ import unicode_literals
 
 import argparse
 import datetime
 import logging
-import os
 
 import mx.DateTime
 
 import cereconf
-
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 from Cerebrum.utils.argutils import add_commit_args
-
-
-# some globals
-TODAY = mx.DateTime.today().strftime("%Y-%m-%d")
-
-db = None
-const = None
-ou = None
-new_person = None
+from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
 
 
-# Define default file locations
-dumpdir_employees = os.path.join(cereconf.DUMPDIR, "employees")
-default_employee_file = 'paga_persons_%s.xml' % (TODAY)
+def parse_date(date_str):
+    """
+    Parse a date on the strftime format "%Y-%m-%d".
 
-# global caches
-ou_cache = {}
+    :rtype: datetime.date
+    :return: Returns the date object
+    """
+    if not date_str:
+        raise ValueError('Invalid date %r' % (date_str, ))
+    args = (int(date_str[0:4]),
+            int(date_str[5:7]),
+            int(date_str[8:10]))
+    return datetime.date(*args)
 
 
 def conv_name(fullname):
@@ -66,80 +89,73 @@ def conv_name(fullname):
     return fullname.split(None, 1)
 
 
-def get_sted(fakultet, institutt, gruppe):
+@memoize
+def get_sted(db, fakultet, institutt, gruppe):
     fakultet, institutt, gruppe = int(fakultet), int(institutt), int(gruppe)
     stedkode = (fakultet, institutt, gruppe)
 
-    if stedkode not in ou_cache:
-        ou = Factory.get('OU')(db)
-        try:
-            ou.find_stedkode(fakultet, institutt, gruppe,
-                             institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
-            addr_street = ou.get_entity_address(source=const.system_paga,
-                                                type=const.address_street)
-            if len(addr_street) > 0:
-                addr_street = addr_street[0]
-                address_text = addr_street['address_text']
-                if not addr_street['country']:
-                    short_name = ou.get_name_with_language(
-                        name_variant=const.ou_name_short,
-                        name_language=const.language_nb,
-                        default=None)
-                    address_text = "\n".join(
-                        x for x in (short_name, address_text) if x)
-                addr_street = {
-                    'address_text': address_text,
-                    'p_o_box': addr_street['p_o_box'],
-                    'postal_number': addr_street['postal_number'],
-                    'city': addr_street['city'],
-                    'country': addr_street['country'],
-                }
-            else:
-                addr_street = None
-            addr_post = ou.get_entity_address(source=const.system_paga,
-                                              type=const.address_post)
-            if len(addr_post) > 0:
-                addr_post = addr_post[0]
-                addr_post = {
-                    'address_text': addr_post['address_text'],
-                    'p_o_box': addr_post['p_o_box'],
-                    'postal_number': addr_post['postal_number'],
-                    'city': addr_post['city'],
-                    'country': addr_post['country'],
-                }
-            else:
-                addr_post = None
-            fax = ou.get_contact_info(source=const.system_paga,
-                                      type=const.contact_fax)
-            if len(fax) > 0:
-                fax = fax[0]['contact_value']
-            else:
-                fax = None
-            ou_cache[stedkode] = {
-                'id': int(ou.entity_id),
-                'fax': fax,
-                'addr_street': addr_street,
-                'addr_post': addr_post,
-            }
-            ou_cache[int(ou.entity_id)] = ou_cache[stedkode]
-        except Errors.NotFoundError:
-            logger.error("Bad stedkode: %s", stedkode)
-            ou_cache[stedkode] = None
-        except EntityExpiredError:
-            ou_cache[stedkode] = None
-            logger.error("Expired stedkode: %s", stedkode)
+    def filter_addr(addr_rows):
+        if len(addr_rows) < 1:
+            return None
+        else:
+            return {k: addr_rows[0][k]
+                    for k in ('address_text', 'p_o_box', 'postal_number',
+                              'city', 'country')}
 
-    return ou_cache[stedkode]
+    ou = Factory.get('OU')(db)
+    const = Factory.get('Constants')(db)
+    try:
+        ou.find_stedkode(fakultet, institutt, gruppe,
+                         institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
+        addr_street = filter_addr(
+            ou.get_entity_address(source=const.system_paga,
+                                  type=const.address_street))
+        if addr_street and not addr_street['country']:
+            addr_text = addr_street['address_text']
+            short_name = ou.get_name_with_language(
+                name_variant=const.ou_name_short,
+                name_language=const.language_nb,
+                default=None)
+            addr_street['address_text'] = "\n".join(
+                x for x in (short_name, addr_text) if x)
+
+        addr_post = filter_addr(
+            ou.get_entity_address(source=const.system_paga,
+                                  type=const.address_post))
+
+        fax = ou.get_contact_info(source=const.system_paga,
+                                  type=const.contact_fax)
+        if len(fax) > 0:
+            fax = fax[0]['contact_value']
+        else:
+            fax = None
+
+        return {
+            'id': int(ou.entity_id),
+            'fax': fax,
+            'addr_street': addr_street,
+            'addr_post': addr_post,
+        }
+    except Errors.NotFoundError:
+        logger.error("Bad stedkode=%r", stedkode)
+        return None
 
 
-def determine_affiliations(person):
-    "Determine affiliations in order of significance"
+def _determine_affiliations(db, const, pe, person):
+    """
+    Determine affiliations in order of significance
+
+    :param pe: A populated Cerebrum.Person object to calculate affs for
+    :param person: A dict with person data.
+    """
+    paga_nr = int(person['ansattnr'])
     ret = {}
     tittel = None
     prosent_tilsetting = -1
     for t in person.get('tils', ()):
         if not type_is_active(t):
-            logger.warning("Not active: %s", person)
+            logger.warning("Ignoring inactive 'tils' record for "
+                           "paga_id=%r (%r)", paga_nr, t)
             continue
 
         pros = float(t['stillingsandel'])
@@ -157,34 +173,36 @@ def determine_affiliations(person):
         elif t['hovedkategori'] == 'VIT':
             aff_stat = const.affiliation_status_ansatt_vitenskapelig
         else:
-            logger.error("Unknown hovedkat: %s", t['hovedkategori'])
+            logger.error("Unknown hovedkat: %r", t['hovedkategori'])
             continue
 
         fakultet, institutt, gruppe = (t['fakultetnr_utgift'],
                                        t['instituttnr_utgift'],
                                        t['gruppenr_utgift'])
-        sted = get_sted(fakultet, institutt, gruppe)
+        sted = get_sted(db, fakultet, institutt, gruppe)
         if sted is None:
             continue
-        k = "%s:%s:%s" % (new_person.entity_id, sted['id'],
+        k = "%s:%s:%s" % (pe.entity_id, sted['id'],
                           int(const.affiliation_ansatt))
         if k not in ret:
             ret[k] = sted['id'], const.affiliation_ansatt, aff_stat
 
     if tittel:
-        new_person.add_name_with_language(name_variant=const.work_title,
-                                          name_language=const.language_nb,
-                                          name=tittel)
+        pe.add_name_with_language(name_variant=const.work_title,
+                                  name_language=const.language_nb,
+                                  name=tittel)
 
+    if person.get('gjest'):
+        logger.error("Gjest records not implemented!")
     for g in person.get('gjest', ()):
         if not type_is_active(g):
-            logger.warning("Not active")
+            logger.warning("Ignoring inactive 'gjest' record for "
+                           "paga_id=%r (%r)", paga_nr, t)
             continue
-        logger.error("Gjest item not implemented for persons!")
     return ret
 
 
-def determine_contact(person):
+def determine_contact(const, person):
     # TODO: Check if this is being used or may be used
     ret = []
     for t in person.get('arbtlf', ()):
@@ -228,24 +246,29 @@ def person_has_active(person, entry_type):
 
 def type_is_active(entry_type):
     """
-    Check whether given TYPE is active. TYPE is a dictionary
-    representing either a 'tils' record or a 'gjest' record.
+    Check whether given entry is active.
+
+    :param entry_type:
+        A dictionary representing either a 'tils' record or a 'gjest' record.
     """
+    today = datetime.date.today()
+    pre_days = datetime.timedelta(
+        days=int(getattr(cereconf, 'PAGA_EARLYDAYS', 0)))
 
-    earliest = (
-        mx.DateTime.DateFrom(entry_type.get("dato_fra")) -
-        mx.DateTime.DateTimeDelta(cereconf.PAGA_EARLYDAYS))
+    dato_fra = parse_date(entry_type['dato_fra'])
+    try:
+        dato_til = parse_date(entry_type.get('dato_til'))
+    except ValueError:
+        dato_til = None
+        pass
 
-    dato_fra = mx.DateTime.DateFrom(entry_type.get("dato_fra"))
-    dato_til = mx.DateTime.DateFrom(entry_type.get("dato_til"))
+    earliest = dato_fra - pre_days
+    is_active = today >= earliest and (dato_til is None or today <= dato_til)
 
-    if ((mx.DateTime.today() >= earliest) and
-            ((not dato_til) or (mx.DateTime.today() <= dato_til))):
-        return True
-
-    logger.warning("Not active, earliest: %s, dato_fra: %s, dato_til:%s",
-                   earliest, dato_fra, dato_til)
-    return False
+    if not is_active:
+        logger.debug('Inactive entry, earliest=%r, from=%r, to=%r',
+                     earliest, dato_fra, dato_til)
+    return is_active
 
 
 def get_stillingsandel(person):
@@ -263,18 +286,24 @@ def get_stillingsandel(person):
     return prosent_tilsetting
 
 
-def set_person_spreads(person, new_person):
-    # Add ansatt spreads if person has ANSATT affiliation and
-    # has a stillingsandel higher than
-    # cereconf.EMPLOYEE_PERSON_SPREADS_PERCENTAGE.
-    # Spreads to add are listed in cereconf.EMPLOYEE_PERSON_SPREADS
+def set_person_spreads(db, const, pe, person):
+    """
+    Apply person spreads to employee object.
+
+    Add ansatt spreads if person has ANSATT affiliation and has a
+    stillingsandel higher than cereconf.EMPLOYEE_PERSON_SPREADS_PERCENTAGE.
+    Spreads to add are listed in cereconf.EMPLOYEE_PERSON_SPREADS
+
+    :param pe: A populated Cerebrum.Person object to apply spreads to
+    :param person: A dict with person data.
+    """
     employee_person_spreads = [int(const.Spread(x))
                                for x in cereconf.EMPLOYEE_PERSON_SPREADS]
 
-    affs = new_person.get_affiliations()
+    affs = list(pe.get_affiliations())
     is_ansatt = False
-    for i in range(0, len(affs)):
-        if affs[i]['affiliation'] == int(const.affiliation_ansatt):
+    for aff in affs:
+        if aff['affiliation'] == int(const.affiliation_ansatt):
             percentage = get_stillingsandel(person)
             if percentage > cereconf.EMPLOYEE_PERSON_SPREADS_PERCENTAGE:
                 is_ansatt = True
@@ -284,295 +313,327 @@ def set_person_spreads(person, new_person):
         spreads_to_add = employee_person_spreads
 
         # only add spreads this person doesn't already have
-        curr_spreads = new_person.get_spread()
+        curr_spreads = pe.get_spread()
         for s in curr_spreads:
             if s['spread'] in spreads_to_add:
                 spreads_to_add.remove(s['spread'])
 
         for spread in spreads_to_add:
-            new_person.add_spread(spread)
+            pe.add_spread(spread)
     else:
         # remove employee spreads for those with is_ansatt == False
         spreads_to_remove = employee_person_spreads
 
         # only remove employee spreads this person already has
-        curr_spreads = new_person.get_spread()
+        curr_spreads = pe.get_spread()
         for s in curr_spreads:
             if s['spread'] in spreads_to_remove:
-                new_person.delete_spread(s['spread'])
+                pe.delete_spread(s['spread'])
 
 
 def is_y2k_problem(year_chk, year):
-    y2k_problem = False
-    curr_year = datetime.datetime.now().year
+    curr_year = datetime.date.today().year
 
     # If the difference between year_chk and year is exactly 100,
     # and year_chk is 100 years or more in the past,
     # it is highly likely that there is a y2k problem with year_chk.
-    if (abs(year_chk - year) == 100) and (year_chk <= (curr_year - 100)):
-        y2k_problem = True
-
-    return y2k_problem
+    return abs(year_chk - year) == 100 and year_chk <= (curr_year - 100)
 
 
-def process_person(person):
-    fnr = person['fnr']
+def cmp_birthdates(birthdate, from_ssn):
+    return (
+        (from_ssn.year == birthdate.year or
+         is_y2k_problem(from_ssn.year, birthdate.year)) and
+        from_ssn.month == birthdate.month and from_ssn.day == birthdate.day)
+
+
+def _populate_existing(pe, id_type, id_value):
+    """
+    Find and populate a person object by external id.
+
+    :rtype: bool
+    :return: True if person object was found.
+    """
+    if not id_value:
+        return False
     try:
-        person['lokasjon']
-    except:
-        logger.warning("Person has no location.")
-
-    try:
-        paga_nr = int(person['ansattnr'])
-    except Exception:
-        logger.error("Invalid ansattnr=%r, person not processed",
-                     person['ansattnr'])
-        return
-    gender = person['kjonn']
-    fodselsdato = person['fodselsdato']
-    try:
-        year = int(fodselsdato[0:4])
-        mon = int(fodselsdato[5:7])
-        day = int(fodselsdato[8:10])
-    except ValueError as m:
-        logger.warning("Invalid ssn, skipping (%s)", m)
-        return
-
-    logger.info("Process %d", paga_nr)
-
-    if gender == 'M':
-        gender = const.gender_male
-    else:
-        gender = const.gender_female
-
-    if ((person.get('fnr', '') and (person['fnr'][6:11] != '00000'))):
-        try:
-            fodselsnr.personnr_ok(fnr)
-        except:
-            logger.error("Invalid fnr for paga_id=%r (%r)", paga_nr, fnr)
-            return
-
-        gender_chk = const.gender_male
-        if(fodselsnr.er_kvinne(fnr)):
-            gender_chk = const.gender_female
-
-        if gender_chk != gender:
-            logger.error("Gender inconsistent between XML (%s) and FNR (%s) "
-                         "for PAGA person %s", gender, gender_chk, paga_nr)
-            return
-
-        (year_chk, mon_chk, day_chk) = fodselsnr.fodt_dato(fnr)
-
-        if year_chk != year:
-            # check if the year difference is because of the y2k problem in the
-            # fodselsnr module ignore if it is.
-            if not is_y2k_problem(year_chk, year):
-                logger.error("Year inconsistent between XML (%s) and FNR (%s) "
-                             "for PAGA person %s", year, year_chk, paga_nr)
-                return
-        if mon_chk != mon:
-            logger.error("Month inconsistent between XML (%s) and FNR (%s) "
-                         "for PAGA person %s", mon, mon_chk, paga_nr)
-            return
-        if day_chk != day:
-            logger.error("Day inconsistent between XML (%s) and FNR (%s) "
-                         "for PAGA person %s", day, day_chk, paga_nr)
-            return
-
-    new_person.clear()
-
-    try:
-        new_person.find_by_external_id(const.externalid_paga_ansattnr,
-                                       str(paga_nr))
+        pe.find_by_external_id(id_type, str(id_value))
+        logger.debug("Found existing person with %s=%r", id_type, id_value)
+        return True
     except Errors.NotFoundError:
-        if person.get('fnr', ''):
+        return False
+
+
+class SkipPerson(Exception):
+    """
+    Invalid person data given.
+    """
+    pass
+
+
+class PersonProcessor(object):
+    """
+    Callable object that imports dict-like person objects.
+
+    Used as a callback for py:class:`PagaDataParserClass`.
+    """
+
+    def __init__(self, db, old_affs):
+        """
+        :type old_affs: set
+        :param old_affs:
+            A set with all previously known Paga-affiliations.
+
+            Each item should be a string on the format
+            <person-id>:<ou-id>:<aff-code>.  Any affiliation seen during
+            processing will be removed from the set.
+        """
+        self.db = db
+        self.const = Factory.get('Constants')(db)
+        self.old_affs = old_affs
+
+    def __call__(self, person):
+        """
+        Import a person object.
+
+        :param person_dict: A dict-like person object.
+        """
+        try:
+            employee_id = int(person['ansattnr'])
+        except Exception:
+            logger.error('Unable to process paga_id=%r, invalid identifier',
+                         person['ansattnr'])
+            return
+
+        try:
+            self._process_person(person)
+        except SkipPerson as e:
+            logger.error('Unable to process paga_id=%r, %s', employee_id, e)
+        except Exception:
+            logger.critical('Unable to process paga_id=%r, unhandled error',
+                            employee_id, exc_info=True)
+            raise
+
+    def _process_person(self, person):
+        db = self.db
+        const = self.const
+        paga_nr = int(person['ansattnr'])
+        logger.info("Processing paga_id=%r", paga_nr)
+
+        try:
+            birthdate = parse_date(person['fodselsdato'])
+        except ValueError as e:
+            raise SkipPerson("Invalid birth date (%s)" % (e, ))
+
+        if person['kjonn'] == 'M':
+            gender = const.gender_male
+        else:
+            gender = const.gender_female
+
+        fnr = person['fnr']
+        if fnr and fnr[6:11] != '00000':
             try:
-                new_person.find_by_external_id(const.externalid_fodselsnr, fnr)
-            except Errors.NotFoundError:
-                pass
-    if (person.get('fornavn', ' ').isspace() or
-            person.get('etternavn', ' ').isspace()):
-        logger.warning('Missing names for paga_nr=%r', paga_nr)
-        return
+                fodselsnr.personnr_ok(fnr)
+            except Exception as e:
+                raise SkipPerson("Invalid fnr (%s)" % (e, ))
 
-    try:
-        new_person.populate(mx.DateTime.Date(year, mon, day), gender)
-    except Errors.CerebrumError as m:
-        logger.error("Person %s populate failed: %s", fnr or paga_nr, m)
-        return
+            gender_chk = const.gender_male
+            if fodselsnr.er_kvinne(fnr):
+                gender_chk = const.gender_female
 
-    new_person.affect_names(const.system_paga,
-                            const.name_first,
-                            const.name_last)
-    new_person.affect_external_id(const.system_paga,
-                                  const.externalid_fodselsnr,
-                                  const.externalid_paga_ansattnr)
-    new_person.populate_name(const.name_first, person['fornavn'])
-    new_person.populate_name(const.name_last, person['etternavn'])
+            if gender_chk != gender:
+                raise SkipPerson(
+                    "Inconsistent gender (gender=%r, ssn=%r)" %
+                    (gender, gender_chk))
 
-    if fnr != '':
+            fnr_date = datetime.date(*(fodselsnr.fodt_dato(fnr)))
+            if not cmp_birthdates(birthdate, fnr_date):
+                raise SkipPerson(
+                    "Inconsistent birth date (date=%r, ssn=%r)" %
+                    (birthdate, fnr_date))
+
+        new_person = Factory.get('Person')(db)
+
+        for id_type, id_value in ((const.externalid_paga_ansattnr, paga_nr),
+                                  (const.externalid_fodselsnr, fnr)):
+            if _populate_existing(new_person, id_type, id_value):
+                break
+
+        if not person.get('fornavn', '').strip():
+            raise SkipPerson("Missing first name")
+        if not person.get('etternavn', '').strip():
+            raise SkipPerson("Missing last name")
+
+        new_person.populate(mx.DateTime.DateFrom(birthdate), gender)
+
+        new_person.affect_names(const.system_paga,
+                                const.name_first,
+                                const.name_last)
+        new_person.affect_external_id(const.system_paga,
+                                      const.externalid_fodselsnr,
+                                      const.externalid_paga_ansattnr)
+        new_person.populate_name(const.name_first, person['fornavn'])
+        new_person.populate_name(const.name_last, person['etternavn'])
+
+        if fnr:
+            new_person.populate_external_id(const.system_paga,
+                                            const.externalid_fodselsnr,
+                                            fnr)
         new_person.populate_external_id(const.system_paga,
-                                        const.externalid_fodselsnr,
-                                        fnr)
-    new_person.populate_external_id(const.system_paga,
-                                    const.externalid_paga_ansattnr,
-                                    paga_nr)
+                                        const.externalid_paga_ansattnr,
+                                        paga_nr)
 
-    # If it's a new person, we need to call write_db() to have an entity_id
-    # assigned to it.
-    op = new_person.write_db()
+        # If it's a new person, we need to call write_db() to have an entity_id
+        # assigned to it.
+        op = new_person.write_db()
 
-    if person.get('tittel_personlig', ''):
-        new_person.add_name_with_language(name_variant=const.personal_title,
-                                          name_language=const.language_nb,
-                                          name=person['tittel_personlig'])
+        if person.get('tittel_personlig'):
+            new_person.add_name_with_language(
+                name_variant=const.personal_title,
+                name_language=const.language_nb,
+                name=person['tittel_personlig'])
 
-    # work_title is set by determine_affiliations
-    affiliations = determine_affiliations(person)
-    new_person.populate_affiliation(const.system_paga)
-    contact = determine_contact(person)
-    if 'fakultetnr_for_lonnsslip' in person:
-        sted = get_sted(person['fakultetnr_for_lonnsslip'],
-                        person['instituttnr_for_lonnsslip'],
-                        person['gruppenr_for_lonnsslip'])
-        if sted is not None:
-            if sted['addr_street'] is not None:
-                new_person.populate_address(
-                    const.system_paga, type=const.address_street,
-                    **sted['addr_street'])
-            if sted['addr_post'] is not None:
-                new_person.populate_address(
-                    const.system_paga, type=const.address_post,
-                    **sted['addr_post'])
-            # TODO: got_fax is not set anywhere before here - NameError?
-            # if not got_fax and sted['fax'] is not None:
-            #     # Add fax number for work place with a non-NULL fax
-            #     # to person's contact info.
-            #     contact.append((const.contact_fax, sted['fax']))
-            #     got_fax = True
+        # work_title is set by _determine_affiliations
+        affiliations = _determine_affiliations(self.db, self.const,
+                                               new_person, person)
+        new_person.populate_affiliation(const.system_paga)
+        if 'fakultetnr_for_lonnsslip' in person:
+            sted = get_sted(db,
+                            person['fakultetnr_for_lonnsslip'],
+                            person['instituttnr_for_lonnsslip'],
+                            person['gruppenr_for_lonnsslip'])
+            if sted is not None:
+                if sted['addr_street'] is not None:
+                    new_person.populate_address(
+                        const.system_paga, type=const.address_street,
+                        **sted['addr_street'])
+                if sted['addr_post'] is not None:
+                    new_person.populate_address(
+                        const.system_paga, type=const.address_post,
+                        **sted['addr_post'])
 
-    if 'lokasjon' in person:
+        if 'lokasjon' in person:
+            logger.debug('Populating paga_id=%r location address with '
+                         'source=%s, type=%s, text=%r',
+                         paga_nr, const.system_paga, const.address_location,
+                         person['lokasjon'])
+            new_person.populate_address(source_system=const.system_paga,
+                                        type=const.address_location,
+                                        address_text=person['lokasjon'])
+        else:
+            logger.warning("No location address for paga_id=%r", paga_nr)
+
+        for k, v in affiliations.items():
+            ou_id, aff, aff_stat = v
+            new_person.populate_affiliation(const.system_paga, ou_id,
+                                            int(aff), int(aff_stat))
+            self.old_affs.discard(k)
+        c_prefs = {}
+        new_person.populate_contact_info(const.system_paga)
+
+        for c_type, value in determine_contact(const, person):
+            c_type = int(c_type)
+            pref = c_prefs.get(c_type, 0)
+            new_person.populate_contact_info(const.system_paga,
+                                             c_type, value, pref)
+            c_prefs[c_type] = pref + 1
+
         #
-        # Populate person address with:
-        # source_system = const.system_paga
-        # type = const.address_location
-        # address_text = person['location']
+        # Also add personal/home street address if it exists in the import file
         #
-        #
-        logger.warning('populating person address with source=%s, type=%s, '
-                       'text=%r', const.system_paga, const.address_location,
-                       person['lokasjon'])
-        new_person.populate_address(source_system=const.system_paga,
-                                    type=const.address_location,
-                                    address_text=person['lokasjon'])
+        priv_addr = (person.get('adresse'),
+                     person.get('postnr'),
+                     person.get('poststed'))
+        if any(priv_addr):
+            logger.debug("Setting additional home address: %s %s %s",
+                         *priv_addr)
+            new_person.populate_address(const.system_paga,
+                                        const.address_post_private,
+                                        priv_addr[0], None, priv_addr[1],
+                                        priv_addr[2], None)
 
-    for k, v in affiliations.items():
-        ou_id, aff, aff_stat = v
-        new_person.populate_affiliation(const.system_paga, ou_id,
-                                        int(aff), int(aff_stat))
-        if include_del:
-            if k in cere_list:
-                cere_list[k] = False
-    c_prefs = {}
-    new_person.populate_contact_info(const.system_paga)
-    for c_type, value in contact:
-        c_type = int(c_type)
-        pref = c_prefs.get(c_type, 0)
-        new_person.populate_contact_info(const.system_paga,
-                                         c_type, value, pref)
-        c_prefs[c_type] = pref + 1
+        op2 = new_person.write_db()
 
-    #
-    # Also add personal/home street address if it exists in the import file
-    #
-    private_address = False
-    address_text = None
-    p_o_box = None
-    postal_number = None
-    city = None
-    country = None
-    if person.get('adresse'):
-        address_text = person['adresse']
-        private_address = True
-    if person.get('postnr'):
-        postal_number = person['postnr']
-        private_address = True
-    if person.get('poststed'):
-        city = person['poststed']
-        private_address = True
-    if private_address:
-        logger.info("Setting additional home address:%s %s %s",
-                    address_text, postal_number, city)
-        new_person.populate_address(const.system_paga,
-                                    const.address_post_private,
-                                    address_text, p_o_box,
-                                    postal_number, city,
-                                    country)
+        set_person_spreads(self.db, self.const, new_person, person)
 
-    op2 = new_person.write_db()
-
-    set_person_spreads(person, new_person)
-
-    if op is None and op2 is None:
-        logger.info("**** EQUAL ****")
-    elif op:
-        logger.info("**** NEW ****")
-    else:
-        logger.info("**** UPDATE  (%s:%s) ****", op, op2)
+        if op is None and op2 is None:
+            logger.info("EQUAL: No change to person with paga_id=%r", paga_nr)
+        elif op:
+            logger.info("NEW: Created new person with paga_id=%r", paga_nr)
+        else:
+            logger.info("UPDATE: Updated person with paga_id=%r (%s, %s)",
+                        paga_nr, op, op2)
 
 
-def load_all_affi_entry():
-    affi_list = {}
-    for row in new_person.list_affiliations(source_system=const.system_paga):
+def load_paga_affiliations(db):
+    """
+    Fetch all affiliations from the paga source system.
+
+    :rtype: set
+    :return:
+        A set with *affiliation keys*.  Each affiliation key should be a string
+        on the format <person_id>:<ou_id>:<affiliation_code>
+    """
+    pe = Factory.get('Person')(db)
+    const = Factory.get('Constants')(db)
+    affi_list = set()
+    for row in pe.list_affiliations(source_system=const.system_paga):
         key_l = "%s:%s:%s" % (row['person_id'], row['ou_id'],
                               row['affiliation'])
-        affi_list[key_l] = True
-    return(affi_list)
+        affi_list.add(key_l)
+    return affi_list
 
 
-def clean_affi_s_list():
-    for k, v in cere_list.items():
-        logger.info("clean_affi_s_list: k=%s,v=%s", k, v)
-        if v:
-            [ent_id, ou, affi] = [int(x) for x in k.split(':')]
-            new_person.clear()
-            new_person.entity_id = int(ent_id)
-            affs = new_person.list_affiliations(
-                ent_id,
-                affiliation=affi,
-                ou_id=ou,
-                source_system=const.system_paga)
-            for aff in affs:
-                last_date = datetime.datetime.fromtimestamp(aff['last_date'])
-                end_grace_period = (
-                    last_date +
-                    datetime.timedelta(days=cereconf.GRACEPERIOD_EMPLOYEE))
-                if datetime.datetime.today() > end_grace_period:
-                    logger.warning(
-                        "Deleting system_paga affiliation for "
-                        "person_id=%s,ou=%s,affi=%s last_date=%s,grace=%s",
-                        ent_id, ou, affi, last_date,
-                        cereconf.GRACEPERIOD_EMPLOYEE)
-                    new_person.delete_affiliation(ou, affi, const.system_paga)
+def remove_old_affiliations(db, affiliations):
+    """
+    Remove affiliations.
 
-                if datetime.datetime.today() > last_date:
-                    # person is no longer an employee, delete employee spreads
-                    # for this person.  Spreads to delete are listed in
-                    # cereconf.EMPLOYEE_PERSON_SPREADS
-                    employee_person_spreads = [
-                        int(const.Spread(x))
-                        for x in cereconf.EMPLOYEE_PERSON_SPREADS]
-                    for s in employee_person_spreads:
-                        new_person.delete_spread(s)
+    Only removes affiliations if the affiliation source `last_date` indicates
+    that it should be deleted.
+
+    :param affiliations:
+        An iterable with *affiliation keys*.
+    """
+    pe = Factory.get('Person')(db)
+    const = Factory.get('Constants')(db)
+
+    employee_person_spreads = [
+        int(const.Spread(x))
+        for x in cereconf.EMPLOYEE_PERSON_SPREADS]
+    today = datetime.date.today()
+    grace_period = datetime.timedelta(days=cereconf.GRACEPERIOD_EMPLOYEE)
+
+    for aff_key in affiliations:
+        [ent_id, ou, affi] = [int(x) for x in aff_key.split(':')]
+        pe.clear()
+        pe.entity_id = int(ent_id)
+        affs = pe.list_affiliations(
+            ent_id,
+            affiliation=affi,
+            ou_id=ou,
+            source_system=const.system_paga)
+        for aff in affs:
+            last_date = aff['last_date'].pydate()
+            end_grace_period = last_date + grace_period
+            if today > end_grace_period:
+                logger.warning(
+                    "Deleting system_paga affiliation for "
+                    "person_id=%s,ou=%s,affi=%s last_date=%s,grace=%s",
+                    ent_id, ou, affi, last_date, grace_period)
+                pe.delete_affiliation(ou, affi, const.system_paga)
+
+            if today > last_date:
+                # person is no longer an employee, delete employee spreads
+                # for this person.  Spreads to delete are listed in
+                # cereconf.EMPLOYEE_PERSON_SPREADS
+                for s in employee_person_spreads:
+                    pe.delete_spread(s)
 
 
 default_log_preset = getattr(cereconf, 'DEFAULT_LOGGER_TARGET', 'console')
 
 
 def main(inargs=None):
-    global cere_list, include_del
-    global db, const, ou, new_person
-
     parser = argparse.ArgumentParser(
         description="Import Paga XML files into the Cerebrum database")
 
@@ -586,7 +647,7 @@ def main(inargs=None):
         dest='delete',
         action='store_true',
         default=False,
-        help='Delete affiliations',
+        help='Delete old affiliations',
     )
     add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
@@ -600,20 +661,17 @@ def main(inargs=None):
     db = Factory.get('Database')()
     db.cl_init(change_program=parser.prog)
 
-    const = Factory.get('Constants')(db)
-    ou = Factory.get('OU')(db)
-    new_person = Factory.get('Person')(db)
-
-    include_del = args.delete
-
     if args.delete:
-        cere_list = load_all_affi_entry()
+        old_affs = load_paga_affiliations(db)
+    else:
+        old_affs = None
 
     if args.person_file:
-        PagaDataParserClass(args.person_file, process_person)
+        person_callback = PersonProcessor(db, old_affs=old_affs)
+        PagaDataParserClass(args.person_file, person_callback)
 
-    if include_del:
-        clean_affi_s_list()
+    if args.delete:
+        remove_old_affiliations(db, old_affs)
 
     if args.commit:
         logger.info('Commiting changes')
