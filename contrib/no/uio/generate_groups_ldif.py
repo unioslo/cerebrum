@@ -20,13 +20,14 @@
 """
 Generate a group tree for LDAP.
 
-This tree typically resides in "cn=groups,dc=<org>,dc=no".
+This is a 'helper' script to add groups to an org-ldif script.  The idea is to:
 
-The idea is that some groups in Cerebrum will get an LDAP spread, and these
-groups will be exported into this tree.  Members are people ('person' objects
-in Cerebrum) that are known to generate_org_ldif.  The group tree will include
-only name and possibly description of the group.  This script will leave a
-pickle-file for org-ldif mixins to include, containing memberships to groups.
+1. Export groups with a given ldap spread to its own dn (typically
+   "cn=groups,dc=<org>,dc=no") with basic information.
+2. Export a group membership dict to a pickle-file.  This dict maps <person-id>
+   to a list of group dn strings.
+3. A separate org-ldif mixin (if present) reads the pickle file and adds group
+   memberships to each exported person.
 """
 from __future__ import unicode_literals
 import argparse
@@ -82,7 +83,7 @@ def main(inargs=None):
     )
     parser.add_argument(
         '--ldiffile',
-        help='Write groups and group memberships to the ldif-file %(metavar)',
+        help='Write groups to the ldif-file %(metavar)',
         metavar='file',
     )
     parser.add_argument(
