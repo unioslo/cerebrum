@@ -100,7 +100,10 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
                                               PhrasePasswordNotGoodEnough)
-from Cerebrum.modules.pwcheck.history import PasswordHistory
+from Cerebrum.modules.pwcheck.history import (
+    PasswordHistory,
+    check_password_history,
+)
 from Cerebrum.utils.email import mail_template, sendmail
 from Cerebrum.utils import json
 
@@ -2849,13 +2852,13 @@ class BofhdExtension(BofhdCommonMethods):
         # Only people who can set the password are allowed to check it
         self.ba.can_set_password(operator.get_entity_id(), ac)
         if ac.verify_auth(password):
-            return "Password is correct"
+            return 'Password is correct'
         ph = PasswordHistory(self.db)
-        histhash = ph.encode_for_history(ac.account_name, password)
-        for r in ph.get_history(ac.entity_id):
-            if histhash == r['hash']:
+        name = ac.account_name
+        for old_password in ph.get_history(ac.entity_id):
+            if check_password_history(password, [old_password['hash']], name):
                 return ("The password is obsolete, it was set on %s" %
-                        r['set_at'])
+                        old_password['set_at'])
         return "Incorrect password"
 
     #
