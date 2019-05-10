@@ -1,6 +1,6 @@
-#!/usr/bin/python
-# -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,46 +17,66 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Update LDAP from ldif-file.
 
-# Copied from Leetah
+This script does an ldap modify towards the ldap server and then updates the
+local ldif file to reflect the status on the server.
 
-import cerebrum_path
-import cereconf
+Copied from Leetah
+"""
+import argparse
+import datetime
+import logging
 import os
-import sys
-import time
 
-from Cerebrum.Utils import Factory
+import cereconf
+
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+
+logger = logging.getLogger(__name__)
 logger_name = cereconf.DEFAULT_LOGGER_TARGET
 
-def main():
-    logger = Factory.get_logger(logger_name)
-    date = time.localtime()
-    year = date[0]
-    month = date[1]
-    day = date[2]
+
+def main(inargs=None):
+    parser = argparse.ArgumentParser(description="Update LDAP")
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf(logger_name, args)
+
+    today = datetime.date.today().sfrftime('%Y%m%d')
+
     ldap_server = cereconf.LDAP['server']
-    user = cereconf.LDAP['user'] 
+    user = cereconf.LDAP['user']
     password = cereconf.LDAP['password']
-    ldap_dump_dir = cereconf.DUMPDIR + "/ldap/"
-    ldap_temp_file = "temp_uit_ldif"
-    ldap_diff = "uit_ldif"
+
+    ldap_dump_dir = os.path.join(cereconf.DUMPDIR, 'ldap')
+    infile = os.path.join(ldap_dump_dir, 'uit_diff_%s' % (today, ))
+    ldap_temp_file = os.path.join(ldap_dump_dir, "temp_uit_ldif")
+    ldap_diff = os.path.join(ldap_dump_dir, "uit_ldif")
 
     ret = 0
-    ret = os.system("/usr/bin/ldapmodify -x -H ldaps://%s -D \"cn=%s,dc=uit,dc=no\" -w %s -f %s/uit_diff_%02d%02d%02d" % (ldap_server,user,password,ldap_dump_dir,year,month,day))
-    if(ret != 0):
-        logger.error("unable to update ldap server")
-        sys.exit(1)
-    ret = os.system("mv %s/%s %s/%s" % (ldap_dump_dir,ldap_temp_file,ldap_dump_dir,ldap_diff))
-         
+    ret = os.system(
+        ' '.join((
+            '/usr/bin/ldapmodify',
+            '-x',
+            '-H', 'ldaps://%s' % (ldap_server, ),
+            '-D', '"cn=%s,dc=uit,dc=no"' % (user, ),
+            '-w', password,
+            '-f', infile,
+        )))
 
-def usage():
-    print """
-    This script does an ldap modify towards the ldap server and then updates the local ldif
-    file to reflect the status on the server
-    """
+    if ret != 0:
+        logger.error("Unable to update ldap server")
+        raise SystemExit(1)
 
-if __name__=='__main__':
+    ret = os.system("mv %s %s" % (ldap_temp_file, ldap_diff))
+    if ret != 0:
+        logger.error("Unable to copy tempfile")
+        raise SystemExit(1)
+
+
+if __name__ == '__main__':
     main()
-
-# arch-tag: b68a0396-b426-11da-9abf-db31addc6818
