@@ -15,7 +15,7 @@ nose
 phonenumbers
 pid
 pika
-psycopg2-binary
+psycopg2-binary==2.7.4
 pygpgme
 pyOpenSSL
 pytest
