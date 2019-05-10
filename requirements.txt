@@ -19,7 +19,7 @@ psycopg2-binary
 pygpgme
 pyOpenSSL
 pytest
-python-ldap
+python-ldap==3.0.0
 pytz
 PyYAML
 raven
