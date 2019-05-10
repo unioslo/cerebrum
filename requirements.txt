@@ -11,7 +11,7 @@ gunicorn
 Jinja2
 jsonschema
 lxml
-nose
+nose==1.3.7
 phonenumbers
 pid
 pika
