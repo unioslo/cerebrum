@@ -17,7 +17,7 @@ pid
 pika
 psycopg2-binary
 pygpgme
-pyOpenSSL
+pyOpenSSL==17.5.0
 pytest
 python-ldap
 pytz
