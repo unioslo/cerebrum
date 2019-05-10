@@ -7,7 +7,7 @@ egenix-mx-base
 Flask==0.12.4
 flask-restplus==0.10.1
 functools32
-gunicorn
+gunicorn==19.7.1
 Jinja2
 jsonschema
 lxml
