@@ -1,46 +1,68 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# Copyright 2018-2019 University of Tromso, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import print_function
 
-progname = __file__.split("/")[-1]
-__doc__ = """
-    
-    Usage: %s [options]
-    Options are:
-    -p | --pagafile filename    : Read national identities from given Paga file
-    -h | --help                 : This text
-    -d | --dryrun               : Do not change DB, default is do change DB.
-    
-
-    This program collects mobile_numbers from Difi's "Kontakt- og reservasjonssregister" 
-    for all persons in the given Paga file and populates entity_contact_info table in Cerebrum.
-    
-""" % progname 
-
-import os
 import sys
 import getopt
 import csv
 import urllib2
 import json
 
-import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.no.uit.Contacts import PhoneNums
+
+progname = __file__.split("/")[-1]
+__doc__ = """
+
+    Usage: %s [options]
+    Options are:
+    -p | --pagafile filename    : Read national identities from given Paga file
+    -h | --help                 : This text
+    -d | --dryrun               : Do not change DB, default is do change DB.
+
+
+    This program collects mobile_numbers from Difi's "Kontakt- og
+    reservasjonssregister" for all persons in the given Paga file and
+    populates entity_contact_info table in Cerebrum.
+
+""" % progname
+
 
 pagafile = None
 reader = None
 national_identity_column = 0
 mobile_count = 0
 
+
 db = Factory.get('Database')()
 db.cl_init(change_program=progname)
-p  = Factory.get('Person')(db)
+p = Factory.get('Person')(db)
 co = Factory.get('Constants')(db)
+
 
 logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
 pn = PhoneNums(logger)
+
 
 def get_national_identies(number_of_columns):
     """
@@ -59,27 +81,37 @@ def get_national_identies(number_of_columns):
             break
     return national_identity
 
+
 def get_mobile_list(token, social_security_number_list):
     """
-    Function that takes a list of Norwegian social security numbers and returns a
-    dictionary with the corresponding mobile phone number OR None as value and the
-    social security number as key
+    Function that takes a list of Norwegian social security numbers and returns
+    a dictionary with the corresponding mobile phone number OR None as value
+    and the social security number as key
     """
     opener = urllib2.build_opener()
 
-    data = json.dumps({"personidentifikator": social_security_number_list})
-    headers = {'Content-Type': 'application/json;charset=UTF-8', 'Authorization': token}
+    data = json.dumps({
+        "personidentifikator": social_security_number_list,
+    })
+    headers = {
+        'Content-Type': 'application/json;charset=UTF-8',
+        'Authorization': token,
+    }
 
-    request = urllib2.Request('https://oppslag.uit.no/api/person', data, headers)
+    request = urllib2.Request('https://oppslag.uit.no/api/person',
+                              data,
+                              headers)
 
     result_dict = {}
 
     try:
         for result in json.load(opener.open(request)):
             phone = None
-            if result['Status'] == 0 and result['Kontaktinformasjon'] is not None:
+            if (result['Status'] == 0 and
+                    result['Kontaktinformasjon'] is not None):
                 try:
-                    phone = result['Kontaktinformasjon']['Mobiltelefonnummer']['Nummer']
+                    phone = result['Kontaktinformasjon']
+                    phone = phone['Mobiltelefonnummer']['Nummer']
                 except TypeError:
                     pass
             result_dict[result['Personidentifikator']] = phone
@@ -88,68 +120,83 @@ def get_mobile_list(token, social_security_number_list):
 
     return result_dict
 
+
 def update_bas(mobile_phones):
     """
     Function to update BAS with mobile phone numbers
     """
-
     global mobile_count
     for national_identity, mobile_phone in mobile_phones.items():
-        logger.debug("### Processing %s:" % national_identity)
+        logger.debug("Processing nin=%r", national_identity)
         if mobile_phone is None:
-            logger.debug("No phone number in KR-REG for this person, nothing to do...")
+            logger.debug("No phone number in KR-REG for person, ignoring...")
             continue
 
         # convert number to E.164 format (+<Land code><phone number>)
         mobile_phone_e164 = pn.convert_to_e164_format(mobile_phone)
-        
-        if mobile_phone_e164 == None:
-            logger.debug("Conversion of number from KR-REG failed, ignoring it...")
+
+        if mobile_phone_e164 is None:
+            logger.debug("Conversion of number from KR-REG failed, "
+                         "ignoring...")
             continue
 
         p.clear()
         try:
             p.find_by_external_id(co.externalid_fodselsnr, national_identity)
         except Errors.NotFoundError:
-            logger.debug("Person %s not found in BAS, ignoring..." % national_identity)
+            logger.debug("No relevant person found in Cerebrum, ignoring...")
             continue
         except Errors.TooManyRowsError:
-            # This persons fnr is registered to multiple entity_ids in entity_external_id table
-            # This is an error, person should not have not more than one entity_id.
-            # Don't know which person object to use, return error message.
-            logger.error("Person %s has multiple entries in entity_external_id table in BAS."
-                         " Resolve manually" % national_identity)
+            # This persons fnr is registered to multiple entity_ids in
+            # entity_external_id table This is an error, person should not have
+            # not more than one entity_id.  Don't know which person object to
+            # use, return error message.
+            logger.error("Multiple persons share nin=%r in Cerebrum, "
+                         "ignoring...", national_identity)
             continue
 
-        # ?? is it better to make a list over registered ice_numbers (just once) with: 
-        # p.list_contact_info(source_system = co.system_kr_reg, contact_type = co.contact_ice_phone)
-        # instead of calling get_contact_info for each person?
+        # ?? is it better to make a list over registered ice_numbers
+        # (just once) with: p.list_contact_info(source_system =
+        # co.system_kr_reg, contact_type = co.contact_ice_phone) instead of
+        # calling get_contact_info for each person?
 
-        ice_num_info = p.get_contact_info(source = co.system_kr_reg, type = co.contact_ice_phone)
+        ice_num_info = p.get_contact_info(source=co.system_kr_reg,
+                                          type=co.contact_ice_phone)
         if len(ice_num_info) > 0:
-            logger.debug("Person already has ICE num from KR-REG in BAS, comparing it with new one from KR-REG")
+            logger.debug("Person already has ICE num from KR-REG in BAS, "
+                         "comparing it with new one from KR-REG")
 
             ice_num = ice_num_info[0]["contact_value"]
 
             if ice_num == mobile_phone_e164:
-                logger.debug("New ICE num from KR-REG is same as one in BAS, doing nothing...")
+                logger.debug("New ICE num from KR-REG is same as one in BAS, "
+                             "doing nothing...")
                 continue
-            else:                    
-                logger.debug("ICE num from KR-REG (%s) differs from one in BAS (%s), replacing..." % (mobile_phone_e164, ice_num))
-                p.delete_contact_info(source = co.system_kr_reg, contact_type = co.contact_ice_phone)
-                p.add_contact_info(source = co.system_kr_reg, type = co.contact_ice_phone, value = mobile_phone_e164)
+            else:
+                logger.debug("ICE num from KR-REG (%s) differs from one in BAS"
+                             " (%s), replacing...", mobile_phone_e164, ice_num)
+                p.delete_contact_info(source=co.system_kr_reg,
+                                      contact_type=co.contact_ice_phone)
+                p.add_contact_info(source=co.system_kr_reg,
+                                   type=co.contact_ice_phone,
+                                   value=mobile_phone_e164)
         else:
-            logger.debug("Person has no previous ICE number from KR-REG in BAS, adding the new one (%s)" % mobile_phone_e164)
-            p.add_contact_info(source = co.system_kr_reg, type = co.contact_ice_phone, value = mobile_phone_e164)
+            logger.debug("Person has no previous ICE number from KR-REG in "
+                         "BAS, adding the new one (%s)", mobile_phone_e164)
+            p.add_contact_info(source=co.system_kr_reg,
+                               type=co.contact_ice_phone,
+                               value=mobile_phone_e164)
 
         mobile_count += 1
         p.write_db()
 
-def usage(exitcode = 0, msg = None):
+
+def usage(exitcode=0, msg=None):
     if msg:
-        print msg
-    print __doc__
+        print(msg)
+    print(__doc__)
     sys.exit(exitcode)
+
 
 def main():
     global dryrun
@@ -160,7 +207,9 @@ def main():
     dryrun = False
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dhp:', ['dryrun','help',"pagafile="])
+        opts, args = getopt.getopt(sys.argv[1:],
+                                   'dhp:',
+                                   ['dryrun', 'help', "pagafile="])
     except getopt.GetoptError:
         usage(1)
     for opt, val in opts:
@@ -187,12 +236,15 @@ def main():
     row_count = sum(1 for row in file)
     file.seek(0)
 
-    logger.info("Updating BAS with ICE numbers from Difi's 'Kontakt- og reservasjonssregister'.")
+    logger.info("Updating BAS with ICE numbers from Difi's"
+                "'Kontakt- og reservasjonssregister'.")
     while row_fetched < row_count:
         # GET all national identities
         national_identies = get_national_identies(row_fetch_max)
         # GET all mobile phone numbers
-        mobile_phones = get_mobile_list("219f6b02853baaa94c9a06df43ea80d9b6f59fbb", national_identies)
+        mobile_phones = get_mobile_list(
+            "219f6b02853baaa94c9a06df43ea80d9b6f59fbb",
+            national_identies)
         # UPDATE BAS
         update_bas(mobile_phones)
 
@@ -200,7 +252,7 @@ def main():
 
     logger.debug("############")
     logger.debug("Lines in pagafile: %s" % row_count)
-    
+
     if mobile_count > 0:
         logger.info("%s new ICE numbers added to BAS." % mobile_count)
         if dryrun:
