@@ -328,6 +328,143 @@ class ImportFromFs(object):
         f.write("</data>\n")
         f.close()
 
+    def write_topic_info(self, topics_file):
+        """Lager fil med informasjon om alle XXX"""
+        # TODO: Denne filen blir endret med det nye opplegget :-(
+        logger.info("Writing topic info to '%s'", topics_file)
+        f = SimilarSizeWriter(topics_file, mode='w',
+                              encoding=XML_ENCODING)
+        f.max_pct_change = 50
+        f.write(xml.xml_hdr + "<data>\n")
+        cols, topics = self._ext_cols(self.fs.student.list_eksamensmeldinger())
+        for t in topics:
+            # The Oracle driver thinks the result of a union of ints is float
+            self.fix_float(t)
+            f.write(
+                xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'topic') + "\n")
+        f.write("</data>\n")
+        f.close()
+
+    def write_forkurs_info(self, pre_course_file):
+        from mx.DateTime import now
+        logger.info("Writing pre-course file to '%s'", pre_course_file)
+        f = SimilarSizeWriter(pre_course_file, mode='w',
+                              encoding=XML_ENCODING)
+        f.max_pct_change = 50
+        cols, course_attendants = self._ext_cols(self.fs.forkurs.list())
+        f.write(xml.xml_hdr + "<data>\n")
+        for a in course_attendants:
+            f.write(
+                '<regkort fodselsdato="{}" personnr="{}" dato_endring="{}" '
+                'dato_opprettet="{}"/>\n'.format(a['fodselsdato'],
+                                                 a['personnr'],
+                                                 str(now()),
+                                                 str(now())))
+            f.write('<emnestud fodselsdato="{}" personnr="{}" etternavn="{}" '
+                    'fornavn="{}" adrlin2_semadr="" postnr_semadr="" '
+                    'adrlin3_semadr="" adrlin2_hjemsted="" postnr_hjemsted="" '
+                    'adrlin3_hjemsted="" sprakkode_malform="NYNORSK" '
+                    'kjonn="X" studentnr_tildelt="{}" emnekode="FORGLU" '
+                    'versjonskode="1" terminkode="VÅR" arstall="2016" '
+                    'telefonlandnr_mobil="{}" telefonnr_mobil="{}"/>\n'.format(
+                        a['fodselsdato'],
+                        a['personnr'],
+                        a['etternavn'],
+                        a['fornavn'],
+                        a['studentnr_tildelt'],
+                        a['telefonlandnr'],
+                        a['telefonnr']
+                    ))
+        f.write("</data>\n")
+        f.close()
+
+    def write_edu_info(self, edu_file):
+        """Lager en fil med undervisningsinformasjonen til alle studenter.
+
+        For hver student, lister vi opp alle tilknytningene til undenh, undakt,
+        evu, kursakt og kull.
+
+        Hovedproblemet i denne metoden er at vi må bygge en enorm dict med all
+        undervisningsinformasjon. Denne dicten bruker mye minne.
+
+        Advarsel: vi gjør ingen konsistenssjekk på at undervisningselementer
+        nevnt i outfile vil faktisk finnes i andre filer genererert av dette
+        skriptet. Mao. det er fullt mulig at en student S er registrert ved
+        undakt U1, samtidig som U1 ikke er nevnt i undervisningsaktiveter.xml.
+
+        fs.undervisning.list_studenter_alle_kull()      <- kull deltagelse
+        fs.undervisning.list_studenter_alle_undenh()    <- undenh deltagelse
+        fs.undervisning.list_studenter_alle_undakt()    <- undakt deltagelse
+        fs.evu.list_studenter_alle_kursakt()            <- kursakt deltagelse
+        fs.evu.list()                                   <- evu deltagelse
+        """
+        logger.info("Writing edu info to '%s'", edu_file)
+        f = SimilarSizeWriter(edu_file, mode='w', encoding=XML_ENCODING)
+        f.max_pct_change = 50
+        f.write(xml.xml_hdr + "<data>\n")
+
+        for triple in (
+                ("kull", None,
+                 self.fs.undervisning.list_studenter_alle_kull),
+                ("undenh", None,
+                 self.fs.undervisning.list_studenter_alle_undenh),
+                ("undakt", None,
+                 self.fs.undervisning.list_studenter_alle_undakt),
+                ("evu", ("fodselsdato",
+                         "personnr",
+                         "etterutdkurskode",
+                         "kurstidsangivelsekode"),
+                 self.fs.evu.list),
+                ("kursakt", None, self.fs.evu.list_studenter_alle_kursakt)):
+            kind, fields, selector = triple
+            logger.debug("Processing %s entries", kind)
+            for row in selector():
+                if fields is None:
+                    tmp_row = row
+                    keys = row.keys()
+                else:
+                    tmp_row = dict((f, row[f]) for f in fields)
+                    keys = fields
+
+                f.write(xml.xmlify_dbrow(tmp_row, keys, kind) + '\n')
+
+        f.write("</data>\n")
+        f.close()
+
+    def write_regkort_info(self, regkort_file):
+        """Lager fil med informasjon om semesterregistreringer for
+        inneværende semester"""
+        logger.info("Writing regkort info to '%s'", regkort_file)
+        f = SimilarSizeWriter(regkort_file, mode='w',
+                              encoding=XML_ENCODING)
+        f.max_pct_change = 50
+        f.write(xml.xml_hdr + "<data>\n")
+        cols, regkort = self._ext_cols(self.fs.student.list_semreg())
+        for r in regkort:
+            f.write(
+                xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'regkort') + "\n")
+        f.write("</data>\n")
+        f.close()
+
+    def write_betalt_papir_info(self, betalt_papir_file):
+        """Lager fil med informasjon om alle som enten har fritak fra å
+        betale kopiavgift eller har betalt kopiavgiften"""
+
+        logger.info("Writing betaltpapir info to '%s'", betalt_papir_file)
+        f = SimilarSizeWriter(betalt_papir_file, mode='w',
+                              encoding=XML_ENCODING)
+        f.max_pct_change = 50
+        f.write(xml.xml_hdr + "<data>\n")
+        cols, dta = self._ext_cols(
+            self.fs.betaling.list_kopiavgift_data(
+                kun_fritak=False, semreg=True))
+        for t in dta:
+            self.fix_float(t)
+            f.write(
+                xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'betalt') + "\n")
+        f.write("</data>\n")
+        f.close()
+
     @staticmethod
     def fix_float(row):
         for n in range(len(row)):

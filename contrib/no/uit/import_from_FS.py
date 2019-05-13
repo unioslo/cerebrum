@@ -125,7 +125,7 @@ class FilePaths(object):
                                                 "student_undenh.xml")
         self.evu_kursinfo_file = os.path.join(self.datadir, "evu_kursinfo.xml")
         self.misc_file = None
-        # Uio Extras
+        # Uit Extras
         self.topics_file = os.path.join(self.datadir, "topics.xml")
         self.regkort_file = os.path.join(self.datadir, "regkort.xml")
         self.betalt_papir_file = os.path.join(self.datadir, "betalt_papir.xml")
@@ -157,7 +157,7 @@ class FilePaths(object):
                 self.undenh_student_file = set_filepath(self.datadir, val)
             elif o in ('--evukursinfo-file',):
                 self.evu_kursinfo_file = set_filepath(self.datadir, val)
-            # Uio Extras
+            # Uit Extras
             elif o in ('--topics-file',):
                 self.topics_file = set_filepath(self.datadir, val)
             elif o in ('--regkort-file',):
@@ -170,11 +170,11 @@ class FilePaths(object):
                 self.pre_course_file = set_filepath(self.datadir, val)
 
 
-class ImportFromFsUio(ImportFromFs):
+class ImportFromFsUiT(ImportFromFs):
     def __init__(self, fs):
-        super(ImportFromFsUio, self).__init__(fs)
+        super(ImportFromFsUiT, self).__init__(fs)
 
-    def write_person_info(self, person_file):
+    def write_person_info(self, outfile):
         """Lager fil med informasjon om alle personer registrert i FS som
         vi muligens også ønsker å ha med i Cerebrum.  En person kan
         forekomme flere ganger i filen."""
@@ -183,59 +183,19 @@ class ImportFromFsUio(ImportFromFs):
         # fil der all informasjon om en person er samlet under en egen
         # <person> tag?
 
-        logger.info("Writing person info to '%s'", person_file)
-        f = SimilarSizeWriter(person_file, mode='w',
+        logger.info("Writing person info to '%s'", outfile)
+
+        f = SimilarSizeWriter(outfile, mode='w',
                               encoding=XML_ENCODING)
         f.max_pct_change = 50
         f.write(xml.xml_hdr + "<data>\n")
-
-        # Aktive studenter
-        cols, students = self._ext_cols(self.fs.student.list_aktiv())
-        for s in students:
-            f.write(
-                xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'aktiv') + "\n")
-
-        # Eksamensmeldinger
-        cols, students = self._ext_cols(
-            self.fs.student.list_eksamensmeldinger())
-        for s in students:
-            f.write(
-                xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
-
-        # EVU students
-        # En del EVU studenter vil være gitt av søket over
-        cols, students = self._ext_cols(self.fs.evu.list())
-        for e in students:
-            f.write(
-                xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
-
-        # Privatister, privatistopptak til studieprogram eller emne-privatist
-        cols, students = self._ext_cols(self.fs.student.list_privatist())
-        for s in students:
-            self.fix_float(s)
-            f.write(
-                xml.xmlify_dbrow(
-                    s, xml.conv_colnames(cols),
-                    'privatist_studieprogram') + "\n")
-        cols, students = self._ext_cols(self.fs.student.list_privatist_emne())
-        for s in students:
-            f.write(
-                xml.xmlify_dbrow(
-                    s, xml.conv_colnames(cols), 'privatist_emne') + "\n")
-
-        # Drgradsstudenter med opptak
-        cols, drstudents = self._ext_cols(self.fs.student.list_drgrad())
-        for d in drstudents:
-            f.write(
-                xml.xmlify_dbrow(d, xml.conv_colnames(cols), 'drgrad') + "\n")
-
         # Fagpersoner
         cols, fagpersoner = self._ext_cols(
             self.fs.undervisning.list_fagperson_semester())
         for p in fagpersoner:
             f.write(
-                xml.xmlify_dbrow(
-                    p, xml.conv_colnames(cols), 'fagperson') + "\n")
+                xml.xmlify_dbrow(p, xml.conv_colnames(cols),
+                                 'fagperson') + "\n")
 
         # Studenter med opptak, privatister (=opptak i studiepgraommet
         # privatist) og Alumni
@@ -246,12 +206,28 @@ class ImportFromFsUio(ImportFromFs):
             f.write(
                 xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'opptak') + "\n")
 
+        # Privatister, privatistopptak til studieprogram eller emne-privatist
+        cols, students = self._ext_cols(self.fs.student.list_privatist())
+        for s in students:
+            self.fix_float(s)
+            f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols),
+                                     'privatist_studieprogram') + "\n")
+        cols, students = self._ext_cols(self.fs.student.list_privatist_emne())
+        for s in students:
+            f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols),
+                                     'privatist_emne') + "\n")
+
+        # Aktive studenter
+        cols, students = self._ext_cols(self.fs.student.list_aktiv())
+        for s in students:
+            f.write(
+                xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'aktiv') + "\n")
+
         # Aktive emnestudenter
         cols, students = self._ext_cols(self.fs.student.list_aktiv_emnestud())
         for s in students:
-            f.write(
-                xml.xmlify_dbrow(
-                    s, xml.conv_colnames(cols), 'emnestud') + "\n")
+            f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols),
+                                     'emnestud') + "\n")
 
         # Semester-registrering
         cols, students = self._ext_cols(self.fs.student.list_semreg())
@@ -259,76 +235,32 @@ class ImportFromFsUio(ImportFromFs):
             f.write(
                 xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'regkort') + "\n")
 
+        # Eksamensmeldinger
+        cols, students = self._ext_cols(
+            self.fs.student.list_eksamensmeldinger())
+        for s in students:
+            f.write(
+                xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
+
+        # Drgradsstudenter med opptak
+        cols, drstudents = self._ext_cols(self.fs.student.list_drgrad())
+        for d in drstudents:
+            f.write(
+                xml.xmlify_dbrow(d, xml.conv_colnames(cols), 'drgrad') + "\n")
+
+        # EVU students
+        # En del EVU studenter vil v�re gitt av s�ket over
+
+        cols, evustud = self._ext_cols(self.fs.evu.list())
+        for e in evustud:
+            f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
+
         # Studenter i permisjon (ogs� dekket av GetStudinfOpptak)
         cols, permstud = self._ext_cols(self.fs.student.list_permisjon())
         for p in permstud:
-            f.write(
-                xml.xmlify_dbrow(
-                    p, xml.conv_colnames(cols), 'permisjon') + "\n")
+            f.write(xml.xmlify_dbrow(p, xml.conv_colnames(cols),
+                                     'permisjon') + "\n")
 
-        #
-        # STA har bestemt at personer med tilbud ikke skal ha tilgang til noen
-        # IT-tjenester inntil videre. Derfor slutter vi på nåværende tidspunkt
-        # å hente ut informasjon om disse. Ettersom det er usikkert om dette
-        # vil endre seg igjen i nær fremtid lar vi koden ligge for nå.
-        #
-        # # Personer som har fått tilbud
-        # cols, tilbudstud = self._ext_cols(fs.student.list_tilbud())
-        # for t in tilbudstud:
-        #     f.write(
-        #         xml.xmlify_dbrow(
-        #             t, xml.conv_colnames(cols), 'tilbud') + "\n")
-
-        f.write("</data>\n")
-        f.close()
-
-    def write_ou_info(self, institution_number, ou_file):
-        """Lager fil med informasjon om alle OU-er"""
-        logger.info("Writing OU info to '%s'", ou_file)
-        f = SimilarSizeWriter(ou_file, mode='w', encoding=XML_ENCODING)
-        f.max_pct_change = 50
-        f.write(xml.xml_hdr + "<data>\n")
-        cols, ouer = self._ext_cols(
-            self.fs.info.list_ou(institution_number))
-        for o in ouer:
-            sted = {}
-            for fs_col, xml_attr in (
-                    ('faknr', 'fakultetnr'),
-                    ('instituttnr', 'instituttnr'),
-                    ('gruppenr', 'gruppenr'),
-                    ('stedakronym', 'akronym'),
-                    ('stedakronym', 'forkstednavn'),
-                    ('stednavn_bokmal', 'stednavn'),
-                    ('faknr_org_under', 'fakultetnr_for_org_sted'),
-                    ('instituttnr_org_under', 'instituttnr_for_org_sted'),
-                    ('gruppenr_org_under', 'gruppenr_for_org_sted'),
-                    ('adrlin1', 'adresselinje1_intern_adr'),
-                    ('adrlin2', 'adresselinje2_intern_adr'),
-                    ('postnr', 'poststednr_intern_adr'),
-                    ('adrlin1_besok', 'adresselinje1_besok_adr'),
-                    ('adrlin2_besok', 'adresselinje2_besok_adr'),
-                    ('postnr_besok', 'poststednr_besok_adr')):
-                if o[fs_col] is not None:
-                    sted[xml_attr] = xml.escape_xml_attr(o[fs_col])
-            komm = []
-            for fs_col, typekode in (
-                    ('telefonnr', 'EKSTRA TLF'),
-                    ('faxnr', 'FAX'),
-            ):
-                if o[fs_col]:  # Skip NULLs and empty strings
-                    komm.append(
-                        {'kommtypekode': xml.escape_xml_attr(typekode),
-                         'kommnrverdi': xml.escape_xml_attr(o[fs_col])})
-            # TODO: Kolonnene 'url' og 'bibsysbeststedkode' hentes ut fra
-            # FS, men tas ikke med i outputen herfra.
-            f.write('<sted ' +
-                    ' '.join(["%s=%s" % item for item in sted.items()]) +
-                    '>\n')
-            for k in komm:
-                f.write('<komm ' +
-                        ' '.join(["%s=%s" % item for item in k.items()]) +
-                        ' />\n')
-            f.write('</sted>\n')
         f.write("</data>\n")
         f.close()
 
@@ -375,7 +307,7 @@ def main():
             institution_number = val
     fs = make_fs(user=db_user, database=db_service)
     file_paths = FilePaths(opts)
-    fsimporter = ImportFromFsUio(fs)
+    fsimporter = ImportFromFsUiT(fs)
 
     misc_tag = None
     misc_func = None

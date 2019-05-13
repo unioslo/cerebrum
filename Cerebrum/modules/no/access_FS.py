@@ -346,7 +346,7 @@ class FSObject(object):
     def _is_alive(self):
         return "NVL(p.status_dod, 'N') = 'N'\n"
 
-    def _get_termin_aar(self, only_current=0):
+    def _get_termin_aar(self, only_current=False):
         """Generate an SQL query part for limiting registerkort to the current
         term and maybe also the previous term. The output from this method
         should be a part of an SQL query, and must have a reference to
@@ -405,7 +405,7 @@ class FSObject(object):
             next = "(r.terminkode = :autumn AND r.arstall=%s)\n" % self.year
         else:
             next = "(r.terminkode = :spring AND r.arstall=%s)\n" % (
-                    self.year + 1)
+                self.year + 1)
         return next
 
 
@@ -1646,17 +1646,17 @@ class Undervisning(FSObject):
             instituttnr, gruppenr, status_aktiv, status_publiseres)
             VALUES
             (:fnr, :pnr, :termin, :arstall, :institusjonsnr, :fakultetnr,
-            :instiuttnr, :gruppenr, :status_aktiv, :status_publiseres)""", {
-                'fnr': fnr,
-                'pnr': pnr,
-                'institusjonsnr': institusjonsnr,
-                'fakultetnr': fakultetnr,
-                'instiuttnr': instiuttnr,
-                'gruppenr': gruppenr,
-                'termin': termin,
-                'arstall': arstall,
-                'status_aktiv': status_aktiv,
-                'status_publiseres': status_publiseres})
+            :instiuttnr, :gruppenr, :status_aktiv, :status_publiseres)""",
+            {'fnr': fnr,
+             'pnr': pnr,
+             'institusjonsnr': institusjonsnr,
+             'fakultetnr': fakultetnr,
+             'instiuttnr': instiuttnr,
+             'gruppenr': gruppenr,
+             'termin': termin,
+             'arstall': arstall,
+             'status_aktiv': status_aktiv,
+             'status_publiseres': status_publiseres})
 
     def list_studenter_alle_undakt(self):
         """Hent alle studenter på alle undakt.
@@ -1687,7 +1687,43 @@ class Undervisning(FSObject):
         """
 
         return self.db.query(qry, {"aar": self.year}, fetchall=False)
-    # end list_studenter_alle_undakt
+
+    def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
+        """Hent alle studentene som er oppført på et gitt kull."""
+
+        query = """
+        SELECT DISTINCT
+            fodselsdato, personnr
+        FROM
+            fs.studieprogramstudent
+        WHERE
+            studentstatkode IN ('AKTIV', 'PERMISJON') AND
+            NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
+            studieprogramkode = :studieprogramkode AND
+            terminkode_kull = :terminkode_kull AND
+            arstall_kull = :arstall_kull
+        """
+
+        return self.db.query(query, {"studieprogramkode": studieprogramkode,
+                                     "terminkode_kull": terminkode,
+                                     "arstall_kull": arstall})
+
+    def list_studenter_alle_kull(self):
+        query = """
+        SELECT DISTINCT
+            fodselsdato, personnr, studieprogramkode, terminkode_kull,
+            arstall_kull
+        FROM
+            fs.studieprogramstudent
+        WHERE
+            studentstatkode IN ('AKTIV', 'PERMISJON') AND
+            NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
+            /* IVR 2007-11-12: According to baardj, it makes no sense to
+               register 'kull' for earlier timeframes. */
+            arstall_kull >= 2002
+        """
+
+        return self.db.query(query)
 
 
 @fsobject('undervisning', '>=7.8')
@@ -2056,6 +2092,51 @@ class FS(object):
                                      name,
                                      self.fsversion)
         return cand
+
+    def list_dbfg_usernames(self, fetchall=False):
+        """Get all usernames and return them as a sequence of db_rows.
+
+        Usernames may be prefixed with a institution specific tag, if the db
+        has defined this. If defined, only usernames with the prefix are
+        returned, and the prefix is stripped out.
+
+        NB! This function does *not* return a 2-tuple. Only a sequence of
+        all usernames (the column names can be obtains from db_row objects)
+        """
+        prefix = self.get_username_prefix()
+        ret = ({'username': row['username'][len(prefix):]} for row in
+               self.db.query("""
+                            SELECT username as username
+                            FROM all_users
+                            WHERE username LIKE :prefixed
+                        """, {'prefixed': '%s%%' % prefix},
+                             fetchall=fetchall))
+        if fetchall:
+            return list(ret)
+        return ret
+
+    def list_dba_usernames(self, fetchall=False):
+        """Get all usernames for internal statistics."""
+
+        query = """
+        SELECT
+           lower(username) as username
+        FROM
+           dba_users
+        WHERE
+           default_tablespace = 'USERS' and account_status = 'OPEN'
+        """
+
+        return self.db.query(query, fetchall=fetchall)
+
+    def get_username_prefix(self):
+        """Get the database' defined username prefix, or '' if not defined."""
+        try:
+            return self.db.query_1(
+                "SELECT brukerprefiks FROM fs.systemverdier")
+        except self.db.DatabaseError:
+            pass
+        return ''
 
 
 class element_attribute_xml_parser(xml.sax.ContentHandler, object):

@@ -253,26 +253,6 @@ class NMHUndervisning(access_FS.Undervisning):
                                    'arstall': arstall}
                              )
 
-    def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
-        """Hent alle studentene som er oppført på et gitt kull."""
-
-        query = """
-        SELECT DISTINCT
-            fodselsdato, personnr
-        FROM
-            fs.studieprogramstudent
-        WHERE
-            studentstatkode IN ('AKTIV', 'PERMISJON') AND
-            NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
-            studieprogramkode = :studieprogramkode AND
-            terminkode_kull = :terminkode_kull AND
-            arstall_kull = :arstall_kull
-        """
-
-        return self.db.query(query, {"studieprogramkode": studieprogramkode,
-                                     "terminkode_kull": terminkode,
-                                     "arstall_kull": arstall})
-
     def list_fagperson_semester(self):
         """Hent ut data om fagpersoner. NMH har et tilleggsbehov for å hente ut
         fagfelt (fagnavn_norsk) for fagpersonene.

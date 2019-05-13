@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002, 2003, 2012 University of Oslo, Norway
+# Copyright 2002, 2003, 2012, 2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,23 +17,20 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# kbj005, 2018-04-04: Copied from Cerebrum.modules.no.uio and adapted for uit. 
+# kbj005, 2018-04-04: Copied from Cerebrum.modules.no.uio and adapted for uit.
 from __future__ import unicode_literals
 import time
 
 from Cerebrum.modules.no import access_FS
 
-def get_semester(uppercase = False):
-    '''Returns two pairs: ((this_year, this_sem),(next_year,next_sem))
+
+def get_semester():
+    """Returns two pairs: ((this_year, this_sem),(next_year,next_sem))
     Ex. Usage: this_sem, next_sem = access_FS.get_semester()
-    '''    
+    """
     spring = 'vår'
     autumn = 'høst'
-    
-    if uppercase:
-        spring = str_upper_no(spring)
-        autumn = str_upper_no(autumn)
-    
+
     t = time.localtime()[0:2]
     this_year = t[0]
     if t[1] <= 6:
@@ -44,28 +41,33 @@ def get_semester(uppercase = False):
         this_sem = autumn
         next_year = this_year + 1
         next_sem = spring
-    return ((str(this_year), this_sem), (str(next_year), next_sem))
+    return (str(this_year), this_sem), (str(next_year), next_sem)
+
 
 class studieprog_xml_parser(access_FS.non_nested_xml_parser):
-    "Parserklasse for studieprog.xml."
+    """Parserklasse for studieprog.xml."""
 
     elements = {'data': False,
                 'studprog': True,
                 }
 
+
 class underv_enhet_xml_parser(access_FS.underv_enhet_xml_parser):
-    "Utvidelse av parserklasse for underv_enhet.xml."
+    """Utvidelse av parserklasse for underv_enhet.xml."""
 
     access_FS.underv_enhet_xml_parser.elements['data'] = False
     access_FS.underv_enhet_xml_parser.elements['enhet'] = True
 
+
 class undakt_xml_parser(access_FS.non_nested_xml_parser):
-    "Parserklasse for undakt.xml."
+    """Parserklasse for undakt.xml."""
 
     elements = {'data': False,
                 'aktivitet': True}
 
+
 fsobject = access_FS.fsobject
+
 
 @fsobject('student', '<7.8')
 class UiTStudent(access_FS.Student):
@@ -79,9 +81,9 @@ class UiTStudent(access_FS.Student):
         kode 'opptak' til stedskoden sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.
         """
-        return self._list_gyldigopptak(**kwargs) \
-            + self._list_drgradsopptak(**kwargs) \
-            + self._list_gammelopptak_semreg(**kwargs)
+        return (self._list_gyldigopptak(**kwargs) +
+                self._list_drgradsopptak(**kwargs) +
+                self._list_gammelopptak_semreg(**kwargs))
 
     def _list_gyldigopptak(self, fodselsdato=None, personnr=None):
         """Alle med gyldig opptak tildelt for 2 år eller mindre siden
@@ -217,10 +219,10 @@ class UiTStudent(access_FS.Student):
         opptak.  Henter derfor kun fødselsnummer, studieprogram,
         studieretning og kull.  Må gjøre et eget søk for å finne
         klasse for de som er registrert på slikt. """
-        return self._list_aktiv_semreg(**kwargs) \
-            + self._list_aktiv_enkeltemne(**kwargs) \
-            + self._list_aktiv_avlagteksamen(**kwargs) \
-            + self._list_aktiv_utdplan(**kwargs)
+        return (self._list_aktiv_semreg(**kwargs) +
+                self._list_aktiv_enkeltemne(**kwargs) +
+                self._list_aktiv_avlagteksamen(**kwargs) +
+                self._list_aktiv_utdplan(**kwargs))
 
     def _list_aktiv_semreg(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har en
@@ -260,11 +262,11 @@ class UiTStudent(access_FS.Student):
            NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s AND
-           %s""" % (extra, self._get_termin_aar(only_current=1),
+           %s""" % (extra, self._get_termin_aar(only_current=True),
                     self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
-        params['autumn'] = 'HØST'      
+        params['autumn'] = 'HØST'
         return self.db.query(qry, params)
 
     def _list_aktiv_enkeltemne(self, fodselsdato=None, personnr=None):
@@ -302,7 +304,7 @@ class UiTStudent(access_FS.Student):
            NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s AND
-           %s""" % (extra, self._get_termin_aar(only_current=1),
+           %s""" % (extra, self._get_termin_aar(only_current=True),
                     self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
@@ -348,7 +350,7 @@ class UiTStudent(access_FS.Student):
            NVL(r.status_ugyldig, 'N') = 'N' AND
            %s AND
            %s""" % (extra, self.year, self.semester,
-                    self._get_termin_aar(only_current=1), self._is_alive())
+                    self._get_termin_aar(only_current=True), self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
         params['autumn'] = 'HØST'
@@ -404,7 +406,7 @@ class UiTStudent(access_FS.Student):
            %s AND
            %s
         """ % (self.year, extra,
-               self._get_termin_aar(only_current=1),
+               self._get_termin_aar(only_current=True),
                self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
@@ -414,8 +416,8 @@ class UiTStudent(access_FS.Student):
     def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
         """Hent informasjon om personer som anses som aktive studenter på
         grunnlag av eksisterende gyldig undervisningsmelding og gyldig
-        semesterkort i inneværende semester. Merk at disse ikke nødvendigvis har
-        studierett på noen studieprogrammer og at det derfor må hentes ut
+        semesterkort i inneværende semester. Merk at disse ikke nødvendigvis
+        har studierett på noen studieprogrammer og at det derfor må hentes ut
         personopplysninger i tillegg til opplysninger om studieaktivitet.
 
         """
@@ -453,7 +455,7 @@ class UiTStudent(access_FS.Student):
               u.terminkode = r.terminkode AND
               u.arstall = r.arstall AND
               NVL(u.status_opptatt, 'N') = 'J'
-              """ % (self._is_alive(), self._get_termin_aar(only_current=1),
+              """ % (self._is_alive(), self._get_termin_aar(only_current=True),
                      extra)
         params = locals()
         params['spring'] = 'VÅR'
@@ -467,8 +469,8 @@ class UiTStudent(access_FS.Student):
         opptak til. Disse tildeles affiliation privatist til stedet
         som eier studieprogrammet de har opptak til.  Dette blir ikke
         helt riktig efter som man kan ha opptak til studieprogramet
-        'ENKELTEMNE' som betyr at man kan v�re ordnin�r student selv
-        om man havner i denne gruppen som plukkes ut av dette s�ket.
+        'ENKELTEMNE' som betyr at man kan være ordninær student selv
+        om man havner i denne gruppen som plukkes ut av dette søket.
         """
 
         extra = ""
@@ -523,7 +525,7 @@ class UiTStudent(access_FS.Student):
               AND
               %s
         """ % (self.year, self.year, extra,
-               self._get_termin_aar(only_current=1), self._is_alive())
+               self._get_termin_aar(only_current=True), self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
         params['autumn'] = 'HØST'
@@ -532,9 +534,9 @@ class UiTStudent(access_FS.Student):
     def list_privatist(self, fodselsdato=None, personnr=None):
         # GetStudentPrivatist_50
         """Hent personer med privatist 'opptak' til et studieprogram ved
-        institusjonen og som enten har v�rt registrert siste �ret eller
-        har f�tt privatist 'opptak' efter 2003-01-01.  Henter ikke de
-        som har fremtidig opptak.  Disse kommer med 14 dager f�r dato
+        institusjonen og som enten har vært registrert siste året eller
+        har fått privatist 'opptak' efter 2003-01-01.  Henter ikke de
+        som har fremtidig opptak.  Disse kommer med 14 dager før dato
         for tildelt privatist 'opptak'.  Alle disse skal ha affiliation
         med status kode 'privatist' til stedskoden sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.
@@ -545,7 +547,8 @@ class UiTStudent(access_FS.Student):
             # We can't use the same bind variable in two different SELECT
             # expressions.
             extra1 = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
-            extra2 = "s.fodselsdato=:fodselsdato2 AND s.personnr=:personnr2 AND"
+            extra2 = """s.fodselsdato=:fodselsdato2 AND s.personnr=:personnr2
+                     AND"""
 
         qry = """
         SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
@@ -667,8 +670,10 @@ class UiTStudent(access_FS.Student):
             AND
             (NVL(sps.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated
             OR NVL(r.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated
-            OR NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated
-            OR NVL(sp.dato_sist_endret, TO_DATE('1970', 'YYYY'))>= :last_updated
+            OR
+            NVL(p.dato_sist_endret, TO_DATE('1970', 'YYYY')) >= :last_updated
+            OR
+            NVL(sp.dato_sist_endret, TO_DATE('1970', 'YYYY'))>= :last_updated
             OR NVL(s.dato_endring, TO_DATE('1970', 'YYYY')) >= :last_updated)
             """
         qry = """
@@ -693,7 +698,7 @@ class UiTStudent(access_FS.Student):
             r.status_reg_ok = 'J' AND
             r.status_bet_ok = 'J' AND
             r.arstall >= (TO_CHAR(SYSDATE, 'YYYY') - 1) AND
-            /* TODO: m� vi sjekke terminen ogs�? */
+            /* TODO: må vi sjekke terminen også? */
             NVL(r.status_ugyldig, 'N') = 'N' AND
             NVL(p.status_dod, 'N') = 'N'
             %s
@@ -731,7 +736,7 @@ class UiTStudent(access_FS.Student):
             p.personnr    = sps.personnr AND
             sps.studieprogramkode = sp.studieprogramkode AND
             NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= (SYSDATE - 365) AND
-            /* TODO: er det poeng i � ta med studieprogram eit �r tilbake? */
+            /* TODO: er det poeng i å ta med studieprogram eit år tilbake? */
             sp.studienivakode in (900, 980) AND
             NVL(p.status_dod, 'N') = 'N'
             %s
@@ -773,7 +778,8 @@ class UiTStudent(access_FS.Student):
     def list_fodselsnr_changes(self, last_updated=None):
         """
         Import changes in fodselsnummere. Check how long back we want
-        to look. Hardcoded to 30 days, so last_updated param is not used at all.
+        to look. Hardcoded to 30 days, so last_updated param is not used at
+        all.
         """
         raise NotImplementedError("Implementation is not yet available.")
         # extra = ""
@@ -801,19 +807,19 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
 
     def list(self, **kwargs):  # GetStudent_50
         """Hent personer med opptak til et studieprogram ved
-        institusjonen og som enten har v�rt registrert siste �ret
+        institusjonen og som enten har vært registrert siste året
         eller opptak efter 2003-01-01.  Henter ikke de som har
-        fremtidig opptak.  Disse kommer med 14 dager f�r dato for
+        fremtidig opptak.  Disse kommer med 14 dager før dato for
         tildelt opptak.  Alle disse skal ha affiliation med status
         kode 'opptak' til stedskoden sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.
         """
-        return self._list_gyldigopptak(**kwargs) \
-            + self._list_drgradsopptak(**kwargs) \
-            + self._list_gammelopptak_semreg(**kwargs)
+        return (self._list_gyldigopptak(**kwargs) +
+                self._list_drgradsopptak(**kwargs) +
+                self._list_gammelopptak_semreg(**kwargs))
 
     def _list_gyldigopptak(self, fodselsdato=None, personnr=None):
-        """Alle med gyldig opptak tildelt for 2 �r eller mindre siden
+        """Alle med gyldig opptak tildelt for 2 år eller mindre siden
         samt alle med opptak som blir gyldig om 14 dager.
         """
 
@@ -849,14 +855,14 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
            sps.studieprogramkode=sp.studieprogramkode AND
            NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= SYSDATE AND
            sps.status_privatist = 'N' AND
-           sps.dato_studierett_tildelt < SYSDATE + 80 AND
+           sps.dato_studierett_tildelt < SYSDATE + 14 AND
            sps.dato_studierett_tildelt >= to_date('2003-01-01', 'yyyy-mm-dd')
            AND %s
            """ % (extra, self._is_alive())
         return self.db.query(qry, locals())
 
     def _list_drgradsopptak(self, fodselsdato=None, personnr=None):
-        """Alle drgradsstudenter med ikke utg�tt opptak til drgrads-
+        """Alle drgradsstudenter med ikke utgått opptak til drgrads-
         studieprogram.
         """
 
@@ -897,7 +903,7 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
 
     def _list_gammelopptak_semreg(self, fodselsdato=None, personnr=None):
         """Alle med gyldig opptak som har hatt en forekomst i
-        registerkort i l�pet av fjor�ret.
+        registerkort i løpet av fjoråret.
         """
 
         extra = ""
@@ -939,26 +945,26 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
         return self.db.query(qry, locals())
 
     def list_aktiv(self, **kwargs):  # GetStudentAktiv_50
-        """Hent f�dselsnummer+studieprogram+studieretning+kull for
+        """Hent fødselsnummer+studieprogram+studieretning+kull for
         alle aktive studenter.  Som aktive studenter regner vi alle
         studenter med opptak til et studieprogram som samtidig har en
         eksamensmelding eller en avlagt eksamen inneverende semester i
-        et emne som kan inng� i dette studieprogrammet, eller som har
-        bekreftet sin utdanningsplan.  Disse f�r affiliation student
+        et emne som kan inngå i dette studieprogrammet, eller som har
+        bekreftet sin utdanningsplan.  Disse får affiliation student
         med kode aktiv til sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.  Vi har
         alt hentet opplysninger om adresse ol. efter som de har
-        opptak.  Henter derfor kun f�dselsnummer, studieprogram,
-        studieretning og kull.  M� gj�re et eget s�k for � finne
-        klasse for de som er registrert p� slikt. """
-        return self._list_aktiv_semreg(**kwargs) \
-            + self._list_aktiv_enkeltemne(**kwargs) \
-            + self._list_aktiv_avlagteksamen(**kwargs) \
-            + self._list_aktiv_utdplan(**kwargs)
+        opptak.  Henter derfor kun fødselsnummer, studieprogram,
+        studieretning og kull.  Må gjøre et eget søk for å finne
+        klasse for de som er registrert på slikt. """
+        return (self._list_aktiv_semreg(**kwargs) +
+                self._list_aktiv_enkeltemne(**kwargs) +
+                self._list_aktiv_avlagteksamen(**kwargs) +
+                self._list_aktiv_utdplan(**kwargs))
 
     def _list_aktiv_semreg(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har en
-        eksamensmelding i et emne som kan inng� i et studieprogram som
+        eksamensmelding i et emne som kan inngå i et studieprogram som
         de har opptak til.
         """
 
@@ -994,7 +1000,7 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
            NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s AND
-           %s""" % (extra, self._get_termin_aar(only_current=1),
+           %s""" % (extra, self._get_termin_aar(only_current=True),
                     self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
@@ -1004,7 +1010,7 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
     def _list_aktiv_enkeltemne(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte med gyldig opptak til
         studieprogrammet 'ENKELTEMNE' som har en gyldig eksamensmelding
-        i et emne som kan inng� i et vilk�rlig studieprogram.
+        i et emne som kan inngå i et vilkårlig studieprogram.
         """
 
         extra = ""
@@ -1036,7 +1042,7 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
            NVL(r.status_ugyldig, 'N') = 'N' AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            %s AND
-           %s""" % (extra, self._get_termin_aar(only_current=1),
+           %s""" % (extra, self._get_termin_aar(only_current=True),
                     self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
@@ -1045,7 +1051,7 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
 
     def _list_aktiv_utdplan(self, fodselsdato=None, personnr=None):
         """Alle semesterregistrerte som i tillegg har bekreftet
-        utdanningsplan i innev�rende semester.
+        utdanningsplan i inneværende semester.
         """
 
         extra = ""
@@ -1082,16 +1088,16 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
            NVL(r.status_ugyldig, 'N') = 'N' AND
            %s AND
            %s""" % (extra, self.year, self.semester,
-                    self._get_termin_aar(only_current=1), self._is_alive())
+                    self._get_termin_aar(only_current=True), self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
         params['autumn'] = 'HØST'
         return self.db.query(qry, params)
 
     def _list_aktiv_avlagteksamen(self, fodselsdato=None, personnr=None):
-        """Alle semesterregistrerte som har avlagt eksamen i innev�rende
-        �r.  If�lge STA er dette det riktige kravet. mulig at vi �nsker
-        � mene noe annet etterhvert.
+        """Alle semesterregistrerte som har avlagt eksamen i inneværende
+        år.  Ifølge STA er dette det riktige kravet. mulig at vi ønsker
+        å mene noe annet etterhvert.
         """
 
         extra = ""
@@ -1138,7 +1144,7 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
            %s AND
            %s
         """ % (self.year, extra,
-               self._get_termin_aar(only_current=1),
+               self._get_termin_aar(only_current=True),
                self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
@@ -1146,10 +1152,10 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
         return self.db.query(qry, params)
 
     def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
-        """Hent informasjon om personer som anses som aktive studenter p�
+        """Hent informasjon om personer som anses som aktive studenter på
         grunnlag av eksisterende gyldig undervisningsmelding og gyldig
-        semesterkort i innev�rende semester. Merk at disse ikke n�dvendigvis har
-        studierett p� noen studieprogrammer og at det derfor m� hentes ut
+        semesterkort i inneværende semester. Merk at disse ikke nødvendigvis
+        har studierett på noen studieprogrammer og at det derfor må hentes ut
         personopplysninger i tillegg til opplysninger om studieaktivitet.
 
         """
@@ -1189,7 +1195,7 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
               u.terminkode = r.terminkode AND
               u.arstall = r.arstall AND
               NVL(u.status_opptatt, 'N') = 'J'
-              """ % (self._is_alive(), self._get_termin_aar(only_current=1),
+              """ % (self._is_alive(), self._get_termin_aar(only_current=True),
                      extra)
         params = locals()
         params['spring'] = 'VÅR'
@@ -1203,8 +1209,8 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
         opptak til. Disse tildeles affiliation privatist til stedet
         som eier studieprogrammet de har opptak til.  Dette blir ikke
         helt riktig efter som man kan ha opptak til studieprogramet
-        'ENKELTEMNE' som betyr at man kan v�re ordnin�r student selv
-        om man havner i denne gruppen som plukkes ut av dette s�ket.
+        'ENKELTEMNE' som betyr at man kan være ordninær student selv
+        om man havner i denne gruppen som plukkes ut av dette søket.
         """
 
         extra = ""
@@ -1260,7 +1266,7 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
               AND
               %s
         """ % (self.year, self.year, extra,
-               self._get_termin_aar(only_current=1), self._is_alive())
+               self._get_termin_aar(only_current=True), self._is_alive())
         params = locals()
         params['spring'] = 'VÅR'
         params['autumn'] = 'HØST'
@@ -1269,9 +1275,9 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
     def list_privatist(self, fodselsdato=None, personnr=None):
         # GetStudentPrivatist_50
         """Hent personer med privatist 'opptak' til et studieprogram ved
-        institusjonen og som enten har v�rt registrert siste �ret eller
-        har f�tt privatist 'opptak' efter 2003-01-01.  Henter ikke de
-        som har fremtidig opptak.  Disse kommer med 14 dager f�r dato
+        institusjonen og som enten har vært registrert siste året eller
+        har fått privatist 'opptak' efter 2003-01-01.  Henter ikke de
+        som har fremtidig opptak.  Disse kommer med 14 dager før dato
         for tildelt privatist 'opptak'.  Alle disse skal ha affiliation
         med status kode 'privatist' til stedskoden sp.faknr_studieansv +
         sp.instituttnr_studieansv + sp.gruppenr_studieansv.
@@ -1282,7 +1288,8 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
             # We can't use the same bind variable in two different SELECT
             # expressions.
             extra1 = "s.fodselsdato=:fodselsdato AND s.personnr=:personnr AND"
-            extra2 = "s.fodselsdato=:fodselsdato2 AND s.personnr=:personnr2 AND"
+            extra2 = """s.fodselsdato=:fodselsdato2 AND s.personnr=:personnr2
+                     AND"""
 
         qry = """
         SELECT DISTINCT s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
@@ -1434,7 +1441,7 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
             r.status_reg_ok = 'J' AND
             r.status_bet_ok = 'J' AND
             r.arstall >= (TO_CHAR(SYSDATE, 'YYYY') - 1) AND
-            /* TODO: m� vi sjekke terminen ogs�? */
+            /* TODO: må vi sjekke terminen også? */
             NVL(r.status_ugyldig, 'N') = 'N' AND
             NVL(p.status_dod, 'N') = 'N'
             %s
@@ -1472,7 +1479,7 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
             p.personnr    = sps.personnr AND
             sps.studieprogramkode = sp.studieprogramkode AND
             NVL(sps.dato_studierett_gyldig_til, SYSDATE) >= (SYSDATE - 365) AND
-            /* TODO: er det poeng i � ta med studieprogram eit �r tilbake? */
+            /* TODO: er det poeng i å ta med studieprogram eit år tilbake? */
             sp.studienivakode in (900, 980) AND
             NVL(p.status_dod, 'N') = 'N'
             %s
@@ -1514,7 +1521,8 @@ class UiTStudent78(UiTStudent, access_FS.Student78):
     def list_fodselsnr_changes(self, last_updated=None):
         """
         Import changes in fodselsnummere. Check how long back we want
-        to look. Hardcoded to 30 days, so last_updated param is not used at all.
+        to look. Hardcoded to 30 days, so last_updated param is not used at
+        all.
         """
         raise NotImplementedError("Implementation is not yet available.")
         # extra = ""
@@ -1595,7 +1603,8 @@ class UiTBetaling(access_FS.FSObject):
         if fodselsdato and personnr:
             extra1 = ("frk.fodselsdato=:fodselsdato AND "
                       "frk.personnr=:personnr AND")
-            extra2 = "r.fodselsdato=:fodselsdato2 AND r.personnr=:personnr2 AND"
+            extra2 = """r.fodselsdato=:fodselsdato2 AND r.personnr=:personnr2
+            AND"""
 
         if semreg:
             extra_semreg2 = """r.status_reg_ok = 'J' AND
@@ -1681,20 +1690,21 @@ class UiTUndervisning(access_FS.Undervisning):
           ue.institusjonsnr = e.institusjonsnr AND
           ue.emnekode       = e.emnekode AND
           ue.versjonskode   = e.versjonskode AND
-          ue.terminkode IN ('VÅR', 'HØST') AND
+          ue.terminkode IN (:spring, :autumn) AND
           ue.terminkode = t.terminkode AND
           (ue.arstall > :aar OR
            (ue.arstall = :aar2 AND
             EXISTS(SELECT 'x' FROM fs.arstermin tt
             WHERE tt.terminkode = :sem AND
-                  t.sorteringsnokkel >= tt.sorteringsnokkel)))
-          """, {'aar': year,
-                'aar2': year,  # db-driver bug work-around
-                'sem': sem,
-                'autumn': 'HØST',
-                'spring': 'VÅR'})
+                  t.sorteringsnokkel >= tt.sorteringsnokkel)))""",
+                             {'aar': year,
+                              'aar2': year,  # db-driver bug work-around
+                              'sem': sem,
+                              'autumn': 'HØST',
+                              'spring': 'VÅR'})
 
-    def list_aktiviteter(self, start_aar=time.localtime()[0],
+    def list_aktiviteter(self,
+                         start_aar=time.localtime()[0],
                          start_semester=None):
         if start_semester is None:
             start_semester = self.semester
@@ -1703,8 +1713,8 @@ class UiTUndervisning(access_FS.Undervisning):
         SELECT
           ua.institusjonsnr, ua.emnekode, ua.versjonskode,
           ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode,
-          ua.undpartilopenr, ua.disiplinkode, ua.undformkode, ua.aktivitetsnavn,
-          ua.lmsrommalkode, ua.status_eksport_lms,
+          ua.undpartilopenr, ua.disiplinkode, ua.undformkode,
+          ua.aktivitetsnavn, ua.lmsrommalkode, ua.status_eksport_lms,
           e.institusjonsnr_kontroll, e.faknr_kontroll,
           e.instituttnr_kontroll, e.gruppenr_kontroll
         FROM
@@ -1718,7 +1728,7 @@ class UiTUndervisning(access_FS.Undervisning):
           ua.undpartilopenr IS NOT NULL AND
           ua.disiplinkode IS NOT NULL AND
           ua.undformkode IS NOT NULL AND
-          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode IN (:spring, :autumn) AND
           ua.terminkode = t.terminkode AND
           ((ua.arstall = :aar AND
             EXISTS (SELECT 'x' FROM fs.arstermin tt
@@ -1729,26 +1739,6 @@ class UiTUndervisning(access_FS.Undervisning):
                               'semester': start_semester,
                               'autumn': 'HØST',
                               'spring': 'VÅR'})
-
-    def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
-        """Hent alle studentene som er oppf�rt p� et gitt kull."""
-
-        query = """
-        SELECT DISTINCT
-            fodselsdato, personnr
-        FROM
-            fs.studieprogramstudent
-        WHERE
-            studentstatkode IN ('AKTIV', 'PERMISJON') AND
-            NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
-            studieprogramkode = :studieprogramkode AND
-            terminkode_kull = :terminkode_kull AND
-            arstall_kull = :arstall_kull
-        """
-
-        return self.db.query(query, {"studieprogramkode": studieprogramkode,
-                                     "terminkode_kull": terminkode,
-                                     "arstall_kull": arstall})
 
     def list_studenter_alle_kull(self):
         query = """
@@ -1766,17 +1756,16 @@ class UiTUndervisning(access_FS.Undervisning):
         """
 
         return self.db.query(query)
-    # end list_studenter_alle_kull
 
     def list_studenter_alle_undenh(self):
-        """Hent alle studenter p� alle undenh.
+        """Hent alle studenter på alle undenh.
 
         NB! Det er ca. 800'000+ rader i FSPROD i fs.undervisningsmelding.
-        Dette kan koste en del minne, s� 1) fetchall=True er nok dumt 2) Man
+        Dette kan koste en del minne, så 1) fetchall=True er nok dumt 2) Man
         burde bearbeide strukturen litt raskere.
 
-        Sp�rringen *er* litt annerledes enn L{list_studenter_underv_enhet},
-        men baardj har foresl�tt denne sp�rringen ogs�.
+        Spørringen *er* litt annerledes enn L{list_studenter_underv_enhet},
+        men baardj har foreslått denne spørringen også.
         """
 
         qry = """
@@ -1786,7 +1775,7 @@ class UiTUndervisning(access_FS.Undervisning):
         FROM
           fs.undervisningsmelding u, fs.tilbudsstatus t
         WHERE
-          u.terminkode in ('VÅR', 'HØST') AND
+          u.terminkode in (:spring, :autumn) AND
           u.arstall >= :aar1 AND
           u.tilbudstatkode = t.tilbudstatkode AND
           t.status_gir_tilbud = 'J'
@@ -1811,11 +1800,13 @@ class UiTUndervisning(access_FS.Undervisning):
           vt.arstall_gjelder_i >= :aar2
         """
 
-        result = self.db.query(qry, {"aar1": self.year,
-                                     "aar2": self.year,
-                                     'autumn': 'HØST',
-                                    'spring': 'VÅR'},
-                                    fetchall=True
+        result = self.db.query(
+            qry,
+            {"aar1": self.year,
+             "aar2": self.year,
+             'autumn': 'HØST',
+             'spring': 'VÅR'},
+            fetchall=True
         )
         # IVR 2009-03-12 FIXME: DCOracle2 returns a float when taking a union
         # of two ints. The resons for this escape me.
@@ -1889,10 +1880,11 @@ class UiTEVU(access_FS.EVU):
           NVL(dato_til, SYSDATE) >= (SYSDATE - 30)
         """
         return self.db.query(qry)
+
     # end list_kurs
 
     def get_kurs_aktivitet(self, kurs, tid):  # GetAktivitetEvuKurs
-        """Henter information om aktive EVU-kursaktiviteter som tilh�rer et
+        """Henter information om aktive EVU-kursaktiviteter som tilhører et
         gitt EVU-kurs.
         """
 
@@ -1905,12 +1897,13 @@ class UiTEVU(access_FS.EVU):
         """ % (kurs, tid)
 
         return self.db.query(qry)
+
     # end get_kurs_aktivitet
 
     def list_kurs_aktiviteter(self):
         """Som get_kurs_aktivitet, men lister opp alle.
 
-        Hent alle EVU-kursaktiviteter som finnes. Vi m� naturligvis f�lge de
+        Hent alle EVU-kursaktiviteter som finnes. Vi må naturligvis følge de
         samme begrensningene som gjelder for list_kurs (derav en join).
         """
 
@@ -1926,6 +1919,7 @@ class UiTEVU(access_FS.EVU):
         """
 
         return self.db.query(qry)
+
     # end list_kurs_aktiviteter
 
     def list_studenter_alle_kursakt(self):
@@ -1938,7 +1932,6 @@ class UiTEVU(access_FS.EVU):
         """
         return self.db.query(qry)
     # end list_studenter_alle_kursakt
-# end UiTEVU
 
 
 @fsobject('evu', '>=7.8')
@@ -2004,12 +1997,12 @@ class UiTStudieInfo(access_FS.StudieInfo):
         """
         return self.db.query(qry)
     # end list_kull
-# end UiTStudieInfo
 
 
 @fsobject('forkurs')
 class UiTForkurs(access_FS.FSObject):
     """Class for fetching specially registred forkurs students."""
+
     def list(self, course_code='FORGLU'):
         """List students registred for a pre-course.
 
@@ -2020,27 +2013,27 @@ class UiTForkurs(access_FS.FSObject):
         """
         return self.db.query("""
         SELECT
-            FS.VURDKOMBMELDING.FODSELSDATO,
-            FS.VURDKOMBMELDING.PERSONNR,
-            FS.STUDENT.STUDENTNR_TILDELT,
-            FS.PERSON.FORNAVN,
-            FS.PERSON.ETTERNAVN,
-            FS.PERSONTELEFON.TELEFONLANDNR,
-            FS.PERSONTELEFON.TELEFONNR
+          FS.VURDKOMBMELDING.FODSELSDATO,
+          FS.VURDKOMBMELDING.PERSONNR,
+          FS.STUDENT.STUDENTNR_TILDELT,
+          FS.PERSON.FORNAVN,
+          FS.PERSON.ETTERNAVN,
+          FS.PERSONTELEFON.TELEFONLANDNR,
+          FS.PERSONTELEFON.TELEFONNR
         FROM FS.VURDKOMBMELDING
         INNER JOIN FS.STUDENT
-            ON FS.STUDENT.FODSELSDATO = FS.VURDKOMBMELDING.FODSELSDATO
-                AND FS.STUDENT.PERSONNR = FS.VURDKOMBMELDING.PERSONNR
-                AND FS.STUDENT.INSTITUSJONSNR_EIER = FS.VURDKOMBMELDING.INSTITUSJONSNR_EIER
+          ON FS.STUDENT.FODSELSDATO = FS.VURDKOMBMELDING.FODSELSDATO
+            AND FS.STUDENT.PERSONNR = FS.VURDKOMBMELDING.PERSONNR
+            AND FS.STUDENT.INSTITUSJONSNR_EIER = FS.VURDKOMBMELDING.INSTITUSJONSNR_EIER
         INNER JOIN FS.PERSON
-            ON FS.PERSON.FODSELSDATO = FS.STUDENT.FODSELSDATO
-                AND FS.PERSON.PERSONNR = FS.STUDENT.PERSONNR
-                AND FS.PERSON.INSTITUSJONSNR_EIER = FS.STUDENT.INSTITUSJONSNR_EIER
+          ON FS.PERSON.FODSELSDATO = FS.STUDENT.FODSELSDATO
+            AND FS.PERSON.PERSONNR = FS.STUDENT.PERSONNR
+            AND FS.PERSON.INSTITUSJONSNR_EIER = FS.STUDENT.INSTITUSJONSNR_EIER
         LEFT JOIN FS.PERSONTELEFON
-            ON FS.PERSON.FODSELSDATO = FS.PERSONTELEFON.FODSELSDATO
-                AND FS.PERSON.PERSONNR = FS.PERSONTELEFON.PERSONNR
-                AND FS.PERSON.INSTITUSJONSNR_EIER = FS.PERSONTELEFON.INSTITUSJONSNR_EIER
-                AND FS.PERSONTELEFON.TELEFONNRTYPEKODE LIKE 'MOBIL'
+          ON FS.PERSON.FODSELSDATO = FS.PERSONTELEFON.FODSELSDATO
+            AND FS.PERSON.PERSONNR = FS.PERSONTELEFON.PERSONNR
+            AND FS.PERSON.INSTITUSJONSNR_EIER = FS.PERSONTELEFON.INSTITUSJONSNR_EIER
+            AND FS.PERSONTELEFON.TELEFONNRTYPEKODE LIKE 'MOBIL'
         WHERE FS.VURDKOMBMELDING.EMNEKODE LIKE '{}'""".format(course_code))
 
 
@@ -2053,54 +2046,9 @@ class FS(access_FS.FS):
         # Override with uit-spesific classes
         for comp in 'person student undervisning evu'.split():
             setattr(self, comp, self._component(comp)(self.db))
-        # self.portal = UiTPortal(self.db)
         self.betaling = UiTBetaling(self.db)
         self.info = self._component('studieinfo')(self.db)
         self.ou = self._component('ou')(self.db)
-
-    def list_dbfg_usernames(self, fetchall=False):
-        """Get all usernames and return them as a sequence of db_rows.
-
-        Usernames may be prefixed with a institution specific tag, if the db has
-        defined this. If defined, only usernames with the prefix are returned,
-        and the prefix is stripped out.
-
-        NB! This function does *not* return a 2-tuple. Only a sequence of
-        all usernames (the column names can be obtains from db_row objects)
-        """
-        prefix = self.get_username_prefix()
-        ret = ({'username': row['username'][len(prefix):]} for row in
-               self.db.query("""
-                            SELECT username as username
-                            FROM all_users
-                            WHERE username LIKE :prefixed
-                        """, {'prefixed': '%s%%' % prefix},
-                             fetchall=fetchall))
-        if fetchall:
-            return list(ret)
-        return ret
-
-    def list_dba_usernames(self, fetchall=False):
-        """Get all usernames for internal statistics."""
-
-        query = """
-        SELECT
-           lower(username) as username
-        FROM
-           dba_users
-        WHERE
-           default_tablespace = 'USERS' and account_status = 'OPEN'
-        """
-
-        return self.db.query(query, fetchall=fetchall)
-
-    def get_username_prefix(self):
-        """Get the database' defined username prefix, or '' if not defined."""
-        try:
-            return self.db.query_1("SELECT brukerprefiks FROM fs.systemverdier")
-        except self.db.DatabaseError:
-            pass
-        return ''
 
 
 @fsobject('person', '<7.8')
@@ -2189,26 +2137,55 @@ class FSvpd(FS):
             return list(ret)
         return ret
 
+
 @fsobject('ou')
 class UiTOU(access_FS.StudieInfo):
 
-    def GetAktiveOUer(self,institusjonsnr=186):
+    def GetAktiveOUer(self, institusjonsnr=186):
         """Henter data om aktive OU'er fra FS"""
-        qry="""
+        qry = """
         SELECT DISTINCT
-        INSTITUSJONSNR,FAKNR,INSTITUTTNR,GRUPPENR,STEDAKRONYM,STEDNAVN_BOKMAL,ORGNIVAKODE,INSTITUSJONSNR_ORG_UNDER,FAKNR_ORG_UNDER,INSTITUTTNR_ORG_UNDER,GRUPPENR_ORG_UNDER,ADRLIN1,ADRLIN2,POSTNR,ADRLIN3,ADRESSELAND,STEDKORTNAVN,STEDNAVN_NYNORSK,STEDNAVN_ENGELSK,TELEFONLANDNR,TELEFONRETNNR,TELEFONNR,FAXNR,INSTITUSJONSNR_ERSTATTES_AV,FAKNR_ERSTATTES_AV,INSTITUTTNR_ERSTATTES_AV,GRUPPENR_ERSTATTES_AV,DATO_AKTIV_FRA,DATO_AKTIV_TIL,NSD_AVDKODE,EIERTYPEKODE,ADRLIN1_BESOK,ADRLIN2_BESOK,POSTNR_BESOK,ADRLIN3_BESOK,ADRESSELAND_BESOK,EMAILADRESSE,KODEVERDITYPE,NSDINSTKODE,INSTTYPEKODE,LANDNR,TELEFONLANDNR_FAX,TELEFONRETNNR_FAX,TELEFONNR_FAX,INSTITUSJONSNR_GEOGR,FAKNR_GEOGR,INSTITUTTNR_GEOGR,GRUPPENR_GEOGR,BIBSYSBESTSTEDKODE,ORGNR,URL,TELEFONLANDNR_2,TELEFONRETNNR_2,TELEFONNR_2,MERKNADTEKST
-        FROM fs.sted where institusjonsnr=%s and status_aktiv='J'
+          INSTITUSJONSNR, FAKNR, INSTITUTTNR, GRUPPENR, STEDAKRONYM,
+          STEDNAVN_BOKMAL, ORGNIVAKODE, INSTITUSJONSNR_ORG_UNDER,
+          FAKNR_ORG_UNDER, INSTITUTTNR_ORG_UNDER, GRUPPENR_ORG_UNDER, ADRLIN1,
+          ADRLIN2, POSTNR, ADRLIN3, ADRESSELAND, STEDKORTNAVN,
+          STEDNAVN_NYNORSK, STEDNAVN_ENGELSK, TELEFONLANDNR, TELEFONRETNNR,
+          TELEFONNR, FAXNR, INSTITUSJONSNR_ERSTATTES_AV, FAKNR_ERSTATTES_AV,
+          INSTITUTTNR_ERSTATTES_AV, GRUPPENR_ERSTATTES_AV, DATO_AKTIV_FRA,
+          DATO_AKTIV_TIL, NSD_AVDKODE, EIERTYPEKODE, ADRLIN1_BESOK,
+          ADRLIN2_BESOK, POSTNR_BESOK, ADRLIN3_BESOK, ADRESSELAND_BESOK,
+          EMAILADRESSE, KODEVERDITYPE, NSDINSTKODE, INSTTYPEKODE, LANDNR,
+          TELEFONLANDNR_FAX, TELEFONRETNNR_FAX, TELEFONNR_FAX,
+          INSTITUSJONSNR_GEOGR, FAKNR_GEOGR, INSTITUTTNR_GEOGR, GRUPPENR_GEOGR,
+          BIBSYSBESTSTEDKODE, ORGNR, URL, TELEFONLANDNR_2, TELEFONRETNNR_2,
+          TELEFONNR_2, MERKNADTEKST
+        FROM fs.sted
+        WHERE institusjonsnr=%s
+        AND status_aktiv='J'
         """ % institusjonsnr
 
         return self.db.query(qry)
-        
-    def GetAlleOUer(self,institusjonsnr=186):
-        """Henter data om aktive OU'er fra FS"""
-        qry="""
-        SELECT DISTINCT
-        INSTITUSJONSNR,FAKNR,INSTITUTTNR,GRUPPENR,STEDAKRONYM,STEDNAVN_BOKMAL,ORGNIVAKODE,INSTITUSJONSNR_ORG_UNDER,FAKNR_ORG_UNDER,INSTITUTTNR_ORG_UNDER,GRUPPENR_ORG_UNDER,ADRLIN1,ADRLIN2,POSTNR,ADRLIN3,ADRESSELAND,STEDKORTNAVN,STEDNAVN_NYNORSK,STEDNAVN_ENGELSK,TELEFONLANDNR,TELEFONRETNNR,TELEFONNR,FAXNR,INSTITUSJONSNR_ERSTATTES_AV,FAKNR_ERSTATTES_AV,INSTITUTTNR_ERSTATTES_AV,GRUPPENR_ERSTATTES_AV,DATO_AKTIV_FRA,DATO_AKTIV_TIL,NSD_AVDKODE,EIERTYPEKODE,ADRLIN1_BESOK,ADRLIN2_BESOK,POSTNR_BESOK,ADRLIN3_BESOK,ADRESSELAND_BESOK,EMAILADRESSE,KODEVERDITYPE,NSDINSTKODE,INSTTYPEKODE,LANDNR,TELEFONLANDNR_FAX,TELEFONRETNNR_FAX,TELEFONNR_FAX,INSTITUSJONSNR_GEOGR,FAKNR_GEOGR,INSTITUTTNR_GEOGR,GRUPPENR_GEOGR,BIBSYSBESTSTEDKODE,ORGNR,URL,TELEFONLANDNR_2,TELEFONRETNNR_2,TELEFONNR_2,MERKNADTEKST
-        FROM fs.sted where institusjonsnr=%s
-        """ % institusjonsnr
-        
-        return self.db.query(qry)
 
+    def GetAlleOUer(self, institusjonsnr=186):
+        """Henter data om aktive OU'er fra FS"""
+        qry = """
+        SELECT DISTINCT
+          INSTITUSJONSNR, FAKNR,INSTITUTTNR, GRUPPENR, STEDAKRONYM,
+          STEDNAVN_BOKMAL, ORGNIVAKODE, INSTITUSJONSNR_ORG_UNDER,
+          FAKNR_ORG_UNDER, INSTITUTTNR_ORG_UNDER, GRUPPENR_ORG_UNDER, ADRLIN1,
+          ADRLIN2, POSTNR, ADRLIN3, ADRESSELAND, STEDKORTNAVN,
+          STEDNAVN_NYNORSK, STEDNAVN_ENGELSK, TELEFONLANDNR, TELEFONRETNNR,
+          TELEFONNR, FAXNR, INSTITUSJONSNR_ERSTATTES_AV, FAKNR_ERSTATTES_AV,
+          INSTITUTTNR_ERSTATTES_AV, GRUPPENR_ERSTATTES_AV, DATO_AKTIV_FRA,
+          DATO_AKTIV_TIL, NSD_AVDKODE, EIERTYPEKODE, ADRLIN1_BESOK,
+          ADRLIN2_BESOK, POSTNR_BESOK, ADRLIN3_BESOK, ADRESSELAND_BESOK,
+          EMAILADRESSE, KODEVERDITYPE, NSDINSTKODE, INSTTYPEKODE, LANDNR,
+          TELEFONLANDNR_FAX, TELEFONRETNNR_FAX, TELEFONNR_FAX,
+          INSTITUSJONSNR_GEOGR, FAKNR_GEOGR, INSTITUTTNR_GEOGR, GRUPPENR_GEOGR,
+          BIBSYSBESTSTEDKODE, ORGNR, URL, TELEFONLANDNR_2, TELEFONRETNNR_2,
+          TELEFONNR_2, MERKNADTEKST
+        FROM fs.sted
+        WHERE institusjonsnr=%s
+        """ % institusjonsnr
+
+        return self.db.query(qry)

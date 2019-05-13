@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-# Copyright 2002-2018 University of Oslo, Norway
+
+# Copyright 2002-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,38 +18,38 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 from __future__ import unicode_literals
 
-import logging
 import argparse
+import logging
 import datetime
 from os.path import join as pj
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
+import cereconf
 from Cerebrum.modules.fs.import_fs import FsImporter
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum.utils.argutils import add_commit_args
 
-import cereconf
-import mx.DateTime
-import six
-
-# Globals
 logger = logging.getLogger(__name__)
 
+"""Importerer personer fra FS iht. fs_import.txt."""
 
-class FsImporterUio(FsImporter):
+
+class FsImporterUit(FsImporter):
     def __init__(self, gen_groups, include_delete, commit,
                  studieprogramfile, source, rules, adr_map, emnefile,
-                 rule_map):
+                 rule_map, reg_fagomr=False,
+                 reservation_query=None):
 
-        super(FsImporterUio, self).__init__(gen_groups, include_delete, commit,
-                                            studieprogramfile, source, rules,
-                                            adr_map, rule_map=rule_map)
+        super(FsImporterUit, self).__init__(
+            gen_groups, include_delete, commit, studieprogramfile, source,
+            rules, adr_map, rule_map=rule_map, reg_fagomr=reg_fagomr,
+            reservation_query=reservation_query)
+
         self._init_emne2sko(emnefile)
-        self._new_student_filter = self._get_admission_date_func(
-            mx.DateTime.now(), grace_days=7)
 
     def _init_emne2sko(self, emnefile):
         self.emne2sko = {}
@@ -61,21 +61,15 @@ class FsImporterUio(FsImporter):
                 'gruppenr_reglement')
 
     def _init_aff_status_pri_order(self):
-        # Vekting av affiliation_status
-        aff_status_pri_order = [
+        aff_status_pri_order = [  # Most significant first
             self.co.affiliation_status_student_drgrad,
             self.co.affiliation_status_student_aktiv,
             self.co.affiliation_status_student_emnestud,
             self.co.affiliation_status_student_evu,
             self.co.affiliation_status_student_privatist,
-            # Ikke i bruk p.t.
-            #    co.affiliation_status_student_permisjon,
-            self.co.affiliation_status_student_ny,
             self.co.affiliation_status_student_opptak,
             self.co.affiliation_status_student_alumni,
-            # Ikke i bruk p.t.
-            #    co.affiliation_status_student_tilbud,
-            self.co.affiliation_status_student_soker,
+            self.co.affiliation_status_student_soker
         ]
         aff_status_pri_order = dict(
             (int(status), index) for index, status in
@@ -89,7 +83,7 @@ class FsImporterUio(FsImporter):
         combination, while the db-schema only allows one.  Return a list
         where duplicates are removed, preserving the most important
         status.  """
-        # Reverse sort affiliations list according to aff_status_pri_order
+
         affiliations.sort(
             lambda x, y: (
                 self.aff_status_pri_order.get(int(y[2]), 99) -
@@ -97,9 +91,11 @@ class FsImporterUio(FsImporter):
         aktiv = False
 
         for ou, aff, aff_status in affiliations:
-            if (aff_status == int(self.co.affiliation_status_student_aktiv) or
+            if (
+                aff_status == int(self.co.affiliation_status_student_aktiv) or
                 aff_status == int(self.co.affiliation_status_student_drgrad) or
-                    aff_status == int(self.co.affiliation_status_student_evu)):
+                aff_status == int(self.co.affiliation_status_student_evu)
+            ):
                 aktiv = True
 
         ret = {}
@@ -150,7 +146,6 @@ class FsImporterUio(FsImporter):
                     birth_date = datetime.datetime.strptime(
                         p['dato_fodt'],
                         "%Y-%m-%d %H:%M:%S.%f")
-
             if 'studentnr_tildelt' in p:
                 studentnr = p['studentnr_tildelt']
             # Get affiliations
@@ -174,11 +169,8 @@ class FsImporterUio(FsImporter):
                         subtype = self.co.affiliation_status_student_evu
                     elif row['studierettstatkode'] == 'FULLFØRT':
                         subtype = self.co.affiliation_status_student_alumni
-                    elif int(row['studienivakode']) >= 900:
+                    elif int(row['studienivakode']) >= 980:
                         subtype = self.co.affiliation_status_student_drgrad
-                    elif self._is_new_admission(
-                            row.get('dato_studierett_tildelt')):
-                        subtype = self.co.affiliation_status_student_ny
                     self._process_affiliation(
                         self.co.affiliation_student,
                         subtype,
@@ -249,98 +241,47 @@ class FsImporterUio(FsImporter):
         return (etternavn, fornavn, studentnr, birth_date, affiliations,
                 aktiv_sted)
 
-    def _get_admission_date_func(self, for_date, grace_days=0):
-        """ Get a admission date filter function to evaluate *new* students.
-
-        For any given date `for_date`, this method returns a filter function
-        that tests admission dates. Students with an admission date that passes
-        this filter are considered *new* students.
-
-        """
-        date_ranges = [
-            # Dec. 1 (previous year) - Feb. 1 (same year)
-            (
-                mx.DateTime.DateTime(for_date.year - 1,
-                                     mx.DateTime.December,
-                                     1),
-                mx.DateTime.DateTime(for_date.year,
-                                     mx.DateTime.February,
-                                     1)
-            ),
-            # June. 1 (same year) - Sept. 1 (same year)
-            (
-                mx.DateTime.DateTime(for_date.year,
-                                     mx.DateTime.June,
-                                     1),
-                mx.DateTime.DateTime(for_date.year,
-                                     mx.DateTime.September,
-                                     1)
-            ),
-            # Dec 1. (same year) - Feb. 1 (next year)
-            (
-                mx.DateTime.DateTime(for_date.year,
-                                     mx.DateTime.December,
-                                     1),
-                mx.DateTime.DateTime(for_date.year + 1,
-                                     mx.DateTime.February,
-                                     1)
-            )
-        ]
-
-        for from_date, to_date in date_ranges:
-            if from_date <= for_date <= to_date + grace_days:
-                return lambda date: (
-                    isinstance(date, mx.DateTime.DateTimeType) and
-                    from_date <= date <= to_date + grace_days)
-
-        return lambda date: False
-
-    def _is_new_admission(self, admission_date_str):
-        """ Parse date string and apply `_new_student_filter`. """
-        if not isinstance(admission_date_str, six.string_types):
-            return False
-        try:
-            # parse YYYY-mm-dd string
-            date = mx.DateTime.Parser.DateFromString(admission_date_str,
-                                                     formats=('ymd1', ))
-        except mx.DateTime.Error:
-            return False
-        return self._new_student_filter(date)
-
 
 def main():
-    # parsing
     parser = argparse.ArgumentParser()
     parser = add_commit_args(parser, default=True)
     parser.add_argument(
         '-v', '--verbose',
-        action='count')
+        action='count',
+        help='Be extra verbose in the logs.')
     parser.add_argument(
         '-p', '--person-file',
         dest='personfile',
-        default=pj(cereconf.FS_DATA_DIR, "merged_persons.xml"))
+        default=pj(cereconf.FS_DATA_DIR, "merged_persons.xml"),
+        help='Specify where the person file is located.')
     parser.add_argument(
         '-s', '--studieprogram-file',
         dest='studieprogramfile',
-        default=pj(cereconf.FS_DATA_DIR, "studieprog.xml"))
+        default=pj(cereconf.FS_DATA_DIR, "studieprogrammer.xml"),
+        help='Specify where the study programs file is located.')
     parser.add_argument(
         '-e', '--emne-file',
         dest='emnefile',
-        default=pj(cereconf.FS_DATA_DIR, "emner.xml"))
+        default=pj(cereconf.FS_DATA_DIR, "emner.xml"),
+        help='Specify where the course file is located.')
     parser.add_argument(
         '-g', '--generate-groups',
         dest='gen_groups',
-        action='store_true')
+        action='store_true',
+        help="""If set, the group for accept for being published at uio.no
+             gets populated with the students.""")
     parser.add_argument(
         '-d', '--include-delete',
         dest='include_delete',
-        action='store_true')
+        action='store_true',
+        help="""If set, old person affiliations are deleted from the students
+             that should not have this anymore.""")
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    source = 'system_sap'
+    source = 'system_fs'
     rules = [
         ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
         ('aktiv', ('_semadr', '_hjemsted', None)),
@@ -350,7 +291,7 @@ def main():
         ('privatist_emne', ('_semadr', '_hjemsted', None)),
         ('privatist_studieprogram', ('_semadr', '_hjemsted', None)),
         ('opptak', (None, '_hjemsted', None)),
-        ]
+    ]
     rule_map = {
         'aktiv': 'opptak'
     }
@@ -367,28 +308,31 @@ def main():
         '_hjem': ('adrlin1_hjem', 'adrlin2_hjem', 'adrlin3_hjem',
                   'postnr_hjem', 'adresseland_hjem'),
         '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
-        }
+    }
 
-    fs_importer = FsImporterUio(args.gen_groups,
-                                args.include_delete, args.commit,
-                                args.studieprogramfile, source, rules, adr_map,
-                                args.emnefile, rule_map)
-
+    fsimporter = FsImporterUit(args.gen_groups,
+                               args.include_delete,
+                               args.commit,
+                               args.studieprogramfile,
+                               source,
+                               rules,
+                               adr_map,
+                               args.emnefile,
+                               rule_map)
     StudentInfo.StudentInfoParser(args.personfile,
-                                  fs_importer.process_person_callback,
+                                  fsimporter.process_person_callback,
                                   logger)
-
     if args.include_delete:
-        fs_importer.rem_old_aff()
+        fsimporter.rem_old_aff()
 
-    if args.commit:
-        fs_importer.db.commit()
+    if args.commit():
+        fsimporter.db.commit()
         logger.info('Changes were committed to the database')
     else:
-        fs_importer.db.rollback()
+        fsimporter.db.rollback()
         logger.info('Dry run. Changes to the database were rolled back')
 
-    logger.info("Found %d persons without name.", fs_importer.no_name)
+    logger.info("Found %d persons without name." % fsimporter.no_name)
     logger.info("Completed")
 
 
