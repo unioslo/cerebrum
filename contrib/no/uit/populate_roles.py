@@ -1,7 +1,7 @@
 #!/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2003, 2004 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2003, 2004, 2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,30 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
-
-
-import os
-import sys
-import time
-import xml.sax
-import getopt
-
-from sets import Set
-
-import cerebrum_path
-import cereconf
-from Cerebrum import Errors
-from Cerebrum.Utils import Factory
-from Cerebrum.modules import Email
-from Cerebrum.modules import PosixUser
-from Cerebrum.modules import PosixGroup
-from Cerebrum.modules.no.uit import access_SYSY
-from Cerebrum.utils import transliterate
-from Cerebrum.modules.no.uit.Account import UsernamePolicy
-
-__doc__="""
+"""
 Populate role groups from SystemY
 
 rolenames=role:<rolename from xml>
@@ -50,75 +27,95 @@ if rolename has admin attr=yes
   build an admin accont ( 999-style)
 """
 
+import argparse
+import logging
+import os
+import time
+import xml.sax
+
+import Cerebrum.logutils
+import cereconf
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.modules import PosixGroup
+from Cerebrum.modules import PosixUser
+from Cerebrum.modules.no.uit.Account import UsernamePolicy
+from Cerebrum.utils import transliterate
+from Cerebrum.utils.argutils import add_commit_args
+
+logger = logging.getLogger(__name__)
+
 db = Factory.get('Database')()
 db.cl_init(change_program='pop_itroles')
 account = Factory.get('Account')(db)
 person = Factory.get('Person')(db)
 const = Factory.get('Constants')(db)
-logger = Factory.get_logger('cronjob')
+
 account2name = dict((x["entity_id"], x["entity_name"]) for x in
-                 Factory.get("Group")(db).list_names(const.account_namespace))
+                    Factory.get("Group")(db).list_names(
+                        const.account_namespace))
 name_gen = UsernamePolicy(db)
 
-
-TODAY=time.strftime("%Y%m%d")
+TODAY = time.strftime("%Y%m%d")
 sys_y_default_file = os.path.join(cereconf.DUMPDIR,
-                                  'sysY','sysY_%s.xml' % (TODAY))
+                                  'sysY', 'sysY_%s.xml' % TODAY)
 
-class roles_xml_parser(xml.sax.ContentHandler):
-    "Parserklasse for it_roles.xml."
+
+class RolesXmlParser(xml.sax.ContentHandler):
+    """Parserklasse for it_roles.xml."""
 
     elements = {'roles': False,
                 'role': True,
                 'member': True,
                 }
 
-    def __init__(self,filename,call_back_function):
+    def __init__(self, filename, call_back_function):
         self.call_back_function = call_back_function
-        xml.sax.parse(filename,self)
+        xml.sax.parse(filename, self)
 
-    def startElement(self,name,attrs):
-        if name=='roles':
+    def startElement(self, name, attrs):
+        if name == 'roles':
             pass
-        elif name=='role':
+        elif name == 'role':
             self.role_attrs = {}
             self.role_members = []
             for k in attrs.keys():
                 self.role_attrs[k] = attrs.get(k)
-        elif name=='member':
+        elif name == 'member':
             self._elemdata = []
         else:
-            logger.error("UNKNOWN ELEMENT: %s" % (name))
-            
+            logger.error("UNKNOWN ELEMENT: %s", name)
+
     def characters(self, ch):
         self.var = None
-        tmp = ch.encode('iso8859-1').strip()
+        tmp = ch.encode('iso8859-1').strip()  # TODO: Should this be changed?
         if tmp:
             self.var = tmp
             self._elemdata.append(tmp)
 
-    def endElement(self,name):
-        if name=='role':
-            self.call_back_function(self,name)
-        elif (name=='member'):
-            self.call_back_function(self,name)
-        elif (name=='roles'):
+    def endElement(self, name):
+        if name == 'role':
+            self.call_back_function(self, name)
+        elif name == 'member':
+            self.call_back_function(self, name)
+        elif name == 'roles':
             pass
         else:
-            logger.error("UNKNOWN ELEMENT: %s" % (name))
-
+            logger.error("UNKNOWN ELEMENT: %s", name)
 
 
 account_cache = {}
 
+
 def get_account(name):
-    cache_hit=account_cache.get(name) 
+    cache_hit = account_cache.get(name)
     if cache_hit:
         return cache_hit
     ac = Factory.get('Account')(db)
-    ac.find_by_name(name)        
+    ac.find_by_name(name)
     account_cache[name] = ac
     return ac
+
 
 def get_group(id):
     gr = PosixGroup.PosixGroup(db)
@@ -130,35 +127,35 @@ def get_group(id):
 
 
 class ITRole(object):
-    
 
-    def __init__(self,role_name,admin,members):
+    def __init__(self, role_name, admin, members):
         self.group_name = role_name
         self.buildadmins = admin
         self.group_members = members
 
     def group_creator(self):
         creator_ac = get_account(cereconf.INITIAL_ACCOUNTNAME)
-        return  creator_ac.entity_id
+        return creator_ac.entity_id
 
-    def maybe_create(self,group_name):
+    def maybe_create(self, group_name):
         try:
             return get_group(group_name)
         except Errors.NotFoundError:
-            description = "IT role group (%s)" % (group_name)
+            description = "IT role group (%s)" % group_name
             pg = PosixGroup.PosixGroup(db)
             pg.populate(self.group_creator(),
                         const.group_visibility_internal,
                         self.group_name,
                         description=description)
             pg.write_db()
-            logger.info("Created group: name=%s, id=%d, gid=%d, desc='%s'" % \
-                (pg.group_name,pg.entity_id,pg.posix_gid,pg.description))
+            logger.info("Created group: name=%s, id=%d, gid=%d, desc='%s'",
+                        pg.group_name, pg.entity_id, pg.posix_gid,
+                        pg.description)
 
-            if (self.buildadmins):
+            if self.buildadmins:
                 pg.add_spread(const.spread_uit_ad_lit_admingroup)
             else:
-                pr.add_spread(const.spread_uit_ad_group)
+                pg.add_spread(const.spread_uit_ad_group)
             return pg
 
     def maybe_create_admin(self, person_id):
@@ -242,21 +239,21 @@ class ITRole(object):
         else:
             logger.error("TOO MANY ACCOUNTS FOUND for with "
                          "spread_uit_ad_lit_admin for %s!", person_id)
-            raise Errors.IntegrityError
+            raise db.IntegrityError
 
-    def translate2admins(self,accountList):
+    def translate2admins(self, accountList):
         admlist = []
         for a in accountList:
             try:
                 parent = get_account(a)
             except Errors.NotFoundError:
-                logger.error("Account %s not found. Cannot create admin account!" % (a))
+                logger.error(
+                    "Account %s not found. Cannot create admin account!", a)
                 continue
             admin = self.maybe_create_admin(parent.owner_id)
             if admin:
                 admlist.append(admin)
         return admlist
-
 
     def sync_members(self):
         group = self.maybe_create(self.group_name)
@@ -270,103 +267,77 @@ class ITRole(object):
                 continue
             current_members.append(account2name[member_id])
 
-        current = Set(current_members)
-        logger.debug("CURRENT MEMBERS: %s" % (current))
-        if (self.buildadmins == 'yes'):
-            new = Set(self.translate2admins(self.group_members))
+        current = set(current_members)
+        logger.debug("CURRENT MEMBERS: %s", current)
+        if self.buildadmins == 'yes':
+            new = set(self.translate2admins(self.group_members))
         else:
-            new = Set(self.group_members)
+            new = set(self.group_members)
 
-        logger.info("group: %s, members should be %s" % (self.group_name,new))
+        logger.info("group: %s, members should be %s", self.group_name, new)
         toAdd = new - current
         toRemove = current - new
 
-        logger.info("TO ADD: %s" % toAdd)
-        logger.info("TO REM: %s" % toRemove)
+        logger.info("TO ADD: %s", toAdd)
+        logger.info("TO REM: %s", toRemove)
 
         for name in toRemove:
             acc = get_account(name)
             group.remove_member(acc.entity_id)
 
         for name in toAdd:
-            logger.info("Trying to add %s" % name)
+            logger.info("Trying to add %s", name)
             try:
                 acc = get_account(name)
                 group.add_member(acc.entity_id)
             except Errors.NotFoundError:
-                logger.error("Could not add %s to %s, account not found" % (name,group.group_name))
+                logger.error("Could not add %s to %s, account not found",
+                             name, group.group_name)
                 continue
 
 
-def process_role(name,attrs,members):
-    logger.info("PROCESS ROLE: name=%s, attrs=%s,members=%s" % (name,attrs,members))
+def process_role(name, attrs, members):
+    logger.info(
+        "PROCESS ROLE: name=%s, attrs=%s,members=%s", name, attrs, members)
 
-    role_prefix='role'
-    role_name = "%s:%s" % (role_prefix,attrs.get('name'))
+    role_prefix = 'role'
+    role_name = "%s:%s" % (role_prefix, attrs.get('name'))
     admin = attrs.get('admin')
-    work = ITRole(role_name,admin,members)
+    work = ITRole(role_name, admin, members)
     work.sync_members()
 
 
-def rolle_helper(obj,el_name):
-    if (el_name=='role'):
-        process_role(el_name,obj.role_attrs,obj.role_members)
+def rolle_helper(obj, el_name):
+    if el_name == 'role':
+        process_role(el_name, obj.role_attrs, obj.role_members)
         pass
-    elif (el_name=='member'):
+    elif el_name == 'member':
         attribute = obj._elemdata
         member_name = ''.join(attribute)
-        obj.role_members.append(member_name)    
+        obj.role_members.append(member_name)
     return
 
 
-def usage(msg=None):
-    if msg:
-        print msg
-        
-    print """
-     Skriv usage melding her
-     populate_roles.py
-     -r name | --role_file=name    use file named "name" as input file
-     --logger-name=name  use logger target named "name"
-     --logger-level=level  set logger level
-     -d | --dryrun                 dryrun, do not change database.
-     
-    """
-    sys.exit(1)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(__doc__)
+    parser.add_argument('-r', '--role_file',
+                        help='role filename',
+                        default=sys_y_default_file)
+    parser = add_commit_args(parser)
 
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-def main():
+    RolesXmlParser(args.role_file, rolle_helper)
 
-    dryrun = False
-    role_file = sys_y_default_file
-
-    try:
-        opts,args = getopt.getopt(sys.argv[1:],'r:dh',
-            ['role_file','dryrun','help'])
-    except getopt.GetoptError,m:
-        usage(m)
-
-    ret = 0
-    person_id = 0
-    person_file = 0
-    dryrun = 0
-    for opt,val in opts:
-        if opt in('-r','--role_file'):
-            role_file = val
-        if opt in('-d','--dryrun'):
-            dryrun = True
-        if opt in('-h','--help'):
-            usage()
-
-    roles_xml_parser(role_file, rolle_helper)
-
-    if (dryrun):
-        logger.info("Dryrun, rollback changes")
-        db.rollback()
-    else:
+    if args.commit:
         logger.info("Commiting changes")
         db.commit()
+    else:
+        logger.info("Dryrun, rollback changes")
+        db.rollback()
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     main()
