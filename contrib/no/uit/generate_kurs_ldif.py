@@ -1,14 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Generere LDAP tre med uioEduSection (Undervisningsaktivitet - gruppe,
-kollokvia...) eller uioEduOffering (Undervisningsenhet - emne) objekter.
-Hver av disse vil ha en uioEduCourseOffering verdi som inneholder en
-URN som unikt identifiserer dette studie-elementet.
+Generate a courses tree for LDAP.
 
-ldap-person-dumpen vil generere eduCourseMember atributter med verdi
-role@eduCourseOffering, der eduCourseOffering er URN-en over, og
-role=Learner for studenter og Instructor for gruppe-lærer/foreleser.
+This is a 'helper' script to add courses to an org-ldif tree:
+
+- Courses (undervisningsenheter) are exported as uioEduOffering objects
+- Course activities (undervisningsaktiviteter) are exported as uioEduSection
+  objects.
+
+The idea is to:
+
+1. Export these objects to its own dn (typically "cn=course,dc=<org>,dc=no")
+   with basic course information.  Each objcet gets a unique, reproducible urn
+   identifier.
+2. Export a course participation dict to a pickle-file.  This dict maps
+   <person-id> to a list of <role>@<urn> strings.
+3. A separate org-ldif mixin (if present) reads the pickle file and adds course
+   participation (eduCourseMember) to each exported person.
+
+Roles are typically:
+
+- Learner (students)
+- Instructor (course lecturers and group instructors)
 
 Note: Near-identical with uio/generate_kurs_ldif.py
 """
