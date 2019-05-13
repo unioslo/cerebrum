@@ -918,8 +918,8 @@ def perform_update(database, source_system, hr_person, cerebrum_person):
     update_addresses(database, source_system, hr_person, cerebrum_person)
     update_contact_info(database, source_system, hr_person, cerebrum_person)
     update_titles(database, source_system, hr_person, cerebrum_person)
-    update_affiliations(database, source_system, hr_person, cerebrum_person)
     update_roles(database, source_system, hr_person, cerebrum_person)
+    update_affiliations(database, source_system, hr_person, cerebrum_person)
     update_reservation(database, hr_person, cerebrum_person)
 
 
