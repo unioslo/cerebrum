@@ -1,6 +1,7 @@
 #! /usr/bin/env python
-#-*- coding: utf-8 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,402 +18,334 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Convert OU files.
 
-
-#
-# This file reads ou data from a text file. Compares the stedkode
-# code with what already exists in a ou data file form FS and inserts
-# right ou information from that file. For stedkoder who doesnt
-# exist in the FS file, default data is inserted..
-#
+This file reads ou data from a csv file, compares the stedkode
+code with what already exists in FS and inserts right ou information from
+that file.  For stedkoder who doesnt exist in FS, default data is inserted.
+"""
 from __future__ import unicode_literals
 
-from pprint import pprint
-import getopt
-import sys
-import string
+import argparse
+import datetime
+import io
+import logging
 import os
-import time
-import cerebrum_path
-import cereconf
-from Cerebrum.Utils import Factory
-from Cerebrum import database
-from Cerebrum.modules.no.uit.access_FS import FS
-from Cerebrum.utils.atomicfile import AtomicFileWriter
-from Cerebrum.extlib import xmlprinter
+
 import six
-import codecs
-#sys.stdout = codecs.lookup("utf-8")[-1](sys.stdout)
-#pp = pprint.PrettyPrinter(indent=4)
-logger = Factory.get_logger("cronjob")
+
+import cereconf
+
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+from Cerebrum.extlib import xmlprinter
+from Cerebrum.modules.no.access_FS import make_fs
+
+logger = logging.getLogger(__name__)
 
 
 # Default file locations
-t = time.localtime()
-sourcedir = "%s/steder" % cereconf.CB_SOURCEDATA_PATH
-default_input_files = [os.path.join(sourcedir, 'stedtre-gjeldende.csv'), os.path.join(sourcedir, 'stedtre-eksterne.csv')]
+CB_SOURCEDATA_PATH = cereconf.CB_SOURCEDATA_PATH
+DUMPDIR = cereconf.DUMPDIR
 
-dumpdir = os.path.join(cereconf.DUMPDIR,"ou")
-default_output_file = os.path.join(dumpdir,'uit_ou_%d%02d%02d.xml' % (t[0], t[1], t[2]))
-       
-class ou:
+default_input_files = [
+    os.path.join(CB_SOURCEDATA_PATH, 'steder', 'stedtre-gjeldende.csv'),
+    os.path.join(CB_SOURCEDATA_PATH, 'steder', 'stedtre-eksterne.csv'),
+]
 
-    def __init__(self,ou_files):
-        for file in ou_files:
-            if not(os.path.isfile(file)):
-                logger.warn("ou file:%s does not exist\n" % file)
-                ou_files.remove(file)
-                #KEB: What if we end up with an empty list? 
-                #     Looks like it should be ok, but haven't tested this
-        
+default_output_file = os.path.join(
+    DUMPDIR,
+    'uit_ou_{}.xml'.format(datetime.date.today().strftime('%Y%m%d')))
+
+
+def format_int(value, fmt='02d'):
+    return format(int(value), fmt)
+
+
+class OuGenerator(object):
+
+    defaults = {
+        'telefonnr': '0',
+        'adrlin1': 'Universitetet i Tromsø',
+        'postnr': '9037',
+        'adrlin3': 'Tromsø',
+    }
+
+    def __init__(self, fs, ou_files):
+        self.fs = fs
         self.ou_files = ou_files
-        
-        # BAS
-	logger.info("Connecting to BAS DB")
-        self.db = Factory.get('Database')()
 
-        # FS 
-        user="I0186_UIT_BAS"
-        #user="i0186_uit_bas"
-        service="FSUIT.uio.no"
-        logger.info("Connecting to FS db")
-        self.fs_db = database.connect(user=user,service=service,DB_driver='cx_Oracle', client_encoding='UTF-8')
-        #self.fs_db = Database.connect(user=user,service=service,DB_driver='cx_Oracle')
-        self.fs = FS(self.fs_db)
-        self.fs_data=dict()
-	logger.info("Connections ok")
-
-    # lets collect data about all active ou's from FS.
     def get_fs_ou(self):
+        """ Collect data about all active ou's from FS. """
         logger.info("Reading OU's from FS")
+
         ouer = self.fs.ou.list_ou(institusjonsnr=186)
-        for i in ouer:
-            decode_db_row(i, 'utf-8')
 
-        #ouer = [[word.decode("UTF-8") for word in sets] for sets in ouer]
-        #for sets in ouer:
-        #    for word in sets:
-        #        if isinstance(word, six.string_types):
-        #                print "is text:%s" % word.decode('iso-8859-1').encode("UTF-8")
-        poststednr_besok_adr=''
-        poststednr_alternativ_adr=''
-        for i in ouer:
+        poststednr_besok_adr = ''
+        # poststednr_alternativ_adr = ''
 
-             #new_data = []
-            #temp_tuple = ()
-            #print "i = %s" % i
-            """for item in i.items():
-                #######################
-                
-                #print "%s is type:%s" % (item[1],type(item))
-                key = item[0]
-                value = item[1]
-                if isinstance(item[1], str) == True:
-                    value = item[1].decode("iso-8859-1") # .encode("unicode-escape")
-                    print "refactored i:%s" % value 
-                #new_tuple =(key,value)
-                new_data.append(key)
-                new_data.append(value)
-            temp_tuple = tuple(new_data)
-            i = new_data """
-                #item = new_tuple
-                #item = [[word.decode('unicode-escape') for word in sets] for sets in repr(item)]
-            
-            ############################
-            temp_inst_nr = "%02d%02d%02d" % (i['faknr'],i['instituttnr'],i['gruppenr'])
+        for i in ouer:
+            temp_inst_nr = "%02d%02d%02d" % (i['faknr'],
+                                             i['instituttnr'],
+                                             i['gruppenr'])
             for key in i.keys():
                 if i[key] is None:
-                    i[key]=u""
+                    i[key] = ''
                 else:
-                    i[key]=unicode(i[key])
-            postnr = "%s" % i['postnr']
-            postnr_besok = "%s" % i['postnr_besok']
-            
-            if(postnr.isdigit()):
+                    i[key] = six.text_type(i[key])
+
+            postnr = six.text_type(i['postnr'])
+            # postnr_besok = six.text_type(i['postnr_besok'])
+
+            if postnr.isdigit():
                 poststednr_besok_adr = postnr
 
-            if(postnr_besok.isdigit()):
-                poststednr_alternativ_adr = postnr_besok
+            # if postnr_besok.isdigit():
+            #     poststednr_alternativ_adr = postnr_besok
 
-            # if not i['telefonlandnr'] : i['telefonlandnr']="0" KB
-            # if not i['telefonretnnr'] : i['telefonretnnr']="0" KB
-            if not i['telefonnr'] : i['telefonnr']=unicode("0")
-            if not i['adrlin1'] : i['adrlin1'] = unicode('Universitetet i Tromsø')
-            if not i['adrlin2'] : i['adrlin2'] =i['stednavn_bokmal']
-            if not i['postnr'] : i['postnr'] = unicode('9037')
-            if not i['adrlin3'] : i['adrlin3'] = unicode('Tromsø')
-            #i['adrlin1_besok'] = i['adrlin1_besok']
-            #i['adrlin2_besok'] = i['adrlin2_besok']
-            #print "adrlin2_besok:%s" % i['adrlin2_besok']
-            #print "# %s %s %s" % (i['adrlin1_besok'].decode("UTF-8"),i['adrlin1_besok'].decode("UTF-8"),'')
-            #print "### %s %s %s" % (i['adrlin1_besok'].decode("UTF-8").encode("unicode-escape"),i['adrlin1_besok'].decode("UTF-8").encode("unicode-escape"),'')
-            #print "1. %s" % i['adrlin3']
-            #if i['adrlin3'] != None:
-            #    print "1. %s" % repr(i['adrlin3'])
-            #    print i['adrlin3']
+            for key in self.defaults:
+                if not i[key]:
+                    i[key] = self.defaults[key]
+
+            if not 'adrlin2':
+                i['adrlin2'] = i['stednavn_bokmal']
+
             self.fs_data[temp_inst_nr] = {
-                'fakultetnr' : "%02d" % int(i['faknr']),
-                'instituttnr' : "%02d" % int(i['instituttnr']),
-                'gruppenr' : "%02d" % int(i['gruppenr']),
-                'stednavn' : i['stednavn_bokmal'],
-                'forkstednavn' : i['stedkortnavn'],
-                'akronym' : i['stedakronym'],
-                'stedkortnavn_bokmal' : i['stedkortnavn'],
-                # 'stedkortnavn_nynorsk' : '', #i['stednavn_nynorsk'], KB
-                # 'stedkortnavn_engelsk' : '', # i['stednavn_engelsk'], KB
+                'fakultetnr': format_int(i['faknr']),
+                'instituttnr': format_int(i['instituttnr']),
+                'gruppenr': format_int(i['gruppenr']),
+                'stednavn': i['stednavn_bokmal'],
+                'forkstednavn': i['stedkortnavn'],
+                'akronym': i['stedakronym'],
+                'stedkortnavn_bokmal': i['stedkortnavn'],
                 'stedlangnavn_bokmal': i['stednavn_bokmal'],
-                # 'stedlangnavn_nynorsk': '', #i['stednavn_nynorsk'], KB
-                # 'stedlangnavn_engelsk' : '', #i['stednavn_engelsk'], KB
-                'fakultetnr_for_org_sted' : "%02d" % int(i['faknr_org_under']),
-                'instituttnr_for_org_sted': "%02d" % int(i['instituttnr_org_under']),
-                'gruppenr_for_org_sted' : "%02d" % int(i['gruppenr_org_under']),
-                'opprettetmerke_for_oppf_i_kat' : 'X', #i['opprettetmerke_for_oppf_i_kat'],
-                'telefonnr' : i['telefonnr'],
-                'innvalgnr' : '00', #'%s%s'%(i['telefonlandnr'],i['telefonretnnr']), KB
-                'linjenr' : i['telefonnr'],
-                # 'stedpostboks' : '',#i['stedpostboks'],
-                'adrtypekode_besok_adr': 'INT',#i['adrtypekode_besok_adr'],
-                'adresselinje1_besok_adr' : i['adrlin1'],
-               
+                'fakultetnr_for_org_sted': format_int(i['faknr_org_under']),
+                'instituttnr_for_org_sted': format_int(
+                    i['instituttnr_org_under']),
+                'gruppenr_for_org_sted': format_int(i['gruppenr_org_under']),
+                'opprettetmerke_for_oppf_i_kat': 'X',
+                'telefonnr': i['telefonnr'],
+                'innvalgnr': '00',
+                'linjenr': i['telefonnr'],
+                'adrtypekode_besok_adr': 'INT',
+                'adresselinje1_besok_adr': i['adrlin1'],
                 'adresselinje2_besok_adr': i['adrlin2'],
-                'poststednr_besok_adr' : poststednr_besok_adr,
-                'poststednavn_besok_adr' : '%s %s %s' % (i['adrlin1_besok'],i['adrlin2_besok'],''), #i['adrlin3_besok']), KB
-                # 'landnavn_besok_adr' : '', #i['adresseland_besok'], KB
-                # 'adrtypekode_intern_adr': '',#i['adrtypekode_intern_adr'],
-                'adresselinje1_intern_adr' : i['adrlin1'],
+                'poststednr_besok_adr': poststednr_besok_adr,
+                'poststednavn_besok_adr': ' '.join((
+                    six.text_type(i['adrlin1_besok']),
+                    six.text_type(i['adrlin2_besok']),
+                    '',
+                )),
+                'adresselinje1_intern_adr': i['adrlin1'],
                 'adresselinje2_intern_adr': i['adrlin2'],
                 'poststednr_intern_adr': i['postnr'],
                 'poststednavn_intern_adr': i['adrlin3'],
-                # 'landnavn_intern_adr': '', #i['adresseland'], KB
-                # 'adrtypekode_alternativ_adr' : '',#i['adrtypekode_alternativ_adr'],
-                # 'adresselinje1_alternativ_adr': '',#i['adrlin1_besok'],
-                # 'adresselinje2_alternativ_adr': '',#i['adrlin2_besok'],
-                # 'poststednr_alternativ_adr': '',#poststednr_alternativ_adr,
-                # 'poststednavn_alternativ_adr' : '',#i['poststednavn_alternativ_adr'],
-                # 'landnavn_alternativ_adr': '',#i['adresseland_besok']
-                } 
-            #print   self.fs_data[temp_inst_nr] 
-            #print "new i:%s" % i
+            }
 
         return self.fs_data
-    
-    def get_authoritative_ou(self):
-        authoritative_ou=dict()
+
+    def _parse_line(self, line):
+        """
+        Parse a single line of csv data.
+        """
+        # TODO: Use the csv module to parse csv data...
+
         # positions in file
-        STEDKODE = 0
-        AKRONYM = 1
-        STEDNAVN = 2
-        KORTNAVN = 3
-        FULTNAVN = 4
+        field_sko = 0
+        field_acronym = 1
+        # field_location = 2
+        field_shortname = 3
+        field_fullname = 4
         num_fields = 5
-        sort_key = "1"
-        import codecs
 
-        for file in self.ou_files:
-            logger.info("Reading authoritative OU file: %s" % file)
-            #fileObj = codecs.open(file,"r","iso-8859-1")
-            fileObj = codecs.open(file,"r","utf-8")
-            for line in fileObj:
-                #line = line.encode('iso-8859-1')
-                #line = line.decode('utf-8')
-                if ((line) and ((not line.startswith("#")) and (not line.startswith("\n")) and (not line.startswith(";")))):
-                    items = line.rstrip().split(";")
-                    if len(items) != num_fields:
-                        logger.critical("Wrong length: got %d, expected: %d" %(len(items),num_fields))
+        items = line.split(";")
 
-                    fakultetskode = items[STEDKODE].strip("\"").strip()
-                    faknr = fakultetskode[0:2]
-                    instituttnummer = items[STEDKODE].strip("\"").strip()
-                    instnr = instituttnummer[2:4]
-                    avdelingsnummer = items[STEDKODE].strip("\"").strip()
-                    avdnr = avdelingsnummer[4:6]
-                    fulltnavn= items[FULTNAVN].strip("\"").strip()
-                    akronym = items[AKRONYM].strip("\"").strip()
-                    kortnavn = items[KORTNAVN].strip("\"").strip()
-                    found = 0
-                    if ((avdnr == '00') and(instnr == '00')):
-                        # we have a fakulty, must reference the uit institution
-                        faknr_org_under = '00'
-                        instituttnr_org_under = '00'
-                        gruppenr_org_under= '00'
-                        
-                        
-                    if((avdnr != '00') and (instnr != '00')):
-                        # we have a group, must reference the institute
-                        faknr_org_under= faknr
-                        instituttnr_org_under = instnr
-                        gruppenr_org_under='00'
-                        
-                        
-                    if (((instnr == '00')and(avdnr != '00')) or
-                        ((instnr != '00')and(avdnr  =='00'))):
-                        # we have either a institute or a group directly under a 
-                        # faculty. in either case it should reference he faculty
-                        faknr_org_under = faknr
-                        instituttnr_org_under = '00'
-                        gruppenr_org_under = '00'
-    
-                        
-                    katalog_merke='F'
-                    authoritative_ou[fakultetskode] = {
-                        'fakultetnr' : faknr.zfill(2),
-                        'instituttnr' : instnr.zfill(2),
-                        'gruppenr' : avdnr.zfill(2),
-                        'stednavn' : fulltnavn,
-                        'display_name': fulltnavn,
-                        'forkstednavn': kortnavn,
-                        'akronym': akronym,
-                        'stedlangnavn_bokmal': fulltnavn,
-                        'fakultetnr_for_org_sted' : faknr_org_under,
-                        'instituttnr_for_org_sted': instituttnr_org_under,
-                        'gruppenr_for_org_sted' : gruppenr_org_under,
-                        'adresselinje1_intern_adr' : unicode('Universitetet i Tromso'),
-                        'adresselinje2_intern_adr': fulltnavn,
-                        'poststednr_intern_adr': unicode('9037'),
-                        'poststednavn_intern_adr': unicode('Tromso'),
-                        'opprettetmerke_for_oppf_i_kat' : katalog_merke,
-                        'telefonnr' : unicode("77644000"),
-                        'sort_key': sort_key
-                    }
-                    """ authoritative_ou[fakultetskode] = {
-                        'fakultetnr' : faknr.zfill(2),
-                        'instituttnr' : instnr.zfill(2),
-                        'gruppenr' : avdnr.zfill(2),
-                        'stednavn' : unicode(fulltnavn),
-                        'display_name': unicode(fulltnavn),
-                        'forkstednavn': unicode(kortnavn),
-                        'akronym': unicode(akronym),
-                        'stedlangnavn_bokmal': unicode(fulltnavn),
-                        'fakultetnr_for_org_sted' : unicode(faknr_org_under),
-                        'instituttnr_for_org_sted': unicode(instituttnr_org_under),
-                        'gruppenr_for_org_sted' : unicode(gruppenr_org_under),
-                        'adresselinje1_intern_adr' : unicode('Universitetet i Tromsø'),
-                        'adresselinje2_intern_adr': unicode(fulltnavn),
-                        'poststednr_intern_adr': '9037',
-                        'poststednavn_intern_adr': unicode('Tromsø'),
-                        'opprettetmerke_for_oppf_i_kat' : unicode(katalog_merke),
-                        'telefonnr' : unicode("77644000"),
-                        'sort_key': unicode(sort_key)
-                        }"""
-            
-            fileObj.close()        
+        if len(items) != num_fields:
+            raise ValueError(
+                'Incorrect number of fields, got %d, expected %d' %
+                (len(items), num_fields))
+
+        def get_field(field):
+            return items[field].strip('"').strip()
+
+        sko = get_field(field_sko)
+        faknr = sko[0:2]
+        instnr = sko[2:4]
+        avdnr = sko[4:6]
+        fulltnavn = get_field(field_fullname)
+        akronym = get_field(field_acronym)
+        kortnavn = get_field(field_shortname)
+
+        if avdnr == '00' and instnr == '00':
+            # we have a faculty, must reference the institution
+            faknr_org_under = '00'
+            instituttnr_org_under = '00'
+            gruppenr_org_under = '00'
+
+        elif avdnr != '00' and instnr != '00':
+            # we have a group, must reference the institute
+            faknr_org_under = faknr
+            instituttnr_org_under = instnr
+            gruppenr_org_under = '00'
+
+        else:
+            # we have either a institute or a group directly under a
+            # faculty. in either case it should reference he faculty
+            faknr_org_under = faknr
+            instituttnr_org_under = '00'
+            gruppenr_org_under = '00'
+
+        ou_dict = {
+            'fakultetnr': faknr.zfill(2),
+            'instituttnr': instnr.zfill(2),
+            'gruppenr': avdnr.zfill(2),
+            'stednavn': fulltnavn,
+            'display_name': fulltnavn,
+            'forkstednavn': kortnavn,
+            'akronym': akronym,
+            'stedlangnavn_bokmal': fulltnavn,
+            'fakultetnr_for_org_sted': faknr_org_under,
+            'instituttnr_for_org_sted': instituttnr_org_under,
+            'gruppenr_for_org_sted': gruppenr_org_under,
+            'adresselinje1_intern_adr': 'Universitetet i Tromso',
+            'adresselinje2_intern_adr': fulltnavn,
+            'poststednr_intern_adr': '9037',
+            'poststednavn_intern_adr': 'Tromso',
+            'opprettetmerke_for_oppf_i_kat': 'F',
+            'telefonnr': '77644000',
+            'sort_key': "1",
+        }
+
+        return sko, ou_dict
+
+    def get_authoritative_ou(self):
+        authoritative_ou = {}
+
+        for filename in self.ou_files:
+            logger.info("Reading authoritative OU file %r", filename)
+            with io.open(filename, mode='r', encoding='utf-8') as fileobj:
+                for lineno, line in enumerate(fileobj, 1):
+                    line = line.strip()
+                    if not line or any(line.startswith(char) for char in ';#'):
+                        continue
+                    try:
+                        sko, ou_dict = self._parse_line(line)
+                        authoritative_ou[sko] = ou_dict
+                    except Exception:
+                        logger.error('Unable to parse %r line %d: %r',
+                                     filename, lineno, line, exc_info=True)
         return authoritative_ou
 
-        
-    def generate_ou(self,fs_ou,auth_ou):
-        result_ou=dict()
-        for a_ou,a_ou_data in auth_ou.items():            
-            f_ou = fs_ou.get(a_ou,None)
+    def generate_ou(self, fs_ou, auth_ou):
+        result_ou = dict()
+        for a_ou, a_ou_data in auth_ou.items():
+            f_ou = fs_ou.get(a_ou, None)
             if f_ou:
                 # fill in OU data elemnts from FS where we have no
                 # eqivalent data in authoritative ou file
-                for k,v in f_ou.items():
-                    if not a_ou_data.has_key(k):
-                        #logger.debug("stedkode:%s in auth xml file is missing data  for %s. using '%s' from FS" % (a_ou,k,v))
-                        a_ou_data[k]=(v)
+                for k, v in f_ou.items():
+                    if k not in a_ou_data:
+                        # logger.debug("sko=%r in input files is missing %r, "
+                        #              "using fs value=%r", a_ou, k, v)
+                        a_ou_data[k] = v
                 del fs_ou[a_ou]
             else:
+                # logger.warn("sko=%r not in fs, using ou from input files",
+                #             a_ou)
                 pass
-                #logger.warn("OU %s not in FS, only using steddata from auth xml file" % a_ou)
 
-            result_ou[a_ou]= a_ou_data
+            result_ou[a_ou] = a_ou_data
 
         # log remaining FS ou's as errors
-        #for f_ou,f_ou_data in fs_ou.items():            
-            #logger.error("OU in FS not in Reinert file: %s-%s" % (f_ou, f_ou_data['stednavn']))
+        # for f_ou, f_ou_data in fs_ou.items():
+        #     logger.error("sko=%r in fs missing from input files (%s)",
+        #                  f_ou, f_ou_data['stednavn'])
         return result_ou
 
-
-    def print_ou(self,final_ou,out_file):
-        logger.info("Writing OU file %s" % out_file)
-        #stream = AtomicFileWriter(out_file, "w")
-        stream = open(out_file, "wb")  # codecs.open(out_file,"w","UTF-8")
+    def print_ou(self, final_ou, out_file):
+        logger.info("Writing OU file %s", out_file)
+        stream = open(out_file, "wb")
 
         encoding = 'iso-8859-1'
 
         writer = xmlprinter.xmlprinter(stream,
-                                       indent_level = 2,
-                                       data_mode = True,
-                                       input_encoding = encoding)
-        writer.startDocument(encoding = encoding)
-        # writer.startDocument()
+                                       indent_level=2,
+                                       data_mode=True)
+        writer.startDocument(encoding=encoding)
         writer.startElement("data")
-        
-        for ou,ou_data in final_ou.items():
-            #pp.pprint(ou_data
-            #print "before conversion: %s" % repr(ou_data)
-            ou_data = convert(ou_data, encoding)
-            #print "after conversion:%s" % ou_data
-            writer.emptyElement("sted", (ou_data))
+
+        for ou, ou_data in final_ou.items():
+            writer.emptyElement("sted", ou_data)
         writer.endElement("data")
         writer.endDocument()
         stream.close()
 
-def convert(input, encoding='utf-8'):
-    if isinstance(input, dict):
-        return {convert(key): convert(value, encoding) for key, value in input.iteritems()}
-    elif isinstance(input, list):
-        return [convert(element, encoding) for element in input]
-    elif isinstance(input, unicode):
-        #print "check:%s" %input
-        #return unicode(input)
-        #print "check2:%s" % input.encode("iso-8859-1")
-        return input.encode(encoding)
+
+def _parse_ou_files(values):
+    for value in (values or ()):
+        for filename in value.split(','):
+            if os.path.exists(filename):
+                yield filename
+            else:
+                logger.warning("OU file %r does not exist", filename)
+                continue
+
+
+def main(inargs=None):
+    parser = argparse.ArgumentParser(description="Convert OU files")
+    parser.add_argument(
+        '-o', '--ou-source', '--ou_source',
+        dest='sources',
+        action='append',
+        help='Read OUs from source file %(metavar)s',
+        metavar='<file>',
+    )
+    parser.add_argument(
+        '-O', '--out-file', '--Out_file',
+        dest='output',
+        help='Write output a %(metavar)s XML file',
+        metavar='<file>',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('crontab', args)
+
+    logger.info('Start %r', parser.prog)
+    logger.debug("args: %r", args)
+
+    if args.sources:
+        ou_files = list(_parse_ou_files(args.sources))
     else:
-        return input
+        ou_files = default_input_files
+    logger.debug("sources: %r", ou_files)
 
+    if args.output:
+        output = args.output
+    else:
+        output = default_output_file
+    logger.debug('output: %r', output)
 
-def decode_db_row(row, encoding='utf-8'):
-    for key in row.keys():
-        if isinstance(row[key], bytes):
-            row[key] = row[key].decode(encoding)
-        
+    fs = make_fs()
+    my_ou = OuGenerator(fs, ou_files)
 
-def main():
-
-    try:
-        opts,args = getopt.getopt(sys.argv[1:],'o:O:h',['ou_source=','Out_file=','help'])
-    except getopt.GetoptError,m:
-        usage(1,m)
-        
-    ou_files = default_input_files
-    out_file = default_output_file
-    for opt,val in opts:
-        if opt in ('-o','--ou_source'):
-            ou_files = val.split(',')
-        if opt in ('-O','-Out_file'):
-            out_file = val
-        if opt in ('-h','--help'):
-            usage()
-
-            
-    # initiate the ou instance
-    my_ou = ou(ou_files)
-    # get ou from FS.
+    logger.info('fetching ous from fs...')
     fs_ou = my_ou.get_fs_ou()
-    
-    # get OU from the authoritative file
+    logger.info('found %d ous in fs', len(fs_ou))
+
+    logger.info('parsing ous from files...')
     auth_ou = my_ou.get_authoritative_ou()
-    
-    # generate the final ou list based on the authoritative ou list and data from FS
-    final_ou = my_ou.generate_ou(fs_ou,auth_ou)
-    #pp.pprint(final_ou)
+    logger.info('found %d ous in files', len(auth_ou))
 
-    # print the ou xml file
-    my_ou.print_ou(final_ou,out_file)
+    logger.info('merging ou data...')
+    final_ou = my_ou.generate_ou(fs_ou, auth_ou)
+    logger.info('ended up with %d ous', len(final_ou))
 
+    my_ou.print_ou(final_ou, output)
+    logger.info('Output written to %r', output)
+    logger.info('Done %r', parser.prog)
 
-def usage(exit_code=0,msg=None):
-    if msg:
-        print msg
-
-    print """
-
-    Usage: python new_generate_OU.py -o ou_files -O out_file.xml | -l
-    
-    -o | --ou_source - ou data source files separated by , (comma)
-    -O | --Out_file - indicates file to write result xml"""
-    sys.exit(exit_code)
 
 if __name__ == '__main__':
     main()
