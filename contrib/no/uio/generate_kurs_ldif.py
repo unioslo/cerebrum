@@ -10,23 +10,21 @@ ldap-person-dumpen vil generere eduCourseMember atributter med verdi
 role@eduCourseOffering, der eduCourseOffering er URN-en over, og
 role=Learner for studenter og Instructor for gruppe-lærer/foreleser.
 
---aktivitetfile fname : xml fil med undervisningsaktiviteter
---enhetfile fname : xml fil med undervisningsenheter
---emnefile fname : xml fil med emner
---ldiffile fname.ldif : trigger generering av ldif fil med angitt navn
---picklefile fname : brukes av person-ldif exporten til å sette eduCourseMember
+Note: Near-identical with uit/generate_kurs_ldif.py
 """
 from __future__ import unicode_literals
 
-import getopt
+import argparse
+import logging
 import os
-import sys
 import cPickle as pickle
 
 from collections import defaultdict
 
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import make_timer
 from Cerebrum.modules.LDIFutils import (
@@ -38,10 +36,7 @@ from Cerebrum.modules.LDIFutils import (
 )
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
 
-logger = Factory.get_logger("cronjob")
-db = Factory.get('Database')()
-ac = Factory.get('Account')(db)
-group = Factory.get('Group')(db)
+logger = logging.getLogger(__name__)
 
 
 interesting_fs_roles = (
@@ -65,10 +60,11 @@ class CerebrumGroupInfo(object):
     id_key_seq = ('institusjonsnr', 'emnekode', 'versjonskode',
                   'terminkode', 'arstall', 'terminnr')
 
-    def __init__(self):
+    def __init__(self, db):
         timer = make_timer(logger, 'Initing CerebrumGroupInfo...')
         self._emne_key2dta = defaultdict(list)
         len_id_key_seq = len(CerebrumGroupInfo.id_key_seq)
+        group = Factory.get('Group')(db)
         for row in group.search(name="%s%%" % CerebrumGroupInfo.PREFIX):
             name = row['name'][len(CerebrumGroupInfo.PREFIX):]
             emne_key = name.split(":")[:len_id_key_seq]
@@ -275,8 +271,10 @@ def gen_undervisningsenhet(cgi, sip, out):
     return ret
 
 
-def gen_owner_id2urn(urn_dict):
+def gen_owner_id2urn(db, urn_dict):
     timer = make_timer(logger, 'Starting gen_owner_id2urn...')
+    ac = Factory.get('Account')(db)
+    group = Factory.get('Group')(db)
     groups = []
     group_members = defaultdict(list)
     owner_id2urn = defaultdict(list)
@@ -305,50 +303,67 @@ def dump_pickle_file(fname, urn_dict):
     timer('...done dump_pickle_file')
 
 
-def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], '', [
-            'help', 'aktivitetfile=', 'enhetfile=', 'emnefile=', 'ldiffile=',
-            'picklefile='])
-    except getopt.GetoptError:
-        usage(1)
+def main(inargs=None):
+    defaults = cereconf.LDAP_KURS
+    parser = argparse.ArgumentParser(
+        description="Generate course ldap tree",
+    )
+    parser.add_argument(
+        '--aktivitetfile',
+        default=defaults.get('aktivitetfile'),
+        required=not defaults.get('aktivitetfile'),
+        help='Use edu activities from %(metavar)s (%(default)s)',
+        metavar='xml-file',
+    )
+    parser.add_argument(
+        '--enhetfile',
+        default=defaults.get('enhetfile'),
+        required=not defaults.get('enhetfile'),
+        help='Use edu units from %(metavar)s (%(default)s)',
+        metavar='xml-file',
+    )
+    parser.add_argument(
+        '--emnefile',
+        default=defaults.get('emnefile'),
+        required=not defaults.get('emnefile'),
+        help='Use subjects from %(metavar)s (%(default)s)',
+        metavar='xml-file',
+    )
+    parser.add_argument(
+        '--picklefile',
+        default=defaults.get('picklefile'),
+        required=not defaults.get('picklefile'),
+        help='Store course participation to %(metavar)s (%(default)s)',
+        metavar='pickle-file',
+    )
+    parser.add_argument(
+        '--ldiffile',
+        default=defaults.get('file'),
+        required=not defaults.get('file'),
+        help='Write courses LDIF to %(metavar)s (%(default)s)',
+        metavar='ldif-file',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    aktivitetfile, enhetfile, emnefile, picklefile, ldiffile = map(
-        cereconf.LDAP_KURS.get,
-        ('aktivitetfile', 'enhetfile', 'emnefile', 'picklefile', 'file'))
-    for opt, val in opts:
-        if opt in ('--help',):
-            usage()
-        elif opt in ('--aktivitetfile',):
-            aktivitetfile = val
-        elif opt in ('--enhetfile',):
-            enhetfile = val
-        elif opt in ('--emnefile',):
-            emnefile = val
-        elif opt in ('--picklefile',):
-            picklefile = val
-        elif opt in ('--ldiffile',):
-            ldiffile = val
-    if not (aktivitetfile and enhetfile and
-            emnefile and picklefile and ldiffile) or args:
-        usage(1)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-    logger.info('Start')
-    cgi = CerebrumGroupInfo()
-    sip = StudinfoParsers(emnefile, aktivitetfile, enhetfile)
-    destfile = ldif_outfile('KURS', ldiffile)
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %r', args)
+
+    db = Factory.get('Database')()
+
+    cgi = CerebrumGroupInfo(db)
+    sip = StudinfoParsers(args.emnefile, args.aktivitetfile, args.enhetfile)
+    destfile = ldif_outfile('KURS', args.ldiffile)
     destfile.write(container_entry_string('KURS'))
     urn_dict = gen_undervisningsaktivitet(cgi, sip, destfile)
     urn_dict.update(gen_undervisningsenhet(cgi, sip, destfile))
     end_ldif_outfile('KURS', destfile)
-    owner_id2urn = gen_owner_id2urn(urn_dict)
-    dump_pickle_file(picklefile, owner_id2urn)
-    logger.info('Done')
+    owner_id2urn = gen_owner_id2urn(db, urn_dict)
+    dump_pickle_file(args.picklefile, owner_id2urn)
 
-
-def usage(exitcode=0):
-    print __doc__
-    sys.exit(exitcode)
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':
