@@ -43,19 +43,6 @@ from Cerebrum import Errors
 
 logger = logging.getLogger(__name__)
 
-# CSV field positions
-FNAME = 0
-LNAME = 1
-PHONE = 2
-FAX = 3
-MOB = 4
-PHONE_2 = 5
-MAIL = 6
-USERID = 7
-ROOM = 8
-BUILDING = 9
-RESERVATION = 10
-
 db = Factory.get('Database')()
 db.cl_init(change_program='import_tlf')
 p = Factory.get('Person')(db)
@@ -346,6 +333,19 @@ class PhoneNumberImporter(object):
         digits.
         and we will mark some numbers for deletion, also based on prefix.
         """
+        # CSV field positions
+        FNAME = 0
+        LNAME = 1
+        PHONE = 2
+        FAX = 3
+        MOB = 4
+        PHONE_2 = 5
+        MAIL = 6
+        USERID = 7
+        ROOM = 8
+        BUILDING = 9
+        RESERVATION = 10
+
         prefix_table = [
             # (internal number first digits, prefix to add or "DELETE")
             ("207", "776"),
@@ -389,88 +389,88 @@ class PhoneNumberImporter(object):
             ("69", "DELETE"),
         ]
 
-        reader = csv.reader(open(self.filename, 'r'), delimiter=str(';'))
-        phonedata = {}
+        with open(self.filename, 'r') as fp:
+            reader = csv.reader(fp, delimiter=str(';'))
+            phonedata = {}
 
-        for row in reader:
-            # convert to unicode
-            row = self.convert(row, 'iso-8859-1')
-            # print type(row)
+            for row in reader:
+                # convert to unicode
+                # TODO wrong encoding?
+                row = self.convert(row, 'iso-8859-1')
 
-            if row[RESERVATION].lower() == 'kat' and row[USERID].strip():
+                if row[RESERVATION].lower() == 'kat' and row[USERID].strip():
+                    if row[USERID].strip() != row[USERID]:
+                        logger.error("Userid %s has blanks in it. Notify " +
+                                     "telefoni!", row[USERID])
 
-                if row[USERID].strip() != row[USERID]:
-                    logger.error("Userid %s has blanks in it. Notify " +
-                                 "telefoni!", row[USERID])
+                    data = {'phone': row[PHONE],
+                            'mobile': row[MOB],
+                            'room': row[ROOM],
+                            'mail': row[MAIL],
+                            'fax': row[FAX],
+                            'phone_2': row[PHONE_2],
+                            'firstname': row[FNAME],
+                            'lastname': row[LNAME],
+                            'building': row[BUILDING]}
 
-                data = {'phone': row[PHONE],
-                        'mobile': row[MOB],
-                        'room': row[ROOM],
-                        'mail': row[MAIL],
-                        'fax': row[FAX],
-                        'phone_2': row[PHONE_2],
-                        'firstname': row[FNAME],
-                        'lastname': row[LNAME],
-                        'building': row[BUILDING]}
+                    if row[USERID] not in self.uname_to_ownerid:
+                        logger.warn("Unknown user: %s, continue with next " +
+                                    "user", row[USERID])
+                        continue
 
-                if row[USERID] not in self.uname_to_ownerid:
-                    logger.warn("Unknown user: %s, continue with next user",
-                                row[USERID])
-                    continue
+                    # Set phone extension or mark for deletion based on the
+                    # first internal number's digits
+                    added_prefix = False
+                    changed_phone = False
 
-                # Set phone extension or mark for deletion based on the first
-                # internal number's digits
-                added_prefix = False
-                changed_phone = False
+                    for internal_first_digits, prefix in prefix_table:
 
-                for internal_first_digits, prefix in prefix_table:
+                        if len(data['phone']) == 5 and data['phone'].startswith(
+                                internal_first_digits):
 
-                    if len(data['phone']) == 5 and data['phone'].startswith(
-                            internal_first_digits):
+                            if prefix == "DELETE":
+                                logger.debug("DELETE: %s - %s",
+                                             row[USERID],
+                                             data['phone'])
 
-                        if prefix == "DELETE":
-                            logger.debug("DELETE: %s - %s",
-                                         row[USERID],
-                                         data['phone'])
+                                # Delete the phonenumber from the database
+                                self.delete_phonenr(row[USERID], data['phone'])
 
-                            # Delete the phonenumber from the database
-                            self.delete_phonenr(row[USERID], data['phone'])
+                            else:
+                                logger.debug('unmodified phone:%s', data['phone'])
+                                data['phone'] = "%s%s" % (prefix, data['phone'])
+                                logger.debug('modified phone:%s', data['phone'])
 
-                        else:
-                            logger.debug('unmodified phone:%s', data['phone'])
-                            data['phone'] = "%s%s" % (prefix, data['phone'])
-                            logger.debug('modified phone:%s', data['phone'])
+                                if self.is_new_number(
+                                        data['phone'],
+                                        self.uname_to_ownerid[row[USERID]]):
+                                    changed_phone = True
+                            added_prefix = True
+                            break
+                    if data['phone'] and not added_prefix:
+                        logger.warning(
+                            'Userid %s has a malformed internal phone number '
+                            'or a number that does not have a match '
+                            'in our number prefix table:%s', row[USERID], data)
+                        logger.debug("INVALID: %s - %s",
+                                     row[USERID],
+                                     data['phone'])
 
-                            if self.is_new_number(
-                                    data['phone'],
-                                    self.uname_to_ownerid[row[USERID]]):
-                                changed_phone = True
-                        added_prefix = True
-                        break
-                if data['phone'] and not added_prefix:
-                    logger.warning(
-                        'Userid %s has a malformed internal phone number '
-                        'or a number that does not have a match '
-                        'in our number prefix table:%s', row[USERID], data)
-                    logger.debug("INVALID: %s - %s",
-                                 row[USERID],
-                                 data['phone'])
+                    # add "+47" phone number prefix
+                    if data['phone'] and (self.is_new_number(
+                            data['phone'],
+                            self.uname_to_ownerid[row[USERID]])):
 
-                # add "+47" phone number prefix
-                if data['phone'] and (self.is_new_number(
-                        data['phone'],
-                        self.uname_to_ownerid[row[USERID]])):
+                        changed_phone = True
+                        if not data['phone'].startswith('+47'):
+                            data['phone'] = "%s%s" % ("+47", data['phone'])
+                        logger.debug("%s's phone number with +47 prefix: %s",
+                                     row[USERID],
+                                     data['phone'])
 
-                    changed_phone = True
-                    if not data['phone'].startswith('+47'):
-                        data['phone'] = "%s%s" % ("+47", data['phone'])
-                    logger.debug("%s's phone number with +47 prefix: %s",
-                                 row[USERID],
-                                 data['phone'])
-
-                if changed_phone:
-                    self.update_phonenr(row[USERID], data['phone'])
-                phonedata.setdefault(row[USERID].strip(), []).append(data)
+                    if changed_phone:
+                        self.update_phonenr(row[USERID], data['phone'])
+                    phonedata.setdefault(row[USERID].strip(), []).append(data)
 
         for user_id, pdata in phonedata.items():
             self.process_contact(user_id, pdata)
