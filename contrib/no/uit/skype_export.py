@@ -18,12 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Usage: %s [-o <filename> | --outfile <filename>] [--logger-name]
--h | --help : this text
--s | --spread : spreadname (default SITO if this is not set)
--a | -authoritative_source_system : source system (default SITO)
--o | --out : output filename
-
+"""
 This script generats a csv file containing the following information:
 name,email and tlf for every person having accounts with spread as given with
 the -s option.  The script was created to list persons having SITO spread
@@ -33,88 +28,93 @@ export format:
 <NAVN>;[TELEFON...];<BRUKERNAVN>;<EPOST>
 """
 
-import getopt
-import sys
+import argparse
+import logging
 from pprint import pprint
 
 import cereconf
+from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 
-# global variables
-db = Factory.get('Database')()
-db.cl_init(change_program='process_students')
-const = Factory.get('Constants')(db)
-account = Factory.get('Account')(db)
-person = Factory.get('Person')(db)
-logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+logger = logging.getLogger(__name__)
+
+default_spread = 'SITO'
+default_source = 'SITO'
 
 
-#
-# list all accounts with correct spread and return account and owner data.
-#
-# format on returned data:
-# person_dict = {person_id : {person_name : name,
-#                             person_tlf : tlf,
-#                             {accounts : [{account_name : somename,
-#                                           account_id : someid,
-#                                            expire_date : some_expire_date,
-#                                            email : [email1..emailN]
-#                                           }]
-#                            }
-#               }
-def get_data(spread=None, source_system=None):
-    global person
-    global account
+def get_data(db, spread=None, source_system=None):
+    """
+    List all accounts with correct spread and return account and owner data.
+
+    format on returned data:
+    person_dict = {person_id : {person_name : name,
+                                person_tlf : tlf,
+                                {accounts : [{account_name : somename,
+                                              account_id : someid,
+                                               expire_date : some_expire_date,
+                                               email : [email1..emailN]
+                                              }]
+                               }
+                  }
+    :param db: Cerebrum database
+    :param basestring spread: name of a spread e.g 'SITO'
+    :param basestring source_system: name of  a source system e.g 'SITO'
+    :return: dict
+    """
+    ac = Factory.get('Account')(db)
+    pe = Factory.get('Person')(db)
+    co = Factory.get('Constants')(db)
+
     person_dict = {}
 
-    set_source_system = const.system_cached
-    set_spread = const.Spread(spread)
-    set_name_variant = int(const.name_full)
+    set_source_system = source_system or co.system_cached
+    set_spread = co.Spread(spread)
+    set_name_variant = int(co.name_full)
 
-    account_list = account.list_accounts_by_type(filter_expired=True,
-                                                 account_spread=set_spread)
+    account_list = ac.list_accounts_by_type(filter_expired=True,
+                                            account_spread=set_spread)
     for accounts in account_list:
-        account.clear()
-        person.clear()
+        ac.clear()
+        pe.clear()
 
-        account.find(accounts['account_id'])
-        person.find(accounts['person_id'])
+        ac.find(accounts['account_id'])
+        pe.find(accounts['person_id'])
 
-        logger.debug("processing account id:%s", account.entity_id)
-        if person.entity_id not in person_dict.keys():
-            person_dict[person.entity_id] = {
-                'fullname': person.get_name(source_system=set_source_system,
-                                            variant=set_name_variant),
-                'tlf': get_person_tlf(person),
+        logger.debug("processing account id:%s", ac.entity_id)
+        if pe.entity_id not in person_dict.keys():
+            person_dict[pe.entity_id] = {
+                'fullname': pe.get_name(source_system=set_source_system,
+                                        variant=set_name_variant),
+                'tlf': get_person_tlf(co, pe),
                 'accounts': []}
 
-        ac_name = account.get_account_name()
-        ac_email = account.get_primary_mailaddress()
-        ac_expire_date = account.get_account_expired()
+        ac_name = ac.get_account_name()
+        ac_email = ac.get_primary_mailaddress()
+        ac_expire_date = ac.get_account_expired()
         if ac_expire_date is False:
             ac_expire_date = 'Not expired'
 
-        if len(person_dict[person.entity_id]['accounts']) == 0:
-            person_dict[person.entity_id]['accounts'].append(
+        if len(person_dict[pe.entity_id]['accounts']) == 0:
+            person_dict[pe.entity_id]['accounts'].append(
                 {'account_name': ac_name, 'expire_date': ac_expire_date,
-                 'email': ac_email, 'account_id': int(account.entity_id)})
+                 'email': ac_email, 'account_id': int(ac.entity_id)})
         else:
             logger.debug(
-                "person:%s has more than 1 account", person.entity_id)
+                "person:%s has more than 1 account", pe.entity_id)
             append_me = True
-            for acc in person_dict[person.entity_id]['accounts']:
-                if account.entity_id == acc['account_id']:
+            for acc in person_dict[pe.entity_id]['accounts']:
+                if ac.entity_id == acc['account_id']:
                     # already exists. do not append
                     logger.debug(
                         "...but account:%s has already been registered on "
                         "person:%s. nothing done.",
-                        account.entity_id, person.entity_id)
+                        ac.entity_id, pe.entity_id)
                     append_me = False
             if append_me:
-                logger.debug("appending new account:%s", account.entity_id)
-                person_dict[person.entity_id]['accounts'].append(
+                logger.debug("appending new account:%s", ac.entity_id)
+                person_dict[pe.entity_id]['accounts'].append(
                     {'account_name': ac_name, 'expire_date': ac_expire_date,
-                     'email': ac_email, 'account_id': account.entity_id})
+                     'email': ac_email, 'account_id': ac.entity_id})
 
     return person_dict
 
@@ -122,9 +122,8 @@ def get_data(spread=None, source_system=None):
 #
 # Get all phonenr for a given person
 #
-def get_person_tlf(person):
+def get_person_tlf(const, person):
     phone_list = []
-    source_system = const.system_tlf
 
     # get work phone
     retval = person.get_contact_info(type=const.contact_phone)
@@ -167,45 +166,31 @@ def write_file(data_list, outfile):
 #
 # main function
 #
-def main():
-    default_spread = 'SITO'
-    default_source = 'SITO'
-    default_out = ''
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'ho:s:a:',
-                                   ['help', 'out=', 'spread=',
-                                    'authoritative_source_system='])
-    except getopt.GetoptError as m:
-        usage(1, m)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-o', '--out',
+                        required=True,
+                        dest='outfile')
+    parser.add_argument('-s', '--spread',
+                        default=default_spread)
+    parser.add_argument('-a', '--authoritative_source_system',
+                        dest='source',
+                        default=default_source)
 
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(1)
-        if opt in ('-o', '--out'):
-            outfile = value
-        if opt in ('-s', '--spread'):
-            default_spread = value
-        if opt in ('-a', '--authoritative_source_system'):
-            default_source = value
+    logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    logutils.autoconf(cereconf.DEFAULT_LOGGER_TARGET, args)
 
-    logger.debug("outfile:%s", outfile)
-    logger.debug("spread: %s", default_spread)
-    logger.debug("source: %s", default_source)
+    logger.debug("outfile:%s", args.outfile)
+    logger.debug("spread: %s", args.spread)
+    logger.debug("source: %s", args.source)
 
-    # collects: person names, tlf and campus
-    data_list = get_data(default_spread,
-                         default_source)
-    write_file(data_list, outfile)
+    db = Factory.get('Database')()
+    db.cl_init(change_program='skype_export')
 
-
-#
-# list usage incase of script parameter error
-#
-def usage(exitcode=0, msg=None):
-    if msg:
-        print(msg)
-    print(__doc__)
-    sys.exit(exitcode)
+    data_list = get_data(db, args.spread,
+                         args.source)
+    write_file(data_list, args.outfile)
 
 
 if __name__ == "__main__":
