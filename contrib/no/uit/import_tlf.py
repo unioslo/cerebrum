@@ -334,18 +334,21 @@ class PhoneNumberImporter(object):
         and we will mark some numbers for deletion, also based on prefix.
         """
         # CSV field positions
-        FNAME = 0
-        LNAME = 1
-        PHONE = 2
-        FAX = 3
-        MOB = 4
-        PHONE_2 = 5
-        MAIL = 6
-        USERID = 7
-        ROOM = 8
-        BUILDING = 9
-        RESERVATION = 10
+        fields = {
+            'fname': 0,
+            'lname': 1,
+            'phone': 2,
+            'fax': 3,
+            'mob': 4,
+            'phone_2': 5,
+            'mail': 6,
+            'userid': 7,
+            'room': 8,
+            'building': 9,
+            'reservation': 10,
+        }
 
+        # TODO: move this to config at some point.
         prefix_table = [
             # (internal number first digits, prefix to add or "DELETE")
             ("207", "776"),
@@ -398,24 +401,29 @@ class PhoneNumberImporter(object):
                 # TODO wrong encoding?
                 row = self.convert(row, 'iso-8859-1')
 
-                if row[RESERVATION].lower() == 'kat' and row[USERID].strip():
-                    if row[USERID].strip() != row[USERID]:
+                user_id = row[fields['userid']]
+
+                if row[fields['reservation']].lower() == 'kat' and \
+                        user_id.strip():
+
+                    if user_id.strip() != user_id:
                         logger.error("Userid %s has blanks in it. Notify " +
-                                     "telefoni!", row[USERID])
+                                     "telefoni!", user_id)
 
-                    data = {'phone': row[PHONE],
-                            'mobile': row[MOB],
-                            'room': row[ROOM],
-                            'mail': row[MAIL],
-                            'fax': row[FAX],
-                            'phone_2': row[PHONE_2],
-                            'firstname': row[FNAME],
-                            'lastname': row[LNAME],
-                            'building': row[BUILDING]}
+                    data = {'phone': row[fields['phone']],
+                            'mobile': row[fields['mob']],
+                            'room': row[fields['room']],
+                            'mail': row[fields['mail']],
+                            'fax': row[fields['fax']],
+                            'phone_2': row[fields['phone_2']],
+                            'firstname': row[fields['fname']],
+                            'lastname': row[fields['lname']],
+                            'building': row[fields['building']],
+                    }
 
-                    if row[USERID] not in self.uname_to_ownerid:
+                    if row[fields['userid']] not in self.uname_to_ownerid:
                         logger.warn("Unknown user: %s, continue with next " +
-                                    "user", row[USERID])
+                                    "user", row[fields['userid']])
                         continue
 
                     # Set phone extension or mark for deletion based on the
@@ -424,26 +432,26 @@ class PhoneNumberImporter(object):
                     changed_phone = False
 
                     for internal_first_digits, prefix in prefix_table:
-
-                        if len(data['phone']) == 5 and data['phone'].startswith(
-                                internal_first_digits):
-
+                        if len(data['phone']) == 5 and \
+                                data['phone'].startswith(
+                                    internal_first_digits):
                             if prefix == "DELETE":
                                 logger.debug("DELETE: %s - %s",
-                                             row[USERID],
+                                             user_id,
                                              data['phone'])
-
                                 # Delete the phonenumber from the database
-                                self.delete_phonenr(row[USERID], data['phone'])
+                                self.delete_phonenr(user_id, data['phone'])
 
                             else:
-                                logger.debug('unmodified phone:%s', data['phone'])
-                                data['phone'] = "%s%s" % (prefix, data['phone'])
-                                logger.debug('modified phone:%s', data['phone'])
-
+                                logger.debug('unmodified phone:%s',
+                                             data['phone'])
+                                data['phone'] = "%s%s" % (prefix,
+                                                          data['phone'])
+                                logger.debug('modified phone:%s',
+                                             data['phone'])
                                 if self.is_new_number(
                                         data['phone'],
-                                        self.uname_to_ownerid[row[USERID]]):
+                                        self.uname_to_ownerid[user_id]):
                                     changed_phone = True
                             added_prefix = True
                             break
@@ -451,26 +459,25 @@ class PhoneNumberImporter(object):
                         logger.warning(
                             'Userid %s has a malformed internal phone number '
                             'or a number that does not have a match '
-                            'in our number prefix table:%s', row[USERID], data)
+                            'in our number prefix table:%s', user_id, data)
                         logger.debug("INVALID: %s - %s",
-                                     row[USERID],
+                                     user_id,
                                      data['phone'])
 
                     # add "+47" phone number prefix
                     if data['phone'] and (self.is_new_number(
                             data['phone'],
-                            self.uname_to_ownerid[row[USERID]])):
-
+                            self.uname_to_ownerid[user_id])):
                         changed_phone = True
                         if not data['phone'].startswith('+47'):
                             data['phone'] = "%s%s" % ("+47", data['phone'])
                         logger.debug("%s's phone number with +47 prefix: %s",
-                                     row[USERID],
+                                     user_id,
                                      data['phone'])
 
                     if changed_phone:
-                        self.update_phonenr(row[USERID], data['phone'])
-                    phonedata.setdefault(row[USERID].strip(), []).append(data)
+                        self.update_phonenr(user_id, data['phone'])
+                    phonedata.setdefault(user_id.strip(), []).append(data)
 
         for user_id, pdata in phonedata.items():
             self.process_contact(user_id, pdata)
