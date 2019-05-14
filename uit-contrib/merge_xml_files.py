@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import unicode_literals
-import cerebrum_path
+
 
 import getopt
 import xml.sax
@@ -35,26 +35,24 @@ class CollectParser(xml.sax.ContentHandler):
         self.hash_keys = hash_keys
         self.append_file = append_file
         xml.sax.parse(filename, self)
-        
+
     def startElement(self, name, attrs):
         self.level += 1
         if self.level > 1:
             tmp = {}
-            #hash_key = "�".join([attrs[x].encode('iso8859-1') for x in self.hash_keys])
             hash_key = "¦".join([attrs[x] for x in self.hash_keys])
             if self.append_file and hash_key not in self.results:
                 return
             for k in attrs.keys():
                 if k not in self.hash_keys:
-                    #tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
                     tmp[k] = attrs[k]
-            #tmp['TagName'] = name.encode('iso8859-1')
             tmp['TagName'] = name
             self.results.setdefault(hash_key, []).append(tmp)
-                        
+
     def endElement(self, name):
         self.level -= 1
         pass
+
 
 def usage(exitcode=0):
     print """Usage: [options]
@@ -83,17 +81,23 @@ preceeded by the file you wish to append it to (orelse the result will
 be empty).
 
 Example:
-merge_xml_files.py -d fodselsdato:personnr -f person_file.xml -f regkort.xml -t person -o out.dat
+merge_xml_files.py -d fodselsdato:personnr -f person_file.xml \
+-f regkort.xml -t person -o out.dat
 
-Note that memory usage may equal the total size of all XML files."""
+Note that memory usage may equal the total size of all XML files.
+"""
     sys.exit(exitcode)
+
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'd:f:o:t:a:', ['delim=', 'file=', 'out=', 'tag=', 'append='])
+        opts, args = getopt.getopt(sys.argv[1:], 'd:f:o:t:a:', ['delim=',
+                                                                'file=',
+                                                                'out=', 'tag=',
+                                                                'append='])
     except getopt.GetoptError:
         usage(2)
-        
+
     big_xml = {}
     for opt, val in opts:
         if opt in ('-t', '--tag'):
@@ -110,25 +114,25 @@ def main():
             xml = XMLHelper()
             f.write(xml.xml_hdr + "<data>\n")
             for bx_key in big_xml.keys():
-                #bx_delim = bx_key.split("�")
                 bx_delim = bx_key.split("¦")
                 f.write("<%s %s>\n" % (
-                    tag, " ".join(["%s=%s" % (
-                    delim[n], xml.escape_xml_attr(bx_delim[n])) for n in range(len(delim))])))
+                    tag, " ".join(["%s=%s" % (delim[n],
+                                              xml.escape_xml_attr(bx_delim[n]))
+                                   for n in range(len(delim))])))
                 for tmp_tag in big_xml[bx_key]:
                     tmp = tmp_tag['TagName']
                     del(tmp_tag['TagName'])
 
                     f.write("  <%s %s/>\n" % (
-                        #tmp, " ".join(["%s=%s" % (
-                        #tk, xml.escape_xml_attr(tmp_tag[tk])) for tk in tmp_tag.keys()])))
-                        tmp, " ".join(["%s=%s" % (tk,xml.escape_xml_attr(tmp_tag[tk]))for tk in tmp_tag.keys()])))
-
+                        tmp, " ".join(
+                            ["%s=%s" % (tk,
+                                        xml.escape_xml_attr(tmp_tag[tk]))
+                             for tk in tmp_tag.keys()])))
 
                 f.write("</%s>\n" % tag)
             f.write("</data>\n")
             f.close()
 
+
 if __name__ == '__main__':
     main()
-
