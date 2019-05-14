@@ -97,11 +97,6 @@ class PhoneNumberImporter(object):
 
         self.init_cache(checknames)
 
-    def str_upper_no(self, string, encoding='iso-8859-1'):
-        '''Converts Norwegian iso strings to upper correctly. Eg. ��� -> ���
-        Ex. Usage: my_string = str_upper_no('a�e��')'''
-        return unicode(string, encoding).upper().encode(encoding)
-
     def init_cache(self):
         """Create caches."""
         if self.checkmail:
