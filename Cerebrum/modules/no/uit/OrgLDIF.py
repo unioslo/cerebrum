@@ -61,7 +61,7 @@ class OrgLDIFUiTMixin(norEduLDIFMixin):
     def init_attr2id2contacts(self):
         """Override to include more, local data from contact info."""
         self.__super.init_attr2id2contacts()
-        sap, fs = self.const.system_sap, self.const.system_fs
+        fs = self.const.system_fs
         c = [(a, self.get_contacts(contact_type=t,
                                    source_system=s,
                                    convert=self.attr2syntax[a][0],
