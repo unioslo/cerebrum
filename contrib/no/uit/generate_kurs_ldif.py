@@ -24,7 +24,7 @@ Roles are typically:
 - Learner (students)
 - Instructor (course lecturers and group instructors)
 
-Note: Near-identical with uit/generate_kurs_ldif.py
+Note: Near-identical with uio/generate_kurs_ldif.py
 """
 from __future__ import unicode_literals
 
@@ -70,7 +70,7 @@ interesting_fs_roles = (
 
 
 class CerebrumGroupInfo(object):
-    PREFIX = "uio.no:fs:kurs:"
+    PREFIX = "uit.no:fs:kurs:"
     id_key_seq = ('institusjonsnr', 'emnekode', 'versjonskode',
                   'terminkode', 'arstall', 'terminnr')
 
@@ -194,7 +194,7 @@ def gen_undervisningsaktivitet(cgi, sip, out):
     # uioEduCourseLevel - (FS.emne.studienivakode)
     # uioEduCourseName - (FS.emne.emnenavn_bokmal)
     # uioEduCourseSectionName - (FS.undaktivitet.aktivitetsnavn)
-    # uioEduCourseOffering - urn:mace:uio.no:section:<noe>
+    # uioEduCourseOffering - urn:mace:uit.no:section:<noe>
     n = 0
     ret = {}
     top_dn = ldapconf('KURS', 'dn')
@@ -219,7 +219,7 @@ def gen_undervisningsaktivitet(cgi, sip, out):
                 aktivitet_id["%i" % entity_id] = role
         keys = aktivitet_id.keys()
         keys.sort()
-        urn = 'urn:mace:uio.no:section:aktivitet-%s' % "_".join(keys)
+        urn = 'urn:mace:uit.no:section:aktivitet-%s' % "_".join(keys)
         out.write(entry_string("cn=ua-%i,%s" % (n, top_dn), {
             'objectClass': ("top", "uioEduSection"),
             'uioEduCourseCode': (entry['emnekode'],),
@@ -247,7 +247,7 @@ def gen_undervisningsenhet(cgi, sip, out):
     #
     # uioEduCourseCode, uioEduCourseAdministrator, uioEduCourseLevel,
     # uioEduCourseName - som for Undervisningsaktivitet
-    # uioEduCourseOffering - urn:mace:uio.no:offering:<noe>
+    # uioEduCourseOffering - urn:mace:uit.no:offering:<noe>
     n = 0
     ret = {}
     top_dn = ldapconf('KURS', 'dn')
@@ -266,7 +266,7 @@ def gen_undervisningsenhet(cgi, sip, out):
                 aktivitet_id["%i" % entity_id] = role
         keys = aktivitet_id.keys()
         keys.sort()
-        urn = 'urn:mace:uio.no:offering:enhet-%s' % "_".join(keys)
+        urn = 'urn:mace:uit.no:offering:enhet-%s' % "_".join(keys)
         out.write(entry_string("cn=ue-%i,%s" % (n, top_dn), {
             'objectClass': ("top", "uioEduOffering"),
             'uioEduCourseCode': (entry['emnekode'],),
