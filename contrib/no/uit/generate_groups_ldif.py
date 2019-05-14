@@ -28,6 +28,10 @@ This is a 'helper' script to add groups to an org-ldif script.  The idea is to:
    to a list of group dn strings.
 3. A separate org-ldif mixin (if present) reads the pickle file and adds group
    memberships to each exported person.
+
+History
+-------
+kbj005 2015.02.11: copied from /home/cerebrum/cerebrum/contrib/no/uio
 """
 from __future__ import unicode_literals
 import argparse
@@ -54,6 +58,7 @@ logger = logging.getLogger(__name__)
 def dump_ldif(db, root_dn, file_handle):
     co = Factory.get('Constants')(db)
     group = Factory.get('Group')(db)
+    ac = Factory.get('Account')(db)
 
     logger.debug('Processing groups...')
     group_to_dn = {}
@@ -63,16 +68,24 @@ def dump_ldif(db, root_dn, file_handle):
         file_handle.write(entry_string(
             dn,
             {
-                'objectClass': ("top", "uioGroup"),
-                'description': (row['description'],)
+                'objectClass': ("top", "uioUntypedObject"),
+                'description': (row['description'],),
             }))
+
+    logger.debug('Caching account ownership...')
+    account_to_owner = {}
+    for row in ac.search(expire_start=None, expire_stop=None):
+        # TODO: Should prpbably filter out accounts without owner_type=person?
+        account_to_owner[row['account_id']] = row['owner_id']
 
     logger.debug('Processing group memberships...')
     member_to_group = defaultdict(list)
     for row in group.search_members(spread=co.spread_ldap_group,
-                                    member_type=co.entity_person):
-        person_id = int(row['member_id'])
-        member_to_group[person_id].append(group_to_dn[row['group_id']])
+                                    member_type=co.entity_account):
+        if row['member_id'] not in account_to_owner:
+            continue
+        owner_id = account_to_owner[int(row['member_id'])]
+        member_to_group[owner_id].append(group_to_dn[row['group_id']])
 
     return dict(member_to_group)
 
