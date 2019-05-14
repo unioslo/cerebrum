@@ -52,13 +52,24 @@ ac_phone = Factory.get('Account')(db)
 
 
 class PhoneNumberImporter(object):
+    """Imports phone number from csv into Cerebrum."""
 
     def __init__(self,
                  filename,
                  notify_recipient=False,
                  checknames=False,
                  checkmail=False):
+        """
+        Init phone number importer.
 
+        :param filename: Path to csv file.
+        :param notify_recipient: Send email to
+            cereconf.TELEFONIERRORS_RECEIVER with error logs.
+        :param checknames: Check that the name in the csv file matches the
+            name in Cerebrum.
+        :param checkmail: Check that the mail in the csv file matches the
+            mail in Cerebrum.
+        """
         # Config
         self.checknames = checknames
         self.checkmail = checkmail
@@ -107,15 +118,14 @@ class PhoneNumberImporter(object):
         logger.info("Caching contact info")
         for c in p.list_contact_info(source_system=co.system_tlf,
                                      entity_type=co.entity_person):
-            idx = "%s:%s" % (c['contact_type'], c['contact_pref'])
-            tmp = self.person_to_contact.get(c['entity_id'], dict())
+            idx = "{0}:{1}".format(c['contact_type'], c['contact_pref'])
+            tmp = self.person_to_contact.get(c['entity_id'], {})
             tmp[idx] = c['contact_value']
             self.person_to_contact[c['entity_id']] = tmp
         logger.info("Caching finished")
 
     def handle_changes(self, p_id, changes):
         """Process a change list of contact info for a given person id."""
-
         p.clear()
         try:
             p.find(p_id)
@@ -156,11 +166,10 @@ class PhoneNumberImporter(object):
             else:
                 logger.error("Unknown change_code: %s, value: &%s",
                              change_code, change_value)
-        # Remove variable?
-        op = p.write_db()
+        p.write_db()
 
     def process_contact(self, user_id, data):
-
+        """Process and find changes."""
         owner_id = self.uname_to_ownerid.get(user_id, None)
 
         if owner_id is None:
@@ -204,7 +213,7 @@ class PhoneNumberImporter(object):
                                 (phone_2, int(co.contact_workphone2)),
                                 (room, int(co.contact_room)),
                                 (building, int(co.contact_building))):
-                idx = "%s:%s" % (type, contact_pref)
+                idx = "{0}:{1}".format(type, contact_pref)
                 idxlist.append(idx)
                 if value:
                     if value != cinfo.get(idx):
@@ -225,7 +234,7 @@ class PhoneNumberImporter(object):
                     "").lower() != mail.lower():
 
                 self.s_errors.setdefault(user_id, []).append(
-                    "Email wrong: yours=%s, ours=%s" % (
+                    "Email wrong: yours={0}, ours={1}".format(
                         mail,
                         self.uname_to_mail.get(user_id)))
 
@@ -236,11 +245,13 @@ class PhoneNumberImporter(object):
                     cb_fname = namelist.get(int(co.name_first), "")
                     cb_lname = namelist.get(int(co.name_last), "")
 
-                    worktitle = namelist.get(int(co.name_work_title), "")
                     if cb_fname != tlf_fname or cb_lname != tlf_lname:
                         self.s_errors.setdefault(user_id, []).append(
-                            "Name spelling differ: yours=%s %s, ours=%s %s" %
-                            (tlf_fname, tlf_lname, cb_fname, cb_lname))
+                            "Name spelling differ: yours={0} {1}, ours={2} " +
+                            "{3}".format(tlf_fname,
+                                         tlf_lname,
+                                         cb_fname,
+                                         cb_lname))
 
         db_idx = set(cinfo.keys())
         src_idx = set(idxlist)
@@ -248,7 +259,9 @@ class PhoneNumberImporter(object):
             changes.append(('del_contact', (idx, None)))
 
         if changes:
-            logger.info("Changes [%s/%s]: %s" % (user_id, owner_id, changes))
+            logger.info("Changes [{0}/{1}]: {2}".format(user_id,
+                                                        owner_id,
+                                                        changes))
             self.handle_changes(owner_id, changes)
             logger.info("Update contact and write_db done")
         self.processed.append(owner_id)
@@ -272,7 +285,9 @@ class PhoneNumberImporter(object):
 
     def delete_phonenr(self, uid, phone):
         """
-        Delete the (work) phonenumber for a given uid with source = telefoni.
+        Delete the (work) phone number for uid.
+
+        Only phone numbers with source "telefoni" are deleted.
         """
         ac_phone.clear()
         try:
@@ -317,6 +332,7 @@ class PhoneNumberImporter(object):
         return is_new_number
 
     def convert(self, data, encoding='utf-8'):
+        """Convert internal data to a given encoding."""
         if isinstance(data, dict):
             return {self.convert(key): self.convert(value, encoding)
                     for key, value in data.iteritems()}
@@ -329,9 +345,10 @@ class PhoneNumberImporter(object):
 
     def process_telefoni(self):
         """
-        we will add a prefix to internal phone numbers based on their first
-        digits.
-        and we will mark some numbers for deletion, also based on prefix.
+        Process the phone file and update Cerebrum with changes.
+
+        We will add a prefix to internal phone numbers based on their first
+        digits. Some will be marked for deletion based on prefix.
         """
         # CSV field positions
         fields = {
@@ -419,7 +436,7 @@ class PhoneNumberImporter(object):
                             'firstname': row[fields['fname']],
                             'lastname': row[fields['lname']],
                             'building': row[fields['building']],
-                    }
+                            }
 
                     if row[fields['userid']] not in self.uname_to_ownerid:
                         logger.warn("Unknown user: %s, continue with next " +
@@ -445,8 +462,8 @@ class PhoneNumberImporter(object):
                             else:
                                 logger.debug('unmodified phone:%s',
                                              data['phone'])
-                                data['phone'] = "%s%s" % (prefix,
-                                                          data['phone'])
+                                data['phone'] = "{0}{1}".format(prefix,
+                                                                data['phone'])
                                 logger.debug('modified phone:%s',
                                              data['phone'])
                                 if self.is_new_number(
@@ -470,7 +487,8 @@ class PhoneNumberImporter(object):
                             self.uname_to_ownerid[user_id])):
                         changed_phone = True
                         if not data['phone'].startswith('+47'):
-                            data['phone'] = "%s%s" % ("+47", data['phone'])
+                            data['phone'] = "{0}{1}".format("+47",
+                                                            data['phone'])
                         logger.debug("%s's phone number with +47 prefix: %s",
                                      user_id,
                                      data['phone'])
@@ -485,7 +503,7 @@ class PhoneNumberImporter(object):
         unprocessed = set(self.person_to_contact.keys()) - set(self.processed)
 
         for p_id in unprocessed:
-            changes = list()
+            changes = []
             contact_info = self.person_to_contact[p_id]
 
             for idx, value in contact_info.items():
@@ -501,8 +519,8 @@ class PhoneNumberImporter(object):
             for userid, error in self.s_errors.items():
                 fname = phonedata[userid][0]['firstname']
                 lname = phonedata[userid][0]['lastname']
-                key = '%s %s (%s)' % (fname, lname, userid)
-                msg[key] = list()
+                key = '{0} {1} ({2})'.format(fname, lname, userid)
+                msg[key] = []
                 for i in error:
                     msg[key].append("\t%s\n" % (i,))
 
@@ -529,11 +547,12 @@ class PhoneNumberImporter(object):
 
 
 def main():
+    """Parser etc."""
     parser = argparse.ArgumentParser(description=__doc__)
 
-    global dryrun
-    default_phonefile = '%s/telefoni/user_%s.txt' % (cereconf.DUMPDIR,
-                                                     time.strftime('%Y%m%d'))
+    default_phonefile = '{0}/telefoni/user_{1}.txt'.format(
+        cereconf.DUMPDIR,
+        time.strftime('%Y%m%d'))
     parser.add_argument(
         '-f',
         '--file',
