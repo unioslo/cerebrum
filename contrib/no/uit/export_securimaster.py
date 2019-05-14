@@ -54,8 +54,6 @@ class SecurimasterExporter(object):
 
         self._db = db
 
-        # Remove
-        self._sysx_to_accountid = None
         self._account_to_name = {}
         self._owner_to_account = {}
         self._num_to_const = {}
