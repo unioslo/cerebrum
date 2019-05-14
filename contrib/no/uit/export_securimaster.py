@@ -42,22 +42,17 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 
 logger = logging.getLogger(__name__)
-db = Factory.get('Database')()
-ou = Factory.get('OU')(db)
-p = Factory.get('Person')(db)
-co = Factory.get('Constants')(db)
-ac = Factory.get('Account')(db)
-sko = Stedkode(db)
 
 
 class SecurimasterExporter(object):
     """Generate cvs export from Cerebrum for the Securimaster system."""
 
-    def __init__(self, outfile):
+    def __init__(self, db):
 
-        self._outfile = outfile
         self._pid_to_fnr = None
         self._pnr_to_account = None
+
+        self._db = db
 
         # Remove
         self._sysx_to_accountid = None
@@ -81,6 +76,9 @@ class SecurimasterExporter(object):
 
     def create_cache(self):
         """Create cache."""
+        ac = Factory.get('Account')(self._db)
+        p = Factory.get('Person')(self._db)
+        co = Factory.get('Constants')(self._db)
 
         logger.info("Caching fnr's")
         self._pid_to_fnr = p.getdict_fodselsnr()
@@ -115,6 +113,10 @@ class SecurimasterExporter(object):
     def load_cerebrum_data(self):
         """Load data from cerebrum."""
         logger.info("Fetching affiliations from Cerebrum")
+        ou = Factory.get('OU')(self._db)
+        sko = Stedkode(self._db)
+        co = Factory.get('Constants')(self._db)
+        p = Factory.get('Person')(self._db)
 
         for aff in p.list_affiliations():
             # simple filtering
@@ -205,9 +207,9 @@ class SecurimasterExporter(object):
             if not self._export_attrs.get(acc_name, None):
                 self._export_attrs[p_id] = attrs
 
-    def build_export(self):
+    def build_export(self, outfile):
         """Build and create the export file."""
-        logger.info("Start building export, writing to %s", self._outfile)
+        logger.info("Start building export, writing to %s", outfile)
         export = [
             self._char_separator.join((
                 '#username',
@@ -233,13 +235,14 @@ class SecurimasterExporter(object):
                     m)
 
         logger.info("Starting write export")
-        with open(self._outfile, "w") as fp:
+        with open(outfile, "w") as fp:
             for row in export:
                 fp.write("{}\n".format(row).encode('utf-8'))
         logger.info("Export finished")
 
 
 def main():
+    db = Factory.get('Database')()
     default_outfile = os.path.join(cereconf.DUMPDIR,
                                    "securimaster",
                                    "securimaster_dump_{0}.csv".format(
@@ -257,8 +260,8 @@ def main():
     Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info("Generating Securimaster export")
-    exporter = SecurimasterExporter(args.outfile)
-    exporter.build_export()
+    exporter = SecurimasterExporter(db)
+    exporter.build_export(args.outfile)
     logger.info("Finished generating Securimaster export")
 
 
