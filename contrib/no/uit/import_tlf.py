@@ -33,7 +33,6 @@ import csv
 import datetime
 import logging
 import mx.DateTime
-from sets import Set
 import time
 
 import Cerebrum.logutils
@@ -256,8 +255,8 @@ class PhoneNumberImporter(object):
                             "Name spelling differ: yours=%s %s, ours=%s %s" %
                             (tlf_fname, tlf_lname, cb_fname, cb_lname))
 
-        db_idx = Set(cinfo.keys())
-        src_idx = Set(idxlist)
+        db_idx = set(cinfo.keys())
+        src_idx = set(idxlist)
         for idx in db_idx - src_idx:
             changes.append(('del_contact', (idx, None)))
 
