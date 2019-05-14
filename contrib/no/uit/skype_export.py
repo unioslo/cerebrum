@@ -18,37 +18,27 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
-__doc__ = """ Usage: %s [-o <filename> | --outfile <filename>] [--logger-name]
+""" Usage: %s [-o <filename> | --outfile <filename>] [--logger-name]
 -h | --help : this text
 -s | --spread : spreadname (default SITO if this is not set)
 -a | -authoritative_source_system : source system (default SITO)
 -o | --out : output filename
 
 This script generats a csv file containing the following information:
-name,email and tlf for every person having accounts with spread as given with the
--s option.  The script was created to list persons having SITO spread
-for use towards skype 
+name,email and tlf for every person having accounts with spread as given with
+the -s option.  The script was created to list persons having SITO spread
+for use towards skype
 
-export format: 
+export format:
 <NAVN>;[TELEFON...];<BRUKERNAVN>;<EPOST>
 """
 
-# generic imports
 import getopt
 import sys
-import os
 from pprint import pprint
-import xml.sax.xmlreader
-import xml.sax.saxutils
 
-# cerebrum imports
-import cerebrum_path
 import cereconf
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import Email
 
 # global variables
 db = Factory.get('Database')()
@@ -58,29 +48,31 @@ account = Factory.get('Account')(db)
 person = Factory.get('Person')(db)
 logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
 
+
 #
 # list all accounts with correct spread and return account and owner data.
 #
 # format on returned data:
-# person_dict = {person_id : {person_name : name,  
-#                             person_tlf : tlf,  
+# person_dict = {person_id : {person_name : name,
+#                             person_tlf : tlf,
 #                             {accounts : [{account_name : somename,
 #                                           account_id : someid,
-#                                            expire_date : some_expire_date, 
+#                                            expire_date : some_expire_date,
 #                                            email : [email1..emailN]
 #                                           }]
 #                            }
 #               }
-def get_data(spread=None,source_system=None):
+def get_data(spread=None, source_system=None):
     global person
     global account
     person_dict = {}
 
     set_source_system = const.system_cached
-    set_spread  =  const.Spread(spread)
+    set_spread = const.Spread(spread)
     set_name_variant = int(const.name_full)
 
-    account_list = account.list_accounts_by_type(filter_expired = True,account_spread = set_spread)
+    account_list = account.list_accounts_by_type(filter_expired=True,
+                                                 account_spread=set_spread)
     for accounts in account_list:
         account.clear()
         person.clear()
@@ -88,35 +80,45 @@ def get_data(spread=None,source_system=None):
         account.find(accounts['account_id'])
         person.find(accounts['person_id'])
 
-        logger.debug("processing account id:%s" % account.entity_id)
+        logger.debug("processing account id:%s", account.entity_id)
         if person.entity_id not in person_dict.keys():
-            person_dict[person.entity_id] = {'fullname' : person.get_name(source_system = set_source_system,variant = set_name_variant),
-                                             'tlf' : get_person_tlf(person),
-                                             'accounts' : []}
-        
-            
+            person_dict[person.entity_id] = {
+                'fullname': person.get_name(source_system=set_source_system,
+                                            variant=set_name_variant),
+                'tlf': get_person_tlf(person),
+                'accounts': []}
+
         ac_name = account.get_account_name()
         ac_email = account.get_primary_mailaddress()
         ac_expire_date = account.get_account_expired()
-        if ac_expire_date == False:
+        if ac_expire_date is False:
             ac_expire_date = 'Not expired'
-            
+
         if len(person_dict[person.entity_id]['accounts']) == 0:
-            person_dict[person.entity_id]['accounts'].append({'account_name' : ac_name, 'expire_date': ac_expire_date, 'email' : ac_email,'account_id' : int(account.entity_id)})
+            person_dict[person.entity_id]['accounts'].append(
+                {'account_name': ac_name, 'expire_date': ac_expire_date,
+                 'email': ac_email, 'account_id': int(account.entity_id)})
         else:
-            logger.debug("person:%s has more than 1 account" % (person.entity_id))
-            append_me =  True
+            logger.debug(
+                "person:%s has more than 1 account", person.entity_id)
+            append_me = True
             for acc in person_dict[person.entity_id]['accounts']:
                 if account.entity_id == acc['account_id']:
                     # already exists. do not append
-                    logger.debug("...but account:%s has already been registered on person:%s. nothing done." % (account.entity_id,person.entity_id))
-                    append_me= False
+                    logger.debug(
+                        "...but account:%s has already been registered on "
+                        "person:%s. nothing done.",
+                        account.entity_id, person.entity_id)
+                    append_me = False
             if append_me:
-                logger.debug("appending new account:%s" % account.entity_id)
-                person_dict[person.entity_id]['accounts'].append({'account_name' : ac_name, 'expire_date': ac_expire_date, 'email' : ac_email,'account_id' : account.entity_id})
-                
- 
+                logger.debug("appending new account:%s", account.entity_id)
+                person_dict[person.entity_id]['accounts'].append(
+                    {'account_name': ac_name, 'expire_date': ac_expire_date,
+                     'email': ac_email, 'account_id': account.entity_id})
+
     return person_dict
+
+
 #
 # Get all phonenr for a given person
 #
@@ -125,13 +127,13 @@ def get_person_tlf(person):
     source_system = const.system_tlf
 
     # get work phone
-    retval = person.get_contact_info( type = const.contact_phone)
+    retval = person.get_contact_info(type=const.contact_phone)
     for val in retval:
         if val[4] not in phone_list:
-            phone_list.append(val[4]) 
+            phone_list.append(val[4])
 
-    # get mobile
-    retval = person.get_contact_info(type = const.contact_mobile_phone)
+            # get mobile
+    retval = person.get_contact_info(type=const.contact_mobile_phone)
     for val in retval:
         if val[4] not in phone_list:
             phone_list.append(val[4])
@@ -142,10 +144,10 @@ def get_person_tlf(person):
 #
 # write data to file
 #
-def write_file(data_list,outfile):
+def write_file(data_list, outfile):
     header = "NAVN;TELEFON;BRUKERNAVN;EPOST\n"
-    print "outfile:%s" % outfile
-    fp = open(outfile,'w')
+    print("outfile:{0}".format(outfile))
+    fp = open(outfile, 'w')
     fp.write(header)
     for data in data_list.items():
         pprint(data[1])
@@ -154,51 +156,57 @@ def write_file(data_list,outfile):
         person_account_data = ''
         for account in data[1]['accounts']:
             account_name = account['account_name']
-            account_email =account['email']
-            account_info = "%s;%s" % (account_name,account_email)
-            person_account_data +=account_info
-        line = "%s;%s;%s\n" % (person_name,person_tlf,account_info)
+            account_email = account['email']
+            account_info = "%s;%s" % (account_name, account_email)
+            person_account_data += account_info
+        line = "%s;%s;%s\n" % (person_name, person_tlf, account_info)
         fp.write(line)
     fp.close()
-            
+
+
 #
 # main function
 #
 def main():
-
     default_spread = 'SITO'
     default_source = 'SITO'
     default_out = ''
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'ho:s:a:',['help','out=','spread=','authoritative_source_system='])
-    except getopt.GetoptError,m:
-        usage(1,m)
-    
+        opts, args = getopt.getopt(sys.argv[1:], 'ho:s:a:',
+                                   ['help', 'out=', 'spread=',
+                                    'authoritative_source_system='])
+    except getopt.GetoptError as m:
+        usage(1, m)
+
     for opt, value in opts:
-        if opt in ('-h','--help'):
+        if opt in ('-h', '--help'):
             usage(1)
-        if opt in ('-o','--out'):
+        if opt in ('-o', '--out'):
             outfile = value
-        if opt in ('-s','--spread'):
+        if opt in ('-s', '--spread'):
             default_spread = value
-        if opt in ('-a','--authoritative_source_system'):
+        if opt in ('-a', '--authoritative_source_system'):
             default_source = value
 
-    logger.debug("outfile:%s" % outfile)
-    logger.debug("spread: %s" % default_spread)
-    logger.debug("source: %s" % default_source)
-    
-    data_list = get_data(default_spread,default_source) # collects: person names, tlf and campus
-    write_file(data_list,outfile)
+    logger.debug("outfile:%s", outfile)
+    logger.debug("spread: %s", default_spread)
+    logger.debug("source: %s", default_source)
+
+    # collects: person names, tlf and campus
+    data_list = get_data(default_spread,
+                         default_source)
+    write_file(data_list, outfile)
+
 
 #
 # list usage incase of script parameter error
 #
-def usage(exitcode = 0, msg = None):
+def usage(exitcode=0, msg=None):
     if msg:
-        print msg
-    print __doc__
+        print(msg)
+    print(__doc__)
     sys.exit(exitcode)
+
 
 if __name__ == "__main__":
     main()
