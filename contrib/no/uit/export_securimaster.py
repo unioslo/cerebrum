@@ -29,16 +29,21 @@ Create an csv file that SecuriMaster (access control system) reads
 from __future__ import unicode_literals
 
 import argparse
+import io
 import logging
 import os
 import time
 
 import cereconf
 import Cerebrum.logutils
+import Cerebrum.utils.csvutils as _csvutil
+
 from Cerebrum import Errors
 from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.atomicfile import AtomicFileWriter
+from Cerebrum.utils.csvutils import CerebrumDialect
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 
 logger = logging.getLogger(__name__)
@@ -207,34 +212,33 @@ class SecurimasterExporter(object):
     def build_export(self, outfile):
         """Build and create the export file."""
         logger.info("Start building export, writing to %s", outfile)
-        export = [
-            self._char_separator.join((
-                '#username',
-                'fnr',
-                'firstname',
-                'lastname',
-                'worktitle',
-                'primary_mail',
-                'affiliation'))
-            ]
-        for person_id in self._export_attrs:
-            attrs = self._export_attrs[person_id]
+
+        # The header is in a non standard format starting with a hash mark.
+        # We "fix" it by just naming the first field #username
+        fields = ['#username', 'fnr', 'firstname', 'lastname', 'worktitle',
+                  'primary_mail', 'affiliation']
+
+        persons = []
+        for person_id, export_atter in self._export_attrs.items():
             affs = self._person_affs.get(person_id)
             aff_str = self._aff_char_separator.join(affs)
-            attrs.append(aff_str)
-            try:
-                export.append(self._char_separator.join(attrs))
-            except Exception as m:
-                logger.error(
-                    "Failed to dump person_id=%s, attrs=%s, reason: %s",
-                    person_id,
-                    attrs,
-                    m)
-
+            person = {
+                '#username': export_atter[0],
+                'fnr': export_atter[1],
+                'firstname': export_atter[2],
+                'lastname': export_atter[3],
+                'worktitle': export_atter[4],
+                'primary_mail': export_atter[5],
+                'affiliation': aff_str,
+            }
+            persons.append(person)
         logger.info("Starting write export")
-        with open(outfile, "w") as fp:
-            for row in export:
-                fp.write("{}\n".format(row).encode('utf-8'))
+        with AtomicFileWriter(outfile, mode='w', encoding='utf-8') as stream:
+            writer = _csvutil.UnicodeDictWriter(stream,
+                                                fields,
+                                                dialect=CerebrumDialect)
+            writer.writeheader()
+            writer.writerows(persons)
         logger.info("Export finished")
 
 
