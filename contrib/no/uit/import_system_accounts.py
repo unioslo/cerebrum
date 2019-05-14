@@ -113,14 +113,9 @@ from Cerebrum.utils import transliterate
 from Cerebrum.utils.argutils import add_commit_args
 from mx import DateTime
 
-system_accounts_cache = []
-
-default_source_file = '%s/var/source/system_accounts/system_accounts.xml' % cereconf.CB_PREFIX
+default_source_file = ('%s/var/source/system_accounts/system_accounts.xml' %
+                       cereconf.CB_PREFIX)
 default_stay_alive_time = 4  # Weeks
-
-default_creator_id = default_owner_id = default_source_system = None
-valid_contact_types = None
-db = None
 
 
 # ********** <XML FILE PARSING>
@@ -137,6 +132,7 @@ class SystemAccountsParser(xml.sax.ContentHandler):
         self.chardata = ""
         self.call_back_function = call_back_function
         self.logger = logger
+        self.system_accounts_cache = []
         xml.sax.parse(info_file, self)
 
     def startElement(self, name, attrs):
@@ -144,33 +140,33 @@ class SystemAccountsParser(xml.sax.ContentHandler):
             if name == "data":
                 self.logger.debug("Data level reached")
             else:
-                self.logger.warn("Unknown element on data level: %s" % name)
+                self.logger.warn("Unknown element on data level: %s", name)
         elif len(self.elementstack) == 1:
             if name == "account":
                 self.logger.debug("Account level reached")
                 self.account = {}
             else:
-                self.logger.warn("Unknown element on account level: %s" % name)
+                self.logger.warn("Unknown element on account level: %s", name)
         elif self.elementstack[-1] == "account":
             if name in (
                     'account_name', 'initial_pass', 'gecos', 'contact_info',
                     'expire_date', 'spreads', 'account_type'):
-                self.logger.debug("Inside account level - %s " % name)
+                self.logger.debug("Inside account level - %s ", name)
             else:
                 self.logger.warn(
-                    "Unknown element inside account level: %s" % name)
+                    "Unknown element inside account level: %s", name)
         elif self.elementstack[-1] == "spreads":
-            if name in ('spread'):
-                self.logger.debug("Inside spreads level - %s" % name)
+            if name == 'spread':
+                self.logger.debug("Inside spreads level - %s", name)
             else:
                 self.logger.warn(
-                    "Unknown element inside spreads level: %s" % name)
+                    "Unknown element inside spreads level: %s", name)
         elif self.elementstack[-1] == "contact_info":
             if name in ('email', 'url'):
-                self.logger.debug("Inside contact_info level - %s" % name)
+                self.logger.debug("Inside contact_info level - %s", name)
             else:
                 self.logger.warn(
-                    "Unknown element inside contact_info level: %s" % name)
+                    "Unknown element inside contact_info level: %s", name)
 
         self.elementstack.append(name)
         self.chardata = ""
@@ -178,7 +174,7 @@ class SystemAccountsParser(xml.sax.ContentHandler):
     def endElement(self, name):
         self.logger.debug("Leaving element")
         if name == "account":
-            self.call_back_function(self.account)
+            self.call_back_function(self, self.account)
         elif name == "data":
             pass
         elif name == self.elementstack[-1]:
@@ -200,10 +196,9 @@ class SystemAccountsParser(xml.sax.ContentHandler):
         self.chardata = self.chardata + character
 
 
-def system_account_callback(account):
+def system_account_callback(obj, account):
     """Process each account element returned from XML parser"""
-    global system_accounts_cache
-    system_accounts_cache.append(account)
+    obj.system_accounts_cache.append(account)
 
 
 # ********** </XML FILE PARSING>
@@ -211,10 +206,9 @@ def system_account_callback(account):
 
 # ********* <ACCOUNT CREATION AND UPDATING>
 
-def process_account(db, account_data, logger):
-    global default_creator_id, default_owner_id, default_owner_type, \
-        default_source_system, valid_contact_types, default_stay_alive_time
-
+def process_account(db, account_data, logger, default_owner_id,
+                    default_owner_type, default_creator_id,
+                    default_source_system, valid_contact_types):
     gr = Factory.get('Group')(db)
     ac = Factory.get('Account')(db)
     co = Factory.get('Constants')(db)
@@ -246,14 +240,14 @@ def process_account(db, account_data, logger):
         logger.error("Invalid account data, account not processed. %s", msg)
         return
 
-    logger.info("Processing system account: %s" % account_name)
+    logger.info("Processing system account: %s", account_name)
 
     # Check if account needs to be created
     try:
-        logger.info("Resolving given account name: %s" % account_name)
+        logger.info("Resolving given account name: %s", account_name)
         ac.find_by_name(account_name)
         logger.info("Account found. Proceeding to updating some fields.")
-    except Exception:
+    except Errors.NotFoundError:
         logger.error(
             "Given account name does not exist. Account must be created.")
         ac.clear()
@@ -284,10 +278,10 @@ def process_account(db, account_data, logger):
                     default_owner_id, default_owner_type, account_type_id)
 
     # Check for np_type changes
-    if (ac.np_type != account_type_id):
+    if ac.np_type != account_type_id:
         ac.np_type = account_type_id
         ac.write_db()
-        logger.info("Changed np_type to %s" % (account_type_id))
+        logger.info("Changed np_type to %s", account_type_id)
 
     # If account has quarantines - remove them and reset password for security
     # reasons (?)
@@ -314,7 +308,7 @@ def process_account(db, account_data, logger):
 
     # Update account type (np_type)
     if ac.np_type != account_type_id:
-        logger.info("Updating account type to %s" % account_type)
+        logger.info("Updating account type to %s", account_type)
         ac.np_type = account_type_id
         ac.write_db()
 
@@ -323,14 +317,14 @@ def process_account(db, account_data, logger):
     if not new_account:
         old_gecos = pu.get_gecos()
     new_gecos = transliterate.for_gecos(gecos)
-    if (new_gecos != old_gecos):
+    if new_gecos != old_gecos:
         logger.info("Updating gecos. Old name: %s, new name: %s", old_gecos,
                     new_gecos)
         pu.gecos = new_gecos
         pu.write_db()
 
     # Update expire date
-    logger.info("Updating expire date to %s" % expire_date)
+    logger.info("Updating expire date to %s", expire_date)
     pu.expire_date = "%s" % expire_date
     pu.write_db()
 
@@ -347,16 +341,16 @@ def process_account(db, account_data, logger):
 
         try:
             spread_id = int(co.Spread(spread.encode("iso-8859-1")))
-        except Exception, msg:
-            logger.error("Skipping invalid spread (%s)." % spread)
+        except Exception:
+            logger.error("Skipping invalid spread (%s).", spread)
             continue
 
         ac.set_spread_expire(spread=spread_id,
                              expire_date=expire_date,
                              entity_id=ac.entity_id)
 
-        if (not pu.has_spread(spread_id)):
-            logger.info("Adding spread %s and setting homedir for it" % spread)
+        if not pu.has_spread(spread_id):
+            logger.info("Adding spread %s and setting homedir for it", spread)
             pu.add_spread(spread_id)
             pu.set_home_dir(spread_id)
 
@@ -365,17 +359,17 @@ def process_account(db, account_data, logger):
     for spread in old_spreads:
         spread = spread[0]  # WHY THIS???
         if not str(co.Spread(spread)).decode() in spreads:
-            logger.info("Deleting obsolete spread %s" % str(co.Spread(spread)))
+            logger.info("Deleting obsolete spread %s", str(co.Spread(spread)))
             ac.clear_home(spread)
             ac.delete_spread(spread)
 
     # Adding / Updating contact information
     for contact in contact_info:
-        logger.info("Processing contact info %s" % contact)
+        logger.info("Processing contact info %s", contact)
         # Check if contact type already exists
         old_contact = ac.get_contact_info(default_source_system,
                                           valid_contact_types[contact.upper()])
-        if old_contact != []:
+        if old_contact:
             logger.info("Contact info exists - check if update is needed...")
             # If contact type exists, check if it needs updating
             if old_contact[0]['contact_value'] != contact_info[contact]:
@@ -388,7 +382,7 @@ def process_account(db, account_data, logger):
                 logger.info("No update needed.")
 
         # Add or "Update" contact info
-        if old_contact == []:
+        if not old_contact:
             logger.info("Adding contact info %s with value %s", contact,
                         contact_info[contact])
             ac.add_contact_info(default_source_system,
@@ -400,10 +394,6 @@ def process_account(db, account_data, logger):
 
 
 def main(inargs=None):
-    global system_accounts_cache, db
-    global default_creator_id, default_owner_id, default_owner_type
-    global default_source_system, valid_contact_types
-
     logger = logging.getLogger(__name__)
 
     parser = argparse.ArgumentParser(description=__doc__)
@@ -417,8 +407,10 @@ def main(inargs=None):
     args = parser.parse_args(inargs)
     logutils.autoconf('cronjob', args)
 
-    logger.info('Starting to cache system accounts from %s' % args.source_file)
-    SystemAccountsParser(args.source_file, system_account_callback, logger)
+    logger.info('Starting to cache system accounts from %s', args.source_file)
+    sys_acc_parser = SystemAccountsParser(args.source_file,
+                                          system_account_callback,
+                                          logger)
     logger.info('Finished caching system accounts')
 
     # Get default values
@@ -433,7 +425,6 @@ def main(inargs=None):
     default_creator_id = ac.entity_id
     default_owner_id = ac.owner_id
     default_owner_type = ac.owner_type
-
     default_source_system = co.system_sysacc
     valid_contact_types = {co.contact_email.str: co.contact_email,
                            co.contact_url.str: co.contact_url
@@ -441,8 +432,10 @@ def main(inargs=None):
     logger.info("Finished caching default values.")
 
     logger.info('Starting to process accounts')
-    for account in system_accounts_cache:
-        process_account(db, account, logger)
+    for account in sys_acc_parser.system_accounts_cache:
+        process_account(db, account, logger, default_owner_id,
+                        default_owner_type, default_creator_id,
+                        default_source_system, valid_contact_types)
     logger.info('Finished processing accounts')
 
     if args.commit:
