@@ -24,13 +24,15 @@
 from __future__ import unicode_literals
 
 import pickle
-from collections import defaultdict
 from os.path import join as join_paths
 
-from Cerebrum.modules.no.OrgLDIF import *
+import cereconf
+from Cerebrum.Utils import make_timer
+from Cerebrum.modules.LDIFutils import ldapconf
+from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 
 
-class OrgLDIFUiTMixin(OrgLDIF):
+class OrgLDIFUiTMixin(norEduLDIFMixin):
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
@@ -67,40 +69,6 @@ class OrgLDIFUiTMixin(OrgLDIF):
                                    normalize=self.attr2syntax[a][2]))
              for a, s, t in (('mobile', fs, self.const.contact_mobile_phone),)]
         self.attr2id2contacts.extend((v for v in c if v[1]))
-
-    def update_org_object_entry(self, entry):
-        # Changes from superclass:
-        # Add attributes needed by UiT.
-        self.__super.update_org_object_entry(entry)
-
-        if 'o' in entry:
-            entry['o'].append(['UiT The Artcic University of Norway',
-                               'UiT Norges Arktiske Universitet'])
-        else:
-            entry['o'] = (
-                ['University of Tromsoe', 'UiT Norges Arktiske Universitet'])
-
-        if 'eduOrgLegalName' in entry:
-            entry['eduOrgLegalName'].append([
-                'UiT Norges Arktiske Universitet',
-                'UiT The Artcic University of Norway'])
-        else:
-            entry['eduOrgLegalName'] = ([
-                'UiT Norges Arktiske Universitet',
-                'UiT The Artcic University of Norway'])
-
-        entry['norEduOrgNIN'] = (['NO970422528'])
-        entry['mail'] = (['postmottak@uit.no'])
-
-    def update_ou_entry(self, entry):
-        # Changes from superclass:
-        # Add object class norEduOrg and its attr norEduOrgUniqueIdentifier
-        entry['objectClass'].append('norEduOrg')
-        entry['norEduOrgUniqueIdentifier'] = self.norEduOrgUniqueID
-
-        # ?? Are these needed?
-        # entry['objectClass'].append('eduOrg')
-        # entry['objectClass'].append('norEduObsolete')
 
     #
     # override of OrgLDIF.init_ou_structure() with filtering of expired ous
