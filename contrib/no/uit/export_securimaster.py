@@ -125,8 +125,7 @@ class SecurimasterExporter(object):
                 continue
 
             ou_id = aff['ou_id']
-            last_date = "2019-05-03"
-            #last_date = aff['last_date'].strftime("%Y-%m-%d")
+            last_date = aff['last_date'].strftime("%Y-%m-%d")
 
             if not self._ou_cache.get(ou_id, None):
                 ou.clear()
