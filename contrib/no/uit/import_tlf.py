@@ -1,6 +1,6 @@
 #! /bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,46 +18,31 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""
+UiT specific extension to Cerebrum
 
-#
-# UiT specific extension to Cerebrum
-#
+This program imports data from the phone system and populates
+entity_contact_info tables in Cerebrum.
+"""
+
 
 from __future__ import unicode_literals
 
-progname = __file__.split("/")[-1]
-__doc__ = """
-    
-    Usage: %s [options]
-    Options are:
-    -f | --file   : use this file as source for contact infodata.
-                    default is user_yyyymmdd.txt in dumps/telefoni folder 
-    -h | --help   : this text
-    -d | --dryrun : do not change DB, default is do change DB.
-    -F | --force : force write ignoring cereconf.MAX_NUM_ALLOWED_CHANGES
-    -e | --no-email : do not notify cereconf.TELEFONIERRORS_RECEIVER with log messages
-    --checknames  : turn on check of name spelling. default is off
-    --logger-name=name   : use this logger, default is cronjob
-    --logger-level=level : use this log level, default is debug
-    
-
-    This program imports data from the phone system and populates 
-    entity_contact_info tables in Cerebrum.
-    
-""" % progname
-
-import sys
-import time
-import getopt
+import argparse
 import csv
 import datetime
+import logging
 import mx.DateTime
 from sets import Set
+import time
 
+import Cerebrum.logutils
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.email import sendmail
 from Cerebrum import Errors
+
+logger = logging.getLogger(__name__)
 
 # CSV field positions
 FNAME = 0
@@ -78,7 +63,6 @@ p = Factory.get('Person')(db)
 co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
 ac_phone = Factory.get('Account')(db)
-logger = Factory.get_logger("cronjob")
 num_changes = 0
 max_changes_allowed = int(cereconf.MAX_NUM_ALLOWED_CHANGES)
 
@@ -391,7 +375,7 @@ def process_telefoni(filename, checknames, checkmail, notify_recipient):
             if row[USERID].strip() <> row[USERID]:
                 logger.error(
                     "Userid %s has blanks in it - notify telefoni!" % (
-                    row[USERID]))
+                        row[USERID]))
             data = {'phone': row[PHONE], 'mobile': row[MOB], 'room': row[ROOM],
                     'mail': row[MAIL], 'fax': row[FAX],
                     'phone_2': row[PHONE_2],
@@ -435,12 +419,12 @@ def process_telefoni(filename, checknames, checkmail, notify_recipient):
 
             # add "+47" phone number prefix
             if (data['phone']) and (
-            is_new_number(data['phone'], uname2ownerid[row[USERID]])):
+                    is_new_number(data['phone'], uname2ownerid[row[USERID]])):
                 changed_phone = True
                 if not data['phone'].startswith('+47'):
                     data['phone'] = "%s%s" % ("+47", data['phone'])
                 logger.debug("%s's phone number with +47 prefix: %s" % (
-                row[USERID], data['phone']))
+                    row[USERID], data['phone']))
 
             if changed_phone:
                 update_phonenr(row[USERID], data['phone'])
@@ -497,63 +481,85 @@ def notify_phoneadmin(msg, notify_recipient):
         print "DRYRUN: mailmsg=\n%s" % ret
 
 
-def usage(exitcode=0, msg=None):
-    if msg:
-        print msg
-    print __doc__
-    sys.exit(exitcode)
-
-
 def main():
+
+    parser = argparse.ArgumentParser(description=__doc__)
+
     global dryrun
-    force = False
-    notify_recipient = True
     default_phonefile = '%s/telefoni/user_%s.txt' % (cereconf.DUMPDIR,
-                                                     time.strftime("%Y%m%d"))
-    phonefile = dryrun = checknames = checkmail = False
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dh?f:Fe',
-                                   ['help', 'dryrun', 'file', 'checknames',
-                                    'checkmail', 'force', 'no-email'])
-    except getopt.GetoptError, m:
-        usage(1, m)
+                                                     time.strftime('%Y%m%d'))
 
-    for opt, val in opts:
-        if opt in ['-h', '-?', '--help']:
-            usage(0)
-        elif opt in ['--dryrun', '-d']:
-            dryrun = True
-        elif opt in ['--checknames']:
-            checknames = True
-        elif opt in ['--checkmail']:
-            checkmail = True
-        elif opt in ['-f', '--file']:
-            phonefile = val
-        elif opt in ['-F', '--force']:
-            force = True
-        elif opt in ['-e', '--no-email']:
-            notify_recipient = False
+    parser.add_argument(
+        '-f',
+        '--file',
+        dest='file',
+        default=default_phonefile,
+        help='Contact info source file. Default is user_yyyymmdd.txt in '
+             'dumps/telefon',
+    )
+    parser.add_argument(
+        '--commit',
+        dest='commit',
+        action='store_true',
+        help='Commit changes to DB',
+    )
+    parser.add_argument(
+        '-F',
+        '--force',
+        dest='force',
+        action='store_true',
+        help='force write, ignoring cereconf.MAX_NUM_ALLOWED_CHANGES',
+    )
+    parser.add_argument(
+        '-e',
+        '--no-email',
+        dest='notify_recipient)',
+        action='store_false',
+        help='do not notify cereconf.TELEFONIERRORS_RECEIVER with log '
+             'messages',
+    )
+    parser.add_argument(
+        '--checknames',
+        dest='checknames',
+        action='store_true',
+        help='Check name spelling.',
+    )
+    parser.add_argument(
+        '--checkmail',
+        dest='checkmail',
+        action='store_true',
+        help='Check mails.',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
+    logger.info('Starting phone number import')
 
-    init_cache(checknames, checkmail)
-    logger.info("Using sourcefile '%s'" % (phonefile or default_phonefile))
-    process_telefoni(phonefile or default_phonefile, checknames, checkmail,
-                     notify_recipient)
-    logger.debug("Max number of allowed changes:%s" % (max_changes_allowed))
-    logger.debug("Number of changes:%s" % num_changes)
-    if dryrun:
-        db.rollback()
-        logger.info("Dryrun, rollback changes")
+    init_cache(args.checknames, args.checkmail)
+    logger.info('Using sourcefile: %s', args.phonefile)
 
-    else:
-        if ((force == False) and (num_changes <= max_changes_allowed)):
-            db.commit()
-            logger.info("Commited all changes")
-        elif ((num_changes > max_changes_allowed) and (force == False)):
-            db.rollback()
-            logger.error("too many changes:%s. rollback" % (num_changes))
-        elif (force == True):
+    process_telefoni(args.phonefile,
+                     args.checknames,
+                     args.checkmail,
+                     args.notify_recipient)
+    logger.debug("Max number of allowed changes:%s", max_changes_allowed)
+    logger.debug("Number of changes:%s", num_changes)
+
+    if args.commit:
+        if args.force:
             db.commit()
             logger.warning("Forced writing: %s changes in phone processing")
+        elif num_changes <= max_changes_allowed:
+            db.commit()
+            logger.info("Committing changes")
+        else:
+            db.rollback()
+            logger.error("Too many changes: %s. Rolling back changes",
+                         num_changes)
+    else:
+        db.rollback()
+        logger.info("Dryrun, Rolling back changes")
+    logger.info('End of phone number import.')
 
 
 if __name__ == "__main__":
