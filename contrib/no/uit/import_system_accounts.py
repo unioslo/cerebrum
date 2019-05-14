@@ -99,27 +99,23 @@ If no expire_date is set at all, it will default to today
 """
 from __future__ import unicode_literals
 
-import getopt
+import argparse
+import logging
 import sys
 import xml.sax
 
 import cereconf
-# from Cerebrum.modules.no.uit import Email
 from Cerebrum import Errors
+from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.utils import transliterate
+from Cerebrum.utils.argutils import add_commit_args
 from mx import DateTime
-
-# from Cerebrum.modules.xmlutils import GeneralXMLParser
-
 
 system_accounts_cache = []
 
-logger = None
-default_logger = 'cronjob'
-default_source_dir = '%s/var/source/system_accounts' % cereconf.CB_PREFIX
-default_system_accounts_file = 'system_accounts.xml'
+default_source_file = '%s/var/source/system_accounts/system_accounts.xml' % cereconf.CB_PREFIX
 default_stay_alive_time = 4  # Weeks
 
 default_creator_id = default_owner_id = default_source_system = None
@@ -134,51 +130,53 @@ class SystemAccountsParser(xml.sax.ContentHandler):
     This class is used to iterate over all accounts in system account file.
 
     """
-    global logger
 
-    def __init__(self, info_file, call_back_function):
+    def __init__(self, info_file, call_back_function, logger):
         self.account = {}
         self.elementstack = []
         self.chardata = ""
         self.call_back_function = call_back_function
+        self.logger = logger
         xml.sax.parse(info_file, self)
 
     def startElement(self, name, attrs):
         if len(self.elementstack) == 0:
             if name == "data":
-                logger.debug("Data level reached")
+                self.logger.debug("Data level reached")
             else:
-                logger.warn("Unknown element on data level: %s" % name)
+                self.logger.warn("Unknown element on data level: %s" % name)
         elif len(self.elementstack) == 1:
             if name == "account":
-                logger.debug("Account level reached")
+                self.logger.debug("Account level reached")
                 self.account = {}
             else:
-                logger.warn("Unknown element on account level: %s" % name)
+                self.logger.warn("Unknown element on account level: %s" % name)
         elif self.elementstack[-1] == "account":
             if name in (
                     'account_name', 'initial_pass', 'gecos', 'contact_info',
                     'expire_date', 'spreads', 'account_type'):
-                logger.debug("Inside account level - %s " % name)
+                self.logger.debug("Inside account level - %s " % name)
             else:
-                logger.warn("Unknown element inside account level: %s" % name)
+                self.logger.warn(
+                    "Unknown element inside account level: %s" % name)
         elif self.elementstack[-1] == "spreads":
             if name in ('spread'):
-                logger.debug("Inside spreads level - %s" % name)
+                self.logger.debug("Inside spreads level - %s" % name)
             else:
-                logger.warn("Unknown element inside spreads level: %s" % name)
+                self.logger.warn(
+                    "Unknown element inside spreads level: %s" % name)
         elif self.elementstack[-1] == "contact_info":
             if name in ('email', 'url'):
-                logger.debug("Inside contact_info level - %s" % name)
+                self.logger.debug("Inside contact_info level - %s" % name)
             else:
-                logger.warn(
+                self.logger.warn(
                     "Unknown element inside contact_info level: %s" % name)
 
         self.elementstack.append(name)
         self.chardata = ""
 
     def endElement(self, name):
-        logger.debug("Leaving element")
+        self.logger.debug("Leaving element")
         if name == "account":
             self.call_back_function(self.account)
         elif name == "data":
@@ -203,7 +201,7 @@ class SystemAccountsParser(xml.sax.ContentHandler):
 
 
 def system_account_callback(account):
-    '''Process each account element returned from XML parser'''
+    """Process each account element returned from XML parser"""
     global system_accounts_cache
     system_accounts_cache.append(account)
 
@@ -213,8 +211,8 @@ def system_account_callback(account):
 
 # ********* <ACCOUNT CREATION AND UPDATING>
 
-def process_account(account_data):
-    global db, default_creator_id, default_owner_id, default_owner_type, \
+def process_account(db, account_data, logger):
+    global default_creator_id, default_owner_id, default_owner_type, \
         default_source_system, valid_contact_types, default_stay_alive_time
 
     gr = Factory.get('Group')(db)
@@ -401,39 +399,26 @@ def process_account(account_data):
 # ********* </ACCOUNT CREATION AND UPDATING>
 
 
-def main():
-    global logger, default_logger, default_source_dir
-    global default_system_accounts_file, system_accounts_cache, db
+def main(inargs=None):
+    global system_accounts_cache, db
     global default_creator_id, default_owner_id, default_owner_type
     global default_source_system, valid_contact_types
 
-    logger = Factory.get_logger(default_logger)
+    logger = logging.getLogger(__name__)
 
-    filename = default_system_accounts_file
-    path = default_source_dir
-    dryrun = False
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--filename',
+                        default=default_source_file,
+                        dest='source_file',
+                        help='path to XML file with System Accounts')
+    parser = add_commit_args(parser)
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'f:p:d',
-                                   ['filename=', 'path=', 'dryrun'])
-    except getopt.GetoptError:
-        usage()
+    logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    logutils.autoconf('cronjob', args)
 
-    for opt, val in opts:
-        if opt in ('-f', '--filename'):
-            filename = val
-        elif opt in ('-p', '--path'):
-            path = val
-        elif opt in ('-d', '--dryrun'):
-            dryrun = True
-
-    if path != "" and path[-1] != "/":
-        path = path + "/"
-
-    file = path + filename
-
-    logger.info('Starting to cache system accounts from %s' % file)
-    SystemAccountsParser(file, system_account_callback)
+    logger.info('Starting to cache system accounts from %s' % args.source_file)
+    SystemAccountsParser(args.source_file, system_account_callback, logger)
     logger.info('Finished caching system accounts')
 
     # Get default values
@@ -450,33 +435,23 @@ def main():
     default_owner_type = ac.owner_type
 
     default_source_system = co.system_sysacc
-    valid_contact_types = {}
-    valid_contact_types[co.contact_email.str] = co.contact_email
-    valid_contact_types[co.contact_url.str] = co.contact_url
+    valid_contact_types = {co.contact_email.str: co.contact_email,
+                           co.contact_url.str: co.contact_url
+                           }
     logger.info("Finished caching default values.")
 
     logger.info('Starting to process accounts')
     for account in system_accounts_cache:
-        process_account(account)
+        process_account(db, account, logger)
     logger.info('Finished processing accounts')
 
-    if dryrun:
-        logger.info("Rolling back changes!")
-        db.rollback()
-    else:
+    if args.commit:
         logger.info("Commiting changes!")
         db.commit()
 
-
-def usage():
-    global default_source_dir, default_system_accounts_file
-    print """
-    usage: python import_system_accounts.py
-    -f | --file  : XML file with System Accounts (default is '%s')
-    -p | --path  : Path to XML file (default is '%s')
-    -d | --dryrun: will not commit changes to DB
-    """ % (default_system_accounts_file, default_source_dir)
-    sys.exit(1)
+    else:
+        logger.info("Rolling back changes!")
+        db.rollback()
 
 
 if __name__ == '__main__':
