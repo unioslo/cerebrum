@@ -1,7 +1,7 @@
-#!/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2003, 2004 University of Oslo, Norway
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,44 +18,28 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-import getopt
-import os
-import sys
-
-__filename__ = os.path.basename(sys.argv[0])
-__doc__ = """
-What does the script do?
-------------------------
+"""
 This script will clean out all account affiliations (account types) that
 have no root in reality*.
 
 *) The account owner has no corresponding person affiliation
+"""
+from __future__ import unicode_literals
 
+import argparse
+import logging
 
-Usage
-%s options are
-
-   -d | --dryrun         : Dryrun, do not change db
-   --logger-name <name>  : Which logger to use
-   --logger-level <name  : Whicl loglevel to use
-
-""" % (__filename__)
-
+from Cerebrum import logutils
 from Cerebrum.Utils import Factory
-
-db = Factory.get('Database')()
-db.cl_init(change_program=__filename__)
-co = Factory.get('Constants')(db)
-
-logger = default_logger = None
-default_logger = 'cronjob'
+from Cerebrum.utils.argutils import add_commit_args
 
 
-def clean_acc_affs():
+logger = logging.getLogger(__name__)
+
+
+def clean_acc_affs(db):
     ac = Factory.get('Account')(db)
     pe = Factory.get('Person')(db)
-    aux = ()
 
     # List over all active person affiliations
     logger.info("Building list over person affiliations...")
@@ -86,12 +70,6 @@ def clean_acc_affs():
                 acc_aff['person_id'], acc_aff['ou_id'],
                 acc_aff['affiliation'])
 
-            # if num_deleted == num_acc_affs:
-            #    logger.debug(
-            #        "not deleting last affiliation %s on ou %s for "
-            #        "account %s", acc_aff['affiliation'], acc_aff['ou_id'],
-            #        acc_aff['account_id'])
-
             # If affiliation not in person affiliations at all - DELETE!
             # Do not delete the last account_type. process_students is unable
             # to reactivate accounts that doesnt have a single account_type
@@ -99,54 +77,38 @@ def clean_acc_affs():
             if aux not in affs:
                 if num_deleted + 1 == num_acc_affs:
                     pass
-                    # logger.debug("not deleting last affiliation %s on "
-                    #              "ou %s for account %s",
-                    #              acc_aff['affiliation'], acc_aff['ou_id'],
-                    #              acc_aff['account_id'])
+
                 else:
                     num_deleted += 1
                     logger.info(
-                        'Deleting affiliation %s on ou %s for account %s' %
-                        (acc_aff['affiliation'], acc_aff['ou_id'],
-                         a['account_id']))
+                        'Deleting affiliation %s on ou %s for account %s',
+                        acc_aff['affiliation'], acc_aff['ou_id'],
+                        a['account_id'])
                     ac.del_account_type(acc_aff['ou_id'],
                                         acc_aff['affiliation'])
 
     logger.info("Done verifying account affiliations.")
 
 
-def usage(exit_code=0, m=None):
-    if m:
-        print m
-    print __doc__
-    sys.exit(exit_code)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser = add_commit_args(parser, default=False)
 
+    logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    logutils.autoconf('cronjob', args)
 
-def main():
-    global logger, default_logger
-    logger = Factory.get_logger(default_logger)
+    db = Factory.get('Database')()
+    db.cl_init(change_program='account_affiliation_cleaner')
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dh',
-                                   ['dryrun', 'help'])
-    except getopt.GetoptError, m:
-        usage(1, m)
+    clean_acc_affs(db)
 
-    dryrun = False
-    for opt, val in opts:
-        if opt in ('-d', '--dryrun'):
-            dryrun = True
-        if opt in ('-h', '--help'):
-            usage()
-
-    clean_acc_affs()
-
-    if dryrun:
-        db.rollback()
-        logger.info("Dryrun, rolled back changes")
-    else:
+    if args.commit:
         db.commit()
         logger.info("Committed all changes")
+    else:
+        db.rollback()
+        logger.info("Dryrun, rolled back changes")
 
 
 if __name__ == '__main__':
