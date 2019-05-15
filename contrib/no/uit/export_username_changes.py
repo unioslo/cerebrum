@@ -58,81 +58,63 @@ def find_username_changes(db):
     export = []
     fnr2leg = {}
     for row in legacy:
-        old = None
-        new = None
-        date = ""
-
         user_name = row['user_name']
         comment = row['comment']
         ssn = row['ssn']
 
-        # comment = 'YYYYMMDD - Duplicate of NEW'
-        if comment is not None and " - Duplicate of " in comment:
+        old = user_name
+        new = None
+        date = ""
+
+        comment_parts = None
+        if comment:
             comment_parts = comment.split()
-            old = user_name
+
+        # comment = 'YYYYMMDD - Duplicate of NEW'
+        if comment and " - Duplicate of " in comment:
             new = comment_parts[4]
             date = comment_parts[0]
 
         # comment = 'YYYYMMDD - Renamed from OLD to NEW.'
-        elif comment is not None and " - Renamed from " in comment:
-            comment_parts = comment.split()
-            old = user_name
+        elif comment and " - Renamed from " in comment:
             new = comment_parts[6].strip(".")
             date = comment_parts[0]
 
         # comment = 'Renamed from OLD to NEW.'
-        elif comment is not None and comment.startswith("Renamed from "):
-            comment_parts = comment.split()
-            old = user_name
+        elif comment and comment.startswith("Renamed from "):
             new = comment_parts[4].strip(".")
 
         # comment = 'This username is reserved. It is a duplicate of '
-        elif (comment is not None
-              and "This username is reserved. It is a duplicate of " in
+        elif (comment and "This username is reserved. It is a duplicate of " in
               comment):
-            comment_parts = comment.split()
-            old = user_name
             new = comment_parts[9].split(",")[0]
 
         # comment = 'Duplicate of NEW' (manuelt inntastet)
-        elif comment is not None and comment.upper().startswith(
+        elif comment and comment.upper().startswith(
                 "DUPLICATE OF "):
-            comment_parts = comment.split()
-            old = user_name
             new = comment_parts[2].strip(".,")
 
         # comment = 'duplikat av NEW' (manuelt inntastet)
-        elif comment is not None and comment.upper().startswith(
+        elif comment and comment.upper().startswith(
                 "DUPLIKAT AV "):
-            comment_parts = comment.split()
-            old = user_name
             new = comment_parts[2].strip(",.")
 
         # comment = 'duplikat ac ' (feiltasting)
-        elif comment is not None and comment.startswith('duplikat ac '):
-            comment_parts = comment.split()
-            old = user_name
+        elif comment and comment.startswith('duplikat ac '):
             new = comment_parts[2]
 
         # Accumulating FNRs to see if I can sort them out later
-        elif ssn is not None and user_name[3:5] != '99':
-
-            old = user_name
-
+        elif ssn and user_name[3:5] != '99':
             ssn_list = fnr2leg.get(ssn)
             if ssn_list is None:
                 ssn_list = []
             ssn_list.append(old)
             fnr2leg[ssn] = ssn_list
-
         else:
             logger.warn("Legacy info not processed: %s", row)
             continue
 
-        if (old is not None
-                and new is not None
-                and old[3:5] != '99'
-                and new[3:5] != '99'):
+        if old and new and old[3:5] != '99' and new[3:5] != '99':
             export.append("{0};{1};{2}\n".format(old, new, date))
 
     # Going through accumulated FNRs to see if I can do some more mapping
