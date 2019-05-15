@@ -97,19 +97,22 @@ def get_changes(filename, url):
         # Check for repeated usernames
         if username in changes:
             logger.warn(
-                "Repeated username in changelog. Only last entry is considered! Username: %s." % username)
+                "Repeated username in changelog. Only last entry is "
+                "considered! Username: %s." % username)
 
         if username and firstname and lastname:
             if len(invalid_chars.findall(firstname)) > 0 or len(
                     invalid_chars.findall(lastname)):
                 logger.error(
-                    "Skipped line because of invalid characters. Username: %s. Firstname: %s. Lastname %s." % (
+                    "Skipped line because of invalid characters. Username: %s."
+                    " Firstname: %s. Lastname %s." % (
                     username, firstname, lastname))
             else:
                 changes[username] = (firstname, lastname)
         else:
             logger.info(
-                "Skipped line because of missing data. Username: %s. Firstname: %s. Lastname %s." % (
+                "Skipped line because of missing data. Username: %s. "
+                "Firstname: %s. Lastname %s." % (
                 username, firstname, lastname))
 
     return changes
@@ -119,7 +122,8 @@ def get_changes(filename, url):
 def change_names(changes, outfile):
     fp = io.open(outfile, 'w', encoding="utf-8")
     fp.write(
-        '#username,old_first_name,new_first_name,old_last_name,new_last_name\n')
+        '#username,old_first_name,new_first_name,old_last_name,new_last_name\n'
+    )
 
     logger.info("Creating dict person_id -> cached names")
     registered_changes = 0
@@ -164,16 +168,16 @@ def change_names(changes, outfile):
                         account.find_by_name(accountname)
                     except Errors.NotFoundError:
                         logger.error(
-                            "Account %s not found, cannot set new display name" % (
-                                accountname))
+                            "Account %s not found, cannot set new display"
+                            " name" % accountname)
                         continue
 
                     try:
                         person.find(account.owner_id)
                     except Errors.NotFoundError:
                         logger.error(
-                            "Account %s owner %d not found, cannot set new display name" % (
-                            account, account.owner_id))
+                            "Account %s owner %d not found, cannot set new "
+                            "display name" % (account, account.owner_id))
                         continue
 
                     source_system = const.system_override
@@ -189,8 +193,8 @@ def change_names(changes, outfile):
                         person.write_db()
                     except db.DatabaseError, m:
                         logger.error(
-                            "Database error, override names not updated for %s: %s" % (
-                            accountname, m))
+                            "Database error, override names not updated for"
+                            " %s: %s" % (accountname, m))
                         continue
 
                     person._update_cached_names()
@@ -198,19 +202,23 @@ def change_names(changes, outfile):
                         person.write_db()
                     except db.DatabaseError, m:
                         logger.error(
-                            "Database error, cached name not updated for %s: %s" % (
+                            "Database error, cached name not updated for"
+                            " %s: %s" % (
                             accountname, m))
                         continue
 
                     logger.info(
-                        "Name changed for user %s. First name: \"%s\" -> \"%s\". Last name: \"%s\" -> \"%s\"." % (
+                        "Name changed for user %s. "
+                        "First name: \"%s\" -> \"%s\". "
+                        "Last name: \"%s\" -> \"%s\"." % (
+                            accountname, cached_name.get(int(const.name_first)),
+                            firstname, cached_name.get(int(const.name_last)),
+                            lastname)
+                    )
+                    fp.write('%s,%s,%s,%s,%s\n' % (
                         accountname, cached_name.get(int(const.name_first)),
                         firstname, cached_name.get(int(const.name_last)),
                         lastname))
-                    fp.write('%s,%s,%s,%s,%s\n' % (
-                    accountname, cached_name.get(int(const.name_first)),
-                    firstname, cached_name.get(int(const.name_last)),
-                    lastname))
                     registered_changes = registered_changes + 1
 
                 # Do nothing if names are equal
@@ -219,8 +227,8 @@ def change_names(changes, outfile):
 
             else:
                 logger.error(
-                    "Cached names for %s not found in dict, cannot set new display name" % (
-                        accountname))
+                    "Cached names for %s not found in dict, cannot set new "
+                    "display name" % accountname)
                 continue
 
         else:
