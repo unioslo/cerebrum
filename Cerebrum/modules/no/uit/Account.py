@@ -30,9 +30,11 @@ TODO:
 from __future__ import unicode_literals
 
 import base64
+import crypt
 import hashlib
 import logging
 import re
+import string
 
 import six
 
@@ -40,6 +42,7 @@ import cereconf
 
 from Cerebrum import Account
 from Cerebrum import Errors
+from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Entity import EntityName
 from Cerebrum.Utils import Factory
@@ -75,6 +78,21 @@ def enc_auth_type_md5_b64(plaintext, salt=None):
     encrypted = base64.encodestring(foo)
     encrypted = encrypted.rstrip()
     return encrypted
+
+
+def enc_auth_type_crypt3_des(plaintext, salt=None):
+    """
+    Salted triple-DES.
+
+    Added by fhl, 2019-05-15, copied from an older UiT copy of
+    Cerebrum.Account, as triple-DES was removed from UiO code.
+    """
+    if salt is None:
+        saltchars = string.ascii_letters + string.digits + "./"
+        salt = Utils.random_string(2, saltchars)
+    return crypt.crypt(
+        plaintext,
+        salt.encode('utf-8')).decode()
 
 
 def generate_homedir(account_name):
@@ -140,26 +158,34 @@ class AccountUiTMixin(Account.Account):
         full_name = "%s %s" % (fname, lname)
         return [UsernamePolicy(self._db).get_uit_uname(ssn, full_name)]
 
-    def encrypt_password(self, method, plaintext, salt=None):
+    def encrypt_password(self, method, plaintext, salt=None, binary=False):
         """
         Support UiT added encryption methods, for other methods call super()
         """
+        unicode_plaintext = plaintext
+        if binary:
+            utf8_plaintext = plaintext  # a small lie
+        else:
+            assert(isinstance(unicode_plaintext, six.text_type))
+            utf8_plaintext = unicode_plaintext.encode('utf-8')
 
         if method == self.const.auth_type_md5_crypt_hex:
-            return enc_auth_type_md5_crypt_hex(plaintext)
+            return enc_auth_type_md5_crypt_hex(utf8_plaintext)
         elif method == self.const.auth_type_md5_b64:
-            return enc_auth_type_md5_b64(plaintext)
+            return enc_auth_type_md5_b64(utf8_plaintext)
+        elif method == self.const.auth_type_crypt3_des:
+            return enc_auth_type_crypt3_des(utf8_plaintext, salt=salt)
         else:
-            return super(AccountUiTMixin, self).encrypt_password(method,
-                                                                 plaintext,
-                                                                 salt=salt)
+            return super(AccountUiTMixin, self).encrypt_password(
+                method, utf8_plaintext, salt=salt, binary=True)
 
     def decrypt_password(self, method, cryptstring):
         """
         Support UiT added encryption methods, for other methods call super()
         """
         if method in (self.const.auth_type_md5_crypt_hex,
-                      self.const.auth_type_md5_b64):
+                      self.const.auth_type_md5_b64,
+                      self.const.auth_type_crypt3_des):
             raise NotImplementedError("Cant decrypt %s" % repr(method))
         return super(AccountUiTMixin, self).decrypt_password(method,
                                                              cryptstring)
@@ -170,22 +196,15 @@ class AccountUiTMixin(Account.Account):
         Returns True if the plaintext matches the cryptstring, False if it
         doesn't.  Raises a ValueError if the method is unsupported.
         """
-        if method in (
-                self.const.auth_type_md5_crypt,
-                self.const.auth_type_md5_b64,
-                self.const.auth_type_ha1_md5,
-                self.const.auth_type_crypt3_des,
-                self.const.auth_type_md4_nt,
-                self.const.auth_type_ssha,
-                self.const.auth_type_sha256_crypt,
-                self.const.auth_type_sha512_crypt,
-                self.const.auth_type_plaintext,
-        ):
+        if method in (self.const.auth_type_md5_crypt_hex,
+                      self.const.auth_type_md5_b64,
+                      self.const.auth_type_crypt3_des):
             salt = cryptstring
-            return self.encrypt_password(method,
-                                         plaintext,
-                                         salt=salt) == cryptstring
-        raise ValueError("Unknown method %r" % method)
+            to_check = self.encrypt_password(method, plaintext, salt=salt)
+            return to_check == cryptstring
+        else:
+            return super(AccountUiTMixin, self).verify_password(
+                method, plaintext, cryptstring)
 
     def set_home_dir(self, spread):
         """
