@@ -278,7 +278,7 @@ def add_commit_args(parser, default=False):
     """ Add --commit and --dryrun arguments to parser.
 
     :param parser: argument parser or argument group
-    :param default_commit: default value
+    :param default: commit by default if True
     """
 
     commit_mutex = parser.add_mutually_exclusive_group()
