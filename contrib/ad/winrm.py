@@ -45,7 +45,7 @@ def usage(exitcode=0):
 
     Actions:
 
-    --delete-shell SHELLID  
+    --delete-shell SHELLID
                     Send a signal to delete the shell by the given ShellId and
                     quit.
 
@@ -129,7 +129,7 @@ def main():
     client._winrs_skip_cmd_shell = False
     #client._winrs_consolemode_stdin = False
     client.add_credentials(username=user,
-                           password=unicode(read_password(user, host), 'utf-8'))
+                           password=read_password(user, host))
 
 
     for opt, val in opts:
