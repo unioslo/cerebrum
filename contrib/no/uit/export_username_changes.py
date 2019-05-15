@@ -1,7 +1,7 @@
 #!/usr/bin/python
-# -*- coding: iso8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,34 +22,27 @@
 # kbj005 2015.02.24: Copied from Leetah.
 
 """
-This script is a UiT specific export script for keeping track of changes in usernames
+This program exports BAS username changes to an file.
+
+This script is a UiT specific export script for keeping track of changes in
+usernames.
 """
 
-import getopt
+from __future__ import unicode_literals
+
+import argparse
+import datetime
+import logging
 import os.path
-import sys
-import time
 
 import cereconf
+import Cerebrum.logutils
+
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.legacy_users import LegacyUsers
 
 
-date = time.localtime()
-date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
-default_export_file = os.path.join(cereconf.DUMPDIR, 'username_changes',
-                                   'username_changes_%s' % date_today)
-logger_name = cereconf.DEFAULT_LOGGER_TARGET
-
-
-def usage():
-    print """This program exports BAS username changes to an file
-
-    Usage: [options]
-    -f | --file : export file
-    -l | --logger-name : name of logger target
-    -h | --help : this text """
-    sys.exit(1)
+logger = logging.getLogger(__name__)
 
 
 def find_username_changes(db):
@@ -172,31 +165,32 @@ def generate_export(export, file_name):
 
 
 def main():
-    global logger, logger_name
+    date = datetime.datetime.today()
+    date_today = date.strftime("%Y%m%d")
+    default_export_file = os.path.join(cereconf.DUMPDIR,
+                                       'username_changes',
+                                       'username_changes_{0}'.format(
+                                           date_today))
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'l:f:h',
-                                   ['file=', 'logger-name', 'help'])
-    except getopt.GetoptError:
-        usage()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-f',
+                        '--file',
+                        dest='export_file',
+                        default=default_export_file,
+                        help='export file')
 
-    export_file = default_export_file
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-    help = 0
-    for opt, val in opts:
-        if opt in ('-f', '--file'):
-            export_file = val
-        if opt in ('-l', '--logger-name'):
-            logger_name = val
-        if opt in ('-h', '--help'):
-            usage()
+    logger.info('Start of username changes export')
 
     db = Factory.get('Database')()
 
-    logger = Factory.get_logger(logger_name)
-
     export = find_username_changes(db)
-    generate_export(export, export_file)
+    generate_export(export, args.export_file)
+
+    logger.info('End of username changes export')
 
 
 if __name__ == '__main__':
