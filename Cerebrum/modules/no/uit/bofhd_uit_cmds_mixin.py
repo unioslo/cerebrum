@@ -17,12 +17,16 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import absolute_import, print_function, unicode_literals
 
-from Cerebrum.modules.bofhd.cmd_param import Command
-from Cerebrum.modules.bofhd.cmd_param import FormatSuggestion
-from Cerebrum.modules.bofhd.cmd_param import PersonId
+from Cerebrum.modules.bofhd.cmd_param import (
+    Command,
+    FormatSuggestion,
+    PersonId,
+)
 from Cerebrum.modules.legacy_users import LegacyUsers
-from Cerebrum.modules.no.uit.bofhd_uit_cmds import BofhdExtension
+from Cerebrum.modules.bofhd import bofhd_core
+from Cerebrum.modules.no.uit import bofhd_auth
 
 
 def list_legacy_users(db, search_term):
@@ -35,9 +39,14 @@ def list_legacy_users(db, search_term):
     return list(results.values())
 
 
-class BofhdUiTExtension(BofhdExtension):
+class BofhdUiTExtension(bofhd_core.BofhdCommonMethods):
+    """
+    Custom UiT commands for bofhd.
+    """
 
     all_commands = {}
+    parent_commands = False
+    authz = bofhd_auth.UitAuth
 
     #
     # UiT special table for reserved usernames. Usernames that is reserved due
