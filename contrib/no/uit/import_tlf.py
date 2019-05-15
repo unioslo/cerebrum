@@ -63,69 +63,69 @@ class PhoneNumberImporter(object):
             mail in Cerebrum.
         """
         # Config
-        self.checknames = checknames
-        self.checkmail = checkmail
+        self._checknames = checknames
+        self._checkmail = checkmail
 
         # Variables
-        self.num_changes = 0
-        self.s_errors = {}
-        self.processed = []
+        self._num_changes = 0
+        self._s_errors = {}
+        self._processed = []
 
-        self.p = Factory.get('Person')(db)
-        self.co = Factory.get('Constants')(db)
-        self.ac = Factory.get('Account')(db)
-        self.ac_phone = Factory.get('Account')(db)
+        self._p = Factory.get('Person')(db)
+        self._co = Factory.get('Constants')(db)
+        self._ac = Factory.get('Account')(db)
+        self._ac_phone = Factory.get('Account')(db)
 
         # Caches
-        self.uname_to_mail = None
-        self.uname_to_ownerid = {}
-        self.uname_to_expire = {}
-        self.person_to_contact = {}
-        self.name_cache = None
+        self._uname_to_mail = None
+        self._uname_to_ownerid = {}
+        self._uname_to_expire = {}
+        self._person_to_contact = {}
+        self._name_cache = None
 
         self.init_cache()
 
     def init_cache(self):
         """Create caches."""
-        if self.checkmail:
+        if self._checkmail:
             logger.info("Caching account email addresses")
-            self.uname_to_mail = self.ac.getdict_uname2mailaddr(
+            self._uname_to_mail = self._ac.getdict_uname2mailaddr(
                 filter_expired=False)
         logger.info("Caching account owners")
-        for a in self.ac.search(expire_start=None,
-                                expire_stop=datetime.datetime(
+        for a in self._ac.search(expire_start=None,
+                                 expire_stop=datetime.datetime(
                                     datetime.MAXYEAR,
                                     12,
                                     31)):
-            self.uname_to_ownerid[a['name']] = a['owner_id']
-            self.uname_to_expire[a['name']] = a['expire_date']
-        if self.checknames:
+            self._uname_to_ownerid[a['name']] = a['owner_id']
+            self._uname_to_expire[a['name']] = a['expire_date']
+        if self._checknames:
             logger.info("Caching person names")
-            self.name_cache = self.p.getdict_persons_names(
+            self._name_cache = self._p.getdict_persons_names(
                 name_types=(
-                    self.co.name_first,
-                    self.co.name_last,
-                    self.co.name_work_title))
+                    self._co.name_first,
+                    self._co.name_last,
+                    self._co.name_work_title))
         logger.info("Caching contact info")
-        for c in self.p.list_contact_info(source_system=self.co.system_tlf,
-                                          entity_type=self.co.entity_person):
+        for c in self._p.list_contact_info(source_system=self._co.system_tlf,
+                                           entity_type=self._co.entity_person):
             idx = "{0}:{1}".format(c['contact_type'], c['contact_pref'])
-            tmp = self.person_to_contact.get(c['entity_id'], {})
+            tmp = self._person_to_contact.get(c['entity_id'], {})
             tmp[idx] = c['contact_value']
-            self.person_to_contact[c['entity_id']] = tmp
+            self._person_to_contact[c['entity_id']] = tmp
         logger.info("Caching finished")
 
     def handle_changes(self, p_id, changes):
         """Process a change list of contact info for a given person id."""
-        self.p.clear()
+        self._p.clear()
         try:
-            self.p.find(p_id)
+            self._p.find(p_id)
         except Errors.NotFoundError:
             logger.error("Person with id %s not found", p_id)
             return
 
         for change in changes:
-            self.num_changes += 1
+            self._num_changes += 1
             change_code = change[0]
             change_value = change[1]
             idx, value = change_value
@@ -133,52 +133,52 @@ class PhoneNumberImporter(object):
 
             if change_code == 'add_contact':
                 # imitate an p.update_contact_info()
-                for c in self.p.get_contact_info(source=self.co.system_tlf,
-                                                 type=contact_type):
+                for c in self._p.get_contact_info(source=self._co.system_tlf,
+                                                  type=contact_type):
                     if pref == c['contact_pref']:
-                        self.p.delete_contact_info(self.co.system_tlf,
-                                                   contact_type,
-                                                   c['contact_pref'])
-                self.p.add_contact_info(self.co.system_tlf,
-                                        contact_type,
-                                        value=value,
-                                        pref=pref)
+                        self._p.delete_contact_info(self._co.system_tlf,
+                                                    contact_type,
+                                                    c['contact_pref'])
+                self._p.add_contact_info(self._co.system_tlf,
+                                         contact_type,
+                                         value=value,
+                                         pref=pref)
 
                 logger.info("Add: %d:%d:%d=%s",
-                            self.co.system_tlf,
+                            self._co.system_tlf,
                             contact_type,
                             pref,
                             value)
 
             elif change_code == 'del_contact':
-                self.p.delete_contact_info(self.co.system_tlf,
-                                           int(contact_type),
-                                           int(pref))
+                self._p.delete_contact_info(self._co.system_tlf,
+                                            int(contact_type),
+                                            int(pref))
                 logger.info("Delete: %s, %s", change_code, change_value)
             else:
                 logger.error("Unknown change_code: %s, value: &%s",
                              change_code, change_value)
-        self.p.write_db()
+        self._p.write_db()
 
     def process_contact(self, user_id, data):
         """Process and find changes."""
-        owner_id = self.uname_to_ownerid.get(user_id, None)
+        owner_id = self._uname_to_ownerid.get(user_id, None)
 
         if owner_id is None:
             logger.error("user_id: %s not found in Cerebrum!?", user_id)
-            self.s_errors.setdefault(user_id, []).append(
+            self._s_errors.setdefault(user_id, []).append(
                 "Account {0} not found in BAS".format(user_id))
             return
 
         # Remove MX
-        if self.uname_to_expire.get(user_id, mx.DateTime.today()) < \
+        if self._uname_to_expire.get(user_id, mx.DateTime.today()) < \
                 mx.DateTime.today():
-            self.s_errors.setdefault(user_id, []).append(
+            self._s_errors.setdefault(user_id, []).append(
                 "WARN: account {0} expired {1} in BAS".format(
                     user_id,
-                    self.uname_to_expire.get(user_id).Format('%Y-%m-%d')))
+                    self._uname_to_expire.get(user_id).Format('%Y-%m-%d')))
 
-        cinfo = self.person_to_contact.get(owner_id, {})
+        cinfo = self._person_to_contact.get(owner_id, {})
         logger.debug("Process userid=%s (owner=%s) CBData=%s",
                      user_id,
                      owner_id,
@@ -199,12 +199,12 @@ class PhoneNumberImporter(object):
             building = item['building']
 
             # check contact info fields
-            for value, type in ((phone, int(self.co.contact_phone)),
-                                (mobile, int(self.co.contact_mobile_phone)),
-                                (fax, int(self.co.contact_fax)),
-                                (phone_2, int(self.co.contact_workphone2)),
-                                (room, int(self.co.contact_room)),
-                                (building, int(self.co.contact_building))):
+            for value, type in ((phone, int(self._co.contact_phone)),
+                                (mobile, int(self._co.contact_mobile_phone)),
+                                (fax, int(self._co.contact_fax)),
+                                (phone_2, int(self._co.contact_workphone2)),
+                                (room, int(self._co.contact_room)),
+                                (building, int(self._co.contact_building))):
                 idx = "{0}:{1}".format(type, contact_pref)
                 idxlist.append(idx)
                 if value:
@@ -221,24 +221,24 @@ class PhoneNumberImporter(object):
                         changes.append(('del_contact', (idx, None)))
 
             # check if sourcesys has same mailaddr as we do
-            if self.checkmail and mail and self.uname_to_mail.get(
+            if self._checkmail and mail and self._uname_to_mail.get(
                     user_id,
                     "").lower() != mail.lower():
 
-                self.s_errors.setdefault(user_id, []).append(
+                self._s_errors.setdefault(user_id, []).append(
                     "Email wrong: yours={0}, ours={1}".format(
                         mail,
-                        self.uname_to_mail.get(user_id)))
+                        self._uname_to_mail.get(user_id)))
 
             # check name spelling.
-            if self.checknames:
-                namelist = self.name_cache.get(owner_id, None)
+            if self._checknames:
+                namelist = self._name_cache.get(owner_id, None)
                 if namelist:
-                    cb_fname = namelist.get(int(self.co.name_first), "")
-                    cb_lname = namelist.get(int(self.co.name_last), "")
+                    cb_fname = namelist.get(int(self._co.name_first), "")
+                    cb_lname = namelist.get(int(self._co.name_last), "")
 
                     if cb_fname != tlf_fname or cb_lname != tlf_lname:
-                        self.s_errors.setdefault(user_id, []).append(
+                        self._s_errors.setdefault(user_id, []).append(
                             "Name spelling differ: yours={0} {1}, ours={2} " +
                             "{3}".format(tlf_fname,
                                          tlf_lname,
@@ -256,7 +256,7 @@ class PhoneNumberImporter(object):
                                                         changes))
             self.handle_changes(owner_id, changes)
             logger.info("Update contact and write_db done")
-        self.processed.append(owner_id)
+        self._processed.append(owner_id)
 
     def update_phonenr(self, uid, phone):
         """
@@ -265,17 +265,17 @@ class PhoneNumberImporter(object):
         Do not update the database if the phone/contact info already exists
         in the database
         """
-        self.ac_phone.clear()
+        self._ac_phone.clear()
         try:
-            self.ac_phone.find_by_name(uid)
+            self._ac_phone.find_by_name(uid)
         except Errors.NotFoundError:
             logger.error("Unable to find user:%s", uid)
             return
         logger.debug("Writeback: uid: %s - %s", uid, phone)
-        self.ac_phone.populate_contact_info(self.co.system_tlf,
-                                            self.co.contact_phone,
-                                            phone)
-        self.ac_phone.write_db()
+        self._ac_phone.populate_contact_info(self._co.system_tlf,
+                                             self._co.contact_phone,
+                                             phone)
+        self._ac_phone.write_db()
 
     def delete_phonenr(self, uid, phone):
         """
@@ -283,23 +283,23 @@ class PhoneNumberImporter(object):
 
         Only phone numbers with source "telefoni" are deleted.
         """
-        self.ac_phone.clear()
+        self._ac_phone.clear()
         try:
-            self.ac_phone.find_by_name(uid)
+            self._ac_phone.find_by_name(uid)
         except Errors.NotFoundError:
             logger.error("unable to find user:'%s' Continue with next user",
                          uid)
             return
 
-        logger.debug("%s has account id:%s", uid, self.ac_phone.entity_id)
+        logger.debug("%s has account id:%s", uid, self._ac_phone.entity_id)
 
         if len(phone) == 5:
             # sanity check. only delete 5digit numbers
             logger.debug("Deleting phone number: %s", phone)
-            self.ac_phone.delete_contact_info(
-                source=self.co.system_tlf,
-                contact_type=self.co.contact_phone)
-            self.ac_phone.write_db()
+            self._ac_phone.delete_contact_info(
+                source=self._co.system_tlf,
+                contact_type=self._co.contact_phone)
+            self._ac_phone.write_db()
         else:
             logger.debug("Not deleting phone number: %s", phone)
 
@@ -313,10 +313,10 @@ class PhoneNumberImporter(object):
         is_new_number = False
         data_phone_len = len(phone_number)
 
-        if owner_id in self.person_to_contact.keys():
-            for key, val in self.person_to_contact[owner_id].iteritems():
+        if owner_id in self._person_to_contact.keys():
+            for key, val in self._person_to_contact[owner_id].iteritems():
                 contact_type = int(key[:3])
-                if contact_type == int(self.co.contact_phone):
+                if contact_type == int(self._co.contact_phone):
                     num_to_compare = val
                     if len(num_to_compare) > data_phone_len:
                         num_to_compare = num_to_compare[-data_phone_len:]
@@ -433,7 +433,7 @@ class PhoneNumberImporter(object):
                             'building': row[fields['building']],
                             }
 
-                    if row[fields['userid']] not in self.uname_to_ownerid:
+                    if row[fields['userid']] not in self._uname_to_ownerid:
                         logger.warn("Unknown user: %s, continue with next " +
                                     "user", row[fields['userid']])
                         continue
@@ -463,7 +463,7 @@ class PhoneNumberImporter(object):
                                              data['phone'])
                                 if self.is_new_number(
                                         data['phone'],
-                                        self.uname_to_ownerid[user_id]):
+                                        self._uname_to_ownerid[user_id]):
                                     changed_phone = True
                             added_prefix = True
                             break
@@ -479,7 +479,7 @@ class PhoneNumberImporter(object):
                     # add "+47" phone number prefix
                     if data['phone'] and (self.is_new_number(
                             data['phone'],
-                            self.uname_to_ownerid[user_id])):
+                            self._uname_to_ownerid[user_id])):
                         changed_phone = True
                         if not data['phone'].startswith('+47'):
                             data['phone'] = "{0}{1}".format("+47",
@@ -495,11 +495,11 @@ class PhoneNumberImporter(object):
         for user_id, pdata in phonedata.items():
             self.process_contact(user_id, pdata)
 
-        unprocessed = set(self.person_to_contact.keys()) - set(self.processed)
+        unprocessed = set(self._person_to_contact.keys()) - set(self._processed)
 
         for p_id in unprocessed:
             changes = []
-            contact_info = self.person_to_contact[p_id]
+            contact_info = self._person_to_contact[p_id]
 
             for idx, value in contact_info.items():
                 changes.append(('del_contact', (idx, None)))
@@ -509,9 +509,9 @@ class PhoneNumberImporter(object):
 
             self.handle_changes(p_id, changes)
 
-        if self.s_errors:
+        if self._s_errors:
             msg = {}
-            for userid, error in self.s_errors.items():
+            for userid, error in self._s_errors.items():
                 fname = phonedata[userid][0]['firstname']
                 lname = phonedata[userid][0]['lastname']
                 key = '{0} {1} ({2})'.format(fname, lname, userid)
@@ -544,8 +544,7 @@ class PhoneNumberImporter(object):
 def main():
     """Parser etc."""
     db = Factory.get('Database')()
-
-
+    db.cl_init(change_program='import_tlf')
     parser = argparse.ArgumentParser(description=__doc__)
 
     default_phonefile = '{0}/telefoni/user_{1}.txt'.format(
@@ -569,7 +568,7 @@ def main():
     parser.add_argument(
         '-e',
         '--no-email',
-        dest='notify_recipient)',
+        dest='notify_recipient',
         action='store_false',
         help='do not notify cereconf.TELEFONIERRORS_RECEIVER with log '
              'messages',
@@ -597,7 +596,7 @@ def main():
     Cerebrum.logutils.autoconf('cronjob', args)
     logger.info('Starting phone number import')
 
-    db.cl_init(change_program='import_tlf')
+    logger.error(args)
 
     phone_importer = PhoneNumberImporter(
         db,
@@ -605,15 +604,12 @@ def main():
         checknames=args.checknames,
     )
 
-    logger.info('Using sourcefile: %s', args.phonefile)
-
+    logger.info('Using sourcefile: %s', args.file)
     phone_importer.process_telefoni(args.file, args.notify_recipient)
-
-    num_changes = phone_importer.num_changes
+    num_changes = phone_importer._num_changes
     max_changes_allowed = int(cereconf.MAX_NUM_ALLOWED_CHANGES)
     logger.debug("Max number of allowed changes:%s", max_changes_allowed)
     logger.debug("Number of changes:%s", num_changes)
-
     if args.commit:
         if args.force:
             db.commit()
