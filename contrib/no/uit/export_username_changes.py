@@ -25,28 +25,26 @@
 This script is a UiT specific export script for keeping track of changes in usernames
 """
 
+import getopt
+import os.path
 import sys
 import time
-import os
-import os.path
-import getopt
 
-import cerebrum_path
 import cereconf
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.legacy_users import LegacyUsers
 
-db=Factory.get('Database')()
-co=Factory.get('Constants')(db)
-ac=Factory.get('Account')(db)
-pe=Factory.get('Person')(db)
+db = Factory.get('Database')()
+co = Factory.get('Constants')(db)
+ac = Factory.get('Account')(db)
+pe = Factory.get('Person')(db)
 logger_name = cereconf.DEFAULT_LOGGER_TARGET
 lu = LegacyUsers(db)
 
 date = time.localtime()
 date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
-default_export_file = os.path.join(cereconf.DUMPDIR,'username_changes','username_changes_%s' % date_today)
+default_export_file = os.path.join(cereconf.DUMPDIR, 'username_changes',
+                                   'username_changes_%s' % date_today)
 
 
 def usage():
@@ -55,29 +53,28 @@ def usage():
     Usage: [options]
     -f | --file : export file
     -l | --logger-name : name of logger target
-    -h | --help : this text """   
+    -h | --help : this text """
     sys.exit(1)
-
 
 
 def main():
     global logger, logger_name
-    
+
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'l:f:h',
-                                ['file=', 'logger-name', 'help'])
+        opts, args = getopt.getopt(sys.argv[1:], 'l:f:h',
+                                   ['file=', 'logger-name', 'help'])
     except getopt.GetoptError:
         usage()
 
     export_file = default_export_file
-    
+
     help = 0
-    for opt,val in opts:
-        if opt in ('-f','--file'):
+    for opt, val in opts:
+        if opt in ('-f', '--file'):
             export_file = val
-        if opt in ('-l','--logger-name'):
+        if opt in ('-l', '--logger-name'):
             logger_name = val
-        if opt in('-h','--help'):
+        if opt in ('-h', '--help'):
             usage()
 
     logger = Factory.get_logger(logger_name)
@@ -124,13 +121,15 @@ def main():
             new = comment_parts[9].split(",")[0]
 
         # comment = 'Duplicate of NEW' (manuelt inntastet)
-        elif comment is not None and comment.upper().startswith("DUPLICATE OF "):
+        elif comment is not None and comment.upper().startswith(
+                "DUPLICATE OF "):
             comment_parts = comment.split()
             old = user_name
             new = comment_parts[2].strip(".,")
 
         # comment = 'duplikat av NEW' (manuelt inntastet)
-        elif comment is not None and comment.upper().startswith("DUPLIKAT AV "):
+        elif comment is not None and comment.upper().startswith(
+                "DUPLIKAT AV "):
             comment_parts = comment.split()
             old = user_name
             new = comment_parts[2].strip(",.")
@@ -142,7 +141,7 @@ def main():
             new = comment_parts[2]
 
         # Accumulating FNRs to see if I can sort them out later
-        elif ssn is not None and user_name[3:5]!='99':
+        elif ssn is not None and user_name[3:5] != '99':
 
             old = user_name
 
@@ -157,9 +156,9 @@ def main():
             logger.warn("Legacy info not processed: %s" % (row))
             continue
 
-        if old is not None and new is not None and old[3:5]!='99' and new[3:5]!='99':
+        if old is not None and new is not None and old[3:5] != '99' and new[
+                                                                        3:5] != '99':
             export.append("%s;%s;%s\n" % (old, new, date))
-
 
     # Going through accumulated FNRs to see if I can do some more mapping
     const_fnr = co.externalid_fodselsnr
@@ -168,7 +167,7 @@ def main():
     owner2acc = {}
     for row in ac.search(expire_start='19000101'):
         owner2acc[row['owner_id']] = row['name']
-    
+
     # Map FNR 2 account
     fnr2acc = {}
     for row in pe.list_external_ids(id_type=const_fnr):
@@ -184,12 +183,11 @@ def main():
             for acc in fnr2leg[fnr]:
                 if acc != fnr2acc[fnr] and '999' not in fnr2acc[fnr]:
                     export.append("%s;%s;\n" % (acc, fnr2acc[fnr]))
-        
 
-    fh=open(export_file,'w')
+    fh = open(export_file, 'w')
     fh.writelines(export)
     fh.close()
 
+
 if __name__ == '__main__':
     main()
-
