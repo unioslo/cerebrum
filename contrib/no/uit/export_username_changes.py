@@ -34,17 +34,12 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.legacy_users import LegacyUsers
 
-db = Factory.get('Database')()
-co = Factory.get('Constants')(db)
-ac = Factory.get('Account')(db)
-pe = Factory.get('Person')(db)
-logger_name = cereconf.DEFAULT_LOGGER_TARGET
-lu = LegacyUsers(db)
 
 date = time.localtime()
 date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
 default_export_file = os.path.join(cereconf.DUMPDIR, 'username_changes',
                                    'username_changes_%s' % date_today)
+logger_name = cereconf.DEFAULT_LOGGER_TARGET
 
 
 def usage():
@@ -57,27 +52,11 @@ def usage():
     sys.exit(1)
 
 
-def main():
-    global logger, logger_name
-
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'l:f:h',
-                                   ['file=', 'logger-name', 'help'])
-    except getopt.GetoptError:
-        usage()
-
-    export_file = default_export_file
-
-    help = 0
-    for opt, val in opts:
-        if opt in ('-f', '--file'):
-            export_file = val
-        if opt in ('-l', '--logger-name'):
-            logger_name = val
-        if opt in ('-h', '--help'):
-            usage()
-
-    logger = Factory.get_logger(logger_name)
+def find_username_changes(db):
+    co = Factory.get('Constants')(db)
+    ac = Factory.get('Account')(db)
+    pe = Factory.get('Person')(db)
+    lu = LegacyUsers(db)
 
     # Get all legacy info
     legacy = lu.search()
@@ -151,7 +130,6 @@ def main():
             ssn_list.append(old)
             fnr2leg[ssn] = ssn_list
 
-
         else:
             logger.warn("Legacy info not processed: %s" % (row))
             continue
@@ -170,7 +148,7 @@ def main():
 
     # Map FNR 2 account
     fnr2acc = {}
-    for row in pe.list_external_ids(id_type=const_fnr):
+    for row in pe.search_external_ids(id_type=const_fnr):
         try:
             fnr2acc[row['external_id']] = owner2acc[row['entity_id']]
         except:
@@ -184,9 +162,41 @@ def main():
                 if acc != fnr2acc[fnr] and '999' not in fnr2acc[fnr]:
                     export.append("%s;%s;\n" % (acc, fnr2acc[fnr]))
 
-    fh = open(export_file, 'w')
+    return export
+
+
+def generate_export(export, file_name):
+    fh = open(file_name, 'w')
     fh.writelines(export)
     fh.close()
+
+
+def main():
+    global logger, logger_name
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'l:f:h',
+                                   ['file=', 'logger-name', 'help'])
+    except getopt.GetoptError:
+        usage()
+
+    export_file = default_export_file
+
+    help = 0
+    for opt, val in opts:
+        if opt in ('-f', '--file'):
+            export_file = val
+        if opt in ('-l', '--logger-name'):
+            logger_name = val
+        if opt in ('-h', '--help'):
+            usage()
+
+    db = Factory.get('Database')()
+
+    logger = Factory.get_logger(logger_name)
+
+    export = find_username_changes(db)
+    generate_export(export, export_file)
 
 
 if __name__ == '__main__':
