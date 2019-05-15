@@ -40,21 +40,21 @@ ADquickSync.py --url https://mydomain.local:8000 --dryrun
 
 """
 
-import getopt
-# cerebrum imports
+import argparse
 import json
+import logging
 import socket
-import sys
-
-from Cerebrum import Errors
-from Cerebrum.Utils import Factory
-from Cerebrum.modules import ADutilMixIn
-from Cerebrum.modules import CLHandler
 import ssl
 
-db = Factory.get('Database')()
-co = Factory.get('Constants')(db)
-logger = Factory.get_logger("cronjob")
+import six
+from Cerebrum import Errors
+from Cerebrum import logutils
+from Cerebrum.Utils import Factory
+from Cerebrum.modules import CLHandler
+from Cerebrum.modules.no.uio import ADutils
+from Cerebrum.utils.argutils import add_commit_args
+
+logger = logging.getLogger(__name__)
 
 # Set SSL to ignore certificate checks
 try:
@@ -67,11 +67,11 @@ else:
     ssl._create_default_https_context = _create_unverified_https_context
 
 
-class ADquiSync(ADutilMixIn.ADuserUtil):
+class ADquickSync(ADutils.ADuserUtil):
 
     def __init__(self, *args, **kwargs):
-        super(ADquiSync, self).__init__(*args, **kwargs)
-        self.cl = CLHandler.CLHandler(db)
+        super(ADquickSync, self).__init__(*args, **kwargs)
+        self.cl = CLHandler.CLHandler(self.db)
 
     def quick_sync(self, spread, dry_run):
 
@@ -86,7 +86,7 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
                 except KeyError:
                     logger.warn(
                         "Password probably wiped already for change_id %s",
-                        ans['change_id'],)
+                        ans['change_id'], )
                 else:
                     retval = self.change_pw(ans['subject_entity'], spread,
                                             pw.encode("iso-8859-1"), dry_run)
@@ -117,7 +117,7 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
             dn = self.server.findObject(self.ac.account_name)
             ret = self.run_cmd('bindObject', dry_run, dn)
 
-            pwUnicode = unicode(pw, 'iso-8859-1')
+            pwUnicode = six.text_type(pw, 'iso-8859-1')
             ret = self.run_cmd('setPassword', dry_run, pwUnicode)
             if ret[0]:
                 self.logger.debug(
@@ -134,59 +134,38 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
         return False
 
 
-def usage(exit_code=0, msg=None):
-    if msg:
-        print msg
-    print __doc__
-    sys.exit(exit_code)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--user_spread')
+    parser.add_argument('--url',
+                        required=True)
+    parser = add_commit_args(parser, default=True)
 
+    logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    logutils.autoconf('cronjob', args)
 
-def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                   '',
-                                   ['user_spread=',
-                                    'url=',
-                                    'help',
-                                    'dryrun'])
+    db = Factory.get('Database')()
+    co = Factory.get('Constants')(db)
 
-    except getopt.GetoptError, m:
-        usage(1, m)
-
-    delete_objects = False
-    dry_run = False
-    user_spread = None
-    url = None
-
-    for opt, val in opts:
-        if opt == '--user_spread':
-            user_spread = getattr(co, val)  # TODO: Need support in Util.py
-        elif opt == '--url':
-            url = val
-        elif opt == '--help':
-            usage(1)
-        elif opt == '--dryrun':
-            dry_run = True
-
-    if not url:
-        usage(1, "Must provide --url")
-
-    if not user_spread:
+    if args.user_spread:
+        user_spread = getattr(co, args.user_spread)
+    else:
         user_spread = co.spread_uit_ad_account
 
-    logger.info("Trying to connect to %s" % url)
-    ADquickUser = ADquiSync(db, co, logger, url=url)
+    logger.info("Trying to connect to %s", args.url)
+    ADquickUser = ADquickSync(db, co, logger, url=args.url)
     try:
-        ADquickUser.quick_sync(user_spread, dry_run)
+        ADquickUser.quick_sync(user_spread, args.dry_run)
     except socket.error as m:
         if m[0] == 111:
             logger.critical(
                 "'%s' while connecting to %s, sync service stopped?",
-                m[1], url)
+                m[1], args.url)
         else:
-            logger.error("ADquicksync failed with socket error: %s" % (m,))
-    except Exception, m:
-        logger.error("ADquicksync failed: %s" % (m,))
+            logger.error("ADquicksync failed with socket error: %s", m)
+    except Exception as m:
+        logger.error("ADquicksync failed: %s", m)
 
 
 if __name__ == '__main__':

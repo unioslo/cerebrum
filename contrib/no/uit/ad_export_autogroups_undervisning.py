@@ -35,13 +35,14 @@ options is
 """
 from __future__ import unicode_literals
 
-import getopt
+import argparse
 import locale
+import logging
 import os
-import sys
 
 import cereconf
 import mx.DateTime
+from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.no.uit import access_FS
@@ -52,8 +53,8 @@ ac = Factory.get('Account')(db)
 gr = Factory.get('Group')(db)
 co = Factory.get('Constants')(db)
 
-db.cl_init(change_program=progname)
-logger = Factory.get_logger('console')
+db.cl_init(change_program='ad_export_autogroups_undervisning')
+logger = logging.getLogger(__name__)
 
 # Define default file locations
 default_log_dir = os.path.join(cereconf.CB_PREFIX, 'var', 'log')
@@ -83,7 +84,7 @@ agrgroup_dict = dict()
 # common prefix for all Fronter groups in cerebrum
 fg_prefix = "uit.no:fs"
 
-
+@memoize
 def get_skoinfo(fak, inst, avd):
     # Two digit stings each
 
@@ -117,9 +118,6 @@ def get_skoinfo(fak, inst, avd):
     acrolist.reverse()
     res['path'] = ".".join(acrolist)
     return res
-
-
-get_skoinfo = memoize(get_skoinfo)
 
 
 def GetUndenhFile(xmlfile):
@@ -357,7 +355,7 @@ def GetStudieprogramgroups():
                              }
 
 
-def aggregateStudieprogramgroups():
+def aggregate_studieprogram_groups():
     stprogs = dict()
     fakprogs = dict()
     import pprint
@@ -528,49 +526,28 @@ def writeXML(xmlfile=default_export_file):
     logger.info("Writing results to '%s' done" % (xmlfile,))
 
 
-def usage(exitcode=0, msg=None):
-    if msg:
-        print "Error: %s" % msg
-    print __doc__
-    sys.exit(exitcode)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--studieprogfile', default=default_studieprog_file)
+    parser.add_argument('--undenhfile', default=default_undenh_file)
+    parser.add_argument('--exportfile', default=default_export_file)
 
+    logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    logutils.autoconf('console', args)  # TODO: Do we really want console here?
 
-def main():
-    # can be overridden from commandline
-    studieprogfile = default_studieprog_file
-    undenhfile = default_undenh_file
-    exportfile = default_export_file
-
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'ha:',
-                                   ['help', 'studieprogfile=', 'undenhfile=',
-                                    'exportfile='])
-    except getopt.GetoptError, m:
-        usage(exitcode=1, msg=m)
-    for opt, val in opts:
-        if opt in ['-h', '--help']:
-            usage()
-        elif opt in ['--studieprogfile']:
-            logger.debug("setting studieprogfile to '%s'" % val)
-            studieprogfile = val
-        elif opt in ['--undenhfile']:
-            logger.debug("setting undenhfile to '%s'" % val)
-            undenhfile = val
-        elif opt in ['--exportfile']:
-            logger.debug("setting exportfile to '%s'" % val)
-            exportfile = val
-        else:
-            pass
-
+    logger.debug("setting studieprogfile to '%s'" % args.studieprogfile)
+    logger.debug("setting undenhfile to '%s'" % args.undenhfile)
+    logger.debug("setting exportfile to '%s'" % args.exportfile)
     start = mx.DateTime.now()
 
-    GetUndenhFile(xmlfile=undenhfile)
-    GetStudieprogFile(xmlfile=studieprogfile)
+    GetUndenhFile(xmlfile=args.undenhfile)
+    GetStudieprogFile(xmlfile=args.studieprogfile)
     GetADAccounts()
     GetUndenhGroups()
     GetStudieprogramgroups()
-    aggregateStudieprogramgroups()
-    writeXML(xmlfile=exportfile)
+    aggregate_studieprogram_groups()
+    writeXML(xmlfile=args.exportfile)
 
     stop = mx.DateTime.now()
     logger.debug("Started %s, ended %s" % (start, stop))

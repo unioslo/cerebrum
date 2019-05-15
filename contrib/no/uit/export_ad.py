@@ -22,14 +22,15 @@
 
 from __future__ import unicode_literals
 
-import getopt
+import argparse
+import logging
 import os
 import re
-import sys
 
 import cereconf
 import mx.DateTime
 from Cerebrum import Errors
+from Cerebrum import logutils
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib.xmlprinter import xmlprinter
@@ -38,7 +39,8 @@ from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.utils.funcwrap import memoize
 
-logger = Factory.get_logger('console')
+logger = logging.getLogger(__name__)
+
 today_tmp = mx.DateTime.today()
 tomorrow_tmp = today_tmp + 1
 TODAY = today_tmp.strftime("%Y-%m-%d")
@@ -56,9 +58,9 @@ account = Factory.get('Account')(db)
 ou = Factory.get('OU')(db)
 ef = EmailForward(db)
 et = EmailTarget(db)
-name_language = co.language_nb
 
 
+@memoize
 def get_sko(ou_id):
     ou.clear()
     ou.find(ou_id)
@@ -67,19 +69,17 @@ def get_sko(ou_id):
                        str(ou.avdeling).zfill(2))
 
 
-get_sko = memoize(get_sko)
-
-
+@memoize
 def get_ouinfo_sito(ou_id, perspective):
     ou.clear()
     ou.find(ou_id)
 
     res = dict()
-    res['name'] = ou.get_name_with_language(co.ou_name, name_language)
+    res['name'] = ou.get_name_with_language(co.ou_name, co.language_nb)
     res['short_name'] = ou.get_name_with_language(co.ou_name_short,
-                                                  name_language)
+                                                  co.language_nb)
     res['acronym'] = ou.get_name_with_language(co.ou_name_acronym,
-                                               name_language)
+                                               co.language_nb)
 
     # logger.debug("got basic info about id=%s,persp=%s" % (ou_id,perspective))
 
@@ -92,7 +92,7 @@ def get_ouinfo_sito(ou_id, perspective):
     while True:
         if (parent_id is None) or (parent_id == ou.entity_id):
             res['company'] = ou.get_name_with_language(co.ou_name,
-                                                       name_language)
+                                                       co.language_nb)
             break
         ou.clear()
         # logger.debug("Lookup %s in %s" % (parent_id,perspective))
@@ -106,9 +106,7 @@ def get_ouinfo_sito(ou_id, perspective):
     return res
 
 
-get_ouinfo = memoize(get_ouinfo_sito)
-
-
+@memoize
 def get_ouinfo(ou_id, perspective):
 
     ou.clear()
@@ -119,15 +117,15 @@ def get_ouinfo(ou_id, perspective):
         return False
 
     res = dict()
-    res['name'] = ou.get_name_with_language(co.ou_name, name_language)
+    res['name'] = ou.get_name_with_language(co.ou_name, co.language_nb)
     try:
         res['short_name'] = ou.get_name_with_language(co.ou_name_short,
-                                                      name_language)
+                                                      co.language_nb)
     except Errors.NotFoundError:
         res['short_name'] = ""
     try:
         res['acronym'] = ou.get_name_with_language(co.ou_name_acronym,
-                                                   name_language)
+                                                   co.language_nb)
     except Errors.NotFoundError:
         res['acronym'] = ""
     ou.clear()
@@ -149,7 +147,7 @@ def get_ouinfo(ou_id, perspective):
     while True:
         if (parent_id is None) or (parent_id == ou.entity_id):
             res['company'] = ou.get_name_with_language(co.ou_name,
-                                                       name_language)
+                                                       co.language_nb)
             break
         ou.clear()
         # logger.debug("Lookup %s in %s" % (parent_id,perspective))
@@ -166,9 +164,6 @@ def get_ouinfo(ou_id, perspective):
     return res
 
 
-get_ouinfo = memoize(get_ouinfo)
-
-
 def wash_sitosted(name):
     # removes preceeding and trailing numbers and whitespaces
     # samskipnaden has a habit of putting metadata (numbers) in the name... :(
@@ -177,6 +172,7 @@ def wash_sitosted(name):
     return washed
 
 
+@memoize
 def get_samskipnadstedinfo(ou_id, perspective):
     res = dict()
     ou.clear()
@@ -210,12 +206,10 @@ def get_samskipnadstedinfo(ou_id, perspective):
     return res
 
 
-get_samskipnadstedinfo = memoize(get_samskipnadstedinfo)
-
 num2const = dict()
 
 
-class ad_export:
+class AdExport:
 
     def __init__(self, userfile):
         self.userfile = userfile
@@ -745,53 +739,32 @@ def scan_person_affs(person):
         aff_to_stilling_map[aux_key] = aux_val
 
 
-#
-# program usage
-#
-def usage(exitcode=0):
-    print """Usage: [options]
-    -h | --help             : show this message
-    -a | --account username : export single account. NB DOES NOT WORK!
-    -o | --out filname      : writes to given filename
-    -t | --type [incr|fullsync] : use only fullsync!
-    """
-    sys.exit(exitcode)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-a', '--account',
+                        default=None,
+                        help='export single account. NB DOES NOT WORK!'
+                        )
+    parser.add_argument('-o', '--out',
+                        default=default_user_file,
+                        help='writes to given filename'
+                        )
+    parser.add_argument('-t', '--type',
+                        default='fullsync',
+                        help='fullsync or incr (use only fullsync)')
 
+    logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    logutils.autoconf('console', args)
 
-def main():
-    global default_user_file
-    global default_group_file
-    global outfile
-
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'ha:o:',
-                                   ['account=', 'help', "type=", "out="])
-    except getopt.GetoptError:
-        usage(1)
-    deftype = "fullsync"
-    type = deftype
-    outfile = default_user_file
-    one_account = acctlist = None
-    for opt, val in opts:
-        if opt in ['-a', '--account']:
-            one_account = val
-        elif opt in ['--type']:
-            if (val == "incr" or val == "fullsync"):
-                type = val
-        elif opt in ['-o', '--out']:
-            outfile = val
-        elif opt in ['-h', '--help']:
-            usage(0)
-        else:
-            pass
-
-    if (type == "incr"):
-        acctlist = one_account.split(",")
-
+    if args.type == "incr":
+        acctlist = args.account.split(",")
+    else:
+        acctlist = None
         # logger.debug("Type is %s, accts is %s" % (type,acctlist))
 
     start = mx.DateTime.now()
-    worker = ad_export(outfile)
+    worker = AdExport(args.outfile)
     worker.load_cbdata()
     worker.build_cbdata()
     worker.build_xml(acctlist)
