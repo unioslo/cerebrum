@@ -53,7 +53,6 @@ from Cerebrum.modules.bofhd.cmd_param import (
     AffiliationStatus,
     Command,
     Date,
-    DateTimeString,
     DiskId,
     EmailAddress,
     EntityType,
@@ -405,7 +404,7 @@ class BofhdExtension(BofhdCommonMethods):
             # make boolean
             result['deceased'] = entity.deceased_date
             names = []
-            for name in entity.get_all_names():
+            for name in entity.get_names():
                 source_system = text_type(
                     co.AuthoritativeSystem(name.source_system))
                 name_variant = text_type(co.PersonName(name.name_variant))
@@ -784,11 +783,10 @@ class BofhdExtension(BofhdCommonMethods):
             members[row["member_type"]] += 1
 
         # Produce a list of members sorted by member type
-        ET = self.const.EntityType
-        entries = ["%d %s(s)" % (members[x], text_type(ET(x)))
+        e_type = self.const.EntityType
+        entries = ["%d %s(s)" % (members[x], text_type(e_type(x)))
                    for x in sorted(members,
-                                   lambda it1, it2: cmp(text_type(ET(it1)),
-                                                        text_type(ET(it2))))]
+                                   key=lambda k: text_type(e_type(k)))]
 
         ret.append({"members": ", ".join(entries)})
         # Find distgroup info
@@ -1008,6 +1006,9 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_request(self, operator,
                       groupname, description, spread, moderator):
+        opr = operator.get_entity_id()
+        acc = self.Account_class(self.db)
+        acc.find(opr)
         # checking if group already exists
         try:
             self._get_group(groupname)
@@ -1370,11 +1371,10 @@ class BofhdExtension(BofhdCommonMethods):
             members[row["member_type"]] += 1
 
         # Produce a list of members sorted by member type
-        ET = self.const.EntityType
-        entries = ["%d %s(s)" % (members[x], text_type(ET(x)))
+        e_type = self.const.EntityType
+        entries = ["%d %s(s)" % (members[x], text_type(e_type(x)))
                    for x in sorted(members,
-                                   lambda it1, it2: cmp(text_type(ET(it1)),
-                                                        text_type(ET(it2))))]
+                                   key=lambda k: text_type(e_type(k)))]
 
         ret.append({"members": ", ".join(entries)})
         return ret
@@ -2805,7 +2805,7 @@ class BofhdExtension(BofhdCommonMethods):
 
                     prev_parent = target_ou.get_parent(perspective)
                     data['parents'].insert(0, prev_parent)
-        except:
+        except Exception:
             raise CerebrumError("Error getting OU structure for %s."
                                 "Is the OU valid?" % target)
 
@@ -3867,7 +3867,7 @@ class BofhdExtension(BofhdCommonMethods):
 
         try:
             person._delete_external_id(ss, idtype)
-        except:
+        except Exception:
             raise CerebrumError("Could not delete id %s:%s for %s" %
                                 (text_type(idtype), text_type(ss), person_id))
         return "OK"
@@ -3899,7 +3899,7 @@ class BofhdExtension(BofhdCommonMethods):
                 continue
             try:
                 person._delete_name(ss, variant)
-            except:
+            except Exception:
                 raise CerebrumError("Could not delete %s from %s" %
                                     (text_type(variant).lower(),
                                      text_type(ss)))
@@ -3952,7 +3952,7 @@ class BofhdExtension(BofhdCommonMethods):
             if person_id and len(person_id) == 11 and person_id.isdigit():
                 try:
                     person_id = fodselsnr.personnr_ok(person_id)
-                except:
+                except Exception:
                     raise e
                 self.logger.debug('Unknown person %r, asking FS directly',
                                   person_id)
@@ -4979,17 +4979,19 @@ class BofhdExtension(BofhdCommonMethods):
 
         :param str accountname:
             Account to be created. Must include a hyphen and end with one of
-            SYSADM_TYPES.
+            *sysadm_types*.
 
         :param str stedkode:
             Optional stedkode to place the sysadm account. Only used if a
             person have multipile valid affiliations.
 
         """
-        SYSADM_TYPES = ('adm', 'drift', 'null')
-        VALID_STATUS = (self.const.affiliation_status_ansatt_tekadm,
-                        self.const.affiliation_status_ansatt_vitenskapelig)
-        DOMAIN = '@ulrik.uio.no'
+        sysadm_types = ('adm', 'drift', 'null')
+        valid_status = (
+            self.const.affiliation_status_ansatt_tekadm,
+            self.const.affiliation_status_ansatt_vitenskapelig,
+        )
+        domain = '@ulrik.uio.no'
 
         self.ba.can_create_sysadm(operator.get_entity_id())
 
@@ -4997,10 +4999,10 @@ class BofhdExtension(BofhdCommonMethods):
         if res is None:
             raise CerebrumError('Username must be on the form "foo-drift"')
         user, suffix = res.groups()
-        if suffix not in SYSADM_TYPES:
+        if suffix not in sysadm_types:
             raise CerebrumError(
                 'Username "%s" does not have one of these suffixes: %s' %
-                (accountname, ', '.join(SYSADM_TYPES)))
+                (accountname, ', '.join(sysadm_types)))
         # Funky... better solutions?
         try:
             self._get_account(accountname)
@@ -5033,9 +5035,9 @@ class BofhdExtension(BofhdCommonMethods):
         valid_aff = person.list_affiliations(
             person_id=person.entity_id,
             source_system=self.const.system_sap,
-            status=VALID_STATUS,
+            status=valid_status,
             ou_id=ou_id)
-        status_blob = ', '.join(map(text_type, VALID_STATUS))
+        status_blob = ', '.join(map(text_type, valid_status))
         if valid_aff == []:
             raise CerebrumError('Person has no %s affiliation' % status_blob)
         elif len(valid_aff) > 1:
@@ -5068,9 +5070,9 @@ class BofhdExtension(BofhdCommonMethods):
         account.add_spread(self.const.spread_uio_ad_account)
         account.add_contact_info(self.const.system_manual,
                                  type=self.const.contact_email,
-                                 value=user+DOMAIN)
+                                 value=user+domain)
         account.write_db()
-        self._email_create_forward_target(accountname+DOMAIN, user+DOMAIN)
+        self._email_create_forward_target(accountname+domain, user+domain)
         return {'accountname': accountname}
 
     def _check_for_pipe_run_as(self, account_id):
@@ -5130,7 +5132,7 @@ class BofhdExtension(BofhdCommonMethods):
         account = self._get_account(accountname)
         try:
             age = DateTime.strptime(date, '%Y-%m-%d') - DateTime.now()
-        except:
+        except Exception:
             raise CerebrumError("Error parsing date")
         why = why.strip()
         if len(why) < 3:
@@ -5515,13 +5517,13 @@ class BofhdExtension(BofhdCommonMethods):
             return "Cannot move {!r}, {!s}".format(account.account_name,
                                                    reason)
 
-        REQUEST_REASON_MAX_LEN = 80
+        request_reason_max_len = 80
 
         def _check_reason(reason):
-            if len(reason) > REQUEST_REASON_MAX_LEN:
+            if len(reason) > request_reason_max_len:
                 raise CerebrumError(
                     "Too long explanation, "
-                    "maximum length is {:d}".format(REQUEST_REASON_MAX_LEN))
+                    "maximum length is {:d}".format(request_reason_max_len))
 
         if account.is_expired():
             raise CerebrumError(account_error("account is expired"))
@@ -6835,7 +6837,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         try:
             acc = self._get_account(uname)
             spread = self.const.spread_exchange_account
-        except:
+        except Exception:
             # Let super handle the missing user
             pass
         else:
@@ -6852,7 +6854,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         try:
             acc = self._get_account(uname)
             spread = self.const.spread_exchange_account
-        except:
+        except Exception:
             # Let super handle the missing user/spread
             pass
         else:
