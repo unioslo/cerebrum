@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 
 
 def find_username_changes(db):
+    """Find changed usernames."""
     co = Factory.get('Constants')(db)
     ac = Factory.get('Account')(db)
     pe = Factory.get('Person')(db)
@@ -87,7 +88,9 @@ def find_username_changes(db):
             new = comment_parts[4].strip(".")
 
         # comment = 'This username is reserved. It is a duplicate of '
-        elif comment is not None and "This username is reserved. It is a duplicate of " in comment:
+        elif (comment is not None
+              and "This username is reserved. It is a duplicate of " in
+              comment):
             comment_parts = comment.split()
             old = user_name
             new = comment_parts[9].split(",")[0]
@@ -124,12 +127,14 @@ def find_username_changes(db):
             fnr2leg[ssn] = ssn_list
 
         else:
-            logger.warn("Legacy info not processed: %s" % (row))
+            logger.warn("Legacy info not processed: %s", row)
             continue
 
-        if old is not None and new is not None and old[3:5] != '99' and new[
-                                                                        3:5] != '99':
-            export.append("%s;%s;%s\n" % (old, new, date))
+        if (old is not None
+                and new is not None
+                and old[3:5] != '99'
+                and new[3:5] != '99'):
+            export.append("{0};{1};{2}\n".format(old, new, date))
 
     # Going through accumulated FNRs to see if I can do some more mapping
     const_fnr = co.externalid_fodselsnr
@@ -144,8 +149,8 @@ def find_username_changes(db):
     for row in pe.search_external_ids(id_type=const_fnr):
         try:
             fnr2acc[row['external_id']] = owner2acc[row['entity_id']]
-        except:
-            logger.warn("Person has no account: %s" % row['entity_id'])
+        except KeyError:
+            logger.warn("Person has no account: %s", row['entity_id'])
             pass
 
     for fnr in fnr2leg.keys():
@@ -153,15 +158,15 @@ def find_username_changes(db):
         if fnr in fnr2acc:
             for acc in fnr2leg[fnr]:
                 if acc != fnr2acc[fnr] and '999' not in fnr2acc[fnr]:
-                    export.append("%s;%s;\n" % (acc, fnr2acc[fnr]))
+                    export.append("{0};{1};\n".format(acc, fnr2acc[fnr]))
 
     return export
 
 
 def generate_export(export, file_name):
-    fh = open(file_name, 'w')
-    fh.writelines(export)
-    fh.close()
+    """Write the export file to disk."""
+    with open(file_name, 'w') as fp:
+        fp.writelines(export)
 
 
 def main():
@@ -171,25 +176,20 @@ def main():
                                        'username_changes',
                                        'username_changes_{0}'.format(
                                            date_today))
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-f',
                         '--file',
                         dest='export_file',
                         default=default_export_file,
                         help='export file')
-
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Start of username changes export')
-
     db = Factory.get('Database')()
-
     export = find_username_changes(db)
     generate_export(export, args.export_file)
-
     logger.info('End of username changes export')
 
 
