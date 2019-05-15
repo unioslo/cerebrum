@@ -58,14 +58,13 @@ def find_username_changes(db):
     export = []
     fnr2leg = {}
     for row in legacy:
-
         old = None
         new = None
         date = ""
 
-        user_name = row.get('user_name')
-        comment = row.get('comment')
-        ssn = row.get('ssn')
+        user_name = row['user_name']
+        comment = row['comment']
+        ssn = row['ssn']
 
         # comment = 'YYYYMMDD - Duplicate of NEW'
         if comment is not None and " - Duplicate of " in comment:
