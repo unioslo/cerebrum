@@ -3192,7 +3192,7 @@ class BofhdExtension(BofhdCommonMethods):
         PersonName(help_ref="person_name_first"),
         PersonName(help_ref="person_name_last"),
         fs=FormatSuggestion("Name altered for: %i", ("person_id",)),
-        perm_filter='can_create_person')
+        perm_filter='can_set_person_info')
 
     def person_set_name(self, operator, person_id, first_name, last_name):
         person = self._get_person(*self._map_person_id(person_id))

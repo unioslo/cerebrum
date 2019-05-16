@@ -1004,15 +1004,19 @@ class BofhdAuth(DatabaseAccessor):
             operator, self.const.auth_create_user, account)
 
     def can_set_person_info(self, operator, person=None, query_run_any=False):
+        """Access to updating data that *should* come from other systems."""
         try:
+            # Must have 'can_create_person'
             # Will raise PermissionDenied if query_run_any=False
             if not self.can_create_person(operator,
                                           query_run_any=query_run_any):
                 return False
         except PermissionDenied:
-            raise PermissionDenied("Not allowed to set person name")
+            raise PermissionDenied("Not allowed to modify person info")
 
         if not query_run_any:
+            # Only allow changes to fields that are not already populated from
+            # authoritative systems.
             for aff in person.get_affiliations():
                 if self.is_authoritative_system(aff['source_system']):
                     raise PermissionDenied("Not allowed to modify person info "
