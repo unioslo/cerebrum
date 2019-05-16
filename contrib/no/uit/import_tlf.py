@@ -139,16 +139,17 @@ class PhoneNumberImporter(object):
                         self._p.delete_contact_info(self._co.system_tlf,
                                                     contact_type,
                                                     c['contact_pref'])
-                self._p.add_contact_info(self._co.system_tlf,
-                                         contact_type,
-                                         value=value,
-                                         pref=pref)
-
                 logger.info("Add: %d:%d:%d=%s",
                             self._co.system_tlf,
                             contact_type,
                             pref,
                             value)
+
+                self._p.add_contact_info(self._co.system_tlf,
+                                         contact_type,
+                                         value=value,
+                                         pref=pref)
+
 
             elif change_code == 'del_contact':
                 self._p.delete_contact_info(self._co.system_tlf,
@@ -209,7 +210,7 @@ class PhoneNumberImporter(object):
                 idxlist.append(idx)
                 if value:
                     if value != cinfo.get(idx):
-                        if type == int(self.o.contact_phone):
+                        if type == int(self._co.contact_phone):
                             # only add contact_phone if it really is a new
                             # phone number
                             if self.is_new_number(value, owner_id):
@@ -251,7 +252,7 @@ class PhoneNumberImporter(object):
             changes.append(('del_contact', (idx, None)))
 
         if changes:
-            logger.info("Changes [%s/%s]: %s", user_id, owner_id, changes))
+            logger.info("Changes [%s/%s]: %s", user_id, owner_id, changes)
             self.handle_changes(owner_id, changes)
             logger.info("Update contact and write_db done")
         self._processed.append(owner_id)
@@ -329,7 +330,7 @@ class PhoneNumberImporter(object):
         if isinstance(data, dict):
             return {self.convert(key): self.convert(value, encoding)
                     for key, value in data.iteritems()}
-        elif isinstance(input, list):
+        elif isinstance(data, list):
             return [self.convert(element, encoding) for element in data]
         elif isinstance(data, bytes):
             return data.decode(encoding)
@@ -408,8 +409,7 @@ class PhoneNumberImporter(object):
 
             for row in reader:
                 # convert to unicode
-                # TODO wrong encoding?
-                row = self.convert(row, 'iso-8859-1')
+                row = self.convert(row, 'utf-8')
 
                 user_id = row[fields['userid']]
 
@@ -611,7 +611,8 @@ def main():
     if args.commit:
         if args.force:
             db.commit()
-            logger.warning("Forced writing: %s changes in phone processing")
+            logger.warning("Forced writing: %s changes in phone processing",
+                           num_changes)
         elif num_changes <= max_changes_allowed:
             db.commit()
             logger.info("Committing changes")
