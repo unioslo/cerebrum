@@ -1,11 +1,31 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# Copyright 2019 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+"""This script overrides display name for a list of users from the portal."""
+
 from __future__ import unicode_literals
 
 import io
-from sgmllib import SGMLParser
 import logging
+import requests
 import argparse
 import os
 import mx
@@ -17,109 +37,68 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import add_commit_args
 
-__doc__ = 'This script overrides display name for a list of users from the ' \
-          'portal.'
 
-progname = __file__.split("/")[-1]
-
-db = Factory.get('Database')()
-db.cl_init(change_program=progname)
-const = Factory.get('Constants')(db)
-account = Factory.get('Account')(db)
-person = Factory.get('Person')(db)
-
+SCRIPT_NAME = __file__.split("/")[-1]
 TODAY = mx.DateTime.today().strftime("%Y-%m-%d")
-default_filename = 'name_updates_%s.csv' % (TODAY,)
-default_outfile = os.path.join(cereconf.DUMPDIR, 'name_updates',
-                               default_filename)
+URL = 'http://jep2n1.uit.no:7080/navnealias'
+DEFAULT_FILENAME = 'name_updates_%s.csv' % (TODAY,)
+DEFAULT_OUTFILE = os.path.join(cereconf.DUMPDIR, 'name_updates',
+                               DEFAULT_FILENAME)
 
 logger = logging.getLogger(__name__)
 
 
-# Parse content from Portal HTML
-class ExtractContent(SGMLParser):
-    def reset(self):
-        SGMLParser.reset(self)
-        self.uitusers = []
-        self.next_are_users = False
-
-    def start_div(self, attrs):
-        self.next_are_users = False
-        uitusers = [v for k, v in attrs if k == 'id' and v == 'uitusers']
-        if uitusers:
-            self.next_are_users = True
-
-    def handle_data(self, text):
-        if self.next_are_users:
-            self.uitusers.append(text)
-
-    def output(self):
-        return "".join(self.uitusers)
-
-
-# Get users from Portal HTML
-def get_changes(filename, url):
+def get_changes(url):
+    """ Get name updates from Portal HTML """
     changes = {}
     invalid_chars = re.compile('[,;"=\+\\\\<>]')
 
-    # Load file
-    logger.info("Copying changelog HTML page from Portal to local file")
-    os.system("wget -q -O " + filename + " " + url)
+    logger.info("Requesting changelog HTML page from Portal")
+    response = requests.get(url)
+    text = response.text
 
-    # Read file
-    logger.info("Opening changelog file")
-    f = io.open(filename, "r", encoding="utf-8")
-    content = f.read()
-    f.close()
-
-    # Parse file
-    logger.info("Parsing changelog file")
-    parser = ExtractContent()
-    parser.feed(content)
-
-    # Go through all lines in changelog
-    logger.info("Verifying lines in changelog file")
-    for line in parser.output().split('\n'):
+    logger.info("Going through lines in changelog")
+    for line in text.split('\n'):
         username = None
-        firstname = None
-        lastname = None
+        first_name = None
+        last_name = None
 
         # Parse each line
         aux = line.split(';')
         if len(aux) == 4:
             username = aux[0].strip()
-            firstname = aux[1].strip()
-            lastname = aux[2].strip()
+            first_name = aux[1].strip()
+            last_name = aux[2].strip()
         elif len(aux) > 4:
-            logger.error("Illegal use of semicolon! Line: %s." % line)
+            logger.error("Illegal use of semicolon! Line: %s.", line)
             continue
 
         # Check for repeated usernames
         if username in changes:
             logger.warn(
                 "Repeated username in changelog. Only last entry is "
-                "considered! Username: %s." % username)
+                "considered! Username: %s.", username)
 
-        if username and firstname and lastname:
-            if len(invalid_chars.findall(firstname)) > 0 or len(
-                    invalid_chars.findall(lastname)):
+        if username and first_name and last_name:
+            if len(invalid_chars.findall(first_name)) > 0 or len(
+                    invalid_chars.findall(last_name)):
                 logger.error(
                     "Skipped line because of invalid characters. Username: %s."
-                    " Firstname: %s. Lastname %s." % (
-                    username, firstname, lastname))
+                    " Firstname: %s. Lastname %s.", (
+                        username, first_name, last_name))
             else:
-                changes[username] = (firstname, lastname)
+                changes[username] = (first_name, last_name)
         else:
             logger.info(
                 "Skipped line because of missing data. Username: %s. "
-                "Firstname: %s. Lastname %s." % (
-                username, firstname, lastname))
+                "Firstname: %s. Lastname %s.", (
+                    username, first_name, last_name))
 
     return changes
 
 
-# Change names in Portal HTML (if changed)
-def change_names(changes, outfile):
+def change_names(changes, outfile, const, account, person, db):
+    """ Change names in Cerebrum (if different from Portal HTML) """
     fp = io.open(outfile, 'w', encoding="utf-8")
     fp.write(
         '#username,old_first_name,new_first_name,old_last_name,new_last_name\n'
@@ -137,19 +116,19 @@ def change_names(changes, outfile):
     for acc in acc_list:
         cached_acc2owner[acc['name']] = acc['owner_id']
 
-    logger.info("Processing list of potential namechanges")
-    for accountname in changes.keys():
+    logger.info("Processing list of potential name changes")
+    for account_name in changes:
 
-        if '999' in accountname:
+        if '999' in account_name:
             logger.warning(
-                "Found administrative account %s. Skipping!" % accountname)
+                "Found administrative account %s. Skipping!", account_name)
             continue
 
-        (firstname, lastname) = changes[accountname]
+        (firstname, lastname) = changes[account_name]
         fullname = ' '.join((firstname, lastname))
 
         # Find the account owner in dict
-        owner = cached_acc2owner.get(accountname, None)
+        owner = cached_acc2owner.get(account_name, None)
         if owner:
 
             # Look up cached names for given owner
@@ -165,11 +144,11 @@ def change_names(changes, outfile):
                     person.clear()
 
                     try:
-                        account.find_by_name(accountname)
+                        account.find_by_name(account_name)
                     except Errors.NotFoundError:
                         logger.error(
                             "Account %s not found, cannot set new display"
-                            " name" % accountname)
+                            " name", account_name)
                         continue
 
                     try:
@@ -177,7 +156,7 @@ def change_names(changes, outfile):
                     except Errors.NotFoundError:
                         logger.error(
                             "Account %s owner %d not found, cannot set new "
-                            "display name" % (account, account.owner_id))
+                            "display name", (account, account.owner_id))
                         continue
 
                     source_system = const.system_override
@@ -194,7 +173,7 @@ def change_names(changes, outfile):
                     except db.DatabaseError, m:
                         logger.error(
                             "Database error, override names not updated for"
-                            " %s: %s" % (accountname, m))
+                            " %s: %s", (account_name, m))
                         continue
 
                     person._update_cached_names()
@@ -203,21 +182,24 @@ def change_names(changes, outfile):
                     except db.DatabaseError, m:
                         logger.error(
                             "Database error, cached name not updated for"
-                            " %s: %s" % (
-                            accountname, m))
+                            " %s: %s", (account_name, m))
                         continue
 
                     logger.info(
                         "Name changed for user %s. "
                         "First name: \"%s\" -> \"%s\". "
-                        "Last name: \"%s\" -> \"%s\"." % (
-                            accountname, cached_name.get(int(const.name_first)),
-                            firstname, cached_name.get(int(const.name_last)),
+                        "Last name: \"%s\" -> \"%s\".", (
+                            account_name,
+                            cached_name.get(int(const.name_first)),
+                            firstname,
+                            cached_name.get(int(const.name_last)),
                             lastname)
                     )
                     fp.write('%s,%s,%s,%s,%s\n' % (
-                        accountname, cached_name.get(int(const.name_first)),
-                        firstname, cached_name.get(int(const.name_last)),
+                        account_name,
+                        cached_name.get(int(const.name_first)),
+                        firstname,
+                        cached_name.get(int(const.name_last)),
                         lastname))
                     registered_changes = registered_changes + 1
 
@@ -228,16 +210,16 @@ def change_names(changes, outfile):
             else:
                 logger.error(
                     "Cached names for %s not found in dict, cannot set new "
-                    "display name" % accountname)
+                    "display name", account_name)
                 continue
 
         else:
             logger.warn(
-                "Account %s not found in dict, cannot set new display name" % (
-                    accountname))
+                "Account %s not found in dict, cannot set new display name", (
+                    account_name))
             continue
 
-    logger.info("Registered %s changes" % registered_changes)
+    logger.info("Registered %s changes", registered_changes)
     fp.close()
 
 
@@ -245,7 +227,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '-o', '--outfile',
-        default=default_outfile
+        default=DEFAULT_OUTFILE
     )
     parser.add_argument(
         '-t', '--test-data',
@@ -258,18 +240,20 @@ def main():
     args = parser.parse_args()
     Cerebrum.logutils.autoconf(cereconf.DEFAULT_LOGGER_TARGET, args)
 
-    tmp_file = '/tmp/last_portal_dump'
-    url = 'http://jep2n1.uit.no:7080/navnealias'
-    outfile = default_outfile
-
-    # Test data
     if args.test_data:
+        logger.info('Running script with test data')
         changes = {'rmi000': ('Romulus', 'Mikalsen'),
                    'bto001': ('Bjarne', 'Betjent')}
     else:
-        changes = get_changes(tmp_file, url)
+        changes = get_changes(URL)
 
-    change_names(changes, outfile)
+    db = Factory.get('Database')()
+    db.cl_init(change_program=SCRIPT_NAME)
+    const = Factory.get('Constants')(db)
+    account = Factory.get('Account')(db)
+    person = Factory.get('Person')(db)
+
+    change_names(changes, args.outfile, const, account, person, db)
 
     if args.commit:
         db.commit()
