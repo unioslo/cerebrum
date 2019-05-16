@@ -3147,22 +3147,17 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError("Unexpectedly found more than one person")
         aff = self._get_affiliationid(aff)
         ou = self._get_ou(stedkode=ou)
-        auth_systems = []
-        for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp = self.const.human2constant(auth_sys)
-            auth_systems.append(int(tmp))
         self.ba.can_remove_affiliation(operator.get_entity_id(),
                                        person, ou, aff)
         for row in person.list_affiliations(person_id=person.entity_id,
+                                            ou_id=ou.entity_id,
                                             affiliation=aff):
-            if row['ou_id'] != int(ou.entity_id):
-                continue
-            if not int(row['source_system']) in auth_systems:
-                person.delete_affiliation(ou.entity_id, aff,
-                                          row['source_system'])
-            else:
-                raise CerebrumError("Cannot remove affiliation registered from"
-                                    " an authoritative source system")
+            person.delete_affiliation(ou.entity_id, aff,
+                                      row['source_system'])
+            break
+        else:
+            # no rows
+            raise CerebrumError("Affiliation does not exist")
         return "OK, removed %s@%s from %s" % (text_type(aff),
                                               self._format_ou_name(ou),
                                               person.entity_id)
@@ -3174,25 +3169,15 @@ class BofhdExtension(BofhdCommonMethods):
         ("person", "set_bdate"),
         PersonId(help_ref="id:target:person"),
         Date(help_ref='date_birth'),
-        perm_filter='can_create_person')
+        perm_filter='can_set_person_info')
 
     def person_set_bdate(self, operator, person_id, bdate):
-        self.ba.can_create_person(operator.get_entity_id())
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
-
-        auth_systems = []
-        for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp = self.const.human2constant(auth_sys)
-            auth_systems.append(tmp)
-        for a in person.get_affiliations():
-            if a['source_system'] in auth_systems:
-                raise PermissionDenied("You are not allowed to alter the "
-                                       "birth date for persons registered "
-                                       "in authoritative source systems.")
-
+        self.ba.can_set_person_info(operator.get_entity_id(),
+                                    person=person)
         bdate = self._parse_date(bdate)
         if bdate > self._today():
             raise CerebrumError("Please check the date of birth, "
@@ -3210,17 +3195,9 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_create_person')
 
     def person_set_name(self, operator, person_id, first_name, last_name):
-        auth_systems = []
-        for auth_sys in cereconf.BOFHD_AUTH_SYSTEMS:
-            tmp = self.const.human2constant(auth_sys)
-            auth_systems.append(tmp)
         person = self._get_person(*self._map_person_id(person_id))
-        self.ba.can_create_person(operator.get_entity_id())
-        for a in person.get_affiliations():
-            if a['source_system'] in auth_systems:
-                raise PermissionDenied("You are not allowed to alter "
-                                       "names registered in authoritative "
-                                       "source systems.")
+        self.ba.can_set_person_info(operator.get_entity_id(),
+                                    person=person)
 
         if last_name == "":
             raise CerebrumError("Last name is required.")
@@ -4206,7 +4183,8 @@ class BofhdExtension(BofhdCommonMethods):
              format_day('disable_until'), 'who', 'why'),
             hdr="%-14s %-16s %-16s %-14s %-8s %s" %
             ('Type', 'Start', 'End', 'Disable until', 'Who', 'Why')
-        ))
+        ),
+        perm_filter='can_show_quarantines')
 
     def quarantine_show(self, operator, entity_type, id):
         ret = []
