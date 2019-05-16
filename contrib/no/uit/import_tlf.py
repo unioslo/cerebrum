@@ -251,9 +251,7 @@ class PhoneNumberImporter(object):
             changes.append(('del_contact', (idx, None)))
 
         if changes:
-            logger.info("Changes [{0}/{1}]: {2}".format(user_id,
-                                                        owner_id,
-                                                        changes))
+            logger.info("Changes [%s/%s]: %s", user_id, owner_id, changes))
             self.handle_changes(owner_id, changes)
             logger.info("Update contact and write_db done")
         self._processed.append(owner_id)
