@@ -139,17 +139,16 @@ class PhoneNumberImporter(object):
                         self._p.delete_contact_info(self._co.system_tlf,
                                                     contact_type,
                                                     c['contact_pref'])
-                logger.info("Add: %d:%d:%d=%s",
-                            self._co.system_tlf,
-                            contact_type,
-                            pref,
-                            value)
 
                 self._p.add_contact_info(self._co.system_tlf,
                                          contact_type,
                                          value=value,
                                          pref=pref)
-
+                logger.info("Add: %d:%d:%d=%s",
+                            self._co.system_tlf,
+                            contact_type,
+                            pref,
+                            value)
 
             elif change_code == 'del_contact':
                 self._p.delete_contact_info(self._co.system_tlf,
