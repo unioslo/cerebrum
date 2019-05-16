@@ -1,8 +1,7 @@
 #!/usr/bin/env python
-# -- coding: utf-8 --
-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2002, 2003 University of Tromso, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -48,12 +47,6 @@ from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.no.uit import access_FS
 from Cerebrum.utils.funcwrap import memoize
 
-db = Factory.get('Database')()
-ac = Factory.get('Account')(db)
-gr = Factory.get('Group')(db)
-co = Factory.get('Constants')(db)
-
-db.cl_init(change_program='ad_export_autogroups_undervisning')
 logger = logging.getLogger(__name__)
 
 # Define default file locations
@@ -84,11 +77,12 @@ agrgroup_dict = dict()
 # common prefix for all Fronter groups in cerebrum
 fg_prefix = "uit.no:fs"
 
+
 @memoize
-def get_skoinfo(fak, inst, avd):
+def get_skoinfo(db, co, fak, inst, avd):
     # Two digit stings each
 
-    logger.debug("Enter get_skoinfo with sko=%s%s%s" % (fak, inst, avd))
+    logger.debug("Enter get_skoinfo with sko=%s%s%s", fak, inst, avd)
     ou = Factory.get('OU')(db)
     ou.clear()
     ou.find_stedkode(fakultet=fak, institutt=inst, avdeling=avd,
@@ -121,7 +115,7 @@ def get_skoinfo(fak, inst, avd):
 
 
 def GetUndenhFile(xmlfile):
-    logger.debug("Parsing %s " % (xmlfile,))
+    logger.debug("Parsing %s ", xmlfile)
 
     def finn_emne_info(element, attrs):
         # if element <> 'undenhet':
@@ -146,7 +140,7 @@ def GetUndenhFile(xmlfile):
 
 
 def GetStudieprogFile(xmlfile):
-    logger.debug("Parsing %s " % (xmlfile,))
+    logger.debug("Parsing %s ", xmlfile)
 
     def finn_stprog_info(element, attrs):
         if element == 'studprog':
@@ -169,14 +163,14 @@ uname2accid = dict()
 accid2uname = dict()
 
 
-def GetADAccounts():
+def GetADAccounts(co, ac):
     logger.info("Retreiving active accounts with AD spread")
     for acc in ac.search(spread=co.spread_uit_ad_account):
         # if acc['account_id'] not in has_aff:
         #    continue
         uname2accid[acc['name']] = acc['account_id']
         accid2uname[acc['account_id']] = acc['name']
-    logger.debug("loaded %d accounts from cerebrum" % len(uname2accid))
+    logger.debug("loaded %d accounts from cerebrum", len(uname2accid))
 
 
 def isThisOrNextSemester(group_name):
@@ -193,9 +187,9 @@ def isThisOrNextSemester(group_name):
         return False
 
 
-def GetUndenhGroups():
+def GetUndenhGroups(db, co, ac, gr):
     grp_search_term = "%s:kurs*:student" % fg_prefix
-    logger.debug("Search for %s" % grp_search_term)
+    logger.debug("Search for %s", grp_search_term)
     groups = gr.search(name=grp_search_term)
     for group in groups:
         gname = group['name'].replace("%s:" % fg_prefix, '')
@@ -206,15 +200,15 @@ def GetUndenhGroups():
         member_list = list()
         for member in members:
             uname = accid2uname.get(member['member_id'], "")
-            if (uname == ""):
+            if uname == "":
                 logger.error(
-                    "group %s has member %s, that is not in usercache" % (
-                        gname, member))
+                    "group %s has member %s, that is not in usercache",
+                    gname, member)
             else:
                 member_list.append(uname)
         if len(member_list) == 0:
-            logger.warn("No members in group %s (%s)" % (
-                group['group_id'], group['name']))
+            logger.warn("No members in group %s (%s)",
+                        group['group_id'], group['name'])
             continue
 
         # gname should look like this now
@@ -244,11 +238,10 @@ def GetUndenhGroups():
         fak = emne_info[emnekode]['fak']
         inst = emne_info[emnekode]['inst']
         avd = emne_info[emnekode]['avd']
-        sko = "%s%s%s" % (fak, inst, avd)
-        skoinfo = get_skoinfo(fak, inst, avd)
+        skoinfo = get_skoinfo(db, co, fak, inst, avd)
 
-        logger.debug("Group:%s, emne:%s, CN:%s, mail=%s, descr=%s" % (
-            gname, emnekode, ad_commonname, ad_email, ad_descr))
+        logger.debug("Group:%s, emne:%s, CN:%s, mail=%s, descr=%s",
+                     gname, emnekode, ad_commonname, ad_email, ad_descr)
         group_dict[gname] = {'name': ad_commonname,
                              'samaccountname': ad_samaccountname,
                              'mail': ad_email,
@@ -276,9 +269,9 @@ def GetUndenhGroups():
                              }
 
 
-def GetStudieprogramgroups():
+def GetStudieprogramgroups(db, co, ac, gr):
     grp_search_term = "%s:kull*:student" % fg_prefix
-    logger.debug("Search term: %s" % grp_search_term)
+    logger.debug("Search term: %s", grp_search_term)
     groups = gr.search(name=grp_search_term)
     for group in groups:
         gname = group['name'].replace("%s:" % fg_prefix, '')
@@ -304,8 +297,8 @@ def GetStudieprogramgroups():
         ad_descr = "Studenter studieprogram %s (%s) kull %s/%s" % (
             stprogkode.upper(), stprog_info[stprogkode]['navn'], aar, sem)
         ad_displayname = ad_descr
-        logger.debug("Group:%s, stprog:%s, CN:%s, mail=%s, descr=%s" % (
-            gname, stprogkode, ad_commonname, ad_email, ad_descr))
+        logger.debug("Group:%s, stprog:%s, CN:%s, mail=%s, descr=%s",
+                     gname, stprogkode, ad_commonname, ad_email, ad_descr)
 
         members = gr.search_members(group_id=group['group_id'])
         member_list = list()
@@ -317,17 +310,17 @@ def GetStudieprogramgroups():
                 logger.error("Group %s has member %s that is not in usercache",
                              gname, member)
             else:
-                logger.debug("--->Adding %s" % (uname))
+                logger.debug("--->Adding %s", uname)
                 member_list.append(uname)
         if len(member_list) == 0:
-            logger.warn("No members in group %s (%s)" % (
-                group['group_id'], group['name']))
+            logger.warn("No members in group %s (%s)",
+                        group['group_id'], group['name'])
             continue
 
         fak = stprog_info[stprogkode]['fak']
         inst = stprog_info[stprogkode]['inst']
         avd = stprog_info[stprogkode]['avd']
-        skoinfo = get_skoinfo(fak, inst, avd)
+        skoinfo = get_skoinfo(db, co, fak, inst, avd)
         group_dict[gname] = {'name': ad_commonname,
                              'samaccountname': ad_samaccountname,
                              'mail': ad_email,
@@ -355,11 +348,9 @@ def GetStudieprogramgroups():
                              }
 
 
-def aggregate_studieprogram_groups():
+def aggregate_studieprogram_groups(ac):
     stprogs = dict()
     fakprogs = dict()
-    import pprint
-    pp = pprint.PrettyPrinter(indent=4)
 
     for gname, gdata in group_dict.iteritems():
         if gdata['extensionAttribute1'] != "studieprogram":
@@ -375,13 +366,10 @@ def aggregate_studieprogram_groups():
             proglevel = ".".join(items[0:i + 1])
             fakprogs.setdefault(proglevel, list()).append(data)
 
-    # print pp.pprint(stprogs)
-    # print pp.pprint(fakprogs)
-
     for stprogkode, gdata in stprogs.iteritems():
-        logger.debug("AGGRPROG: stprogkode=%s" % (stprogkode,))
+        logger.debug("AGGRPROG: stprogkode=%s", stprogkode)
         washed_stprogkode = ac.wash_email_local_part(stprogkode)
-        ad_commonname = "studieprogram.%s.studenter" % (washed_stprogkode)
+        ad_commonname = "studieprogram.%s.studenter" % washed_stprogkode
         ad_samaccountname = ad_commonname
         ad_email = "@".join((ad_samaccountname, "auto.uit.no"))
         ad_descr = "Studenter studieprogram %s (%s) Alle kull" % (
@@ -415,7 +403,7 @@ def aggregate_studieprogram_groups():
         }
 
     for fakpath, gdata in fakprogs.iteritems():
-        logger.debug("FAKPROG: fakpath=%s" % (fakpath,))
+        logger.debug("FAKPROG: fakpath=%s", fakpath)
         washed_fakpath = ac.wash_email_local_part(fakpath)
         ad_commonname = "studieprogram.%s.studenter" % (washed_fakpath)
         ad_samaccountname = ad_commonname
@@ -492,7 +480,7 @@ def writeXML(xmlfile=default_export_file):
     </xml>
     """
 
-    logger.info("Writing results to '%s'" % (xmlfile,))
+    logger.info("Writing results to '%s'", xmlfile)
     fh = open(xmlfile, 'w')
     xml = xmlprinter(fh, indent_level=2, data_mode=True,
                      input_encoding='ISO-8859-1')
@@ -504,7 +492,7 @@ def writeXML(xmlfile=default_export_file):
     xml.startElement('groups')
     for grpname, gdata in group_dict.iteritems():
         xml.startElement('group')
-        logger.debug("Writing %s" % grpname)
+        logger.debug("Writing %s", grpname)
         keys = gdata.keys()
         keys.sort()
         for k in keys:
@@ -513,7 +501,7 @@ def writeXML(xmlfile=default_export_file):
 
     for grpname, gdata in agrgroup_dict.iteritems():
         xml.startElement('group')
-        logger.debug("Writing %s" % grpname)
+        logger.debug("Writing %s", grpname)
         keys = gdata.keys()
         keys.sort()
         for k in keys:
@@ -523,7 +511,7 @@ def writeXML(xmlfile=default_export_file):
     xml.endElement('groups')
     xml.endElement('data')
     xml.endDocument()
-    logger.info("Writing results to '%s' done" % (xmlfile,))
+    logger.info("Writing results to '%s' done", xmlfile)
 
 
 def main(inargs=None):
@@ -536,23 +524,30 @@ def main(inargs=None):
     args = parser.parse_args(inargs)
     logutils.autoconf('console', args)  # TODO: Do we really want console here?
 
-    logger.debug("setting studieprogfile to '%s'" % args.studieprogfile)
-    logger.debug("setting undenhfile to '%s'" % args.undenhfile)
-    logger.debug("setting exportfile to '%s'" % args.exportfile)
+    logger.debug("setting studieprogfile to '%s'", args.studieprogfile)
+    logger.debug("setting undenhfile to '%s'", args.undenhfile)
+    logger.debug("setting exportfile to '%s'", args.exportfile)
     start = mx.DateTime.now()
+
+    db = Factory.get('Database')()
+    ac = Factory.get('Account')(db)
+    gr = Factory.get('Group')(db)
+    co = Factory.get('Constants')(db)
+
+    db.cl_init(change_program='ad_export_autogroups_undervisning')
 
     GetUndenhFile(xmlfile=args.undenhfile)
     GetStudieprogFile(xmlfile=args.studieprogfile)
-    GetADAccounts()
-    GetUndenhGroups()
-    GetStudieprogramgroups()
-    aggregate_studieprogram_groups()
+    GetADAccounts(co, ac)
+    GetUndenhGroups(db, co, ac, gr)
+    GetStudieprogramgroups(db, co, ac, gr)
+    aggregate_studieprogram_groups(ac)
     writeXML(xmlfile=args.exportfile)
 
     stop = mx.DateTime.now()
-    logger.debug("Started %s, ended %s" % (start, stop))
-    logger.debug("Script running time was %s" % (
-        (stop - start).strftime("%M minutes %S secs")))
+    logger.debug("Started %s, ended %s", start, stop)
+    logger.debug("Script running time was %s",
+                 (stop - start).strftime("%M minutes %S secs"))
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2009 University of Oslo, Norway
+# Copyright 2009-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
 """
 Usage:
 ADquickSync.py --url <domain> [options]
@@ -39,6 +37,7 @@ Example:
 ADquickSync.py --url https://mydomain.local:8000 --dryrun
 
 """
+from __future__ import unicode_literals
 
 import argparse
 import json
@@ -77,7 +76,7 @@ class ADquickSync(ADutils.ADuserUtil):
 
         self.logger.info('Retreiving changelog entries')
         answer = self.cl.get_events('AD', (self.co.account_password,))
-        self.logger.info('Found %s changes to process' % len(answer))
+        self.logger.info('Found %s changes to process', len(answer))
         retval = True
         for ans in answer:
             if ans['change_type_id'] == self.co.account_password:
@@ -92,7 +91,7 @@ class ADquickSync(ADutils.ADuserUtil):
                                             pw.encode("iso-8859-1"), dry_run)
             else:
                 self.logger.debug(
-                    "unknown change_type_id %i" % ans['change_type_id'])
+                    "unknown change_type_id %i", ans['change_type_id'])
             # We always confirm event, but only if it was successfull
             if retval:
                 self.cl.confirm_event(ans)
@@ -109,8 +108,8 @@ class ADquickSync(ADutils.ADuserUtil):
             self.ac.find(account_id)
         except Errors.NotFoundError:
             self.logger.warn(
-                "Account id %s had password change, but account not found" % (
-                    account_id))
+                "Account id %s had password change, but account not found",
+                account_id)
             return True
 
         if self.ac.has_spread(spread):
@@ -121,7 +120,7 @@ class ADquickSync(ADutils.ADuserUtil):
             ret = self.run_cmd('setPassword', dry_run, pwUnicode)
             if ret[0]:
                 self.logger.debug(
-                    'Changed password: %s' % self.ac.account_name)
+                    'Changed password: %s', self.ac.account_name)
                 return True
         else:
             # Account without ADspread, do nothing and return.
@@ -130,7 +129,7 @@ class ADquickSync(ADutils.ADuserUtil):
             return True
 
         # Something went wrong.
-        self.logger.error('Failed change password: %s' % self.ac.account_name)
+        self.logger.error('Failed change password: %s', self.ac.account_name)
         return False
 
 
