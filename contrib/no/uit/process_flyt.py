@@ -59,62 +59,57 @@ person_file = ''
 logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
 
 __doc__ = """
-    usage:: %s Generates user accounts and general user maintenance for flyt persons [-d] [-p] [-e]
-            All accounts will be created with an activation code. This is needed to remove the quarantine which
-            is default for all flyt accounts.
+    usage:: %s Generates user accounts and general user maintenance for flyt
+            persons [-d] [-p] [-e]
+            All accounts will be created with an activation code. This is
+            needed to remove the quarantine which is default for all flyt
+            accounts.
 
-    -t | --type [S/E]  : (S)tudent/(E)mployee 
+    -t | --type [S/E]  : (S)tudent/(E)mployee
     -d | --dryrun      : Do no commit changes to database
     -p | --person_file : Flyt-person file
-    -e | --email       : Will set email forward to email address from external organization (NOT IMPLEMENTED YET)
+    -e | --email       : Will set email forward to email address from external
+                         organization (NOT IMPLEMENTED YET)
     -h | --help        : This text
 
     --logger-name name: name of logger to use
     --logger-level level: loglevel to use
-""" % (progname)
+""" % progname
 
 
 def get_existing_accounts(person_type):
-    #
     # init local variables
-    #
     logger.info("Loading persons...")
     tmp_persons = {}
     pid2fnr = {}
     person_obj = Factory.get('Person')(db)
 
-    #
     # getting deceased persons
-    #
     logger.info("Loading deceased person list...")
     deceased = person_obj.list_deceased()
     for row in person_obj.list_external_ids(id_type=const.externalid_fodselsnr,
                                             source_system=const.system_flyt):
-        if (not pid2fnr.has_key(int(row['entity_id']))):
+        if not int(row['entity_id']) in pid2fnr:
             pid2fnr[int(row['entity_id'])] = row['external_id']
             tmp_persons[row['external_id']] = \
                 ExistingPerson(person_id=int(row['entity_id']))
 
-        if deceased.has_key(int(row['entity_id'])):
+        if int(row['entity_id']) in deceased:
             tmp_persons[row['external_id']].set_deceased_date(
                 deceased[int(row['entity_id'])])
 
-    #
     # Creating person affiliation list for flyt persons
-    #
     logger.info("Loading person affiliations...")
     for row in person.list_affiliations(source_system=const.system_flyt,
                                         fetchall=False):
         tmp = pid2fnr.get(int(row['person_id']), None)
         if tmp is not None:
             if is_ou_expired(row['ou_id']):
-                logger.warn("Skipping affiliation to ou_id %s (expired) for " \
-                            "person %s" % (
-                            row['ou_id'], int(row['person_id'])))
+                logger.warn("Skipping affiliation to ou_id %s (expired) for " +
+                            "person %s", row['ou_id'], int(row['person_id']))
                 continue
-            #
+
             # Create list of all person affiliations
-            # 
             tmp_persons[tmp].append_affiliation(int(row['affiliation']),
                                                 int(row['ou_id']),
                                                 int(row['status']))
@@ -123,14 +118,14 @@ def get_existing_accounts(person_type):
     account_obj = Factory.get('Account')(db)
     for row in account_obj.search(expire_start=None):
         a_id = row['account_id']
-        if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
+        if not row['owner_id'] or not int(row['owner_id']) in pid2fnr:
             continue
         account_name = row.name
-        if (account_name.endswith(cereconf.USERNAME_POSTFIX['sito'])):
+        if account_name.endswith(cereconf.USERNAME_POSTFIX['sito']):
             # This is a sito account. do not process as part of flyt accounts
             logger.debug(
-                "%s is a sito account. Do not process as part of flyt import" % (
-                    account_name))
+                "%s is a sito account. Do not process as part of flyt import",
+                account_name)
             continue
         tmp_ac[int(a_id)] = ExistingAccount(pid2fnr[int(row['owner_id'])],
                                             row['name'],
@@ -155,16 +150,15 @@ def get_existing_accounts(person_type):
     #
     # Spreads
     #
-    if (person_type == 'E'):
+    if person_type == 'E':
         # load employee spreadlists
-        logger.info(
-            "Loading spreads... %s " % cereconf.FLYT_EMPLOYEE_SPREADLIST)
+        logger.info("Loading spreads... %s", cereconf.FLYT_EMPLOYEE_SPREADLIST)
         spread_list = [int(const.Spread(x)) for x in
                        cereconf.FLYT_EMPLOYEE_SPREADLIST]
-    elif (person_type == 'S'):
+    elif person_type == 'S':
         # load student spreadlists
         logger.info(
-            "Loading spreads... %s " % cereconf.FLYT_STUDENT_SPREADLIST)
+            "Loading spreads... %s", cereconf.FLYT_STUDENT_SPREADLIST)
         spread_list = [int(const.Spread(x)) for x in
                        cereconf.FLYT_STUDENT_SPREADLIST]
 
@@ -203,12 +197,12 @@ def get_existing_accounts(person_type):
         tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None:
             if is_ou_expired(int(row['ou_id'])):
-                # logger.warn("Skipping affiliation to ou_id %s (expired) for " \
-                #     "account %s." % (row['ou_id'],int(row['account_id'])))
+                # logger.warn("Skipping affiliation to ou_id %s (expired)
+                # for account %s." % (row['ou_id'],int(row['account_id'])))
                 continue
             tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']),
                                    int(row['priority']))
-    ## persons accounts....
+    # persons accounts....
     for ac_id, tmp in tmp_ac.items():
         fnr = str(tmp_ac[ac_id].get_fnr())
         tmp_persons[fnr].append_account(ac_id)
@@ -216,8 +210,8 @@ def get_existing_accounts(person_type):
             aff, ou_id, pri = aff
             tmp_persons[fnr].set_primary_account(ac_id, pri)
 
-    logger.info(" found %i persons and %i accounts in database" % (
-        len(tmp_persons), len(tmp_ac)))
+    logger.info(" found %i persons and %i accounts in database",
+                len(tmp_persons), len(tmp_ac))
     return tmp_persons, tmp_ac
 
 
@@ -239,10 +233,10 @@ class Build:
     def parse(self, person_file):
         dict_keys = []
 
-        logger.info("Loading %s" % person_file)
+        logger.info("Loading %s", person_file)
 
-        if (os.path.isfile(person_file) == False):
-            logger.error("File:%s does not exist. Exiting" % person_file)
+        if not os.path.isfile(person_file):
+            logger.error("File:%s does not exist. Exiting", person_file)
             sys.exit(1)
         # datafile = libxml2.parseFile(person_file)
         # ctxt = datafile.xpathNewContext()
@@ -252,7 +246,7 @@ class Build:
         for person in fh:
             person = person.rstrip()
             person = person.decode("utf-8").encode("iso8859-1")
-            if (person[0] == "#"):
+            if person[0] == "#":
                 # comment. Get dict keys
                 person = person.lstrip("#").lstrip().rstrip()
                 dict_keys = person.split(";")
@@ -269,17 +263,20 @@ class Build:
                     affiliation_type = pers_dict['eduPersonAffiliation']
                     self.expire_date[ssn] = pers_dict['expire_date']
                     self.email[ssn] = pers_dict['mail']
-                except KeyError, m:
+                except KeyError:
                     logger.warn(
-                        "person:%s is missing required keys. Processing stopped for this person" % pers_dict)
+                        "person:%s is missing required keys. Processing " +
+                        "stopped for this person", pers_dict)
                     continue
-                # only collect persons with eduPersonAffiliation equal to faculty or staff
-                if ((('faculty' in affiliation_type) or (
-                        'staff' in affiliation_type)) and (self.type == 'E')):
+                # only collect persons with eduPersonAffiliation equal to
+                # faculty or staff
+                if ('faculty' in affiliation_type or 'staff' in
+                        affiliation_type) and self.type == 'E':
                     # logger.info("appending:%s to personlist" % (ssn))
                     self.source_personlist.append(ssn)
-                # only collect persons with eduPersonAffiliation equal to student
-                elif (('student' in affiliation_type) and (self.type == 'S')):
+                # only collect persons with eduPersonAffiliation equal to
+                # student
+                elif 'student' in affiliation_type and self.type == 'S':
                     # logger.info("appending:%s to personlist" % (ssn))
                     self.source_personlist.append(ssn)
 
@@ -314,7 +311,8 @@ class Build:
                     break
 
         # need atleast one aff to give exchange spread
-        # logger.debug("acc_affs=%s,in filter=%s, result=%s" % (Set(all_affs),tmp,Set(all_affs)-tmp))
+        # logger.debug("acc_affs=%s,in filter=%s, result=%s" % (Set(all_affs)
+        # ,tmp,Set(all_affs)-tmp))
         if Set(all_affs) - tmp:
             default_spreads.append(int(const.Spread('exchange_mailbox')))
         return default_spreads
@@ -323,11 +321,12 @@ class Build:
     # send email to new user that the account is now ready
     #
     def notify_user(self, email, username):
-        if (os.path.isfile(self.email_template) != True):
+        if not os.path.isfile(self.email_template):
             logger.error("Unable to find email template. Exiting")
             sys.exit(1)
         else:
-            # couldnt get ConfigParser to read emptylines, so not using that to read template file :(
+            # couldnt get ConfigParser to read emptylines, so not using that
+            # to read template file :(
             # email_body =''
             # fh = open(self.email_template)
             # lines = fh.readlines()
@@ -343,14 +342,16 @@ class Build:
             template.empty_lines_in_values = False
             template.allow_no_value = True
             template.read(self.email_template)
-            print "email is:%s" % email
+            print("email is:%s" % email)
             email = "%s,bas-admin@cc.uit.no" % email
             email_from = template.get('NOTIFY_1', 'from')
             email_subject = template.get('NOTIFY_1', 'subject')
             email_body = template.get('NOTIFY_1', 'body')
             email_body = email_body.replace('USERNAME', username)
 
-            # stupid ConfigParser. Cannot get it to read newlines. When newlines are added to template file. ConfigParser adds yet a newline
+            # stupid ConfigParser. Cannot get it to read newlines. When
+            # newlines are added to template file. ConfigParser adds yet a
+            # newline
             # so: \n on empty line is now suddenly: \n\\n\n.
             # replace \\n with ''
             email_body = email_body.replace('\\n', '')
@@ -358,21 +359,21 @@ class Build:
             foo = Utils.sendmail(email, email_from, email_subject,
                                  email_body.decode('utf-8').encode(
                                      "iso-8859-1"), cc, debug=False)
-            logger.info("sendmail returned:%s" % foo)
+            logger.info("sendmail returned:%s", foo)
 
     #
     # create an account for every person processed
     #
     def process_person(self, fnr, expire_date):
-        logger.info("\t ### Process person %s ###" % (fnr))
+        logger.info("\t ### Process person %s ###", fnr)
         # logger.info("ssn is type:%s" % type(fnr))
         # logger.info("person data from persons list:")
         # pprint(persons[int(fnr)])
         p_obj = persons.get(fnr, None)
         if not p_obj:
             logger.warn(
-                "Unknown person %s. Processing stopped for this person" % (
-                fnr,))
+                "Unknown person %s. Processing stopped for this person",
+                fnr)
             return None
 
         changes = []
@@ -389,9 +390,9 @@ class Build:
         # print "EMAIL IS:%s" % self.email[fnr]
         # foo = "CONCAT EMAIL IS:%s,bas-admin@cc.uit.no" % self.email[fnr]
         # print foo
-        if new_account == True:
+        if new_account:
             self.notify_user(self.email[fnr], acc_obj.get_uname())
-        logger.info("Update account %s/%d" % (acc_obj.get_uname(), acc_id))
+        logger.info("Update account %s/%d", acc_obj.get_uname(), acc_id)
 
         # check if account is a posix account
         if not acc_obj.get_posix():
@@ -399,37 +400,43 @@ class Build:
 
         # Update expire if needed
         current_expire_string = str(acc_obj.get_expire_date())
-        print "current_expire_string:%s" % current_expire_string
-        if new_account == False:
+        print("current_expire_string:%s" % current_expire_string)
+        if not new_account:
             current_expire = mx.DateTime.Date(int(current_expire_string[0:4]),
                                               int(current_expire_string[5:7]),
                                               int(current_expire_string[8:10]))
         else:
             current_expire = current_expire_string
-        logger.debug("account current expire is:%s" % current_expire)
+        logger.debug("account current expire is:%s", current_expire)
         today = mx.DateTime.today()
-        logger.debug("today is:%s" % today)
+        logger.debug("today is:%s", today)
 
-        #
-        # Calculate expire_date.
-        #
-        # NEW ACCOUNT: expire_date  = today + lokal_org_expire_date/account_ttl from flyt data
-        #
-        # UPDATE_ACCOUNT(everyday): handle/change expire_date only when today > account.expire_date
-        #		If account is no longer in flyt data:
-        #			   Do not touch expire_date (account closes)
-        #		If account is in flyt data:
-        #		   if last_seen + expire_date > today:
-        #	              update_expire_date(but not to a date after agreement_expire_date)
-        #
-        if (today > current_expire):
+        """
+        Calculate expire_date.
+        NEW ACCOUNT: expire_date  = today +
+        lokal_org_expire_date/account_ttl from flyt data
+
+        UPDATE_ACCOUNT(everyday): handle/change expire_date only when today
+            > account.expire_date
+            If account is no longer in flyt data:
+                Do not touch expire_date (account closes)
+            If account is in flyt data:
+                if last_seen + expire_date > today:
+                    update_expire_date(but not to a date after
+                        agreement_expire_date)
+        """
+        if today > current_expire:
             #
-            # account expire date is reached. Check if expire date from flyt is changed.
+            # account expire date is reached. Check if expire date from flyt
+            # is changed.
             #
-            # This is not trivial. All flyt accounts are created with an expire date = today + 12 months.
-            # When an accounts expire date has been reached. the program checks if a newer exire date exists
-            # in the data received from the flyt server. The problem here is that if such an expire date exists. There is no
-            # way to determine if this date is in fact a valid expire date, or if its been set wrongly in the first place.
+            # This is not trivial. All flyt accounts are created with an
+            # expire date = today + 12 months.
+            # When an accounts expire date has been reached. the program
+            # checks if a newer exire date exists in the data received from
+            # the flyt server. The problem here is that if such an expire date
+            # exists. There is no way to determine if this date is in fact a
+            # valid expire date, or if its been set wrongly in the first place.
             #
             #
             logger.debug("account expire date reached")
@@ -437,32 +444,36 @@ class Build:
             mx_flyt_expire = mx.DateTime.Date(int(flyt_expire[0:4]),
                                               int(flyt_expire[5:7]),
                                               int(flyt_expire[8:10]))
-            if (mx_flyt_expire > today):
+            if mx_flyt_expire > today:
                 # OK
                 new_expire = str(get_expire_date(flyt_expire))
                 logger.debug(
-                    "new expire date from flyt data. update expire date to:%s" % new_expire)
+                    "new expire date from flyt data. update expire date " +
+                    "to:%s", new_expire)
             else:
                 #
-                # Flyt data does not contain any new expire dates. Use old (and no longer valid) date
+                # Flyt data does not contain any new expire dates. Use old
+                # (and no longer valid) date
                 #
                 # OK
                 logger.debug("no new expire date from flyt data")
                 new_expire = current_expire
         else:
             #
-            # Have not reached accounts current expire date. use current expire date.
+            # Have not reached accounts current expire date. use current
+            # expire date.
             #
             logger.debug("have not reached accounts expire date")
-            if new_account == True:
+            if new_account:
                 # OK
                 logger.debug(
-                    "use account OBJECT exire date:%s" % acc_obj.get_expire_date())
+                    "use account OBJECT exire date:%s",
+                    acc_obj.get_expire_date())
                 new_expire = acc_obj.get_expire_date()
             else:
                 # OK
                 logger.debug(
-                    "use account in DB expire_date:%s" % current_expire)
+                    "use account in DB expire_date:%s", current_expire)
                 new_expire = current_expire
         # expire account if person is deceased
         new_deceased = False
@@ -470,13 +481,13 @@ class Build:
             new_expire = str(p_obj.get_deceased_date())
             if current_expire != new_expire:
                 logger.warn(
-                    "Account owner deceased: %s. Processing stopped for this person" % (
-                        acc_obj.get_uname()))
+                    "Account owner deceased: %s. Processing stopped for " +
+                    "this person", acc_obj.get_uname())
                 new_deceased = True
 
         logger.debug(
-            "Current expire %s, new expire %s" % (current_expire, new_expire))
-        if (new_expire > current_expire) or new_deceased:
+            "Current expire %s, new expire %s", current_expire, new_expire)
+        if new_expire > current_expire or new_deceased:
             changes.append(('expire_date', "%s" % new_expire))
 
         # check account affiliation and status
@@ -495,7 +506,7 @@ class Build:
             to_add = def_spreads - cb_spreads
             if to_add:
                 logger.info(
-                    "change in spread. add following spreads:%s" % to_add)
+                    "change in spread. add following spreads:%s", to_add)
                 changes.append(('spreads_add', to_add))
 
             # Set spread expire date
@@ -512,10 +523,7 @@ class Build:
                 changes.append(('quarantine_del', qt))
 
         if changes:
-            logger.debug("Changes [%i/%s]: %s" % (
-                acc_id,
-                fnr,
-                repr(changes)))
+            logger.debug("Changes [%i/%s]: %s", acc_id, fnr, repr(changes))
             _handle_changes(acc_id, changes)
 
 
@@ -530,12 +538,12 @@ def _promote_posix(acc_obj):
     try:
         pu.populate(uid, group.entity_id, None, shell, parent=acc_obj)
         pu.write_db()
-    except Exception, msg:
-        logger.warn("Error during promote_posix. Error was: %s" % msg)
+    except Exception as msg:
+        logger.warn("Error during promote_posix. Error was: %s", msg)
         return False
     # only gets here if posix user created successfully
-    logger.info("%s promoted to posixaccount (uidnumber=%s)" % \
-                (acc_obj.account_name, uid))
+    logger.info("%s promoted to posixaccount (uidnumber=%s)",
+                acc_obj.account_name, uid)
     return True
 
 
@@ -564,14 +572,13 @@ def _handle_changes(a_id, changes):
         elif ccode == 'update_mail':
             update_email(a_id, cdata)
         else:
-            logger.warn("Changing %s/%d: Unknown changecode: %s, " \
-                        "changedata=%s" % (
-                        ac.account_name, a_id, ccode, cdata))
+            logger.warn("Changing %s/%d: Unknown changecode: %s, " +
+                        "changedata=%s", ac.account_name, a_id, ccode, cdata)
             continue
     ac.write_db()
     if do_promote_posix:
         _promote_posix(ac)
-    logger.info("All changes written for %s/%d" % (ac.account_name, a_id))
+    logger.info("All changes written for %s/%d", ac.account_name, a_id)
 
 
 def _populate_account_affiliations(account_id, fnr):
@@ -585,10 +592,10 @@ def _populate_account_affiliations(account_id, fnr):
     for aff, ou, pri in tmp_affs:
         account_affs.append((aff, ou))
 
-    logger.debug("Person %s has affs=%s" % \
-                 (fnr, persons[fnr].get_affiliations()))
-    logger.debug("Account_id=%s,Fnr=%s has account affs=%s" % \
-                 (account_id, fnr, account_affs))
+    logger.debug("Person %s has affs=%s",
+                 fnr, persons[fnr].get_affiliations())
+    logger.debug("Account_id=%s,Fnr=%s has account affs=%s",
+                 account_id, fnr, account_affs)
     ou_list = tmp_ou.list_all_with_perspective(const.perspective_fs)
 
     for aff, ou, status in persons[fnr].get_affiliations():
@@ -597,9 +604,9 @@ def _populate_account_affiliations(account_id, fnr):
             if i[0] == ou:
                 valid_ou = True
 
-        if valid_ou == False:
+        if not valid_ou:
             logger.debug(
-                "ignoring aff:%s, ou:%s, status:%s" % (aff, ou, status))
+                "ignoring aff:%s, ou:%s, status:%s", aff, ou, status)
             # we have an account affiliation towards and none FS ou. ignore it.
             continue
         if not (aff, ou) in account_affs:
@@ -613,12 +620,13 @@ def _populate_account_affiliations(account_id, fnr):
 #
 def create_flyt_account(fnr, expire_date):
     logger.debug(
-        "creating account for person:%s. flyt wants expire date to be:%s" % (
-        fnr, expire_date))
+        "creating account for person:%s. flyt wants expire date to be:%s",
+        fnr, expire_date)
     owner = persons.get(fnr)
     if not owner:
         logger.error(
-            "Cannot create account to person %s, not from flyt. Processing stopped for this person" % fnr)
+            "Cannot create account to person %s, not from flyt. Processing " +
+            "stopped for this person", fnr)
         return None
 
     p_obj = Factory.get('Person')(db)
@@ -638,17 +646,17 @@ def create_flyt_account(fnr, expire_date):
 
     try:
         acc_obj.write_db()
-    except Exception, m:
+    except Exception as m:
         logger.warn(
-            "Failed create for %s, uname=%s, reason: %s. Processing stopped for this person" % \
-            (fnr, uname, m))
+            "Failed create for %s, uname=%s, reason: %s. Processing " +
+            "stopped for this person", fnr, uname, m)
     else:
         pwd = acc_obj.make_passwd(uname)
         acc_obj.set_password(pwd)
 
     tmp = acc_obj.write_db()
-    logger.debug("Created account %s(%s), write_db=%s, with password:%s" % \
-                 (uname, acc_obj.entity_id, tmp, pwd))
+    logger.debug("Created account %s(%s), write_db=%s, with password:%s",
+                 uname, acc_obj.entity_id, tmp, pwd)
 
     # register new account obj in existing accounts list
     accounts[acc_obj.entity_id] = ExistingAccount(fnr, uname, None)
@@ -661,7 +669,7 @@ def is_ou_expired(ou_id):
     try:
         ou.find(ou_id)
         # exp.is_expired(ou)
-    except EntityExpiredError, msg:
+    except EntityExpiredError:
         return True
     else:
         return False
@@ -864,7 +872,7 @@ get_sko = simple_memoize(get_sko)
 # All flyt accounts have their default expire date set to today + 12 months
 #
 def get_expire_date(flyt_expire_date=None):
-    if flyt_expire_date == None:
+    if flyt_expire_date is None:
         #
         # Force expire date to be today + 12 months
         #
@@ -887,17 +895,17 @@ def get_expire_date(flyt_expire_date=None):
     # nextMonth = today + mx.DateTime.DateTimeDelta(30)
 
     if cerebrum_expire > ff_start and cerebrum_expire < ff_slutt:
-        print "1. expire date is set to:%s" % mx.DateTime.DateTime(today.year,
-                                                                   9, 1)
+        print("1. expire date is set to:%s" % mx.DateTime.DateTime(today.year,
+                                                                   9, 1))
         return mx.DateTime.DateTime(today.year, 9, 1)
     else:
-        print "2. expire date is set to:%s" % cerebrum_expire
+        print("2. expire date is set to:%s" % cerebrum_expire)
         return cerebrum_expire
 
 
 def get_expire_date_old(expire_date):
     """ calculate a default expire date
-    Take into consideration that we do not want an expire date  
+    Take into consideration that we do not want an expire date
     in the general holiday time in Norway
     """
     today = mx.DateTime.today()
@@ -927,15 +935,15 @@ def main():
                                    ['email_template=', 'type=', 'dryrun',
                                     'person_file=', 'email', 'help',
                                     'time_to_live'])
-    except getopt.GetoptError, m:
-        logger.error("Unknown option:%s" % (m))
+    except getopt.GetoptError as m:
+        logger.error("Unknown option:%s", m)
         usage()
 
     for opt, val in opts:
         if opt in ('T', '--time_to_live'):
             ttl = val
-            if (ttl.isdigit() != True):
-                print "time to live must be set with digits"
+            if not ttl.isdigit():
+                print("time to live must be set with digits")
                 usage()
         if opt in ('-E', '--email_template'):
             email_template_file = val
@@ -946,21 +954,22 @@ def main():
             logger.info('dryrun chosen, will not commit changes')
         if opt in ('-p', '--person_file'):
             flyt_person_file = val
-            logger.info("Loading flyt person file:%s" % flyt_person_file)
+            logger.info("Loading flyt person file:%s", flyt_person_file)
         if opt in ('-e', '--email'):
             email_forward = True
             logger.info(
-                'will set email forward to email address from external organization')
+                'will set email forward to email address from external '
+                'organization')
         if opt in ('-h', '--help'):
             usage()
 
     if person_type not in ('S', 'E'):
-        print "type must be either[S]tudent or [E]mployee"
-        usage
+        print("type must be either[S]tudent or [E]mployee")
+        usage()
     else:
-        if (person_type == 'S'):
+        if person_type == 'S':
             logger.debug("Processing Students...")
-        elif (person_type == 'E'):
+        elif person_type == 'E':
             logger.debug("Processing Employees...")
     #
     # Get existing accounts from database
@@ -997,7 +1006,7 @@ def main():
 
 
 def usage():
-    print __doc__
+    print(__doc__)
     sys.exit(1)
 
 
