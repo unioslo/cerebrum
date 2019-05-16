@@ -28,13 +28,13 @@ import sys
 
 import mx.DateTime
 
-pp = pprint.PrettyPrinter(indent=4)
-
 # Cerebrum imports
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.no import fodselsnr
+
+pp = pprint.PrettyPrinter(indent=4)
 
 # Global variables
 db = Factory.get('Database')()
@@ -51,8 +51,9 @@ db.cl_init(change_program=progname)
 __doc__ = """ Usage: %s [-p personfile] [-h | --help ][--logger-name]
 -h | --help        :   this text
 -p | --person_file :   Path to person file from generate_flyt.py
--a | --all_nodes   :   persons and accounts get all affiliations received from Feide. Default
-                       is to only set affiliations for the highest affiliation in any single path.
+-a | --all_nodes   :   persons and accounts get all affiliations received from
+                       Feide. Default is to only set affiliations for the
+                       highest affiliation in any single path.
                        see: https://www.feide.no/attribute/edupersonaffiliation
 -l | --logger-name :
 """ % (progname)
@@ -60,8 +61,8 @@ __doc__ = """ Usage: %s [-p personfile] [-h | --help ][--logger-name]
 
 def usage(exitcode=0, msg=None):
     if msg:
-        print msg
-    print __doc__
+        print(msg)
+    print(__doc__)
     sys.exit(exitcode)
 
 
@@ -72,7 +73,7 @@ def load_all_affi_entry():
     affi_list = {}
     for row in db_person.list_affiliations(source_system=const.system_flyt):
         key_l = "%s:%s:%s" % (
-        row['person_id'], row['ou_id'], row['affiliation'])
+            row['person_id'], row['ou_id'], row['affiliation'])
         affi_list[key_l] = True
     # print "returning;%s" % affi_list
     return (affi_list)
@@ -86,7 +87,7 @@ def clean_affi_s_list():
         # logger.info("clean_affi_s_list: k=%s,v=%s" % (k,v))
 
         if v:
-            print "V is set"
+            print("V is set")
             [ent_id, ou, affi] = [int(x) for x in k.split(':')]
             db_person.clear()
             db_person.entity_id = int(ent_id)
@@ -94,17 +95,16 @@ def clean_affi_s_list():
                                                ou_id=ou,
                                                source_system=const.system_flyt)
             for aff in affs:
-                print "HAS AFFS"
+                print("HAS AFFS")
                 last_date = datetime.datetime.fromtimestamp(aff['last_date'])
                 end_grace_period = last_date + \
-                                   datetime.timedelta(
-                                       days=cereconf.FLYT_GRACEPERIOD)
+                    datetime.timedelta(days=cereconf.FLYT_GRACEPERIOD)
 
                 if datetime.datetime.today() > end_grace_period:
-                    logger.warn("Deleting system_flyt affiliation for " \
-                                "person_id=%s,ou=%s,affi=%s last_date=%s,grace=%s" % \
-                                (ent_id, ou, affi, last_date,
-                                 cereconf.GRACEPERIOD_EMPLOYEE))
+                    logger.warn("Deleting system_flyt affiliation for " +
+                                "person_id=%s,ou=%s,affi=%s last_date=%s," +
+                                "grace=%s", ent_id, ou, affi, last_date,
+                                cereconf.GRACEPERIOD_EMPLOYEE)
                     db_person.delete_affiliation(ou, affi, const.system_flyt)
 
 
@@ -179,8 +179,8 @@ def import_person(persons, all_nodes):
             # print "birth_year:'%s'" % person_to_be_processed['birth_year']
         except ValueError:
             logger.warning(
-                "Empty Birthdate for person named:%s %s. Continue with next person" % (
-                person_list[1], person_list[2]))
+                "Empty Birthdate for person named:%s %s. Continue with " +
+                "next person", person_list[1], person_list[2])
             continue
         except IndexError:
             logger.warning("empty person file?")
@@ -192,9 +192,12 @@ def import_person(persons, all_nodes):
             person_to_be_processed['ssn'] = person_list[0]
         except fodselsnr.InvalidFnrError:
             logger.warning(
-                "Empty or non-valid ssn %s for person:%s %s from :%s. Continue with next person" % (
-                person_list[0], person_list[1], person_list[2],
-                person_list[4]))
+                "Empty or non-valid ssn %s for person:%s %s from :%s. " +
+                "Continue with next person",
+                person_list[0],
+                person_list[1],
+                person_list[2],
+                person_list[4])
             # ssn_not_valid = True
             # person_to_be_processed['ssn'] = ''
             continue
@@ -202,14 +205,15 @@ def import_person(persons, all_nodes):
         # set person gender
         # gender = const.gender_male
         gender = const.gender_male
-        if (ssn_not_valid == False):
-            if (fodselsnr.er_kvinne(person_to_be_processed['ssn'])):
+        if not ssn_not_valid:
+            if fodselsnr.er_kvinne(person_to_be_processed['ssn']):
                 gender = const.gender_female
         else:
-            # Impossible to set gender. Return error message and set gender to unknown
+            # Impossible to set gender. Return error message and set gender to
+            # unknown
             logger.warning(
-                "Impossible to set gender for person:%s %s. Using Unknown" % (
-                person_list[1], person_list[2]))
+                "Impossible to set gender for person:%s %s. Using Unknown",
+                person_list[1], person_list[2])
             gender = const.gender_unknown
 
         # set gender
@@ -221,12 +225,13 @@ def import_person(persons, all_nodes):
         person_to_be_processed['lastname'] = person_list[2]
         # print "lastname:%s" % person_to_be_processed['lastname']
 
-        if ((person_to_be_processed['firstname'].isspace() == True) or (
-                person_to_be_processed['lastname'].isspace() == True)):
+        if (person_to_be_processed['firstname'].isspace() or
+                person_to_be_processed['lastname'].isspace()):
             # Firstname and/or lastname is made of whitespace ONLY.
             # generate error message and continue with NEXT person
             logger.warn(
-                "missing first and/or lastname for person:%s. Person NOT imported" % person)
+                "missing first and/or lastname for person:%s. Person NOT " +
+                "imported", person)
             continue
 
         # set correct encoding
@@ -257,14 +262,16 @@ def import_person(persons, all_nodes):
         #
         try:
             db_person.populate(
-                mx.DateTime.Date(int(person_to_be_processed['birth_year'])
-                                 , int(person_to_be_processed['birth_month'])
-                                 , int(person_to_be_processed['birth_day']))
-                , int(person_to_be_processed['gender']))
-        except Errors.CerebrumError, m:
-            # unable to populate person object. Return error message and continue with next person
-            logger.error("Person:%s population failed" % (
-            person_to_be_processed['ssn'], m))
+                mx.DateTime.Date(int(person_to_be_processed['birth_year']),
+                                 int(person_to_be_processed['birth_month']),
+                                 int(person_to_be_processed['birth_day'])),
+                int(person_to_be_processed['gender']))
+        except Errors.CerebrumError as m:
+            # unable to populate person object. Return error message and
+            # continue with next person
+            logger.error("Person:%s population failed",
+                         person_to_be_processed['ssn'],
+                         m)
             continue
 
         # affect name and external id
@@ -282,13 +289,14 @@ def import_person(persons, all_nodes):
                                        const.externalid_fodselsnr,
                                        person_to_be_processed['ssn'])
 
-        # In case this is a new person, we will need to write to DB before we can continue.
+        # In case this is a new person, we will need to write to DB before
+        # we can continue.
         try:
             op = db_person.write_db()
-        except db.IntegrityError, e:
+        except db.IntegrityError as e:
             db_person.clear()
             db.rollback()
-            logger.info("Error:%s - person not imported to BAS" % (e))
+            logger.info("Error:%s - person not imported to BAS", e)
             continue
 
         # op = db_person.write_db()
@@ -296,7 +304,8 @@ def import_person(persons, all_nodes):
         # Determine person affiliation and affiliation_status
         det_ou, det_affiliation = determine_affiliation(person_list, all_nodes)
 
-        # logger.debug(" --- from determine affiliation, the following is calculated ---")
+        # logger.debug(" --- from determine affiliation, the following is
+        # calculated ---")
         # pp.pprint(det_affiliation)
 
         for single_ou in det_ou:
@@ -308,9 +317,9 @@ def import_person(persons, all_nodes):
                                  single_ou[4:6],
                                  cereconf.DEFAULT_INSTITUSJONSNR)
                 logger.debug(
-                    "setting:: ou_id:%s, aff:%s, aff_stat:%s for person:%s" % (
-                        int(ou.entity_id), int(new_aff), int(new_aff_stat),
-                        db_person.entity_id))
+                    "setting:: ou_id:%s, aff:%s, aff_stat:%s for person:%s",
+                    int(ou.entity_id), int(new_aff), int(new_aff_stat),
+                    db_person.entity_id)
 
                 db_person.populate_affiliation(const.system_flyt,
                                                ou.entity_id,
@@ -319,12 +328,12 @@ def import_person(persons, all_nodes):
                 k = "%s:%s:%s" % (db_person.entity_id, int(ou.entity_id),
                                   int(new_aff))
                 if include_del:
-                    if cere_list.has_key(k):
+                    if k in cere_list:
                         cere_list[k] = False
 
         # store mobile for those that has it
         # contact = determine_contact(db_person)
-        if (len(person_list[13]) > 1):
+        if len(person_list[13]) > 1:
             person_list[13]
             logger.debug("has mobile:%s" % person_list[13])
             number = person_list[13]
@@ -342,7 +351,7 @@ def import_person(persons, all_nodes):
 
         if op is None and op2 is None:
             logger.info("**** EQUAL ****")
-        elif op == True:
+        elif op:
             logger.info("**** NEW ****")
         else:
             logger.info("**** UPDATE  (%s:%s) ****" % (op, op2))
@@ -373,16 +382,16 @@ def determine_affiliation(person_list, all_nodes):
     # pp.pprint(person_list)
     affiliation_status = person_list[6].split(",")
 
-    if (all_nodes == False):
+    if not all_nodes:
         #
-        # We only set affiliations with the highest value in the hierarcy of any single path.
-        # Im not really happy about how its done here, but it will have to do for now.
-        #
+        # We only set affiliations with the highest value in the hierarcy of
+        # any single path. Im not really happy about how its done here,
+        # but it will have to do for now.
         logger.debug(
             "only setting affiliations with the highest value in the hierachy")
         not_valid = []
         for status in affiliation_status:
-            if (status in not_valid):
+            if status in not_valid:
                 # already exists. Do not append value
                 # print "%s is in the not valid list. pass" % status
                 pass
@@ -393,17 +402,19 @@ def determine_affiliation(person_list, all_nodes):
                     # print "single aff elem:%s" % elem
                     if elem not in not_valid:
                         not_valid.append(elem)
-                        # print "adding:%s to list of not valid affiliations" % elem
+                        # print "adding:%s to list of not valid affiliations"
+                        # % elem
 
                     if status not in calculated_aff_stat:
-                        # print "appending:%s to final affiliation list" % status
+                        # print "appending:%s to final affiliation list" %
+                        # status
                         calculated_aff_stat.append(status)
 
                     try:
                         calculated_aff_stat.remove(elem)
                         # print "removing:%s from calcualated aff list" % elem
                         # print_r(calculated_aff_stat)
-                    except:
+                    except ValueError:
                         pass
 
         # logger.debug("not valid list now contains:%s" % not_valid)
@@ -421,18 +432,18 @@ def determine_affiliation(person_list, all_nodes):
         for aff in aff_list:
             try:
                 affiliation_status = \
-                cereconf.FLYT_AFF[person_list[3]][aff_s][person_list[8]][aff][
-                    'affiliation_status']
+                    cereconf.FLYT_AFF[person_list[3]][aff_s][person_list[
+                        8]][aff]['affiliation_status']
                 aff_stat[
                     cereconf.FLYT_AFF[person_list[3]][aff_s][person_list[8]][
                         aff]['affiliation']] = affiliation_status
                 ou.append(
                     cereconf.FLYT_AFF[person_list[3]][aff_s][person_list[8]][
                         aff]['stedkode'])
-            except KeyError, m:
+            except KeyError as m:
                 logger.error(
-                    "ERROR: %s is not a valid authentication value for person:%s" % (
-                    m, person_list[0]))
+                    "ERROR: %s is not a valid authentication value for " +
+                    "person:%s", m, person_list[0])
     pp.pprint(aff_stat)
 
     if len(ou) == 0:
@@ -446,12 +457,13 @@ def determine_affiliation(person_list, all_nodes):
 
 
 def get_person_data(person_file):
-    print "get_person_data"
+    print("get_person_data")
     fp = open(person_file, 'r')
     content = fp.readlines()
     for person in content:
-        if (person[0] == '#'):
-            # Weee deleting entry inside a loop..really shouldnt do this. scary!
+        if person[0] == '#':
+            # Weee deleting entry inside a loop..really shouldnt do this.
+            # scary!
             del content[0]
     return content
 
@@ -469,7 +481,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 'ardp:',
                                    ['all_nodes', 'include_delete', 'dryrun',
                                     'person_file='])
-    except getopt.GetoptError, m:
+    except getopt.GetoptError as m:
         usage(1, m)
 
     for opt, val in opts:
@@ -482,20 +494,20 @@ def main():
         if opt in ('-a', 'all_nodes'):
             all_nodes = True
 
-    if (include_del == True):
+    if include_del:
         cere_list = load_all_affi_entry()
 
     person_list = get_person_data(default_person_filename)
     pp.pprint(person_list)
     import_person(person_list, all_nodes)
 
-    if (include_del == True):
+    if include_del:
         clean_affi_s_list()
 
-    if (dryrun == False):
+    if not dryrun:
         logger.info("Commiting to DB")
         db.commit()
-    elif (dryrun == True):
+    elif dryrun:
         logger.warning("Dryrun. NOT commiting to DB")
         db.rollback()
 
