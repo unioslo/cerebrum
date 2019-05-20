@@ -26,6 +26,8 @@ from Cerebrum.modules.bofhd.cmd_param import (
 )
 from Cerebrum.modules.legacy_users import LegacyUsers
 from Cerebrum.modules.bofhd import bofhd_core
+from Cerebrum.modules.bofhd import bofhd_core_help
+from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.no.uit import bofhd_auth
 
 
@@ -47,6 +49,17 @@ class BofhdUiTExtension(bofhd_core.BofhdCommonMethods):
     all_commands = {}
     parent_commands = False
     authz = bofhd_auth.UitAuth
+
+    @classmethod
+    def get_help_strings(cls):
+        cmds = {
+            'misc': {
+                'misc_list_legacy_user': 'List reserved usernames',
+            },
+        }
+        return merge_help_strings(
+            bofhd_core_help.get_help_strings(),
+            ({}, cmds, {}))
 
     #
     # UiT special table for reserved usernames. Usernames that is reserved due
