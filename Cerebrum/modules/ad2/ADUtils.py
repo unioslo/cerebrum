@@ -438,6 +438,8 @@ class ADclient(PowershellClient):
                 raise SetAttributeException(code, stderr, output)
             if 'The command line is too long' in stderr:
                 raise CommandTooLongException(code, stderr, output)
+            if 'The filename or extension is too long' in stderr:
+                raise CommandTooLongException(code, stderr, output)
             if re.search("Move-ADObject : .+object's paren.+is either "
                          "uninstantiated or deleted",
                          stderr, re.DOTALL):

@@ -32,7 +32,7 @@ from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum.utils.argutils import add_commit_args
 
 import cereconf
-import mx
+import mx.DateTime
 import six
 
 # Globals
@@ -92,8 +92,8 @@ class FsImporterUio(FsImporter):
         # Reverse sort affiliations list according to aff_status_pri_order
         affiliations.sort(
             lambda x, y: (
-                    self.aff_status_pri_order.get(int(y[2]), 99) -
-                    self.aff_status_pri_order.get(int(x[2]), 99)))
+                self.aff_status_pri_order.get(int(y[2]), 99) -
+                self.aff_status_pri_order.get(int(x[2]), 99)))
         aktiv = False
 
         for ou, aff, aff_status in affiliations:
@@ -127,12 +127,6 @@ class FsImporterUio(FsImporter):
                     aktiv_sted.append(
                         int(self.studieprog2sko[row['studieprogramkode']]))
                     logger.debug("App2akrivts")
-        if 'emnestud' in person_info:
-            for row in person_info['emnestud']:
-                if self.emne2sko[row['emnekode']] is not None:
-                    logger.debug('Add sko %s based on emne %s',
-                                 int(self.emne2sko[row['emnekode']]),
-                                 row['emnekode'])
 
         for dta_type in person_info.keys():
             x = person_info[dta_type]

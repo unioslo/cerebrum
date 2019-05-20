@@ -31,10 +31,10 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
-from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cmd_base
+from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UioCmds
 from Cerebrum.modules.bofhd import bofhd_access
 
 
@@ -49,7 +49,19 @@ class NmhAuth(bofhd_contact_info.BofhdContactAuth, BofhdAuth):
     Inherits from BofhdContactAuth as a hack, to make can_get_contact_info
     available to 'person_info'.
     """
-    pass
+
+    def can_add_affiliation(self, operator, person=None, ou=None, aff=None,
+                            aff_status=None, query_run_any=False):
+        # Restrict affiliation types
+        if not query_run_any and aff in (
+                self.const.affiliation_ansatt,
+                self.const.affiliation_student):
+            raise PermissionDenied(
+                "Affiliations STUDENT/ANSATT can only be set by "
+                "automatic imports")
+        return super(NmhAuth, self).can_add_affiliation(
+            operator, person=person, ou=ou, aff=aff, aff_status=aff_status,
+            query_run_any=query_run_any)
 
 
 class NmhContactAuth(NmhAuth):
@@ -149,14 +161,14 @@ uio_commands = [
 
 
 @copy_command(
-    cmd_base,
+    UioCmds,
     'all_commands', 'all_commands',
     commands=uio_commands)
 @copy_func(
     BofhdUserCreateMethod,
     methods=['_user_create_set_account_type'])
 @copy_func(
-    cmd_base,
+    UioCmds,
     methods=uio_helpers + uio_commands)
 class BofhdExtension(BofhdCommonMethods):
 

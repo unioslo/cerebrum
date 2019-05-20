@@ -111,8 +111,8 @@ def get_db_version(component='core'):
     version = "pre-0.9.2"
     try:
         if component == 'core':
-            version = "%d.%d.%d" % \
-                      meta.get_metainfo(Metainfo.SCHEMA_VERSION_KEY)
+            info = meta.get_metainfo(Metainfo.SCHEMA_VERSION_KEY)
+            version = "%d.%d.%d" % info if isinstance(info, tuple) else info
         else:
             version = meta.get_metainfo("sqlmodule_%s" % component)
     except Errors.NotFoundError:

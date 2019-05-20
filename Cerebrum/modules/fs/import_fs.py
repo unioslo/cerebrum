@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import unicode_literals
 
-import mx
+import mx.DateTime
 import json
 import logging
 import datetime
@@ -375,8 +375,8 @@ class FsImporter(object):
         def _fetch_cerebrum_contact(co):
             return [x["contact_value"]
                     for x in person.get_contact_info(
-                    source=co.system_fs,
-                    type=co.contact_mobile_phone)]
+                        source=co.system_fs,
+                        type=co.contact_mobile_phone)]
 
         # NB! We may encounter several phone numbers. If they do not match,
         # there is nothing we can do but to complain.

@@ -218,16 +218,16 @@ def main():
 
 def read_country_file(fname):
     const = Factory.get('Constants')()
-    f = file(fname, "r")
-    for line in f.readlines():
-        if line[0] == '#':
-            continue
-        dta = [x.strip() for x in line.split("\t") if x.strip() != ""]
-        if len(dta) == 4:
-            code_str, foo, country, phone_prefix = dta
-            code_obj = const.Country(code_str, country, phone_prefix,
-                                     description=country)
-            code_obj.insert()
+    with open(fname, "r") as f:
+        for line in f.readlines():
+            if line[0] == '#':
+                continue
+            dta = [x.strip() for x in line.split("\t") if x.strip() != ""]
+            if len(dta) == 4:
+                code_str, foo, country, phone_prefix = dta
+                code_obj = const.Country(code_str, country, phone_prefix,
+                                         description=country)
+                code_obj.insert()
     const.commit()
 
 
@@ -360,12 +360,16 @@ def check_schema_versions(db, strict=False):
     }
     meta = Metainfo.Metainfo(db)
     for name, value in meta.list():
+        if isinstance(value, tuple):
+            print("WARNING: The version number of module {modulename} is "
+                  "saved as a tuple.".format(modulename=name))
+            value = "%d.%d.%d" % value
         if name == Metainfo.SCHEMA_VERSION_KEY:
-            if not Cerebrum._version == value:
+            if not Cerebrum.__version__ == value:
                 print("WARNING: cerebrum version %s does not"
                       " match schema version %s" % (
-                          "%d.%d.%d" % Cerebrum._version,
-                          "%d.%d.%d" % value))
+                          Cerebrum.__version__,
+                          value))
                 if strict:
                     exit(1)
         elif name.startswith('sqlmodule_'):
@@ -394,7 +398,9 @@ def check_schema_versions(db, strict=False):
                 exit(1)
 
 
-def get_filelist(db, extra_files=[]):
+def get_filelist(db, extra_files=None):
+    if extra_files is None:
+        extra_files = []
     core_files = ['core_tables.sql']
     files = core_files[:]
     files.extend(extra_files)
@@ -602,7 +608,7 @@ def runfile(fname, db, debug, phase):
                     output_col = 0
                 sys.stdout.flush()
                 db.commit()
-    if (phase == 'main' or phase == 'metainfo'):
+    if phase == 'main' or phase == 'metainfo':
         meta = Metainfo.Metainfo(db)
         if metainfo['name'] == 'core':
             name = Metainfo.SCHEMA_VERSION_KEY

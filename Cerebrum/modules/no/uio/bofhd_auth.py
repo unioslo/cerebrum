@@ -162,6 +162,19 @@ class UioAuth(UioContactAuthMixin, BofhdAuth):
             return False
         raise PermissionDenied('Not allowed to create sysadmin accounts')
 
+    def can_add_affiliation(self, operator, person=None, ou=None, aff=None,
+                            aff_status=None, query_run_any=False):
+        # Restrict affiliation types
+        if not query_run_any and aff in (
+                self.const.affiliation_ansatt,
+                self.const.affiliation_student):
+            raise PermissionDenied(
+                "Affiliations STUDENT/ANSATT can only be set by "
+                "automatic imports")
+        return super(UioAuth, self).can_add_affiliation(
+            operator, person=person, ou=ou, aff=aff, aff_status=aff_status,
+            query_run_any=query_run_any)
+
 
 class UioContactAuth(UioAuth):
     # can_get_contact_info is included in UioAuth, because it is used by

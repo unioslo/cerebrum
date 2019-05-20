@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2003-2018 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,7 +20,6 @@
 
 from __future__ import unicode_literals
 
-# import io
 import six
 import time
 
@@ -32,71 +31,58 @@ SYDRadmins = ['baardj', 'frankjs', 'jazz']
 DMLadmins = ['lindaj', 'hallgerb', 'maskoger', 'jonar', 'helgeu',
              'kaugedal', 'rinos', 'monahst']
 AllAdmins = SYDRadmins + DMLadmins
-host_config = {
-    'hiafronter.fronter.no': {
-        'DBinst': 'DLOPROD.uio.no',
-        'admins': AllAdmins,
-        'export': ['FS', 'All_users'],
-        'spread': 'spread_hia_fronter'
-    },
-}
-
-
 XML_ENCODING = "ISO-8859-1"
 
 
-class FronterUtils(object):
+def UE2RomID(prefix, aar, termk, instnr, sko, romtype,
+             emnekode, versjon, termnr):
+    """Lag rom-ID for undervisningsenhet.
 
-    def UE2RomID(prefix, aar, termk, instnr, sko, romtype,
-                 emnekode, versjon, termnr):
-        """Lag rom-ID for undervisningsenhet.
+    Lag Cerebrum-spesifikk 'rom-ID' av elementene i primærnøkkelen
+    til en undervisningsenhet.  Denne rom-IDen forblir uforandret
+    så lenge kurset pågår; for flersemesterkurs vil den altså ikke
+    endres når man f.eks. kommer til ny undervisningsenhet
+    pga. nytt semester.
 
-        Lag Cerebrum-spesifikk 'rom-ID' av elementene i primærnøkkelen
-        til en undervisningsenhet.  Denne rom-IDen forblir uforandret
-        så lenge kurset pågår; for flersemesterkurs vil den altså ikke
-        endres når man f.eks. kommer til ny undervisningsenhet
-        pga. nytt semester.
+    Første argument angir (case-sensitivt) prefiks for rom-IDen;
+    de resterende argumentene vil alle bli konvertert til
+    lowercase i den endelige IDen."""
 
-        Første argument angir (case-sensitivt) prefiks for rom-IDen;
-        de resterende argumentene vil alle bli konvertert til
-        lowercase i den endelige IDen."""
+    termnr = int(termnr)
+    aar = int(aar)
+    termk = termk.lower()
+    # Rusle bakover i tid til vi kommer til undervisningsenheten i
+    # samme kurs som denne, men med terminnr 1.  Pass dog på å
+    # ikke gå lenger tilbake enn høst 2004 (det første semesteret
+    # HiA hadde automatisk synkronisering fra Cerebrum til
+    # ClassFronter).
 
-        termnr = int(termnr)
-        aar = int(aar)
-        termk = termk.lower()
-        # Rusle bakover i tid til vi kommer til undervisningsenheten i
-        # samme kurs som denne, men med terminnr 1.  Pass dog på å
-        # ikke gå lenger tilbake enn høst 2004 (det første semesteret
-        # HiA hadde automatisk synkronisering fra Cerebrum til
-        # ClassFronter).
+    def forrige_semester(termk, aar):
+        if termk == 'høst':
+            return 'vår', aar
+        elif termk == 'vår':
+            return 'høst', aar - 1
+        else:
+            # Vi krysser fingrene og håper at det aldri vil
+            # benyttes andre verdier for termk enn 'vår' og
+            # 'høst', da det i så fall vil bli vanskelig å vite
+            # hvilket semester det var "for 2 semestere siden".
+            raise ValueError(
+                "ERROR: Unknown terminkode <%s> for emnekode <%s>." %
+                (termk, emnekode))
 
-        def forrige_semester(termk, aar):
-            if termk == 'høst':
-                return ('vår', aar)
-            elif termk == 'vår':
-                return ('høst', aar - 1)
-            else:
-                # Vi krysser fingrene og håper at det aldri vil
-                # benyttes andre verdier for termk enn 'vår' og
-                # 'høst', da det i så fall vil bli vanskelig å vite
-                # hvilket semester det var "for 2 semestere siden".
-                raise ValueError(
-                    "ERROR: Unknown terminkode <%s> for emnekode <%s>." %
-                    (termk, emnekode))
+    while termnr > 1 and (termk, aar) != ('høst', 2004):
+        (termk, aar) = forrige_semester(termk, aar)
+        termnr -= 1
 
-        while termnr > 1 and (termk, aar) != ('høst', 2004):
-            (termk, aar) = forrige_semester(termk, aar)
-            termnr -= 1
-
-        # I motsetning til ved UiO, må termnr på HiA tas med som en
-        # del av den returnerte kurs-ID-strengen, da vi risikerer å ha
-        # termnr forskjellig fra 1 for kurs med kursid i semesteret
-        # høst 2004.
-        rom_id = ":".join([six.text_type(x).lower() for x in
-                           (aar, termk, instnr, sko, romtype,
-                            emnekode, versjon, termnr)])
-        return ':'.join((prefix, rom_id))
-    UE2RomID = staticmethod(UE2RomID)
+    # I motsetning til ved UiO, må termnr på HiA tas med som en
+    # del av den returnerte kurs-ID-strengen, da vi risikerer å ha
+    # termnr forskjellig fra 1 for kurs med kursid i semesteret
+    # høst 2004.
+    rom_id = ":".join([six.text_type(x).lower() for x in
+                       (aar, termk, instnr, sko, romtype,
+                        emnekode, versjon, termnr)])
+    return ':'.join((prefix, rom_id))
 
 
 class Fronter(object):

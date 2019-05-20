@@ -671,9 +671,16 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
             source_system,
             u'add'):
         cerebrum_person.populate_affiliation(source_system, **affiliation)
-        cerebrum_person.write_db()
         logger.debug(u'Adding affiliation {} for id:{}'.format(
             _stringify_for_log(affiliation), cerebrum_person.entity_id))
+
+    cerebrum_person.write_db()
+    for affiliation in _find_affiliations(
+            cerebrum_person,
+            hr_person.get(u'affiliations'),
+            _sap_assignments_to_affiliation_map,
+            source_system,
+            u'add'):
         set_account_type(database,
                          cerebrum_person,
                          affiliation['ou_id'],
@@ -911,8 +918,8 @@ def perform_update(database, source_system, hr_person, cerebrum_person):
     update_addresses(database, source_system, hr_person, cerebrum_person)
     update_contact_info(database, source_system, hr_person, cerebrum_person)
     update_titles(database, source_system, hr_person, cerebrum_person)
-    update_affiliations(database, source_system, hr_person, cerebrum_person)
     update_roles(database, source_system, hr_person, cerebrum_person)
+    update_affiliations(database, source_system, hr_person, cerebrum_person)
     update_reservation(database, hr_person, cerebrum_person)
 
 

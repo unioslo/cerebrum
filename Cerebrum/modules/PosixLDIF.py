@@ -94,11 +94,20 @@ class PosixLDIF(object):
         self.owners = OwnerResolver(db)
         timer('... done initing PosixLDIF.')
 
+    def write_user_objects_head(self, f):
+        """
+        Write additional objects before the USER object.
+        """
+        pass
+
     @clock_time
     def user_ldif(self, filename=None, auth_meth=None):
         """Generate posix-user."""
         self.init_user(auth_meth)
         f = LDIFutils.ldif_outfile('USER', filename, self.fd)
+        self.write_user_objects_head(f)
+
+        # Write the USER container object
         f.write(LDIFutils.container_entry_string('USER'))
 
         def generate_users():
@@ -336,7 +345,7 @@ class PosixLDIF(object):
         dn = ','.join((('uid=' + uname), self.user_dn))
         return dn, entry
 
-    def update_user_entry(self, account_id, entry, row):
+    def update_user_entry(self, account_id, entry, owner_id):
         """ Called by user_object(). Inject additional data here. """
         pass
 

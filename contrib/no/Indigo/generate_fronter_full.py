@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2004, 2005 University of Oslo, Norway
+# Copyright 2004, 2005, 2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,7 +32,7 @@ from six import text_type
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uio.fronter_lib import XMLWriter
+from Cerebrum.modules.no.fronter_lib import XMLWriter
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
 
 # Globals

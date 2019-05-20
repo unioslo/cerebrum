@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2018 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -227,7 +227,6 @@ from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.Utils import argument_to_sql
 from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 
 
 class AuthConstants(Constants._CerebrumCode):
@@ -629,6 +628,16 @@ class BofhdAuthRole(DatabaseAccessor):
             )""")
 
 
+def _get_bofhd_auth_systems(const):
+    """
+    Get authoritative system codes.
+    """
+    for value in getattr(cereconf, 'BOFHD_AUTH_SYSTEMS', ()):
+        obj = const.human2constant(value, const.AuthoritativeSystem)
+        int(obj)
+        yield obj
+
+
 class BofhdAuth(DatabaseAccessor):
     """Defines methods that are used by bofhd to determine whether an operator
     is allowed to perform a given action.
@@ -656,6 +665,7 @@ class BofhdAuth(DatabaseAccessor):
                                                    Cache.cache_timeout],
                                            size=500,
                                            timeout=60*60)
+        self._bofhd_auth_systems = tuple(_get_bofhd_auth_systems(self.const))
 
     def _get_uname(self, entity_id):
         """Return a human-friendly representation of entity_id."""
@@ -719,6 +729,9 @@ class BofhdAuth(DatabaseAccessor):
 
         return (self._is_owner_of_personal_account(operator, account) or
                 self._is_owner_of_nonpersonal_account(operator, account))
+
+    def is_authoritative_system(self, system_code):
+        return system_code in self._bofhd_auth_systems
 
     def has_privileged_access_to_group(
             self, operator, operation, entity, operation_attr=None):
@@ -989,6 +1002,26 @@ class BofhdAuth(DatabaseAccessor):
             return True
         return self.has_privileged_access_to_account_or_person(
             operator, self.const.auth_create_user, account)
+
+    def can_set_person_info(self, operator, person=None, query_run_any=False):
+        """Access to updating data that *should* come from other systems."""
+        try:
+            # Must have 'can_create_person'
+            # Will raise PermissionDenied if query_run_any=False
+            if not self.can_create_person(operator,
+                                          query_run_any=query_run_any):
+                return False
+        except PermissionDenied:
+            raise PermissionDenied("Not allowed to modify person info")
+
+        if not query_run_any:
+            # Only allow changes to fields that are not already populated from
+            # authoritative systems.
+            for aff in person.get_affiliations():
+                if self.is_authoritative_system(aff['source_system']):
+                    raise PermissionDenied("Not allowed to modify person info "
+                                           "from authoritative source systems")
+        return True
 
     def can_alter_printerquota(self, operator, account=None,
                                query_run_any=False):
@@ -1445,15 +1478,26 @@ class BofhdAuth(DatabaseAccessor):
         operator has rem_affiliation access to the affiliation's OU, allow
         removing the affiliation from the person. Not as strict on MANUELL.
         """
-        if self.is_superuser(operator):
-            return True
         if query_run_any:
+            if self.is_superuser(operator):
+                return True
             if (self._has_operation_perm_somewhere(
                         operator, self.const.auth_remove_affiliation) or
                     self._has_operation_perm_somewhere(
                         operator, self.const.auth_create_user)):
                 return True
             return False
+
+        for row in person.list_affiliations(person_id=person.entity_id,
+                                            ou_id=ou.entity_id,
+                                            affiliation=aff):
+            if self.is_authoritative_system(row['source_system']):
+                raise PermissionDenied("Not allowed to remove affiliations "
+                                       "from authoritative systems")
+
+        if self.is_superuser(operator):
+            return True
+
         if self._has_target_permissions(operator,
                                         self.const.auth_remove_affiliation,
                                         self.const.auth_target_type_ou,
@@ -1675,7 +1719,7 @@ class BofhdAuth(DatabaseAccessor):
             try:
                 if entity.entity_type == int(self.const.EntityType(attr)):
                     return True
-            except:
+            except Exception:
                 pass
 
             # For groups we use the op-set attribute to specify groups that has
@@ -1687,7 +1731,7 @@ class BofhdAuth(DatabaseAccessor):
                     spread_type = int(self.const.Spread(attr))
                     if entity.has_spread(spread_type):
                         return True
-                except:
+                except Exception:
                     pass
 
         if entity.entity_type == self.const.entity_account:
