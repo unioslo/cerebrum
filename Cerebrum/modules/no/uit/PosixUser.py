@@ -98,6 +98,41 @@ class PosixUserUiTMixin(PosixUser.PosixUser):
                                      owner_type, owner_id, np_type, creator_id,
                                      expire_date, parent)
 
+    def map_user_spreads_to_pg(self, group=None):
+        super(PosixUserUiTMixin, self).map_user_spreads_to_pg(group=group)
+
+        if group is None:
+            return
+
+        # Syncronizing the groups spreads with the users
+        mapping = [
+            (int(self.const.spread_uit_nis_user),
+             int(self.const.spread_uit_nis_fg)),
+            (int(self.const.spread_uit_ad_account),
+             int(self.const.spread_uit_ad_group)),
+            (int(self.const.spread_ifi_nis_user),
+             int(self.const.spread_ifi_nis_fg)),
+        ]
+        user_spreads = [int(r['spread']) for r in self.get_spread()]
+        group_spreads = [int(r['spread']) for r in group.get_spread()]
+        for uspr, gspr in mapping:
+            if uspr in user_spreads and gspr not in group_spreads:
+                group.add_spread(gspr)
+            if gspr in group_spreads and uspr not in user_spreads:
+                group.delete_spread(gspr)
+
+    def _set_owner_of_group(self, group):
+        op_target = BofhdAuthOpTarget(self._db)
+        if not op_target.list(entity_id=group.entity_id, target_type='group'):
+            op_target.populate(group.entity_id, 'group')
+            op_target.write_db()
+            op_set = BofhdAuthOpSet(self._db)
+            op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
+            role = BofhdAuthRole(self._db)
+            role.grant_auth(self.entity_id,
+                            op_set.op_set_id,
+                            op_target.op_target_id)
+
     def write_db(self):
         """Write PosixUser instance to database, in addition to the personal
         file group. As long as L{gid_id} is not set, it gets set to the
@@ -127,38 +162,15 @@ class PosixUserUiTMixin(PosixUser.PosixUser):
             return ret
 
         # Set the personal file group trait
+        # TODO: This can't be right? UiT uses a common file group, posixgroup
         if not self.pg.get_trait(self.const.trait_personal_dfg):
             self.pg.populate_trait(self.const.trait_personal_dfg,
                                    target_id=self.entity_id)
             self.pg.write_db()
 
         # Register the posixuser as owner of the group, if not already set
-        op_target = BofhdAuthOpTarget(self._db)
-        if not op_target.list(entity_id=self.pg.entity_id,
-                              target_type='group'):
-            op_target.populate(self.pg.entity_id, 'group')
-            op_target.write_db()
-            op_set = BofhdAuthOpSet(self._db)
-            op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
-            role = BofhdAuthRole(self._db)
-            role.grant_auth(self.entity_id, op_set.op_set_id,
-                            op_target.op_target_id)
+        self._set_owner_of_group(self.pg)
 
         # Syncronizing the groups spreads with the users
-        mapping = {
-            int(self.const.spread_uit_nis_user):
-            int(self.const.spread_uit_nis_fg),
-            int(self.const.spread_uit_ad_account):
-            int(self.const.spread_uit_ad_group),
-            int(self.const.spread_ifi_nis_user):
-            int(self.const.spread_ifi_nis_fg),
-        }
-        user_spreads = [int(r['spread']) for r in self.get_spread()]
-        group_spreads = [int(r['spread']) for r in self.pg.get_spread()]
-        for uspr, gspr in mapping.iteritems():
-            if uspr in user_spreads:
-                if gspr not in group_spreads:
-                    self.pg.add_spread(gspr)
-            elif gspr in group_spreads:
-                self.pg.delete_spread(gspr)
+        self.map_user_spreads_to_pg(group=self.pg)
         return ret
