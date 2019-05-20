@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2003-2005 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -41,9 +41,9 @@ Først litt terminologi:
                                      være en enkel aktivitet.
   - Kurs (evu): Samsvarer med undenh, men er for etter- og videreutdanning
   - Kursaktivitet: Samsvarer med undakt, men er for etter- og videreutdanning
-  - Kull: årsklasse av et studieprogram.
+  - Kull: Årsklasse av et studieprogram.
 
-Gruppene er organisert i en tre-struktur.  øverst finnes en supergruppe; denne
+Gruppene er organisert i en tre-struktur.  Øverst finnes en supergruppe; denne
 brukes for å holde orden på hvilke grupper som er automatisk opprettet av
 dette scriptet, og dermed hvilke grupper som skal slettes i det dataene de
 bygger på ikke lenger finnes i FS.  Supergruppen har navnet::
@@ -94,12 +94,12 @@ kategorier:
 <rolletype> er en av 12 predefinerte roller (jfr. valid_roles). enhetsansvar
 og aktivitetsansvar-gruppene finnes kun for Ifi, som ønsker sine grupper (for
 NIS) bygget litt annerledes. Alle slike grupper hvor det er meningen det skal
-våre accounts, før en passende fronterspread, basert på informasjonen fra
+være accounts, får en passende fronterspread, basert på informasjonen fra
 FS. Det er kun slike grupper, hvis fronterspreads vil ha noe å si (dvs. andre
 grupper kan også få fronterspreads, men generate_fronter_full.py vil ignorere
-dem). 
+dem).
 
-Poenget med å ha dette nokså kompliserte hierarkiet var æ tillate
+Poenget med å ha dette nokså kompliserte hierarkiet var å tillate
 DML/Houston/andre å kunne enkelt si at de vil eksportere en bestemt entitet
 til fronter uten å bry seg om gruppene som måtte være generert for denne
 entiteten. Dette er ikke mer nødvendig for undenh/undakt/kurs/kursakt, siden
@@ -115,7 +115,7 @@ Siden <enhetid> inneholder gruppetypen (kurs, evu og kull), vil det ikke
 oppstå navnekollisjon forskjellige enhetgrupper imellom.
 
 I tillegg blir disse nettgruppene laget med spread til Ifi::
- 
+
   Ansvar und.enh:        g<enhetid>-0          (alle konti)
   Ansvar und.akt:        g<enhetid>-<aktkode>  (alle konti)
   Ansvar enh. og akt.:   g<enhetid>            (alle konti)
@@ -128,29 +128,35 @@ I tillegg blir disse nettgruppene laget med spread til Ifi::
 Som sagt, populering av disse gruppene er litt annerledes. *Alle* med en eller
 annen rolle til Ifi-kursene havner i 'g'-ansvarlige-gruppene.
 """
+
 from __future__ import unicode_literals
-import sys
-import getopt
-import re
+
+import argparse
 import locale
+import logging
+import os
+import re
+import sys
+
 from itertools import izip, repeat
 
-import cerebrum_path
 import cereconf
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.modules.no.access_FS import roles_xml_parser
-from Cerebrum.modules.no.uit.fronter_lib \
-     import UE2KursID, key2fields, str2key, fields2key
+from Cerebrum.modules.no.fronter_lib import (UE2KursID, key2fields,
+                                             str2key, fields2key)
 from Cerebrum.modules.xmlutils.fsxml2object import EduGenericIterator
 from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 
-
-
-# kbj005 2016-05-25: 
-#   These roles are missing in valid_roles: VEILEDER, ANSVLEDER, KURSANSV, KONTAKT, ASSISTENT
+# kbj005 2016-05-25:
+#   These roles are missing in valid_roles:
+#   VEILEDER, ANSVLEDER, KURSANSV, KONTAKT, ASSISTENT
 
 # IVR 2007-11-08 FIXME: Should this be in fronter_lib?
 # Roles that are considered at all
@@ -161,6 +167,7 @@ valid_roles = ("ADMIN", "DLO", "FAGANSVARL", "FORELESER", "GJESTEFORE",
 # certain stprog.
 recursive_roles = ("ADMIN", "DLO", "IT-ANSVARL", "STUDIEKONS", "TILSYN",)
 
+logger = logging.getLogger(__name__)
 
 
 def make_sko(row, suffix=""):
@@ -179,13 +186,10 @@ def make_sko(row, suffix=""):
       corresponding values.
     @param suffix: basestring.
     """
-
     return "%02d%02d%02d" % tuple(map(int,
                                       (row["faknr" + suffix],
                                        row["instituttnr" + suffix],
                                        row["gruppenr" + suffix])))
-# end make_sko
-
 
 
 def process_role(enhet_id, template_id, roles_mapping,
@@ -212,7 +216,7 @@ def process_role(enhet_id, template_id, roles_mapping,
       dict maps role types to sequences (e.g. 'FAGLÆRER' -> [s1, s2, ...,
       sN]). Each s_i is a dict (faking a L{db_row}) with a fnr.
     @type roles_mapping: dict
-    
+
     @param parent_id:
       parent_id is the group name for the parent of the enhet_id group.
     @type parent_id: basestring
@@ -228,7 +232,7 @@ def process_role(enhet_id, template_id, roles_mapping,
       associated. Some roles are associated with studieprogramkode, and
       inherited by every kull associated with that studieprogramkode.
     @type stprog: basestring
-    
+
     description, mtype and auto_spread have the same meaning as in
     L{sync_group}.
 
@@ -238,13 +242,14 @@ def process_role(enhet_id, template_id, roles_mapping,
     stprogroller = roles_mapping.get(fields2key("stprog", stprog), {})
 
     key = str2key(enhet_id)
-    logger.debug("Locating roles for enhet_id <<%s>> (description template: %s). "
-                 "template is %s; key is %s", enhet_id, description,
-                 template_id, key)
+    logger.debug(
+        "Locating roles for enhet_id <<%s>> (description template: %s). "
+        "template is %s; key is %s", enhet_id, description,
+        template_id, key)
     if ((key not in roles_mapping) and
-        (not stedroller) and
-        (not stprogroller)):
-        logger.debug("No roles for enhet %s found", enhet_id)
+            (not stedroller) and
+            (not stprogroller)):
+        logger.debug("No roles for enhet_id=%r found", enhet_id)
         return
 
     my_roles = roles_mapping.get(key, {})
@@ -257,12 +262,11 @@ def process_role(enhet_id, template_id, roles_mapping,
 
         group_name = str2key(template_id % role)
         fnrs = dict(izip(dbrows2account_ids(people), repeat(1)))
-        logger.debug("Registering %d people with role %s for %s (%s sted; %s stprog)",
+        logger.debug("Registering %d people with role %s for %s "
+                     "(%s sted; %s stprog)",
                      len(fnrs), role, enhet_id, len(stedr), len(stprog))
-        sync_group(parent_id, group_name, description % role, mtype, fnrs, 
+        sync_group(parent_id, group_name, description % role, mtype, fnrs,
                    auto_spread=auto_spread)
-# end process_role
-
 
 
 def ordered_uniq(input):
@@ -273,7 +277,7 @@ def ordered_uniq(input):
         if el not in output:
             output.append(el)
     return output
-# end ordered_uniq
+
 
 # Somehow a set of users who should not get exported to Fronter appears in
 # Fronter. We wanna filter 'em out. It's a hack, but it is faster to
@@ -294,12 +298,13 @@ def find_accounts_and_persons_to_exclude():
             r['users'].append(y['account_id'])
     return r
 
+
 def prefetch_primaryusers():
     global fnr2account_id, fnr2stud_account_id, exclude
     # TBD: This code is used to get account_id for both students and
     # fagansv.  Should we look at affiliation here?
     logger.debug("Getting all primaryusers")
-    
+
     exclude = find_accounts_and_persons_to_exclude()
     account = Factory.get('Account')(db)
     personid2accountid = {}
@@ -316,18 +321,19 @@ def prefetch_primaryusers():
 
     person = Factory.get('Person')(db)
     fnr_source = {}
-    for row in person.list_external_ids(id_type=co.externalid_fodselsnr):
+    for row in person.search_external_ids(id_type=co.externalid_fodselsnr,
+                                          fetchall=False):
         p_id = int(row['entity_id'])
         # It's a bad hack
         if p_id in exclude['persons']:
             continue
         fnr = row['external_id']
         src_sys = int(row['source_system'])
-        if fnr_source.has_key(fnr) and fnr_source[fnr][0] != p_id:
+        if fnr in fnr_source and fnr_source[fnr][0] != p_id:
             # Multiple person_info rows have the same fnr (presumably
             # the different fnrs come from different source systems).
-            logger.error("Multiple persons share fnr %s: (%d, %d)" % (
-                fnr, fnr_source[fnr][0], p_id))
+            logger.error("Persons share fnr, check entities: (%d, %d)",
+                         fnr_source[fnr][0], p_id)
             # Determine which person's fnr registration to use.
             source_weight = dict()
             count = len(cereconf.SYSTEM_LOOKUP_ORDER)
@@ -340,16 +346,16 @@ def prefetch_primaryusers():
             # The row we're currently processing should be preferred;
             # if the old row has an entry in fnr2account_id, delete
             # it.
-            if fnr2account_id.has_key(fnr):
+            if fnr in fnr2account_id:
                 del fnr2account_id[fnr]
         fnr_source[fnr] = (p_id, src_sys)
-        if personid2accountid.has_key(p_id):
+        if p_id in personid2accountid:
             account_ids = ordered_uniq(personid2accountid[p_id])
             for acc in account_ids:
                 account_id2fnr[acc] = fnr
             if p_id in personid2student:
-                fnr2stud_account_id[fnr] = ordered_uniq(personid2student[p_id] +
-                                                        account_ids)
+                fnr2stud_account_id[fnr] = ordered_uniq(
+                    personid2student[p_id] + account_ids)
             else:
                 fnr2stud_account_id[fnr] = account_ids
             fnr2account_id[fnr] = account_ids
@@ -358,8 +364,6 @@ def prefetch_primaryusers():
     del fnr_source
 
     logger.debug("Finished fetching all primaryusers")
-# end prefetch_primaryusers
-
 
 
 def dbrows2account_ids(rows, primary_only=True, prefer_student=False):
@@ -367,22 +371,20 @@ def dbrows2account_ids(rows, primary_only=True, prefer_student=False):
     row(s).  Optionally return a tuple of (primaries, secondaries)
     instead.  The secondaries are a single list, so when more than one
     row is passed, you can't tell which person owns them."""
+
     def fnr_generator():
         for row in rows:
             yield "%06d%05d" % (int(row['fodselsdato']), int(row['personnr']))
-    # end fnr_generator
-    
-    return fnrs2account_ids(fnr_generator(), primary_only, prefer_student)
-# end dbrows2account_ids
 
+    return fnrs2account_ids(fnr_generator(), primary_only, prefer_student)
 
 
 def fnrs2account_ids(seq, primary_only=True, prefer_student=False):
-    """Just like L{dbrows2account_ids}, except operate on seqs of fnrs.""" 
+    """Just like L{dbrows2account_ids}, except operate on seqs of fnrs."""
     prim = []
     sec = []
     for fnr in seq:
-        if fnr2account_id.has_key(fnr):
+        if fnr in fnr2account_id:
             if prefer_student:
                 account_list = fnr2stud_account_id[fnr]
             else:
@@ -394,8 +396,6 @@ def fnrs2account_ids(seq, primary_only=True, prefer_student=False):
         return prim
     else:
         return (prim, sec)
-# end fnrs2account_ids    
-    
 
 
 def prefetch_all_data(role_file, undenh_file, undakt_file,
@@ -409,11 +409,11 @@ def prefetch_all_data(role_file, undenh_file, undakt_file,
     # First all the users (fnrs/account_id mappings)
     prefetch_primaryusers()
 
-    # Then undenh ... 
+    # Then undenh ...
     undenh_info, emne_versjon, emne_termnr = get_undenh(undenh_file, edu_file)
     edu_info = undenh_info
 
-    # Then undakt ... 
+    # Then undakt ...
     # update the structure in-place. undakt are tied up to undenh; there is no
     # way around it (although it makes for bad deps between the functions)
     get_undakt(edu_info, undakt_file, edu_file)
@@ -431,13 +431,10 @@ def prefetch_all_data(role_file, undenh_file, undakt_file,
 
     role_mapping = parse_xml_roles(role_file)
     return edu_info, role_mapping
-# end prefetch_all_data
-
 
 
 def process_kursdata(role_file, undenh_file, undakt_file,
                      evu_file, kursakt_file, kull_file, edu_file):
-
     global UndervEnhet
     UndervEnhet, role_mapping = prefetch_all_data(role_file, undenh_file,
                                                   undakt_file, evu_file,
@@ -463,7 +460,7 @@ def process_kursdata(role_file, undenh_file, undakt_file,
         if type == 'kurs':
             instnr, emnekode, versjon, termk, aar = rest
             sync_group("%s:%s" % (type, emnekode), kurs_id,
-                       "Ikke-eksporterbar gruppe.  Brukes for å definere hvor"+
+                       "Ikke-eksporterbar gruppe.  Brukes for å definere hvor"
                        " data om kurset <%s> skal eksporteres." % kurs_id,
                        co.entity_group,
                        AffiliatedGroups[kurs_id],
@@ -472,7 +469,7 @@ def process_kursdata(role_file, undenh_file, undakt_file,
             kurskode, tidsrom = rest
             logger.debug("Kursid: %s; rest: %s", kurs_id, rest)
             sync_group("%s:%s" % (type, kurskode), kurs_id,
-                       "Ikke-eksporterbar gruppe.  Brukes for å definere hvor"+
+                       "Ikke-eksporterbar gruppe.  Brukes for å definere hvor"
                        " data om emnet <%s> skal eksporteres. " % kurs_id,
                        co.entity_group,
                        AffiliatedGroups[kurs_id],
@@ -508,9 +505,10 @@ def process_kursdata(role_file, undenh_file, undakt_file,
     logger.info("Oppdaterer emne-supergrupper:")
     for gname in AffiliatedGroups.keys():
         sync_group(fs_supergroup, gname,
-                   "Ikke-eksporterbar gruppe.  Brukes for å samle kursene"+
-                   " knyttet til %s." % gname,
-                   co.entity_group, AffiliatedGroups[gname]);
+                   "Ikke-eksporterbar gruppe.  Brukes for å samle"
+                   " kursene knyttet til %s." % gname,
+                   co.entity_group,
+                   AffiliatedGroups[gname])
     logger.info(" ... done")
     if not dryrun:
         logger.debug("Commit changes")
@@ -525,13 +523,11 @@ def process_kursdata(role_file, undenh_file, undakt_file,
     # tilhørende "utgåtte" undervisningsenheter og -aktiviteter.
     logger.info("Oppdaterer supergruppe for alle emnekode-supergrupper")
     sync_group(None, fs_supergroup,
-               "Ikke-eksporterbar gruppe.  Definerer hvilke andre grupper "+
+               "Ikke-eksporterbar gruppe.  Definerer hvilke andre grupper " +
                "som er opprettet automatisk som følge av FS-import.",
                co.entity_group,
                AffiliatedGroups[fs_supergroup])
     logger.info(" ... done")
-# process_kursdata
-
 
 
 def destined_for_lms(entity):
@@ -551,8 +547,6 @@ def destined_for_lms(entity):
     """
 
     return entity["status_eksport_lms"] == 'J'
-# end destined_for_lms
-
 
 
 def get_kull(kull_file, edu_file):
@@ -609,8 +603,6 @@ def get_kull(kull_file, edu_file):
 
     logger.debug("Done loading kull info itself")
     return result
-# end get_kull
-
 
 
 def get_undenh(undenh_file, edu_file):
@@ -636,9 +628,9 @@ def get_undenh(undenh_file, edu_file):
       only.
 
       The second and third a specially crafted dicts to track undenh spanning
-      multiple semesters. 
+      multiple semesters.
     """
-    
+
     result = dict()
     emne_versjon = dict()
     emne_termnr = dict()
@@ -665,7 +657,7 @@ def get_undenh(undenh_file, edu_file):
                               enhet['emnekode'], enhet['versjonskode'],
                               enhet['terminkode'], enhet['arstall'],
                               enhet['terminnr'])
-            
+
         if enhet_id in result:
             raise ValueError("Duplicate undenh: <%s>" % enhet_id)
 
@@ -684,15 +676,14 @@ def get_undenh(undenh_file, edu_file):
                                 {})[fields2key(enhet['versjonskode'])] = 1
         emne_termnr.setdefault(multi_id,
                                {})[fields2key(enhet['terminnr'])] = 1
-        logger.debug("undenh <%s> med multi-id <%s>, CF=%s, pri=%d, sec=%d students",
+        logger.debug("undenh <%s> med multi-id <%s>, "
+                     "CF=%s, pri=%d, sec=%d students",
                      enhet_id, multi_id, result[enhet_id]['fronter_spreads'],
                      len(result[enhet_id]["students"][0]),
                      len(result[enhet_id]["students"][1]))
     logger.debug("Done loading undenh info...")
     del students
     return result, emne_versjon, emne_termnr
-# end get_undenh
-
 
 
 def get_undakt(edu_info, undakt_file, edu_file):
@@ -718,7 +709,7 @@ def get_undakt(edu_info, undakt_file, edu_file):
       XML file containing information about students' registration for undenh
       (among other things).
     """
-    
+
     logger.debug("Prefetching undakt info...")
     logger.debug("Loading student undakt info...")
     # Build an overview of the students...
@@ -744,7 +735,7 @@ def get_undakt(edu_info, undakt_file, edu_file):
             logger.error("Ikke-eksisterende enhet <%s> har aktiviteter "
                          "(aktkode %s)", enhet_id, aktkode)
             continue
-        
+
         if aktkode in edu_info[enhet_id]['aktivitet']:
             raise ValueError("Duplikat undervisningsaktivitet <%s:%s>" %
                              (enhet_id, aktkode))
@@ -755,18 +746,17 @@ def get_undakt(edu_info, undakt_file, edu_file):
         tmp = dict((account_id, 1) for account_id in
                    fnrs2account_ids(students.get(cache_key, ()),
                                     prefer_student=True))
-        edu_info[enhet_id][
-          'aktivitet'][aktkode] = {'aktivitetsnavn': undakt['aktivitetsnavn'],
-                                   'fronter_spreads': destined_for_lms(undakt),
-                                   'sted': make_sko(undakt, suffix="_kontroll"),
-                                   'students': tmp}
+        edu_info[enhet_id]['aktivitet'][aktkode] = {
+            'aktivitetsnavn': undakt['aktivitetsnavn'],
+            'fronter_spreads': destined_for_lms(undakt),
+            'sted': make_sko(undakt,
+                             suffix="_kontroll"),
+            'students': tmp}
         logger.debug("undakt <%s> for undenh <%s>; %d student(er) (CF: %s)",
                      aktkode, enhet_id, len(tmp),
                      destined_for_lms(undakt))
     logger.debug("Done loading undakt info")
     del students
-# end get_undakt
-
 
 
 def get_evu(evu_file, edu_file):
@@ -824,8 +814,6 @@ def get_evu(evu_file, edu_file):
     logger.debug("Done loading evu info itself...")
 
     return result
-# end get_evu
-
 
 
 def get_kursakt(edu_info, kursakt_file, edu_file):
@@ -840,8 +828,8 @@ def get_kursakt(edu_info, kursakt_file, edu_file):
       correspoding evu data. The former cannot exist without the latter. It's
       like that by design.
 
-    @type undakt_file: basestring
-    @param undakt_file:
+    @type kursakt_file: basestring
+    @param kursakt_file:
       XML file containing a list of all kursakt considered available/active in
       FS. (The file is typically generated by import_from_FS.py)
 
@@ -867,7 +855,7 @@ def get_kursakt(edu_info, kursakt_file, edu_file):
     for kursakt in EduDataGetter(kursakt_file, logger).iter_kursakt():
         evu_id = fields2key("evu", kursakt['etterutdkurskode'],
                             kursakt['kurstidsangivelsekode'])
-        logger.debug2('Processing EVU-kurs: %s', evu_id)
+        logger.debug('Processing EVU-kurs: %s', evu_id)
         aktkode = fields2key(kursakt["aktivitetskode"])
         if evu_id not in edu_info:
             logger.error("Ikke-eksisterende EVU-kurs <%s> har aktiviteter "
@@ -892,8 +880,6 @@ def get_kursakt(edu_info, kursakt_file, edu_file):
                      aktkode, evu_id, len(student_accounts),
                      destined_for_lms(kursakt))
     logger.debug("Done loading kursakt info itself...")
-# end get_kursakt
-    
 
 
 def account_id2uname(account_id):
@@ -916,7 +902,6 @@ def account_id2uname(account_id):
         return acc.account_name
     except Errors.NotFoundError:
         return None
-# end account_id2uname
 
 
 # IVR 2007-11-08 FIXME: OMG! split this monstrosity into something manageable.
@@ -967,7 +952,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                      # det også.
                      UndervEnhet[enhet_id]["fronter_spreads"],
                      sted)
-        
+
         #
         # Alle nåværende undervisningsmeldte samt nåværende+fremtidige
         # eksamensmeldte studenter.
@@ -999,7 +984,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
             logger.debug(" aktivitetsansvar:%s" % aktkode)
 
             gname = mkgname(fields2key(enhet_id, "%s", aktkode),
-                            prefix = 'uit.no:fs:')
+                            prefix='uit.no:fs:')
             aktivitet = UndervEnhet[enhet_id]["aktivitet"][aktkode]
             sted = aktivitet["sted"]
             process_role(fields2key(enhet_id, aktkode),
@@ -1007,37 +992,36 @@ def populate_enhet_groups(enhet_id, role_mapping):
                          role_mapping,
                          kurs_id,
                          "Ansvarlig (%s) %s %s %s%s %s" %
-                             ("%s", emnekode, termk, aar, enhet_suffix,
-                              aktivitet["aktivitetsnavn"]),
+                         ("%s", emnekode, termk, aar, enhet_suffix,
+                          aktivitet["aktivitetsnavn"]),
                          co.entity_account,
                          # Hvis aktiviteten skal til fronter, så må også de
-                         # ansvarlige for aktiviteten det. 
+                         # ansvarlige for aktiviteten det.
                          aktivitet["fronter_spreads"],
                          sted)
-            
+
             # Studenter meldt på denne undervisningsaktiviteten.
             logger.debug(" student:%s" % aktkode)
             aktivitet = UndervEnhet[enhet_id]['aktivitet'][aktkode]
             akt_stud = {}
             for account_id in aktivitet['students']:
-                if not alle_stud.has_key(account_id):
+                if account_id not in alle_stud:
                     account_name = account_id2uname(account_id)
-                    logger.warn("OBS: Bruker <%s> (fnr <%s>) er med i"
-                                " undaktivitet <%s>, men ikke i"
-                                " undervisningsenhet <%s>.\n" % (
-                        account_name and account_name or account_id,
-                        account_id2fnr[account_id],
-                        "%s:%s" % (enhet_id, aktkode), enhet_id))
+                    logger.warn("Bruker %r er med i undaktivitet <%s>,"
+                                " men ikke i undervisningsenhet <%s>",
+                                account_name or account_id,
+                                "%s:%s" % (enhet_id, aktkode),
+                                enhet_id)
                 akt_stud[account_id] = 1
-            
+
             logger.debug("%d studenter ved undakt <%s> for undenh <%s>",
                          len(akt_stud), aktkode, enhet_id)
             student_med_akt.update(akt_stud)
             sync_group(kurs_id,
                        fields2key(enhet_id, "student", aktkode),
-                       "Studenter %s %s %s%s %s" % (emnekode, termk, aar,
-                                                    enhet_suffix,
-                                                    aktivitet["aktivitetsnavn"]),
+                       "Studenter %s %s %s%s %s" %
+                       (emnekode, termk, aar, enhet_suffix,
+                        aktivitet["aktivitetsnavn"]),
                        co.entity_account,
                        akt_stud,
                        # Hvis aktiviteten skal til fronter
@@ -1047,7 +1031,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
 
         # ferdig med alle aktiviteter, bare et hack igjen ...
         for account_id in student_med_akt.iterkeys():
-            if alle_stud.has_key(account_id):
+            if account_id in alle_stud:
                 # Ved å fjerne alle som er meldt til minst en
                 # aktivitet, ender vi opp med en liste over de som
                 # kun er meldt til eksamene.
@@ -1090,12 +1074,13 @@ def populate_enhet_groups(enhet_id, role_mapping):
                      fields2key(enhet_id, "%s"),
                      role_mapping,
                      kurs_id,
-                     "Ansvarlige (%s) EVU-kurs %s, %s" % ("%s", kurskode, tidsrom),
+                     "Ansvarlige (%s) EVU-kurs %s, %s" % ("%s", kurskode,
+                                                          tidsrom),
                      co.entity_account,
                      # Samme situasjon som med undenh
                      UndervEnhet[enhet_id]["fronter_spreads"],
                      sted)
-        
+
         #
         # Alle påmeldte studenter
         logger.debug(" evuStudenter")
@@ -1111,11 +1096,12 @@ def populate_enhet_groups(enhet_id, role_mapping):
             aktivitet = UndervEnhet[enhet_id]['aktivitet'][aktkode]
             sted = aktivitet["sted"]
             process_role(fields2key(enhet_id, aktkode),
-                         fields2key(enhet_id, "%s", aktkode), 
+                         fields2key(enhet_id, "%s", aktkode),
                          role_mapping,
                          kurs_id,
                          "Ansvarlige (%s) EVU-kurs %s, %s: %s" %
-                           ("%s", kurskode, tidsrom, aktivitet["aktivitetsnavn"]),
+                         ("%s", kurskode, tidsrom,
+                          aktivitet["aktivitetsnavn"]),
                          co.entity_account,
                          # Samme situasjon som undakt
                          aktivitet["fronter_spreads"],
@@ -1125,18 +1111,17 @@ def populate_enhet_groups(enhet_id, role_mapping):
             logger.debug(" student:%s" % aktkode)
             evu_akt_stud = {}
             for account_id in aktivitet['students']:
-                if not evustud.has_key(account_id):
+                if account_id not in evustud:
                     account_name = account_id2uname(account_id)
-                    logger.warn("OBS: Bruker <%s> (fnr <%s>) er med i "
-                                "aktivitet <%s>, men ikke i kurset <%s>." %
-                                (account_name and account_name or account_id,
-                                 account_id2fnr[account_id],
-                        "%s:%s" % (enhet_id, aktkode), enhet_id))
+                    logger.warn("Bruker %r er med i aktivitet <%s>,"
+                                " men ikke i kurset <%s>.",
+                                account_name or account_id,
+                                "%s:%s" % (enhet_id, aktkode), enhet_id)
                 evu_akt_stud[account_id] = 1
             sync_group(kurs_id,
                        fields2key(enhet_id, "student", aktkode),
-                       "Studenter EVU-kurs %s, %s: %s" % (
-                       kurskode, tidsrom, aktivitet["aktivitetsnavn"]),
+                       "Studenter EVU-kurs %s, %s: %s" %
+                       (kurskode, tidsrom, aktivitet["aktivitetsnavn"]),
                        co.entity_account,
                        evu_akt_stud,
                        auto_spread=aktivitet["fronter_spreads"])
@@ -1144,8 +1129,6 @@ def populate_enhet_groups(enhet_id, role_mapping):
     if not dryrun:
         logger.debug("Commit changes")
         db.commit()
-# end populate_enhet_groups
-
 
 
 def sync_group(affil, gname, descr, mtype, memb, recurse=True,
@@ -1155,7 +1138,7 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
     Locate (and create if necessary) a group representing an entity (corridor,
     rom, etc.) in Fronter.
 
-    @type affil: basestring
+    @type affil: basestring or None
     @param affil:
       Parent for gname in the internal group structure (?)
 
@@ -1163,7 +1146,7 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
     @param gname:
       Basis for constructing the group name. For invisible groups, it is
       prefixed with 'uit:fs'.
-       
+
     @type descr: basestring
     @param descr:
       Description of the group to register in group_info in Cerebrum.
@@ -1174,8 +1157,8 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
 
     @type memb: dict
     @param memb:
-      Dictionary with member ids to add to gname. 
-      
+      Dictionary with member ids to add to gname.
+
     @type auto_spread: bool or NotSet
     @param auto_spread:
       auto_spread decides whether to adjust fronter spreads belonging to
@@ -1191,19 +1174,20 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
     logger.debug("sync_group(%s; %s; %s; %s; %s; %s); auto_spread=%s" %
                  (affil, gname, descr, mtype, memb.keys(), recurse,
                   auto_spread is NotSet and "NotSet" or auto_spread))
-    if mtype == co.entity_group:   # memb has group_name as keys
+    if mtype == co.entity_group:  # memb has group_name as keys
         members = {}
         for tmp_gname in memb.keys():
             grp = get_group(tmp_gname)
             members[int(grp.entity_id)] = 1
-    else:                          # memb has account_id as keys
+    else:  # memb has account_id as keys
         members = memb.copy()
 
     gname = mkgname(gname, 'uit.no:fs:')
     correct_visib = co.group_visibility_none
-    if (affil is None or              # level 0; $gname is the supergroup
-        affil == fs_supergroup or     # $gname is at level 1
-        re.search(r'^(evu|kurs|kull):[^:]+$', affil, re.I)): # $gname is at level 2
+    if (affil is None or  # level 0; $gname is the supergroup
+            affil == fs_supergroup or  # $gname is at level 1
+            re.search(r'^(evu|kurs|kull):[^:]+$', affil,
+                      re.I)):  # $gname is at level 2
         # The aforementioned groups are for internal use only;
         # they are used to control the hierarchy and export.
         gname = mkgname(gname)
@@ -1232,7 +1216,7 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
         if group.is_expired():
             # Extend the group's life by 6 months
             from mx.DateTime import now, DateTimeDelta
-            group.expire_date = now() + DateTimeDelta(6*30)
+            group.expire_date = now() + DateTimeDelta(6 * 30)
             group.write_db()
 
         for row in group.search_members(group_id=group.entity_id,
@@ -1240,7 +1224,7 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
                                         member_filter_expired=False):
             member = int(row["member_id"])
             # make sure to filter 'em out
-            if members.has_key(member) and member not in exclude['users']:
+            if member in members and member not in exclude['users']:
                 del members[member]
             else:
                 logger.debug("sync_group(): Deleting member %d" % member)
@@ -1251,8 +1235,8 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
                 # safe to automatically destroy groups that are no
                 # longer member of their supergroup.
                 if (mtype == co.entity_group and
-                    correct_visib == co.group_visibility_internal and
-                    (not known_FS_groups.has_key(member))):
+                        correct_visib == co.group_visibility_internal and
+                        member not in known_FS_groups):
                     # IVR 2009-02-25 TBD: It has been decided (by baardj, jazz
                     # and ivr) that deletion *cannot* be implemented until it
                     # is THOROUGHLY and precisely specified. Until such
@@ -1268,7 +1252,7 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
 
     # Finally fixup fronter spreads, if we have to.
     if auto_spread is not NotSet:
-        logger.debug("Group %s changes fronter spreads", gname)               
+        logger.debug("Group %s changes fronter spreads", gname)
         if auto_spread:
             add_spread_to_group(gname, co.spread_fronter_dotcom)
             add_spread_to_group(gname, co.spread_ldap_group)
@@ -1276,9 +1260,8 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
             remove_spread_from_group(gname, co.spread_fronter_dotcom)
             remove_spread_from_group(gname, co.spread_ldap_group)
     else:
-        logger.debug2("Spreads for group %s are unchanged", gname)
-# end sync_group
-    
+        logger.debug("Spreads for group %s are unchanged", gname)
+
 
 def destroy_group(gname, max_recurse=2, recurse=True):
     gr = get_group(gname)
@@ -1314,8 +1297,8 @@ def destroy_group(gname, max_recurse=2, recurse=True):
     # addresses.  There can only be one target per group.
     et = Email.EmailTarget(db)
     try:
-        et.find_by_email_target_attrs(target_type = co.email_target_multi,
-                                      target_entity_id = gr.entity_id)
+        et.find_by_email_target_attrs(target_type=co.email_target_multi,
+                                      target_entity_id=gr.entity_id)
     except Errors.NotFoundError:
         pass
     else:
@@ -1345,7 +1328,7 @@ def destroy_group(gname, max_recurse=2, recurse=True):
         # We remove all auth_role entries first so that there are no
         # references to this op_target_id, just in case someone adds a
         # foreign key constraint later.
-        for role in ar.list(op_target_id = r["op_target_id"]):
+        for role in ar.list(op_target_id=r["op_target_id"]):
             ar.revoke_auth(role['entity_id'], role['op_set_id'],
                            r['op_target_id'])
         aot.delete()
@@ -1368,8 +1351,6 @@ def destroy_group(gname, max_recurse=2, recurse=True):
     if recurse:
         for subg in gr_members:
             destroy_group(int(subg["member_id"]), max_recurse - 1)
-# end destroy_group
-
 
 
 def add_spread_to_group(group, spread):
@@ -1377,8 +1358,6 @@ def add_spread_to_group(group, spread):
     if not gr.has_spread(spread):
         gr.add_spread(spread)
         logger.debug("Adding spread %s to %s" % (spread, group))
-# end add_spread_to_group
-
 
 
 def remove_spread_from_group(group, spread):
@@ -1386,8 +1365,6 @@ def remove_spread_from_group(group, spread):
     if gr.has_spread(spread):
         gr.delete_spread(spread)
         logger.debug("Removing spread %s from %s" % (spread, group))
-# end remove_spread_from_group
-
 
 
 def get_group(id):
@@ -1397,33 +1374,18 @@ def get_group(id):
     else:
         gr.find(id)
     return gr
-# end get_group
-
 
 
 def get_account(name):
     ac = Factory.get('Account')(db)
     ac.find_by_name(name)
     return ac
-# end get_account
-
 
 
 def mkgname(id, prefix='internal:'):
     if id.startswith(prefix):
         return id.lower()
     return (prefix + id).lower()
-# end mkgname
-
-
-
-def usage(exitcode=0):
-    print """Usage: [options]
-    --db-user name: connect with given database username
-    --db-service name: connect to given database"""
-    sys.exit(exitcode)
-# end usage
-
 
 
 def parse_xml_roles(fname):
@@ -1454,6 +1416,7 @@ def parse_xml_roles(fname):
     """
 
     detailed_roles = dict()
+
     def element_to_role(element, data):
         kind = data[roles_xml_parser.target_key]
         if len(kind) > 1:
@@ -1463,7 +1426,7 @@ def parse_xml_roles(fname):
 
         # IVR 2007-11-08 ivr, jazz and baardj agreed that "timeplan"-roles
         # have to be treated the same as undakt roles when it comes to
-        # fronter. 
+        # fronter.
         if kind in ("undakt", "undenh", "timeplan",):
             key = ("kurs",
                    data["institusjonsnr"],
@@ -1488,16 +1451,16 @@ def parse_xml_roles(fname):
         elif kind in ("sted",):
             key = ("sted", make_sko(data))
             logger.debug("Rekursiv rolle (%s): %s -> %s",
-                         data["rollekode"] in recursive_roles
-                           and "brukt" or "ignorert",
+                         data["rollekode"] in recursive_roles and "brukt" or
+                         "ignorert",
                          key, data["rollekode"])
             if data["rollekode"] not in recursive_roles:
                 return
         elif kind in ("stprog",):
             key = ("stprog", data["studieprogramkode"])
             logger.debug("Rekursiv rolle (%s): %s -> %s",
-                         data["rollekode"] in recursive_roles
-                           and "brukt" or "ignorert",
+                         data["rollekode"] in recursive_roles and
+                         "brukt" or "ignorert",
                          key, data["rollekode"])
             if data["rollekode"] not in recursive_roles:
                 return
@@ -1512,75 +1475,109 @@ def parse_xml_roles(fname):
         if data["rollekode"] in valid_roles:
             logger.debug("role %s given for %s to %s",
                          data["rollekode"], key, fnr)
-            detailed_roles.setdefault(key, dict()).setdefault(data["rollekode"],
-                                                              list()).append(fnr)
+            detailed_roles.setdefault(key, dict()).setdefault(
+                data["rollekode"],
+                list()).append(fnr)
         else:
             logger.debug("role %s for person %s for unit %s is not recognized "
                          "and will be ignored",
                          data["rollekode"], fnr, key)
-        
+
     logger.info("Parsing role file %s", fname)
     roles_xml_parser(fname, element_to_role)
     logger.info("Parsing roles complete")
 
     return detailed_roles
-# end parse_xml_roles
 
 
+DEFAULT_COMMIT = True
 
-def main():
-    global fs, db, co, logger, emne_versjon, emne_termnr, account_id2fnr, \
-           fnr2account_id, fnr2stud_account_id, AffiliatedGroups, \
-           known_FS_groups, fs_supergroup, group_creator, UndervEnhet, dryrun
 
-    logger = Factory.get_logger("cronjob")
+def readable_file_type(filename):
+    if not os.path.isfile(filename):
+        raise ValueError("No file %r" % (filename,))
+    if not os.access(filename, os.R_OK):
+        raise ValueError("Unable to read %r" % (filename,))
+    return filename
+
+
+def main(inargs=None):
+    global fs, db, co, emne_versjon, emne_termnr, account_id2fnr
+    global fnr2account_id, fnr2stud_account_id, AffiliatedGroups
+    global known_FS_groups, fs_supergroup
+    global group_creator, UndervEnhet
+    global dryrun
+
     logger.debug("populating fronter groups")
-    
+
     # Upper/lowercasing of Norwegian letters.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
+    parser = argparse.ArgumentParser()
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "",
-                                   ["role-file=",
-                                    "undenh-file=",
-                                    "undakt-file=",
-                                    "evu-file=",
-                                    "kursakt-file=",
-                                    "kull-file=",
-                                    "edu-file=",
-                                    "dryrun"])
-        
-    except getopt.GetoptError:
-        usage(2)
-    dryrun = False
-    role_file = None
-    undenh_file = None
-    undakt_file = None
-    evu_file = None
-    kursakt_file = None
-    kull_file = None
-    edu_file = None
-    for o, val in opts:
-        if o in ('--role-file',):
-            role_file = val
-        elif o in ('--undenh-file',):
-            undenh_file = val
-        elif o in ('--undakt-file',):
-            undakt_file = val
-        elif o in ('--evu-file',):
-            evu_file = val
-        elif o in ('--kursakt-file',):
-            kursakt_file = val
-        elif o in ('--kull-file',):
-            kull_file = val
-        elif o in ('--edu-file',):
-            edu_file = val
-        elif o in ('--dryrun',):
-            dryrun = True
+    db_commit = parser.add_argument_group('Database')
+    commit_mutex = db_commit.add_mutually_exclusive_group()
+    commit_mutex.add_argument(
+        '--dryrun',
+        dest='commit',
+        action='store_false',
+        help='Run in dryrun mode' + ('' if DEFAULT_COMMIT else ' (default)'))
+    commit_mutex.add_argument(
+        '--commit',
+        dest='commit',
+        action='store_true',
+        help='Commit changes to the database' + ('' if not DEFAULT_COMMIT
+                                                 else ' (default)'))
+    commit_mutex.set_defaults(commit=DEFAULT_COMMIT)
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    fs_files = parser.add_argument_group('Files',
+                                         'XML data files from import_FS')
+    fs_files.add_argument(
+        '--role-file',
+        type=readable_file_type,
+        help='Roller',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--undenh-file',
+        type=readable_file_type,
+        help='Undervisningsenheter',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--undakt-file',
+        type=readable_file_type,
+        help='Undervisningsaktiviteter',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--evu-file',
+        type=readable_file_type,
+        help='EVU-kurs',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--kursakt-file',
+        type=readable_file_type,
+        help='EVU-kursaktiviteter',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--kull-file',
+        type=readable_file_type,
+        help='Kull',
+        metavar='FILE')
+    fs_files.add_argument(
+        '--edu-file',
+        type=readable_file_type,
+        help='edu_info?',
+        metavar='FILE')
+
+    args = parser.parse_args(inargs)
+
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     db = Factory.get('Database')()
     db.cl_init(change_program='CF_gen_groups')
     co = Factory.get('Constants')(db)
+
+    dryrun = not args.commit
+
     emne_versjon = {}
     emne_termnr = {}
     account_id2fnr = {}
@@ -1599,17 +1596,21 @@ def main():
 
     group_creator = get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id
 
-    process_kursdata(role_file, undenh_file, undakt_file,
-                     evu_file, kursakt_file, kull_file, edu_file)
-    if dryrun:
-        logger.debug("Dry run. Rolling back all changes...")
-        db.rollback()
-    else:
-        logger.debug("Committing all changes...")
+    process_kursdata(
+        args.role_file,
+        args.undenh_file,
+        args.undakt_file,
+        args.evu_file,
+        args.kursakt_file,
+        args.kull_file,
+        args.edu_file)
+    if args.commit:
+        logger.info("Committing all changes...")
         db.commit()
+    else:
+        logger.info("Dry run. Rolling back all changes...")
+        db.rollback()
     logger.info("All done")
-# end main
-
 
 
 if __name__ == '__main__':

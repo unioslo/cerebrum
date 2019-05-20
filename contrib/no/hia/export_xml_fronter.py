@@ -126,7 +126,7 @@ def get_semester():
         next_sem = 'vår'
     if not include_this_sem:
         this_year, this_sem = next_year, next_sem
-    return ((str(this_year), this_sem), (str(next_year), next_sem))
+    return (str(this_year), this_sem), (str(next_year), next_sem)
 
 
 def load_phone_numbers(person):
@@ -398,7 +398,7 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
             # Rom for undervisningsenheten.
             emne_id_prefix = ':'.join((cereconf.INSTITUTION_DOMAIN_NAME_LMS,
                                        'fs', 'emner'))
-            emne_rom_id = fronter_lib.FronterUtils.UE2RomID(
+            emne_rom_id = fronter_lib.UE2RomID(
                 'ROOM:%s' % emne_id_prefix,
                 ar, term, instnr, fak_sko, 'undenh',
                 emnekode, versjon, terminnr)
@@ -573,24 +573,30 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                     entity2name.get(int(row["member_id"])) for row in
                     group.search_members(group_id=group.entity_id,
                                          member_type=const.entity_account)
-                    if int(row["member_id"]) in entity2name ]
+                    if int(row["member_id"]) in entity2name]
 
                 if user_members:
                     register_members(fronter_gname,
                                      user_members, const.entity_account)
         else:
-            raise RuntimeError, \
-                  "Ukjent type gruppe eksportert: %r" % (gname,)
+            raise RuntimeError("Ukjent type gruppe eksportert: %r" % (gname,))
+
 
 new_acl = {}
+
+
 def register_room_acl(room_id, group_id, role):
     new_acl.setdefault(room_id, {})[group_id] = {'role': role}
+
 
 def register_structure_acl(node_id, group_id, contactAccess, roomAccess):
     new_acl.setdefault(node_id, {})[group_id] = {'gacc': contactAccess,
                                                  'racc': roomAccess}
 
+
 new_groupmembers = {}
+
+
 def register_members(gname, members, member_type):
     """Register members for a group.
 
@@ -615,9 +621,11 @@ def register_members(gname, members, member_type):
     """
     assert member_type in (const.entity_account, const.entity_group)
     new_groupmembers.setdefault(gname, {})[int(member_type)] = members
-# end register_members
+
 
 new_rooms = {}
+
+
 def register_room(title, id, parentid, profile):
     new_rooms[id] = {
         'title': title,
@@ -625,16 +633,20 @@ def register_room(title, id, parentid, profile):
         'CFid': id,
         'profile': profile}
 
+
 new_group = {}
+
+
 def register_group(title, id, parentid,
                    allow_room=False, allow_contact=False):
     """Adds info in new_group about group."""
-    new_group[id] = { 'title': title,
-                      'parent': parentid,
-                      'allow_room': allow_room,
-                      'allow_contact': allow_contact,
-                      'CFid': id,
-                  }
+    new_group[id] = {'title': title,
+                     'parent': parentid,
+                     'allow_room': allow_room,
+                     'allow_contact': allow_contact,
+                     'CFid': id,
+                     }
+
 
 def output_group_xml():
     """Generer GROUP-elementer uten forover-referanser."""
@@ -653,9 +665,11 @@ def output_group_xml():
     for group in new_group.iterkeys():
         output(group)
 
+
 def usage(exitcode):
     print "Usage: export_xml_fronter.py OUTPUT_FILENAME"
     sys.exit(exitcode)
+
 
 def main():
     # Håndter upper- og lowercasing av strenger som inneholder norske
@@ -720,7 +734,8 @@ def main():
             node_id = sem_node_id + ':' + suffix
             register_group(title, node_id, sem_node_id)
 
-    brukere_id= 'STRUCTURE:%s:fs:brukere' % cereconf.INSTITUTION_DOMAIN_NAME_LMS
+    brukere_id = 'STRUCTURE:%s:fs:brukere' % (
+        cereconf.INSTITUTION_DOMAIN_NAME_LMS)
     register_group('Brukere', brukere_id, auto_node_id)
 
     fellesrom_id = 'STRUCTURE:%s:fs:fellesrom' % \
@@ -729,8 +744,9 @@ def main():
 
     # Registrer statiske EVU-strukturnoder.
     # Ting blir litt enklere, hvis vi drar med oss institusjonsnummeret
-    evu_node_id = 'STRUCTURE:%s:fs:%s:evu' % (cereconf.INSTITUTION_DOMAIN_NAME_LMS,
-                                              cereconf.DEFAULT_INSTITUSJONSNR)
+    evu_node_id = 'STRUCTURE:%s:fs:%s:evu' % (
+        cereconf.INSTITUTION_DOMAIN_NAME_LMS,
+        cereconf.DEFAULT_INSTITUSJONSNR)
     register_group('EVU', evu_node_id, auto_node_id)
     for (suffix,
          title,
@@ -745,6 +761,7 @@ def main():
     # [emnekode ...]" og "<evukurs> -> evukursnavn".
     emne_info = {}
     fakulteter = []
+
     def finn_emne_info(element, attrs):
         if element != 'undenhet':
             return
@@ -758,6 +775,7 @@ def main():
                                       finn_emne_info)
 
     stprog_info = {}
+
     def finn_stprog_info(element, attrs):
         if element != 'studprog':
             return
@@ -798,17 +816,19 @@ def main():
         ou.clear()
         try:
             ou.find_stedkode(faknr, 0, 0,
-                             institusjon = cereconf.DEFAULT_INSTITUSJONSNR)
+                             institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
         except Errors.NotFoundError:
             logger.error("Finner ikke stedkode for fakultet %d", faknr)
             faknavn = '*Ikke registrert som fakultet i FS*'
         else:
-            acronym = ou.get_name_with_language(name_variant=const.ou_name_acronym,
-                                                name_language=const.language_nb,
-                                                default="")
-            short_name = ou.get_name_with_language(name_variant=const.ou_name_short,
-                                                   name_language=const.language_nb,
-                                                   default="")
+            acronym = ou.get_name_with_language(
+                name_variant=const.ou_name_acronym,
+                name_language=const.language_nb,
+                default="")
+            short_name = ou.get_name_with_language(
+                name_variant=const.ou_name_short,
+                name_language=const.language_nb,
+                default="")
             if acronym:
                 faknavn = acronym
             else:
@@ -829,9 +849,9 @@ def main():
                                       fak_sko)
             register_group(faknavn, fak_node_id, parent_id,
                            allow_room=True)
-        brukere_sted_id = brukere_id + \
-                          ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
-                                      fak_sko)
+        brukere_sted_id = brukere_id + ":%s:%s" % (
+            cereconf.DEFAULT_INSTITUSJONSNR,
+            fak_sko)
         register_group(faknavn, brukere_sted_id, brukere_id)
         brukere_studenter_id = brukere_sted_id + ':student'
         register_group('Studenter ved %s' % faknavn,
