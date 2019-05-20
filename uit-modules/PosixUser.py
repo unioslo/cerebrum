@@ -1,6 +1,5 @@
-#!/user/bin/env python
-# -*- coding: iso-8859-1 -*-
-# Copyright 2002-2012 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,11 +18,14 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import cereconf
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import PosixUser  
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
-     BofhdAuthOpTarget, BofhdAuthRole
+from Cerebrum.modules import PosixUser
+from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
+                                         BofhdAuthOpTarget,
+                                         BofhdAuthRole)
+
 
 class PosixUserUiTMixin(PosixUser.PosixUser):
     """This mixin overrides PosixUser for the UiT instance, and automatically
@@ -43,8 +45,10 @@ class PosixUserUiTMixin(PosixUser.PosixUser):
 
         """
         ret = self.__super.delete_posixuser()
+
         self.pg.clear()
         self.pg.find(self.gid_id)
+
         # TODO: check personal_group trait instead or in addition
         if self.pg.group_name == self.account_name:
             if (hasattr(self, 'delete_trait') and
@@ -62,19 +66,20 @@ class PosixUserUiTMixin(PosixUser.PosixUser):
         self.pg.clear()
         return self.__super.clear()
 
-    def populate(self, posix_uid, gid_id, gecos, shell, name=None, owner_type=None,
-                 owner_id=None, np_type=None, creator_id=None, expire_date=None,
-                 parent=None):
+    def populate(self, posix_uid, gid_id, gecos, shell,
+                 name=None, owner_type=None, owner_id=None, np_type=None,
+                 creator_id=None, expire_date=None, parent=None):
         """Populate PosixUser instance's attributes without database access.
         Note that the given L{gid_id} is ignored, the account's personal file
-        group is used anyways. The personal group's entity_id will be fetched at
-        L{write_db}.
+        group is used anyways. The personal group's entity_id will be fetched
+        at L{write_db}.
 
         Note that the gid_id could be forced by explicitly setting pu.gid_id
         after populate. The module would then respect this at write_db.
 
         """
         assert name or parent, "Need to either specify name or parent"
+
         if not creator_id:
             creator_id = parent.entity_id
 
@@ -129,7 +134,8 @@ class PosixUserUiTMixin(PosixUser.PosixUser):
 
         # Register the posixuser as owner of the group, if not already set
         op_target = BofhdAuthOpTarget(self._db)
-        if not op_target.list(entity_id=self.pg.entity_id, target_type='group'):
+        if not op_target.list(entity_id=self.pg.entity_id,
+                              target_type='group'):
             op_target.populate(self.pg.entity_id, 'group')
             op_target.write_db()
             op_set = BofhdAuthOpSet(self._db)
@@ -139,12 +145,14 @@ class PosixUserUiTMixin(PosixUser.PosixUser):
                             op_target.op_target_id)
 
         # Syncronizing the groups spreads with the users
-        mapping = { int(self.const.spread_uit_nis_user):
-                    int(self.const.spread_uit_nis_fg),
-                    int(self.const.spread_uit_ad_account):
-                    int(self.const.spread_uit_ad_group),
-                    int(self.const.spread_ifi_nis_user):
-                    int(self.const.spread_ifi_nis_fg) }
+        mapping = {
+            int(self.const.spread_uit_nis_user):
+            int(self.const.spread_uit_nis_fg),
+            int(self.const.spread_uit_ad_account):
+            int(self.const.spread_uit_ad_group),
+            int(self.const.spread_ifi_nis_user):
+            int(self.const.spread_ifi_nis_fg),
+        }
         user_spreads = [int(r['spread']) for r in self.get_spread()]
         group_spreads = [int(r['spread']) for r in self.pg.get_spread()]
         for uspr, gspr in mapping.iteritems():
