@@ -1,39 +1,61 @@
-#!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
+#
+# Copyright 2016-2019 University of Tromso, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Access data from another Cerebrum database.
+"""
+import logging
 
 import psycopg2
 import psycopg2.extras
 
-import cereconf
-from Cerebrum.Utils import Factory
-logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+logger = logging.getLogger(__name__)
+default_database = "cerebrum"
+default_user = "cerebrum"
+default_host = "caesar.uit.no"
 
-database = "cerebrum"
-user = "cerebrum"
-host = "caesar.uit.no"
 
-# class AccountBridge
-# 
-# Class to use for getting information about accounts from the existing 
-# Cerebrum database on Caesar. For use when adding accounts to the new Cerebrum
-# database on Clavius.
-#
-# Use 'with' to instantiate the class, thus avoiding the need to close the database connection explicitly.
-# E.g.:
-#   with AccountBridge() as bridge:
-#       <do stuff here...>
-#       # when finished the database connection will be closed automatically
-# 
-class AccountBridge:
+def connect(database=default_database, user=default_user, host=default_host):
+    conn = psycopg2.connect(database=database, user=user, host=host)
+    conn.cursor_factory = psycopg2.extras.DictCursor
+    logger.info("Connected to database %r", conn.dsn)
+    return conn
 
-    def __init__(self):
-        self._db_conn = None
-        try:
-            # connect to Cerebrum database on Caesar
-            self._db_conn = psycopg2.connect(database = database, user = user, host = host)
-            logger.info("Connected to database %s@%s" % (database, host))
-        except psycopg2.DatabaseError as e:
-            logger.error("DatabaseError: %s", e)
+
+class AccountBridge(object):
+    """
+    Class to use for getting information about accounts from the existing
+    Cerebrum database on Caesar.  For use when adding accounts to the new
+    Cerebrum database on Clavius.
+
+    Use 'with' to instantiate the class, thus avoiding the need to close the
+    database connection explicitly.  E.g.:
+
+    .. code:: python
+
+        with AccountBridge() as bridge:
+            <do stuff here...>
+            # when finished the database connection will be closed
+    """
+
+    def __init__(self, **kwargs):
+        self._db_conn = connect(**kwargs)
 
     def __enter__(self):
         return self
@@ -44,377 +66,387 @@ class AccountBridge:
     def close_db(self):
         if self._db_conn:
             self._db_conn.close()
-            logger.info("Closed connection to database %s@%s" % (database, host))
+            logger.info("Closed connection to %r", self._db_conn.dsn)
 
     #############################################
-    # 
+    #
     # Unames
-    # 
+    #
     #############################################
 
-    # NOTE that a person can have more than one account: 
-    # Sito employees can have two accounts if they are also students/employees at uit.
+    # NOTE that a person can have more than one account:
+    # Sito employees can have two accounts if they are also students/employees
+    # at uit.
     # Sito usernames are longer than 6 characters and end with 's'
 
     # list_unames(self, ssn)
-    # 
-    # Gets username(s) for person with the given ssn from the Caesar database and returns a list with the result.
-    # Returns empty list if person isn't found in the database.
-    # Returns None if database connection is down.
-    # 
+    #
+    #
     def list_unames(self, ssn):
-        if self._db_conn:
-            cur = self._db_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        """
+        List usernames.
+
+        Gets username(s) for a person with the given ssn from the database.
+
+        :param ssn: A ssn to get usernames for.
+
+        :return:
+            Returns empty list if person isn't found in the database.
+            Returns None if database connection is down.
+        """
+        try:
+            cur = self._db_conn.cursor()
             # get username from Caesar database
-            query = "SELECT entity_name FROM entity_name \
-                     WHERE entity_id IN \
-                        (SELECT account_id FROM account_info \
-                         WHERE owner_id IN \
-                            (SELECT entity_id FROM entity_external_id \
-                             WHERE external_id = '%s'));" % ssn
-            cur.execute(query)
+            query = """
+            SELECT entity_name FROM entity_name
+            WHERE entity_id IN
+              (SELECT account_id FROM account_info
+               WHERE owner_id IN
+                (SELECT entity_id FROM entity_external_id
+                 WHERE external_id = %(ssn)s));
+            """
+            cur.execute(query, {'ssn': ssn})
             rows = cur.fetchall()
             cur.close()
             return rows
-        else:
-            logger.error("Couldn't get uname. No connection to %s database on %s." % (database, host))
+        except Exception as e:
+            logger.error("Unable to get uname: %s", e)
             return None
 
-    # get_uname(self, ssn, sito=False)
-    # 
-    # Gets username for person with the given ssn from the Caesar database and returns it.
-    # If sito=True sito username is returned, otherwise uit username is returned
-    # Returns 'None' if requested username isn't found for this person.
-    # 
     def get_uname(self, ssn, sito=False):
+        """
+        Get username for a person with the given ssn.
+
+        :param ssn: The ssn to get a username for
+        :param sito: Gets SITO usernames if True.
+        """
         uit_uname = None
         sito_uname = None
-        rows = self.list_unames(ssn)
-        if rows != None:
-            for row in rows:
-                if (len(row["entity_name"]) > 6) and row["entity_name"].endswith('s'): 
-                    sito_uname = row["entity_name"]
-                    logger.debug("%s is legal sito username" % (row['entity_name']))
-                else:
-                    #
-                    # Do not collect usernames on the form aaa99(8,9). these are admin accounts and not to be included
-                    # (they are soon to be deleted from all systems)
-                    #
-                    if((len(row["entity_name"]) == 6) and ((row["entity_name"][3:5] == '99') and (row["entity_name"][5] in ('8','9')))):
-                        logger.debug("%s is admin username. do not process" % (row['entity_name']))
-                    else:
-                        uit_uname = row["entity_name"]
-                        logger.debug("%s is legal uit username" % (row['entity_name']))
+        for row in (self.list_unames(ssn) or ()):
+            if (len(row["entity_name"]) > 6 and
+                    row["entity_name"].endswith('s')):
+                sito_uname = row["entity_name"]
+                logger.debug("Found sito username=%r", row['entity_name'])
+            elif (len(row["entity_name"]) == 6 and
+                  row["entity_name"][3:5] == '99' and
+                  row["entity_name"][5] in ('8', '9')):
+                # Do not collect usernames on the form aaa99(8,9). these are
+                # admin accounts and not to be included (they are soon to be
+                # deleted from all systems)
+                logger.debug("Found admin username=%r, ignoring",
+                             row['entity_name'])
+            else:
+                uit_uname = row["entity_name"]
+                logger.debug("Found uit username=%r", row['entity_name'])
 
         if sito:
             return sito_uname
         else:
             return uit_uname
 
-    # get_uit_uname(self, ssn)
-    # 
-    # Gets uit username for person with the given ssn from the Caesar database and returns it.
-    # Returns 'None' if no valid username is found for this person.
-    # 
     def get_uit_uname(self, ssn):
-        return self.get_uname(ssn)
+        """
+        Get uit username for a person.
 
-    # get_sito_uname(self, ssn)
-    # 
-    # Gets sito username for person with the given ssn from the Caesar database and returns it.
-    # Returns 'None' if no valid sito username is found for this person.
-    # 
+        :return: The username, or None if no valid username is found.
+        """
+        return self.get_uname(ssn, sito=False)
+
     def get_sito_uname(self, ssn):
+        """
+        Get sito username for a person.
+
+        :return: The username, or None if no valid username is found.
+        """
         return self.get_uname(ssn, sito=True)
 
     #############################################
-    # 
+    #
     # Passwords
-    # 
+    #
     #############################################
 
-    # get_auth_data(self, username)
-    # 
-    # Gets authentication data for the account with the given username.
-    # 
-    # Returns a list of rows of authentication data.
-    # The data in each row can be referred to by their column names, method and auth_data.
-    # Returns 'None' if no authentication data was found for the given username.
-    # 
     def get_auth_data(self, username):
-        rows = None
-        if self._db_conn:
-            cur = self._db_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            #  get authentication data for this account
-            query = "SELECT method, auth_data FROM account_authentication \
-                     WHERE account_id = \
-                        (SELECT entity_id FROM entity_name \
-                         WHERE entity_name = '%s');" %  username
-            cur.execute(query)
+        """
+        Gets authentication data for the account with the given username.
+
+        :return:
+            Returns a list of rows of authentication data.  The data in each
+            row can be referred to by their column names, method and auth_data.
+            Returns 'None' if no authentication data was found for the given
+            username.
+        """
+        stmt = """
+        SELECT method, auth_data FROM account_authentication
+        WHERE account_id = (
+            SELECT entity_id FROM entity_name
+            WHERE entity_name = %(username)s);
+        """
+        binds = {'username': username}
+        try:
+            cur = self._db_conn.cursor()
+            cur.execute(stmt, binds)
             rows = cur.fetchall()
-            if len(rows) < 1:
-                rows = None
-
             cur.close()
-        else:
-            logger.error("Couldn't get password. No connection to %s database on %s." % (database, host))
-        return rows
+            return rows or None
+        except Exception as e:
+            logger.error("Unable to get password for username=%r: %s",
+                         username, e)
+            return None
 
     #############################################
-    # 
+    #
     # Email addresses
-    # 
+    #
     #############################################
 
-    # get_email(self, username)
-    # 
-    # Gets email address for account with the given username and returns it.
-    # Returns None if something goes wrong.
-    # 
     def get_email(self, username):
-        email = None
-        if self._db_conn:
-            cur = self._db_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            # get local part and domain id of users primary email address from Caesar database
-            query = "SELECT local_part, domain_id FROM email_address \
-                     WHERE address_id = \
-                        (SELECT address_id FROM email_primary_address \
-                         WHERE target_id = \
-                            (SELECT target_id FROM email_target \
-                             WHERE target_entity_id = \
-                                (SELECT entity_id FROM entity_name \
-                                 WHERE entity_name = '%s')));" % username
-            cur.execute(query)
+        """
+        Gets email address for account with the given username and returns it.
+
+        :return:
+            An email address, or None if something goes wrong.
+        """
+        stmt = """
+        SELECT e.local_part, d.domain FROM email_address e
+        JOIN email_domain d ON e.domain_id = d.domain_id
+        WHERE e.address_id = (
+          SELECT address_id FROM email_primary_address
+          WHERE target_id = (
+            SELECT target_id FROM email_target
+            WHERE target_entity_id = (
+              SELECT entity_id FROM entity_name
+              WHERE entity_name = %(username)s)));
+        """
+        binds = {'username': username}
+        try:
+            cur = self._db_conn.cursor()
+            cur.execute(stmt, binds)
             row = cur.fetchone()
-            if row != None:
-                local_part = row["local_part"] 
-                domain_id  = row["domain_id"]
-
-                # get domain for this email address from Caesar database
-                query = "SELECT domain FROM email_domain WHERE domain_id = %s;" % domain_id
-                cur.execute(query)
-                row = cur.fetchone()
-                if row != None:
-                    domain = row["domain"]
-                    email = local_part + "@" + domain
-                else:
-                    logger.warn("Email information not found for %s" % username)
+            if row:
+                local_part = row["local_part"]
+                domain = row["domain"]
+                email = local_part + "@" + domain
             else:
-                logger.warn("Email information not found for %s" % username)
-
+                logger.warn("Email information not found for %s", username)
+                email = None
             cur.close()
-        else:
-            logger.error("Couldn't get email address. No connection to %s database on %s." % (database, host))
+            return email
+        except Exception as e:
+            logger.error("Unable to get email address for username=%r: %s",
+                         username, e)
+            return None
 
-        return email
-
-    # get_domains(self)
-    # 
-    # Returns a dict of all domain ids with their value.
-    # Returns an empty dict if something goes wrong.
-    # 
-    # Used by get_all_primary_emails() and get_all_email_aliases()
-    # 
     def get_domains(self, db_cursor):
-        domains = dict()
+        """
+        Get a mapping from domain_id to domain.
 
-        query = "SELECT domain_id, domain FROM email_domain;"
-        db_cursor.execute(query)
-        rows = db_cursor.fetchall()
+        :return:
+            Returns a dict of all domain ids with their value.
+            Returns an empty dict if something goes wrong.
 
-        if rows != None:
-            for row in rows:
-                domains[row["domain_id"]] = row["domain"]
-        else:
+        Used by get_all_primary_emails() and get_all_email_aliases()
+        """
+        stmt = "SELECT domain_id, domain FROM email_domain;"
+        db_cursor.execute(stmt)
+
+        domains = dict(
+            (r['domain_id'], r['domain'])
+            for r in (db_cursor.fetchall() or ()))
+
+        if not domains:
             logger.error("Found no domains in database.")
 
         return domains
 
-    # get_username_from_target_id(self, target_id, db_cursor)
-    # 
-    # Returns username connected to a given target_id
-    # Returns None if something goes wrong
-    # 
-    # Used by get_all_primary_emails() and get_all_email_aliases()
-    # 
     def get_username_from_target_id(self, target_id, db_cursor):
-        username = None
+        """
+        Get username from email target.
 
-        query = "SELECT entity_name FROM entity_name \
-                 WHERE entity_id = \
-                    (SELECT target_entity_id FROM email_target \
-                     WHERE target_id = '%s');" % target_id
-        db_cursor.execute(query)
+        :return:
+            Returns username connected to a given target_id
+            Returns None if something goes wrong
+
+        Used by get_all_primary_emails() and get_all_email_aliases()
+        """
+        stmt = """
+        SELECT entity_name FROM entity_name
+        WHERE entity_id = (
+          SELECT target_entity_id FROM email_target \
+          WHERE target_id = %(target_id)s);
+        """
+        binds = {'target_id': target_id}
+        db_cursor.execute(stmt, binds)
         result = db_cursor.fetchone()
+        if result:
+            return result['entity_name']
+        else:
+            return None
 
-        if result != None:
-            username = result['entity_name']
-
-        return username
-
-    # get_all_primary_emails(self)
-    # 
-    # Returns a dict of all primary email addresses with username as key
-    # (format: {<username> : {'email' : <EMAIL ADDRESS>, 'expire_date' : <EXPIRE DATE>}})
-    # Returns an empty dict if something goes wrong.
-    # 
     def get_all_primary_emails(self):
+        """
+        Get all primary email addresses.
+
+        :rtype: dict
+        :return:
+            A mapping from username to primary email address and expire date:
+            (format: {<username> : {'email' : <EMAIL ADDRESS>,
+                                    'expire_date' : <EXPIRE DATE>}})
+            Returns an empty dict if something goes wrong.
+        """
         logger.info("Getting all primary emails.")
         emails = dict()
-        if self._db_conn:
-            cur = self._db_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            
-            # get data about all primary email addresses
-            query = "SELECT target_id, local_part, domain_id, expire_date FROM email_address \
-                     WHERE address_id IN \
-                        (SELECT address_id FROM email_primary_address);"
-            cur.execute(query)
+
+        stmt = """
+        SELECT a.target_id, a.local_part, a.domain_id, a.expire_date
+        FROM email_address a
+        WHERE EXISTS (
+          SELECT * from email_primary_address p
+          WHERE a.address_id = p.address_id);
+        """
+        try:
+            cur = self._db_conn.cursor()
+            cur.execute(stmt)
             rows = cur.fetchall()
+            if not rows:
+                raise ValueError("no email addresses")
 
             # get all domains
             domains = self.get_domains(cur)
+            if not domains:
+                raise ValueError("no email domains")
 
-            if (rows != None) and len(domains) > 0:
-                for row in rows:
-                    email_info = dict()
-                    target_id = row['target_id']
-                    local_part = row['local_part']
-                    domain_id = row['domain_id']
-                    expire_date = row['expire_date']
-                    if expire_date != None:
-                        expire_date = expire_date.strftime("%Y-%m-%d")
+            for row in rows:
+                target_id = row['target_id']
+                local_part = row['local_part']
+                domain_id = row['domain_id']
+                expire_date = row['expire_date']
+                if expire_date:
+                    expire_date = expire_date.strftime("%Y-%m-%d")
 
-                    # get username that has this email address
-                    uname = self.get_username_from_target_id(target_id, cur)
-                    if uname == None:
-                        logger.error("Couldn't find username for email with target_id %s. Ignoring it." 
-                                    % target_id)
-                        continue
+                # get username that has this email address
+                uname = self.get_username_from_target_id(target_id, cur)
+                if not uname:
+                    logger.error("No username for target_id=%r, ignoring",
+                                 target_id)
+                    continue
 
-                    # build email address
-                    email = local_part + "@" + domains[domain_id]
-
-                    email_info['email'] = email
-                    email_info['expire_date'] = expire_date
-
-                    # add email info to emails dict
-                    emails[uname] = email_info
-            logger.info("Finished getting %s primary emails." % len(emails))
-        else:
-            logger.error("Couldn't get primary emails. No connection to %s database on %s." % (database, host))
+                # add email info to emails dict
+                emails[uname] = {
+                    'email': local_part + "@" + domains[domain_id],
+                    'expire_date': expire_date,
+                }
+            logger.info("Finished getting %s primary email addresses",
+                        len(emails))
+        except Exception as e:
+            logger.error("Unable to fetch primary email addresses: %s", e)
 
         return emails
 
-    # get_email_aliases(self, username)
-    # 
-    # Gets email aliases for account with the given username and returns them as a list.
-    # Returns an empty list if something goes wrong, or no aliases are found.
-    # 
-    # Note: the returned list will not contain primary email address.
-    # 
     def get_email_aliases(self, username):
-        aliases = list()
-        if self._db_conn:
-            cur = self._db_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            query = "SELECT address_id, local_part, domain_id FROM email_address \
-                     WHERE target_id = \
-                        (SELECT target_id FROM email_target \
-                         WHERE target_entity_id = \
-                            (SELECT entity_id FROM entity_name \
-                             WHERE entity_name = '%s'));" % username
-            cur.execute(query)
-            rows = cur.fetchall()
+        """
+        Gets email aliases for a given account.
 
-            if len(rows) > 0:
-                # get address_id of primary email address
-                query = "SELECT address_id FROM email_primary_address \
-                         WHERE target_id = \
-                            (SELECT target_id FROM email_target \
-                             WHERE target_entity_id = \
-                                (SELECT entity_id FROM entity_name \
-                                 WHERE entity_name = '%s'));" % username
-                cur.execute(query)
-                primary_row = cur.fetchone()
-                primary_id = primary_row['address_id']
+        :rtype: list
+        :return:
+            A list of email aliases.
+            Note: the returned list will not contain primary email address.
+            Returns an empty list if something goes wrong, or no aliases are
+            found.
+        """
+        stmt = """
+        SELECT a.address_id, a.local_part, d.domain FROM email_address a
+        JOIN email_domain d ON a.domain_id = d.domain_id
+        WHERE a.target_id = (
+            SELECT target_id FROM email_target
+            WHERE target_entity_id = (
+              SELECT entity_id FROM entity_name
+              WHERE entity_name = %(username)s))
+        AND NOT EXISTS (
+          SELECT * from email_primary_address
+          WHERE address_id=a.address_id);
+        """
+        binds = {'username': username}
+        try:
+            cur = self._db_conn.cursor()
+            cur.execute(stmt, binds)
 
-                for row in rows:
-                    if row['address_id'] != primary_id: # Don't add primary address
-                        # get domain for this email address from Caesar database
-                        query = "SELECT domain FROM email_domain WHERE domain_id = %s;" % row["domain_id"]
-                        cur.execute(query)
-                        dom_row = cur.fetchone()
-
-                        if dom_row != None:
-                            email = row['local_part'] + "@" + dom_row["domain"]
-                            aliases.append(email)
-            else:
-                logger.warn("Email information not found for %s" % username)
-
+            aliases = [
+                row['local_part'] + "@" + row["domain"]
+                for row in cur.fetchall()]
             cur.close()
-        else:
-            logger.error("Couldn't get email aliases. No connection to %s database on %s." % (database, host))
 
-        return aliases
+            if not aliases:
+                logger.warning("No email aliases for username=%r", username)
+            return aliases
 
+        except Exception as e:
+            logger.error("Unable to get email aliases for username=%r: %e",
+                         username, e)
+            return []
 
-    # get_all_email_aliases(self)
-    # 
-    # Returns a dict of all email aliases with username as key
-    # (format: {<username> : list of {'email' : <EMAIL ADDRESS>, 'expire_date' : <EXPIRE DATE>}})
-    # Returns an empty dict if something goes wrong.
-    # 
     def get_all_email_aliases(self):
+        """
+        Get a mapping from username to email aliases.
+
+        :rtype: dict
+        :return:
+             Returns a dict of all email aliases with username as key
+             (format: {<username>: list of {'email': <EMAIL ADDRESS>,
+                                            'expire_date' : <EXPIRE DATE>}})
+            Returns an empty dict if something goes wrong.
+        """
         logger.info("Getting all email aliases.")
         aliases = dict()
-
-        if self._db_conn:
-            cur = self._db_conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            query = "SELECT ea.target_id, ea.local_part, ea.domain_id, ea.expire_date FROM email_address ea \
-                     LEFT JOIN email_primary_address epa ON epa.address_id = ea.address_id \
-                     WHERE epa.address_id is NULL ORDER BY ea.target_id;"
-            cur.execute(query)
+        stmt = """
+        SELECT ea.target_id, ea.local_part, d.domain, ea.expire_date
+        FROM email_address ea
+        JOIN email_domain d on ea.domain_id = d.domain_id
+        LEFT JOIN email_primary_address epa
+        ON epa.address_id = ea.address_id
+        WHERE epa.address_id is NULL
+        ORDER BY ea.target_id;
+        """
+        try:
+            cur = self._db_conn.cursor()
+            cur.execute(stmt)
             rows = cur.fetchall()
+            current_target_id = -1
+            uname = ''
+            for row in (rows or ()):
+                target_id = row['target_id']
+                local_part = row['local_part']
+                domain = row['domain']
+                expire_date = row['expire_date']
+                if expire_date:
+                    expire_date = expire_date.strftime("%Y-%m-%d")
 
-            # get all domains
-            domains = self.get_domains(cur)
+                if target_id != current_target_id:
+                    current_target_id = target_id
+                    # get username that has this email alias
+                    uname = self.get_username_from_target_id(target_id,
+                                                             cur)
+                    if uname is None:
+                        logger.error("Couldn't find username for alias "
+                                     "with target_id %s. Ignoring all "
+                                     "aliases with this target_id.",
+                                     target_id)
+                        continue
 
-            if (rows != None) and (len(domains) > 0):
-                current_target_id = -1
-                uname = ''
-                for row in rows:
-                    email_info = dict()
-                    target_id = row['target_id']
-                    local_part = row['local_part']
-                    domain_id = row['domain_id']
-                    expire_date = row['expire_date']
-                    if expire_date != None:
-                        expire_date = expire_date.strftime("%Y-%m-%d")
+                    # add username to the aliases dict
+                    aliases[uname] = list()
+                elif not uname:
+                    # uname for this target_id could not be found, ignore
+                    # this alias
+                    continue
 
-                    # build email address
-                    email = local_part + "@" + domains[domain_id]
-
-                    email_info['email'] = email
-                    email_info['expire_date'] = expire_date
-
-                    if target_id != current_target_id:
-                        current_target_id = target_id
-                        # get username that has this email alias
-                        uname = self.get_username_from_target_id(target_id, cur)
-                        if uname == None:
-                            logger.error("Couldn't find username for alias with target_id %s. Ignoring all aliases with this target_id." 
-                                        % target_id)
-                            continue
-
-                        # add username to the aliases dict
-                        aliases[uname] = list()
-                    else:
-                        if uname == None:
-                            # uname for this target_id could not be found, ignore this alias
-                            continue
-
-                    # add this email alias to aliases[uname]'s list of aliases
-                    aliases[uname].append(email_info)
-            logger.info("Finished getting email aliases for %s accounts." % len(aliases))
-        else:
-            logger.error("Couldn't get email aliases. No connection to %s database on %s." % (database, host))
+                # add this email alias to aliases[uname]'s list of aliases
+                aliases[uname].append({
+                    'email': local_part + "@" + domain,
+                    'expire_date': expire_date,
+                })
+            logger.info("Finished getting email aliases for %s accounts.",
+                        len(aliases))
+        except Exception as e:
+            logger.error("Unable to fetch email aliases: %s", e)
         return aliases
