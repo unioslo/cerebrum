@@ -20,16 +20,17 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import print_function
 
-import sys
-import getopt
 import csv
-import urllib2
+import getopt
 import json
+import sys
+import urllib2
+
+import phonenumbers
 
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-from Cerebrum.modules.no.uit.Contacts import PhoneNums
 
 progname = __file__.split("/")[-1]
 __doc__ = """
@@ -47,12 +48,12 @@ __doc__ = """
 
 """ % progname
 
-
 pagafile = None
 reader = None
 national_identity_column = 0
 mobile_count = 0
 
+logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
 
 db = Factory.get('Database')()
 db.cl_init(change_program=progname)
@@ -60,8 +61,31 @@ p = Factory.get('Person')(db)
 co = Factory.get('Constants')(db)
 
 
-logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
-pn = PhoneNums(logger)
+def format_e164(number, country_code="NO"):
+    """
+    Takes a phone number as input and returns it in E.164 format.
+
+    - Returns valid phone numbers on the E.164 format
+    ("+<Country code><phone number>").
+    - Returns None if there is a problem when parsing the number.
+
+    :param string number:
+        Phone number to convert.
+    :param string country_code:
+        Country code to use as default. Default value is 'NO'
+    """
+    try:
+        res = phonenumbers.parse(number, country_code)
+    except phonenumbers.phonenumberutil.NumberParseException as e:
+        logger.warning("Problem when parsing %r: %s", number, e)
+        return None
+
+    if phonenumbers.is_possible_number(res):
+        return phonenumbers.format_number(
+            res, phonenumbers.PhoneNumberFormat.E164)
+    else:
+        logger.warning("'%s' is not an accepted number", number)
+        return None
 
 
 def get_national_identies(number_of_columns):
@@ -133,7 +157,7 @@ def update_bas(mobile_phones):
             continue
 
         # convert number to E.164 format (+<Land code><phone number>)
-        mobile_phone_e164 = pn.convert_to_e164_format(mobile_phone)
+        mobile_phone_e164 = format_e164(mobile_phone)
 
         if mobile_phone_e164 is None:
             logger.debug("Conversion of number from KR-REG failed, "
