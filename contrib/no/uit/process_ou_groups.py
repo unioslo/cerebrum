@@ -50,21 +50,24 @@ This script creates and syncs OU PosixGroups for all OUs existing in Cerebrum
    # Remove/Expire all groups remaining in group_delete_list
 """
 
-import getopt
+import argparse
+import logging
 import sys
 
 import cereconf
 import mx.DateTime
+from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixGroup
+from Cerebrum.utils.argutils import add_commit_args
 
-logger = None
+logger = logging.getLogger(__name__)
+
 group_dict = members_dict = ou_affiliates_dict = group_description_dict = stedkode_dict = description_group_dict = {}
 group_delete_list = members_delete_dict = None
 
 # Default values
 default_perspective = 1
-default_logger = 'cronjob'
 default_prefix = 'ou_groups'
 default_separator = ':'
 default_start_ou = 3  # Universitetet i Tromsø
@@ -107,14 +110,14 @@ def process_ou_groups(ou, perspective):
     them.
 
     """
-    global logger, group_dict, members_dict, ou_affiliates_dict, stedkode_dict
+    global group_dict, members_dict, ou_affiliates_dict, stedkode_dict
     global group_delete_list, members_delete_dict
-    global db, default_logger, default_group_visibility, default_creator
+    global db, default_group_visibility, default_creator
     global default_spread
     global group_type_id, default_memberop, account_type_id
     global group_description_dict, description_group_dict
 
-    logger.info("Now processing OU %s (%s)" % (ou.entity_id, ou_name(ou)))
+    logger.info("Now processing OU %s (%s)", ou.entity_id, ou_name(ou))
 
     gr = PosixGroup.PosixGroup(db)
     aux_gr = PosixGroup.PosixGroup(db)
@@ -154,8 +157,8 @@ def process_ou_groups(ou, perspective):
         if not (current_group, None) in members_dict[parent_group]:
             # add group member
             logger.info(
-                "Add current group (%s) as member of parent group (%s)" % (
-                    current_group, parent_group))
+                "Add current group (%s) as member of parent group (%s)",
+                current_group, parent_group)
 
             gr.clear()
             gr.find(parent_group)
@@ -276,8 +279,8 @@ def clean_up_ou_groups():
 
             gr.clear()
             gr.find(working_group)
-            logger.info("Removing old member %s from group %s" % (
-                member_id, working_group))
+            logger.info("Removing old member %s from group %s",
+                        member_id, working_group)
             gr.remove_member(member_id)
 
     # Remove all empty ou-groups:*:TEKNISK/VITENSKPELIG/STUDENT/EVT
@@ -290,12 +293,12 @@ def clean_up_ou_groups():
             if not list(gr.search_members(group_id=gr.entity_id)):
                 obsolete_group = gr.entity_id
                 obsolete_group_name = gr.get_name(group_namespace)
-                logger.info("Expiring empty container group %s (%s)" %
-                            (obsolete_group, obsolete_group_name))
+                logger.info("Expiring empty container group %s (%s)",
+                            obsolete_group, obsolete_group_name)
                 gr.expire_date = mx.DateTime.now()
                 logger.info(
-                    "Removing spread for empty container group %s (%s)" %
-                    (obsolete_group, obsolete_group_name))
+                    "Removing spread for empty container group %s (%s)",
+                    obsolete_group, obsolete_group_name)
                 # SPREAD DISABLED UNTIL AD IS READY. RMI000 - 20080207
                 # gr.delete_spread(default_spread)
                 gr.write_db()
@@ -307,8 +310,8 @@ def clean_up_ou_groups():
                     gr.clear()
                     gr.find(old_parent["group_id"])
                     logger.info(
-                        "Removing its membership from parent group %s (%s)" %
-                        (gr.entity_id, gr.get_name(group_namespace)))
+                        "Removing its membership from parent group %s (%s)",
+                        gr.entity_id, gr.get_name(group_namespace))
                     gr.remove_member(obsolete_group)
                     gr.write_db()
 
@@ -317,10 +320,10 @@ def clean_up_ou_groups():
         gr.clear()
         gr.find(group_id)
         logger.info(
-            "Expiring unused OU group %s (%s)" % (group_id, gr.description))
+            "Expiring unused OU group %s (%s)", group_id, gr.description)
         gr.expire_date = mx.DateTime.now()
-        logger.info("Removing spread for unused OU group %s (%s)" % (
-            group_id, gr.description))
+        logger.info("Removing spread for unused OU group %s (%s)",
+                    group_id, gr.description)
         # SPREAD DISABLED UNTIL AD IS READY. RMI000 - 20080207
         # gr.delete_spread(default_spread)
         gr.write_db()
@@ -332,30 +335,25 @@ def clean_up_ou_groups():
     return
 
 
-def main():
-    global logger, group_dict, members_dict, ou_affiliates_dict
+def main(inargs=None):
+    global group_dict, members_dict, ou_affiliates_dict
     global group_delete_list, members_delete_dict, stedkode_dict
-    global db, default_perspective, default_logger, default_start_ou
+    global db, default_perspective, default_start_ou
     global group_description_dict, possible_member_types, member_type_mappings
     global default_creator, default_spread, default_group_visibility
     global default_memberop, group_type_id, account_type_id
     global description_group_dict, group_namespace
 
-    logger = Factory.get_logger(default_logger)
+    # Parse arguments
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-p', '--perspective',
+                        help='filter process on determined perspective code',
+                        default=default_perspective)
+    parser = add_commit_args(parser, default=True)
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'pd',
-                                   ['perspective', 'dryrun'])
-    except getopt.GetoptError:
-        usage()
-
-    dryrun = 0
-    perspective = default_perspective
-    for opt, val in opts:
-        if opt in ('-p', '--perspective'):
-            perpective = val
-        if opt in ('-d', '--dryrun'):
-            dryrun = 1
+    logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    logutils.autoconf('cronjob', args)
 
     ou = Factory.get('OU')(db)
     gr = PosixGroup.PosixGroup(db)
@@ -504,8 +502,8 @@ def main():
                     tmp_acc_id = person2acc[aff['person_id']]
                 else:
                     logger.debug(
-                        'Could not find primary account for person: %s' % (
-                            aff['person_id']))
+                        'Could not find primary account for person: %s',
+                        aff['person_id'])
                     break
 
                 aff_tuple = (tmp_acc_id, possible_type)
@@ -524,8 +522,8 @@ def main():
     ou.find(default_start_ou)
 
     # Enter recursive function to process groups
-    logger.info("Starting to process groups, first out is: %s" % ou_name(ou))
-    process_ou_groups(ou=ou, perspective=perspective)
+    logger.info("Starting to process groups, first out is: %s", ou_name(ou))
+    process_ou_groups(ou=ou, perspective=args.perspective)
     logger.info("Finished processing groups")
 
     # Delete groups belonging to no longer imported OUs and removing old
@@ -536,12 +534,13 @@ def main():
     clean_up_ou_groups()
     logger.info("Finished cleaning up")
 
-    if (dryrun):
-        db.rollback()
-        logger.info("Dryrun, rolling back changes")
-    else:
+    if args.commit:
         db.commit()
         logger.info("Committing all changes to DB")
+    else:
+        db.rollback()
+        logger.info("Dryrun, rolling back changes")
+
 
 
 def usage():
