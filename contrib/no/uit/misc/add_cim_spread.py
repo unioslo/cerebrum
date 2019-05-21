@@ -19,9 +19,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Remove CIM-spreads for multiple persons.
+Update person spreads.
 
-Reads a file of person_id values (one per line), and removes CIM spread for
+Reads a file of person_id values (one per line), and add/removes spreads for
 those persons.
 """
 import argparse
@@ -32,6 +32,7 @@ import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.utils.argutils import get_constant
 
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ def update_entity_spreads(entity, to_add, to_remove):
     :type to_add: tuple
     :type to_remove: tuple
     """
+    logger.debug("processing entity_id=%r", entity.entity_id)
     spreads = [r['spread'] for r in entity.get_spread()]
 
     for spread in (s for s in to_add if int(s) not in spreads):
@@ -113,11 +115,29 @@ def read_integers(filename):
 
 def main(inargs=None):
     parser = argparse.ArgumentParser(
-        description="Remove CIM-spread from a list of persons",
+        description="Modify person spreads from a list of persons",
+        epilog=(
+            "Multiple spreads can be given, e.g. --add-spread=foo "
+            "--add-spread=bar --remove-spread=baz"),
     )
     parser.add_argument(
         'filename',
         help="Remove spread from person_ids in %(metavar)s",
+        metavar='filename',
+    )
+    add_spread_arg = parser.add_argument(
+        '--add-spread',
+        dest='to_add',
+        action='append',
+        help="Add %(metavar)s to each selected person",
+        metavar='spread',
+    )
+    del_spread_arg = parser.add_argument(
+        '--remove-spread',
+        dest='to_remove',
+        action='append',
+        help="Remove %(metavar)s from each selected person",
+        metavar='spread',
     )
     add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
@@ -129,14 +149,24 @@ def main(inargs=None):
     logger.debug('args: %r', args)
 
     db = Factory.get('Database')()
-    db.cl_init(change_program='add_cim_spread')
+    db.cl_init(change_program=parser.prog)
     co = Factory.get('Constants')(db)
+
+    to_add = [
+        get_constant(db, parser, co.Spread, v, argument=add_spread_arg)
+        for v in (args.to_add or ())]
+    to_remove = [
+        get_constant(db, parser, co.Spread, v, argument=del_spread_arg)
+        for v in (args.to_remove or ())]
+
+    if not to_add and not to_remove:
+        parser.error("No spreads given, nothing to do")
 
     update_spreads(
         db,
         read_integers(args.filename),
-        to_add=None,
-        to_remove=(co.spread_cim_person, ),
+        to_add=to_add,
+        to_remove=to_remove,
     )
 
     if args.commit:
