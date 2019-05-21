@@ -26,7 +26,6 @@ that has a email spread.
 """
 
 import argparse
-from sets import Set
 
 import cereconf
 import Cerebrum.logutils
@@ -408,7 +407,7 @@ def process_mail():
         # then compare to what address(es) they have.
         old_addrs = uit_mails.get(uname, None)
         logger.debug("old addrs=%s" % (old_addrs,))
-        old_addrs_set = Set(old_addrs)
+        old_addrs_set = set(old_addrs)
         should_have_addrs, new_primary_addr = calculate_uit_emails(
             uname,
             uit_account_affs.get(account_id))
@@ -420,7 +419,7 @@ def process_mail():
                      (new_primary_addr,))
         logger.debug("current primary is %s" %
                      (current_primaryemail.get(uname, None),))
-        should_have_addrs_set = Set(should_have_addrs)
+        should_have_addrs_set = set(should_have_addrs)
 
         if old_addrs:
             logger.debug("User %s has mailaddress %s" %
@@ -485,7 +484,7 @@ def process_mail():
                     "We are to change primary to:%s" % (new_primary_addr))
                 new_primary_addr_list = []
                 new_primary_addr_list.append(new_primary_addr)
-                new_primary_addr_set = Set(new_primary_addr_list)
+                new_primary_addr_set = set(new_primary_addr_list)
 
                 uit_addresses_new.extend(new_primary_addr_set)
                 all_emails[account_id] = new_primary_addr_set
