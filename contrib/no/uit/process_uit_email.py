@@ -104,9 +104,11 @@ def is_cnaddr_free(local_part, domain_part):
     return True
 
 
-# return False if no cnaddr style adress is found in list of addresses
-# in given domain
 def has_cnaddr_in_domain(adresses, domain_part):
+    """
+    Check if a list of addresses in a given domain contains a cnaddr
+    style address.
+    """
     test_str = "@{0}".format(domain_part)
     result = None
     for addr in adresses:
@@ -124,11 +126,12 @@ def has_cnaddr_in_domain(adresses, domain_part):
     return result
 
 
-#
-# checks if address given is in one of the exchange controlled domains
-# return empty list if none of these matches or list of domains it matches.
-#
 def emailaddress_in_exchangecontrolled_domain(address):
+    """
+    Checks if address given is in one of the exchange controlled domains.
+
+    Returns empty list if none of these matches or list of domains it matches.
+    """
     if address is None:
         return []
     return [domain for domain in cereconf.EXCHANGE_CONTROLLED_DOMAINS if
@@ -162,10 +165,10 @@ def get_cn_addr(ac, username, domain):
     return None
 
 
-#
-# calculate aliases and primary email for user: uname and affiliation: affs
-#
 def calculate_uit_emails(ac, co, uname, affs):
+    """
+    Calculate aliases and primary email for user: uname and affiliation: affs.
+    """
     uidaddr = True
     cnaddr = False
     # logger.debug("in calculate_uit_emails:%s" % affs)
@@ -535,10 +538,11 @@ def process_mail(db):
             emdb.process_mail(account_id, addr, is_primary=is_primary)
 
 
-#
-# returns account primary affiliation based on cereconf.ACCOUNT_PRIORITY_RANGES
-#
 def get_priority(db, account_id):
+    """
+    Returns account primary affiliation based on
+    cereconf.ACCOUNT_PRIORITY_RANGES
+    """
     logger.debug(
         "calculate primary affiliation based on "
         "cereconf.ACCOUNT_PRIORITY_RANGES")
@@ -558,12 +562,13 @@ def get_priority(db, account_id):
                 return key
 
 
-#
-# return list of all email addresses with domain = 'post.uit.no' and 'uit.no'
-# format is: uit_addresse_in_use = ['localpart@domainpart']..
-# [localpart@domainpart]]
-#
 def get_existing_emails(db):
+    """
+    Return list of all email addresses with domain = 'post.uit.no' or 'uit.no',
+
+    format is: uit_addresse_in_use = ['localpart@domainpart']..
+    [localpart@domainpart]]
+    """
     ea = EmailAddress(db)
     addresses_in_use = []
     # print "%s" % dir(ea)
