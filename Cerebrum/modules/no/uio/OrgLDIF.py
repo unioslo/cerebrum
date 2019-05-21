@@ -217,11 +217,11 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             from Cerebrum.modules.Email import EmailTarget
             targets = EmailTarget(self.db).list_email_target_addresses
             mail = {}
-            for row in targets(target_type=self.const.email_target_account):
-                if (row['domain'] == 'uio.no' and
-                        row['local_part'] == row['entity_name']):
-                    mail[int(row['target_entity_id'])] = "@".join(
-                        (row['local_part'], row['domain']))
+            for row in targets(target_type=self.const.email_target_account,
+                               domain='uio.no', uname_local=True):
+                # Can only return username@uio.no so no need for any checks
+                mail[int(row['target_entity_id'])] = "@".join(
+                    (row['local_part'], row['domain']))
             self.account_mail.update(mail)
             timer("...UiO specfic account e-mail addresses done.")
 
