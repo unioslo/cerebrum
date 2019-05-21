@@ -20,8 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-progname = __file__.split("/")[-1]
-__doc__ = """This script creates/updates email addresses for all accounts
+"""This script creates/updates email addresses for all accounts
 in cerebrum that has a email spread
 
 usage:: %s [options]
@@ -31,7 +30,7 @@ options is
     -d | --dryrun   : do not change DB
     --logger-name name   : log name to use
     --logger-level level : log level to use
-""" % (progname,)
+"""
 
 import getopt
 import sys
@@ -90,8 +89,8 @@ def _get_alternatives(account_name):
 
     #    #FIXME this part of the function slows things down. Alot! 20x'ish!
     #    #The reason is that get_email_cn_local_part instansiates a person_obj
-    #    # then does a find(person_id), followed by get_names(system_cached) for
-    #    # each call to that function!
+    #    # then does a find(person_id), followed by get_names(system_cached)
+    #    for each call to that function!
     #    #find other alternatives!
     given_names = (3, 2, 1, 0, -1)
     max_initials = (1, 2, 0, 3, 4)
@@ -156,7 +155,7 @@ def has_cnaddr_in_domain(adresses, domain_part):
 # return empty list if none of these matches or list of domains it matches.
 #
 def emailaddress_in_exchangecontrolled_domain(address):
-    if address == None:
+    if address is None:
         return []
     return [domain for domain in cereconf.EXCHANGE_CONTROLLED_DOMAINS if
             address.endswith("@%s" % domain)]
@@ -200,27 +199,31 @@ def calculate_uit_emails(uname, affs):
         # logger.debug("status is:%s" % status)
         # logger.debug("sko is:%s" % sko)
         # logger.debug("aff is:%s" % aff)
-        # set cnaddr == true if you are an employee (but not if you are a "timelï¿½nnet employee")
+        # set cnaddr == true if you are an employee (but not if you are a
+        # "timelønnet employee")
         if (aff == co.affiliation_ansatt):
             valid_cnaddr_aff = False
             for item in status:
                 if item != co.affiliation_status_timelonnet_midlertidig:
                     valid_cnaddr_aff = True
-            if valid_cnaddr_aff == True:
-                # and (co.affiliation_status_timelonnet_midlertidig != status[0]) and (len(status)==1)):
+            if valid_cnaddr_aff:
+                # and (co.affiliation_status_timelonnet_midlertidig !=
+                # status[0]) and (len(status)==1)):
                 # logger.debug("i am employee and not timelonnet")
                 cnaddr = True
-                # even if you are an employee you do not get cnaddr==True if you belong to a stedkode defined in EMPLOYEE_FILTER_EXCHANGE_SKO
+                # even if you are an employee you do not get cnaddr==True if
+                # you belong to a stedkode defined in
+                # EMPLOYEE_FILTER_EXCHANGE_SKO
                 for flt in cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO:
                     # TBD hva om bruker har flere affs og en av dem matcher?
                     # TBD kanskje ogsï¿½ se pï¿½ priority mellom affs?
                     # logger.debug("Filter: %s on %s" % (flt,sko))
                     if sko.startswith(flt):
                         logger.warning(
-                            "employee %s has affiliation with sko(%s) that is in cn-filterset %s" % (
-                            uname, sko, flt))
+                            "employee %s has affiliation with sko(%s) that "
+                            "is in cn-filterset %s" % (
+                                uname, sko, flt))
                         cnaddr = False
-
 
         elif (co.affiliation_status_student_drgrad in status):
             cnaddr = True
@@ -231,8 +234,9 @@ def calculate_uit_emails(uname, affs):
                 logger.debug("Filter: %s on %s" % (flt, sko))
                 if sko.startswith(flt):
                     logger.warning(
-                        "drgrad student %s has affiliation with sko(%s) that is in cn-filterset %s" % (
-                        uname, sko, flt))
+                        "drgrad student %s has affiliation with sko(%s) "
+                        "that is in cn-filterset %s" % (
+                            uname, sko, flt))
                     cnaddr = False
 
     new_addrs = list()
@@ -266,7 +270,8 @@ def calculate_uit_emails(uname, affs):
         # dom_part=cereconf.NONEMPLOYEE_MAILDOMAIN
         uidaddr = "@".join((uname, dom_part))
         new_addrs.append(uidaddr)
-        if not primary: primary = uidaddr
+        if not primary:
+            primary = uidaddr
 
     # if(co.affiliation_status_student_drgrad in status):
     #    logger.debug("i am drgrad")
@@ -291,13 +296,15 @@ def process_mail():
 
         #
         # get person work phone number
-        # phone_list = p.get_contact_info(source = const.system_tlf,type = const.contact_phone)
+        # phone_list = p.get_contact_info(source = const.system_tlf,type =
+        # const.contact_phone)
         # save the data on the form {account_id: phonenr}
         temp_list = p.get_contact_info(source=co.system_tlf,
                                        type=co.contact_phone)
         try:
             phone_list[row['account_id']] = temp_list[0][4]
-            # logger.debug("phone_list[%s] = %s" % (row['account_id'],temp_list[0][4]))
+            # logger.debug("phone_list[%s] = %s" % (row['account_id'],
+            # temp_list[0][4]))
         except IndexError:
             phone_list[row['account_id']] = ''
 
@@ -308,7 +315,8 @@ def process_mail():
 
         # i_am_drgrad = False
         person_affs = p.get_affiliations(include_deleted=False)
-        # logger.debug("aff:%s,aff status:%s" % (person_affs[0]['affiliation'],person_affs[0]['status']))
+        # logger.debug("aff:%s,aff status:%s" % (person_affs[0][
+        # 'affiliation'],person_affs[0]['status']))
         # pprint("person_affs=%s" % person_affs)
         aff_status = {}
         for item in person_affs:
@@ -317,7 +325,8 @@ def process_mail():
             except KeyError:
                 aff_status[item['affiliation']] = [item['status']]
             # aff_status[item['affiliation']] = item['status']
-            # logger.debug("%s = %s" % (aff_status[item['affiliation']],item['status']))
+            # logger.debug("%s = %s" % (aff_status[item['affiliation']],
+            # item['status']))
             # if item['status'] ==  co.affiliation_status_student_drgrad:
             #    i_am_drgrad = True
             #    logger.debug("i am drgrad student")
@@ -333,25 +342,24 @@ def process_mail():
                                   co.affiliation_tilknyttet,
                                   co.affiliation_manuell):
             try:
-                uit_account_affs.setdefault(row['account_id'], list()).append((
-                                                                              row[
-                                                                                  'affiliation'],
-                                                                              get_sko(
-                                                                                  row[
-                                                                                      'ou_id']),
-                                                                              aff_status[
-                                                                                  row[
-                                                                                      'affiliation']]))
+                uit_account_affs.setdefault(
+                    row['account_id'],
+                    list()).append((row['affiliation'],
+                                    get_sko(row['ou_id']),
+                                    aff_status[row['affiliation']]))
                 # logger.debug("uit_account_affs:%s" % uit_account_affs)
-            except  EntityExpiredError:
+            except EntityExpiredError:
                 # get_sko cannot find active stedkode. continue to next account
                 logger.debug(
-                    "unable to get affiliation stedkode ou_id:%s for account_id:%s Skip." % (
-                    row['ou_id'], row['account_id']))
+                    "unable to get affiliation stedkode ou_id:%s for "
+                    "account_id:%s Skip." % (
+                        row['ou_id'], row['account_id']))
                 continue
             except KeyError:
                 pass
-                # logger.debug("account:%s Unable to append the following affilation %s - %s . it has no active/valid status code" % (row['account_id'],row['affiliation'],get_sko(row['ou_id'])))
+                # logger.debug("account:%s Unable to append the following
+                # affilation %s - %s . it has no active/valid status code" %
+                # (row['account_id'],row['affiliation'],get_sko(row['ou_id'])))
             aff_cached += 1
         else:
             aff_skipped += 1
@@ -389,7 +397,8 @@ def process_mail():
                     mail_addr_cache += 1
                     uit_mails.setdefault(uname, list()).append(
                         "@".join((em['local_part'], em['domain'])))
-                    # uit_addresses_in_use.append("@".join((em['local_part'],em['domain'])))
+                    # uit_addresses_in_use.append("@".join((em['local_part'],
+                    # em['domain'])))
     logger.debug("Cached %d mailaddrs" % (mail_addr_cache,))
 
     logger.debug("Caching primary mailaddrs")
@@ -406,9 +415,9 @@ def process_mail():
         old_addrs = uit_mails.get(uname, None)
         logger.debug("old addrs=%s" % (old_addrs,))
         old_addrs_set = Set(old_addrs)
-        should_have_addrs, new_primary_addr = calculate_uit_emails(uname,
-                                                                   uit_account_affs.get(
-                                                                       account_id))
+        should_have_addrs, new_primary_addr = calculate_uit_emails(
+            uname,
+            uit_account_affs.get(account_id))
         new_primaryemail[account_id] = new_primary_addr
 
         logger.debug("should have addrs=%s" %
@@ -434,9 +443,10 @@ def process_mail():
             uit_addresses_new.extend(list(new_addrs_set))
             all_emails[account_id] = list(new_addrs_set)
         else:
-            # if((list(new_addrs_set) == []) and (current_primaryemail.get(uname,None) == None)):
+            # if((list(new_addrs_set) == []) and (current_primaryemail.get(
+            # uname,None) == None)):
             logger.debug("compare primary:%s = %s" % (
-            current_primaryemail.get(uname, None), new_primary_addr))
+                current_primaryemail.get(uname, None), new_primary_addr))
 
             #
             # does new_primary_addr contains digits ?
@@ -457,23 +467,26 @@ def process_mail():
             #
 
             new_email_style = contains_digits(new_primary_addr)
-            if ((current_primaryemail.get(uname, None) != None)):
+            if current_primaryemail.get(uname, None) is not None:
                 old_email_style = contains_digits(
                     current_primaryemail.get(uname, None))
 
             logger.debug(
                 "old email style:%s ,new email style:%s for email:%s" % (
-                old_email_style, new_email_style, new_primary_addr))
+                    old_email_style, new_email_style, new_primary_addr))
 
             #
-            # Only change primary email if new_email_style != old_email_style. Meaning one is of student style and the other of employee style
-            # This ensures we dont change primary adress within each domain, even if calculate_primary_email says so.
+            # Only change primary email if new_email_style != old_email_style.
+            # Meaning one is of student style and the other of employee style
+            # This ensures we dont change primary adress within each domain,
+            # even if calculate_primary_email says so.
             #
             if ((list(new_addrs_set) == []) and (
                     current_primaryemail.get(uname,
                                              None) != new_primary_addr) and (
                     new_email_style != old_email_style)):
-                # if old primary is empty, then set primary, even if new_addrs_set is empty
+                # if old primary is empty, then set primary, even if
+                # new_addrs_set is empty
                 logger.debug(
                     "We are to change primary to:%s" % (new_primary_addr))
                 new_primary_addr_list = list()
@@ -501,14 +514,16 @@ def process_mail():
             logger.debug(
                 "addr:%s == primary_address:%s" % (addr, new_primary_address))
             if addr == new_primary_address:
-                exchange_controlled = emailaddress_in_exchangecontrolled_domain(
-                    current_primary_address)
+                exchange_controlled = \
+                    emailaddress_in_exchangecontrolled_domain(
+                        current_primary_address)
                 logger.debug(
                     "new_primary_adress:%s != current_primary_adress:%s" % (
-                    new_primary_address, current_primary_address))
+                        new_primary_address, current_primary_address))
                 if ((new_primary_address != current_primary_address) and
                         (not exchange_controlled)):
-                    # affs=",".join(["@".join((num2const(aff),sko)) for aff,sko in uit_account_affs.get(account_id,())])
+                    # affs=",".join(["@".join((num2const(aff),sko)) for aff,
+                    # sko in uit_account_affs.get(account_id,())])
                     priority = get_priority(account_id)
 
                     affs = ",".join(
@@ -522,14 +537,15 @@ def process_mail():
                     # aff_status = "%s" % num2const[test]
                     # aff_status = aff_status.replace("/",",")
                     # logger.debug("test is:%s" % test)
-                    # logger.debug("# status is:%s or %s", status,num2const[test])
+                    # logger.debug("# status is:%s or %s", status,num2const
+                    # [test])
                     logger.info("Changing Primary address: %s;%s;%s;%s;%s;%s" %
-                                (
-                                exch_users[account_id], phone_list[account_id],
-                                current_primary_address,
-                                new_primary_address,
-                                account_primary_affiliation, affs
-                                ))
+                                (exch_users[account_id],
+                                 phone_list[account_id],
+                                 current_primary_address,
+                                 new_primary_address,
+                                 account_primary_affiliation, affs
+                                 ))
                     is_primary = True
             logger.debug("Set mailaddr %s/%s/%s/%s(%s)" %
                          (account_id, exch_users[account_id], addr, is_primary,
@@ -543,7 +559,8 @@ def process_mail():
 #
 def get_priority(account_id):
     logger.debug(
-        "calculate primary affiliation based on cereconf.ACCOUNT_PRIORITY_RANGES")
+        "calculate primary affiliation based on "
+        "cereconf.ACCOUNT_PRIORITY_RANGES")
     pri_ranges = cereconf.ACCOUNT_PRIORITY_RANGES
     priority = 1000
     tmp_ac = Factory.get('Account')(db)
@@ -562,7 +579,8 @@ def get_priority(account_id):
 
 #
 # return list of all email addresses with domain = 'post.uit.no' and 'uit.no'
-# format is: uit_addresse_in_use = ['localpart@domainpart']..[localpart@domainpart]]
+# format is: uit_addresse_in_use = ['localpart@domainpart']..
+# [localpart@domainpart]]
 #
 def get_existing_emails():
     ea = EmailAddress(db)
@@ -585,7 +603,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dh',
                                    ['dryrun', 'help'])
-    except getopt.GetoptError, m:
+    except getopt.GetoptError as m:
         usage(1, m)
 
     dryrun = False
@@ -611,8 +629,9 @@ def main():
 
 
 def usage(exitcode=0, msg=None):
-    if msg: print msg
-    print __doc__
+    if msg:
+        print(msg)
+    print(__doc__)
     sys.exit(exitcode)
 
 
