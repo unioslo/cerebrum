@@ -93,15 +93,6 @@ def _get_alternatives(ac, account_name):
     return alternatives
 
 
-def get_domainid(db, domain_part):
-    domain = EmailDomain(db)
-    domain.find_by_domain(domain_part)
-    return domain.entity_id
-
-
-get_domainid = memoize(get_domainid)
-
-
 def is_cnaddr_free(local_part, domain_part):
     addr = "@".join((local_part, domain_part))
     if addr in uit_addresses_in_use:
