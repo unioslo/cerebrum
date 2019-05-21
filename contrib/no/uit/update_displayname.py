@@ -40,25 +40,42 @@ from Cerebrum.utils.argutils import add_commit_args
 
 SCRIPT_NAME = __file__.split("/")[-1]
 TODAY = mx.DateTime.today().strftime("%Y-%m-%d")
-URL = 'http://jep2n1.uit.no:7080/navnealias'
+URL = 'https://uit.no/navnealias'
 DEFAULT_FILENAME = 'name_updates_%s.csv' % (TODAY,)
 DEFAULT_OUTFILE = os.path.join(cereconf.DUMPDIR, 'name_updates',
                                DEFAULT_FILENAME)
+MOCK_RESPONSE = \
+    '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" ' \
+    '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\r\n' \
+    '<html xmlns="http://www.w3.org/1999/xhtml" lang="no" xml:lang="no">\r\n' \
+    '<head>\r\n' \
+    '</head>\r\n' \
+    '<body>\r\n' \
+    '<div id="uitusers">\n' \
+    'rmi000;Romulus;Mikalsen;\n' \
+    'bto001;Bjarne;Betjent;\n' \
+    '</div>\n\r\n' \
+    '</body>\r\n' \
+    '</html>'
 
 logger = logging.getLogger(__name__)
 
 
-def get_changes(url):
+def get_changes(url, test=False):
     """ Get name updates from Portal HTML """
     changes = {}
     invalid_chars = re.compile('[,;"=\+\\\\<>]')
 
-    logger.info("Requesting changelog HTML page from Portal")
-    response = requests.get(url)
-    text = response.text
+    if test:
+        logger.info('Running script with mock response data')
+        content = MOCK_RESPONSE
+    else:
+        logger.info("Requesting changelog from Portal url: %s", url)
+        response = requests.get(url)
+        content = response.content
 
-    logger.info("Going through lines in changelog")
-    for line in text.split('\n'):
+    logger.info("Parsing response")
+    for line in content.split('\n'):
         username = None
         first_name = None
         last_name = None
@@ -69,6 +86,7 @@ def get_changes(url):
             username = aux[0].strip()
             first_name = aux[1].strip()
             last_name = aux[2].strip()
+            logger.debug('%s -> %s %s', username, first_name, last_name)
         elif len(aux) > 4:
             logger.error("Illegal use of semicolon! Line: %s.", line)
             continue
@@ -230,7 +248,7 @@ def main():
         default=DEFAULT_OUTFILE
     )
     parser.add_argument(
-        '-t', '--test-data',
+        '-t', '--test',
         help='Use test data',
         action='store_true',
     )
@@ -240,12 +258,7 @@ def main():
     args = parser.parse_args()
     Cerebrum.logutils.autoconf(cereconf.DEFAULT_LOGGER_TARGET, args)
 
-    if args.test_data:
-        logger.info('Running script with test data')
-        changes = {'rmi000': ('Romulus', 'Mikalsen'),
-                   'bto001': ('Bjarne', 'Betjent')}
-    else:
-        changes = get_changes(URL)
+    changes = get_changes(URL, test=args.test)
 
     db = Factory.get('Database')()
     db.cl_init(change_program=SCRIPT_NAME)
