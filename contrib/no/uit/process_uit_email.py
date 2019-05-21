@@ -63,9 +63,9 @@ num2const = {}
 def get_sko(ou_id):
     ou.clear()
     ou.find(ou_id)
-    return "%s%s%s" % (str(ou.fakultet).zfill(2),
-                       str(ou.institutt).zfill(2),
-                       str(ou.avdeling).zfill(2))
+    return "{0}{1}{2}".format(str(ou.fakultet).zfill(2),
+                              str(ou.institutt).zfill(2),
+                              str(ou.avdeling).zfill(2))
 
 
 get_sko = memoize(get_sko)
@@ -97,7 +97,7 @@ def _get_alternatives(account_name):
                     continue
                 if local_part not in alternatives:
                     alternatives.append(local_part)
-    logger.debug("Alternatives for %s: %s" % (account_name, alternatives))
+    logger.debug("Alternatives for %s: %s", account_name, alternatives)
     return alternatives
 
 
@@ -115,10 +115,10 @@ tmp_ac = Factory.get('Account')(db)
 def is_cnaddr_free(local_part, domain_part):
     addr = "@".join((local_part, domain_part))
     if addr in uit_addresses_in_use:
-        logger.error("Address %s not free, in DB" % (addr,))
+        logger.error("Address %s not free, in DB", addr)
         return False
     elif addr in uit_addresses_new:
-        logger.error("Address %s not free, in new set" % (addr,))
+        logger.error("Address %s not free, in new set", addr)
         return False
     return True
 
@@ -126,20 +126,20 @@ def is_cnaddr_free(local_part, domain_part):
 # return False if no cnaddr style adress is found in list of addresses
 # in given domain
 def has_cnaddr_in_domain(adresses, domain_part):
-    test_str = "@%s" % domain_part
+    test_str = "@{0}".format(domain_part)
     result = None
     for addr in adresses:
-        logger.debug("has_cnaddr_in_domain, cheking %s" % (addr,))
+        logger.debug("has_cnaddr_in_domain, cheking %s", addr)
         if addr.endswith(test_str):
             try:
                 idx = addr.split("@")[0].index(".")
-                logger.debug("has_cnaddr_in_domain found %s" % (addr,))
+                logger.debug("has_cnaddr_in_domain found %s", addr)
                 result = addr.split("@")[0]
                 break  # exit loop
             except ValueError:
                 # "." not found in addr, not a cn-style addr then
                 pass
-    logger.debug("has_cnaddr_in_domain returns %s" % (result,))
+    logger.debug("has_cnaddr_in_domain returns %s", result)
     return result
 
 
@@ -151,12 +151,12 @@ def emailaddress_in_exchangecontrolled_domain(address):
     if address is None:
         return []
     return [domain for domain in cereconf.EXCHANGE_CONTROLLED_DOMAINS if
-            address.endswith("@%s" % domain)]
+            address.endswith("@{0}".format(domain))]
 
 
 def get_cn_addr(username, domain):
     old_cn = has_cnaddr_in_domain(uit_mails.get(username, []), domain)
-    logger.debug("old cn is:%s" % old_cn)
+    logger.debug("old cn is:%s", old_cn)
     if old_cn:
         return old_cn
 
@@ -168,15 +168,15 @@ def get_cn_addr(username, domain):
             if is_cnaddr_free(em_addr, domain):
                 return em_addr
             else:
-                logger.error("First alternative not free! %s@%s/%s" %
-                             (em_addr, domain, username))
+                logger.error("First alternative not free! %s@%s/%s",
+                             em_addr, domain, username)
     else:
         for em_addr in alternatives:
             if is_cnaddr_free(em_addr, domain):
                 return em_addr
             else:
-                logger.error("alternative not free! %s@%s/%s" %
-                             (em_addr, domain, username))
+                logger.error("alternative not free! %s@%s/%s",
+                             em_addr, domain, username)
         # logger.error("NOT IMPLEMENTED, only using suggested mailaddr nr 1")
     return None
 
@@ -194,7 +194,7 @@ def calculate_uit_emails(uname, affs):
         # logger.debug("aff is:%s" % aff)
         # set cnaddr == true if you are an employee (but not if you are a
         # "timelønnet employee")
-        if (aff == co.affiliation_ansatt):
+        if aff == co.affiliation_ansatt:
             valid_cnaddr_aff = False
             for item in status:
                 if item != co.affiliation_status_timelonnet_midlertidig:
@@ -214,22 +214,22 @@ def calculate_uit_emails(uname, affs):
                     if sko.startswith(flt):
                         logger.warning(
                             "employee %s has affiliation with sko(%s) that "
-                            "is in cn-filterset %s" % (
-                                uname, sko, flt))
+                            "is in cn-filterset %s",
+                            uname, sko, flt)
                         cnaddr = False
 
-        elif (co.affiliation_status_student_drgrad in status):
+        elif co.affiliation_status_student_drgrad in status:
             cnaddr = True
-            logger.debug("aff:%s, aff status:%s" % (aff, status))
+            logger.debug("aff:%s, aff status:%s", aff, status)
             for flt in cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO:
                 # TBD hva om bruker har flere affs og en av dem matcher?
                 # TBD kanskje ogsï¿½ se pï¿½ priority mellom affs?
-                logger.debug("Filter: %s on %s" % (flt, sko))
+                logger.debug("Filter: %s on %s", flt, sko)
                 if sko.startswith(flt):
                     logger.warning(
                         "drgrad student %s has affiliation with sko(%s) "
-                        "that is in cn-filterset %s" % (
-                            uname, sko, flt))
+                        "that is in cn-filterset %s",
+                        uname, sko, flt)
                     cnaddr = False
 
     new_addrs = []
@@ -269,7 +269,7 @@ def calculate_uit_emails(uname, affs):
     # if(co.affiliation_status_student_drgrad in status):
     #    logger.debug("i am drgrad")
     #    sys.exit(1)
-    return (new_addrs, primary)
+    return new_addrs, primary
 
 
 def process_mail():
@@ -338,15 +338,15 @@ def process_mail():
                 uit_account_affs.setdefault(
                     row['account_id'],
                     []).append((row['affiliation'],
-                                    get_sko(row['ou_id']),
-                                    aff_status[row['affiliation']]))
+                                get_sko(row['ou_id']),
+                                aff_status[row['affiliation']]))
                 # logger.debug("uit_account_affs:%s" % uit_account_affs)
             except EntityExpiredError:
                 # get_sko cannot find active stedkode. continue to next account
                 logger.debug(
                     "unable to get affiliation stedkode ou_id:%s for "
-                    "account_id:%s Skip." % (
-                        row['ou_id'], row['account_id']))
+                    "account_id:%s Skip.",
+                    row['ou_id'], row['account_id'])
                 continue
             except KeyError:
                 pass
@@ -356,7 +356,7 @@ def process_mail():
             aff_cached += 1
         else:
             aff_skipped += 1
-    logger.debug("Cached %d affiliations" % (aff_cached,))
+    logger.debug("Cached %d affiliations", aff_cached)
 
     logger.info("Start get constants")
     for c in dir(co):
@@ -373,13 +373,13 @@ def process_mail():
             exch_users[a['account_id']] = a['name']
             uname2accid[a['name']] = a['account_id']
             ownerid2uname.setdefault(a['owner_id'], []).append(a['name'])
-    logger.info("got %d accounts (%s)" % (len(exch_users), count))
-    logger.info("got %d account" % (len(uname2accid, )))
-    logger.info("skipped %d account" % (skipped,))
+    logger.info("got %d accounts (%s)", len(exch_users), count)
+    logger.info("got %d account", len(uname2accid))
+    logger.info("skipped %d account", skipped)
     for owner, uname in ownerid2uname.iteritems():
         if len(uname) > 1:
             logger.debug(
-                "Owner %s has %s accounts: %s" % (owner, len(uname), uname))
+                "Owner %s has %s accounts: %s", owner, len(uname), uname)
 
     logger.info("get all email targets for uit")
     mail_addr_cache = 0
@@ -392,7 +392,7 @@ def process_mail():
                         "@".join((em['local_part'], em['domain'])))
                     # uit_addresses_in_use.append("@".join((em['local_part'],
                     # em['domain'])))
-    logger.debug("Cached %d mailaddrs" % (mail_addr_cache,))
+    logger.debug("Cached %d mailaddrs", mail_addr_cache)
 
     logger.debug("Caching primary mailaddrs")
     current_primaryemail = ac.getdict_uname2mailaddr(primary_only=True)
@@ -401,29 +401,27 @@ def process_mail():
     all_emails = {}
     new_primaryemail = {}
     for account_id, uname in exch_users.iteritems():
-        logger.debug("--- %s ---" % uname)
+        logger.debug("--- %s ---", uname)
 
         # need to calculate what address(es) user should have
         # then compare to what address(es) they have.
         old_addrs = uit_mails.get(uname, None)
-        logger.debug("old addrs=%s" % (old_addrs,))
+        logger.debug("old addrs=%s", old_addrs)
         old_addrs_set = set(old_addrs)
         should_have_addrs, new_primary_addr = calculate_uit_emails(
             uname,
             uit_account_affs.get(account_id))
         new_primaryemail[account_id] = new_primary_addr
 
-        logger.debug("should have addrs=%s" %
-                     (should_have_addrs,))
-        logger.debug("new primary is %s" %
-                     (new_primary_addr,))
-        logger.debug("current primary is %s" %
-                     (current_primaryemail.get(uname, None),))
+        logger.debug("should have addrs=%s", should_have_addrs)
+        logger.debug("new primary is %s", new_primary_addr)
+        logger.debug("current primary is %s", current_primaryemail.get(
+            uname, None))
         should_have_addrs_set = set(should_have_addrs)
 
         if old_addrs:
-            logger.debug("User %s has mailaddress %s" %
-                         (uname, old_addrs))
+            logger.debug("User %s has mailaddress %s",
+                         uname, old_addrs)
             new_addrs_set = should_have_addrs_set - old_addrs_set
             # logger.debug("new set is %s, list() is %s" %
             # (new_addrs_set,list(new_addrs_set)))
@@ -431,15 +429,16 @@ def process_mail():
             new_addrs_set = should_have_addrs_set
 
         if list(new_addrs_set):
-            logger.info("user %s is missing UIT email address %s, queueing" %
-                        (uname, list(new_addrs_set)))
+            logger.info("user %s is missing UIT email address %s, queueing",
+                        uname, list(new_addrs_set))
             uit_addresses_new.extend(list(new_addrs_set))
             all_emails[account_id] = list(new_addrs_set)
         else:
             # if((list(new_addrs_set) == []) and (current_primaryemail.get(
             # uname,None) == None)):
-            logger.debug("compare primary:%s = %s" % (
-                current_primaryemail.get(uname, None), new_primary_addr))
+            logger.debug("compare primary:%s = %s",
+                         current_primaryemail.get(uname, None),
+                         new_primary_addr)
 
             #
             # does new_primary_addr contains digits ?
@@ -465,8 +464,8 @@ def process_mail():
                     current_primaryemail.get(uname, None))
 
             logger.debug(
-                "old email style:%s ,new email style:%s for email:%s" % (
-                    old_email_style, new_email_style, new_primary_addr))
+                "old email style:%s ,new email style:%s for email:%s",
+                old_email_style, new_email_style, new_primary_addr)
 
             #
             # Only change primary email if new_email_style != old_email_style.
@@ -474,14 +473,13 @@ def process_mail():
             # This ensures we dont change primary adress within each domain,
             # even if calculate_primary_email says so.
             #
-            if ((list(new_addrs_set) == []) and (
-                    current_primaryemail.get(uname,
-                                             None) != new_primary_addr) and (
-                    new_email_style != old_email_style)):
+            if (list(new_addrs_set) == [] and
+                    current_primaryemail.get(uname, None) !=
+                    new_primary_addr and new_email_style != old_email_style):
                 # if old primary is empty, then set primary, even if
                 # new_addrs_set is empty
                 logger.debug(
-                    "We are to change primary to:%s" % (new_primary_addr))
+                    "We are to change primary to:%s", new_primary_addr)
                 new_primary_addr_list = []
                 new_primary_addr_list.append(new_primary_addr)
                 new_primary_addr_set = set(new_primary_addr_list)
@@ -490,12 +488,12 @@ def process_mail():
                 all_emails[account_id] = new_primary_addr_set
 
             else:
-                logger.info("User %s already has correct addresses" %
-                            (uname))
+                logger.info("User %s already has correct addresses",
+                            uname)
 
     # update all email addresses
-    logger.debug("Update %s accounts with UiT emailaddresses" %
-                 (len(all_emails)))
+    logger.debug("Update %s accounts with UiT emailaddresses",
+                 len(all_emails))
     for account_id, emaillist in all_emails.iteritems():
         for addr in emaillist:
             is_primary = False
@@ -505,14 +503,14 @@ def process_mail():
             exchange_controlled = 'NA'
             logger.debug("now cheking if any emails needs to be changed")
             logger.debug(
-                "addr:%s == primary_address:%s" % (addr, new_primary_address))
+                "addr:%s == primary_address:%s", addr, new_primary_address)
             if addr == new_primary_address:
                 exchange_controlled = \
                     emailaddress_in_exchangecontrolled_domain(
                         current_primary_address)
                 logger.debug(
-                    "new_primary_adress:%s != current_primary_adress:%s" % (
-                        new_primary_address, current_primary_address))
+                    "new_primary_adress:%s != current_primary_adress:%s",
+                        new_primary_address, current_primary_address)
                 if ((new_primary_address != current_primary_address) and
                         (not exchange_controlled)):
                     # affs=",".join(["@".join((num2const(aff),sko)) for aff,
@@ -525,24 +523,24 @@ def process_mail():
                          uit_account_affs.get(account_id, ())])
                     affs = affs.replace("/", ",")
                     account_primary_affiliation = get_priority(account_id)
-                    logger.debug("Affs:%s" % affs)
+                    logger.debug("Affs:%s", affs)
                     # test = status[0]
                     # aff_status = "%s" % num2const[test]
                     # aff_status = aff_status.replace("/",",")
                     # logger.debug("test is:%s" % test)
                     # logger.debug("# status is:%s or %s", status,num2const
                     # [test])
-                    logger.info("Changing Primary address: %s;%s;%s;%s;%s;%s" %
-                                (exch_users[account_id],
-                                 phone_list[account_id],
-                                 current_primary_address,
-                                 new_primary_address,
-                                 account_primary_affiliation, affs
-                                 ))
+                    logger.info("Changing Primary address: %s;%s;%s;%s;%s;%s",
+                                exch_users[account_id],
+                                phone_list[account_id],
+                                current_primary_address,
+                                new_primary_address,
+                                account_primary_affiliation,
+                                affs)
                     is_primary = True
-            logger.debug("Set mailaddr %s/%s/%s/%s(%s)" %
-                         (account_id, exch_users[account_id], addr, is_primary,
-                          exchange_controlled))
+            logger.debug("Set mailaddr %s/%s/%s/%s(%s)",
+                         account_id, exch_users[account_id], addr, is_primary,
+                         exchange_controlled)
 
             emdb.process_mail(account_id, addr, is_primary=is_primary)
 
@@ -582,9 +580,9 @@ def get_existing_emails():
     uit_no_list = ea.list_email_addresses_ext('uit.no')
     post_uit_no_list = ea.list_email_addresses_ext('post.uit.no')
     for item in uit_no_list:
-        email_address = "%s@%s" % (item['local_part'], item['domain'])
+        email_address = "{0}@{1}".format(item['local_part'], item['domain'])
         addresses_in_use.append(email_address)
-        logger.debug("existing email: %s" % (email_address))
+        logger.debug("existing email: %s", email_address)
         # print "%s@%s" % (item['local_part'],item['domain'])
     return addresses_in_use
 
@@ -618,8 +616,8 @@ def main():
 
     endtime = dt.datetime.now()
     runningtime = endtime - starttime
-    logger.info("Script running time was %s" %
-                (str(dt.timedelta(seconds=runningtime.seconds))))
+    logger.info("Script running time was %s",
+                str(dt.timedelta(seconds=runningtime.seconds)))
 
 
 if __name__ == '__main__':
