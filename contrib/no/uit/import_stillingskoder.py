@@ -36,10 +36,9 @@ import operator
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
-from Cerebrum.modules.stillingskoder import Stillingskoder
+from Cerebrum.modules.no.stillingskoder import Stillingskoder
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import add_commit_args
-
 
 logger = logging.getLogger(__name__)
 
@@ -123,8 +122,8 @@ def main(inargs=None):
     )
     parser.add_argument(
         'filename',
-        dest='filename',
         help="Import employment codes from %(metavar)s",
+        metavar='filename',
     )
     add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
