@@ -34,7 +34,7 @@ from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.Email import EmailDomain, EmailAddress
 from Cerebrum.modules.no.uit import Email
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.utils.funcwrap import memoize
 
 db = Factory.get('Database')()
