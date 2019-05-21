@@ -20,23 +20,17 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-"""This script creates/updates email addresses for all accounts
-in cerebrum that has a email spread
-
-usage:: %s [options]
-
-options is
-    -h | --help     : show this
-    -d | --dryrun   : do not change DB
-    --logger-name name   : log name to use
-    --logger-level level : log level to use
+"""
+This script creates/updates email addresses for all accounts in cerebrum
+that has a email spread.
 """
 
-import getopt
-import sys
+import argparse
 from sets import Set
 
 import cereconf
+import Cerebrum.logutils
+
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.Email import EmailDomain, EmailAddress
@@ -49,7 +43,7 @@ ac = Factory.get('Account')(db)
 p = Factory.get('Person')(db)
 co = Factory.get('Constants')(db)
 ou = Factory.get('OU')(db)
-db.cl_init(change_program=progname)
+db.cl_init(change_program='process_uit_email')
 
 logger = Factory.get_logger('cronjob')
 
@@ -600,39 +594,33 @@ def main():
     global persons, accounts, uit_addresses_in_use
     import datetime as dt
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dh',
-                                   ['dryrun', 'help'])
-    except getopt.GetoptError as m:
-        usage(1, m)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-c',
+                        '--commit',
+                        dest='commit',
+                        action='store_true',
+                        help='Commit changes to database',
+                        )
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-    dryrun = False
     starttime = dt.datetime.now()
-    for opt, val in opts:
-        if opt in ('-d', '--dryrun'):
-            dryrun = True
-        elif opt in ('-h', '--help'):
-            usage()
+
     uit_addresses_in_use = get_existing_emails()
     process_mail()
 
-    if (dryrun):
-        db.rollback()
-        logger.info("Dryrun, rollback changes")
-    else:
+    if args.commit:
         db.commit()
         logger.info("Committing all changes to DB")
+    else:
+        db.rollback()
+        logger.info("Dryrun, rollback changes")
+
     endtime = dt.datetime.now()
     runningtime = endtime - starttime
     logger.info("Script running time was %s" %
                 (str(dt.timedelta(seconds=runningtime.seconds))))
-
-
-def usage(exitcode=0, msg=None):
-    if msg:
-        print(msg)
-    print(__doc__)
-    sys.exit(exitcode)
 
 
 if __name__ == '__main__':
