@@ -36,21 +36,15 @@ options is
 
 import getopt
 import sys
-import os
 from sets import Set
-from pprint import pprint
 
-import cerebrum_path
 import cereconf
-from Cerebrum import Utils
-from Cerebrum import Errors
-from Cerebrum.Utils import Factory
-from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.Constants import _CerebrumCode
-from Cerebrum.modules import PosixUser
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.Email import EmailDomain, EmailAddress
 from Cerebrum.modules.no.uit import Email
-from Cerebrum.modules.Email import EmailDomain,EmailAddress
-from  Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.utils.funcwrap import memoize
 
 db = Factory.get('Database')()
 ac = Factory.get('Account')(db)
