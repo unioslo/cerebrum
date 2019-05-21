@@ -18,206 +18,132 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Update Cerebrum.modules.stillingskoder from a CSV file.
 
+This program reads a csv file with employment codes, and syncs the Cerebrum
+database with that information.
+
+Each CSV row should contain three fields:
+    Stillingskode,Stillingsbetegnelse;UiT Stillingskategori
+"""
+from __future__ import unicode_literals
+
+import argparse
 import csv
-import getopt
-import os
-import sys
+import logging
+import operator
 
-import cereconf
-
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+from Cerebrum.modules.no.stillingskoder import Stillingskoder
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import add_commit_args
 
-progname = __file__.split("/")[-1]
-__doc__ = """
+logger = logging.getLogger(__name__)
 
-    This program reads a csv file containing 3 fields:
-    Stillingskode,Stillingsbetegnelse;stillingskategori
-    Content of this file is synced with table person_stillingskoder in Cerebrum
-
-    Usage:
-    %s [options]
-    options:
-    -h|--help                : Show this message
-    -k|--kodefile filename   : Use this file as input file instead of default
-    -d|--dryrun              : dryrun
-    --logger-name name       : Use specified logger name
-    --logger-level name      : Use specified log level
-
-    """ % (progname,)
-
-logger = Factory.get_logger('console')
-db = Factory.get('Database')()
-CHARSEP = ';'
-default_file = os.path.join(cereconf.CB_SOURCEDATA_PATH, 'stillingskoder.csv')
+default_encoding = 'utf-8'
+default_charsep = ';'
 
 
-def parse_source_file(filename):
-    result = dict()
-    for detail in csv.DictReader(open(filename, 'r'), delimiter=CHARSEP):
-        stbnv = detail['Stillingsbetegnelse']
-        stkat = detail['UiT Stillingskategori']
-        result[int(detail['Stillingskode'])] = (stbnv, stkat)
-    logger.info("Loaded sourcefile %s, found %d kodes", filename, len(result))
-    return result
+def read_csv_file(filename,
+                  encoding=default_encoding,
+                  charsep=default_charsep):
+    logger.info("reading csv file=%r (encoding=%r, charsep=%r)",
+                filename, encoding, charsep)
+    with open(filename, mode='rb') as f:
+        for data in csv.DictReader(f, delimiter=charsep.encode(encoding)):
+            yield {k.decode(encoding): v.decode(encoding)
+                   for k, v in data.items()}
 
 
-class Stillingskoder(object):
-
-    def __init__(self, db):
-        self.db = db
-
-    def insert(self, skode, sbeneving, skategori):
-        qry = """
-        INSERT INTO
-            [:table schema = cerebrum name = person_stillingskoder]
-            (stillingskode, stillingstittel, stillingstype)
-        VALUES
-            (:skode, :sbeneving, :skategori)
-        """
-        params = {
-            'skode': skode,
-            'skategori': skategori,
-            'sbeneving': sbeneving,
-        }
-        self.db.execute(qry, params)
-
-    def delete(self, skode):
-        qry = """
-        DELETE
-        FROM
-            [:table schema = cerebrum name = person_stillingskoder]
-        WHERE
-            stillingskode = :skode
-        """
-        self.db.execute(qry, {'skode': skode})
-
-    def update(self, skode, sbeneving, skategori):
-        qry = """
-        UPDATE
-            [:table schema = cerebrum name = person_stillingskoder]
-        SET
-            stillingstype = :skategori, stillingstittel = :sbeneving
-        WHERE
-            stillingskode = :skode
-        """
-        params = {
-            'skode': skode,
-            'skategori': skategori,
-            'sbeneving': sbeneving,
-        }
-        self.db.execute(qry, params)
-
-    def list_stillingskoder(self, skode=None, skat=None):
-        filter = []
-        params = dict()
-
-        if skode:
-            filter.append('skode = :skode')
-            params['skode'] = skode
-
-        if skat:
-            filter.append('stillingstype = :skat')
-            params['skat'] = skat
-
-        where = ""
-        if filter:
-            where = "WHERE %s" % (" AND ".join(filter))
-
-        qry = """
-        SELECT
-            stillingskode, stillingstittel, stillingstype
-        FROM
-            [:table schema = cerebrum name = person_stillingskoder]
-        %s
-        """ % where
-        return self.db.query(qry, {'skode': skode})
+tuple_map = (
+    operator.itemgetter('Stillingskode'),
+    operator.itemgetter('Stillingsbetegnelse'),
+    operator.itemgetter('UiT Stillingskategori'),
+)
 
 
-def sync_skoder(current, new):
+def generate_tuples(items):
+    for item in items:
+        yield tuple((getter(item) for getter in tuple_map))
 
-    current_set = set(current.keys())
-    new_set = set(new.keys())
 
-    to_add = new_set.difference(current_set)
-    to_delete = current_set.difference(new_set)
-    to_update = new_set.intersection(current_set)
+def sync_stillingskoder(db, tuples):
+    """
+    :param tuples:
+        An iterable with employment code tuples. Each tuple should consist of
+        (code, title, category).
+    """
+    skos = Stillingskoder(db)
+    old_codes = {r['code']: (r['title'], r['category']) for r in skos.search()}
+    new_codes = {int(code): (title, cat) for code, title, cat in tuples}
+
+    old_set = set(old_codes.keys())
+    new_set = set(new_codes.keys())
+
+    logger.info("Before sync: %d employment codes in db", len(old_set))
+
+    to_add = new_set.difference(old_set)
+    to_delete = old_set.difference(new_set)
+    to_update = new_set.intersection(old_set)
 
     # add new
     for skode in to_add:
-        sben, skat = new.get(skode)
-        logger.info("Insert new stillingskode=%04d, tittel=%r, type=%r",
+        sben, skat = new_codes[skode]
+        skos.set(skode, sben, skat)
+        logger.info("Added code=%04d, title=%r, category=%r",
                     skode, sben, skat)
-        skode_obj.insert(skode, sben, skat)
+    logger.info("Added %d codes", len(to_add))
 
     # remove old
     for skode in to_delete:
-        logger.info("Delete stillingskode=%04d", skode)
-        skode_obj.delete(skode)
+        sben, skat = old_codes[skode]
+        skos.delete(skode)
+        logger.info("Removed code=%04d, title=%r, category=%r",
+                    skode, sben, skat)
+    logger.info("Removed %d codes", len(to_delete))
 
     # update remaining
     updated = False
     for skode in to_update:
-        new_sben, new_skat = new.get(skode)
-        old_sben, old_skat = current.get(skode)
-        if new_sben != old_sben or new_skat != old_skat:
+        if old_codes[skode] != new_codes[skode]:
+            skos.set(skode, new_codes[skode][0], new_codes[skode][1])
             updated += 1
-            logger.info("Update stillingskode = %04d, new=%r, old=%r",
-                        skode, (new_sben, new_skat), (old_sben, old_skat))
-            new_sben = unicode(new_sben, 'utf-8').encode('iso-8859-1')
-            new_skat = unicode(new_skat, 'utf-8').encode('iso-8859-1')
-            skode_obj.update(skode, new_sben, new_skat)
-    if to_add or to_delete or updated:
-        logger.info("Added %d kodes, removed %d kodes and updated %d kodes",
-                    len(to_add), len(to_delete), updated)
+            logger.info("Updated code=%04d, old=%r, new=%r",
+                        skode, old_codes[skode], new_codes[skode])
+    logger.info("Updated %d codes", updated)
+    logger.info("After sync: %d employment codes in db", len(new_set))
 
 
-def usage(exit_code=0, msg=None):
-    if msg:
-        print msg
-    print __doc__
-    sys.exit(exit_code)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description="Import employment codes",
+    )
+    parser.add_argument(
+        'filename',
+        help="Import employment codes from %(metavar)s",
+        metavar='filename',
+    )
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
 
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-def main():
-    global skode_obj
+    logger.info('Start of %s', parser.prog)
+    logger.debug('args: %r', args)
 
-    # lets set default file
-    kode_file = default_file
-    dryrun = False
-    try:
-        opts, args = getopt.getopt(
-            sys.argv[1:],
-            'k:hd',
-            ['kodefile = ', 'help', 'dryrun'])
-    except getopt.GetoptError as m:
-        usage(1, m)
+    db = Factory.get('Database')()
+    sync_stillingskoder(db, generate_tuples(read_csv_file(args.filename)))
 
-    for opt, val in opts:
-        if opt in ('-k', '--kodefile'):
-            kode_file = val
-        elif opt in ('-h', '--help'):
-            usage()
-        elif opt in ('-d', '--dryrun'):
-            dryrun = True
-
-    skode_obj = Stillingskoder(db)
-    new_skode = parse_source_file(kode_file)
-    current_skode = dict()
-    for skode, sbeneving, skat in skode_obj.list_stillingskoder():
-        def _utf_name(name, encoding='iso-8859-1'):
-            return unicode(name, encoding).encode('utf-8')
-        current_skode[int(skode)] = (_utf_name(sbeneving),
-                                     _utf_name(skat))
-
-    sync_skoder(current_skode, new_skode)
-
-    if dryrun:
-        db.rollback()
-        logger.info("Dryrun, rollback changes")
-    else:
+    if args.commit:
+        logger.info('Commiting changes')
         db.commit()
-        logger.info("Committing all changes to DB")
+    else:
+        logger.info('Rolling back changes')
+        db.rollback()
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':
