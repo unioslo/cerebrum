@@ -168,13 +168,9 @@ def calculate_uit_emails(ac, co, uname, affs):
     """
     Calculate aliases and primary email for user: uname and affiliation: affs.
     """
-    uidaddr = True
     cnaddr = False
     # logger.debug("in calculate_uit_emails:%s" % affs)
     for (aff, sko, status) in affs:
-        # logger.debug("status is:%s" % status)
-        # logger.debug("sko is:%s" % sko)
-        # logger.debug("aff is:%s" % aff)
         # set cnaddr == true if you are an employee (but not if you are a
         # "timelønnet employee")
         if aff == co.affiliation_ansatt:
@@ -183,17 +179,14 @@ def calculate_uit_emails(ac, co, uname, affs):
                 if item != co.affiliation_status_timelonnet_midlertidig:
                     valid_cnaddr_aff = True
             if valid_cnaddr_aff:
-                # and (co.affiliation_status_timelonnet_midlertidig !=
-                # status[0]) and (len(status)==1)):
-                # logger.debug("i am employee and not timelonnet")
                 cnaddr = True
+
                 # even if you are an employee you do not get cnaddr==True if
                 # you belong to a stedkode defined in
                 # EMPLOYEE_FILTER_EXCHANGE_SKO
                 for flt in cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO:
                     # TBD hva om bruker har flere affs og en av dem matcher?
-                    # TBD kanskje ogsï¿½ se pï¿½ priority mellom affs?
-                    # logger.debug("Filter: %s on %s" % (flt,sko))
+                    # TBD kanskje også se på priority mellom affs?
                     if sko.startswith(flt):
                         logger.warning(
                             "employee %s has affiliation with sko(%s) that "
@@ -206,7 +199,7 @@ def calculate_uit_emails(ac, co, uname, affs):
             logger.debug("aff:%s, aff status:%s", aff, status)
             for flt in cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO:
                 # TBD hva om bruker har flere affs og en av dem matcher?
-                # TBD kanskje ogsï¿½ se pï¿½ priority mellom affs?
+                # TBD kanskje også se på priority mellom affs?
                 logger.debug("Filter: %s on %s", flt, sko)
                 if sko.startswith(flt):
                     logger.warning(
@@ -218,9 +211,7 @@ def calculate_uit_emails(ac, co, uname, affs):
     new_addrs = []
     primary = ""
 
-    # cnaddr: firstname.lastname@uit.no
     if cnaddr:
-        # logger.debug("CNADDR")
         dom_part = "uit.no"
         # dom_part=cereconf.EMPLOYEE_MAILDOMAIN
 
@@ -239,9 +230,7 @@ def calculate_uit_emails(ac, co, uname, affs):
         if not primary:
             primary = uidaddr
 
-    # else: username@post.uit.no
     else:
-        # logger.debug("UID@post")
         dom_part = "post.uit.no"
         # dom_part=cereconf.NONEMPLOYEE_MAILDOMAIN
         uidaddr = "@".join((uname, dom_part))
@@ -249,9 +238,6 @@ def calculate_uit_emails(ac, co, uname, affs):
         if not primary:
             primary = uidaddr
 
-    # if(co.affiliation_status_student_drgrad in status):
-    #    logger.debug("i am drgrad")
-    #    sys.exit(1)
     return new_addrs, primary
 
 
@@ -270,14 +256,9 @@ def process_mail(db):
     for row in ac.list_accounts_by_type(filter_expired=True,
                                         primary_only=False,
                                         fetchall=False):
-        # get person_id
-        # logger.debug("person id is:%s" % row['person_id'])
-        # logger.debug("row is:%s" % row)
         p.clear()
-
         p.find(row['person_id'])
 
-        #
         # get person work phone number
         # phone_list = p.get_contact_info(source = const.system_tlf,type =
         # const.contact_phone)
@@ -286,40 +267,17 @@ def process_mail(db):
                                        type=co.contact_phone)
         try:
             phone_list[row['account_id']] = temp_list[0][4]
-            # logger.debug("phone_list[%s] = %s" % (row['account_id'],
-            # temp_list[0][4]))
         except IndexError:
             phone_list[row['account_id']] = ''
 
-        # pprint("temp list:%s" % temp_list)
-        # for item in temp_list:
-        # logger.debug("item is:%s" % temp_list)
-        # logger.debug("---")
-
-        # i_am_drgrad = False
         person_affs = p.get_affiliations(include_deleted=False)
-        # logger.debug("aff:%s,aff status:%s" % (person_affs[0][
-        # 'affiliation'],person_affs[0]['status']))
-        # pprint("person_affs=%s" % person_affs)
         aff_status = {}
         for item in person_affs:
             try:
                 aff_status[item['affiliation']] += [item['status']]
             except KeyError:
                 aff_status[item['affiliation']] = [item['status']]
-            # aff_status[item['affiliation']] = item['status']
-            # logger.debug("%s = %s" % (aff_status[item['affiliation']],
-            # item['status']))
-            # if item['status'] ==  co.affiliation_status_student_drgrad:
-            #    i_am_drgrad = True
-            #    logger.debug("i am drgrad student")
-            # sys.exit(1)
 
-        # logger.debug("aff_status:%s" % aff_status)
-        # is this a UiT affiliation? or am i a drgrad student ?
-        # logger.debug("aff status dict:%s"% aff_status)
-        # logger.debug("affiliation:%s" % (row['affiliation']))
-        # logger.debug("row is:%s" % row)
         if row['affiliation'] in (co.affiliation_ansatt,
                                   co.affiliation_student,
                                   co.affiliation_tilknyttet,
@@ -330,7 +288,6 @@ def process_mail(db):
                     []).append((row['affiliation'],
                                 get_sko(ou, row['ou_id']),
                                 aff_status[row['affiliation']]))
-                # logger.debug("uit_account_affs:%s" % uit_account_affs)
             except EntityExpiredError:
                 # get_sko cannot find active stedkode. continue to next account
                 logger.debug(
@@ -340,9 +297,6 @@ def process_mail(db):
                 continue
             except KeyError:
                 pass
-                # logger.debug("account:%s Unable to append the following
-                # affilation %s - %s . it has no active/valid status code" %
-                # (row['account_id'],row['affiliation'],get_sko(row['ou_id'])))
             aff_cached += 1
         else:
             aff_skipped += 1
@@ -380,10 +334,8 @@ def process_mail(db):
                     mail_addr_cache += 1
                     uit_mails.setdefault(uname, []).append(
                         "@".join((em['local_part'], em['domain'])))
-                    # uit_addresses_in_use.append("@".join((em['local_part'],
-                    # em['domain'])))
-    logger.debug("Cached %d mailaddrs", mail_addr_cache)
 
+    logger.debug("Cached %d mailaddrs", mail_addr_cache)
     logger.debug("Caching primary mailaddrs")
     current_primaryemail = ac.getdict_uname2mailaddr(primary_only=True)
 
@@ -391,7 +343,6 @@ def process_mail(db):
     all_emails = {}
     new_primaryemail = {}
     for account_id, uname in exch_users.iteritems():
-        logger.debug("--- %s ---", uname)
 
         # need to calculate what address(es) user should have
         # then compare to what address(es) they have.
@@ -407,16 +358,13 @@ def process_mail(db):
 
         logger.debug("should have addrs=%s", should_have_addrs)
         logger.debug("new primary is %s", new_primary_addr)
-        logger.debug("current primary is %s", current_primaryemail.get(
-            uname, None))
+        logger.debug("current primary is %s",
+                     current_primaryemail.get(uname, None))
         should_have_addrs_set = set(should_have_addrs)
 
         if old_addrs:
-            logger.debug("User %s has mailaddress %s",
-                         uname, old_addrs)
+            logger.debug("User %s has mailaddress %s", uname, old_addrs)
             new_addrs_set = should_have_addrs_set - old_addrs_set
-            # logger.debug("new set is %s, list() is %s" %
-            # (new_addrs_set,list(new_addrs_set)))
         else:
             new_addrs_set = should_have_addrs_set
 
@@ -426,15 +374,10 @@ def process_mail(db):
             uit_addresses_new.extend(list(new_addrs_set))
             all_emails[account_id] = list(new_addrs_set)
         else:
-            # if((list(new_addrs_set) == []) and (current_primaryemail.get(
-            # uname,None) == None)):
             logger.debug("compare primary:%s = %s",
                          current_primaryemail.get(uname, None),
                          new_primary_addr)
 
-            #
-            # does new_primary_addr contains digits ?
-            #
             def contains_digits(new_primary_addr):
                 c = ""
                 for i in new_primary_addr:
@@ -445,26 +388,20 @@ def process_mail(db):
                 else:
                     return False
 
-            #
             # if new_email_style = False => email is employee style
             # if new_email_style == True => email is student style
-            #
-
             new_email_style = contains_digits(new_primary_addr)
             if current_primaryemail.get(uname, None) is not None:
                 old_email_style = contains_digits(
                     current_primaryemail.get(uname, None))
 
-            logger.debug(
-                "old email style:%s ,new email style:%s for email:%s",
-                old_email_style, new_email_style, new_primary_addr)
+            logger.debug("old email style:%s ,new email style:%s for email:%s",
+                         old_email_style, new_email_style, new_primary_addr)
 
-            #
             # Only change primary email if new_email_style != old_email_style.
             # Meaning one is of student style and the other of employee style
-            # This ensures we dont change primary adress within each domain,
+            # This ensures we don't change primary address within each domain,
             # even if calculate_primary_email says so.
-            #
             if (list(new_addrs_set) == [] and
                     current_primaryemail.get(uname, None) !=
                     new_primary_addr and new_email_style != old_email_style):
@@ -494,8 +431,8 @@ def process_mail(db):
                 exch_users.get(account_id), None)
             exchange_controlled = 'NA'
             logger.debug("now cheking if any emails needs to be changed")
-            logger.debug(
-                "addr:%s == primary_address:%s", addr, new_primary_address)
+            logger.debug("addr:%s == primary_address:%s",
+                         addr, new_primary_address)
             if addr == new_primary_address:
                 exchange_controlled = \
                     emailaddress_in_exchangecontrolled_domain(
@@ -505,8 +442,6 @@ def process_mail(db):
                     new_primary_address, current_primary_address)
                 if ((new_primary_address != current_primary_address) and
                         (not exchange_controlled)):
-                    # affs=",".join(["@".join((num2const(aff),sko)) for aff,
-                    # sko in uit_account_affs.get(account_id,())])
 
                     affs = ",".join(
                         ["@".join((str(num2const[status[0]]), sko)) for
@@ -515,12 +450,7 @@ def process_mail(db):
                     affs = affs.replace("/", ",")
                     account_primary_affiliation = get_priority(db, account_id)
                     logger.debug("Affs:%s", affs)
-                    # test = status[0]
-                    # aff_status = "%s" % num2const[test]
-                    # aff_status = aff_status.replace("/",",")
-                    # logger.debug("test is:%s" % test)
-                    # logger.debug("# status is:%s or %s", status,num2const
-                    # [test])
+
                     logger.info("Changing Primary address: %s;%s;%s;%s;%s;%s",
                                 exch_users[account_id],
                                 phone_list[account_id],
@@ -541,9 +471,8 @@ def get_priority(db, account_id):
     Returns account primary affiliation based on
     cereconf.ACCOUNT_PRIORITY_RANGES
     """
-    logger.debug(
-        "calculate primary affiliation based on "
-        "cereconf.ACCOUNT_PRIORITY_RANGES")
+    logger.debug("calculate primary affiliation based on "
+                 "cereconf.ACCOUNT_PRIORITY_RANGES")
     pri_ranges = cereconf.ACCOUNT_PRIORITY_RANGES
     priority = 1000
     tmp_ac = Factory.get('Account')(db)
@@ -569,7 +498,6 @@ def get_existing_emails(db):
     """
     ea = EmailAddress(db)
     addresses_in_use = []
-    # print "%s" % dir(ea)
     uit_no_list = ea.list_email_addresses_ext('uit.no')
 
     # TODO: Use the post addresses as well.
@@ -578,7 +506,6 @@ def get_existing_emails(db):
         email_address = "{0}@{1}".format(item['local_part'], item['domain'])
         addresses_in_use.append(email_address)
         logger.debug("existing email: %s", email_address)
-        # print "%s@%s" % (item['local_part'],item['domain'])
     return addresses_in_use
 
 
