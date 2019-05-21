@@ -1,101 +1,152 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
+# Copyright 2017-2019 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Remove CIM-spreads for multiple persons.
 
-# input: file with list of person_ids to remove cim_spread for, 
-# each id should be on a separate line.
+Reads a file of person_id values (one per line), and removes CIM spread for
+those persons.
+"""
+import argparse
+import logging
 
-#
-# Generic imports
-#
-import getopt
-import sys
-import os
-
-#
-# Cerebrum imports
-#
-import cerebrum_path
-import cereconf
-from Cerebrum import Utils
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-
-#
-# global variables
-#
-db = Factory.get('Database')()
-p = Factory.get('Person')(db)
-# logger=Factory.get_logger('cronjob')
-
-db.cl_init(change_program='add_cim_spread')
-
-progname = __file__.split("/")[-1]
-__doc__ = """
-usage: %s <-h | -f filename | -d >
-
-Script for adding cim_spread for a list of persons.
-List of persons is given as a file with person_ids, one id per line.
-
-options:
-    [-h] | [--help]                     - this text
-    [-f filename] | [--file filename]   - add cim_spread for all ids in the given filename
-    [-d] | [--dryrun]                   - dryrun, don't commit to database.
-
-""" % (progname)
+from Cerebrum.utils.argutils import add_commit_args
 
 
-def usage(exit_code=0, msg = None):
-    if msg:
-        print msg
-    print __doc__
-    sys.exit(exit_code)
-    
-def main():
-    global filename
+logger = logging.getLogger(__name__)
 
-    try:
-        opts,args = getopt.getopt(sys.argv[1:], 'hf:d', ['help','file=','dryrun'])
-        if opts == []:
-            usage(1)
-    except getopt.GetoptError as e:
-        usage(1, e.msg)
 
-    filename = None
-    dryrun = False
-    for opt,val in opts:
-        if opt in ('-h', '--help'):
-            usage()
-        if opt in ('-f', '--file'):
-            filename = val
-        if opt in ('-d', '--dryrun'):
-            dryrun = True
+def update_entity_spreads(entity, to_add, to_remove):
+    """
+    Update spreads for a single entity
 
-    if filename == None:
-        usage(0, "Missing filename argument.")
+    :type entity: Cerebrum.Entity.EntitySpread
+    :type to_add: tuple
+    :type to_remove: tuple
+    """
+    spreads = [r['spread'] for r in entity.get_spread()]
 
-    if (os.path.exists(filename) != True):
-        print "File \'%s\' seems to be missing" % filename 
+    for spread in (s for s in to_add if int(s) not in spreads):
+        logger.info("Adding spread=%s to entity_id=%r",
+                    spread, entity.entity_id)
+        entity.add_spread(spread)
+
+    for spread in (s for s in to_remove if int(s) in spreads):
+        logger.info("Removing spread=%s from entity_id=%r",
+                    spread, entity.entity_id)
+        entity.delete_spread(spread)
+
+
+def update_spreads(db, person_ids, to_add=None, to_remove=None):
+    """
+    Update spreads for a list of persons.
+
+    :type db: Cerebrum.database.Database
+    :param person_ids:
+        An iterable of person_id integers to process.
+    :param to_add:
+        An iterable of SpreadCode values to add to each person.
+    :type to_remove:
+        An iterable of SpreadCode values to remove from each person.
+    """
+    to_add = tuple(to_add or ())
+    to_remove = tuple(to_remove or ())
+    if any(to_add + to_remove):
+        logger.info("Updating spreads, to_add=%r, to_remove=%r",
+                    to_add, to_remove)
+    else:
+        logger.warning("No spreads to update, to_add=%r, to_remove=%r",
+                       to_add, to_remove)
         return
 
-    # read file
-    with open(filename, 'r') as fh:
-        ids = fh.readlines()
+    pe = Factory.get('Person')(db)
 
-    for person_id in ids:
-        person_id = person_id.strip()
+    for person_id in person_ids:
+        pe.clear()
+        try:
+            pe.find(person_id)
+        except Errors.NotFoundError:
+            logger.error("No person with person_id=%r", person_id)
+            continue
 
-        p.clear()
-        p.find(person_id)
-        print "Adding spread for:", person_id
-        p.add_spread(732)
+        update_entity_spreads(pe, to_add, to_remove)
 
-    if dryrun:
-        db.rollback()
-        print "All changes rolled back"
-    else:
+
+def read_integers(filename):
+    """Read integers from a file, one value per line."""
+    logger.info("Reading integers from %r", filename)
+    count = 0
+    with open(filename, 'r') as f:
+        for lineno, line in enumerate(f, 1):
+            if not line.strip():
+                continue
+            try:
+                yield int(line)
+                count += 1
+            except Exception as e:
+                logger.error("Invalid value on line %d: %s (%s)",
+                             lineno, line, e)
+                continue
+    logger.info("Found %d integers in %r", count, filename)
+
+
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description="Remove CIM-spread from a list of persons",
+    )
+    parser.add_argument(
+        'filename',
+        help="Remove spread from person_ids in %(metavar)s",
+    )
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('tee', args)
+
+    logger.info('Start of %s', parser.prog)
+    logger.debug('args: %r', args)
+
+    db = Factory.get('Database')()
+    db.cl_init(change_program='add_cim_spread')
+    co = Factory.get('Constants')(db)
+
+    update_spreads(
+        db,
+        read_integers(args.filename),
+        to_add=None,
+        to_remove=(co.spread_cim_person, ),
+    )
+
+    if args.commit:
+        logger.info('Commiting changes')
         db.commit()
-        print "Committed all changes"
+    else:
+        db.rollback()
+        logger.info('Rolling back changes')
+    logger.info('Done %s', parser.prog)
+
 
 if __name__ == '__main__':
     main()
