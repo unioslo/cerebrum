@@ -56,15 +56,15 @@ logger = Factory.get_logger('cronjob')
 emdb = Email.email_address(db, logger=logger)
 
 try_only_first = False
-uit_addresses_in_use = list()
-uit_addresses_new = list()
-uit_account_affs = dict()
-exch_users = dict()
-uname2accid = dict()
-ownerid2uname = dict()
-uit_mails = dict()
+uit_addresses_in_use = []
+uit_addresses_new = []
+uit_account_affs = {}
+exch_users = {}
+uname2accid = {}
+ownerid2uname = {}
+uit_mails = {}
 
-num2const = dict()
+num2const = {}
 
 
 def get_sko(ou_id):
@@ -81,7 +81,7 @@ get_sko = memoize(get_sko)
 def _get_alternatives(account_name):
     ac.clear()
     ac.find_by_name(account_name)
-    alternatives = list()
+    alternatives = []
     first_choise = ac.get_email_cn_local_part(given_names=1,
                                               max_initials=1,
                                               keep_dash=True)
@@ -162,7 +162,7 @@ def emailaddress_in_exchangecontrolled_domain(address):
 
 
 def get_cn_addr(username, domain):
-    old_cn = has_cnaddr_in_domain(uit_mails.get(username, list()), domain)
+    old_cn = has_cnaddr_in_domain(uit_mails.get(username, []), domain)
     logger.debug("old cn is:%s" % old_cn)
     if old_cn:
         return old_cn
@@ -239,7 +239,7 @@ def calculate_uit_emails(uname, affs):
                             uname, sko, flt))
                     cnaddr = False
 
-    new_addrs = list()
+    new_addrs = []
     primary = ""
 
     # cnaddr: firstname.lastname@uit.no
@@ -344,7 +344,7 @@ def process_mail():
             try:
                 uit_account_affs.setdefault(
                     row['account_id'],
-                    list()).append((row['affiliation'],
+                    []).append((row['affiliation'],
                                     get_sko(row['ou_id']),
                                     aff_status[row['affiliation']]))
                 # logger.debug("uit_account_affs:%s" % uit_account_affs)
@@ -379,7 +379,7 @@ def process_mail():
             count += 1
             exch_users[a['account_id']] = a['name']
             uname2accid[a['name']] = a['account_id']
-            ownerid2uname.setdefault(a['owner_id'], list()).append(a['name'])
+            ownerid2uname.setdefault(a['owner_id'], []).append(a['name'])
     logger.info("got %d accounts (%s)" % (len(exch_users), count))
     logger.info("got %d account" % (len(uname2accid, )))
     logger.info("skipped %d account" % (skipped,))
@@ -395,7 +395,7 @@ def process_mail():
             for em in data:
                 if em['domain'].endswith('uit.no'):
                     mail_addr_cache += 1
-                    uit_mails.setdefault(uname, list()).append(
+                    uit_mails.setdefault(uname, []).append(
                         "@".join((em['local_part'], em['domain'])))
                     # uit_addresses_in_use.append("@".join((em['local_part'],
                     # em['domain'])))
@@ -405,8 +405,8 @@ def process_mail():
     current_primaryemail = ac.getdict_uname2mailaddr(primary_only=True)
 
     # variabled holding whoom shall we build emailaddrs for?
-    all_emails = dict()
-    new_primaryemail = dict()
+    all_emails = {}
+    new_primaryemail = {}
     for account_id, uname in exch_users.iteritems():
         logger.debug("--- %s ---" % uname)
 
@@ -489,7 +489,7 @@ def process_mail():
                 # new_addrs_set is empty
                 logger.debug(
                     "We are to change primary to:%s" % (new_primary_addr))
-                new_primary_addr_list = list()
+                new_primary_addr_list = []
                 new_primary_addr_list.append(new_primary_addr)
                 new_primary_addr_set = Set(new_primary_addr_list)
 
