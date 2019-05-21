@@ -40,15 +40,6 @@ from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
 
-db = Factory.get('Database')()
-ac = Factory.get('Account')(db)
-p = Factory.get('Person')(db)
-co = Factory.get('Constants')(db)
-ou = Factory.get('OU')(db)
-db.cl_init(change_program='process_uit_email')
-
-emdb = Email.email_address(db, logger=logger)
-
 try_only_first = False
 uit_addresses_in_use = []
 uit_addresses_new = []
@@ -61,7 +52,7 @@ uit_mails = {}
 num2const = {}
 
 
-def get_sko(ou_id):
+def get_sko(ou, ou_id):
     ou.clear()
     ou.find(ou_id)
     return "{0}{1}{2}".format(str(ou.fakultet).zfill(2),
@@ -72,7 +63,7 @@ def get_sko(ou_id):
 get_sko = memoize(get_sko)
 
 
-def _get_alternatives(account_name):
+def _get_alternatives(ac, account_name):
     ac.clear()
     ac.find_by_name(account_name)
     alternatives = []
@@ -102,15 +93,13 @@ def _get_alternatives(account_name):
     return alternatives
 
 
-def get_domainid(domain_part):
+def get_domainid(db, domain_part):
     domain = EmailDomain(db)
     domain.find_by_domain(domain_part)
     return domain.entity_id
 
 
 get_domainid = memoize(get_domainid)
-
-tmp_ac = Factory.get('Account')(db)
 
 
 def is_cnaddr_free(local_part, domain_part):
@@ -155,13 +144,13 @@ def emailaddress_in_exchangecontrolled_domain(address):
             address.endswith("@{0}".format(domain))]
 
 
-def get_cn_addr(username, domain):
+def get_cn_addr(ac, username, domain):
     old_cn = has_cnaddr_in_domain(uit_mails.get(username, []), domain)
     logger.debug("old cn is:%s", old_cn)
     if old_cn:
         return old_cn
 
-    alternatives = _get_alternatives(username)
+    alternatives = _get_alternatives(ac, username)
     if try_only_first:
         logger.info("Trying only first alternative!")
         alternatives = alternatives[:1]
@@ -185,7 +174,7 @@ def get_cn_addr(username, domain):
 #
 # calculate aliases and primary email for user: uname and affiliation: affs
 #
-def calculate_uit_emails(uname, affs):
+def calculate_uit_emails(ac, co, uname, affs):
     uidaddr = True
     cnaddr = False
     # logger.debug("in calculate_uit_emails:%s" % affs)
@@ -245,7 +234,7 @@ def calculate_uit_emails(uname, affs):
         # TBD if user already has CNADDR in @uit.no, no recalculation needed.
         # if we do recalculation, script runningtime multiplies due to
         # large number of cerebrum object instansiations
-        user_cn = get_cn_addr(uname, dom_part)
+        user_cn = get_cn_addr(ac, uname, dom_part)
         if user_cn:
             cnaddr = "@".join((user_cn, dom_part))
             new_addrs.append(cnaddr)
@@ -273,8 +262,15 @@ def calculate_uit_emails(uname, affs):
     return new_addrs, primary
 
 
-def process_mail():
+def process_mail(db):
     logger.info("Start Caching affiliations")
+    ac = Factory.get('Account')(db)
+    p = Factory.get('Person')(db)
+    co = Factory.get('Constants')(db)
+    ou = Factory.get('OU')(db)
+
+    emdb = Email.email_address(db, logger=logger)
+
     phone_list = {}
     # get all account affiliations that belongs to UiT
     aff_cached = aff_skipped = 0
@@ -339,7 +335,7 @@ def process_mail():
                 uit_account_affs.setdefault(
                     row['account_id'],
                     []).append((row['affiliation'],
-                                get_sko(row['ou_id']),
+                                get_sko(ou, row['ou_id']),
                                 aff_status[row['affiliation']]))
                 # logger.debug("uit_account_affs:%s" % uit_account_affs)
             except EntityExpiredError:
@@ -410,6 +406,8 @@ def process_mail():
         logger.debug("old addrs=%s", old_addrs)
         old_addrs_set = set(old_addrs)
         should_have_addrs, new_primary_addr = calculate_uit_emails(
+            ac,
+            co,
             uname,
             uit_account_affs.get(account_id))
         new_primaryemail[account_id] = new_primary_addr
@@ -511,19 +509,19 @@ def process_mail():
                         current_primary_address)
                 logger.debug(
                     "new_primary_adress:%s != current_primary_adress:%s",
-                        new_primary_address, current_primary_address)
+                    new_primary_address, current_primary_address)
                 if ((new_primary_address != current_primary_address) and
                         (not exchange_controlled)):
                     # affs=",".join(["@".join((num2const(aff),sko)) for aff,
                     # sko in uit_account_affs.get(account_id,())])
-                    priority = get_priority(account_id)
+                    priority = get_priority(db, account_id)
 
                     affs = ",".join(
                         ["@".join((str(num2const[status[0]]), sko)) for
                          aff, sko, status in
                          uit_account_affs.get(account_id, ())])
                     affs = affs.replace("/", ",")
-                    account_primary_affiliation = get_priority(account_id)
+                    account_primary_affiliation = get_priority(db, account_id)
                     logger.debug("Affs:%s", affs)
                     # test = status[0]
                     # aff_status = "%s" % num2const[test]
@@ -549,7 +547,7 @@ def process_mail():
 #
 # returns account primary affiliation based on cereconf.ACCOUNT_PRIORITY_RANGES
 #
-def get_priority(account_id):
+def get_priority(db, account_id):
     logger.debug(
         "calculate primary affiliation based on "
         "cereconf.ACCOUNT_PRIORITY_RANGES")
@@ -574,7 +572,7 @@ def get_priority(account_id):
 # format is: uit_addresse_in_use = ['localpart@domainpart']..
 # [localpart@domainpart]]
 #
-def get_existing_emails():
+def get_existing_emails(db):
     ea = EmailAddress(db)
     addresses_in_use = []
     # print "%s" % dir(ea)
@@ -603,10 +601,13 @@ def main():
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
 
+    db = Factory.get('Database')()
+    db.cl_init(change_program='process_uit_email')
+
     starttime = dt.datetime.now()
 
-    uit_addresses_in_use = get_existing_emails()
-    process_mail()
+    uit_addresses_in_use = get_existing_emails(db)
+    process_mail(db)
 
     if args.commit:
         db.commit()
