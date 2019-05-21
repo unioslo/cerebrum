@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -204,7 +204,7 @@ def calculate_uit_emails(uname,affs):
         #logger.debug("status is:%s" % status)
         #logger.debug("sko is:%s" % sko)
         #logger.debug("aff is:%s" % aff)
-        # set cnaddr == true if you are an employee (but not if you are a "timel�nnet employee")
+        # set cnaddr == true if you are an employee (but not if you are a "timelï¿½nnet employee")
         if (aff==co.affiliation_ansatt):
             valid_cnaddr_aff = False
             for item in status:
@@ -217,7 +217,7 @@ def calculate_uit_emails(uname,affs):
                 # even if you are an employee you do not get cnaddr==True if you belong to a stedkode defined in EMPLOYEE_FILTER_EXCHANGE_SKO
                 for flt in cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO:
                     #TBD hva om bruker har flere affs og en av dem matcher?
-                    #TBD kanskje ogs� se p� priority mellom affs?
+                    #TBD kanskje ogsï¿½ se pï¿½ priority mellom affs?
                     #logger.debug("Filter: %s on %s" % (flt,sko))
                     if sko.startswith(flt):
                         logger.warning("employee %s has affiliation with sko(%s) that is in cn-filterset %s" % (uname,sko,flt))
@@ -229,7 +229,7 @@ def calculate_uit_emails(uname,affs):
             logger.debug("aff:%s, aff status:%s" % (aff,status))
             for flt in cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO:
                 #TBD hva om bruker har flere affs og en av dem matcher?
-                #TBD kanskje ogs� se p� priority mellom affs?
+                #TBD kanskje ogsï¿½ se pï¿½ priority mellom affs?
                 logger.debug("Filter: %s on %s" % (flt,sko))
                 if sko.startswith(flt):
                     logger.warning("drgrad student %s has affiliation with sko(%s) that is in cn-filterset %s" % (uname,sko,flt))
