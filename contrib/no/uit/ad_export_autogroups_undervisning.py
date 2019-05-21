@@ -75,7 +75,7 @@ def get_skoinfo(db, co, fak, inst, avd):
     ou = Factory.get('OU')(db)
     ou.clear()
     ou.find_stedkode(fakultet=fak, institutt=inst, avdeling=avd,
-                     institusjon=186)  # TODO 186 from config
+                     institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
     res = dict()
     res['name'] = ou.get_name_with_language(co.ou_name, co.language_nb,
                                             default='')
