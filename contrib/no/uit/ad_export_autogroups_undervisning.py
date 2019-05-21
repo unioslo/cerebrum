@@ -21,16 +21,6 @@
 """
 This script creates dump of Fronter groups from BAS to an XML file
 that can be imported into Active Directory
-
-usage:: %s [options]
-
-options is
-    -h | --help          : show this
-    --exportfile         : filname to write resulting xml to
-    --studeprogfile      : filename containing studieprog data from FS
-    --undenhfile         : filename containing undervisningsenhet data from FS
-    --logger-name name   : log name to use
-    --logger-level level : log level to use
 """
 from __future__ import unicode_literals
 
@@ -72,7 +62,6 @@ fak_emner = {}
 
 # resulting groups dict
 group_dict = dict()
-agrgroup_dict = dict()
 
 # common prefix for all Fronter groups in cerebrum
 fg_prefix = "uit.no:fs"
@@ -114,7 +103,7 @@ def get_skoinfo(db, co, fak, inst, avd):
     return res
 
 
-def GetUndenhFile(xmlfile):
+def get_undenh_file(xmlfile):
     logger.debug("Parsing %s ", xmlfile)
 
     def finn_emne_info(element, attrs):
@@ -139,7 +128,7 @@ def GetUndenhFile(xmlfile):
     access_FS.underv_enhet_xml_parser(xmlfile, finn_emne_info)
 
 
-def GetStudieprogFile(xmlfile):
+def get_studieprog_file(xmlfile):
     logger.debug("Parsing %s ", xmlfile)
 
     def finn_stprog_info(element, attrs):
@@ -163,7 +152,7 @@ uname2accid = dict()
 accid2uname = dict()
 
 
-def GetADAccounts(co, ac):
+def get_ad_accounts(co, ac):
     logger.info("Retreiving active accounts with AD spread")
     for acc in ac.search(spread=co.spread_uit_ad_account):
         # if acc['account_id'] not in has_aff:
@@ -173,7 +162,7 @@ def GetADAccounts(co, ac):
     logger.debug("loaded %d accounts from cerebrum", len(uname2accid))
 
 
-def isThisOrNextSemester(group_name):
+def is_this_or_next_semester(group_name):
     this_sem, next_sem = access_FS.get_semester()
     this_sem_yr, this_sem_sem = this_sem
     next_sem_yr, next_sem_sem = next_sem
@@ -187,13 +176,13 @@ def isThisOrNextSemester(group_name):
         return False
 
 
-def GetUndenhGroups(db, co, ac, gr):
+def get_undenh_groups(db, co, ac, gr):
     grp_search_term = "%s:kurs*:student" % fg_prefix
     logger.debug("Search for %s", grp_search_term)
     groups = gr.search(name=grp_search_term)
     for group in groups:
         gname = group['name'].replace("%s:" % fg_prefix, '')
-        if not isThisOrNextSemester(gname):
+        if not is_this_or_next_semester(gname):
             continue
 
         members = gr.search_members(group_id=group['group_id'])
@@ -213,7 +202,7 @@ def GetUndenhGroups(db, co, ac, gr):
 
         # gname should look like this now
         # "kurs:186:bed-2049:1:v�r:2018:1:student"
-        (type, org, emnekode, versjonskode, sem, aar, terminkode,
+        (kurs, org, emnekode, versjonskode, sem, aar, terminkode,
          rolle) = gname.split(":")
 
         ad_commonname = ".".join(
@@ -249,7 +238,7 @@ def GetUndenhGroups(db, co, ac, gr):
                              'displayname': ad_displayname,
                              'members': ",".join(member_list),
                              'mailNickName': ad_mailnickname,
-                             'extensionAttribute1': type,  # undenh
+                             'extensionAttribute1': kurs,  # undenh
                              'extensionAttribute2': emnekode,
                              'extensionAttribute3': aar,  # �r
                              'extensionAttribute4': sem,  # sem
@@ -269,15 +258,15 @@ def GetUndenhGroups(db, co, ac, gr):
                              }
 
 
-def GetStudieprogramgroups(db, co, ac, gr):
+def get_studieprogramgroups(db, co, ac, gr):
     grp_search_term = "%s:kull*:student" % fg_prefix
     logger.debug("Search term: %s", grp_search_term)
     groups = gr.search(name=grp_search_term)
     for group in groups:
         gname = group['name'].replace("%s:" % fg_prefix, '')
         # gname should look like this now "kull:barock:h�st:2013:student"
-        (type, stprogkode, sem, aar, rolle) = gname.split(":")
-        type = 'studieprogram'  # type should be "studieprogram", not "kull"
+        (kull, stprogkode, sem, aar, rolle) = gname.split(":")
+        kull = 'studieprogram'  # type should be "studieprogram", not "kull"
 
         # Skip this group if it isn't in stprog_info
         # Note: this implies a mismatch between the database and
@@ -287,7 +276,7 @@ def GetStudieprogramgroups(db, co, ac, gr):
                            group['group_id'])
             continue
 
-        ad_commonname = ".".join((type, stprogkode, aar, sem, rolle))
+        ad_commonname = ".".join((kull, stprogkode, aar, sem, rolle))
         ad_samaccountname = ad_commonname
         email_lp = ac.wash_email_local_part(ad_samaccountname)
         ad_samaccountname = email_lp
@@ -329,7 +318,7 @@ def GetStudieprogramgroups(db, co, ac, gr):
                              'members': ",".join(member_list),
                              'mailNickname': ad_mailnickname,
 
-                             'extensionAttribute1': type,
+                             'extensionAttribute1': kull,
                              'extensionAttribute2': stprogkode,
                              'extensionAttribute3': aar,
                              'extensionAttribute4': sem,
@@ -351,6 +340,7 @@ def GetStudieprogramgroups(db, co, ac, gr):
 def aggregate_studieprogram_groups(ac):
     stprogs = dict()
     fakprogs = dict()
+    agrgroup_dict = dict()
 
     for gname, gdata in group_dict.iteritems():
         if gdata['extensionAttribute1'] != "studieprogram":
@@ -375,7 +365,7 @@ def aggregate_studieprogram_groups(ac):
         ad_descr = "Studenter studieprogram %s (%s) Alle kull" % (
             stprogkode.upper(), stprog_info[stprogkode]['navn'])
         ad_displayname = ad_descr
-        ad_mailnickname = "%s.studenter" % (washed_stprogkode)
+        ad_mailnickname = "%s.studenter" % washed_stprogkode
 
         agrgroup_dict[stprogkode] = {
             'name': ad_commonname,
@@ -405,12 +395,12 @@ def aggregate_studieprogram_groups(ac):
     for fakpath, gdata in fakprogs.iteritems():
         logger.debug("FAKPROG: fakpath=%s", fakpath)
         washed_fakpath = ac.wash_email_local_part(fakpath)
-        ad_commonname = "studieprogram.%s.studenter" % (washed_fakpath)
+        ad_commonname = "studieprogram.%s.studenter" % washed_fakpath
         ad_samaccountname = ad_commonname
         ad_email = "@".join((ad_samaccountname, "auto.uit.no"))
         ad_descr = "Studenter studieprogrammer ved %s" % (fakpath,)
         ad_displayname = ad_descr
-        ad_mailnickname = "%s.studenter" % (washed_fakpath)
+        ad_mailnickname = "%s.studenter" % washed_fakpath
         agrgroup_dict[fakpath] = {
             'name': ad_commonname,
             'samaccountname': ad_samaccountname,
@@ -435,9 +425,10 @@ def aggregate_studieprogram_groups(ac):
             # 'extensionAttribute14': '',
             # 'extensionAttribute15': ''
         }
+    return agrgroup_dict
 
 
-def writeXML(xmlfile=default_export_file):
+def write_xml(agrgroup_dict, xmlfile=default_export_file):
     """
     write results to file
 
@@ -516,9 +507,18 @@ def writeXML(xmlfile=default_export_file):
 
 def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--studieprogfile', default=default_studieprog_file)
-    parser.add_argument('--undenhfile', default=default_undenh_file)
-    parser.add_argument('--exportfile', default=default_export_file)
+    parser.add_argument(
+        '--studieprogfile',
+        default=default_studieprog_file,
+        help='filename containing studieprog data from FS')
+    parser.add_argument(
+        '--undenhfile',
+        default=default_undenh_file,
+        help='filename containing undervisningsenhet data from FS')
+    parser.add_argument(
+        '--exportfile',
+        default=default_export_file,
+        help='filname to write resulting xml to')
 
     logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
@@ -536,13 +536,13 @@ def main(inargs=None):
 
     db.cl_init(change_program='ad_export_autogroups_undervisning')
 
-    GetUndenhFile(xmlfile=args.undenhfile)
-    GetStudieprogFile(xmlfile=args.studieprogfile)
-    GetADAccounts(co, ac)
-    GetUndenhGroups(db, co, ac, gr)
-    GetStudieprogramgroups(db, co, ac, gr)
-    aggregate_studieprogram_groups(ac)
-    writeXML(xmlfile=args.exportfile)
+    get_undenh_file(xmlfile=args.undenhfile)
+    get_studieprog_file(xmlfile=args.studieprogfile)
+    get_ad_accounts(co, ac)
+    get_undenh_groups(db, co, ac, gr)
+    get_studieprogramgroups(db, co, ac, gr)
+    agrgroup_dict = aggregate_studieprogram_groups(ac)
+    write_xml(agrgroup_dict, xmlfile=args.exportfile)
 
     stop = mx.DateTime.now()
     logger.debug("Started %s, ended %s", start, stop)
