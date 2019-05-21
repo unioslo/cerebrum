@@ -26,6 +26,7 @@ that has a email spread.
 """
 
 import argparse
+import logging
 
 import cereconf
 import Cerebrum.logutils
@@ -37,14 +38,14 @@ from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.utils.funcwrap import memoize
 
+logger = logging.getLogger(__name__)
+
 db = Factory.get('Database')()
 ac = Factory.get('Account')(db)
 p = Factory.get('Person')(db)
 co = Factory.get('Constants')(db)
 ou = Factory.get('OU')(db)
 db.cl_init(change_program='process_uit_email')
-
-logger = Factory.get_logger('cronjob')
 
 emdb = Email.email_address(db, logger=logger)
 
