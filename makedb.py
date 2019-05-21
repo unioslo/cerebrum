@@ -352,6 +352,7 @@ def check_schema_versions(db, strict=False):
         'password_history': 'Cerebrum.modules.pwcheck.history',
         'posixuser': 'Cerebrum.modules.PosixUser',
         'stedkode': 'Cerebrum.modules.no.Stedkode',
+        'stillingskoder': 'Cerebrum.modules.stillingskoder',
         'consent': 'Cerebrum.modules.consent.Consent',
         'employment': 'Cerebrum.modules.no.PersonEmployment',
         'virtual_group': 'Cerebrum.modules.virtualgroup',
