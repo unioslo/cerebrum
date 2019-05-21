@@ -33,7 +33,7 @@ import Cerebrum.logutils
 
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.Email import EmailDomain, EmailAddress
+from Cerebrum.modules.Email import EmailAddress
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.utils.funcwrap import memoize
@@ -48,7 +48,6 @@ exch_users = {}
 uname2accid = {}
 ownerid2uname = {}
 uit_mails = {}
-
 num2const = {}
 
 
@@ -115,7 +114,7 @@ def has_cnaddr_in_domain(adresses, domain_part):
         logger.debug("has_cnaddr_in_domain, cheking %s", addr)
         if addr.endswith(test_str):
             try:
-                idx = addr.split("@")[0].index(".")
+                addr.split("@")[0].index(".")
                 logger.debug("has_cnaddr_in_domain found %s", addr)
                 result = addr.split("@")[0]
                 break  # exit loop
@@ -508,7 +507,6 @@ def process_mail(db):
                         (not exchange_controlled)):
                     # affs=",".join(["@".join((num2const(aff),sko)) for aff,
                     # sko in uit_account_affs.get(account_id,())])
-                    priority = get_priority(db, account_id)
 
                     affs = ",".join(
                         ["@".join((str(num2const[status[0]]), sko)) for
@@ -573,6 +571,8 @@ def get_existing_emails(db):
     addresses_in_use = []
     # print "%s" % dir(ea)
     uit_no_list = ea.list_email_addresses_ext('uit.no')
+
+    # TODO: Use the post addresses as well.
     post_uit_no_list = ea.list_email_addresses_ext('post.uit.no')
     for item in uit_no_list:
         email_address = "{0}@{1}".format(item['local_part'], item['domain'])
