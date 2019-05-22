@@ -22,7 +22,7 @@ from __future__ import unicode_literals
 
 import argparse
 import json
-import sys
+import logging
 import time
 
 import cereconf
@@ -31,6 +31,9 @@ import Cerebrum.logutils
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
+
+
+logger = logging.getLogger(__name__)
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -42,11 +45,9 @@ cl = CLHandler.CLHandler(db)
 
 # GLOBALS
 ldap_conn = None
-logger = None
 dryrun = False
 
 # Cereconf values
-default_logger = cereconf.DEFAULT_LOGGER_TARGET
 changelog_tracker = cereconf.PWD_WIPE_EVENT_HANDLER_KEY
 max_changes = cereconf.PWD_MAX_WIPES
 age_threshold = cereconf.PWD_AGE_THRESHOLD
@@ -61,7 +62,7 @@ def pwd_wipe(changes, commit):
         changed = False
         age = now - chg['tstamp'].ticks()
         if age > age_threshold:
-            logger.debug('Password will be wiped: ' + str(chg['change_id']))
+            logger.debug('Password will be wiped: %s', str(chg['change_id']))
             change_params = json.loads(chg['change_params'])
             # print change_params
             # print chg['change_params']
@@ -69,14 +70,14 @@ def pwd_wipe(changes, commit):
             if wipe_pw(chg['change_id'], change_params, commit):
                 changed = True
         else:
-            logger.debug('Password will not be wiped (too recent): ' + str(
+            logger.debug('Password will not be wiped (too recent): %s' + str(
                 chg['change_id']))
 
         if changed:
             cl.confirm_event(chg)
 
     if not dryrun:
-        logger.info('Commiting changes')
+        logger.info('Committing changes')
         cl.commit_confirmations()
     else:
         logger.info('Changes not committed (dryrun)')
@@ -99,9 +100,6 @@ def wipe_pw(change_id, pw_params, commit):
 
 
 def main():
-    global logger, default_logger
-
-    logger = Factory.get_logger(default_logger)
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -147,7 +145,6 @@ def main():
     if num_changes == 0:
         logger.info("No passwords to wipe!")
         return
-
     elif num_changes > args.max_changes:
         logger.error("Too many changes (%s)! Check if changelog tracker "
                      "(%s) is correct, or override limit in command-line "
@@ -156,14 +153,7 @@ def main():
 
     logger.info("Starting to wipe %s password changes since last wipe",
                 num_changes)
-
     pwd_wipe(changes, args.commit)
-
-    if args.commit:
-        logger.info('Changes committed to database')
-    else:
-        logger.info('Changes rolled back.')
-
     logger.info("Finished wiping passwords")
 
 
