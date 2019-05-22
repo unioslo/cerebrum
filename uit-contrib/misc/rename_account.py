@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import print_function, unicode_literals
 
-import getopt
+import argparse
 import logging
 import os
 import sys
@@ -28,11 +28,14 @@ import time
 
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.legacy_users import LegacyUsers
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.utils.email import mail_template, sendmail
+from Cerebrum.utils.argutils import add_commit_args
 
 logger = logging.getLogger(__name__)
 today = time.strftime("%Y%m%d")
@@ -46,7 +49,6 @@ class Changer(object):
         self.account_old = Factory.get('Account')(self.db)
         self.account_new = Factory.get('Account')(self.db)
         self.constants = Factory.get('Constants')(self.db)
-        self.db.cl_init(change_program='ren_acc')
 
     def rename_account(self, old_name, new_name):
         logger.info("Renaming account from=%r to=%r", old_name, new_name)
@@ -69,8 +71,8 @@ class Changer(object):
             logger.info("Account name=%r is free, GOOOODIE", new_name)
             self.account_new.clear()
         else:
-            logger.info("Account name=%r is already in use. Cannot continue!",
-                        new_name)
+            logger.error("Account name=%r is already in use. Cannot continue!",
+                         new_name)
             # TODO: re-raise?
             sys.exit(-1)
 
@@ -86,7 +88,7 @@ class Changer(object):
         for s in spreads:
             int_s = int(s[0])
             self.account_new.set_home_dir(int_s)
-            logger.info(" - updated homedir for spread code=%r", int_s)
+            logger.info("Updated homedir for spread code=%r", int_s)
 
         ret_value = self.update_email(self.account_new, old_name, new_name)
         try:
@@ -95,14 +97,6 @@ class Changer(object):
             # TODO: Why continue here? Re-raise exception?
             logger.error("Failed writing updates to database", exc_info=True)
         return ret_value
-
-    def commit(self):
-        self.db.commit()
-        logger.info("Commited all changes to database")
-
-    def rollback(self):
-        self.db.rollback()
-        logger.info("DRYRUN: Rolled back all changes")
 
     def update_email(self, account_obj, old_name, new_name):
         ret_value = None
@@ -167,7 +161,8 @@ class Changer(object):
 
             except Exception:
                 logger.critical("Email update failed for account_id=%r, "
-                                "email=%r", account_obj.entity_id, ad_email)
+                                "email=%r", account_obj.entity_id, ad_email,
+                                exc_info=True)
                 # TODO: re-raise?
                 sys.exit(2)
         else:
@@ -179,19 +174,33 @@ class Changer(object):
         return ret_value
 
 
-def usage(exitcode=0):
-    print("""Usage: extend_account.py -o name -n newname [-h] [-d]
-    -h | --help : show this message
-    -d | --dryrun : do not commit changes to database
-    -o | --old <name> : old account name to change (REQUIRED)
-    -n | --new <name> : new account name set as new (REQUIRED)
-    -N | --no-email   : do not send out email to user
-    """)
-    if exitcode == 1:
-        print("You must supply a old account name!")
-    elif exitcode == 2:
-        print("You must supply a new account name!")
-    sys.exit(exitcode)
+def update_legacy(db, old_name, new_name):
+    """
+    Reserve old username, with a comment referring to the new name.
+    """
+    co = Factory.get('Constants')(db)
+    ac = Factory.get('Account')(db)
+    pe = Factory.get('Person')(db)
+    lu = LegacyUsers(db)
+
+    ac.find_by_name(new_name)
+    pe.find(ac.owner_id)
+
+    try:
+        ssn = pe.get_external_id(
+            id_type=co.externalid_fodselsnr)[0]['external_id']
+    except Exception:
+        ssn = None
+    comment = '%s - Renamed from %s to %s.' % (today, old_name, new_name)
+
+    lu.set(
+        username=old_name,
+        ssn=ssn,
+        source='MANUELL',
+        type='P',
+        comment=comment,
+        name=pe.get_name(co.system_cached, co.name_full),
+    )
 
 
 def ask_yn(question, default=False):
@@ -215,41 +224,56 @@ def ask_yn(question, default=False):
             continue
 
 
-def main():
-    dryrun = False
-    old_name = None
-    new_name = None
-    notify_user = True
-    try:
-        opts, args = getopt.getopt(
-            sys.argv[1:],
-            'hdn:o:N',
-            ['help', 'dryrun', 'new=', 'old=', 'no_email'])
-    except getopt.GetoptError as m:
-        print("wrong arguments: %s" % m)
-        usage(1)
+# Enable/disable email notifications
+enable_sut_email = False
+enable_rt_email = False
+enable_ad_email = False
+enable_user_email = False
 
-    for opt, val in opts:
-        if opt in ['-h', '--help']:
-            usage(0)
-        elif opt in ['-d', '--dryrun']:
-            dryrun = True
-        elif opt in ['-n', '--new']:
-            new_name = val
-        elif opt in ['-N', '--no-email']:
-            notify_user = False
-        elif opt in ['-o', '--old']:
-            old_name = val
 
-    if not old_name:
-        usage(1)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description="Change the name of an account",
+    )
+    parser.add_argument(
+        '-o', '--old',
+        dest='old_name',
+        required=True,
+        help='Change account name from %(metavar)s',
+        metavar='<name>',
+    )
+    parser.add_argument(
+        '-n', '--new',
+        dest='new_name',
+        required=True,
+        help='Change account name to %(metavar)s',
+        metavar='<name>',
+    )
+    parser.add_argument(
+        '-N', '--no-email',
+        dest='notify_user',
+        action='store_false',
+        default=True,
+        help='Do not notify user about change (default: notify)',
+    )
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    if not new_name:
-        usage(2)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('tee', args)
+
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %r', args)
+
+    dryrun = not args.commit
+    old_name = args.old_name
+    new_name = args.new_name
+    notify_user = args.notify_user
 
     db = Factory.get('Database')()
+    db.cl_init(change_program='ren_acc')
+
     worker = Changer(db)
-    send_user_mail = None
 
     co = Factory.get('Constants')(db)
     ac = Factory.get('Account')(db)
@@ -264,166 +288,140 @@ def main():
 
     print("old_name:%s" % old_name)
     print("new name:%s" % new_name)
-    send_user_mail = worker.rename_account(old_name, new_name)
+    send_user_mail = worker.rename_account(old_name, new_name) and notify_user
+    update_legacy(db, old_name, new_name)
+
+    ac.find_by_name(new_name)
+    pe.find(ac.owner_id)
+    new_person_name = pe.get_name(co.system_cached, co.name_full)
+
+    print("Old name:", new_person_name)
+    print("New name:", old_person_name)
+    print("Notify user:", notify_user)
+
+    if not dryrun:
+        is_sure = ask_yn("Are you sure you want to write changes?")
+        dryrun = not is_sure
 
     if dryrun:
-        worker.rollback()
+        logger.info('Rolling back changes')
+        db.rollback()
     else:
+        logger.info('Commiting changes')
+        db.commit()
 
-        # Find person full name (new)
-        ac.find_by_name(new_name)
-        pe.find(ac.owner_id)
-        new_person_name = pe.get_name(co.system_cached, co.name_full)
+    if not dryrun and enable_sut_email:
+        logger.info("Not running in dryrun mode, sending SUT notification")
+        # Sending email to SUT queue in RT
+        account_expired = ''
+        if ac.is_expired():
+            account_expired = (' Imidlertid er ikke kontoen aktiv, '
+                               'men kan reaktiveres når som helst.')
 
-        print("Old name:", new_person_name)
-        print("New name:", old_person_name)
-        print("Notify user:", notify_user)
-        is_sure = ask_yn("Are you sure you want to write changes?")
+        # TBD : remove comment below when leetah is removed
+        recipient = 'star-gru@orakel.uit.no'
+        sendmail(
+            toaddr=recipient,
+            fromaddr='bas-admin@cc.uit.no',
+            subject=('Brukernavn endret (%s erstattes av %s)' %
+                     (old_name, new_name)),
+            body=('Brukernavnet %s er endret til %s. Videresend '
+                  'e-post, flytt filer, e-post, osv. fra %s til '
+                  '%s.%s' %
+                  (old_name, new_name, old_name, new_name,
+                   account_expired)),
+            cc=None,
+            charset='iso-8859-1',
+            debug=dryrun)
+        logger.info("Notified %r", recipient)
 
-        if is_sure:
-            print(old_name, new_name)
+    if not dryrun and enable_rt_email:
+        logger.info("Not running in dryrun mode, sending RT notification")
+        # Sending email to PORTAL queue in RT
+        # account_expired = ''
+        # if ac.is_expired():
+        #     account_expired = (' Imidlertid er ikke kontoen aktiv, '
+        #                        'men kan reaktiveres når som helst.')
+        recipient = 'vevportal@rt.uit.no'
+        sendmail(
+            toaddr=recipient,
+            fromaddr='bas-admin@cc.uit.no',
+            subject=('Brukernavn endret (%s erstattes av %s)' %
+                     (old_name, new_name)),
+            body=('Brukernavnet %s er endret til %s.' %
+                  (old_name, new_name)),
+            cc=None,
+            charset='iso-8859-1',
+            debug=False)
+        logger.info("Notified %r", recipient)
 
-            legacy_info = {}
-            legacy_info['username'] = old_name
-            try:
-                legacy_info['ssn'] = pe.get_external_id(
-                    id_type=co.externalid_fodselsnr)[0]['external_id']
-            except Exception:
-                legacy_info['ssn'] = None
-            legacy_info['source'] = 'MANUELL'
-            legacy_info['type'] = 'P'
-            legacy_info['comment'] = '%s - Renamed from %s to %s.' % (today,
-                                                                      old_name,
-                                                                      new_name)
-            legacy_info['name'] = pe.get_name(co.system_cached, co.name_full)
+    # Sending email to AD nybrukere if necessary
+    mailto_ad = False
+    try:
+        spreads = ac.get_spread()
+        for spread in spreads:
+            if spread['spread'] == co.spread_uit_ad_account:
+                mailto_ad = True
+                break
+    except Exception:
+        logger.debug('No AD-spread on account')
 
-            try:
-                mydb = Factory.get('Database')()
-                lu = LegacyUsers(mydb)
-                lu.set(**legacy_info)
-                mydb.commit()
-            except Exception:
-                # TODO: Still continue?
-                print("Could not write to legacy_users. "
-                      "Username is probably already reserved")
+    if not dryrun and enable_ad_email and mailto_ad:
+        logger.info("Not running in dryrun mode, sending AD notification")
+        riktig_brukernavn = ' Nytt brukernavn er %s.' % (new_name)
 
-            # Sending email to SUT queue in RT
-            if not dryrun:
-                # account_expired = ''
-                # if ac.is_expired():
-                #     account_expired = (' Imidlertid er ikke kontoen aktiv, '
-                #                        'men kan reaktiveres når som helst.')
+        if ac.is_expired():
+            riktig_brukernavn += (' Imidlertid er ikke kontoen aktiv, og '
+                                  'vil kun sendes til AD når den blir '
+                                  'reaktivert.')
+        recipient = 'nybruker2@asp.uit.no'
+        sendmail(
+            toaddr=recipient,
+            fromaddr='bas-admin@cc.uit.no',
+            subject='Brukernavn endret',
+            body=('Brukernavnet %s er endret i BAS.%s' %
+                  (old_name, riktig_brukernavn)),
+            cc=None,
+            charset='iso-8859-1',
+            debug=dryrun)
+        logger.info("Notified %r", recipient)
 
-                # TBD : remove comment below when leetah is removed
-                # sendmail(
-                #     toaddr='star-gru@orakel.uit.no',
-                #     fromaddr='bas-admin@cc.uit.no',
-                #     subject=('Brukernavn endret (%s erstattes av %s)' %
-                #              (old_name, new_name)),
-                #     body=('Brukernavnet %s er endret til %s. Videresend '
-                #           'e-post, flytt filer, e-post, osv. fra %s til '
-                #           '%s.%s' %
-                #           (old_name, new_name, old_name, new_name,
-                #            account_expired)),
-                #     cc=None,
-                #     charset='iso-8859-1',
-                #     debug=False)
-                # print("mail sent to star-gru@orakel.uit.no")
-                pass
+    if not dryrun and enable_user_email and send_user_mail:
+        logger.info("Not running in dryrun mode, sending user notification")
+        # SEND MAIL TO OLD AND NEW ACCOUNT + "BCC" to bas-admin!
+        sender = 'orakel@uit.no'
+        # TBD: remove below comment when leetah is removed
+        # recipient = send_user_mail['OLD_MAIL']
+        # cc = [send_user_mail['NEW_MAIL']]
+        # template = os.path.join(cereconf.CB_SOURCEDATA_PATH,
+        #                         'templates/rename_account.tmpl')
+        # result = mail_template(
+        #     recipient=recipient,
+        #     template_file=template,
+        #     sender=sender,
+        #     cc=cc,
+        #     substitute=send_user_mail,
+        #     charset='utf-8',
+        #     debug=dryrun)
+        # print("Mail sent to: %s" % (recipient))
+        # print("cc to %s" % (cc))
 
-            # Sending email to PORTAL queue in RT
-            if False and not dryrun:
-                # account_expired = ''
-                # if ac.is_expired():
-                #     account_expired = (' Imidlertid er ikke kontoen aktiv, '
-                #                        'men kan reaktiveres når som helst.')
+        # if dryrun:
+        #     print("\nDRYRUN: mailmsg=\n%s" % result)
 
-                sendmail(
-                    toaddr='vevportal@rt.uit.no',
-                    fromaddr='bas-admin@cc.uit.no',
-                    subject=('Brukernavn endret (%s erstattes av %s)' %
-                             (old_name, new_name)),
-                    body=('Brukernavnet %s er endret til %s.' %
-                          (old_name, new_name)),
-                    cc=None,
-                    charset='iso-8859-1',
-                    debug=False)
-                print("mail sent to vevportal@rt.uit.no")
-
-            # Sending email to AD nybrukere if necessary
-            mailto_ad = False
-            try:
-                spreads = ac.get_spread()
-                for spread in spreads:
-                    if spread['spread'] == co.spread_uit_ad_account:
-                        mailto_ad = True
-                        break
-            except Exception:
-                print("No AD spread found.")
-
-            riktig_brukernavn = ' Nytt brukernavn er %s.' % (new_name)
-
-            if ac.is_expired():
-                riktig_brukernavn += (' Imidlertid er ikke kontoen aktiv, og '
-                                      'vil kun sendes til AD når den blir '
-                                      'reaktivert.')
-
-            if False and mailto_ad and not dryrun:
-                sendmail(
-                    toaddr='nybruker2@asp.uit.no',
-                    fromaddr='bas-admin@cc.uit.no',
-                    subject='Brukernavn endret',
-                    body=('Brukernavnet %s er endret i BAS.%s' %
-                          (old_name, riktig_brukernavn)),
-                    cc=None,
-                    charset='iso-8859-1',
-                    debug=False)
-                print("mail sent to nybruker2@asp.uit.no")
-
-            pe.clear()
-            ac.clear()
-            if not notify_user:
-                print("not sending email to user")
-            elif send_user_mail is not None:
-                # SEND MAIL TO OLD AND NEW ACCOUNT + "BCC" to bas-admin!
-                sender = 'orakel@uit.no'
-                recipient = send_user_mail['OLD_MAIL']
-                cc = [send_user_mail['NEW_MAIL']]
-                template = os.path.join(cereconf.CB_SOURCEDATA_PATH,
-                                        'templates/rename_account.tmpl')
-
-                # TBD: remove below comment when leetah is removed
-                # result = mail_template(
-                #     recipient=recipient,
-                #     template_file=template,
-                #     sender=sender,
-                #     cc=cc,
-                #     substitute=send_user_mail,
-                #     charset='utf-8',
-                #     debug=dryrun)
-
-                print("Mail sent to: %s" % (recipient))
-                print("cc to %s" % (cc))
-
-                # if dryrun:
-                #     print("\nDRYRUN: mailmsg=\n%s" % result)
-
-                # BCC
-                recipient = 'bas-admin@cc.uit.no'
-                template = os.path.join(cereconf.CB_SOURCEDATA_PATH,
-                                        'templates/rename_account.tmpl')
-                mail_template(
-                    recipient=recipient,
-                    template_file=template,
-                    sender=sender,
-                    substitute=send_user_mail,
-                    charset='utf-8',
-                    debug=dryrun)
-
-                print("BCC sent to: %s" % (recipient))
-            worker.commit()
-        else:
-            worker.rollback()
+        # BCC
+        recipient = 'bas-admin@cc.uit.no'
+        template = os.path.join(cereconf.CB_SOURCEDATA_PATH,
+                                'templates/rename_account.tmpl')
+        mail_template(
+            recipient=recipient,
+            template_file=template,
+            sender=sender,
+            substitute=send_user_mail,
+            charset='utf-8',
+            debug=dryrun)
+        logger.info("BCC sent to %r", recipient)
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':
