@@ -18,6 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+"""Wipes passwords from the database."""
+
 from __future__ import unicode_literals
 
 import argparse
@@ -36,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 def pwd_wipe(db, cl, changes, age_threshold, commit):
+    """Remove password older then a threshold from the changelog."""
     now = time.time()
     for chg in changes:
         changed = False
@@ -59,11 +63,12 @@ def pwd_wipe(db, cl, changes, age_threshold, commit):
 
 
 def wipe_pw(db, change_id, pw_params, commit):
+    """Remove password from a changelog item."""
     if 'password' in pw_params:
         del (pw_params['password'])
         if commit:
             db.update_log_event(change_id, pw_params)
-            logger.debug("Wiped password for change_id=%i" % change_id)
+            logger.debug("Wiped password for change_id=%i", change_id)
             return True
         else:
             return False
