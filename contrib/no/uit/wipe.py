@@ -28,34 +28,22 @@ import time
 import cereconf
 import Cerebrum.logutils
 
-from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
 
 
 logger = logging.getLogger(__name__)
 
-db = Factory.get('Database')()
-co = Factory.get('Constants')(db)
-clco = Factory.get('CLConstants')(db)
-entity = Entity.Entity(db)
-entityname = Entity.EntityName(db)
-account = Factory.get('Account')(db)
-cl = CLHandler.CLHandler(db)
 
-
-def pwd_wipe(changes, age_threshold, commit):
-    global cl
-
+def pwd_wipe(db, cl, changes, age_threshold, commit):
     now = time.time()
-
     for chg in changes:
         changed = False
         age = now - chg['tstamp'].ticks()
         if age > age_threshold:
             logger.debug('Password will be wiped: %s', str(chg['change_id']))
             change_params = json.loads(chg['change_params'])
-            if wipe_pw(chg['change_id'], change_params, commit):
+            if wipe_pw(db, chg['change_id'], change_params, commit):
                 changed = True
         else:
             logger.debug('Password will not be wiped (too recent): %s' + str(
@@ -70,10 +58,8 @@ def pwd_wipe(changes, age_threshold, commit):
         logger.info('Changes not committed (dryrun)')
 
 
-def wipe_pw(change_id, pw_params, commit):
-    global cl
-
-    if pw_params.has_key('password'):
+def wipe_pw(db, change_id, pw_params, commit):
+    if 'password' in pw_params:
         del (pw_params['password'])
         if commit:
             db.update_log_event(change_id, pw_params)
@@ -86,6 +72,9 @@ def wipe_pw(change_id, pw_params, commit):
 
 
 def main():
+    db = Factory.get('Database')()
+    clco = Factory.get('CLConstants')(db)
+    cl = CLHandler.CLHandler(db)
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -139,7 +128,7 @@ def main():
 
     logger.info("Starting to wipe %s password changes since last wipe",
                 num_changes)
-    pwd_wipe(changes, args.age_threshold, args.commit)
+    pwd_wipe(db, cl, changes, args.age_threshold, args.commit)
     logger.info("Finished wiping passwords")
 
 
