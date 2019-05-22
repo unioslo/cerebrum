@@ -43,17 +43,8 @@ entityname = Entity.EntityName(db)
 account = Factory.get('Account')(db)
 cl = CLHandler.CLHandler(db)
 
-# GLOBALS
-ldap_conn = None
-dryrun = False
 
-# Cereconf values
-changelog_tracker = cereconf.PWD_WIPE_EVENT_HANDLER_KEY
-max_changes = cereconf.PWD_MAX_WIPES
-age_threshold = cereconf.PWD_AGE_THRESHOLD
-
-
-def pwd_wipe(changes, commit):
+def pwd_wipe(changes, age_threshold, commit):
     global cl
 
     now = time.time()
@@ -64,9 +55,6 @@ def pwd_wipe(changes, commit):
         if age > age_threshold:
             logger.debug('Password will be wiped: %s', str(chg['change_id']))
             change_params = json.loads(chg['change_params'])
-            # print change_params
-            # print chg['change_params']
-            # print chg['change_id']
             if wipe_pw(chg['change_id'], change_params, commit):
                 changed = True
         else:
@@ -75,8 +63,7 @@ def pwd_wipe(changes, commit):
 
         if changed:
             cl.confirm_event(chg)
-
-    if not dryrun:
+    if commit:
         logger.info('Committing changes')
         cl.commit_confirmations()
     else:
@@ -95,7 +82,6 @@ def wipe_pw(change_id, pw_params, commit):
         else:
             return False
     else:
-        # print pw_params.keys()
         return True
 
 
@@ -139,7 +125,7 @@ def main():
                      "entire change-log. No way! Quitting!")
         return
 
-    changes = cl.get_events(changelog_tracker, (clco.account_password,))
+    changes = cl.get_events(args.changelog_tracker, (clco.account_password,))
     num_changes = len(changes)
 
     if num_changes == 0:
@@ -148,12 +134,12 @@ def main():
     elif num_changes > args.max_changes:
         logger.error("Too many changes (%s)! Check if changelog tracker "
                      "(%s) is correct, or override limit in command-line "
-                     "or cereconf", num_changes, changelog_tracker)
+                     "or cereconf", num_changes, args.changelog_tracker)
         return
 
     logger.info("Starting to wipe %s password changes since last wipe",
                 num_changes)
-    pwd_wipe(changes, args.commit)
+    pwd_wipe(changes, args.age_threshold, args.commit)
     logger.info("Finished wiping passwords")
 
 
