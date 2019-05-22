@@ -106,11 +106,7 @@ import cereconf
 
 from Cerebrum.Errors import CerebrumError
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import Email
-from Cerebrum.modules.LDIFutils import (container_entry_string,
-                                        end_ldif_outfile,
-                                        ldapconf,
-                                        ldif_outfile)
+from Cerebrum.modules import Email, LDIFutils
 
 
 # TODO: Replace DNS lookups and dig output parsing with the dnspython module
@@ -365,50 +361,48 @@ def write_mail_dns():
         logger.error("{0}, this must be rectified manually!".format(cause))
         raise CerebrumError(cause)
 
-    f = ldif_outfile('MAIL_DNS')
-
-    def handle_domain_host(host):
-        f.write("host: %s\n" % lower2host[host])
+    def handle_domain_host(entry, host):
+        entry["host"] = (lower2host[host],)
         for cname in hosts[host]:
             if cname not in domains:
-                f.write("cn: %s\n" % lower2host[cname])
+                entry["cn"].add(lower2host[cname])
                 del cnames[cname]
         del hosts[host]
 
-    dn_suffix = ldapconf('MAIL_DNS', 'dn')
-
-    f.write(container_entry_string('MAIL_DNS'))
+    lw = LDIFutils.LDIFWriter('MAIL_DNS', filename=None)
+    dn_suffix = lw.getconf('dn')
+    lw.write_container()
 
     for domain, output in domains.items():
-        f.write("""dn: cn=%s,%s
-objectClass: uioHost
-cn: %s
-""" % (output, dn_suffix, output))
+        dn = "cn=%s,%s" % (output, dn_suffix)
+        entry = {
+            "cn":          set((output,)),
+            "objectClass": ("uioHost",)}
         try:
             if domain in cnames:
                 # This fails `if domain not in hosts`
-                f.write("cn: %s\n" % lower2host[cnames[domain]])
-                handle_domain_host(cnames[domain])
+                entry["cn"].add(lower2host[cnames[domain]])
+                handle_domain_host(entry, cnames[domain])
             elif domain in hosts:
-                handle_domain_host(domain)
+                handle_domain_host(entry, domain)
         except Exception:
             logger.error("domain=%r, cnames[domain]=%r, "
                          "in hosts=%r, in cnames=%r",
                          domain, cnames.get(domain),
                          domain in hosts, domain in cnames)
             raise
-        f.write('\n')
+        lw.write_entry(dn, entry)
 
     for host in sorted(hosts.keys()):
-        f.write("""dn: host=%s,%s
-objectClass: uioHost
-host: %s
-cn: %s
-""" % (lower2host[host], dn_suffix, lower2host[host], lower2host[host]))
-        for cname in hosts[host]:
-            f.write("cn: %s\n" % lower2host[cname])
-        f.write('\n')
-    end_ldif_outfile('MAIL_DNS', f)
+        l2h = lower2host[host]
+        names = set(lower2host[cname] for cname in hosts[host])
+        names.add(l2h)
+        lw.write_entry("host=%s,%s" % (l2h, dn_suffix), {
+            "host":        (l2h,),
+            "cn":          names,
+            "objectClass": ("uioHost",)})
+
+    lw.close()
 
 
 if __name__ == '__main__':
