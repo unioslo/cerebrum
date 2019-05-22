@@ -20,10 +20,13 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import unicode_literals
 
-import getopt
+import argparse
 import json
 import sys
 import time
+
+import cereconf
+import Cerebrum.logutils
 
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
@@ -49,7 +52,7 @@ max_changes = cereconf.PWD_MAX_WIPES
 age_threshold = cereconf.PWD_AGE_THRESHOLD
 
 
-def pwd_wipe(changes):
+def pwd_wipe(changes, commit):
     global cl
 
     now = time.time()
@@ -63,7 +66,7 @@ def pwd_wipe(changes):
             # print change_params
             # print chg['change_params']
             # print chg['change_id']
-            if wipe_pw(chg['change_id'], change_params):
+            if wipe_pw(chg['change_id'], change_params, commit):
                 changed = True
         else:
             logger.debug('Password will not be wiped (too recent): ' + str(
@@ -79,12 +82,12 @@ def pwd_wipe(changes):
         logger.info('Changes not committed (dryrun)')
 
 
-def wipe_pw(change_id, pw_params):
+def wipe_pw(change_id, pw_params, commit):
     global cl
 
     if pw_params.has_key('password'):
         del (pw_params['password'])
-        if not dryrun:
+        if commit:
             db.update_log_event(change_id, pw_params)
             logger.debug("Wiped password for change_id=%i" % change_id)
             return True
@@ -96,63 +99,72 @@ def wipe_pw(change_id, pw_params):
 
 
 def main():
-    global logger, default_logger, changelog_tracker, max_changes, age_threshold, dryrun
+    global logger, default_logger
 
     logger = Factory.get_logger(default_logger)
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], \
-                                   'c:m:a:d', \
-                                   ['changelog_tracker=', 'max_changes=',
-                                    'age_threshold=', 'dryrun'])
-    except getopt.GetoptError:
-        usage()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '-t',
+        '--changelog_tracker',
+        dest='changelog_tracker',
+        default=cereconf.PWD_WIPE_EVENT_HANDLER_KEY,
+        help='Event handler key to monitor for changes. Default is {0}'.format(
+            cereconf.PWD_WIPE_EVENT_HANDLER_KEY))
+    parser.add_argument(
+        '-m',
+        '--max_changes',
+        dest='max_changes',
+        default=cereconf.PWD_MAX_WIPES,
+        help='Maximum number of passwords to wipe. Default is {0}'.format(
+            cereconf.PWD_MAX_WIPES))
+    parser.add_argument(
+        '-a',
+        '-age_threshold',
+        dest='age_threshold',
+        default=cereconf.PWD_AGE_THRESHOLD,
+        help='how old passwords need to be before they are wiped. ' +
+             'Default is {0}'.format(cereconf.PWD_AGE_THRESHOLD))
+    parser.add_argument(
+        '-c',
+        '--commit',
+        dest='commit',
+        action='store_true',
+        help='Write changes to database')
 
-    for opt, val in opts:
-        if opt in ('-c', '--changelog_tracker'):
-            changelog_tracker = val
-        elif opt in ('-m', '--max_changes'):
-            max_changes = int(val)
-        elif opt in ('-a', '--age_threshold'):
-            age_threshold = int(val)
-        elif opt in ('-d', '--dryrun'):
-            dryrun = True
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-    if changelog_tracker == '' or changelog_tracker is None:
-        logger.error(
-            "Empty changelog tracker! This would go through the entire change-log. No way! Quitting!")
-        sys.exit(1)
+    if not args.changelog_tracker:
+        logger.error("Empty changelog tracker! This would go through the "
+                     "entire change-log. No way! Quitting!")
+        return
 
     changes = cl.get_events(changelog_tracker, (clco.account_password,))
     num_changes = len(changes)
+
     if num_changes == 0:
         logger.info("No passwords to wipe!")
         return
-    elif num_changes > max_changes:
-        logger.error(
-            "Too many changes (%s)! Check if changelog tracker (%s) is correct, or override limit in command-line or cereconf" %
-            (num_changes, changelog_tracker))
-        sys.exit(1)
 
-    logger.info(
-        "Starting to wipe %s password changes since last wipe" % num_changes)
-    pwd_wipe(changes)
+    elif num_changes > args.max_changes:
+        logger.error("Too many changes (%s)! Check if changelog tracker "
+                     "(%s) is correct, or override limit in command-line "
+                     "or cereconf", num_changes, changelog_tracker)
+        return
+
+    logger.info("Starting to wipe %s password changes since last wipe",
+                num_changes)
+
+    pwd_wipe(changes, args.commit)
+
+    if args.commit:
+        logger.info('Changes committed to database')
+    else:
+        logger.info('Changes rolled back.')
+
     logger.info("Finished wiping passwords")
-    return
-
-
-def usage():
-    global cereconf
-
-    print """
-    usage:: python wipe.py 
-    -c | --changelog_tracker: evthdlr_key to monitor for changes. Default is %s
-    -m | --max_changes: maximum number of passwords to wipe. Default is %s
-    -a | --age_threshold: how old passwords need to be before they are wiped. Default is %s
-    Default values are defined in cereconf.
-    """ % (cereconf.PWD_WIPE_EVENT_HANDLER_KEY, cereconf.PWD_MAX_WIPES,
-           cereconf.PWD_AGE_THRESHOLD)
-    sys.exit(1)
 
 
 if __name__ == '__main__':
