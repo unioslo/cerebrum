@@ -33,8 +33,8 @@ import Cerebrum.logutils
 
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
+from Cerebrum.modules import Email
 from Cerebrum.modules.Email import EmailAddress
-from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.utils.funcwrap import memoize
 
