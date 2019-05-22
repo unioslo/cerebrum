@@ -20,22 +20,13 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import unicode_literals
 
+import getopt
 import json
 import sys
-import getopt
-import pickle
 import time
 
-import cerebrum_path
-import cereconf
-
-import ldap
-import md5 # DEPRECATED IN Python 2.5, USE hashlib WHEN AVAILABLE!!!
-import base64
-
-from Cerebrum import Errors
-from Cerebrum.Utils import Factory
 from Cerebrum import Entity
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
 
 db = Factory.get('Database')()
