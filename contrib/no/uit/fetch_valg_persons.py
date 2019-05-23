@@ -11,10 +11,8 @@ Usage: fetch-valg_persons.py [options]
 # from __future__ import unicode_literals
 
 import argparse
-import getopt
 import io
 import logging
-import sys
 
 import Cerebrum.logutils
 
@@ -84,16 +82,16 @@ def dump_person_info(fname):
         _acid2uname[int(row['account_id'])] = row['name']
     for row in ac.list_accounts_by_type(primary_only=True):
         pid = int(row['person_id'])
-        assert not pid2ac.has_key(pid)
+        assert pid not in pid2ac
         pid2ac[pid] = _acid2uname[int(row['account_id'])]
 
     cols = ('fnr', 'first_name', 'last_name', 'uname', 'bdate')
     f = io.open(fname, "wt", encoding='utf-8')
     f.write(xml.xml_hdr + u"<data>\n")
     for pid, birth in pid2birth.items():
-        if ((not pid2ext_ids.has_key(pid)) or
-                (not (pid2first_name.has_key(pid) or
-                      pid2last_name.has_key(pid)))):
+        if ((pid not in pid2ext_ids) or
+                (not (pid in pid2first_name or
+                      pid in pid2last_name))):
             continue
 
         row = {}
@@ -106,7 +104,7 @@ def dump_person_info(fname):
         row['fnr'] = pid2ext_ids[pid]['external_id']
         row['first_name'] = pid2first_name[pid]['name']
         row['last_name'] = pid2last_name[pid]['name']
-        if pid2ac.has_key(pid):
+        if pid in pid2ac:
             row['uname'] = pid2ac[pid]
         row['bdate'] = pid2birth[pid]
         f.write(xml.xmlify_dbrow(row, cols, 'person'))  # .encode('utf-8'))
