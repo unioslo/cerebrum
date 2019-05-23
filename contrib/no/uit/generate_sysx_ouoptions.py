@@ -25,17 +25,11 @@
 
 import getopt
 import sys
-import os
-import mx.DateTime
 
-import cerebrum_path
-import cereconf
 from Cerebrum.Utils import Factory
-from Cerebrum import Errors
-
 
 progname = __file__.split("/")[-1]
-__doc__="""Usage: %s [options]
+__doc__ = """Usage: %s [options]
     Generate ouoptionsfile for SystemX
 
     options:
@@ -47,11 +41,8 @@ __doc__="""Usage: %s [options]
     
     """ % progname
 
-
-
-
-#Define defaults
-CHARSEP=';'
+# Define defaults
+CHARSEP = ';'
 default_stedtre_file = '/cerebrum/var/source/stedtre-gjeldende.csv'
 default_out_file = 'ouoptions'
 
@@ -61,28 +52,31 @@ logger = Factory.get_logger("cronjob")
 
 # define field positions in PAGA csv-data
 # First line in PAGA csv file contains field names. Use them.
-#STEDKODE = 4
-#FAKULTET = 1
-#INSTITUTT = 3
-#GRUPPE = 6
+# STEDKODE = 4
+# FAKULTET = 1
+# INSTITUTT = 3
+# GRUPPE = 6
 
 STEDKODE = 0
 KORTNAVN = 3
 LANGNAVN = 4
+
 
 def parse_stedtre_csv(stedtrefile):
     import csv
     sted = {}
 
     logger.info("Loading stedtre file...")
-    for detail in csv.reader(open(stedtrefile,'r'),delimiter=CHARSEP):
-        if detail != '\n' and len(detail) > 0 and detail[0] != '' and detail[0][0] != "#" :
-            #sted[detail[STEDKODE]] = {'fakultet': detail[FAKULTET], 'institutt': detail[INSTITUTT], 'gruppe': detail[GRUPPE]}
-            sted[detail[STEDKODE]] = {'kortnavn': detail[KORTNAVN], 'langnavn': detail[LANGNAVN]}
-            #print "processing line:%s" % detail
+    for detail in csv.reader(open(stedtrefile, 'r'), delimiter=CHARSEP):
+        if detail != '\n' and len(detail) > 0 and detail[0] != '' and \
+                detail[0][0] != "#":
+            # sted[detail[STEDKODE]] = {'fakultet': detail[FAKULTET], 'institutt': detail[INSTITUTT], 'gruppe': detail[GRUPPE]}
+            sted[detail[STEDKODE]] = {'kortnavn': detail[KORTNAVN],
+                                      'langnavn': detail[LANGNAVN]}
+            # print "processing line:%s" % detail
         else:
             pass
-            #print "skipping line:%s" % detail
+            # print "skipping line:%s" % detail
     return sted
 
 
@@ -90,42 +84,45 @@ def main():
     out_file = default_out_file
     stedtre_file = default_stedtre_file
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'hs:o:',
-            ['stedtre-file=','out-file=','help'])
-    except getopt.GetoptError,m:
-        usage(1,m)
+        opts, args = getopt.getopt(sys.argv[1:], 'hs:o:',
+                                   ['stedtre-file=', 'out-file=', 'help'])
+    except getopt.GetoptError, m:
+        usage(1, m)
 
-    for opt,val in opts:
-        if opt in ('-o','--out-file'):
+    for opt, val in opts:
+        if opt in ('-o', '--out-file'):
             out_file = val
-        if opt in ('-s','--stedtre-file'):
+        if opt in ('-s', '--stedtre-file'):
             stedtre_file = val
 
-        if opt in ('-h','--help'):
+        if opt in ('-h', '--help'):
             usage()
-    
+
     sted = parse_stedtre_csv(stedtre_file)
     logger.debug("Information collected. Got %d OUs" % (len(sted),))
-
 
     fp = open(out_file, 'w')
     for stedkode in sorted(sted.keys()):
         if stedkode == '000000':
-            fp.write("%s : %s : %s\n" % (stedkode,sted[stedkode]['langnavn'],sted[stedkode]['langnavn']))
+            fp.write("%s : %s : %s\n" % (
+            stedkode, sted[stedkode]['langnavn'], sted[stedkode]['langnavn']))
         elif stedkode[2:4] == '00':
             current_faculty = sted[stedkode]['kortnavn']
-            fp.write("%s : %s : %s\n" % (stedkode,current_faculty,sted[stedkode]['langnavn']))
+            fp.write("%s : %s : %s\n" % (
+            stedkode, current_faculty, sted[stedkode]['langnavn']))
         else:
-            fp.write("%s : %s : %s\n" % (stedkode,current_faculty,sted[stedkode]['langnavn']))
-        
+            fp.write("%s : %s : %s\n" % (
+            stedkode, current_faculty, sted[stedkode]['langnavn']))
+
     fp.close()
     logger.debug("File written.")
 
-    
-def usage(exit_code=0,msg=None):
+
+def usage(exit_code=0, msg=None):
     if msg: print msg
     print __doc__
     sys.exit(exit_code)
+
 
 if __name__ == '__main__':
     main()
