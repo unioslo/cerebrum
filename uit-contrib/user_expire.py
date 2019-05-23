@@ -28,9 +28,9 @@ import mx.DateTime
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum import Utils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
+from Cerebrum.utils.email import sendmail
 
 progname = __file__.split("/")[-1]
 
@@ -202,8 +202,11 @@ def send_mail(uname, user_info, nr, forward=False):
     email_addrs = remove_duplicates(email_addrs)
     try:
         logger.info("Sending %d. mail To: %s", nr, ', '.join(email_addrs))
-        Utils.sendmail(', '.join(email_addrs), email_from, subject,
-                       body.encode("iso8859-1"))
+        sendmail(
+            toaddr=', '.join(email_addrs),
+            fromaddr=email_from,
+            subject=subject,
+            body=body.encode("iso8859-1"))
         if len(email_addrs) > 2:
             logger.error("%s - Should not have more than 2 email addresses",
                          email_addrs)
