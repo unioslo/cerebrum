@@ -26,13 +26,14 @@ This module was removed, and LaTeX templating replaced with HTML/CSS templates
 (the current Cerebrum.modules.templates). It has temporarily been restored in
 order to merge UiT code with the Cerebrum repository.
 """
+import io
 import os
 import re
 import string
+import tempfile
+import time
 
 import cereconf
-
-from Cerebrum import Utils
 
 
 class TemplateHandler(object):
@@ -59,7 +60,9 @@ class TemplateHandler(object):
           print footer
 
     """
-    def __init__(self, lang=None, tplname=None, type=None):
+
+    def __init__(self, lang=None, tplname=None, type=None, encoding=None):
+        self.encoding = encoding
         if lang is not None:
             self._type = type
             (self._hdr,
@@ -67,18 +70,23 @@ class TemplateHandler(object):
              self._footer) = self.read_templates(lang, tplname)
 
     def read_templates(self, lang, tplname):
-        filename_hdr = os.path.join(
-            cereconf.TEMPLATE_DIR, lang,
-            "{template}.{ext}".format(tplname, self._type))
-        filename_body = os.path.join(
-            cereconf.TEMPLATE_DIR, lang,
-            "{template}_body.{ext}".format(tplname, self._type))
+        filename_hdr = os.path.join(cereconf.TEMPLATE_DIR, lang,
+                                    "{}.{}".format(tplname, self._type))
+        filename_body = os.path.join(cereconf.TEMPLATE_DIR, lang,
+                                     "{}_body.{}".format(tplname, self._type))
+        if self.encoding is None:
+            bodytag = b'<body>'
+            hdr = body = footer = b''
+        else:
+            bodytag = u'<body>'
+            hdr = body = footer = u''
+        mode = 'r' if self.encoding else 'rb'
 
-        with open(filename_hdr, 'rb') as f:
-            hdr = body = footer = ''
+        with io.open(filename_hdr, mode=mode, encoding=self.encoding) as f:
             for t in f.readlines():
-                if t.startswith("<BODY>"):
-                    with open(filename_body, 'rb') as f2:
+                if t.startswith(bodytag):
+                    with io.open(filename_body, mode=mode,
+                                 encoding=self.encoding) as f2:
                         for t2 in f2.readlines():
                             body += t2
                 else:
@@ -86,6 +94,7 @@ class TemplateHandler(object):
                         hdr += t
                     else:
                         footer += t
+
             if not body:
                 return (None, hdr, None)
             return (hdr, body, footer)
@@ -146,7 +155,9 @@ class TemplateHandler(object):
         resides.
         """
         if logfile is None:
-            logfile = Utils.make_temp_file(only_name=True)
+            fd, logfile = tempfile.mkstemp(
+                prefix='cerebrum_spool_{}'.format(time.time()))
+            fd.close()
         self.logfile = logfile
         old_dir = os.getcwd()
         if os.path.dirname(filename):
