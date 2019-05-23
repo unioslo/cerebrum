@@ -435,7 +435,7 @@ class MailProcessor(object):
 
     encoding = 'utf-8'
     master_template = 'Master_Default'
-    sender = cereconf.USER_NOTIFICATION_SENDER
+    sender = getattr(cereconf, 'USER_NOTIFICATION_SENDER', None)
 
     def __init__(self,
                  db,
