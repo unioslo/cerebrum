@@ -11,9 +11,12 @@ Usage: fetch-valg_persons.py [options]
 from __future__ import unicode_literals
 
 import argparse
+import datetime
 import io
 import logging
+import os
 
+import cereconf
 import Cerebrum.logutils
 
 from Cerebrum.Utils import Factory
@@ -21,6 +24,12 @@ from Cerebrum.Utils import XMLHelper
 
 
 logger = logging.getLogger(__name__)
+DUMPDIR = cereconf.DUMPDIR
+
+default_output_file = os.path.join(
+    DUMPDIR,
+    'uit_evalg_persons_{}.xml'.format(datetime.date.today().strftime(
+        '%Y%m%d')))
 
 
 def dump_person_info(db, fname):
@@ -115,18 +124,23 @@ def dump_person_info(db, fname):
 def main():
     db = Factory.get('Database')()
     parser = argparse.ArgumentParser()
+
     parser.add_argument(
         '-v',
         dest='filename',
-        required=True,
-        action='store',
         help='output file name')
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
     logger.info('Starting evalg2 export')
-    dump_person_info(db, args.filename)
+
+    if args.filename:
+        output_file = args.filename
+    else:
+        output_file = default_output_file
+
+    dump_person_info(db, output_file)
     logger.info('End of evalg2 export')
 
 
