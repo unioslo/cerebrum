@@ -46,7 +46,7 @@ def dump_person_info(fname):
     def _fetch_names(name_type):
         # Fetch persons full-name from most-significant source system
         ret = {}
-        for row in person.list_names(name_type=name_type):
+        for row in person.list_names(variant=name_type):
             pid = int(row['person_id'])
             ret.setdefault(pid, []).append(row)
         for pid, rows in ret.items():
@@ -62,7 +62,7 @@ def dump_person_info(fname):
 
     # Fetch birth-no from most-significant source system
     pid2ext_ids = {}
-    for row in person.list_external_ids(id_type=co.externalid_fodselsnr):
+    for row in person.search_external_ids(id_type=co.externalid_fodselsnr):
         pid = int(row['entity_id'])
         pid2ext_ids.setdefault(pid, []).append(row)
     for pid, rows in pid2ext_ids.items():
