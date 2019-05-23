@@ -24,10 +24,11 @@ import sys
 import cereconf
 
 from Cerebrum.Constants import _CerebrumCode
-from Cerebrum.Utils import Factory, simple_memoize
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.Email import EmailDomain
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.utils.funcwrap import memoize
 
 progname = __file__.split("/")[-1]
 __doc__ = """
@@ -68,7 +69,7 @@ uit_mails = dict()
 num2const = dict()
 
 
-@simple_memoize
+@memoize
 def get_sko(ou_id):
     ou.clear()
     ou.find(ou_id)
@@ -89,7 +90,7 @@ def _get_alternatives(account_name):
     return alternatives
 
 
-@simple_memoize
+@memoize
 def get_domainid(domain_part):
     domain = EmailDomain(db)
     domain.find_by_domain(domain_part)
