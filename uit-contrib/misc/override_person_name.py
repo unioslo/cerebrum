@@ -1,7 +1,7 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,135 +18,148 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+import argparse
+import logging
+# import os
 
-
-progname = __file__.split("/")[-1]
-__doc__="""This script overrides display name for a specific user.
-
-usage:: %s [arguments] [options]
-
-arguments (all required):
-    --firstname name      : persons first name
-    --lastname name       : persons last name
-    --account name        : account name. The owner of this account is changed
-
-options is
-    --help                : show this
-    -d | --dryrun         : do not change DB
-    --logger-name name    : log name to use
-    --logger-level level  : log level to use
-""" % ( progname, )
-
-
-import getopt
-import sys
-import os
-
-import cerebrum_path
-import cereconf
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import add_commit_args
+
+logger = logging.getLogger(__name__)
 
 
-db=Factory.get('Database')()
-db.cl_init(change_program=progname)
-const=Factory.get('Constants')(db)
-account=Factory.get('Account')(db)
-person=Factory.get('Person')(db)
-
-logger=Factory.get_logger('console')
-
-def change_person_name(accountname,firstname,lastname):
+def get_person(db, username):
+    account = Factory.get('Account')(db)
     try:
-        account.find_by_name(accountname)
+        account.find_by_name(username)
     except Errors.NotFoundError:
-        logger.error("Account %s not found, cannot set new display name" % \
-                   (accountname,))
-        sys.exit(1)
+        logger.error("No username=%r", username)
+        raise
 
+    person = Factory.get('Person')(db)
     try:
         person.find(account.owner_id)
     except Errors.NotFoundError:
-           logger.error("Account %s owner %d not found, cannot set new display "
-                        "name" % (account,account.owner_id))
-           sys.exit(1)
+        logger.error("No person with person_id=%r", account.owner_id)
+        raise
+
+    return person
 
 
-    fullname = " ".join((firstname,lastname))
-    print "Firstname: Old:%s, New:%s" % (person.get_name(const.system_cached, const.name_first), firstname)
-    print "Lastname:  Old:%s, New:%s" % (person.get_name(const.system_cached, const.name_last), lastname)
-    print "Fullname:  Old:%s, New:%s" % (person.get_name(const.system_cached, const.name_full), fullname)
-
-    resp = raw_input("Do you want to store new name(s) in DB? y/[N]:")
-    resp = resp.capitalize()
-    while ((resp !='Y') and (resp !='N')):
-        resp = raw_input("Please answer Y or N: ")
-    if (resp == 'Y'):
-        source_system = const.system_override
-        person.affect_names(source_system,
-                            const.name_first,
-                            const.name_last,
-                            const.name_full)
-        person.populate_name(const.name_first, firstname)
-        person.populate_name(const.name_last, lastname)
-        person.populate_name(const.name_full, fullname)
-        person._update_cached_names()
-        try:
-            person.write_db()
-        except db.DatabaseError, m:
-            logger.error("Database error, name not updated: %s" % m)
-            sys.exit(1)
-        return True
+def ask_yn(question, default=False):
+    """Interactive confirmation prompt"""
+    if question:
+        print(question)
+    if default:
+        prompt = '[Y]/n'
     else:
-         logger.info("Change cancelled by user request")
-         return False
+        prompt = 'y/[N]'
 
-def main():
-    global persons,accounts
+    while True:
+        resp = raw_input(prompt + ': ').strip().lower()
+        if resp == 'y':
+            return True
+        elif resp == 'n':
+            return False
+        elif resp == '':
+            return default
+        else:
+            print('Invalid input')
+            continue
 
-    try:
-        opts,args = getopt.getopt(sys.argv[1:],'d',
-            ['firstname=','lastname=','account=','dryrun','help'])
-    except getopt.GetoptError,m:
-        usage(1,m)
 
-    firstname=lastname=account=None
-    dryrun = False
-    for opt,val in opts:
-        if opt in('-d','--dryrun'):
-            dryrun = True
-        elif opt in('--firstname',):
-            firstname=val
-        elif opt in('--lastname',):
-            lastname=val
-        elif opt in('--account',):
-            account=val
-        elif opt in ('-h','--help'):
-            usage()
+def change_person_name(db, person, firstname, lastname):
+    const = Factory.get('Constants')(db)
+    fullname = " ".join((firstname, lastname))
+    print("First name: %r -> %r" % (person.get_name(const.system_cached,
+                                                    const.name_first),
+                                    firstname))
+    print("Last name:  %r -> %r" % (person.get_name(const.system_cached,
+                                                    const.name_last),
+                                    lastname))
+    print("Full name:  %r -> %r" % (person.get_name(const.system_cached,
+                                                    const.name_full),
+                                    fullname))
+    source_system = const.system_override
+    person.affect_names(source_system,
+                        const.name_first,
+                        const.name_last,
+                        const.name_full)
+    person.populate_name(const.name_first, firstname)
+    person.populate_name(const.name_last, lastname)
+    person.populate_name(const.name_full, fullname)
+    person._update_cached_names()
+    person.write_db()
 
-    if lastname in (None,""):
-      usage(1,"A last name is required")
-    if firstname in (None,""):
-      usage(1,"A first name is required")
-    if account in (None,""):
-      usage(1,"Accountname is required")
 
-    if not change_person_name(account,firstname,lastname):
-       sys.exit(0)
-
-    if (dryrun):
-      db.rollback()
-      logger.info("Dryrun, rollback changes")
+def nonempty_type(raw_value):
+    value = raw_value.strip()
+    if value:
+        return value
     else:
-      db.commit()
-      logger.info("Committed changes to DB")
+        raise ValueError("empty value %r" % (raw_value, ))
 
 
-def usage(exitcode=0,msg=None):
-    if msg: print msg
-    print __doc__
-    sys.exit(exitcode)
+def main(inargs=None):
+    # --firstname name      : persons first name
+    # --lastname name       : persons last name
+    # --account name        : account name. The owner of the account is changed
+    parser = argparse.ArgumentParser(
+        description="Set person name (override)",
+    )
+    parser.add_argument(
+        '--firstname',
+        required=True,
+        type=nonempty_type,
+    )
+    parser.add_argument(
+        '--lastname',
+        required=True,
+        type=nonempty_type,
+    )
+    parser.add_argument(
+        '--account',
+        dest='username',
+        required=True,
+        type=nonempty_type,
+        metavar='username',
+    )
+    add_commit_args(parser.add_argument_group('Database'))
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(inargs)
+    # TODO: Change to cronjob? Raise default log level?
+    Cerebrum.logutils.autoconf('tee', args)
+
+    logger.info('Start of %s', parser.prog)
+    logger.debug('args: %r', args)
+
+    db = Factory.get('Database')()
+    db.cl_init(change_program=parser.prog)
+    dryrun = not args.commit
+
+    person = get_person(db, args.username)
+    change_person_name(db, person, args.firstname, args.lastname)
+
+    dryrun = not args.commit
+    if not dryrun:
+        is_sure = ask_yn("Do you want to store these changes?")
+        logger.info('Prompt response=%r', is_sure)
+        dryrun = not is_sure
+
+    if dryrun:
+        logger.info('Rolling back changes')
+        db.rollback()
+        print("Abort (use --commit and answer Y to commit changes)")
+    else:
+        logger.info('Commiting changes')
+        db.commit()
+        print("Changes commited")
+    logger.info('Done %s', parser.prog)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     main()
