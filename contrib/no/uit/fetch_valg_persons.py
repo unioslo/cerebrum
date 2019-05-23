@@ -9,9 +9,14 @@ Usage: fetch-valg_persons.py [options]
   -v outfile.xml : write persons to xml file
 """
 # from __future__ import unicode_literals
+
+import argparse
 import getopt
 import io
+import logging
 import sys
+
+import Cerebrum.logutils
 
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import XMLHelper
@@ -24,7 +29,7 @@ co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
 person = Factory.get('Person')(db)
 
-logger = Factory.get_logger("console")
+logger = logging.getLogger(__name__)
 
 
 def dump_person_info(fname):
@@ -112,24 +117,20 @@ def dump_person_info(fname):
 
 
 def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'v:', ['help'])
-    except getopt.GetoptError:
-        usage(1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-v',
+        dest='filename',
+        required=True,
+        action='store',
+        help='output file name')
 
-    for opt, val in opts:
-        if opt in ('--help',):
-            usage()
-        elif opt in ('-v',):
-            valg_fname = val
-    if not opts:
-        usage(1)
-    dump_person_info(valg_fname)
-
-
-def usage(exitcode=0):
-    print __doc__
-    sys.exit(exitcode)
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
+    logger.info('Starting evalg2 export')
+    dump_person_info(args.filename)
+    logger.info('End of evalg2 export')
 
 
 if __name__ == '__main__':
