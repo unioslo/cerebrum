@@ -38,7 +38,7 @@ __doc__ = """Usage: %s [options]
     -h | --help       : show this
     --logger-name     : name of logger to use
     --logger-level    : loglevel to use
-    
+
     """ % progname
 
 # Define defaults
@@ -70,7 +70,6 @@ def parse_stedtre_csv(stedtrefile):
     for detail in csv.reader(open(stedtrefile, 'r'), delimiter=CHARSEP):
         if detail != '\n' and len(detail) > 0 and detail[0] != '' and \
                 detail[0][0] != "#":
-            # sted[detail[STEDKODE]] = {'fakultet': detail[FAKULTET], 'institutt': detail[INSTITUTT], 'gruppe': detail[GRUPPE]}
             sted[detail[STEDKODE]] = {'kortnavn': detail[KORTNAVN],
                                       'langnavn': detail[LANGNAVN]}
             # print "processing line:%s" % detail
@@ -99,27 +98,32 @@ def main():
             usage()
 
     sted = parse_stedtre_csv(stedtre_file)
-    logger.debug("Information collected. Got %d OUs" % (len(sted),))
+    logger.debug("Information collected. Got %d OUs", len(sted))
 
     fp = open(out_file, 'w')
     for stedkode in sorted(sted.keys()):
         if stedkode == '000000':
             fp.write("%s : %s : %s\n" % (
-            stedkode, sted[stedkode]['langnavn'], sted[stedkode]['langnavn']))
+                stedkode,
+                sted[stedkode]['langnavn'],
+                sted[stedkode]['langnavn']))
         elif stedkode[2:4] == '00':
             current_faculty = sted[stedkode]['kortnavn']
             fp.write("%s : %s : %s\n" % (
-            stedkode, current_faculty, sted[stedkode]['langnavn']))
+                stedkode, current_faculty, sted[stedkode]['langnavn']))
         else:
             fp.write("%s : %s : %s\n" % (
-            stedkode, current_faculty, sted[stedkode]['langnavn']))
+                stedkode,
+                current_faculty,
+                sted[stedkode]['langnavn']))
 
     fp.close()
     logger.debug("File written.")
 
 
 def usage(exit_code=0, msg=None):
-    if msg: print msg
+    if msg:
+        print msg
     print __doc__
     sys.exit(exit_code)
 
