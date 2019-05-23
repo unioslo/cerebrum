@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -23,28 +23,21 @@
 # It is a simple CSV file.
 #
 
-import getopt
-import sys
+from __future__ import unicode_literals
+
+import argparse
+import csv
+import datetime
+import io
+import os
+
+import cereconf
+import Cerebrum.logutils
 
 from Cerebrum.Utils import Factory
 
-progname = __file__.split("/")[-1]
-__doc__ = """Usage: %s [options]
-    Generate ouoptionsfile for SystemX
-
-    options:
-    -o | --out_file   : file to store output
-    -s | --stedtre-file  : file to read from
-    -h | --help       : show this
-    --logger-name     : name of logger to use
-    --logger-level    : loglevel to use
-
-    """ % progname
-
 # Define defaults
 CHARSEP = ';'
-default_stedtre_file = '/cerebrum/var/source/stedtre-gjeldende.csv'
-default_out_file = 'ouoptions'
 
 # some common vars
 db = Factory.get('Database')()
@@ -61,71 +54,105 @@ STEDKODE = 0
 KORTNAVN = 3
 LANGNAVN = 4
 
+# Default file locations
+CB_SOURCEDATA_PATH = cereconf.CB_SOURCEDATA_PATH
+DUMPDIR = cereconf.DUMPDIR
+
+default_input_file = os.path.join(CB_SOURCEDATA_PATH,
+                                  'steder',
+                                  'stedtre-gjeldende.csv')
+
+default_output_file = os.path.join(
+    DUMPDIR,
+    'ouoptions_{}.xml'.format(datetime.date.today().strftime('%Y%m%d')))
+
+
+def convert(data, encoding='utf-8'):
+    """Convert internal data to a given encoding."""
+    if isinstance(data, dict):
+        return {convert(key, encoding): convert(value, encoding)
+                for key, value in data.iteritems()}
+    elif isinstance(data, list):
+        return [convert(element, encoding) for element in data]
+    elif isinstance(data, bytes):
+        return data.decode(encoding)
+    else:
+        return data
+
 
 def parse_stedtre_csv(stedtrefile):
-    import csv
     sted = {}
 
     logger.info("Loading stedtre file...")
-    for detail in csv.reader(open(stedtrefile, 'r'), delimiter=CHARSEP):
-        if detail != '\n' and len(detail) > 0 and detail[0] != '' and \
-                detail[0][0] != "#":
-            sted[detail[STEDKODE]] = {'kortnavn': detail[KORTNAVN],
-                                      'langnavn': detail[LANGNAVN]}
-            # print "processing line:%s" % detail
-        else:
-            pass
-            # print "skipping line:%s" % detail
+    with open(stedtrefile, 'r') as fp:
+        reader = csv.reader(fp, delimiter=str(CHARSEP))
+        for detail in reader:
+            detail = convert(detail, encoding='iso-8859-1')
+            if detail != '\n' and len(detail) > 0 and detail[0] != '' and \
+                    detail[0][0] != "#":
+                sted[detail[STEDKODE]] = {'kortnavn': detail[KORTNAVN],
+                                          'langnavn': detail[LANGNAVN]}
+                # print "processing line:%s" % detail
+            else:
+                pass
+                # print "skipping line:%s" % detail
     return sted
 
 
 def main():
-    out_file = default_out_file
-    stedtre_file = default_stedtre_file
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'hs:o:',
-                                   ['stedtre-file=', 'out-file=', 'help'])
-    except getopt.GetoptError, m:
-        usage(1, m)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '-i', '--in-file',
+        dest='source',
+        help='Read OUs from source file %(metavar)s',
+        metavar='<file>',
+    )
+    parser.add_argument(
+        '-o', '--out-file', '--Out_file',
+        dest='output',
+        help='Write output a %(metavar)s XML file',
+        metavar='<file>',
+    )
 
-    for opt, val in opts:
-        if opt in ('-o', '--out-file'):
-            out_file = val
-        if opt in ('-s', '--stedtre-file'):
-            stedtre_file = val
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('crontab', args)
 
-        if opt in ('-h', '--help'):
-            usage()
+    logger.info('Start %r', parser.prog)
+    logger.debug("args: %r", args)
+
+    if args.source:
+        stedtre_file = args.source
+    else:
+        stedtre_file = default_input_file
+
+    if args.output:
+        out_file = args.output
+    else:
+        out_file = default_output_file
 
     sted = parse_stedtre_csv(stedtre_file)
     logger.debug("Information collected. Got %d OUs", len(sted))
 
-    fp = open(out_file, 'w')
-    for stedkode in sorted(sted.keys()):
-        if stedkode == '000000':
-            fp.write("%s : %s : %s\n" % (
-                stedkode,
-                sted[stedkode]['langnavn'],
-                sted[stedkode]['langnavn']))
-        elif stedkode[2:4] == '00':
-            current_faculty = sted[stedkode]['kortnavn']
-            fp.write("%s : %s : %s\n" % (
-                stedkode, current_faculty, sted[stedkode]['langnavn']))
-        else:
-            fp.write("%s : %s : %s\n" % (
-                stedkode,
-                current_faculty,
-                sted[stedkode]['langnavn']))
+    with io.open(out_file, 'w', encoding='utf-8') as fp:
+        for stedkode in sorted(sted.keys()):
+            if stedkode == '000000':
+                fp.write("%s : %s : %s\n" % (
+                    stedkode,
+                    sted[stedkode]['langnavn'],
+                    sted[stedkode]['langnavn']))
+            elif stedkode[2:4] == '00':
+                current_faculty = sted[stedkode]['kortnavn']
+                fp.write("%s : %s : %s\n" % (
+                    stedkode, current_faculty, sted[stedkode]['langnavn']))
+            else:
+                fp.write("%s : %s : %s\n" % (
+                    stedkode,
+                    current_faculty,
+                    sted[stedkode]['langnavn']))
 
-    fp.close()
-    logger.debug("File written.")
-
-
-def usage(exit_code=0, msg=None):
-    if msg:
-        print msg
-    print __doc__
-    sys.exit(exit_code)
+    logger.info('Output written to %r', out_file)
+    logger.info('Done %r', parser.prog)
 
 
 if __name__ == '__main__':
