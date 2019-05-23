@@ -8,14 +8,14 @@ har brukere.
 Usage: fetch-valg_persons.py [options]
   -v outfile.xml : write persons to xml file
 """
-#from __future__ import unicode_literals
+# from __future__ import unicode_literals
 import getopt
-import sys
 import io
-import cerebrum_path
-from Cerebrum import Errors
+import sys
+
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import XMLHelper
+
 xml = XMLHelper()
 
 db = Factory.get('Database')()
@@ -32,7 +32,8 @@ def dump_person_info(fname):
         int(co.system_lt): 1,
         int(co.system_fs): 2,
         int(co.system_x): 3,
-        }
+    }
+
     def sort_by_source_system(a, b):
         return cmp(src_sys_order.get(int(a['source_system']), 99),
                    src_sys_order.get(int(b['source_system']), 99))
@@ -50,7 +51,7 @@ def dump_person_info(fname):
         return ret
 
     # Fetch persons full-name from most-significant source system
-    #pid2names = _fetch_names(co.name_full)
+    # pid2names = _fetch_names(co.name_full)
     pid2first_name = _fetch_names(co.name_first)
     pid2last_name = _fetch_names(co.name_last)
 
@@ -80,14 +81,14 @@ def dump_person_info(fname):
         pid = int(row['person_id'])
         assert not pid2ac.has_key(pid)
         pid2ac[pid] = _acid2uname[int(row['account_id'])]
-        
+
     cols = ('fnr', 'first_name', 'last_name', 'uname', 'bdate')
     f = io.open(fname, "wt", encoding='utf-8')
     f.write(xml.xml_hdr + u"<data>\n")
     for pid, birth in pid2birth.items():
-        if((not pid2ext_ids.has_key(pid)) or
-           (not (pid2first_name.has_key(pid) or
-                 pid2last_name.has_key(pid)))):
+        if ((not pid2ext_ids.has_key(pid)) or
+                (not (pid2first_name.has_key(pid) or
+                      pid2last_name.has_key(pid)))):
             continue
 
         row = {}
@@ -105,9 +106,10 @@ def dump_person_info(fname):
         row['bdate'] = pid2birth[pid]
         f.write(xml.xmlify_dbrow(row, cols, 'person'))  # .encode('utf-8'))
         f.write(u'\n')
-        
+
     f.write(u"</data>\n")
     f.close()
+
 
 def main():
     try:
@@ -124,9 +126,11 @@ def main():
         usage(1)
     dump_person_info(valg_fname)
 
+
 def usage(exitcode=0):
     print __doc__
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()
