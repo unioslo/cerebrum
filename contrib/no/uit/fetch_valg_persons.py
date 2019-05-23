@@ -8,7 +8,7 @@ har brukere.
 Usage: fetch-valg_persons.py [options]
   -v outfile.xml : write persons to xml file
 """
-# from __future__ import unicode_literals
+from __future__ import unicode_literals
 
 import argparse
 import io
@@ -22,7 +22,6 @@ from Cerebrum.Utils import XMLHelper
 xml = XMLHelper()
 
 db = Factory.get('Database')()
-# db.cl_init(change_program="skeleton")
 co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
 person = Factory.get('Person')(db)
