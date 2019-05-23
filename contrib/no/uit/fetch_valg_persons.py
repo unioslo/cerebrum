@@ -19,17 +19,16 @@ import Cerebrum.logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import XMLHelper
 
-xml = XMLHelper()
-
-db = Factory.get('Database')()
-co = Factory.get('Constants')(db)
-ac = Factory.get('Account')(db)
-person = Factory.get('Person')(db)
 
 logger = logging.getLogger(__name__)
 
 
-def dump_person_info(fname):
+def dump_person_info(db, fname):
+    xml = XMLHelper()
+    co = Factory.get('Constants')(db)
+    ac = Factory.get('Account')(db)
+    person = Factory.get('Person')(db)
+
     src_sys_order = {
         int(co.system_lt): 1,
         int(co.system_fs): 2,
@@ -114,6 +113,7 @@ def dump_person_info(fname):
 
 
 def main():
+    db = Factory.get('Database')()
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-v',
@@ -126,7 +126,7 @@ def main():
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
     logger.info('Starting evalg2 export')
-    dump_person_info(args.filename)
+    dump_person_info(db, args.filename)
     logger.info('End of evalg2 export')
 
 
