@@ -317,7 +317,6 @@ class SpreadExpireNotify(DatabaseAccessor):
           DELETE FROM
             [:table schema=cerebrum name=spread_expire_notification]
           {filters}
-        )
         """.format(filters=(('WHERE ' + ' AND '.join(conditions))
                             if conditions else ''))
         logger.debug('deleting spread_expire_notification for entity_id=%r'
