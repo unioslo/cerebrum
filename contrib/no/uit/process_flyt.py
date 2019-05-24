@@ -38,7 +38,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit import Email
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.utils.email import sendmail
 from Cerebrum.utils.funcwrap import memoize
 

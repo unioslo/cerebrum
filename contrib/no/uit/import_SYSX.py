@@ -34,7 +34,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uit.access_SYSX import SYSX
 
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 
 progname = __file__.split(os.sep)[-1]
 __doc__ = """
