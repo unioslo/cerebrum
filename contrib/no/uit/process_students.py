@@ -26,7 +26,7 @@ import hotshot.stats
 proffile = 'hotshot.prof'
 import inspect
 
-import getopt
+import argparse
 import sys
 import os
 import mx
@@ -36,18 +36,20 @@ from time import localtime, strftime, time
 from mx.DateTime import now
 import pprint
 import datetime
-import cerebrum_path
 import cereconf
 
+import Cerebrum.logutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.utils.argutils import ParserContext
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.uit import AutoStud
+from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.disk_quota import DiskQuota
-from Cerebrum.modules.no.uit import PrinterQuotas
-from Cerebrum.modules.templates.letters import TemplateHandler
+from Cerebrum.modules.no.uio import PrinterQuotas
+
+logger = Factory.get_logger('autostud')
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_students')
@@ -90,7 +92,7 @@ emne_info_file = None
 fast_test = False
 
 # Other globals (to make pychecker happy)
-autostud = logger = accounts = persons = None
+autostud = accounts = persons = None
 default_creator_id = default_expire_date = None
 default_shell = const.posix_shell_bash
 
@@ -264,32 +266,6 @@ class AccountUtil(object):
         #        changes.append(('del_ac_type', (ou, const.affiliation_tilknyttet)))
         return changes
 
-    def _populate_account_affiliations_old(account_id, fnr):
-        """Assert that the account has the same student affiliations as
-        the person.  Will not remove the last student account affiliation
-        even if the person has no such affiliation"""
-
-        changes = []
-        remove_idx = 1  # Do not remove last account affiliation
-        account_ous = [ou for aff, ou in
-                       accounts[account_id].get_affiliations()
-                       if aff == const.affiliation_student]
-        for aff, ou, status in persons[fnr].get_affiliations():
-            assert aff in [const.affiliation_student,
-                           const.affiliation_tilknyttet]
-            if not ou in account_ous:
-                changes.append(
-                    ('set_ac_type', (ou, const.affiliation_student)))
-            else:
-                account_ous.remove(ou)
-                # The account has at least one valid affiliation, so
-                # we can delete everything left in account_ous.
-                remove_idx = 0
-
-        for ou in account_ous[remove_idx:]:
-            changes.append(('del_ac_type', (ou, const.affiliation_student)))
-        return changes
-
     _populate_account_affiliations = staticmethod(
         _populate_account_affiliations)
 
@@ -427,7 +403,7 @@ class AccountUtil(object):
 
             # We reuse the definition of the free period for printer
             # quotas.
-            from Cerebrum.modules.no.uit.printer_quota.PPQUtil \
+            from Cerebrum.modules.no.uio.printer_quota.PPQUtil \
                 import is_free_period
 
             year, month, mday = localtime()[0:3]
@@ -830,13 +806,10 @@ class BuildAccounts(object):
         logger.info("student_info_file processed")
         if not dryrun:
             db.commit()
-            logger.info("making letters")
             if only_dump_to is not None:
                 f = open(only_dump_to, 'w')
                 pickle.dump(all_passwords, f)
                 f.close()
-            else:
-                make_letters()
         else:
             logger.info("Dryrun: Rolled back changed")
             db.rollback()
@@ -1322,195 +1295,6 @@ def get_existing_accounts():
     return tmp_persons, tmp_ac
 
 
-def make_letters(data_file=None, type=None, range=None):
-    if data_file is not None:  # Load info on letters to print from file
-        f = open(data_file, 'r')
-        tmp_passwords = pickle.load(f)
-        f.close()
-        if range == '*':
-            s = 0
-            while s <= len(tmp_passwords):
-                tmp = tmp_passwords["%s-%i" % (type, s)]
-                tmp.append(s)
-                all_passwords[tmp[0]] = tmp[1]
-                s = s + 1
-        else:
-            for r in [int(x) for x in range.split(",")]:
-                tmp = tmp_passwords["%s-%i" % (type, r)]
-                tmp.append(r)
-                all_passwords[tmp[0]] = tmp[1]
-    person = Factory.get('Person')(db)
-    account = Factory.get('Account')(db)
-    ou = Factory.get('OU')(db)
-    sko = None
-    dta = {}
-    logger.debug("Making %i letters" % len(all_passwords))
-    for account_id in all_passwords.keys():
-        try:
-            account.clear()
-            account.find(account_id)
-            person.clear()
-            person.find(account.owner_id)  # should be account.owner_id
-        except Errors.NotFoundError:
-            logger.warn("NotFoundError for account_id=%s" % account_id)
-            continue
-        try:
-            # get e-mail address
-            primary_email_address = account.get_primary_mailaddress()
-        except Errors.NotFoundError:
-            primary_email_address = ""
-        # get valid ou for the student
-        ou_id = None
-        sko = None
-        for at in account.get_account_types():
-            if at['affiliation'] == int(const.affiliation_student):
-                ou_id = at['ou_id']
-                break
-        if ou_id:
-            ou.clear()
-            ou.find(ou_id)
-            sko = "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
-        tpl = {}
-        address = None
-        for source, kind in ((const.system_fs, const.address_post),
-                             (const.system_fs, const.address_post_private)):
-            address = person.get_entity_address(source=source,
-                                                type=kind)
-            if address:
-                break
-        if not address:
-            logger.info(
-                "Could not find authoritative address for %s" % account_id)
-            continue
-        address = address[0]
-        alines = address['address_text'].split("\n") + [""]
-        logger.debug("ALINES: %s", alines)
-        fullname = person.get_name(const.system_cached, const.name_full)
-        tpl['address_line1'] = fullname
-        tpl['address_line2'] = alines[0]
-        tpl['address_line3'] = alines[1]
-        tpl['zip'] = address['postal_number']
-        tpl['city'] = address['city']
-        tpl['country'] = address['country']
-
-        tpl['uname'] = account.account_name
-        tpl['password'] = all_passwords[account_id][0]
-        tpl['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
-        tpl['fullname'] = fullname
-        tmp = person.get_external_id(id_type=const.externalid_fodselsnr,
-                                     source_system=const.system_fs)
-        tpl['birthno'] = tmp[0]['external_id']
-        tpl['emailadr'] = primary_email_address
-        tpl['account_id'] = account_id
-        tpl['sko'] = sko
-
-        # First we group letters by 'order_by', default is 'zip'
-        brev_profil = all_passwords[account_id][1]
-        order_by = 'zip'
-        if brev_profil.has_key('order_by'):
-            order_by = brev_profil['order_by']
-        if not dta.has_key(order_by):
-            dta[order_by] = {}
-        dta[order_by][account_id] = tpl
-
-    # Do the actual sorting. We end up with one array with account_id's
-    # sorted in groups on sorting criteria.
-    sorted_keys = []
-    for order in dta.keys():
-        keys = dta[order].keys()
-        keys.sort(
-            lambda x, y: cmp(dta[order][x][order_by], dta[order][y][order_by]))
-        sorted_keys = sorted_keys + keys
-
-    # Each template type has its own letter number sequence
-    letter_info = {}
-    files = {}
-    tpls = {}
-    counters = {}
-    printers = {}
-    send_abroad = cereconf.AUTOADMIN_PRODUCE_ABROAD_LETTERS
-    for account_id in sorted_keys:
-        password, brev_profil = all_passwords[account_id][:2]
-        order_by = 'zip'
-        if brev_profil.has_key('order_by'):
-            order_by = brev_profil['order_by']
-        if not send_abroad:
-            if not dta[order_by][account_id]['zip'] or \
-                    dta[order_by][account_id]['country']:
-                # TODO: Improve this check, which is supposed to skip foreign addresses
-                logger.info(
-                    "Not sending abroad: %s" % dta[order_by][account_id][
-                        'uname'])
-                continue
-        printer = cereconf.PRINT_PRINTER
-        letter_dir = cereconf.AUTOADMIN_PRINT_LETTER_DIRECTORY
-        if brev_profil.has_key('printer'):
-            printer = brev_profil['printer']
-        letter_type = "%s-%s.%s" % (
-        brev_profil['mal'], printer, brev_profil['type'])
-        if not files.has_key(letter_type):
-            files[letter_type] = file("letter-%i-%s" % (time(), letter_type),
-                                      "w")
-            printers[letter_type] = printer
-            tpls[letter_type] = TemplateHandler(
-                letter_dir, brev_profil['mal'], brev_profil['type'])
-            if tpls[letter_type]._hdr is not None:
-                files[letter_type].write(tpls[letter_type]._hdr)
-            counters[letter_type] = 1
-        if data_file is not None:
-            dta[order_by][account_id]['lopenr'] = all_passwords[account_id][2]
-            if not os.path.exists("barcode_%s.eps" % account_id):
-                make_barcode(account_id)
-        else:
-            dta[order_by][account_id]['lopenr'] = counters[letter_type]
-            letter_info[
-                "%s-%i" % (brev_profil['mal'], counters[letter_type])] = \
-                [account_id, [password, brev_profil, counters[letter_type]]]
-            # We allways create a barcode file, this is not strictly
-            # neccesary
-            make_barcode(account_id)
-        dta[order_by][account_id]['barcode'] = os.path.realpath(
-            'barcode_%s.eps' % account_id)
-        files[letter_type].write(tpls[letter_type].apply_template(
-            'body', dta[order_by][account_id], no_quote=('barcode',)))
-        counters[letter_type] += 1
-    # Save passwords for created users so that letters may be
-    # re-printed at a later time in case of print-jam etc.
-    if data_file is None:
-        f = open("letters.info", 'w')
-        pickle.dump(letter_info, f)
-        f.close()
-    # Close files and spool jobs
-    for letter_type in files.keys():
-        if tpls[letter_type]._footer is not None:
-            files[letter_type].write(tpls[letter_type]._footer)
-        files[letter_type].close()
-        try:
-            tpls[letter_type].spool_job(files[letter_type].name,
-                                        tpls[letter_type]._type,
-                                        printers[letter_type],
-                                        skip_lpr=skip_lpr)
-            os.unlink(tpls[letter_type].logfile)
-        except IOError, msg:
-            print msg
-
-
-def make_barcode(account_id):
-    if cereconf.PRINT_BARCODE is None:
-        # Barcodes shouldn't be used at this institution, but further
-        # processing seems to require that the file exists
-        barcode_cmd = "touch barcode_%s.eps" % account_id
-    else:
-        barcode_cmd = "%s -e EAN -E -n -b %012i > barcode_%s.eps" % (
-        cereconf.PRINT_BARCODE,
-        account_id, account_id)
-
-    logger.debug("Running barcode-command: '%s'" % barcode_cmd)
-    ret = os.system(barcode_cmd)
-    if ret:
-        logger.warn("Barcode-related syscmd returned %s" % ret)
-
-
 def _filter_person_info(person_info):
     """Makes debugging easier by removing some of the irrelevant
     person-information."""
@@ -1616,93 +1400,145 @@ def process_noncallback_users(reset_diskquota=False):
 
 
 def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:S:e:p:',
-                                   ['debug', 'create-users', 'update-accounts',
-                                    'student-info-file=', 'only-dump-results=',
-                                    'studconfig-file=', 'fast-test',
-                                    'with-lpr',
-                                    'workdir=', 'type=', 'reprint=',
-                                    'ou-perspective=', 'reset-diskquota',
-                                    'emne-info-file=', 'move-users',
-                                    'recalc-pq', 'studie-progs-file=',
-                                    'paper-file=',
-                                    'remove-groupmembers',
-                                    'dryrun', 'validate',
-                                    'with-quarantines',
-                                    'with-diskquota',
-                                    'posix-tables'])
-    except getopt.GetoptError, e:
-        usage(str(e))
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
-    global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
-        dryrun, emne_info_file, move_users, remove_groupmembers, \
-        workdir, paper_money_file, ou_perspective, with_quarantines, \
-        with_diskquota, posix_tables, deceased
+    global student_info_file, studconfig_file, studieprogs_file, dryrun, \
+        emne_info_file, move_users, remove_groupmembers, workdir, \
+        paper_money_file, ou_perspective, with_quarantines, with_diskquota, \
+        posix_tables, only_dump_to
 
-    recalc_pq = False
-    validate = False
-    _range = None
-    reset_diskquota = False
-    with_diskquota = False
-    posix_tables = False
-    for opt, val in opts:
-        if opt in ('-d', '--debug'):
-            debug += 1
-        elif opt in ('-c', '--create-users'):
-            create_users = True
-        elif opt in ('-u', '--update-accounts'):
-            update_accounts = True
-        elif opt in ('-s', '--student-info-file'):
-            student_info_file = val
-        elif opt in ('-e', '--emne-info-file'):
-            emne_info_file = val
-        elif opt in ('-p', '--paper-file'):
-            paper_money_file = val
-        elif opt in ('-S', '--studie-progs-file'):
-            studieprogs_file = val
-        elif opt in ('--recalc-pq',):
-            recalc_pq = True
-        elif opt in ('--remove-groupmembers',):
-            remove_groupmembers = True
-        elif opt in ('--with-quarantines',):
-            with_quarantines = True
-        elif opt in ('--with-diskquota',):
-            with_diskquota = True
-        elif opt in ('--posix-tables',):
-            posix_tables = True
-        elif opt in ('--move-users',):
-            move_users = True
-        elif opt in ('-C', '--studconfig-file'):
-            studconfig_file = val
-        elif opt in ('--reset-diskquota',):
-            reset_diskquota = True
-        elif opt in ('--fast-test',):  # Internal debug use ONLY!
-            fast_test = True
-        elif opt in ('--ou-perspective',):
-            ou_perspective = const.OUPerspective(val)
-            int(ou_perspective)  # Assert that it is defined
-        elif opt in ('--only-dump-results',):
-            only_dump_to = val
-        elif opt in ('--dryrun',):
-            dryrun = True
-        elif opt in ('--validate',):
-            validate = True
-            workdir = '.'
-        elif opt in ('--with-lpr',):
-            skip_lpr = False
-        elif opt in ('--workdir',):
-            workdir = val
-        elif opt in ('--type',):
-            _type = val
-        elif opt in ('--reprint',):
-            _range = val
-        else:
-            usage("Unimplemented option: " + opt)
+    # Parse arguments
+    parser = argparse.ArgumentParser(description=__doc__)
+    input_grp = parser.add_argument_group('Input files')
+    input_grp.add_argument(
+        '-s',
+        '--student-info-file')
+    input_grp.add_argument(
+        '-e',
+        '--emne-info-file')
+    input_grp.add_argument(
+        '-p', '--paper-file',
+        help='check for paid-quota only done if set')
+    input_grp.add_argument(
+        '-S',
+        '--studie-progs-file')
+    input_grp.add_argument(
+        '-C',
+        '--studconfig-file')
 
-    if recalc_pq and (update_accounts or create_users):
-        raise ValueError, "recalc-pq cannot be combined with other operations"
+    act_group = parser.add_argument_group('Actions')
+    act_group.add_argument(
+        '-c', '--create-users',
+        action='store_true',
+        help='create new users',
+        default=False)
+    act_group.add_argument(
+        '-u', '--update-accounts',
+        action='store_true',
+        help='update existing accounts',
+        default=False)
+    act_group.add_argument(
+        '--recalc-pq',
+        action='store_true',
+        help='recalculate printerquota settings (does not update quota). '
+             'Cannot be combined with -c/-u',
+        default=False)
+    act_group.add_argument(
+        '--reset-diskquota',
+        action='store_true',
+        help='remove disk quota from users on student disks that did not get '
+             'a callback',
+        default=False)
 
+    parser.add_argument(
+        '-d', '--debug',
+        action='store_true',
+        help='increases debug verbosity',
+        default=False)
+    parser.add_argument(
+        '--remove-groupmembers',
+        action='store_true',
+        help='remove groupmembers if profile says so',
+        default=False)
+    parser.add_argument(
+        '--with-quarantines',
+        action='store_true',
+        help='Enables quarantine settings',
+        default=False)
+    parser.add_argument(
+        '--with-diskquota',
+        action='store_true',
+        default=False)
+    parser.add_argument(
+        '--posix-tables',
+        action='store_true',
+        default=False)
+    parser.add_argument(
+        '--move-users',
+        action='store_true',
+        help='move users if profile says so',
+        default=False)
+    parser.add_argument(
+        '--fast-test',
+        action='store_true',
+        default=False)
+    parser.add_argument(
+        '--dryrun',
+        action='store_true',
+        help='don\'t do any changes to the database. '
+             'This can be used to get an idea of what changes a normal run '
+             'would do. TODO: also dryrun some parts of update/create user.',
+        default=False)
+    parser.add_argument(
+        '--workdir',
+        help='set workdir for --reprint')
+    parser.add_argument(
+        '--ou-perspective',
+        help='set ou_perspective (default: perspective_fs)')
+    parser.add_argument(
+        '--validate',
+        action='store_true',
+        help='parse the configuration file and report any errors, then exit.',
+        default=False)
+    parser.add_argument(
+        '--only-dump-results',
+        dest='only_dump_to',
+    )
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('studauto', args)
+
+    # Set values according to arguments
+    debug = args.debug
+    create_users = args.create_users
+    update_accounts = args.update_accounts
+    remove_groupmembers = args.remove_groupmembers
+    with_quarantines = args.with_quarantines
+    with_diskquota = args.with_diskquota
+    posix_tables = args.posix_tables
+    move_users = args.move_users
+    fast_test = args.fast_test  # Internal debug use ONLY!
+    dryrun = args.dryrun
+    only_dump_to = args.only_dump_to
+
+    if args.student_info_file:
+        student_info_file = args.student_info_file
+    if args.emne_info_file:
+        emne_info_file = args.emne_info_file
+    if args.paper_file:
+        paper_money_file = args.paper_file
+    if args.studie_progs_file:
+        studieprogs_file = args.studie_progs_file
+    if args.studconfig_file:
+        studconfig_file = args.studconfig_file
+
+    if args.ou_perspective:
+        ou_perspective = const.OUPerspective(args.ou_perspective)
+        int(ou_perspective)  # Assert that it is defined
+    if args.validate:
+        workdir = '.'
+    if args.workdir:
+        workdir = args.workdir
     if workdir is None:
         workdir = "%s/ps-%s.%i" % (cereconf.AUTOADMIN_LOG_DIR,
                                    strftime("%Y-%m-%d", localtime()),
@@ -1710,91 +1546,40 @@ def main():
         os.mkdir(workdir)
     os.chdir(workdir)
 
-    logger = Factory.get_logger("studauto")
     bootstrap()
-    if validate:
-        validate_config()
-        print "The configuration was successfully validated."
-        sys.exit(0)
-    if _range is not None:
-        make_letters("letters.info", type=_type, range=_range)
-        return
 
-    if not (recalc_pq or update_accounts or create_users or
-            reset_diskquota):
-        usage("No action selected")
+    if args.validate:
+        validate_config()
+        print("The configuration was successfully validated.")
+        sys.exit(0)
+
+    with ParserContext(parser):
+        if args.recalc_pq and (args.update_accounts or args.create_users):
+            raise ValueError("recalc-pq cannot be combined with other "
+                             "operations")
+        if not (args.recalc_pq or args.update_accounts or args.create_users):
+            raise ValueError('No action selected')
 
     logger.info("Loading deceased persons...")
     person_obj = Factory.get('Person')(db)
     pid_deceased = person_obj.list_deceased()
-    for row in person_obj.list_external_ids(
-            id_type=const.externalid_fodselsnr):
+    for row in person_obj.search_external_ids(
+            id_type=const.externalid_fodselsnr,
+            fetchall=False):
         if pid_deceased.has_key(int(row['entity_id'])):
             deceased[row['external_id']] = pid_deceased[int(row['entity_id'])]
 
-    start_process_students(recalc_pq=recalc_pq,
-                           update_create=(create_users or reset_diskquota))
-    if reset_diskquota:
-        process_noncallback_users(reset_diskquota=reset_diskquota)
+    start_process_students(recalc_pq=args.recalc_pq,
+                           update_create=(args.create_users or
+                                          args.reset_diskquota))
+    if args.reset_diskquota:
+        process_noncallback_users(reset_diskquota=args.reset_diskquota)
     logger.debug("all done")
-
-
-def usage(error=None):
-    if error:
-        print "Error:", error
-    print """Usage: process_students.py
-    Actions:
-      -c | --create-user: create new users
-      -u | --update-accounts: update existing accounts
-      --reprint range: re-print letters in case of paper-jam etc.
-        (comma separated)
-      --recalc-pq: recalculate printerquota settings (does not update
-        quota).  Cannot be combined with -c/-u
-      --reset-diskquota: remove disk quota from users on student disks
-        that did not get a callback
-
-    Input files:
-      -s | --student-info-file file:
-      -e | --emne-info-file file:
-      -C | --studconfig-file file:
-      -S | --studie-progs-file file:
-      -p | --paper-file file: check for paid-quota only done if set
-
-    Other settings:
-      --only-dump-results file: just dump results with pickle without
-        entering make_letters
-      --workdir dir:  set workdir for --reprint
-      --with-lpr: Spool the file with new user letters to printer
-
-    Action limiters/enablers:
-      --remove-groupmembers: remove groupmembers if profile says so
-      --move-users: move users if profile says so
-      --with-quarantines: Enables quarantine settings
-
-    Misc:
-      -d | --debug: increases debug verbosity
-      --ou-perspective code_str: set ou_perspective (default: perspective_fs)
-      --dryrun: don't do any changes to the database.  This can be used
-        to get an idea of what changes a normal run would do.  TODO:
-        also dryrun some parts of update/create user.
-      --validate: parse the configuration file and report any errors,
-        then exit.
-      --type type: set type (=the mal attribute to <brev> in studconfig.xml)
-        for --reprint
-
-To create new users:
-  ./process_students.py -d -c -u -C /cerebrum/etc/cerebrum/studconfig.xml -e /cerebrum/var/dumps/FS/emner.xml -s /cerebrum/var/dumps/FS/merged_person.xml -S /cerebrum/var/dumps/FS/studieprogrammer.xml --with-quarantines --only-dump-results resultfile.txt --logger-name=console | tee process_students.log
-
-
-To reprint letters of a given type:
-  ./contrib/no/uio/process_students.py --workdir tmp/ps-2003-09-25.1265 --type new_stud_account --reprint 1,2
-    """
-    sys.exit(0)
 
 
 if __name__ == '__main__':
     if False:
-        print "Profilerer..."
+        print("Profilerer...")
         prof = hotshot.Profile(proffile)
         prof.runcall(main)  # profiler hovedprogrammet
         prof.close()
