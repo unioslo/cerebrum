@@ -1,6 +1,6 @@
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2003 University of Troms�, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2003-2019 University of Tromsø, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,17 +17,22 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+import logging
+import re
 
-from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
+from Cerebrum.modules.Email import AccountEmailMixin
 from Cerebrum.modules.no.uit.ad_email import AdEmail
 
-from Cerebrum.modules.Email import AccountEmailMixin
-import re
+logger = logging.getLogger(__name__)
 
 
 class UiTAccountEmailMixin(AccountEmailMixin):
+    """
+    Account-mixin for email functionality @ UiT.
+    """
     def get_email_cn_local_part(self, given_names=-1, max_initials=None,
                                 keep_dash=True):
         """
@@ -89,51 +94,50 @@ class UiTAccountEmailMixin(AccountEmailMixin):
         ret = {}
         target_type = int(self.const.email_target_account)
         namespace = int(self.const.account_namespace)
-        where = "en.value_domain = :namespace"
+        where = ["en.value_domain = :namespace"]
 
         if filter_expired_accounts:
-            where += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
+            where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
 
         if filter_expired_emails:
-            where += " AND (ea.expire_date IS NULL OR ea.expire_date > [:now])"
+            where.append("(ea.expire_date IS NULL OR ea.expire_date > [:now])")
 
-        for row in self.query("""
-        SELECT en.entity_name, ea.local_part, ed.domain, ea.create_date, ea.change_date, ea.expire_date
-        FROM [:table schema=cerebrum name=account_info] ai
-        JOIN [:table schema=cerebrum name=entity_name] en
-          ON en.entity_id = ai.account_id
-        JOIN [:table schema=cerebrum name=email_target] et
-          ON et.target_type = :targ_type AND
-             et.target_entity_id = ai.account_id
-        JOIN [:table schema=cerebrum name=email_address] ea
-          ON ea.target_id = et.target_id
-        JOIN [:table schema=cerebrum name=email_domain] ed
-          ON ed.domain_id = ea.domain_id
-        WHERE """ + where,
-                              {'targ_type': target_type,
-                               'namespace': namespace}):
+        stmt = """
+          SELECT en.entity_name, ea.local_part, ed.domain, ei.created_at,
+                 ea.change_date, ea.expire_date
+          FROM [:table schema=cerebrum name=account_info] ai
+          JOIN [:table schema=cerebrum name=entity_name] en
+            ON en.entity_id = ai.account_id
+          JOIN [:table schema=cerebrum name=entity_info] ei
+            ON ei.entity_id = en.entity_id
+          JOIN [:table schema=cerebrum name=email_target] et
+            ON et.target_type = :targ_type AND
+               et.target_entity_id = ai.account_id
+          JOIN [:table schema=cerebrum name=email_address] ea
+            ON ea.target_id = et.target_id
+          JOIN [:table schema=cerebrum name=email_domain] ed
+            ON ed.domain_id = ea.domain_id
+          WHERE {where}
+        """
 
-            addresses = ret.get(row['entity_name'])
-            if addresses is None:
-                addresses = []
-
-            mailinfo = {}
-            mailinfo['local_part'] = row['local_part']
-            mailinfo['domain'] = row['domain']
-            mailinfo['create_date'] = row['create_date']
-            mailinfo['change_date'] = row['change_date']
-            mailinfo['expire_date'] = row['expire_date']
-
+        for row in self.query(
+                stmt.format(where=' AND '.join(where)),
+                {'targ_type': target_type, 'namespace': namespace}):
+            addresses = ret.setdefault(row['entity_name'], [])
+            mailinfo = {
+                'local_part': row['local_part'],
+                'domain': row['domain'],
+                'create_date': row['created_at'],
+                'change_date': row['change_date'],
+                'expire_date': row['expire_date'],
+            }
             addresses.append(mailinfo)
-
-            ret[row['entity_name']] = addresses
-
         return ret
 
 
-class email_address:
+class PrimaryAddressUtil(object):
 
-    def __init__(self, db, logger=None):
+    def __init__(self, db, **kwargs):
         self.db = db
         self.account = Factory.get("Account")(db)
         self.constants = Factory.get("Constants")(db)
@@ -144,112 +148,113 @@ class email_address:
         self.ea = Email.EmailAddress(db)
         self.edom = Email.EmailDomain(db)
         self.epat = Email.EmailPrimaryAddressTarget(db)
-        if logger == None:
-            self.logger = Factory.get_logger("cronjob")
-        else:
-            self.logger = logger
 
     def build_email_list(self):
         email_list = {}
-        res = self.ad_email.search_ad_email()
-        for entity in res:
-            email = "%s@%s" % (entity['local_part'], entity['domain_part'])
-            email_list[entity['account_name']] = email
+        for row in self.ad_email.search_ad_email():
+            email = "%s@%s" % (row['local_part'], row['domain_part'])
+            email_list[row['account_name']] = email
         return email_list
 
     def get_employee_email(self, account_name):
         email_list = {}
-        res = self.ad_email.search_ad_email(account_name=account_name)
-        for entity in res:
-            email = "%s@%s" % (entity['local_part'], entity['domain_part'])
-            email_list[entity['account_name']] = email
+        for row in self.ad_email.search_ad_email(account_name=account_name):
+            email = "%s@%s" % (row['local_part'], row['domain_part'])
+            email_list[row['account_name']] = email
         return email_list
 
     def process_mail(self, account_id, addr, is_primary=False,
                      expire_date=None):
-        self.logger.debug("account_id to email.process_mail = %s" % account_id)
-        if (addr == None):
+        logger.debug("Processing primary address for account_id=%r",
+                     account_id)
+        if addr is None:
             # this account has no email address attached to it.
             # return None to the calling process
             return None
-        addr = addr.lower()
-        fld = addr.split('@')
-        if len(fld) != 2:
-            self.logger.error("Bad address: %s. Skipping", addr)
+        lp, _, dom = addr.lower().partition('@')
+        if not lp or not dom:
+            logger.error("Bad email address=%r, not processing", addr)
             return None
-        lp, dom = fld
 
         try:
-            self.logger.debug("ld = %s,dom = %s" % (lp, dom))
+            logger.debug("localpart=%r, domain=%r", lp, dom)
             self.edom.find_by_domain(dom)
-            self.logger.debug("Domain found: %s: %d", dom, self.edom.entity_id)
+            logger.debug("Found domain=%r, entity_id=%r",
+                         dom, self.edom.entity_id)
         except Errors.NotFoundError:
             self.edom.populate(dom, "Generated by no.uit.process_mail.")
             self.edom.write_db()
-            self.logger.debug("Domain created: %s: %d", dom,
-                              self.edom.entity_id)
+            logger.debug("Created domain=%r, entity_id=%r",
+                         dom, self.edom.entity_id)
 
         try:
             self.et.find_by_target_entity(int(account_id))
-            self.logger.debug("EmailTarget found(account): %s: %d",
-                              account_id, self.et.entity_id)
+            logger.debug("EmailTarget found for account_id=%r, et_id=%r",
+                         account_id, self.et.entity_id)
         except Errors.NotFoundError:
             self.et.populate(self.constants.email_target_account,
                              target_entity_id=int(account_id),
                              target_entity_type=self.constants.entity_account)
             self.et.write_db()
-            self.logger.debug("EmailTarget created: %s: %d",
-                              account_id, self.et.entity_id)
+            logger.debug("EmailTarget created for account_id=%r, et_id=%r",
+                         account_id, self.et.entity_id)
 
         try:
             self.ea.find_by_address(addr)
-            self.logger.debug("EmailAddress found: addr='%s': ea_id:%d", addr,
-                              self.ea.entity_id)
+            logger.debug("EmailAddress found, addr=%r, ea_id=%r",
+                         addr, self.ea.entity_id)
         except Errors.NotFoundError:
             self.ea.populate(lp, self.edom.entity_id, self.et.entity_id,
                              expire_date)
             self.ea.write_db()
-            self.logger.debug("EmailAddress created: addr='%s': ea_id='%d'",
-                              addr, self.ea.entity_id)
+            logger.debug("EmailAddress created, addr=%r, ea_id=%r",
+                         addr, self.ea.entity_id)
 
         try:
             self.epat.find(self.et.entity_id)
-            self.logger.debug("EmailPrimary found: addr=%s,et=%d ea=%d",
-                              addr, self.epat.entity_id,
-                              self.epat.email_primaddr_id)
-            if (is_primary and (
-                    self.epat.email_primaddr_id != self.ea.entity_id)):
-                self.logger.info(
-                    "EmailPrimary NOT equal to this email id (%d), updating..." % self.ea.entity_id)
+            logger.debug("EmailPrimary found, addr=%r, et_id=%r, ea_id=%r",
+                         addr, self.epat.entity_id,
+                         self.epat.email_primaddr_id)
+            if (is_primary and
+                    self.epat.email_primaddr_id != self.ea.entity_id):
+                logger.info("EmailPrimary is out of date (%r != %r), updating",
+                            self.epat.email_primaddr_id, self.ea.entity_id)
 
                 try:
-                    self.epat.delete()  # deletes old emailprimary, ready to create new
+                    # deletes old emailprimary, ready to create new
+                    self.epat.delete()
                     self.epat.clear()
                     self.epat.populate(self.ea.entity_id, parent=self.et)
                     self.epat.write_db()
-                    self.logger.debug(
-                        "EmailPrimary created: addr='%s'(ea_id=%d): et_id%d",
-                        addr, self.ea.entity_id, self.epat.entity_id)
-                except Exception, msg:
-                    self.logger.error(
-                        "EmailPrimaryAddess Failed to set for %s: ea: %d, et: %d! Reason:%s",
-                        addr, self.ea.entity_id, self.et.entity_id,
-                        str(msg).replace('\n', '--'))
+                    logger.debug("EmailPrimary created, addr=%r, et_id=%r, "
+                                 "ea_id=%r",
+                                 addr, self.epat.entity_id,
+                                 self.ea.entity_id)
+                except Exception:
+                    logger.error("Failed to set EmailPrimaryAddess for "
+                                 "addr=%r, ea_id=%r, et_id=%r",
+                                 addr, self.ea.entity_id, self.et.entity_id,
+                                 exc_info=True)
         except Errors.NotFoundError:
             if self.ea.email_addr_target_id == self.et.entity_id:
-                if (is_primary):
+                if is_primary:
                     self.epat.clear()
                     self.epat.populate(self.ea.entity_id, parent=self.et)
                     self.epat.write_db()
-                    self.logger.debug(
-                        "EmailPrimary created: addr='%s': et_id='%d', ea_id='%d'",
-                        addr, self.epat.entity_id, self.ea.entity_id)
+                    logger.debug("EmailPrimary created, addr=%r, et_id=%r, "
+                                 "ea_id=%r",
+                                 addr, self.epat.entity_id,
+                                 self.ea.entity_id)
             else:
-                self.logger.error(
-                    "EmailTarget mismatch: ea: %d, et: %d: EmailPrimary not set",
-                    self.ea.email_addr_target_id, self.et.entity_id)
+                logger.error("Mismatch on EmailPrimary, primary address not "
+                             "updated (existing et_id=%r, new et_id=%r)",
+                             self.ea.email_addr_target_id, self.et.entity_id)
 
         self.et.clear()
         self.ea.clear()
         self.edom.clear()
         self.epat.clear()
+
+
+# For legacy support
+email_address = PrimaryAddressUtil
