@@ -1,7 +1,7 @@
 #!/bin/env python
-# -*- coding: iso-8859-1 -*-
-
-# Copyright 2003, 2004 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,138 +18,145 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Remove expired account spreads (Cerebrum.modules.spread_expire)
+"""
 
-import os
-import sys
-import getopt
-import mx.DateTime
+import argparse
+import datetime
+import logging
 
+import six
 
-
-__filename__=os.path.basename(sys.argv[0])
-__doc__ = """
-
-Usage %s options
-options is
-
-   -s | --spread <name,[name, .. ,name] : Commaseparated list of spreads to process. Default is ALL spreads.
-   -d | --dryrun         : Dryrun, do not change db.
-   --logger-name <name>  : Which logger to use
-   --logger-level <name  : Which loglevel to use
-
-""" % (__filename__)
-
-
-import cerebrum_path
-import cereconf
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
+from Cerebrum.Constants import _SpreadCode as SpreadCode
 from Cerebrum.Utils import Factory
-from Cerebrum.Constants import _SpreadCode
-
-DAYS_TO_WAIT=0
-DELETE_FROM=mx.DateTime.today()- mx.DateTime.DateTimeDelta(DAYS_TO_WAIT)
-
-db=Factory.get('Database')()
-db.cl_init(change_program=__filename__)
-co=Factory.get('Constants')(db)
-logger = Factory.get_logger('cronjob')
+from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.utils.argutils import get_constant
 
 
+logger = logging.getLogger(__name__)
 
-def process_spread(spread):
-    spread_txt = spread
-    #print "processing spread:%s" % spread
+
+def process_spread(db, spread, cutoff_date):
     try:
-        if not isinstance(spread,int):
-            spread = int(co.Spread(spread))
-    except Exception,m:
-        logger.error("Could not understand spread=%s, %" % (spread,m))
-        return
-    else:
-        logger.info("Cleaning spread %s (%s)" % (spread, spread_txt))
-        ac=Factory.get('Account')(db)
+        int(spread)
+    except Exception:
+        logger.error("Invalid spread=%r", spread)
+        raise
+    logger.info("Cleaning spread %r", spread)
+    ac = Factory.get('Account')(db)
 
-        #logger.info("Caching spreads to be kept")
-        #spreads_to_keep = ac.search_spread_expire(spread=spread, expire_date=CUTOFF_DATE)
+    logger.info("Fetching spreads with expire date...")
+    spread_expire_table = ac.search_spread_expire(spread=spread)
 
-        logger.info("Caching spread expire table")
-        spread_expire_table = ac.search_spread_expire(spread=spread)
-
-        keep_cache = {}
-        for sd in spread_expire_table:
-            if mx.DateTime.DateFrom(sd['expire_date']) >= DELETE_FROM:
-                keep_cache[(sd['entity_id'], sd['spread'])] = sd['expire_date']
-                ac.notify_spread_expire(**dict(sd))
-
-        count=0
-        for i in ac.search(spread=spread, expire_start=None):
-            ac.clear()
-
-            # Don't clean if the spread has been seen within defined cutoff
-            if keep_cache.has_key((i['account_id'], spread)):
-                continue
-
-            ac.find(i['account_id'])
-            logger.info("Cleaning spread %s (%s) on account %s" % (spread_txt, spread, ac.account_name))
-            try:
-                ac.clear_home(spread)
-            except Errors.NotFoundError:
-                # homedir not found, thats ok.
-                logger.warn("%s had no homedir on spread %s" % \
-                            (ac.account_name,spread_txt))
-            ac.delete_spread(spread)
-            #ac.write_db()
-            count+=1
-        logger.info("Finished cleaning spread %s, deleted %d" % (spread,count))
-
-
-def usage(exit_code=0,m=None):
-    if m:
-        print m
-    print __doc__
-    sys.exit(exit_code)
-    
-
-def main():
-
-    try:
-        opts,args = getopt.getopt(sys.argv[1:],'s:dh',
-                                  ['spread','dryrun','help'])
-    except getopt.GetoptError,m:
-        usage(1,m)
-
-    dryrun = False
-    spread_list=None
-    for opt,val in opts:
-        if opt in('-s','--spread'):
-            spread_list = val
-        if opt in('-d','--dryrun'):
-            dryrun = True
-        if opt in('-h','--help'):
-            usage()
-
-    if spread_list is None:
-        spread_list = []
-        for c in dir(co):
-            tmp = getattr(co, c)
-            if isinstance(tmp, _SpreadCode):
-                spread_list.append(str(tmp))
-        spread_list = ','.join(spread_list)
-
-    logger.debug("deleting spreads expired before %s" % (DELETE_FROM,))
-    for s in spread_list.split(','):
-        if s == 'exchange_mailbox':
-            logger.info("Skipping exchange spread")
+    keep_cache = {}
+    for sd in spread_expire_table:
+        expire_date = (sd['expire_date'].pydate()
+                       if sd['expire_date']
+                       else None)
+        if expire_date and expire_date < cutoff_date:
+            # spread to remove
             continue
-        process_spread(s)
+        if expire_date:
+            ac.notify_spread_expire(**dict(sd))
+        else:
+            logger.debug("No expire date for entity_id=%d, spread=%s",
+                         sd['entity_id'], spread)
 
-    if dryrun:
-        db.rollback()
-        logger.info("Dryrun, do not change database")
+        keep_cache[(sd['entity_id'], int(sd['spread']))] = expire_date
+
+    # TODO: It would probably be more efficient to process *all* spreads, i.e.
+    #       map {account_id: [matching spreads], ...} and iterate over each
+    #       account - so we'd only need to do ac.find() once per account!
+    count = 0
+    for i in ac.search(spread=spread, expire_start=None):
+        # Don't clean if the spread has been seen within defined cutoff
+        if (i['account_id'], int(spread)) in keep_cache:
+            continue
+
+        ac.clear()
+        ac.find(i['account_id'])
+        logger.info("Removing spread=%r on account_id=%r (%s)",
+                    spread, ac.entity_id, ac.account_name)
+        try:
+            ac.clear_home(spread)
+        except Errors.NotFoundError:
+            logger.warning("No homedir for account_id=%r spread=%s",
+                           ac.entity_id, spread)
+        ac.delete_spread(spread)
+        count += 1
+    logger.info("Removed %d spreads of type %s, ", count, spread)
+
+
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description="Remove expired spreads",
+    )
+    spread_arg = parser.add_argument(
+        '-s', '--spread',
+        dest='spreads',
+        action='append',
+        help='Add a spread type to remove (default: all types)',
+        metavar='<spread>',
+    )
+    parser.add_argument(
+        '--days',
+        dest='days',
+        type=int,
+        default=0,
+        help='Set cutoff date to %(metavar)s days ago (default: %(default)s)',
+        metavar='<days>',
+    )
+
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start of %s', parser.prog)
+    logger.debug('args: %r', args)
+
+    db = Factory.get('Database')()
+    db.cl_init(change_program=parser.prog)
+    co = Factory.get('Constants')(db)
+
+    if args.spreads:
+        spreads = tuple(
+            get_constant(db, parser, SpreadCode, value, spread_arg)
+            for value in args.spreads)
+        # TODO: Throw error if spread.entity_type is wrong?
     else:
+        spreads = tuple(s for s in co.fetch_constants(SpreadCode)
+                        if s.entity_type == co.entity_account)
+    logger.info("Spreads: %r", map(six.text_type, spreads))
+
+    cutoff = datetime.date.today() - datetime.timedelta(days=args.days)
+    logger.info("Start date: %r", cutoff)
+
+    for spread in spreads:
+        if spread == co.spread_uit_exchange:
+            logger.info("Skipping spread=%s", spread)
+            continue
+        elif spread.entity_type != co.entity_account:
+            logger.info("Skipping spread=%s for entity_type=%s",
+                        spread, spread.entity_type)
+            continue
+        else:
+            logger.info("Processing spread: %s", spread)
+        process_spread(db, spread, cutoff)
+
+    if args.commit:
+        logger.info('Commiting changes')
         db.commit()
-        logger.info("Committed all changes")
+    else:
+        logger.info('Rolling back changes')
+        db.rollback()
+    logger.info('Done %s', parser.prog)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     main()
