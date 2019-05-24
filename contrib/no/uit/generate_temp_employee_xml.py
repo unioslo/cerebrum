@@ -62,116 +62,152 @@ kbj005 2015.02.25: Copied from Leetah.
 """
 from __future__ import unicode_literals
 
-import copy
+import argparse
+import csv
 import datetime
-import getopt
+import logging
 import os
-import sys
-import time
 
-import mx.DateTime
+import six
 from lxml import etree
 
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.utils.argutils import get_constant
 
-progname = __file__.split(os.sep)[-1]
-logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
-
-db = Factory.get('Database')()
-db.cl_init(change_program=progname)
-
-group = Factory.get('Group')(db)
-person = Factory.get('Person')(db)
-const = Factory.get('Constants')(db)
-account = Factory.get('Account')(db)
-ou = Factory.get('OU')(db)
-
-dumpdir = cereconf.DUMPDIR
+logger = logging.getLogger(__name__)
 
 
-class TempVitenskaplig(object):
+class Employment(object):
     """
-    Class containing all relevant information for each entry/person in the xml
-    file.
+    Class containing all relevant information for each person/role
     """
-    def __init__(self, external_id, account_name, faculty_name, email,
-                 stedkode):
+    def __init__(self, person_id, external_id, account_name,
+                 faculty_name, email, stedkode):
+        self.person_id = person_id
         self.account_name = account_name
         self.external_id = external_id
-        self.emp_type = None
         self.stedkode = stedkode
         self.email = email
         self.faculty_name = faculty_name
 
+    def __repr__(self):
+        return '<person_id=%r account=%r sko=%r>' % (self.person_id,
+                                                     self.account_name,
+                                                     self.stedkode)
 
-def set_tj_forhold(person_list, paga_data):
+
+class OuCache(object):
+    """Cache required ou information."""
+
+    def __init__(self, db):
+        ou_ids = self.ou_ids = {}
+        ou_skos = self.ou_skos = {}
+        logger.info('Caching OU data...')
+        co = Factory.get('Constants')(db)
+        ou = Factory.get('OU')(db)
+        for row in ou.get_stedkoder():
+            ou.clear()
+            ou.find(row['ou_id'])
+            sko = "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
+            ou_ids[row['ou_id']] = ou_skos[sko] = {
+                'sko': sko,
+                'faculty': "%02d0000" % (ou.fakultet, ),
+                'name': ou.get_name_with_language(co.ou_name_acronym,
+                                                  co.language_nb,
+                                                  default=''),
+            }
+        # Quick sanity check
+        for ou_dict in ou_ids.values():
+            if ou_dict['faculty'] not in ou_skos:
+                logger.error("No faculty=%r found for ou=%r",
+                             ou_dict['faculty'], ou_dict)
+        logger.info('cached %d ous (%d ou sko)',
+                    len(ou_ids), len(ou_skos))
+
+    def get_sko(self, ou_id):
+        return self.ou_ids[ou_id]['sko']
+
+    def get_faculty_name(self, ou_id):
+        faculty_sko = self.ou_ids[ou_id]['faculty']
+        return self.ou_skos[faculty_sko]['name']
+
+
+def filter_employees(persons, employee_data):
     """
-    Update tj_forhold
+    Filter out unqualified persons accoring to employee data.
 
-    Foreach person in person_list, set tj_forhold:
+    :type person_list: iterable
+    :param person_list:
+        An iterable of :py:class:`Employment` objects.
 
-    Only prosess persons which:
+    :type employee_data: dict
+    :param employee_data:
+        A dict that maps from fnr to employee data from paga.
+
+    The result will only include person objects which:
 
     - has fnr in paga file and BAS
     - has stedkode in paga file that matches stedkode from BAS
     - has stillingsprosent > 49%
     - has employment type != F
     """
-    qualified_list = []
-    for person in person_list:
-        found = False
-        for paga_person in paga_data:
-            if person.external_id == paga_person['fnr']:
-                # fnr from BAS also exists in paga file
-                found = True
-                if person.stedkode == paga_person['stedkode']:
-                    # correct stedkode
-                    my_prosent = str(paga_person['prosent']).split(',', 1)
-                    if int(my_prosent[0]) > 49:
-                        # prosent:%s is larger than 50 %
-                        person.emp_type = paga_person['ansatt_type']
-                        if person.emp_type != 'F':
-                            qualified_person = copy.deepcopy(person)
-                            qualified_list.append(qualified_person)
-                            logger.debug("setting employment type:%s "
-                                         "for person:%s",
-                                         paga_person['ansatt_type'],
-                                         person.external_id)
+    for person in persons:
+        if person.external_id not in employee_data:
+            logger.warning("Unable to find person=%s in employee_data",
+                           repr(person))
+            continue
 
-                        else:
-                            logger.debug("person:%s has permanent job. "
-                                         "NOT inserting", person.external_id)
-                    else:
-                        logger.warning("person:%s has prosent:%s. which is "
-                                       "less than 50. NOT inserting",
-                                       person.external_id, my_prosent[0])
-                else:
-                    # no match on stedkode
-                    logger.debug("match on fnr:%s, but stedkode:%s from BAS "
-                                 "does not match stedkode:%s from PAGA",
-                                 person.external_id, person.stedkode,
-                                 paga_person['stedkode'])
-        if not found:
-            logger.debug("Unable to find fnr:%s in paga file",
-                         person.external_id)
-    return qualified_list
+        for employment in employee_data[person.external_id]:
+            if person.stedkode != employment['stedkode']:
+                logger.debug("Mismatch on sko for person=%s (stedkode=%r)",
+                             repr(person), employment['stedkode'])
+                # Note: There may exist another person object whith the correct
+                #       stedkode?
+                continue
+
+            # TODO: Why don't we check for value < 50?
+            if employment['prosent'] <= 49:
+                logger.warning("Skipping person=%s with employment "
+                               "%r%% < 50%%",
+                               repr(person), employment['prosent'])
+                continue
+            if not employment['ansatt_type']:
+                logger.error("Missing employment type for person=%s, skipping",
+                             repr(person))
+                continue
+            if employment['ansatt_type'] == 'F':
+                logger.debug("Skipping person=%s with employment type=%r",
+                             repr(person), employment['ansatt_type'])
+                # TODO: This may be incorrect?
+                #       Should the person be exported if *any* of the
+                #       employments contains 'F'? They are now!
+                continue
+
+            logger.info("Including employment for person=%s, type=%r",
+                        repr(person), employment['ansatt_type'])
+            person.emp_type = employment['ansatt_type']
+            yield person
 
 
 def write_xml(qualified_list, out_file):
     """Write persondata to xml file."""
     logger.debug("Writing output to %r", out_file)
-    root_members = []
-    ts = time.time()
-    st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
 
+    # Organize qualified by faculty name, TODO: Use ordereddict/defaultdict
     faculty_list = []
-    # generate faculty name list for easier xml generation
+    by_faculty = dict()
     for qualified in qualified_list:
         if qualified.faculty_name not in faculty_list:
             faculty_list.append(qualified.faculty_name)
+            by_faculty[qualified.faculty_name] = list()
+        if qualified not in by_faculty[qualified.faculty_name]:
+            by_faculty[qualified.faculty_name].append(qualified)
 
     # generate xml root node
     data = etree.Element('data')
@@ -181,14 +217,14 @@ def write_xml(qualified_list, out_file):
 
     # Generate properties node with timestamp
     tstamp = etree.SubElement(properties, 'tstamp')
-    tstamp.text = "%s" % st
+    tstamp.text = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     # generate global group which has all other groups as members
     global_group = etree.SubElement(data, 'groups')
 
     # create 1 group foreach entry in faculty_list
+    root_members = []
     for faculty in faculty_list:
-        member_list = []
         group = etree.SubElement(global_group, 'group')
         mailtip = etree.SubElement(group, 'MailTip')
         mailtip.text = "%s Midlertidige vitenskapelige ansatte" % faculty
@@ -196,45 +232,29 @@ def write_xml(qualified_list, out_file):
         displayname = etree.SubElement(group, 'displayname')
         displayname.text = "%s Midlertidige vitenskapelige ansatte" % faculty
 
-        account_names = ''
-        for qualified in qualified_list:
-            if qualified.emp_type:
-                # sanity check...
-                if qualified.emp_type != 'F':
-                    if qualified.faculty_name == faculty:
-                        # make sure usernames are unique (no duplicates) within
-                        # each group
-                        if qualified.account_name not in member_list:
-                            member_list.append(qualified.account_name)
-                            account_names = '%s,%s' % (account_names,
-                                                       qualified.account_name)
-                            account_names = account_names.lstrip(',')
-                        else:
-                            logger.warn("member:%s not added to group:%s since"
-                                        " the username already exists there",
-                                        qualified.account_name,
-                                        displayname.text)
+        member_list = []
+        for qualified in by_faculty[faculty]:
+            # make sure usernames are unique (no duplicates) within
+            # each group
+            if qualified.account_name not in member_list:
+                member_list.append(qualified.account_name)
             else:
-                logger.warn("ERROR: person:%s does not have emp_type from Paga"
-                            " file. person did not qualify",
-                            qualified.external_id)
+                logger.warning("Duplicate member=%r of group=%r",
+                               qualified.account_name, displayname.text)
 
         acc_name = etree.SubElement(group, 'members')
-        acc_name.text = "%s" % account_names
+        acc_name.text = ','.join(member_list)
         name = etree.SubElement(group, 'name')
         name.text = "%s Midlertidige vitenskapelige ansatte" % faculty
         samaccountname = etree.SubElement(group, 'samaccountname')
-        samaccountname.text = "uit.%s.midl.vit.ansatt" % faculty
-        samaccountname.text = samaccountname.text.lower()
+        samaccountname.text = ("uit.%s.midl.vit.ansatt" % (faculty,)).lower()
         root_members.append(samaccountname.text)
 
         mail = etree.SubElement(group, 'mail')
-        mail.text = "%s@auto.uit.no" % samaccountname.text
-        mail.text = mail.text.lower()
+        mail.text = ("%s@auto.uit.no" % (samaccountname.text,)).lower()
 
         mail_nick = etree.SubElement(group, 'alias')
-        mail_nick.text = "%s.midl.vit.ansatt" % faculty
-        mail_nick.text = mail_nick.text.lower()
+        mail_nick.text = ("%s.midl.vit.ansatt" % (faculty,)).lower()
 
     #
     # generate root group
@@ -259,225 +279,201 @@ def write_xml(qualified_list, out_file):
     name.text = "Midlertidig vitenskapelige ansatte UiT"
 
     # create list of all facultys
-    all_facultys = ",".join(root_members)
     samaccountname = etree.SubElement(system_group, 'samaccountname')
     samaccountname.text = "uit.midl.vit.ansatt"
 
     members = etree.SubElement(system_group, 'members')
-    members.text = "%s" % all_facultys
+    members.text = ",".join(root_members)
 
     with open(out_file, 'w') as fh:
-        fh.writelines(etree.tostring(data,
-                                     pretty_print=True,
-                                     encoding='iso-8859-1'))
+        fh.write(etree.tostring(data,
+                                pretty_print=True,
+                                encoding='iso-8859-1'))
 
 
-#
-# Read (paga) person file
-#
-def read_paga(filename):
-    paga_person = []
-    paga_dict = {}
-    fh = open(filename, 'r')
-    for line in fh:
-        line = line.decode("iso-8859-1")
-        line_data = line.split(";")
+def read_employee_data(filename, encoding='iso-8859-1', charsep=';'):
+    """Read and decode entried from the paga CSV file."""
+    logger.info("Reading employee data from file=%r (encoding=%r, charsep=%r)",
+                filename, encoding, charsep)
+    count = 0
+    with open(filename, mode='rb') as f:
+        for data in csv.DictReader(f, delimiter=charsep.encode(encoding)):
+            paga_dict = {k.decode(encoding): v.decode(encoding)
+                         for k, v in data.items()}
+            # PAGA uses ',' as a decimal separator
+            pct = float(paga_dict['St.andel'].replace(',', '.'))
+            yield {
+                'fnr': paga_dict['Fødselsnummer'],
+                'ansatt_type': paga_dict['Tj.forh.'],
+                'prosent': pct,
+                'stedkode': paga_dict['Org.nr.'],
+            }
+            count += 1
+    logger.info("Read %d entries from file", count)
 
-        paga_dict = {
-            'fnr': line_data[0],
-            'ansatt_type': line_data[39],
-            'prosent': line_data[36],
-            'stedkode': line_data[15],
-        }
-        paga_person.append(paga_dict)
-    return paga_person
 
-
-def get_persons(aff_status):
+def get_persons(db, affiliation_status_types):
     """
     Get persons from database.
 
     Generate list of all persons (in BAS DB) with the correct affiliation
     status.
 
+    :param affiliation_status_types:
+        An iterable of PersonAffStatus affiliations to find
+
     :rtype: list
     :return:
         A list of dicts, each dict contains keys: account id, person id,
         external id, group membership
     """
-    person_list = []
+    const = Factory.get('Constants')(db)
+    person = Factory.get('Person')(db)
+    account = Factory.get('Account')(db)
 
-    for aff in aff_status:
-        if aff == 'vitenskapelig':
-            decoded_aff_status = int(
-                const.affiliation_status_ansatt_vitenskapelig)
+    sys_lookup_order = tuple((
+        const.human2constant(value, const.AuthoritativeSystem)
+        for value in cereconf.SYSTEM_LOOKUP_ORDER))
+    logger.debug("system_lookup_order: %r", map(six.text_type,
+                                                sys_lookup_order))
 
-        # collect employee persons with affiliation = ansatt
-        for row in person.list_affiliations(
-                affiliation=const.affiliation_ansatt,
-                status=decoded_aff_status):
+    ou_cache = OuCache(db)
+
+    def select_fnr(entity_id):
+        """ Get preferred fnr for a given person_id. """
+        ext_ids = {int(r['source_system']): r['external_id']
+                   for r in person.search_external_ids(
+                        entity_id=entity_id,
+                        source_system=sys_lookup_order,
+                        id_type=const.externalid_fodselsnr)}
+        for pref in sys_lookup_order:
+            if int(pref) in ext_ids:
+                return ext_ids[int(pref)]
+        raise Errors.NotFoundError("No fnr for person_id=%r" % (entity_id,))
+
+    count = 0
+
+    logger.info("Fetching persons with affiliations %r ...",
+                map(six.text_type, affiliation_status_types))
+    for affst in affiliation_status_types:
+        # TODO: Do we ever want anything else than vitenskapelige?
+        #       Could we just do a search on all affs in aff_status in one go?
+        logger.debug("Processing aff=%r", affst)
+        for row in person.list_affiliations(affiliation=affst.affiliation,
+                                            status=affst):
+            person_id = row['person_id']
+            external_id = select_fnr(person_id)
+
             person.clear()
-            data = (row['person_id'])
-            person.find(data)
+            person.find(person_id)
 
-            external_id = person.get_external_id(
-                id_type=const.externalid_fodselsnr)
-            decoded_external_id = None
-
-            # get external_id filtered by SYSTEM_LOOKUP
-            for system in cereconf.SYSTEM_LOOKUP_ORDER:
-                system_id = getattr(const, system)
-                for id in external_id:
-                    # get fnr with highest priority from SYSTEM_LOOKUP_ORDER
-                    id_source = const.AuthoritativeSystem(id['source_system'])
-                    if str(system_id) == str(id_source):
-                        decoded_external_id = id['external_id']
-                        break
-                if decoded_external_id is not None:
-                    break
-            if decoded_external_id is None:
-                # TODO: Raise Exception?
-                logger.critical("no external id for person:%s. exiting", data)
-                sys.exit(1)
-
+            primary_acc_id = person.get_primary_account()
+            if primary_acc_id is None:
+                logger.warning("No primary account for person_id=%r, skipping",
+                               person_id)
+                continue
             # Get primary account for all of persons having employee
             # affiliation
-            acc_id = person.get_primary_account()
-            if acc_id is not None:
-                account.clear()
-                account.find(acc_id)
-                acc_name = account.get_account_name()
-                try:
-                    email = account.get_primary_mailaddress()
-                except Errors.NotFoundError:
-                    logger.warning("Account %s (%s) has no primary email "
-                                   "address", acc_id, acc_name)
-                    email = None
-                ou.clear()
-                try:
-                    ou.find(row['ou_id'])
-                except Exception:
-                    logger.warning("unable to find ou_id:%s. Is it expired?",
-                                   row['ou_id'])
-                    continue
-                faculty_sko = ou.fakultet
-                my_fakultet = ou.fakultet
-                my_institutt = ou.institutt
-                my_avdeling = ou.avdeling
+            account.clear()
+            account.find(primary_acc_id)
+            acc_name = account.account_name
+            try:
+                email = account.get_primary_mailaddress()
+            except Errors.NotFoundError:
+                logger.warning("No email address for account_id=%r (%s)",
+                               account.account_id, account.account_name)
+                email = None
 
-                if str(my_fakultet).__len__() == 1:
-                    my_fakultet = "0%s" % my_fakultet
-                if str(ou.institutt).__len__() == 1:
-                    my_institutt = "0%s" % my_institutt
-                if str(ou.avdeling).__len__() == 1:
-                    my_avdeling = "0%s" % my_avdeling
+            my_stedkode = ou_cache.get_sko(row['ou_id'])
+            faculty_name = ou_cache.get_faculty_name(row['ou_id'])
 
-                my_stedkode = "%s%s%s" % (my_fakultet,
-                                          my_institutt,
-                                          my_avdeling)
-                sko_ou_id = ou.get_stedkoder(fakultet=faculty_sko,
-                                             institutt=0,
-                                             avdeling=0)
-                my_ou_id = sko_ou_id[0]['ou_id']
-                ou.clear()
-                ou.find(my_ou_id)
-                faculty_name = ou.get_name_with_language(const.ou_name_acronym,
-                                                         const.language_nb,
-                                                         default='')
-                logger.debug("collecting person from BAS: %s, %s, %s, %s, %s",
-                             decoded_external_id, acc_name, faculty_name,
+            logger.debug("Found candidate person_id=%r in db", person_id)
+            emp = Employment(person_id, external_id, acc_name, faculty_name,
                              email, my_stedkode)
-                person_node = TempVitenskaplig(decoded_external_id, acc_name,
-                                               faculty_name, email,
-                                               my_stedkode)
-                person_list.append(person_node)
-    return person_list
+            count += 1
+            yield emp
+    logger.info("Found %d persons in database", count)
 
 
-def verify_file(personfile):
-    """
-    Verify that file personfile exists. Exit if not
-    """
-    if not os.path.isfile(personfile):
-        logger.critical("ERROR: File:%s does not exist. Exiting", personfile)
-        sys.exit(1)
+default_log_preset = getattr(cereconf, 'DEFAULT_LOGGER_TARGET', 'cronjob')
+default_in_file = os.path.join(cereconf.DUMPDIR, 'paga/uit_paga_last.csv')
+default_out_file = os.path.join(
+    cereconf.DUMPDIR,
+    "temp_emp_%s.xml" % datetime.date.today().strftime("%Y-%m-%d"))
+default_aff_status = 'ANSATT/vitenskapelig'
 
 
-def main():
-    global person_list
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description="Generate a scientific employments XML file",
+    )
+    parser.add_argument(
+        '-p', '--person-file',
+        dest='in_filename',
+        help='Read and import persons from %(metavar)s (%(default)s)',
+        default=default_in_file,
+        metavar='<filename>',
+    )
+    parser.add_argument(
+        '-o', '--out-file',
+        dest='out_filename',
+        help='Write XML file to %(metavar)s (%(default)s)',
+        default=default_out_file,
+        metavar='<filename>',
+    )
+    aff_status_arg = parser.add_argument(
+        '-a', '--aff-status',
+        dest='aff_status',
+        action='append',
+        help=('Add a person affiliation status to be included in the output.'
+              'The argument can be repeated. If no aff-status arguments are '
+              'given, %s will be used as a default' % (default_aff_status,)),
+        metavar='<aff>',
+    )
 
-    today = mx.DateTime.today().strftime("%Y-%m-%d")
-    person_file = None
-    aff_status = 'vitenskapelig'
-    out_mal = "temp_emp_%s.xml" % today
-    out_file = os.path.join(dumpdir, out_mal)
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    try:
-        opts, args = getopt.getopt(
-            sys.argv[1:],
-            'p:o:ha:',
-            ['person_file=', 'ou_file=', 'help', 'aff_status='])
-    except getopt.GetoptError as m:
-        usage(1, m)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf(default_log_preset, args)
 
-    for opt, val in opts:
-        if opt in('-p', '--person_file'):
-            person_file = val
-        if opt in('-o', '--out'):
-            out_file = val
-        if opt in('-a', '--aff_status'):
-            aff_status = val
-        if opt in('-h', '--help'):
-            msg = 'display help information'
-            usage(1, msg)
-    if not out_file or not person_file:
-        msg = "you must spesify person file and out file"
-        usage(1, msg)
-        raise SystemExit(1)
+    logger.info('Start of %s', parser.prog)
+    logger.debug('args: %r', args)
 
-    verify_file(person_file)
+    db = Factory.get('Database')()
+    co = Factory.get('Constants')(db)
+
+    aff_status = [
+        get_constant(db, parser, co.PersonAffStatus, v, aff_status_arg)
+        for v in (args.aff_status or (default_aff_status,))]
+    logger.info("Affiliations: %r", map(six.text_type, aff_status))
+
+    person_file = args.in_filename
+    out_file = args.out_filename
+
+    if not person_file:
+        raise ValueError("Invalid input filename %r" % (person_file, ))
+    if not os.path.exists(person_file):
+        raise IOError("Input file %r does not exist" % (person_file, ))
+    if not out_file:
+        raise ValueError("Invalid output filename %r" % (out_file, ))
 
     # generate personlist from BAS
-    logger.info("Fetching persons...")
-    person_list = get_persons([aff_status])
-    logger.info("Found %d persons", len(person_list))
+    persons = list(get_persons(db, aff_status))
 
     # read paga file
-    logger.info("Reading persons from %r ...", person_file)
-    paga_data = read_paga(person_file)
-    logger.info("Found %d items", len(paga_data))
+    employee_data = {}
+    for d in read_employee_data(person_file):
+        employee_data.setdefault(d['fnr'], []).append(d)
 
-    # Add tj.Forhold data for each person
-    logger.info("Setting employment type...")
-    qualified_list = set_tj_forhold(person_list, paga_data)
+    # Select all persons that qualify accoring to paga_data
+    logger.info("Filtering by employment type...")
+    qualified_list = list(filter_employees(persons, employee_data))
     logger.info("Found %d qualified", len(qualified_list))
 
     # write xml file
     write_xml(qualified_list, out_file)
-    logger.info("Wrote list to %r", out_file)
-
-
-def usage(exitcode=0, msg=None):
-    help_text = """
-    This script generates an xml file with information about
-    temporary employed scientific persons at UiT.
-
-    usage:: %s <-p person_file> [-t <employee_type>] <-o outfile.xml> [-h]
-
-    options:
-       [--logger-name]      - Where to log
-       [-p | --person_file] - Source file containing person info (from paga)
-       [-a | --aff_status]  - one or more of (vitenskapelig,drgrad,gjest,etc).
-                              This is a comma separated list.
-                              Default value is: vitenskapelig
-       [-o | --out]         - Destination xml file
-       [-h | --help]        - This text
-
-    """ % (progname,)
-    if msg:
-        print msg
-    print help_text
-    sys.exit(exitcode)
+    logger.info("Wrote employee groups to %r", out_file)
 
 
 if __name__ == '__main__':
