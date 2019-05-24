@@ -59,7 +59,7 @@ from Cerebrum.modules.no.uio import PrinterQuotas
 proffile = 'hotshot.prof'
 
 
-logger = Factory.get_logger('autostud')
+logger = Factory.get_logger('studauto')
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_students')
