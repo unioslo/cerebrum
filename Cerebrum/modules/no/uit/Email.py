@@ -135,7 +135,7 @@ class UiTAccountEmailMixin(AccountEmailMixin):
         return ret
 
 
-class PrimaryAddressUtil(object):
+class EmailAddressUtil(object):
 
     def __init__(self, db, **kwargs):
         self.db = db
@@ -165,8 +165,9 @@ class PrimaryAddressUtil(object):
 
     def process_mail(self, account_id, addr, is_primary=False,
                      expire_date=None):
-        logger.debug("Processing primary address for account_id=%r",
-                     account_id)
+        logger.debug("process_mail(account_id=%r, addr=%r, "
+                     "is_primary=%r, expire_date=%r)",
+                     account_id, addr, is_primary, expire_date)
         if addr is None:
             # this account has no email address attached to it.
             # return None to the calling process
@@ -257,4 +258,4 @@ class PrimaryAddressUtil(object):
 
 
 # For legacy support
-email_address = PrimaryAddressUtil
+email_address = EmailAddressUtil
