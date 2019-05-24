@@ -31,6 +31,7 @@ import logging
 import os
 
 import cereconf
+from Cerebrum.modules.LDIFutils import ldapconf
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
@@ -52,7 +53,7 @@ def main(inargs=None):
     user = cereconf.LDAP['user']
     password = cereconf.LDAP['password']
 
-    ldap_dump_dir = os.path.join(cereconf.DUMPDIR, 'ldap')
+    ldap_dump_dir = ldapconf(None, 'dump_dir')
     infile = os.path.join(ldap_dump_dir, 'uit_diff_%s' % (today, ))
     ldap_temp_file = os.path.join(ldap_dump_dir, "temp_uit_ldif")
     ldap_diff = os.path.join(ldap_dump_dir, "uit_ldif")
