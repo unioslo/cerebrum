@@ -362,7 +362,7 @@ class OuGroupProcessor(object):
 
         return
 
-    def processor(self):
+    def process(self):
 
         # Load group_dict - {ou_id:group_id}
         #      group_delete_list - [ou_id,]
@@ -546,7 +546,7 @@ def main(inargs=None):
     db.cl_init(change_program='process_ou_groups.py')
 
     processor = OuGroupProcessor(db, args.perspective)
-    processor.processor()
+    processor.process()
 
     if args.commit:
         db.commit()
