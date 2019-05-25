@@ -756,9 +756,6 @@ def import_ous(db, ou_list):
                 stats['added'], stats['updated'])
 
 
-default_log_preset = getattr(cereconf, 'DEFAULT_LOGGER_TARGET', 'console')
-
-
 def main(inargs=None):
     parser = argparse.ArgumentParser(
         description="Import SITO XML files into the Cerebrum database")
@@ -777,7 +774,7 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf(default_log_preset, args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Start of %s', parser.prog)
     logger.debug('args: %r', args)

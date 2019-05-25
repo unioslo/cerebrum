@@ -35,7 +35,7 @@ from Cerebrum.modules.no.uit import Email
 #from Cerebrum.modules import Email
 
 
-logger=Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+logger=Factory.get_logger('cronjob')
 
 progname = __file__.split("/")[-1]
 db = Factory.get('Database')()

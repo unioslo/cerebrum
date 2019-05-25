@@ -732,7 +732,6 @@ default_filename = 'paga_persons_{date}.xml'.format(
     date=datetime.date.today().strftime('%Y-%m-%d'))
 default_person_file = os.path.join(
     cereconf.DUMPDIR, 'employees', default_filename)
-default_log_preset = getattr(cereconf, 'DEFAULT_LOGGER_TARGET', 'console')
 
 
 def main(inargs=None):
@@ -756,7 +755,7 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf(default_log_preset, args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Start of %s', parser.prog)
     logger.debug('args: %r', args)

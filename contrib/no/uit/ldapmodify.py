@@ -36,7 +36,6 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 
 logger = logging.getLogger(__name__)
-logger_name = cereconf.DEFAULT_LOGGER_TARGET
 
 
 def main(inargs=None):
@@ -44,7 +43,7 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf(logger_name, args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     today = datetime.date.today().sfrftime('%Y%m%d')
 

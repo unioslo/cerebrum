@@ -53,7 +53,7 @@ reader = None
 national_identity_column = 0
 mobile_count = 0
 
-logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+logger = Factory.get_logger('cronjob')
 
 db = Factory.get('Database')()
 db.cl_init(change_program=progname)
