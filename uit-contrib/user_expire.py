@@ -103,7 +103,7 @@ def send_mail(uname, user_info, nr, forward=False):
     # and that cereconf.py has the dict USER_EXPIRE_MAIL
     key = 'mail' + str(nr)
     try:
-        mailfile = os.path.join(cereconf.CB_SOURCEDATA_PATH, 'templates',
+        mailfile = os.path.join(cereconf.TEMPLATE_DIR,
                                 cereconf.USER_EXPIRE_MAIL[key])
         f = open(mailfile)
     except (AttributeError, KeyError):

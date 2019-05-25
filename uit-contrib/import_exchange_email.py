@@ -47,7 +47,8 @@ em = Email.email_address(db, logger=logger)
 #em = Email.EmailAddress(db)
 
 valid_exchange_domains = cereconf.EXCHANGE_CONTROLLED_DOMAINS
-default_import_file = os.path.join(cereconf.CB_SOURCEDATA_PATH, 'ad', 'AD_Emaildump.cvs')
+default_import_file = os.path.join(sys.prefix, 'var/source', 'ad',
+                                   'AD_Emaildump.cvs')
 
 def set_mail(account, localpart, domain, is_primary):
 

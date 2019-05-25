@@ -114,7 +114,7 @@ from Cerebrum.utils.argutils import add_commit_args
 from mx import DateTime
 
 default_source_file = ('%s/var/source/system_accounts/system_accounts.xml' %
-                       cereconf.CB_PREFIX)
+                       sys.prefix)
 default_stay_alive_time = 4  # Weeks
 
 

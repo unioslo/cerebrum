@@ -152,7 +152,8 @@ def main():
 
     date_tmp = time.localtime()
     date_today = "%02d%02d%02d" % (date_tmp[0], date_tmp[1], date_tmp[2])
-    dump_file = os.path.join(cereconf.CB_PREFIX, 'var', 'log', 'cerebrum', 'change_log_%s.bz2' % (date_today))
+    dump_file = os.path.join(sys.prefix, 'var', 'log', 'cerebrum',
+                             'change_log_%s.bz2' % (date_today))
 
     #threshold_date is used by rotate_change_log
     time_float = time.mktime(date_tmp)-(60*60*24*30) # (60*60*24*30) => 1 month
