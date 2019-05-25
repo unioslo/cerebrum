@@ -56,22 +56,23 @@ violation of the FRIDA.dtd).
 
 """
 
+import argparse
 import xml.sax
-import sys
 import os
 import time
-import getopt
 import string
-import cereconf
+
 from xml.sax import make_parser
+
+import cereconf
+import Cerebrum.logutils
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no import fodselsnr
-
 from Cerebrum.modules.xmlutils.system2parser import system2parser
-
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 
 logger = Factory.get_logger('cronjob')
@@ -1554,33 +1555,6 @@ def output_xml(output_file,
     output_stream.close()
 
 
-# end
-
-
-def usage(msg=None):
-    '''
-    Display option summary
-    '''
-
-    options = '''
-options: 
--o, --output-file: output file 
--p, --person-file: person input file 
--s, --sted-file:   sted input file 
--v, --verbose:     output some debugging
--d, --data-source: source that generates frida.xml (default"UITO")
--t, --target:      what (whom :)) the dump is meant for (default "FRIDA")
---logger-name:     name of logger to use
---logger-level:    loglevel to use
--h, --help:        display usage
-    '''
-
-    if msg:
-        print msg
-
-    print options
-
-
 def main():
     """
     Start method for this script. 
@@ -1591,64 +1565,63 @@ def main():
     date_today_paga = "%02d-%02d-%02d" % (date[0], date[1], date[2])
     date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
 
-    output_file = os.path.join(cereconf.DUMPDIR, 'cristin', 'cristin.xml')
-
-    person_file = os.path.join(cereconf.DUMPDIR, 'employees',
+    default_output_file = os.path.join(cereconf.DUMPDIR, 'cristin',
+                                     'cristin.xml')
+    default_person_file = os.path.join(cereconf.DUMPDIR, 'employees',
                                'paga_persons_%s.xml' % date_today_paga)
-    sted_file = os.path.join(cereconf.DUMPDIR, 'ou',
+    default_sted_file = os.path.join(cereconf.DUMPDIR, 'ou',
                              'uit_ou_%s.xml' % date_today)
     verbose = False
     # FIXME: Maybe snatch these from cereconf?
-    data_source = "UITO"
     target = "FRIDA"
 
-    try:
-        options, rest = getopt.getopt(sys.argv[1:],
-                                      "o:p:vd:t:hl:s:", ["output-file=",
-                                                         "person-file=",
-                                                         "sted-file=",
-                                                         "verbose",
-                                                         "data-source=",
-                                                         "target",
-                                                         "help",
-                                                         "logger_name=", ])
-    except getopt.GetoptError, m:
-        usage(m)
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description=__doc__)
 
-    for option, value in options:
-        if option in ("-o", "--output-file"):
-            output_file = value
-        elif option in ("-p", "--person-file"):
-            person_file = value
-        elif option in ("-s", "--sted-file"):
-            sted_file = value
-        elif option in ("-v", "--verbose"):
-            print "Unimplemented option: %s" % option
-        elif option in ("-d", "--data-source"):
-            data_source = value
-        elif option in ("-t", "--target"):
-            target = value
-        elif option in ("-h", "--help"):
-            usage()
-            sys.exit(2)
+    parser.add_argument('-o',
+                        '--output-file',
+                        dest='output-file',
+                        default=default_output_file,
+                        help='Output file')
+    parser.add_argument('-p',
+                        '--person-file',
+                        dest='person-file',
+                        default=default_person_file,
+                        help='Output file')
+    parser.add_argument('-s',
+                        '--sted-file',
+                        dest='sted-file',
+                        default=default_sted_file,
+                        help='Sted input file')
+    parser.add_argument('-d',
+                        '--data-source',
+                        dest='data_source',
+                        default='UITO',
+                        help='Source that generates frida.xml '
+                             '(Default: UITO)')
+    parser.add_argument('-t',
+                        '--target',
+                        dest='target',
+                        default='FRIDA',
+                        help='Result target. (Default: FRIDA)')
 
-    # print "OUTPUT: %s" % output_file
-    # print "PERSON: %s" % person_file
-    # print "STED: %s" % sted_file
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Starting Cristin exports')
 
     person_parser = make_parser()
-    current_person_handler = pers_handler(person_file, person_helper)
+    current_person_handler = pers_handler(args.person_file, person_helper)
     person_parser.setContentHandler(current_person_handler)
-    person_parser.parse(person_file)
+    person_parser.parse(args.person_file)
 
-    logger.info("Generating FRIDA export")
-    output_xml(output_file=output_file,
-               data_source=data_source,
+    logger.info("Generating Cristin export")
+    output_xml(output_file=args.output_file,
+               data_source=args.data_source,
                target=target,
-               person_file=person_file,
-               sted_file=sted_file)
-    logger.info("Generating FRIDA export finished")
+               person_file=args.person_file,
+               sted_file=args.sted_file)
+    logger.info("Generating Cristin export finished")
 
 
 if __name__ == "__main__":
