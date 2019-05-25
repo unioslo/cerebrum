@@ -57,10 +57,11 @@ violation of the FRIDA.dtd).
 """
 
 import argparse
-import xml.sax
+import logging
 import os
 import time
 import string
+import xml.sax
 
 from xml.sax import make_parser
 
@@ -75,7 +76,7 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 
-logger = Factory.get_logger('cronjob')
+logger = logging.getLogger(__name__)
 
 cerebrum_db = Factory.get("Database")()
 constants = Factory.get("Constants")(cerebrum_db)
@@ -174,9 +175,9 @@ class SystemXRepresentation(object):
 
             # find account and person objects
             external_id = entity['external_id']
-            logger.debug("Working on %s" % external_id)
-            logger.debug("entity id:%s" % entity['entity_id'])
-            # logger.debug("entity_id:%s" % (entity))
+            logger.debug("Working on %s", external_id)
+            logger.debug("entity id:%s", entity['entity_id'])
+            # logger.debug("entity_id:%s", (entity))
             person.find(entity['entity_id'])
 
             # Get the affiliation status code string
@@ -184,7 +185,7 @@ class SystemXRepresentation(object):
                                            source_system=current_source_system)
             if not aff:
                 logger.debug(
-                    "No systemX aff for person %s.. skip" % external_id)
+                    "No systemX aff for person %s.. skip", external_id)
                 continue
 
             aff_str = const.PersonAffStatus(aff[0]['status'])
@@ -200,16 +201,17 @@ class SystemXRepresentation(object):
                 account.find(acc_id)
             else:
                 logger.warn(
-                    "SysX person ID=(%s) Fnr=(%s) has no active account" % (
-                    entity['entity_id'], entity['external_id']))
+                    "SysX person ID=(%s) Fnr=(%s) has no active account",
+                    entity['entity_id'], entity['external_id'])
                 continue
 
             try:
                 my_email = account.get_primary_mailaddress()
             except Errors.NotFoundError:
                 logger.warn(
-                    "unable to find primary email for person with person_id:%s. Person not exported" % (
-                        person.entity_id))
+                    "unable to find primary email for person with "
+                    "person_id: %s. Person not exported",
+                    person.entity_id)
                 continue
 
             person_attrs = {"fnr": external_id, "reservert": "N"}
@@ -223,10 +225,10 @@ class SystemXRepresentation(object):
                 if external_id == existing_person_ssn:
                     found = True
             if (found == False):
-                logger.info("Output sysx person %s" % (external_id))
+                logger.info("Output sysx person %s", external_id)
                 logger.info(
-                    "system-x person name:%s, %s" % (fornavn, etternavn))
-                logger.info("account name:%s" % (account_name))
+                    "system-x person name: %s, %s", fornavn, etternavn)
+                logger.info("account name:%s", account_name)
                 writer.startElement("person", person_attrs)
 
                 writer.startElement("etternavn")
@@ -363,12 +365,12 @@ class LTPersonRepresentation(object):
         # NB! This code might raise fodselsnr.InvalidFnrError
         #     We need sanity checking, because LT dumps are suffer from bitrot
         #     (e.g. Swedish SSNs end up as Norwegian. Gah!)
-        # logger.debug("self.fnr = %s" % self.fnr)
+        # logger.debug("self.fnr = %s", self.fnr)
 
         # the following test will fail for certain non-valid fnr (those coming from PAGA with 5 0(zero) at the end
         # removed check
         # fodselsnr.personnr_ok(self.fnr)
-        logger.debug("for debugging purposes: working on fnr:%s" % self.fnr)
+        logger.debug("for debugging purposes: working on fnr:%s", self.fnr)
         # self.fnr = self.fnr.encode("latin1")
         # we do not really need a name (it is in cerebrum), but it might
         # come in handy during debugging stages
@@ -709,8 +711,8 @@ def output_OU(writer, id, db_ou, stedkode, constants, db):
                 if x[field] is not None])
     if (not (has_any(ou_names, "name") or
              has_any(ou_acronyms, "acronym"))):
-        logger.error("Missing name/acronym information for ou_id = %s %s" %
-                     (id, stedkode))
+        logger.error("Missing name/acronym information for ou_id = %s %s",
+                     id, stedkode)
         return
 
     writer.startElement("enhet")
@@ -816,7 +818,7 @@ def output_OUs(writer, db):
 
     writer.startElement("organisasjon")
     for id in db_ou.list_all():
-        logger.debug("id is:%s" % (id['name']))
+        logger.debug("id is:%s", id['name'])
         output_OU(writer, id["ou_id"], db_ou, stedkode, constants, db)
     writer.endElement("organisasjon")
 
@@ -1115,9 +1117,9 @@ def output_guest_information_2(writer, db_person, const, stedkode):
             aff = db_person.get_affiliations()
             writer.startElement("gjester")
             for single_aff in aff:
-                logger.debug("aff=%s" % single_aff)
+                logger.debug("aff=%s", single_aff)
                 if (single_aff['source_system'] == const.system_x):
-                    logger.debug("WE HAVE GUEST: %s" % db_person.entity_id)
+                    logger.debug("WE HAVE GUEST: %s", db_person.entity_id)
                     stedkode.clear()
                     aff_id = single_aff['ou_id']
                     aff_str = const.PersonAffStatus(single_aff['status'])
@@ -1155,7 +1157,8 @@ def output_guest_information_2(writer, db_person, const, stedkode):
             writer.endElement("gjester")
         except:
             logger.debug(
-                "Warning: unable to insert guest data for person:%s" % db_person.entity_id)
+                "Warning: unable to insert guest data for person:%s",
+                db_person.entity_id)
 
 
 def output_account_info(writer, person_db):
@@ -1195,8 +1198,8 @@ def filter_timelonnet(person_db):
 
     if i_am_not_timelonnet == True:
         logger.info(
-            "person_id:%s only has a single affiliation and it is timelonnet. skipping..." % (
-                person_db.entity_id))
+            "person_id:%s only has a single affiliation and it is timelonnet."
+            " skipping...", person_db.entity_id)
         return False
     else:
         return True
@@ -1228,8 +1231,8 @@ def output_person(writer, pobj, phd_cache, system_source):
                                       system_source)
     except Errors.NotFoundError:
         logger.error(
-            "Person with FNR %s not found in BAS - skipping. Check for inconsistent FNR" % (
-                pobj.fnr))
+            "Person with FNR %s not found in BAS - skipping. Check for "
+            "inconsistent FNR", pobj.fnr)
         return
 
     # Filter out persons with a single employee affiliation whos status is timelonnet
@@ -1479,8 +1482,8 @@ def output_OUs_new(writer, sysname, oufile):
             # pprint(ou)
             sko_class.find_stedkode(ou[0], ou[1], ou[2], 186)
         except EntityExpiredError:
-            logger.error("OU %s%s%s expired - not exported to Frida" % (
-            ou[0], ou[1], ou[2]))
+            logger.error("OU %s%s%s expired - not exported to Frida",
+            ou[0], ou[1], ou[2])
             continue
         id = sko_class.entity_id
         sko_class.clear()
@@ -1488,7 +1491,7 @@ def output_OUs_new(writer, sysname, oufile):
         if tmp_sko not in cereconf.CRISTIN_OU_EXCLUDE_LIST:
             output_OU(writer, id, sko_class, stedkode, constants, db)
         else:
-            logger.debug("%s not exported to Cristin" % (tmp_sko))
+            logger.debug("%s not exported to Cristin", tmp_sko)
     writer.endElement("organisasjon")
 
 
