@@ -19,6 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import unicode_literals
+
 """
 
 This file is part of the Cerebrum framework.
@@ -61,18 +62,13 @@ import os
 import time
 import getopt
 import string
-import cerebrum_path
 import cereconf
-from pprint import pprint
 from xml.sax import make_parser
 from Cerebrum import Errors
-from Cerebrum.database import postgres
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
-from Cerebrum.modules import Email
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.uit.Email import email_address
 
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 
@@ -85,49 +81,49 @@ constants = Factory.get("Constants")(cerebrum_db)
 person_db = Factory.get("Person")(cerebrum_db)
 account_db = Factory.get("Account")(cerebrum_db)
 ou_db = Factory.get('OU')(cerebrum_db)
-source_system=constants.system_paga
+source_system = constants.system_paga
 system_cached = constants.system_cached
 
-#UIT:
+# UIT:
 # Added by kenneth
 # date 27.10.2005
-person_list=[] # baaaad boy. you should not use global lists :(
+person_list = []  # baaaad boy. you should not use global lists :(
+
+
 class pers_handler(xml.sax.ContentHandler):
 
-    def __init__(self,file_name,call_back_function):
-        self.person_list=[]
+    def __init__(self, file_name, call_back_function):
+        self.person_list = []
         self.call_back_function = call_back_function
 
     def startElement(self, name, attrs):
         if name == 'tils':
-            self.tils_attrs={}
+            self.tils_attrs = {}
             for k in attrs.keys():
                 self.tils_attrs[k] = attrs.get(k)
-        if name=='person':
-            self.person_attrs={}
+        if name == 'person':
+            self.person_attrs = {}
             for k in attrs.keys():
                 self.person_attrs[k] = attrs.get(k)
-        return 
+        return
 
     def characters(self, ch):
         self.var = None
-        #tmp = ch.encode('iso8859-1').strip()
+        # tmp = ch.encode('iso8859-1').strip()
         tmp = ch.encode('utf-8').strip()
         if tmp:
             self.var = tmp
             self._elemdata.append(tmp)
 
+    def endElement(self, name):
+        if name == 'person':
+            self.call_back_function(self, name)
+        elif name == 'tils':
+            self.person_attrs['tils'] = self.tils_attrs
 
-    def endElement(self,name):
-        if name=='person':
-            self.call_back_function(self,name)
-        elif name=='tils':
-            self.person_attrs['tils']=self.tils_attrs
 
-
-def person_helper(obj,element):
-
-    if element=='person':
+def person_helper(obj, element):
+    if element == 'person':
         person_list.append(obj.person_attrs)
 
 
@@ -156,42 +152,45 @@ class system_xRepresentation(object):
         or in the LT/SLP4 import.
     """
 
-    
-    def execute(self,pobj,writer,system_source):
+    def execute(self, pobj, writer, system_source):
         db = Factory.get('Database')()
         person = Factory.get('Person')(db)
         account = Factory.get('Account')(db)
         const = Factory.get('Constants')(db)
         stedkode = Factory.get('OU')(db)
-        
-        current_source_system= const.system_x
+
+        current_source_system = const.system_x
         # Get all persons that come from SysX  ONLY, _and_ has a norwegian SSN! 
-        entities = person.list_external_ids(source_system=const.system_x,id_type=const.externalid_fodselsnr, entity_type=8)
+        entities = person.list_external_ids(source_system=const.system_x,
+                                            id_type=const.externalid_fodselsnr,
+                                            entity_type=8)
         for entity in entities:
-            #pprint(entity)
+            # pprint(entity)
             account.clear()
 
             person.clear()
             stedkode.clear()
-            
+
             # find account and person objects
             external_id = entity['external_id']
             logger.debug("Working on %s" % external_id)
             logger.debug("entity id:%s" % entity['entity_id'])
-            #logger.debug("entity_id:%s" % (entity))
-            person.find(entity['entity_id'])                        
+            # logger.debug("entity_id:%s" % (entity))
+            person.find(entity['entity_id'])
 
             # Get the affiliation status code string
-            aff = person.list_affiliations(person_id=person.entity_id,source_system=current_source_system)
+            aff = person.list_affiliations(person_id=person.entity_id,
+                                           source_system=current_source_system)
             if not aff:
-                logger.debug("No systemX aff for person %s.. skip" % external_id)
+                logger.debug(
+                    "No systemX aff for person %s.. skip" % external_id)
                 continue
-                                 
+
             aff_str = const.PersonAffStatus(aff[0]['status'])
             aff_id = aff[0]['ou_id']
             # print "person.entity_id says:%s" % person.entity_id
-            fornavn = person.get_name(current_source_system,const.name_first)
-            etternavn = person.get_name(current_source_system,const.name_last)    
+            fornavn = person.get_name(current_source_system, const.name_first)
+            etternavn = person.get_name(current_source_system, const.name_last)
             # print "fornavn for this person is:%s" % fornavn
             # print "etternavn for this person is:%s" % etternavn
 
@@ -199,29 +198,35 @@ class system_xRepresentation(object):
             if (acc_id):
                 account.find(acc_id)
             else:
-                logger.warn("SysX person ID=(%s) Fnr=(%s) has no active account" % (entity['entity_id'],entity['external_id']))
-                continue 
+                logger.warn(
+                    "SysX person ID=(%s) Fnr=(%s) has no active account" % (
+                    entity['entity_id'], entity['external_id']))
+                continue
 
             try:
-                my_email= account.get_primary_mailaddress()
+                my_email = account.get_primary_mailaddress()
             except Errors.NotFoundError:
-                logger.warn("unable to find primary email for person with person_id:%s. Person not exported" %(person.entity_id))
+                logger.warn(
+                    "unable to find primary email for person with person_id:%s. Person not exported" % (
+                        person.entity_id))
                 continue
-            
-            person_attrs = {"fnr":external_id,"reservert":"N"}
-            account_name = account.account_name            
+
+            person_attrs = {"fnr": external_id, "reservert": "N"}
+            account_name = account.account_name
 
             # Got info, output!
-            found=False
+            found = False
             for i in person_list:
-                existing_person_ssn= i['fnr']  #"%s%s%s%s"% (i['fodtdag'],i['fodtmnd'],i['fodtar'],i['personnr'])
-                if external_id==existing_person_ssn:
-                    found=True
-            if (found==False):
+                existing_person_ssn = i[
+                    'fnr']  # "%s%s%s%s"% (i['fodtdag'],i['fodtmnd'],i['fodtar'],i['personnr'])
+                if external_id == existing_person_ssn:
+                    found = True
+            if (found == False):
                 logger.info("Output sysx person %s" % (external_id))
-                logger.info("system-x person name:%s, %s" % (fornavn,etternavn))
-                logger.info("account name:%s"% (account_name))
-                writer.startElement("person",person_attrs)
+                logger.info(
+                    "system-x person name:%s, %s" % (fornavn, etternavn))
+                logger.info("account name:%s" % (account_name))
+                writer.startElement("person", person_attrs)
 
                 writer.startElement("etternavn")
                 writer.data(etternavn)
@@ -235,12 +240,10 @@ class system_xRepresentation(object):
                 writer.data(account_name)
                 writer.endElement("brukernavn")
 
-
                 writer.startElement("epost")
                 writer.data(my_email)
                 writer.endElement("epost")
 
-                
                 writer.startElement("gjester")
                 writer.startElement("gjest")
 
@@ -253,30 +256,31 @@ class system_xRepresentation(object):
                 writer.startElement("avdnr")
                 writer.data(str(stedkode.fakultet))
                 writer.endElement("avdnr")
-                    
+
                 writer.startElement("undavdnr")
                 writer.data(str(stedkode.institutt))
                 writer.endElement("undavdnr")
-                    
+
                 writer.startElement("gruppenr")
                 writer.data(str(stedkode.avdeling))
                 writer.endElement("gruppenr")
-                    
+
                 writer.startElement("datoFra")
                 create_date = aff[0]['create_date']
 
-                dato_fra ="%s-%s-%s" % (create_date.year,create_date.month,create_date.day)
+                dato_fra = "%s-%s-%s" % (
+                create_date.year, create_date.month, create_date.day)
                 writer.data(dato_fra)
                 writer.endElement("datoFra")
 
                 writer.startElement("gjestebetegnelse")
                 writer.data(aff_str.status_str)
                 writer.endElement("gjestebetegnelse")
-            
+
                 writer.endElement("gjest")
                 writer.endElement("gjester")
                 writer.endElement("person")
-        #generate XML data
+        # generate XML data
 
 
 class LTPersonRepresentation(object):
@@ -326,12 +330,9 @@ class LTPersonRepresentation(object):
     interest to FRIDA.
     """
 
-
     # These are names of the XML-elements of interest to FRIDA export
     PERSON_ELEMENT = "person"
     INTERESTING_ELEMENTS = ["tils", "gjest", "res"]
-
-
 
     def __init__(self, attributes):
         """
@@ -345,7 +346,6 @@ class LTPersonRepresentation(object):
 
         self.elements = {}
 
-
         # Interesting elements have repetitions. Thus a hash of lists
         for element in self.INTERESTING_ELEMENTS:
             self.elements[element] = []
@@ -355,29 +355,27 @@ class LTPersonRepresentation(object):
         # NOT have any other identifier in person.xml
         if not (attributes.has_key("fnr")):
             raise (ValueError,
-                  "Missing critical data for person: " + str(attributes))
+                   "Missing critical data for person: " + str(attributes))
 
         self.fnr = attributes["fnr"]
-
 
         # NB! This code might raise fodselsnr.InvalidFnrError
         #     We need sanity checking, because LT dumps are suffer from bitrot
         #     (e.g. Swedish SSNs end up as Norwegian. Gah!)
-        #logger.debug("self.fnr = %s" % self.fnr)
+        # logger.debug("self.fnr = %s" % self.fnr)
 
         # the following test will fail for certain non-valid fnr (those coming from PAGA with 5 0(zero) at the end
         # removed check
-        #fodselsnr.personnr_ok(self.fnr)
+        # fodselsnr.personnr_ok(self.fnr)
         logger.debug("for debugging purposes: working on fnr:%s" % self.fnr)
-        #self.fnr = self.fnr.encode("latin1")
+        # self.fnr = self.fnr.encode("latin1")
         # we do not really need a name (it is in cerebrum), but it might
         # come in handy during debugging stages
 
-        #self.name = "%s %s" % (attributes["fornavn"].encode("latin1"), attributes["etternavn"].encode("latin1"))
+        # self.name = "%s %s" % (attributes["fornavn"].encode("latin1"), attributes["etternavn"].encode("latin1"))
         self.name = "%s %s" % (attributes["fornavn"], attributes["etternavn"])
         logger.debug("extracted new person element from FS (%s, %s)",
                      self.fnr, self.name)
-
 
     def register_element(self, name, attributes):
         """
@@ -391,12 +389,11 @@ class LTPersonRepresentation(object):
         for key, value in attributes.items():
             # We have to do this charset conversion. No worries, parsing xml
             # takes too little time to be of consideration
-            #key = key.encode("latin1")
-            #value = value.encode("latin1")
+            # key = key.encode("latin1")
+            # value = value.encode("latin1")
             encoded_attributes[key] = value
 
         self.elements[name].append(encoded_attributes)
-
 
     def get_element(self, name):
         """
@@ -406,7 +403,6 @@ class LTPersonRepresentation(object):
         attributes (key = attribute name, value = attribute value).
         """
         return self.elements.get(name, [])
-
 
     def is_frida(self):
         """
@@ -426,14 +422,12 @@ class LTPersonRepresentation(object):
                 # FIXME: remove this as soon as LT dumps respect the DTD
                 len(self.elements.get("gjest", [])) > 0)
 
-
     def is_employee(self):
         """
         A person is an employee if he has an active <tils> element
         """
 
         return self.has_active("tils")
-
 
     def has_active(self, element):
         """
@@ -442,18 +436,17 @@ class LTPersonRepresentation(object):
 
         for attributes in self.elements.get(element, []):
             start = attributes.get("dato_fra", None)
-            
+
             end = attributes.get("dato_til", None)
 
             now = time.strftime("%Y%m%d")
 
             # That's the beauty of ISO8601 -- date comparisons work right
             if (start and end and
-                start < now <= end):
+                    start < now <= end):
                 return True
 
         return False
-
 
     def has_reservation(self, **attributes):
         """
@@ -468,11 +461,10 @@ class LTPersonRepresentation(object):
             for attribute, value in items:
                 if not res.has_key(attribute) or res[attribute] != value:
                     hit = False
-                    break 
+                    break
             if hit: return True
 
         return False
-
 
     def __str__(self):
         """
@@ -489,8 +481,6 @@ class LTPersonRepresentation(object):
 
         output += " ]>"
         return output
-    
-
 
 
 class LTPersonParser(xml.sax.ContentHandler, object):
@@ -526,7 +516,6 @@ class LTPersonParser(xml.sax.ContentHandler, object):
     PERSON_ELEMENT = LTPersonRepresentation.PERSON_ELEMENT
     INTERESTING_ELEMENTS = LTPersonRepresentation.INTERESTING_ELEMENTS
 
-
     def __init__(self, filename, callback_function):
         super(LTPersonParser, self).__init__()
 
@@ -538,14 +527,10 @@ class LTPersonParser(xml.sax.ContentHandler, object):
         # information on (i.e. current <person> element being parsed)
         self.current_person = None
 
-
-
     def parse(self):
         if not hasattr(self, "filename"):
             fatal("Missing filename. Operation aborted")
         xml.sax.parse(self.filename, self)
-
-
 
     def startElement(self, name, attributes):
         """
@@ -560,10 +545,10 @@ class LTPersonParser(xml.sax.ContentHandler, object):
                 self.current_person = None
 
                 self.current_person = LTPersonRepresentation(attributes)
-                
+
             except ValueError, value:
                 logger.error("Failed to construct a person from XML: %s",
-                              value)
+                             value)
             except fodselsnr.InvalidFnrError, value:
                 logger.error("Failed to construct a person from XML: %s",
                              value)
@@ -571,14 +556,12 @@ class LTPersonParser(xml.sax.ContentHandler, object):
               self.current_person):
             self.current_person.register_element(name, attributes)
 
-
     def endElement(self, name):
         if name == self.PERSON_ELEMENT and self.current_person:
             self.callback(self.current_person)
 
 
-
-def output_element(writer, value, element, attributes = dict()):
+def output_element(writer, value, element, attributes=dict()):
     """A helper function to output XML elements.
 
     The output element would look like this:
@@ -601,10 +584,6 @@ def output_element(writer, value, element, attributes = dict()):
     writer.startElement(element, attributes)
     writer.data(unicode(value))
     writer.endElement(element)
-
-
-
-
 
 
 def output_organization(writer, db):
@@ -636,7 +615,6 @@ def output_organization(writer, db):
     writer.endElement("institusjon")
 
 
-
 def output_OU_address(writer, db_ou, constants):
     """
     Output address information for a particular OU.
@@ -648,18 +626,18 @@ def output_OU_address(writer, db_ou, constants):
     # sensible. This is just a guess (inspired by LDAP people's work) at
     # what might be potentially useful.
     # 
-    
+
     writer.startElement("postnrOgPoststed")
     # We cannot have more than one answer for any given
     # (ou_id, source_system, address_type) triple
-   
+
     address = db_ou.get_entity_address(constants.system_fs,
                                        constants.address_post)[0]
 
     city = (address['city'] or 'Tromsø').strip()
     po_box = (address['p_o_box'] or '').strip()
     postal_number = (address['postal_number'] or "9037").strip()
-    country = (address['country'] or "Norway").strip() 
+    country = (address['country'] or "Norway").strip()
     address_text = (address["address_text"] or "").strip()
 
     post_nr_city = None
@@ -675,13 +653,12 @@ def output_OU_address(writer, db_ou, constants):
     if not output:
         logger.error("There is no address information for %s",
                      db_ou.entity_id)
-    
+
     writer.data(output)
     writer.endElement("postnrOgPoststed")
 
 
-
-def output_OU(writer, id, db_ou, stedkode, constants,db):
+def output_OU(writer, id, db_ou, stedkode, constants, db):
     """
     Output all information pertinent to a specific OU
 
@@ -700,7 +677,7 @@ def output_OU(writer, id, db_ou, stedkode, constants,db):
     db_ou.clear()
     stedkode.find(id)
     db_ou.find(id)
-    
+
     # This entry is not supposed to be published
     if not stedkode.has_spread(constants.spread_ou_publishable):
         logger.debug("Skipping ou_id == %s", id)
@@ -709,23 +686,27 @@ def output_OU(writer, id, db_ou, stedkode, constants,db):
     # get language
     language = int(constants.LanguageCode('nb'))
     ou_names = []
-    ou_names.append({'language':language,'name' : db_ou.get_name_with_language(constants.ou_name,language)})
-    #ou_names.append({'name':None})
-    #print "names:%s" % ou_names
+    ou_names.append({'language': language,
+                     'name': db_ou.get_name_with_language(constants.ou_name,
+                                                          language)})
+    # ou_names.append({'name':None})
+    # print "names:%s" % ou_names
     try:
-        ou_acronyms  = []
-        ou_acronyms.append({'language': language, 'acronym' :db_ou.get_name_with_language(constants.ou_name_acronym,language)})
-        #pprint(ou_acronym)
+        ou_acronyms = []
+        ou_acronyms.append({'language': language,
+                            'acronym': db_ou.get_name_with_language(
+                                constants.ou_name_acronym, language)})
+        # pprint(ou_acronym)
     except:
-        ou_acronyms.append({'language':language,'acronym':None})
-        #print "unable to get acronym for ou:%s" % ou_names
+        ou_acronyms.append({'language': language, 'acronym': None})
+        # print "unable to get acronym for ou:%s" % ou_names
     # Ufh! I want CL's count-if
     # Check that there is at least one name and at least one
     # acronym that are not empty.
     has_any = (lambda sequence, field:
-                      [x for x in sequence
-                         if x[field] is not None])
-    if (not (has_any(ou_names, "name") or 
+               [x for x in sequence
+                if x[field] is not None])
+    if (not (has_any(ou_names, "name") or
              has_any(ou_acronyms, "acronym"))):
         logger.error("Missing name/acronym information for ou_id = %s %s" %
                      (id, stedkode))
@@ -733,13 +714,13 @@ def output_OU(writer, id, db_ou, stedkode, constants,db):
 
     writer.startElement("enhet")
 
-    #institusjonsnr
+    # institusjonsnr
     for value, element in ((cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnr"),
                            (stedkode.fakultet, "avdnr"),
                            (stedkode.institutt, "undavdnr"),
                            (stedkode.avdeling, "gruppenr")):
         output_element(writer, value, element)
-    
+
     # NB! Extra lookups here cost us about 1/3 of the time it takes to
     #     generate all information on OUs
     parent_id = db_ou.get_parent(constants.perspective_fs)
@@ -750,35 +731,37 @@ def output_OU(writer, id, db_ou, stedkode, constants,db):
     # fi
 
     # find parent. NB! Remember to reset stedkode
-    stedkode.clear(); stedkode.find(parent_id)
+    stedkode.clear();
+    stedkode.find(parent_id)
 
-    for value, element in ((cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnrUnder"),
-                           (stedkode.fakultet, "avdnrUnder"),
-                           (stedkode.institutt, "undavdnrUnder"),
-                           (stedkode.avdeling, "gruppenrUnder")):
+    for value, element in (
+    (cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnrUnder"),
+    (stedkode.fakultet, "avdnrUnder"),
+    (stedkode.institutt, "undavdnrUnder"),
+    (stedkode.avdeling, "gruppenrUnder")):
         output_element(writer, value, element)
-    
+
     # restore 'pointer' back to child
-    stedkode.clear(); stedkode.find(id)
-    
+    stedkode.clear();
+    stedkode.find(id)
+
     for entry in ou_names:
         # Some tuples might have empty names (general case)
         if not entry['name']: continue
         attributes = {}
-        #if language: 
+        # if language:
         #    attributes = {"language": "nb"}
         writer.startElement("navnBokmal", attributes)
-        writer.data(entry['name'])            
+        writer.data(entry['name'])
         writer.endElement("navnBokmal")
     # od
 
-
     for entry in ou_acronyms:
         # some tuples might have empty acronyms
-        if not entry['acronym']: 
+        if not entry['acronym']:
             continue
         attributes = {}
-        #if language: 
+        # if language:
         #    attributes = {"language": "nb"}
         writer.startElement("akronym", attributes)
         writer.data(entry['acronym'].lower())
@@ -790,17 +773,17 @@ def output_OU(writer, id, db_ou, stedkode, constants,db):
     # Telephone
     for row in db_ou.get_contact_info(source=constants.system_paga,
                                       type=constants.contact_phone):
-        output_element(writer,row.contact_value,"Fax")
+        output_element(writer, row.contact_value, "Fax")
 
     # Fax
     for row in db_ou.get_contact_info(source=constants.system_paga,
                                       type=constants.contact_fax):
-        output_element(writer,row.contact_value,"Fax")
-        
+        output_element(writer, row.contact_value, "Fax")
+
     # FIXME: URLs! For now we will simply ignore them
-    #writer.startElement("URLBokmal")
-    #writer.data("Not implemented")
-    #writer.endElement("URLBokmal")
+    # writer.startElement("URLBokmal")
+    # writer.data("Not implemented")
+    # writer.endElement("URLBokmal")
 
     # UIT ADDITION:
     # insert NSD kode
@@ -812,6 +795,8 @@ def output_OU(writer, id, db_ou, stedkode, constants,db):
     output_element(writer, str(nsd_kode), "NSDKode")
 
     writer.endElement("enhet")
+
+
 # end output_OU
 
 
@@ -831,7 +816,7 @@ def output_OUs(writer, db):
     writer.startElement("organisasjon")
     for id in db_ou.list_all():
         logger.debug("id is:%s" % (id['name']))
-        output_OU(writer, id["ou_id"], db_ou, stedkode, constants,db)
+        output_OU(writer, id["ou_id"], db_ou, stedkode, constants, db)
     writer.endElement("organisasjon")
 
 
@@ -853,7 +838,6 @@ def construct_person_attributes(writer, pobj, db_person, constants):
                                     constants.externalid_fodselsnr)[0]
     attributes["fnr"] = str(row['external_id'])
 
-
     # The rule for selecting primary affiliation is pretty simple:
     # 1. If there is an ANSATT/vitenskapelig affiliation then
     #    Affiliation = Faculty
@@ -862,17 +846,17 @@ def construct_person_attributes(writer, pobj, db_person, constants):
     # 
     # We can do this in one database lookup, at the expense of much uglier
     # code
-    #if db_person.list_affiliations(db_person.entity_id,
+    # if db_person.list_affiliations(db_person.entity_id,
     #                               constants.system_lt,
     #                               constants.affiliation_ansatt,
     #                               constants.affiliation_status_ansatt_vit):
     #    attributes["Affiliation"] = "Faculty"
-    #elif db_person.list_affiliations(db_person.entity_id,
+    # elif db_person.list_affiliations(db_person.entity_id,
     #                                 constants.system_lt,
     #                                 constants.affiliation_ansatt,
     #                                 constants.affiliation_status_ansatt_tekadm):
     #    attributes["Affiliation"] = "Staff"
-    #else:
+    # else:
     #    attributes["Affiliation"] = "Member"
     # fi
 
@@ -905,7 +889,6 @@ def construct_person_attributes(writer, pobj, db_person, constants):
     return attributes
 
 
-
 def output_employment_information(writer, pobj):
     """
     Output all employment information pertinent to a particular person
@@ -931,16 +914,16 @@ def output_employment_information(writer, pobj):
     for element in pobj.get_element("tils"):
 
         # if element["hovedkat"] == "VIT":
-#             attributes = {"Affiliation": "Faculty"}
-#         elif element["hovedkat"] == "�VR":
-#             attributes = {"Affiliation": "Staff"}
-#         else:
-#             logger.error("Aiee! %s has no suitable employment affiliation %s",
-#                          pobj.fnr, str(element))
-#             continue
+        #             attributes = {"Affiliation": "Faculty"}
+        #         elif element["hovedkat"] == "�VR":
+        #             attributes = {"Affiliation": "Staff"}
+        #         else:
+        #             logger.error("Aiee! %s has no suitable employment affiliation %s",
+        #                          pobj.fnr, str(element))
+        #             continue
         # fi
-        
-        #writer.startElement("Tilsetting", attributes)
+
+        # writer.startElement("Tilsetting", attributes)
         writer.startElement("ansettelse")
 
         # FRIDA wants date at the format YYYYMMDD
@@ -954,17 +937,16 @@ def output_employment_information(writer, pobj):
                               ("gruppenr", "gruppenr_utgift"),
                               ("stillingskode", "stillingskode"),
                               ("datoFra", "dato_fra"),
-                              #("datoTil", "dato_til"),
+                              # ("datoTil", "dato_til"),
                               ("stillingsbetegnelse", "tittel"),
                               ("stillingsandel", "stillingsandel"),
                               ]:
-         
 
             writer.startElement(output)
             # UIT: must minimize the element["tittel"] entry
             # element["tittel"] = element["tittel"].lower().decode('iso-8859-1')
 
-            #value = element[input].decode('iso8859-1')
+            # value = element[input].decode('iso8859-1')
             value = element[input]
             if input == 'tittel':
                 value = value.lower()
@@ -1000,6 +982,8 @@ def find_publishable_sko(sko, ou_cache):
         ou = ou_cache.get(parent_sko)
 
     return None
+
+
 # end find_publishable_sko
 
 
@@ -1041,16 +1025,17 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
 
         sko = item["place"]
         publishable_sko = sko
-#        publishable_sko = find_publishable_sko(sko, ou_cache)
-#        if not publishable_sko:
-#            logger.debug("Cannot locate publishable sko starting from %s", sko)
-#            continue
+        #        publishable_sko = find_publishable_sko(sko, ou_cache)
+        #        if not publishable_sko:
+        #            logger.debug("Cannot locate publishable sko starting from %s", sko)
+        #            continue
 
         writer.startElement(elemname)
-        for value, xmlelement in ((cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnr"),
-                                  (publishable_sko[0], "avdnr"),
-                                  (publishable_sko[1], "undavdnr"),
-                                  (publishable_sko[2], "gruppenr")):
+        for value, xmlelement in (
+        (cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnr"),
+        (publishable_sko[0], "avdnr"),
+        (publishable_sko[1], "undavdnr"),
+        (publishable_sko[2], "gruppenr")):
             output_element(writer, value, xmlelement)
 
         for key, xmlelement in attrs.iteritems():
@@ -1063,11 +1048,13 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
             if hasattr(value, "strftime"):
                 value = value.strftime("%Y-%m-%d")
             output_element(writer, value, xmlelement)
-        
+
         writer.endElement(elemname)
 
     if blockname:
         writer.endElement(blockname)
+
+
 # end output_assignments
 
 
@@ -1113,23 +1100,25 @@ def output_guest_information(writer, pobj):
         # in import_LT
 
         writer.endElement("Gjest")
+
+
 # end output_guest_information
 
-def output_guest_information_2(writer,db_person,const,stedkode):
-    external_id_data=[]
+def output_guest_information_2(writer, db_person, const, stedkode):
+    external_id_data = []
     external_id_data = db_person.get_external_id(source_system=const.system_x,
                                                  id_type=const.externalid_fodselsnr)
-    if(len(external_id_data)>0):
+    if (len(external_id_data) > 0):
         # This person comes from system_x. need to add a guest affiliation to its profile
         try:
             aff = db_person.get_affiliations()
             writer.startElement("gjester")
             for single_aff in aff:
                 logger.debug("aff=%s" % single_aff)
-                if(single_aff['source_system'] == const.system_x):
+                if (single_aff['source_system'] == const.system_x):
                     logger.debug("WE HAVE GUEST: %s" % db_person.entity_id)
                     stedkode.clear()
-                    aff_id= single_aff['ou_id']
+                    aff_id = single_aff['ou_id']
                     aff_str = const.PersonAffStatus(single_aff['status'])
                     stedkode.find(aff_id)
                     writer.startElement("gjest")
@@ -1152,7 +1141,8 @@ def output_guest_information_2(writer,db_person,const,stedkode):
 
                     writer.startElement("datoFra")
                     create_date = single_aff['create_date']
-                    dato_fra ="%s-%s-%s" % (create_date.year,create_date.month,create_date.day)
+                    dato_fra = "%s-%s-%s" % (
+                    create_date.year, create_date.month, create_date.day)
                     writer.data(dato_fra)
                     writer.endElement("datoFra")
 
@@ -1163,7 +1153,9 @@ def output_guest_information_2(writer,db_person,const,stedkode):
                     writer.endElement("gjest")
             writer.endElement("gjester")
         except:
-            logger.debug("Warning: unable to insert guest data for person:%s" % db_person.entity_id)
+            logger.debug(
+                "Warning: unable to insert guest data for person:%s" % db_person.entity_id)
+
 
 def output_account_info(writer, person_db):
     """Output primary account and e-mail informatino for person_db."""
@@ -1172,17 +1164,19 @@ def output_account_info(writer, person_db):
     if primary_account is None:
         logger.info("Person %s has no accounts", person_db.entity_id)
         return
-    
+
     account_db = Factory.get("Account")(cerebrum_db)
     account_db.find(primary_account)
     output_element(writer, account_db.get_account_name(), "brukernavn")
-        
+
     try:
         primary_email = account_db.get_primary_mailaddress()
         output_element(writer, primary_email, "epost")
     except Errors.NotFoundError:
         logger.info("person %s has no primary e-mail address",
                     person_db.entity_id)
+
+
 # end output_account_info
 
 
@@ -1190,18 +1184,22 @@ def output_account_info(writer, person_db):
 # Filter out persons with a single ansatt affiliation whos status is 'timelonnet_midlertidig'
 #
 def filter_timelonnet(person_db):
-	aff_status = person_db.get_affiliations()
-	
-	i_am_not_timelonnet = True
-	for aff_stat in aff_status:
-		if aff_stat['status'] != int(constants.affiliation_status_timelonnet_midlertidig):
-			i_am_not_timelonnet = False
+    aff_status = person_db.get_affiliations()
 
-	if i_am_not_timelonnet==True:
-			logger.info("person_id:%s only has a single affiliation and it is timelonnet. skipping..." % (person_db.entity_id))
-			return False
-	else:
-		return True
+    i_am_not_timelonnet = True
+    for aff_stat in aff_status:
+        if aff_stat['status'] != int(
+                constants.affiliation_status_timelonnet_midlertidig):
+            i_am_not_timelonnet = False
+
+    if i_am_not_timelonnet == True:
+        logger.info(
+            "person_id:%s only has a single affiliation and it is timelonnet. skipping..." % (
+                person_db.entity_id))
+        return False
+    else:
+        return True
+
 
 def output_person(writer, pobj, phd_cache, system_source):
     """
@@ -1228,33 +1226,35 @@ def output_person(writer, pobj, phd_cache, system_source):
                                       pobj.fnr,
                                       system_source)
     except Errors.NotFoundError:
-        logger.error("Person with FNR %s not found in BAS - skipping. Check for inconsistent FNR" % (pobj.fnr))
+        logger.error(
+            "Person with FNR %s not found in BAS - skipping. Check for inconsistent FNR" % (
+                pobj.fnr))
         return
 
     # Filter out persons with a single employee affiliation whos status is timelonnet
     retval = filter_timelonnet(person_db)
     if retval == False:
-    		return
-    
+        return
+
     writer.startElement("person",
                         construct_person_attributes(writer,
                                                     pobj,
                                                     person_db,
                                                     constants))
     # surname
-    navn = person_db.get_name(system_cached,constants.name_last)
-    output_element(writer,navn,"etternavn")
+    navn = person_db.get_name(system_cached, constants.name_last)
+    output_element(writer, navn, "etternavn")
 
     # first name
-    navn = person_db.get_name(system_cached,constants.name_first)
-    output_element(writer,navn,"fornavn")
+    navn = person_db.get_name(system_cached, constants.name_first)
+    output_element(writer, navn, "fornavn")
 
     # if person in phd_cache, delete!
     phds = phd_cache.get(int(person_db.entity_id), list())
     if phds:
         del phd_cache[int(person_db.entity_id)]
 
-    output_account_info(writer,person_db)
+    output_account_info(writer, person_db)
 
     # <Telephone>?
     # We need the one with lowest contact_pref, if there are many
@@ -1263,16 +1263,16 @@ def output_person(writer, pobj, phd_cache, system_source):
     contact.sort(lambda x, y: cmp(x.contact_pref, y.contact_pref))
 
     if len(contact) > 0:
-       contact = contact[0]['contact_value']
-       if len(contact) == 5:
-           if((contact[0] == '5') and (contact[1] == '0')):
-               contact = cereconf.INTERNAL_PHONE_PREFIX_FINMARK + contact
-           else:
-               contact = cereconf.INTERNAL_PHONE_PREFIX + contact
+        contact = contact[0]['contact_value']
+        if len(contact) == 5:
+            if ((contact[0] == '5') and (contact[1] == '0')):
+                contact = cereconf.INTERNAL_PHONE_PREFIX_FINMARK + contact
+            else:
+                contact = cereconf.INTERNAL_PHONE_PREFIX + contact
     else:
-       contact = ''
+        contact = ''
 
-    output_element(writer,contact,"telefonnr")
+    output_element(writer, contact, "telefonnr")
 
     output_employment_information(writer, pobj)
 
@@ -1302,6 +1302,7 @@ def extract_names(person_db, kinds):
 
     return result
 
+
 def output_phd_students(writer, sysname, phd_students, ou_cache):
     """Output information about PhD students based on Cerebrum only.
 
@@ -1313,7 +1314,7 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
     # A few helper mappings first
     # source system name => group with individuals hidden in catalogues
     sys2group = {"system_paga": "PAGA-elektroniske-reservasjoner",
-                 "system_sap": "SAP-lektroniske-reservasjoner",}
+                 "system_sap": "SAP-lektroniske-reservasjoner", }
     # name constant -> xml element for that name constant
     name_kinds = dict(((int(constants.name_last), "etternavn"),
                        (int(constants.name_first), "fornavn"),
@@ -1328,22 +1329,24 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
         group.find_by_name(sys2group[sysname])
         reserved = group.get_members()
     except Errors.NotFoundError:
-        reserved = [] # was set()
+        reserved = []  # was set()
 
     for person_id, phd_records in phd_students.iteritems():
         try:
             person_db.clear()
             person_db.find(person_id)
             # We can be a bit lenient here.
-            fnr = person_db.get_external_id(id_type=constants.externalid_fodselsnr)
+            fnr = person_db.get_external_id(
+                id_type=constants.externalid_fodselsnr)
             if fnr:
                 fnr = fnr[0]["external_id"]
             else:
                 logger.warn("No fnr for person_id %s", person_id)
                 continue
         except Errors.NotFoundError:
-            logger.warn("Cached id %s not found in the database. This cannot happen",
-                        person_id)
+            logger.warn(
+                "Cached id %s not found in the database. This cannot happen",
+                person_id)
             continue
 
         res_status = {True: "J", False: "N"}[person_id in reserved]
@@ -1357,9 +1360,9 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
                 if xmlname == 'tittel':
                     xmlname = 'personligTittel'
                 output_element(writer, value, xmlname)
-        
+
         output_account_info(writer, person_db)
-        
+
         for contact_kind in contact_kinds:
             value = person_db.get_contact_info(source_system, contact_kind)
             if value:
@@ -1373,9 +1376,9 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
         output_assignments(writer, phd_records, ou_cache, "gjester", "gjest",
                            names)
         writer.endElement("person")
+
+
 # end output_phd_students
-
-
 
 
 def cache_phd_students():
@@ -1383,7 +1386,7 @@ def cache_phd_students():
 
     result = dict()
     for row in person_db.list_affiliations(
-        status=constants.affiliation_status_student_drgrad):
+            status=constants.affiliation_status_student_drgrad):
         key = int(row["person_id"])
 
         try:
@@ -1393,7 +1396,7 @@ def cache_phd_students():
             logger.warn("OU with ou_id %s does not exist. This cannot happen",
                         row["ou_id"])
             continue
-        
+
         value = {"start": row["create_date"],
                  "end": row["deleted_date"],
                  "code": "DOKTORGRADSSTUDENT",
@@ -1403,7 +1406,6 @@ def cache_phd_students():
     return result
 
 
-
 def output_people(writer, db, person_file):
     """
     Output information about all interesting people.
@@ -1411,7 +1413,7 @@ def output_people(writer, db, person_file):
     LTPersonRepresentation.is_frida describes what kind of people are
     'interesting' in FRIDA context.
     """
-   
+
     logger.info("extracting people from %s", person_file)
 
     phd_students = cache_phd_students()
@@ -1422,10 +1424,11 @@ def output_people(writer, db, person_file):
     # 
     for c in ["system_paga", "affiliation_ansatt",
               "affiliation_status_ansatt_tekadm",
-              "affiliation_status_ansatt_vitenskapelig", "externalid_fodselsnr",
+              "affiliation_status_ansatt_vitenskapelig",
+              "externalid_fodselsnr",
               "name_last", "name_first", "contact_phone"]:
         logger.debug("%s -> %s (%d)",
-                     c, getattr(constants,c), getattr(constants,c))
+                     c, getattr(constants, c), getattr(constants, c))
     writer.startElement("personer")
     parser = LTPersonParser(person_file,
                             lambda p: output_person(writer=writer,
@@ -1435,10 +1438,11 @@ def output_people(writer, db, person_file):
     parser.parse()
 
     logger.info("still has cached PhD students (%d people)", len(phd_students))
-    output_phd_students(writer,'system_paga',phd_students,{})
+    output_phd_students(writer, 'system_paga', phd_students, {})
 
     system_x_parser = system_xRepresentation()
-    system_x_parser.execute(person_file,writer = writer,system_source = constants.system_x)
+    system_x_parser.execute(person_file, writer=writer,
+                            system_source=constants.system_x)
     writer.endElement("personer")
 
 
@@ -1462,7 +1466,7 @@ def output_OUs_new(writer, sysname, oufile):
     logger.info("Cached info on %d OUs from %s", len(ou_cache), oufile)
 
     db = Factory.get('Database')()
-    #db_ou = Factory.get("OU")(db)
+    # db_ou = Factory.get("OU")(db)
     sko_class = Factory.get("OU")(db)
     stedkode = Factory.get("OU")(db)
     constants = Factory.get("Constants")(db)
@@ -1471,19 +1475,20 @@ def output_OUs_new(writer, sysname, oufile):
     for ou in ou_cache:
         sko_class.clear()
         try:
-            #pprint(ou)
-            sko_class.find_stedkode(ou[0],ou[1],ou[2], 186)
+            # pprint(ou)
+            sko_class.find_stedkode(ou[0], ou[1], ou[2], 186)
         except EntityExpiredError:
-            logger.error("OU %s%s%s expired - not exported to Frida" % (ou[0],ou[1],ou[2]))
+            logger.error("OU %s%s%s expired - not exported to Frida" % (
+            ou[0], ou[1], ou[2]))
             continue
         id = sko_class.entity_id
         sko_class.clear()
-        tmp_sko = "%s%s%s" % (ou[0],ou[1],ou[2])
+        tmp_sko = "%s%s%s" % (ou[0], ou[1], ou[2])
         if tmp_sko not in cereconf.CRISTIN_OU_EXCLUDE_LIST:
-            output_OU(writer, id, sko_class, stedkode, constants,db)
+            output_OU(writer, id, sko_class, stedkode, constants, db)
         else:
-            logger.debug("%s not exported to Cristin" %(tmp_sko))
-    writer.endElement("organisasjon")    
+            logger.debug("%s not exported to Cristin" % (tmp_sko))
+    writer.endElement("organisasjon")
 
 
 def output_xml(output_file,
@@ -1505,17 +1510,18 @@ def output_xml(output_file,
     output_stream = SimilarSizeWriter(output_file, "wb")
     output_stream.set_size_change_limit(15)
     writer = xmlprinter.xmlprinter(output_stream,
-                                   indent_level = 2,
+                                   indent_level=2,
                                    # Output is for humans too
-                                   data_mode = True,
-                                   input_encoding = 'utf-8')
+                                   data_mode=True,
+                                   input_encoding='utf-8')
     db = Factory.get('Database')()
 
     # Here goes the hardcoded stuff
-    writer.startDocument(encoding = "iso-8859-1")
-    #writer.startElement("XML-export")
-    xml_options = {'xmlns:xsi' : "http://www.w3.org/2001/XMLSchema-instance","xsi:noNamespaceSchemaLocation":"http://www.usit.uio.no/prosjekter/frida/dok/import/institusjonsdata/schema/Frida-import-1_0.xsd"}
-    writer.startElement("fridaImport",xml_options)
+    writer.startDocument(encoding="iso-8859-1")
+    # writer.startElement("XML-export")
+    xml_options = {'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance",
+                   "xsi:noNamespaceSchemaLocation": "http://www.usit.uio.no/prosjekter/frida/dok/import/institusjonsdata/schema/Frida-import-1_0.xsd"}
+    writer.startElement("fridaImport", xml_options)
 
     writer.startElement("beskrivelse")
     writer.startElement("kilde")
@@ -1536,19 +1542,19 @@ def output_xml(output_file,
     output_organization(writer, db)
     # Dump all OUs
     ## RMI000 20071218
-    output_OUs_new(writer,'system_paga',sted_file)
+    output_OUs_new(writer, 'system_paga', sted_file)
     ##output_OUs(writer, db)
     ## /RMI000
 
-    
     # Dump all people
     output_people(writer, db, person_file)
-    
+
     writer.endElement()
     writer.endDocument()
     output_stream.close()
-# end 
 
+
+# end
 
 
 def usage(msg=None):
@@ -1575,22 +1581,22 @@ options:
     print options
 
 
-
 def main():
     """
     Start method for this script. 
     """
 
-
     # Default values
     date = time.localtime()
     date_today_paga = "%02d-%02d-%02d" % (date[0], date[1], date[2])
     date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
-    
-    output_file = os.path.join(cereconf.DUMPDIR,'cristin','cristin.xml')
 
-    person_file = os.path.join(cereconf.DUMPDIR,'employees','paga_persons_%s.xml' % date_today_paga)
-    sted_file = os.path.join(cereconf.DUMPDIR,'ou','uit_ou_%s.xml' % date_today)
+    output_file = os.path.join(cereconf.DUMPDIR, 'cristin', 'cristin.xml')
+
+    person_file = os.path.join(cereconf.DUMPDIR, 'employees',
+                               'paga_persons_%s.xml' % date_today_paga)
+    sted_file = os.path.join(cereconf.DUMPDIR, 'ou',
+                             'uit_ou_%s.xml' % date_today)
     verbose = False
     # FIXME: Maybe snatch these from cereconf?
     data_source = "UITO"
@@ -1605,11 +1611,11 @@ def main():
                                                          "data-source=",
                                                          "target",
                                                          "help",
-                                                         "logger_name=",])
-    except getopt.GetoptError,m:
+                                                         "logger_name=", ])
+    except getopt.GetoptError, m:
         usage(m)
         sys.exit(1)
-   
+
     for option, value in options:
         if option in ("-o", "--output-file"):
             output_file = value
@@ -1621,32 +1627,29 @@ def main():
             print "Unimplemented option: %s" % option
         elif option in ("-d", "--data-source"):
             data_source = value
-        elif option in ("-t", "--target"):            
+        elif option in ("-t", "--target"):
             target = value
         elif option in ("-h", "--help"):
             usage()
             sys.exit(2)
 
+    # print "OUTPUT: %s" % output_file
+    # print "PERSON: %s" % person_file
+    # print "STED: %s" % sted_file
 
-    #print "OUTPUT: %s" % output_file
-    #print "PERSON: %s" % person_file
-    #print "STED: %s" % sted_file
-
-    person_parser=make_parser()
-    current_person_handler=pers_handler(person_file,person_helper)
+    person_parser = make_parser()
+    current_person_handler = pers_handler(person_file, person_helper)
     person_parser.setContentHandler(current_person_handler)
     person_parser.parse(person_file)
-    
-    logger.info( "Generating FRIDA export")
-    output_xml(output_file = output_file,
-               data_source = data_source,
-               target = target,
-               person_file = person_file,
-               sted_file = sted_file)
+
+    logger.info("Generating FRIDA export")
+    output_xml(output_file=output_file,
+               data_source=data_source,
+               target=target,
+               person_file=person_file,
+               sted_file=sted_file)
     logger.info("Generating FRIDA export finished")
 
 
 if __name__ == "__main__":
     main()
-
-
