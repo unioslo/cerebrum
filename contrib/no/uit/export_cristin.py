@@ -91,7 +91,7 @@ system_cached = constants.system_cached
 person_list = []  # baaaad boy. you should not use global lists :(
 
 
-class pers_handler(xml.sax.ContentHandler):
+class PersonHandler(xml.sax.ContentHandler):
 
     def __init__(self, file_name, call_back_function):
         self.person_list = []
@@ -128,7 +128,7 @@ def person_helper(obj, element):
         person_list.append(obj.person_attrs)
 
 
-class system_xRepresentation(object):
+class SystemXRepresentation(object):
     """This class gets information about persons from system_x that has
     a frida spread. All these persons will have a 'gjest' identification withtouth
     any stillingskode or stillings tittel. The data about these persons are collected
@@ -1441,7 +1441,7 @@ def output_people(writer, db, person_file):
     logger.info("still has cached PhD students (%d people)", len(phd_students))
     output_phd_students(writer, 'system_paga', phd_students, {})
 
-    system_x_parser = system_xRepresentation()
+    system_x_parser = SystemXRepresentation()
     system_x_parser.execute(person_file, writer=writer,
                             system_source=constants.system_x)
     writer.endElement("personer")
@@ -1611,7 +1611,7 @@ def main():
     logger.info('Starting Cristin exports')
 
     person_parser = make_parser()
-    current_person_handler = pers_handler(args.person_file, person_helper)
+    current_person_handler = PersonHandler(args.person_file, person_helper)
     person_parser.setContentHandler(current_person_handler)
     person_parser.parse(args.person_file)
 
