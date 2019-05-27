@@ -73,6 +73,9 @@ KEY_UITKAT = 'UITkat'
 KEY_KJONN = 'Kjønn'
 KEY_FODSELSDATO = 'Fødselsdato'
 KEY_LOKASJON = 'Lokasjon'
+KEY_NATIONAL_ID_TYPE = 'edag_int_id_type'
+KEY_NATIONAL_ID = 'edag_id_nr'
+KEY_NATIONAL_LAND = 'edag_id_land'
 
 
 def parse_date(date_str):
@@ -139,6 +142,9 @@ def parse_paga_csv(pagafile):
             'poststed': detail[KEY_HJEMSTED_POSTSTED],
             'postnr': detail[KEY_HJEMSTED_POSTNR],
             'lokasjon': detail[KEY_LOKASJON],
+            'country': detail[KEY_NATIONAL_LAND],
+            'edag_id_nr': detail[KEY_NATIONAL_ID],
+            'edag_id_type': detail[KEY_NATIONAL_ID_TYPE],
         }
         tils_data = {
             'stillingskode': detail[KEY_STILLKODE],
@@ -245,18 +251,20 @@ class PagaPersonsXml:
         Build a xml that import_lt should process:
 
         <person tittel_personlig=""
-        fornavn=""
-        etternavn=""
-        fnr=""
-        fakultetnr_for_lonnsslip=""
-        instituttnr_for_lonnsslip=""
-        gruppenr_for_lonnsslip=""
-        #adresselinje1_privatadresse=""
-        #poststednr_privatadresse=""
-        #poststednavn_privatadresse=""
-        #uname=""
-        >
-        <bilag stedkode=""/>
+                fornavn=""
+                etternavn=""
+                fnr=""
+                national_id_type=""
+                national_id=""
+                country=""
+                fakultetnr_for_lonnsslip=""
+                instituttnr_for_lonnsslip=""
+                gruppenr_for_lonnsslip=""
+                #adresselinje1_privatadresse=""
+                #poststednr_privatadresse=""
+                #poststednavn_privatadresse=""
+                #uname="">
+            <bilag stedkode=""/>
         </person>
         """
         stream = open(self.out_file, "wb")
