@@ -32,73 +32,85 @@ from Cerebrum.Constants import Constants
 
 logger = Factory.get_logger("cronjob")
 
+
 class access_log:
 
-    def __init__(self,file_dump,change_type_list=None):
-        
+    def __init__(self, file_dump, change_type_list=None):
+
         self.db = Factory.get('Database')()
         self.constants = Factory.get('Constants')(self.db)
 
-        # no_touch_change_type_id contains a list over change_type_id's which will not be deleted under any sircumstances.
-        self.no_touch_change_type_id=(int(self.constants.account_create),
-                                      int(self.constants.account_password),
-                                      int(self.constants.quarantine_add),
-                                      int(self.constants.quarantine_del),
-                                      int(self.constants.person_create),
-                                      int(self.constants.entity_add),
-                                      int(self.constants.entity_ext_id_mod),
-                                      int(self.constants.entity_ext_id_add),
-                                      int(self.constants.group_create),
-                                      int(self.constants.group_add),
-                                      int(self.constants.ou_create))
+        # no_touch_change_type_id contains a list over change_type_id's which
+        # will not be deleted under any sircumstances.
+        self.no_touch_change_type_id = (int(self.constants.account_create),
+                                        int(self.constants.account_password),
+                                        int(self.constants.quarantine_add),
+                                        int(self.constants.quarantine_del),
+                                        int(self.constants.person_create),
+                                        int(self.constants.entity_add),
+                                        int(self.constants.entity_ext_id_mod),
+                                        int(self.constants.entity_ext_id_add),
+                                        int(self.constants.group_create),
+                                        int(self.constants.group_add),
+                                        int(self.constants.ou_create))
 
         try:
             for change_type in change_type_list:
                 if int(change_type) in self.no_touch_change_type_id:
-                    logger.error("%s is not a valid change_type." % int(change_type))
+                    logger.error(
+                        "%s is not a valid change_type." % int(change_type))
                     sys.exit(1)
         except TypeError:
             # no change_type given
             logger.debug("No change type given as parameter to program")
-        if(file_dump !=None):
+        if (file_dump != None):
             if not (os.path.isfile(file_dump)):
-                self.file_handle=bz2.BZ2File(file_dump,"w")
+                self.file_handle = bz2.BZ2File(file_dump, "w")
                 logger.debug("opening %s for writing" % file_dump)
             else:
-               #file already exists. concatenate data
-               self.file_handle=open(file_dump,"a")
-               logger.debug("opening %s for appending" % file_dump)
+                # file already exists. concatenate data
+                self.file_handle = open(file_dump, "a")
+                logger.debug("opening %s for appending" % file_dump)
         else:
-            #no data will be stored in log files
+            # no data will be stored in log files
             logger.debug("No dump file spesified")
 
-
-    #get all change_ids we want to delete.
-    def get_change_ids(self,date=None,change_program=None,change_type=None):
-        #convert the type_list to a type_tuple
-        type_tuple=()
-        type_tuple=change_type
-        log_rows =self.get_old_log_events(sdate=date,types=type_tuple,change_program=change_program)
+    # get all change_ids we want to delete.
+    def get_change_ids(self, date=None, change_program=None, change_type=None):
+        # convert the type_list to a type_tuple
+        type_tuple = ()
+        type_tuple = change_type
+        log_rows = self.get_old_log_events(sdate=date, types=type_tuple,
+                                           change_program=change_program)
         return log_rows
 
-    def delete_change_ids(self,id_list):
+    def delete_change_ids(self, id_list):
         try:
-            # we've had some trouble deleting entries from the change_log table when other scripts also tries
-            # to update it. adding a lock table command to prevent this.
+            # we've had some trouble deleting entries from the change_log table
+            # when other scripts also tries to update it. adding a lock table
+            # command to prevent this.
             self.db.query("lock table change_log")
             for row in id_list:
-                self.file_handle.writelines("%s,%s,%s,%s,%s,%s,%s,%s\n" % (row['tstamp'],row['change_id'],row['subject_entity'],row['change_type_id'],row['dest_entity'],row['change_params'],row['change_by'],row['change_program']))
+                self.file_handle.writelines(
+                    "%s,%s,%s,%s,%s,%s,%s,%s\n" % (
+                        row['tstamp'], row['change_id'],
+                        row['subject_entity'], row['change_type_id'],
+                        row['dest_entity'], row['change_params'],
+                        row['change_by'], row['change_program']
+                    )
+                )
                 self.db.remove_log_event(row['change_id'])
             self.file_handle.close()
         except AttributeError, m:
-            logger.debug("No dump file has been given. deleting withouth taking backup")
+            logger.debug(
+                "No dump file has been given. deleting withouth taking backup")
             # unable to write to file. no log file has been given
         self.db.commit()
-        
 
     def get_old_log_events(self, start_id=0, max_id=None, types=None,
-                       subject_entity=None, dest_entity=None,
-                       any_entity=None, change_by=None, sdate=None,change_program=None):
+                           subject_entity=None, dest_entity=None,
+                           any_entity=None, change_by=None, sdate=None,
+                           change_program=None):
         if any_entity and (dest_entity or subject_entity):
             raise self.ProgrammingError, "any_entity is mutually exclusive with dest_entity or subject_entity"
         where = ["change_id >= :start_id"]
@@ -120,14 +132,14 @@ class access_log:
             where.append("change_id <= :max_id")
             bind['max_id'] = int(max_id)
         if types is not None:
-            where.append("change_type_id IN("+", ".join(
-                ["%s" % x for x in types])+")")
+            where.append("change_type_id IN(" + ", ".join(
+                ["%s" % x for x in types]) + ")")
         if change_program is not None:
-            where.append("change_program IN('"+"','".join(
-                ["%s" % x for x in change_program])+"')")
+            where.append("change_program IN('" + "','".join(
+                ["%s" % x for x in change_program]) + "')")
         if self.no_touch_change_type_id is not None:
-            where.append("change_type_id NOT IN("+",".join(
-                ["%s" % x for x in self.no_touch_change_type_id])+")")
+            where.append("change_type_id NOT IN(" + ",".join(
+                ["%s" % x for x in self.no_touch_change_type_id]) + ")")
         if sdate is not None:
             where.append("tstamp < :sdate")
             bind['sdate'] = sdate
@@ -141,55 +153,58 @@ class access_log:
 
 
 def main():
-    
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'d:D:c:C:',['dump_file=','date=','change_program=','change_type=',])
+        opts, args = getopt.getopt(sys.argv[1:], 'd:D:c:C:',
+                                   ['dump_file=', 'date=', 'change_program=',
+                                    'change_type=', ])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
-        
-    change_type=None
+
+    change_type = None
 
     date_tmp = time.localtime()
     date_today = "%02d%02d%02d" % (date_tmp[0], date_tmp[1], date_tmp[2])
     dump_file = os.path.join(sys.prefix, 'var', 'log', 'cerebrum',
                              'change_log_%s.bz2' % (date_today))
 
-    #threshold_date is used by rotate_change_log
-    time_float = time.mktime(date_tmp)-(60*60*24*30) # (60*60*24*30) => 1 month
+    # threshold_date is used by rotate_change_log
+    time_float = time.mktime(date_tmp) - (
+                60 * 60 * 24 * 30)  # (60*60*24*30) => 1 month
     new_time = time.gmtime(time_float)
     nt_year = new_time[0]
     nt_month = new_time[1]
     nt_day = new_time[2]
-    threshold_date ="%02d%02d%02d" % (nt_year, nt_month, nt_day)
+    threshold_date = "%02d%02d%02d" % (nt_year, nt_month, nt_day)
     date = threshold_date
-    
-    change_program=None
-    change_type_list=None
-    change_program_list=None
-    
-    for opt,val in opts:
-        if opt in('-d','--dump_file'):
-            dump_file= val
-        if opt in('-D','--date'):
-            date=val
-        if opt in ('-c','change_program'):
-            change_program=val
-        if opt in ('-C','--change_type'):
-            change_type=val
 
-    if((change_program==None)and(change_type==None)):
+    change_program = None
+    change_type_list = None
+    change_program_list = None
+
+    for opt, val in opts:
+        if opt in ('-d', '--dump_file'):
+            dump_file = val
+        if opt in ('-D', '--date'):
+            date = val
+        if opt in ('-c', 'change_program'):
+            change_program = val
+        if opt in ('-C', '--change_type'):
+            change_type = val
+
+    if change_program == None and change_type == None:
         usage()
         sys.exit(1)
 
-    if(change_type):
+    if change_type:
         change_type_list = change_type.split(",")
-    if(change_program):
+    if change_program:
         change_program_list = change_program.split(",")
-    
-    log = access_log(dump_file,change_type_list)
-    id_list = log.get_change_ids(date,change_program_list,change_type_list)
+
+    log = access_log(dump_file, change_type_list)
+    id_list = log.get_change_ids(date, change_program_list, change_type_list)
     log.delete_change_ids(id_list)
+
 
 def usage():
     print """
@@ -207,6 +222,6 @@ def usage():
     The resulting log file (if any) will be stored in bz2 format
     """
 
-if __name__=='__main__':
-    main()
 
+if __name__ == '__main__':
+    main()
