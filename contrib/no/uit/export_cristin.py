@@ -74,7 +74,7 @@ from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.xmlutils.system2parser import system2parser
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 
 logger = logging.getLogger(__name__)
 
@@ -166,9 +166,10 @@ class SystemXRepresentation(object):
 
         current_source_system = const.system_x
         # Get all persons that come from SysX  ONLY, _and_ has a norwegian SSN!
-        entities = person.list_external_ids(source_system=const.system_x,
-                                            id_type=const.externalid_fodselsnr,
-                                            entity_type=8)
+        entities = person.search_external_ids(
+            source_system=const.system_x,
+            id_type=const.externalid_fodselsnr,
+            entity_type=8)
         for entity in entities:
             # pprint(entity)
             account.clear()
@@ -322,7 +323,7 @@ class LTPersonRepresentation(object):
         dato_fra CDATA #REQUIRED
         dato_til CDATA #REQUIRED
         hovedkat (VIT | �VR) #REQUIRED
-tittel CDATA #REQUIRED>
+    tittel CDATA #REQUIRED>
     <!ELEMENT gjest EMPTY>
     <!ATTLIST gjest
               sko CDATA #REQUIRED
@@ -546,7 +547,7 @@ class LTPersonParser(xml.sax.ContentHandler, object):
 
     def startElement(self, name, attributes):
         """
-        NB! we only handle elements interesting for the FRIDA output
+        NB! we only handle elements interesting for the FRIDA output.
 
         Also, if a LTPersonRepresentation object cannot be constructed for
         some reason, that particular <person>-element from FS dump is
@@ -590,7 +591,7 @@ def output_element(writer, value, element, attributes=dict()):
 
     # If there are no attributes and no textual value for the element, we do
     # not need it.
-    if not attributes and (value is None):
+    if not attributes and value is None:
         return
 
     writer.startElement(element, attributes)
@@ -600,13 +601,12 @@ def output_element(writer, value, element, attributes=dict()):
 
 def output_organization(writer, db):
     """
-    Output information about <Organization>
+    Output information about <Organization>.
 
     FIMXE: NB! It might be wise to move all these hardwired values into
     cereconf. They are probably used by several parts of the cerebrum
     anyway.
     """
-
     writer.startElement("institusjon")
 
     writer.startElement("institusjonsnr")
@@ -628,10 +628,7 @@ def output_organization(writer, db):
 
 
 def output_ou_address(writer, db_ou, constants):
-    """
-    Output address information for a particular OU.
-
-    """
+    """Output address information for a particular OU."""
     #
     # FIXME: This code is *horrible*. cerebrum has no idea about an OU's
     # address structure. That is, it is impossible to generate anything
@@ -647,7 +644,6 @@ def output_ou_address(writer, db_ou, constants):
                                        constants.address_post)[0]
 
     city = (address['city'] or 'Tromsø').strip()
-    po_box = (address['p_o_box'] or '').strip()
     postal_number = (address['postal_number'] or "9037").strip()
     country = (address['country'] or "Norway").strip()
     address_text = (address["address_text"] or "").strip()
@@ -672,7 +668,7 @@ def output_ou_address(writer, db_ou, constants):
 
 def output_ou(writer, id, db_ou, stedkode, constants, db):
     """
-    Output all information pertinent to a specific OU
+    Output all information pertinent to a specific OU.
 
     Each OU is described thus:
     <!ELEMENT enhet (navnBokmal,
@@ -684,7 +680,6 @@ def output_ou(writer, id, db_ou, stedkode, constants, db):
                           norParentOrgUnitGroup, norOrgUnitAcronym+,
                           Addressline, Telephon*, Fax*, URL*)>
     """
-
     stedkode.clear()
     db_ou.clear()
     stedkode.find(id)
@@ -838,7 +833,6 @@ def construct_person_attributes(writer, pobj, db_person, constants):
     This function assumes that db_person is already associated to the
     appropriate database row(s) (via a suitable find*-call).
     """
-
     attributes = {}
 
     # This *cannot* fail or return more than one entry
@@ -902,8 +896,9 @@ def construct_person_attributes(writer, pobj, db_person, constants):
 
 def output_employment_information(writer, pobj):
     """
-    Output all employment information pertinent to a particular person
-    (POBJ). I.e. convert from <tils>-elements in LT dump to <Tilsetting>
+    Output all employment information pertinent to a particular person (POBJ).
+
+    I.e. convert from <tils>-elements in LT dump to <Tilsetting>
     elements in FRIDA export.
 
     Each employment record is written out thus:
@@ -917,7 +912,6 @@ def output_employment_information(writer, pobj):
     represented by POBJ.
 
     """
-
     # There can be several <tils> elements for each person
     # Each 'element' below is a dictionary of attributes for that particular
     # <tils>
@@ -973,12 +967,12 @@ def output_employment_information(writer, pobj):
 
 
 def find_publishable_sko(sko, ou_cache):
-    """Locate a publishable OU starting from sko and return its sko.
+    """
+    Locate a publishable OU starting from sko and return its sko.
 
     We walk upwards the hierarchy tree until we run out of parents or a until
     a suitable publishable OU is located.
     """
-
     ou = ou_cache.get(sko)
     while ou:
         if ou.publishable:
@@ -997,14 +991,11 @@ def find_publishable_sko(sko, ou_cache):
     return None
 
 
-# end find_publishable_sko
-
-
 def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
-    """Output tilsetting/gjest information.
+    """
+    Output tilsetting/gjest information.
 
     The format is:
-
     <blockname>
       <elemname>
         <k1>x.v1</k1>
@@ -1016,7 +1007,6 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
     to be output.
 
     Parameters:
-
     writer	helper class to generate XML output
     sequence	a sequence of objects that we want to output. each object can
                 be indexed as a dictionary.
@@ -1027,7 +1017,6 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
     attrs       A dictionary-like object key->xmlname, where key can be used
                 to extract values from each member of sequence.
     """
-
     # if there is nothing to output we are done
     if not sequence:
         return
@@ -1070,12 +1059,10 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
         writer.endElement(blockname)
 
 
-# end output_assignments
-
-
 def output_guest_information(writer, pobj):
     """
     Output all guest information pertinent to a particular person (POBJ).
+
     I.e. convert from <gjest>-elements in LT dump to <Gjest> elements in
     FRIDA export.
 
@@ -1085,7 +1072,6 @@ def output_guest_information(writer, pobj):
     <!ATTLIST Guest  Affiliation
                      ( Emeritus | Stipendiat | unknown ) #REQUIRED>
     """
-
     for element in pobj.get_element("gjest"):
 
         attributes = {"Affiliation": "unknown"}
@@ -1116,8 +1102,6 @@ def output_guest_information(writer, pobj):
 
         writer.endElement("Gjest")
 
-
-# end output_guest_information
 
 def output_guest_information_2(writer, db_person, const, stedkode):
     external_id_data = db_person.get_external_id(
@@ -1157,7 +1141,7 @@ def output_guest_information_2(writer, db_person, const, stedkode):
 
                     writer.startElement("datoFra")
                     create_date = single_aff['create_date']
-                    dato_fra = "%s-%s-%s" % (
+                    dato_fra = "{0}-{1}-{2}".format(
                         create_date.year, create_date.month, create_date.day)
                     writer.data(dato_fra)
                     writer.endElement("datoFra")
@@ -1176,8 +1160,7 @@ def output_guest_information_2(writer, db_person, const, stedkode):
 
 
 def output_account_info(writer, person_db):
-    """Output primary account and e-mail informatino for person_db."""
-
+    """Output primary account and e-mail information for person_db."""
     primary_account = person_db.get_primary_account()
     if primary_account is None:
         logger.info("Person %s has no accounts", person_db.entity_id)
@@ -1195,11 +1178,11 @@ def output_account_info(writer, person_db):
                     person_db.entity_id)
 
 
-#
-# Filter out persons with a single ansatt affiliation whos status is
-# 'timelonnet_midlertidig'
-#
 def filter_timelonnet(person_db):
+    """
+    Filter out persons with a single ansatt affiliation who's status is
+    'timelonnet_midlertidig'
+    """
     aff_status = person_db.get_affiliations()
 
     i_am_not_timelonnet = True
@@ -1230,7 +1213,6 @@ def output_person(writer, pobj, phd_cache, system_source):
     <!ATTLIST Person NO_SSN CDATA #REQUIRED
               Affiliation ( Staff | Faculty | Member ) #REQUIRED
               Reservation ( yes | no ) #REQUIRED>
-
     """
     person_db.clear()
     account_db.clear()
@@ -1267,7 +1249,7 @@ def output_person(writer, pobj, phd_cache, system_source):
     output_element(writer, navn, "fornavn")
 
     # if person in phd_cache, delete!
-    phds = phd_cache.get(int(person_db.entity_id), list())
+    phds = phd_cache.get(int(person_db.entity_id), [])
     if phds:
         del phd_cache[int(person_db.entity_id)]
 
@@ -1299,8 +1281,7 @@ def output_person(writer, pobj, phd_cache, system_source):
 
 def extract_names(person_db, kinds):
     """Return a mapping kind->name of names of the required kinds."""
-
-    result = dict()
+    result = {}
     all_names = person_db.get_names()
     for name in all_names:
         kind = int(name["name_variant"])
@@ -1321,13 +1302,13 @@ def extract_names(person_db, kinds):
 
 
 def output_phd_students(writer, sysname, phd_students, ou_cache):
-    """Output information about PhD students based on Cerebrum only.
+    """
+    Output information about PhD students based on Cerebrum only.
 
     There may be phd students who have no employment records.
     However, they still need access to FRIDA and we need to gather as
     much information as possible about them.
     """
-
     # A few helper mappings first
     # source system name => group with individuals hidden in catalogues
     sys2group = {"system_paga": "PAGA-elektroniske-reservasjoner",
@@ -1400,9 +1381,8 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
 
 
 def cache_phd_students():
-    """Load all PhD students from cerebrum and return a set of their IDs"""
-
-    result = dict()
+    """Load all PhD students from cerebrum and return a set of their IDs."""
+    result = {}
     for row in person_db.list_affiliations(
             status=constants.affiliation_status_student_drgrad):
         key = int(row["person_id"])
@@ -1419,7 +1399,7 @@ def cache_phd_students():
                  "end": row["deleted_date"],
                  "code": "DOKTORGRADSSTUDENT",
                  "place": (ou_db.fakultet, ou_db.institutt, ou_db.avdeling)}
-        result.setdefault(key, list()).append(value)
+        result.setdefault(key, []).append(value)
 
     return result
 
@@ -1431,9 +1411,7 @@ def output_people(writer, db, person_file):
     LTPersonRepresentation.is_frida describes what kind of people are
     'interesting' in FRIDA context.
     """
-
     logger.info("extracting people from %s", person_file)
-
     phd_students = cache_phd_students()
     logger.info("cached PhD students (%d people)", len(phd_students))
 
@@ -1465,17 +1443,15 @@ def output_people(writer, db, person_file):
     writer.endElement("personer")
 
 
-def output_OUs_new(writer, sysname, oufile):
+def output_ous_new(writer, sysname, oufile):
     """Run through all OUs and publish the interesting ones.
 
     An OU is interesting to FRIDA, if:
-
     - the OU is supposed to be published (marked as such in the data source)
     - it has been less than a year since the OU has been terminated.
     """
-
     # First we build an ID cache.
-    ou_cache = dict()
+    ou_cache = {}
     parser = system2parser('system_lt')(oufile, logger, False)
     for ou in parser.iter_ou():
         sko = ou.get_id(ou.NO_SKO, None)
@@ -1519,12 +1495,9 @@ def output_xml(output_file,
     Initialize all connections and start generating the xml output.
 
     OUTPUT_FILE names the xml output.
-
     DATA_SOURCE and TARGET are elements in the xml output.
-
     PERSON_FILE is the name of the LT dump (used as input).
     """
-
     # Nuke the old copy
     output_stream = SimilarSizeWriter(output_file, "wb")
     output_stream.set_size_change_limit(15)
@@ -1563,7 +1536,7 @@ def output_xml(output_file,
     # FIXME: It's all hardwired
     output_organization(writer, db)
     # Dump all OUs
-    output_OUs_new(writer, 'system_paga', sted_file)
+    output_ous_new(writer, 'system_paga', sted_file)
 
     # Dump all people
     output_people(writer, db, person_file)
@@ -1574,11 +1547,7 @@ def output_xml(output_file,
 
 
 def main():
-    """
-    Start method for this script.
-    """
-
-    # Default values
+    """Start method for this script."""
     date = time.localtime()
     date_today_paga = "%02d-%02d-%02d" % (date[0], date[1], date[2])
     date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
@@ -1590,7 +1559,6 @@ def main():
                                            date_today_paga))
     default_sted_file = os.path.join(cereconf.DUMPDIR, 'ou',
                                      'uit_ou_%s.xml'.format(date_today))
-    verbose = False
     # FIXME: Maybe snatch these from cereconf?
     target = "FRIDA"
 
@@ -1598,17 +1566,17 @@ def main():
 
     parser.add_argument('-o',
                         '--output-file',
-                        dest='output-file',
+                        dest='output_file',
                         default=default_output_file,
                         help='Output file')
     parser.add_argument('-p',
                         '--person-file',
-                        dest='person-file',
+                        dest='person_file',
                         default=default_person_file,
                         help='Output file')
     parser.add_argument('-s',
                         '--sted-file',
-                        dest='sted-file',
+                        dest='sted_file',
                         default=default_sted_file,
                         help='Sted input file')
     parser.add_argument('-d',
