@@ -36,7 +36,7 @@ from Cerebrum.modules.no.uit import Email
 from Cerebrum.utils import email
 from Cerebrum.Utils import Factory
 from Cerebrum.Entity import EntityName
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_systemx')
