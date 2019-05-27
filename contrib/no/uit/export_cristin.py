@@ -542,7 +542,8 @@ class LTPersonParser(xml.sax.ContentHandler, object):
 
     def parse(self):
         if not hasattr(self, "filename"):
-            fatal("Missing filename. Operation aborted")
+            logger.error("Missing filename. Operation aborted")
+            raise SystemExit('Missing filename. Operation aborted')
         xml.sax.parse(self.filename, self)
 
     def startElement(self, name, attributes):
@@ -979,7 +980,7 @@ def find_publishable_sko(sko, ou_cache):
             publishable_sko = ou.get_id(ou.NO_SKO, None)
             if not publishable_sko:
                 logger.warn("OU %s has to sko and will not be published",
-                            list(publishable_ou.iterids()))
+                            list(publishable_sko.iterids()))
             return publishable_sko
 
         parent_sko = None
@@ -1007,13 +1008,13 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
     to be output.
 
     Parameters:
-    writer	helper class to generate XML output
-    sequence	a sequence of objects that we want to output. each object can
+    writer  helper class to generate XML output
+    sequence    a sequence of objects that we want to output. each object can
                 be indexed as a dictionary.
-    ou_cache	OU mappings registered for this import. Used to locate
+    ou_cache    OU mappings registered for this import. Used to locate
                 publishable OUs
     blockname   XML element name for a grouping represented by sequence.
-    elemname	XML element name for each element of sequence.
+    elemname    XML element name for each element of sequence.
     attrs       A dictionary-like object key->xmlname, where key can be used
                 to extract values from each member of sequence.
     """
@@ -1375,9 +1376,6 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
         output_assignments(writer, phd_records, ou_cache, "gjester", "gjest",
                            names)
         writer.endElement("person")
-
-
-# end output_phd_students
 
 
 def cache_phd_students():
