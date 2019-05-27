@@ -271,7 +271,8 @@ class PasswordHistory(DatabaseAccessor):
         return self.query("""
         SELECT hash, set_at
         FROM [:table schema=cerebrum name=password_history]
-        WHERE entity_id=:e_id""", {'e_id': entity_id})
+        WHERE entity_id=:e_id
+        ORDER BY set_at ASC""", {'e_id': entity_id})
 
     def find_old_password_accounts(self, date):
         """Returns account_id for all accounts that has not changed
