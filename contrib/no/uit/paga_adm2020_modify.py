@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2018-2019 University of Tromso, Norway
@@ -35,11 +35,13 @@ from Cerebrum.utils.argutils import ParserContext
 logger = logging.getLogger(__name__)
 
 
-default_input_1 = os.path.join(sys.prefix, 'var/dumps/paga/uit_paga_last.csv')
+default_input_1 = os.path.join(sys.prefix, 'var/cache/paga',
+                               'uit_paga_last.csv')
 default_input_2 = os.path.join(
-    '/home/cerebrum/cerebrum/contrib/no/uit/'
-    'uit_addons/scripts/adm2020/uit_paga_adminpeople_final.csv')
-default_output = os.path.join(sys.prefix, 'var/dumps/paga/uit_paga_last.csv')
+    sys.prefix, 'var/cache/paga',
+    'uit_paga_adminpeople_final.csv')
+default_output = os.path.join(sys.prefix, 'var/cache/paga',
+                              'uit_paga_last.csv')
 
 
 def main(inargs=None):
@@ -83,7 +85,7 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf('crontab', args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Start %r', parser.prog)
     logger.debug("args: %r", args)
