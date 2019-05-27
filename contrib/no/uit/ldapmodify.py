@@ -46,7 +46,7 @@ def main(inargs=None):
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf(logger_name, args)
 
-    today = datetime.date.today().sfrftime('%Y%m%d')
+    today = datetime.date.today().strftime('%Y%m%d')
 
     ldap_server = cereconf.LDAP['server']
     user = cereconf.LDAP['user']
