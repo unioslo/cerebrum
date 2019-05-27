@@ -45,7 +45,7 @@ from Cerebrum.utils.funcwrap import memoize
 #
 # Global variables
 #
-logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+logger = Factory.get_logger('cronjob')
 
 accounts = None
 persons = None

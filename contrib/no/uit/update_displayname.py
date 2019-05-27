@@ -256,7 +256,7 @@ def main():
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
-    Cerebrum.logutils.autoconf(cereconf.DEFAULT_LOGGER_TARGET, args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     changes = get_changes(URL, test=args.test)
 

@@ -128,9 +128,6 @@ def fetch_usernames(db):
     logger.info("Read %d usernames from db", count)
 
 
-default_log_preset = getattr(cereconf, 'DEFAULT_LOGGER_TARGET', 'console')
-
-
 def existing_file(filename):
     if not os.path.exists(filename):
         raise ValueError("File %r seems to be missing" % (filename, ))
@@ -165,7 +162,7 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf(default_log_preset, args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Start %s', parser.prog)
     logger.debug('args: %r', args)

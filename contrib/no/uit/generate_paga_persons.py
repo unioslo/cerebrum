@@ -308,7 +308,6 @@ default_outfile = os.path.join(
         date=datetime.date.today().strftime('%Y-%m-%d')))
 default_infile = os.path.join(
     sys.prefix, 'var/cache/paga', 'uit_paga_last.csv')
-default_log_preset = getattr(cereconf, 'DEFAULT_LOGGER_TARGET', 'console')
 
 
 def main(inargs=None):
@@ -337,7 +336,7 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf(default_log_preset, args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Start of %s', parser.prog)
     logger.debug('args: %r', args)

@@ -395,7 +395,6 @@ def get_persons(db, affiliation_status_types):
     logger.info("Found %d persons in database", count)
 
 
-default_log_preset = getattr(cereconf, 'DEFAULT_LOGGER_TARGET', 'cronjob')
 default_in_file = os.path.join(cereconf.DUMPDIR, 'paga/uit_paga_last.csv')
 default_out_file = os.path.join(
     cereconf.DUMPDIR,
@@ -435,7 +434,7 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf(default_log_preset, args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Start of %s', parser.prog)
     logger.debug('args: %r', args)

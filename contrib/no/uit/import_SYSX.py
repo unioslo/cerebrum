@@ -47,7 +47,6 @@ __doc__ = """
 """ % progname
 
 SPLIT_CHAR = ':'
-logger_name = cereconf.DEFAULT_LOGGER_TARGET
 include_delete = True
 skipped = added = updated = unchanged = deletedaff = 0
 

@@ -50,7 +50,7 @@ Usage: %s [options]
 
 """ % (progname)
 
-logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+logger = Factory.get_logger('cronjob')
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
