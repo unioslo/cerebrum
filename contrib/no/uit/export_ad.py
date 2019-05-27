@@ -47,8 +47,9 @@ TODAY = today_tmp.strftime("%Y-%m-%d")
 TOMORROW = tomorrow_tmp.strftime("%Y-%m-%d")
 default_user_file = os.path.join(cereconf.DUMPDIR, 'AD',
                                  'ad_export_%s.xml' % TODAY)
-default_employees_file = ('/cerebrum/var/dumps/employees/paga_persons_%s.xml'
-                          % TODAY)
+default_employees_file = os.path.join(cereconf.DUMPDIR,
+                                      'employees',
+                                      'paga_persons_%s.xml' % TODAY)
 
 
 def wash_sitosted(name):
