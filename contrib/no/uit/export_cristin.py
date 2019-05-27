@@ -697,16 +697,12 @@ def output_ou(writer, id, db_ou, stedkode, constants, db):
     ou_names.append({'language': language,
                      'name': db_ou.get_name_with_language(constants.ou_name,
                                                           language)})
-    # ou_names.append({'name':None})
-    # print "names:%s" % ou_names
     try:
         ou_acronyms = [{'language': language,
                         'acronym': db_ou.get_name_with_language(
                                 constants.ou_name_acronym, language)}]
-        # pprint(ou_acronym)
     except (Errors.NotFoundError, Errors.TooManyRowsError):
         ou_acronyms = [{'language': language, 'acronym': None}]
-        # print "unable to get acronym for ou:%s" % ou_names
 
     # Ufh! I want CL's count-if
     # Check that there is at least one name and at least one
@@ -736,7 +732,6 @@ def output_ou(writer, id, db_ou, stedkode, constants, db):
     # structure.
     if parent_id is None:
         parent_id = id
-    # fi
 
     # find parent. NB! Remember to reset stedkode
     stedkode.clear()
@@ -749,29 +744,21 @@ def output_ou(writer, id, db_ou, stedkode, constants, db):
             (stedkode.avdeling, "gruppenrUnder")):
         output_element(writer, value, element)
 
-    # restore 'pointer' back to child
     stedkode.clear()
     stedkode.find(id)
 
     for entry in ou_names:
-        # Some tuples might have empty names (general case)
         if not entry['name']:
             continue
         attributes = {}
-        # if language:
-        #    attributes = {"language": "nb"}
         writer.startElement("navnBokmal", attributes)
         writer.data(entry['name'])
         writer.endElement("navnBokmal")
-    # od
 
     for entry in ou_acronyms:
-        # some tuples might have empty acronyms
         if not entry['acronym']:
             continue
         attributes = {}
-        # if language:
-        #    attributes = {"language": "nb"}
         writer.startElement("akronym", attributes)
         writer.data(entry['acronym'].lower())
         writer.endElement("akronym")
@@ -779,7 +766,6 @@ def output_ou(writer, id, db_ou, stedkode, constants, db):
     # Addressline
     output_ou_address(writer, db_ou, constants)
 
-    # Telephone
     for row in db_ou.get_contact_info(source=constants.system_paga,
                                       type=constants.contact_phone):
         output_element(writer, row.contact_value, "Fax")
@@ -1116,7 +1102,7 @@ def output_guest_information_2(writer, db_person, const, stedkode):
             writer.startElement("gjester")
             for single_aff in aff:
                 logger.debug("aff=%s", single_aff)
-                if (single_aff['source_system'] == const.system_x):
+                if single_aff['source_system'] == const.system_x:
                     logger.debug("WE HAVE GUEST: %s", db_person.entity_id)
                     stedkode.clear()
                     aff_id = single_aff['ou_id']
@@ -1273,9 +1259,7 @@ def output_person(writer, pobj, phd_cache, system_source):
         contact = ''
 
     output_element(writer, contact, "telefonnr")
-
     output_employment_information(writer, pobj)
-
     output_guest_information(writer, pobj)
     writer.endElement("person")
 
@@ -1298,7 +1282,6 @@ def extract_names(person_db, kinds):
         # best match possible, so take it.
         elif int(source) == int(source_system):
             result[kind] = value
-
     return result
 
 
@@ -1594,7 +1577,6 @@ def main():
     Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Starting Cristin exports')
-
     person_parser = make_parser()
     current_person_handler = PersonHandler(args.person_file, person_helper)
     person_parser.setContentHandler(current_person_handler)
