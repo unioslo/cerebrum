@@ -109,6 +109,7 @@ def delete_account(db, account_id, target_id=None, dryrun=False):
         ('entity_quarantine', 'entity_id'),
         ('entity_trait', 'entity_id'),
         ('entity_contact_info', 'entity_id'),
+        ('mailq', 'entity_id'),
         ('entity_info', 'entity_id'),
         ('entity_contact_info', 'entity_id'),
     ]
@@ -157,6 +158,12 @@ def delete_account(db, account_id, target_id=None, dryrun=False):
     lu.set(**legacy_info)
     logger.info("Updated legacy table")
 
+    # TODO: DO NOT ENABLE email dispatching without rewriting.
+    #       Even when running with --commit, there is a chance that processing
+    #       fails and the db will be rolled back.
+    #       Email dispatch should probably be aggregated and delayed until
+    #       *after* the main() db.commit().
+
     # Sending email to Portal queue in RT if necessary
     if False and mailto_rt and not dryrun:
         sendmail(
@@ -175,7 +182,6 @@ def delete_account(db, account_id, target_id=None, dryrun=False):
 
     # Sending email to AD nybrukere if necessary
     if False and mailto_ad and not dryrun:
-
         # Inform about new username, if new username has AD spread
         riktig_brukernavn = ''
         if mailto_rt:
@@ -225,10 +231,14 @@ def get_target_id(db, entity_id):
 
 def process_account(db, account_id, dryrun):
     target_id = get_target_id(db, account_id)
-    delete_account(db,
-                   account_id=account_id,
-                   target_id=target_id,
-                   dryrun=dryrun)
+    try:
+        delete_account(db,
+                       account_id=account_id,
+                       target_id=target_id,
+                       dryrun=dryrun)
+    except Exception:
+        logger.critical('Unable to delete account_id=%r', account_id)
+        raise
 
 
 def read_integers(filename):
