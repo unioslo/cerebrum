@@ -310,7 +310,7 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf('crontab', args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Start %r', parser.prog)
     logger.debug("args: %r", args)
