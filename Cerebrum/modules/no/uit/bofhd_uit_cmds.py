@@ -256,10 +256,9 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
              "Entity-id:     %i\n"
              "Birth:         %s\n"
              "Deceased:      %s\n"
-             "Spreads:       %s\n"
-             "Affiliations:  %s [from %s]", ("name", "entity_id",
-                                             "birth", "deceased_date",
-                                             "spreads", "affiliation_1",
+             "Spreads:       %s", ("name", "entity_id", "birth",
+                                   "deceased_date", "spreads")),
+            ("Affiliations:  %s [from %s]", ("affiliation_1",
                                              "source_system_1")),
             ("               %s [from %s]", ("affiliation", "source_system")),
             ("Names:         %s [from %s]", ("names", "name_src")),
