@@ -97,7 +97,8 @@ def encode_for_history(algo, rounds, salt, password, dkLen):
 
 
 def check_password_history(password, old_passwords, name):
-    for old_password in old_passwords:
+    # Only check the 5 newest passwords
+    for old_password in old_passwords[-5:]:
         # check start to distinguish between old and new hash
         if old_password.startswith("pbkdf2_sha512"):
             # split hash, format alg$iterations$salt$key
