@@ -86,6 +86,10 @@ KEY_UNIKAT = 'Univkat'
 KEY_UITKAT = 'UITkat'
 KEY_KJONN = 'Kjønn'
 KEY_FODSELSDATO = 'Fødselsdato'
+KEY_LOKASJON = 'Lokasjon'
+KEY_NATIONAL_ID_TYPE = 'edag_int_id_type'
+KEY_NATIONAL_ID = 'edag_id_nr'
+KEY_NATIONAL_LAND = 'edag_id_land'
 
 
 def read_csv_file(filename, encoding, charsep):
@@ -124,24 +128,33 @@ def parse_paga_csv(db, pagafile):
     ac = Factory.get('Account')(db)
     pe = Factory.get('Person')(db)
     co = Factory.get('Constants')(db)
-    paga_extid = co.externalid_paga_ansattnr
-    paga_source = co.system_paga
-    fnr_extid = co.externalid_fodselsnr
 
     personid_ansattnr = {}
     logger.info("Caching person ids...")
     for ansattnr in persons.keys():
         pe.clear()
         try:
-            pe.find_by_external_id(paga_extid, ansattnr)
-            persons[ansattnr]['fnr'] = pe.get_external_id(
-                source_system=paga_source,
-                id_type=fnr_extid
-            )[0]['external_id']
+            pe.find_by_external_id(co.externalid_paga_ansattnr, ansattnr)
             personid_ansattnr[pe.entity_id] = ansattnr
         except Errors.NotFoundError:
             logger.error("Person not found in BAS with ansattnr=%r", ansattnr)
             continue
+
+        for key, extid_type in (('fnr', co.externalid_fodselsnr),
+                                ('passnr', co.externalid_pass_number)):
+            try:
+                persons[ansattnr][key] = pe.get_external_id(
+                    source_system=co.system_paga,
+                    id_type=extid_type,
+                )[0]['external_id']
+            except IndexError:
+                logger.error("No id_type=%s for entity_id=%r, ansattnr=%r",
+                             extid_type, pe.entity_id, ansattnr)
+                continue
+            else:
+                logger.debug("Using id_type=%s for entity_id=%r, ansattnr=%r",
+                             extid_type, pe.entity_id, ansattnr)
+                break
 
     logger.info("Caching e-mails...")
     uname_mail = ac.getdict_uname2mailaddr()
@@ -205,8 +218,8 @@ def write_persons(filename, pers, sequence, encoding=default_out_encoding):
                                pers[ansattnr].get('brukernavn', 'N/A'))
 
             if pers[ansattnr].get('fnr', None) is None:
-                logger.error("FNR empty: %s (%s)", ansattnr,
-                             pers[ansattnr].get('brukernavn', 'N/A'))
+                logger.warning("FNR empty: %s (%s)", ansattnr,
+                               pers[ansattnr].get('brukernavn', 'N/A'))
 
             fp.write("\n10; UiT; %s; %s; %s; %s" % (
                 ansattnr,
