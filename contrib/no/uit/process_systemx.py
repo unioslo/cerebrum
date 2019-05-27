@@ -67,7 +67,8 @@ def get_existing_accounts():
     logger.info("Loading persons...")
     pid2sysxid = {}
     sysx2pid = {}
-    for row in pers.list_external_ids(id_type=co.externalid_sys_x_id):
+    for row in pers.search_external_ids(id_type=co.externalid_sys_x_id,
+                                        fetchall=False):
         # denne henter ut alle fra system x
         # logger.info("1. row['external_id'] %s" % row['external_id'])
 
