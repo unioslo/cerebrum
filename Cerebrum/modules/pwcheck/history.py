@@ -64,7 +64,7 @@ __version__ = "1.1"
 
 pbkdf2_params = {
     'algo': 'sha512',
-    'rounds': 100000,
+    'rounds': 10000,
     'salt_size': 32,
     'desired_key_len': 32,
 }
