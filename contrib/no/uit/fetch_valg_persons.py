@@ -2,8 +2,11 @@
 # -*- coding: utf-8 -*-
 
 """Lager XML fil med person-info for import i valg-applikasjonen.
-Henter informasjon om alle personer kjent i cerebrum, ogs� de som ikke
+Henter informasjon om alle personer kjent i cerebrum, også de som ikke
 har brukere.
+
+TODO: Usikkert om vi trenger å kjøre en egen versjon for UiT. Vurder
+å kombinere med versjonen alle andre kjører.
 
 Usage: fetch-valg_persons.py [options]
   -v outfile.xml : write persons to xml file
