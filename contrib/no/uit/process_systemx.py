@@ -267,8 +267,9 @@ def send_mail(type, person_info, account_id):
     if type == 'ansvarlig':
         t_code = co.trait_sysx_registrar_notified
 
-        template = (cereconf.CB_SOURCEDATA_PATH +
-                    '/templates/sysx/ansvarlig.tpl')
+        template = os.path.join(cereconf.TEMPLATE_DIR,
+                                'sysx',
+                                'ansvarlig.tpl')
         recipient = person_info.get('ansvarlig_epost')
         person_info['AD_MSG'] = ""
         if 'AD_account' in person_info.get('spreads'):
