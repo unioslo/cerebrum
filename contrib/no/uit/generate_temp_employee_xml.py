@@ -339,15 +339,15 @@ def get_persons(db, affiliation_status_types):
 
     ou_cache = OuCache(db)
 
-    def select_fnr(entity_id):
+    def select_extid(entity_id, id_type):
         """ Get preferred fnr for a given person_id. """
         ext_ids = {int(r['source_system']): r['external_id']
                    for r in person.search_external_ids(
                         entity_id=entity_id,
                         source_system=sys_lookup_order,
-                        id_type=const.externalid_fodselsnr)}
+                        id_type=id_type)}
         for pref in sys_lookup_order:
-            if int(pref) in ext_ids:
+            if ext_ids.get(int(pref)):
                 return ext_ids[int(pref)]
         raise Errors.NotFoundError("No fnr for person_id=%r" % (entity_id,))
 
@@ -362,7 +362,22 @@ def get_persons(db, affiliation_status_types):
         for row in person.list_affiliations(affiliation=affst.affiliation,
                                             status=affst):
             person_id = row['person_id']
-            external_id = select_fnr(person_id)
+
+            for id_type in (const.externalid_fodselsnr,
+                            const.externalid_pass_number):
+                try:
+                    external_id = select_extid(person_id, id_type)
+                except Errors.NotFoundError:
+                    logger.debug("Person person_id=%r has no id_type=%s",
+                                 person_id, id_type)
+                    continue
+                else:
+                    # Found valid id_type
+                    break
+            else:
+                # For loop completed wo/ break, no valid id_type
+                raise RuntimeError("No valid external ids for person_id=%r" %
+                                   (person_id, ))
 
             person.clear()
             person.find(person_id)

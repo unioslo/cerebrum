@@ -355,7 +355,8 @@ def _populate_existing(pe, id_type, id_value):
         return False
     try:
         pe.find_by_external_id(id_type, str(id_value))
-        logger.debug("Found existing person with %s=%r", id_type, id_value)
+        logger.debug("Found existing person_id=%r with %s=%r",
+                     pe.entity_id, id_type, id_value)
         return True
     except Errors.NotFoundError:
         return False
@@ -387,7 +388,7 @@ class PersonProcessor(object):
         """
         self.db = db
         self.const = Factory.get('Constants')(db)
-        self.old_affs = old_affs
+        self.old_affs = old_affs if old_affs is not None else set()
 
     def __call__(self, person):
         """
@@ -449,10 +450,31 @@ class PersonProcessor(object):
                     "Inconsistent birth date (date=%r, ssn=%r)" %
                     (birthdate, fnr_date))
 
+        # Passport data
+        national_id_type = person['edag_id_type']
+        origin_country = person['country']
+        if not origin_country:
+            origin_country = 'NO'
+        if person['edag_id_nr']:
+            # generate external id on the form:
+            # <2-char national id>-<national_id>
+            national_id_val = '%s-%s' % (origin_country, person['edag_id_nr'])
+        else:
+            national_id_val = None
+
+        # Abort early if there are no valid identifiers from the source system:
+        if not any((fnr and fnr[6:11] != '00000',
+                    national_id_type == 'passnummer' and national_id_val,)):
+            # TODO: Wouldn't it be enough with ansattnr?
+            raise SkipPerson("No valid identifier (fnr, passnummer)")
+
         new_person = Factory.get('Person')(db)
 
-        for id_type, id_value in ((const.externalid_paga_ansattnr, paga_nr),
-                                  (const.externalid_fodselsnr, fnr)):
+        identifiers = [(const.externalid_paga_ansattnr, paga_nr),
+                       (const.externalid_fodselsnr, fnr)]
+        if national_id_type == 'passnummer' and national_id_val:
+            identifiers.append((const.externalid_pass_number, national_id_val))
+        for id_type, id_value in identifiers:
             if _populate_existing(new_person, id_type, id_value):
                 break
 
@@ -468,14 +490,21 @@ class PersonProcessor(object):
                                 const.name_last)
         new_person.affect_external_id(const.system_paga,
                                       const.externalid_fodselsnr,
-                                      const.externalid_paga_ansattnr)
+                                      const.externalid_paga_ansattnr,
+                                      const.externalid_pass_number)
         new_person.populate_name(const.name_first, person['fornavn'])
         new_person.populate_name(const.name_last, person['etternavn'])
 
-        if fnr:
+        if fnr and fnr[6:11] != '00000':
+            # do not import external id where external_id type is fnr and
+            # fnr[6-11] =='00000'
             new_person.populate_external_id(const.system_paga,
                                             const.externalid_fodselsnr,
                                             fnr)
+        if national_id_type == 'passnummer' and national_id_val:
+            new_person.populate_external_id(const.system_paga,
+                                            const.externalid_pass_number,
+                                            national_id_val)
         new_person.populate_external_id(const.system_paga,
                                         const.externalid_paga_ansattnr,
                                         paga_nr)
@@ -543,7 +572,11 @@ class PersonProcessor(object):
                      person.get('poststed'))
         if any(priv_addr):
             logger.debug("Setting additional home address: %s %s %s",
-                         *priv_addr)
+                         priv_addr[0], priv_addr[1], priv_addr[2])
+            # TODO: Address country? Should probably use const.human2constant()
+            # country_code = new_person.get_country_code(origin_country)
+            # TODO: Is there really a guaranteed connection between passport
+            #       origin country and home address?
             new_person.populate_address(const.system_paga,
                                         const.address_post_private,
                                         priv_addr[0], None, priv_addr[1],

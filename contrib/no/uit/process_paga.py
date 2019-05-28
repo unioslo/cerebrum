@@ -21,11 +21,11 @@
 """
 Process accounts for Paga employees.
 
-This scirp creates accounts for all persons in Cerebrum that has the correct
+This script creates accounts for all persons in Cerebrum that has the correct
 employee affiliations and:
 
 - assigns account affiliations
-- assign default spreads
+- assigns default spreads
 - creates email address
 - creates homedir
 
@@ -66,6 +66,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.utils.argutils import ParserContext
 from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
@@ -105,11 +106,12 @@ class PagaDataParser(xml.sax.ContentHandler):
 
 class ExistingAccount(object):
 
-    def __init__(self, fnr, uname, expire_date):
+    def __init__(self, id_type, id_value, uname, expire_date):
         self._affs = list()
         self._new_affs = list()
         self._expire_date = expire_date
-        self._fnr = fnr
+        self._id_type = id_type
+        self._id_value = id_value
         self._owner_id = None
         self._uid = None
         self._home = dict()
@@ -147,8 +149,14 @@ class ExistingAccount(object):
     def get_expire_date(self):
         return self._expire_date
 
-    def get_fnr(self):
-        return self._fnr
+    def get_external_id(self):
+        return self._id_value
+
+    def get_external_id_type(self):
+        return self._id_type
+
+    def set_external_id(self, id_type, id_value):
+        self._id_type, self._id_value = id_type, id_value
 
     def get_gecos(self):
         return self._gecos
@@ -324,46 +332,80 @@ def get_existing_accounts(db):
     person_cache = {}
     account_cache = {}
     pid2fnr = {}
+    pid2passnr = {}
 
     # getting deceased persons
     deceased = person.list_deceased()
 
+    # Get ExistingPerson objects by ssn
     for row in person.search_external_ids(
             id_type=const.externalid_fodselsnr,
             source_system=const.system_paga,
             fetchall=False):
         p_id = int(row['entity_id'])
+        key = (int(const.externalid_fodselsnr), row['external_id'])
         if p_id not in pid2fnr:
             pid2fnr[p_id] = row['external_id']
-            person_cache[row['external_id']] = ExistingPerson(person_id=p_id)
-        if p_id in deceased:
-            person_cache[row['external_id']].set_deceased_date(deceased[p_id])
-        del p_id
+            person_cache[key] = ExistingPerson(person_id=p_id)
+            if p_id in deceased:
+                person_cache[key].set_deceased_date(deceased[p_id])
+        del p_id, key
+
+    # Get remaining ExistingPerson objects by passport number
+    for row in person.search_external_ids(
+            id_type=const.externalid_pass_number,
+            source_system=const.system_paga,
+            fetchall=False):
+        p_id = int(row['entity_id'])
+        key = (int(const.externalid_pass_number), row['external_id'])
+        if p_id not in pid2fnr and p_id not in pid2passnr:
+            pid2passnr[p_id] = row['external_id']
+            person_cache[key] = ExistingPerson(person_id=p_id)
+            logger.debug("Using passport id for person_id=%r", p_id)
+            if p_id in deceased:
+                person_cache[key].set_deceased_date(deceased[p_id])
+        del p_id, key
 
     logger.info("Loading person affiliations...")
     for row in person.list_affiliations(source_system=const.system_paga,
                                         fetchall=False):
         p_id = int(row['person_id'])
         if p_id in pid2fnr:
-            person_cache[pid2fnr[p_id]].append_affiliation(
+            key = (int(const.externalid_fodselsnr), pid2fnr[p_id])
+        elif p_id in pid2passnr:
+            key = (int(const.externalid_pass_number), pid2fnr[p_id])
+        else:
+            key = None
+
+        if key is not None:
+            person_cache[key].append_affiliation(
                 int(row['affiliation']),
                 int(row['ou_id']),
                 int(row['status']))
-        del p_id
+        del p_id, key
 
     logger.info("Loading accounts...")
     sito_postfix = cereconf.USERNAME_POSTFIX['sito']
     for row in account_obj.search(expire_start=None):
         a_id = int(row['account_id'])
-        if not row['owner_id'] or int(row['owner_id']) not in pid2fnr:
+        id_type = id_value = None
+        if not row['owner_id']:
+            continue
+        if int(row['owner_id']) in pid2fnr:
+            id_type = const.externalid_fodselsnr
+            id_value = pid2fnr[int(row['owner_id'])]
+        elif int(row['owner_id']) in pid2passnr:
+            id_type = const.externalid_pass_number
+            id_value = pid2passnr[int(row['owner_id'])]
+        else:
             continue
         if row['name'].endswith(sito_postfix):
             # this is a sito account, do not process as part of uit employees
             logger.debug("Omitting account id=%r (%s), sito account",
                          a_id, row['name'])
             continue
-        account_cache[a_id] = ExistingAccount(
-            pid2fnr[int(row['owner_id'])], row['name'], row['expire_date'])
+        account_cache[a_id] = ExistingAccount(id_type, id_value, row['name'],
+                                              row['expire_date'])
         del a_id
 
     # Posixusers
@@ -401,8 +443,12 @@ def get_existing_accounts(db):
             e_id = int(row['entity_id'])
             if is_account_spread and e_id in account_cache:
                 account_cache[e_id].append_spread(spread_id)
-            elif is_person_spread and e_id in person_cache:
-                person_cache[e_id].append_spread(spread_id)
+            elif is_person_spread and e_id in pid2fnr:
+                person_cache[int(const.externalid_fodselsnr),
+                             pid2fnr[e_id]].append_spread(spread_id)
+            elif is_person_spread and e_id in pid2passnr:
+                person_cache[int(const.externalid_pass_number),
+                             pid2passnr[e_id]].append_spread(spread_id)
             del e_id
 
     # Account Affiliations
@@ -418,11 +464,13 @@ def get_existing_accounts(db):
 
     # persons accounts....
     for ac_id, ac_obj in account_cache.items():
-        fnr = account_cache[ac_id].get_fnr()
-        person_cache[fnr].append_account(ac_id)
+        id_type = ac_obj.get_external_id_type()
+        id_value = ac_obj.get_external_id()
+        key = (int(id_type), id_value)
+        person_cache[key].append_account(ac_id)
         for aff in ac_obj.get_affiliations():
             aff, ou_id, pri = aff
-            person_cache[fnr].set_primary_account(ac_id, pri)
+            person_cache[key].set_primary_account(ac_id, pri)
 
     logger.info("Found %d persons and %d accounts",
                 len(person_cache), len(account_cache))
@@ -508,6 +556,14 @@ class Build(object):
         self.persons = persons or {}
         self.accounts = accounts or {}
 
+        # create list of all valid countries
+        # TODO: Country codes should *really* not be part of the cerebrum
+        # database. UiT is currently the only ones using it
+        entity_address = Entity.EntityAddress(db)
+        self.country_codes = {row['code_str']
+                              for row in entity_address.list_country_codes()
+                              if row['code_str']}
+
     def process(self, person_data):
         """
         Process a list of persons from the Paga import data.
@@ -517,24 +573,43 @@ class Build(object):
         """
         stats = {'ok': 0, 'skipped': 0, 'failed': 0}
 
-        # TODO: Should use ansattnr, not fnr
+        def get_identifier(person_dict):
+            if (person_dict.get('fnr') and
+                    person_dict['fnr'][6:11] != '00000'):
+                return (self.co.externalid_fodselsnr, person_dict['fnr'])
+            if (person_dict.get('edag_id_type') == 'passnummer' and
+                    person_dict.get('edag_id_nr') and
+                    person_dict.get('country') in self.country_codes):
+                passnr = '%s-%s' % (person_dict['country'],
+                                    person_dict['edag_id_nr'])
+                return (self.co.externalid_pass_number, passnr)
+            raise SkipPerson('No valid identifier (fnr, edag_id_nr)')
+
+        # TODO: Should use ansattnr, not fnr/passnr
         for i, person_dict in enumerate(person_data, 1):
-            if 'fnr' in person_dict:
-                ssn = person_dict['fnr']
-            else:
-                logger.error('Skipping person #%d: missing fnr', i)
+            try:
+                id_type, id_value = get_identifier(person_dict)
+            except SkipPerson as e:
+                logger.error('Skipping person #%d: %s', i, e)
                 stats['skipped'] += 1
+                continue
+            except Exception:
+                logger.error('Skipping person #%d: unhandled error', i,
+                             exc_info=True)
+                stats['failed'] += 1
                 continue
 
             try:
-                logger.info("Processing person #%d (ssn=%r)", i, ssn)
-                self.process_person(ssn)
+                logger.info("Processing person #%d (%s=%r)",
+                            i, id_type, id_value)
+                self.process_person(id_type, id_value)
             except SkipPerson as e:
-                logger.warning('Skipping person #%d (ssn=%r): %s', i, ssn, e)
+                logger.warning('Skipping person #%d (%s=%r): %s',
+                               i, id_type, id_value, e)
                 stats['skipped'] += 1
             except Exception:
-                logger.error('Skipping person #%d (ssn=%r): unhandled error',
-                             i, ssn, exc_info=True)
+                logger.error('Skipping person #%d (%s=%r): unhandled error',
+                             i, id_type, id_value, exc_info=True)
                 stats['failed'] += 1
             else:
                 stats['ok'] += 1
@@ -542,10 +617,13 @@ class Build(object):
         logger.info('Processed %d persons (%d ok)',
                     sum(stats.values()), stats['ok'])
 
-    def _calculate_spreads(self, acc_affs, new_affs):
+    def _calculate_account_spreads(self, existing_person, existing_account):
         const = self.co
         default_spreads = [int(const.Spread(x))
                            for x in cereconf.EMPLOYEE_DEFAULT_SPREADS]
+        person_affs = existing_person.get_affiliations()
+        acc_affs = existing_account.get_affiliations()
+        new_affs = existing_account.get_new_affiliations()
         logger.debug("acc_affs=%s, new_affs=%s", acc_affs, new_affs)
         all_affs = acc_affs + new_affs
         logger.debug("all_affs=%s", all_affs)
@@ -565,12 +643,19 @@ class Build(object):
                      set(all_affs), tmp, result)
         if result:
             default_spreads.append(int(const.Spread('exchange_mailbox')))
+
+        # add cristin spread if person has aff_status == 'vitenskapelig'
+        for aff, ou_id, status in person_affs:
+            if status == int(const.affiliation_status_ansatt_vitenskapelig):
+                default_spreads.append(int(const.Spread('cristin@uit')))
+                break
+
         return default_spreads
 
-    def process_person(self, fnr):
-        if fnr in self.persons:
-            p_obj = self.persons[fnr]
-        else:
+    def process_person(self, id_type, id_value):
+        try:
+            p_obj = self.persons[int(id_type), id_value]
+        except KeyError:
             raise SkipPerson('not in cerebrum')
 
         changes = []
@@ -578,7 +663,8 @@ class Build(object):
         if p_obj.has_account():
             acc_id, acc_obj = self.get_employee_account(p_obj)
         else:
-            acc_id, acc_obj = self.create_employee_account(p_obj, fnr)
+            acc_id, acc_obj = self.create_employee_account(p_obj, id_type,
+                                                           id_value)
 
         account = Factory.get('Account')(self.db)
         account.find(acc_id)
@@ -609,9 +695,7 @@ class Build(object):
         # make sure user has correct spreads
         if p_obj.get_affiliations():
             # if person has affiliations, add spreads
-            default_spreads = self._calculate_spreads(
-                acc_obj.get_affiliations(),
-                acc_obj.get_new_affiliations())
+            default_spreads = self._calculate_account_spreads(p_obj, acc_obj)
             def_spreads = set(default_spreads)
             cb_spreads = set(acc_obj.get_spreads())
             to_add = def_spreads - cb_spreads
@@ -636,7 +720,7 @@ class Build(object):
             logger.info("Changes for account id=%r: %s", acc_id, repr(changes))
             _handle_changes(self.db, account, changes)
 
-    def create_employee_account(self, existing_person, fnr):
+    def create_employee_account(self, existing_person, id_type, id_value):
         """
         Create a new employee account for a given person object.
 
@@ -654,7 +738,7 @@ class Build(object):
         first_name = pe.get_name(const.system_cached, const.name_first)
         last_name = pe.get_name(const.system_cached, const.name_last)
 
-        uname = ac.suggest_unames(fnr, first_name, last_name)[0]
+        uname = ac.suggest_unames(id_value, first_name, last_name)[0]
         ac.populate(uname,
                     const.entity_person,
                     pe.entity_id,
@@ -670,7 +754,8 @@ class Build(object):
                     ac.entity_id, uname, pe.entity_id, tmp)
 
         acc_id = ac.entity_id
-        acc_obj = self.accounts[acc_id] = ExistingAccount(fnr, uname, None)
+        acc_obj = self.accounts[acc_id] = ExistingAccount(id_type, id_value,
+                                                          uname, None)
         return acc_id, acc_obj
 
     def get_employee_account(self, existing_person):
@@ -745,11 +830,22 @@ def main(inargs=None):
         help='Read and import persons from %(metavar)s',
         metavar='xml-file',
     )
-    parser.add_argument(
-        '--ssn',
-        dest='ssn',
-        help="Process a single person (default: process all)",
-        metavar='ssn',
+    id_type_arg = parser.add_argument(
+        '--id-type',
+        dest='id_type',
+        choices=('ssn', 'passnummer'),
+        help=(
+            "Process a single person with id type %(metavar)s "
+            "(default: process all). This option also requires a value"),
+        metavar='<id-type>',
+    )
+    id_value_arg = parser.add_argument(
+        '--id-value',
+        dest='id_value',
+        help=(
+            "Process a single person with id value %(metavar)s "
+            "(default: process all). This option also requires an id type"),
+        metavar='<id-value>',
     )
     add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
@@ -773,8 +869,20 @@ def main(inargs=None):
     logger.info('Reading persons from %r', args.filename)
     source_data = generate_persons(args.filename)
 
-    if args.ssn:
-        builder.process_person(args.ssn)
+    if args.id_type or args.id_value:
+        const = Factory.get('Constants')(db)
+        with ParserContext(parser, id_type_arg):
+            if args.id_type == 'ssn':
+                id_type = const.externalid_fodselsnr
+            elif args.id_type == 'passnummer':
+                id_type = const.externalid_pass_number
+            else:
+                raise ValueError("Invalid id_type %r" % (args.id_type, ))
+
+        with ParserContext(parser, id_value_arg):
+            if not args.id_value:
+                raise ValueError("Missing external id value")
+        builder.process_person(id_type, args.id_value)
     else:
         builder.process(source_data)
 
