@@ -42,6 +42,9 @@ MAX_NUM_ALLOWED_CHANGES
 DUMPDIR
     Default location for Cerebrum exports. The default CSV-file to fetch phone
     data from is <DUMPDIR>/telefoni/user_<date>.txt
+
+PHONE_CONNECT
+    URL to the remote phone system (for removing erroneous objects).
 """
 from __future__ import unicode_literals
 
@@ -51,6 +54,8 @@ import datetime
 import io
 import logging
 import operator
+
+import requests
 
 import cereconf
 
@@ -133,6 +138,20 @@ def send_report(self, report):
         subject=subject,
         body=report,
     )
+
+
+def delete_remote(userid):
+    """Delete userid object in phone system"""
+    # TODO: No auth?
+    headers = {'System': 'BAS'}
+    object_url = '{}/{}'.format(cereconf.PHONE_CONNECT, userid)
+    logger.info("Removing remote userid=%r", userid)
+    response = requests.delete(object_url, headers=headers)
+    logger.debug("Response: %s", repr(response))
+    # TODO: Should really check return code? raise_for_status?
+    if response.text == 'User not found':
+        logger.warning("Unable to delete userid=%r in remote system (no user)",
+                       userid)
 
 
 class PhoneNumberImporter(object):
@@ -585,6 +604,14 @@ def main(inargs=None):
              'messages',
     )
     parser.add_argument(
+        '-k',
+        '--keep-remote',
+        dest='delete_remote',
+        action='store_false',
+        default=True,
+        help="Do *not* delete contact info from remote phone system",
+    )
+    parser.add_argument(
         '--checknames',
         dest='checknames',
         action='store_true',
@@ -641,6 +668,18 @@ def main(inargs=None):
     else:
         logger.info('Rolling back changes')
         db.rollback()
+
+    if commit and args.delete_remote:
+        logger.info("Removing %d erroneous objects from remote system",
+                    len(errors))
+        for userid in errors:
+            try:
+                delete_remote(userid)
+            except Exception:
+                logger.error("Unable to delete userid=%r from remote system",
+                             userid, exc_info=True)
+            else:
+                logger.info("Removed userid=%r from remote system", userid)
 
     if errors and commit and args.notify_recipient:
         logger.info("Sending error report")
