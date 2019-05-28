@@ -26,11 +26,11 @@ kbj005 2015.02.12: Copied from Leetah.
 """
 from __future__ import unicode_literals
 
-import getopt
-import sys
-import os
-import mx.DateTime
 import csv
+import getopt
+import mx.DateTime
+import os
+import sys
 
 import six
 
