@@ -23,8 +23,9 @@
     Note:
         One of --change_program and --change_type must be given.
         For historical reasons account_create and account_password
-        entries will not be allowed deleted. The resulting log file
-        will be stored in bz2 format"""
+        entries will not be allowed deleted.
+"""
+from __future__ import unicode_literals
 
 import argparse
 import logging
@@ -32,13 +33,14 @@ import sys
 import time
 import cereconf
 import os
-import bz2
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import ProgrammingError
 import Cerebrum.logutils
 
 logger = logging.getLogger(__name__)
+
+ENCODING = 'latin-1'
 
 
 class AccessLog(object):
@@ -75,7 +77,7 @@ class AccessLog(object):
             logger.debug("No change type given as parameter to program")
         if file_dump is not None:
             if not (os.path.isfile(file_dump)):
-                self.file_handle = bz2.BZ2File(file_dump, "w")
+                self.file_handle = open(file_dump, "w")
                 logger.debug("opening %s for writing", file_dump)
             else:
                 # file already exists. concatenate data
@@ -100,21 +102,16 @@ class AccessLog(object):
             # command to prevent this.
             self.db.query("lock table change_log")
             for row in id_list:
-                try:
-                    self.file_handle.writelines(
-                        "%s,%s,%s,%s,%s,%s,%s,%s\n" % (
-                            row['tstamp'], row['change_id'],
-                            row['subject_entity'], row['change_type_id'],
-                            row['dest_entity'], row['change_params'],
-                            row['change_by'], row['change_program']
-                        )
-                    )
-                except TypeError:
-                    logger.warn('Change log row %s could not be written to '
-                                'file', row)
+                line = "{},{},{},{},{},{},{},{}\n".format(
+                    row['tstamp'], row['change_id'],
+                    row['subject_entity'], row['change_type_id'],
+                    row['dest_entity'], row['change_params'],
+                    row['change_by'], row['change_program']
+                ).encode(ENCODING)
+                self.file_handle.write(line)
                 self.db.remove_log_event(row['change_id'])
             self.file_handle.close()
-        except AttributeError as m:
+        except AttributeError:
             logger.debug(
                 "No dump file has been given. deleting withouth taking backup")
             # unable to write to file. no log file has been given
@@ -169,7 +166,7 @@ class AccessLog(object):
 def get_dump_file(date_tmp):
     date_today = "%02d%02d%02d" % (date_tmp[0], date_tmp[1], date_tmp[2])
     dump_file = os.path.join(sys.prefix, 'var', 'log', 'cerebrum',
-                             'change_log_%s.bz2' % (date_today))
+                             'change_log_%s' % (date_today))
     return dump_file
 
 
@@ -234,8 +231,6 @@ def main():
         change_type_list = args.change_type.split(",")
     if args.change_program:
         change_program_list = args.change_program.split(",")
-
-    logger.debug(args.change_program)
 
     log = AccessLog(args.dump_file, db, change_type_list)
     id_list = log.get_change_ids(args.date, change_program_list,
