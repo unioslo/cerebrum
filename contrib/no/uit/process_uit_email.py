@@ -18,14 +18,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
 """
 This script creates/updates email addresses for all accounts in cerebrum
 that has a email spread.
 """
 
 import argparse
+import datetime
 import logging
 
 import cereconf
@@ -33,9 +32,10 @@ import Cerebrum.logutils
 
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import Email
 from Cerebrum.modules.Email import EmailAddress
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
+from Cerebrum.modules.no.uit.Email import EmailAddressUtil
+from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
@@ -238,6 +238,11 @@ def calculate_uit_emails(ac, co, uname, affs):
         if not primary:
             primary = uidaddr
 
+        # always add the following alias: username@uit.no
+        email_alias = "%s@uit.no" % uname
+        new_addrs.append(email_alias)
+        logger.debug("Added email alias: %r", email_alias)
+
     return new_addrs, primary
 
 
@@ -248,7 +253,7 @@ def process_mail(db):
     co = Factory.get('Constants')(db)
     ou = Factory.get('OU')(db)
 
-    emdb = Email.email_address(db, logger=logger)
+    emdb = EmailAddressUtil(db)
 
     phone_list = {}
     # get all account affiliations that belongs to UiT
@@ -346,7 +351,7 @@ def process_mail(db):
 
         # need to calculate what address(es) user should have
         # then compare to what address(es) they have.
-        old_addrs = uit_mails.get(uname, None)
+        old_addrs = uit_mails.get(uname, ())
         logger.debug("old addrs=%s", old_addrs)
         old_addrs_set = set(old_addrs)
         should_have_addrs, new_primary_addr = calculate_uit_emails(
@@ -501,7 +506,7 @@ def get_existing_emails(db):
     uit_no_list = ea.list_email_addresses_ext('uit.no')
 
     # TODO: Use the post addresses as well.
-    post_uit_no_list = ea.list_email_addresses_ext('post.uit.no')
+    # post_uit_no_list = ea.list_email_addresses_ext('post.uit.no')
     for item in uit_no_list:
         email_address = "{0}@{1}".format(item['local_part'], item['domain'])
         addresses_in_use.append(email_address)
@@ -510,24 +515,19 @@ def get_existing_emails(db):
 
 
 def main():
-    global persons, accounts, uit_addresses_in_use
-    import datetime as dt
+    global uit_addresses_in_use
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-c',
-                        '--commit',
-                        dest='commit',
-                        action='store_true',
-                        help='Commit changes to database',
-                        )
+    add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
+
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
-
+    logger.info("Start %s", parser.prog)
     db = Factory.get('Database')()
     db.cl_init(change_program='process_uit_email')
 
-    starttime = dt.datetime.now()
+    starttime = datetime.datetime.now()
 
     uit_addresses_in_use = get_existing_emails(db)
     process_mail(db)
@@ -539,10 +539,8 @@ def main():
         db.rollback()
         logger.info("Dryrun, rollback changes")
 
-    endtime = dt.datetime.now()
-    runningtime = endtime - starttime
-    logger.info("Script running time was %s",
-                str(dt.timedelta(seconds=runningtime.seconds)))
+    running_time = datetime.datetime.now() - starttime
+    logger.info("Done %s in %s", parser.prog, str(running_time))
 
 
 if __name__ == '__main__':
