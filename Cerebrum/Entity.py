@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1427,46 +1427,48 @@ class EntityExternalId(Entity):
         %s
         """ % where_str, binds)
 
-    def search_external_ids(self, source_system=None, id_type=None,
-                            external_id=None, entity_type=None,
-                            entity_id=None, fetchall=True):
+    def search_external_ids(self,
+                            source_system=None,
+                            id_type=None,
+                            external_id=None,
+                            entity_type=None,
+                            entity_id=None,
+                            fetchall=True):
         """Search for external IDs matching specified criteria.
 
-        @type source_system: int or AuthoritativeSystemCode or sequence thereof
-        @param source_system:
+        :type source_system: int or AuthoritativeSystemCode or sequence thereof
+        :param source_system:
             Filter resulting IDs by given source system(s).
 
-        @type id_type: int or EntityExternalId or sequence thereof
-        @param id_type:
-            Filter resulting IDs by ID type(s).
+        :type id_type: int or EntityExternalId or sequence thereof
+        :param id_type: Filter resulting IDs by ID type(s).
 
-        @type external_id: basestring
-        @param external_id:
+        :type external_id: basestring
+        :param external_id:
             Filter resulting IDs by external ID, case insensitively. The ID may
             contain SQL wildcard characters. Useful for finding the entity a
             given external ID belongs to.
 
-        @type entity_type: int or EntityType or sequence thereof
-        @param entity_type:
+        :type entity_type: int or EntityType or sequence thereof
+        :param entity_type:
             Filter resulting IDs by entity type. Note that external IDs are
             already limited by entity_type - you can only set a given id type
             for a certain entity type.
 
-        @type entity_id: int or sequence therof
-        @param entity_id:
+        :type entity_id: int or sequence therof
+        :param entity_id:
             Filter resulting IDs by given entitites. Useful for looking up
             (all) external ids belonging to a specific entity).
 
-        @type fetchall: bool
-        @param fetchall:
+        :type fetchall: bool
+        :param fetchall:
             Fetch all results or return a generator object with the results.
 
-        @rtype: iterable (yielding db-rows)
-        @return:
+        :rtype: iterable (yielding db-rows)
+        :return:
             An iterable (sequence or a generator) that yields all db-rows that
             matches the given criterias. The values of each db-row are:
             entity_id, entity_type, id_type, source_system, external_id.
-
         """
         binds = dict()
         where = list()

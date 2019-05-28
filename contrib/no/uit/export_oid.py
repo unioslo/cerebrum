@@ -32,6 +32,8 @@ import os
 import mx.DateTime
 import csv
 
+import six
+
 import cereconf
 
 from Cerebrum.Utils import Factory
@@ -39,7 +41,7 @@ from Cerebrum import Errors
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 
 db = Factory.get('Database')()
 ou = Factory.get('OU')(db)
@@ -53,6 +55,7 @@ TODAY = mx.DateTime.today().strftime("%Y%m%d")
 # Stedkode CSV Defaults
 default_mapping_file = os.path.join(sys.prefix, "var", "source",
                                     "bas_portal_mapping.csv")
+
 STEDKODE_FROM = 0
 STEDKODE_TO = 1
 
@@ -60,6 +63,7 @@ STEDKODE_TO = 1
 default_employees_file = os.path.join(
     sys.prefix, "var", "dumps","employees",
     "paga_persons_%s.xml" % (mx.DateTime.today().strftime("%Y-%m-%d")))
+
 aff_to_stilling_map = {}
 
 
@@ -128,7 +132,7 @@ def scan_person_affs(person):
         hovedarbeidsforhold = ''
         if 'hovedarbeidsforhold' in t:
             hovedarbeidsforhold = t['hovedarbeidsforhold']
-        aux_key = (fnr, stedkode, str(tilknytning))
+        aux_key = (fnr, stedkode, six.text_type(tilknytning))
         aux_val = {'stillingskode': stillingskode,
                    'stillingstittel_paga': t['tittel'],
                    'stillingstittel': stillingstittel,
@@ -165,16 +169,17 @@ def load_cache():
     ou_stedkode_mapping = {}
     for stedkode in stedkoder:
         ou_stedkode_mapping[stedkode['ou_id']] = (
-            str(stedkode['fakultet']).zfill(2) +
-            str(stedkode['institutt']).zfill(2) +
-            str(stedkode['avdeling']).zfill(2))
+            six.text_type(stedkode['fakultet']).zfill(2) +
+            six.text_type(stedkode['institutt']).zfill(2) +
+            six.text_type(stedkode['avdeling']).zfill(2))
         stedkode_ou_mapping[
-            str(stedkode['fakultet']).zfill(2) +
-            str(stedkode['institutt']).zfill(2) +
-            str(stedkode['avdeling']).zfill(2)] = stedkode['ou_id']
+            six.text_type(stedkode['fakultet']).zfill(2) +
+            six.text_type(stedkode['institutt']).zfill(2) +
+            six.text_type(stedkode['avdeling']).zfill(2)] = stedkode['ou_id']
 
     # Creating ou map
-    mappings = csv.reader(open(default_mapping_file, 'r'), delimiter=';')
+    mappings = csv.reader(
+        open(default_mapping_file, 'r'), delimiter=';'.encode())
     bas_portal_mapping = {}
     for mapping in mappings:
         stedkode_from = mapping[STEDKODE_FROM].strip()
@@ -258,9 +263,9 @@ def load_cache():
 
     # get person employee number
     person2employeeNumber = dict()
-    for c in p.list_external_ids(source_system=co.system_paga,
-                                 id_type=co.externalid_paga_ansattnr,
-                                 entity_type=co.entity_person):
+    for c in p.search_external_ids(source_system=co.system_paga,
+                                   id_type=co.externalid_paga_ansattnr,
+                                   entity_type=co.entity_person):
         person2employeeNumber.setdefault(c['entity_id'], list()).append(c)
 
     logger.info("Start get constants")
@@ -382,16 +387,18 @@ def load_cb_data():
             acc_name = ''
         try:
             original_stedkode = ou_stedkode_mapping[ou_id]
-            aux_key = (pid_fnr_dict[p_id], original_stedkode, str(aff_stat))
+            aux_key = (pid_fnr_dict[p_id],
+                       original_stedkode,
+                       six.text_type(aff_stat))
             tils_info = aff_to_stilling_map[aux_key]
         except KeyError:
-            affstr = "%s::%s::%s::%s::::::::::" % (str(aff_stat),
+            affstr = "%s::%s::%s::%s::::::::::" % (six.text_type(aff_stat),
                                                    sko_sted,
                                                    sko_name,
                                                    last_date)
         else:
             affstr = "%s::%s::%s::%s::%s::%s::%s::%s::%s" % (
-                str(aff_stat),
+                six.text_type(aff_stat),
                 sko_sted,
                 sko_name,
                 last_date,
@@ -471,7 +478,7 @@ def build_xml(outfile):
     xml.startDocument(encoding='utf-8')
     xml.startElement('data')
     xml.startElement('properties')
-    xml.dataElement('exportdate', str(mx.DateTime.now()))
+    xml.dataElement('exportdate', six.text_type(mx.DateTime.now()))
     xml.endElement('properties')
 
     for person_id in export_attrs:
@@ -483,7 +490,7 @@ def build_xml(outfile):
         employee_number = attrs['employee_number']
         if employee_number:
             for c in employee_number:
-                ansattnr = str(c['external_id'])
+                ansattnr = six.text_type(c['external_id'])
                 logger.info("c.str:%s" % ansattnr)
                 if ansattnr is not None:
                     logger.info("collected employee number:%s" % ansattnr)
@@ -493,7 +500,7 @@ def build_xml(outfile):
         if home_addressinfo:
             for c in home_addressinfo:
                 home_address = c['address_text']
-                home_postalnumber = str(c['postal_number'])
+                home_postalnumber = six.text_type(c['postal_number'])
                 home_city = c['city']
                 if home_address is not None:
                     home_address = home_address
@@ -543,12 +550,13 @@ def build_xml(outfile):
         if contactinfo:
             xml.startElement('contactinfo')
             for c in contactinfo:
-                source = str(co.AuthoritativeSystem(c['source_system']))
-                ctype = str(co.ContactInfo(c['contact_type']))
+                source = six.text_type(
+                    co.AuthoritativeSystem(c['source_system']))
+                ctype = six.text_type(co.ContactInfo(c['contact_type']))
                 xml.emptyElement('contact',
                                  {'source': source,
                                   'type': ctype,
-                                  'pref': str(c['contact_pref']),
+                                  'pref': six.text_type(c['contact_pref']),
                                   'value': c['contact_value']})
             xml.endElement('contactinfo')
         xml.endElement('person')
