@@ -1536,10 +1536,10 @@ def main():
     default_output_file = os.path.join(cereconf.DUMPDIR, 'cristin',
                                        'cristin.xml')
     default_person_file = os.path.join(cereconf.DUMPDIR, 'employees',
-                                       'paga_persons_%s.xml'.format(
+                                       'paga_persons_{0}.xml'.format(
                                            date_today_paga))
     default_sted_file = os.path.join(cereconf.DUMPDIR, 'ou',
-                                     'uit_ou_%s.xml'.format(date_today))
+                                     'uit_ou_{0}.xml'.format(date_today))
     # FIXME: Maybe snatch these from cereconf?
     target = "FRIDA"
 
