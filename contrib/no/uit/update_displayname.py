@@ -68,14 +68,14 @@ def get_changes(url, test=False):
 
     if test:
         logger.info('Running script with mock response data')
-        content = MOCK_RESPONSE
+        text = MOCK_RESPONSE
     else:
         logger.info("Requesting changelog from Portal url: %s", url)
         response = requests.get(url)
-        content = response.content
+        text = response.text
 
     logger.info("Parsing response")
-    for line in content.split('\n'):
+    for line in text.split('\n'):
         username = None
         first_name = None
         last_name = None
@@ -93,7 +93,7 @@ def get_changes(url, test=False):
 
         # Check for repeated usernames
         if username in changes:
-            logger.warn(
+            logger.warning(
                 "Repeated username in changelog. Only last entry is "
                 "considered! Username: %s.", username)
 
@@ -232,7 +232,7 @@ def change_names(changes, outfile, const, account, person, db):
                 continue
 
         else:
-            logger.warn(
+            logger.warning(
                 "Account %s not found in dict, cannot set new display name",
                     account_name)
             continue
