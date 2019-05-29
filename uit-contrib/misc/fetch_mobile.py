@@ -29,7 +29,7 @@ import urllib2
 import phonenumbers
 
 import cereconf
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, read_password
 from Cerebrum import Errors
 
 progname = __file__.split("/")[-1]
@@ -262,13 +262,15 @@ def main():
 
     logger.info("Updating BAS with ICE numbers from Difi's"
                 "'Kontakt- og reservasjonssregister'.")
+
+    # Dummy username
+    token = read_password('difi', 'oppslag.uit.no')
+
     while row_fetched < row_count:
         # GET all national identities
         national_identies = get_national_identies(row_fetch_max)
         # GET all mobile phone numbers
-        mobile_phones = get_mobile_list(
-            "219f6b02853baaa94c9a06df43ea80d9b6f59fbb",
-            national_identies)
+        mobile_phones = get_mobile_list(token, national_identies)
         # UPDATE BAS
         update_bas(mobile_phones)
 
