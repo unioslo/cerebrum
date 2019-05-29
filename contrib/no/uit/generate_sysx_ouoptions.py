@@ -30,6 +30,7 @@ import csv
 import datetime
 import io
 import os
+import sys
 
 import cereconf
 import Cerebrum.logutils
@@ -55,7 +56,7 @@ KORTNAVN = 3
 LANGNAVN = 4
 
 # Default file locations
-CB_SOURCEDATA_PATH = cereconf.CB_SOURCEDATA_PATH
+CB_SOURCEDATA_PATH = os.path.join(sys.prefix, 'var/source')
 DUMPDIR = cereconf.DUMPDIR
 
 default_input_file = os.path.join(CB_SOURCEDATA_PATH,
