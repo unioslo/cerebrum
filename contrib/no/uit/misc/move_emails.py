@@ -33,7 +33,6 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
-
 # Init
 db = Factory.get('Database')()
 ac = Factory.get('Account')(db)
@@ -46,7 +45,6 @@ default_maildomain = cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES
 
 
 def process_change(from_acc, to_acc, maildomain, primary):
-
     from_id = to_id = maildomain_id = primary_id = acc_target_id = None
 
     # Validate and get acc_id
@@ -67,32 +65,29 @@ def process_change(from_acc, to_acc, maildomain, primary):
         logger.error("Account to move e-mails to not found: %s" % to_acc)
         sys.exit(1)
 
-
     # Validate ang get maildomain_id
     try:
         maildomain_id = db.query_1("""SELECT domain_id
                                       FROM [:table schema=cerebrum name=email_domain]
-                                      WHERE domain = :domain""", 
-                                      {'domain': maildomain,})
+                                      WHERE domain = :domain""",
+                                   {'domain': maildomain, })
     except Errors.TooManyRowsError:
         raise Errors.TooManyRowsError
     except Errors.NotFoundError:
         logger.error("Maildomain not found: %s" % maildomain)
         sys.exit(1)
 
-
     # Get email target for account that shall receive new accounts
     try:
         acc_target_id = db.query_1("""SELECT target_id
                                       FROM [:table schema=cerebrum name=email_target]
                                       WHERE target_entity_id = :to_id""",
-                                      {'to_id': to_id,})
+                                   {'to_id': to_id, })
     except Errors.TooManyRowsError:
         raise Errors.TooManyRowsError
     except Errors.NotFoundError:
         logger.error("E-mailtarget not found for %s" % to_acc)
         sys.exit(1)
-
 
     # If primary set to true, get address_id of primary address for from_acc
     #    - only gets the ID successfully if the primary is part of the current domain
@@ -110,13 +105,14 @@ def process_change(from_acc, to_acc, maildomain, primary):
                     et.target_id = epa.target_id AND
                     epa.address_id = ea.address_id AND
                     ea.domain_id = :domain_id""",
-                {'from_id': from_id, 'domain_id': maildomain_id})
+                                    {'from_id': from_id,
+                                     'domain_id': maildomain_id})
         except Errors.TooManyRowsError:
             raise Errors.TooManyRowsError
         except Errors.NotFoundError:
-            logger.warn("Primary address not found for %s in domain %s" % (from_acc, maildomain))
+            logger.warn("Primary address not found for %s in domain %s" % (
+            from_acc, maildomain))
             primary_id = None
-
 
     # Delete primary address for from_acc, if this is among the addresses to be moved
     logger.info("Deleting primary email from current owner")
@@ -137,7 +133,6 @@ def process_change(from_acc, to_acc, maildomain, primary):
             )
     """, {'maildomain_id': maildomain_id, 'from_id': from_id})
 
-
     # Move emails from one account to the other
     logger.info("Moving emails")
     db.execute("""
@@ -157,7 +152,8 @@ def process_change(from_acc, to_acc, maildomain, primary):
                          b.domain_id = :maildomain_id AND
                          a.target_entity_id = :from_id
             )
-    """, {'acc_target_id': acc_target_id, 'maildomain_id': maildomain_id, 'from_id': from_id})
+    """, {'acc_target_id': acc_target_id, 'maildomain_id': maildomain_id,
+          'from_id': from_id})
 
     # Set new primary address if primary_id address is OK 
     if primary_id is not None:
@@ -168,9 +164,9 @@ def process_change(from_acc, to_acc, maildomain, primary):
             SET
                 address_id = :primary_id
             WHERE
-                target_id = :acc_target_id""", {'primary_id': primary_id, 'acc_target_id': acc_target_id});
+                target_id = :acc_target_id""",
+                   {'primary_id': primary_id, 'acc_target_id': acc_target_id});
 
-    
     # Update ad_email table if current domain is the ad_email domain
     if primary and default_maildomain == maildomain:
         try:
@@ -178,38 +174,45 @@ def process_change(from_acc, to_acc, maildomain, primary):
             db.query_1("""SELECT account_name
                           FROM [:table schema=cerebrum name=ad_email]
                           WHERE account_name = :from_acc""",
-                          {'from_acc': from_acc,})
-            logger.info("Updating ad_email table from %s to %s" % (from_acc,  to_acc))
-            db.execute("""DELETE FROM ad_email WHERE account_name = :to_acc""", {'to_acc': to_acc});
-            db.execute("""UPDATE ad_email SET account_name = :to_acc WHERE account_name = :from_acc""", {'to_acc': to_acc, 'from_acc': from_acc});
+                       {'from_acc': from_acc, })
+            logger.info(
+                "Updating ad_email table from %s to %s" % (from_acc, to_acc))
+            db.execute("""DELETE FROM ad_email WHERE account_name = :to_acc""",
+                       {'to_acc': to_acc});
+            db.execute(
+                """UPDATE ad_email SET account_name = :to_acc WHERE account_name = :from_acc""",
+                {'to_acc': to_acc, 'from_acc': from_acc});
         except Errors.TooManyRowsError:
             raise Errors.TooManyRowsError
         except Errors.NotFoundError:
-            logger.info("Couldn't update ad_email table from %s to %s" % (from_acc,  to_acc))
+            logger.info("Couldn't update ad_email table from %s to %s" % (
+            from_acc, to_acc))
     elif default_maildomain == maildomain:
         logger.info("Deleting ad_email table for %s" % from_acc)
-        db.execute("""DELETE FROM ad_email WHERE account_name = :from_acc""", {'from_acc': from_acc});
+        db.execute("""DELETE FROM ad_email WHERE account_name = :from_acc""",
+                   {'from_acc': from_acc});
 
 
 def main():
-
     try:
-        opts, args = getopt.getopt(sys.argv[1:],'f:t:pm:d',['from=','to=','primary','maildomain=','dryrun'])
+        opts, args = getopt.getopt(sys.argv[1:], 'f:t:pm:d',
+                                   ['from=', 'to=', 'primary', 'maildomain=',
+                                    'dryrun'])
     except getopt.GetoptError:
         usage(1)
 
     from_acc = to_acc = maildomain = None
     dryrun = primary = False
-    for opt,val in opts:
+    for opt, val in opts:
         if opt in ('-h', '--help'):
             usage()
         elif opt in ('-f', '--from'):
             from_acc = val
-        elif opt in ('-t','--to'):
+        elif opt in ('-t', '--to'):
             to_acc = val
-        elif opt in ('-m','--maildomain'):
+        elif opt in ('-m', '--maildomain'):
             maildomain = val
-        elif opt in ('-p','--primary'):
+        elif opt in ('-p', '--primary'):
             primary = True
         elif opt in ('-d', '--dryrun'):
             dryrun = True
@@ -231,8 +234,7 @@ def main():
         logger.info("Committing all changes to DB")
 
 
-
-def usage(exit_code = 0):
+def usage(exit_code=0):
     print """This script moves all e-mailaddresses in a given domain from one account to another
     -f | --from:       account name to move e-mailaddresses from
     -t | --to:         account name to move e-mailaddresses to
@@ -242,9 +244,6 @@ def usage(exit_code = 0):
     -h | --help:       this help message""" % (default_maildomain)
 
     sys.exit(exit_code)
-
-
-
 
 
 if __name__ == '__main__':
