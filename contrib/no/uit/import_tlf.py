@@ -53,7 +53,6 @@ import csv
 import datetime
 import io
 import logging
-import operator
 
 import requests
 
@@ -154,6 +153,42 @@ def delete_remote(userid):
                        userid)
 
 
+class ErrorReport(object):
+    """Format a report."""
+
+    def __init__(self):
+        self._errors = {}
+        self._names = {}
+
+    def __iter__(self):
+        return iter(self._errors.keys())
+
+    def set_name(self, user_id, *names):
+        """Add a name to use in the report."""
+        if user_id in self._names:
+            return
+        names = [n.strip() for n in names if n.strip()]
+        if any(names):
+            self._names[user_id] = ' '.join(names)
+
+    def add_error(self, user_id, error_msg):
+        user_errors = self._errors.setdefault(user_id, [])
+        user_errors.append(error_msg)
+
+    def format_report(self):
+        """Format a report on all encountered errors."""
+        message = io.StringIO()
+        for user_id in sorted(self._errors,
+                              key=lambda uid: (self._names.get(uid), uid)):
+            header = '{} ({})'.format(self._names.get(user_id, ''), user_id)
+            items = self._errors[user_id]
+            message.write(header + "\n")
+            for item in items:
+                message.write("\t" + item + "\n")
+            message.write("\n")
+        return message.getvalue()
+
+
 class PhoneNumberImporter(object):
     """Imports phone number from csv into Cerebrum."""
 
@@ -178,7 +213,8 @@ class PhoneNumberImporter(object):
 
         # Variables
         self._num_changes = 0
-        self._s_errors = {}
+        # self._s_errors = {}
+        self.errors = ErrorReport()
         self._processed = set()
 
         self._p = Factory.get('Person')(db)
@@ -272,14 +308,16 @@ class PhoneNumberImporter(object):
         owner_id = self._uname_to_ownerid.get(user_id, None)
         if owner_id is None:
             logger.error("No userid=%r in Cerebrum", user_id)
-            self._s_errors.setdefault(user_id, []).append(
+            self.errors.add_error(
+                user_id,
                 "Account {0} not found in BAS".format(user_id))
             return
 
         # Remove MX
         expire_date = self._uname_to_expire.get(user_id)
         if expire_date and expire_date < datetime.date.today():
-            self._s_errors.setdefault(user_id, []).append(
+            self.errors.add_error(
+                user_id,
                 "WARN: account {0} expired {1} in BAS".format(
                     user_id, expire_date.strftime('%Y-%m-%d')))
 
@@ -328,7 +366,8 @@ class PhoneNumberImporter(object):
                     user_id,
                     "").lower() != mail.lower():
 
-                self._s_errors.setdefault(user_id, []).append(
+                self.errors.add_error(
+                    user_id,
                     "Email wrong: yours={0}, ours={1}".format(
                         mail,
                         self._uname_to_mail.get(user_id)))
@@ -341,12 +380,11 @@ class PhoneNumberImporter(object):
                     cb_lname = namelist.get(int(self._co.name_last), "")
 
                     if cb_fname != tlf_fname or cb_lname != tlf_lname:
-                        self._s_errors.setdefault(user_id, []).append(
+                        self.errors.add_error(
+                            user_id,
                             "Name spelling differ: yours={0} {1}, ours={2} " +
-                            "{3}".format(tlf_fname,
-                                         tlf_lname,
-                                         cb_fname,
-                                         cb_lname))
+                            "{3}".format(tlf_fname, tlf_lname,
+                                         cb_fname, cb_lname))
 
         db_idx = set(cinfo.keys())
         src_idx = set(idxlist)
@@ -485,6 +523,9 @@ class PhoneNumberImporter(object):
                 logger.warning("Unknown userid=%r, skipping", user_id)
                 continue
 
+            # Cache full name in error report, in case it is needed.
+            self.errors.set_name(user_id, data['firstname'], data['lastname'])
+
             # Set phone extension or mark for deletion based on the
             # first internal number's digits
             added_prefix = False
@@ -546,30 +587,6 @@ class PhoneNumberImporter(object):
                          p_id, changes)
 
             self.handle_changes(p_id, changes)
-
-        # We need to transform _s_errors to contain the fullname
-        # This class should probably get a bit re-structured
-        self._s_report = {}
-        for userid, user_errors in self._s_errors.items():
-            fname = phonedata[userid][0]['firstname']
-            lname = phonedata[userid][0]['lastname']
-            key = '{0} {1} ({2})'.format(fname, lname, userid)
-            self._s_report[key] = user_errors
-
-    def format_report(self):
-        """Format a report on all encountered errors."""
-        message = io.StringIO()
-        for header, items in sorted(self._s_report.items(),
-                                    key=operator.itemgetter(0)):
-            message.write(header + "\n")
-            for item in items:
-                message.write("\t" + item + "\n")
-            message.write("\n")
-        return message.getvalue()
-
-    def get_errors(self):
-        """Get a list of all userid values that caused an issue."""
-        return list(self._s_errors)
 
 
 def main(inargs=None):
@@ -658,8 +675,7 @@ def main(inargs=None):
             logger.warning("Too many changes: %d (max: %d, commit: %r)",
                            num_changes, max_changes_allowed, commit)
 
-    errors = phone_importer.get_errors()
-    report = phone_importer.format_report()
+    errors = list(phone_importer.errors)
     logger.info("Got errors on %d users", len(errors))
 
     if commit:
@@ -678,8 +694,11 @@ def main(inargs=None):
             except Exception:
                 logger.error("Unable to delete userid=%r from remote system",
                              userid, exc_info=True)
+                # TODO: Add error to phone_importer.errors?
             else:
                 logger.info("Removed userid=%r from remote system", userid)
+
+    report = phone_importer.errors.format_report()
 
     if errors and commit and args.notify_recipient:
         logger.info("Sending error report")
