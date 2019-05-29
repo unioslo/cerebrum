@@ -393,8 +393,8 @@ def main(inargs=None):
         # TBD: remove below comment when leetah is removed
         # recipient = send_user_mail['OLD_MAIL']
         # cc = [send_user_mail['NEW_MAIL']]
-        # template = os.path.join(cereconf.CB_SOURCEDATA_PATH,
-        #                         'templates/rename_account.tmpl')
+        # template = os.path.join(cereconf.TEMPLATE_DIR,
+        #                         'rename_account.tmpl')
         # result = mail_template(
         #     recipient=recipient,
         #     template_file=template,
@@ -411,8 +411,7 @@ def main(inargs=None):
 
         # BCC
         recipient = 'bas-admin@cc.uit.no'
-        template = os.path.join(cereconf.CB_SOURCEDATA_PATH,
-                                'templates/rename_account.tmpl')
+        template = os.path.join(cereconf.TEMPLATE_DIR, 'rename_account.tmpl')
         mail_template(
             recipient=recipient,
             template_file=template,

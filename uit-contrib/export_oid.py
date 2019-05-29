@@ -50,12 +50,15 @@ logger = Factory.get_logger("console")
 TODAY = mx.DateTime.today().strftime("%Y%m%d")   
 
 # Stedkode CSV Defaults
-default_mapping_file = os.path.join(cereconf.CB_PREFIX, "var", "source", "bas_portal_mapping.csv")
+default_mapping_file = os.path.join(sys.prefix, "var", "source",
+                                    "bas_portal_mapping.csv")
 STEDKODE_FROM = 0
 STEDKODE_TO = 1
 
 # Person file
-default_employees_file = os.path.join(cereconf.CB_PREFIX, "var", "dumps","employees", "paga_persons_%s.xml" % (mx.DateTime.today().strftime("%Y-%m-%d")))
+default_employees_file = os.path.join(
+    sys.prefix, "var", "dumps","employees",
+    "paga_persons_%s.xml" % (mx.DateTime.today().strftime("%Y-%m-%d")))
 aff_to_stilling_map = {}
 
 

@@ -32,6 +32,7 @@ import datetime
 import io
 import logging
 import os
+import sys
 
 import six
 
@@ -46,12 +47,11 @@ logger = logging.getLogger(__name__)
 
 
 # Default file locations
-CB_SOURCEDATA_PATH = cereconf.CB_SOURCEDATA_PATH
 DUMPDIR = cereconf.DUMPDIR
 
 default_input_files = [
-    os.path.join(CB_SOURCEDATA_PATH, 'steder', 'stedtre-gjeldende.csv'),
-    os.path.join(CB_SOURCEDATA_PATH, 'steder', 'stedtre-eksterne.csv'),
+    os.path.join(sys.prefix, 'var/source', 'steder', 'stedtre-gjeldende.csv'),
+    os.path.join(sys.prefix, 'var/source', 'steder', 'stedtre-eksterne.csv'),
 ]
 
 default_output_file = os.path.join(
