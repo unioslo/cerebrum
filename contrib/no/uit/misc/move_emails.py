@@ -48,7 +48,7 @@ def process_change(from_acc, to_acc, maildomain, primary, db):
         ac.find_by_name(from_acc)
         from_id = ac.entity_id
     except Errors.NotFoundError:
-        logger.error("Account to move e-mails from not found: %s" % from_acc)
+        logger.error("Account to move e-mails from not found: %s", from_acc)
         sys.exit(1)
 
     # Validate and get acc_id
@@ -57,7 +57,7 @@ def process_change(from_acc, to_acc, maildomain, primary, db):
         ac.find_by_name(to_acc)
         to_id = ac.entity_id
     except Errors.NotFoundError:
-        logger.error("Account to move e-mails to not found: %s" % to_acc)
+        logger.error("Account to move e-mails to not found: %s", to_acc)
         sys.exit(1)
 
     # Validate ang get maildomain_id
@@ -73,7 +73,7 @@ def process_change(from_acc, to_acc, maildomain, primary, db):
     except Errors.TooManyRowsError:
         raise Errors.TooManyRowsError
     except Errors.NotFoundError:
-        logger.error("Maildomain not found: %s" % maildomain)
+        logger.error("Maildomain not found: %s", maildomain)
         sys.exit(1)
 
     # Get email target for account that shall receive new accounts
@@ -89,7 +89,7 @@ def process_change(from_acc, to_acc, maildomain, primary, db):
     except Errors.TooManyRowsError:
         raise Errors.TooManyRowsError
     except Errors.NotFoundError:
-        logger.error("E-mailtarget not found for %s" % to_acc)
+        logger.error("E-mailtarget not found for %s", to_acc)
         sys.exit(1)
 
     # If primary set to true, get address_id of primary address for from_acc
@@ -118,8 +118,8 @@ def process_change(from_acc, to_acc, maildomain, primary, db):
         except Errors.TooManyRowsError:
             raise Errors.TooManyRowsError
         except Errors.NotFoundError:
-            logger.warn("Primary address not found for %s in domain %s" % (
-                from_acc, maildomain))
+            logger.warn("Primary address not found for %s in domain %s",
+                        from_acc, maildomain)
             primary_id = None
 
     # Delete primary address for from_acc, if this is among the addresses to be
@@ -171,7 +171,7 @@ def process_change(from_acc, to_acc, maildomain, primary, db):
 
     # Set new primary address if primary_id address is OK 
     if primary_id is not None:
-        logger.info("Setting primary address for new owner %s" % to_acc)
+        logger.info("Setting primary address for new owner %s", to_acc)
         db.execute(
             """
             UPDATE [:table schema=cerebrum name=email_primary_address]
@@ -197,8 +197,8 @@ def process_change(from_acc, to_acc, maildomain, primary, db):
                 """,
                 {'from_acc': from_acc, }
             )
-            logger.info(
-                "Updating ad_email table from %s to %s" % (from_acc, to_acc))
+            logger.info("Updating ad_email table from %s to %s",
+                        from_acc, to_acc)
             db.execute(
                 """
                 DELETE FROM ad_email 
@@ -220,10 +220,10 @@ def process_change(from_acc, to_acc, maildomain, primary, db):
         except Errors.TooManyRowsError:
             raise Errors.TooManyRowsError
         except Errors.NotFoundError:
-            logger.info("Couldn't update ad_email table from %s to %s" % (
-                from_acc, to_acc))
+            logger.info("Couldn't update ad_email table from %s to %s",
+                        from_acc, to_acc)
     elif DEFAULT_MAIL_DOMAIN == maildomain:
-        logger.info("Deleting ad_email table for %s" % from_acc)
+        logger.info("Deleting ad_email table for %s", from_acc)
         db.execute(
             """
             DELETE FROM ad_email 
