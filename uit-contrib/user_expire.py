@@ -18,39 +18,24 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+import argparse
 import cPickle
-import getopt
+import logging
 import os
-import sys
 
 import mx.DateTime
 
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
+from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.email import sendmail
 
-progname = __file__.split("/")[-1]
-
-__doc__ = """
-Usage: %s [options]
-    --cache cache_file
-    --generate-info info_file
-    -l | --logger_name name
-    -h | -? | --help
-
-    A cache file must always be specified. It can be non-existing or
-    empty, but without record of earlier data a lot of warnings will
-    be generated and expiring users might get duplicate warning mails.
-
-    generate_info reads the cache from a cache file and generates a
-    html file with info about expiring users.
-
-""" % (progname)
-
-logger = Factory.get_logger('cronjob')
+logger = logging.getLogger(__name__)
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -471,35 +456,44 @@ def get_ou_name(self, ou_id):
                                   ou.avdeling)
 
 
-def usage(exitcode=0, msg=""):
-    if exitcode == -1:
-        print "%s\n" % (msg)
-    print __doc__
-    sys.exit(exitcode)
+epilog = """
+A cache file must always be specified. It can be non-existing or
+empty, but without record of earlier data a lot of warnings will
+be generated and expiring users might get duplicate warning mails.
+
+generate_info reads the cache from a cache file and generates a
+html file with info about expiring users.
+""".strip()
 
 
-def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'h?l:', [
-            'help', 'cache=', 'generate-info='])
-    except getopt.GetoptError as m:
-        usage(-1, m)
-    if not opts:
-        usage(-1, "No arguments given")
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description="Process entity expire dates",
+        epilog=epilog,
+    )
+    parser.add_argument(
+        '--cache',
+        dest='cache_file',
+        required=True,
+        help='Use cache %(metavar)s for comparison between runs',
+        metavar='<cache-file>',
+    )
+    parser.add_argument(
+        '--generate-info',
+        dest='report_file',
+        help='Write a HTML report on expired users to %(metavar)s',
+        metavar='<report-file>',
+    )
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    cache_file = info_file = None
-    for opt, val in opts:
-        if opt in ('--help', '-h', '-?'):
-            usage()
-        elif opt in ('--cache',):
-            cache_file = val
-        elif opt in ('--generate-info',):
-            info_file = val
-        else:
-            usage(-1)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-    if cache_file:
-        check_users(cache_file)
+    cache_file = args.cache_file
+    info_file = args.report_file
+
+    check_users(args.cache_file)
     if info_file and cache_file:
         generate_info(cache_file, info_file)
 
