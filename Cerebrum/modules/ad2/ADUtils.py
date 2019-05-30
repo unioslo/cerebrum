@@ -460,10 +460,13 @@ class ADclient(PowershellClient):
 
         """
         setup = self._pre_execution_code % {
-            'ad_user': self.escape_to_string(self.ad_account_username),
-            'ad_pasw': self.escape_to_string(self.ad_account_password)}
-        #for a in args:
-        #    print a
+            'ad_user': self.escape_to_string(getattr(self,
+                                                     'ad_account_username',
+                                                     None)),
+            'ad_pasw': self.escape_to_string(getattr(self,
+                                                     'ad_account_password',
+                                                     None)),
+                }
         self.logger.debug4(u'Executing powershell command: %r',
                            args)
         return super(ADclient, self).execute(setup, *args, **kwargs)
