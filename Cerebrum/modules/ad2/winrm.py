@@ -217,10 +217,10 @@ class PowershellException(ExitCodeException):
         # error-messages.
         if stderr:
             m = re.search(
-                "(?P<first_error>[\w\s\-'.]+)[+\s]+CategoryInfo[\s:]+"
-                "(?P<second_error>\w+):\s+\("
-                "(?P<args>[\w\-:]+)\)\s+\["
-                "(?P<command>[\w\s-]+)\].*",
+                r"(?P<first_error>[\w\s\-'.]+)[+\s]+CategoryInfo[\s:]+"
+                r"(?P<second_error>\w+):\s+\("
+                r"(?P<args>[\w\-:]+)\)\s+\["
+                r"(?P<command>[\w\s-]+)\].*",
                 stderr,
                 re.MULTILINE)
         else:
@@ -229,7 +229,7 @@ class PowershellException(ExitCodeException):
             r_msg = msg
         elif m:
             gd = m.groupdict()
-            cmd = re.sub('\s', '', gd.get('command'))
+            cmd = re.sub(r'\s', '', gd.get('command'))
             first_err = gd.get('first_error').strip()
             #  Fix empty argument sequence
             args = gd.get('args') if gd.get('args') != ':' else ''
@@ -446,7 +446,7 @@ class WinRMProtocol(object):
         req = urllib2.Request(url, xml, self._http_headers)
         try:
             ret = self._opener.open(req)
-        except urllib2.HTTPError, e:
+        except urllib2.HTTPError as e:
             if e.code == 401:  # Unauthorized
                 self.logger.debug("Server says 401 Unauthorized")
                 self.logger.warn("No known server auth method: %s" %
@@ -682,7 +682,8 @@ class WinRMProtocol(object):
             ele.text = text
         return ele
 
-    def _xml_header(self, action, resource='windows/shell/cmd', selectors=None):
+    def _xml_header(self, action, resource='windows/shell/cmd',
+                    selectors=None):
         """Create an XML header for different request types. WinRM makes use of
         a lot of different WS-* standards, e.g. WS-Addressing and
         WS-Management, but most of the WSMan calls looks fortunately the same.
@@ -873,7 +874,7 @@ class WinRMProtocol(object):
             xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell">
             <rsp:Command>del</rsp:Command>
             <rsp:Arguments>/p</rsp:Arguments>
-            <rsp:Arguments>d:\temp\out.txt</rsp:Arguments>
+            <rsp:Arguments>d:\temp\\out.txt</rsp:Arguments>
           </rsp:CommandLine>
         </s:Body>
 
@@ -915,7 +916,7 @@ class WinRMProtocol(object):
         options.append(
             self._xml_element('Option', 'wsman',
                               attribs={'Name': 'WINRS_SKIP_CMD_SHELL'},
-                               text=skip_cmd_shell))
+                              text=skip_cmd_shell))
         header.append(options)
 
         body = self._xml_element('Body', 's')
@@ -925,9 +926,6 @@ class WinRMProtocol(object):
         # To support sending blank commands:
         if not args:
             args = [None]
-
-        # TODO: Decode input if not unicode?
-        #args = tuple(unicode2str(a) for a in args)
 
         cmd = self._xml_element('Command', 'rsp', text=args[0])
         cmdline.append(cmd)
@@ -966,7 +964,7 @@ class WinRMProtocol(object):
             <rsp:Environment>
                 <rsp:Variable Name="test">1</rsp:Variable>
             </rsp:Environment>
-            <rsp:WorkingDirectory>d:\windows</rsp:WorkingDirectory>
+            <rsp:WorkingDirectory>d:\\windows</rsp:WorkingDirectory>
             <rsp:Lifetime>PT1000.000S</rsp:Lifetime>
             <rsp:InputStreams>stdin</rsp:InputStreams>
             <rsp:OutputStreams>stdout stderr</rsp:OutputStreams>
@@ -1106,7 +1104,6 @@ class WinRMProtocol(object):
         #     'Expires', 'wsen', text='%s' % self._xml_duration(seconds=120)))
         body.append(enum)
 
-        # print etree.tostring(self._xml_envelope(header, body), pretty_print=True)
         self.logger.debug3('Calling WSMAN Enumerate for resource "%s"',
                            resource)
         ret = self._http_call(self._xml_envelope(header, body))
@@ -1461,35 +1458,35 @@ class WinRMClient(WinRMProtocol):
     protocol.
 
     What the client is taking care of, is how all the wsman request should be
-    sent and received for WinRM shells. The standard workflow when communicating
-    with a WinRM server is:
+    sent and received for WinRM shells. The standard workflow when
+    communicating with a WinRM server is:
 
         1. Send a Create request to create a Shell on the server. A ShellId is
            returned.
         2. Send a Command request to start a new command in the given Shell. A
            CommandId is returned. Note that it's not the result from the
-           execution that is returned now, the command might not even be started
-           on yet.
+           execution that is returned now, the command might not even be
+           started on yet.
         3. If needed, you could send a Send request to send input to stdin or
            pipe. This could e.g. be used to e.g. fill in data in prompts.
            TODO: This does not work as expected, so more work needs to be done
            for this to work.
-        4. If you want to, you could now go and do something else. The server is
-           processing the command and caching the output.
-        5. Send a Receive request to receive the output from the command. If the
-           returned State is not "Done", you could keep on sending Send requests
-           to get all of the data.
+        4. If you want to, you could now go and do something else. The server
+           is processing the command and caching the output.
+        5. Send a Receive request to receive the output from the command. If
+           the returned State is not "Done", you could keep on sending Send
+           requests to get all of the data.
         6. Send a Signal request to tell the server that the output was
            received. The server could now remove the output from its cache and
            use for other commands.
-        8. Send and receive more commands if needed in the shell. Note that each
-           command is independent of the others, as we need to start powershell
-           at each Command request. We might need to improve on this in the
-           future, depending on our needs.
+        8. Send and receive more commands if needed in the shell. Note that
+           each command is independent of the others, as we need to start
+           powershell at each Command request. We might need to improve on this
+           in the future, depending on our needs.
         9. Send a Delete request to shut down the given Shell when done. Each
-           user only have a limited number of shells available, so you should do
-           this to avoid getting temporarily blocked from the server if too many
-           AD jobs are running simultaneously.
+           user only have a limited number of shells available, so you should
+           do this to avoid getting temporarily blocked from the server if too
+           many AD jobs are running simultaneously.
 
     The ShellId returned from the Create request (the L{connect} method) is set
     in the instance itself to be used when sending commands.
@@ -1514,8 +1511,8 @@ class WinRMClient(WinRMProtocol):
         shellid = self.wsman_create()
         self.shellid = shellid
         # Subclasses could now run some startup commands on the server, e.g.
-        # starting powershell in the active shell and import the ActiveDirectory
-        # module. Example:
+        # starting powershell in the active shell and import the
+        # ActiveDirectory module. Example:
         #   commandid = self.wsman_command(self.shellid, "powershell")
         return shellid
 
@@ -1566,7 +1563,7 @@ class WinRMClient(WinRMProtocol):
         assert shellid, "ShellId not given or set"
         try:
             commandid = self.wsman_command(shellid, *args)
-        except WinRMServerException, e:
+        except WinRMServerException as e:
             # Check if error matches MaxConcurrentOperationsPerUser and
             # reconnect. We also check to see if the shells have timed out
             # (the InvalidSelectors error) code, and reconnect in that case
@@ -1611,24 +1608,26 @@ class WinRMClient(WinRMProtocol):
     def run(self, *args, **kwargs):
         """Send a command to the server, return its response after execution.
 
-        This is a shortcut for calling L{execute} and run it through L{get_data}
-        for getting the output data. This method is meant to be used for quick
-        commands, as it hangs while waiting for the response. If you want to
-        execute commands that take some time, please use L{execute} instead, and
-        then use L{get_output} later on.
+        This is a shortcut for calling L{execute} and run it through
+        L{get_data} for getting the output data. This method is meant to be
+        used for quick commands, as it hangs while waiting for the response. If
+        you want to execute commands that take some time, please use L{execute}
+        instead, and then use L{get_output} later on.
 
         @type *args: strings
-        @param *args: Input should be the code that should be executed. Note
-            that when using the default shell, cmd, you can only specify one
-            single command, which must be in the first argument, and the rest of
-            the arguments are considered parameters for that.
+        @param *args:
+            Input should be the code that should be executed. Note that when
+            using the default shell, cmd, you can only specify one single
+            command, which must be in the first argument, and the rest of the
+            arguments are considered parameters for that.
 
         @type stdin: string
         @param stdin: Data to send as input to the server.
 
         @rtype: dict
-        @return: A dict with the command's output, separated by output type,
-            e.g. 'stderr', 'stdout' and 'pr'. All values should be strings.
+        @return:
+            A dict with the command's output, separated by output type, e.g.
+            'stderr', 'stdout' and 'pr'. All values should be strings.
 
         """
         return self.get_data(self.execute(*args, **kwargs))
@@ -1637,23 +1636,24 @@ class WinRMClient(WinRMProtocol):
         """Get an iteration of exitcode and output for a given command.
 
         The output is returned as an iterator, to be able to process the first
-        parts of the output already before all is processed or returned from the
-        server. When done, the server is told that the output was received and
-        could be removed from its cache.
+        parts of the output already before all is processed or returned from
+        the server. When done, the server is told that the output was received
+        and could be removed from its cache.
 
         @type commandid: tuple
-        @param commandid: The (ShellId, CommandId) for the command that the
-            output should be retrieved from.
+        @param commandid:
+            The (ShellId, CommandId) for the command that the output should be
+            retrieved from.
 
         @type signal: bool
         @param signal:
-            If we should send a end signal to the server when all the
-            output was received. This must be done, according to the
-            specifications, after a process has finished, so that the server
-            could free up the cache space and use it for the next command.
-            It could be set to false in case of a command that needs input later
-            on, but you want its initial output first. You then have to signal
-            it yourself later on.
+            If we should send a end signal to the server when all the output
+            was received. This must be done, according to the specifications,
+            after a process has finished, so that the server could free up the
+            cache space and use it for the next command. It could be set to
+            false in case of a command that needs input later on, but you want
+            its initial output first. You then have to signal it yourself later
+            on.
 
         @type timeout_retries: int
         @param timeout_retries:
@@ -1686,7 +1686,7 @@ class WinRMClient(WinRMProtocol):
                     state, code, out = self.wsman_receive(commandid[0],
                                                           commandid[1],
                                                           sequence)
-                except WinRMServerException, e:
+                except WinRMServerException as e:
                     # Only timeouts are okay to retry:
                     if e.code != ['s:Receiver', 'w:TimedOut']:
                         raise
@@ -1715,23 +1715,25 @@ class WinRMClient(WinRMProtocol):
         it is returned as a double tuple and not an iterator. The exitcode is
         checked and codes other than 0 are raised as errors.
 
-        You have to wait for the whole response before getting the returned data
-        from this command, as it gathers it all up. If you want to start
+        You have to wait for the whole response before getting the returned
+        data from this command, as it gathers it all up. If you want to start
         processing the output before all of it is sent you should use
         L{get_output} directly.
 
         @type commandid: tuple
-        @param commandid: The (ShellId, CommandId) for the command that the
-            output should be retrieved from.
+        @param commandid:
+            The (ShellId, CommandId) for the command that the output should be
+            retrieved from.
 
         @type signal: bool
-        @param signal: If we should send a end signal to the server when all the
-            output was received. This must be done, according to the
-            specifications, after a process has finished, so that the server
-            could free up the cache space and use it for the next command.
-            It could be set to false in case of a command that needs input later
-            on, but you want its initial output first. You then have to signal
-            it yourself later on.
+        @param signal:
+            If we should send a end signal to the server when all the output
+            was received. This must be done, according to the specifications,
+            after a process has finished, so that the server could free up the
+            cache space and use it for the next command. It could be set to
+            false in case of a command that needs input later on, but you want
+            its initial output first. You then have to signal it yourself later
+            on.
 
         @type timeout_retries: int
         @param timeout_retries:
@@ -1855,18 +1857,17 @@ class PowershellClient(WinRMClient):
 
     """
 
-    # The location of the powershell.exe program we should run. Note that we are
-    # expecting x64, and the path might change in the future - should we be able
-    # to configure this somewhere?
-    exec_path = u'%SystemRoot%\syswow64\WindowsPowerShell\\v1.0\powershell.exe'
+    # The location of the powershell.exe program we should run. Note that we
+    # are expecting x64, and the path might change in the future.
+    exec_path = u'%SystemRoot%\\syswow64\\WindowsPowerShell\\v1.0\\powershell.exe'
 
     def execute(self, *args, **kwargs):
         """Send powershell commands to the server.
 
         Fires up the proper powershell.exe with proper parameters.
 
-        Unfortunately, a new Shell must be create for each execution, due to not
-        getting blocked from the server.
+        Unfortunately, a new Shell must be create for each execution, due to
+        not getting blocked from the server.
 
         """
 
@@ -1880,9 +1881,9 @@ class PowershellClient(WinRMClient):
                 return six.text_type(v)
 
         args = tuple((_convert(v) for v in args))
-        # Later versions of powershell just hangs at newlines, so need to remove
-        # them. TODO: This could create problems, we need to look at how we
-        # generate powershell commands!
+        # Later versions of powershell just hangs at newlines, so need to
+        # remove them. TODO: This could create problems, we need to look at how
+        # we generate powershell commands!
         command = u' '.join(args).replace(u'\n', u' ')
         # Options for powershell:
         # -NonInteractive   To avoid waiting for stdin and deadlocks if a
@@ -1901,8 +1902,8 @@ class PowershellClient(WinRMClient):
     def escape_to_string(self, data):
         """Prepare (escape) data to be used in powershell commands.
 
-        The data should be escaped to avoid parsing errors in powershell, and to
-        avoid injections.
+        The data should be escaped to avoid parsing errors in powershell, and
+        to avoid injections.
 
         Documentation about escaping in powershell:
 
@@ -1923,8 +1924,8 @@ class PowershellClient(WinRMClient):
         TODO: How about other special characters, like \n - could those be used
         to hack its way in, or do we need to allow those?
 
-        TODO: Does powershell escape '? Would it for instance be possible to end
-        a string with \, and then escape the '?
+        TODO: Does powershell escape '? Would it for instance be possible to
+        end a string with \\, and then escape the '?
 
         TODO: How about two single quotes, is the result '''' usable?
 
@@ -1943,7 +1944,8 @@ class PowershellClient(WinRMClient):
             'value1','value2'...
 
         @type data: mixed (dict, list, tuple, string or int)
-        @param data: The data that should be escaped to be usable in powershell.
+        @param data:
+            The data that should be escaped to be usable in powershell.
 
         @rtype: string
         @return: A string that could be used in powershell commands directly.
@@ -1986,18 +1988,18 @@ class PowershellClient(WinRMClient):
     def get_data(self, commandid, signal=True, timeout_retries=50):
         """Get the output for a given command.
 
-        The method is overridden only to raise PowershellException when an error
-        has occured. This is to be able to separate cmd errors from powershell
-        errors.
+        The method is overridden only to raise PowershellException when an
+        error has occured. This is to be able to separate cmd errors from
+        powershell errors.
 
-        @raise PowershellException: If the exitcode from the output was other
-            than 0.
+        @raise PowershellException:
+            If the exitcode from the output was other than 0.
 
         """
         try:
             return super(PowershellClient, self).get_data(commandid, signal,
                                                           timeout_retries)
-        except ExitCodeException, e:
+        except ExitCodeException as e:
             raise PowershellException(e.exitcode, e.stderr, e.output)
 
     def get_xml_iterator(self, commandid, other):
@@ -2009,16 +2011,18 @@ class PowershellClient(WinRMClient):
             ... | ConvertTo-Xml -as string
 
         The data is returned as an iterator for saving memory and CPU while
-        parsing it. This is useful e.g. when listing out huge amounts of objects
-        from AD.
+        parsing it. This is useful e.g. when listing out huge amounts of
+        objects from AD.
 
         @type commandid: string
-        @param commandid: The CommandId for the command that the output should
-            be retrieved from.
+        @param commandid:
+            The CommandId for the command that the output should be retrieved
+            from.
 
         @type other: dict
-        @param other: This is where all server output that is not XML gets put,
-            sorted by output type. The values are lists of all its output.
+        @param other:
+            This is where all server output that is not XML gets put, sorted by
+            output type. The values are lists of all its output.
 
         @rtype: iterator
         @return: Each iteration returns a string with the XML data.
@@ -2049,8 +2053,8 @@ class PowershellClient(WinRMClient):
     def get_xml_stream(self, commandid, other):
         """Get a Command's output and return the XML as a stream.
 
-        It is only a helper method for iterating output from L{get_xml_iterator}
-        through a stream object of the type L{iter2stream}.
+        It is only a helper method for iterating output from
+        L{get_xml_iterator} through a stream object of the type L{iter2stream}.
 
         This could be used e.g. by etree.iterparse, to save memory and CPU. The
         powershell command that is used should end with:
@@ -2058,19 +2062,22 @@ class PowershellClient(WinRMClient):
             ... | ConvertTo-Xml -as string
 
         The data is returned as an iterator for saving memory and CPU while
-        parsing it. This is useful e.g. when listing out huge amounts of objects
-        from AD.
+        parsing it. This is useful e.g. when listing out huge amounts of
+        objects from AD.
 
         @type commandid: string
-        @param commandid: The CommandId for the command that the output should
-            be retrieved from.
+        @param commandid:
+            The CommandId for the command that the output should be retrieved
+            from.
 
         @type other: dict
-        @param other: This is where all server output that is not XML gets put,
-            sorted by output type. The values are lists of all its output.
+        @param other:
+            This is where all server output that is not XML gets put, sorted by
+            output type. The values are lists of all its output.
 
         @rtype: instance of iter2stream
-        @return: The XML output wrapped in a stream object, to be used by e.g.
+        @return:
+            The XML output wrapped in a stream object, to be used by e.g.
             etree.iterparse.
 
         """
@@ -2080,10 +2087,10 @@ class PowershellClient(WinRMClient):
                        line_delimiter=';'):
         """Get a Command's output and return the CSV as an iterator.
 
-        Note that to make the code a lot easier to read, the method reads in the
-        complete output from WinRM before parsing it. The result is that it then
-        consumes a lot of memory, especially for large output, but it's easier
-        to debug later on.
+        Note that to make the code a lot easier to read, the method reads in
+        the complete output from WinRM before parsing it. The result is that it
+        then consumes a lot of memory, especially for large output, but it's
+        easier to debug later on.
 
         This method could be used when data to output is piped through the
         powershell command:
@@ -2111,12 +2118,13 @@ class PowershellClient(WinRMClient):
         @type line_delimiter: string
         @param line_delimiter: The delimiter to separate the lines. This is
             needed as we have no control of the lines, as cmd is splitting the
-            lines at 80 characters. This has to be done with a 'replace' command
-            in powershell.
+            lines at 80 characters. This has to be done with a 'replace'
+            command in powershell.
 
         @rtype: iterator
-        @return: Iterating each CSV line. Each element is a dict, where the keys
-            are the names given by the first element.
+        @return:
+            Iterating each CSV line. Each element is a dict, where the keys are
+            the names given by the first element.
 
             Note that the values in the dict are all unicode objects.
 
@@ -2135,10 +2143,11 @@ class PowershellClient(WinRMClient):
         out = out.replace('\n', '')
         self.logger.debug3("Got output of length: %d" % len(out))
 
-        # Powershell starts CSV output with a type definition, e.g: #TYPE ADUser
+        # Powershell starts CSV output with a type definition, e.g: #TYPE
+        # ADUser
         try:
             startpos = out.index('#TYPE')
-        except ValueError, e:
+        except ValueError as e:
             if out in ('', ';'):
                 # empty list of elements
                 return
@@ -2188,8 +2197,8 @@ class PowershellClient(WinRMClient):
     def split_csv_lines(input, delimiter=';', value_wrapper='"'):
         """Split the lines in our own modified CSV format from powershell.
 
-        The lines are normally separated with semicolons, which could also exist
-        inside of elements, which must then be ignored.
+        The lines are normally separated with semicolons, which could also
+        exist inside of elements, which must then be ignored.
 
         @type input: string
         @param input: The CSV input that should be separated.
@@ -2245,12 +2254,11 @@ class PowershellClient(WinRMClient):
         @return: The elements of the line, split into a list.
 
         """
-        # TODO: is this too slow? Do we have a faster way of splitting and still
-        # respecting the value wr
+        # TODO: is this too slow? Do we have a faster way of splitting and
+        # still respecting the value wr
         ret = []
         tmp = []
         inside_value = False
-        previous_char = None
         for i in input:
             if not inside_value:
                 if i == delimiter:
@@ -2265,14 +2273,13 @@ class PowershellClient(WinRMClient):
                     raise Exception("Unknown CSV input %s for line: %s" % (i, input,))
             else:
                 if i == value_wrapper:
-                    # TODO: need to check for escaped value_wrapper! How is that
-                    # handled by powershell?
+                    # TODO: need to check for escaped value_wrapper! How is
+                    # that handled by powershell?
                     inside_value = False
                 else:
                     tmp.append(i)
-            previous_char = i
-        # Add the last element. It might be empty, which makes the line just end
-        # with a delimiter, but you still have to append it:
+        # Add the last element. It might be empty, which makes the line just
+        # end with a delimiter, but you still have to append it:
         if tmp or input.endswith(delimiter):
             ret.append(''.join(tmp))
         return ret
@@ -2285,24 +2292,27 @@ class PowershellClient(WinRMClient):
 
             ... | ConvertTo-Json
 
-        Note that to make the code a lot easier to read, the method reads in the
-        complete output from WinRM before parsing it. The result is that it then
-        consumes a lot of memory, especially for large output, but it's easier
-        to debug later on.
+        Note that to make the code a lot easier to read, the method reads in
+        the complete output from WinRM before parsing it. The result is that it
+        then consumes a lot of memory, especially for large output, but it's
+        easier to debug later on.
 
         @type commandid: list or dict
-        @param commandid: The CommandId for the command that the output should
-            be retrieved from. If it is a dict, it is considered to be the
-            output from the command already retrieved - the output must then be
-            under the 'stdout' key of the dict.
+        @param commandid:
+            The CommandId for the command that the output should be retrieved
+            from. If it is a dict, it is considered to be the output from the
+            command already retrieved - the output must then be under the
+            'stdout' key of the dict.
 
         @type other: dict
-        @param other: This is where all server output that is not CSV gets put,
-            sorted by output type. The values are lists of all its output.
+        @param other:
+            This is where all server output that is not CSV gets put, sorted by
+            output type. The values are lists of all its output.
 
         @rtype: mixed
-        @return: All the JSON output is returned as native python data elements.
-            The output could return a list, a dict (array) or a single element.
+        @return:
+            All the JSON output is returned as native python data elements. The
+            output could return a list, a dict (array) or a single element.
 
             Note that all returned strings, including dict keys, are unicode
             objects.
@@ -2375,7 +2385,8 @@ class PowershellClient(WinRMClient):
             powershell.
 
         @rtype: dict
-        @return: A dict with all the properties of the given object that we care
+        @return:
+            A dict with all the properties of the given object that we care
             about.
 
         """
@@ -2390,7 +2401,7 @@ class PowershellClient(WinRMClient):
             if ch.tag != 'Property':
                 logger.warn('Unknown element %r for object', ch.tag)
                 # TODO/TBD: Is this method used? no 'elem'!
-                logger.debug(etree.tostring(elem))
+                logger.debug(etree.tostring(ch))
                 continue
             conv = conv_map.get(ch.get('Type'), None)
             if conv:
