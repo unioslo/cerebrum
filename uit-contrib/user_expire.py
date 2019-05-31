@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
-# Copyright 2005 University of Oslo, Norway
+# Copyright 2005-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,34 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+TODO: What is the ultimate goal of this script??
+
+Configuration
+-------------
+USER_EXPIRE_CONF
+    A dict with the following values:
+
+    - FIRST_WARNING: When to issue first expire notification
+    - SECOND_WARNING: When to issue second expire notification
+    - EXPIRING_THREASHOLD: ???
+
+TEMPLATE_DIR
+    Base directory for templates used in this script
+
+USER_EXPIRE_MAIL
+    A dict that maps email actions to email templates. Each action is a string
+    on the format 'email<n>', where '<n>' is the action number.
+    The templates should be relative to ``cereconf.TEMPLATE_DIR``.
+
+    E.g.: ``{'mail1': 'email_template_1.txt', 'mail2': 'email_template_2'}``
+
+USER_EXPIRE_INFO_PAGE
+    Template file for the HTML report (relative to ``cereconf.TEMPLATE_DIR``).
+
+"""
 import argparse
-import cPickle
+import cPickle as pickle
 import logging
 import os
 
@@ -30,6 +56,7 @@ import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
+from Cerebrum.Entity import EntityName
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.utils.argutils import add_commit_args
@@ -37,24 +64,61 @@ from Cerebrum.utils.email import sendmail
 
 logger = logging.getLogger(__name__)
 
-db = Factory.get('Database')()
-co = Factory.get('Constants')(db)
-ac = Factory.get('Account')(db)
-prs = Factory.get('Person')(db)
-grp = Factory.get('Group')(db)
-ou = Factory.get('OU')(db)
-ef = Email.EmailForward(db)
-entity2name = dict((x["entity_id"], x["entity_name"]) for x in
-                   grp.list_names(co.account_namespace))
-entity2name.update((x["entity_id"], x["entity_name"]) for x in
-                   grp.list_names(co.group_namespace))
-
+# TODO: remove global db-objects, cache
+db = co = ac = prs = grp = ou = ef = None
+entity2name = {}
 
 today = mx.DateTime.today()
 num_sent = 0
 
 FIRST_WARNING = cereconf.USER_EXPIRE_CONF['FIRST_WARNING']
 SECOND_WARNING = cereconf.USER_EXPIRE_CONF['SECOND_WARNING']
+
+
+def get_email_template(action):
+    """
+    Get email template for a given action.
+
+    :type action: int
+    :param action:
+        The action to fetch a template for.
+
+    :rtype: list
+    :returns:
+        The template as a list of template lines. Returns an empty list if
+        there is no template available.
+    """
+    key = 'mail{:d}'.format(action)
+    template_dir = cereconf.TEMPLATE_DIR
+    try:
+        filename = os.path.join(template_dir, cereconf.USER_EXPIRE_MAIL[key])
+    except AttributeError:
+        logger.error("Missing USER_EXPIRE_MAIL in cereconf",
+                     exc_info=True)
+        return []
+    except KeyError:
+        logger.error("Missing template USER_EXPIRE_MAIL[%r] in cereconf",
+                     key, exc_info=True)
+        return []
+    try:
+        with open(filename) as f:
+            lines = f.readlines()
+            if not any(lines):
+                logger.warning("template USER_EXPIRE_MAIL[%r] (%s) is empty",
+                               key, filename)
+            return lines
+    except Exception:
+        logger.error("Unable to read template USER_EXPIRE_MAIL[%r] (%r)",
+                     key, filename, exc_info=True)
+        return []
+
+
+def load_entity_names(db, namespace):
+    """Update global entity2name cache with namespace."""
+    en = EntityName(db)
+    entity2name.update(
+        (x['entity_id'], x['entity_name'])
+        for x in en.list_names(namespace))
 
 
 #
@@ -86,21 +150,9 @@ def send_mail(uname, user_info, nr, forward=False):
 
     # Assume that there exists template files for the mail texts
     # and that cereconf.py has the dict USER_EXPIRE_MAIL
-    key = 'mail' + str(nr)
-    try:
-        mailfile = os.path.join(cereconf.TEMPLATE_DIR,
-                                cereconf.USER_EXPIRE_MAIL[key])
-        f = open(mailfile)
-    except (AttributeError, KeyError):
-        logger.error("cereconf.py not set up correctly: "
-                     "USER_EXPIRE_MAIL must be a dict with key %s", key)
+    lines = get_email_template(nr)
+    if not lines:
         return False
-    except Exception:
-        logger.error("Couldn't read template expire warning file %s", mailfile)
-        return False
-    else:
-        lines = f.readlines()
-        f.close()
 
     msg = []
     for line in lines:
@@ -114,7 +166,7 @@ def send_mail(uname, user_info, nr, forward=False):
     body = ''.join(msg)
     body = body.replace('$USER$', uname)
     body = body.replace('$EXPIRE_DATE$', user_info['expire_date'].date)
-    # OK, tenk p� hvordan dette skal gj�res pent.
+    # OK, tenk på hvordan dette skal gjøres pent.
     if user_info['ou']:
         body = body.replace('ved $OU$', 'ved %s' % user_info['ou'])
         body = body.replace('at $OU$', 'at %s' % user_info['ou'])
@@ -184,7 +236,7 @@ def send_mail(uname, user_info, nr, forward=False):
             if r['enable'] == 'T':
                 email_addrs.append(r['forward_to'])
     # Now send the mail
-    email_addrs = remove_duplicates(email_addrs)
+    email_addrs = unique_list(email_addrs)
     try:
         logger.info("Sending %d. mail To: %s", nr, ', '.join(email_addrs))
         sendmail(
@@ -249,7 +301,7 @@ def decide_expiring_action(expire_date):
     return ret
 
 
-def check_users(cache_file):
+def check_users(expiring_data):
     """Get all cerebrum users and check their expire date. If
     expire_date is soon or is passed take the neccessary actions as
     specified in user-expire.rst."""
@@ -269,13 +321,6 @@ def check_users(cache_file):
                 'mail1': None,
                 'mail2': None,
                 'mail3': None}
-
-    try:
-        expiring_data = cPickle.load(file(cache_file))
-    except IOError:
-        logger.warn("Could not read expire data from cache file %s." %
-                    cache_file)
-        expiring_data = {}
 
     logger.debug("Check expiring info for all user accounts")
     for row in ac.list_all(filter_expired=False):
@@ -376,24 +421,16 @@ def check_users(cache_file):
             logger.error("None of the tests in check_users matched, "
                          "user_info=%s", repr(row))
 
-    # We are finished. Cache user data
-    cPickle.dump(expiring_data, file(cache_file, 'w+'))
 
-
-# FIXME, vi kan muligens fjerne denne og bruke rapporteringsverkt�yet
-# for � lage denne oversikten i stedet.
-def generate_info(cache_file, info_file):
-    "Generate info about expired users and create a web page"
-    try:
-        expiring_data = cPickle.load(file(cache_file))
-    except IOError:
-        logger.error("Could not read expire data from cache file %s." %
-                     cache_file + " Cannot generate info file. Quitting.")
-        return
+# FIXME, vi kan muligens fjerne denne og bruke rapporteringsverktøyet
+# for å lage denne oversikten i stedet.
+# TODO: Replace template file with jinja2 template and proper HTML lists
+def write_report(cache, report_file):
+    """Generate info about expired users and create a web page"""
     has_expired = []
     got_mail2 = []
     will_expire = []
-    for uname, user_info in expiring_data.items():
+    for uname, user_info in cache.items():
         # Find users that has expired last FIRST_WARNING days
         if (user_info['mail1'] and
                 (user_info['expire_date'] + FIRST_WARNING) > today):
@@ -407,43 +444,31 @@ def generate_info(cache_file, info_file):
         if (user_info['expire_date'] - 5) <= today:
             will_expire.append((uname, user_info['home']))
 
+    context = {
+        'HAS_EXPIRED': "\n".join(', '.join(tup) for tup in has_expired),
+        'WILL_EXPIRE': "\n".join(', '.join(tup) for tup in will_expire),
+        'GOT_MAIL': "\n".join(', '.join(tup) for tup in got_mail2),
+    }
+
     # Get web page template
-    web_tmplate = os.path.join(cereconf.TEMPLATE_DIR,
-                               cereconf.USER_EXPIRE_INFO_PAGE)
-    try:
-        f = open(web_tmplate)
-        web_txt = f.read()
-        f.close()
-    except AttributeError:
-        logger.error("cereconf.py not set up correctly: "
-                     "USER_EXPIRE_INFO_PAGE must be defined.")
-        return
-    except IOError:
-        logger.error("Could not read web page template file %s", web_tmplate)
-        return
-    # generate text
-    web_txt = web_txt.replace("${HAS_EXPIRED}",
-                              '\n'.join([', '.join(x) for x in has_expired]))
-    web_txt = web_txt.replace("${WILL_EXPIRE}",
-                              '\n'.join([', '.join(x) for x in will_expire]))
-    web_txt = web_txt.replace("${GOT_MAIL}",
-                              '\n'.join([', '.join(x) for x in got_mail2]))
+    template_file = os.path.join(cereconf.TEMPLATE_DIR,
+                                 cereconf.USER_EXPIRE_INFO_PAGE)
+    with open(template_file, 'r') as f:
+        report = f.read()
+
+    for k in context:
+        report = report.replace("${" + k + "}", context[k])
+
     # Write file
-    try:
-        f = open(info_file, 'w+')
-        f.write(web_txt)
-        f.close()
-    except IOError:
-        logger.error("Could not write to info file %s" % info_file)
+    with open(report_file, 'w') as f:
+        f.write(report)
 
 
-def remove_duplicates(l):
-    "Simple list uniqifier"
-    tmp = []
-    for x in l:
-        if x and x not in tmp:
-            tmp.append(x)
-    return tmp
+def unique_list(seq):
+    """Strip duplicates from a sequence."""
+    seen = set()
+    seen_add = seen.add  # prevents attr lookup on seen for each iteration
+    return [x for x in seq if not (x in seen or seen_add(x))]
 
 
 def get_ou_name(self, ou_id):
@@ -454,6 +479,31 @@ def get_ou_name(self, ou_id):
                                                             default=''),
                                   ou.fakultet, ou.institutt,
                                   ou.avdeling)
+
+
+def load_cache(filename):
+    """Load cache dict from file."""
+    cache = {}
+    if os.path.exists(filename):
+        logger.info("Loading cache from file %r", filename)
+        try:
+            with open(filename, 'r') as f:
+                cache.update(pickle.load(f))
+            logger.info("Loaded %d items from cache", len(cache))
+        except Exception:
+            logger.error("Unable to load cache file %r",
+                         filename, exc_info=True)
+    else:
+        logger.info("No cache file %r", filename)
+    return cache
+
+
+def dump_cache(cache, filename):
+    """Dump cache dict to file."""
+    logger.info("Dumping %d cached items to file %r",
+                len(cache), filename)
+    with open(filename, 'w') as f:
+        pickle.dump(cache, f)
 
 
 epilog = """
@@ -467,6 +517,8 @@ html file with info about expiring users.
 
 
 def main(inargs=None):
+    global db, co, ac, prs, grp, ou, ef
+
     parser = argparse.ArgumentParser(
         description="Process entity expire dates",
         epilog=epilog,
@@ -490,12 +542,34 @@ def main(inargs=None):
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    cache_file = args.cache_file
-    info_file = args.report_file
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
 
-    check_users(args.cache_file)
-    if info_file and cache_file:
-        generate_info(cache_file, info_file)
+    db = Factory.get('Database')()
+    co = Factory.get('Constants')(db)
+    ac = Factory.get('Account')(db)
+    prs = Factory.get('Person')(db)
+    grp = Factory.get('Group')(db)
+    ou = Factory.get('OU')(db)
+    ef = Email.EmailForward(db)
+
+    for namespace in (co.account_namespace, co.group_namespace):
+        logger.debug("Caching %s names", namespace)
+        load_entity_names(db, namespace)
+
+    cache = load_cache(args.cache_file)
+    check_users(cache)
+    dump_cache(cache, args.cache_file)
+
+    # TODO: if commit, do that before rendering template - as the emails have
+    # already been sent - if case rendering fails.
+
+    if args.report_file:
+        logger.info("Generating report")
+        write_report(cache, args.report_file)
+        logger.info("Report written to %r", args.report_file)
+
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == '__main__':
