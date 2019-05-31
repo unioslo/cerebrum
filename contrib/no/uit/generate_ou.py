@@ -79,6 +79,7 @@ class OuGenerator(object):
     def get_fs_ou(self):
         """ Collect data about all active ou's from FS. """
         logger.info("Reading OU's from FS")
+        fs_data = {}
 
         ouer = self.fs.ou.list_ou(institusjonsnr=186)
 
@@ -111,7 +112,7 @@ class OuGenerator(object):
             if not 'adrlin2':
                 i['adrlin2'] = i['stednavn_bokmal']
 
-            self.fs_data[temp_inst_nr] = {
+            fs_data[temp_inst_nr] = {
                 'fakultetnr': format_int(i['faknr']),
                 'instituttnr': format_int(i['instituttnr']),
                 'gruppenr': format_int(i['gruppenr']),
@@ -143,7 +144,7 @@ class OuGenerator(object):
                 'poststednavn_intern_adr': i['adrlin3'],
             }
 
-        return self.fs_data
+        return fs_data
 
     def _parse_line(self, line):
         """
