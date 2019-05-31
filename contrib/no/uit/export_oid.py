@@ -26,9 +26,10 @@ kbj005 2015.02.12: Copied from Leetah.
 """
 from __future__ import unicode_literals
 
+import argparse
 import csv
-import getopt
 import datetime
+import logging
 import os
 import sys
 
@@ -36,39 +37,26 @@ import six
 
 import cereconf
 
-from Cerebrum.Utils import Factory
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Constants import _CerebrumCode
+from Cerebrum.Utils import Factory
 from Cerebrum.extlib.xmlprinter import xmlprinter
-from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
+from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
+from Cerebrum.utils.argutils import ParserContext
+
+logger = logging.getLogger(__name__)
 
 db = Factory.get('Database')()
 ou = Factory.get('OU')(db)
 p = Factory.get('Person')(db)
 co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
-logger = Factory.get_logger("console")
-
-TODAY = datetime.date.today().strftime("%Y-%m-%d")
-
-# Stedkode CSV Defaults
-default_mapping_file = os.path.join(
-    sys.prefix, "var/source/bas_portal_mapping.csv")
 
 STEDKODE_FROM = 0
 STEDKODE_TO = 1
-
-# Person file
-default_employees_file = os.path.join(
-    sys.prefix, "var/cache/employees",
-    "paga_persons_%s.xml" % (TODAY,))
-
-
-default_outfile = os.path.join(
-    sys.prefix, "var/cache/oid",
-    "oid_export_%s" % (TODAY, ))
-
 
 aff_to_stilling_map = {}
 
@@ -159,7 +147,7 @@ def scan_person_affs(person):
         aff_to_stilling_map[aux_key] = aux_val
 
 
-def load_cache():
+def load_cache(mapping_file, employee_file):
     global account2name
     global owner2account
     global persons
@@ -195,7 +183,7 @@ def load_cache():
 
     # Creating ou map
     mappings = csv.reader(
-        open(default_mapping_file, 'r'), delimiter=';'.encode())
+        open(mapping_file, 'r'), delimiter=';'.encode())
     bas_portal_mapping = {}
     for mapping in mappings:
         stedkode_from = mapping[STEDKODE_FROM].strip()
@@ -214,7 +202,7 @@ def load_cache():
 
     logger.info('Generating dict of PAGA persons affiliations and '
                 'their stillingskoder, dbh_kat, etc')
-    PagaDataParserClass(default_employees_file, scan_person_affs)
+    PagaDataParserClass(employee_file, scan_person_affs)
 
     logger.info('Getting pid -> fnr dict')
     pid_fnr_dict = p.getdict_fodselsnr()
@@ -580,46 +568,75 @@ def build_xml(outfile):
     xml.endDocument()
 
 
-def usage(exit_code=0, msg=""):
-    if msg:
-        print(msg)
-    print("""Usage: [options]
-    -h | --help             : show this message
-    -o | --outfile=filname  : write result to filename
-    --csv | write a csv file instead of a xml file
-    --logger-name=loggername: write logs to logtarget loggername
-    --logger-level=loglevel : use this loglevel
-    """)
-    sys.exit(exit_code)
+default_mapping_file = os.path.join(
+    sys.prefix, "var/source/bas_portal_mapping.csv")
+
+default_employees_file = os.path.join(
+    sys.prefix, "var/cache/employees",
+    "paga_persons_%s.xml" % datetime.date.today().strftime("%Y-%m-%d"))
+
+default_outfile = os.path.join(
+    sys.prefix, "var/cache/oid",
+    "oid_export_%s" % datetime.date.today().strftime("%Y-%m-%d"))
 
 
-def main():
-    user_outfile = None
-    exportcsv = False
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'o:hx',
-                                   ['outfile=', 'csv', 'help'])
-    except getopt.GetoptError:
-        usage(1)
-    outfile = None
-    for opt, val in opts:
-        if opt in ['-o', '--outfile']:
-            user_outfile = val
-        if opt in ['--csv']:
-            exportcsv = True
-        elif opt in ['-h', '--help']:
-            usage(0)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description="Generate an OID export file",
+    )
+    parser.add_argument(
+        '--employee-file',
+        dest='employee_file',
+        default=default_employees_file,
+        help=('Read and parse employee data from xml-file %(metavar)s '
+              '(%(default)s)'),
+        metavar='<file>',
+    )
+    parser.add_argument(
+        '--ou-mapping',
+        dest='mapping_file',
+        default=default_mapping_file,
+        help=('Read and parse OU mappings from csv-file %(metavar)s '
+              '(%(default)s)'),
+        metavar='<file>',
+    )
+    outfile_arg = parser.add_argument(
+        '-o', '--outfile',
+        dest='outfile',
+        default=default_outfile,
+        help='Write output to %(metavar)s (%(default)s)',
+        metavar='<file>',
+    )
+    parser.add_argument(
+        '--csv',
+        dest='use_csv',
+        action='store_true',
+        default=False,
+        help='Format output as CSV (default: XML)',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    if exportcsv and not user_outfile:
-        usage(1, "Must specify -o or --outfile when using --csv")
-    outfile = user_outfile or default_outfile
-    load_cache()
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('console', args)
+
+    with ParserContext(parser, outfile_arg):
+        if args.use_csv and outfile_arg == default_outfile:
+            raise ValueError(
+                "Must set an alternate outfile when generating CSV")
+
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
+
+    load_cache(args.mapping_file, args.employee_file)
     load_cb_data()
-    if exportcsv:
-        build_csv(outfile)
+    if args.use_csv:
+        build_csv(args.outfile)
+        logger.info("Wrote CSV data to %s", args.outfile)
     else:
-        build_xml(outfile)
-    logger.info("Finished")
+        build_xml(args.outfile)
+        logger.info("Wrote XML data to %s", args.outfile)
+
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == "__main__":
