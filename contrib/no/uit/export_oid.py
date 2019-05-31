@@ -28,7 +28,7 @@ from __future__ import unicode_literals
 
 import csv
 import getopt
-import mx.DateTime
+import datetime
 import os
 import sys
 
@@ -50,43 +50,59 @@ co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
 logger = Factory.get_logger("console")
 
-TODAY = mx.DateTime.today().strftime("%Y%m%d")
+TODAY = datetime.date.today().strftime("%Y-%m-%d")
 
 # Stedkode CSV Defaults
-default_mapping_file = os.path.join(sys.prefix, "var", "source",
-                                    "bas_portal_mapping.csv")
+default_mapping_file = os.path.join(
+    sys.prefix, "var/source/bas_portal_mapping.csv")
 
 STEDKODE_FROM = 0
 STEDKODE_TO = 1
 
 # Person file
 default_employees_file = os.path.join(
-    sys.prefix, "var", "dumps","employees",
-    "paga_persons_%s.xml" % (mx.DateTime.today().strftime("%Y-%m-%d")))
+    sys.prefix, "var/cache/employees",
+    "paga_persons_%s.xml" % (TODAY,))
+
+
+default_outfile = os.path.join(
+    sys.prefix, "var/cache/oid",
+    "oid_export_%s" % (TODAY, ))
+
 
 aff_to_stilling_map = {}
+
+
+def parse_date(date_str):
+    """
+    Parse a date on the strfdate format "%Y-%m-%d".
+    """
+    if not date_str:
+        return None
+    args = (int(date_str[0:4]),
+            int(date_str[5:7]),
+            int(date_str[8:10]))
+    return datetime.date(*args)
 
 
 def scan_person_affs(person):
     global aff_to_stilling_map
 
     fnr = person['fnr']
+    today = datetime.date.today()
 
     for t in person.get('tils', ()):
-        earliest = (mx.DateTime.DateFrom(t.get("dato_fra")) -
-                    mx.DateTime.DateTimeDelta(cereconf.PAGA_EARLYDAYS))
-        dato_fra = mx.DateTime.DateFrom(t.get("dato_fra"))
-        dato_til = mx.DateTime.DateFrom(t.get("dato_til"))
+        # TODO: the 'today' default value is leftover logic from
+        # mx.DateTime.DateFrom()
+        dato_fra = parse_date(t.get("dato_fra")) or today
+        earliest = (dato_fra -
+                    datetime.timedelta(days=cereconf.PAGA_EARLYDAYS))
+        dato_til = parse_date(t.get("dato_til")) or today
 
-        if (
-                mx.DateTime.today() < earliest or
-                (dato_til and (mx.DateTime.today() > dato_til))
-        ):
-            logger.warn(
-                "Not active, earliest: %s, dato_fra: %s, dato_til:%s" % (
-                    earliest,
-                    dato_fra,
-                    dato_til))
+        if today < earliest or today > dato_til:
+            logger.warning(
+                "Not active, earliest: %s, dato_fra: %s, dato_til: %s",
+                earliest, dato_fra, dato_til)
             continue
 
         stedkode = "%s%s%s" % (t['fakultetnr_utgift'].zfill(2),
@@ -376,7 +392,7 @@ def load_cb_data():
             logger.warn("Skipping personID=%s, no account found" % p_id)
             continue
         namelist = name_cache_cached.get(p_id, None)
-        first_name = last_name = worktitle = ""
+        first_name = last_name = ""
         if namelist:
             first_name = namelist.get(int(co.name_first), "")
             last_name = namelist.get(int(co.name_last), "")
@@ -478,7 +494,7 @@ def build_xml(outfile):
     xml.startDocument(encoding='utf-8')
     xml.startElement('data')
     xml.startElement('properties')
-    xml.dataElement('exportdate', six.text_type(mx.DateTime.now()))
+    xml.dataElement('exportdate', datetime.datetime.now().isoformat(b' '))
     xml.endElement('properties')
 
     for person_id in export_attrs:
@@ -578,12 +594,8 @@ def usage(exit_code=0, msg=""):
 
 
 def main():
-
-    default_outfile = os.path.join(cereconf.DUMPDIR,
-                                   "oid",
-                                   "oid_export_%s.xml" % TODAY)
     user_outfile = None
-    exportCSV = False
+    exportcsv = False
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'o:hx',
                                    ['outfile=', 'csv', 'help'])
@@ -594,16 +606,16 @@ def main():
         if opt in ['-o', '--outfile']:
             user_outfile = val
         if opt in ['--csv']:
-            exportCSV = True
+            exportcsv = True
         elif opt in ['-h', '--help']:
             usage(0)
 
-    if exportCSV and not user_outfile:
+    if exportcsv and not user_outfile:
         usage(1, "Must specify -o or --outfile when using --csv")
     outfile = user_outfile or default_outfile
     load_cache()
     load_cb_data()
-    if exportCSV:
+    if exportcsv:
         build_csv(outfile)
     else:
         build_xml(outfile)
