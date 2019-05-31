@@ -19,23 +19,28 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-TODO: What is the ultimate goal of this script??
+Send email notifications to users with an expire_date in the near future.
 
 Configuration
 -------------
 USER_EXPIRE_CONF
-    A dict with the following values:
+    A mapping of when to issue the different notifications, in days relative to
+    the current date.
+    Should be a dict with the following values:
 
     - FIRST_WARNING: When to issue first expire notification
     - SECOND_WARNING: When to issue second expire notification
     - EXPIRING_THREASHOLD: When to issue last warning
 
+    Note that FIRST_WARNING > SECOND_WARNING > EXPIRING_THREASHOLD, otherwise
+    the user will get the wrong notifications.
+
 TEMPLATE_DIR
     Base directory for templates used in this script
 
 USER_EXPIRE_MAIL
-    A dict that maps email actions to email templates. Each action is a string
-    on the format 'email<n>', where '<n>' is the action number.
+    A dict that maps email names to actual email templates. Each name is a
+    string on the format 'email<n>', where '<n>' is a number 1-4.
     The templates should be relative to ``cereconf.TEMPLATE_DIR``.
 
     E.g.: ``{'mail1': 'email_template_1.txt', 'mail2': 'email_template_2'}``
