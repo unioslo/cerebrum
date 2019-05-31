@@ -30,6 +30,8 @@ import mx.DateTime
 
 import cereconf
 
+from Cerebrum.Utils import read_password
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,7 +40,10 @@ class SYSX(object):
                                      'guest_data')
     _guest_host = cereconf.GUEST_HOST
     _guest_host_dir = cereconf.GUEST_HOST_DIR
-    _guest_host_file = cereconf.GUEST_HOST_FILE
+    _guest_host_file = cereconf.GUEST_HOST
+    # Dummy username as password is a api key
+    _guest_host_auth = "?auth={}".format(
+        read_password('systemx', cereconf.GUEST_HOST))
     _guest_file = cereconf.GUEST_FILE
     today = str(mx.DateTime.today())
 
@@ -56,10 +61,11 @@ class SYSX(object):
             self._update()
 
     def read_from_sysx(self):
-        url = "http://{}{}{}".format(
+        url = "http://{}{}{}{}".format(
             self._guest_host,
             self._guest_host_dir,
-            self._guest_host_file)
+            self._guest_host_file,
+            self._guest_host_auth)
         target_file = self.sysx_data
         try:
             import urllib
