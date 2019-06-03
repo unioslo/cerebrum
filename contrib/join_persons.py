@@ -42,7 +42,7 @@ def get_constants_by_type(co, class_type):
     return ret
 
 
-def person_join(old_person, new_person, with_uio_pq, with_uit_pq
+def person_join(old_person, new_person, with_uio_pq, with_uit_pq,
                 with_uia_pq, with_uio_ephorte, with_uio_voip, db):
     co = Factory.get('Constants')(db)
     source_systems = get_constants_by_type(co,
