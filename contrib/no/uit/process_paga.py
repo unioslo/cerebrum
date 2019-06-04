@@ -373,7 +373,7 @@ def get_existing_accounts(db):
         if p_id in pid2fnr:
             key = (int(const.externalid_fodselsnr), pid2fnr[p_id])
         elif p_id in pid2passnr:
-            key = (int(const.externalid_pass_number), pid2fnr[p_id])
+            key = (int(const.externalid_pass_number), pid2passnr[p_id])
         else:
             key = None
 
