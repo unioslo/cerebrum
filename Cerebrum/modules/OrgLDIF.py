@@ -518,7 +518,7 @@ class OrgLDIF(object):
                 if crypt_methods.index(crypt_method) < crypt_methods.index(
                         self.account_auth[account_id]['method']):
                     self.update_password(account_id, row)
-
+        self.logger.debug('auth_methods=%s', repr(crypt_methods))
         timer2("...account quarantines...")
         nonlock_quarantines = [
             int(self.const.Quarantine(code))
@@ -717,11 +717,15 @@ from None and LDAP_PERSON['dn'].""")
         if account_id in self.acc_name:
             entry['uid'] = (self.acc_name[account_id],)
 
-        account_auth = self.account_auth.get(account_id)
+        account_auth = self.account_auth.get(account_id, {})
         try:
             passwd = self.format_cryptstring(account_auth['method'],
                                              account_auth['password'])
         except Errors.NotImplementedAuthTypeError:
+            passwd = False
+        except KeyError:
+            self.logger.warning("Missing password for account_id=%r",
+                                account_id)
             passwd = False
         qt = self.acc_quarantines.get(account_id)
         if qt:
