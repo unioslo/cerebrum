@@ -66,7 +66,8 @@ from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.access_FS import FS
-from Cerebrum.modules.no.uit import bofhd_auth
+from Cerebrum.modules.no.uit import bofhd_auth, ad_email
+
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
 
 
@@ -992,6 +993,140 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         et.email_server_id = es.entity_id
         et.write_db()
         return "OK, updated e-mail server for %s (to %s)" % (uname, server)
+
+    #
+    # email address_move
+    #
+    all_commands['email_address_move'] = Command(
+        ("email", "address_move"),
+        AccountName(help_ref="account_name"),
+        AccountName(help_ref="account_name"),
+        SimpleString(help_ref='email_domain', optional=True,
+                     default=cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES),
+        YesNo(help_ref='yes_no_move_primary', optional=True, default="No"),
+        perm_filter="is_superuser")
+
+    def _move_email_address(self, address, reassigned_addresses, dest_et):
+        ea = Email.EmailAddress(self.db)
+        ea.clear()
+        ea.find(address['address_id'])
+        ea.email_addr_target_id = dest_et.entity_id
+        try:
+            ea.write_db()
+        except self.db.IntegrityError:
+            self.db.rollback()
+            raise CerebrumError('Address {} already exists on target account'
+                                ''.format(ea.get_address()))
+        reassigned_addresses.append(ea.get_address())
+
+    def _move_primary_email_address(self, address, reassigned_addresses,
+                                    dest_et, epat):
+        epat.delete()
+        self._move_email_address(address, reassigned_addresses, dest_et)
+        epat.clear()
+        try:
+            epat.find(dest_et.entity_id)
+        except Errors.NotFoundError:
+            pass
+        else:
+            epat.delete()
+        epat.clear()
+        epat.populate(address['address_id'], parent=dest_et)
+        epat.write_db()
+
+    def _move_ad_email(self, email, dest_uname):
+        ad = ad_email.AdEmail(self.db)
+        ad.delete_ad_email(account_name=dest_uname)
+        ad.set_ad_email(dest_uname, email['local_part'], email['domain_part'])
+
+        ad_emails_added = "Updated ad email {} for {}. ".format(
+            email['local_part']+"@"+email['domain_part'],
+            dest_uname
+        )
+        return ad_emails_added
+
+    def email_address_move(self, operator, source_uname, dest_uname,
+                           domain_str, move_primary):
+        """Move an account's e-mail addresses to another account
+
+        :param domain_str: email domain to be affected
+        :param move_primary: move primary email address
+        """
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+
+        move_primary = self._get_boolean(move_primary)
+        source_account = self._get_account(source_uname)
+        source_et = self._get_email_target_for_account(source_account)
+        dest_account = self._get_account(dest_uname)
+        dest_et = self._get_email_target_for_account(dest_account)
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+
+        try:
+            epat.find(source_et.entity_id)
+        except Errors.NotFoundError:
+            epat.clear()
+
+        reassigned_addresses = []
+        for address in source_et.get_addresses():
+            if not address['domain'] == domain_str:
+                continue
+            if not address['address_id'] == epat.email_primaddr_id:
+                self._move_email_address(address, reassigned_addresses,
+                                         dest_et)
+                continue
+            if not move_primary:
+                continue
+            self._move_primary_email_address(address, reassigned_addresses,
+                                             dest_et, epat)
+        # Managing ad_email
+        ad_emails_added = ""
+        if domain_str == cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES:
+            ad = ad_email.AdEmail(self.db)
+
+            if move_primary:
+                ad_emails = ad.search_ad_email(account_name=source_uname)
+                if len(ad_emails) == 1:
+                    ad_emails_added = self._move_ad_email(ad_emails[0],
+                                                          dest_uname)
+            ad.delete_ad_email(account_name=source_uname)
+
+        return ("OK, reassigned {}. ".format(reassigned_addresses)
+                + ad_emails_added)
+
+    #
+    # email tripnote
+    #
+    def email_tripnote(self, operator, action, uname, when=None):
+        try:
+            acc = self._get_account(uname)
+            spread = self.const.spread_exchange_account
+        except Exception:
+            # Let super handle the missing user
+            pass
+        else:
+            if acc.has_spread(spread):
+                raise CerebrumError("Sorry, Exchange-users must enable "
+                                    "vacation messages via OWA!")
+        return super(EmailCommands, self).email_tripnote(
+            operator, action, uname, when=when)
+
+    #
+    # email tripnote_add
+    #
+    def email_tripnote_add(self, operator, uname, text, when=None):
+        try:
+            acc = self._get_account(uname)
+            spread = self.const.spread_exchange_account
+        except Exception:
+            # Let super handle the missing user/spread
+            pass
+        else:
+            if acc.has_spread(spread):
+                raise CerebrumError("Sorry, Exchange-users must enable "
+                                    "vacation messages via OWA!")
+        return super(EmailCommands, self).email_tripnote_add(
+            operator, uname, text, when=when)
 
 
 class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
