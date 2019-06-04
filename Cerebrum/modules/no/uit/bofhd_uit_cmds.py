@@ -55,10 +55,8 @@ from Cerebrum.modules.bofhd.cmd_param import (
     EmailAddress,
     FormatSuggestion,
     GroupName,
-    OU,
     PersonId,
     SimpleString,
-    YesNo,
 )
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
@@ -97,7 +95,6 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
         # UiT implements their own
         'person_student_info',
 
-        # TODO: Does UiT need to implement their own?
         'user_create_sysadm',
 
         # We omit user_history, as UiT implements their own in
@@ -488,127 +485,6 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
 
         db.close()
         return ret
-
-    #
-    # user create_sysadm
-    #
-    # TODO: The only remaining difference is the account name format regex
-    #       Does UiT even use this? Their usernames are not on this format
-    #       anyway...
-    #
-    all_commands['user_create_sysadm'] = Command(
-        ("user", "create_sysadm"),
-        AccountName(),
-        OU(optional=True),
-        YesNo(help_ref="yes_no_force", optional=True, default="No"),
-        fs=FormatSuggestion('OK, created %s', ('accountname',)),
-        perm_filter='can_create_sysadm')
-
-    def user_create_sysadm(self, operator,
-                           accountname, stedkode=None, force=False):
-        """ Create a sysadm account with the given accountname.
-
-        TBD, requirements?
-            - Will add the person's primary affiliation, which must be
-              of type ANSATT/tekadm.
-
-        :param str accountname:
-            Account to be created. Must include a hyphen and end with one of
-            *sysadm_types*.
-
-        :param str stedkode:
-            Optional stedkode to place the sysadm account. Only used if a
-            person have multipile valid affiliations.
-
-        """
-        sysadm_types = ('adm', 'drift', 'null')
-        valid_status = (
-            self.const.affiliation_status_ansatt_tekadm,
-            self.const.affiliation_status_ansatt_vitenskapelig,
-        )
-        domain = '@ulrik.uio.no'
-
-        self.ba.can_create_sysadm(operator.get_entity_id())
-
-        res = re.search('^([a-z]+)-([a-z]+)$', accountname)
-        if res is None:
-            raise CerebrumError('Username must be on the form "foo-drift"')
-        user, suffix = res.groups()
-        if suffix not in sysadm_types:
-            raise CerebrumError(
-                'Username "%s" does not have one of these suffixes: %s' %
-                (accountname, ', '.join(sysadm_types)))
-        # Funky... better solutions?
-        try:
-            self._get_account(accountname)
-        except CerebrumError:
-            pass
-        else:
-            raise CerebrumError('Username already in use')
-        account_owner = self._get_account(user)
-        if account_owner.owner_type != self.const.entity_person:
-            raise CerebrumError('Can only create personal sysadm accounts')
-        person = self._get_person('account_name', user)
-
-        # Need to force if person already has a sysadm account
-        if not self._get_boolean(force):
-            ac = self.Account_class(self.db)
-            suffix = '-{}'.format(suffix)
-            existing = filter(lambda x: x['name'].endswith(suffix),
-                              ac.search(owner_id=person.entity_id))
-            if existing:
-                self.logger.debug2("Existing accounts: {}".format(existing))
-                raise CerebrumError(
-                    'Person already has a sysadm account: {} (need to '
-                    'force)'.format(existing[0]['name']))
-
-        if stedkode is not None:
-            ou = self._get_ou(stedkode=stedkode)
-            ou_id = ou.entity_id
-        else:
-            ou_id = None
-        valid_aff = person.list_affiliations(
-            person_id=person.entity_id,
-            source_system=self.const.system_sap,
-            status=valid_status,
-            ou_id=ou_id)
-        status_blob = ', '.join(map(text_type, valid_status))
-        if valid_aff == []:
-            raise CerebrumError('Person has no %s affiliation' % status_blob)
-        elif len(valid_aff) > 1:
-            raise CerebrumError('More than than one %s affiliation, '
-                                'add stedkode as argument' % status_blob)
-        account = self._user_create_basic(operator, person, accountname)
-        self._user_password(operator, account)
-        self._user_create_set_account_type(account, person.entity_id,
-                                           valid_aff[0]['ou_id'],
-                                           valid_aff[0]['affiliation'],
-                                           priority=900)
-        account.populate_trait(code=self.const.trait_sysadm_account,
-                               strval='on')
-        account.write_db()
-        # Promote POSIX:
-        pu = Utils.Factory.get('PosixUser')(self.db)
-        pu.populate(pu.get_free_uid(), None, None,
-                    shell=self.const.posix_shell_bash, parent=account,
-                    creator_id=operator.get_entity_id())
-        pu.write_db()
-        default_home_spread = self._get_constant(self.const.Spread,
-                                                 cereconf.DEFAULT_HOME_SPREAD,
-                                                 "spread")
-        pu.add_spread(default_home_spread)
-        homedir_id = pu.set_homedir(home='/',
-                                    status=self.const.home_status_not_created)
-        pu.set_home(default_home_spread, homedir_id)
-        pu.write_db()
-
-        account.add_spread(self.const.spread_uio_ad_account)
-        account.add_contact_info(self.const.system_manual,
-                                 type=self.const.contact_email,
-                                 value=user+domain)
-        account.write_db()
-        self._email_create_forward_target(accountname+domain, user+domain)
-        return {'accountname': accountname}
 
     #
     # filtered user history
