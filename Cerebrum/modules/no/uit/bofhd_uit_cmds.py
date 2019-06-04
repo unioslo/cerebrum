@@ -696,7 +696,12 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
 
     all_commands = {}
     hidden_commands = {}
-    omit_parent_commands = set()
+    omit_parent_commands = {
+        'email_tripnote',
+        'email_tripnote_list',
+        'email_tripnote_add',
+        'email_tripnote_remove',
+    }
     parent_commands = True
     authz = bofhd_auth.UitEmailAuth
 
@@ -987,40 +992,6 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         et.email_server_id = es.entity_id
         et.write_db()
         return "OK, updated e-mail server for %s (to %s)" % (uname, server)
-
-    #
-    # email tripnote
-    #
-    def email_tripnote(self, operator, action, uname, when=None):
-        try:
-            acc = self._get_account(uname)
-            spread = self.const.spread_exchange_account
-        except Exception:
-            # Let super handle the missing user
-            pass
-        else:
-            if acc.has_spread(spread):
-                raise CerebrumError("Sorry, Exchange-users must enable "
-                                    "vacation messages via OWA!")
-        return super(EmailCommands, self).email_tripnote(
-            operator, action, uname, when=when)
-
-    #
-    # email tripnote_add
-    #
-    def email_tripnote_add(self, operator, uname, text, when=None):
-        try:
-            acc = self._get_account(uname)
-            spread = self.const.spread_exchange_account
-        except Exception:
-            # Let super handle the missing user/spread
-            pass
-        else:
-            if acc.has_spread(spread):
-                raise CerebrumError("Sorry, Exchange-users must enable "
-                                    "vacation messages via OWA!")
-        return super(EmailCommands, self).email_tripnote_add(
-            operator, uname, text, when=when)
 
 
 class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
