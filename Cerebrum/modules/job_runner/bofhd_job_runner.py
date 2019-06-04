@@ -64,7 +64,7 @@ class BofhdJobRunnerAuth(BofhdAuth):
             return True
         if query_run_any:
             return False
-        raise PermissionDenied("Not allowed to see job runner status")
+        raise PermissionDenied("Not allowed to see job runner info")
 
     def can_run_job_runner_job(self, operator, query_run_any=False):
         """Check if an operator is allowed to start a job_runner run.
@@ -75,17 +75,17 @@ class BofhdJobRunnerAuth(BofhdAuth):
             return True
         if query_run_any:
             return False
-        raise PermissionDenied("Not allowed to see job runner status")
+        raise PermissionDenied("Not allowed to run job runner jobs")
 
 
 CMD_HELP = {
     'job_runner': {
         'job_runner_status':
-            'show job runner status',
+            'Show job runner status',
         'job_runner_info':
-            'show info for a job runner job',
+            'Show info for a job runner job',
         'job_runner_run':
-            'start a job runner job',
+            'Start a job runner job',
     },
 }
 
@@ -171,4 +171,4 @@ class BofhdJobRunnerCommands(BofhdCommandBase):
         """ Run a job runner job."""
         # Access control
         self.ba.can_run_job_runner_job(operator.get_entity_id())
-        return self._run_job_runner_command('RUNJOB', [job_name, with_deps])
+        return self._run_job_runner_command('RUNJOB', [job_name, self._get_boolean(with_deps)])
