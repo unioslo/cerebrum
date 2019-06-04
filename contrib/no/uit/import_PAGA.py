@@ -666,6 +666,7 @@ def main(inargs=None):
 
     parser.add_argument(
         '-p', '--person-file',
+        required=True,
         help='Read and import persons from %(metavar)s',
         metavar='xml-file',
     )
@@ -693,9 +694,8 @@ def main(inargs=None):
     else:
         old_affs = None
 
-    if args.person_file:
-        person_callback = PersonProcessor(db, old_affs=old_affs)
-        PagaDataParserClass(args.person_file, person_callback)
+    person_callback = PersonProcessor(db, old_affs=old_affs)
+    PagaDataParserClass(args.person_file, person_callback)
 
     if args.delete:
         remove_old_affiliations(db, old_affs)
