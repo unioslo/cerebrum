@@ -51,7 +51,6 @@ from Cerebrum import database
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.cmd_param import (
     AccountName,
-    AccountPassword,
     Command,
     EmailAddress,
     FormatSuggestion,
@@ -70,10 +69,6 @@ from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uit import bofhd_auth
-from Cerebrum.modules.pwcheck.checker import (check_password,
-                                              PasswordNotGoodEnough,
-                                              RigidPasswordNotGoodEnough,
-                                              PhrasePasswordNotGoodEnough)
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
 
 
@@ -200,46 +195,6 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
         self.ba.can_force_delete_group(operator.get_entity_id(), grp)
         grp.demote_posix()
         return "OK, demoted '%s'" % group
-
-    #
-    # misc check_password <password>
-    #
-    # TODO: UiT includes faux hashes of the password - this was removed at UiO
-    #
-    all_commands['misc_check_password'] = Command(
-        ("misc", "check_password"),
-        AccountPassword(),
-        fs=FormatSuggestion([
-            ("OK.", ('password_ok', )),
-            ("crypt3-DES:    %s", ('des3', )),
-            ("MD5-crypt:     %s", ('md5', )),
-            ("SHA256-crypt:  %s", ('sha256', )),
-            ("SHA512-crypt:  %s", ('sha512', )),
-        ])
-    )
-
-    def misc_check_password(self, operator, password):
-        ac = self.Account_class(self.db)
-        co = self.const
-        try:
-            check_password(password, ac, structured=False)
-        except RigidPasswordNotGoodEnough as e:
-            raise CerebrumError('Bad password: %s' % exc_to_text(e))
-        except PhrasePasswordNotGoodEnough as e:
-            raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
-        except PasswordNotGoodEnough as e:
-            raise CerebrumError('Bad password: %s' % exc_to_text(e))
-        crypt = ac.encrypt_password(co.Authentication("crypt3-DES"), password)
-        md5 = ac.encrypt_password(co.Authentication("MD5-crypt"), password)
-        sha256 = ac.encrypt_password(co.auth_type_sha256_crypt, password)
-        sha512 = ac.encrypt_password(co.auth_type_sha512_crypt, password)
-        return {
-            'password_ok': True,
-            'des3': crypt,
-            'md5': md5,
-            'sha256': sha256,
-            'sha512': sha512,
-        }
 
     #
     # person info
