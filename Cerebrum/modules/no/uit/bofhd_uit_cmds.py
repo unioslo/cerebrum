@@ -57,6 +57,7 @@ from Cerebrum.modules.bofhd.cmd_param import (
     GroupName,
     PersonId,
     SimpleString,
+    YesNo,
 )
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
@@ -67,7 +68,6 @@ from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uit import bofhd_auth, ad_email
-
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
 
 
@@ -1093,40 +1093,6 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
 
         return ("OK, reassigned {}. ".format(reassigned_addresses)
                 + ad_emails_added)
-
-    #
-    # email tripnote
-    #
-    def email_tripnote(self, operator, action, uname, when=None):
-        try:
-            acc = self._get_account(uname)
-            spread = self.const.spread_exchange_account
-        except Exception:
-            # Let super handle the missing user
-            pass
-        else:
-            if acc.has_spread(spread):
-                raise CerebrumError("Sorry, Exchange-users must enable "
-                                    "vacation messages via OWA!")
-        return super(EmailCommands, self).email_tripnote(
-            operator, action, uname, when=when)
-
-    #
-    # email tripnote_add
-    #
-    def email_tripnote_add(self, operator, uname, text, when=None):
-        try:
-            acc = self._get_account(uname)
-            spread = self.const.spread_exchange_account
-        except Exception:
-            # Let super handle the missing user/spread
-            pass
-        else:
-            if acc.has_spread(spread):
-                raise CerebrumError("Sorry, Exchange-users must enable "
-                                    "vacation messages via OWA!")
-        return super(EmailCommands, self).email_tripnote_add(
-            operator, uname, text, when=when)
 
 
 class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
