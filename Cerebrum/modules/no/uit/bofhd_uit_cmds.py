@@ -995,10 +995,10 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         return "OK, updated e-mail server for %s (to %s)" % (uname, server)
 
     #
-    # email address_move
+    # email move_domain_addresses
     #
-    all_commands['email_address_move'] = Command(
-        ("email", "address_move"),
+    all_commands['email_move_domain_addresses'] = Command(
+        ("email", "move_domain_addresses"),
         AccountName(help_ref="account_name"),
         AccountName(help_ref="account_name"),
         SimpleString(help_ref='email_domain', optional=True,
@@ -1008,7 +1008,6 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
 
     def _move_email_address(self, address, reassigned_addresses, dest_et):
         ea = Email.EmailAddress(self.db)
-        ea.clear()
         ea.find(address['address_id'])
         ea.email_addr_target_id = dest_et.entity_id
         try:
@@ -1045,8 +1044,8 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         )
         return ad_emails_added
 
-    def email_address_move(self, operator, source_uname, dest_uname,
-                           domain_str, move_primary):
+    def email_move_domain_addresses(self, operator, source_uname, dest_uname,
+                                    domain_str, move_primary):
         """Move an account's e-mail addresses to another account
 
         :param domain_str: email domain to be affected
@@ -1069,16 +1068,17 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
 
         reassigned_addresses = []
         for address in source_et.get_addresses():
-            if not address['domain'] == domain_str:
-                continue
-            if not address['address_id'] == epat.email_primaddr_id:
-                self._move_email_address(address, reassigned_addresses,
-                                         dest_et)
-                continue
-            if not move_primary:
-                continue
-            self._move_primary_email_address(address, reassigned_addresses,
-                                             dest_et, epat)
+            if address['domain'] == domain_str:
+
+                if address['address_id'] == epat.email_primaddr_id:
+                    if move_primary:
+                        self._move_primary_email_address(address,
+                                                         reassigned_addresses,
+                                                         dest_et,
+                                                         epat)
+                else:
+                    self._move_email_address(address, reassigned_addresses,
+                                             dest_et)
         # Managing ad_email
         ad_emails_added = ""
         if domain_str == cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES:
