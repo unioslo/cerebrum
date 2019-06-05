@@ -532,7 +532,8 @@ def build_xml(fh, persons):
     """
     xml = xmlprinter(fh,
                      indent_level=2,
-                     data_mode=True)
+                     data_mode=True,
+                     input_encoding='ascii')
     xml.startDocument(encoding='utf-8')
     xml.startElement('data')
     xml.startElement('properties')
@@ -617,7 +618,7 @@ default_employees_file = os.path.join(
 
 default_outfile = os.path.join(
     sys.prefix, "var/cache/oid",
-    "oid_export_%s" % datetime.date.today().strftime("%Y-%m-%d"))
+    "oid_export_%s.xml" % datetime.date.today().strftime("%Y%m%d"))
 
 
 def main(inargs=None):
@@ -657,7 +658,7 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf('console', args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     with ParserContext(parser, outfile_arg):
         if args.use_csv and outfile_arg == default_outfile:
@@ -685,11 +686,12 @@ def main(inargs=None):
 
     export_data = generate_export_data(affiliations)
 
-    with io.open(args.outfile, mode='w', encoding='utf-8') as outfile:
-        if args.use_csv:
+    if args.use_csv:
+        with io.open(args.outfile, mode='w', encoding='utf-8') as outfile:
             build_csv(outfile, export_data)
             logger.info("Wrote CSV data to %s", args.outfile)
-        else:
+    else:
+        with open(args.outfile, mode='w') as outfile:
             build_xml(outfile, export_data)
             logger.info("Wrote XML data to %s", args.outfile)
 
