@@ -91,6 +91,8 @@ system_cached = constants.system_cached
 # date 27.10.2005
 person_list = []  # baaaad boy. you should not use global lists :(
 
+default_institusjonsnr = str(cereconf.DEFAULT_INSTITUSJONSNR)
+
 
 class PersonHandler(xml.sax.ContentHandler):
 
@@ -611,7 +613,7 @@ def output_organization(writer, db):
     writer.startElement("institusjon")
 
     writer.startElement("institusjonsnr")
-    writer.data(cereconf.DEFAULT_INSTITUSJONSNR)
+    writer.data(default_institusjonsnr)
     writer.endElement("institusjonsnr")
 
     writer.startElement("navnBokmal")
@@ -719,7 +721,7 @@ def output_ou(writer, id, db_ou, stedkode, constants, db):
     writer.startElement("enhet")
 
     # institusjonsnr
-    for value, element in ((cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnr"),
+    for value, element in ((default_institusjonsnr, "institusjonsnr"),
                            (stedkode.fakultet, "avdnr"),
                            (stedkode.institutt, "undavdnr"),
                            (stedkode.avdeling, "gruppenr")):
@@ -738,7 +740,7 @@ def output_ou(writer, id, db_ou, stedkode, constants, db):
     stedkode.find(parent_id)
 
     for value, element in (
-            (cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnrUnder"),
+            (default_institusjonsnr, "institusjonsnrUnder"),
             (stedkode.fakultet, "avdnrUnder"),
             (stedkode.institutt, "undavdnrUnder"),
             (stedkode.avdeling, "gruppenrUnder")):
@@ -922,7 +924,7 @@ def output_employment_information(writer, pobj):
         # FRIDA wants date at the format YYYYMMDD
         element["dato_fra"] = element["dato_fra"]
         writer.startElement("institusjonsnr")
-        writer.data(cereconf.DEFAULT_INSTITUSJONSNR)
+        writer.data(default_institusjonsnr)
         writer.endElement("institusjonsnr")
 
         for output, input in [("avdnr", "fakultetnr_utgift"),
@@ -1023,7 +1025,7 @@ def output_assignments(writer, sequence, ou_cache, blockname, elemname, attrs):
 
         writer.startElement(elemname)
         for value, xmlelement in (
-                (cereconf.DEFAULT_INSTITUSJONSNR, "institusjonsnr"),
+                (default_institusjonsnr, "institusjonsnr"),
                 (publishable_sko[0], "avdnr"),
                 (publishable_sko[1], "undavdnr"),
                 (publishable_sko[2], "gruppenr")):
