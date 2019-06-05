@@ -23,12 +23,15 @@
 from __future__ import unicode_literals
 
 import argparse
+import datetime
 import logging
 import os
 import re
+import sys
+
+import mx.DateTime
 
 import cereconf
-import mx.DateTime
 from Cerebrum import Errors
 from Cerebrum import logutils
 from Cerebrum.Constants import _CerebrumCode
@@ -41,16 +44,6 @@ from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
 
-today_tmp = mx.DateTime.today()
-tomorrow_tmp = today_tmp + 1
-TODAY = today_tmp.strftime("%Y-%m-%d")
-TOMORROW = tomorrow_tmp.strftime("%Y-%m-%d")
-default_user_file = os.path.join(cereconf.DUMPDIR, 'AD',
-                                 'ad_export_%s.xml' % TODAY)
-default_employees_file = os.path.join(cereconf.DUMPDIR,
-                                      'employees',
-                                      'paga_persons_%s.xml' % TODAY)
-
 
 def wash_sitosted(name):
     # removes preceeding and trailing numbers and whitespaces
@@ -59,9 +52,9 @@ def wash_sitosted(name):
     return washed
 
 
-class AdExport:
+class AdExport(object):
 
-    def __init__(self, userfile, db, acctlist):
+    def __init__(self, empfile, userfile, db, acctlist):
         self.userfile = userfile
         self.db = db
         self.co = Factory.get('Constants')(self.db)
@@ -74,11 +67,11 @@ class AdExport:
         self.num2const = dict()
 
         #
-        self.load_cbdata()
+        self.load_cbdata(empfile)
         self.userexport = self.build_cbdata()
         self.build_xml(self.userexport, acctlist)
 
-    def load_cbdata(self):
+    def load_cbdata(self, empfile):
 
         logger.info("Loading stillingtable")
         self.stillingskode_map = load_stillingstable(self.db)
@@ -86,7 +79,7 @@ class AdExport:
         logger.info(
             'Generating dict of PAGA persons affiliations and their '
             'stillingskoder, dbh_kat, etc')
-        PagaDataParserClass(default_employees_file, self.scan_person_affs)
+        PagaDataParserClass(empfile, self.scan_person_affs)
 
         logger.info("Loading PagaIDs")
         self.pid2pagaid = dict()
@@ -114,9 +107,10 @@ class AdExport:
             name_types=(self.co.name_first, self.co.name_last))
 
         logger.info("Cache AD accounts")
+        expire_start = mx.DateTime.now() + 1
         self.ad_accounts = self.account.search(
             spread=int(self.co.spread_uit_ad_account),
-            expire_start=TOMORROW)
+            expire_start=expire_start)
         logger.info("Build helper translation tables")
         self.accid2ownerid = dict()
         self.ownerid2accid = dict()
@@ -340,8 +334,8 @@ class AdExport:
 
     def build_xml(self, userexport, acctlist=None):
 
-        incrMAX = 20
-        if acctlist is not None and len(acctlist) > incrMAX:
+        incrmax = 20
+        if acctlist is not None and len(acctlist) > incrmax:
             logger.error("Too many changes in incremental mode")
             return
 
@@ -697,16 +691,34 @@ def load_stillingstable(db):
     return stillingskode_map
 
 
+default_user_file = os.path.join(
+    sys.prefix, 'var/cache/AD',
+    'ad_export_{}.xml'.format(datetime.date.today().strftime('%Y-%m-%d')))
+
+default_employees_file = os.path.join(
+    sys.prefix, 'var/cache/employees',
+    'paga_persons_{}.xml'.format(datetime.date.today().strftime('%Y-%m-%d')))
+
+
 def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        'i', '--in',
+        dest='infile',
+        default=default_employees_file,
+        help='Read employee data from %(metavar)s (%(default)s)',
+        metavar='<file>',
+    )
+    parser.add_argument(
+        '-o', '--out',
+        dest='outfile',
+        default=default_user_file,
+        help='Write AD data to %(metavar)s (%(default)s)',
+        metavar='<file>',
+    )
     parser.add_argument('-a', '--account',
                         default=None,
                         help='export single account. NB DOES NOT WORK!'
-                        )
-    parser.add_argument('-o', '--out',
-                        default=default_user_file,
-                        dest='outfile',
-                        help='writes to given filename'
                         )
     parser.add_argument('-t', '--type',
                         default='fullsync',
@@ -714,21 +726,26 @@ def main(inargs=None):
 
     logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
-    logutils.autoconf('console', args)
+    logutils.autoconf('cronjob', args)
+
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %s', repr(args))
 
     if args.type == "incr":
         acctlist = args.account.split(",")
     else:
         acctlist = None
 
-    start = mx.DateTime.now()
+    start = datetime.datetime.now()
     db = Factory.get('Database')()
-    AdExport(args.outfile, db, acctlist)
+    AdExport(args.infile, args.outfile, db, acctlist)
 
-    stop = mx.DateTime.now()
-    logger.debug("Started %s ended %s", start, stop)
-    logger.debug("Script running time was %s ",
-                 (stop - start).strftime("%M minutes %S secs"))
+    stop = datetime.datetime.now()
+    logger.debug("Started at=%s, ended at=%s",
+                 start.isoformat(), stop.isoformat())
+    logger.debug('Script used %f seconds', (stop - start).total_seconds())
+    logger.info('Wrote ad data to filename=%r', args.outfile)
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':
