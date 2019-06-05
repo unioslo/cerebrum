@@ -1089,6 +1089,12 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                 if len(ad_emails) == 1:
                     ad_emails_added = self._move_ad_email(ad_emails[0],
                                                           dest_uname)
+            # TODO:
+            #  If this command is called with move_primary=False,
+            #  the source account's primary email address will be left
+            #  intact, but it's corresponding ad_email will be deleted.
+            #  This mimics the functionality of the uit-script move_emails.py,
+            #  but is it really what we want?
             ad.delete_ad_email(account_name=source_uname)
 
         return ("OK, reassigned {}. ".format(reassigned_addresses)
