@@ -424,6 +424,8 @@ class AccountUtil(object):
             if ac.get_gid() is None:  # or ac['gid'] != gid):
                 changes.append(('dfg', gid))
 
+        # TODO/TDB: This looks wrong - default_expire_date is a string, and
+        # will alwaus be != an mx.DateTime
         if ac.get_expire_date() != default_expire_date:
             changes.append(('expire', default_expire_date))
 
