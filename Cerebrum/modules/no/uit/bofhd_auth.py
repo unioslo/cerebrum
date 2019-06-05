@@ -182,12 +182,6 @@ class UitAuth(UitContactAuthMixin, BofhdAuth):
                        account.list_accounts_by_owner_id(person.entity_id)]
         if operator.get_entity_id() in account_ids:
             return True
-        is_member_of_privileged_grp = False
-        if cereconf.BOFHD_FNR_ACCESS_GROUP is not None:
-            members = self._get_group_members(cereconf.BOFHD_FNR_ACCESS_GROUP)
-            is_member_of_privileged_grp = operator.get_entity_id() in members
-        if is_member_of_privileged_grp:
-            return True
         raise PermissionDenied("You don't have permission to view "
                                "external ids for person entity {}".format(
                                    person.entity_id))
