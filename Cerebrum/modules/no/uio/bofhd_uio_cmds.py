@@ -4001,6 +4001,8 @@ class BofhdExtension(BofhdCommonMethods):
             new_priority = int(new_priority)
         except ValueError:
             raise CerebrumError("priority must be a number")
+        except TypeError:       # Catches NoneType
+            raise CerebrumError("priority must be a number")
         ou = None
         affiliation = None
         for row in account.get_account_types(filter_expired=False):
