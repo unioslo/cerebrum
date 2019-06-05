@@ -39,8 +39,8 @@ from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 progname = __file__.split(os.sep)[-1]
 __doc__ = """
     usage:: %s [-s|--source_file <filename>] [-u|--update] [-d|--dryrun]
-    -s file | --source_file file : source file containing information needed to
-                                   create person and user entities in cerebrum
+    -f file | --filename file : source file containing information needed to
+                                create person and user entities in cerebrum
     -u      | --update_data      : updates the datafile containing guests from
                                    the guest database
     --dryrun : do no commit changes to database
@@ -50,6 +50,10 @@ SPLIT_CHAR = ':'
 include_delete = True
 skipped = added = updated = unchanged = deletedaff = 0
 
+# Legacy log configuration, as we set up a database connection
+# TODO: We should really, really refactor this so that db-init is moved to
+# main()
+Factory.get_logger('cronjob')
 db = Factory.get('Database')()
 db.cl_init(change_program='import_SYSX')
 person = Factory.get('Person')(db)
@@ -247,7 +251,7 @@ def create_sysx_person(sxp):
     try:
         my_stedkode.find_stedkode(fak, ins, avd,
                                   cereconf.DEFAULT_INSTITUSJONSNR)
-    except EntityExpiredError as err:
+    except EntityExpiredError:
         logger.error("Person with SysX id %s on expired stedkode %s%s%s",
                      id, fak, ins, avd)
         return
@@ -302,13 +306,22 @@ def main():
     source_file = None
     update = 0
     for opt, val in opts:
-        if opt in ('-s', '--source_file'):
+        if opt in ('-f', '--filename'):
             source_file = val
         elif opt in ('-u', '--update'):
             update = 1
         elif opt in ('--dryrun',):
             dryrun = True
+
+    logger.info("Start")
+    # TODO: At UiO, source_file is kind of required, as we don't have access to
+    # the system x database
+    # TODO: Also, the update flag is not supported
     process_sysx_persons(source_file, update)
+
+    logger.info("Stats: Added: %d, Updated=%d, Skipped=%d, Unchanged=%d, "
+                "Deleted affs=%d", added, updated, skipped, unchanged,
+                deletedaff)
 
     if dryrun:
         logger.info("Dryrun: Rollback all changes")
@@ -316,11 +329,7 @@ def main():
     else:
         logger.info("Committing all changes to database")
         db.commit()
-
-    fmt_str = ("Stats: Added: %d, Updated=%d, Skipped=%d, "
-               "Unchanged=%d, Deleted affs=%d")
-    fmt_var = (added, updated, skipped, unchanged, deletedaff)
-    logger.info(fmt_str % fmt_var)
+    logger.info("Done")
 
 
 def usage():
