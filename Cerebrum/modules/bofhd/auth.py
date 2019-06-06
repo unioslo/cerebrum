@@ -1233,7 +1233,7 @@ class BofhdAuth(DatabaseAccessor):
                                 group is None and "N/A" or
                                 self._get_gname(group.entity_id)))
 
-    def can_create_group(self, operator, groupname, query_run_any=False):
+    def can_create_group(self, operator, groupname=None, query_run_any=False):
         """If an account should be allowed to create a group.
 
         We allow accounts with the operation `create_group` access, if the
@@ -1266,26 +1266,27 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                                 operator, self.const.auth_create_group)
-        for row in self._list_target_permissions(
+        if groupname is not None:
+            for row in self._list_target_permissions(
                     operator, self.const.auth_create_group,
                     self.const.auth_target_type_global_group,
                     None, get_all_op_attrs=True):
-            attr = row.get('operation_attr')
-            # No operation attribute means that all groupnames are allowed:
-            if not attr:
-                return True
-            # Check if the groupname matches the pattern defined in the
-            # operation
-            checktype, pattern = attr.split(':', 1)
-            p = re.compile(pattern)
-            if checktype == 'pre' and p.match(groupname) is not None:
-                # Prefix definitions
-                return True
-            elif checktype == 're':
-                # Regular regex definitions
-                m = p.match(groupname)
-                if m and m.end() == len(groupname):
+                attr = row.get('operation_attr')
+                # No operation attribute means that all groupnames are allowed:
+                if not attr:
                     return True
+                # Check if the groupname matches the pattern defined in the
+                # operation
+                checktype, pattern = attr.split(':', 1)
+                p = re.compile(pattern)
+                if checktype == 'pre' and p.match(groupname) is not None:
+                    # Prefix definitions
+                    return True
+                elif checktype == 're':
+                    # Regular regex definitions
+                    m = p.match(groupname)
+                    if m and m.end() == len(groupname):
+                        return True
         raise PermissionDenied("Permission denied")
 
     def can_create_personal_group(self, operator, account=None,
