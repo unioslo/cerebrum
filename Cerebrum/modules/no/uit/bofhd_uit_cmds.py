@@ -1010,12 +1010,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         ea = Email.EmailAddress(self.db)
         ea.find(address['address_id'])
         ea.email_addr_target_id = dest_et.entity_id
-        try:
-            ea.write_db()
-        except self.db.IntegrityError:
-            self.db.rollback()
-            raise CerebrumError('Address {} already exists on target account'
-                                ''.format(ea.get_address()))
+        ea.write_db()
         reassigned_addresses.append(ea.get_address())
 
     def _move_primary_email_address(self, address, reassigned_addresses,
