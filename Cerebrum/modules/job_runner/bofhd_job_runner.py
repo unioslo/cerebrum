@@ -33,7 +33,7 @@ from Cerebrum.modules.bofhd.cmd_param import (Command,
                                               FormatSuggestion,
                                               SimpleString,
                                               YesNo)
-from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.bofhd.errors import PermissionDenied, CerebrumError
 from Cerebrum.modules.job_runner.socket_ipc import (SocketConnection,
                                                     SocketProtocol)
 
@@ -108,17 +108,17 @@ class BofhdJobRunnerCommands(BofhdCommandBase):
         return {}, CMD_HELP, CMD_ARGS
 
     def _run_job_runner_command(self, command, args=None):
-        """
-        Run a job_runner command via the job_runner socket.
-
-        TODO: Add timeout or change how we interact with job_runner
-
-        Idealy we would like to use a timeout signal here, but this is not
-        possible as bofhd runs in a thread.
-        """
+        """Run a job_runner command via the job_runner socket."""
         with closing(socket.socket(socket.AF_UNIX)) as sock:
             sock.connect(cereconf.JOB_RUNNER_SOCKET)
-            return SocketProtocol.call(SocketConnection(sock), command, args)
+            sock.settimeout(0.2)
+            try:
+                return SocketProtocol.call(SocketConnection(sock),
+                                           command,
+                                           args)
+            except socket.timeout:
+                raise CerebrumError('Error talking to job_runner. Socket '
+                                    'timeout')
 
     #
     # job_runner status
@@ -132,7 +132,7 @@ class BofhdJobRunnerCommands(BofhdCommandBase):
         perm_filter='can_show_job_runner_status')
 
     def job_runner_status(self, operator):
-        """ Show job runner status."""
+        """Show job runner status."""
         # Access control
         self.ba.can_show_job_runner_status(operator.get_entity_id())
         return self._run_job_runner_command('STATUS')
@@ -149,7 +149,7 @@ class BofhdJobRunnerCommands(BofhdCommandBase):
         perm_filter='can_show_job_runner_job')
 
     def job_runner_info(self, operator, job_name):
-        """ Show job runner status."""
+        """Show job runner status."""
         # Access control
         self.ba.can_show_job_runner_job(operator.get_entity_id())
         return self._run_job_runner_command('SHOWJOB', [job_name, ])
@@ -168,7 +168,7 @@ class BofhdJobRunnerCommands(BofhdCommandBase):
         perm_filter='can_run_job_runner_job')
 
     def job_runner_run(self, operator, job_name, with_deps=False):
-        """ Run a job runner job."""
+        """Run a job runner job."""
         # Access control
         self.ba.can_run_job_runner_job(operator.get_entity_id())
         return self._run_job_runner_command('RUNJOB', [job_name, self._get_boolean(with_deps)])
