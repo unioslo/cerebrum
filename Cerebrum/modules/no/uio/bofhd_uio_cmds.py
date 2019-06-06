@@ -3999,9 +3999,7 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             old_priority = int(old_priority)
             new_priority = int(new_priority)
-        except ValueError:
-            raise CerebrumError("priority must be a number")
-        except TypeError:       # Catches NoneType
+        except (ValueError, TypeError):
             raise CerebrumError("priority must be a number")
         ou = None
         affiliation = None
