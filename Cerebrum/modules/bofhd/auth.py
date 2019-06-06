@@ -1233,7 +1233,7 @@ class BofhdAuth(DatabaseAccessor):
                                 group is None and "N/A" or
                                 self._get_gname(group.entity_id)))
 
-    def can_create_group(self, operator, groupname=None, query_run_any=False):
+    def can_create_group(self, operator, groupname, query_run_any=False):
         """If an account should be allowed to create a group.
 
         We allow accounts with the operation `create_group` access, if the
