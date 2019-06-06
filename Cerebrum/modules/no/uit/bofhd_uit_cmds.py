@@ -67,6 +67,7 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.job_runner.bofhd_job_runner import BofhdJobRunnerCommands
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uit import bofhd_auth
@@ -1199,3 +1200,8 @@ class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
 class AccessCommands(bofhd_access.BofhdAccessCommands):
     """UiT specific access * commands"""
     authz = bofhd_auth.UitAccessAuth
+
+
+class JobRunnerCommands(BofhdJobRunnerCommands):
+    """UiT specific job_runner * commands."""
+    authz = bofhd_auth.UitBofhdJobRunnerAuth

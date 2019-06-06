@@ -28,6 +28,7 @@ from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.job_runner.bofhd_job_runner import BofhdJobRunnerAuth
 
 
 class UitContactAuthMixin(BofhdContactAuth):
@@ -290,4 +291,9 @@ class UitBofhdRequestsAuth(UitAuth, RequestsAuth):
 
 
 class UitAccessAuth(UitAuth, bofhd_access.BofhdAccessAuth):
+    pass
+
+
+class UitBofhdJobRunnerAuth(UitAuth, BofhdJobRunnerAuth):
+    """Uit specific job_runner auth."""
     pass
