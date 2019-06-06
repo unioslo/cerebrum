@@ -703,7 +703,7 @@ default_employees_file = os.path.join(
 def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        'i', '--in',
+        '-i', '--in',
         dest='infile',
         default=default_employees_file,
         help='Read employee data from %(metavar)s (%(default)s)',
