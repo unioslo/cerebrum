@@ -284,8 +284,8 @@ class JobRunner(object):
                 self.signal_sleep(min(self.max_sleep, delta))
             else:
                 if not self.job_queue.get_running_jobs():
-                    raise SystemExit("AIEE! no running jobs and negative"
-                                     " delta")
+                    logger.error("No running jobs and negative wait until "
+                                 "next job (delta=%r)", delta)
                 # TODO: if run_queue has a lon-running job, we should
                 # only sleep until next delta.
                 # Trap missing sigchld
