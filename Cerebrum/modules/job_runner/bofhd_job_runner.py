@@ -78,6 +78,10 @@ class BofhdJobRunnerAuth(BofhdAuth):
         raise PermissionDenied("Not allowed to run job runner jobs")
 
 
+CMD_GROUP = {
+    'job_runner': 'Interact with the cerebrum scheduler',
+}
+
 CMD_HELP = {
     'job_runner': {
         'job_runner_status':
@@ -105,7 +109,7 @@ class BofhdJobRunnerCommands(BofhdCommandBase):
     @classmethod
     def get_help_strings(cls):
         """Get help strings."""
-        return {}, CMD_HELP, CMD_ARGS
+        return CMD_GROUP, CMD_HELP, CMD_ARGS
 
     def _run_job_runner_command(self, command, args=None):
         """Run a job_runner command via the job_runner socket."""
@@ -171,4 +175,5 @@ class BofhdJobRunnerCommands(BofhdCommandBase):
         """Run a job runner job."""
         # Access control
         self.ba.can_run_job_runner_job(operator.get_entity_id())
-        return self._run_job_runner_command('RUNJOB', [job_name, self._get_boolean(with_deps)])
+        with_deps = self._get_boolean(with_deps)
+        return self._run_job_runner_command('RUNJOB', [job_name, with_deps])
