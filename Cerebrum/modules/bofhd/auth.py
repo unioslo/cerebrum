@@ -1266,15 +1266,15 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                                 operator, self.const.auth_create_group)
-        if groupname is not None:
-            for row in self._list_target_permissions(
-                    operator, self.const.auth_create_group,
-                    self.const.auth_target_type_global_group,
-                    None, get_all_op_attrs=True):
-                attr = row.get('operation_attr')
-                # No operation attribute means that all groupnames are allowed:
-                if not attr:
-                    return True
+        for row in self._list_target_permissions(
+                operator, self.const.auth_create_group,
+                self.const.auth_target_type_global_group,
+                None, get_all_op_attrs=True):
+            attr = row.get('operation_attr')
+            # No operation attribute means that all groupnames are allowed:
+            if not attr:
+                return True
+            if groupname is not None:
                 # Check if the groupname matches the pattern defined in the
                 # operation
                 checktype, pattern = attr.split(':', 1)
