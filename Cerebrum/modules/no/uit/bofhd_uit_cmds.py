@@ -98,10 +98,6 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
 
         'user_create_sysadm',
 
-        # We omit user_history, as UiT implements their own in
-        # user_history_filtered
-        'user_history',
-
         # We include user_restore (for the command definition and prompt_func),
         # but override the actual method in order to add some hooks.
         # 'user_restore',
@@ -116,7 +112,7 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
         groups, cmds, args = super(BofhdExtension, cls).get_help_strings()
 
         # Move help for the 'user history' command to new key
-        history = cmds['user'].pop('user_history')
+        history = cmds['user'].get('user_history')
         cmds['user']['user_history_filtered'] = history
 
         return groups, cmds, args
@@ -490,8 +486,7 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
     #
     # filtered user history
     #
-    # TODO: Why is the method named user_history_filtered? Does anything call
-    #       this remotely?
+    # Note: profil.uit.no still calls user_history from bofhd_uio_cmds
     #
     all_commands['user_history_filtered'] = Command(
         ("user", "history"),
