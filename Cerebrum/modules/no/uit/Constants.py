@@ -70,11 +70,6 @@ class Constants(Constants.Constants):
         Constants.Constants.entity_ou,
         'internal sito ou identifier')
 
-    externalid_nsd = _EntityExternalIdCode(
-        'NSD',
-        Constants.Constants.entity_ou,
-        'Nsd code for OU')
-
     #
     # Authoritative systems
     #
@@ -686,4 +681,10 @@ class Constants(Constants.Constants):
         'sysx_user_mailed',
         Constants.Constants.entity_account,
         "Trait set on account after account created mail is sent to user"
+    )
+
+    trait_nsd_unit_code = _EntityTraitCode(
+        'nsd_unit_code',
+        Constants.Constants.entity_ou,
+        'NSD unit code (Avdelingskode) to use for this OU'
     )
