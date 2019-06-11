@@ -293,7 +293,6 @@ def main(inargs=None):
     )
     parser.add_argument(
         '-u', '--update',
-        dest='update_sysx',
         action='store_true',
         default=False,
         help='Fetch recent updates from SYSTEM-X',
