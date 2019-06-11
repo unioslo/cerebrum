@@ -144,11 +144,13 @@ class PosixLDIF(object):
         self.owners.make_name_cache()
         self.homedirs.make_home_cache()
         self.group2gid = self.user_exporter.make_posix_gid_cache()
+        self.load_auth_tab(auth_meth)
+        # self.user_auth is now the first constant in
+        # LDAP['auth_attr']['userPassword']
         self.account2auth = self.user_exporter.make_auth_cache(
             spread=self.spread_d['user'],
-            auth_method=auth_meth,
+            auth_method=self.user_auth,
         )
-        self.load_auth_tab(auth_meth)
         self.cache_account2name()
         self.id2uname = {}
 
