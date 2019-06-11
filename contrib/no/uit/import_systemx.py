@@ -18,47 +18,33 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+"""
+Import guest user data from SYSTEM-X.
+"""
 from __future__ import unicode_literals
 from __future__ import print_function
 
-import getopt
-import sys
-import os
-import mx.DateTime
+import argparse
 import logging
 
+import mx.DateTime
+
 import cereconf
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uit.access_SYSX import SYSX
+from Cerebrum.utils.argutils import add_commit_args
 
-from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
-
-progname = __file__.split(os.sep)[-1]
-__doc__ = """
-    usage:: %s [-s|--source_file <filename>] [-u|--update] [-d|--dryrun]
-    -f file | --filename file : source file containing information needed to
-                                create person and user entities in cerebrum
-    -u      | --update_data      : updates the datafile containing guests from
-                                   the guest database
-    --dryrun : do no commit changes to database
-""" % progname
 
 SPLIT_CHAR = ':'
 include_delete = True
 skipped = added = updated = unchanged = deletedaff = 0
-
-# Legacy log configuration, as we set up a database connection
-# TODO: We should really, really refactor this so that db-init is moved to
-# main()
-Factory.get_logger('cronjob')
-db = Factory.get('Database')()
-db.cl_init(change_program='import_SYSX')
-person = Factory.get('Person')(db)
-co = Factory.get('Constants')(db)
-
+db = person = co = None
 logger = logging.getLogger(__name__)
 
 
@@ -293,48 +279,55 @@ def create_sysx_person(sxp):
     return 0
 
 
-def main():
-    dryrun = False
+def main(inargs=None):
+    global db, person, co
+    parser = argparse.ArgumentParser(
+        description="Import guest user data from SYSTEM-X",
+    )
+    parser.add_argument(
+        '-f', '--filename',
+        required=True,
+        dest='source_file',
+        help='Read and import persons from %(metavar)s',
+        metavar='file',
+    )
+    parser.add_argument(
+        '-u', '--update',
+        action='store_true',
+        default=False,
+        help='Fetch recent updates from SYSTEM-X',
+    )
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 's:ud',
-                                   ['source_file', 'update', 'dryrun'])
-    except getopt.GetoptError as m:
-        print("Unknown option: {}".format(m))
-        usage()
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-    source_file = None
-    update = 0
-    for opt, val in opts:
-        if opt in ('-f', '--filename'):
-            source_file = val
-        elif opt in ('-u', '--update'):
-            update = 1
-        elif opt in ('--dryrun',):
-            dryrun = True
+    logger.info('Start of %s', parser.prog)
+    logger.debug('args: %r', args)
 
-    logger.info("Start")
+    # TODO: Ugh, get rid of these globals
+    db = Factory.get('Database')()
+    db.cl_init(change_program='import_SYSX')
+    person = Factory.get('Person')(db)
+    co = Factory.get('Constants')(db)
+
     # TODO: At UiO, source_file is kind of required, as we don't have access to
     # the system x database
     # TODO: Also, the update flag is not supported
-    process_sysx_persons(source_file, update)
+    process_sysx_persons(args.source_file, args.update)
 
     logger.info("Stats: Added: %d, Updated=%d, Skipped=%d, Unchanged=%d, "
                 "Deleted affs=%d", added, updated, skipped, unchanged,
                 deletedaff)
 
-    if dryrun:
-        logger.info("Dryrun: Rollback all changes")
-        db.rollback()
-    else:
-        logger.info("Committing all changes to database")
+    if args.commit:
+        logger.info('Commiting changes')
         db.commit()
-    logger.info("Done")
-
-
-def usage():
-    print(__doc__)
-    sys.exit(1)
+    else:
+        logger.info('Rolling back changes')
+        db.rollback()
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':
