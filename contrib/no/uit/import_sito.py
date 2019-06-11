@@ -52,6 +52,10 @@ logger = logging.getLogger(__name__)
 OU_Class = OU.OUMixin
 
 
+class SkipPerson(Exception):
+    pass
+
+
 def parse_date(date_str):
     """
     Parse a date on the strfdate format "%Y-%m-%d".
@@ -179,7 +183,7 @@ def parse_person(person):
             logger.warning('Missing element %r for employee_id=%r',
                            xpath, employee_id)
             if default is required:
-                raise ValueError(
+                raise SkipPerson(
                     'Missing required element %r, employee_id=%r'
                     % (xpath, employee_id))
             else:
@@ -239,6 +243,10 @@ def generate_persons(filename):
     for i, person in enumerate(root.findall(".//Persons/Person"), 1):
         try:
             person_dict = parse_person(person)
+        except SkipPerson as e:
+            logger.warning('Skipping person #%d (element=%r): %s',
+                           i, person, e)
+            continue
         except Exception:
             logger.error('Skipping person #%d (element=%r), invalid data',
                          i, person, exc_info=True)
@@ -342,10 +350,6 @@ def remove_old_affiliations(db, affiliations):
                 new_person.delete_affiliation(ou, affi, const.system_sito)
 
 
-class SkipPerson(Exception):
-    pass
-
-
 def import_person(db, person, update_affs=None):
     """
     Import a single person.
@@ -410,8 +414,8 @@ def import_person(db, person, update_affs=None):
             raise SkipPerson('inconsistent birth date and ssn (%r, %r)',
                              birthdate, ssndate)
     elif valid_ssn and not valid_birthdate:
-        logger.warn('Missing birth date for employee_id=%r, using date'
-                    ' from ssn', person['employee_id'])
+        logger.warning('Missing birth date for employee_id=%r, using date'
+                       ' from ssn', person['employee_id'])
         birthdate = datetime.date(*fodselsnr.fodt_dato(person['ssn']))
     elif not valid_ssn and valid_birthdate:
         # person have birthdate but NOT ssn. Nothing to do here
@@ -537,7 +541,7 @@ def import_persons(db, person_list, affiliations):
             else:
                 stats['updated'] += 1
         except SkipPerson as e:
-            logger.error('Skipping employee_id=%r: %s', employee_id, e)
+            logger.warning('Skipping employee_id=%r: %s', employee_id, e)
             stats['skipped'] += 1
         except Exception as e:
             logger.error('Skipping employee_id=%r: unhandled exception',
@@ -699,7 +703,7 @@ def import_ous(db, ou_list):
                     parent_list.append(parentid)
                     found_parent = True
                     break
-            except:
+            except Exception:
                 pass
 
         if not found_parent:
