@@ -784,11 +784,8 @@ def output_ou(writer, id, db_ou, stedkode, constants, db):
 
     # UIT ADDITION:
     # insert NSD kode
-    nsd_kode = db_ou.get_external_id(id_type=constants.externalid_nsd)
-    if nsd_kode:
-        nsd_kode = nsd_kode[0]['external_id']
-    else:
-        nsd_kode = ""
+    nsd_trait = db_ou.get_trait(constants.trait_nsd_unit_code) or {}
+    nsd_kode = nsd_trait.get('strval') or ''
     output_element(writer, str(nsd_kode), "NSDKode")
 
     writer.endElement("enhet")
