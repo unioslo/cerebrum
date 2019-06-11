@@ -1517,26 +1517,37 @@ class EntityExternalId(Entity):
         self.find(entity_id)
 
     def find_by_external_ids(self, *ids):
-        """Lookup entity by external ID's.
-
-        If the ID's given resolve to one unique person, i.e.:
-        * This person has one or more of these unique ID's, and
-        * No other person has a matching ID, then
-        self is bound to this particular entity.
-
-        :param ids: Each ID should either be a tuple where the first element
-                    denotes an id_type, and the second should be an
-                    external_id. The tuple can also have a third element being
-                    the source system.
-                    Else, the id could be a dict with keys 'id_type',
-                    'external_id', and 'source_system' (optional). The
-                    meaning of each element in ids matches arguments to
-                    find_by_external_id().
-        :returns: Result of self.find()
-        :raises: TooManyRowsError if more than one person matches, or a
-                 NotFoundError if no person matches.
         """
-        # TODO: Is it better to create a long WHERE clause combined with OR?
+        Lookup entity by multiple external identifiers.
+
+        If the IDs given resolve to one unique entity, i.e.:
+
+        - This entity has one or more of these unique ID's, and
+        - No other person has a matching ID, then
+
+        then the Entity object is bound to this particular entity.
+
+        :param ids:
+            An iterable of one or more identifiers. Each identifier must be:
+
+            - a tuple (<id_type>, <external_id>, [source_system]), where the
+              first element denotes an id_type, and the second should be an
+              external_id. The tuple can also have a third element being the
+              source system.
+            - a dict with keys 'id_type', 'external_id', and 'source_system'
+              (optional). The meaning of each element in ids matches arguments
+              to find_by_external_id().
+
+        :rtype: NoneType
+        :returns:
+            If an entity was found, the Entity object will be populated with
+            self.find()
+
+        :raises:
+            TooManyRowsError if more than one entity matches the given
+            identifiers, or a NotFoundError if no entities matches the given
+            identifiers.
+        """
         query = """
         SELECT DISTINCT entity_id
         FROM [:table schema=cerebrum name=entity_external_id]
@@ -1569,14 +1580,9 @@ class EntityExternalId(Entity):
             bindstr = (make_bind_str(**i) if isinstance(i, collections.Mapping)
                        else make_bind_str(*i))
             q = query if 'src' not in bind else opt_ss
-            rows = self.query(q, bind)
-            if len(rows) > 1:
-                raise Errors.TooManyRowsError(
-                    "External id {} returned too many ({}) rows".format(
-                        bindstr, len(rows)))
-            if rows:
-                found.append((bindstr, rows[0]['entity_id']))
-                found_ids.add(rows[0]['entity_id'])
+            for row in self.query(q, bind):
+                found.append((bindstr, row['entity_id']))
+                found_ids.add(row['entity_id'])
         if len(found_ids) == 1:
             return self.find(*found_ids)
         if len(found_ids) > 1:
