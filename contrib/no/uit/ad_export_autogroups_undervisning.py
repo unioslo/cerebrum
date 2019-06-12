@@ -523,7 +523,7 @@ def main(inargs=None):
 
     logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
-    logutils.autoconf('console', args)  # TODO: Do we really want console here?
+    logutils.autoconf('cronjob', args)
 
     logger.debug("setting studieprogfile to '%s'", args.studieprogfile)
     logger.debug("setting undenhfile to '%s'", args.undenhfile)
