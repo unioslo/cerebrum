@@ -255,6 +255,19 @@ def main(inargs=None):
         help='Write output to XML-file %(metavar)s',
         metavar='file',
     )
+    parser.add_argument(
+        '--touch-file',
+        dest='touch_file',
+        help='Write an empty marker file on completion',
+        metavar='file',
+    )
+    parser.add_argument(
+        '--write-copy',
+        dest='copies',
+        action='append',
+        help='Write a copy to %(metavar)s',
+        metavar='file',
+    )
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
@@ -273,9 +286,21 @@ def main(inargs=None):
     write_persons(args.outfile, pers, sequence)
     logger.info('Wrote output to %r', args.outfile)
 
-    new_copy = args.outfile + '.new'
-    shutil.copyfile(args.outfile, new_copy)
-    logger.info('Wrote copy to %r', new_copy)
+    for filename in (args.copies or ()):
+        # TODO: This is to replace an old UiT script which makes a copy of the
+        # CSV file when copying to Bluegarden
+        shutil.copyfile(args.outfile, filename)
+        logger.info('Wrote copy to %r', filename)
+
+    if args.touch_file:
+        # TODO: This is to replace an old UiT script which makes a last.csv.new
+        # file to indicate to Bluegarden that a new file is ready for import.
+        # This should all probably be replaced by a AtomicFileWriter like file
+        # object - we should probably also diff the content of any existing
+        # pre-existing file with the content that we've just generated and only
+        # write a new one if there are any changes.
+        with open(args.touch_file, 'w'):
+            pass
 
     logger.info('Done %s', parser.prog)
 
