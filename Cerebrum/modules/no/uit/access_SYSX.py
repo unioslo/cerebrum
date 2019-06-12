@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 class SYSX(object):
-    _default_datafile = os.path.join(cereconf.DUMPDIR, 'system_x',
+    _default_datafile = os.path.join(cereconf.DUMPDIR, 'system-x',
                                      'guest_data')
     _guest_host = cereconf.GUEST_HOST
     _guest_host_dir = cereconf.GUEST_HOST_DIR
