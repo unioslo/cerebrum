@@ -36,15 +36,13 @@ logger = logging.getLogger(__name__)
 
 
 class SYSX(object):
-    _default_datafile = os.path.join(cereconf.DUMPDIR, 'system_x',
-                                     'guest_data')
+    _default_datafile = cereconf.GUEST_FILE
     _guest_host = cereconf.GUEST_HOST
     _guest_host_dir = cereconf.GUEST_HOST_DIR
-    _guest_host_file = cereconf.GUEST_HOST
+    _guest_host_file = cereconf.GUEST_HOST_FILE
     # Dummy username as password is a api key
     _guest_host_auth = "?auth={}".format(
         read_password('systemx', cereconf.GUEST_HOST))
-    _guest_file = cereconf.GUEST_FILE
     today = str(mx.DateTime.today())
 
     sysxids = {}
