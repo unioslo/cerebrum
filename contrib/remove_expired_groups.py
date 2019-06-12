@@ -58,7 +58,9 @@ def remove_expired_groups(db, days, pretend):
                     gr.clear()
                     gr.find(group['group_id'])
                     exts = gr.get_extensions()
-                    if exts:
+                    if exts and 'PosixGroup' not in exts:
+                        # If extensions exists, do not delete, unless
+                        # PosixGroup is in that list of extensions.
                         logger.debug("Skipping group %r, has extensions %r",
                                      gr.entity_id, exts)
                         continue
