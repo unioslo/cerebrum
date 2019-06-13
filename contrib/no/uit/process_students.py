@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2003-2011 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,33 +18,26 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""To create new users:
-        ./contrib/no/uit/process_students.py -C .../studconfig.xml
-        -S .../studieprogrammer.xml -s .../merged_persons.xml -c
 """
+Update user accounts from FS data.
 
-from __future__ import unicode_literals
-from __future__ import print_function
-
-import hotshot
-import hotshot.stats
+To create new users:
+    ./contrib/no/uit/process_students.py -C .../studconfig.xml
+    -S .../studieprogrammer.xml -s .../merged_persons.xml -c
+"""
+from __future__ import print_function, unicode_literals
 
 import argparse
-import sys
 import os
-import mx
 import pickle
-import datetime
-
+import pprint
+import sys
 import traceback
 from time import localtime, strftime, time
-import pprint
 
-from mx.DateTime import now
+import mx.DateTime
 
 import cereconf
-
 import Cerebrum.logutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -55,8 +48,6 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio import PrinterQuotas
-
-proffile = 'hotshot.prof'
 
 
 logger = Factory.get_logger('studauto')
@@ -134,7 +125,8 @@ class AccountUtil(object):
         logger.debug("refreshing password write_db=%s" % account.account_name)
         account.set_password(password)
         account.write_db()
-        account.populate_trait(code=const.trait_student_new, date=now())
+        account.populate_trait(code=const.trait_student_new,
+                               date=mx.DateTime.now())
         account.write_db()
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
 
@@ -193,7 +185,8 @@ class AccountUtil(object):
         logger.debug("new Account, write_db=%s", tmp)
         account.set_password(password)
         account.write_db()
-        account.populate_trait(code=const.trait_student_new, date=now())
+        account.populate_trait(code=const.trait_student_new,
+                               date=mx.DateTime.now())
         account.write_db()
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
         as_posix = False
@@ -250,7 +243,6 @@ class AccountUtil(object):
                 else:
                     account_student_ous.remove(ou)
                     remove_student_idx = 0
-
 
         #
         # kennethj:20161214
@@ -424,35 +416,32 @@ class AccountUtil(object):
             if ac.get_gid() is None:  # or ac['gid'] != gid):
                 changes.append(('dfg', gid))
 
-        # TODO/TDB: This looks wrong - default_expire_date is a string, and
-        # will alwaus be != an mx.DateTime
-        if ac.get_expire_date() != default_expire_date:
-            changes.append(('expire', default_expire_date))
-
         # Set/change homedir
         user_spreads = [int(s) for s in profile.get_spreads()]
 
         # update expire if needed
-        ac_expire_date = ac.get_expire_date()
-        if ac_expire_date is None:
-            # mx.DateTime.DateFrom will fail if None is given as in-parameter.
-            # use 0 instead
-            ac_expire_date = 0
-        current_expire = mx.DateTime.DateFrom(ac_expire_date)
-        new_expire = mx.DateTime.DateFrom(default_expire_date)
-        today = mx.DateTime.today()
+        current_expire = ac.get_expire_date()
+        needs_expire_update = (
+            not current_expire or
+            current_expire.pydate() != default_expire_date.pydate())
 
+        set_expire_date = None
         if fnr in deceased:
             logger.warn("Person deceased: %s" % fnr)
-            if current_expire != str(deceased[fnr]):
-                changes.append(('expire', str(deceased[fnr])))
-        elif ((new_expire > today) and (new_expire > current_expire)):
-            changes.append(('expire', default_expire_date))
+            if current_expire != deceased[fnr]:
+                set_expire_date = deceased[fnr]
+        elif needs_expire_update:
+            set_expire_date = default_expire_date
 
-        # Set spread expire dates
-        for us in user_spreads:
-            account_obj.set_spread_expire(spread=us, expire_date=new_expire,
-                                          entity_id=account_id)
+        if set_expire_date:
+            changes.append(('expire', set_expire_date))
+            # Set spread expire dates
+            # TODO: This should probably be done by _handle_user_changes
+            for us in user_spreads:
+                account_obj.set_spread_expire(
+                    spread=us,
+                    expire_date=set_expire_date,
+                    entity_id=account_id)
 
         # quarantine scope='student_disk' should affect all users with
         # home on a student-disk, or that doesn't have a home at all
@@ -508,8 +497,8 @@ class AccountUtil(object):
             if q['scope'] == 'student_disk' and not may_be_quarantined:
                 continue
             tmp.append(int(q['quarantine']))
-            if (with_quarantines and not int(q['quarantine']) in
-                                         ac.get_quarantines()):
+            if (with_quarantines and
+                    not int(q['quarantine']) in ac.get_quarantines()):
                 changes.append(('add_quarantine', (q['quarantine'],
                                                    q['start_at'])))
 
@@ -678,7 +667,7 @@ class BuildAccounts(object):
         global max_errors
         try:
             BuildAccounts._process_student(person_info)
-        except:
+        except Exception:
             max_errors -= 1
             if max_errors < 0:
                 raise
@@ -1032,8 +1021,7 @@ def get_default_expire_date():
         month = 2
     year = int(next_sem[0])
     day = 16
-    expire_date = datetime.date(year, month, day).isoformat()
-    return expire_date
+    return mx.DateTime.DateTime(year, month, day)
 
 
 def get_existing_accounts():
@@ -1112,7 +1100,7 @@ def get_existing_accounts():
     #
 
     for row in account_obj.search(expire_start=None):
-        if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
+        if not row['owner_id'] or int(row['owner_id']) not in pid2fnr:
             continue
         if row['name'].endswith("999"):
             logger.debug(
@@ -1155,9 +1143,9 @@ def get_existing_accounts():
             if tmp is not None:
                 tmp.set_disk_kvote(int(row['homedir_id']), row['quota'])
     # Spreads
-    # also collect accounts with sito spread. the spread code for these accounts
-    # will be used later on, to filter these accounts out when looking for
-    # existing accounts
+    # also collect accounts with sito spread. the spread code for these
+    # accounts will be used later on, to filter these accounts out when looking
+    # for existing accounts
 
     for spread_id in autostud.pc.spread_defs:
         spread = const.Spread(spread_id)
@@ -1531,7 +1519,7 @@ def main():
     for row in person_obj.search_external_ids(
             id_type=const.externalid_fodselsnr,
             fetchall=False):
-        if pid_deceased.has_key(int(row['entity_id'])):
+        if int(row['entity_id']) in pid_deceased:
             deceased[row['external_id']] = pid_deceased[int(row['entity_id'])]
 
     start_process_students(recalc_pq=args.recalc_pq,
@@ -1543,10 +1531,4 @@ def main():
 
 
 if __name__ == '__main__':
-    if False:
-        print("Profilerer...")
-        prof = hotshot.Profile(proffile)
-        prof.runcall(main)  # profiler hovedprogrammet
-        prof.close()
-    else:
-        main()
+    main()
