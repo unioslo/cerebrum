@@ -81,8 +81,9 @@ class SizeLimitException(PowershellException):
 class OUUnknownException(PowershellException):
     """Exception for when an OU was not found.
 
-    This could happen in various scenarios, e.g. when trying to create an object
-    in a given, nonexisting OU, or trying to get all objects from a given OU.
+    This could happen in various scenarios, e.g. when trying to create an
+    object in a given, nonexisting OU, or trying to get all objects from a
+    given OU.
 
     """
     pass
@@ -94,8 +95,8 @@ class SetAttributeException(PowershellException):
     Failing to add an attribute for an object could come of many reasons.
 
     One example could be that the given attribute element is required to refer
-    to another AD object, which doesn't exist in the given location. This is for
-    instance a common error for the Member attribute.
+    to another AD object, which doesn't exist in the given location. This is
+    for instance a common error for the Member attribute.
 
     """
     pass
@@ -109,10 +110,10 @@ class CommandTooLongException(Exception):
     modern Windows versions (http://support.microsoft.com/kb/830473).
 
     This is not always enforced in our code, as we are not always sure when it
-    happens, and what situations in the Windows environment that could cause it.
-    It is, for now, only enforced in the more common situations where we could
-    handle it. In the future, we might want to move this into `winrm.py` as one
-    of the regular ExitCodeExceptions.
+    happens, and what situations in the Windows environment that could cause
+    it. It is, for now, only enforced in the more common situations where we
+    could handle it. In the future, we might want to move this into `winrm.py`
+    as one of the regular ExitCodeExceptions.
 
     """
     pass
@@ -126,18 +127,18 @@ class ADclient(PowershellClient):
     look like and how the server output is formatted.
 
     Note that the commands here should do exactly what they're told and nothing
-    more. The ADSync should take care of any weird behaviour. This is to let the
-    ADSync's subclass change its behaviour without having to subclass this class
-    as well.
+    more. The ADSync should take care of any weird behaviour. This is to let
+    the ADSync's subclass change its behaviour without having to subclass this
+    class as well.
 
     """
 
     # Unfortunately, there are some attributes that are readable as one name,
     # and writable by another. This is the mapping of the names, so that the
-    # names are automatically swapped out when needed. The keys are the readable
-    # names, while the values are the strings that should be used when updating
-    # the attribute in AD:
-    attribute_write_map = {'Surname': 'Sn',}
+    # names are automatically swapped out when needed. The keys are the
+    # readable names, while the values are the strings that should be used when
+    # updating the attribute in AD:
+    attribute_write_map = {'Surname': 'Sn'}
 
     # The main objectClass that we are targeting in AD. This is used if nothing
     # else is specified when running a command:
@@ -206,7 +207,7 @@ class ADclient(PowershellClient):
         def wrapper(*args, **kwds):
             try:
                 return f(*args, **kwds)
-            except SetAttributeException, e:
+            except SetAttributeException as e:
                 # Could not find the object, searching for alternative
                 # DN.
                 ar = [args[0]] + ADclient.update_dn.im_func(args[0], args[1:])
@@ -235,13 +236,13 @@ class ADclient(PowershellClient):
 
         @type domain: string
         @param domain:
-            The AD domain that we should work against. It is in this client only
-            used to set the domain for the domain admin, if not set in the
+            The AD domain that we should work against. It is in this client
+            only used to set the domain for the domain admin, if not set in the
             'domain_admin' parameter.
 
         @type dryrun: bool
-        @param dryrun: If True, commands that make changes to AD will not get
-            executed.
+        @param dryrun:
+            If True, commands that make changes to AD will not get executed.
 
         """
         super(ADclient, self).__init__(*args, **kwargs)
@@ -264,7 +265,7 @@ class ADclient(PowershellClient):
         # Pattern to exclude passwords in plaintext from the server output.
         # Such passwords usually
         self.exclude_password_patterns = [
-            re.compile('ConvertTo-SecureString.*?\.\.\.', flags=re.DOTALL)]
+            re.compile(r'ConvertTo-SecureString.*?\.\.\.', flags=re.DOTALL)]
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
         self.connect()
@@ -296,8 +297,8 @@ class ADclient(PowershellClient):
         """Generate a command for AD queries out of the given input.
 
         Most of the AD commands have the same format, and contains some of the
-        same standard parameters. This is to make it more convenient to generate
-        commands with the same, default parameters.
+        same standard parameters. This is to make it more convenient to
+        generate commands with the same, default parameters.
 
         Note that some parameters gets added, like Server, which gets filled
         with the same DC for all AD commands.
@@ -311,8 +312,8 @@ class ADclient(PowershellClient):
         @type kwargs: dict
         @param kwargs:
             The parameters to feed the command with. Note that the values gets
-            sent through L{escape_to_string}, so you shouldn't do this yourself,
-            but just sending them in raw format.
+            sent through L{escape_to_string}, so you shouldn't do this
+            yourself, but just sending them in raw format.
 
             Example:
 
@@ -355,8 +356,8 @@ class ADclient(PowershellClient):
             kwargs['Server'] = dc
         if isinstance(novalueargs, basestring):
             novalueargs = (novalueargs,)
-        # The parameter "-Credential $cred" is special, as "$cred" should not be
-        # wrapped inside a string. Everything else should, though.
+        # The parameter "-Credential $cred" is special, as "$cred" should not
+        # be wrapped inside a string. Everything else should, though.
 
         # Filter, process and remove empty arguments
         for k in kwargs.copy():
@@ -377,8 +378,8 @@ class ADclient(PowershellClient):
         The method is overridden to parse raised exceptions and raise a more
         proper exception for AD commands, e.g. for access limit and
         object-not-found errors. When a command fails, the superclass raises an
-        ExitCodeException, where powershell normally gives you an explanation on
-        the error in 'stderr'. Example:
+        ExitCodeException, where powershell normally gives you an explanation
+        on the error in 'stderr'. Example:
 
             Add-ADGroupMember : Cannot find an object with identity: 'testuser' under: 'DC=
             kaos,DC=local'.
@@ -396,15 +397,17 @@ class ADclient(PowershellClient):
 
         Note that this command is executed even when in dryrun, since you would
         like to retrieve data from AD, just not write back changes. Each method
-        that does something with AD must therefore not send data when in dryrun.
+        that does something with AD must therefore not send data when in
+        dryrun.
 
         """
         try:
             return super(ADclient, self).get_data(commandid, signal,
                                                   timeout_retries)
-        except ExitCodeException, e:
+        except ExitCodeException as e:
             code, stderr, output = e.exitcode, e.stderr, e.output
-            self.logger.debug3("ExitCodeException: %s: %s (%s)" % (code, stderr,
+            self.logger.debug3("ExitCodeException: %s: %s (%s)" % (code,
+                                                                   stderr,
                                                                    output))
             if not stderr:
                 # TBD: raise powershell-exception or exitcodeexception? Is it
@@ -426,7 +429,7 @@ class ADclient(PowershellClient):
             if ('An attempt was made to add an object to the directory with\n '
                     'a name\n that is already in use' in e.stderr):
                 raise ObjectAlreadyExistsException(code, stderr, output)
-            if re.search(': The specified \w+ already exists', stderr):
+            if re.search(r': The specified \w+ already exists', stderr):
                 raise ObjectAlreadyExistsException(code, stderr, output)
             if re.search('New-AD.+ : The operation failed because UPN value '
                          'provided for add.+\n+.+not unique forest', stderr):
@@ -447,8 +450,8 @@ class ADclient(PowershellClient):
             raise PowershellException(code, stderr, output)
 
     # Commands to execute before every given powershell command. This is to set
-    # up the environment properly, for our use. Note that it requires some input
-    # arguments to be valid powershell code.
+    # up the environment properly, for our use. Note that it requires some
+    # input arguments to be valid powershell code.
     _pre_execution_code = u"""
         $pass = ConvertTo-SecureString -Force -AsPlainText %(ad_pasw)s;
         $cred = New-Object System.Management.Automation.PSCredential(%(ad_user)s, $pass);
@@ -460,10 +463,13 @@ class ADclient(PowershellClient):
 
         """
         setup = self._pre_execution_code % {
-            'ad_user': self.escape_to_string(self.ad_account_username),
-            'ad_pasw': self.escape_to_string(self.ad_account_password)}
-        #for a in args:
-        #    print a
+            'ad_user': self.escape_to_string(getattr(self,
+                                                     'ad_account_username',
+                                                     None)),
+            'ad_pasw': self.escape_to_string(getattr(self,
+                                                     'ad_account_password',
+                                                     None)),
+                }
         self.logger.debug4(u'Executing powershell command: %r',
                            args)
         return super(ADclient, self).execute(setup, *args, **kwargs)
@@ -508,8 +514,8 @@ class ADclient(PowershellClient):
     def start_list_objects(self, ou, attributes, object_class, names=[]):
         """Start to search for objects in AD, but do not retrieve the data yet.
 
-        The server is asked to generate a list of the objects, and returns an ID
-        which we could later use to retrieve the generated list from. It is
+        The server is asked to generate a list of the objects, and returns an
+        ID which we could later use to retrieve the generated list from. It is
         designed like this because the list could take some time to produce.
 
         @type ou: string
@@ -518,9 +524,9 @@ class ADclient(PowershellClient):
 
         @type attributes: dict, list or tuple
         @param attributes:
-            A list of all attributes that should be returned for all the objects
-            that were found. If a dict is given, its keys are used as the
-            attribute list.
+            A list of all attributes that should be returned for all the
+            objects that were found. If a dict is given, its keys are used as
+            the attribute list.
 
         @type object_class: string
         @param object_class:
@@ -558,8 +564,8 @@ class ADclient(PowershellClient):
         # Note that this could also affect other ObjectClasses...
         if object_class == 'user':
             cmd = 'Get-ADUser'
-        # TODO: It looks like we should use ForEach-Object instead, to avoid too
-        # much memory usage, which creates problems for WinRM.
+        # TODO: It looks like we should use ForEach-Object instead, to avoid
+        # too much memory usage, which creates problems for WinRM.
         command = ("if ($str = %s | ConvertTo-Json) { $str -replace '$',';' }"
                    % self._generate_ad_command(cmd, params, filter))
         # TODO: Should return a callable instead of having another method for
@@ -585,8 +591,9 @@ class ADclient(PowershellClient):
             L{start_list_objects}, which is the server reference to the output.
 
         @type other: dict
-        @param other: A dict to put output from the server that is not a part of
-            the object list. E.g. for different warnings. If not set, all other
+        @param other:
+            A dict to put output from the server that is not a part of the
+            object list. E.g. for different warnings. If not set, all other
             output will be logged as warnings.
 
         @rtype: iterator
@@ -636,8 +643,8 @@ class ADclient(PowershellClient):
     def delete_object(self, dn):
         """Delete an object from AD.
 
-        This removes the data about an object from AD. It is possible to restore
-        the object if AD is in level 2008 R2 level.
+        This removes the data about an object from AD. It is possible to
+        restore the object if AD is in level 2008 R2 level.
 
         TODO: the command prompts for confirmation, which we can't give. How to
         setup the sync to not ask us about this?
@@ -657,8 +664,9 @@ class ADclient(PowershellClient):
         Dryrun does not affect this command, since it works readonly.
 
         @type ad_id: string
-        @param ad_id: The identification of the object. Could be Distinguished Name
-            (DN), Fully Qualified Domain Name (FQDN), username, UID, GID, SID or
+        @param ad_id:
+            The identification of the object. Could be Distinguished Name (DN),
+            Fully Qualified Domain Name (FQDN), username, UID, GID, SID or
             anything that AD accepts as identification.
 
         @type object_class: str
@@ -711,8 +719,9 @@ class ADclient(PowershellClient):
 
         @type attributes: dict
         @param attributes:
-            If specified, the given attributes are added as criterias. Could for
-            instance be used to find the object by its given SAMAccountName.
+            If specified, the given attributes are added as criterias. Could
+            for instance be used to find the object by its given
+            SAMAccountName.
 
         @type ad_object_class: str
         @param ad_object_class:
@@ -760,10 +769,9 @@ class ADclient(PowershellClient):
                       parameters=None):
         """Send a command for creating a new object in AD.
 
-        Note that accounts are set as disabled by default, and cannot be enabled
-        unless a valid password is set for them (or PasswordNotRequired is set).
-
-        TODO: more info
+        Note that accounts are set as disabled by default, and cannot be
+        enabled unless a valid password is set for them (or PasswordNotRequired
+        is set).
 
         @type name: string
         @param name: The name of the object to create.
@@ -791,17 +799,19 @@ class ADclient(PowershellClient):
         @return: Basic information about the newly created AD-object, in the
             same form as the objects from L{get_list_objects}.
 
-        @raise ObjectAlreadyExistsException: If the object already exists in the
-            domain, this exception is raised.
+        @raise ObjectAlreadyExistsException:
+            If the object already exists in the domain, this exception is
+            raised.
 
-        @raise PowershellException: If the powershell command failed somehow,
-            e.g. if the object already existed, or if the script didn't have
-            access to create the object. The output is put in the exception, you
-            will for example get the information about the object if the object
-            already exists.
+        @raise PowershellException:
+            If the powershell command failed somehow, e.g. if the object
+            already existed, or if the script didn't have access to create the
+            object. The output is put in the exception, you will for example
+            get the information about the object if the object already exists.
 
         """
-        self.logger.info("Creating %s in AD: %s (%s)", object_class, name, path)
+        self.logger.info("Creating %s in AD: %s (%s)", object_class, name,
+                         path)
         if not parameters:
             parameters = dict()
 
@@ -980,7 +990,7 @@ class ADclient(PowershellClient):
                     try:
                         self._run_setadobject(ad_id, action, attrs)
                         return True
-                    except SetAttributeException, e:
+                    except SetAttributeException as e:
                         self.logger.warn(
                             "Failed action %s for %s with element: '%s'"
                             " error: %s", action, ad_id, attrs, e)
@@ -997,7 +1007,8 @@ class ADclient(PowershellClient):
                         values = [values]
                     for element in values:
                         try:
-                            self._run_setadobject(ad_id, action, {atrname: element})
+                            self._run_setadobject(ad_id, action,
+                                                  {atrname: element})
                         except SetAttributeException, e:
                             success = False
                             self.logger.warn(
@@ -1144,8 +1155,8 @@ class ADclient(PowershellClient):
         @rtype: callable
         @return:
             A callable that should be called to retrieve the data from the
-            attribute. When called, an iterator of each element in the attribute
-            is returned.
+            attribute. When called, an iterator of each element in the
+            attribute is returned.
 
         """
         self.logger.debug2("Get attribute %s from AD for %s" % (attributename,
@@ -1159,9 +1170,9 @@ class ADclient(PowershellClient):
 
         def getout(cmd):
             # TODO: By printing the attribute, it is split out on each line.
-            # Note, however, that cmd breaks the lines at 80 or more characters,
-            # so elements longer than that will be split in different elements,
-            # which needs to be fixed!
+            # Note, however, that cmd breaks the lines at 80 or more
+            # characters, so elements longer than that will be split in
+            # different elements, which needs to be fixed!
             out = self.get_data(cmd).get('stdout')
             self.logger.debug3("Got output of length: %d" % len(out))
             for line in out.split('\n'):
@@ -1171,13 +1182,12 @@ class ADclient(PowershellClient):
         # TODO: Make this a decorator instead?
         return lambda: getout(cmdid)
 
-
     # TODO: All the old group-member functionality should be removed, as it is
     # now handled through the regular update of attributes!
 
-    # The name of the attribute for where the members of the object are located.
-    # For a regular Group, 'member' is default, while for e.g. NisNetGroups is
-    # this 'memberNisNetGroup'.
+    # The name of the attribute for where the members of the object are
+    # located. For a regular Group, 'member' is default, while for e.g.
+    # NisNetGroups is this 'memberNisNetGroup'.
     # TODO: This must be removed in the future, as this should rather be
     # configurable, as all other attributes! We must be able to sync members
     # independently of the attribute!
@@ -1186,17 +1196,18 @@ class ADclient(PowershellClient):
     def start_list_members(self, groupid):
         """Make AD start generating a list of a group's members.
 
-        The server is asked to generate a list of the members, and returns an ID
-        which we could later use to retrieve the generated list. It is designed
-        like this because the list could take some time to produce, especially
-        for larger groups.
+        The server is asked to generate a list of the members, and returns an
+        ID which we could later use to retrieve the generated list. It is
+        designed like this because the list could take some time to produce,
+        especially for larger groups.
 
         @type groupid: string
         @param groupid: The Id for the group in AD.
 
         @rtype: string
-        @return: A string which should be used as a reference to later retrieve
-            the results. This is since AD could be using some time to go through
+        @return:
+            A string which should be used as a reference to later retrieve the
+            results. This is since AD could be using some time to go through
             all the objects, and you could then be able to do something more
             useful while waiting.
 
@@ -1289,8 +1300,8 @@ class ADclient(PowershellClient):
                                                                 groupid))
         # TODO: Testing new method: adding each member, one by one, to avoid
         # problems with single, bad behaving members preventing everyone else
-        # from becoming members. Must be tested to see if it takes too much time
-        # to do it this way.
+        # from becoming members. Must be tested to see if it takes too much
+        # time to do it this way.
         failed_members = []
         for member in members:
             self.logger.debug("Adding member: %s", member)
@@ -1310,8 +1321,8 @@ class ADclient(PowershellClient):
     def remove_members(self, groupid, members, attribute_name=None):
         """Send command for removing given members from a given group in AD.
 
-        Note that if one of the members does not exist in the group, the command
-        will raise an exception.
+        Note that if one of the members does not exist in the group, the
+        command will raise an exception.
 
         @type groupid: string
         @param groupid: The Id for the group, e.g. DistinguishedName or
@@ -1408,7 +1419,8 @@ class ADclient(PowershellClient):
 
         """
         self.logger.info('Enabling object: %s', ad_id)
-        cmd = self._generate_ad_command('Enable-ADAccount', {'Identity': ad_id})
+        cmd = self._generate_ad_command('Enable-ADAccount',
+                                        {'Identity': ad_id})
         if self.dryrun:
             return True
         out = self.run(cmd)
@@ -1444,12 +1456,12 @@ class ADclient(PowershellClient):
         if password_type in ('password', 'password-base64'):  # GPG encrypted
             if password.startswith('-----BEGIN PGP MESSAGE-----\n'):
                 password = base64.b64encode(password)
-            enc_passwd_dir = """C:\passwords"""  # paranoia
+            enc_passwd_dir = r"""C:\passwords"""  # paranoia
             if (
                     hasattr(cereconf, 'PASSWORD_TMP_STORE_DIR') and
                     cereconf.PASSWORD_TMP_STORE_DIR):
                 enc_passwd_dir = cereconf.PASSWORD_TMP_STORE_DIR
-            tmp_enc_passwd_file = """{edir}\{ad_id}_encrypted_password.gpg""".format(
+            tmp_enc_passwd_file = r"""{edir}\{ad_id}_encrypted_password.gpg""".format(
                 edir=enc_passwd_dir,
                 ad_id=ad_id).replace('\\\\', '\\')
             if password_type == 'password':
@@ -1529,8 +1541,8 @@ class ADclient(PowershellClient):
     def get_chosen_domaincontroller(self, reset=False):
         """Get the preferred Domain Controller (DC) to talk with.
 
-        If not DC server is set, we ask AD for a preferred DC server. The answer
-        is cached, so the next time asked, we reuse the same DC.
+        If not DC server is set, we ask AD for a preferred DC server. The
+        answer is cached, so the next time asked, we reuse the same DC.
 
         We cache a preferred DC to sync with to avoid that we have to wait
         inbetween the updates for the DCs to have synced. We could still go
@@ -1587,8 +1599,8 @@ class ADclient(PowershellClient):
 
         The given script file gets executed by powershell on the server side.
         Note that the ExecutionPolicy defines if the script has to be signed or
-        not before you could execute it. This is up to the administrators of the
-        AD domain, as they then have to sign the script.
+        not before you could execute it. This is up to the administrators of
+        the AD domain, as they then have to sign the script.
 
         TODO: Check if this works!
 
@@ -1597,18 +1609,20 @@ class ADclient(PowershellClient):
         administrators?
 
         @type script: string
-        @param script: The absolute path to the script that should get executed.
+        @param script:
+            The absolute path to the script that should get executed.
 
         @type **kwargs: mixed
-        @param **kwargs: All arguments are made into parameters for the command,
-            on the form: -KEY VALUE
+        @param **kwargs:
+            All arguments are made into parameters for the command, on the
+            form: -KEY VALUE
 
         @rtype: NoneType
         @return: Nothing is returned, as we could run the command in parallell.
 
-        @raise PowershellException: If the script couldn't get executed, if the
-            script contained a syntax error, or any other error that could occur
-            at once.
+        @raise PowershellException:
+            If the script couldn't get executed, if the script contained a
+            syntax error, or any other error that could occur at once.
 
         """
         for k in kwargs.copy():
@@ -1629,6 +1643,7 @@ class ADclient(PowershellClient):
                           time.time() - t)
         self.logger.debug4("Script output: %r", output)
         return output
+
 
 # TODO: The rest should be modified or removed, as we should not communicate
 # with the old ADServer any more:
@@ -1663,7 +1678,7 @@ class ADUtils(object):
         @param ad_objs : object to run command on
         @type  ad_objs: str
         """
-        msg = "Running Update-Recipient for object '%s' against Exchange" % ad_obj
+        msg = "Running Update-Recipient for '%s'" % ad_obj
         if self.dryrun:
             self.logger.debug("Not %s", msg)
             return
@@ -1796,7 +1811,8 @@ class ADUserUtils(ADUtils):
         pw = unicode(self.ac.make_passwd(uname), cereconf.ENCODING)
         self.run_cmd("setPassword", pw)
 
-        # Set properties. First remove any properties that cannot be set like this
+        # Set properties. First remove any properties that cannot be set like
+        # this
         for a in ("distinguishedName", "cn"):
             if a in attrs:
                 del attrs[a]
@@ -1805,8 +1821,8 @@ class ADUserUtils(ADUtils):
             if v is None:
                 del attrs[k]
         if self.run_cmd("putProperties", attrs) and self.run_cmd("setObject"):
-            # TBD: A bool here to decide if createDir should be performed or not?
-            # Create accountDir for new account if attributes where set.
+            # TBD: A bool here to decide if createDir should be performed or
+            # not? Create accountDir for new account if attributes where set.
             # Give AD time to take a breath before creating homeDir
             if create_homedir:
                 time.sleep(5)
