@@ -484,7 +484,8 @@ class AccountUtil(object):
                 AccountUtil.restore_uname(account_id, profile)
                 for q in ac.get_quarantines():
                     if q in [int(const.quarantine_generell),
-                             int(const.quarantine_autopassord)]:
+                             int(const.quarantine_autopassord),
+                             int(const.quarantine_slutta)]:
                         changes.append(('remove_quarantine_at_restore', q))
 
         if changes:

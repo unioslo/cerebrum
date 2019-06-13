@@ -181,6 +181,9 @@ class ConstantsCommon(Constants.Constants):
     quarantine_auto_no_aff = _QuarantineCode(
         'auto_no_aff',
         'Ikke tilknyttet person, utestengt')
+    quarantine_slutta = _QuarantineCode(
+        'slutta',
+        'Personen har slutta')
 
 
 class ConstantsHigherEdu(Constants.Constants):

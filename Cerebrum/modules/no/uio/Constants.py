@@ -460,9 +460,6 @@ class Constants(Constants.Constants):
     quarantine_teppe = Constants._QuarantineCode(
         'teppe',
         'Kalt inn på teppet til drift')
-    quarantine_slutta = Constants._QuarantineCode(
-        'slutta',
-        'Personen har slutta')
     quarantine_system = Constants._QuarantineCode(
         'system',
         'Systembrukar som ikke skal logge inn')
