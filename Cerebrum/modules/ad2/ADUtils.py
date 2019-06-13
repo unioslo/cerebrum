@@ -455,7 +455,6 @@ class ADclient(PowershellClient):
     _pre_execution_code = u"""
         $pass = ConvertTo-SecureString -Force -AsPlainText %(ad_pasw)s;
         $cred = New-Object System.Management.Automation.PSCredential(%(ad_user)s, $pass);
-        Import-Module ActiveDirectory;
         """
 
     def execute(self, *args, **kwargs):
