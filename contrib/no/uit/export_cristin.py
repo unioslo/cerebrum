@@ -59,6 +59,7 @@ violation of the FRIDA.dtd).
 import argparse
 import logging
 import os
+import six
 import time
 import string
 import xml.sax
@@ -565,6 +566,8 @@ class LTPersonParser(xml.sax.ContentHandler, object):
             except ValueError as value:
                 logger.error("Failed to construct a person from XML: %s",
                              value)
+            # FIXME: InvalidFnrError inherits ValueError and is thus caught by
+            #  the above except. Remove or replace with something useful.
             except fodselsnr.InvalidFnrError as value:
                 logger.error("Failed to construct a person from XML: %s",
                              value)
@@ -598,7 +601,7 @@ def output_element(writer, value, element, attributes=dict()):
         return
 
     writer.startElement(element, attributes)
-    writer.data(unicode(value))
+    writer.data(six.text_type(value))
     writer.endElement(element)
 
 
@@ -1485,7 +1488,8 @@ def output_xml(output_file,
                                    indent_level=2,
                                    # Output is for humans too
                                    data_mode=True,
-                                   input_encoding='utf-8')
+                                   input_encoding='utf-8',
+                                   encoding_errors="ignore")
     db = Factory.get('Database')()
 
     # Here goes the hardcoded stuff
@@ -1539,8 +1543,6 @@ def main():
                                            date_today_paga))
     default_sted_file = os.path.join(cereconf.DUMPDIR, 'ou',
                                      'uit_ou_{0}.xml'.format(date_today))
-    # FIXME: Maybe snatch these from cereconf?
-    target = "FRIDA"
 
     parser = argparse.ArgumentParser(description=__doc__)
 
@@ -1584,7 +1586,7 @@ def main():
     logger.info("Generating Cristin export")
     output_xml(output_file=args.output_file,
                data_source=args.data_source,
-               target=target,
+               target=args.target,
                person_file=args.person_file,
                sted_file=args.sted_file)
     logger.info("Generating Cristin export finished")
