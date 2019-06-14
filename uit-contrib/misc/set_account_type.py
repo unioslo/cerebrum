@@ -19,9 +19,21 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
- 
+import sys
+import getopt
+
+from Cerebrum.Utils import Factory
+
+# global variables
 progname = __file__.split("/")[-1]
-__doc__=""" This script sets account_type for all accounts missing entries in
+db = Factory.get('Database')()
+const = Factory.get('Constants')(db)
+person = Factory.get('Person')(db)
+account = Factory.get('Account')(db)
+db.cl_init(change_program=progname)
+
+__doc__ = """
+This script sets account_type for all accounts missing entries in
 this table. The script will try to set account_type according to the
 person_affiliation_source. if person_affiliation_source only contains
 expired entries, a non-expired entry will be selected. The script will
@@ -32,46 +44,18 @@ usage:: %s [options]
 
    -d | --dryrun: Do not commit, rollback all changes
    -h | --help : this text
-  """
-#
-# generic imports
-#
-import re
-import os
-import sys
-import getopt
-import time 
+"""
 
-#
-# cerebrum imports
-#
-import cerebrum_path
-import cereconf
-from Cerebrum import Utils
-from Cerebrum.Utils import Factory
 
-#
-# global variables
-#
-db = Factory.get('Database')()
-const = Factory.get('Constants')(db)
-person = Factory.get('Person')(db)
-account = Factory.get('Account')(db)
-db.cl_init(change_program=progname)
-
-#
-#usage
-#
-def usage(exitcode=0,msg=None):
+def usage(exitcode=0, msg=None):
     if msg:
         print msg
-        
     print __doc__
     sys.exit(exitcode)
 
-#
-# return a list of tuple [(owner_id, account_id),...] of all accounts missing account_type
-#
+
+# return a list of tuple [(owner_id, account_id),...]
+# of all accounts missing account_type
 def process_accounts(accounts):
     account_list = []
     counter = 0
@@ -81,11 +65,12 @@ def process_accounts(accounts):
         account.find(single_account['account_id'])
         # only collect accounts whos owner is a person
         if account.owner_type == const.entity_person:
-            types = account.get_account_types(filter_expired = False)
+            types = account.get_account_types(filter_expired=False)
             if len(types) == 0:
                 # this account does not have account_type. collect it
-                new_tuple = (single_account['owner_id'],single_account['account_id'])
-                #print new_tuple
+                new_tuple = (single_account['owner_id'],
+                             single_account['account_id'])
+                # print new_tuple
                 account_list.append(new_tuple)
         # write some  feedback to the user
         if(counter % 100) == 0:
@@ -94,28 +79,27 @@ def process_accounts(accounts):
     # return complete list to caller
     return account_list
 
-#
+
 # set account type for accounts that have none
 # The function will try to set account type to reflect any active affiliations.
-# is the account owner have none active affiliations, the function will try to set
-# account type based on expired ones. An error message is returned to the user if the 
-# owner have no affiliations at all.
-#
+# is the account owner have none active affiliations, the function will try to
+# set account type based on expired ones. An error message is returned to the
+# user if the owner have no affiliations at all.
 def set_account_type(info_list):
     counter = 0
     error_list = []
     success_list = []
     # get active affiliations, set account type based on these
     for entry in info_list:
-        counter = counter + 1
-        #print "set account type for account:%s" % entry[1]
+        # print "set account type for account:%s" % entry[1]
         person.clear()
         person.find(entry[0])
         account.clear()
         account.find(entry[1])
-        affs = person.get_affiliations(include_deleted = True)
+        affs = person.get_affiliations(include_deleted=True)
         if len(affs) == 0:
-            single_error = "impossible to set account type for account:%s, owner:%s has no affiliations what so ever!!!" % (entry[1],entry[0])
+            single_error = ("can't set account type for account:{}, owner:{} "
+                            "has no affiliations").format(entry[1], entry[0])
             error_list.append(single_error)
 
         else:
@@ -123,21 +107,26 @@ def set_account_type(info_list):
             have_valid_aff = False
             for aff in affs:
                 if aff['deleted_date'] is None:
-                    # have active affiliation. set account type based on this...
+                    # has active affiliation. set account type based on this.
                     ou_id = aff['ou_id']
                     affiliation = aff['affiliation']
-                    account.set_account_type(ou_id,affiliation)
-                    success_list.append("account:%s, added account_type:%s - %s" % (entry[1],affiliation,ou_id))
+                    account.set_account_type(ou_id, affiliation)
+                    s = "account:{}, added account_type:{} - {}".format(
+                        entry[1], affiliation, ou_id)
+                    success_list.append(s)
                     have_valid_aff = True
-            if have_valid_aff == False:
-                # user does not have any valid affiliations. 
+            if not have_valid_aff:
+                # user does not have any valid affiliations.
                 # set account type based on expired affiliations
                 for aff in affs:
                     ou_id = aff['ou_id']
                     affiliation = aff['affiliation']
-                    account.set_account_type(ou_id,affiliation)
-                    success_list.append("account:%s, added account_type:%s - %s" % (entry[1],affiliation,ou_id))
+                    account.set_account_type(ou_id, affiliation)
+                    s = "account:{}, added account_type:{} - {}".format(
+                        entry[1], affiliation, ou_id)
+                    success_list.append(s)
         # write some  feedback to the user
+        counter += 1
         if(counter % 100) == 0:
             sys.stdout.write(".")
             sys.stdout.flush()
@@ -145,47 +134,45 @@ def set_account_type(info_list):
         print "%s" % single_error
     for success in success_list:
         print "%s" % success
-    
 
-#
-# main function
-#
+
 def main():
 
     commit = True
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dh',['dryrun','help'])
-    except getopt.GetoptError,m:
-        usage(1,m)
+        opts, args = getopt.getopt(sys.argv[1:], 'dh', ['dryrun', 'help'])
+    except getopt.GetoptError, m:
+        usage(1, m)
 
-    for opt,val in opts:
-        if opt in('-d','--dryrun'):
+    for opt, val in opts:
+        if opt in('-d', '--dryrun'):
             commit = False
             print "dryrun. Will NOT commit any changes"
-        if opt in ('-h','--help'):
-            m =''
-            usage(0,m)
+        if opt in ('-h', '--help'):
+            m = ''
+            usage(0, m)
 
     # get list of all accounts in the database
     print "getting accounts..."
-    all_accounts = account.list(filter_expired = False, fetchall = True)
-    
+    all_accounts = account.list(filter_expired=False, fetchall=True)
+
     # get list of all accounts missing account_type
     print "getting accounts missing type..."
     accounts_missing_type = process_accounts(all_accounts)
-    
+
     # set account type for accounts that have none
     print "setting account type..."
     set_account_type(accounts_missing_type)
 
     # commit or rollback
-    if commit == False:
-        db.rollback()
-        print "rollback"
-    else:
+    if commit:
         db.commit()
         print "commit"
+    else:
+        db.rollback()
+        print "rollback"
+
 
 if __name__ == '__main__':
     main()
