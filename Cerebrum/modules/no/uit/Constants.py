@@ -596,10 +596,6 @@ class Constants(Constants.Constants):
         'generell',
         'Generell splatt')
 
-    quarantine_slutta = _QuarantineCode(
-        'slutta',
-        'Personen har slutta')
-
     quarantine_system = _QuarantineCode(
         'system',
         'Systembrukar som ikke skal logge inn')
