@@ -27,6 +27,7 @@ exchange spread.
 from __future__ import unicode_literals
 
 import argparse
+import logging
 import sys
 
 import cereconf
@@ -50,7 +51,7 @@ co = Factory.get('Constants')(db)
 db.cl_init(change_program='populate_email')
 uname2mailinfo = ac.getdict_uname2mailinfo()
 
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 
 
 def _get_alternatives(account_name):
