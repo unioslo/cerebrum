@@ -40,17 +40,10 @@ from Cerebrum.utils.argutils import add_commit_args
 
 logger = logging.getLogger(__name__)
 
-progname = __file__.split("/")[-1]
-db = Factory.get('Database')()
-const = Factory.get('Constants')(db)
-person = Factory.get('Person')(db)
-account = Factory.get('Account')(db)
-db.cl_init(change_program=progname)
-
 
 # return a list of tuple [(owner_id, account_id),...]
 # of all accounts missing account_type
-def process_accounts(accounts):
+def process_accounts(accounts, const, account):
     account_list = []
     counter = 0
     for single_account in accounts:
@@ -79,7 +72,7 @@ def process_accounts(accounts):
 # is the account owner have none active affiliations, the function will try to
 # set account type based on expired ones. An error message is returned to the
 # user if the owner have no affiliations at all.
-def set_account_type(info_list):
+def set_account_type(info_list, person, account):
     counter = 0
     error_list = []
     success_list = []
@@ -136,6 +129,13 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    db = Factory.get('Database')()
+    const = Factory.get('Constants')(db)
+    person = Factory.get('Person')(db)
+    account = Factory.get('Account')(db)
+    db.cl_init('set_account_type')
 
     # get list of all accounts in the database
     logger.info("getting accounts...")
@@ -143,11 +143,11 @@ def main(inargs=None):
 
     # get list of all accounts missing account_type
     logger.info("getting accounts missing type...")
-    accounts_missing_type = process_accounts(all_accounts)
+    accounts_missing_type = process_accounts(all_accounts, const, account)
 
     # set account type for accounts that have none
     logger.info("setting account type...")
-    set_account_type(accounts_missing_type)
+    set_account_type(accounts_missing_type, person, account)
 
     # commit or rollback
     if args.commit:
