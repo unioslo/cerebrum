@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2003-2018 University of Oslo, Norway
+#
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,17 +18,23 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import unicode_literals
-
+"""Merge multiple similar XML files into one XML file."""
+from __future__ import print_function, unicode_literals
 
 import getopt
-import xml.sax
+import logging
 import sys
+import xml.sax
+
+import Cerebrum.logutils
 from Cerebrum.Utils import XMLHelper
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
+logger = logging.getLogger(__name__)
+
 
 class CollectParser(xml.sax.ContentHandler):
+
     def __init__(self, filename, results, hash_keys, append_file=False):
         self.results = results
         self.level = 0
@@ -36,7 +42,7 @@ class CollectParser(xml.sax.ContentHandler):
         self.append_file = append_file
         xml.sax.parse(filename, self)
 
-    def startElement(self, name, attrs):
+    def startElement(self, name, attrs):  # noqa: N802
         self.level += 1
         if self.level > 1:
             tmp = {}
@@ -49,13 +55,12 @@ class CollectParser(xml.sax.ContentHandler):
             tmp['TagName'] = name
             self.results.setdefault(hash_key, []).append(tmp)
 
-    def endElement(self, name):
+    def endElement(self, name):  # noqa: N802
         self.level -= 1
-        pass
 
 
-def usage(exitcode=0):
-    print """Usage: [options]
+help_text = r"""
+Usage: [options]
 
 Merges data from several XML files into one big XML file.  The XML
 files should look something like:
@@ -67,11 +72,11 @@ are used as a key in an internal hash (with attributes as value),
 which will contain data from all processed XML files.  Once all
 files are parsed, the new XML file is written from this hash.
 
--t | -tag tag: name of tag in output file
--d | -delim delim: name of attribute(s) to use as common_key separated by :
--f | -file file: file to parse
--a | -append file: file to append
--o | -out file: file to write
+-t | --tag <tag>: name of tag in output file
+-d | --delim <delim>: name of attribute(s) to use as common_key separated by :
+-f | --file <file>: file to parse
+-a | --append <file>: file to append
+-o | --out <file>: file to write
 
 -d and -f can be repeated.  The last -d is used as attribute names for
 the -t tag.
@@ -81,34 +86,51 @@ preceeded by the file you wish to append it to (orelse the result will
 be empty).
 
 Example:
-merge_xml_files.py -d fodselsdato:personnr -f person_file.xml \
--f regkort.xml -t person -o out.dat
+  merge_xml_files.py \
+      -d fodselsdato:personnr \
+      -f person_file.xml \
+      -f regkort.xml \
+      -t person \
+      -o out.dat
 
 Note that memory usage may equal the total size of all XML files.
-"""
-    sys.exit(exitcode)
+""".strip()
+
+
+def usage(exitcode=0):
+    print(help_text)
+    raise SystemExit(exitcode)
 
 
 def main():
+    # legacy log configuration
+    Cerebrum.logutils.autoconf('cronjob', None)
+
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'd:f:o:t:a:', ['delim=',
-                                                                'file=',
-                                                                'out=', 'tag=',
-                                                                'append='])
+        opts, args = getopt.getopt(
+            sys.argv[1:],
+            'd:f:o:t:a:',
+            ['delim=', 'file=', 'out=', 'tag=', 'append='])
     except getopt.GetoptError:
         usage(2)
 
+    logger.info('Start')
     big_xml = {}
     for opt, val in opts:
         if opt in ('-t', '--tag'):
             tag = val
+            logger.debug('set tag=%r', tag)
         elif opt in ('-d', '--delim'):
             delim = val.split(":")
+            logger.debug('set delim=%r', delim)
         elif opt in ('-f', '--file'):
             CollectParser(val, big_xml, delim)
+            logger.debug('collecting data from %r with delim=%r', val, delim)
         elif opt in ('-a', '--append'):
             CollectParser(val, big_xml, delim, True)
+            logger.debug('appending data from %r with delim=%r', val, delim)
         elif opt in ('-o', '--out'):
+            logger.debug('writing data to %r', val)
             f = SimilarSizeWriter(val, "w")
             f.max_pct_change = 50
             xml = XMLHelper()
@@ -132,6 +154,8 @@ def main():
                 f.write("</%s>\n" % tag)
             f.write("</data>\n")
             f.close()
+            logger.info('Wrote merged xml to %r', val)
+    logger.info('Done')
 
 
 if __name__ == '__main__':
