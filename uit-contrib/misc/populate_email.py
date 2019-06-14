@@ -26,12 +26,15 @@ exchange spread.
 
 from __future__ import unicode_literals
 
-import getopt
+import argparse
 import sys
 
 import cereconf
+import Cerebrum.logutils
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.Email import EmailDomain, EmailAddress
 from Cerebrum.Constants import _CerebrumCode
@@ -45,6 +48,7 @@ p = Factory.get('Person')(db)
 ou = Factory.get('OU')(db)
 co = Factory.get('Constants')(db)
 db.cl_init(change_program='populate_email')
+uname2mailinfo = ac.getdict_uname2mailinfo()
 
 logger = Factory.get_logger("cronjob")
 
@@ -99,7 +103,7 @@ def is_cnaddr_free(local_part, domain_part):
     return True
 
 
-def get_cn_addr(username):
+def get_cn_addr(username, try_all):
 
     dom_part = cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES
 
@@ -136,7 +140,7 @@ def get_cn_addr(username):
 
     # If we get here - we have to try and generate a new address
     alternatives = _get_alternatives(username)
-    if try_only_first:
+    if not try_all:
         logger.info("Trying only first alternative!")
         alternatives = alternatives[:1]
 
@@ -283,42 +287,32 @@ def process_mail(username):
             logger.warn("User not entitled to emailaddr first.last@uit.no!")
 
 
-def usage(c=0, m=None):
-    if m:
-        print m
-    print __doc__
-    sys.exit(c)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '-u', '--user',
+        help="name of the user to create email address for"
+    )
+    parser.add_argument(
+        '--try-all',
+        action='store_true',
+        help="try all email alternatives, default is only try first"
+    )
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(inargs)
+
+    process_mail(args.user, args.try_all)
+
+    if args.commit:
+        logger.info("commit")
+        db.commit()
+    else:
+        logger.info("dryrun")
+        db.rollback()
+    sys.exit()
 
 
-try:
-    opts, args = getopt.getopt(sys.argv[1:], 'u:dh',
-                               ['user=', 'dryrun', 'try-all', 'help'])
-except getopt.GetoptError, m:
-    usage(1, m)
-
-try_only_first = True
-username = None
-dryrun = False
-
-
-for opt, val in opts:
-    if opt in('-u', '--user'):
-        username = val
-    elif opt in('-d', '--dryrun'):
-        dryrun = True
-    elif opt in('--try-all',):
-        try_only_first = False
-    elif opt in ('-h', '--help'):
-        usage(0, "")
-
-uname2mailinfo = ac.getdict_uname2mailinfo()
-process_mail(username)
-
-if dryrun:
-    logger.info("dryrun")
-    db.rollback()
-else:
-    logger.info("commit")
-    db.commit()
-
-sys.exit()
+if __name__ == '__main__':
+    main()
