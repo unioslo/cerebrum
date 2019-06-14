@@ -30,12 +30,15 @@ for each account.
 
 
 import argparse
+import logging
 import sys
 
 import Cerebrum.logutils
 
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import add_commit_args
+
+logger = logging.getLogger(__name__)
 
 progname = __file__.split("/")[-1]
 db = Factory.get('Database')()
@@ -122,9 +125,9 @@ def set_account_type(info_list):
             sys.stdout.write(".")
             sys.stdout.flush()
     for single_error in error_list:
-        print "%s" % single_error
+        logger.debug("%s" % single_error)
     for success in success_list:
-        print "%s" % success
+        logger.info("%s" % success)
 
 
 def main(inargs=None):
@@ -135,24 +138,24 @@ def main(inargs=None):
     args = parser.parse_args(inargs)
 
     # get list of all accounts in the database
-    print "getting accounts..."
+    logger.info("getting accounts...")
     all_accounts = account.list(filter_expired=False, fetchall=True)
 
     # get list of all accounts missing account_type
-    print "getting accounts missing type..."
+    logger.info("getting accounts missing type...")
     accounts_missing_type = process_accounts(all_accounts)
 
     # set account type for accounts that have none
-    print "setting account type..."
+    logger.info("setting account type...")
     set_account_type(accounts_missing_type)
 
     # commit or rollback
     if args.commit:
         db.commit()
-        print "commit"
+        logger.info("Committing all changes to DB")
     else:
         db.rollback()
-        print "rollback"
+        logger.info("Dryrun, rollback changes")
 
 
 if __name__ == '__main__':
