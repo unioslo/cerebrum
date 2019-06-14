@@ -19,39 +19,30 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sys
-import getopt
-
-from Cerebrum.Utils import Factory
-
-# global variables
-progname = __file__.split("/")[-1]
-db = Factory.get('Database')()
-const = Factory.get('Constants')(db)
-person = Factory.get('Person')(db)
-account = Factory.get('Account')(db)
-db.cl_init(change_program=progname)
-
-__doc__ = """
+"""
 This script sets account_type for all accounts missing entries in
 this table. The script will try to set account_type according to the
 person_affiliation_source. if person_affiliation_source only contains
 expired entries, a non-expired entry will be selected. The script will
 make sure that at least 1 of student/employee affiliation is created
 for each account.
-
-usage:: %s [options]
-
-   -d | --dryrun: Do not commit, rollback all changes
-   -h | --help : this text
 """
 
 
-def usage(exitcode=0, msg=None):
-    if msg:
-        print msg
-    print __doc__
-    sys.exit(exitcode)
+import argparse
+import sys
+
+import Cerebrum.logutils
+
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import add_commit_args
+
+progname = __file__.split("/")[-1]
+db = Factory.get('Database')()
+const = Factory.get('Constants')(db)
+person = Factory.get('Person')(db)
+account = Factory.get('Account')(db)
+db.cl_init(change_program=progname)
 
 
 # return a list of tuple [(owner_id, account_id),...]
@@ -136,22 +127,12 @@ def set_account_type(info_list):
         print "%s" % success
 
 
-def main():
+def main(inargs=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    commit = True
-
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dh', ['dryrun', 'help'])
-    except getopt.GetoptError, m:
-        usage(1, m)
-
-    for opt, val in opts:
-        if opt in('-d', '--dryrun'):
-            commit = False
-            print "dryrun. Will NOT commit any changes"
-        if opt in ('-h', '--help'):
-            m = ''
-            usage(0, m)
+    args = parser.parse_args(inargs)
 
     # get list of all accounts in the database
     print "getting accounts..."
@@ -166,7 +147,7 @@ def main():
     set_account_type(accounts_missing_type)
 
     # commit or rollback
-    if commit:
+    if args.commit:
         db.commit()
         print "commit"
     else:
