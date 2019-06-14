@@ -27,10 +27,8 @@ import sys
 import urllib2
 
 import phonenumbers
-
-import cereconf
-from Cerebrum.Utils import Factory, read_password
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory, read_password
 
 progname = __file__.split("/")[-1]
 __doc__ = """
