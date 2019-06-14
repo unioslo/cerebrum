@@ -44,11 +44,6 @@ national_identity_column = 0
 
 logger = logging.getLogger(__name__)
 
-db = Factory.get('Database')()
-db.cl_init(change_program='fetch_mobile')
-p = Factory.get('Person')(db)
-co = Factory.get('Constants')(db)
-
 
 def format_e164(number, country_code="NO"):
     """
@@ -133,7 +128,7 @@ def get_mobile_list(token, social_security_number_list):
     return result_dict
 
 
-def update_bas(mobile_phones, mobile_count):
+def update_bas(p, co, mobile_phones, mobile_count):
     """
     Function to update BAS with mobile phone numbers
     """
@@ -210,8 +205,6 @@ def usage(exitcode=0, msg=None):
 
 
 def main(inargs=None):
-    mobile_count = 0
-
     # Parse arguments
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument('-p',
@@ -235,6 +228,13 @@ def main(inargs=None):
     row_fetch_max = 1000
     row_count = sum(1 for row in file_obj)
     file_obj.seek(0)
+    mobile_count = 0
+
+    # Initialize database
+    db = Factory.get('Database')()
+    db.cl_init(change_program='fetch_mobile')
+    p = Factory.get('Person')(db)
+    co = Factory.get('Constants')(db)
 
     logger.info("Updating BAS with ICE numbers from Difi's"
                 "'Kontakt- og reservasjonssregister'.")
@@ -248,7 +248,7 @@ def main(inargs=None):
         # GET all mobile phone numbers
         mobile_phones = get_mobile_list(token, national_identies)
         # UPDATE BAS
-        update_bas(mobile_phones, mobile_count)
+        update_bas(p, co, mobile_phones, mobile_count)
 
         row_fetched += row_fetch_max
 
