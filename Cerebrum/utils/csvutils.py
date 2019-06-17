@@ -23,9 +23,12 @@ from __future__ import absolute_import
 
 import abc
 import csv
+import logging
 import io
 
 import six
+
+logger = logging.getLogger(__name__)
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -93,7 +96,8 @@ class UnicodeDictWriter(_UnicodeSupport):
 
 
 class CerebrumDialect(csv.Dialect):
-    """Describe the default Cerebrum dialect.
+    """
+    Describe the default Cerebrum dialect.
 
     The dialect does *not* use quoting, and only applies a backslash escape
     char to the default delimiter, ';'.
@@ -105,3 +109,76 @@ class CerebrumDialect(csv.Dialect):
 
 
 csv.register_dialect('cerebrum', CerebrumDialect)
+
+
+def _read_and_map_csv(filename, csv_reader, csv_transform, **kwargs):
+    """
+    Create a csv file iterator.
+
+    This function wraps csv.reader classes with some error handling and
+    logging.
+
+    """
+    logger.info("Reading csv file=%r", filename)
+    count = 0
+    with open(filename, mode='r') as f:
+        reader = csv_reader(f, **kwargs)
+        for count, record in enumerate(reader, 1):
+            try:
+                yield csv_transform(record)
+            except Exception:
+                logger.error("Unable to process record #%d (file=%r, line=%r)",
+                             count, filename, reader.line_num)
+                raise
+    logger.info("Read %d records from file=%r", count, filename)
+
+
+def read_csv_dicts(filename, encoding, delimiter):
+    """
+    Wrapper for reading csv files with csv.DictReader.
+
+    This function wraps csv.DictReader to add unicode support and debugging.
+
+    :param filename: csv file
+    :param encoding: csv file encoding
+    :param delimiter: csv field separator
+
+    :rtype: generator
+    :returns:
+        A generator that yields a dict for each entry in the CSV file.
+    """
+    def transform(record):
+        return dict(
+            (k.decode(encoding),
+             v.decode(encoding) if v is not None else None)
+            for k, v in record.items())
+
+    return _read_and_map_csv(
+        filename=filename,
+        csv_reader=csv.DictReader,
+        csv_transform=transform,
+        delimiter=delimiter.encode(encoding))
+
+
+def read_csv_tuples(filename, encoding, delimiter):
+    """
+    Wrapper for reading csv files with csv.reader.
+
+    This function wraps csv.reader to add unicode support and debugging.
+
+    :param filename: csv file
+    :param encoding: csv file encoding
+    :param delimiter: csv field separator
+
+    :rtype: generator
+    :returns:
+        A generator that yields a tuple for each entry in the CSV file.
+    """
+    def transform(record):
+        return tuple((value.decode(encoding) for value in record))
+
+    return _read_and_map_csv(
+        filename=filename,
+        csv_reader=csv.reader,
+        csv_transform=transform,
+        delimiter=delimiter.encode(encoding))
