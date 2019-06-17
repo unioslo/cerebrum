@@ -19,37 +19,36 @@
 """
 Uit specific extension for Cerebrum. Read data from SystemX
 """
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function
 
+import argparse
 import io
 import logging
-import os
 import sys
-import getopt
-import mx.DateTime
 
 import cereconf
-
+import mx.DateTime
 from Cerebrum.Utils import read_password
 
 logger = logging.getLogger(__name__)
 
 
 class SYSX(object):
-    _default_datafile = cereconf.GUEST_FILE
-    _guest_host = cereconf.GUEST_HOST
-    _guest_host_dir = cereconf.GUEST_HOST_DIR
-    _guest_host_file = cereconf.GUEST_HOST_FILE
-    # Dummy username as password is a api key
-    _guest_host_auth = "?auth={}".format(
-        read_password('systemx', cereconf.GUEST_HOST))
-    today = str(mx.DateTime.today())
-
-    sysxids = {}
-    sysxfnrs = {}
-    SPLIT_CHAR = ':'
-
     def __init__(self, data_file=None, update=False):
+        self._default_datafile = cereconf.GUEST_FILE
+        if update:
+            # Dummy username as password is a api key
+            self._guest_host = cereconf.GUEST_HOST
+            self._guest_host_dir = cereconf.GUEST_HOST_DIR
+            self._guest_host_file = cereconf.GUEST_HOST_FILE
+            self._guest_host_auth = "?auth={}".format(
+                read_password('systemx', cereconf.GUEST_HOST))
+        self.today = str(mx.DateTime.today())
+
+        self.sysxids = {}
+        self.sysxfnrs = {}
+        self.SPLIT_CHAR = ':'
+
         if data_file:
             self.sysx_data = data_file
         else:
@@ -149,30 +148,27 @@ class SYSX(object):
                 self.sysxfnrs[sysx_data['personnr']] = sysx_data
 
 
-def usage():
-    print(__doc__)
+def main(inargs=None):
+    """Function used for testing the module
 
+    """
+    # Parse arguments
+    parser = argparse.ArgumentParser(__doc__)
+    parser.add_argument('-u', '--update',
+                        action='store_true',
+                        help='',
+                        default=False)
+    parser.add_argument('-f', '--filter_expired',
+                        action='store_true',
+                        help='',
+                        default=False)
+    parser.add_argument('-d', '--datafile',
+                        default=cereconf.GUEST_FILE,
+                        help='Path to to guest file.')
+    args = parser.parse_args(inargs)
 
-def main():
-    do_update = False
-    filter_expired = False
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'uhf',
-                                   ['update', 'help', 'filter_expired'])
-    except getopt.GetoptError as m:
-        print("Unknown option: {}".format(m))
-        usage()
-
-    for opt, val in opts:
-        if opt in ('-h', '--help'):
-            usage()
-        elif opt in ('-u', '--update'):
-            do_update = True
-        elif opt in ('-f', '--filter_expired'):
-            filter_expired = True
-
-    sysx = SYSX(update=do_update)
-    sysx.list(filter_expired=filter_expired)
+    sysx = SYSX(data_file=args.datafile, update=args.update)
+    sysx.list(filter_expired=args.filter_expired)
     print("SYS_IDs: {}".format(len(sysx.sysxids)))
     print("SYS_Fnrs: {}".format(len(sysx.sysxfnrs)))
 
