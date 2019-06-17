@@ -25,7 +25,6 @@ import htmlentitydefs
 import mx.DateTime
 import os
 import re
-from sets import Set
 import sys
 
 from Cerebrum.utils import transliterate
@@ -700,7 +699,7 @@ class Build(object):
         #             got_exchange = True
         #             tmp_spread.append(int(co.Spread('exchange_mailbox')))
         #             tmp_spread.append(int(co.Spread('people@ldap')))
-        sysx_spreads = Set(tmp_spread)
+        sysx_spreads = set(tmp_spread)
 
         # Set spread expire date
         # Use new_expire in order to guarantee that SystemX specific spreads
@@ -709,7 +708,7 @@ class Build(object):
             spread_acc.set_spread_expire(spread=ss, expire_date=new_expire,
                                          entity_id=acc_id)
 
-        cb_spreads = Set(acc_obj.get_spreads())
+        cb_spreads = set(acc_obj.get_spreads())
         to_add = sysx_spreads - cb_spreads
 
         if to_add:
@@ -910,9 +909,9 @@ class ExistingPerson(object):
 
 def main():
     dryrun = False
-
+    datafile = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'd', ['dryrun'])
+        opts, args = getopt.getopt(sys.argv[1:], 'd', ['dryrun', 'datafile='])
     except getopt.GetoptError as m:
         print("Unknown option: {}".format(m))
         usage()
@@ -920,8 +919,10 @@ def main():
     for opt, val in opts:
         if opt in ('--dryrun',):
             dryrun = True
+        if opt in ('--datafile',):
+            datafile = val
 
-    sysx = SYSX()
+    sysx = SYSX(data_file=datafile)
     sysx.list()
     persons, accounts = get_existing_accounts()
 
@@ -941,6 +942,7 @@ def usage():
     print("""
     usage:: %s [-d|--dryrun]
     --dryrun : do no commit changes to database
+    --datafile: path to sysx user data file
     --logger-name name: name of logger to use
     --logger-level level: loglevel to use
     """ % progname)
