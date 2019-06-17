@@ -22,7 +22,7 @@ Uit specific extension for Cerebrum. Read data from SystemX
 from __future__ import unicode_literals, print_function
 
 import argparse
-import io
+import csv
 import logging
 import sys
 
@@ -74,26 +74,35 @@ class SYSX(object):
             return 1
 
     def load_sysx_data(self):
+        """
+        Read the csv file from disk and decode strings to utf-8 escaped ascii.
+
+        """
         data = []
-        file_handle = io.open(self.sysx_data, "r", encoding="utf-8")
-        lines = file_handle.readlines()
-        file_handle.close()
-        for line in lines:
-            line = line.rstrip()
-            # line = line.decode("UTF-8")
-            if not line or line.startswith('#'):
-                continue
-            # line = line.decode("UTF-8")
-            data.append(line)
+        with open(self.sysx_data, 'r') as fp:
+            reader = csv.reader(fp, delimiter=str(self.SPLIT_CHAR))
+            for row in reader:
+                data.append([i.decode('utf-8') for i in row])
         return data
 
     def _prepare_data(self, data_list):
-        data_list = data_list.rstrip()
+        """
+        Take in a list of lists, where the inner lists contain strings in order
+        sysx_id, fodsels_dato, personnr, gender, fornavn, etternavn, ou,
+        affiliation, affiliation_status, expire_date, spreads, hjemmel,
+        kontaktinfo, ansvarlig_epost, bruker_epost, national_id, approved
+
+        :param list data_list: list of strings in order sysx_id, fodsels_dato,
+            personnr, gender, fornavn, etternavn, ou, affiliation,
+            affiliation_status, expire_date, spreads, hjemmel, kontaktinfo,
+            ansvarlig_epost, bruker_epost, national_id, approved
+        :return: dict with the same information pre-processed
+        """
         try:
-            (id, fodsels_dato, personnr, gender, fornavn, etternavn, ou,
+            (sysx_id, fodsels_dato, personnr, gender, fornavn, etternavn, ou,
              affiliation, affiliation_status, expire_date, spreads,
              hjemmel, kontaktinfo, ansvarlig_epost, bruker_epost,
-             national_id, approved) = data_list.split(self.SPLIT_CHAR)
+             national_id, approved) = data_list
         except ValueError as m:
             logger.error("data_list:%s##%s", data_list, m)
             sys.exit(1)
@@ -111,7 +120,7 @@ class SYSX(object):
                 spreads = spreads.split(',')
             else:
                 spreads = []
-            return {'id': id,
+            return {'id': sysx_id,
                     'fodsels_dato': fodsels_dato,
                     'personnr': personnr,
                     'gender': gender,
