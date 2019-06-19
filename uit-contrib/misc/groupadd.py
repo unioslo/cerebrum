@@ -34,14 +34,6 @@ from Cerebrum.utils.argutils import add_commit_args
 
 logger = logging.getLogger(__name__)
 
-db = Factory.get('Database')()
-db.cl_init(change_program='groupadd')
-
-person = Factory.get('Person')(db)
-account = Factory.get('Account')(db)
-const = Factory.get('Constants')(db)
-Cgroup = Factory.get('Group')(db)
-
 group = []
 current_group = None
 
@@ -57,7 +49,6 @@ def process_file(filename):
 def process_line(line):
     global current_group
     if (line[0:3].isalpha()) and (line[3:5].isdigit()) and (len(line) == 6):
-        #        print "\t adding username: %s" % line
         add_user(line)
     elif len(line) > 0:
         current_group = line.strip()
@@ -85,14 +76,16 @@ def print_all():
 #
 # Parse group list. foreach group, add all members.
 #
-def add_user_to_group():
-    member_list = []
+def add_user_to_group(db):
+    person = Factory.get('Person')(db)
+    account = Factory.get('Account')(db)
+    const = Factory.get('Constants')(db)
+    cere_group = Factory.get('Group')(db)
+
     for item in group:
-        Cgroup.clear()
+        cere_group.clear()
         print("group is:%s" % item['group_name'].decode('utf-8'))
-        # foo = "%s" % item['group_name'].decode('utf-8')
-        # bar = u"%s" % foo
-        Cgroup.find_by_name(item['group_name'].decode('utf-8'))
+        cere_group.find_by_name(item['group_name'].decode('utf-8'))
 
         member_list = item['member'].split(',')
         for member in member_list:
@@ -118,30 +111,28 @@ def add_user_to_group():
                         account.owner_id)
                     continue
                 try:
-                    retval = Cgroup.has_member(account.entity_id)
+                    retval = cere_group.has_member(account.entity_id)
                     print("retval:%s" % retval)
                     if retval is False:
-                        Cgroup.add_member(account.entity_id)
+                        cere_group.add_member(account.entity_id)
                         logger.info("adding account_id:%s to group id:%s",
-                                    account.entity_id, Cgroup.entity_id)
+                                    account.entity_id, cere_group.entity_id)
                     else:
                         logger.info(
                             "account_id:%s is already a member of group id:%s",
-                            account.entity_id, Cgroup.entity_id)
+                            account.entity_id, cere_group.entity_id)
                 except Exception:
-                    # print dir(Cgroup)
                     logger.error(
                         "unable to add account_id:%s to group_id:%s",
-                        account.entity_id, Cgroup.entity_id)
+                        account.entity_id, cere_group.entity_id)
                     logger.error("is account already a member of this group?")
                     db.rollback()
                     continue
 
 
 def main(inargs=None):
-
     # Parse arguments
-    parser = argparse.ArgumentParser(__doc__)
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-f',
                         '--file',
                         dest='input_file')
@@ -155,6 +146,10 @@ def main(inargs=None):
     args = parser.parse_args(inargs)
     logutils.autoconf('cronjob', args)
 
+    # Initialize database and objects
+    db = Factory.get('Database')()
+    db.cl_init(change_program='groupadd')
+
     if not args.commit:
         logger.info("Dryrun. no changes to database")
     if not args.input and not args.input_file:
@@ -166,14 +161,14 @@ def main(inargs=None):
     if args.input_file:
         process_file(args.input_file)
         print_all()
-        add_user_to_group()
+        add_user_to_group(db)
 
     if not args.commit:
         db.rollback()
         logger.info("Dryrun, rollback changes")
     else:
         db.commit()
-        logger.info("Comitting changes to database")
+        logger.info("Committing changes to database")
 
 
 if __name__ == '__main__':

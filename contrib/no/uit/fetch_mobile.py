@@ -38,8 +38,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory, read_password
 from Cerebrum.utils.argutils import add_commit_args
 
-progname = __file__.split("/")[-1]
-
 national_identity_column = 0
 
 logger = logging.getLogger(__name__)
@@ -128,10 +126,13 @@ def get_mobile_list(token, social_security_number_list):
     return result_dict
 
 
-def update_bas(p, co, mobile_phones, mobile_count):
+def update_bas(db, mobile_phones):
     """
     Function to update BAS with mobile phone numbers
     """
+    p = Factory.get('Person')(db)
+    co = Factory.get('Constants')(db)
+
     for national_identity, mobile_phone in mobile_phones.items():
         logger.debug("Processing nin=%r", national_identity)
         if mobile_phone is None:
@@ -161,10 +162,10 @@ def update_bas(p, co, mobile_phones, mobile_count):
                          "ignoring...", national_identity)
             continue
 
-        # ?? is it better to make a list over registered ice_numbers
-        # (just once) with: p.list_contact_info(source_system =
-        # co.system_kr_reg, contact_type = co.contact_ice_phone) instead of
-        # calling get_contact_info for each person?
+        # TODO: is it better to make a list over registered ice_numbers
+        #  (just once) with: p.list_contact_info(source_system =
+        #  co.system_kr_reg, contact_type = co.contact_ice_phone) instead of
+        #  calling get_contact_info for each person?
 
         ice_num_info = p.get_contact_info(source=co.system_kr_reg,
                                           type=co.contact_ice_phone)
@@ -193,8 +194,8 @@ def update_bas(p, co, mobile_phones, mobile_count):
                                type=co.contact_ice_phone,
                                value=mobile_phone_e164)
 
-        mobile_count += 1
         p.write_db()
+        return 1
 
 
 def usage(exitcode=0, msg=None):
@@ -233,8 +234,6 @@ def main(inargs=None):
     # Initialize database
     db = Factory.get('Database')()
     db.cl_init(change_program='fetch_mobile')
-    p = Factory.get('Person')(db)
-    co = Factory.get('Constants')(db)
 
     logger.info("Updating BAS with ICE numbers from Difi's"
                 "'Kontakt- og reservasjonssregister'.")
@@ -248,7 +247,7 @@ def main(inargs=None):
         # GET all mobile phone numbers
         mobile_phones = get_mobile_list(token, national_identies)
         # UPDATE BAS
-        update_bas(p, co, mobile_phones, mobile_count)
+        mobile_count += update_bas(db, mobile_phones)
 
         row_fetched += row_fetch_max
 
@@ -257,12 +256,12 @@ def main(inargs=None):
 
     if mobile_count > 0:
         logger.info("%s new ICE numbers added to BAS." % mobile_count)
-        if not args.commit:
-            db.rollback()
-            logger.info("Dryrun. Rollback changes.")
-        else:
+        if args.commit:
             db.commit()
             logger.info("Committed all changes.")
+        else:
+            db.rollback()
+            logger.info("Dryrun. Rollback changes.")
     else:
         logger.info("No new ICE numbers found.")
 
