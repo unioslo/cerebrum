@@ -130,7 +130,7 @@ command_help = {
         'misc_dadd':
             'Register a new disk',
         'misc_dls':
-            'Use 'disk list' instead',
+            "Use 'disk list' instead",
         'misc_drem':
             'Remove a disk',
         'misc_hadd':
