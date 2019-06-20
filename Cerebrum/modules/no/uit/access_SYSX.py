@@ -22,13 +22,13 @@ Uit specific extension for Cerebrum. Read data from SystemX
 from __future__ import unicode_literals, print_function
 
 import argparse
-import csv
 import logging
 import sys
 
 import cereconf
 import mx.DateTime
 from Cerebrum.Utils import read_password
+from Cerebrum.utils import csvutils
 
 logger = logging.getLogger(__name__)
 
@@ -72,18 +72,6 @@ class SYSX(object):
             return 0
         else:
             return 1
-
-    def load_sysx_data(self):
-        """
-        Read the csv file from disk and decode strings to utf-8 escaped ascii.
-
-        """
-        data = []
-        with open(self.sysx_data, 'r') as fp:
-            reader = csv.reader(fp, delimiter=str(self.SPLIT_CHAR))
-            for row in reader:
-                data.append([i.decode('utf-8') for i in row])
-        return data
 
     def _prepare_data(self, data_list):
         """
@@ -147,7 +135,8 @@ class SYSX(object):
     def _load_data(self, update=False, filter_expired=True):
         if update:
             self._update()
-        for item in self.load_sysx_data():
+        for item in csvutils.read_csv_tuples(
+                self.sysx_data, 'utf-8', self.SPLIT_CHAR):
             sysx_data = self._prepare_data(item)
             if filter_expired:
                 if sysx_data['expire_date'] < self.today:
