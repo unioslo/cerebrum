@@ -675,9 +675,7 @@ class AdExport(object):
                 break
             self.ou.clear()
             self.ou.find(parent_id)
-            logger.debug("Lookup returned: id=%s,name=%s", self.ou.entity_id,
-                         self.ou.get_name_with_language(
-                             self.co.ou_name, self.co.language_nb))
+            logger.debug("Lookup returned: id=%s", self.ou.entity_id)
             # Detect infinite loops
             if self.ou.entity_id in visited:
                 raise RuntimeError("DEBUG: Loop detected: %r" % visited)
