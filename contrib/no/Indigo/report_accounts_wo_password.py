@@ -45,137 +45,128 @@ The original can be found in cerebrum_config.git, as
   Merge: bef67be2 3bfbd8a2
   Date:  Wed Jun 19 16:07:06 2019 +0200
 """
-
-usage_str = """
-Usage:
-      new_accounts_wo_pass.py [-t | --time]
-                              [-f | --file [PATH/]FILENAME]
-                              [-h | --help]
-
-      Where:
-       -t or --time is an optional argument that is the number of days to go
-                    back to in time in order to look for all the accounts that
-                    were created after it  but that still didn't get a password
-                    set.
-                    Default is 180 days.
-       -f or --file is an optional argument to dump the output in a file with
-                    an explicit or implicit system path pointing to the file.
-                    Default is dump the output to stdout.
-       -l or --list is an optional argument to narrow down the search to a list
-                    of usernames read from a file with an explicit or implicit
-                    system path.
-       -h or --help shows this message and all the above text and quits.
-"""
-
+import argparse
+import datetime
+import logging
 import sys
-import getopt
-import mx
+
+import mx.DateTime
+
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
-db = Factory.get(b'Database')()
-ac = Factory.get(b'Account')(db)
-pe = Factory.get(b'Person')(db)
-cl = Factory.get('CLConstants')(db)
+from Cerebrum.utils.argutils import codec_type
 
-# Gives usage info or how to use the program and its options and arguments.
-def usage(message=None,message2=None):
-   if message is not None:
-           print >>sys.stderr, "\n%s" % message
-   if message2 is not None:
-           print >>sys.stdout,"\n\n%s\n" % message2
-   print >>sys.stderr, usage_str
-# End usage
+logger = logging.getLogger(__name__)
 
-def main(argv=None):
-    argv = sys.argv
 
-    try:
-        opts, args = getopt.getopt(argv[1:],
-                                   "t:f:l:h",
-                                   ["time=", "file=", "list","help",])
-    except getopt.GetoptError, error:
-          usage(message=error.msg,message2=None)
-          return 1
+def find_recent_accounts(db, days):
+    cl = Factory.get('CLConstants')(db)
+    start_date = datetime.date.today() - datetime.timedelta(days=days)
+    has_password = set(
+        r['subject_entity']
+        for r in db.get_log_events(types=cl.account_password,
+                                   sdate=mx.DateTime.DateFrom(start_date)))
 
-    output_stream = sys.stdout
-    time = 180
-    accounts_list = []
-
-    for opt, val in opts:
-        if opt in ('-f', '--file',):
-            try:
-                output_stream = open(val, "w")
-            except:
-                sys.stdout.write("can't open file, writing to console")
-        elif opt in ('-t', '--time',):
-            try:
-                int(val)
-            except:
-                    error = getopt.GetoptError
-                    usage(message=error.msg,message2=None)
-                    return 1
-            time = int(val)
-        elif opt in ('-l', '--list',):
-            try:
-                accounts_list = open(val, "r").read().splitlines()
-            except:
-                sys.stdout.write("can't open file with usernames'list, "
-                                 "skipping and proceeding without filtering:\n")
-        elif opt in ('-h', '--help',):
-            usage(message=None,message2=None)
-            return 0
-
-    new_accounts_dict = {}
-    has_password = set(r['subject_entity']
-                        for r in db.get_log_events(types=cl.account_password,
-                                                    sdate=(mx.DateTime.now()
-                                                                      - time)))
-
-    for r in db.get_log_events(types=cl.account_create, sdate=(mx.DateTime.now()
-                                                                       - time)):
-        new_accounts_dict[r['subject_entity']]= str(r['tstamp']).split(".")[0]
-
-    for i in has_password:
-        try:
-            new_accounts_dict.pop(i)
-        except:
+    for r in db.get_log_events(types=cl.account_create,
+                               sdate=mx.DateTime.DateFrom(start_date)):
+        if r['subject_entity'] in has_password:
             continue
+        yield int(r['subject_entity'])
 
-    if accounts_list:
-        for i in accounts_list:
-            try:
-                ac.clear()
-                pe.clear()
-                ac.find_by_name(i)
-                pe.find(ac.owner_id)
-                if ac.entity_id in new_accounts_dict:
-                    output_stream.write((pe.get_external_id())[0][2] + " " + i +
-                                                        " " + new_accounts_dict[
-                                                        ac.entity_id] +
-                                                        "\n")
-                else:
-                    output_stream.write((pe.get_external_id())[0][2] + " " + i +
-                                                        "   Was either not " +
-                                                        "created recently or" +
-                                                        " did indeed change " +
-                                                        "own password\n")
-            except:
-                continue
-    else:
-        for i in new_accounts_dict:
-            try:
-                ac.clear()
-                pe.clear()
-                ac.find(i)
-                pe.find(ac.owner_id)
-                output_stream.write((pe.get_external_id())[0][2] + " " +
-                                                    ac.account_name + " " +
-                                                    new_accounts_dict[i] + "\n")
-            except:
-                continue
 
-    if output_stream not in (sys.stdout, sys.stderr):
-      output_stream.close()
-    return 0
+def get_user_info(db, account_id):
+    ac = Factory.get('Account')(db)
+    ac.find(account_id)
+    pe = Factory.get('Person')(db)
+    pe.find(ac.owner_id)
+    # co = Factory.get('Constants')(db)
+
+    if not ac.created_at:
+        raise ValueError("Missing created_at for account_id=%r" %
+                         (ac.entity_id,))
+
+    created_at = ac.created_at.pydatetime()
+
+    # TODO: What? If this is right, it's just by chance
+    nin = pe.get_external_id()[0][2]
+
+    return {
+        'owner_id': ac.owner_id,
+        'owner_nin': nin,
+        'created_at': created_at,
+        'account_id': ac.entity_id,
+        'account_name': ac.account_name,
+    }
+
+
+def format_line(user_info):
+    return '{info[owner_nin]} {info[account_name]} {created_at}\n'.format(
+        info=user_info,
+        created_at=user_info['created_at'].strftime('%Y-%m-%d %H:%M:%S'),
+    )
+
+
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description='Write a report on users without passwords',
+    )
+
+    parser.add_argument(
+        '-o', '--output',
+        type=argparse.FileType('w'),
+        default='-',
+        help='the file to print the report to (stdout)',
+        metavar='<file>',
+    )
+
+    parser.add_argument(
+        '-e', '--encoding',
+        dest='codec',
+        type=codec_type,
+        default='utf-8',
+        help='output file encoding (%(default)s)',
+        metavar='<codec>',
+    )
+
+    parser.add_argument(
+        '--days',
+        default=180,
+        type=lambda i: abs(int(i)),
+        help='report accounts newer than %(metavar)s days (%(default)s)',
+        metavar='<n>',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start of %s', parser.prog)
+    logger.debug('args: %r', args)
+
+    db = Factory.get('Database')()
+    stream = args.codec.streamwriter(args.output)
+
+    stats = {'ok': 0, 'skipped': 0}
+    for account_id in find_recent_accounts(db, args.days):
+        try:
+            user_info = get_user_info(db, account_id)
+            stats['ok'] += 1
+        except Exception as e:
+            logger.error("Unable to get account_id=%r: %s", account_id, e)
+            stats['skipped'] += 1
+        stream.write(format_line(user_info))
+
+    args.output.flush()
+    logger.debug('Stats: %s', repr(stats))
+
+    # If the output is being written to file, close the filehandle
+    if args.output not in (sys.stdout, sys.stderr):
+        args.output.close()
+
+    logger.info('Report written to %s', args.output.name)
+    logger.info('Done %s', parser.prog)
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
