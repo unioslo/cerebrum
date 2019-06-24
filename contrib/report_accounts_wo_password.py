@@ -111,16 +111,20 @@ def get_user_info(ac):
     db = ac._db
     pe = Factory.get('Person')(db)
     pe.find(ac.owner_id)
-    # co = Factory.get('Constants')(db)
+    co = Factory.get('Constants')(db)
 
     if not ac.created_at:
-        raise ValueError("Missing created_at for account_id=%r" %
-                         (ac.entity_id,))
+        raise ValueError("Missing created_at for account_id=%r (%s)" %
+                         (ac.entity_id, ac.account_name))
 
     created_at = ac.created_at.pydatetime()
 
-    # TODO: What? If this is right, it's just by chance
-    nin = pe.get_external_id()[0][2]
+    for row in pe.get_external_id(id_type=co.externalid_fodselsnr):
+        nin = row['external_id']
+        break
+    else:
+        raise ValueError('Missing external_id for account_id=%r (%s)' %
+                         (ac.entity_id, ac.account_name))
 
     return {
         'owner_id': ac.owner_id,
