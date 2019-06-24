@@ -25,12 +25,13 @@ Generate a list of recently created users without a password.
 Format
 ------
 The file contains one user account per line, and contains the owners norwegian
-national id, the user account name, and some additional info.
+national id, the user account name, and some additional info: "<nin> <username>
+<info>"
 
 For accounts that are missing a password update, the info field will contain an
 ISO8601 formatted creation date for the account. If the account included in the
 export *has* performed a password update, the field will include a default
-message.
+message:
 
 ::
 
@@ -133,12 +134,6 @@ def get_user_info(ac):
 def format_line(user_info, data):
     return '{info[owner_nin]} {info[account_name]} {data}\n'.format(
         info=user_info, data=data)
-
-
-class _AbstractReport(object):
-
-    def __init__(self, db):
-        self.db = db
 
 
 def write_missing_passwords(db, account_ids, stream):
