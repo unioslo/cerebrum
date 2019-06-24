@@ -45,6 +45,7 @@ cerebrum_user = "cerebrum"
 #
 prefix = './'  # Is this 'safeguard' really neccessary?
 sharedir = prefix + 'share'
+bindir = prefix + 'bin'
 sbindir = prefix + 'sbin'
 default_locale_dir = os.path.join(sys.prefix, 'share', 'locale')
 
@@ -198,6 +199,10 @@ class CerebrumData(install_data.install_data, object):
 #
 # Files to install
 #
+bin_files = [
+    ('clients/job-runner-cli.py', 0755),
+]
+
 sbin_files = [
     ('servers/job_runner/job_runner.py', 0755),
     ('makedb.py', 0755),
@@ -226,6 +231,9 @@ data_files = [
       ('design/adminprotocol.html', 0644),
       ('README.md', 0644),
       ('COPYING', 0644), ]),
+    ({'path': bindir,
+      'owner': cerebrum_user,
+      'mode': 0755}, bin_files),
     ({'path': sbindir,
       'owner': cerebrum_user,
       'mode': 0755}, sbin_files),
