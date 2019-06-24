@@ -19,9 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import absolute_import, unicode_literals
 
-import datetime
-
-from Cerebrum import Errors
 from Cerebrum.modules.bofhd import bofhd_core
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd.cmd_param import (
@@ -35,7 +32,7 @@ from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.legacy_users import LegacyUsers
 from Cerebrum.modules.no.uit import bofhd_auth
-from Cerebrum.modules.no.uit import legacyusers
+from Cerebrum.modules.no.uit import entity_terminate
 
 
 def list_legacy_users(db, search_term):
@@ -120,4 +117,4 @@ class BofhdUiTExtension(bofhd_core.BofhdCommonMethods):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
 
-        return legacyusers.delete(self.db, accountname)
+        return entity_terminate.delete(self.db, accountname)

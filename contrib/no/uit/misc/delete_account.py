@@ -26,13 +26,13 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uit import legacyusers
+from Cerebrum.modules.no.uit import entity_terminate
 from Cerebrum.utils.argutils import add_commit_args
 
 logger = logging.getLogger(__name__)
 
 
-def delete_account(db, account_id, commit=False):
+def delete_account(db, account_id):
     logger.info("Processing account_id=%r", account_id)
     co = Factory.get('Constants')(db)
     ac = Factory.get('Account')(db)
@@ -40,15 +40,13 @@ def delete_account(db, account_id, commit=False):
         ac.find(account_id)
     except Errors.NotFoundError:
         raise SystemExit('Unknown account_id: {}'.format(account_id))
-    legacyusers.delete(db, accountname=ac.get_name(co.account_namespace),
-                       commit=commit)
+    entity_terminate.delete(db, accountname=ac.get_name(co.account_namespace))
 
 
-def process_account(db, account_id, commit):
+def process_account(db, account_id):
     try:
-        delete_account(db,
-                       account_id=account_id,
-                       commit=commit)
+        delete_account(db, account_id=account_id)
+
     except Exception:
         logger.critical('Unable to delete account_id=%r', account_id)
         raise
@@ -102,14 +100,16 @@ def main(inargs=None):
 
     if args.filename:
         for account_id in read_integers(args.filename):
-            process_account(db, account_id, args.commit)
+            process_account(db, account_id)
     else:
-        process_account(db, args.account_id, args.commit)
+        process_account(db, args.account_id)
 
     if args.commit:
         logger.info('Committing changes')
+        db.commit()
     else:
         logger.info('Rolling back changes')
+        db.rollback()
     logger.info('Done %s', parser.prog)
 
 

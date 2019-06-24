@@ -27,18 +27,18 @@ TODO: This should really be implemented as mixins for every database table this
 """
 import datetime
 
-from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import legacy_users
 
 
-def delete(db, accountname, commit):
-    """Delete every entry containing the entity_id of the account from the
+def delete(db, accountname):
+    """
+    Delete every entry containing the entity_id of the account from the
     database
     """
 
     co = Factory.get('Constants')(db)
-
     ac = Factory.get('Account')(db)
     try:
         ac.find_by_name(accountname)
@@ -136,6 +136,7 @@ def delete(db, accountname, commit):
 
     # Done deleting, now writing legacy info after trying to find (new)
     # primary account for person
+    lu = legacy_users.LegacyUsers(db)
     try:
         ac.clear()
         aux = pe.entity_id
@@ -148,18 +149,8 @@ def delete(db, accountname, commit):
                 (datetime.datetime.today().date().strftime('%Y%m%d'),
                  ac.account_name))
     except Exception:
-        lu = legacy_users.LegacyUsers(db)
         lu.set(**legacy_info)
-        if commit:
-            db.commit()
-        else:
-            db.rollback()
     else:
-        lu = legacy_users.LegacyUsers(db)
         lu.set(**legacy_info)
-        if commit:
-            db.commit()
-        else:
-            db.rollback()
 
     return "OK, deleted account: {}".format(accountname)
