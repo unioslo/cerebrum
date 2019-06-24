@@ -25,12 +25,17 @@ Generate a list of recently created users without a password.
 Format
 ------
 The file contains one user account per line, and contains the owners norwegian
-national id, the user account name, and the user account create time: '<fnr>
-<uname> <datetime>'. E.g.:
+national id, the user account name, and some additional info.
+
+For accounts that are missing a password update, the info field will contain an
+ISO8601 formatted creation date for the account. If the account included in the
+export *has* performed a password update, the field will include a default
+message.
 
 ::
 
-    01017000000 olan 2019-01-01 13:00:00
+    01017000000 user1 2019-01-01 13:00:00
+    01017000000 user2 Was either not created recently ...
 
 
 History
@@ -47,6 +52,7 @@ The original can be found in cerebrum_config.git, as
 """
 import argparse
 import datetime
+import functools
 import logging
 import sys
 
@@ -60,7 +66,20 @@ from Cerebrum.utils.argutils import codec_type
 logger = logging.getLogger(__name__)
 
 
+def read_account_names(filename):
+    with open(filename, 'r') as f:
+        for lineno, raw_line in enumerate(f, 1):
+            account_name = raw_line.strip()
+            if not account_name or account_name.startswith('#'):
+                continue
+            yield account_name
+
+
 def find_recent_accounts(db, days):
+    """
+    Get a list of accounts created within the last <n> days that has not
+    changed their password.
+    """
     cl = Factory.get('CLConstants')(db)
     start_date = datetime.date.today() - datetime.timedelta(days=days)
     has_password = set(
@@ -75,9 +94,20 @@ def find_recent_accounts(db, days):
         yield int(r['subject_entity'])
 
 
-def get_user_info(db, account_id):
+def get_account_by_id(db, account_id):
     ac = Factory.get('Account')(db)
     ac.find(account_id)
+    return ac
+
+
+def get_account_by_name(db, account_name):
+    ac = Factory.get('Account')(db)
+    ac.find_by_name(account_name)
+    return ac
+
+
+def get_user_info(ac):
+    db = ac._db
     pe = Factory.get('Person')(db)
     pe.find(ac.owner_id)
     # co = Factory.get('Constants')(db)
@@ -100,11 +130,60 @@ def get_user_info(db, account_id):
     }
 
 
-def format_line(user_info):
-    return '{info[owner_nin]} {info[account_name]} {created_at}\n'.format(
-        info=user_info,
-        created_at=user_info['created_at'].strftime('%Y-%m-%d %H:%M:%S'),
-    )
+def format_line(user_info, data):
+    return '{info[owner_nin]} {info[account_name]} {data}\n'.format(
+        info=user_info, data=data)
+
+
+class _AbstractReport(object):
+
+    def __init__(self, db):
+        self.db = db
+
+
+def write_missing_passwords(db, account_ids, stream):
+    stats = {'ok': 0, 'skipped': 0}
+    for account_id in account_ids:
+        try:
+            ac = get_account_by_id(db, account_id)
+            user_info = get_user_info(ac)
+            stats['ok'] += 1
+        except Exception as e:
+            logger.error("Unable to get account_id=%r: %s", account_id, e)
+            stats['skipped'] += 1
+        stream.write(
+            format_line(
+                user_info,
+                user_info['created_at'].strftime('%Y-%m-%d %H:%M:%S')))
+    logger.debug('Stats: %s', repr(stats))
+
+
+def write_check_account(names_to_check, db, account_ids, stream):
+    stats = {'changed': 0, 'not-changed': 0, 'skipped': 0}
+    default_msg = ('Was either not created recently or did indeed change '
+                   'own password')
+
+    for account_name in sorted(names_to_check):
+        try:
+            ac = get_account_by_name(db, account_name)
+            user_info = get_user_info(ac)
+        except Exception as e:
+            logger.error("Unable to get account_name=%r: %s",
+                         account_name, e)
+            stats['skipped'] += 1
+            continue
+
+        if ac.entity_id in account_ids:
+            # No recent password change
+            line = format_line(
+                user_info,
+                user_info['created_at'].strftime('%Y-%m-%d %H:%M:%S'))
+            stats['not-changed'] += 1
+        else:
+            line = format_line(user_info, default_msg)
+            stats['changed'] += 1
+        stream.write(line)
+    logger.debug('Stats: %s', repr(stats))
 
 
 def main(inargs=None):
@@ -136,6 +215,12 @@ def main(inargs=None):
         help='report accounts newer than %(metavar)s days (%(default)s)',
         metavar='<n>',
     )
+
+    parser.add_argument(
+        '-l', '--list',
+        help='filter by account names found in %(metavar)s',
+        metavar='<file>',
+    )
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
@@ -144,21 +229,24 @@ def main(inargs=None):
     logger.info('Start of %s', parser.prog)
     logger.debug('args: %r', args)
 
+    if args.list:
+        check_names = set(read_account_names(args.list))
+        logger.info('Restricting report to %d accounts from %r',
+                    len(check_names), args.list)
+        write_report = functools.partial(write_check_account, check_names)
+    else:
+        write_report = write_missing_passwords
+
     db = Factory.get('Database')()
     stream = args.codec.streamwriter(args.output)
 
-    stats = {'ok': 0, 'skipped': 0}
-    for account_id in find_recent_accounts(db, args.days):
-        try:
-            user_info = get_user_info(db, account_id)
-            stats['ok'] += 1
-        except Exception as e:
-            logger.error("Unable to get account_id=%r: %s", account_id, e)
-            stats['skipped'] += 1
-        stream.write(format_line(user_info))
+    recent_accounts = set(find_recent_accounts(db, args.days))
+    logger.info('Considering %d accounts from change_log',
+                len(recent_accounts))
+
+    write_report(db, recent_accounts, stream)
 
     args.output.flush()
-    logger.debug('Stats: %s', repr(stats))
 
     # If the output is being written to file, close the filehandle
     if args.output not in (sys.stdout, sys.stderr):
