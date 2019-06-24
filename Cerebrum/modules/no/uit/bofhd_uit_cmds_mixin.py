@@ -21,8 +21,7 @@ from __future__ import absolute_import, unicode_literals
 
 import datetime
 
-from Cerebrum import Utils
-from Cerebrum.Errors import NotFoundError
+from Cerebrum import Errors
 from Cerebrum.modules.bofhd import bofhd_core
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd.cmd_param import (
@@ -32,10 +31,11 @@ from Cerebrum.modules.bofhd.cmd_param import (
     PersonId,
     YesNo,
 )
-from Cerebrum.modules.bofhd.errors import PermissionDenied, CerebrumError
+from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.legacy_users import LegacyUsers
 from Cerebrum.modules.no.uit import bofhd_auth
+from Cerebrum.modules.no.uit import legacyusers
 
 
 def list_legacy_users(db, search_term):
@@ -120,124 +120,4 @@ class BofhdUiTExtension(bofhd_core.BofhdCommonMethods):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
 
-        ac = Utils.Factory.get('Account')(self.db)
-        co = Utils.Factory.get('Constants')(self.db)
-        try:
-            ac.find_by_name(accountname)
-        except NotFoundError:
-            raise CerebrumError('Unknown account: {}'.format(accountname))
-
-        pe = Utils.Factory.get('Person')(self.db)
-        try:
-            pe.find(ac.owner_id)
-        except NotFoundError:
-            raise CerebrumError(
-                'No person connected to account {}, aborting'.format(
-                    accountname))
-
-        # Build legacy info dict
-        legacy_info = {'username': ac.account_name}
-        try:
-            legacy_info['ssn'] = pe.get_external_id(
-                id_type=co.externalid_fodselsnr)[0]['external_id']
-        except IndexError:
-            legacy_info['ssn'] = None
-        legacy_info.update(
-            {
-                'source': 'MANUELL',  # TODO: Should this be something else?
-                'type': 'P',
-                'comment': (
-                        '%s - Deleted by user_delete bofh command.' %
-                        datetime.datetime.today().date().strftime('%Y%m%d')),
-                'name': pe.get_name(co.system_cached,
-                                    co.name_full),
-
-            }
-        )
-        # Find email target of the account
-        etarget = Utils.Factory.get('EmailTarget')(self.db)
-        try:
-            etarget.find_by_target_entity(ac.entity_id)
-            target_id = etarget.entity_id
-        except NotFoundError:
-            target_id = None
-
-        # Clean up bofhd_session
-        stmt = """
-        DELETE FROM [:table schema=cerebrum name=bofhd_session]
-        WHERE account_id = :account_id
-        """
-        binds = {'account_id': ac.entity_id}
-        self.db.execute(stmt, binds)
-
-        # Clean up mail tables
-        delete_mail_tables = [
-            ('mailq', 'entity_id'),
-            ('email_forward', 'target_id'),
-            ('email_primary_address', 'target_id'),
-            ('email_address', 'target_id'),
-            ('email_target', 'target_id'),
-        ]
-
-        if target_id:
-            binds = {'value': target_id}
-            for key, value in delete_mail_tables:
-                stmt = """
-                DELETE FROM [:table schema=cerebrum name={table}]
-                WHERE {column} = :value
-                """.format(table=key, column=value)
-                self.db.execute(stmt, binds)
-
-        # Clean up everything else
-        delete_tables = [
-            ('change_log', 'change_by'),
-            ('entity_name', 'entity_id'),
-            ('account_home', 'account_id'),
-            ('account_type', 'account_id'),
-            ('account_authentication', 'account_id'),
-            ('posix_user', 'account_id'),
-            ('homedir', 'account_id'),
-            ('group_member', 'member_id'),
-            ('bofhd_session', 'account_id'),
-            ('account_info', 'account_id'),
-            ('spread_expire', 'entity_id'),
-            ('entity_spread', 'entity_id'),
-            ('entity_quarantine', 'entity_id'),
-            ('entity_trait', 'entity_id'),
-            ('entity_contact_info', 'entity_id'),
-            ('mailq', 'entity_id'),
-            ('email_target', 'target_entity_id'),
-            ('entity_info', 'entity_id'),
-            ('entity_contact_info', 'entity_id'),
-        ]
-
-        for key, value in delete_tables:
-            binds = {'value': ac.entity_id}
-            stmt = """
-            DELETE FROM [:table schema=cerebrum name={table}]
-            WHERE {column} = :value
-            """.format(table=key, column=value)
-            self.db.execute(stmt, binds)
-
-        # Done deleting, now writing legacy info after trying to find (new)
-        # primary account for person
-        try:
-            ac.clear()
-            aux = pe.entity_id
-            pe.clear()
-            pe.find(aux)
-            aux = pe.get_accounts(filter_expired=False)[0]['account_id']
-            ac.find(aux)
-            legacy_info['comment'] = (
-                    '%s - Duplicate of %s' %
-                    (datetime.datetime.today().date().strftime('%Y%m%d'),
-                     ac.account_name))
-        except Exception:
-            lu = LegacyUsers(self.db)
-            lu.set(**legacy_info)
-            self.db.commit()
-        finally:
-            lu = LegacyUsers(self.db)
-            lu.set(**legacy_info)
-            self.db.commit()
-        return "OK, deleted account: {}".format(accountname)
+        return legacyusers.delete(self.db, accountname)
