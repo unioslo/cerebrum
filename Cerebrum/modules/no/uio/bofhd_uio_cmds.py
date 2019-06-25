@@ -174,7 +174,7 @@ class BofhdExtension(BofhdCommonMethods):
     # 3. It looks better to define a little class, than a dict of dicts, in
     #    order to organize the variables in a somewhat sane way.
     #
-    # We need to connect to LDAP, in order to populate entries with the
+    # We need to connect to LDAP in order to populate entries with the
     # 'mailPause' attribute. This attribute will be heavily used by the
     # postmasters, as they convert to murder. When we populate entries
     # with the 'mailPause' attribute directly, the postmasters will experience
