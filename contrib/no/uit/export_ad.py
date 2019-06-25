@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 def wash_sitosted(name):
     # removes preceeding and trailing numbers and whitespaces
     # samskipnaden has a habit of putting metadata (numbers) in the name... :(
-    washed = re.sub(r"^[0-9 ]+|,|& |[0-9 -.]+$", "", name)
+    washed = re.sub(r"^[0-9\ ]+|\,|\&\ |[0-9\ -\.]+$", "", name)
     return washed
 
 
@@ -210,7 +210,6 @@ class AdExport(object):
             p_id = aff['person_id']
             ou_id = aff['ou_id']
             source_system = aff['source_system']
-            precedence = aff['precedence']
 
             if source_system == self.co.system_sito:
                 perspective_code = self.co.perspective_sito
@@ -236,16 +235,14 @@ class AdExport(object):
                 continue
             except Errors.NotFoundError:
                 logger.error(
-                    "OU id=%s not found on person %s. DB integrity error!",
+                    "OU id=%s not found on person %s. DB integrety error!",
                     ou_id, p_id)
                 continue
             aff_stat = self.num2const[aff['status']]
             affinfo = {'affstr': str(aff_stat).replace('/', '-'),
                        'sko': sko,
                        'lastdate': last_date,
-                       'company': company,
-                       'precedence': precedence,
-                       }
+                       'company': company}
 
             if aff['source_system'] == self.co.system_paga:
                 paga_id = self.pid2pagaid.get(p_id, None)
@@ -347,7 +344,7 @@ class AdExport(object):
         validate_guests = re.compile('^gjest[0-9]{2}$')
         validate_sito = re.compile('^[a-z][a-z][a-z][0-9][0-9][0-9]%s$' % (
             cereconf.USERNAME_POSTFIX['sito']))
-        fh = open(self.userfile, 'w')
+        fh = file(self.userfile, 'w')
         xml = xmlprinter(fh, indent_level=2, data_mode=True,
                          input_encoding='ISO-8859-1')
         xml.startDocument(encoding='utf-8')
@@ -436,7 +433,7 @@ class AdExport(object):
                 for c in campus:
                     campus_name = str(c['address_text'].encode('utf-8'))
                     xml.dataElement('l', str(campus_name))
-            if item['forward'] != '':
+            if (item['forward'] != ''):
                 xml.dataElement('targetAddress', str(item['forward']))
             if contact:
                 xml.startElement('contactinfo')
@@ -462,7 +459,7 @@ class AdExport(object):
                     paff = person_aff['affstr'].split('-')[
                         0]  # first elment in "ansatt-123456"
                     aaff = str(self.num2const[acc_aff])
-                    if paff == aaff:
+                    if (paff == aaff):
                         person_aff['affstr'] = person_aff['affstr'].replace(
                             'sys_x-ansatt', 'sys_xansatt')
                         resaffs.append(person_aff)
@@ -470,11 +467,6 @@ class AdExport(object):
                     else:
                         pass
             if resaffs:
-                # Sort the affiliations by precedence and delete the precedence
-                # key after sorting
-                resaffs = sorted(resaffs, key=lambda row: row['precedence'])
-                for aff in resaffs:
-                    del aff['precedence']
                 xml.startElement('affiliations')
                 for aff in resaffs:
                     # dumps content of dict as xml attributes
@@ -675,7 +667,8 @@ class AdExport(object):
                 break
             self.ou.clear()
             self.ou.find(parent_id)
-            logger.debug("Lookup returned: id=%s", self.ou.entity_id)
+            logger.debug("Lookup returned: id=%s,name=%s", self.ou.entity_id,
+                         self.ou.name)
             # Detect infinite loops
             if self.ou.entity_id in visited:
                 raise RuntimeError("DEBUG: Loop detected: %r" % visited)
