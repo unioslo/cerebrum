@@ -2773,156 +2773,127 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['misc_password_issues'] = Command(
         ("misc", "password_issues"),
-        AccountName())
+        AccountName(help_ref="id:target:account"),
+        fs=FormatSuggestion([
+            ('\nSMS service is %s for %s!\n', ('sms_work_p', 'accountname')),
+            ('Issues found:\n'
+             ' - %s', ('issue0',)),
+            (' - %s', ('issuen',)),
+            ('Valid affiliations:\n'
+             ' - %s %s', ('ssys0', 'status0')),
+            (' - %s %s', ('ssysn', 'statusn')),
+            ('Mobile phone numbers:\n'
+             ' - %s %s %s %s', ('ssys0', 'val_flag0', 'number0', 'date_str0')),
+            (' - %s %s %s %s', ('ssysn', 'val_flagn', 'numbern', 'date_strn')),
+        ]))
+        # perm_filter='can_view_person') # Needed?
+
 
     def misc_password_issues(self, operator, accountname):
-        """Sometimes users have trouble getting an SMS from the password web
-        client.  This command determines why. The cause(s) of failure
-        and/or possibly relevant additional information is returned.
-        Feature requested by Houston.  There are two kinds of issues:
-        Category I issues cause immediate return without further testing
-        since the cause is obvious. Cathegory II issues may require a
-        bit more detective work from Houston, therefore all checks are
-        performed in case more than one issue is present.  If no
-        potential problems are found, this is clearly stated.  The
-        recipe from Individuation.generate_token is loosely followed.
+        """Determine why a user can't use the SMS service for resetting pw.
+
+        The cause(s) of failure and/or possibly relevant additional
+        information is returned.  There are two kinds of issues:
+        Category I issues raises an error without further
+        testing. Cathegory II issues may require a bit more detective
+        work from Houston. COnsequently, all checks are performed in
+        case more than one issue is present.  If no potential problems
+        are found, this is clearly stated.
+
+        The authoritative check is performed by pofh, and this function
+        duplicates the same checks (and performs some additional ones).
         """
         # Houston != superusers so this must be changed before rollout
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         # CATHEGORY I: Existential Failures
-        # Can this ever happen, or is this try/except block just stupid?
-        # What if we somehow get more than one person..?
-        try:
-            # TODO: Don't get ac like this!
-            ac = Utils.Factory.get('Account')(self.db)
-            # Use something like this
-            # ac = self._get_account(accountname, ...)
-            # Also, don't use accountname, but personid or something?
-            ac.find_by_name(accountname)
-        except Errors.NotFoundError:
-            return 'Account does not exist'
+        ac = self._get_account(accountname, idtype = 'name')
+        co = self.const
+        now = DateTime.now()
         if ac.is_deleted():
-            return 'Account is deleted'
+            raise CerebrumError('Account is deleted')
         elif ac.is_expired():
-            return 'Account has expired'
+            raise CerebrumError('Account has expired')
+        elif ac.owner_type != co.entity_person:
+            raise CerebrumError('Account is not owned by a person')
         try:
-            # TODO: Don't get pe like this! See ac...
             pe = Utils.Factory.get('Person')(self.db)
             pe.find(ac.owner_id)
-            # try:
-            #     pe = self.util.get_target(person_id, restrict_to=['Person'])
-        except Errors.TooManyRowsError:
-            raise CerebrumError("Unexpectedly found more than one person")
         except Errors.NotFoundError:
-            return 'Person does not exist'
+            raise CerebrumError('Person does not exist')
         # CATHEGORY II: Potential Problems
-        co = self.const
-        entity = self._get_entity('account', accountname)
-        now = DateTime.now()
         issues, info = [], []
         # Check 1: traits
         traits_all = ac.get_traits()
+        prime_aff_set = False
         if traits_all:
-            def trait_value(trait):
-                # This is an awful and ugly kluge, but the code_str is
-                # *NOT* unique, and can't be used as a key. Dealing with
-                # code integers is no fun either. Therefore, in order
-                # to get numvals or strvals where relevant...
-                for k, v in traits_all.iteritems():
-                    if text_type(k) == trait:
-                        if v['numval']:
-                            return v['numval']
-                        elif v['strval']:
-                            return v['strval']
-                        else:
-                            return
-            traits = set([text_type(key) for key in traits_all.keys()])
-            # passw needs special attention due to dates
-            if co.trait_password_failed_attempts in traits:        # NOT TESTED
-                pt = traits_all[co.trait_password_failed_attempts]  # Fugly!
-                if (pt['numval'] > cereconf.INDIVIDUATION_ATTEMPTS and
-                    pt['date'] > now - DateTime.RelativeDateTime(
-                        seconds=cereconf.INDIVIDUATION_ATTEMPTS_BLOCK_PERIOD)):
-                    issues.append('* Too many recent attempts')
-            # These traits ban the account from using the SMS service
-            # TODO: This set should match whatever pofh uses
+            traits = set(text_type(key) for key in traits_all.keys())
+            # Pofh checks traits twice: 'sysadm_account' and 'important_acc' in
+            # one test, 'reserve_passw' in another. These traits are hard
+            # coded into cerebrum_api_v1.py
             trouble_traits = {'reserve_passw',
                               'sysadm_account',
-                              'tmp_student',
                               'important_acc'}
-            # update trouble_traits by union
             trouble_traits &= traits
             if trouble_traits:
-                trait_str = '* Illegal traits:' + ' {}'*len(trouble_traits)
+                trait_str = 'Illegal traits:' + ' {}'*len(trouble_traits)
                 issues.append(trait_str.format(*trouble_traits))
-            # These traits Are not problematic in and of themselves, but might
+            # These traits are not problematic in and of themselves, but might
             # offer relevant information to Houston
-            info_traits = {co.trait_sms_welcome:
-                           '* User has received a welcome SMS',
-                           co.trait_student_new:
-                           '* Fresh student account',
-                           co.trait_account_new:
-                           '* Fresh account',
-                           co.trait_primary_aff:
-                           '* Primary affiliation is {}'}
-            for trait in set(info_traits.keys()) & traits:
-                info.append(info_traits[trait].format(trait_value(trait)))
+            # Primary affiliation requires special attention due to value
+            if co.trait_primary_aff in traits:
+                primary_aff = traits_all[co.trait_primary_aff]['strval']
+                info.append('Primary affiliation is {}'.format(primary_aff))
+                prime_aff_set = True
+            info_traits = {co.trait_sms_welcome,
+                           co.trait_student_new,
+                           co.trait_account_new}
+            info_traits &= traits
+            if info_traits:
+                trait_str = 'Other informative traits:' + ' {}'*len(info_traits)
+                info.append(trait_str.format(*info_traits))
         # Check 2: groups
+        entity = self._get_entity('account', accountname)
         gr = self.Group_class(self.db)
-        gr = {r[1] for r in gr.search(member_id=entity.entity_id)}
+        gr = {r['name'] for r in gr.search(member_id=entity.entity_id)}
         if not gr:
-            issues.append('* No groups')
+            issues.append('No groups')
         else:
             # Update gr by set intersection
-            # TODO: This set should match whatever pofh uses
-            gr &= set(getattr(cereconf, 'INDIVIDUATION_PASW_RESERVED', ()) +
-                      (cereconf.BOFHD_SUPERUSER_GROUP,))
+            gr &= {'superusers', 'admin'} # from example.pofh.cfg
             if gr:
-                gr_str = text_type('* Illegal groups:' + ' {}'*len(gr))
+                gr_str = text_type('Illegal groups:' + ' {}'*len(gr))
                 issues.append(gr_str.format(*gr))
         # Check 3: quarantines
-        quars = ac.get_entity_quarantine(only_active=True)
-        quars = {text_type(co.human2constant(q[0])) for q in quars}
-        q_lbl = 'INDIVIDUATION_ACCEPTED_QUARANTINES'
-        # Update quars by set difference
-        # TODO: This set should match whatever pofh uses
-        quars -= {text_type(getattr(co, q)) for q in getattr(cereconf,
-                                                             q_lbl, ())}
-        if quars:
-            quars_str = text_type('* Illegal quarantines:' + ' {}'*len(quars))
-            issues.append(quars_str.format(*quars))
+        qr = ac.get_entity_quarantine(only_active=True)
+        qr = {text_type(co.human2constant(q['quarantine_type'])) for q in qr}
+        qr -= {'svakt_passord', 'autopassord'} # from example.pofh.cfg
+        if qr:
+            qr_str = text_type('Illegal quarantines:' + ' {}'*len(qr))
+            issues.append(qr_str.format(*qr))
         # Check 4: affiliations
-        valaff = dict()
-        invalaff = dict()
+        valaff = []
+        valaff2 = []
         affiliations = pe.get_affiliations()
         if not affiliations:
-            issues.append('* No affiliations found')
+            issues.append('No affiliations found')
         else:
-            val_aff_info = ['* Valid affiliations:']
             for aff in affiliations:
                 ssys = text_type(co.AuthoritativeSystem(aff['source_system']))
-                aff_type = text_type(co.human2constant(aff['affiliation']))
                 del_date = aff['deleted_date']
-                if del_date is not None and del_date < now:
-                    invalaff[ssys] = (aff_type, text_type(del_date))
-                else:
-                    valaff[ssys] = aff_type
+                if not del_date or del_date > now:
+                    valaff2.append(ssys)
                     status = text_type(co.human2constant(aff['status']))
-                    val_aff_info.append('  - {0: <8} {1}'.format(ssys, status))
+                    ssys_str = '{0: <8}'.format(ssys)
+                    if not valaff:
+                        valaff.append({'ssys0': ssys_str, 'status0': status})
+                    else:
+                        valaff.append({'ssysn': ssys_str, 'statusn': status})
             if not valaff:
-                issues.append('* Person has no valid affiliations')
-            else:
-                info.append('\n'.join(val_aff_info))
-            if invalaff:
-                # UNTESTED!
-                aff_issue = ['* Person has invalid affiliations:']
-                for k, v in invalaff.iteritems():
-                    aff_issue.append('  - {0: <8}: {} {}'.format(k, *v))
-                issues.append('\n'.join(aff_issue))
+                issues.append('Person has no valid affiliations')
         # Check 5: Mobile numbers
-        mobile_entries = list()
-        last_week = now - DateTime.TimeDelta(24*7)
+        mobile_entries = []
+        mobile_entries2 = []
         date_issues = False
         validity_issues = False
         contact_rows = pe.get_contact_info()
@@ -2932,44 +2903,49 @@ class BofhdExtension(BofhdCommonMethods):
         phone_types = {int(co.contact_mobile_phone),
                        int(co.contact_private_mobile),
                        int(co.contact_private_mobile_visible)}
+        phone = []
         for row in contact_rows:
             if (row['contact_type'] in phone_types):
+                # TODO: Check validity of phone number?
                 ssys = text_type(co.AuthoritativeSystem(row['source_system']))
                 number = row['contact_value']
                 mod_date = row['last_modified']
-                if mod_date and mod_date > last_week:
-                    days_ago = int((now - mod_date).days)
-                    date_str = '(changed {} days ago)'.format(days_ago)
+                if mod_date and mod_date > (now - DateTime.TimeDelta(24*7)):
+                    date_str = '(changed {} days ago)'.format(int(
+                        (now - mod_date).days))
                     date_issues = True
                 else:
                     date_str = '(date OK)'
-                if ssys in valaff.keys():
-                    validity_flag = '(valid affiliation)'
+                if ssys in valaff2:
+                    validity_flag = '(valid affiliation)  '
                 else:
                     validity_flag = '(invalid affiliation)'
                     validity_issues = True
-                entry1 = '  - {0: <8} {1: >21}  '.format(ssys, number)
-                entry2 = '  {0: <24} {1:}'.format(date_str, validity_flag)
-                mobile_entries.append(''.join([entry1, entry2]))
-                # TODO: Check validity of phone number?
+                if not phone:
+                    phone.append({'ssys0': '{0: <8}'.format(ssys),
+                                 'val_flag0': validity_flag,
+                                 'number0': '{0: >21}  '.format(number),
+                                 'date_str0': date_str})
+                else:
+                    phone.append({'ssysn': '{0: <8}'.format(ssys),
+                                 'val_flagn': validity_flag,
+                                 'numbern': '{0: >21}  '.format(number),
+                                 'date_strn': date_str})
+
+        if not phone and no_contact_info not in issues:
+            issues.append('No mobile phone numbers')
         if date_issues:
-            issues.append('* Mobile numbers changed less than a week ago')
+            issues.append('Mobile numbers changed less than a week ago')
         if validity_issues:
-            issues.append('* Mobile number from invalid affiliation')
-        if not mobile_entries:
-            if no_contact_info not in issues:
-                issues.append('* No mobile phone numbers')
-        else:
-            mobheader = '* Mobile numbers:'
-            mobile_entries.insert(0, mobheader)
-            info.append('\n'.join(mobile_entries))
+            issues.append('Mobile number from invalid affiliation')
         if not issues:
-            issues.append('No problems -- '
-                          '{} can use the SMS-service!'.format(accountname))
+            data = [{'sms_work_p': 'avaialble', 'accountname': accountname}]
         else:
-            issues.insert(0, 'Issues found:')
-        info.insert(0, 'Additional information:')
-        return '\n'.join(issues + info)
+            data = [{'sms_work_p': 'UNAVAIALBLE', 'accountname': accountname}]
+            for i, issue in enumerate(issues):
+                data.append({'issue0': issue} if i == 0 else {'issuen': issue})
+        data += valaff + phone
+        return data
 
     #
     # perm opset_list
