@@ -74,7 +74,7 @@ commands = parser.add_subparsers(
 
 def add_command(cmd, jr_cmd, desc):
     subparser = commands.add_parser(cmd, description=desc, help=desc)
-    subparser.set_default(command=jr_cmd)
+    subparser.set_defaults(command=jr_cmd)
     return subparser
 
 
@@ -88,7 +88,7 @@ cmd_reload = add_command(
 # <prog> quit
 #
 cmd_quit = add_command(
-    'quit', 'QUIT'
+    'quit', 'QUIT',
     'Exit gracefully (allow current jobs to complete)',
 )
 
