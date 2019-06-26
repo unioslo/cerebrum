@@ -73,7 +73,7 @@ def enc_auth_type_md5_b64(plaintext, salt=None):
     Added by kennethj, 2005-08-03
     """
     m = hashlib.md5()
-    m.update(plaintext.encode('utf-8'))
+    m.update(plaintext)
     foo = m.digest()
     encrypted = base64.encodestring(foo)
     encrypted = encrypted.rstrip()
