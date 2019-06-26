@@ -2783,10 +2783,6 @@ class BofhdExtension(BofhdCommonMethods):
         prime_aff_set = False
         # ac check 1: traits
         if traits_all:
-            print ''
-            print traits_all
-            print ''
-
             traits = set(text_type(key) for key in traits_all.keys())
             # Problematic traits:
             # Pofh checks traits twice: 'sysadm_account' and 'important_acc'
