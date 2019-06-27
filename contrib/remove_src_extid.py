@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2005-2008 University of Oslo, Norway
+# Copyright 2005-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -38,7 +38,7 @@ Example:
 """
 
 import sys
-import getopt
+import getopt                   # REMOVE!
 import cereconf
 
 from Cerebrum import Errors
@@ -47,12 +47,12 @@ from Cerebrum.Utils import Factory
 def process_person (source_sys, e_id_type):
     other_sys_list = set(cereconf.SYSTEM_LOOKUP_ORDER) - set([source_sys])
     logger.info("Remove %s from %s if person has same external_id from one or more of the systems: %s" % (e_id_type, source_sys, other_sys_list))
-    logger.debug("Processing all persons...")    
+    logger.debug("Processing all persons...")
     for p in person.list_persons():
-	pid = p['person_id']
-	person.clear()
-	person.find(pid)
-	if not person.get_external_id(source_sys, e_id_type):
+        pid = p['person_id']
+        person.clear()
+        person.find(pid)
+        if not person.get_external_id(source_sys, e_id_type):
             # Person hasn't e_id_type from source_sys. Nothing to delete
             continue
         for tmp in other_sys_list:
@@ -68,8 +68,8 @@ def process_person (source_sys, e_id_type):
         else:
             logger.debug("Did not find any other external_id for person_id |%s|",
                          person.entity_id)
-    logger.debug("Done processing all persons")    
-	    
+    logger.debug("Done processing all persons")
+
 def attempt_commit():
     if dryrun:
         db.rollback()
@@ -80,20 +80,47 @@ def attempt_commit():
 
 def usage(exitcode=0):
     print """Usage: [-d] -s  <surce_system> -e <external_id_type>
-    Removes all norwegian national id numbers imported from ureg2000 
+    Removes all norwegian national id numbers imported from ureg2000
     if an id of same type is imported from LT or FS also
-    
-    -d : log changes, do not commit
-    -s <surce_system> : source_system to remove fnrs from
+
+    -d : log changes, do not commit # deprecate this!!
+    -c commit changes
+    -s <source_system> : source_system to remove fnrs from
     -e <external_id_type> : type of external id
     """
     sys.exit(exitcode)
 
 def main():
+    try:
+        import argparse
+    except ImportError:
+        from Cerebrum.extlib import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-s', '--source_system',
+                        help='source_system to remove fnrs from',
+        # dest='days',
+        # type=int,
+        # default=30,
+        # metavar='<days>',
+    )
+    parser.add_argument(
+        '-p', '--pretend', '-d', '--dryrun',
+        action='store_true',
+        dest='pretend',
+        default=True,
+        help='Log changes, do not commit (this is the default behaviour)'
+    )
+    parser.add_argument(
+        '-c', '--commit',
+        action='store_true',
+        dest='pretend',
+        default=False,
+        help='Commit changes (default: log changes, do not commit)'
+    )
+
     global db, co, person, source_sys, e_id_type, pers
     global dryrun, logger
     logger = Factory.get_logger("console")
-    
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'ds:e:',
                                    ['dryrun', 'source-system=', 'external-id='])
@@ -120,7 +147,7 @@ def main():
     try:
         source_system = getattr(co, source_system)
     except AttributeError:
-        logger.error("No such source system: %s" % source_system)    
+        logger.error("No such source system: %s" % source_system)
         usage(1)
     try:
         external_id_type = getattr(co, external_id_type)
