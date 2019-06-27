@@ -4187,9 +4187,6 @@ HELP_EMAIL_CMDS = {
             "Add a target filter",
         "email_spam_filter_remove":
             "Remove target_filter",
-        "email_move_domain_addresses":
-            "Move the first account's e-mail addresses at a domain to the "
-            "second account",
         "email_address_reassign":
             "Move an address from one account to another",
         "email_update":

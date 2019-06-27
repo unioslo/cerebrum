@@ -716,11 +716,19 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                     "Move a user's e-mail to another server",
                 'email_show_reservation_status':
                     "Show reservation status for an account",
+                "email_move_domain_addresses":
+                    "Move the first account's e-mail addresses at a domain to "
+                    "the second account",
             }
+        }
+        arg_help = {
+            'yes_no_move_primary':
+                ['move_primary',
+                 'Should primary email address be moved? (y/n)'],
         }
         return merge_help_strings(
             super(EmailCommands, cls).get_help_strings(),
-            ({}, email_cmds, {}))
+            ({}, email_cmds, arg_help))
 
     def __email_forward_destination_allowed(self, account, address):
         """ Check if the forward is compilant with Norwegian law"""
