@@ -529,18 +529,26 @@ def update_account_affs(method):
         ac = Factory.get('Account')(database)
         ac.find(accounts[0]['account_id'])
         co = Factory.get('Constants')(database)
-
         account_types = ac.get_account_types()
-        if method.__name__ is 'del_account_type':
+
+        if method.__name__ is AccountClass.del_account_type.__name__:
             if len(account_types) == 1:
-                logger.debug(u'Can not delete last account affiliation')
+                logger.debug(u'Can not delete last account_type')
                 return
             if not ac.list_accounts_by_type(ou_id=ou_id,
                                             affiliation=affiliation,
                                             account_id=ac.entity_id):
-                logger.debug(u'Account does not have affiliation %s at ou %s' %
-                             (affiliation, ou_id))
+                logger.debug(u'account_type already deleted '
+                             u'(aff: %s, ou_id: %s)', affiliation, ou_id)
                 return
+
+        if method.__name__ is AccountClass.set_account_type.__name__:
+            for at in account_types:
+                if (at['ou_id'], at['affiliation']) == (ou_id, affiliation):
+                    logger.debug(u'account_type already exists '
+                                 u'(aff: %s, ou_id: %s)', affiliation, ou_id)
+                    return
+
         for account_type in account_types:
             if not int(co.affiliation_ansatt) == account_type['affiliation']:
                 logger.debug(u'Account has affiliation(s) besides %s' %
@@ -612,19 +620,31 @@ def _find_affiliations(cerebrum_person, hr_affs, affiliation_map,
         status=consider_affiliations,
         source_system=source_system)
 
+    # Format of a hr_aff: { str: [] }
     in_hr = map(
-        lambda d: tuple(sorted(
-                filter(lambda (k, v): k != u'precedence',
-                       d.items()))),
+        lambda d: tuple(
+            sorted(
+                filter(
+                    lambda (k, v): k != u'precedence',
+                    d.items()
+                )
+            )
+        ),
         hr_affs)
 
     in_cerebrum = map(
-        lambda x: tuple(sorted(
-                    filter_elements(
-                        translate_keys(x,
-                                       {u'ou_id': u'ou_id',
-                                        u'affiliation': u'affiliation',
-                                        u'status': u'status'})))),
+        lambda x: tuple(
+            sorted(
+                filter_elements(
+                    translate_keys(
+                        x,
+                        {u'ou_id': u'ou_id',
+                         u'affiliation': u'affiliation',
+                         u'status': u'status'}
+                    )
+                )
+            )
+        ),
         cerebrum_affiliations)
 
     if mode == u'remove':
