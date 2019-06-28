@@ -2769,7 +2769,6 @@ class BofhdExtension(BofhdCommonMethods):
                         old_password['set_at'])
         return "Incorrect password"
 
-
     #
     # misc password_issues
     #
@@ -2790,8 +2789,6 @@ class BofhdExtension(BofhdCommonMethods):
              ' - %s', ('info0',)),
             (' - %s', ('infon',)),
         ]))
-        # perm_filter='can_view_person') # Needed?
-
 
     def misc_password_issues(self, operator, accountname):
         """Determine why a user can't use the SMS service for resetting pw.
@@ -2811,8 +2808,7 @@ class BofhdExtension(BofhdCommonMethods):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         co = self.const
-        ac = self._get_account(accountname, idtype = 'name')
-        gr = self.Group_class(self.db)
+        ac = self._get_account(accountname, idtype='name')
         if ac.account_name != accountname:
             raise CerebrumError('Accountname mismatch')
         if ac.is_deleted():

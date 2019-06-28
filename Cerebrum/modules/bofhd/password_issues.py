@@ -20,10 +20,9 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ This module contains tools for the password_issues bofh command """
 
-import cereconf
-
 from mx import DateTime
 from six import text_type
+
 
 class PassWordIssues(object):
     def __init__(self, co, ac, pe, gr):
@@ -39,7 +38,7 @@ class PassWordIssues(object):
         self.info_traits = []
         self.affiliations = []
         self.trouble_traits = []
-        self.illegal_groups = {'superusers', 'admin'} # from example.pofh.cfg
+        self.illegal_groups = {'superusers', 'admin'}  # from example.pofh.cfg
 
     def get_relevant_traits(self):
         """checks account properties for misc_password_issues"""
@@ -63,7 +62,6 @@ class PassWordIssues(object):
                                      self.co.trait_primary_aff}
 
     def format_traits(self):
-        info, issues = [], []
         if self.info_traits and self.co.trait_primary_aff in self.info_traits:
             primary_aff = self.all_traits[self.co.trait_primary_aff]['strval']
             self.info.append('Primary affiliation is {}'.format(primary_aff))
@@ -91,7 +89,7 @@ class PassWordIssues(object):
         qr = {text_type(self.co.human2constant(
             q['quarantine_type'])) for q in qr}
         # Todo: replace with a proper list from... where?
-        qr -= {'svakt_passord', 'autopassord'} # from example.pofh.cfg
+        qr -= {'svakt_passord', 'autopassord'}  # from example.pofh.cfg
         if qr:
             qr_str = text_type('Illegal quarantines:' + ' {}'*len(qr))
             self.issues.append(qr_str.format(*qr))
@@ -138,7 +136,7 @@ class PassWordIssues(object):
                     aff['number'] = number
                     aff['date'] = date
             if not found:
-                aff ={}
+                aff = {}
                 aff['number'] = number
                 aff['date'] = date
                 aff['ssys'] = phone['ssys']
@@ -160,7 +158,7 @@ class PassWordIssues(object):
             else:
                 aff['status'] = '{0: <24}'.format(
                     text_type(self.co.human2constant(aff['status'])))
-            if not 'number' in aff:
+            if 'number' not in aff:
                 aff['number'] = '{0: >18}'.format(None)
                 aff['date'] = '   None'
             else:
@@ -181,7 +179,7 @@ class PassWordIssues(object):
             else:
                 k0, k1, k2, k3 = 'ssysn', 'statusn', 'numbern', 'date_strn'
             self.data.append({k0: entry['ssys'], k1: entry['status'],
-                         k2: entry['number'], k3: entry['date']})
+                              k2: entry['number'], k3: entry['date']})
 
     def format_issues(self):
         if not self.issues:
@@ -196,7 +194,6 @@ class PassWordIssues(object):
     def format_info(self):
         for i, io in enumerate(self.info):
             self.data.append({'info0': io} if i == 0 else {'infon': io})
-
 
     def run_check(self):
         self.get_relevant_traits()
