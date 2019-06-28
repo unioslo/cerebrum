@@ -142,7 +142,7 @@ class PassWordIssues(object):
                 aff['number'] = number
                 aff['date'] = date
                 aff['ssys'] = phone['ssys']
-                aff['status'] = '(invalid affiliation)'
+                aff['status'] = 'invalid affiliation'
                 self.affiliations.append(aff)
         if self.phones and validity_issues:
             self.issues.append('No mobile number from a valid affiliation')
@@ -154,8 +154,12 @@ class PassWordIssues(object):
         for aff in self.affiliations:
             aff['ssys'] = '{0: <8}'.format(
                 text_type(self.co.AuthoritativeSystem(aff['ssys'])))
-            aff['status'] = '{0: <24}'.format(
-                text_type(self.co.human2constant(aff['status'])))
+            status = aff['status']
+            if status == 'invalid affiliation':
+                aff['status'] = '{0: <24}'.format(text_type(aff['status']))
+            else:
+                aff['status'] = '{0: <24}'.format(
+                    text_type(self.co.human2constant(aff['status'])))
             if not 'number' in aff:
                 aff['number'] = '{0: >18}'.format(None)
                 aff['date'] = '   None'
