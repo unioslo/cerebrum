@@ -85,6 +85,7 @@ from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd.help import Help, merge_help_strings
 from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.bofhd.password_issues import PassWordIssues
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
@@ -2770,150 +2771,6 @@ class BofhdExtension(BofhdCommonMethods):
 
 
     #
-    # _check_traits_groups_quars
-    #
-    def _check_traits_groups_quars(self, ac):
-        """checks account properties for misc_password_issues"""
-        info, issues = [], []
-        co = self.const
-        try:
-            traits_all = ac.get_traits()
-        except Exception:       # Change to correct exception
-            raise CerebrumError('invalid account object received')
-        prime_aff_set = False
-        # ac check 1: traits
-        if traits_all:
-            traits = set(text_type(key) for key in traits_all.keys())
-            # Problematic traits:
-            # Pofh checks traits twice: 'sysadm_account' and 'important_acc'
-            # in one test, 'reserve_passw' in another. These traits are hard
-            # coded into cerebrum_api_v1.py.
-            trouble_traits = {'reserve_passw',
-                              'sysadm_account',
-                              'important_acc'}
-            trouble_traits &= traits
-            if trouble_traits:
-                trait_str = 'Illegal traits:' + ' {}'*len(trouble_traits)
-                issues.append(trait_str.format(*trouble_traits))
-            # Informative traits:
-            # These traits are not problematic in and of themselves, and are
-            # not checked by pofh, but might still offer relevant information.
-            # Primary affiliation requires special attention due to value.
-            if co.trait_primary_aff in traits:
-                primary_aff = traits_all[co.trait_primary_aff]['strval']
-                info.append('Primary affiliation is {}'.format(primary_aff))
-                prime_aff_set = True
-            info_traits = {'sms_welcome', 'student_new', 'account_new'}
-            info_traits &= traits
-            if info_traits:
-                trait_str = 'Other informative traits:' + ' {}'*len(info_traits)
-                info.append(trait_str.format(*info_traits))
-        # ac check 2: groups
-        entity = self._get_entity('account', ac.account_name)
-        gr = self.Group_class(self.db)
-        gr = {r['name'] for r in gr.search(member_id=entity.entity_id)}
-        if not gr:
-            issues.append('No groups')
-        else:
-            gr &= {'superusers', 'admin'} # from example.pofh.cfg
-            if gr:
-                gr_str = text_type('Illegal groups:' + ' {}'*len(gr))
-                issues.append(gr_str.format(*gr))
-        # ac check 3: quarantines
-        qr = ac.get_entity_quarantine(only_active=True)
-        qr = {text_type(co.human2constant(q['quarantine_type'])) for q in qr}
-        qr -= {'svakt_passord', 'autopassord'} # from example.pofh.cfg
-        if qr:
-            qr_str = text_type('Illegal quarantines:' + ' {}'*len(qr))
-            issues.append(qr_str.format(*qr))
-        return info, issues
-
-
-    #
-    # _check_aff_phone
-    #
-    def _check_aff_phone(self, pe):
-        """checks affiliations and mobile numbers for misc_password_issues"""
-        affs, issues = [], []
-        co = self.const
-        now = DateTime.now()
-        try:
-            affiliations = pe.get_affiliations()
-        except Exception:       # Change to correct exception
-            raise CerebrumError('invalid person object received')
-        # pe check 1: Affiliations
-        if not affiliations:
-            issues.append('Person has no affiliations')
-        for aff in affiliations:
-            ssys = aff['source_system']
-            del_date = aff['deleted_date']
-            if not del_date or del_date > now:
-                ssys_str = '{0: <8}'.format(
-                    text_type(co.AuthoritativeSystem(ssys)))
-                status_str = '{0: <24}'.format(
-                    text_type(co.human2constant(aff['status'])))
-                affs.append({'ssys': ssys_str,
-                             'status': status_str,
-                             'number': '{0: >21}'.format('<none>'),
-                             'date': '    <none>',
-                             'check_key': ssys})
-        if affiliations and not affs:
-            issues.append('Person has no valid affiliations')
-        # pe check 2: Mobile numbers
-        phone_types = {int(co.contact_mobile_phone),
-                       int(co.contact_private_mobile),
-                       int(co.contact_private_mobile_visible)}
-        num_phone = 0
-        date_issues = False
-        validity_issues = True
-        contact_rows = pe.get_contact_info()
-        no_contact_info = 'No contact info'
-        if not contact_rows:
-            issues.append(no_contact_info)
-        for row in contact_rows:
-            if (row['contact_type'] in phone_types):
-                num_phone += 1
-                # TODO: Check validity of phone number?
-                ssys = row['source_system']
-                number = row['contact_value']
-                mod_date = row['last_modified']
-                if mod_date and mod_date > (now - DateTime.TimeDelta(24*7)):
-                    date_str = '(changed {} days ago)'.format(int(
-                        (now - mod_date).days))
-                    date_issues = True
-                else:
-                    date_str = '(date OK)'
-                found = False
-                for aff in affs:
-                    if ssys == aff['check_key']:
-                        validity_issues = False
-                        found = True
-                        aff['number'] = '{0: >21}  '.format(number)
-                        aff['date'] = date_str
-                if not found:
-                    aff['number'] = '{0: >21}  '.format(number)
-                    aff['date'] = date_str
-                    aff['ssys'] = '{0: <8}'.format(
-                        text_type(co.AuthoritativeSystem(ssys)))
-                    aff['status'] = '{0: <24}'.format('(invalid affiliation)')
-        if num_phone == 0 and no_contact_info not in issues:
-            issues.append('No mobile phone numbers')
-        elif num_phone > 0 and validity_issues:
-            issues.append('No mobile number from valid a affiliation')
-        if date_issues:
-            issues.append('Mobile numbers changed less than a week ago')
-        # reformat return values
-        info = []
-        for i, entry in enumerate(sorted(affs)):
-            if i == 0:
-                k0, k1, k2, k3 = 'ssys0', 'status0', 'number0', 'date_str0'
-            else:
-                k0, k1, k2, k3 = 'ssysn', 'statusn', 'numbern', 'date_strn'
-            info.append({k0: entry['ssys'], k1: entry['status'],
-                         k2: entry['number'], k3: entry['date']})
-        return info, issues
-
-    #
     # misc password_issues
     #
     all_commands['misc_password_issues'] = Command(
@@ -2953,9 +2810,9 @@ class BofhdExtension(BofhdCommonMethods):
         # Houston != superusers so this must be changed before rollout
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
-        # CATHEGORY I: Existential Failures
-        ac = self._get_account(accountname, idtype = 'name')
         co = self.const
+        ac = self._get_account(accountname, idtype = 'name')
+        gr = self.Group_class(self.db)
         if ac.account_name != accountname:
             raise CerebrumError('Accountname mismatch')
         if ac.is_deleted():
@@ -2969,22 +2826,10 @@ class BofhdExtension(BofhdCommonMethods):
             pe.find(ac.owner_id)
         except Errors.NotFoundError:
             raise CerebrumError('Person does not exist')
-        # CATHEGORY II: Potential Problems
-        # Checks 1, 2 and 3: traits, groups and quars (all from ac)
-        info, issues = self._check_traits_groups_quars(ac)
-        # Checks 4 and 5: Affiliations and mobile phones (from pe)
-        info2, issues2 = self._check_aff_phone(pe)
-        issues += issues2
-        if not issues:
-            data = [{'sms_work_p': 'available', 'accountname': accountname}]
-        else:
-            data = [{'sms_work_p': 'UNAVAILABLE', 'accountname': accountname}]
-            for i, issue in enumerate(issues):
-                data.append({'issue0': issue} if i == 0 else {'issuen': issue})
-        for i, info_i in enumerate(info):
-            data.append({'info0': info_i} if i == 0 else {'infon': info_i})
-        data += info2
-        return data
+        pwi = PassWordIssues(self.const, ac, pe, self.Group_class(self.db))
+        pwi.run_check()
+        pwi.format_data()
+        return pwi.data
 
     #
     # perm opset_list
