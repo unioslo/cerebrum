@@ -466,7 +466,7 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_show_history')
 
     def entity_history(self, operator, entity, any_entity="yes",
-                       limit_number_of_reults=None):
+                       limit_number_of_results=None):
         ent = self.util.get_target(entity, restrict_to=[])
         self.ba.can_show_history(operator.get_entity_id(), ent)
         ret = []
