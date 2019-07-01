@@ -38,15 +38,6 @@ CLASS_CLCONSTANTS
     Class constants should be a tuple of :py:class:`ConstantsBase` classes that
     provides :py:class:`_ChangeTypeCode` constants for Cerebrum.
 
-CACHE_CONSTANTS
-    If ``False``, every int(<constant>) will cause a database lookup of the
-    <constant> code value.
-
-    TODO: This just cause *more* issues with threading - if we *really* need to
-    re-fetch the code value, we could just set ``_CerebrumCode.int = None``
-    from elsewhere - there is no real usecase where we *always* need to do
-    this.
-
 ENTITY_TYPE_NAMESPACE
     A mapping with :py:class:`_ValueDomainCode` strvals for use with
     :py:class:`CoreConstants`:
@@ -429,9 +420,6 @@ class _CerebrumCode(DatabaseAccessor):
         return self._desc
 
     def __int__(self):
-        if not cereconf.CACHE_CONSTANTS:
-            self.int = None
-
         if self.int is None:
             try:
                 self.int = int(
