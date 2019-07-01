@@ -1714,7 +1714,7 @@ class CLConstants(ConstantsBase):
          'pri=%(int:priority)s',))
     account_type_mod = _ChangeTypeCode(
         'ac_type', 'mod', 'ac_type mod for account %(subject)s',
-        ('old_pri=%(int:old_pri)s, old_pri=%(int:new_pri)s',))
+        ('old_pri=%(int:old_pri)s, new_pri=%(int:new_pri)s',))
     account_type_del = _ChangeTypeCode(
         'ac_type', 'del', 'ac_type del for account %(subject)s',
         ('ou=%(ou:ou_id)s, aff=%(affiliation:affiliation)s',))
