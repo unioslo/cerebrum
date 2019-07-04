@@ -18,145 +18,188 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
 """
-This script removes a given type external_id from a given source
-system if the person in question also has the same type of external_id
+Remove external id from a given source system
+
+This script removes a given type of external ids from a provided source
+system for all persons who has the same type of external_id
 from one of the systems defined in cereconf.SYSTEM_LOOKUP_ORDER.
 
 The script may be run for removing externalid_fodselsnr from MIGRATE
 if a person at the same time has externalid_fodselsnr from e.g. SAP.
 
-The script may be run without commiting results in order to check
-changes.
-
 Example:
 
-  python remove_src_extid.py -e externalid_fodselsnr -s system_migrate
-
+  python remove_src_extid.py -s system_fs -e externalid_fodselsnr
 """
-
+import argparse
+import logging
 import sys
-import getopt                   # REMOVE!
-import cereconf
+import time
+
+from six import text_type
+from functools import partial
 
 from Cerebrum import Errors
+from Cerebrum import logutils
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import argutils
+from Cerebrum.utils.atomicfile import AtomicFileWriter
+from Cerebrum.utils.csvutils import CerebrumDialect, UnicodeWriter
 
-def process_person (source_sys, e_id_type):
-    other_sys_list = set(cereconf.SYSTEM_LOOKUP_ORDER) - set([source_sys])
-    logger.info("Remove %s from %s if person has same external_id from one or more of the systems: %s" % (e_id_type, source_sys, other_sys_list))
-    logger.debug("Processing all persons...")
-    for p in person.list_persons():
-        pid = p['person_id']
-        person.clear()
-        person.find(pid)
-        if not person.get_external_id(source_sys, e_id_type):
-            # Person hasn't e_id_type from source_sys. Nothing to delete
-            continue
-        for tmp in other_sys_list:
-            tmp_sys = getattr(co, tmp)
-            # If person also has a fnr from one of the
-            # source_systems in cereconf.SYSTEM_LOOKUP_ORDER,
-            # delete the fnr from source_sys
-            if person.get_external_id(tmp_sys, e_id_type):
-                person._delete_external_id(source_sys, e_id_type)
-                logger.info("Removed %s from %s for person_id |%s|" %
-                            (e_id_type, source_sys, pid))
-                break
+from cereconf import SYSTEM_LOOKUP_ORDER as SLO
+
+logger = logging.getLogger(__name__)
+
+
+class RemoveSrcExtid(object):
+    def __init__(self, co, pe, ssys, external_id_type):
+        self.co = co
+        self.pe = pe
+        self.ssys = ssys
+        self.external_id_type = external_id_type
+        self.other_ssys = [co.human2constant(s) for s in SLO if s != self.ssys]
+        # self.dump = ['Removed {ext} from {ssys} for person_id:'.format(
+        #     ssys=self.ssys, ext=self.external_id_type)]
+        self.dump = []
+        self.stream = None
+
+    def get_persons(self):
+        """
+        :return generator:
+            A generator that yields persons with the given id types.
+        """
+        logger.debug('get_persons ...')
+        for row in self.pe.search_external_ids(source_system=self.ssys,
+                                             id_type=self.external_id_type,
+                                             entity_type=self.co.entity_person,
+                                             fetchall=False):
+            yield {
+                'entity_id': int(row['entity_id']),
+                'ext_id': int(row['external_id']),
+            }
+
+    def in_other_ssys(self):
+        """
+        :return bool:
+            True iff external id exists in any other relevant source system
+        """
+        for o_ssys in self.other_ssys:
+            if self.pe.get_external_id(o_ssys, self.external_id_type):
+                return True
+        return False
+
+    def remover(self):
+        """
+        delete external id from source system if it exists in
+        """
+        logger.debug('start remover ...')
+        i = 1
+        for person in self.get_persons():
+            self.pe.clear()
+            self.pe.find(person['entity_id'])
+            if self.in_other_ssys():
+                self.pe._delete_external_id(self.ssys, self.external_id_type)
+                self.dump.append(person)
+            if not i%10000:
+                logger.debug(' remover: Treated {} entities'.format(i))
+            i += 1
+
+
+    def get_output_stream(self, filename, codec):
+        """ Get a unicode-compatible stream to write. """
+        if filename == '-':
+            self.stream = sys.stdout
         else:
-            logger.debug("Did not find any other external_id for person_id |%s|",
-                         person.entity_id)
-    logger.debug("Done processing all persons")
+            self.stream = AtomicFileWriter(filename,
+                                           mode='w',
+                                           encoding=codec.name)
 
-def attempt_commit():
-    if dryrun:
-        db.rollback()
-        logger.debug("Rolled back all changes")
-    else:
-        db.commit()
-        logger.debug("Committed all changes")
 
-def usage(exitcode=0):
-    print """Usage: [-d] -s  <surce_system> -e <external_id_type>
-    Removes all norwegian national id numbers imported from ureg2000
-    if an id of same type is imported from LT or FS also
+    def write_csv_report(self):
+        """ Write a CSV report to a stream.
 
-    -d : log changes, do not commit # deprecate this!!
-    -c commit changes
-    -s <source_system> : source_system to remove fnrs from
-    -e <external_id_type> : type of external id
-    """
-    sys.exit(exitcode)
+        :param stream: file-like object that can write unicode strings
+        :param persons: iterable with mappings that has keys ('ext_id', 'name')
+        """
+        writer = UnicodeWriter(self.stream, dialect=CerebrumDialect)
+        for person in self.dump:
+            writer.writerow((person['ext_id'],
+                             person['entity_id'],
+                             time.strftime('%m/%d/%Y %H:%M:%S')))
+        self.stream.flush()
+        if self.stream is not sys.stdout:
+            self.stream.close()
 
-def main():
-    try:
-        import argparse
-    except ImportError:
-        from Cerebrum.extlib import argparse
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-s', '--source_system',
-                        help='source_system to remove fnrs from',
-        # dest='days',
-        # type=int,
-        # default=30,
-        # metavar='<days>',
-    )
-    parser.add_argument(
-        '-p', '--pretend', '-d', '--dryrun',
-        action='store_true',
-        dest='pretend',
-        default=True,
-        help='Log changes, do not commit (this is the default behaviour)'
-    )
+
+
+def main(inargs=None):
+    doc = (__doc__ or '').strip().split('\n')
+
+    parser = argparse.ArgumentParser(
+        description=doc[0],
+        epilog='\n'.join(doc[1:]),
+        formatter_class=argparse.RawTextHelpFormatter)
+    source_arg = parser.add_argument(
+        '-s', '--source-system',
+        default='SAP',
+        metavar='SYSTEM',
+        help='Source system to remove id number from')
+    id_type_arg = parser.add_argument(
+        '-e', '--external-id-type',
+        default='NO_BIRTHNO',
+        metavar='IDTYPE',
+        help='External ID type')
     parser.add_argument(
         '-c', '--commit',
         action='store_true',
-        dest='pretend',
+        dest='commit',
         default=False,
         help='Commit changes (default: log changes, do not commit)'
     )
+    parser.add_argument(
+        '-o', '--output',
+        metavar='FILE',
+        default='-',
+        help='The file to print the report to, defaults to stdout')
+    parser.add_argument(
+        '--codec',
+        dest='codec',
+        default='utf-8',
+        type=argutils.codec_type,
+        help="Output file encoding, defaults to %(default)s")
 
-    global db, co, person, source_sys, e_id_type, pers
-    global dryrun, logger
-    logger = Factory.get_logger("console")
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'ds:e:',
-                                   ['dryrun', 'source-system=', 'external-id='])
-    except getopt.GetoptError:
-        usage()
-
-    dryrun = False
-    source_system = None
-    external_id_type = None
-    for opt, val in opts:
-        if opt in ('-d', '--dryrun'):
-            dryrun = True
-        elif opt in ('-s', '--source-system'):
-            source_system = val
-        elif opt in ('-e', '--external-id'):
-            external_id_type = val
-
+    logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
     db = Factory.get('Database')()
-    db.cl_init(change_program='remove_src_fnrs')
     co = Factory.get('Constants')(db)
-    person = Factory.get('Person')(db)
+    pe = Factory.get('Person')(db)
+    db.cl_init(change_program='remove_src_fnrs')
 
-    # Get source_system constant
-    try:
-        source_system = getattr(co, source_system)
-    except AttributeError:
-        logger.error("No such source system: %s" % source_system)
-        usage(1)
-    try:
-        external_id_type = getattr(co, external_id_type)
-    except AttributeError:
-        logger.error("No such external_id type: %s" % external_id_type)
-        usage(1)
-
-    process_person(source_system, external_id_type)
-    attempt_commit()
+    get_const = partial(argutils.get_constant, db, parser)
+    ssys = get_const(co.AuthoritativeSystem,
+                     args.source_system,
+                     source_arg)
+    external_id_type = get_const(co.EntityExternalId,
+                                 args.external_id_type,
+                                 id_type_arg)
+    logutils.autoconf('cronjob', args)
+    logger.info('Start of script {}'.format(parser.prog))
+    logger.debug('args: {}'.format(args))
+    logger.info('source_system: {}'.format(text_type(ssys)))
+    logger.info('external_id_type: {}'.format(text_type(external_id_type)))
+    RSE = RemoveSrcExtid(co, pe, ssys, external_id_type)
+    RSE.remover()
+    RSE.get_output_stream(args.output, args.codec)
+    RSE.write_csv_report()
+    logger.info('Report written to %s', RSE.stream.name)
+    if args.commit:
+        db.commit()
+        logger.debug('Committed all changes')
+    else:
+        db.rollback()
+        logger.debug('Rolled back all changes')
+    logger.info('Done with script %s', parser.prog)
 
 if __name__ == '__main__':
     main()
