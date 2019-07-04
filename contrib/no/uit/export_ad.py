@@ -473,16 +473,15 @@ class AdExport(object):
                 # make copies of the entries in the list, otherwise they still
                 # point to the dicts in the old list and we risk removing the
                 # precedence key from an affiliation that may be used later.
-                affs_to_file = []
-                for aff in sorted(resaffs, key=lambda row: row['precedence']):
-                    affs_to_file.append(aff.copy())
-                # Remove the precedence key before dumping to file
-                for aff in affs_to_file:
-                    del aff['precedence']
                 xml.startElement('affiliations')
-                for aff in affs_to_file:
+                for aff in sorted(resaffs,
+                                  key=lambda row: row.get('precedence', 999)):
                     # dumps content of dict as xml attributes
-                    xml.emptyElement('aff', aff)
+                    # skip precedence key
+                    xml.emptyElement(
+                        'aff',
+                        dict((k, aff[k]) for k in aff if k != 'precedence')
+                    )
                 xml.endElement('affiliations')
 
             quarantines = self.account_quarantines.get(item['name'])
