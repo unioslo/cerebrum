@@ -132,7 +132,6 @@ class RemoveSrcExtid(object):
             self.stream.close()
 
 
-
 def main(inargs=None):
     doc = (__doc__ or '').strip().split('\n')
 
