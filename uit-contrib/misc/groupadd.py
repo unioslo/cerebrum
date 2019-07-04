@@ -163,12 +163,12 @@ def main(inargs=None):
         print_all()
         add_user_to_group(db)
 
-    if not args.commit:
-        db.rollback()
-        logger.info("Dryrun, rollback changes")
-    else:
+    if args.commit:
         db.commit()
         logger.info("Committing changes to database")
+    else:
+        db.rollback()
+        logger.info("Dryrun, rollback changes")
 
 
 if __name__ == '__main__':
