@@ -172,7 +172,7 @@ def container_entry_string(tree_name, attrs={}, module=cereconf):
 class LDIFWriter(object):
     """Wrapper around ldif_outfile with a minimal but sane API."""
 
-    def __init__(self, tree, filename, module=cereconf):
+    def __init__(self, tree, filename=None, module=cereconf):
         if filename and os.path.sep not in filename:
             filename = os.path.join(module.LDAP['dump_dir'], filename)
         self.f = ldif_outfile(tree, filename=filename, module=module)
