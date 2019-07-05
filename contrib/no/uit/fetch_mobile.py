@@ -198,16 +198,9 @@ def update_bas(db, mobile_phones):
         return 1
 
 
-def usage(exitcode=0, msg=None):
-    if msg:
-        print(msg)
-    print(__doc__)
-    sys.exit(exitcode)
-
-
 def main(inargs=None):
     # Parse arguments
-    parser = argparse.ArgumentParser(__doc__)
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-p',
                         '--pagafile',
                         metavar='filename',
