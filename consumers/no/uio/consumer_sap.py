@@ -30,7 +30,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory, read_password
 from Cerebrum.modules.event.mapping import CallbackMap
 
-
 from Cerebrum.config.configuration import (ConfigDescriptor,
                                            Namespace,
                                            Configuration)
@@ -425,7 +424,7 @@ def _parse_hr_person(database, source_system, data):
 
 
 def get_hr_person(config, database, source_system, url):
-    """Collect a person entry from the remote source system, and parse the data.
+    """Collect a person entry from the remote source system and parse the data.
 
     :param db: Database object
     :param source_system: The source system code
@@ -436,6 +435,7 @@ def get_hr_person(config, database, source_system, url):
 
     :raises: RemoteSourceUnavailable if the remote system can't be contacted"""
     logger.debug(u'getting hr-person...')
+
     def _get_data(config, url, params=None):
         if not params:
             params = {}
