@@ -178,7 +178,6 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         self.__super.init_person_dump(use_mail_module)
         self.init_person_course()
         self.init_person_groups()
-        self.init_person_office365_consents()
 
     def init_person_titles(self):
         # Change from original: Search titles first by system_lookup_order,
@@ -272,10 +271,6 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             if street:
                 entry['street'] = (street,)
 
-        # Add Office 365 consents
-        if person_id in self.office365_consents:
-            entry['uioOffice365consent'] = 'TRUE'
-
         return dn, entry, alias_info
 
     def _calculate_edu_OUs(self, p_ou, s_ous):
@@ -358,12 +353,3 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 return person_id in self.fs_samtykke
         # Otherwise hide the person.
         return False
-
-    def init_person_office365_consents(self):
-        """Fetch the IDs of persons who have consented
-        to being exported to Office 365."""
-        timer = make_timer(self.logger, 'Fetching Office 365 consents...')
-        consents = self.person.list_consents(
-            consent_code=self.const.consent_office365)
-        self.office365_consents = set([c['entity_id'] for c in consents])
-        timer('...Office 365 consents done.')
