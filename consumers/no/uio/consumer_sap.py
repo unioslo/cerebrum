@@ -114,9 +114,12 @@ def load_config(filepath=None):
     """Load config for this consumer."""
     config_cls = SAPConsumerConfig()
     if filepath:
+        logger.debug(u'(load_config) Loading config file: {}'.format(filepath))
         config_cls.load_dict(read_config(filepath))
     else:
         read(config_cls, 'consumer_sap')
+        logger.debug(u'(load_config) no filepath using defaults')
+    logger.debug(u'(load_config) validating config_cls')
     config_cls.validate()
     return config_cls
 
@@ -133,29 +136,24 @@ def parse_address(d):
          ('postal_number', 0316),
          ('address_text', 'Postboks 1059 Blindern')))
     :return: A tuple with the fields that should be updated"""
+    logger.debug(u'parsing address...')
     co = Factory.get('Constants')
-
     address_types = (u'legalAddress',
                      u'workMailingAddress',
                      u'workVisitingAddress')
-
     m = {u'legalAddress': co.address_post_private,
          u'workMailingAddress': co.address_post,
          u'workVisitingAddress': co.address_street,
-
          u'city': u'city',
          u'postalCode': u'postal_number',
          u'streetAndHouseNumber': u'address_text'}
-
     r = {x: d.get(x, {}) for x in address_types}
-
     # Visiting address should be a concoction of real address and a
     # meta-location
     if r.get(u'workVisitingAddress'):
         r[u'workVisitingAddress'][u'streetAndHouseNumber'] = u'{}\n{}'.format(
             r.get(u'workVisitingAddress').get(u'streetAndHouseNumber'),
             r.get(u'workVisitingAddress').get(u'location'))
-
     return tuple([(k, tuple(sorted(filter_elements(translate_keys(v, m))))) for
                   (k, v) in filter_elements(
                       translate_keys(filter_meta(r), m))])
@@ -170,6 +168,7 @@ def parse_names(d):
     :rtype: tuple((PersonName('FIRST'), 'first'),
                   (PersonName('FIRST'), 'last'))
     :return: A tuple with the fields that should be updated"""
+    logger.debug(u'parsing name...')
     co = Factory.get('Constants')
     return ((co.name_first, d.get(u'firstName')),
             (co.name_last, d.get(u'lastName')))
@@ -185,8 +184,8 @@ def parse_contacts(d):
                                      ('contact_value', v),
                                      ('description', None))),)
     :return: A tuple with the fields that should be updated"""
+    logger.debug(u'parsing contacts...')
     co = Factory.get('Constants')
-
     # TODO: Validate/clean numbers with phonenumbers?
     m = {u'workPhone': co.contact_phone,
          u'workMobile': co.contact_mobile_phone,
@@ -200,7 +199,6 @@ def parse_contacts(d):
             n = l[1:]
         else:
             n = None
-
         (k, v) = l[0]
         return ((k,
                 (('contact_pref', pref),
@@ -221,13 +219,14 @@ def parse_titles(d):
                    ('name_language', LanguageCode('en')),
                    ('name', 'Over Engingineer'))]
     :return: A list of tuples with the fields that should be updated"""
-    co = Factory.get('Constants')
 
     def make_tuple(variant, lang, name):
         return ((u'name_variant', variant),
                 (u'name_language', lang),
                 (u'name', name))
 
+    co = Factory.get('Constants')
+    logger.debug(u'parsing titles...')
     titles = []
     if d.get(u'personalTitle'):
         titles.extend(
@@ -239,7 +238,6 @@ def parse_titles(d):
                     lang,
                     d.get(u'personalTitle', {}).get(u'nb')),
                 [co.language_nb, co.language_nn]))
-
     # Select appropriate work title.
     assignment = None
     for e in d.get(u'assignments', {}).get(u'results', []):
@@ -253,7 +251,6 @@ def parse_titles(d):
         elif (float(e.get(u'agreedFTEPercentage')) >
                 float(assignment.get(u'agreedFTEPercentage'))):
             assignment = e
-
     if assignment:
         titles.extend(map(lambda (lang_code, lang_str): make_tuple(
             co.work_title,
@@ -262,7 +259,6 @@ def parse_titles(d):
             [(co.language_nb, u'nb'),
              (co.language_nn, u'nb'),
              (co.language_en, u'en')]))
-
     return filter(lambda ((vk, vn), (lk, lv), (nk, nv)): nv, titles)
 
 
@@ -275,16 +271,14 @@ def parse_external_ids(d):
     :rtype: [tuple(EntityExternalId('PASSNR'),
                    '000001')]
     :return: A list of tuples with the external_ids"""
+    logger.debug(u'parsing external ids...')
     co = Factory.get('Constants')
-
     external_ids = [(co.externalid_sap_ansattnr, unicode(d.get(u'personId')))]
-
     if d.get(u'passportIssuingCountry') and d.get(u'passportNumber'):
         external_ids.append(
             (co.externalid_pass_number,
              co.make_passport_number(d.get(u'passportIssuingCountry'),
                                      d.get(u'passportNumber'))))
-
     if d.get(u'norwegianIdentificationNumber'):
         external_ids.append(
             (co.externalid_fodselsnr, d.get(u'norwegianIdentificationNumber')))
@@ -312,7 +306,6 @@ def _get_ou(database, sap_id, placecode):
 
 def _sap_assignments_to_affiliation_map():
     co = Factory.get('Constants')
-
     return {u'administrative': co.affiliation_status_ansatt_tekadm,
             u'academic': co.affiliation_status_ansatt_vitenskapelig}
 
@@ -328,13 +321,14 @@ def parse_affiliations(database, d):
                    ('status', PersonAffStatus('ANSATT', 'tekadm')),
                    (precedence', (50, 50)))]
     :return: A list of tuples with the fields that should be updated"""
+    logger.debug(u'parsing affiliation...')
     co = Factory.get('Constants')
-
     r = []
     for x in d.get(u'assignments', {}).get(u'results', []):
         status = _sap_assignments_to_affiliation_map().get(
                       x.get(u'jobCategory'))
         if not status:
+            logger.warn(u'parse_affiliations: Unknown job category')
             # Unknown job category
             continue
         ou = _get_ou(database,
@@ -356,7 +350,6 @@ def parse_affiliations(database, d):
 
 def _sap_roles_to_affiliation_map():
     co = Factory.get('Constants')
-
     return OrderedDict(
             [(u'INNKJØPER', co.affiliation_tilknyttet_innkjoper),
              (u'EF-FORSKER', co.affiliation_tilknyttet_ekst_forsker),
@@ -384,8 +377,8 @@ def parse_roles(database, data):
                    ('status', PersonAffStatus('TILKNYTTET', 'pcvakt')),
                    (precedence', None))]
     :return: A list of tuples representing them roles."""
+    logger.debug(u'parsing roles...')
     role2aff = _sap_roles_to_affiliation_map()
-
     r = []
     for role in data.get(u'roles', {}).get(u'results', []):
         ou = _get_ou(database, sap_id=None, placecode=role.get(u'locationId'))
@@ -402,7 +395,6 @@ def parse_roles(database, data):
                           role.get(u'roleName')).affiliation,
                       u'status': role2aff.get(role.get(u'roleName')),
                       u'precedence': None})
-
     return sorted(r,
                   key=(lambda x: role2aff.values().index(x.get('status')) if
                        x.get('status') in role2aff.values() else len(r)),
@@ -413,7 +405,6 @@ def _parse_hr_person(database, source_system, data):
     """Collects parsed information from SAP."""
     from mx import DateTime
     co = Factory.get('Constants')
-
     return {
         u'id': data.get(u'personId'),
         u'addresses': parse_address(data),
@@ -444,29 +435,27 @@ def get_hr_person(config, database, source_system, url):
     :return The parsed data from the remote source system
 
     :raises: RemoteSourceUnavailable if the remote system can't be contacted"""
-
+    logger.debug(u'getting hr-person...')
     def _get_data(config, url, params=None):
         if not params:
             params = {}
 
         headers = {'Accept': 'application/json',
-                   'X-Gravitee-API-Key': read_password(user=config.auth_user,
-                                                       system=config.auth_system)}
-
+                   'X-Gravitee-API-Key': read_password(
+                       user=config.auth_user,
+                       system=config.auth_system)}
         try:
             logger.debug4(u'Fetching {}'.format(url))
             r = requests.get(url, headers=headers, params=params)
             logger.debug4(u'Fetch completed')
         except Exception as e:
-            # Be polite on connection errors. Conenction errors seldom fix
+            # Be polite on connection errors. Connection errors seldom fix
             # themselves quickly.
             import time
             time.sleep(1)
             raise RemoteSourceUnavailable(str(e))
-
         if r.status_code == 200:
             data = json.loads(r.text).get(u'd', None)
-
             for k in data:
                 if (isinstance(data.get(k), dict) and
                         '__deferred' in data.get(k) and
@@ -487,7 +476,6 @@ def get_hr_person(config, database, source_system, url):
             raise RemoteSourceError(
                 u'Could not fetch {} from remote source: {}: {}'.format(
                     url, r.status_code, r.reason))
-
     return _parse_hr_person(database, source_system, _get_data(config, url))
 
 
@@ -496,6 +484,7 @@ def get_cerebrum_person(database, ids):
 
     If the person does not exist in Cerebrum, the returned object is
     clear()'ed"""
+    logger.debug(u'get cerebrum person')
     pe = Factory.get('Person')(database)
     try:
         pe.find_by_external_ids(*ids)
@@ -508,7 +497,6 @@ def get_cerebrum_person(database, ids):
         raise EntityNotResolvableError(
             u'Person in source system maps to multiple persons in Cerebrum. '
             u'Manual intervention required: {}'.format(e))
-
     return pe
 
 
@@ -530,7 +518,6 @@ def update_account_affs(method):
         ac.find(accounts[0]['account_id'])
         co = Factory.get('Constants')(database)
         account_types = ac.get_account_types()
-
         if method.__name__ is AccountClass.del_account_type.__name__:
             if len(account_types) == 1:
                 logger.debug(u'Can not delete last account_type')
@@ -541,14 +528,12 @@ def update_account_affs(method):
                 logger.debug(u'account_type already deleted '
                              u'(aff: %s, ou_id: %s)', affiliation, ou_id)
                 return
-
         if method.__name__ is AccountClass.set_account_type.__name__:
             for at in account_types:
                 if (at['ou_id'], at['affiliation']) == (ou_id, affiliation):
                     logger.debug(u'account_type already exists '
                                  u'(aff: %s, ou_id: %s)', affiliation, ou_id)
                     return
-
         for account_type in account_types:
             if not int(co.affiliation_ansatt) == account_type['affiliation']:
                 logger.debug(u'Account has affiliation(s) besides %s' %
@@ -565,7 +550,6 @@ def update_account_affs(method):
                         u'Account has affiliation from source(s) other than %s'
                         % co.system_sap)
                     return
-
         logger.debug(u'{} for account: {}'.format(method.__name__,
                                                   ac.entity_id))
         method(ac, ou_id, affiliation)
@@ -573,8 +557,6 @@ def update_account_affs(method):
 
 
 del_account_type = update_account_affs(AccountClass.del_account_type)
-
-
 set_account_type = update_account_affs(AccountClass.set_account_type)
 
 
@@ -604,7 +586,6 @@ def update_person(database, source_system, hr_person, cerebrum_person):
             hr_person.get(u'birth_date'),
             hr_person.get(u'gender'))
         cerebrum_person.write_db()
-
         logger.debug(u'Added birth date {} and gender {} for {}'.format(
             hr_person.get(u'birth_date'),
             hr_person.get(u'gender'),
@@ -614,12 +595,10 @@ def update_person(database, source_system, hr_person, cerebrum_person):
 def _find_affiliations(cerebrum_person, hr_affs, affiliation_map,
                        source_system, mode):
     consider_affiliations = filter(lambda x: x, affiliation_map().values())
-
     cerebrum_affiliations = cerebrum_person.list_affiliations(
         person_id=cerebrum_person.entity_id,
         status=consider_affiliations,
         source_system=source_system)
-
     # Format of a hr_aff: { str: [] }
     in_hr = map(
         lambda d: tuple(
@@ -631,7 +610,6 @@ def _find_affiliations(cerebrum_person, hr_affs, affiliation_map,
             )
         ),
         hr_affs)
-
     in_cerebrum = map(
         lambda x: tuple(
             sorted(
@@ -646,7 +624,6 @@ def _find_affiliations(cerebrum_person, hr_affs, affiliation_map,
             )
         ),
         cerebrum_affiliations)
-
     if mode == u'remove':
         return [
             dict(filter(lambda (k, v): k in (u'ou_id', u'affiliation'), x) +
@@ -683,7 +660,6 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
         cerebrum_person.delete_affiliation(**affiliation)
         logger.debug(u'Removing affiliation {} for id:{}'.format(
             _stringify_for_log(affiliation), cerebrum_person.entity_id))
-
     for affiliation in _find_affiliations(
             cerebrum_person,
             hr_person.get(u'affiliations'),
@@ -693,7 +669,6 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
         cerebrum_person.populate_affiliation(source_system, **affiliation)
         logger.debug(u'Adding affiliation {} for id:{}'.format(
             _stringify_for_log(affiliation), cerebrum_person.entity_id))
-
     cerebrum_person.write_db()
     for affiliation in _find_affiliations(
             cerebrum_person,
@@ -705,6 +680,8 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
                          cerebrum_person,
                          affiliation['ou_id'],
                          affiliation['affiliation'])
+        logger.debug(u'Setting account type for id:{}'.format(
+            cerebrum_person.entity_id))
 
 
 def update_roles(database, source_system, hr_person, cerebrum_person):
@@ -724,7 +701,6 @@ def update_roles(database, source_system, hr_person, cerebrum_person):
         cerebrum_person.delete_affiliation(**role)
         logger.debug(u'Removing role {} for id:{}'.format(
             _stringify_for_log(role), cerebrum_person.entity_id))
-
     for role in _find_affiliations(
             cerebrum_person,
             hr_person.get(u'roles'),
@@ -756,15 +732,12 @@ def update_names(database, source_system, hr_person, cerebrum_person):
                     [co.name_first, co.name_last]))
     except Errors.NotFoundError:
         names = set()
-
     to_remove = names - set(hr_person.get(u'names'))
     to_add = set(hr_person.get(u'names')) - names
-
     if to_remove:
         logger.debug(u'Purging names of types {} for id:{}'.format(
             map(lambda (k, _): _stringify_for_log(k), to_remove),
             cerebrum_person.entity_id))
-
     cerebrum_person.affect_names(
         source_system,
         *map(lambda (k, _): k, to_remove | to_add))
@@ -792,14 +765,11 @@ def update_external_ids(database, source_system, hr_person, cerebrum_person):
     :param cerebrum_person: The Person object to be updated.
     """
     co = Factory.get('Constants')(database)
-
     external_ids = set(map(lambda e: (e[u'id_type'], e[u'external_id']),
                        cerebrum_person.get_external_id(
                            source_system=source_system)))
-
     to_remove = external_ids - set(hr_person.get(u'external_ids'))
     to_add = set(hr_person.get(u'external_ids')) - external_ids
-
     cerebrum_person.affect_external_id(
         source_system,
         *map(lambda (k, _): k, to_remove | to_add))
@@ -808,7 +778,6 @@ def update_external_ids(database, source_system, hr_person, cerebrum_person):
             map(lambda (k, _): _stringify_for_log(co.EntityExternalId(k)),
                 to_remove),
             cerebrum_person.entity_id))
-
     for (k, v) in to_add:
         cerebrum_person.populate_external_id(
             source_system, k, v)
@@ -837,7 +806,6 @@ def update_addresses(database, source_system, hr_person, cerebrum_person):
         cerebrum_person.delete_entity_address(source_system, k)
         logger.debug(u'Removing address {} for id:{}'.format(
             (_stringify_for_log(k), v), cerebrum_person.entity_id))
-
     for (k, v) in set(hr_person.get(u'addresses')) - addresses:
         cerebrum_person.add_entity_address(source_system, k, **dict(v))
         logger.debug(u'Adding address {} for id:{}'.format(
@@ -860,7 +828,6 @@ def update_contact_info(database, source_system, hr_person, cerebrum_person):
                               u'contact_alias', u'last_modified'),
                              cerebrum_person.get_contact_info(
                                  source=source_system))
-
     for (k, v) in contacts - set(hr_person.get('contacts')):
         (p, v, _d) = (value for (_, value) in v)
         cerebrum_person.delete_contact_info(source_system, k, p)
@@ -868,7 +835,6 @@ def update_contact_info(database, source_system, hr_person, cerebrum_person):
             u'Removing contact ({}) of type {} with preference {} for '
             u'id:{}'.format(
                 v, _stringify_for_log(k), p, cerebrum_person.entity_id))
-
     for (k, v) in set(hr_person.get(u'contacts')) - contacts:
         (p, v, _d) = (value for (_, value) in v)
         cerebrum_person.add_contact_info(source_system, k, v, p)
@@ -895,12 +861,10 @@ def update_titles(database, source_system, hr_person, cerebrum_person):
                          entity_id=cerebrum_person.entity_id,
                          name_variant=[co.work_title,
                                        co.personal_title])))
-
     for e in set(hr_person.get(u'titles')) - titles:
         cerebrum_person.add_name_with_language(**dict(e))
         logger.debug(u'Adding title {} for id:{}'.format(
             _stringify_for_log(e), cerebrum_person.entity_id))
-
     for e in titles - set(hr_person.get(u'titles')):
         cerebrum_person.delete_name_with_language(**dict(e))
         logger.debug(u'Removing title {} for id:{}'.format(
@@ -919,7 +883,6 @@ def update_reservation(database, hr_person, cerebrum_person):
     gr = Factory.get('Group')(database)
     gr.find_by_name(u'SAP-elektroniske-reservasjoner')
     in_reserved_group = gr.has_member(cerebrum_person.entity_id)
-
     if hr_person.get(u'reserved') and not in_reserved_group:
         gr.add_member(cerebrum_person.entity_id)
         logger.debug(u'Adding id:{} to reservation group'.format(
@@ -932,6 +895,7 @@ def update_reservation(database, hr_person, cerebrum_person):
 
 def perform_update(database, source_system, hr_person, cerebrum_person):
     """Update or create a person."""
+    logger.debug(u'Starting perform_update')
     update_person(database, source_system, hr_person, cerebrum_person)
     update_external_ids(database, source_system, hr_person, cerebrum_person)
     update_names(database, source_system, hr_person, cerebrum_person)
@@ -941,41 +905,52 @@ def perform_update(database, source_system, hr_person, cerebrum_person):
     update_roles(database, source_system, hr_person, cerebrum_person)
     update_affiliations(database, source_system, hr_person, cerebrum_person)
     update_reservation(database, hr_person, cerebrum_person)
+    logger.debug(u'perform_update done')
 
 
 def perform_delete(database, source_system, hr_person, cerebrum_person):
     """Delete a person."""
+    logger.debug(u'Deleting person...')
     # Update person and external IDs
+    logger.debug(u'* Updating person and external IDs')
     update_person(database, source_system, hr_person, cerebrum_person)
     update_external_ids(database, source_system, hr_person, cerebrum_person)
     # Delete everything else
+    logger.debug(u'* deleting names')
     update_names(database,
                  source_system,
                  {u'names': []},
                  cerebrum_person)
+    logger.debug(u'* deleting addresses')
     update_addresses(database,
                      source_system,
                      {u'addresses': []},
                      cerebrum_person)
+    logger.debug(u'* deleting contact information')
     update_contact_info(database,
                         source_system,
                         {u'contacts': []},
                         cerebrum_person)
+    logger.debug(u'* deleting titles')
     update_titles(database,
                   source_system,
                   {u'titles': []},
                   cerebrum_person)
+    logger.debug(u'* deleting affiliations')
     update_affiliations(database,
                         source_system,
                         {u'affiliations': []},
                         cerebrum_person)
+    logger.debug(u'* deleting roles')
     update_roles(database,
                  source_system,
                  {u'roles': []},
                  cerebrum_person)
+    logger.debug(u'* deleting reservations')
     update_reservation(database,
                        {u'reserved': False},
                        cerebrum_person)
+    logger.debug(u'Person deleted...')
 
 
 def handle_person(database, source_system, url, datasource=get_hr_person):
@@ -985,20 +960,22 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
     :param source_system: The source system code
     :param url: The URL to the person object in the HR systems WS.
     :param datasource: The function used to fetch / parse the resource."""
+    logger.debug(u'Start handle_person...')
     hr_person = datasource(database, source_system, url)
     cerebrum_person = get_cerebrum_person(database,
                                           map(lambda (k, v): (k, v),
                                               hr_person.get(u'external_ids')))
-
     if hr_person.get('affiliations') or hr_person.get('roles'):
         perform_update(database, source_system, hr_person, cerebrum_person)
     elif cerebrum_person.entity_type:  # entity_type as indication of instance
         perform_delete(database, source_system, hr_person, cerebrum_person)
     else:
+        logger.debug(u'handle_person: no action performed')
         return
-
+    logger.debug(u'handle_person: commiting changes')
     cerebrum_person.write_db()
     database.commit()
+    logger.debug(u'handle_person: changes committed')
 
 
 def get_resource_url(body):
@@ -1015,7 +992,6 @@ def callback(database, source_system, routing_key, content_type, body,
     except Exception as e:
         logger.warn('Received malformed message "{}"'.format(body))
         return True
-
     message_processed = True
     try:
         handle_person(database, source_system, url, datasource=datasource)
@@ -1034,9 +1010,9 @@ def callback(database, source_system, routing_key, content_type, body,
         message_processed = True
         logger.error(u'Failed processing {}:\n {}'.format(body, e),
                      exc_info=True)
-
     # Always rollback, since we do an implicit begin and we want to discard
     # possible outstanding changes.
+    logger.debug(u'Rolling back changes')
     database.rollback()
     return message_processed
 
@@ -1054,6 +1030,9 @@ def load_mock(mock_file):
 def main(args=None):
     """Start consuming messages."""
     import argparse
+    import functools
+    from Cerebrum.modules.event_consumer import get_consumer
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-c', '--config',
                         dest='configfile',
@@ -1072,14 +1051,10 @@ def main(args=None):
                         help=u'Do not commit changes')
     args = parser.parse_args(args)
     prog_name = parser.prog.rsplit(u'.', 1)[0]
-
-    import functools
-    from Cerebrum.modules.event_consumer import get_consumer
-
+    logger.info('Starting {}'.format(prog_name))
     database = Factory.get('Database')()
     database.cl_init(change_program=prog_name)
     source_system = Factory.get('Constants')(database).system_sap
-
     config = load_config(filepath=args.configfile)
 
     if args.dryrun:
