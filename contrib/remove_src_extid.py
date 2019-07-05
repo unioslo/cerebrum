@@ -47,20 +47,21 @@ from Cerebrum.utils import argutils
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.utils.csvutils import CerebrumDialect, UnicodeWriter
 
-from cereconf import SYSTEM_LOOKUP_ORDER as SLO
+from cereconf import SYSTEM_LOOKUP_ORDER
 
 logger = logging.getLogger(__name__)
 
 
-class RemoveSrcExtid(object):
+class SrcExtidRemover(object):
     def __init__(self, co, pe, ssys, external_id_type):
         self.co = co
         self.pe = pe
         self.ssys = ssys
         self.external_id_type = external_id_type
-        self.other_ssys = [co.human2constant(s) for s in SLO if s != self.ssys]
-        # self.dump = ['Removed {ext} from {ssys} for person_id:'.format(
-        #     ssys=self.ssys, ext=self.external_id_type)]
+        self.other_ssys = set(
+            co.human2constant(s) for s in SYSTEM_LOOKUP_ORDER) - set([self.ssys])
+        log_ents = ['Checking:'] + [text_type(s) for s in self.other_ssys]
+        logger.debug(' '.join(log_ents))
         self.dump = []
         self.stream = None
 
@@ -94,17 +95,14 @@ class RemoveSrcExtid(object):
         delete external id from source system if it exists in
         """
         logger.debug('start remover ...')
-        i = 1
-        for person in self.get_persons():
+        for i, person in enumerate(self.get_persons()):
             self.pe.clear()
             self.pe.find(person['entity_id'])
             if self.in_other_ssys():
                 self.pe._delete_external_id(self.ssys, self.external_id_type)
                 self.dump.append(person)
-            if not i%10000:
-                logger.debug(' remover: Treated {} entities'.format(i))
-            i += 1
-
+            if not (i+1)%10000:
+                logger.debug(' remover: Treated {} entities'.format(i+1))
 
     def get_output_stream(self, filename, codec):
         """ Get a unicode-compatible stream to write. """
@@ -114,7 +112,6 @@ class RemoveSrcExtid(object):
             self.stream = AtomicFileWriter(filename,
                                            mode='w',
                                            encoding=codec.name)
-
 
     def write_csv_report(self):
         """ Write a CSV report to a stream.
@@ -133,12 +130,7 @@ class RemoveSrcExtid(object):
 
 
 def main(inargs=None):
-    doc = (__doc__ or '').strip().split('\n')
-
-    parser = argparse.ArgumentParser(
-        description=doc[0],
-        epilog='\n'.join(doc[1:]),
-        formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(description=__doc__)
     source_arg = parser.add_argument(
         '-s', '--source-system',
         default='SAP',
@@ -187,18 +179,18 @@ def main(inargs=None):
     logger.debug('args: {}'.format(args))
     logger.info('source_system: {}'.format(text_type(ssys)))
     logger.info('external_id_type: {}'.format(text_type(external_id_type)))
-    RSE = RemoveSrcExtid(co, pe, ssys, external_id_type)
-    RSE.remover()
-    RSE.get_output_stream(args.output, args.codec)
-    RSE.write_csv_report()
-    logger.info('Report written to %s', RSE.stream.name)
+    SER = SrcExtidRemover(co, pe, ssys, external_id_type)
+    SER.remover()
+    SER.get_output_stream(args.output, args.codec)
+    SER.write_csv_report()
+    logger.info('Report written to %s', SER.stream.name)
     if args.commit:
         db.commit()
         logger.debug('Committed all changes')
     else:
         db.rollback()
         logger.debug('Rolled back all changes')
-    logger.info('Done with script %s', parser.prog)
+    logger.info('Script %s is done', parser.prog)
 
 if __name__ == '__main__':
     main()
