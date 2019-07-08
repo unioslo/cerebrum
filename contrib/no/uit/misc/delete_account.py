@@ -34,13 +34,12 @@ logger = logging.getLogger(__name__)
 
 def delete_account(db, account_id):
     logger.info("Processing account_id=%r", account_id)
-    co = Factory.get('Constants')(db)
     ac = Factory.get('Account')(db)
     try:
         ac.find(account_id)
     except Errors.NotFoundError:
         raise SystemExit('Unknown account_id: {}'.format(account_id))
-    entity_terminate.delete(db, accountname=ac.get_name(co.account_namespace))
+    entity_terminate.delete(db, ac)
 
 
 def process_account(db, account_id):

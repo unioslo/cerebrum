@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import absolute_import, unicode_literals
 
+from Cerebrum import Errors
 from Cerebrum.modules.bofhd import bofhd_core
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd.cmd_param import (
@@ -28,7 +29,7 @@ from Cerebrum.modules.bofhd.cmd_param import (
     PersonId,
     YesNo,
 )
-from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.bofhd.errors import PermissionDenied, CerebrumError
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.legacy_users import LegacyUsers
 from Cerebrum.modules.no.uit import bofhd_auth
@@ -98,9 +99,17 @@ class BofhdUiTExtension(bofhd_core.BofhdCommonMethods):
         AccountName(help_ref='account_name_id_uid'),
         YesNo(help_ref='yes_no_sure'),
         perm_filter='is_superuser',
+        fs=FormatSuggestion(
+            "Account deleted successfully\n" +
+            "Account name:        %s\n" +
+            "Owner:               %s\n" +
+            "New primary account: %s",
+            ('account_name', 'owner_name', 'primary_account_name',
+             ),
+        )
     )
 
-    def user_delete_permanent(self, operator, accountname, yesno):
+    def user_delete_permanent(self, operator, account_name, yesno):
         """ Delete a user from the database
 
         This command deletes every database entry connected to the entity id of
@@ -108,8 +117,13 @@ class BofhdUiTExtension(bofhd_core.BofhdCommonMethods):
         not be using it unless you are absolutely sure about what you are
         doing.
 
-        :param basestring accountname:
-        :return:
+        :param operator: Cerebrum.Account object of operator
+        :param basestring account_name: account name of target account
+        :param basestring yesno: 'y' to confirm deletion
+        :return: Information about the deleted account and its owner
+        :rtype: dict
+        :raises CerebrumError: If account name is unknown, or the account owner
+            is not a person
         """
         if yesno.lower() != 'y':
             return "Did not receive 'y'. User deletion stopped."
@@ -117,4 +131,11 @@ class BofhdUiTExtension(bofhd_core.BofhdCommonMethods):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
 
-        return entity_terminate.delete(self.db, accountname)
+        ac = self._get_account(account_id=account_name, idtype='name')
+        try:
+            terminate = entity_terminate.delete(self.db, ac)
+        except Errors.NotFoundError:
+            raise CerebrumError(
+                'Account: {}, not owned by person. Aborting'.format(
+                    account_name))
+        return terminate

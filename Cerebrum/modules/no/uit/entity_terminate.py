@@ -32,24 +32,22 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import legacy_users
 
 
-def delete(db, accountname):
+def delete(db, ac):
     """
     Delete every entry containing the entity_id of the account from the
     database
+
+    :param db: Cerebrum.Database connection
+    :param ac: Cerebrum.Account object
+    :return: Information about account and account owner
+    :rtype: dict
+    :raise Errors.NotFoundError: if the owner id of an account is not a Person
+        object
     """
 
     co = Factory.get('Constants')(db)
-    ac = Factory.get('Account')(db)
-    try:
-        ac.find_by_name(accountname)
-    except Errors.NotFoundError:
-        return "Unknown account: {}".format(accountname)
-
     pe = Factory.get('Person')(db)
-    try:
-        pe.find(ac.owner_id)
-    except Errors.NotFoundError:
-        return "Account not owned by person"
+    pe.find(ac.owner_id)
     # Build legacy info dict
     legacy_info = {'username': ac.account_name}
     try:
@@ -134,6 +132,11 @@ def delete(db, accountname):
         """.format(table=key, column=value)
         db.execute(stmt, binds)
 
+    returndict = {'account_name': ac.account_name,
+                  'owner_name': pe.get_name(co.system_cached, co.name_full),
+                  'primary_account_name': 'None',
+                  }
+
     # Done deleting, now writing legacy info after trying to find (new)
     # primary account for person
     lu = legacy_users.LegacyUsers(db)
@@ -148,9 +151,10 @@ def delete(db, accountname):
                 '%s - Duplicate of %s' %
                 (datetime.datetime.today().date().strftime('%Y%m%d'),
                  ac.account_name))
+        returndict.update({'primary_account_name': ac.account_name})
     except Exception:
         lu.set(**legacy_info)
     else:
         lu.set(**legacy_info)
 
-    return "OK, deleted account: {}".format(accountname)
+    return returndict
