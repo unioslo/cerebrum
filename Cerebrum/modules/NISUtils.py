@@ -23,23 +23,22 @@ from __future__ import with_statement, unicode_literals
 
 import logging
 import operator
-import mx
 import sys
 from contextlib import closing
 
-from six import text_type
-
+import mx.DateTime
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
-from Cerebrum.utils import transliterate
-from Cerebrum.utils.atomicfile import SimilarSizeWriter
-from Cerebrum.modules import PosixGroup
-from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
+from Cerebrum.Entity import EntityName
+from Cerebrum.Utils import Factory
+from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.posix.UserExporter import HomedirResolver
 from Cerebrum.modules.posix.UserExporter import OwnerResolver
 from Cerebrum.modules.posix.UserExporter import UserExporter
-
+from Cerebrum.utils import transliterate
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
+from Cerebrum.utils.funcwrap import memoize
+from six import text_type
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -88,7 +87,6 @@ def join(fields, sep=':'):
 
 
 class Passwd(object):
-
     """Simple class for making a passwd map. generate_passwd() will make
     a list of list that translates to the info found in a passwd file."""
 
@@ -207,14 +205,13 @@ class Passwd(object):
 
 
 class NISGroupUtil(object):
-
     """Utility class for the two group classes."""
 
     def __init__(self, namespace, member_type, group_spread, member_spread,
                  tmp_group_prefix='x'):
-        self._entity2name = self._build_entity2name_mapping(namespace)
         self._namecachedtime = mx.DateTime.now()
         self._member_spread = member_spread
+        self._group_spread = group_spread
         self._member_type = member_type
         self._exported_groups = {}
         self._tmp_group_prefix = tmp_group_prefix
@@ -222,6 +219,7 @@ class NISGroupUtil(object):
         for row in self._group.search(spread=group_spread):
             self._exported_groups[int(row['group_id'])] = row['name']
         self._num = 0
+        self._entity2name = self._build_entity2name_mapping(namespace)
 
     def _build_entity2name_mapping(self, namespace):
         ret = {}
@@ -246,6 +244,10 @@ class NISGroupUtil(object):
             logger.debug("Checking change log failed: %s", sys.exc_value)
         return False
 
+    # memoize caches the results of calling the method with a specific gid. It
+    # is not immediately obvious whether this works in our favour or not, as it
+    # costs a bit to do so.
+    @memoize
     def _expand_group(self, gid):
         """Expand a group and all of its members.  Subgroups are
         included regardles of spread, but if they are of a different
@@ -253,13 +255,12 @@ class NISGroupUtil(object):
         """
         ret_groups = set()
         ret_non_groups = set()
-        self._group.clear()
-        self._group.find(gid)
 
         # direct members
-        for row in self._group.search_members(group_id=gid,
-                                              member_spread=self._member_spread,
-                                              member_type=self._member_type):
+        for row in self._group.search_members(
+                group_id=gid,
+                member_spread=self._member_spread,
+                member_type=self._member_type):
             member_id = int(row["member_id"])
             name = self._entity2name.get(member_id)
             if not name:
@@ -270,6 +271,7 @@ class NISGroupUtil(object):
 
         # subgroups
         for row in self._group.search_members(group_id=gid,
+                                              member_spread=self._group_spread,
                                               member_type=co.entity_group):
             gid = int(row["member_id"])
             if gid in self._exported_groups:
@@ -278,9 +280,7 @@ class NISGroupUtil(object):
                 t_g, t_ng = self._expand_group(gid)
                 ret_groups.update(t_g)
                 ret_non_groups.update(t_ng)
-
         return ret_groups, ret_non_groups
-    # end _expand_groups
 
     def _make_tmp_name(self, notused):
         while True:
@@ -313,31 +313,88 @@ class NISGroupUtil(object):
                 line = "%s %s" % (tmp_gname, line)
         return ret + "%s%s%s\n" % (group_name, g_separator, line)
 
-    def generate_netgroup(self):
+    def generate_netgroup(self, include_persons=False):
         # TODO: What does the "subject to change to a python structure shortly"
         # part mean? Should this be fixed?
         """Returns a list of lists. Data looks like (gname, string of
         groupmembers). This is subject to change to a python structure
         shortly."""
         netgroups = []
-        for group_id in self._exported_groups.keys():
-            group_name = self._exported_groups[group_id]
+
+        # Take care of top level in two/three big chunks
+        collector = {key: {'groups': set(),
+                           'users': set()
+                           } for key in self._exported_groups.keys()
+                     }
+        # Direct user members of the top level groups
+        logger.info('Processing all direct user members of top groups')
+        for user_row in self._group.search_members(
+                (i for i in self._exported_groups.keys()),
+                member_type=self._member_type,
+                member_spread=self._member_spread):
+            # Add user names to top level group id
+            collector[user_row['group_id']]['users'].add(self._entity2name.get(
+                user_row['member_id']))
+
+        # All sub groups of the top groups
+        logger.info('Processing all direct group members of top groups')
+        gids = list(i for i in self._exported_groups.keys())
+        sub_groups = [i for i in self._group.search_members(
+            gids,
+            member_spread=self._group_spread,
+            member_type=co.entity_group)]
+        for group_row in sub_groups:
+            # Add subgroup names to top level group id
+            collector[group_row['group_id']]['groups'].add(
+                self._entity2name.get(
+                    group_row['member_id']))
+
+        # All person object members
+        if include_persons:
+            logger.info('Processing all direct person members of top groups')
+            for person_row in self._group.search_members(
+                    (i for i in self._exported_groups.keys()),
+                    member_type=co.entity_person):
+                if person_row['member_id'] in self._person2primary_account:
+                    # add user name of person to top level group id
+                    collector[person_row['group_id']]['users'].add(
+                        self._entity2name.get(
+                            self._person2primary_account[
+                                person_row['member_id']]))
+
+        # Take care of the members of subgroups and lower individually
+        logger.info('Processing remaining sub groups individually')
+        for group_row in sub_groups:
+            member_id = int(group_row['member_id'])
             group_members, user_members = map(list,
-                                              self._expand_group(group_id))
-            # logger.debug("%s -> g=%s, u=%s" % (
-            #    group_id, group_members, user_members))
-            netgroups.append((group_name,
-                              (self._format_members(
-                                  group_members, user_members, group_name))))
+                                              self._expand_group(member_id))
+            if member_id not in collector:
+                collector[member_id] = {'groups': set(), 'users': set()}
+
+            collector[member_id]['groups'].update(group_members)
+            collector[member_id]['users'].update(user_members)
+
+        # Return list of tuples (group name, members)
+        netgroups = []
+        for key, grs_usrs in collector.items():
+            # key is group entity id, grs_users is dict with keys groups, users
+            group_name = self._exported_groups[key]
+            netgroups.append(
+                (group_name,
+                 (self._format_members(grs_usrs['groups'],
+                                       grs_usrs['users'],
+                                       group_name))
+                 )
+            )
         return netgroups
 
-    def write_netgroup(self, filename, e_o_f=False):
+    def write_netgroup(self, filename, e_o_f=False, include_persons=False):
         logger.debug("generate_netgroup: %s" % filename)
 
         f = SimilarSizeWriter(filename, "w")
         f.max_pct_change = 5
 
-        netgroups = self.generate_netgroup()
+        netgroups = self.generate_netgroup(include_persons=include_persons)
         for group_name, members in netgroups:
             f.write(self._wrap_line(group_name, members, ' ', is_ng=True))
         if e_o_f:
@@ -354,9 +411,13 @@ class NISGroupUtil(object):
                 tmp_users.append(uname)
         return tmp_users
 
+    def _format_members(self, group_members, user_members, group_name):
+        """Specific formatting method for each subclass"""
+        raise NotImplementedError(
+            "This method should be implemented by subclasses")
+
 
 class FileGroup(NISGroupUtil):
-
     """Class for generating filegroups."""
 
     def __init__(self, group_spread, member_spread):
@@ -400,10 +461,10 @@ class FileGroup(NISGroupUtil):
         self._group.clear()
         self._group.find(gid)
         members = self._group.search_members(
-                group_id=self._group.entity_id,
-                indirect_members=True,
-                member_type=co.entity_account,
-                member_spread=self._member_spread
+            group_id=self._group.entity_id,
+            indirect_members=True,
+            member_type=co.entity_account,
+            member_spread=self._member_spread
         )
         for row in members:
             account_id = int(row["member_id"])
@@ -460,7 +521,6 @@ class FileGroup(NISGroupUtil):
 
 
 class UserNetGroup(NISGroupUtil):
-
     """Class for making standard user netgroups. Most of the code
     resides in NISGroupUtil."""
 
@@ -477,7 +537,6 @@ class UserNetGroup(NISGroupUtil):
 
 
 class MachineNetGroup(NISGroupUtil):
-
     """Class for making more complex machine netgroups. Most of
     the code resides in NISGroupUtil."""
 
@@ -507,7 +566,6 @@ class MachineNetGroup(NISGroupUtil):
 
 
 class HackUserNetGroupUIO(UserNetGroup):
-
     """Class for hacking members of {meta_ansatt,ansatt}@<sko> groups.
 
     These groups contain *people* (rather than accounts), which is not what
@@ -526,9 +584,13 @@ class HackUserNetGroupUIO(UserNetGroup):
         super(HackUserNetGroupUIO, self).__init__(group_spread, member_spread)
         # collect person_id -> primary account_id. Notice that we collect
         # accounts with member_spread only. The rest is irrelevant.
+
+        # Add names of groups to cache
+        self._entity2name.update(self._build_entity2name_mapping(
+            co.group_namespace))
         self._person2primary_account = dict()
         for i in Factory.get("Account")(db).list_accounts_by_type(
-            account_spread=member_spread,
+                account_spread=member_spread,
                 primary_only=True):
             self._person2primary_account[i["person_id"]] = i["account_id"]
 
@@ -537,7 +599,6 @@ class HackUserNetGroupUIO(UserNetGroup):
                                  Factory.get("Group")(db).list_traits(
                                      code=(co.trait_auto_group,
                                            co.trait_auto_meta_group))])
-    # end __init__
 
     def _expand_group(self, gid):
         ret_groups, ret_non_groups = super(HackUserNetGroupUIO,

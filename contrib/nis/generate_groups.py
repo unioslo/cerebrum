@@ -136,7 +136,7 @@ def main():
     if args.hack:
         logger.debug('generating netgroups that includes persons...')
         ung = HackUserNetGroupUIO(args.group_spread, args.user_spread)
-        ung.write_netgroup(args.hack, args.e_o_f)
+        ung.write_netgroup(args.hack, args.e_o_f, include_persons=True)
         logger.info('netgroups written to %s', args.hack)
 
     logger.info('Done %s', parser.prog)
