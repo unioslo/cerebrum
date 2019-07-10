@@ -19,6 +19,8 @@
 """
 Constants related to the apikeys module.
 """
+from __future__ import unicode_literals
+
 import Cerebrum.Constants
 
 
@@ -28,15 +30,15 @@ class CLConstants(Cerebrum.Constants.CLConstants):
     apikey_add = Cerebrum.Constants._ChangeTypeCode(
         'apikey',
         'apikey_add',
-        'add apikey for account %(subject)s',
+        'apikey added to account %(subject)s',
     )
     apikey_mod = Cerebrum.Constants._ChangeTypeCode(
         'apikey',
-        'apikey_del',
-        'update apikey for account %(subject)s',
+        'apikey_mod',
+        'apikey updated on account %(subject)s',
     )
     apikey_del = Cerebrum.Constants._ChangeTypeCode(
         'apikey',
         'apikey_del',
-        'remove apikey for account %(subject)s',
+        'apikey removed from account %(subject)s',
     )
