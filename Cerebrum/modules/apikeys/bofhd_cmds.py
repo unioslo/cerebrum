@@ -49,10 +49,12 @@ from Cerebrum import Errors
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd.bofhd_utils import format_time
 from Cerebrum.modules.bofhd.cmd_param import (AccountName, Command,
                                               FormatSuggestion, SimpleString,)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
+from Cerebrum.utils.date import datetime2mx
 from .dbal import ApiKeys
 
 logger = logging.getLogger(__name__)
@@ -83,11 +85,24 @@ class BofhdApiKeyAuth(BofhdAuth):
         raise PermissionDenied(
             "Not allowed to modify apikey for {}".format(account))
 
+    def can_list_apikey(self, operator, account=None, query_run_any=False):
+        """
+        Check if an operator is allowed to list apikeys on an account.
+        """
+        try:
+            return self.can_modify_apikey(operator, account=account,
+                                          query_run_any=query_run_any)
+        except PermissionDenied:
+            pass
+        raise PermissionDenied(
+            "Not allowed to list apikey for {}".format(account))
+
 
 CMD_HELP = {
     'user': {
         'user_apikey_set': 'set a new apikey for account',
         'user_apikey_clear': 'remove apikey for account',
+        'user_apikey_list': 'list apikey labels for account',
     },
 }
 
@@ -138,15 +153,14 @@ class BofhdApiKeyCommands(BofhdCommandBase):
         # check araguments
         account = self._get_account(account_id)
         if not label:
-            raise CerebrumError("Invalid apikey label")
+            raise CerebrumError("Invalid label")
         if not value:
-            raise CerebrumError("Invalid apikey value")
+            raise CerebrumError("Invalid value")
 
         # check permissions
         self.ba.can_modify_apikey(operator.get_entity_id(), account=account)
 
         keys = ApiKeys(self.db)
-
         try:
             other_account_id, other_label = keys.map(value)
             # Not ideal, we leak information about a key being valid, but on
@@ -158,7 +172,6 @@ class BofhdApiKeyCommands(BofhdCommandBase):
             pass
 
         keys.set(account.entity_id, label, value)
-
         return {
             'account_id': account.entity_id,
             'account_name': account.account_name,
@@ -180,12 +193,12 @@ class BofhdApiKeyCommands(BofhdCommandBase):
     )
 
     def user_apikey_clear(self, operator, account_id, label):
-        """Add an API key to an account."""
+        """Remove an API key from an account."""
 
         # check araguments
         account = self._get_account(account_id)
         if not label:
-            raise CerebrumError("Invalid apikey label")
+            raise CerebrumError("Invalid label")
 
         # check permissions
         self.ba.can_modify_apikey(operator.get_entity_id(), account=account)
@@ -202,3 +215,31 @@ class BofhdApiKeyCommands(BofhdCommandBase):
             'account_name': account.account_name,
             'label': label,
         }
+
+    #
+    # user apikey_list_labels <account>
+    #
+    all_commands['user_apikey_list'] = Command(
+        ('user', 'apikey_list'),
+        AccountName(),
+        fs=FormatSuggestion(
+            "%-30s %s", ('label', format_time('updated_at'),),
+            hdr="%-30s %s" % ('Label', 'Updated at')
+        ),
+        perm_filter='can_list_apikey',
+    )
+
+    def user_apikey_list(self, operator, account_id):
+        """List API keys for an account."""
+        account = self._get_account(account_id)
+        self.ba.can_list_apikey(operator.get_entity_id(), account=account)
+        keys = ApiKeys(self.db)
+        return [
+            {
+                'account_id': row['account_id'],
+                'label': row['label'],
+                # TODO: Add support for naive and localized datetime objects in
+                # native_to_xmlrpc
+                'updated_at': datetime2mx(row['updated_at']),
+            }
+            for row in keys.search(account_id=account.entity_id)]
