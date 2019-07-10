@@ -29,6 +29,14 @@ category:metainfo;
 version=1.0;
 
 /**
+ * Table to map users to keys, and vice versa.
+ *
+ * Note: Any given account can only have *one* apikey value
+ *       Any apikey can only be added to one account.
+ *
+ * We should look into an alternative implementation where we salt and hash the
+ * value, and require a user-header as well as an api key from API requests.
+ *
  * account_id
  *   Account to map API key to
  * value
@@ -36,8 +44,9 @@ version=1.0;
 **/
 category:main;
 CREATE TABLE account_apikey (
-  account_id    NUMERIC(6,0)
-                REFERENCES account_info(account_id),
+  account_id    NUMERIC(12,0)
+                REFERENCES account_info(account_id)
+                UNIQUE,
   value         CHAR VARYING(128)
                 NOT NULL
                 UNIQUE,
