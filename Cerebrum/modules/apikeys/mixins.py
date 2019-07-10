@@ -32,6 +32,6 @@ class ApiKeyMixin(Account):
         """Delete any account apikeys."""
         # Delete any existing API key if account is deleted.
         keys = ApiKeys(self._db)
-        if keys.exists(self.entity_id):
-            keys.delete(self.entity_id)
+        for row in keys.search(account_id=self.entity_id):
+            keys.delete(row['account_id'], row['label'])
         super(ApiKeyMixin, self).delete()

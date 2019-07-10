@@ -31,14 +31,17 @@ class CLConstants(Cerebrum.Constants.CLConstants):
         'apikey',
         'apikey_add',
         'apikey added to account %(subject)s',
+        ('label=%(string:label)s',)
     )
     apikey_mod = Cerebrum.Constants._ChangeTypeCode(
         'apikey',
         'apikey_mod',
         'apikey updated on account %(subject)s',
+        ('label=%(string:label)s',)
     )
     apikey_del = Cerebrum.Constants._ChangeTypeCode(
         'apikey',
         'apikey_del',
         'apikey removed from account %(subject)s',
+        ('label=%(string:label)s',)
     )

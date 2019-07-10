@@ -43,11 +43,14 @@ from __future__ import unicode_literals
 
 import logging
 
+import six
+
+from Cerebrum import Errors
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
-from Cerebrum.modules.bofhd.cmd_param import (Command, SimpleString,
-                                              AccountName)
+from Cerebrum.modules.bofhd.cmd_param import (AccountName, Command,
+                                              FormatSuggestion, SimpleString,)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from .dbal import ApiKeys
@@ -89,6 +92,11 @@ CMD_HELP = {
 }
 
 CMD_ARGS = {
+    'account_apikey_label': [
+        'label',
+        'Enter label',
+        'A unique label to tag the API with.',
+    ],
     'account_apikey_value': [
         'value',
         'Enter api key',
@@ -110,25 +118,27 @@ class BofhdApiKeyCommands(BofhdCommandBase):
             get_help_strings())
 
     #
-    # user apikey_set <account> <value>
+    # user apikey_set <account> <label> <value>
     #
     all_commands['user_apikey_set'] = Command(
         ('user', 'apikey_set'),
         AccountName(),
+        SimpleString(help_ref='account_apikey_label'),
         SimpleString(help_ref='account_apikey_value'),
-        # fs=FormatSuggestion(
-        #     "Added contact info %s:%s '%s' to '%s' with id=%d",
-        #     ('source_system', 'contact_type', 'contact_value', 'entity_type',
-        #      'entity_id')
-        # ),
+        fs=FormatSuggestion(
+            "Updated apikey for account %s (%d) with label '%s'",
+            ('account_name', 'account_id', 'label')
+        ),
         perm_filter='can_modify_apikey',
     )
 
-    def user_apikey_set(self, operator, account_id, value):
+    def user_apikey_set(self, operator, account_id, label, value):
         """Add an API key to an account."""
 
-        # get entity object
+        # check araguments
         account = self._get_account(account_id)
+        if not label:
+            raise CerebrumError("Invalid apikey label")
         if not value:
             raise CerebrumError("Invalid apikey value")
 
@@ -136,37 +146,59 @@ class BofhdApiKeyCommands(BofhdCommandBase):
         self.ba.can_modify_apikey(operator.get_entity_id(), account=account)
 
         keys = ApiKeys(self.db)
-        keys.set(account.entity_id, value)
 
-        return True
+        try:
+            other_account_id, other_label = keys.map(value)
+            # Not ideal, we leak information about a key being valid, but on
+            # the other hand - the operator is already in posession of a valid
+            # key, it can be validated simply by querying the API...
+            if other_account_id != account.entity_id or other_label != label:
+                raise CerebrumError("Key already in use")
+        except Errors.NotFoundError:
+            pass
+
+        keys.set(account.entity_id, label, value)
+
+        return {
+            'account_id': account.entity_id,
+            'account_name': account.account_name,
+            'label': label,
+        }
 
     #
-    # user apikey_set <account> <value>
+    # user apikey_clear <account> <label>
     #
     all_commands['user_apikey_clear'] = Command(
         ('user', 'apikey_clear'),
         AccountName(),
-        # fs=FormatSuggestion(
-        #     "Added contact info %s:%s '%s' to '%s' with id=%d",
-        #     ('source_system', 'contact_type', 'contact_value', 'entity_type',
-        #      'entity_id')
-        # ),
+        SimpleString(help_ref='account_apikey_label'),
+        fs=FormatSuggestion(
+            "Cleared apikey for account %s (%d) with label '%s'",
+            ('account_name', 'account_id', 'label')
+        ),
         perm_filter='can_modify_apikey',
     )
 
-    def user_apikey_clear(self, operator, account_id):
+    def user_apikey_clear(self, operator, account_id, label):
         """Add an API key to an account."""
 
-        # get entity object
+        # check araguments
         account = self._get_account(account_id)
+        if not label:
+            raise CerebrumError("Invalid apikey label")
 
         # check permissions
         self.ba.can_modify_apikey(operator.get_entity_id(), account=account)
 
         keys = ApiKeys(self.db)
 
-        if not keys.exists(account.entity_id):
-            raise CerebrumError("No apikey set")
-        keys.delete(account.entity_id)
+        try:
+            keys.delete(account.entity_id, label)
+        except Errors.NotFoundError as e:
+            raise CerebrumError(six.text_type(e))
 
-        return True
+        return {
+            'account_id': account.entity_id,
+            'account_name': account.account_name,
+            'label': label,
+        }

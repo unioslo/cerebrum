@@ -31,7 +31,7 @@ version=1.0;
 /**
  * Table to map users to keys, and vice versa.
  *
- * Note: Any given account can only have *one* apikey value
+ * Note: Any given account can only have *one* apikey value per label
  *       Any apikey can only be added to one account.
  *
  * We should look into an alternative implementation where we salt and hash the
@@ -45,16 +45,21 @@ version=1.0;
 category:main;
 CREATE TABLE account_apikey (
   account_id    NUMERIC(12,0)
-                REFERENCES account_info(account_id)
-                UNIQUE,
+                REFERENCES account_info(account_id),
+  label         TEXT
+                NOT NULL,
   value         CHAR VARYING(128)
                 NOT NULL
                 UNIQUE,
   updated_at    TIMESTAMP
                 WITH TIME ZONE
                 NOT NULL
-                DEFAULT [:now]
+                DEFAULT [:now],
+  CONSTRAINT apikey_pk PRIMARY KEY (account_id, label)
 );
+
+category:main;
+CREATE INDEX account_apikey_value_idx ON account_apikey(value);
 
 /* function to create a trigger that sets updated_at */
 category:main;
@@ -78,6 +83,9 @@ DROP TRIGGER apikey_set_update_trigger ON account_apikey;
 
 category:drop;
 DROP FUNCTION apikey_set_update();
+
+category:drop;
+DROP INDEX IF EXISTS account_apikey_value_idx;
 
 category:drop;
 DROP TABLE account_apikey;
