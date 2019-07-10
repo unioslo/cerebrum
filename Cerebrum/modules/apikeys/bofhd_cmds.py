@@ -66,18 +66,9 @@ class BofhdApiKeyAuth(BofhdAuth):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            return True
+            return False
 
-        # TODO: Is this ok? We probably want:
-        # - operator == account
-        # - operator == owner of account
-        # - operator is member of group that owns account
-        # - Maybe implement separate auth const?
-        try:
-            return self.can_set_password(operator, account=account,
-                                         query_run_any=False)
-        except PermissionDenied:
-            pass
+        # TODO: Consider allowing owners to set this on accounts that they own
         raise PermissionDenied(
             "Not allowed to modify apikey for {}".format(account))
 
@@ -91,7 +82,7 @@ class BofhdApiKeyAuth(BofhdAuth):
         except PermissionDenied:
             pass
         raise PermissionDenied(
-            "Not allowed to list apikey for {}".format(account))
+            "Not allowed to list apikeys for {}".format(account))
 
 
 CMD_HELP = {
