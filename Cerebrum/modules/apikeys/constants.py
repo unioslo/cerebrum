@@ -26,7 +26,6 @@ import Cerebrum.Constants
 
 class CLConstants(Cerebrum.Constants.CLConstants):
 
-    # email target
     apikey_add = Cerebrum.Constants._ChangeTypeCode(
         'apikey',
         'apikey_add',

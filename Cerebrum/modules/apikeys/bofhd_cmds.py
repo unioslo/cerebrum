@@ -41,8 +41,6 @@ This module contains apikey module commands for bofhd.
 """
 from __future__ import unicode_literals
 
-import logging
-
 import six
 
 from Cerebrum import Errors
@@ -57,11 +55,9 @@ from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.utils.date import datetime2mx
 from .dbal import ApiKeys
 
-logger = logging.getLogger(__name__)
-
 
 class BofhdApiKeyAuth(BofhdAuth):
-    """ Auth for entity contactinfo_* commands. """
+    """Auth for user_apikey_* commands."""
 
     def can_modify_apikey(self, operator, account=None, query_run_any=False):
         """
@@ -149,7 +145,6 @@ class BofhdApiKeyCommands(BofhdCommandBase):
 
     def user_apikey_set(self, operator, account_id, label, value):
         """Add an API key to an account."""
-
         # check araguments
         account = self._get_account(account_id)
         if not label:
@@ -194,7 +189,6 @@ class BofhdApiKeyCommands(BofhdCommandBase):
 
     def user_apikey_clear(self, operator, account_id, label):
         """Remove an API key from an account."""
-
         # check araguments
         account = self._get_account(account_id)
         if not label:
@@ -204,7 +198,6 @@ class BofhdApiKeyCommands(BofhdCommandBase):
         self.ba.can_modify_apikey(operator.get_entity_id(), account=account)
 
         keys = ApiKeys(self.db)
-
         try:
             keys.delete(account.entity_id, label)
         except Errors.NotFoundError as e:
