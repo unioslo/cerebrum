@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,17 +21,22 @@
 """ Authentication context for a flask app."""
 from __future__ import unicode_literals
 
+import logging
 import sys
-from flask import request, g
-from werkzeug.exceptions import Unauthorized as _Unauthorized
-from werkzeug.exceptions import Forbidden
 from functools import wraps
+
+from flask import request, g
 from mx import DateTime
 from six import python_2_unicode_compatible
+from werkzeug.exceptions import Forbidden
+from werkzeug.exceptions import Unauthorized as _Unauthorized
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.apikeys.dbal import ApiKeys
 from Cerebrum.utils.descriptors import lazy_property
+
+logger = logging.getLogger(__name__)
 
 
 class AuthContext(object):
@@ -192,6 +197,8 @@ class Authentication(object):
             return False
         if account.expire_date and account.expire_date < DateTime.now():
             return False
+        # TODO: Check quarantined?
+        # TODO: Should we be able to whitelist certain quarantines
         return True
 
     def authenticate(self, *auth_args, **auth_kwargs):
@@ -233,9 +240,6 @@ class Authentication(object):
                     # Not authenticated
                     raise self.ctx.module.error
 
-                # TODO: Check quarantined?
-                # TODO: Should we be able to whitelist certain quarantines
-
                 # done
                 self.logger.info(
                     "Successful auth with {}".format(self.ctx.module))
@@ -243,7 +247,7 @@ class Authentication(object):
                 self.db.set_change_by(self.account.entity_id)
                 return
 
-    def require(auth_obj, *auth_args, **auth_kw):
+    def require(auth_obj, *auth_args, **auth_kw):  # noqa: N805
         """Wrap flask routes to require authentication.
 
         When called, authenticate will be called with the given arguments, and:
@@ -574,3 +578,59 @@ class HeaderAuth(AuthModule):
         message = "Invalid API key in header"
         data = {'api-key-header': self.header, }
         return build_error(Forbidden, message, **data)
+
+
+class ApiKeyAuth(HeaderAuth):
+    """
+    Pass authentication if header contains a whitelisted api key.
+
+    Api key whitelist is implemented by Cerebrum.modules.apikeys.
+
+    Configuration:
+
+        {
+            'name': 'ApiKeyAuth',
+            'header': 'X-Auth-Key',  # default value, optional
+        }
+    """
+
+    def __init__(self, **kwargs):
+        """
+        Set up API key authentication.
+
+        :param str header:
+            Which header to look for API keys in. Default is 'X-Auth-Key'.
+        """
+        if 'keys' in kwargs:
+            raise TypeError("__init__() got an unexpected keyword "
+                            "argument 'keys'")
+        super(ApiKeyAuth, self).__init__(**kwargs)
+
+    def _check_apikey(self, key):
+        """Map api key to username."""
+        if not key:
+            logger.debug('ApiKeyAuth got empty key value')
+            return None
+
+        keys = ApiKeys(self.db.connection)
+        account = Factory.get('Account')(self.db.connection)
+
+        try:
+            account_id, label = keys.map(key)
+            logger.debug('ApiKeyAuth got key for account_id=%r, label=%r',
+                         account_id, label)
+        except Errors.NotFoundError:
+            logger.debug('ApiKeyAuth got non-whitelisted key')
+            return None
+        except Exception as e:
+            logger.debug('ApiKeyAuth got invalid key: %s',
+                         str(e))
+            return None
+
+        account.find(account_id)
+        return account.account_name
+
+    def do_authenticate(self):
+        v = request.headers.get(self.header)
+        self.user = self._check_apikey(v)
+        return self.is_authenticated()
