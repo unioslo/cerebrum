@@ -1,15 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""
+Build an XML file with Cerebrum data for evalg 2.
 
-"""Lager XML fil med person-info for import i valg-applikasjonen.
-Henter informasjon om alle personer kjent i cerebrum, også de som ikke
-har brukere.
+This script generates an XML export with users for the evalg application.
+Every person in Cerebrum is included, regardless of whether they have user
+accounts or not.
 
-TODO: Usikkert om vi trenger å kjøre en egen versjon for UiT. Vurder
-å kombinere med versjonen alle andre kjører.
+TODO: Do we really need a separate version for UiT? The major differences are:
 
-Usage: fetch-valg_persons.py [options]
-  -v outfile.xml : write persons to xml file
+- Hard coded SYSTEM_LOOKUP_ORDER in script, different from the real uit
+  SYSTEM_LOOKUP_ORDER. System lookup order is used to select prioritized value
+  for attributes 'fnr', 'names'
+- Exports a 'bdate' attribute
+- Does not export an 'email' attribute
+
+
 """
 from __future__ import unicode_literals
 
