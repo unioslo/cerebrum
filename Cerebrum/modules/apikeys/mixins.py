@@ -20,10 +20,10 @@
 Mixins related to mod_apikeys.
 """
 from Cerebrum.Account import Account
-from .dbal import ApiKeys
+from .dbal import ApiMapping
 
 
-class ApiKeyMixin(Account):
+class ApiMappingAccountMixin(Account):
     """
     Account mixin class that provides api key cleanup.
     """
@@ -31,7 +31,7 @@ class ApiKeyMixin(Account):
     def delete(self):
         """Delete any account apikeys."""
         # Delete any existing API key if account is deleted.
-        keys = ApiKeys(self._db)
+        keys = ApiMapping(self._db)
         for row in keys.search(account_id=self.entity_id):
-            keys.delete(row['account_id'], row['label'])
-        super(ApiKeyMixin, self).delete()
+            keys.delete(row['identifier'])
+        super(ApiMappingAccountMixin, self).delete()

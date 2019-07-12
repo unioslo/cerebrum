@@ -41,8 +41,6 @@ This module contains apikey module commands for bofhd.
 """
 from __future__ import unicode_literals
 
-import six
-
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
@@ -53,13 +51,14 @@ from Cerebrum.modules.bofhd.cmd_param import (AccountName, Command,
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.utils.date import datetime2mx
-from .dbal import ApiKeys
+from .dbal import ApiMapping
 
 
 class BofhdApiKeyAuth(BofhdAuth):
-    """Auth for user_apikey_* commands."""
+    """Auth for api subscription commands."""
 
-    def can_modify_apikey(self, operator, account=None, query_run_any=False):
+    def can_modify_api_mapping(self, operator, account=None,
+                               query_run_any=False):
         """
         Check if an operator is allowed to set apikey on an account.
         """
@@ -69,45 +68,49 @@ class BofhdApiKeyAuth(BofhdAuth):
             return False
 
         # TODO: Consider allowing owners to set this on accounts that they own
-        raise PermissionDenied(
-            "Not allowed to modify apikey for {}".format(account))
+        raise PermissionDenied("Not allowed to modify api subscriptions "
+                               "for {}".format(account))
 
-    def can_list_apikey(self, operator, account=None, query_run_any=False):
+    def can_list_api_mapping(self, operator, account=None,
+                             query_run_any=False):
         """
         Check if an operator is allowed to list apikeys on an account.
         """
-        try:
-            return self.can_modify_apikey(operator, account=account,
-                                          query_run_any=query_run_any)
-        except PermissionDenied:
-            pass
-        raise PermissionDenied(
-            "Not allowed to list apikeys for {}".format(account))
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Not allowed to list api subscriptions")
 
 
-CMD_HELP = {
-    'user': {
-        'user_apikey_set': 'set a new apikey for account',
-        'user_apikey_clear': 'remove apikey for account',
-        'user_apikey_list': 'list apikey labels for account',
+HELP_GROUP = {
+    'api': 'Display and modify API settings',
+}
+
+HELP_CMD = {
+    'api': {
+        'api_subscription_set': 'set api subscription for account',
+        'api_subscription_clear': 'remove api subscription for account',
+        'api_subscription_list': 'list api subscriptions for account',
     },
 }
 
-CMD_ARGS = {
-    'account_apikey_label': [
-        'label',
-        'Enter label',
-        'A unique label to tag the API with.',
+HELP_ARGS = {
+    'api_client_identifier': [
+        'identifier'
+        'Enter client identifier',
+        'A client subscription identifier',
     ],
-    'account_apikey_value': [
-        'value',
-        'Enter api key',
-        'The API key to set for a given user.',
+    'api_client_description': [
+        'description',
+        'Enter description',
+        'A description of this client subscription',
     ],
 }
 
 
 class BofhdApiKeyCommands(BofhdCommandBase):
+    """API subscription commands."""
 
     all_commands = {}
     authz = BofhdApiKeyAuth
@@ -116,114 +119,120 @@ class BofhdApiKeyCommands(BofhdCommandBase):
     def get_help_strings(cls):
         """Get help strings."""
         return merge_help_strings(
-            ({}, CMD_HELP, CMD_ARGS),
+            (HELP_GROUP, HELP_CMD, HELP_ARGS),
             get_help_strings())
 
     #
-    # user apikey_set <account> <label> <value>
+    # api subscription_set <identifier> <account> [description]
     #
-    all_commands['user_apikey_set'] = Command(
-        ('user', 'apikey_set'),
+    all_commands['api_subscription_set'] = Command(
+        ('api', 'subscription_set'),
+        SimpleString(help_ref='api_client_identifier'),
         AccountName(),
-        SimpleString(help_ref='account_apikey_label'),
-        SimpleString(help_ref='account_apikey_value'),
+        SimpleString(help_ref='api_client_description', optional=True),
         fs=FormatSuggestion(
-            "Updated apikey for account %s (%d) with label '%s'",
-            ('account_name', 'account_id', 'label')
+            "Set subscription='%s' for account %s (%d)",
+            ('identifier', 'account_name', 'account_id')
         ),
-        perm_filter='can_modify_apikey',
+        perm_filter='can_modify_api_mapping',
     )
 
-    def user_apikey_set(self, operator, account_id, label, value):
-        """Add an API key to an account."""
+    def api_subscription_set(self, operator, identifier, account_id,
+                             description=None):
+        """Set api client identifier to user mapping"""
         # check araguments
+        if not identifier:
+            raise CerebrumError("Invalid identifier")
         account = self._get_account(account_id)
-        if not label:
-            raise CerebrumError("Invalid label")
-        if not value:
-            raise CerebrumError("Invalid value")
 
         # check permissions
-        self.ba.can_modify_apikey(operator.get_entity_id(), account=account)
+        self.ba.can_modify_api_mapping(operator.get_entity_id(),
+                                       account=account)
 
-        keys = ApiKeys(self.db)
+        keys = ApiMapping(self.db)
         try:
-            other_account_id, other_label = keys.map(value)
-            # Not ideal, we leak information about a key being valid, but on
-            # the other hand - the operator is already in posession of a valid
-            # key, it can be validated simply by querying the API...
-            if other_account_id != account.entity_id or other_label != label:
-                raise CerebrumError("Key already in use")
+            row = keys.get(identifier)
+            if row['account_id'] != account.entity_id:
+                raise CerebrumError("Identifier already assigned")
         except Errors.NotFoundError:
             pass
 
-        keys.set(account.entity_id, label, value)
+        keys.set(identifier, account.entity_id, description)
         return {
+            'identifier': identifier,
             'account_id': account.entity_id,
             'account_name': account.account_name,
-            'label': label,
+            'description': description,
         }
 
     #
-    # user apikey_clear <account> <label>
+    # api subscription_clear <identifier>
     #
-    all_commands['user_apikey_clear'] = Command(
-        ('user', 'apikey_clear'),
+    all_commands['api_subscription_clear'] = Command(
+        ('api', 'subscription_clear'),
         AccountName(),
-        SimpleString(help_ref='account_apikey_label'),
+        SimpleString(help_ref='api_client_identifier'),
         fs=FormatSuggestion(
-            "Cleared apikey for account %s (%d) with label '%s'",
-            ('account_name', 'account_id', 'label')
+            "Cleared subscription='%s' from account %s (%d)",
+            ('identifier', 'account_name', 'account_id')
         ),
-        perm_filter='can_modify_apikey',
+        perm_filter='can_modify_api_mapping',
     )
 
-    def user_apikey_clear(self, operator, account_id, label):
-        """Remove an API key from an account."""
-        # check araguments
-        account = self._get_account(account_id)
-        if not label:
-            raise CerebrumError("Invalid label")
+    def api_subscription_clear(self, operator, identifier):
+        """Remove mapping for a given api client identifier"""
+        if not identifier:
+            raise CerebrumError("Invalid identifier")
+
+        keys = ApiMapping(self.db)
+        mapping = keys.get(identifier)
 
         # check permissions
-        self.ba.can_modify_apikey(operator.get_entity_id(), account=account)
+        account = self.Account_class(self.db)
+        account.find(mapping['account_id'])
+        self.ba.can_modify_api_mapping(operator.get_entity_id(),
+                                       account=account)
 
-        keys = ApiKeys(self.db)
-        try:
-            keys.delete(account.entity_id, label)
-        except Errors.NotFoundError as e:
-            raise CerebrumError(six.text_type(e))
-
+        if not mapping:
+            raise CerebrumError('No identifier=%r for account %s (%d)' %
+                                (identifier, account.account_name,
+                                 account.entity_id))
+        keys.delete(identifier)
         return {
+            'identifier': mapping['identifier'],
             'account_id': account.entity_id,
             'account_name': account.account_name,
-            'label': label,
+            'description': mapping['description'],
         }
 
     #
-    # user apikey_list_labels <account>
+    # api subscription_list <account>
     #
-    all_commands['user_apikey_list'] = Command(
-        ('user', 'apikey_list'),
+    all_commands['api_subscription_list'] = Command(
+        ('api', 'subscription_list'),
         AccountName(),
         fs=FormatSuggestion(
-            "%-30s %s", ('label', format_time('updated_at'),),
-            hdr="%-30s %s" % ('Label', 'Updated at')
+            "%-36s %-16s %s",
+            ('identifier', format_time('updated_at'), 'description'),
+            hdr="%-36s %-16s %s" % ('Identifier', 'Last update', 'Description')
         ),
-        perm_filter='can_list_apikey',
+        perm_filter='can_list_api_mapping',
     )
 
-    def user_apikey_list(self, operator, account_id):
-        """List API keys for an account."""
+    def api_subscription_list(self, operator, account_id):
+        """List api client mappings for a given user."""
         account = self._get_account(account_id)
-        self.ba.can_list_apikey(operator.get_entity_id(), account=account)
-        keys = ApiKeys(self.db)
+        self.ba.can_list_api_mapping(operator.get_entity_id(), account=account)
+        keys = ApiMapping(self.db)
+
         return [
             {
                 'account_id': row['account_id'],
-                'label': row['label'],
+                'identifier': row['identifier'],
                 # TODO: Add support for naive and localized datetime objects in
                 # native_to_xmlrpc
                 'updated_at': datetime2mx(row['updated_at']),
+                'description': row['description'],
             }
-            for row in keys.search(account_id=account.entity_id)]
+            for row in keys.search(account_id=account.entity_id)
+        ]

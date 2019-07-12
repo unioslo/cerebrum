@@ -32,8 +32,8 @@ from werkzeug.exceptions import Forbidden
 from werkzeug.exceptions import Unauthorized as _Unauthorized
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.apikeys.dbal import ApiKeys
+from Cerebrum.Utils import Factory, read_password
+from Cerebrum.modules.apikeys.dbal import ApiMapping
 from Cerebrum.utils.descriptors import lazy_property
 
 logger = logging.getLogger(__name__)
@@ -66,14 +66,21 @@ class AuthContext(object):
 
     OP_CLS = Factory.get(b'Account')
 
+    def __init__(self, name):
+        self.name = name
+
+    @property
+    def attr(self):
+        return '_auth_ctx_{}'.format(self.name)
+
     def __get__(self, obj, cls=None):
-        if getattr(g, '_auth_ctx', None) is None:
-            setattr(g, '_auth_ctx', AuthContext())
-        return getattr(g, '_auth_ctx')
+        if getattr(g, self.attr, None) is None:
+            setattr(g, self.attr, AuthContext(self.name))
+        return getattr(g, self.attr)
 
     def __delete__(self, obj):
-        if hasattr(g, '_auth_ctx'):
-            delattr(g, '_auth_ctx')
+        if hasattr(g, self.attr):
+            delattr(g, self.attr)
 
     @property
     def module(self):
@@ -145,7 +152,7 @@ class Unauthorized(_Unauthorized):
 class Authentication(object):
     """ Authentication middleware. """
 
-    ctx = AuthContext()
+    ctx = AuthContext('Authentication')
 
     def __init__(self):
         self._modules = list()
@@ -580,57 +587,168 @@ class HeaderAuth(AuthModule):
         return build_error(Forbidden, message, **data)
 
 
-class ApiKeyAuth(HeaderAuth):
+class ApiSubscriptionAuth(AuthModule):
     """
-    Pass authentication if header contains a whitelisted api key.
+    Pass authentication if header contains a whitelisted api identifier.
 
     Api key whitelist is implemented by Cerebrum.modules.apikeys.
 
     Configuration:
 
         {
-            'name': 'ApiKeyAuth',
-            'header': 'X-Auth-Key',  # default value, optional
+            'name': 'ApiSubscriptionAuth',
+            'header': 'X-Api-Subscription',
         }
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, header='X-Api-Subscription', **kwargs):
         """
         Set up API key authentication.
 
         :param str header:
             Which header to look for API keys in. Default is 'X-Auth-Key'.
         """
-        if 'keys' in kwargs:
-            raise TypeError("__init__() got an unexpected keyword "
-                            "argument 'keys'")
-        super(ApiKeyAuth, self).__init__(**kwargs)
+        super(ApiSubscriptionAuth, self).__init__(**kwargs)
+        self.header = header
 
-    def _check_apikey(self, key):
+    def detect(self):
+        """Detect if header is present."""
+        return self.header and self.header in request.headers
+
+    def _map_identifier(self, key):
         """Map api key to username."""
         if not key:
-            logger.debug('ApiKeyAuth got empty key value')
+            logger.debug('got empty subscription value')
             return None
 
-        keys = ApiKeys(self.db.connection)
+        keys = ApiMapping(self.db.connection)
         account = Factory.get('Account')(self.db.connection)
 
         try:
-            account_id, label = keys.map(key)
-            logger.debug('ApiKeyAuth got key for account_id=%r, label=%r',
-                         account_id, label)
+            mapping = keys.get(key)
+            logger.debug('got subscription for account_id=%r (%r)',
+                         mapping['account_id'], key)
         except Errors.NotFoundError:
-            logger.debug('ApiKeyAuth got non-whitelisted key')
+            logger.debug('got non-whitelisted subscription %r', key)
             return None
         except Exception as e:
-            logger.debug('ApiKeyAuth got invalid key: %s',
-                         str(e))
+            logger.debug('got invalid subscription %r: %s',
+                         key, str(e))
             return None
 
-        account.find(account_id)
+        account.find(mapping['account_id'])
         return account.account_name
 
     def do_authenticate(self):
         v = request.headers.get(self.header)
-        self.user = self._check_apikey(v)
+        self.user = self._map_identifier(v)
         return self.is_authenticated()
+
+    @property
+    def challenge(self):
+        """ 401 error. """
+        message = "Missing API subscription identifier header"
+        data = {'api-id-header': self.header, }
+        return build_error(Forbidden, message, **data)
+
+    @property
+    def error(self):
+        """ 403 error. """
+        message = "Invalid API subscription identifier"
+        data = {'api-id-header': self.header, }
+        return build_error(Forbidden, message, **data)
+
+
+class BasicProxyAuth(BasicAuth):
+    """
+    HTTP Basic Auth method with hard-coded username and password.
+
+    This auth module should only be used for debugging, or for authenticating a
+    proxy using :py:class:`ProxyAuth`.
+    """
+
+    def __init__(self, username=None, password=None, **kwargs):
+        kwargs['whitelist'] = [username]
+        super(BasicProxyAuth, self).__init__(**kwargs)
+        self.username = username
+        self.password = password
+
+    def check(self, username, password):
+        """Verify username and password."""
+        return (
+            self.username and self.username == username and
+            self.password and self.password == password)
+
+
+class ProxyAuth(object):
+    """
+    Authentication middleware for proxies.
+
+    This authentication method should be used *in addition* to the regular
+    :py:class:`Authentication` middleware. It should be used to authenticate a
+    proxy before trusting headers provided by it.
+
+    Configuration:
+
+        PROXY_AUTH = {
+            'enable': True,
+            'username': 'gateway',
+            'realm': 'proxy',
+        }
+    """
+
+    ctx = AuthContext('ProxyAuth')
+
+    def init_app(self, app, db_ctx):
+        self.app = app
+        self.db = db_ctx
+
+        config = app.config.setdefault('PROXY_AUTH', {})
+        enable = config.setdefault('enable', False)
+        self._require_username = config.setdefault('username', 'gateway')
+        self._require_password = None
+        self._realm = config.setdefault('realm', 'proxy')
+
+        if enable:
+            self._require_password = read_password(self._require_username,
+                                                   self._realm)
+            app.before_request(self.authenticate)
+            app.teardown_appcontext(self.clear)
+
+    def authenticate(self, *auth_args, **auth_kwargs):
+        """
+        Authenticate proxy
+        """
+        self.ctx.module = BasicProxyAuth(
+            app=self.app,
+            db=self.db,
+            username=self._require_username,
+            password=self._require_password,
+            realm=self._realm)
+        if self.ctx.module.detect():
+            logger.debug("Attempting proxy auth with %s", str(self.ctx.module))
+            if not self.ctx.module.do_authenticate():
+                # This should never happen (invalid proxy configuration)
+                logger.error("Failed proxy auth with %s", str(self.ctx.module))
+                raise self.ctx.module.error
+            logger.info("Successful proxy auth with %s", str(self.ctx.module))
+            return
+        else:
+            # This should never happen (invalid proxy configuration)
+            logger.error("Missing proxy auth for %s", str(self.ctx.module))
+            raise self.ctx.module.challenge
+
+    @property
+    def authenticated(self):
+        """Check if the current request has been authenticated."""
+        return self.ctx.authenticated
+
+    @lazy_property
+    def username(self):
+        """Get the currently authenticated user."""
+        return self.ctx.username
+
+    def clear(self, exception):
+        """ clear auth data. """
+        del self.ctx
+        del self.username

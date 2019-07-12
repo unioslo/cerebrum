@@ -31,75 +31,73 @@ from .constants import CLConstants
 logger = logging.getLogger(__name__)
 
 
-class ApiKeys(DatabaseAccessor):
+class ApiMapping(DatabaseAccessor):
 
-    def __insert(self, account_id, label, value):
+    def __insert(self, identifier, account_id, description):
         """
         Insert a new row in the apikey table.
         """
         binds = {
+            'identifier': six.text_type(identifier),
             'account_id': int(account_id),
-            'label': six.text_type(label),
-            'value': six.text_type(value),
+            'description': six.text_type(description) if description else None,
         }
         stmt = """
-          INSERT INTO [:table schema=cerebrum name=account_apikey]
-            (account_id, label, value)
+          INSERT INTO [:table schema=cerebrum name=apikey_client_map]
+            (identifier, account_id, description)
           VALUES
-            (:account_id, :label, :value)
+            (:identifier, :account_id, :description)
         """
-        logger.debug('inserting apikey for account_id=%r, label=%r',
-                     account_id, label)
+        logger.debug('inserting apikey for account_id=%r, identifier=%r',
+                     account_id, identifier)
         self.execute(stmt, binds)
         self._db.log_change(int(account_id), CLConstants.apikey_add, None,
-                            change_params={'label': six.text_type(label)})
+                            change_params={'identifier':
+                                           six.text_type(identifier)})
 
-    def __update(self, account_id, label, value):
+    def __update(self, identifier, account_id, description):
         """
         Update a row in the apikey table.
         """
         binds = {
+            'identifier': six.text_type(identifier),
             'account_id': int(account_id),
-            'label': six.text_type(label),
-            'value': six.text_type(value),
+            'description': six.text_type(description) if description else None,
         }
         stmt = """
-          UPDATE [:table schema=cerebrum name=account_apikey]
-          SET value = :value
+          UPDATE [:table schema=cerebrum name=apikey_client_map]
+          SET description = :description,
+              account_id = :account_id
           WHERE
-            account_id = :account_id AND
-            label = :label
+            identifier = :identifier
         """
-        logger.debug('updating apikey for account_id=%r, label=%r',
-                     account_id, label)
+        logger.debug('updating apikey for account_id=%r, identifier=%r',
+                     account_id, identifier)
         self.execute(stmt, binds)
         self._db.log_change(int(account_id), CLConstants.apikey_mod, None,
-                            change_params={'label': six.text_type(label)})
+                            change_params={'identifier':
+                                           six.text_type(identifier)})
 
-    def exists(self, account_id, label):
+    def exists(self, identifier):
         """
         Check if there exists an apikey for a given account.
         """
-        if not account_id:
-            raise ValueError("missing account_id")
-        if not label:
-            raise ValueError("missing label")
+        if not identifier:
+            raise ValueError("missing identifier")
         binds = {
-            'account_id': int(account_id),
-            'label': six.text_type(label),
+            'identifier': six.text_type(identifier),
         }
         stmt = """
           SELECT EXISTS (
             SELECT 1
-            FROM [:table schema=cerebrum name=account_apikey]
+            FROM [:table schema=cerebrum name=apikey_client_map]
             WHERE
-              account_id = :account_id AND
-              label = :label
+              identifier = :identifier
           )
         """
         return self.query_1(stmt, binds)
 
-    def get(self, account_id, label):
+    def get(self, identifier):
         """
         Get apikey value for a given account.
 
@@ -108,83 +106,64 @@ class ApiKeys(DatabaseAccessor):
         :raises ValueError: if no account_id is given
         :raises Cerebrum.Errors.NotFoundError: if no apikey exists
         """
-        if not account_id:
-            raise ValueError("missing account_id")
-        if not label:
-            raise ValueError("missing label")
+        if not identifier:
+            raise ValueError("missing identifier")
         binds = {
-            'account_id': int(account_id),
-            'label': six.text_type(label),
+            'identifier': six.text_type(identifier),
+        }
+        binds = {
+            'identifier': six.text_type(identifier),
         }
         stmt = """
-          SELECT value
-          FROM [:table schema=cerebrum name=account_apikey]
+          SELECT *
+          FROM [:table schema=cerebrum name=apikey_client_map]
           WHERE
-            account_id = :account_id AND
-            label = :label
+            identifier = :identifier
         """
         return self.query_1(stmt, binds)
 
-    def set(self, account_id, label, value):
+    def set(self, identifier, account_id, description=None):
         try:
-            old_value = self.get(account_id, label)
+            old_values = self.get(identifier)
             is_new = False
         except Errors.NotFoundError:
-            old_value = None
+            old_values = {}
             is_new = True
 
-        if not is_new and old_value == value:
+        if old_values.get('account_id', account_id) != account_id:
+            raise ValueError(
+                'Identifier=%r is already assigned to account_id=%r' %
+                (identifier, account_id))
+
+        if not is_new and old_values.get('description') == description:
+            # Nothing to update
             return
 
         if is_new:
-            self.__insert(account_id, label, value)
+            self.__insert(identifier, account_id, description)
         else:
-            self.__update(account_id, label, value)
+            self.__update(identifier, account_id, description)
 
-    def delete(self, account_id, label):
+    def delete(self, identifier):
         """
         Delete apikey value for a given account.
         """
-        if not account_id:
-            raise ValueError("missing account_id")
-        if not label:
-            raise ValueError("missing label")
-        if not self.exists(account_id, label):
-            raise Errors.NotFoundError(
-                'No apikey for account_id=%r with label=%r' %
-                (account_id, label))
-        binds = {
-            'account_id': int(account_id),
-            'label': six.text_type(label),
-        }
+        data = self.get(identifier)
+        identifier = data['identifier']
+        account_id = data['account_id']
+        binds = {'identifier': identifier}
         stmt = """
-          DELETE FROM [:table schema=cerebrum name=account_apikey]
+          DELETE FROM [:table schema=cerebrum name=apikey_client_map]
           WHERE
-            account_id = :account_id AND
-            label = :label
+            identifier = :identifier
         """
-        logger.debug('deleting apikey for account_id=%r', account_id)
+        logger.debug('deleting apikey for account_id=%r, identifier=%r',
+                     account_id, identifier)
         self.execute(stmt, binds)
-        self._db.log_change(int(account_id), CLConstants.apikey_del, None,
-                            change_params={'label': six.text_type(label)})
+        self._db.log_change(account_id, CLConstants.apikey_del, None,
+                            change_params={'identifier': identifier})
 
-    def map(self, value):
-        """
-        Get account_id for a given apikey.
-        """
-        if not value:
-            raise ValueError("missing value")
-        binds = {
-            'value': six.text_type(value),
-        }
-        stmt = """
-          SELECT account_id, label
-          FROM [:table schema=cerebrum name=account_apikey]
-          WHERE value = :value
-        """
-        return self.query_1(stmt, binds)
-
-    def search(self, account_id=None, label=None, value=None):
+    def search(self, identifier=None, account_id=None, description=None):
         """
         Get apikey value for a given account.
 
@@ -198,16 +177,18 @@ class ApiKeys(DatabaseAccessor):
         if account_id is not None:
             filters.append(
                 argument_to_sql(account_id, 'account_id', binds, int))
-        if label is not None:
+        if identifier is not None:
             filters.append(
-                argument_to_sql(label, 'label', binds, six.text_type))
-        if value is not None:
-            filters.append(
-                argument_to_sql(value, 'value', binds, six.text_type))
+                argument_to_sql(identifier, 'identifier', binds,
+                                six.text_type))
+        if description is not None:
+            pass
+            # TODO: Implement LIKE matching
 
         stmt = """
           SELECT *
-          FROM [:table schema=cerebrum name=account_apikey]
+          FROM [:table schema=cerebrum name=apikey_client_map]
           {where}
+          ORDER BY updated_at
         """.format(where=('WHERE ' + ' AND '.join(filters)) if filters else '')
         return self.query(stmt, binds)

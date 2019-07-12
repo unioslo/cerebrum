@@ -19,8 +19,9 @@
  *
  * Tables used by Cerebrum.modules.apikeys
  *
- * This module stores API keys from an API gateway in a whitelist table, and
- * maps API-keys to user accounts.
+ * This module stores API client identifiers from an API gateway, along with a
+ * hash of the api keys. The idea is to whitelist client keys without storing
+ * the keys in plaintext.
  */
 category:metainfo;
 name=apikeys;
@@ -29,37 +30,32 @@ category:metainfo;
 version=1.0;
 
 /**
- * Table to map users to keys, and vice versa.
+ * Table to map api clients to user accounts.
  *
- * Note: Any given account can only have *one* apikey value per label
- *       Any apikey can only be added to one account.
- *
- * We should look into an alternative implementation where we salt and hash the
- * value, and require a user-header as well as an api key from API requests.
- *
+ * identifier
+ *   A unique client identifier to whitelist.
  * account_id
- *   Account to map API key to
- * value
- *   The API key value
+ *   Account to map API key to.
+ * updated_at
+ *   Timestamp of the last change to the record. This value should never be
+ *   set explicitly, but maintained by default value or trigger.
+ * description
+ *   An optional description of this client/key.
 **/
 category:main;
-CREATE TABLE account_apikey (
-  account_id    NUMERIC(12,0)
-                REFERENCES account_info(account_id),
-  label         TEXT
+CREATE TABLE apikey_client_map (
+  identifier    CHAR VARYING(256)
                 NOT NULL,
-  value         CHAR VARYING(128)
+  account_id    NUMERIC(12,0)
                 NOT NULL
-                UNIQUE,
+                REFERENCES account_info(account_id),
   updated_at    TIMESTAMP
                 WITH TIME ZONE
                 NOT NULL
                 DEFAULT [:now],
-  CONSTRAINT apikey_pk PRIMARY KEY (account_id, label)
+  description   TEXT,
+  CONSTRAINT apikey_client_map_pk PRIMARY KEY (identifier)
 );
-
-category:main;
-CREATE INDEX account_apikey_value_idx ON account_apikey(value);
 
 /* function to create a trigger that sets updated_at */
 category:main;
@@ -71,21 +67,18 @@ RETURNS TRIGGER AS '
   END;
 ' LANGUAGE plpgsql;
 
-/* Add trigger to automatically set account_apikey.updated_at */
+/* Add trigger to automatically set apikey_client_map.updated_at */
 category:main;
 CREATE TRIGGER apikey_set_update_trigger
-    BEFORE UPDATE ON account_apikey
+    BEFORE UPDATE ON apikey_client_map
     FOR EACH ROW
     EXECUTE PROCEDURE apikey_set_update();
 
 category:drop;
-DROP TRIGGER apikey_set_update_trigger ON account_apikey;
+DROP TRIGGER apikey_set_update_trigger ON apikey_client_map;
 
 category:drop;
 DROP FUNCTION apikey_set_update();
 
 category:drop;
-DROP INDEX IF EXISTS account_apikey_value_idx;
-
-category:drop;
-DROP TABLE account_apikey;
+DROP TABLE apikey_client_map;

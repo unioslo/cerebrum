@@ -17,7 +17,15 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Module to store API keys in Cerebrum.
+Module to store api client whitelist in Cerebrum.
+
+This module provides storage for api client identifiers in Cerebrum, along with
+user account mappings.
+
+An api gateway should authenticate client requests and and add a
+subscription/client identifier to the forwarded request. This module should
+then provide a whitelist of client identifiers.  Each identifier should also
+map to exactly one user account for that client.
 """
 
 __version__ = '1.0'
