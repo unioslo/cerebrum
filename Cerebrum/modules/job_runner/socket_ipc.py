@@ -311,13 +311,18 @@ class SocketProtocol(object):
 
 class SocketServer(object):
 
-    def __init__(self):
+    default_socket = getattr(cereconf, 'JOB_RUNNER_SOCKET', None)
+
+    def __init__(self, jr_socket=None):
         self._is_listening = False
         signal.signal(signal.SIGALRM, signal_timeout)
+        self.socket_path = jr_socket or self.default_socket
 
     def start_listener(self, job_runner):
+        if not self.socket_path:
+            raise RuntimeError("No socket_path set")
         self.socket = socket.socket(socket.AF_UNIX)
-        self.socket.bind(cereconf.JOB_RUNNER_SOCKET)
+        self.socket.bind(self.socket_path)
         self.socket.listen(1)
         self._is_listening = True
         while True:
@@ -334,12 +339,12 @@ class SocketServer(object):
 
     def ping_server(self):
         try:
-            os.stat(cereconf.JOB_RUNNER_SOCKET)
+            os.stat(self.socket_path)
             if self.send_cmd("PING") == 'PONG':
                 return True
         except socket.error:   # No server seems to be running
             print "WARNING: Removing stale socket"
-            os.unlink(cereconf.JOB_RUNNER_SOCKET)
+            os.unlink(self.socket_path)
             pass
         except OSError:        # File didn't exist
             pass
@@ -349,7 +354,7 @@ class SocketServer(object):
         if not self._is_listening:
             return
         try:
-            os.unlink(cereconf.JOB_RUNNER_SOCKET)
+            os.unlink(self.socket_path)
         except OSError:
             pass
 
@@ -362,7 +367,7 @@ class SocketServer(object):
 
         Raises SocketTimeout if no response has come in timeout seconds.
         """
-        jr_socket = jr_socket or cereconf.JOB_RUNNER_SOCKET
+        jr_socket = jr_socket or cls.default_socket
         args = args or []
         signal.signal(signal.SIGALRM, signal_timeout)
         signal.alarm(timeout)
