@@ -39,6 +39,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.Email import EmailTarget, EmailForward
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
+from Cerebrum.modules.fs.import_from_FS import AtomicStreamRecoder
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.utils.funcwrap import memoize
 
@@ -54,7 +55,7 @@ def wash_sitosted(name):
 
 class AdExport(object):
 
-    def __init__(self, empfile, userfile, db, acctlist):
+    def __init__(self, userfile, db):
         self.userfile = userfile
         self.db = db
         self.co = Factory.get('Constants')(self.db)
@@ -65,11 +66,7 @@ class AdExport(object):
         self.et = EmailTarget(self.db)
         self.aff_to_stilling_map = dict()
         self.num2const = dict()
-
-        #
-        self.load_cbdata(empfile)
-        self.userexport = self.build_cbdata()
-        self.build_xml(self.userexport, acctlist)
+        self.userexport = []
 
     def load_cbdata(self, empfile):
 
@@ -331,9 +328,9 @@ class AdExport(object):
             entry['emails'] = emails
             entry['forward'] = forward
             userexport.append(entry)
-        return userexport
+        self.userexport = userexport
 
-    def build_xml(self, userexport, acctlist=None):
+    def build_xml(self, acctlist=None):
 
         incrmax = 20
         if acctlist is not None and len(acctlist) > incrmax:
@@ -345,22 +342,24 @@ class AdExport(object):
         validate_guests = re.compile('^gjest[0-9]{2}$')
         validate_sito = re.compile('^[a-z][a-z][a-z][0-9][0-9][0-9]%s$' % (
             cereconf.USERNAME_POSTFIX['sito']))
-        fh = open(self.userfile, 'w')
-        xml = xmlprinter(fh, indent_level=2, data_mode=True,
+        stream = AtomicStreamRecoder(self.userfile,
+                                     mode=str('w'),
+                                     encoding='ISO-8859-1')
+        xml = xmlprinter(stream, indent_level=2, data_mode=True,
                          input_encoding='ISO-8859-1')
         xml.startDocument(encoding='utf-8')
         xml.startElement('data')
         xml.startElement('properties')
         xml.dataElement('tstamp', str(mx.DateTime.now()))
         if acctlist:
-            type = "incr"
+            export_type = "incr"
         else:
-            type = "fullsync"
-        xml.dataElement('type', type)
+            export_type = "fullsync"
+        xml.dataElement('type', export_type)
         xml.endElement('properties')
 
         xml.startElement('users')
-        for item in userexport:
+        for item in self.userexport:
             if (acctlist is not None) and (item['name'] not in acctlist):
                 continue
             if (not (validate.match(item['name']) or
@@ -497,6 +496,7 @@ class AdExport(object):
         xml.endElement('users')
         xml.endElement('data')
         xml.endDocument()
+        stream.close()
 
     def scan_person_affs(self, person):
 
@@ -748,7 +748,11 @@ def main(inargs=None):
 
     start = datetime.datetime.now()
     db = Factory.get('Database')()
-    AdExport(args.infile, args.outfile, db, acctlist)
+
+    export = AdExport(args.outfile, db)
+    export.load_cbdata(args.infile)
+    export.build_cbdata()
+    export.build_xml(acctlist)
 
     stop = datetime.datetime.now()
     logger.debug("Started at=%s, ended at=%s",
