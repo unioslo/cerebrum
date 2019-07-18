@@ -50,6 +50,7 @@ import six
 from lxml import etree
 
 from Cerebrum.Utils import unicode2str
+from Cerebrum.modules.ad2 import ADUtils
 
 logger = logging.getLogger(__name__)
 
@@ -1894,6 +1895,16 @@ class PowershellClient(WinRMClient):
         # -NoProfile        Loading profile is not needed, at least for now. It
         #                   will probably only increase the startup time if not
         #                   set.
+
+        # Due to the command prompt string limitation, commands can not be
+        # longer than 8191 characters. We limit ourselves to 8000 for some
+        # extra breathing room.
+        # See https://support.microsoft.com/en-gb/help/830473/command-prompt-cmd-exe-command-line-string-limitation for more information
+        # for more information
+        #
+        if len(command) > 8000:
+            raise ADUtils.CommandTooLongException('Too long command')
+
         return super(PowershellClient, self).execute(
             self.exec_path,
             u'-NonInteractive -NoLogo -NoProfile -Command "%s"' % command,
