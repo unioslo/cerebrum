@@ -36,7 +36,9 @@ none of them end up in the dump file. I.e. only the employee-related records
 are output.
 
 [1] def: persons having affiliation STUDENT
+
 [2] def: persons having an employment record (tilsetting)
+
 [3] def: employment records (tilsetting) that have a start date (dato_fra)
          in the past and end date (dato_til) either in the future or
          unknown. Furthermore, such employments (tilsetting) shall not have

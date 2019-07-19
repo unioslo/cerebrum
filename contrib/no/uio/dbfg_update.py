@@ -19,8 +19,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from __future__ import unicode_literals
-
 """
 This file performs group membership synchronization between several external
 databases and cerebrum.
@@ -95,6 +93,8 @@ information is written back to cerebrum:
 
 Each of the updates can be turned on/off from the command line.
 """
+
+from __future__ import unicode_literals
 
 import sys
 import string

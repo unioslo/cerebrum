@@ -51,7 +51,7 @@ Overall flow of execution looks like:
     - For each disk (or SKO) in our data structure:
       - Generate a table header
       - Loop over the accounts associated with the SKO or disk, and print
-        rows of information.
+      rows of information.
 
 """
 import argparse

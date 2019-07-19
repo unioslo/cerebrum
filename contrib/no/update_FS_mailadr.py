@@ -21,7 +21,7 @@
 
 """Script for updating FS with data from Cerebrum, e.g. mail addresses.
 
-Mail addresses are in FS registered in the database element::
+Mail addresses are in FS registered in the database element:
 
     fs.person.emailadresse
 
