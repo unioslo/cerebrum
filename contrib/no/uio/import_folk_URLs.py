@@ -18,9 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
-
 """Usage: import_folk_URLs.py [--max-change=<percentage> | --force]
 
 Maintain home pages in entity_contact_info for persons:
@@ -30,12 +27,16 @@ Options:
     --max-change=<percentage>   Max acceptable percentage for change
                                 in number of persons with a home page,
                                 unless the database has no home pages.
-    --force             Same as --max-change=100 --logger-name=console."""
+    --force             Same as --max-change=100 --logger-name=console.
+
+"""
 
 # The code wastes some time in order to use the standard API:
 # - populate_contact_info()+write_db() reads URLs for each person
 #   even though list_contact_info() already has read them all.
 # - Each person.find() does two SELECTs which the program does not need.
+
+from __future__ import unicode_literals
 
 import getopt
 import re

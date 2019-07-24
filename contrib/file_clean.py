@@ -11,22 +11,33 @@ options or in a config file.
 Options:
 
 --archive      : archive mode
+
 --delete       : delete mode
+
 --read-config  : read options from config file.
+
 --dryrun       : just report what script would do
+
 --name-pattern : The given pattern is the pattern of the file that
                  should be archived or deleted. Format is a python
                  regexp.
+
 --dirname      : the directory where to look for files matching
                  name-pattern.
+
 --filetype     : file type ('file' || 'dir')
+
 --archive-name : name of archive file
+
 --archive-age  : archive all files older than the given number of days.
                  If not given, archive all files that match
                  name-pattern.
+
 --no-delete    : Don't delete files that are archived
+
 --no-delete-tar: Don't delete the original files right after 'tar' compression
---min-age      : If given, delete files older than the given number of days. 
+
+--min-age      : If given, delete files older than the given number of days.
 
 If --read-config and --archive is given, try to read the following
 data-structure from config file:
