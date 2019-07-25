@@ -283,6 +283,11 @@ class AccountUtil(object):
             if c_id == 'add_spread':
                 try:
                     user.add_spread(dta)
+                    account_obj.set_spread_expire(
+                        spread=dta,
+                        expire_date=default_expire_date,
+                        entity_id=account_id)
+
                 except db.IntegrityError:
                     logger.warn('Could not add %s to %s', dta, account_id)
         for c_id, dta in changes:
@@ -442,6 +447,13 @@ class AccountUtil(object):
                     spread=us,
                     expire_date=set_expire_date,
                     entity_id=account_id)
+
+        # Temp hack to fix inconsistency in spread expire date
+        for us in user_spreads:
+            account_obj.set_spread_expire(
+                spread=us,
+                expire_date=default_expire_date,
+                entity_id=account_id)
 
         # quarantine scope='student_disk' should affect all users with
         # home on a student-disk, or that doesn't have a home at all
