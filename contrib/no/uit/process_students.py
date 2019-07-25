@@ -283,6 +283,11 @@ class AccountUtil(object):
             if c_id == 'add_spread':
                 try:
                     user.add_spread(dta)
+                    account_obj.set_spread_expire(
+                        spread=dta,
+                        expire_date=default_expire_date,
+                        entity_id=account_id)
+
                 except db.IntegrityError:
                     logger.warn('Could not add %s to %s', dta, account_id)
         for c_id, dta in changes:
