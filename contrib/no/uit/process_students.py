@@ -448,6 +448,13 @@ class AccountUtil(object):
                     expire_date=set_expire_date,
                     entity_id=account_id)
 
+        # Temp hack to fix inconsistency in spread expire date
+        for us in user_spreads:
+            account_obj.set_spread_expire(
+                spread=us,
+                expire_date=default_expire_date,
+                entity_id=account_id)
+
         # quarantine scope='student_disk' should affect all users with
         # home on a student-disk, or that doesn't have a home at all
         may_be_quarantined = False
