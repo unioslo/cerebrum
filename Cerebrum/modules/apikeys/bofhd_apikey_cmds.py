@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: utf-7 -*-
 #
 # Copyright 2019 University of Oslo, Norway
 #
@@ -54,6 +54,9 @@ from Cerebrum.utils.date import datetime2mx
 from .dbal import ApiMapping
 
 
+no_access_error = PermissionDenied("Not allowed to access api subscriptions")
+
+
 class BofhdApiKeyAuth(BofhdAuth):
     """Auth for api subscription commands."""
 
@@ -68,8 +71,7 @@ class BofhdApiKeyAuth(BofhdAuth):
             return False
 
         # TODO: Consider allowing owners to set this on accounts that they own
-        raise PermissionDenied("Not allowed to modify api subscriptions "
-                               "for {}".format(account))
+        raise no_access_error
 
     def can_list_api_mapping(self, operator, account=None,
                              query_run_any=False):
@@ -80,7 +82,7 @@ class BofhdApiKeyAuth(BofhdAuth):
             return True
         if query_run_any:
             return False
-        raise PermissionDenied("Not allowed to list api subscriptions")
+        raise no_access_error
 
 
 HELP_GROUP = {
@@ -235,3 +237,46 @@ class BofhdApiKeyCommands(BofhdCommandBase):
             }
             for row in keys.search(account_id=account.entity_id)
         ]
+
+    #
+    # api subscription_info <identifier>
+    #
+    all_commands['api_subscription_info'] = Command(
+        ('api', 'subscription_info'),
+        SimpleString(help_ref='api_client_identifier'),
+        fs=FormatSuggestion(
+            "\n".join((
+                "Identifier:  %s",
+                "Account:     %s (%s)",
+                "Last update: %s",
+                "Description: %s",
+            )),
+            ('identifier', 'account_name', 'account_id',
+             format_time('updated_at'), 'description'),
+        ),
+        perm_filter='can_list_api_mapping',
+    )
+
+    def api_subscription_info(self, operator, identifier):
+        """List api client mappings for a given user."""
+        if not self.ba.can_list_api_mapping(operator.get_entity_id(),
+                                            query_run_any=True):
+            # Abort early if user has no access to list *any* api mappings,
+            # otherwise we may leak info on valid identifiers.
+            raise no_access_error
+
+        keys = ApiMapping(self.db)
+        mapping = keys.get(identifier)
+        account = self.Account_class(self.db)
+        account.find(mapping['account_id'])
+        self.ba.can_list_api_mapping(operator.get_entity_id(), account=account)
+
+        return {
+            'account_id': account.entity_id,
+            'account_name': account.account_name,
+            'identifier': mapping['identifier'],
+            # TODO: Add support for naive and localized datetime objects in
+            # native_to_xmlrpc
+            'updated_at': datetime2mx(mapping['updated_at']),
+            'description': mapping['description'],
+        }
