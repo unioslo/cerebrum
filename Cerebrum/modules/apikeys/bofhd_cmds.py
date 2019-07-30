@@ -170,7 +170,6 @@ class BofhdApiKeyCommands(BofhdCommandBase):
     #
     all_commands['api_subscription_clear'] = Command(
         ('api', 'subscription_clear'),
-        AccountName(),
         SimpleString(help_ref='api_client_identifier'),
         fs=FormatSuggestion(
             "Cleared subscription='%s' from account %s (%d)",
