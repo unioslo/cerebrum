@@ -43,22 +43,21 @@ class PassWordIssues(object):
     def get_relevant_traits(self):
         """checks account properties for misc_password_issues"""
         self.all_traits = self.ac.get_traits()
-        traits = set(text_type(key) for key in self.all_traits.keys())
-        # Fix: replace all 'trait_etc' with co.trait_etc...
+        traits = set(self.all_traits.keys())
         # Problematic traits:
         # Pofh checks traits twice: 'sysadm_account' and 'important_acc'
         # in one test, 'reserve_passw' in another. These traits are hard
         # coded into cerebrum_api_v1.py.
-        self.trouble_traits = traits & {'reserve_passw',
-                                        'sysadm_account',
-                                        'important_acc'}
+        self.trouble_traits = traits & {self.co.trait_sysadm_account,
+                                        self.co.trait_reservation_sms_password,
+                                        self.co.trait_important_account}
         # Informative traits:
         # These traits are not problematic in and of themselves, and are
         # not checked by pofh, but might still offer relevant information.
         # Primary affiliation requires special attention due to value.
-        self.info_traits = traits & {'sms_welcome',
-                                     'student_new',
-                                     'account_new',
+        self.info_traits = traits & {self.co.trait_sms_welcome,
+                                     self.co.trait_student_new,
+                                     self.co.trait_account_new,
                                      self.co.trait_primary_aff}
 
     def format_traits(self):
