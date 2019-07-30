@@ -24,6 +24,7 @@ Site specific auth.py for UiA
 """
 
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
@@ -170,4 +171,8 @@ class UiaAccessAuth(UiaAuth, BofhdAccessAuth):
     Used for overriding default behavior
 
     """
+    pass
+
+
+class BofhdApiKeyAuth(UiaAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
     pass

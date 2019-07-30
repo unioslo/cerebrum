@@ -22,6 +22,7 @@ import cereconf
 
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
@@ -273,4 +274,8 @@ class UiOBofhdRequestsAuth(UioAuth, RequestsAuth):
 
 class UioAccessAuth(UioAuth, bofhd_access.BofhdAccessAuth):
     """UiO specific access * command auth"""
+    pass
+
+
+class BofhdApiKeyAuth(UioAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
     pass

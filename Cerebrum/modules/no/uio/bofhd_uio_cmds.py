@@ -38,6 +38,7 @@ from Cerebrum import Utils
 from Cerebrum import database
 from Cerebrum.Constants import _LanguageCode
 from Cerebrum.modules import Email
+from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd.auth import (AuthConstants,
                                          BofhdAuthOpSet,
@@ -89,11 +90,12 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.bofhd_auth import (
+    BofhdApiKeyAuth,
     UioAuth,
     UiOBofhdRequestsAuth,
+    UioAccessAuth,
     UioContactAuth,
     UioEmailAuth,
-    UioAccessAuth
 )
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
@@ -6761,3 +6763,7 @@ class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
 class UioAccessCommands(bofhd_access.BofhdAccessCommands):
     """Uio specific access * commands"""
     authz = UioAccessAuth
+
+
+class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
+    authz = BofhdApiKeyAuth

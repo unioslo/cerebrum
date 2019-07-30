@@ -23,6 +23,7 @@ import mx
 from Cerebrum import database
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd import bofhd_email
@@ -80,6 +81,10 @@ class NmhAccessAuth(NmhAuth, bofhd_access.BofhdAccessAuth):
     Used for overriding default behavior or Nmh specific behavior
 
     """
+    pass
+
+
+class BofhdApiKeyAuth(NmhAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
     pass
 
 
@@ -330,3 +335,7 @@ class NmhAccessCommands(bofhd_access.BofhdAccessCommands):
 
     """
     authz = NmhAccessAuth
+
+
+class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
+    authz = BofhdApiKeyAuth
