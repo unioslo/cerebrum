@@ -229,6 +229,8 @@ class BofhdEmailBase(BofhdCommandBase):
 
         et = Email.EmailTarget(self.db)
         try:
+            if et.email_target_entity_id is None:
+                raise CerebrumError("email_target_entity_id is None")
             et.find(ea.email_addr_target_id)
         except Errors.NotFoundError:
             raise CerebrumError("No email target for EmailAddress")
