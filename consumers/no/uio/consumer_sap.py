@@ -779,12 +779,12 @@ def update_external_ids(database, source_system, hr_person, cerebrum_person):
             map(lambda (k, _): _stringify_for_log(co.EntityExternalId(k)),
                 to_remove),
             cerebrum_person.entity_id))
-        for (k, v) in to_add:
-            cerebrum_person.populate_external_id(
-                source_system, k, v)
-            logger.info(u'Adding externalid {} for id: {}'.format(
-                (_stringify_for_log(co.EntityExternalId(k)), v),
-                cerebrum_person.entity_id))
+    for (k, v) in to_add:
+        cerebrum_person.populate_external_id(
+            source_system, k, v)
+        logger.info(u'Adding externalid {} for id: {}'.format(
+            (_stringify_for_log(co.EntityExternalId(k)), v),
+            cerebrum_person.entity_id))
 
 
 def update_addresses(database, source_system, hr_person, cerebrum_person):
