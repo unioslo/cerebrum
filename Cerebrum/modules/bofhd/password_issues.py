@@ -61,7 +61,7 @@ class PassWordIssues(object):
                                      self.co.trait_primary_aff}
 
     def format_traits(self):
-        if self.info_traits and self.co.trait_primary_aff in self.info_traits:
+        if self.co.trait_primary_aff in self.info_traits:
             primary_aff = self.all_traits[self.co.trait_primary_aff]['strval']
             self.info.append('Primary affiliation is {}'.format(primary_aff))
             self.info_traits.remove(self.co.trait_primary_aff)
