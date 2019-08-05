@@ -272,6 +272,8 @@ def process(manager, message, phone_types, affiliations, too_old,
                         ac.account_name,
                         phone)
             continue
+        elif reminder:
+            attempt = inc_attempt(manager.db, ac, row, commit)
 
         # sms sent, now update the traits
         manager.remove_trait(ac, commit)
