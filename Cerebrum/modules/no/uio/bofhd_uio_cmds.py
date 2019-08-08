@@ -2805,6 +2805,9 @@ class BofhdExtension(BofhdCommonMethods):
         duplicates the same checks (and performs some additional ones).
         """
         # Houston != superusers so this must be changed before rollout
+        # one of these?
+        # if not self.ba.can_delete_user(operator.get_entity_id(), None):
+        # if not self.ba.can_create_host(operator.get_entity_id()):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         co = self.const
