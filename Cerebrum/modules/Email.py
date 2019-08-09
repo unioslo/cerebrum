@@ -2538,8 +2538,8 @@ class AccountEmailMixin(Account.Account):
         self.update_email_addresses()
         return ret
 
-    def delete_spread(self, *param, **kw):
-        ret = self.__super.delete_spread(*param, **kw)
+    def delete_spread(self, spread):
+        ret = self.__super.delete_spread(spread)
         self.update_email_addresses()
         return ret
 
