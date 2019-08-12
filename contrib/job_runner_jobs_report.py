@@ -56,7 +56,7 @@ def create_job_info(job, job_name, docstring=None):
     output = job_name + '\n' + '-'*len(job_name)
     output += '\n\n| Command: ' + job.call.cmd
     output += '\n| Params: ' + ' '.join(job.call.params).replace('*', '\\*')
-    output += '\n'*2 + '::\n\n'
+    output += '\n'*2 + '::\n\n '
     if docstring is not None:
         output += docstring.replace('\n', '\n ')
     else:
