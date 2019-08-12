@@ -115,9 +115,9 @@ class PosixUserTSDMixin(PosixUser.PosixUser):
         self._assert_group_project_affiliation()
         return ret
 
-    def delete_spread(self, *args, **kwargs):
+    def delete_spread(self, spread):
         """Override with TSD specific behaviour."""
-        ret = self.__super.delete_spread(self, *args, **kwargs)
+        ret = self.__super.delete_spread(spread)
         self._synchronize_posix_spreads()
         self._assert_group_project_affiliation()
         return ret

@@ -1008,6 +1008,13 @@ def main(inargs=None):
                         dest='encoding',
                         default='iso8859-1',
                         help='Override the default encoding (iso8859-1)')
+    parser.add_argument('-r', '--errors',
+                        dest='encoding_errors',
+                        default='strict',
+                        help=('Override default encoding error handler '
+                              '(strict). Common handlers: strict, ignore, '
+                              'replace. See Python Codec Base Classes for all '
+                              'supported handlers.'))
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
@@ -1037,6 +1044,7 @@ def main(inargs=None):
 
     with_email = args.with_email
     with_cell = args.with_cell
+    encoding_errors = args.encoding_errors
 
     _cache_id_types()
     fs_db = make_fs()
@@ -1046,7 +1054,8 @@ def main(inargs=None):
         xmlwriter = xmlprinter.xmlprinter(stream,
                                           indent_level=2,
                                           # human-friendly output
-                                          data_mode=True)
+                                          data_mode=True,
+                                          encoding_errors=encoding_errors)
         generate_report(args.institution, args.encoding)
         logger.info('Report written to %s', stream.name)
     logger.info('Done with script %s', parser.prog)

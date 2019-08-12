@@ -18,7 +18,7 @@ pika==0.13.1
 psycopg2-binary
 pygpgme
 pyOpenSSL
-pytest
+pytest==4.3.1
 python-ldap
 pytz
 PyYAML
