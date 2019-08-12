@@ -1,4 +1,4 @@
-# -*- coding: utf-7 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2019 University of Oslo, Norway
 #
