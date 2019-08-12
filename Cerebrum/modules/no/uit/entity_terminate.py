@@ -153,8 +153,8 @@ def delete(db, ac):
                  ac.account_name))
         returndict.update({'primary_account_name': ac.account_name})
     except Exception:
-        lu.set(**legacy_info)
-    else:
+        pass
+    finally:
         lu.set(**legacy_info)
 
     return returndict

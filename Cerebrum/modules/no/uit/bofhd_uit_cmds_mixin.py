@@ -136,6 +136,6 @@ class BofhdUiTExtension(bofhd_core.BofhdCommonMethods):
             terminate = entity_terminate.delete(self.db, ac)
         except Errors.NotFoundError:
             raise CerebrumError(
-                'Account: {}, not owned by person. Aborting'.format(
+                'Account: {}, not owned by a person. Aborting'.format(
                     account_name))
         return terminate
