@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Generate an HTML or CSV report with employees on student disks.
+"""Generate an HTML or CSV report with employees on student disks.
 
 This program reports users with employee affiliations, with a homedir on disks
 tagged as student disks.
@@ -49,10 +49,10 @@ Overall flow of execution looks like:
   gen_affles_users_report():
     - Prints out the HTML preamble via the preamble() function
     - For each disk (or SKO) in our data structure:
+
       - Generate a table header
       - Loop over the accounts associated with the SKO or disk, and print
-      rows of information.
-
+        rows of information.
 """
 import argparse
 import datetime
