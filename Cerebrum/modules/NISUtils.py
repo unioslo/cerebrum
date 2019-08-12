@@ -338,9 +338,8 @@ class NISGroupUtil(object):
 
         # All sub groups of the top groups
         logger.info('Processing all direct group members of top groups')
-        gids = list(i for i in self._exported_groups.keys())
         sub_groups = [i for i in self._group.search_members(
-            gids,
+            [i for i in self._exported_groups],
             member_spread=self._group_spread,
             member_type=co.entity_group)]
         for group_row in sub_groups:
