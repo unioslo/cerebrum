@@ -695,6 +695,61 @@ class EmailTarget(Entity_class):
             ON ea.domain_id=ed.domain_id
         %s""" % where, binds)
 
+    def list_email_target_addresses(self, target_type=None,
+                                    target_entity_id=None,
+                                    domain=None,
+                                    uname_local=False):
+        """Return an iterator over email-addresses belonging to email_target.
+        Returns entity_name, target_id, target_entity_id, local_part and
+        domain.
+
+        :param target_type: decides which email_target to filter on.
+        :param target_entity_id: only get addresses for a single target_entity
+        :param basestring domain: only get addresses for a specific domain e.g
+        'uio.no'
+        :param bool uname_local: Set True to only get addresses where the local
+        part of the email matches the username of the owner
+        """
+
+        where = list()
+        binds = dict()
+        if target_type:
+            where.append(argument_to_sql(target_type,
+                                         "et.target_type",
+                                         binds,
+                                         int))
+
+        if target_entity_id is not None:
+            where.append(argument_to_sql(target_entity_id,
+                                         "et.target_entity_id",
+                                         binds,
+                                         int))
+        if domain is not None:
+            where.append(argument_to_sql(domain,
+                                         'ed.domain',
+                                         binds,
+                                         six.text_type))
+
+        if uname_local:
+            where.append("en.entity_name=ea.local_part")
+
+        if where:
+            where = "WHERE " + " AND ".join(where)
+        else:
+            where = ''
+
+        return self.query("""
+        SELECT en.entity_name, et.target_id, et.target_entity_id,
+        ea.local_part, ed.domain
+        FROM [:table schema=cerebrum name=email_target] et
+          JOIN [:table schema=cerebrum name=email_address] ea
+            ON et.target_id=ea.target_id
+          JOIN [:table schema=cerebrum name=email_domain] ed
+            ON ea.domain_id=ed.domain_id
+          JOIN [:table schema=cerebrum name=entity_name] en
+            ON en.entity_id=et.target_entity_id
+        %s""" % where, binds)
+
     def get_target_type(self):
         # NA
         return self.email_target_type
