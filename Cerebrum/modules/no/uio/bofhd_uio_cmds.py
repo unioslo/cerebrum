@@ -85,16 +85,17 @@ from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd.help import Help, merge_help_strings
 from Cerebrum.modules.bofhd import bofhd_access
-from Cerebrum.modules.bofhd.password_issues import PassWordIssues
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
+from Cerebrum.modules.no.uio import bofhd_pw_issues
 from Cerebrum.modules.no.uio.bofhd_auth import (
     UioAuth,
     UiOBofhdRequestsAuth,
     UioContactAuth,
     UioEmailAuth,
-    UioAccessAuth
+    UioAccessAuth,
+    UioPassWordAuth
 )
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
@@ -2768,67 +2769,6 @@ class BofhdExtension(BofhdCommonMethods):
                 return ("The password is obsolete, it was set on %s" %
                         old_password['set_at'])
         return "Incorrect password"
-
-    #
-    # misc password_issues
-    #
-    all_commands['misc_password_issues'] = Command(
-        ("misc", "password_issues"),
-        AccountName(help_ref="id:target:account"),
-        fs=FormatSuggestion([
-            ('\nSMS service is %s for %s!\n', ('sms_work_p', 'accountname')),
-            ('Issues found:\n'
-             ' - %s', ('issue0',)),
-            (' - %s', ('issuen',)),
-            ('Mobile phone numbers and affiliations:\n'
-             ' - %s %s %s %s',
-             ('ssys0', 'status0', 'number0', 'date_str0')),
-            (' - %s %s %s %s',
-             ('ssysn', 'statusn', 'numbern', 'date_strn')),
-            ('Additional info:\n'
-             ' - %s', ('info0',)),
-            (' - %s', ('infon',)),
-        ]))
-
-    def misc_password_issues(self, operator, accountname):
-        """Determine why a user can't use the SMS service for resetting pw.
-
-        The cause(s) of failure and/or possibly relevant additional
-        information is returned.  There are two kinds of issues:
-        Category I issues raises an error without further
-        testing. Cathegory II issues may require a bit more detective
-        work from Houston. COnsequently, all checks are performed in
-        case more than one issue is present.  If no potential problems
-        are found, this is clearly stated.
-
-        The authoritative check is performed by pofh, and this function
-        duplicates the same checks (and performs some additional ones).
-        """
-        # Houston != superusers so this must be changed before rollout
-        # one of these?
-        # if not self.ba.can_delete_user(operator.get_entity_id(), None):
-        # if not self.ba.can_create_host(operator.get_entity_id()):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
-        co = self.const
-        ac = self._get_account(accountname, idtype='name')
-        if ac.account_name != accountname:
-            raise CerebrumError('Accountname mismatch')
-        if ac.is_deleted():
-            raise CerebrumError('Account is deleted')
-        elif ac.is_expired():
-            raise CerebrumError('Account has expired')
-        elif ac.owner_type != co.entity_person:
-            raise CerebrumError('Account is not owned by a person')
-        try:
-            pe = Utils.Factory.get('Person')(self.db)
-            pe.find(ac.owner_id)
-        except Errors.NotFoundError:
-            raise CerebrumError('Person does not exist')
-        pwi = PassWordIssues(self.const, ac, pe, self.Group_class(self.db))
-        pwi.run_check()
-        pwi.format_data()
-        return pwi.data
 
     #
     # perm opset_list
@@ -6823,3 +6763,7 @@ class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
 class UioAccessCommands(bofhd_access.BofhdAccessCommands):
     """Uio specific access * commands"""
     authz = UioAccessAuth
+
+class UioPassWordIssuesCommands(bofhd_pw_issues.BofhdExtension):
+    """Uio specific password * commands"""
+    authz = UioPassWordAuth

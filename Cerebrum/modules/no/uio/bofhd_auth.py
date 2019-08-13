@@ -274,3 +274,7 @@ class UiOBofhdRequestsAuth(UioAuth, RequestsAuth):
 class UioAccessAuth(UioAuth, bofhd_access.BofhdAccessAuth):
     """UiO specific access * command auth"""
     pass
+
+class UioPassWordAuth(UioAuth):
+    """UiO specific password * command auth"""
+    pass
