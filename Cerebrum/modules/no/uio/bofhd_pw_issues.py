@@ -48,7 +48,7 @@ def get_pe_from_ac(ac, db):
         pe = Utils.Factory.get('Person')(db)
         pe.find(ac.owner_id)
     except Errors.NotFoundError:
-        raise CerebrumError('Person does not exist')
+        raise CerebrumError('Account is not owned by a person')
     return pe
 
 
