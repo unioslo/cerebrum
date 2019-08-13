@@ -34,6 +34,7 @@ import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.extlib import xmlprinter
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
 logger = logging.getLogger(__name__)
 
@@ -267,7 +268,8 @@ class PagaPersonsXml:
             <bilag stedkode=""/>
         </person>
         """
-        stream = open(self.out_file, "wb")
+        stream = SimilarSizeWriter(self.out_file, "wb")
+        stream.max_pct_change = 50
         writer = xmlprinter.xmlprinter(stream,
                                        indent_level=2,
                                        data_mode=True)

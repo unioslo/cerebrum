@@ -56,11 +56,11 @@ def create_job_info(job, job_name, docstring=None):
     output = job_name + '\n' + '-'*len(job_name)
     output += '\n\n| Command: ' + job.call.cmd
     output += '\n| Params: ' + ' '.join(job.call.params).replace('*', '\\*')
-    output += '\n'*2 + '::\n'
+    output += '\n'*2 + '::\n\n '
     if docstring is not None:
-        output += ' ' + docstring.replace('\n', '\n ')
+        output += docstring.replace('\n', '\n ')
     else:
-        output += ' Module has no docstring'
+        output += 'Module has no docstring'
     output += '\n\n| When/Freq: ' + str(job.when)
     output += '\n| Pre: ' + ', '.join(job.pre) or 'None'
     output += '\n| Post: ' + ', '.join(job.post) or 'None'
