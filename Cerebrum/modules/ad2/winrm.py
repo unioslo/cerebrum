@@ -50,7 +50,6 @@ import six
 from lxml import etree
 
 from Cerebrum.Utils import unicode2str
-from Cerebrum.modules.ad2 import ADUtils
 
 logger = logging.getLogger(__name__)
 
@@ -1903,7 +1902,7 @@ class PowershellClient(WinRMClient):
         # for more information
         #
         if len(command) > 8000:
-            raise ADUtils.CommandTooLongException('Too long command')
+            raise CommandTooLongException('Too long command')
 
         return super(PowershellClient, self).execute(
             self.exec_path,
@@ -2460,3 +2459,20 @@ class iter2stream(object):
             return data + self.read(size - len(data))
         except StopIteration:
             return data
+
+
+class CommandTooLongException(Exception):
+    """If the given command is too long to be run through WinRM.
+
+    The commands could be limited either by Powershell's command line, cmd's
+    command line, or even WinRM. The maximum length for cmd.exe is 8191 for
+    modern Windows versions (http://support.microsoft.com/kb/830473).
+
+    This is not always enforced in our code, as we are not always sure when it
+    happens, and what situations in the Windows environment that could cause
+    it. It is, for now, only enforced in the more common situations where we
+    could handle it. In the future, we might want to move this into `winrm.py`
+    as one of the regular ExitCodeExceptions.
+
+    """
+    pass
