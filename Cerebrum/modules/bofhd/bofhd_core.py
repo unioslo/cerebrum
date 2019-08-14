@@ -544,7 +544,7 @@ class BofhdCommandBase(object):
                         not account_id.isdigit()):
                     raise CerebrumError("Entity id %r must be a number" %
                                         account_id)
-                account.find(int(account_id))
+                account.find(account_id)
             else:
                 raise CerebrumError("Unknown idtype: %r" % idtype)
         except Errors.NotFoundError:
