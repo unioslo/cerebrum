@@ -465,7 +465,8 @@ class BofhdExtension(BofhdCommonMethods):
             "%s [%s]: %s", ("timestamp", "change_by", "message")),
         perm_filter='can_show_history')
 
-    def entity_history(self, operator, entity, any_entity="yes"):
+    def entity_history(self, operator, entity, any_entity="yes",
+                       limit_number_of_results=None):
         ent = self.util.get_target(entity, restrict_to=[])
         self.ba.can_show_history(operator.get_entity_id(), ent)
         ret = []
@@ -474,7 +475,16 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             kw = {'subject_entity': ent.entity_id}
         rows = list(self.db.get_log_events(0, **kw))
-        for r in rows:
+        give_all_results = ('all', 'All', 'ALL', 'a', 'A', '', None)
+        if limit_number_of_results in give_all_results:
+            N = 0
+        else:
+            try:
+                N = int(limit_number_of_results)
+            except ValueError:
+                raise CerebrumError('Illegal range limit: '
+                                    '{}'.format(limit_number_of_results))
+        for r in rows[-N:]:
             ret.append(self._format_changelog_entry(r))
         return ret
 
