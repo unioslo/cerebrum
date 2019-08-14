@@ -88,12 +88,14 @@ from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
+from Cerebrum.modules.no.uio import bofhd_pw_issues
 from Cerebrum.modules.no.uio.bofhd_auth import (
     UioAuth,
     UiOBofhdRequestsAuth,
     UioContactAuth,
     UioEmailAuth,
-    UioAccessAuth
+    UioAccessAuth,
+    UioPassWordAuth
 )
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
@@ -174,7 +176,7 @@ class BofhdExtension(BofhdCommonMethods):
     # 3. It looks better to define a little class, than a dict of dicts, in
     #    order to organize the variables in a somewhat sane way.
     #
-    # We need to connect to LDAP, in order to populate entries with the
+    # We need to connect to LDAP in order to populate entries with the
     # 'mailPause' attribute. This attribute will be heavily used by the
     # postmasters, as they convert to murder. When we populate entries
     # with the 'mailPause' attribute directly, the postmasters will experience
@@ -6771,3 +6773,7 @@ class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
 class UioAccessCommands(bofhd_access.BofhdAccessCommands):
     """Uio specific access * commands"""
     authz = UioAccessAuth
+
+class UioPassWordIssuesCommands(bofhd_pw_issues.BofhdExtension):
+    """Uio specific password * commands"""
+    authz = UioPassWordAuth
