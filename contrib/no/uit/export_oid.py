@@ -48,6 +48,7 @@ from Cerebrum.modules.no.stillingskoder import Stillingskoder
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.utils import csvutils
 from Cerebrum.utils.argutils import ParserContext
+from Cerebrum.utils.atomicfile import SimilarSizeStreamRecoder
 
 logger = logging.getLogger(__name__)
 
@@ -533,7 +534,7 @@ def build_xml(fh, persons):
     xml = xmlprinter(fh,
                      indent_level=2,
                      data_mode=True,
-                     input_encoding='ascii')
+                     input_encoding='utf-8')
     xml.startDocument(encoding='utf-8')
     xml.startElement('data')
     xml.startElement('properties')
@@ -686,12 +687,13 @@ def main(inargs=None):
 
     export_data = generate_export_data(affiliations)
 
-    if args.use_csv:
-        with io.open(args.outfile, mode='w', encoding='utf-8') as outfile:
+    with SimilarSizeStreamRecoder(
+            args.outfile, mode='w', encoding='utf-8') as outfile:
+        outfile.max_pct_change = 50
+        if args.use_csv:
             build_csv(outfile, export_data)
             logger.info("Wrote CSV data to %s", args.outfile)
-    else:
-        with open(args.outfile, mode='w') as outfile:
+        else:
             build_xml(outfile, export_data)
             logger.info("Wrote XML data to %s", args.outfile)
 
