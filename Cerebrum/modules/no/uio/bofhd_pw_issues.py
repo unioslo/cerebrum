@@ -363,10 +363,8 @@ class BofhdExtension(BofhdCommandBase):
         duplicates the same checks (and performs some additional ones).
         """
 
-        # Houston != superusers, but their privileges are high.
-        # How about one of these?
-        # if not self.ba.is_superuser(operator.get_entity_id()):
-        # if not self.ba.can_delete_user(operator.get_entity_id(), None):
+        # Primary intended users are Houston.
+        # They are privilegded privileged, but not superusers.
         if not self.ba.can_create_user(operator.get_entity_id()):
             raise PermissionDenied("Access denied")
         ac = self._get_account(accountname, idtype='name')
