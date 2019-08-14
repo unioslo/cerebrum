@@ -219,7 +219,9 @@ class NISGroupUtil(object):
         for row in self._group.search(spread=group_spread):
             self._exported_groups[int(row['group_id'])] = row['name']
         self._num = 0
-        self._entity2name = self._build_entity2name_mapping(namespace)
+        self._entity2name = self._build_entity2name_mapping([
+            namespace,
+            co.group_namespace])
 
     def _build_entity2name_mapping(self, namespace):
         ret = {}
@@ -584,9 +586,6 @@ class HackUserNetGroupUIO(UserNetGroup):
         # collect person_id -> primary account_id. Notice that we collect
         # accounts with member_spread only. The rest is irrelevant.
 
-        # Add names of groups to cache
-        self._entity2name.update(self._build_entity2name_mapping(
-            co.group_namespace))
         self._person2primary_account = dict()
         for i in Factory.get("Account")(db).list_accounts_by_type(
                 account_spread=member_spread,
