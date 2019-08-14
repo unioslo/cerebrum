@@ -1894,6 +1894,16 @@ class PowershellClient(WinRMClient):
         # -NoProfile        Loading profile is not needed, at least for now. It
         #                   will probably only increase the startup time if not
         #                   set.
+
+        # Due to the command prompt string limitation, commands can not be
+        # longer than 8191 characters. We limit ourselves to 8000 for some
+        # extra breathing room.
+        # See https://support.microsoft.com/en-gb/help/830473/command-prompt-cmd-exe-command-line-string-limitation for more information
+        # for more information
+        #
+        if len(command) > 8000:
+            raise CommandTooLongException('Too long command')
+
         return super(PowershellClient, self).execute(
             self.exec_path,
             u'-NonInteractive -NoLogo -NoProfile -Command "%s"' % command,
@@ -2449,3 +2459,20 @@ class iter2stream(object):
             return data + self.read(size - len(data))
         except StopIteration:
             return data
+
+
+class CommandTooLongException(Exception):
+    """If the given command is too long to be run through WinRM.
+
+    The commands could be limited either by Powershell's command line, cmd's
+    command line, or even WinRM. The maximum length for cmd.exe is 8191 for
+    modern Windows versions (http://support.microsoft.com/kb/830473).
+
+    This is not always enforced in our code, as we are not always sure when it
+    happens, and what situations in the Windows environment that could cause
+    it. It is, for now, only enforced in the more common situations where we
+    could handle it. In the future, we might want to move this into `winrm.py`
+    as one of the regular ExitCodeExceptions.
+
+    """
+    pass

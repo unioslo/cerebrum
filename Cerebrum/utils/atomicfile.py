@@ -554,3 +554,46 @@ class MinimumSizeWriter(AtomicFileWriter):
                 "{!s}: File is too small (current: {:d} bytes,"
                 " minimum allowed: {:d} bytes".format(
                     self.name, new_size, self.min_size))
+
+
+class AtomicStreamRecoder(AtomicFileWriter):
+    """ file writer encoding hack.
+
+    xmlprinter.xmlprinter encodes data in the desired encoding before writing
+    to the stream, and AtomicFileWriter *requires* unicode-objects to be
+    written.
+
+    This hack turns AtomicFileWriter into a bytestring writer. Just make sure
+    the AtomicStreamRecoder is configured to use the same encoding as the
+    xmlprinter.
+
+    The *proper* fix would be to retire the xmlprinter module, and replace it
+    with something better.
+    """
+    def write(self, data):
+        if isinstance(data, bytes) and self.encoding:
+            # will be re-encoded in the same encoding by 'write'
+            data = data.decode(self.encoding)
+        return super(AtomicStreamRecoder, self).write(data)
+
+
+class SimilarSizeStreamRecoder(SimilarSizeWriter):
+    """ file writer encoding hack.
+
+    xmlprinter.xmlprinter encodes data in the desired encoding before writing
+    to the stream, and AtomicFileWriter *requires* unicode-objects to be
+    written.
+
+    This hack turns SimilarSizeWriter into a bytestring writer. Just make sure
+    the SimilarSizeStreamRecoder is configured to use the same encoding as the
+    xmlprinter.
+
+    The *proper* fix would be to retire the xmlprinter module, and replace it
+    with something better.
+    """
+
+    def write(self, data):
+        if isinstance(data, bytes) and self.encoding:
+            # will be re-encoded in the same encoding by 'write'
+            data = data.decode(self.encoding)
+        return super(SimilarSizeStreamRecoder, self).write(data)

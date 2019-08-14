@@ -29,6 +29,7 @@ from __future__ import with_statement
 import collections
 
 from Cerebrum.modules.ad2 import ADUtils
+from Cerebrum.modules.ad2.winrm import CommandTooLongException
 from Cerebrum.Utils import Factory
 
 import cereconf
@@ -355,7 +356,7 @@ class ADclientMock(ADUtils.ADclient):
         # limit at 8000 bytes seems to be working.
         # TODO: This should be checked for in winrm.py.
         if len(cmd) > 8000:
-            raise ADUtils.CommandTooLongException('Too long')
+            raise CommandTooLongException('Too long')
         self.logger.info("_run_setadobject would have ran the command: '%s'",
                          cmd)
         return True
