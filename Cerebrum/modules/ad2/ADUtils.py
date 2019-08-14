@@ -50,6 +50,7 @@ from Cerebrum.Utils import read_password
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import NotSet
 
+from Cerebrum.modules.ad2.winrm import CommandTooLongException
 from Cerebrum.modules.ad2.winrm import PowershellClient
 from Cerebrum.modules.ad2.winrm import PowershellException, ExitCodeException
 
@@ -97,23 +98,6 @@ class SetAttributeException(PowershellException):
     One example could be that the given attribute element is required to refer
     to another AD object, which doesn't exist in the given location. This is
     for instance a common error for the Member attribute.
-
-    """
-    pass
-
-
-class CommandTooLongException(Exception):
-    """If the given command is too long to be run through WinRM.
-
-    The commands could be limited either by Powershell's command line, cmd's
-    command line, or even WinRM. The maximum length for cmd.exe is 8191 for
-    modern Windows versions (http://support.microsoft.com/kb/830473).
-
-    This is not always enforced in our code, as we are not always sure when it
-    happens, and what situations in the Windows environment that could cause
-    it. It is, for now, only enforced in the more common situations where we
-    could handle it. In the future, we might want to move this into `winrm.py`
-    as one of the regular ExitCodeExceptions.
 
     """
     pass
