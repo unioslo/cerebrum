@@ -57,6 +57,7 @@ from Cerebrum.modules.bofhd.cmd_param import (
     GroupName,
     PersonId,
     SimpleString,
+    YesNo,
 )
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
@@ -67,7 +68,7 @@ from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.job_runner.bofhd_job_runner import BofhdJobRunnerCommands
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio.access_FS import FS
-from Cerebrum.modules.no.uit import bofhd_auth
+from Cerebrum.modules.no.uit import bofhd_auth, ad_email
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
 
 
@@ -711,11 +712,19 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                     "Move a user's e-mail to another server",
                 'email_show_reservation_status':
                     "Show reservation status for an account",
+                "email_move_domain_addresses":
+                    "Move the first account's e-mail addresses at a domain to "
+                    "the second account",
             }
+        }
+        arg_help = {
+            'yes_no_move_primary':
+                ['move_primary',
+                 'Should primary email address be moved? (y/n)'],
         }
         return merge_help_strings(
             super(EmailCommands, cls).get_help_strings(),
-            ({}, email_cmds, {}))
+            ({}, email_cmds, arg_help))
 
     def __email_forward_destination_allowed(self, account, address):
         """ Check if the forward is compilant with Norwegian law"""
@@ -988,6 +997,107 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         et.email_server_id = es.entity_id
         et.write_db()
         return "OK, updated e-mail server for %s (to %s)" % (uname, server)
+
+    #
+    # email move_domain_addresses
+    #
+    all_commands['email_move_domain_addresses'] = Command(
+        ("email", "move_domain_addresses"),
+        AccountName(help_ref="account_name"),
+        AccountName(help_ref="account_name"),
+        SimpleString(help_ref='email_domain', optional=True,
+                     default=cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES),
+        YesNo(help_ref='yes_no_move_primary', optional=True, default="No"),
+        perm_filter="is_superuser")
+
+    def _move_email_address(self, address, reassigned_addresses, dest_et):
+        ea = Email.EmailAddress(self.db)
+        ea.find(address['address_id'])
+        ea.email_addr_target_id = dest_et.entity_id
+        ea.write_db()
+        reassigned_addresses.append(ea.get_address())
+
+    def _move_primary_email_address(self, address, reassigned_addresses,
+                                    dest_et, epat):
+        epat.delete()
+        self._move_email_address(address, reassigned_addresses, dest_et)
+        epat.clear()
+        try:
+            epat.find(dest_et.entity_id)
+        except Errors.NotFoundError:
+            pass
+        else:
+            epat.delete()
+        epat.clear()
+        epat.populate(address['address_id'], parent=dest_et)
+        epat.write_db()
+
+    def _move_ad_email(self, email, dest_uname):
+        ad = ad_email.AdEmail(self.db)
+        ad.delete_ad_email(account_name=dest_uname)
+        ad.set_ad_email(dest_uname, email['local_part'], email['domain_part'])
+
+        ad_emails_added = "Updated ad email {} for {}. ".format(
+            email['local_part']+"@"+email['domain_part'],
+            dest_uname
+        )
+        return ad_emails_added
+
+    def email_move_domain_addresses(self, operator, source_uname, dest_uname,
+                                    domain_str, move_primary):
+        """Move an account's e-mail addresses to another account
+
+        :param domain_str: email domain to be affected
+        :param move_primary: move primary email address
+        """
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+
+        move_primary = self._get_boolean(move_primary)
+        source_account = self._get_account(source_uname)
+        source_et = self._get_email_target_for_account(source_account)
+        dest_account = self._get_account(dest_uname)
+        dest_et = self._get_email_target_for_account(dest_account)
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+
+        try:
+            epat.find(source_et.entity_id)
+        except Errors.NotFoundError:
+            epat.clear()
+
+        reassigned_addresses = []
+        for address in source_et.get_addresses():
+            if address['domain'] == domain_str:
+
+                if address['address_id'] == epat.email_primaddr_id:
+                    if move_primary:
+                        self._move_primary_email_address(address,
+                                                         reassigned_addresses,
+                                                         dest_et,
+                                                         epat)
+                else:
+                    self._move_email_address(address, reassigned_addresses,
+                                             dest_et)
+        # Managing ad_email
+        ad_emails_added = ""
+        if domain_str == cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES:
+            ad = ad_email.AdEmail(self.db)
+
+            if move_primary:
+                ad_emails = ad.search_ad_email(account_name=source_uname)
+                if len(ad_emails) == 1:
+                    ad_emails_added = self._move_ad_email(ad_emails[0],
+                                                          dest_uname)
+            # TODO:
+            #  If this command is called with move_primary=False,
+            #  the source account's primary email address will be left
+            #  intact, but it's corresponding ad_email will be deleted.
+            #  This mimics the functionality of the uit-script move_emails.py,
+            #  but is it really what we want?
+            ad.delete_ad_email(account_name=source_uname)
+
+        return ("OK, reassigned {}. ".format(reassigned_addresses)
+                + ad_emails_added)
 
 
 class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
