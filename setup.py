@@ -351,6 +351,7 @@ setup(
         'Cerebrum/modules',
         'Cerebrum/modules/ad',
         'Cerebrum/modules/ad2',
+        'Cerebrum/modules/apikeys',
         'Cerebrum/modules/statsd',
         'Cerebrum/modules/celery_tasks',
         'Cerebrum/modules/celery_tasks/apps',

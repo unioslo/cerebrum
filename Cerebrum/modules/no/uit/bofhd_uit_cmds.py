@@ -49,6 +49,7 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import database
 from Cerebrum.modules import Email
+from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.bofhd.cmd_param import (
     AccountName,
     Command,
@@ -1112,3 +1113,7 @@ class AccessCommands(bofhd_access.BofhdAccessCommands):
 class JobRunnerCommands(BofhdJobRunnerCommands):
     """UiT specific job_runner * commands."""
     authz = bofhd_auth.UitBofhdJobRunnerAuth
+
+
+class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
+    authz = bofhd_auth.BofhdApiKeyAuth

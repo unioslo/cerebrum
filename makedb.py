@@ -337,6 +337,7 @@ def check_schema_versions(db, strict=False):
     modules = {
         'ad': 'Cerebrum.modules.ADObject',
         'ad_email': 'Cerebrum.modules.no.uit.ad_email',
+        'apikeys': 'Cerebrum.modules.apikeys',
         'bofhd_requests': 'Cerebrum.modules.bofhd_requests.request',
         'changelog': 'Cerebrum.modules.ChangeLog',
         'disk_quota': 'Cerebrum.modules.disk_quota',

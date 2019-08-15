@@ -25,6 +25,7 @@ import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -69,6 +70,10 @@ class HiofBofhdRequestsAuth(HiofAuth, bofhd_requests_auth.RequestsAuth):
 
 class HiofAccessAuth(HiofAuth, bofhd_access.BofhdAccessAuth):
     """Hiof specific access auth"""
+    pass
+
+
+class BofhdApiKeyAuth(HiofAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
     pass
 
 
@@ -401,6 +406,10 @@ class RequestCommands(bofhd_requests_cmds.BofhdExtension):
 class HiofAccessCommands(bofhd_access.BofhdAccessCommands):
     """Hiof specific bofhd access * commands"""
     authz = HiofAccessAuth
+
+
+class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
+    authz = BofhdApiKeyAuth
 
 
 HELP_CMDS = {
