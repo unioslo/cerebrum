@@ -129,7 +129,7 @@ def main(inargs=None):
     jobs = config.get_jobs()
     all_jobs = []
 
-    for job_name, job in jobs.items():
+    for job_name, job in sorted(jobs.items()):
         command = job.call.cmd
         # Don't look for docstrings in non python files
         if command.endswith('.py'):
