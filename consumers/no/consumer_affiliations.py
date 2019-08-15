@@ -81,24 +81,29 @@ def handle_person(database, data):
             'Person %s has no affiliations. Removing group memberships', pid)
         pu = Factory.get('PosixUser')(database)
         gr = Factory.get('Group')(database)
+        ac = Factory.get('Account')(database)
         for acc_row in pe.get_accounts():
             pu.clear()
             acc_id = acc_row['account_id']
             try:
                 pu.find(acc_id)
                 acc_name = pu.account_name
+                gid_id = pu.gid_id
             except Errors.NotFoundError:
                 # If there is no posix user with the account name, we assume it
                 # is a regular account, which does not have a personal file
                 # group to treat specifically. The pu.gid_id attribute is then
                 # None. The only groups to be skipped then would be groups with
                 # no entity_id which should be impossible.
-                pass
+                ac.clear()
+                ac.find(acc_id)
+                acc_name = ac.account_name
+                gid_id = None
             for group_row in gr.search(member_id=acc_id):
                 group_id = group_row['group_id']
                 group_name = group_row['group_name']
                 # Leave personal file groups alone
-                if group_id == pu.gid_id:
+                if group_id == gid_id:
                     continue
                 gr.remove_member_from_group(acc_id, group_id)
                 logger.info('Removed account %s(%s) from group %s(%s)',
