@@ -89,13 +89,15 @@ from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
+from Cerebrum.modules.no.uio import bofhd_pw_issues
 from Cerebrum.modules.no.uio.bofhd_auth import (
     BofhdApiKeyAuth,
-    UioAuth,
     UiOBofhdRequestsAuth,
     UioAccessAuth,
+    UioAuth,
     UioContactAuth,
     UioEmailAuth,
+    UioPassWordAuth,
 )
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
@@ -176,7 +178,7 @@ class BofhdExtension(BofhdCommonMethods):
     # 3. It looks better to define a little class, than a dict of dicts, in
     #    order to organize the variables in a somewhat sane way.
     #
-    # We need to connect to LDAP, in order to populate entries with the
+    # We need to connect to LDAP in order to populate entries with the
     # 'mailPause' attribute. This attribute will be heavily used by the
     # postmasters, as they convert to murder. When we populate entries
     # with the 'mailPause' attribute directly, the postmasters will experience
@@ -467,7 +469,8 @@ class BofhdExtension(BofhdCommonMethods):
             "%s [%s]: %s", ("timestamp", "change_by", "message")),
         perm_filter='can_show_history')
 
-    def entity_history(self, operator, entity, any_entity="yes"):
+    def entity_history(self, operator, entity, any_entity="yes",
+                       limit_number_of_results=None):
         ent = self.util.get_target(entity, restrict_to=[])
         self.ba.can_show_history(operator.get_entity_id(), ent)
         ret = []
@@ -476,7 +479,16 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             kw = {'subject_entity': ent.entity_id}
         rows = list(self.db.get_log_events(0, **kw))
-        for r in rows:
+        give_all_results = ('all', 'All', 'ALL', 'a', 'A', '', None)
+        if limit_number_of_results in give_all_results:
+            N = 0
+        else:
+            try:
+                N = int(limit_number_of_results)
+            except ValueError:
+                raise CerebrumError('Illegal range limit: '
+                                    '{}'.format(limit_number_of_results))
+        for r in rows[-N:]:
             ret.append(self._format_changelog_entry(r))
         return ret
 
@@ -6767,3 +6779,8 @@ class UioAccessCommands(bofhd_access.BofhdAccessCommands):
 
 class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
     authz = BofhdApiKeyAuth
+
+
+class UioPassWordIssuesCommands(bofhd_pw_issues.BofhdExtension):
+    """Uio specific password * commands"""
+    authz = UioPassWordAuth

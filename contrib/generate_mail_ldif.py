@@ -19,19 +19,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Usage: generate_mail_ldif.py [options]
-
+"""
 Write e-mail information for use by the mail system to an LDIF file,
 which can then be loaded into LDAP.
 
-Options:
-  -s | --spread <spread>:  Targets printed found in spread.
-  -v | --verbose:          Show some statistics while running.
-                           Repeat the option for more verbosity.
-  -m | --mail-file <file>: Specify file to write to.
-  -i | --ignore-size:      Use file class instead of SimilarSizeWriter.
-  -a | --no-auth-data:     Don't populate userPassword.
-  -h | --help:             This message."""
+"""
 
 from __future__ import unicode_literals
 
@@ -437,21 +429,27 @@ def get_data(spread):
 def main():
     global verbose, f, db, co, ldap, auth, start
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-v', "--verbose",
                         action="count",
-                        default=0)
-    parser.add_argument('-m', "--mail-file")
+                        default=0,
+                        help='Show some statistics while running. '
+                             'Repeat the option for more verbosity.')
+    parser.add_argument('-m', "--mail-file",
+                        help='Specify file to write to.')
     parser.add_argument('-s', "--spread",
-                        default=ldapconf('MAIL', 'spread', None))
+                        default=ldapconf('MAIL', 'spread', None),
+                        help='Targets printed found in spread.')
     parser.add_argument('-i', "--ignore-size",
                         dest="max_change",
                         action="store_const",
-                        const=100)
+                        const=100,
+                        help='Use file class instead of SimilarSizeWriter.')
     parser.add_argument('-a', "--no-auth-data",
                         dest="auth",
                         action="store_false",
-                        default=True)
+                        default=True,
+                        help="Don't populate userPassword.")
     args = parser.parse_args()
 
     verbose = args.verbose

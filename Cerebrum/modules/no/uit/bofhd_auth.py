@@ -188,6 +188,15 @@ class UitAuth(UitContactAuthMixin, BofhdAuth):
                                "external ids for person entity {}".format(
                                    person.entity_id))
 
+    def can_create_personal_group(self, operator, account=None,
+                                  query_run_any=False):
+        """Check if the user is allowed to create a personal group
+
+        UiT users are not allowed to create personal groups, so this returns
+        False unless the user is a superuser or query_run_any = True
+        """
+        return query_run_any or self.is_superuser(operator)
+
 
 class UitContactAuth(UitAuth):
     # can_get_contact_info is included in UioAuth, because it is used by

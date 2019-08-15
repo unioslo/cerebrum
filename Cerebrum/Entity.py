@@ -1076,6 +1076,9 @@ class EntityAddress(Entity):
         self._db.log_change(self.entity_id, self.clconst.entity_addr_add, None)
 
     def delete_entity_address(self, source_type, a_type):
+        if not self.get_entity_address(source_type, a_type):
+            # Nothing to delete
+            return
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_address]
         WHERE entity_id=:e_id AND
@@ -1368,7 +1371,8 @@ class EntityExternalId(Entity):
         self._external_id[int(id_type)] = external_id
 
     def _delete_external_id(self, source_system, id_type):
-        self.execute("""DELETE FROM [:table schema=cerebrum name=entity_external_id]
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=entity_external_id]
         WHERE entity_id=:p_id AND id_type=:id_type AND source_system=:src""",
                      {'p_id': self.entity_id,
                       'id_type': int(id_type),

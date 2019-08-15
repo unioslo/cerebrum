@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-from __future__ import unicode_literals
-
 """ This script exports extracts of employee data.
 
 Specifically, Per Grøttum made a request to have access to some of the employee
@@ -30,6 +28,9 @@ last edit of bin/uio/employee-listing.py:
     Tue Sep 20 08:52:07 2011 +0000
 
 """
+
+from __future__ import unicode_literals
+
 import getopt
 import sys
 import io

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2018 University of Oslo, Norway
+# Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,15 +29,15 @@ way, should an update process (touching IDs) run concurrently with this
 import.
 """
 
-import cereconf
+import argparse
+import io
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.hia.mod_sap_utils import make_person_iterator
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no.hia.mod_sap_utils import make_person_iterator
 
-import io
-import argparse
+import cereconf
 
 
 def locate_person(sap_id, fnr):
@@ -84,7 +84,7 @@ def locate_person(sap_id, fnr):
     # SAP entry* pointing to two different people in Cerebrum). However, we
     # should also allow the possibility of only one ID being set.
     if (person_id_from_sap is not None and
-        person_id_from_fnr is not None and
+            person_id_from_fnr is not None and
             person_id_from_sap != person_id_from_fnr):
         logger.error("Aiee! IDs for logically the same person differ: "
                      "(SAP id => person_id %s; FNR => person_id %s)",
@@ -251,7 +251,8 @@ def populate_names(person, fields):
             continue
 
         person.populate_name(name_type, name_value)
-        logger.debug(u"Populated name type %s with «%s»", name_type, name_value)
+        logger.debug(u"Populated name type %s with «%s»", name_type,
+                     name_value)
 
     person.populate_name(const.name_first, fields.sap_first_name)
 
@@ -293,7 +294,8 @@ def populate_communication(person, fields):
             continue
 
         person.populate_contact_info(const.system_sap, comm_type, comm_value)
-        logger.debug(u"Populated comm type %s with «%s»", comm_type, comm_value)
+        logger.debug(u"Populated comm type %s with «%s»", comm_type,
+                     comm_value)
 
     # some communication types need extra care
     comm_types = ((const.contact_mobile_phone,
@@ -305,7 +307,8 @@ def populate_communication(person, fields):
             _remove_communication(person, comm_type)
             continue
         person.populate_contact_info(const.system_sap, comm_type, comm_value)
-        logger.debug(u"Populated comm type %s with «%s»", comm_type, comm_value)
+        logger.debug(u"Populated comm type %s with «%s»", comm_type,
+                     comm_value)
 
 
 def _remove_office(person):
@@ -318,12 +321,16 @@ def _remove_office(person):
 
 
 def populate_office(person, fields):
-    """Extract the person's office address from FIELDS and populate the database
-    with it, if it is defined. Both a building code and a room number should be
-    present to be stored.
+    """Populate person with office address
+
+    Extract the person's office address from FIELDS and populate the
+    database with it, if it is defined. Both a building code and a room number
+    should be present to be stored.
 
     Note that we are not importing the office address if the given building
-    codes doesn't exist in cereconf."""
+    codes doesn't exist in cereconf.
+
+    """
     if not fields.sap_building_code or not fields.sap_roomnumber:
         # both building and room has to be defined
 
@@ -363,7 +370,7 @@ def populate_office(person, fields):
                                 postal_number=address['postnr_street'],
                                 city=address['city_street'],
                                 country=country)
-    except KeyError, e:
+    except KeyError as e:
         logger.warn('Building code translation error for code %s: %s',
                     fields.sap_building_code, e)
         return
@@ -435,7 +442,7 @@ def add_person_to_group(person, fields):
         return
     try:
         group.add_member(person.entity_id)
-    except:
+    except Exception:
         logger.warn("Could not add person %s to group %s" % (
             person.get_name(const.system_cached, const.name_full), group_name))
         return
@@ -454,8 +461,9 @@ def process_people(filename, use_fok):
         for p in make_person_iterator(
                 f, use_fok, logger):
             if not p.valid():
-                logger.info("Ignoring person sap_id=%s, fnr=%s (invalid entry)",
-                            p.sap_ansattnr, p.sap_fnr)
+                logger.info(
+                    "Ignoring person sap_id=%s, fnr=%s (invalid entry)",
+                    p.sap_ansattnr, p.sap_fnr)
                 # TODO: remove some person data?
                 continue
 

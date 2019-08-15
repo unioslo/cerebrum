@@ -18,7 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Generate an LDIF file with automount information for all disks with
+"""
+Generate an LDIF file with automount information for all disks with
 a host and at least one user."""
 
 import argparse

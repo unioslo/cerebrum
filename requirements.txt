@@ -6,7 +6,6 @@ cx-Oracle>=5
 egenix-mx-base
 Flask==0.12.4
 flask-restplus==0.10.1
-functools32
 gunicorn
 Jinja2
 jsonschema
@@ -18,7 +17,7 @@ pika==0.13.1
 psycopg2-binary
 pygpgme
 pyOpenSSL
-pytest
+pytest==4.3.1
 python-ldap
 pytz
 PyYAML

@@ -19,19 +19,22 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# This script should be run regularly.  It processes the changelog,
-# and performs a number of tasks:
-#
-# - when a user has been created: create users homedir
-# - when a guest user's home has been archived: make a new home directory
+"""
+This script should be run regularly.  It processes the changelog,
+and performs a number of tasks:
 
-# TBD: If this script is only going to be used for creating users, it
-# should probably be renamed.  There are already other scrits, like
-# nt-sync that process the changelog themselves.  We need to
-# determine wheter it is a good idea to have multiple small scripts
-# doing this, or if there is an advantage into merging all of them
-# into a bigger script, perhaps with some plugin-like structure for
-# subscribing to certain event types.
+- when a user has been created: create users homedir
+- when a guest user's home has been archived: make a new home directory
+
+TBD: If this script is only going to be used for creating users, it
+should probably be renamed.  There are already other scrits, like
+nt-sync that process the changelog themselves.  We need to
+determine wheter it is a good idea to have multiple small scripts
+doing this, or if there is an advantage into merging all of them
+into a bigger script, perhaps with some plugin-like structure for
+subscribing to certain event types.
+
+"""
 
 from __future__ import unicode_literals
 

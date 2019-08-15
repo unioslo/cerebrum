@@ -17,10 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""
-This script moves all e-mailaddresses in a given domain from one account to
-another. It reads data exported from our HR system PAGA from a simple CSV file.
-"""
+"""Move an account's e-mail addresses at a given domain to another account"""
 
 import argparse
 import sys

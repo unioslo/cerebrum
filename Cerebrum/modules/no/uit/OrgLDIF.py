@@ -120,9 +120,9 @@ class OrgLDIFUiTMixin(norEduLDIFMixin):
 
         #
         # UiT does not wish to populate the postalAddress field with either
-        # home or work address set it to empty string
+        # home or work address. Remove it if set by super.
         #
-        entry['postalAddress'] = ''
+        entry.pop('postalAddress', None)
 
         return dn, entry, alias_info
 

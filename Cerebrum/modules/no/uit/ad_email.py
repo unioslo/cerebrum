@@ -18,7 +18,6 @@
 
 import logging
 
-from Cerebrum import Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory, argument_to_sql
 
@@ -81,13 +80,14 @@ class AdEmail(DatabaseAccessor):
 
     def set_ad_email(self, account_name, local_part, domain_part):
         """Set/update ad_email for an account."""
-        try:
-            res = self.search_ad_email(account_name=account_name)[0]
+        res = self.search_ad_email(account_name=account_name)
+        if res:
+            res = res[0]
             if not (res['local_part'] == local_part and
                     res['domain_part'] == domain_part):
                 self._update_ad_email(account_name, local_part, domain_part)
                 logger.debug("updated ad_email for account:%s", account_name)
-        except Errors.NotFounderror:
+        else:
             self._insert_ad_email(account_name, local_part, domain_part)
             logger.debug("inserted ad_email for account:%s", account_name)
 
