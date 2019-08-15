@@ -86,6 +86,7 @@ def handle_person(database, data):
             acc_id = acc_row['account_id']
             try:
                 pu.find(acc_id)
+                acc_name = pu.account_name
             except Errors.NotFoundError:
                 # If there is no posix user with the account name, we assume it
                 # is a regular account, which does not have a personal file
@@ -95,12 +96,15 @@ def handle_person(database, data):
                 pass
             for group_row in gr.search(member_id=acc_id):
                 group_id = group_row['group_id']
+                group_name = group_row['group_name']
                 # Leave personal file groups alone
                 if group_id == pu.gid_id:
                     continue
                 gr.remove_member_from_group(acc_id, group_id)
-                logger.info('Removed account %s from group %s',
+                logger.info('Removed account %s(%s) from group %s(%s)',
+                            acc_name,
                             acc_id,
+                            group_name,
                             group_id)
         database.commit()
 
