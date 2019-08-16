@@ -94,8 +94,7 @@ def remove_expired_groups(db, days, pretend):
                                     dfg_members += 1
                             else:
                                 # PosixGroup, but not PosixUser..? This should
-                                # never happen, but neither should the Bhopal
-                                # disaster...
+                                # never happen, but should be noted if it does.
                                 logger.warning('Member %i of PosixGroup %r '
                                                'is not a PosixUser',
                                                member, gr.entity_id)
@@ -113,13 +112,12 @@ def remove_expired_groups(db, days, pretend):
                         # PosixGroup was empty all along
                         else:
                             empty_posix_groups += 1
-                    # 1.2 Other extensions than PosixGroup - ne touche pas!
+                    # 1.2 Other extensions than PosixGroup - do not touch
                     elif exts:
                         logger.debug('Extensions %r in group %r - skipping!',
                                      exts, gr.entity_id)
                     # 2 No extensions, group is deleted
                     else:
-                        logger.debug('Deleting group #r')
                         gr.delete()
                         amount_removed_groups += 1
                         logger.info(
