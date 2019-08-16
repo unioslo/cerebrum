@@ -359,14 +359,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         @param member_id:
           Member (id) to remove from this group.
         """
-
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=group_member]
-        WHERE
-          group_id=:g_id AND
-          member_id=:m_id""", {'g_id': self.entity_id,
-                               'm_id': member_id})
-        self._db.log_change(self.entity_id, self.clconst.group_rem, member_id)
+        return self.remove_member_from_group(member_id, self.entity_id)
 
     def remove_member_from_group(self, member_id, group_id):
         """Remove L{member_id}'s membership from this group.
