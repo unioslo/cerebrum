@@ -446,16 +446,19 @@ class EntityName(Entity):
         # Populate all of self's class (and base class) attributes.
         self.find(entity_id)
 
-    def list_names(self, value_domain):
+    def list_names(self, value_domain=None):
         """List names of entities for a given namespace"""
 
         binds = dict()
-        where = argument_to_sql(value_domain, 'value_domain', binds, int)
+        where = ''
+        if value_domain:
+            where = 'WHERE ' + argument_to_sql(value_domain, 'value_domain',
+                                               binds, int)
         query = """
             SELECT entity_id, value_domain, entity_name
             FROM [:table schema=cerebrum name=entity_name]
-            WHERE {}
-            """.format(where)
+            {where}
+            """.format(where=where)
         return self.query(query, binds)
 
     def entity_name_exists(self, name, domain=None):
