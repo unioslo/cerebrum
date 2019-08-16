@@ -367,12 +367,12 @@ class BofhdExtension(BofhdCommandBase):
         # They are privileged, but not superusers.
         ac = self._get_account(accountname, idtype='name')
         co = Utils.Factory.get('Constants')(self.db)
-        if ac.owner_type == co.entity_person:
-            person = self._get_person("entity_id", ac.owner_id)
-        else:
-            person = None
-
-        if not self.ba.can_create_user(operator.get_entity_id(), person):
+        pe = Utils.Factory.get('Person')(self.db)
+        try:
+            pe.find(ac.owner_id)
+        except Errors.NotFoundError:
+            pe = None
+        if not self.ba.can_create_user(operator.get_entity_id(), pe):
             raise PermissionDenied("Access denied")
         pwi = PassWordIssues(ac, self.db)
         _ = pwi()
