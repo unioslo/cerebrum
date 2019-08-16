@@ -48,6 +48,7 @@ def remove_expired_groups(db, days, pretend):
     pu = Factory.get('PosixUser')(db)
     posix_user2gid = {}
     posix_users = pu.list_posix_users()
+    empty_posix_groups = 0
     for row in posix_users:
         posix_user2gid[row['account_id']] = row['gid']
     try:
@@ -111,8 +112,7 @@ def remove_expired_groups(db, days, pretend):
                                          dfg_members, gr.entity_id)
                         # PosixGroup was empty all along
                         else:
-                            logger.debug('PosixGroup %r is already empty',
-                                         gr.entity_id)
+                            empty_posix_groups += 1
                     # 1.2 Other extensions than PosixGroup - ne touche pas!
                     elif exts:
                         logger.debug('Extensions %r in group %r - skipping!',
@@ -147,6 +147,7 @@ def remove_expired_groups(db, days, pretend):
                         group['name'],
                         group['description'],
                         int(time_until_removal.days)))
+        logger.debug('%i empty posixgroups left untouched', empty_posix_groups)
     except Exception as e:
         logger.critical('Unexpected exception: %s' % (text_type(e)),
                         exc_info=True)
