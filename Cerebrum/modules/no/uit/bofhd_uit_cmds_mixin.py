@@ -61,6 +61,9 @@ class BofhdUiTExtension(bofhd_core.BofhdCommonMethods):
             'misc': {
                 'misc_list_legacy_user': 'List reserved usernames',
             },
+            'user': {
+                'user_delete_permanent': 'Delete an account permanently',
+            },
         }
         args = {
             'yes_no_sure': [
