@@ -267,10 +267,9 @@ class OuGenerator(object):
 
     def print_ou(self, final_ou, out_file):
         logger.info("Writing OU file %s", out_file)
-        with SimilarSizeStreamRecoder(out_file, "wb") as stream:
-
-            encoding = 'iso-8859-1'
-
+        encoding = 'iso-8859-1'
+        with SimilarSizeStreamRecoder(out_file, "w",
+                                      encoding=encoding) as stream:
             writer = xmlprinter.xmlprinter(stream,
                                            indent_level=2,
                                            data_mode=True)
