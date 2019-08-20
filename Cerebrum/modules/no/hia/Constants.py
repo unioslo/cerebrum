@@ -34,7 +34,7 @@ from Cerebrum.Constants import (
 )
 from Cerebrum.modules.no.Constants import ConstantsHigherEdu
 from Cerebrum.modules.no.Constants import ConstantsUniversityColleges
-from Cerebrum.modules.PosixUser import _PosixShellCode
+from Cerebrum.modules.PosixConstants import _PosixShellCode
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
 from Cerebrum.modules.Email import _EmailSpamLevelCode
 from Cerebrum.modules.Email import _EmailSpamActionCode
@@ -134,21 +134,12 @@ class Constants(Constants.Constants):
     spread_nis_user = _SpreadCode(
         'account@nis', Constants.Constants.entity_account,
         'User in NIS domain "stud"')
-    spread_ans_nis_user = _SpreadCode(
-        'account@nisans', Constants.Constants.entity_account,
-        'User in NIS domain "ans"')
     spread_nis_fg = _SpreadCode(
         'group@nis', Constants.Constants.entity_group,
         'File group in NIS domain "stud"')
     spread_nis_ng = _SpreadCode(
         'netgroup@nis', Constants.Constants.entity_group,
         'Net group in NIS domain "stud"')
-    spread_ans_nis_fg = _SpreadCode(
-        'group@nisans', Constants.Constants.entity_group,
-        'File group in NIS domain "ans"')
-    spread_ans_nis_ng = _SpreadCode(
-        'netgroup@nisans', Constants.Constants.entity_group,
-        'Net group in NIS domain "ans"')
     spread_hia_adgang = _SpreadCode(
         'account@adgang', Constants.Constants.entity_person,
         'Person exported to Adgang system')
@@ -237,7 +228,6 @@ class Constants(Constants.Constants):
         "IT services at UiA.")
 
     # KARANTENEGRUPPER
-    quarantine_slutta = _QuarantineCode('slutta', 'Personen har slutta')
     quarantine_permisjon = _QuarantineCode('permisjon',
                                            'Brukeren har permisjon')
     quarantine_autoekstern = _QuarantineCode('autoekstern',

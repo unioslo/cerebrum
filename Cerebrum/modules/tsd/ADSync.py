@@ -27,13 +27,13 @@ is not a part of the generic AD-sync.
 
 """
 
-import cerebrum_path
-import cereconf
 import adconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules import EntityTrait
-from Cerebrum.modules import dns
+from Cerebrum.modules.dns import (DnsOwner, Subnet, IPv6Subnet, ARecord,
+                                  AAAARecord, HostInfo, IPv6Utils)
+import Cerebrum.modules.dns.Errors as dnsErrors
 
 from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.CerebrumData import CerebrumGroup
@@ -49,7 +49,8 @@ class TSDUtils(ADSync.BaseSync):
     """Class for utility methods for the AD-syncs for TSD.
 
     This class should be a part of all the sync classes used by TSD, as it adds
-    some helper methods, e.g. for getting the correct OU and parsing the domain.
+    some helper methods, e.g. for getting the correct OU and parsing the
+    domain.
 
     """
 
@@ -58,11 +59,11 @@ class TSDUtils(ADSync.BaseSync):
         self.ou = Factory.get('OU')(self.db)
         self.et = EntityTrait.EntityTrait(self.db)
 
-        self.dnsowner = dns.DnsOwner.DnsOwner(self.db)
-        self.subnet = dns.Subnet.Subnet(self.db)
-        self.subnet6 = dns.IPv6Subnet.IPv6Subnet(self.db)
-        self.ar = dns.ARecord.ARecord(self.db)
-        self.aaaar = dns.AAAARecord.AAAARecord(self.db)
+        self.dnsowner = DnsOwner.DnsOwner(self.db)
+        self.subnet = Subnet.Subnet(self.db)
+        self.subnet6 = IPv6Subnet.IPv6Subnet(self.db)
+        self.ar = ARecord.ARecord(self.db)
+        self.aaaar = AAAARecord.AAAARecord(self.db)
 
     def _hostname2adid(self, hostname):
         """Parse a DNS host name into the name format to be included in AD.
@@ -70,7 +71,8 @@ class TSDUtils(ADSync.BaseSync):
         AD does not accept punctuation in an object's Name. For now, we only
         return the leftmost part of the name. Note that this would create
         conflicts if subdomains are used, and two different host use the same
-        base name in two different domains. They would then override each other.
+        base name in two different domains. They would then override each
+        other.
 
         TODO: What to do with subdomains?
 
@@ -91,8 +93,8 @@ class TSDUtils(ADSync.BaseSync):
         """Return the correct OU path for an object in AD.
 
         Each project in TSD has its own OU where the project's objects and
-        everything else should be put. Sub OUs are used for the different object
-        types and other behaviour.
+        everything else should be put. Sub OUs are used for the different
+        object types and other behaviour.
 
         One important detail to remember as well is that a object, e.g. an
         account can *only* be a part of a single project.
@@ -107,10 +109,11 @@ class TSDUtils(ADSync.BaseSync):
     def _get_ou_pid(self, ou_id):
         """Get the corresponding project ID for a given ou_id.
 
-        This is a method to be able to cache the mapping and get faster response
-        the next time asked. Suitable if you need to fetch the project ID for a
-        lot of OUs, but if you should only fetch it for a single OU, it would be
-        a bit more efficient to run L{ou.get_project_id()} directly.
+        This is a method to be able to cache the mapping and get faster
+        response the next time asked. Suitable if you need to fetch the
+        project ID for a lot of OUs, but if you should only fetch it for a
+        single OU, it would be a bit more efficient to run
+        L{ou.get_project_id()} directly.
 
         @rtype: string
         @return: The project ID for the given OU.
@@ -165,7 +168,8 @@ class UserSync(ADSync.UserSync, TSDUtils):
             try:
                 pid = self._get_ou_pid(ac2ouid[row['account_id']])
             except KeyError:
-                self.logger.warn("Unknown project ID for %s", row['account_id'])
+                self.logger.warn("Unknown project ID for %s",
+                                 row['account_id'])
                 continue
             ent = self.cache_entity(int(row["account_id"]), uname,
                                     owner_id=int(row["owner_id"]),
@@ -173,6 +177,7 @@ class UserSync(ADSync.UserSync, TSDUtils):
             ent.ou = 'OU=users,OU=%s,%s' % (pid, self.config['target_ou'])
             ent.projectid = pid
             self.entities[uname] = ent
+
 
 class GroupSync(ADSync.GroupSync, TSDUtils):
 
@@ -217,8 +222,8 @@ class ADNetGroupClient(ADUtils.ADclient):
     The functionality in here should hopefully be generic enough to be
     transferred back to the original ADUtils module.
 
-    Since NisNetGroup doesn't have their own powershell commands, we need to use
-    *-ADObject instead of the more specific *-ADGroup, e.g. Get-ADGroup.
+    Since NisNetGroup doesn't have their own powershell commands, we need to
+    use *-ADObject instead of the more specific *-ADGroup, e.g. Get-ADGroup.
 
     """
 
@@ -265,23 +270,23 @@ class HostSync(ADSync.HostSync, TSDUtils):
 
     """A hostsync, using the DNS module instead of the basic host concept.
 
-    The sync is not a sync of DNS, as it does not handle all the details that is
-    needed for a complete sync of DNS data. The sync does only create the host
-    entities as computer objects in AD, and updates their attributes for now. If
-    AD-DNS should be updated, we need to sync a lot more details.
+    The sync is not a sync of DNS, as it does not handle all the details that
+    is needed for a complete sync of DNS data. The sync does only create the
+    host entities as computer objects in AD, and updates their attributes for
+    now. If AD-DNS should be updated, we need to sync a lot more details.
 
     """
 
     def __init__(self, *args, **kwargs):
         """Instantiate dns specific functionality."""
         super(HostSync, self).__init__(*args, **kwargs)
-        self.host = dns.HostInfo.HostInfo(self.db)
+        self.host = HostInfo.HostInfo(self.db)
 
-        self.subnet = dns.Subnet.Subnet(self.db)
-        self.subnet6 = dns.IPv6Subnet.IPv6Subnet(self.db)
+        self.subnet = Subnet.Subnet(self.db)
+        self.subnet6 = IPv6Subnet.IPv6Subnet(self.db)
 
-        self.ar = dns.ARecord.ARecord(self.db)
-        self.aaaar = dns.AAAARecord.AAAARecord(self.db)
+        self.ar = ARecord.ARecord(self.db)
+        self.aaaar = AAAARecord.AAAARecord(self.db)
 
     def fetch_cerebrum_data(self):
         """Override for DNS info."""
@@ -304,7 +309,7 @@ class HostSync(ADSync.HostSync, TSDUtils):
             self.subnet.clear()
             try:
                 self.subnet.find(row['a_ip'])
-            except dns.Errors.SubnetError:
+            except dnsErrors.SubnetError:
                 self.logger.info("No subnet for %s (%s)" % (row['name'],
                                                             row['a_ip']))
                 continue
@@ -325,7 +330,7 @@ class HostSync(ADSync.HostSync, TSDUtils):
             self.subnet6.clear()
             try:
                 self.subnet6.find(row['aaaa_ip'])
-            except dns.Errors.SubnetError:
+            except dnsErrors.SubnetError:
                 self.logger.info("No subnet for %s (%s)" % (row['name'],
                                                             row['aaaa_ip']))
                 continue
@@ -346,8 +351,8 @@ class HostSync(ADSync.HostSync, TSDUtils):
 
         The configuration is used to know what to cache. All data is put in a
         list, and each entity is put into an object from
-        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it easier to
-        later compare with AD objects.
+        L{Cerebrum.modules.ad2.CerebrumData} or a subclass, to make it easier
+        to later compare with AD objects.
 
         Could be subclassed to fetch more data about each entity to support
         extra functionality from AD and to override settings.
@@ -374,7 +379,7 @@ class HostSync(ADSync.HostSync, TSDUtils):
                 self.entities[name] = self.cache_entity(
                     row["host_id"], name, row['dns_owner_id'],
                     host2pid[row['dns_owner_id']], row['name'])
-            except Errors.CerebrumError, e:
+            except Errors.CerebrumError as e:
                 self.logger.warn("Could not cache %s: %s" % (name, e))
                 continue
 
@@ -408,7 +413,7 @@ class HostEntity(CerebrumEntity):
     def add_subnet(self, vlan, base, mask, is_ipv6=False):
         """ Add a subnet to this host. """
         if is_ipv6:
-            base = dns.IPv6Utils.IPv6Utils.compress(base)
+            base = IPv6Utils.IPv6Utils.compress(base)
         self.subnets.append({'vlan': vlan,
                              'base': base,
                              'mask': mask, })
@@ -456,8 +461,8 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
     def cache_entity(self, entity_id, entity_name, data):
         """Wrapper method for creating a cache object for an entity.
 
-        You should call this method for new cache objects instead of creating it
-        directly, for easier subclassing.
+        You should call this method for new cache objects instead of creating
+        it directly, for easier subclassing.
 
         @type data: dict
         @param data: A row object with data about the entity to cache.
@@ -514,12 +519,13 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
         for ent in self.entities.itervalues():
             # The list of members is fed with the full DN of each object, as
             # registered in Cerebrum. It _should_ be the same in AD, otherwise
-            # the update of a given object would fail until the path is in sync.
+            # the update of a given object would fail until the path is in
+            # sync.
             members = set()
             for row in self.component.search_relations(
-                                   target_id=ent.entity_id,
-                                   relationship_code=self.co.hostpolicy_contains,
-                                   indirect_relations=False):
+                    target_id=ent.entity_id,
+                    relationship_code=self.co.hostpolicy_contains,
+                    indirect_relations=False):
                 mem = self.id2entity.get(row['source_id'])
                 if mem:
                     members.add('CN=%s,%s' % (mem.ad_id, mem.ou))
@@ -529,7 +535,8 @@ class HostpolicySync(ADSync.GroupSync, TSDUtils):
             # Get host members of the component:
             # TODO: We might want to run the hosts' AD-sync class to fetch all
             # needed data, but this works for now.
-            for row in self.component.search_hostpolicies(policy_id=ent.entity_id):
+            for row in self.component.search_hostpolicies(
+                    policy_id=ent.entity_id):
                 mem = host_sync.owner2entity.get(row['dns_owner_id'])
                 if mem:
                     members.add('CN=%s,%s' % (mem.ad_id, mem.ou))

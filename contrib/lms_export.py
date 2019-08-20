@@ -25,7 +25,6 @@ import sys
 import getopt
 import locale
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors

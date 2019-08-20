@@ -67,15 +67,12 @@ class norEduLDIFMixin(OrgLDIF):
     extensibleObject = (cereconf.LDAP.get('use_extensibleObject', True) and
                         'extensibleObject') or None
 
-    FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.5')
+    FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.6')
     FEIDE_obsolete_version = cereconf.LDAP.get('FEIDE_obsolete_schema_version')
 
     if isinstance(FEIDE_schema_version, (tuple, list)):
         FEIDE_obsolete_version = min(*FEIDE_schema_version)
         FEIDE_schema_version = max(*FEIDE_schema_version)
-
-    FEIDE_attr_org_id = 'norEduOrgUniqueIdentifier'
-    FEIDE_attr_ou_id = 'norEduOrgUnitUniqueIdentifier'
 
     FEIDE_class_obsolete = None
     if FEIDE_obsolete_version:
@@ -117,7 +114,7 @@ class norEduLDIFMixin(OrgLDIF):
         # Also add attribute federationFeideSchemaVersion if appropriate.
         entry['objectClass'].append('norEduOrg')
         if self.norEduOrgUniqueID:
-            entry[self.FEIDE_attr_org_id] = self.norEduOrgUniqueID
+            entry['norEduOrgUniqueIdentifier'] = self.norEduOrgUniqueID
         if self.FEIDE_class_obsolete:
             entry['objectClass'].append(self.FEIDE_class_obsolete)
             if self.norEduOrgUniqueID:
@@ -151,7 +148,7 @@ class norEduLDIFMixin(OrgLDIF):
         entry.update({
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
             'cn':                  (ldapconf('OU', 'dummy_name'),),
-            self.FEIDE_attr_ou_id: (ldap_ou_id,)})
+            'norEduOrgUnitUniqueIdentifier': (ldap_ou_id,)})
         entry.update(self.FEIDE_ou_common_attrs)
         if self.FEIDE_class_obsolete:
             entry['objectClass'].append(self.FEIDE_class_obsolete)
@@ -219,7 +216,7 @@ class norEduLDIFMixin(OrgLDIF):
         self.ou_id2ou_uniq_id[ou_id] = ldap_ou_id
         entry = {
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
-            self.FEIDE_attr_ou_id: (ldap_ou_id,)}
+            'norEduOrgUnitUniqueIdentifier': (ldap_ou_id,)}
         if 0 in ou_names:
             self.add_lang_names(entry, 'norEduOrgAcronym', ou_names[0])
         ou_names = [names for ou_pref, names in sorted(ou_names.items())]
@@ -256,7 +253,8 @@ class norEduLDIFMixin(OrgLDIF):
                 self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn)
         if (ldapconf('PERSON', 'entitlements_file') and
                 person_id in self.person2entitlements):
-            entry['eduPersonEntitlement'] = set(self.person2entitlements[person_id])
+            entry['eduPersonEntitlement'] = set(
+                self.person2entitlements[person_id])
 
         entry['objectClass'].append('schacContactLocation')
         entry['schacHomeOrganization'] = self.homeOrg
@@ -270,9 +268,9 @@ class norEduLDIFMixin(OrgLDIF):
         dn = "ou=%s,%s" % (
             dn_escape_re.sub(hex_escape_match, entry['ou'][0]), parent_dn)
         if normalize_string(dn) in self.used_DNs:
-            ldap_ou_id = entry[self.FEIDE_attr_ou_id][0]
+            ldap_ou_id = entry['norEduOrgUnitUniqueIdentifier'][0]
             dn = "%s=%s+%s" % (
-                self.FEIDE_attr_ou_id,
+                'norEduOrgUnitUniqueIdentifier',
                 dn_escape_re.sub(hex_escape_match, ldap_ou_id),
                 dn)
         return dn

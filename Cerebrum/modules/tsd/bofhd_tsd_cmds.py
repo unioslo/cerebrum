@@ -29,21 +29,14 @@ Note that there are different bofhd extensions. One is for administrative
 tasks, i.e. the superusers in TSD, and one is for the end users. End users are
 communicating with bofhd through a web site, so that bofhd should only be
 reachable from the web host.
-
-NOTE:
-
-Using the @superuser decorator instead of calling self.ba.is_superuser(userid)
-is only used in this file so far, so if you are an experienced bofhd developer,
-ba.is_superuser is not missing, it's still here, but in a different form.
 """
 from __future__ import unicode_literals
 
 import json
-from functools import wraps, partial
-
-from mx import DateTime
-
 import six
+
+from functools import partial
+from mx import DateTime
 
 import cereconf
 
@@ -67,7 +60,9 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
                                               PhrasePasswordNotGoodEnough)
-from Cerebrum.modules.tsd.bofhd_auth import TsdBofhdAuth, TsdContactAuth
+from Cerebrum.modules.tsd.bofhd_auth import (TsdBofhdAuth, TsdContactAuth,
+                                             TsdAccessAuth)
+from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.tsd import bofhd_help
 from Cerebrum.modules.tsd import Gateway
 
@@ -547,6 +542,13 @@ class TSDBofhdExtension(BofhdCommonMethods):
         @param dest_group: The name/id of the group the member should be
                            removed from.
         """
+        # If int in any of the names we assume the user intended to write an
+        # entity id and prefix it with id: for them
+        if isinstance(src_name, int):
+            src_name = 'id:' + six.text_type(src_name)
+        if isinstance(dest_group, int):
+            dest_group = 'id:' + six.text_type(dest_group)
+
         if member_type in ("group", self.const.entity_group):
             src_entity = self._get_group(src_name)
         elif member_type in ("account", self.const.entity_account):
@@ -594,34 +596,6 @@ class TSDBofhdExtension(BofhdCommonMethods):
         except self.db.DatabaseError as m:
             raise CerebrumError("Database error: %s" % m)
         return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
-
-
-def superuser(fn):
-    """Decorator for checking that methods are being executed as operator.
-
-    The first argument of the decorated function must be "self" and the second
-    must be "operator".  If operator is not superuser a CerebrumError will be
-    raised.
-    """
-    if fn.func_dict.get('assert_superuser_wrapper'):
-        return fn
-
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        if len(args) < 2:
-            raise CerebrumError(
-                'Decorated functions must have self and operator as the first'
-                ' arguments')
-        self = args[0]
-        operator = args[1]
-        userid = operator.get_entity_id()
-        if not self.ba.is_superuser(userid):
-            raise CerebrumError('Only superuser is allowed to do this!')
-        else:
-            self.logger.debug2("OK, current user is superuser.")
-            return fn(*args, **kwargs)
-    wrapper.func_dict['assert_superuser_wrapper'] = True
-    return wrapper
 
 
 class _Project:
@@ -786,40 +760,24 @@ class _Projects:
 
 
 admin_uio_helpers = [
+    '_assert_group_deletable',
     '_entity_info',
     '_fetch_member_names',
     '_format_changelog_entry',
     '_format_from_cl',
-    '_get_access_id',
-    '_get_access_id_group',
     '_get_affiliation_statusid',
     '_get_affiliationid',
-    '_get_auth_op_target',
     '_get_cached_passwords',
-    '_get_disk',
-    '_get_opset',
     '_get_posix_account',
     '_get_shell',
-    '_grant_auth',
-    '_list_access',
-    '_manipulate_access',
     '_person_create_externalid_helper',
     '_remove_auth_role',
     '_remove_auth_target',
-    '_revoke_auth',
-    '_validate_access',
-    '_validate_access_group',
     'user_set_owner_prompt_func',
 ]
 
 
 admin_copy_uio = [
-    'access_grant',
-    'access_group',
-    'access_list',
-    'access_list_opsets',
-    'access_revoke',
-    'access_show_opset',
     'entity_history',
     'group_delete',
     'group_demote_posix',
@@ -827,6 +785,7 @@ admin_copy_uio = [
     'group_list',
     'group_list_expanded',
     'group_memberships',
+    'group_memberships_expanded',
     'group_promote_posix',
     'group_search',
     'group_set_description',
@@ -872,45 +831,6 @@ admin_copy_uio = [
 ]
 
 
-def _apply_superuser(commands, replace=True):
-    """Require superuser for commands.
-
-    Class wrapper that wraps the functions for the given commands with the
-    `superuser` wrapper, and tries to set the `perm_filter` to 'is_superuser'
-    for that command.
-    """
-    # This is a hack that is needed because TSD-bofh *is* a giant hack
-    # It is needed to:
-    #   wrap commands from uio
-    #   wrap commands inherited from BofhdCommonMethods, that *aren't*
-    #       overridden in AdminBofhdExtension
-    def wrapper(cls):
-        for command in commands:
-            if command in getattr(cls, 'all_commands') and not replace:
-                # Already defined directly in class, so don't alter
-                continue
-            if getattr(cls, command):
-                # Function exists, wrap function
-                setattr(cls, command, superuser(getattr(cls, command)))
-                # Find Command and set perm_filter
-                for base in cls.mro():
-                    desc = getattr(base, 'all_commands', {})
-                    if command in desc:
-                        if desc[command] is not None:
-                            desc[command].perm_filter = 'is_superuser'
-                        break
-        return cls
-    return wrapper
-
-
-@_apply_superuser(
-    [fn_name for cls in TSDBofhdExtension.mro()
-     for fn_name in getattr(cls, 'all_commands', {}).keys()
-     if fn_name not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS],
-    replace=False)
-@_apply_superuser(
-    [fn_name for fn_name in admin_copy_uio
-     if fn_name not in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS])
 @copy_command(
     uio_base,
     'all_commands', 'all_commands',
@@ -951,9 +871,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ProjectHpc(),
         ProjectMetadata(),
         VLANParam(optional=True),
-        perm_filter='is_superuser')
+        perm_filter='can_create_project')
 
-    @superuser
     def project_create(self, operator, projectname, longname, shortname,
                        startdate, enddate, price, inst, vm_type,
                        hpc, meta, vlan=None):
@@ -964,6 +883,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         :param int vlan:
             If given, sets what VLAN the project's subnet should be set in.
         """
+        self.ba.can_create_project(operator.get_entity_id())
         start = self._parse_date(startdate)
         end = self._parse_date(enddate)
 
@@ -990,11 +910,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             raise CerebrumError("Invalid VM-type.")
 
         ou = self.OU_class(self.db)
-
-        try:
-            pid = ou.create_project(projectname)
-        except Errors.CerebrumError as e:
-            raise CerebrumError(e)
+        pid = ou.create_project(projectname)
 
         # Storing the names:
         ou.add_name_with_language(name_variant=self.const.ou_name_long,
@@ -1026,13 +942,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou.populate_trait(self.const.trait_project_vm_type, strval=vm_type)
 
         ou.write_db()
-        try:
-            ou.setup_project(operator.get_entity_id(), vlan)
-        except Errors.CerebrumError as e:
-            raise CerebrumError(e)
-
+        ou.setup_project(operator.get_entity_id(), vlan)
         self._set_project_metadata(operator, ou, meta)
-
         return 'New project created: {pid}'.format(pid=pid)
 
     #
@@ -1042,9 +953,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ('project', 'setup'),
         ProjectID(),
         VLANParam(optional=True),
-        perm_filter='is_superuser')
+        perm_filter='can_setup_project')
 
-    @superuser
     def project_setup(self, operator, project_id):
         """
         Run the setup procedure for a project, updating configuration to
@@ -1058,17 +968,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         :returns: A statement that the operation was successful.
         :rtype: str (unicode)
         """
-
-        op_id = operator.get_entity_id()
-        ou = self.OU_class(self.db)
-
-        try:
-            ou.find_by_tsd_projectid(project_id)
-        except Errors.CerebrumError:
-            raise CerebrumError("Could not find project '%s'" % project_id)
-
-        ou.setup_project(op_id)
-
+        project = self._get_project(project_id)
+        self.ba.can_setup_project(operator.get_entity_id(), project)
+        project.setup_project(operator.get_entity_id())
         return 'OK, project reconfigured according to current settings.'
 
     #
@@ -1077,9 +979,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['project_terminate'] = cmd.Command(
         ('project', 'terminate'),
         ProjectID(),
-        perm_filter='is_superuser')
+        perm_filter='can_terminate_project')
 
-    @superuser
     def project_terminate(self, operator, projectid):
         """Terminate a project by removed almost all of it.
 
@@ -1087,6 +988,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         avoid reuse of the ID.
         """
         project = self._get_project(projectid)
+        self.ba.can_terminate_project(operator.get_entity_id(), project)
         # TODO: delete person affiliations?
         # TODO: delete accounts
         project.terminate()
@@ -1100,9 +1002,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ('project', 'approve'),
         ProjectID(),
         VLANParam(optional=True),
-        perm_filter='is_superuser')
+        perm_filter='can_approve_project')
 
-    @superuser
     def project_approve(self, operator, projectid, vlan=None):
         """Approve an existing project that is not already approved. A project
         is created after we get metadata for it from the outside world, but is
@@ -1110,6 +1011,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         it gets spread to AD and gets set up properly.
         """
         project = self._get_project(projectid)
+        self.ba.can_approve_project(operator.get_entity_id(), project)
         success_msg = 'Project approved: {projectid}'.format(
             projectid=projectid)
 
@@ -1123,10 +1025,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
 
         project.delete_entity_quarantine(self.const.quarantine_not_approved)
         project.write_db()
-        try:
-            project.setup_project(operator.get_entity_id(), vlan)
-        except Errors.CerebrumError as e:
-            raise CerebrumError(e)
+        project.setup_project(operator.get_entity_id(), vlan)
 
         if not project.get_entity_quarantine(only_active=True):
             # Active project only if no other quarantines
@@ -1142,9 +1041,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['project_reject'] = cmd.Command(
         ('project', 'reject'),
         ProjectID(),
-        perm_filter='is_superuser')
+        perm_filter='can_reject_project')
 
-    @superuser
     def project_reject(self, operator, projectid):
         """Reject a project that is not approved yet.
 
@@ -1152,6 +1050,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         exported out of Cerebrum yet.
         """
         project = self._get_project(projectid)
+        self.ba.can_reject_project(operator.get_entity_id(), project)
         if not project.get_entity_quarantine(
                 only_active=True,
                 qtype=self.const.quarantine_not_approved):
@@ -1174,12 +1073,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ('project', 'set_enddate'),
         ProjectID(),
         cmd.Date(),
-        perm_filter='is_superuser')
+        perm_filter='can_set_project_end_date')
 
-    @superuser
     def project_set_enddate(self, operator, projectid, enddate):
         """Set the end date for a project."""
         project = self._get_project(projectid)
+        self.ba.can_set_project_end_date(operator.get_entity_id(), project)
         qtype = self.const.quarantine_project_end
         end = self._parse_date(enddate)
         # The quarantine needs to be removed before it could be added again
@@ -1207,12 +1106,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ('project', 'set_projectname'),
         ProjectID(),
         ProjectName(),
-        perm_filter='is_superuser')
+        perm_filter='can_set_project_name')
 
-    @superuser
     def project_set_projectname(self, operator, projectid, projectname):
         """Set the project name for a project."""
         ou = self._get_project(projectid)
+        self.ba.can_set_project_name(operator.get_entity_id(), ou)
         ou.add_name_with_language(name_variant=self.const.ou_name_acronym,
                                   name_language=self.const.language_en,
                                   name=projectname)
@@ -1228,12 +1127,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ('project', 'set_longname'),
         ProjectID(),
         ProjectLongName(),
-        perm_filter='is_superuser')
+        perm_filter='can_set_project_name')
 
-    @superuser
     def project_set_longname(self, operator, projectid, longname):
         """Set the project name for a project."""
         ou = self._get_project(projectid)
+        self.ba.can_set_project_name(operator.get_entity_id(), ou)
         ou.add_name_with_language(name_variant=self.const.ou_name_long,
                                   name_language=self.const.language_en,
                                   name=longname)
@@ -1249,12 +1148,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ('project', 'set_shortname'),
         ProjectID(),
         ProjectShortName(),
-        perm_filter='is_superuser')
+        perm_filter='can_set_project_name')
 
-    @superuser
     def project_set_shortname(self, operator, projectid, shortname):
         """Set the project name for a project."""
         ou = self._get_project(projectid)
+        self.ba.can_set_project_name(operator.get_entity_id(), ou)
         ou.add_name_with_language(name_variant=self.const.ou_name_short,
                                   name_language=self.const.language_en,
                                   name=shortname)
@@ -1270,14 +1169,14 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ('project', 'set_price'),
         ProjectID(),
         ProjectPrice(),
-        perm_filter='is_superuser')
+        perm_filter='can_set_project_price')
 
-    @superuser
     def project_set_price(self, operator, projectid, price):
-        proj = self._get_project(projectid)
-        status = proj.populate_trait(self.const.trait_project_price,
-                                     strval=price)
-        proj.write_db()
+        project = self._get_project(projectid)
+        self.ba.can_set_project_price(operator.get_entity_id(), project)
+        status = project.populate_trait(self.const.trait_project_price,
+                                        strval=price)
+        project.write_db()
         return 'Project price {} to {}'.format('set' if status == 'INSERT'
                                                else 'changed',
                                                price)
@@ -1289,11 +1188,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ('project', 'set_institution'),
         ProjectID(),
         ProjectInstitution(),
-        perm_filter='is_superuser')
+        perm_filter='can_set_project_institution')
 
-    @superuser
     def project_set_institution(self, operator, projectid, institution):
         proj = self._get_project(projectid)
+        self.ba.can_set_project_institution(operator.get_entity_id(), proj)
         status = proj.populate_trait(self.const.trait_project_institution,
                                      strval=institution)
         proj.write_db()
@@ -1319,12 +1218,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ('project', 'set_hpc'),
         ProjectID(),
         ProjectHpc(),
-        perm_filter='is_superuser')
+        perm_filter='can_set_project_hpc')
 
-    @superuser
     def project_set_hpc(self, operator, projectid, hpc):
-        hpc = self._parse_hpc_yesno(hpc)
         proj = self._get_project(projectid)
+        self.ba.can_set_project_hpc(operator.get_entity_id(), proj)
+        hpc = self._parse_hpc_yesno(hpc)
         status = proj.populate_trait(self.const.trait_project_hpc,
                                      strval=hpc)
         proj.write_db()
@@ -1340,6 +1239,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                            reverse=True,
                            key=lambda x: x['note_id']):
             return json.loads(note['description'])
+        return dict()
 
     @staticmethod
     def _set_project_metadata(operator, project, metadata):
@@ -1378,11 +1278,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ProjectID(),
         cmd.SimpleString(help_ref='project_metadata'),
         cmd.SimpleString(),
-        perm_filter='is_superuser')
+        perm_filter='can_set_project_metadata')
 
-    @superuser
     def project_set_metadata(self, operator, projectid, key, value):
         proj = self._get_project(projectid)
+        self.ba.can_set_project_metadata(operator.get_entity_id(), proj)
         status = self._add_project_metadata_field(operator, proj, key, value)
         return 'Value for {} {}'.format(key, status)
 
@@ -1392,12 +1292,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['project_freeze'] = cmd.Command(
         ('project', 'freeze'),
         ProjectID(),
-        perm_filter='is_superuser')
+        perm_filter='can_freeze_project')
 
-    @superuser
     def project_freeze(self, operator, projectid):
         """Freeze a project."""
         project = self._get_project(projectid)
+        self.ba.can_freeze_project(operator.get_entity_id(), project)
         when = DateTime.now()
 
         # The quarantine needs to be removed before it could be added again
@@ -1471,12 +1371,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['project_unfreeze'] = cmd.Command(
         ('project', 'unfreeze'),
         ProjectID(),
-        perm_filter='is_superuser')
+        perm_filter='can_unfreeze_project')
 
-    @superuser
     def project_unfreeze(self, operator, projectid):
         """Unfreeze a project."""
         project = self._get_project(projectid)
+        self.ba.can_unfreeze_project(operator.get_entity_id(), project)
 
         # Remove the quarantine
         qtype = self.const.quarantine_frozen
@@ -1524,11 +1424,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             hdr='%-11s %-16s %-10s %s' % ('Project ID', 'Name', 'Entity-Id',
                                           'Quarantines')
         ),
-        perm_filter='is_superuser')
+        perm_filter='can_list_projects')
 
-    @superuser
     def project_list(self, operator, filter=None):
         """List out all projects by their acronym and status."""
+        self.ba.can_list_projects(operator.get_entity_id())
         projects = _Projects(self.logger, self.const, self.OU_class(self.db),
                              exact_match=False, filter=filter)
         return projects.results_sorted_by_name(['pid', 'name', 'entity_id',
@@ -1543,12 +1443,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             '%-10s %-16s %-10s', ('pid', 'name', 'entity_id'),
             hdr='%-10s %-16s %-10s' % ('ProjectID', 'Name', 'Entity-Id')
         ),
-        perm_filter='is_superuser')
+        perm_filter='can_list_projects')
 
-    @superuser
     def project_unapproved(self, operator, filter=None):
         """List all projecs with the 'not_approved' quarantine."""
-
+        self.ba.can_list_projects(operator.get_entity_id())
         projects = _Projects(self.logger,
                              self.const,
                              self.OU_class(self.db),
@@ -1584,9 +1483,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             ('VM-type:          %s', ('vm_type',)),
             ('VLAN, Subnet:     %-4s, %s', ('vlan_number', 'subnet')),
         ]),
-        perm_filter='is_superuser')
+        perm_filter='can_view_project_info')
 
-    @superuser
     def project_info(self, operator, projectid):
         """Display information about a specified project using ou_info.
 
@@ -1595,6 +1493,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         a much better way.
         """
         project = self._get_project(projectid)
+        self.ba.can_view_project_info(operator.get_entity_id(), project)
         try:
             pid = project.get_project_id()
         except Errors.NotFoundError:
@@ -1697,10 +1596,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ProjectID(),
         fs=cmd.FormatSuggestion('%-10s%-10s', ('key', 'value'),
                                 '{:10}{:10}'.format('Field', 'Value')),
-        perm_filter='is_superuser')
+        perm_filter='can_view_project_info')
 
     def project_metadata(self, operator, project_id):
         project = self._get_project(project_id)
+        self.ba.can_view_project_info(operator.get_entity_id(), project)
         ret = []
         for key, val in sorted((self._get_project_metadata(project) or {})
                                .items()):
@@ -1715,14 +1615,15 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ProjectID(),
         cmd.EntityType(),
         cmd.Id(help_ref='id:target:group'),
-        perm_filter='is_superuser')
+        perm_filter='can_affiliate_entity_with_project')
 
-    @superuser
     def project_affiliate_entity(self, operator, projectid, etype, ent):
         """Affiliate a given entity with a project. This is a shortcut command
         for helping the TSD-admins instead of using L{trait_set}. Some entity
         types doesn't even work with trait_set, like DnsOwners."""
-        ou = self._get_project(projectid)
+        project = self._get_project(projectid)
+        self.ba.can_affiliate_entity_with_project(operator.get_entity_id(),
+                                                  project)
 
         # A mapping of what trait to set for what entity type:
         co = self.const
@@ -1751,11 +1652,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             entity_id = ent.entity_id
             ent = EntityTrait.EntityTrait(self.db)
             ent.find(entity_id)
-        ent.populate_trait(trait_type, target_id=ou.entity_id,
+        ent.populate_trait(trait_type, target_id=project.entity_id,
                            date=DateTime.now())
         ent.write_db()
         return 'Entity affiliated with project: {project_id}'.format(
-            project_id=ou.get_project_id())
+            project_id=project.get_project_id())
 
     #
     # project set_vm_type
@@ -1764,9 +1665,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ('project', 'set_vm_type'),
         ProjectID(),
         VMType(),
-        perm_filter='is_superuser')
+        perm_filter='can_set_project_vm_type')
 
-    @superuser
     def project_set_vm_type(self, operator, project_id, vm_type):
         """
         Changes the type of VM-host(s) for the given project.
@@ -1782,6 +1682,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         :rtype: str (unicode)
         """
         project = self._get_project(project_id)
+        self.ba.can_set_project_vm_type(operator.get_entity_id(), project)
         op_id = operator.get_entity_id()
 
         if vm_type not in cereconf.TSD_VM_TYPES:
@@ -1805,12 +1706,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             [('%-30s %-8s %-20s %-20s', ('name', 'os', 'contact', 'comment'))],
             hdr='%-30s %-8s %-20s %-20s' % ('Name', 'OS', 'Contact', 'Comment')
         ),
-        perm_filter='is_superuser')
+        perm_filter='can_list_project_hosts')
 
-    @superuser
     def project_list_hosts(self, operator, projectid):
         """List hosts by project."""
         project = self._get_project(projectid)
+        self.ba.can_list_project_hosts(operator.get_entity_id(), project)
         ent = EntityTrait.EntityTrait(self.db)
         dnsowner = dns.DnsOwner.DnsOwner(self.db)
         hostinfo = dns.HostInfo.HostInfo(self.db)
@@ -2107,11 +2008,12 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['user_generate_otpkey'] = cmd.Command(
         ('user', 'generate_otpkey'),
         cmd.AccountName(),
-        cmd.SimpleString(help_ref='otp_type', optional=True))
+        cmd.SimpleString(help_ref='otp_type', optional=True),
+        perm_filter='can_generate_otp_key')
 
     def user_generate_otpkey(self, operator, accountname, otp_type=None):
         account = self._get_account(accountname)
-        self.ba.can_generate_otpkey(operator.get_entity_id(), account)
+        self.ba.can_generate_otp_key(operator.get_entity_id(), account)
 
         # User must be approved first, to exist in the GW
         if not account.is_approved():
@@ -2159,14 +2061,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     all_commands['user_approve'] = cmd.Command(
         ('user', 'approve'),
         cmd.AccountName(),
-        perm_filter='is_superuser')
+        perm_filter='can_approve_user')
 
     def user_approve(self, operator, accountname):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise CerebrumError('Only superusers could approve users')
-
         ac = self._get_account(accountname)
-
+        self.ba.can_approve_user(operator.get_entity_id(), ac)
         if ac.owner_type != self.const.entity_person:
             raise CerebrumError('Non-personal account, use: quarantine remove')
 
@@ -2272,13 +2171,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             '%-10d %-16s %s', ('entity_id', 'username', 'created'),
             hdr='%-10s %-16s %s' % ('Entity-Id', 'Username', 'Created')
         ),
-        perm_filter='is_superuser')
+        perm_filter='can_approve_user')
 
-    @superuser
     def user_unapproved(self, operator):
         """
         List all users with the 'not_approved' quarantine
         """
+        self.ba.can_approve_user(operator.get_entity_id())
         ac = Factory.get('Account')(self.db)
         q_list = ac.list_entity_quarantines(
             entity_types=self.const.entity_account,
@@ -2303,12 +2202,10 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ProjectID(),
         cmd.GroupName(),
         GroupDescription(),
-        perm_filter='is_superuser')
+        perm_filter='can_create_group')
 
-    @superuser
     def group_create(self, operator, project, group, description):
         """Method for creating a new group"""
-        self.logger.debug2("group create start")
         ou = self._get_project(project)
         groupname = '%s-%s' % (project, group)
 
@@ -2372,11 +2269,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         fs=cmd.FormatSuggestion(
             [('%-30s %-10s %-12s', ('name', 'project_id', 'project_name'),)],
             hdr='%-30s %-10s %-12s' % ('Name', 'Project ID', 'Project name')),
-        perm_filter='is_superuser')
+        perm_filter='can_list_project_hosts')
 
-    @superuser
     def host_list_projects(self, operator, host_id):
         """List projects by host."""
+        self.ba.can_list_project_hosts(operator.get_entity_id())
         host = self._get_host(host_id)
         ent = EntityTrait.EntityTrait(self.db)
         project = self.OU_class(self.db)
@@ -2408,8 +2305,9 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         ou = self.OU_class(self.db)
         # Project entity ID -> external project ID
         ent2ext = dict((x['entity_id'], x['external_id']) for x in
-                       ou.list_external_ids(
-                           id_type=self.const.externalid_project_id))
+                       ou.search_external_ids(
+                           id_type=self.const.externalid_project_id,
+                           fetchall=False))
 
         # Subnet -> external project ID
         subnet2project = {}
@@ -2449,12 +2347,11 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                   'description',),)],
             hdr='%-30s %6s %7s %s' % ('Subnet', 'VLAN', 'Project',
                                       'Description')),
-        perm_filter='is_superuser')
+        perm_filter='can_view_subnets')
 
-    @superuser
     def subnet_list(self, operator):
         """Return a list of all subnets."""
-        # Sort by subnet
+        self.ba.can_view_subnets(operator.get_entity_id())
         return sorted(self._get_all_subnets(), key=lambda x: x['subnet'])
 
     #
@@ -2469,9 +2366,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                   'description',),)],
             hdr='%-30s %6s %7s %s' % ('Subnet', 'VLAN',
                                       'Project', 'Description')),
-        perm_filter='is_superuser')
+        perm_filter='can_view_subnets')
 
-    @superuser
     def subnet_search(self, operator, search_type, pattern):
         """Wildcard search for subnets.
 
@@ -2481,6 +2377,7 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         :type pattern: str
         :param pattern: wildcard search pattern
         """
+        self.ba.can_view_subnets(operator.get_entity_id())
         from fnmatch import fnmatch
 
         type2key = {
@@ -2507,9 +2404,8 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
     #   all_commands['subnet_create'] = cmd.Command(
     #      ("subnet", "create"),
     #      SubnetParam(), cmd.Description(), Vlan(),
-    #      perm_filter='is_superuser')
+    #      perm_filter='can_create_subnet')
 
-    @superuser
     def subnet_create(self, operator, subnet, description, vlan):
         """Create a new subnet, if the range is not already reserved.
 
@@ -2537,7 +2433,6 @@ uio_helpers = [
 copy_hidden = filter(
     lambda x: x in cereconf.TSD_ALLOWED_ENDUSER_COMMANDS,
     [
-        'access_list_alterable',
         'get_constant_description',
     ]
 )
@@ -2593,3 +2488,8 @@ class EnduserBofhdExtension(TSDBofhdExtension):
 
 class ContactCommands(bofhd_contact_info.BofhdContactCommands):
     authz = TsdContactAuth
+
+
+class TsdAccessCommands(bofhd_access.BofhdAccessCommands):
+    """Tds specific access commands"""
+    authz = TsdAccessAuth

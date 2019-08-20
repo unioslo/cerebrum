@@ -56,7 +56,7 @@ class Action(object):
                  max_freq=None,
                  when=None,
                  notwhen=None,
-                 max_duration=2*60*60,
+                 max_duration=4*60*60,
                  multi_ok=0,
                  nonconcurrent=[]):
         """

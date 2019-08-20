@@ -51,9 +51,9 @@ class Manager(utils.Manager):
     pass
 
 
-# Inject Queue implementations:
+# Inject our queue implementation:
+# TODO: This should probably be a Queue.Queue, since it's handled by a Manager!
 Manager.register(str('queue'), Queue)
-Manager.register(str('log_queue'), Queue)
 
 
 def serve(config, num_workers, enable_listener, enable_collectors):
@@ -68,12 +68,13 @@ def serve(config, num_workers, enable_listener, enable_collectors):
 
     for i in range(0, num_workers):
         exchanged.add_process(
-            Handler,
-            queue=event_queue,
-            log_queue=exchanged.log_queue,
-            running=exchanged.run_trigger,
-            config=config,
-            mock=config.client.mock)
+            Handler(
+                daemon=True,
+                queue=event_queue,
+                log_queue=exchanged.log_queue,
+                running=exchanged.run_trigger,
+                config=config,
+                mock=config.client.mock))
 
     if (config.deferred_handler.handler_mod and
             config.deferred_handler.handler_class):
@@ -81,33 +82,36 @@ def serve(config, num_workers, enable_listener, enable_collectors):
         hand = getattr(Utils.dyn_import(config.deferred_handler.handler_mod),
                        config.deferred_handler.handler_class)
         exchanged.add_process(
-            hand,
-            queue=group_event_queue,
-            log_queue=exchanged.log_queue,
-            running=exchanged.run_trigger,
-            config=config,
-            mock=config.client.mock)
+            hand(
+                daemon=True,
+                queue=group_event_queue,
+                log_queue=exchanged.log_queue,
+                running=exchanged.run_trigger,
+                config=config,
+                mock=config.client.mock))
         queues.append(group_event_queue)
 
     if enable_listener:
         exchanged.add_process(
-            evhandlers.EventLogListener,
-            queue=event_queue,
-            fan_out_queues=queues,
-            log_queue=exchanged.log_queue,
-            running=exchanged.run_trigger,
-            channels=channels)
-
-    if enable_collectors:
-        for chan in channels:
-            exchanged.add_process(
-                evhandlers.EventLogCollector,
+            evhandlers.EventLogListener(
+                daemon=True,
                 queue=event_queue,
                 fan_out_queues=queues,
                 log_queue=exchanged.log_queue,
                 running=exchanged.run_trigger,
-                channel=chan,
-                config=config.eventcollector)
+                channels=channels))
+
+    if enable_collectors:
+        for chan in channels:
+            exchanged.add_process(
+                evhandlers.EventLogCollector(
+                    daemon=True,
+                    queue=event_queue,
+                    fan_out_queues=queues,
+                    log_queue=exchanged.log_queue,
+                    running=exchanged.run_trigger,
+                    channel=chan,
+                    config=config.eventcollector))
 
     exchanged.serve()
 

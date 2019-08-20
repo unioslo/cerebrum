@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -46,7 +46,7 @@ class HiAStudent(access_FS.Student):
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.adresseland_hjemsted,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
@@ -78,7 +78,7 @@ class HiAStudent(access_FS.Student):
           p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
           p.adrlin1_hjemsted, p.adrlin2_hjemsted, p.postnr_hjemsted,
           p.adrlin3_hjemsted, p.adresseland_hjemsted,
-          p.status_reserv_nettpubl, p.sprakkode_malform,
+          p.sprakkode_malform,
           nvl(trim(leading '0' from
                    trim(leading '+' from p.telefonlandnr_mobil)), '47')
                 telefonlandnr_mobil,
@@ -124,7 +124,7 @@ class HiAStudent(access_FS.Student):
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.adresseland_hjemsted,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
@@ -151,7 +151,7 @@ class HiAStudent(access_FS.Student):
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.adresseland_hjemsted, 
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
@@ -198,7 +198,7 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.adresseland_hjemsted, 
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
@@ -232,14 +232,15 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
           p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
           p.adrlin1_hjemsted, p.adrlin2_hjemsted, p.postnr_hjemsted,
           p.adrlin3_hjemsted, p.adresseland_hjemsted,
-          p.status_reserv_nettpubl, p.sprakkode_malform,
+          p.sprakkode_malform,
           pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
           pt.telefonnr telefonnr_mobil,
           s.adrlin1_kontakt, s.adrlin2_kontakt, s.postnr_kontakt,
           s.adrlin3_kontakt, s.adresseland_kontakt,
           sp.studieprogramkode
         FROM fs.soknadsalternativ sa, fs.opptakstudieprogram osp,
-             fs.opptakstudieprogramtermin ost, fs.soknad s, fs.studieprogram sp,
+             fs.opptakstudieprogramtermin ost, fs.soknad s, 
+             fs.studieprogram sp, 
              fs.person p LEFT JOIN fs.persontelefon pt ON
               pt.fodselsdato = p.fodselsdato AND
               pt.personnr = p.personnr AND
@@ -280,7 +281,7 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.adresseland_hjemsted, 
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
@@ -309,7 +310,7 @@ class HiAStudent78(HiAStudent, access_FS.Student78):
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.adresseland_hjemsted,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
@@ -389,26 +390,6 @@ class HiAUndervisning(access_FS.Undervisning):
                                    'arstall': arstall}
                              )
 
-    def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
-        """Hent alle studentene som er oppført på et gitt kull."""
-
-        query = """
-        SELECT DISTINCT
-            fodselsdato, personnr
-        FROM
-            fs.studieprogramstudent
-        WHERE
-            studentstatkode IN ('AKTIV', 'PERMISJON') AND
-            NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
-            studieprogramkode = :studieprogramkode AND
-            terminkode_kull = :terminkode_kull AND
-            arstall_kull = :arstall_kull
-        """
-
-        return self.db.query(query, {"studieprogramkode": studieprogramkode,
-                                     "terminkode_kull": terminkode,
-                                     "arstall_kull": arstall})
-
     def list_studenter_kull_deprecated(self, studieprogramkode,
                                        terminkode, arstall):
         """Hent alle studentene som er oppført på et gitt kull."""
@@ -469,7 +450,7 @@ class HiAEVU(access_FS.EVU):
                d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
                d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,
                d.adresseland_hjem, p.adrlin1_hjemsted,
-               p.status_reserv_nettpubl, p.adrlin2_hjemsted,
+               p.adrlin2_hjemsted,
                p.postnr_hjemsted, p.adrlin3_hjemsted,
                p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
                k.etterutdkurskode, e.studieprogramkode,
@@ -509,7 +490,7 @@ class HiAEVU78(HiAEVU, access_FS.EVU78):
                d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
                d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,
                d.adresseland_hjem, p.adrlin1_hjemsted,
-               p.status_reserv_nettpubl, p.adrlin2_hjemsted,
+               p.adrlin2_hjemsted,
                p.postnr_hjemsted, p.adrlin3_hjemsted,
                p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
                k.etterutdkurskode, e.studieprogramkode,

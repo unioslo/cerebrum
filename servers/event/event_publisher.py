@@ -32,22 +32,34 @@ SIGUSR1 (main process)
     List current processes, pids and their state.
 """
 import argparse
-
+import logging
 from multiprocessing import Queue
 
+import Cerebrum.logutils
 from Cerebrum import Utils
 from Cerebrum.modules.event import utils
-from Cerebrum.modules.event_publisher.config import load_daemon_config
-
 from Cerebrum.modules.event_publisher import consumer
+from Cerebrum.modules.event_publisher.config import load_daemon_config
+from Cerebrum.utils.pidcontext import Pid
+
+logger = logging.getLogger(__name__)
 
 
 class Manager(utils.Manager):
     pass
 
-# Inject Queue implementations:
+
+# Inject our queue implementation:
+# TODO: This should probably be a Queue.Queue, since it's handled by a Manager!
 Manager.register('queue', Queue)
-Manager.register('log_queue', Queue)
+
+
+def unlock_all_events():
+    from Cerebrum.Utils import Factory
+    from Cerebrum.modules.event_publisher.eventdb import EventsAccessor
+    database = Factory.get('Database')()
+    EventsAccessor(database).release_all()
+    database.commit()
 
 
 def serve(config, num_workers, enable_listener, enable_collector):
@@ -61,34 +73,36 @@ def serve(config, num_workers, enable_listener, enable_collector):
     # Listens on the `event_queue` and processes events that are pushed onto it
     for i in range(0, num_workers):
         daemon.add_process(
-            consumer.EventConsumer,
-            config.event_publisher,
-            config.event_formatter,
-            queue=event_queue,
-            log_queue=daemon.log_queue,
-            running=daemon.run_trigger,
-        )
+            consumer.EventConsumer(
+                config.event_publisher,
+                config.event_formatter,
+                daemon=True,
+                queue=event_queue,
+                log_queue=daemon.log_queue,
+                running=daemon.run_trigger))
 
     # The 'event listener'
     # Listens to 'events' from the database, fetches related event records, and
     # pushes events onto the `event_queue`.
     if enable_listener:
         daemon.add_process(
-            consumer.EventListener,
-            queue=event_queue,
-            log_queue=daemon.log_queue,
-            running=daemon.run_trigger)
+            consumer.EventListener(
+                daemon=True,
+                queue=event_queue,
+                log_queue=daemon.log_queue,
+                running=daemon.run_trigger))
 
     # The 'event collector'
     # Regularly pulls event records from the database, and pushes events onto
     # the `event_queue`.
     if enable_collector:
         daemon.add_process(
-            consumer.EventCollector,
-            queue=event_queue,
-            log_queue=daemon.log_queue,
-            running=daemon.run_trigger,
-            config=config.event_daemon_collector)
+            consumer.EventCollector(
+                daemon=True,
+                queue=event_queue,
+                log_queue=daemon.log_queue,
+                running=daemon.run_trigger,
+                config=config.event_daemon_collector))
 
     daemon.serve()
 
@@ -99,7 +113,6 @@ def show_config(config):
 
 
 def main(args=None):
-    logger = Utils.Factory.get_logger('cronjob')
     parser = argparse.ArgumentParser(description=__doc__)
 
     parser.add_argument('-c', '--config',
@@ -133,7 +146,17 @@ def main(args=None):
                         default=True,
                         help='Disable event collectors')
 
+    parser.add_argument('--unlock-events',
+                        dest='unlock_events',
+                        action='store_true',
+                        default=False,
+                        help='Unlock events that remain locked from '
+                             'previous runs')
+
+    Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(args)
+    Cerebrum.logutils.autoconf(__name__, args)
+
     config = load_daemon_config(filepath=args.configfile)
 
     if args.show_config:
@@ -142,11 +165,16 @@ def main(args=None):
 
     # Run event processes
     logger.info('Starting publisher event utils')
-    serve(
-        config,
-        int(args.num_workers),
-        args.listen_db,
-        args.collect_db)
+    with Pid():
+        if args.unlock_events:
+            unlock_all_events()
+        serve(
+            config,
+            int(args.num_workers),
+            args.listen_db,
+            args.collect_db)
+
+    logger.info('Event publisher stopped')
 
 
 if __name__ == '__main__':

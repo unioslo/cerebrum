@@ -119,9 +119,10 @@ class Object2Cerebrum(object):
         """Check for conflicting entities or return found or None."""
         entities = list()
         for id_type in data_entity._ids.keys():
-            lst = entity.list_external_ids(
+            lst = entity.search_external_ids(
                 id_type=id_type,
-                external_id=data_entity._ids[id_type])
+                external_id=data_entity._ids[id_type],
+                fetchall=False)
             for row in lst:
                 entities.append(row['entity_id'])
         entity_id = None

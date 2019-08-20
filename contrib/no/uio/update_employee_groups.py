@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2003-2018 University of Oslo, Norway
@@ -20,8 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-"""This file performs group information update for certain employee
-categories.
+"""Performs group information update for certain employee categories.
 
 Specifically,
 
@@ -53,7 +52,6 @@ import sys
 import time
 from mx.DateTime import Date, DateTimeDeltaFromDays
 
-# import cerebrum_path
 # import cereconf
 
 # import Cerebrum
@@ -142,6 +140,10 @@ def build_employee_cache(db, sysname, filename):
     pnr2uname = db_person.getdict_external_id2primary_account(
                                       const.externalid_pass_number)
     logger.debug("... done (%d mappings)", len(pnr2uname))
+    logger.debug("Fetching all ansatt-nr->account mappings...")
+    anr2uname = db_person.getdict_external_id2primary_account(
+                                      const.externalid_sap_ansattnr)
+    logger.debug("... done (%d mappings)", len(anr2uname))
 
     # Build mapping for the employees
     parser = system2parser(sysname)(filename, logger, False)
@@ -150,11 +152,7 @@ def build_employee_cache(db, sysname, filename):
     for xmlperson in parser.iter_person():
         fnr = xmlperson.get_id(xmlperson.NO_SSN)
         passport_nr = xmlperson.get_id(xmlperson.PASSNR)
-
-        if not fnr and not passport_nr:
-            logger.debug("Person %s has no fnr or passport-nr in XML source",
-                         list(xmlperson.iterids()))
-            continue
+        ansatt_nr = xmlperson.get_id(xmlperson.SAP_NR)
 
         # Everyone with bilag more recent than 180 days old is eligible
         bilag = filter(lambda x: ((not x.end) or
@@ -163,25 +161,30 @@ def build_employee_cache(db, sysname, filename):
                        x.kind == x.BILAG,
                        xmlperson.iteremployment())
 
-        # Add to cache, if found in Cerebrum either by fnr or passport-nr.
+        # Add to cache, if found in Cerebrum either by fnr, passport-nr or anr.
         # each entry is a pair, telling whether the person has active
         # tilsetting and bilag (in that order). We do not need to know *what*
         # they are, only that they exist.
-        if fnr in fnr2uname:
-            employee_cache[fnr2uname[fnr]] = (xmlperson.
-                                              has_active_employments(),
-                                              bool(bilag))
-        elif passport_nr in pnr2uname:
-            employee_cache[pnr2uname[passport_nr]] = (xmlperson.
-                                                      has_active_employments(),
-                                                      bool(bilag))
+        username = {anr2uname.get(ansatt_nr),
+                    fnr2uname.get(fnr),
+                    pnr2uname.get(passport_nr)}
+        username = [un for un in username if un is not None]
+
+        if not username:
+            logger.info("Cerebrum failed to find primary account for person "
+                        "with ansatt-nr: %s.", ansatt_nr)
+        elif len(username) == 1:
+            employee_cache[username[0]] = (xmlperson.has_active_employments(),
+                                           bool(bilag))
         else:
-            logger.debug("Cerebrum failed to find primary account for person "
-                         "with fnr: %s, passport-nr: %s.", fnr, passport_nr)
+            logger.warn("This should probably not happen, "
+                        "different users from the same person. "
+                        "usernames: %s", username)
 
     # IVR 2007-07-13 FIXME: Is this actually useful?
     del fnr2uname
     del pnr2uname
+    del anr2uname
     logger.debug("employee_cache has %d uname->employment status mappings",
                  len(employee_cache))
     return employee_cache

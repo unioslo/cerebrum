@@ -36,7 +36,6 @@ from Cerebrum.modules.no.uio.bofhd_guestaccounts_utils import (
 
 
 uio_helpers = [
-    '_get_disk',
     '_get_shell',
 ]
 
@@ -324,8 +323,8 @@ class BofhdExtension(BofhdCommonMethods):
     def user_guests_status(self, operator, *args):
         """ Show how many guest users are available. """
         ret = ""
-        if (args and args[0] == "verbose"
-                and self.ba.is_superuser(operator.get_entity_id())):
+        if (args and args[0] == "verbose" and
+                self.ba.is_superuser(operator.get_entity_id())):
             tmp = self.bgu.list_guests_info()
             # Find status for all guests
             ret = "%-12s   %s:\n%s\n" % (
@@ -359,9 +358,9 @@ class BofhdExtension(BofhdCommonMethods):
             if not type(guest) is list:
                 guest = [guest, None, None]
             num = int(guest[0][-3:])
-            if (intervals and num - prev == 1
-                    and guest[1] == prev_date
-                    and guest[2] == prev_comment):
+            if (intervals and num - prev == 1 and
+                    guest[1] == prev_date and
+                    guest[2] == prev_comment):
                 intervals[-1][1] = guest
             else:
                 intervals.append([guest, guest])

@@ -136,33 +136,6 @@ def test_get_name_with_language_missing(entity, name_foo, languages):
         entity.get_name_with_language(name_foo, languages[0])
 
 
-def test_find_by_name_with_language(entity, name_foo, languages):
-    entity_id = entity.entity_id
-
-    name = 'f354c390af60ea7a'
-    entity.add_name_with_language(name_foo, languages[0], name)
-    entity.clear()
-
-    entity.find_by_name_with_language(name_variant=name_foo,
-                                      name_language=languages[0],
-                                      name=name)
-    assert entity.entity_id == entity_id
-
-
-def test_find_by_name_with_language_errors(entity_obj, entities, name_foo):
-    from Cerebrum.Errors import NotFoundError, TooManyRowsError
-
-    # A name that doesn't exist
-    with pytest.raises(NotFoundError):
-        entity_obj.find_by_name_with_language(
-            name_variant=name_foo,
-            name='71c8cf4c00da3ba65de51984b648cadb2e3dc6da515fabaf')
-
-    # No parameters, should match multiple entities
-    with pytest.raises(TooManyRowsError):
-        entity_obj.find_by_name_with_language()
-
-
 def test_delete_name_with_language(entity, name_foo, languages):
     entity.add_name_with_language(name_foo, languages[0], 'f354c390af60ea7a')
     entity.delete_name_with_language(name_foo, languages[0])

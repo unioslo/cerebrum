@@ -50,6 +50,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
+from Cerebrum.modules.bofhd.bofhd_utils import format_time
 from Cerebrum.modules.bofhd.cmd_param import (Command, FormatSuggestion,
                                               SimpleString, SourceSystem)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -58,15 +59,6 @@ from Cerebrum.modules.bofhd.utils import BofhdUtils
 
 
 logger = logging.getLogger(__name__)
-
-
-def format_time(field):
-    """ build a FormatSuggestion field for DateTime.
-
-    Note: The client should format a 16 char long datetime string.
-    """
-    fmt = "yyyy-MM-dd HH:mm"
-    return ':'.join((field, "date", fmt))
 
 
 class BofhdContactAuth(BofhdAuth):
@@ -247,7 +239,7 @@ class BofhdContactCommands(BofhdCommandBase):
         SimpleString(help_ref='entity_contact_type'),
         SimpleString(help_ref='entity_contact_value'),
         fs=FormatSuggestion(
-            "Added contact info %s:%s '%s' to '%s' with id=%s",
+            "Added contact info %s:%s '%s' to '%s' with id=%d",
             ('source_system', 'contact_type', 'contact_value', 'entity_type',
              'entity_id')
         ),
@@ -354,11 +346,12 @@ class BofhdContactCommands(BofhdCommandBase):
         SimpleString(help_ref='id:target:entity'),
         SourceSystem(help_ref='entity_contact_source_system'),
         SimpleString(help_ref='entity_contact_type'),
-        fs=FormatSuggestion(
-            ("Removed contact info %s:%s from %s with id=%s\nOld value: '%s'",
-             ('source_system', 'contact_type', 'entity_type', 'entity_id',
-              'contact_value')),
-        ),
+        fs=FormatSuggestion([
+            ("Removed contact info %s:%s from %s with id=%d",
+             ('source_system', 'contact_type', 'entity_type', 'entity_id',)),
+            ("Old value: '%s'",
+             ('contact_value', )),
+        ]),
         perm_filter='can_remove_contact_info')
 
     def entity_contactinfo_remove(self, operator, entity_target, source_system,
@@ -431,15 +424,14 @@ class BofhdContactCommands(BofhdCommandBase):
             'contact_type': six.text_type(contact_type),
             'entity_type': six.text_type(entity_type),
             'entity_id': int(entity.entity_id),
-            'contact_value': 'N/A',
         }
 
         try:
             self.ba.can_get_contact_info(operator.get_entity_id(),
                                          entity=entity,
                                          contact_type=contact_type)
-            # TODO
-            result['contact_value'] = contact_info['contact_value']
+            result['contact_value'] = six.text_type(
+                contact_info['contact_value'])
         except PermissionDenied:
             pass
 
@@ -494,7 +486,7 @@ class BofhdContactCommands(BofhdCommandBase):
                     self.const.AuthoritativeSystem(row['source_system'])),
                 'contact_type': six.text_type(
                     self.const.ContactInfo(row['contact_type'])),
-                'contact_pref': row['contact_pref'],
+                'contact_pref': six.text_type(row['contact_pref']),
                 'contact_value': row['contact_value'],
                 'description': row['description'],
                 'contact_alias': row['contact_alias'],

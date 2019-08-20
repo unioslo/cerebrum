@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,48 +21,10 @@
 
 import re
 
-import Cerebrum.Constants as cereconst
-from Cerebrum.Utils import (Factory,
-                            prepare_string,
-                            argument_to_sql)
+from Cerebrum.Utils import Factory, prepare_string, argument_to_sql
 
 
 Entity_class = Factory.get("Entity")
-
-
-class Constants(cereconst.Constants):
-    # Entity type
-    entity_feide_service = cereconst._EntityTypeCode('feide_service',
-                                                     'Feide service')
-
-
-class CLConstants(cereconst.CLConstants):
-    # Change log
-    feide_service_add = cereconst._ChangeTypeCode(
-        'feide_service', 'add',
-        'added feide service %(subject)s',
-        ("feide_id=%(int:feide_id)s", "name=%(string:name)s"))
-    feide_service_mod = cereconst._ChangeTypeCode(
-        'feide_service', 'mod',
-        'modified feide service %(subject)s',
-        ("feide_id=%(int:feide_id)s", "name=%(string:name)s"))
-    feide_service_del = cereconst._ChangeTypeCode(
-        'feide_service', 'del',
-        'deleted feide service %(subject)s',
-        ("feide_id=%(int:feide_id)s", "name=%(string:name)s"))
-
-    feide_service_authn_level_add = cereconst._ChangeTypeCode(
-        'feide_service_authn_level', 'add',
-        'added authn level for %(subject)s, service=%(dest)s',
-        ("level=%(int:level)s"))
-    feide_service_authn_level_mod = cereconst._ChangeTypeCode(
-        'feide_service_authn_level', 'mod',
-        'modified authn level for %(subject)s, service=%(dest)s',
-        ("level=%(int:level)s"))
-    feide_service_authn_level_del = cereconst._ChangeTypeCode(
-        'feide_service_authn_level', 'del',
-        'deleted authn level for %(subject)s, service=%(dest)s',
-        ("level=%(int:level)s"))
 
 
 class FeideService(Entity_class):

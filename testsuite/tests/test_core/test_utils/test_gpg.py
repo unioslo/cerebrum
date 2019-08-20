@@ -25,7 +25,6 @@ import random
 import string
 import unittest
 
-import cerebrum_path
 import cereconf
 from Cerebrum.utils.gpg import gpgme_encrypt, gpgme_decrypt, get_gpgme_context
 

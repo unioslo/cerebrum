@@ -85,7 +85,6 @@ class DnsParser(object):
             except Errors.NotFoundError:
                 raise CerebrumError("Could not find host %s" % ip)
             ip = self._ip_number.a_ip
-
         try:
             ipc = Find(self._db, None)
             subnet_ip = ipc._find_subnet(ip)
@@ -148,6 +147,8 @@ class DnsParser(object):
 
     def qualify_hostname(self, name):
         """Convert dns names to fully qualified by appending default domain"""
+        if not name:
+            raise CerebrumError('Subnet or IP can not be empty.')
         if not name[-1] == '.':
             postfix = self._default_zone.postfix
             if name.endswith(postfix[:-1]):

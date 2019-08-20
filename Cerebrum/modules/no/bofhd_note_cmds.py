@@ -27,11 +27,7 @@ from Cerebrum.modules.bofhd.cmd_param import (Command,
                                               Id,
                                               SimpleString)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-
-
-def format_time(field):
-    fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
-    return ':'.join((field, "date", fmt))
+from Cerebrum.modules.bofhd.bofhd_utils import format_time
 
 
 class EntityNoteBofhdAuth(BofhdAuth):

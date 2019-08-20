@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2003 University of Oslo, Norway
@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
 
 """
 This file performs group membership synchronization between several external
@@ -96,6 +94,8 @@ information is written back to cerebrum:
 Each of the updates can be turned on/off from the command line.
 """
 
+from __future__ import unicode_literals
+
 import sys
 import string
 import traceback
@@ -104,7 +104,6 @@ import StringIO
 
 from six import text_type
 
-import cerebrum_path
 import cereconf
 
 import Cerebrum
@@ -122,7 +121,6 @@ from Cerebrum.config.settings import String, Iterable, Boolean
 import Cerebrum.config.loader
 
 
-del cerebrum_path
 logger = """Global variable for logger."""
 dryrun = """Global flag for dryrun."""
 account2name = """Global variable mapping account ids to usernames."""

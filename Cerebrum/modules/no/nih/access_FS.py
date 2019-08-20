@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -40,7 +40,7 @@ class NIHStudent(access_FS.Student):
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.adresseland_hjemsted,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
@@ -109,7 +109,7 @@ class NIHStudent78(NIHStudent, access_FS.Student78):
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
           s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
           p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-          p.adresseland_hjemsted, p.status_reserv_nettpubl,
+          p.adresseland_hjemsted,
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
@@ -259,27 +259,6 @@ class NIHUndervisning(access_FS.Undervisning):
         """
 
         return self.db.query(query)
-    # end list_studenter_alle_kull
-
-    def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
-        """Hent alle studentene som er oppført på et gitt kull."""
-
-        query = """
-        SELECT DISTINCT
-            fodselsdato, personnr
-        FROM
-            fs.studieprogramstudent
-        WHERE
-            studentstatkode IN ('AKTIV', 'PERMISJON') AND
-            NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
-            studieprogramkode = :studieprogramkode AND
-            terminkode_kull = :terminkode_kull AND
-            arstall_kull = :arstall_kull
-        """
-
-        return self.db.query(query, {"studieprogramkode": studieprogramkode,
-                                     "terminkode_kull": terminkode,
-                                     "arstall_kull": arstall})
 
     def list_studenter_alle_kull(self):
         """Hent alle studenter fordelt på kull.

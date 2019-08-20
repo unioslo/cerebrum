@@ -35,6 +35,8 @@ group_help['project'] = 'Project related commands'
 command_help['user'].update({
     'user_approve':
         'Activate a user in the systems, after checking',
+    'user_unapproved':
+        'List users that have not been approved yet',
     'user_generate_otpkey':
         'Regenerate a One Time Password (OTP) key for an account',
     'user_password':
@@ -78,13 +80,23 @@ command_help['project'] = {
     'project_affiliate_entity':
         'Affiliate an entity with a project, e.g. groups and hosts',
     'project_set_enddate':
-        'Reset the end date for a project',
+        'Set the end date for a project',
     'project_set_projectname':
-        'Reset the project name',
+        'Set the project name',
     'project_set_longname':
-        "Reset a project's full name",
+        "Set a project's full name",
     'project_set_shortname':
-        "Reset a project's short name",
+        "Set a project's short name",
+    'project_set_hpc':
+        'Set HPC for a project',
+    'project_set_price':
+        'Set price for a project',
+    'project_set_institution':
+        'Set institution for a project',
+    'project_set_metadata':
+        'Set metadata for a project',
+    'project_metadata':
+        'View metadata for a project',
     'project_setup':
         "Rerun an existing project's setup procedure to use new settings.",
     'project_set_vm_type':
@@ -92,7 +104,7 @@ command_help['project'] = {
     'project_terminate':
         'Terminate a project by removing all data',
     'project_unapproved':
-        'List all projects that has not been approved or rejected yet',
+        'List all projects that have not been approved or rejected yet',
     'project_list_hosts':
         'List all hosts associated with a project',
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2007-2018 University of Oslo, Norway
+# Copyright 2007-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,90 +18,111 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Generate a group tree for LDAP. This tree resides in
-"cn=groups,dc=uio,dc=no" for the time being. Tests will show if this
-implementation will move out of the UiO-specific directory.
+Generate a group tree for LDAP.
 
-The idea is that some groups in Cerebrum will get a spread,
-'LDAP_group', and these groups will be exported into this
-tree. Members are people('person' objects in Cerebrum) that are known
-to generate_org_ldif. The group tree will include only name and
-possibly description of the group. This script will leave a
-pickle-file for OrgLDIFUiOMixin() to include, containing memberships
-to groups.
+This is a 'helper' script to add groups to an org-ldif script.  The idea is to:
 
-This script take the following arguments:
-
--h, --help : this message
---picklefile fname : pickle file with group memberships
---ldiffile fname : LDIF file with the group tree
+1. Export groups with a given ldap spread to its own dn (typically
+   "cn=groups,dc=<org>,dc=no") with basic information.
+2. Export a group membership dict to a pickle-file.  This dict maps <person-id>
+   to a list of group dn strings.
+3. A separate org-ldif mixin (if present) reads the pickle file and adds group
+   memberships to each exported person.
 """
-
-import getopt
+from __future__ import unicode_literals
+import argparse
+import logging
 import os
-import sys
 import cPickle as pickle
 
 from collections import defaultdict
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.LDIFutils import (ldapconf,
-                                        entry_string,
-                                        ldif_outfile,
-                                        end_ldif_outfile,
-                                        container_entry_string)
+from Cerebrum.modules.LDIFutils import (
+    container_entry_string,
+    end_ldif_outfile,
+    entry_string,
+    ldapconf,
+    ldif_outfile,
+)
 
-logger = Factory.get_logger("cronjob")
-db = Factory.get('Database')()
-co = Factory.get('Constants')(db)
-group = Factory.get('Group')(db)
-
-mbr2grp = defaultdict(list)
-top_dn = ldapconf('GROUP', 'dn')
+logger = logging.getLogger(__name__)
 
 
-def dump_ldif(file_handle):
-    group2dn = {}
+def dump_ldif(db, root_dn, file_handle):
+    co = Factory.get('Constants')(db)
+    group = Factory.get('Group')(db)
+
+    logger.debug('Processing groups...')
+    group_to_dn = {}
     for row in group.search(spread=co.spread_ldap_group):
-        dn = (u"cn={},{}".format(row['name'], top_dn))
-        group2dn[row['group_id']] = dn
-        file_handle.write(entry_string(dn, {
-            'objectClass': ("top", "uioGroup"),
-            'description': (row['description'],)
-        }))
-    for mbr in group.search_members(spread=co.spread_ldap_group,
+        dn = "cn={},{}".format(row['name'], root_dn)
+        group_to_dn[row['group_id']] = dn
+        file_handle.write(entry_string(
+            dn,
+            {
+                'objectClass': ("top", "uioGroup"),
+                'description': (row['description'],)
+            }))
+
+    logger.debug('Processing group memberships...')
+    member_to_group = defaultdict(list)
+    for row in group.search_members(spread=co.spread_ldap_group,
                                     member_type=co.entity_person):
-        mbr2grp[int(mbr["member_id"])].append(group2dn[mbr['group_id']])
+        person_id = int(row['member_id'])
+        member_to_group[person_id].append(group_to_dn[row['group_id']])
+
+    return dict(member_to_group)
 
 
-def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'h', [
-            'help', 'ldiffile=', 'picklefile='])
-    except getopt.GetoptError:
-        usage(1)
-    for opt, val in opts:
-        if opt in ('--help',):
-            usage()
-        elif opt in ('--picklefile',):
-            picklefile = val
-        elif opt in ('--ldiffile',):
-            ldiffile = val
-    if not (picklefile and ldiffile) or args:
-        usage(1)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description="Generate a group tree for LDAP",
+    )
+    parser.add_argument(
+        '--ldiffile',
+        help='Write groups to the ldif-file %(metavar)',
+        metavar='file',
+    )
+    parser.add_argument(
+        '--picklefile',
+        help='Write group memberships to the pickle-file %(metavar)s',
+        metavar='file',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
 
+    args = parser.parse_args(inargs)
+    if not any((args.ldiffile, args.picklefile)):
+        parser.error('Must use --ldiffile or --picklefile')
+
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %r', args)
+
+    ldiffile = args.ldiffile
+    picklefile = args.picklefile
+
+    db = Factory.get('Database')()
+    dn = ldapconf('GROUP', 'dn')
+
+    logger.info('Generating LDIF...')
     destfile = ldif_outfile('GROUP', ldiffile)
     destfile.write(container_entry_string('GROUP'))
-    dump_ldif(destfile)
+    mbr2grp = dump_ldif(db, dn, destfile)
     end_ldif_outfile('GROUP', destfile)
+    logger.info('Wrote LDIF to %r', ldiffile)
+
+    logger.info('Generating pickle dump...')
     tmpfname = picklefile + '.tmp'
     pickle.dump(mbr2grp, open(tmpfname, 'wb'), pickle.HIGHEST_PROTOCOL)
     os.rename(tmpfname, picklefile)
+    logger.info('Wrote pickle file to %r', picklefile)
 
+    logger.info('Done %s', parser.prog)
 
-def usage(exitcode=0):
-    print __doc__
-    sys.exit(exitcode)
 
 if __name__ == '__main__':
     main()

@@ -71,8 +71,9 @@ def get_account_data(db, id_type, source_systems):
                  len(has_affiliation))
 
     extid_cache = defaultdict(dict)
-    for r in pe.list_external_ids(id_type=id_type,
-                                  entity_type=co.entity_person):
+    for r in pe.search_external_ids(id_type=id_type,
+                                    entity_type=co.entity_person,
+                                    fetchall=False):
         if r['source_system'] not in source_systems:
             continue
         extid_cache[r['entity_id']][r['source_system']] = r['external_id']

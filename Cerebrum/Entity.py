@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -188,14 +188,18 @@ class Entity(DatabaseAccessor):
     def find(self, entity_id):
         """Associate the object with the entity whose identifier is ENTITY_ID.
 
-        If ENTITY_ID isn't an existing entity identifier,
+        If ENTITY_ID isn't an existing entity identifier including None,
         NotFoundError is raised.
 
+        If ENTITY_ID input isn't an int, ValueError is raised.
+
         """
+        if entity_id is None:
+            raise Errors.NotFoundError
         self.entity_id, self.entity_type, self.created_at = self.query_1("""
         SELECT entity_id, entity_type, created_at
         FROM [:table schema=cerebrum name=entity_info]
-        WHERE entity_id=:e_id""", {'e_id': entity_id})
+        WHERE entity_id=:e_id""", {'e_id': int(entity_id)})
         try:
             del self.__in_db
         except AttributeError:
@@ -346,12 +350,12 @@ class EntitySpread(Entity):
             where.append(argument_to_sql(entity_types, "sc.entity_type", binds,
                                          int))
         return self.query("""
-            SELECT sc.code as spread_code, sc.code_str as spread,
-                   sc.description as description, sc.entity_type as entity_type,
-                   et.code_str as entity_type_str
-              FROM [:table schema=cerebrum name=spread_code] sc,
-                   [:table schema=cerebrum name=entity_type_code] et
-             WHERE """ + " AND ".join(where) + " ORDER BY entity_type", binds)
+           SELECT sc.code as spread_code, sc.code_str as spread,
+                  sc.description as description, sc.entity_type as entity_type,
+                  et.code_str as entity_type_str
+             FROM [:table schema=cerebrum name=spread_code] sc,
+                  [:table schema=cerebrum name=entity_type_code] et
+            WHERE """ + " AND ".join(where) + " ORDER BY entity_type", binds)
 
     def has_spread(self, spread):
         """Return true if entity has spread."""
@@ -407,7 +411,8 @@ class EntityName(Entity):
                              'domain': int(domain)})
 
     def update_entity_name(self, domain, name):
-        if int(domain) in [int(self.const.ValueDomain(code_str)) for code_str in
+        if int(domain) in [int(self.const.ValueDomain(code_str))
+                           for code_str in
                            cereconf.NAME_DOMAINS_THAT_DENY_CHANGE]:
             raise self._db.IntegrityError(
                 "Name change illegal for the domain: %s" % domain)
@@ -450,6 +455,23 @@ class EntityName(Entity):
             """,
             {'value_domain': int(value_domain)})
 
+    def entity_name_exists(self, name, domain=None):
+        """
+        Check if a given entity_name exists.
+        """
+        cond = ['entity_name = :entity_name']
+        binds = {'entity_name': six.text_type(name)}
+        if domain is not None:
+            cond.append(argument_to_sql(domain, 'value_domain', binds, int))
+        stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=entity_name]
+            {where}
+          )
+        """.format(where=('WHERE ' + ' AND '.join(cond)))
+        return self._db.query_1(stmt, binds)
+
 
 class EntityNameWithLanguage(Entity):
     """Mixin class for dealing with name-with-language data in Cerebrum.
@@ -475,7 +497,8 @@ class EntityNameWithLanguage(Entity):
         @return:
           A tuple <query, binds>, where query is a str containing the SQL and
           binds is a dict with free variables (if any) referenced by
-          query. include_where controls whether query is prefixed with 'WHERE '.
+          query. include_where controls whether query is prefixed with
+          'WHERE '.
         """
 
         binds = {}
@@ -497,7 +520,8 @@ class EntityNameWithLanguage(Entity):
                                 int))
         if name is not None:
             if exact_match:
-                where.append(argument_to_sql(name, "eln.name", binds, six.text_type))
+                where.append(argument_to_sql(name, "eln.name", binds,
+                                             six.text_type))
             else:
                 name_pattern = prepare_string(name)
                 if name_pattern.count('%') == 0:
@@ -510,17 +534,6 @@ class EntityNameWithLanguage(Entity):
             where = " WHERE " + where
 
         return where, binds
-
-    def find_by_name_with_language(self, name_variant=None, name_language=None,
-                                   name=None):
-        """Locate the one entity matching the language name filters."""
-        where, binds = self._query_builder(None, name_variant, name_language,
-                                           name)
-        entity_id = self.query_1("""
-        SELECT entity_id
-        FROM [:table schema=cerebrum name=entity_language_name] eln
-        %s""" % where, binds)
-        return self.find(entity_id)
 
     def add_name_with_language(self, name_variant, name_language, name):
         """Add or update a specific language name."""
@@ -635,9 +648,9 @@ class EntityNameWithLanguage(Entity):
         @param name_language: Filter result by given languages.
 
         @type name: string
-        @param name: Filter by given name. Could contain wildcards, like % or ?.
-            The character * gets swapped out with %. Note that L{exact_match}
-            affects this string.
+        @param name: Filter by given name. Could contain wildcards, like % or
+        ?. The character * gets swapped out with %. Note that L{exact_match}
+        affects this string.
 
         @type exact_match: bool
         @param exact_match:
@@ -738,7 +751,8 @@ class EntityContactInfo(Entity):
                       'value': value,
                       'desc': description,
                       'alias': alias})
-        self._db.log_change(self.entity_id, self.clconst.entity_cinfo_add, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_cinfo_add,
+                            None,
                             change_params={'type': int(type),
                                            'value': value,
                                            'src': int(source)})
@@ -838,7 +852,8 @@ class EntityContactInfo(Entity):
           contact_type=:c_type"""
         if six.text_type(pref) != 'ALL':
             sql += """ AND contact_pref=:pref"""
-        self._db.log_change(self.entity_id, self.clconst.entity_cinfo_del, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_cinfo_del,
+                            None,
                             change_params={'type': int(contact_type),
                                            'src': int(source)})
         return self.execute(sql, {'e_id': self.entity_id,
@@ -1061,6 +1076,9 @@ class EntityAddress(Entity):
         self._db.log_change(self.entity_id, self.clconst.entity_addr_add, None)
 
     def delete_entity_address(self, source_type, a_type):
+        if not self.get_entity_address(source_type, a_type):
+            # Nothing to delete
+            return
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_address]
         WHERE entity_id=:e_id AND
@@ -1103,10 +1121,12 @@ class EntityAddress(Entity):
             where.append(argument_to_sql(source_system, 'ea.source_system',
                                          binds, int))
         if address_type is not None:
-            where.append(argument_to_sql(address_type, 'ea.address_type', binds,
+            where.append(argument_to_sql(address_type, 'ea.address_type',
+                                         binds,
                                          int))
         if entity_id is not None:
-            where.append(argument_to_sql(entity_id, 'ea.entity_id', binds, int))
+            where.append(argument_to_sql(entity_id, 'ea.entity_id', binds,
+                                         int))
 
         where_str = ''
         if where:
@@ -1244,8 +1264,9 @@ class EntityQuarantine(Entity):
         return False
 
     def list_entity_quarantines(self, entity_types=None, quarantine_types=None,
-                                only_active=False, entity_ids=None,
-                                ignore_quarantine_types=None, spreads=None):
+                                only_active=False, only_disabled=False,
+                                entity_ids=None, ignore_quarantine_types=None,
+                                spreads=None):
         sel = ""
         where = ""
         binds = dict()
@@ -1260,6 +1281,9 @@ class EntityQuarantine(Entity):
         if quarantine_types and ignore_quarantine_types:
             raise Errors.CerebrumError(
                 "Can't use both quarantine_types and ignore_quarantine_types")
+        if only_active and only_disabled:
+            raise Errors.CerebrumError(
+                "Can't use both only_active and only_disabled")
         if quarantine_types:
             conditions.append(
                 argument_to_sql(quarantine_types, "quarantine_type",
@@ -1272,6 +1296,8 @@ class EntityQuarantine(Entity):
             conditions.append("""start_date <= [:now] AND
             (end_date IS NULL OR end_date > [:now]) AND
             (disable_until IS NULL OR disable_until <= [:now])""")
+        if only_disabled:
+            conditions.append("""disable_until > [:now]""")
         if entity_ids:
             conditions.append(
                 argument_to_sql(entity_ids, "eq.entity_id", binds, int))
@@ -1345,12 +1371,14 @@ class EntityExternalId(Entity):
         self._external_id[int(id_type)] = external_id
 
     def _delete_external_id(self, source_system, id_type):
-        self.execute("""DELETE FROM [:table schema=cerebrum name=entity_external_id]
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=entity_external_id]
         WHERE entity_id=:p_id AND id_type=:id_type AND source_system=:src""",
                      {'p_id': self.entity_id,
                       'id_type': int(id_type),
                       'src': int(source_system)})
-        self._db.log_change(self.entity_id, self.clconst.entity_ext_id_del, None,
+        self._db.log_change(self.entity_id, self.clconst.entity_ext_id_del,
+                            None,
                             change_params={'id_type': int(id_type),
                                            'src': int(source_system)})
 
@@ -1359,14 +1387,16 @@ class EntityExternalId(Entity):
         if update:
             sql = """UPDATE [:table schema=cerebrum name=entity_external_id]
             SET external_id=:ext_id
-            WHERE entity_id=:e_id AND id_type=:id_type AND source_system=:src"""
+            WHERE entity_id=:e_id AND id_type=:id_type AND source_system=:src
+            """
             self._db.log_change(
                 self.entity_id, self.clconst.entity_ext_id_mod, None,
                 change_params={'id_type': int(id_type),
                                'src': int(source_system),
                                'value': external_id})
         else:
-            sql = """INSERT INTO [:table schema=cerebrum name=entity_external_id]
+            sql = """
+            INSERT INTO [:table schema=cerebrum name=entity_external_id]
             (entity_id, entity_type, id_type, source_system, external_id)
             VALUES (:e_id, :e_type, :id_type, :src, :ext_id)"""
             self._db.log_change(
@@ -1381,95 +1411,68 @@ class EntityExternalId(Entity):
                            'ext_id': external_id})
 
     def get_external_id(self, source_system=None, id_type=None):
-        cols = {'entity_id': int(self.entity_id),
-                'entity_type': int(self.entity_type)}
+        binds = dict()
+        where = list()
+
+        where.append(argument_to_sql(self.entity_id, 'entity_id', binds, int))
+        where.append(argument_to_sql(self.entity_type, 'entity_type', binds,
+                                     int))
         if source_system is not None:
-            cols['source_system'] = int(source_system)
+            where.append(argument_to_sql(source_system, "source_system", binds,
+                                         int))
         if id_type is not None:
-            cols['id_type'] = int(id_type)
+            where.append(argument_to_sql(id_type, "id_type", binds, int))
+
+        where_str = 'WHERE %s' % ' AND '.join(where)
+
         return self.query("""
         SELECT id_type, source_system, external_id
         FROM [:table schema=cerebrum name=entity_external_id]
-        WHERE %s""" % " AND ".join(["%s=:%s" % (x, x)
-                                   for x in cols.keys()]), cols)
+        %s
+        """ % where_str, binds)
 
-    def list_external_ids(self, source_system=None, id_type=None,
-                          external_id=None, entity_type=None, entity_id=None):
-        """We trust id_type's entity_type more than a supplemented
-        attribute, hence we try that first.
-
-        TODO: Migrate over to L{search_external_ids}?
-
-        @param source_system:
-          Source system for the external ID (SAP, LT, FS, etc.)
-        @param id_type:
-          Specific external ID type (like externalid_fodselsnr)
-        @param external_id:
-          Value for the external ID (useful for looking up the owner of a
-          particular external ID).
-        @param entity_type:
-          Looks for a specific entity type (i.e. Person, OU).
-        @param entity_id:
-          Looks for a specific entity (useful for looking up (all) external ids
-          belonging to a specific entity)
-        """
-        cols = {}
-        where = ""
-        if id_type:
-            cols['entity_type'] = int(id_type.entity_type)
-        elif entity_type:
-            cols['entity_type'] = int(entity_type)
-        if source_system is not None:
-            cols['source_system'] = int(source_system)
-        if id_type is not None:
-            cols['id_type'] = int(id_type)
-        if external_id is not None:
-            cols['external_id'] = six.text_type(external_id)
-        if entity_id is not None:
-            cols['entity_id'] = int(entity_id)
-        if cols:
-            where = ("WHERE " +
-                     " AND ".join(["%s=:%s" % (x, x) for x in cols.keys()]))
-        return self.query("""
-        SELECT entity_id, id_type, source_system, external_id
-        FROM [:table schema=cerebrum name=entity_external_id]
-        %s""" % where, cols, fetchall=False)
-
-    def search_external_ids(self, source_system=None, id_type=None,
-                            external_id=None, entity_type=None, entity_id=None):
+    def search_external_ids(self,
+                            source_system=None,
+                            id_type=None,
+                            external_id=None,
+                            entity_type=None,
+                            entity_id=None,
+                            fetchall=True):
         """Search for external IDs matching specified criteria.
 
-        @type source_system: int or AuthoritativeSystemCode or sequence thereof
-        @param source_system:
+        :type source_system: int or AuthoritativeSystemCode or sequence thereof
+        :param source_system:
             Filter resulting IDs by given source system(s).
 
-        @type id_type: int or EntityExternalId or sequence thereof
-        @param id_type:
-            Filter resulting IDs by ID type(s).
+        :type id_type: int or EntityExternalId or sequence thereof
+        :param id_type: Filter resulting IDs by ID type(s).
 
-        @type external_id: basestring
-        @param external_id:
+        :type external_id: basestring
+        :param external_id:
             Filter resulting IDs by external ID, case insensitively. The ID may
             contain SQL wildcard characters. Useful for finding the entity a
             given external ID belongs to.
 
-        @type entity_type: int or EntityType or sequence thereof
-        @param entity_type:
+        :type entity_type: int or EntityType or sequence thereof
+        :param entity_type:
             Filter resulting IDs by entity type. Note that external IDs are
             already limited by entity_type - you can only set a given id type
             for a certain entity type.
 
-        @type entity_id: int or sequence therof
-        @param entity_id:
-            Filter resulting IDs by given entitites. Useful for looking up (all)
-            external ids belonging to a specific entity).
+        :type entity_id: int or sequence therof
+        :param entity_id:
+            Filter resulting IDs by given entitites. Useful for looking up
+            (all) external ids belonging to a specific entity).
 
-        @rtype: iterable (yielding db-rows)
-        @return:
+        :type fetchall: bool
+        :param fetchall:
+            Fetch all results or return a generator object with the results.
+
+        :rtype: iterable (yielding db-rows)
+        :return:
             An iterable (sequence or a generator) that yields all db-rows that
             matches the given criterias. The values of each db-row are:
             entity_id, entity_type, id_type, source_system, external_id.
-
         """
         binds = dict()
         where = list()
@@ -1494,7 +1497,7 @@ class EntityExternalId(Entity):
         return self.query("""
             SELECT entity_id, entity_type, id_type, source_system, external_id
             FROM [:table schema=cerebrum name=entity_external_id]
-            %s""" % where_str, binds)
+            %s""" % where_str, binds, fetchall=fetchall)
         # TODO: might want to look at setting fetchall, but need to figure out
         # what the ups and downs are. Speed versus memory?
 
@@ -1518,26 +1521,37 @@ class EntityExternalId(Entity):
         self.find(entity_id)
 
     def find_by_external_ids(self, *ids):
-        """Lookup entity by external ID's.
-
-        If the ID's given resolve to one unique person, i.e.:
-        * This person has one or more of these unique ID's, and
-        * No other person has a matching ID, then
-        self is bound to this particular entity.
-
-        :param ids: Each ID should either be a tuple where the first element
-                    denotes an id_type, and the second should be an external_id.
-                    The tuple can also have a third element being the source
-                    system.
-                    Else, the id could be a dict with keys 'id_type',
-                    'external_id', and 'source_system' (optional). The
-                    meaning of each element in ids matches arguments to
-                    find_by_external_id().
-        :returns: Result of self.find()
-        :raises: TooManyRowsError if more than one person matches, or a
-                 NotFoundError if no person matches.
         """
-        # TODO: Is it better to create a long WHERE clause combined with OR?
+        Lookup entity by multiple external identifiers.
+
+        If the IDs given resolve to one unique entity, i.e.:
+
+        - This entity has one or more of these unique ID's, and
+        - No other person has a matching ID, then
+
+        then the Entity object is bound to this particular entity.
+
+        :param ids:
+            An iterable of one or more identifiers. Each identifier must be:
+
+            - a tuple (<id_type>, <external_id>, [source_system]), where the
+              first element denotes an id_type, and the second should be an
+              external_id. The tuple can also have a third element being the
+              source system.
+            - a dict with keys 'id_type', 'external_id', and 'source_system'
+              (optional). The meaning of each element in ids matches arguments
+              to find_by_external_id().
+
+        :rtype: NoneType
+        :returns:
+            If an entity was found, the Entity object will be populated with
+            self.find()
+
+        :raises:
+            TooManyRowsError if more than one entity matches the given
+            identifiers, or a NotFoundError if no entities matches the given
+            identifiers.
+        """
         query = """
         SELECT DISTINCT entity_id
         FROM [:table schema=cerebrum name=entity_external_id]
@@ -1570,14 +1584,9 @@ class EntityExternalId(Entity):
             bindstr = (make_bind_str(**i) if isinstance(i, collections.Mapping)
                        else make_bind_str(*i))
             q = query if 'src' not in bind else opt_ss
-            rows = self.query(q, bind)
-            if len(rows) > 1:
-                raise Errors.TooManyRowsError(
-                    "External id {} returned too many ({}) rows".format(
-                        bindstr, len(rows)))
-            if rows:
-                found.append((bindstr, rows[0]['entity_id']))
-                found_ids.add(rows[0]['entity_id'])
+            for row in self.query(q, bind):
+                found.append((bindstr, row['entity_id']))
+                found_ids.add(row['entity_id'])
         if len(found_ids) == 1:
             return self.find(*found_ids)
         if len(found_ids) > 1:

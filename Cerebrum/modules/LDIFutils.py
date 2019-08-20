@@ -65,8 +65,11 @@ def ldapconf(tree, attr, default=_dummy, module=cereconf):
     var = tree is None and 'LDAP' or 'LDAP_' + tree
     val = getattr(module, var).get(attr, default)
     if val is _dummy:
-        raise _Errors.PoliteException("%s.%s['%s'] is not set"
-                                      % (module.__name__, var, attr))
+        raise _Errors.CerebrumError(
+            '{0}.{1}["{2}"] is not set'.format(
+                module.__name__,
+                var,
+                attr))
     if val is None and default is not _dummy:
         val = default
     return val
@@ -169,7 +172,7 @@ def container_entry_string(tree_name, attrs={}, module=cereconf):
 class LDIFWriter(object):
     """Wrapper around ldif_outfile with a minimal but sane API."""
 
-    def __init__(self, tree, filename, module=cereconf):
+    def __init__(self, tree, filename=None, module=cereconf):
         if filename and os.path.sep not in filename:
             filename = os.path.join(module.LDAP['dump_dir'], filename)
         self.f = ldif_outfile(tree, filename=filename, module=module)
@@ -226,8 +229,8 @@ def ldif_outfile(tree, filename=None, default=None, explicit_default=False,
         return f
     if default:
         return default
-    raise _Errors.PoliteException(
-        "Outfile not specified and LDAP_%s['file'] not set" % (tree,))
+    raise _Errors.CerebrumError(
+        'Outfile not specified and LDAP_{0}["file"] not set'.format(tree))
 
 
 def end_ldif_outfile(tree, outfile, default_file=None, module=cereconf):
@@ -269,8 +272,10 @@ def map_constants(constname, values, return_type=None):
         if return_type is not list and len(values) == 1:
             values = values[0]
     if return_type is int and not isinstance(values, (int, long)):
-        raise _Errors.PoliteException("Expected 1 %s: %r" % (constname, arg))
+        raise _Errors.CerebrumError(
+            'Expected 1 {0}: {1}'.format(constname, arg))
     return values
+
 
 _const = _Constants = None
 
@@ -290,8 +295,9 @@ def _decode_const(constname, value):
             try:
                 return int(getattr(_Constants, constname)(value))
             except _Errors.NotFoundError:
-                raise _Errors.PoliteException("Invalid %s: %r"
-                                              % (constname, value))
+                raise _Errors.CerebrumError(
+                    'Invalid {0}: {1}'.format(constname, value))
+
 
 postal_escape_re = re.compile(r'[$\\]')
 

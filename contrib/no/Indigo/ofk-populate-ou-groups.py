@@ -45,7 +45,6 @@ cereconf.AUTOGROUP_AFFILIATION.
 import getopt
 import sys
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
@@ -143,11 +142,16 @@ def find_all_auto_groups():
     """
 
     def slurp_data(result, trait):
-        for row in entity.list_traits(code=trait, return_name=True):
+        for row in entity.list_traits(code=trait):
             group_id = int(row["entity_id"])
-            group_name = row["name"]
+            try:
+                entity.clear()
+                entity.find(group_id)
+                group_name = entity.group_name
+            except Errors.NotFoundError:
+                logger.error("No group with entity_id=%r", group_id)
+                continue
             result[group_name] = group_id
-    # end slurt_data
 
     result = dict()
     entity = Factory.get("Group")(database)

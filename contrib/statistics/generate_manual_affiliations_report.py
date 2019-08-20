@@ -76,7 +76,7 @@ class OuCache(object):
         return u'{0} ({1})'.format(self._ou2sko[ou_id], self._ou2name[ou_id])
 
 
-def get_manual_users(db, stats=None):
+def get_manual_users(db, stats=None, ignore_quarantined=False):
 
     if stats is None:
         stats = dict()
@@ -114,7 +114,7 @@ def get_manual_users(db, stats=None):
 
     for person_row in person.list_affiliated_persons(
             aff_list=EXEMPT_AFFILIATIONS,
-            status_list=EXEMPT_AFFILIATION_STATUSES,
+            status_list=EXEMPT_AFFILIATION_STATUSES or None,
             inverted=True):
 
         person.clear()
@@ -158,12 +158,18 @@ def get_manual_users(db, stats=None):
                         ou=ou_cache.format_ou(row['ou_id'])))
             if not account_affiliations:
                 account_affiliations.append('EMPTY')
+            quarantines = [text_type(const.Quarantine(q['quarantine_type']))
+                           for q in
+                           account.get_entity_quarantine(only_active=True)]
+            if ignore_quarantined and quarantines:
+                continue
 
             # jinja2 accepts only unicode strings
             stats['manual_count'] += 1
             yield {
                 'account_name': _u(account.account_name),
                 'account_affiliations': ', '.join(account_affiliations),
+                'account_quarantines': ', '.join(quarantines),
                 'person_name': _u(
                     person.get_name(
                         const.system_cached,
@@ -185,7 +191,7 @@ def write_csv_report(stream, codec, users):
     output.write('# Generated: %s\n' % now().strftime('%Y-%m-%d %H:%M:%S'))
     # output.write('# Number of users found: %d\n' % number_of_users)
     fields = ['person_ou_list', 'person_affiliations', 'person_name',
-              'account_name', 'account_affiliations']
+              'account_name', 'account_affiliations', 'account_quarantines']
 
     writer = _csvutils.UnicodeDictWriter(output, fields, dialect=CsvDialect)
     writer.writeheader()
@@ -250,6 +256,12 @@ def main(inargs=None):
         type=codec_type,
         help="output file encoding, defaults to %(default)s")
 
+    parser.add_argument(
+        '--ignore-quarantined',
+        dest='ignore_quarantined',
+        action='store_true',
+        help="Ignore quarantined accounts in report")
+
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
@@ -260,7 +272,8 @@ def main(inargs=None):
     logger.debug("args: %r", args)
 
     stats = dict()
-    manual_users = get_manual_users(db, stats)
+    manual_users = get_manual_users(db, stats,
+                                    ignore_quarantined=args.ignore_quarantined)
 
     sorted_manual_users = sorted(manual_users,
                                  key=lambda x: x['person_ou_list'])

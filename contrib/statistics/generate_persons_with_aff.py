@@ -77,8 +77,9 @@ def persons_with_aff_status(db, status):
     logger.debug('caching employee ids ...')
     pe2sapid = dict(
         (r['entity_id'], r['external_id'])
-        for r in pe.list_external_ids(source_system=co.system_sap,
-                                      id_type=co.externalid_sap_ansattnr))
+        for r in pe.search_external_ids(source_system=co.system_sap,
+                                        id_type=co.externalid_sap_ansattnr,
+                                        fetchall=False))
 
     logger.debug('caching non-expired accounts ...')
     ac2name = dict((r['account_id'], r['name']) for r in ac.search())

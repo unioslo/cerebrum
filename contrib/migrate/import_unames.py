@@ -42,7 +42,6 @@ import sys
 import string
 import mx.DateTime
 
-import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -305,7 +304,8 @@ def main():
         usage()
 
     # Fetch already existing persons
-    for p in person.list_external_ids(id_type=constants.externalid_fodselsnr):
+    for p in person.search_external_ids(id_type=constants.externalid_fodselsnr,
+                                        fetchall=False):
         fnr2person_id[p['external_id']] = p['entity_id']
 
     process_line(infile, maxlen, reserve_unames, set_names)

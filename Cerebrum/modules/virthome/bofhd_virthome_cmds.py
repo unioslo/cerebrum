@@ -1220,7 +1220,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """
 
         group = self._get_group(gname)
-        self.ba.can_delete_group(operator.get_entity_id(), group.entity_id)
+        self.ba.can_force_delete_group(operator.get_entity_id(), group.entity_id)
 
         return {'group': self.virthome.group_disable(group)}
 
@@ -1739,7 +1739,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         group = self._get_group(groupname)
         gname, gid = group.group_name, group.entity_id
-        self.ba.can_delete_group(operator.get_entity_id(), group.entity_id)
+        self.ba.can_force_delete_group(operator.get_entity_id(), group.entity_id)
         self.group_disable(operator, groupname)
         group.delete()
         return "OK, deleted group '%s' (id=%s)" % (gname, gid)

@@ -22,9 +22,7 @@ This script generates a set of events, that will result in provisioning of
 users in CIM.
 """
 
-import cerebrum_path
 import cereconf
-getattr(cerebrum_path, 'linter', '')
 getattr(cereconf, 'linter', '')
 
 from Cerebrum.Utils import Factory

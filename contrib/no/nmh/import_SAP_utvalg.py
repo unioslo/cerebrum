@@ -41,7 +41,7 @@ import getopt
 import re
 from mx.DateTime import now
 
-import cerebrum_path, cereconf
+import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import make_utvalg_iterator
@@ -85,8 +85,9 @@ def process_utvalg(filename, use_fok):
     """
     logger.info('Start importing utvalg from file: %s', filename)
     sapid2pe = dict((r['external_id'], r['entity_id']) for r in
-                    pe.list_external_ids(source_system=co.system_sap,
-                                         id_type=co.externalid_sap_ansattnr))
+                    pe.search_external_ids(source_system=co.system_sap,
+                                           id_type=co.externalid_sap_ansattnr,
+                                           fetchall=False))
     # Fagmiljø already stored in Cerebrum:
     pe2fag_cb = dict((r['entity_id'], r['strval']) for r in
                   pe.list_traits(co.trait_fagmiljo))

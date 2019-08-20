@@ -217,23 +217,23 @@ API_TYPE_CTOR_NAMES = (
 
 class DatabaseErrorWrapper(object):
     """
-    Exception context wrapper for calls to the database cursor.
+    Exception context wrapper for calls to objects that implements the DB-API.
 
     The idea is based on the django.db.utils.DatabaseExceptionWrapper. Calls
     performed in this context will handle PEP-249 exceptions, and reraise as
     Cerebrum-specific exceptions.
     """
 
-    def __init__(self, database, module, **kwargs):
+    def __init__(self, to_module, from_module, **kwargs):
         """
         Initialize wrapper.
 
-        @type database: Cerebrum.database.Database
-        @param database: The database wrapper object. This object contains
-            monkey patched exceptions as attributes.
+        @type to_module: module
+        @param to_module: A PEP-249 compatible database module. It must contain
+            the DB-API 2.0 exception types as attributes.
 
-        @type module: module
-        @param module: A PEP-249 compatible database module. It must contain
+        @type from_module: module
+        @param from_module: A PEP-249 compatible database module. It must contain
             the DB-API 2.0 exception types as attributes.
 
         @type kwargs: **dict
@@ -241,8 +241,8 @@ class DatabaseErrorWrapper(object):
             an attribute. This can be used to piggy-back extra information with
             the exception.
         """
-        self.db = database  # Should we typecheck this?
-        self.mod = module   # Can we typecheck this?
+        self.to_module = to_module
+        self.from_module = from_module
 
         # Extra attributes for the exception
         self.extra_attrs = dict((n, repr(v)) for n, v in kwargs.iteritems())
@@ -271,8 +271,8 @@ class DatabaseErrorWrapper(object):
 
         # Identify the exception
         for api_exc_name in API_EXCEPTION_NAMES:
-            crb_exc_type = getattr(self.db, api_exc_name)
-            mod_exc_type = getattr(self.mod, api_exc_name)
+            crb_exc_type = getattr(self.to_module, api_exc_name)
+            mod_exc_type = getattr(self.from_module, api_exc_name)
             if issubclass(exc_type, mod_exc_type):
                 # Copy arguments and cause
                 try:
@@ -778,16 +778,18 @@ class Database(object):
     #
     def connect(self, *params, **kws):
         """Connect to a database; args are driver-dependent."""
+
         if self._db is None:
-            self._db = self._db_mod.connect(*params, **kws)
-            #
-            # Open a cursor; this can be used by most methods, so that
-            # they won't have to open cursors all over the place.
-            self._cursor = self.cursor()
+            with DatabaseErrorWrapper(type(self), self._db_mod):
+                self._db = self._db_mod.connect(*params, **kws)
+                #
+                # Open a cursor; this can be used by most methods, so that
+                # they won't have to open cursors all over the place.
+                self._cursor = self.cursor()
         else:
             # TBD: Should probably use a standard DB-API exception
             # here.
-            raise Errors.DatabaseConnectionError
+            raise DatabaseError('DB connection already open')
 
     #
     #   Methods corresponding to DB-API 2.0 connection object methods.
@@ -1077,7 +1079,7 @@ def connect(*args, **kws):
                     cls = getattr(submod, db_driver)
                     break
             else:
-                raise Errors.DatabaseConnectionError(
+                raise DatabaseError(
                     'Unable to load DB_driver: {db_driver}'.format(
                         db_driver=db_driver))
     else:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2016 University of Oslo, Norway
+# Copyright 2002-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -44,23 +44,26 @@ targets = {
              'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9',
              'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
              'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',
-             'rel_0_9_18', 'rel_0_9_19', ),
-    'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
+             'rel_0_9_18', 'rel_0_9_19', 'rel_0_9_20', ),
+    'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3', 'bofhd_1_4',),
     'bofhd_auth': ('bofhd_auth_1_1', 'bofhd_auth_1_2',),
     'changelog': ('changelog_1_2', 'changelog_1_3', 'changelog_1_4',
                   'changelog_1_5'),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4',
               'email_1_5',),
+    'entity_expire': ('entity_expire_1_0',),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     'eventlog': ('eventlog_1_1', ),
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
-    'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2', 'dns_1_3', 'dns_1_4'),
+    'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2', 'dns_1_3', 'dns_1_4', 'dns_1_5'),
+    'password_history': ('password_history_1_1',),
     'sap': ('sap_1_0', 'sap_1_1',),
     'printer_quota': ('printer_quota_1_1', 'printer_quota_1_2',),
     'entity_trait': ('entity_trait_1_1',),
     'hostpolicy': ('hostpolicy_1_1',),
     'note': ('note_1_1',),
+    'job_runner': ('job_runner_1_1',),
 }
 
 # Global variables
@@ -108,8 +111,8 @@ def get_db_version(component='core'):
     version = "pre-0.9.2"
     try:
         if component == 'core':
-            version = "%d.%d.%d" % \
-                      meta.get_metainfo(Metainfo.SCHEMA_VERSION_KEY)
+            info = meta.get_metainfo(Metainfo.SCHEMA_VERSION_KEY)
+            version = "%d.%d.%d" % info if isinstance(info, tuple) else info
         else:
             version = meta.get_metainfo("sqlmodule_%s" % component)
     except Errors.NotFoundError:
@@ -782,6 +785,17 @@ def migrate_to_rel_0_9_19():
     db.commit()
 
 
+def migrate_to_rel_0_9_20():
+    """Migrate from 0.9.19 database to the 0.9.20 database schema."""
+    assert_db_version("0.9.19")
+    makedb('0_9_20', 'pre')
+    print("\ndone.")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 20))
+    print("Migration to 0.9.20 completed successfully")
+    db.commit()
+
+
 def migrate_to_bofhd_1_1():
     print("\ndone.")
     assert_db_version("1.0", component='bofhd')
@@ -809,6 +823,23 @@ def migrate_to_bofhd_1_3():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_bofhd", "1.3")
     print("Migration to bofhd 1.3 completed successfully")
+    db.commit()
+
+
+def migrate_to_bofhd_1_4():
+    """Bumps the version number of bofhd_table to 1.4
+
+    This is done because of the move of the bofhd_requests tables to their own
+    design file mod_bofhd_requests.sql
+
+    We don't actually do anything here since the tables already exist.
+    """
+    print("\ndone.")
+    assert_db_version("1.3", component='bofhd')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_bofhd", "1.4")
+    meta.set_metainfo("sqlmodule_bofhd_requests", "1.0")
+    print("Migration to bofhd 1.4 completed successfully")
     db.commit()
 
 
@@ -1555,6 +1586,26 @@ def migrate_to_dns_1_4():
     db.commit()
 
 
+def migrate_to_dns_1_5():
+    print("\ndone.")
+    assert_db_version("1.4", component='dns')
+    makedb('dns_1_5', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_dns", "1.5")
+    print("Migration to DNS 1.5 completed successfully")
+    db.commit()
+
+
+def migrate_to_password_history_1_1():
+    print("\ndone.")
+    assert_db_version("0.9.20")
+    makedb('password_history_1_1', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_password_history", "1.1")
+    print("Migration to password history 1.1 completed successfully")
+    db.commit()
+
+
 def migrate_to_sap_1_1():
     assert_db_version("1.0", component="sap")
     # We just need to drop a couple of tables...
@@ -1654,6 +1705,22 @@ def migrate_to_hostpolicy_1_1():
     meta.set_metainfo("sqlmodule_hostpolicy", "1.1")
     db.commit()
     print("Migration to hostpolicy 1.1 completed successfully")
+
+
+def migrate_to_job_runner_1_1():
+    print("\ndone.")
+    meta = Metainfo.Metainfo(db)
+    try:
+        meta.get_metainfo("sqlmodule_job_runner")
+    except Errors.NotFoundError:
+        print("Schema version for sqlmodule_job_runner "
+              "is missing, setting to 1.0")
+        meta.set_metainfo("sqlmodule_job_runner", "1.0")
+    assert_db_version("1.0", component='job_runner')
+    makedb('job_runner_1_1', 'pre')
+    meta.set_metainfo("sqlmodule_job_runner", "1.1")
+    print("Migration to job_runner 1.1 completed successfully")
+    db.commit()
 
 
 def init():

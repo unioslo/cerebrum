@@ -19,24 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from __future__ import unicode_literals
-
-import sys
-import getopt
-
-import cerebrum_path
-
-from Cerebrum.Utils import Factory
-from Cerebrum.utils.atomicfile import SimilarSizeWriter
-from Cerebrum.modules.dns import IPNumber, IPv6Number
-
-
-del cerebrum_path
-
-progname = __file__.split("/")[-1]
-
-__doc__ = """
-Usage: %s [options]
+"""
+Usage: generate_dhcp_dump.py [options]
    --file, -f   File to be generated
 
 '--file' must be specified
@@ -54,7 +38,20 @@ The list of IP-addresses starts at the 20th character on the line; the
 space between the MAC-address and the list of IP-addresses is padded
 with <space>-characters.
 
-""" % progname
+"""
+
+from __future__ import unicode_literals
+
+import sys
+import getopt
+
+
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
+from Cerebrum.modules.dns import IPNumber, IPv6Number
+
+
+progname = __file__.split("/")[-1]
 
 
 logger = Factory.get_logger("cronjob")

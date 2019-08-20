@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,33 +18,16 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from Cerebrum import Constants
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio import printer_quota
+from Cerebrum.Errors import CerebrumError
 
 """PaidPrinterQuotas and PPQUtil contains routines for updating the
 paid_quota_* tables.  They should not provide any public methods that
 makes it possible to violate the invariant stating that
 paid_quota_status can be calculated from paid_quota_history."""
 
-class _PaidQuotaTransactionTypeCode(Constants._CerebrumCode):
-    "Mappings stored in the paid_quota_transaction_type_code table"
-    _lookup_table = '[:table schema=cerebrum name=paid_quota_transaction_type_code]'
-    pass
-
-class Constants(Constants.Constants):
-    pqtt_balance = _PaidQuotaTransactionTypeCode(
-        'balance', 'Balance - used when cleaning out old data')
-    pqtt_printout = _PaidQuotaTransactionTypeCode(
-        'print', 'Normal print job')
-    pqtt_quota_fill_pay = _PaidQuotaTransactionTypeCode(
-        'pay', 'Quota fill')
-    pqtt_quota_fill_free = _PaidQuotaTransactionTypeCode(
-        'free', 'Quota fill')
-    pqtt_undo = _PaidQuotaTransactionTypeCode(
-        'undo', 'Undo of a previous job')
-    PaidQuotaTransactionTypeCode = _PaidQuotaTransactionTypeCode
 
 def parse_bool(val):
     """Parse boolean value as T/F or 1/0.
@@ -56,6 +39,7 @@ def parse_bool(val):
     if val:
         return True
     return False
+
 
 class PaidPrinterQuotas(DatabaseAccessor):
     # Because multiple sources may attempt to update the quota_status
@@ -101,7 +85,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
         INSERT INTO [:table schema=cerebrum name=paid_quota_status]
           (%s) VALUES (%s)""" % (", ".join(binds.keys()),
                                  ", ".join([":%s" % k for k in binds.keys()])),
-                                 binds)
+                     binds)
 
     def _set_status_attr(self, person_id, attrs):
         set = []
@@ -124,7 +108,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
         for k in attrs.keys():
             if k not in ('has_quota', 'has_blocked_quota',
                          'weekly_quota', 'max_quota'):
-                raise ValueError, "Access to attr %s denied" % k
+                raise ValueError('Access to attr {} denied'.format(k))
         self._set_status_attr(person_id, attrs)
 
     # We could get update_by, update_program from the changelog, but
@@ -153,16 +137,16 @@ class PaidPrinterQuotas(DatabaseAccessor):
                 pageunits -= delta
             if pageunits:
                 pageunits_paid = -pageunits
-                #new_paid = old_pay - pageunits
+                # new_paid = old_pay - pageunits
             kroner = pageunits_paid * printer_quota.PAGE_COST
 
         # Update quota_status.  Note that if update_quota=False,
         # free/paid will be 0
         self._alter_quota(person_id,
-            pageunits_free=pageunits_free,
-            pageunits_accum=pageunits_accum,
-            pageunits_total=pageunits_total,
-            kroner=kroner)
+                          pageunits_free=pageunits_free,
+                          pageunits_accum=pageunits_accum,
+                          pageunits_total=pageunits_total,
+                          kroner=kroner)
 
         # register history entries
         job_id = self._add_quota_history(
@@ -187,7 +171,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
         INSERT INTO [:table schema=cerebrum name=paid_quota_printjob]
           (%s) VALUES (%s)""" % (", ".join(binds.keys()),
                                  ", ".join([":%s" % k for k in binds.keys()])),
-                                 binds)
+                     binds)
         return job_id
 
     def _add_quota_history(self, transaction_type, person_id,
@@ -217,24 +201,23 @@ class PaidPrinterQuotas(DatabaseAccessor):
         INSERT INTO [:table schema=cerebrum name=paid_quota_history]
           (%s) VALUES (%s)""" % (", ".join(binds.keys()),
                                  ", ".join([":%s" % k for k in binds.keys()])),
-                                 binds)
+                     binds)
         return id
 
-
     def _add_transaction(
-        self, transaction_type, person_id, update_by, update_program,
-        pageunits_free=0, pageunits_paid=0, pageunits_accum=0,
-        target_job_id=None,
-        description=None, bank_id=None, kroner=0, payment_tstamp=None,
-        tstamp=None, _do_not_alter_quota=False, _override_job_id=None,
-        _override_pageunits_total=None):
+            self, transaction_type, person_id, update_by, update_program,
+            pageunits_free=0, pageunits_paid=0, pageunits_accum=0,
+            target_job_id=None,
+            description=None, bank_id=None, kroner=0, payment_tstamp=None,
+            tstamp=None, _do_not_alter_quota=False, _override_job_id=None,
+            _override_pageunits_total=None):
         """Register an entry in the paid_quota_transaction table.
         Should not be called directly.  Use
         PPQUtil. add_payment/undo_transaction"""
 
         if ((not (update_by or update_program)) or
-            (update_by and update_program)):
-            raise CerebrumError, "Must set update_by OR update_program"
+                (update_by and update_program)):
+            raise CerebrumError("Must set update_by OR update_program")
 
         # Update quota
         if not _do_not_alter_quota:
@@ -266,8 +249,7 @@ class PaidPrinterQuotas(DatabaseAccessor):
         INSERT INTO [:table schema=cerebrum name=paid_quota_transaction]
           (%s) VALUES (%s)""" % (", ".join(binds.keys()),
                                  ", ".join([":%s" % k for k in binds.keys()])),
-                                 binds)
-
+                     binds)
 
     def _alter_quota(self, person_id, pageunits_free=0,
                      pageunits_total=0, pageunits_accum=0, kroner=0):
@@ -307,27 +289,26 @@ class PaidPrinterQuotas(DatabaseAccessor):
     def _delete_status(self, person_id):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=paid_quota_status]
-        WHERE person_id=:person_id""",{
+        WHERE person_id=:person_id""", {
             'person_id': int(person_id)})
 
     def _delete_history(self, job_id, entry_type):
         if entry_type == 'printjob':
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=paid_quota_printjob]
-            WHERE job_id=:job_id""",{
+            WHERE job_id=:job_id""", {
                 'job_id': int(job_id)})
         elif entry_type == 'transaction':
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=paid_quota_transaction]
-            WHERE job_id=:job_id""",{
+            WHERE job_id=:job_id""", {
                 'job_id': int(job_id)})
         else:
             raise ValueError("This method is private for a reason")
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=paid_quota_history]
-        WHERE job_id=:job_id""",{
+        WHERE job_id=:job_id""", {
             'job_id': int(job_id)})
-
 
     def get_quota_status(self, has_quota_filter=None, person_id=None):
         where = []
@@ -382,8 +363,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
 
     def get_history(self, job_id=None, person_id=None, tstamp=None,
                     target_job_id=None, before=None, after_job_id=None,
-                    transaction_type=None, priss_queue_id=None, printer_queue=None,
-                    job_name=None):
+                    transaction_type=None, priss_queue_id=None,
+                    printer_queue=None, job_name=None):
         # In theory we could have one big LEFT JOIN search, but there
         # is a chance that it would give us a performance hit with
         # +1 million records in the database
@@ -399,7 +380,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
                  'job_name': job_name}
         where = []
         print_only = False
-        if isinstance(person_id, str) and person_id == 'NULL':   # TODO: We need a generic way for this
+        # TODO: We need a generic way for this
+        if isinstance(person_id, str) and person_id == 'NULL':
             where.append("person_id is NULL")
         elif person_id:
             where.append("person_id=:person_id")
@@ -452,10 +434,10 @@ class PaidPrinterQuotas(DatabaseAccessor):
                 FROM [:table schema=cerebrum name=paid_quota_history] pqh,
                      [:table schema=cerebrum name=paid_quota_printjob] pqp
                 WHERE pqh.job_id=pqp.job_id %s""" % where, binds,
-                fetchall=False):
+                    fetchall=False):
                 ret.append(r)
 
-        ret.sort(lambda x,y: cmp(x[0], y[0]))
+        ret.sort(lambda x, y: cmp(x[0], y[0]))
 
         return ret
 
@@ -503,5 +485,3 @@ class PaidPrinterQuotas(DatabaseAccessor):
               tstamp < :tstamp_to %s
         %s""" % (extra_cols, where, group_by)
         return self.query(qry, binds)
-
-

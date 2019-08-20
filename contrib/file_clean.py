@@ -11,21 +11,33 @@ options or in a config file.
 Options:
 
 --archive      : archive mode
+
 --delete       : delete mode
+
 --read-config  : read options from config file.
+
 --dryrun       : just report what script would do
+
 --name-pattern : The given pattern is the pattern of the file that
                  should be archived or deleted. Format is a python
                  regexp.
+
 --dirname      : the directory where to look for files matching
                  name-pattern.
+
 --filetype     : file type ('file' || 'dir')
+
 --archive-name : name of archive file
+
 --archive-age  : archive all files older than the given number of days.
                  If not given, archive all files that match
                  name-pattern.
+
 --no-delete    : Don't delete files that are archived
---min-age      : If given, delete files older than the given number of days. 
+
+--no-delete-tar: Don't delete the original files right after 'tar' compression
+
+--min-age      : If given, delete files older than the given number of days.
 
 If --read-config and --archive is given, try to read the following
 data-structure from config file:
@@ -37,6 +49,7 @@ data-structure from config file:
        'file_type'    : <string>,   # default: 'file'
        'archive_age'  : <int>,      # default: 0
        'no_delete'    : <boolean>   # default: False
+       'no_del_tar'   : <boolean>   # default: False
        'min_age'      : <int>},     # optional
       ...]
 
@@ -75,7 +88,6 @@ import time
 import re
 import tempfile
 import shutil
-import cerebrum_path
 from Cerebrum.Utils import Factory
 
 logger = Factory.get_logger("cronjob")
@@ -158,7 +170,7 @@ def delete_files(name_pattern='', dirname='', file_type='file',
 
 def archive_files(name_pattern='', dirname='', archive_name='',
                   file_type='file', archive_age=0, min_age=0,
-                  no_delete=False, dryrun=False):
+                  no_delete=False, dryrun=False, no_del_tar=False):
     """
     Archive all files in dirname that match name_pattern and are
     older than archive_age. Any such files are tared and zipped into
@@ -178,6 +190,8 @@ def archive_files(name_pattern='', dirname='', archive_name='',
     @type  min_age: int
     @param no_delete: delete old archives or not?
     @type  no_delete: bool
+    @param no_del_tar: delete files immediately after compression with 'tar'
+    @type  no_del_tar: bool
     @param dryrun: delete or not?
     @type  dryrun: bool
     """
@@ -202,9 +216,10 @@ def archive_files(name_pattern='', dirname='', archive_name='',
         return
     # Set tar command
     tar_cmd = '/bin/tar --files-from %s --remove-files -czf %s'
-    if no_delete:
+    if no_del_tar:
         tar_cmd = '/bin/tar --files-from %s -czf %s'
-        
+    else:
+        tar_cmd = '/bin/tar --files-from %s --remove-files -czf %s'
     # Create filename of archive file, first postfix
     time_threshold = time.time() - archive_age*3600*24
     postfix = '-' + time.strftime('%Y-%m-%d', time.localtime(time_threshold))
@@ -262,7 +277,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], '', [
             'help', 'archive', 'delete', 'read-config', 'dryrun',
             'name-pattern=', 'dirname=', 'filetype=', 'archive-name=',
-            'archive-age=', 'min-age=', 'no-delete'])
+            'archive-age=', 'min-age=', 'no-delete', 'no-delete-tar'])
     except getopt.GetoptError:
         usage(1)
     if not opts:
@@ -272,6 +287,7 @@ def main():
     delete_mode = False
     read_config = False
     no_delete = False
+    no_del_tar= False
     dryrun = False
     name_pattern = None
     archive_name = None
@@ -305,6 +321,8 @@ def main():
             min_age = int(val)
         elif opt in ('--no-delete',):
             no_delete = True
+        elif opt in ('--no-delete-tar',):
+            no_del_tar = True
 
     # read options from config file or cmd line?
     if read_config:
@@ -329,7 +347,7 @@ def main():
         tmp = {'name_pattern': name_pattern, 'archive_name': archive_name,
                'dirname': dirname, 'file_type': file_type,
                'archive_age': archive_age, 'min_age': min_age,
-               'no_delete': no_delete}
+               'no_delete': no_delete, 'no_del_tar': no_del_tar}
         archive_actions = [tmp]
     else:
         usage()

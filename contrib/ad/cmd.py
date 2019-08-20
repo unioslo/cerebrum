@@ -50,7 +50,6 @@ shell!
 import getopt
 import sys
 
-import cerebrum_path
 import adconf
 from Cerebrum.Utils import Factory, read_password
 from Cerebrum import Errors
@@ -155,7 +154,7 @@ def main():
     client._winrs_skip_cmd_shell = False
     #client._winrs_consolemode_stdin = False
     client.add_credentials(username=user,
-                           password=unicode(read_password(user, host), 'utf-8'))
+                           password=read_password(user, host))
     client.connect()
 
     code = ' '.join(args)

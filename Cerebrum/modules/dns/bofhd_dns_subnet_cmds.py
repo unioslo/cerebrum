@@ -134,8 +134,8 @@ class BofhdExtension(BofhdCommandBase):
             ("Reserved host adresses: %s", ("no_of_res_adr", )),
             ("Reserved addresses:     %s", ("res_adr1", )),
             ("                        %s", ('res_adr', )),
-            ("Used addresses:         %i\n"
-             "Unused addresses:       %i (excluding reserved adr.)",
+            ("Used addresses:         %s\n"
+             "Unused addresses:       %s (excluding reserved adr.)",
              ('used', 'unused')),
         ]))
 
@@ -183,8 +183,8 @@ class BofhdExtension(BofhdCommandBase):
         # Calculate number of used and unused IP-addresses on this subnet
         #                              ^^^^^^ excluding reserved addresses
         uip = self._find.count_used_ips(s.subnet_ip)
-        data['used'] = int(uip)
-        data['unused'] = int(s.ip_max - s.ip_min - uip - 1)
+        data['used'] = str(uip)
+        data['unused'] = str(s.ip_max - s.ip_min - uip - 1)
 
         reserved_adresses = list(sorted(s.reserved_adr))
 

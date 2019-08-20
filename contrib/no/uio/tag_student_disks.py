@@ -18,23 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""Tag disks as student disks
 
-# $Id$
-
-import sys
-import getopt
-import os
-
-from xml.dom import minidom
-
-import cerebrum_path
-import cereconf
-from Cerebrum.Utils import Factory
-
-progname = __file__.split("/")[-1]
-
-__doc__ = """
-Usage: %s [options]
+Usage: tag_student_disks.py [options]
    --studconfig-file -s  XML-file containing autostud-configuration
    --help -h             Prints this message and quits
 
@@ -44,7 +30,21 @@ Based on the autostud configuration-file, this program makes sure that
 all the disks that are designated as student disks, and only those,
 are tagged as such in Cerebrum.
 
-""" % progname
+"""
+
+# $Id$
+
+import sys
+import getopt
+import os
+
+from xml.dom import minidom
+
+import cereconf
+from Cerebrum.Utils import Factory
+
+progname = __file__.split("/")[-1]
+
 
 __version__ = "$Revision$"
 # $URL$

@@ -21,12 +21,12 @@
 category:metainfo;
 name=job_runner;
 category:metainfo;
-version=1.0;
+version=1.1;
 
 category:main;
 CREATE TABLE job_ran
 (
-  id           CHAR VARYING(32)
+  id           TEXT
                CONSTRAINT job_ran_pk
                PRIMARY KEY,
   timestamp    TIMESTAMP

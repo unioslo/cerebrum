@@ -190,9 +190,6 @@ class PasswordNotifier(object):
             [int(x['account_id']) for x in ph.find_old_password_accounts((
                 self.today - dt.DateTimeDelta(
                     self.config.max_password_age)).strftime(DATE_FORMAT))])
-        logger.info('Fetching accounts with no password history')
-        old_ids.update(
-            set([int(x['account_id']) for x in ph.find_no_history_accounts()]))
         # Do we have special rules for certain person affiliations?
         # We want to end with the smallest 'max_password_age'
         aff_mappings = sorted(self.config.affiliation_mappings,
@@ -214,7 +211,15 @@ class PasswordNotifier(object):
             entity_types=self.constants.entity_account,
             entity_ids=old_ids)
 
-        old_ids = old_ids - quarantined_ids
+        disabled_quarantine_ids = QuarantineHandler.get_locked_entities(
+            self.db,
+            quarantine_types=self.constants.quarantine_autopassord,
+            entity_types=self.constants.entity_account,
+            only_active=False,
+            only_disabled=True,
+            entity_ids=old_ids)
+
+        old_ids = old_ids - quarantined_ids - disabled_quarantine_ids
         return old_ids
 
     def get_notified_ids(self):
@@ -926,10 +931,14 @@ class SMSPasswordNotifier(PasswordNotifier):
                 return False
             self.person.clear()
             self.person.find(account.owner_id)
+            if cereconf.SMS_NUMBER_SELECTOR_PRIVATE:
+                sms_numbers = cereconf.SMS_NUMBER_SELECTOR_PRIVATE
+            else:
+                sms_numbers = cereconf.SMS_NUMBER_SELECTOR
             try:
                 spec = map(lambda (s, t): (self.constants.human2constant(s),
                                            self.constants.human2constant(t)),
-                           cereconf.SMS_NUMBER_SELECTOR)
+                           sms_numbers)
                 mobile = self.person.sort_contact_info(
                     spec, self.person.get_contact_info())
                 person_in_systems = [int(af['source_system']) for af in

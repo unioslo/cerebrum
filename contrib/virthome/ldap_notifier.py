@@ -28,24 +28,28 @@ When running `run_callbacks()', we pass Account-objects to the callback
 functions, re-using the same Database-object. The callback function must take
 care of and commit/rollback any changes it writes.
 """
-import cerebrum_path
-import cereconf
-
-import sys
-from getopt import getopt, GetoptError
+import argparse
 import ldap
+import logging
 import smtplib
+import textwrap
 from time import time
-from os.path import basename
 
+from mx.DateTime import now
+
+import cereconf
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.email import sendmail
 from Cerebrum.modules.virthome.LDIFHelper import LDIFHelper
-from mx.DateTime import now
 
 # Some defaults
 DEFAULT_LOGGER = 'cronjob'
 CHANGELOG_PROGRAM = 'ldap_notifier'
+
+logger = logging.getLogger(__name__)
+
 
 def get_config(name):
     """ Fetch a constant from cereconf. """
@@ -57,7 +61,7 @@ def get_config(name):
 
 def get_trait(entity, trait_const, val=None):
     """ Get trait or a given trait attribute
-    
+
     @type entity: Cerebrum.Entity
     @param entity: The entity we're looking up trait for
 
@@ -87,37 +91,31 @@ class Notifier:
     export to LDAP. We compare this set with all users in the database, and all
     users previously marked as retained/'not exported'.
 
-    We can then register callbacks that should be called for different groups of
-    users (exported, not exported)
+    We can then register callbacks that should be called for different groups
+    of users (exported, not exported)
     """
 
     def __init__(self, logger, dryrun=True):
         """ Initialize the notifier with a db connection, logger and dryrun
         option
 
-        @type db: Cerebrum.database.Database
-        @param db: A database connection
-
-        @type logger: Cerebrum.modules.cerelog
-        @param logger: A logger
-
-        @type dryrun: bool
-        @param dryrun: If we should revert any changes to the database
+        :type db: Cerebrum.database.Database
+        :type logger: logging.Logger
+        :param bool dryrun: If we should revert any changes to the database
         """
         self.db = Factory.get('Database')()
         self.db.cl_init(change_program=CHANGELOG_PROGRAM)
         self.logger = logger
         self.dryrun = dryrun
 
-        self.all_exported = set() # All users exported to LDAP
-        self.not_exported = set() # All users NOT exported to LDAP
-        self.now_exported = set() # Users recently exported to LDAP
-        self.now_retained = set() # Users recently marked as 'retained'
+        self.all_exported = set()  # All users exported to LDAP
+        self.not_exported = set()  # All users NOT exported to LDAP
+        self.now_exported = set()  # Users recently exported to LDAP
+        self.now_retained = set()  # Users recently marked as 'retained'
 
         # Callback functions for the now_exported / now_retained groups
         self.exported_callbacks = []
         self.retained_callbacks = []
-
 
     def add_export_cb(self, cb):
         """ Adds a callback that will be called for every (newly) exported
@@ -141,14 +139,13 @@ class Notifier:
         """
         self.retained_callbacks.append(cb)
 
-
     def update_retained_trait(self):
         """ Finds and returns users that have either been retained from or
         exported to LDAP since the last run.
 
         Uses the LDIFHelper from ldap_notifier to figure out which users
-        are eligible for export, then compares this to account traits and actual
-        LDAP state.
+        are eligible for export, then compares this to account traits and
+        actual LDAP state.
 
         Prepares four sets of account_ids:
             all_exported - All users eligible for LDAP export
@@ -167,10 +164,12 @@ class Notifier:
 
         # For DEBUG - log timing
         debug_times = [time(), ]
+
         def _add_debug_time(text):
             debug_times.append(time())
             if text:
-                self.logger.debug("Time (%0.2f s) %s" % (debug_times[-1] - debug_times[-2], text))
+                self.logger.debug("Time (%0.2f s) %s",
+                                  debug_times[-1] - debug_times[-2], text)
 
         # First we need to find all the changes
         helper = LDIFHelper(self.logger)
@@ -185,14 +184,16 @@ class Notifier:
                                        fetchall=True))
 
         # New exports: Was exported, and has 'retained' trait
-        self.all_exported = set(a['entity_id'] for a in all_accounts if a['entity_name'] in
-                       exported_names)
+        self.all_exported = set(a['entity_id']
+                                for a in all_accounts
+                                if a['entity_name'] in exported_names)
         new_exports = self.all_exported.intersection(has_trait)
         self.now_exported = set()
 
         # New retainees, wasn't exported, and doesn't have trait
-        self.not_exported = set(a['entity_id'] for a in
-                all_accounts).difference(self.all_exported)
+        self.not_exported = set(
+            a['entity_id']
+            for a in all_accounts).difference(self.all_exported)
         new_retainees = self.not_exported.difference(has_trait)
         self.now_retained = set()
 
@@ -209,8 +210,10 @@ class Notifier:
             # Else, user won't be in (verified) new export set, will retry next
             # time the script runs
         _add_debug_time("Verified new exports with LDAP")
-        self.logger.debug("%d of the %d exported users were previously retained" %
-                     (len(self.now_exported), len(self.all_exported)))
+        self.logger.debug("%d of the %d exported users were"
+                          " previously retained",
+                          len(self.now_exported),
+                          len(self.all_exported))
 
         for account_id in new_retainees:
             ac.clear()
@@ -223,15 +226,15 @@ class Notifier:
             # Else, user won't be in (verified) new retainee set, will retry
             # next time the script runs
         _add_debug_time("Verified new retainees with LDAP")
-        self.logger.debug("%d of the %d retained users were previously exported" %
-                     (len(self.now_retained), len(self.not_exported)))
+        self.logger.debug("%d of the %d retained users were"
+                          " previously exported",
+                          len(self.now_retained), len(self.not_exported))
 
         if self.dryrun:
             self.db.rollback()
         else:
             self.db.commit()
 
-    
     def verify_ldap(self, uid):
         """ Verify that a username, L{uid} exists in the virthome LDAP tree
 
@@ -247,9 +250,10 @@ class Notifier:
         webid = ldap.initialize(get_config('LDAP_URL'))
 
         try:
-            result = webid.search_s(user_dn, ldap.SCOPE_SUBTREE, filterstr=filter)
+            result = webid.search_s(user_dn, ldap.SCOPE_SUBTREE,
+                                    filterstr=filter)
         except ldap.LDAPError, e:
-            self.logger.info("Could not check if '%s' in ldap: %s" % (uid, str(e)))
+            self.logger.info("Could not check if %r in ldap: %s", uid, str(e))
             return None
 
         if not isinstance(result, list):
@@ -257,13 +261,12 @@ class Notifier:
 
         return len(result) == 1
 
-
     def run_callbacks(self, dryrun=True):
         """ Run all registered callbacks for newly exported accounts and newly
         retained accounts.
         """
         ac = Factory.get('Account')(self.db)
-        
+
         for account_id in self.now_exported:
             ac.clear()
             ac.find(account_id)
@@ -276,6 +279,7 @@ class Notifier:
             for callback in self.retained_callbacks:
                 callback(ac, dryrun)
 
+
 class AccountEmailer:
     """ A simple emailer that can send emails to an address associated with an
     account, and prevent spamming if anything should fail.
@@ -287,8 +291,8 @@ class AccountEmailer:
 
     def __init__(self, ac, logger, sender, dryrun=True):
         """ If account L{ac} is a member of at least one group with trait
-        'forward_url', send an email notification to the email address associated
-        with the account.
+        'forward_url', send an email notification to the email address
+        associated with the account.
         """
         assert hasattr(ac, 'entity_id')
         self.dryrun = dryrun
@@ -314,27 +318,25 @@ class AccountEmailer:
         """
         trait = self.ac.get_trait(self.co.trait_user_notified)
         if not trait:
-            logger.debug("No trait '%s' for '%s'" %
-                    (self.co.trait_user_notified, self.ac.account_name))
+            logger.debug("No trait '%s' for '%s'",
+                         self.co.trait_user_notified, self.ac.account_name)
             return True
         else:
-            logger.debug("Trait '%s' for '%s': numval(%d) date(%s)" %
-                    (self.co.trait_user_notified, self.ac.account_name,
-                     trait.get('numval', 0), trait.get('date')))
+            logger.debug("Trait '%s' for '%s': numval(%d) date(%s)",
+                         self.co.trait_user_notified, self.ac.account_name,
+                         trait.get('numval', 0), trait.get('date'))
         if (now() - self.days_reset) > trait.get('date'):
             return True
         if self.max_num >= trait.get('numval'):
             return True
-
         return False
-
 
     def update_trait(self):
         """ Update the 'trait_user_notified' trait by:
           1. Creating it, if it doesn't exist
           2. Resetting it if the date attribute is more than
              days_reset days old.
-          3. Incrementing the numval attribute. 
+          3. Incrementing the numval attribute.
         """
         # Initial values for new trait
         last_reset = now()
@@ -346,21 +348,22 @@ class AccountEmailer:
             last_reset = trait.get('date')
             num_sent = trait.get('numval') or 0
         # Else, reset trait
-        
+
         # Increment and write the updated trait values
         num_sent += 1
 
-        self.ac.populate_trait(self.co.trait_user_notified, numval=num_sent,
-                date=last_reset)
+        self.ac.populate_trait(self.co.trait_user_notified,
+                               numval=num_sent,
+                               date=last_reset)
         self.ac.write_db()
 
         if self.dryrun:
-            self.logger.warn("Dryrun, not writing trait '%s' for user '%s" %
-                    (str(self.co.trait_user_notified), self.ac.account_name))
+            self.logger.warn("Dryrun, not writing trait '%s' for user '%s",
+                             str(self.co.trait_user_notified),
+                             self.ac.account_name)
             self.ac._db.rollback()
         else:
             self.ac._db.commit()
-
 
     def send_email(self, subject, message):
         """ Send an email to the email address associated with the account
@@ -368,20 +371,19 @@ class AccountEmailer:
         """
         to_addr = self.get_address()
         if not self.trait_allows():
-            self.logger.warn("Account flooded, will not mail %s" % to_addr)
+            self.logger.warn("Account flooded, will not mail %r", to_addr)
         elif not self.dryrun:
             try:
                 sendmail(to_addr, self.sender, subject, message)
-                self.logger.debug("Sent message to %s" % to_addr)
+                self.logger.debug("Sent message to %r", to_addr)
             except smtplib.SMTPRecipientsRefused, e:
                 error = e.recipients.get(to_addr)
                 self.logger.warn("Failed to send message to %s (SMTP %d: %s)",
-                            to_addr, error[0], error[1])
+                                 to_addr, error[0], error[1])
             except smtplib.SMTPException:
                 self.logger.exception("Failed to send message to %s", to_addr)
         else:
-            self.logger.debug("Dryrun - Would send message for %s" % to_addr)
-        
+            self.logger.debug("Dryrun - Would send message for %s", to_addr)
         # Update attempt count
         self.update_trait()
 
@@ -407,7 +409,7 @@ def callback_notify_forward(ac, dryrun=False):
     gr = Factory.get('Group')(ac._db)
 
     mailer = AccountEmailer(ac, logger, sender, dryrun)
-    external_apps = set() # tuples (name/description, forward_url)
+    external_apps = set()  # tuples (name/description, forward_url)
 
     # Look up group memberships in groups with forward trait
     for g in gr.search(member_id=ac.entity_id):
@@ -415,14 +417,15 @@ def callback_notify_forward(ac, dryrun=False):
         gr.find(g['group_id'])
         forward = get_trait(gr, co.trait_group_forward, val='strval')
         if forward:
-            external_apps.add((g['description'] or g['name'], forward)) # Only unique
+            # Only unique
+            external_apps.add((g['description'] or g['name'], forward))
 
     # Send email if such group memberships exists.
     if len(external_apps) > 0:
-        items = "\n".join([item_fmt % {'name': name, 'url': url} for name, url
-            in external_apps])
-        logger.info("Will inform '%s' (%s) about access to %d external apps" %
-                (ac.account_name, mailer.get_address(), len(external_apps)))
+        items = "\n".join([item_fmt % {'name': name, 'url': url}
+                           for name, url in external_apps])
+        logger.info("Will inform '%s' (%s) about access to %d external apps",
+                    ac.account_name, mailer.get_address(), len(external_apps))
 
         message = body % {
             'account_name': ac.account_name,
@@ -430,77 +433,84 @@ def callback_notify_forward(ac, dryrun=False):
         mailer.send_email(subject, message)
 
 
-def usage(exitcode=0):
-    """ Prints script usage, and exits with C{exitcode}.
-    """
-    print """ Usage: %(name)s [options]
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=textwrap.dedent(
+            """
+            This script keeps track on which users are exported to LDAP and
+            removed from LDAP.
+            It can also run a series of operations for new users in LDAP (as
+            well as users that are deleted from LDAP.
 
-    This script keeps track on which users are exported to LDAP and removed from
-    LDAP. 
-    It can also run a series of operations for new users in LDAP (as well as
-    users that are deleted from LDAP.
+            Configured operations:
+              * NEW users in LDAP, that are members of a group with
+              'forward_url' trait will receive an email notification.
+            """
+        )
+    )
 
-    Configured operations:
-      * NEW users in LDAP, that are members of a group with 'forward_url' trait
-        will receive an email notification.
+    # --commit / --dryrun
+    commit_mutex = parser.add_mutually_exclusive_group()
+    commit_mutex.add_argument(
+        '-c', '--commit',
+        dest='commit',
+        action='store_true',
+        help='commit changes')
+    commit_mutex.add_argument(
+        '--dryrun',
+        dest='commit',
+        action='store_false',
+        help='dry run (do not commit -- this is the default)')
+    commit_mutex.set_defaults(commit=False)
 
-    Options:
-      -c, --commit               Commit changes to cerebrum -- this causes the
-                                 script to update the state of users exported to
-                                 LDAP.
-      -r, --run_callbacks        Run operations that are associated with export
-                                 state. It is an error to use this option
-                                 without commit!
-      -f. --force                Cannot normally run callbacks (-r) without
-                                 commiting (-c), as that would cause callbacks
-                                 to be runned multiple times for a given user.
-                                 The -f flag makes this possible.
-      -h, --help                 Show this help text.
-    """ % {'name': basename(sys.argv[0])}
+    parser.add_argument(
+        '-r', '--run_callbacks',
+        action='store_true',
+        default=False,
+        help='Run operations that are associated with export state.'
+             ' It is an error to use this option without commit!'
+    )
+    parser.add_argument(
+        '-f', '--force',
+        action='store_true',
+        default=False,
+        help='Cannot normally run callbacks (-r) without commiting (-c),'
+             ' as that would cause callbacks to be runned multiple times'
+             ' for a given user.  The -f flag makes this possible.'
+    )
 
-    sys.exit(exitcode)
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf(DEFAULT_LOGGER, args)
 
+    logger.info('Start of script %s', parser.prog)
+    logger.debug("args: %r", args)
 
-def main(argv):
-    try:
-        opts, junk = getopt(argv[1:], 'hcrf', ('help', 'commit',
-            'run_callbacks', 'force'))
-    except GetoptError, e:
-        print e
-        usage(1)
+    if args.run_callbacks and not (args.commit or args.force):
+        raise RuntimeError(
+            """
+            Running callbacks without commiting would cause users to be
+            notified multiple times about the same change.
 
-    dryrun = True
-    force = False
-    run_callbacks = False
+            Commiting without running callbacks would cause users NOT to get
+            notified about changes.
 
-    for option, value in opts:
-        if option in ('-h', '--help'):
-            usage(0)
-        elif option in ('-c', '--commit'):
-            dryrun = False
-        elif option in ('-r', '--run_callbacks'):
-            run_callbacks = True
-        elif option in ('-f', '--force'):
-            force = True
+            If debugging, or running first time, use -f to force this action.
+            """)
 
-    # Logical xor - must have (dryryn, not run_callbacks) or (not dryrun,
-    # run_callbacks)
-    assert force or (run_callbacks != dryrun), """Running callbacks without
-    commiting would cause users to be notified multiple times about the same
-    change. Commiting without running callbacks would cause users NOT to get
-    notified about changes. If debugging, or running first time, use -f to force
-    this action"""
-
-    noti = Notifier(logger, dryrun=dryrun)
+    noti = Notifier(logger, dryrun=not args.commit)
 
     # For new exports, notify if member of group with forward_url trait
     noti.add_export_cb(callback_notify_forward)
 
     noti.update_retained_trait()
 
-    if run_callbacks:
-        noti.run_callbacks(dryrun)
+    if args.run_callbacks:
+        noti.run_callbacks(not args.commit)
 
-logger = Factory.get_logger(DEFAULT_LOGGER)
+    logger.info('Done with script %s', parser.prog)
+
+
 if __name__ == "__main__":
-    main(sys.argv[:])
+    main()

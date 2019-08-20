@@ -23,9 +23,9 @@ import re
 import sys
 import getopt
 
-import cerebrum_path
 import procconf
 
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory, auto_super
 from Cerebrum.modules.process_entity.ProcUtils import ProcFactory
 
@@ -112,20 +112,41 @@ class ProcBatchRunner(object):
         they are processed by this handler."""
         grp = Factory.get('Group')(self.db)
 
+        def get_group_name(group_id):
+            try:
+                grp.clear()
+                grp.find(group_id)
+                return grp.group_name
+            except Errors.NotFoundError:
+                return None
+
         # Add all imported groups into the list we want to examine.
         # Also add all generated groups with their "parent" gone.
-        group_names = dict()
-        for row in grp.list_traits(self.co.trait_group_imported, return_name=True):
-            group_names[row['name']] = None
-        for row in grp.list_traits(self.co.trait_group_derived, return_name=True):
-            normal_name = procconf.NORMAL(row['name'])
+        group_names = set()
+
+        for row in grp.list_traits(code=self.co.trait_group_imported):
+            group_id = int(row['entity_id'])
+            group_name = get_group_name(group_id)
+            if group_name is None:
+                self.logger.warning("Group name for group_id %s not found. Skipping this group.")
+                continue
+            group_names.add(group_name)
+
+        for row in grp.list_traits(code=self.co.trait_group_derived):
+            group_id = int(row['entity_id'])
+            group_name = get_group_name(group_id)
+            if group_name is None:
+                self.logger.warning("Group name for group_id %s not found. Skipping this group.")
+                continue
+            normal_name = procconf.NORMAL(group_name)
             if not normal_name:
-                self.logger.warning("Group '%s' has an odd name for a generated group. Skipping" % row['name'])
+                self.logger.warning("Group '%s' has an odd name for a generated group. Skipping" % group_name)
                 continue
             if normal_name not in group_names:
                 self.logger.debug(
-                    "prc_grps: Group '%s' added to check list. Derived from '%s'" % (normal_name, row['name']))
-                group_names[normal_name] = None
+                    "prc_grps: Group '%s' added to check list. Derived from '%s'" % (normal_name, group_name))
+                group_names.add(normal_name)
+
         for name in group_names:
             self.proc.process_group(name)
 

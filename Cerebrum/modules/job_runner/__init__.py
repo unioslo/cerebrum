@@ -132,9 +132,9 @@ class JobRunner(object):
                         # We sleep a little so that we don't risk entering
                         # a tight loop with lots of logging
                         time.sleep(1)
-                        logger.error("%s (pid %d) has run for %d seconds, "
-                                     "sending SIGTERM" %
-                                     (job['name'], job['pid'], run_for))
+                        logger.error("{} (pid %d) has run for %d seconds, "
+                                     "sending SIGTERM".format(job['name']),
+                                     job['pid'], run_for)
                         try:
                             os.kill(job['pid'], signal.SIGTERM)
                             # By setting did_wait to True, the main loop
@@ -284,8 +284,8 @@ class JobRunner(object):
                 self.signal_sleep(min(self.max_sleep, delta))
             else:
                 if not self.job_queue.get_running_jobs():
-                    raise SystemExit("AIEE! no running jobs and negative"
-                                     " delta")
+                    logger.error("No running jobs and negative wait until "
+                                 "next job (delta=%r)", delta)
                 # TODO: if run_queue has a lon-running job, we should
                 # only sleep until next delta.
                 # Trap missing sigchld

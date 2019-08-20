@@ -148,8 +148,8 @@ def get_entity(identifier=None, entype=None, idtype=None):
         return get_account(idtype=idtype, identifier=identifier)
     # if entype == 'person':
     #     return self._get_person(*self._map_person_id(identifier))
-    # if entype == 'group':
-    #     return self._get_group(identifier)
+    if entype == 'group':
+        return get_group(identifier, idtype=idtype, grtype=entype)
     # if entype == 'stedkode':
     #     return self._get_ou(stedkode=identifier)
     # if entype == 'host':

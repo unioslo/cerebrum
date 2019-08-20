@@ -39,7 +39,6 @@ import os
 import re
 import string
 
-import cerebrum_path
 import cereconf
 
 from .checker import pwchecker, PasswordChecker, l33t_speak

@@ -195,8 +195,6 @@ def get_constant(db, parser, const_types, value, argument=None):
         if const_value is None:
             raise ValueError(
                 "invalid constant value: %r" % (value, ))
-    # Assert same database connection is used
-    const_value.sql = db
     return const_value
 
 
@@ -274,3 +272,26 @@ class ExtendConstAction(argparse.Action):
         items = list(getattr(namespace, self.dest, ()))[:]
         items.extend(self.const)
         setattr(namespace, self.dest, self.type(items))
+
+
+def add_commit_args(parser, default=False):
+    """ Add --commit and --dryrun arguments to parser.
+
+    :param parser: argument parser or argument group
+    :param default: commit by default if True
+    """
+
+    commit_mutex = parser.add_mutually_exclusive_group()
+    commit_mutex.add_argument(
+        '--dryrun',
+        dest='commit',
+        action='store_false',
+        help='Run in dryrun mode' + ('' if default else ' (default)'))
+    commit_mutex.add_argument(
+        '--commit',
+        dest='commit',
+        action='store_true',
+        help='Commit changes to the database' + ('' if not default
+                                                 else ' (default)'))
+    commit_mutex.set_defaults(commit=default)
+    return parser

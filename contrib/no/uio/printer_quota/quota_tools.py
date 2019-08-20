@@ -4,7 +4,6 @@
 import getopt
 import sys
 import time
-import cerebrum_path
 from mx import DateTime
 from Cerebrum import Errors
 from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas

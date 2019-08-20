@@ -36,7 +36,9 @@ none of them end up in the dump file. I.e. only the employee-related records
 are output.
 
 [1] def: persons having affiliation STUDENT
+
 [2] def: persons having an employment record (tilsetting)
+
 [3] def: employment records (tilsetting) that have a start date (dato_fra)
          in the past and end date (dato_til) either in the future or
          unknown. Furthermore, such employments (tilsetting) shall not have
@@ -57,6 +59,7 @@ from six import text_type
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, read_password
 from Cerebrum.utils.atomicfile import AtomicFileWriter
+from Cerebrum.utils.transliterate import to_ascii
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 
 
@@ -168,6 +171,30 @@ def leave_covered(xml_person, employment):
     return total >= 100
 
 
+def _transliterate_to_latin1_or_ascii(string):
+    """
+    Converts any non latin-1 chars in a string to ascii.
+    AtomicFileWriter does not like UTF-8 chars not in latin-1.
+    This should be fixed with the new UA-sync..
+
+    :param string: string to be transliterated
+    :return: unicode string with any none latin-1 chars converted to ascii.
+    """
+    try:
+        string.encode('latin-1')
+    except UnicodeEncodeError:
+        res = []
+        for c in string:
+            try:
+                c.encode('latin-1')
+            except UnicodeEncodeError:
+                c = to_ascii(c)
+            res.append(c)
+
+        return "".join(res)
+    return string
+
+
 def process_employee(db_person, ou, const, xml_person, fnr, stream):
     """
     Output an UA entry corresponding to PERSON's employment represented by
@@ -194,6 +221,9 @@ def process_employee(db_person, ou, const, xml_person, fnr, stream):
         sluttdato = ""
         if employment.end:
             sluttdato = employment.end.strftime("%d.%m.%Y")
+
+        first_name = _transliterate_to_latin1_or_ascii(first_name)
+        last_name = _transliterate_to_latin1_or_ascii(last_name)
 
         # systemnr = 1 for students
         # systemnr = 2 for employees

@@ -215,6 +215,7 @@ class AccountResource(Resource):
     def get(self, name):
         """Get account information."""
         ac = find_account(name)
+
         try:
             primary_email = ac.get_primary_mailaddress()
         except Errors.NotFoundError:
@@ -225,6 +226,8 @@ class AccountResource(Resource):
             'owner': {
                 'id': ac.owner_id,
                 'type': ac.owner_type,
+                'name': utils.get_entity_name(
+                    utils.get_entity(ac.owner_id, idtype='entity_id')),
             },
             'created_at': ac.created_at,
             'expire_date': ac.expire_date,

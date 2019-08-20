@@ -59,7 +59,7 @@ class Manager(managers.BaseManager):
             return 'Manager (not started)'
 
     @staticmethod
-    def signum_initializer(parent_pid, signums=[signal.SIGHUP, ]):
+    def signum_initializer(parent_pid, signums=None):
         """ Install signal handler in Server process.
 
         This signal handler re-sends signals to the parent process
@@ -72,6 +72,9 @@ class Manager(managers.BaseManager):
         :param list signums:
             A list of signals to forward to the parent process.
         """
+        if signums is None:
+            signums = [signal.SIGHUP]
+
         def sigfwd_handler(signum, frame):
             print('Manager got signal {!r}'.format(signum))
             if parent_pid is None:
@@ -93,7 +96,7 @@ class Manager(managers.BaseManager):
         super(Manager, self).start(*args, **kwargs)
 
 
-Manager.register('log_queue', multiprocessing.Queue)
+Manager.register('LogQueue', logutils.LogQueue)
 
 
 class ProcessHandler(object):
@@ -102,7 +105,18 @@ class ProcessHandler(object):
     join_timeout = 30
     """ Timeout for process and thread joins. """
 
-    def __init__(self, manager=Manager, name='Main', logger=None):
+    log_queue_size = 100000
+    """ default maxsize for the log queue """
+
+    log_queue_monitor_interval = 60 * 1
+    """ default interval between log queue size reports """
+
+    def __init__(self,
+                 manager=Manager,
+                 name='Main',
+                 logger=None,
+                 log_queue_size=log_queue_size,
+                 log_queue_monitor_interval=log_queue_monitor_interval):
         """TODO: Is this class generic enough?
 
         On init the ProcessHandler will set up and start the `manager`, and a
@@ -121,26 +135,32 @@ class ProcessHandler(object):
             An actual, initialized logger to use as logging backend for the log
             listener thread.
         """
-        self.name = name
-        self.procs = list()
         self.mgr = manager()
+        self.name = name
+        self.logger = logger or logging.getLogger(__name__)
+        self.log_queue_size = log_queue_size
+        self.procs = list()
 
         self.mgr.start()
-        self.logger = logger or logging.getLogger(__name__)
-
         self.logger.info('Started main process (pid=%d)', os.getpid())
         self.logger.info('Started manager process (pid=%d): %s',
                          self.mgr.pid, self.mgr.name)
 
-        self.__log_th = logutils.LogRecordThread(self.log_queue,
-                                                 name='LogQueueListener')
-        self.__log_th.start()
+        self._logger_thread = logutils.LogRecordThread(
+            self.log_queue,
+            name='LogQueueListener')
+        self._logger_thread.start()
+        self._monitor_thread = logutils.LogMonitorThread(
+            self.log_queue,
+            interval=self.log_queue_monitor_interval,
+            name='LogQueueMonitor')
+        self._monitor_thread.start()
 
     @property
     @memoize
     def log_queue(self):
         """ A shared queue to use for log messages. """
-        return self.mgr.log_queue()
+        return self.mgr.LogQueue(self.log_queue_size)
 
     @property
     @memoize
@@ -148,12 +168,9 @@ class ProcessHandler(object):
         """ A shared boolean value to signal run state. """
         return multiprocessing.Value(ctypes.c_int, 1)
 
-    def add_process(self, cls, *args, **kwargs):
-        """ Queues a process to start when calling `serve`. """
-        proc = cls(*args, **kwargs)
-        proc.daemon = True
-        self.logger.debug('Adding process: %r', proc)
-        self.procs.append(proc)
+    def add_process(self, process):
+        self.logger.debug('Adding process: %r', process)
+        self.procs.append(process)
 
     def print_process_list(self):
         """ Prints a list of the current processes. """
@@ -184,7 +201,7 @@ class ProcessHandler(object):
         signal.pause()
         self.logger.info('Got signal, shutting down')
 
-        # Cleanup
+        # Stop processes and cleanup
         self.run_trigger.value = 0
         self.cleanup()
 
@@ -195,20 +212,28 @@ class ProcessHandler(object):
         process will be terminated in the correct order.
 
         """
+        self.logger.info('Shutting down workers...')
         for proc in self.procs:
-            self.logger.debug('Waiting (max %ds) for process %r',
+            self.logger.debug('Waiting (max %ds) for %r',
                               self.join_timeout, proc)
             proc.join(self.join_timeout)
-            # Log result
             log = self.logger.info if proc.exitcode == 0 else self.logger.error
-            log('Process %s terminated with exit code %d', proc, proc.exitcode)
+            log('Process %r terminated with exit code %r', proc, proc.exitcode)
 
-        self.logger.debug('Shutting down logger...')
+        self.logger.info('Processing remaining log records ...')
+        self._logger_thread.queue.join()
 
-        self.__log_th.stop()
-        self.__log_th.join(self.join_timeout)
+        self.logger.info('Shutting down logger...')
+        self._logger_thread.stop()
+        self._monitor_thread.stop()
+        self.logger.debug('Waiting (max %ds) for %r',
+                          self.join_timeout, self._logger_thread)
+        self._logger_thread.join(self.join_timeout)
+        self.logger.debug('Waiting (max %ds) for %r',
+                          self.join_timeout, self._monitor_thread)
+        self._monitor_thread.join(self.join_timeout)
 
-        # Shut down manager
+        self.logger.info('Shutting down manager...')
         self.mgr.shutdown()
 
 

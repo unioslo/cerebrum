@@ -389,7 +389,7 @@ def calculate_changes(db, data, co, clconst):
         remove_groups(db, pid, oldgrps - newgrps, clconst, data)
         add_groups(db, pid, newgrps - oldgrps, clconst, data)
     for accid, obj in data['account'].iteritems():
-        logger.info('Handling account id:%s', pid)
+        logger.info('Handling account id:%s', accid)
         oldgrps = set()
         map(oldgrps.update, obj['old'].values())
         newgrps = obj['new']

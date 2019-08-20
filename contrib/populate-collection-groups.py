@@ -19,21 +19,20 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""Populate memberships in «employee»-ish groups depending on affiliation."""
+
 from __future__ import unicode_literals
 
-"""Populate memberships in «employee»-ish groups depending on affiliation."""
 import getopt
 import sys
 
 import six
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
-del cerebrum_path
 
 logger = Factory.get_logger("cronjob")
 

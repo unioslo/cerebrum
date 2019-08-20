@@ -21,9 +21,10 @@
 """Utilities for text transliteration."""
 from __future__ import unicode_literals
 
+import itertools
 import re
 
-from unidecode import unidecode
+import unidecode
 
 from Cerebrum.utils.textnorm import normalize_text
 
@@ -122,6 +123,47 @@ class Translate(object):
         return string.translate(self.translate)
 
 
+class TranslateForEncoding(object):
+    """
+    Only transliterate unsupported characters in a given encoding.
+
+    This callable will attempt to encode a given string using a given encoding,
+    and transliterate any unsupported substrings using a given callable.
+
+    The result should be a transliterated unicode object that should be
+    possible to encode in the given encoding without errors.
+    """
+    def __init__(self, encoding, handle_unsupported):
+        """
+        :param encoding:
+            the encoding to target
+        :param handle_unsupported:
+            a function / chain to transliterate unsupported substrings.
+        """
+        assert callable(handle_unsupported)
+        self.encoding = encoding
+        self.transliterate = handle_unsupported
+
+    def _iter_substrings(self, string):
+        # Cycle the unicode through the given codec to figure out which
+        # characters can be encoded.
+        encoded = string.encode(self.encoding,
+                                errors='replace').decode(self.encoding)
+        # Find sequences of characters that have been replaced, and
+        # transliterate them using the given transliterate callable.
+        for is_supported, pairs in itertools.groupby(
+                zip(string, encoded),
+                key=lambda pair: pair[0] == pair[1]):
+            substring = ''.join(pair[0] for pair in pairs)
+            if is_supported:
+                yield substring
+            else:
+                yield self.transliterate(substring)
+
+    def __call__(self, string):
+        return ''.join(self._iter_substrings(string))
+
+
 class Chain(object):
     """ Chain callables. """
 
@@ -138,7 +180,7 @@ class Chain(object):
 to_ascii = Chain(
     normalize_text,
     preferred_transliterations,
-    unidecode,
+    unidecode.unidecode,
     strip_non_ascii
 )
 
@@ -152,7 +194,7 @@ for_gecos = Chain(
     norwegian_chars_to_single_ascii_letter,
     iso646_60_to_ascii,
     preferred_transliterations,
-    unidecode,
+    unidecode.unidecode,
     strip_not_letter_digit_space_dash,
     normalize_whitespace_and_hyphens
 )
@@ -161,7 +203,7 @@ for_posix = Chain(
     normalize_text,
     iso646_60_to_ascii,
     preferred_transliterations,
-    unidecode,
+    unidecode.unidecode,
     strip_not_letter_digit_space_dash,
     normalize_whitespace_and_hyphens,
     lower
@@ -172,7 +214,28 @@ for_email_local_part = Chain(
     norwegian_chars_to_single_ascii_letter,
     iso646_60_to_ascii,
     preferred_transliterations,
-    unidecode,
+    unidecode.unidecode,
     lower,
     strip_non_ascii
 )
+
+
+def for_encoding(encoding):
+    """
+    Transliterate text for a given encoding, with fallback to ascii for
+    unsupported characters.
+
+    This transliteration is typically good for exports where the encoding is
+    configurable, and we want a best-effort match to the target encoding.
+    """
+    _to_ascii = Chain(
+        preferred_transliterations,
+        unidecode.unidecode_expect_nonascii,
+        strip_non_ascii)
+    return Chain(
+        # TODO: NFC usually encodes better in iso8859 variants (and probably
+        # most 8 bit charsets?). If we run into problems in weird charsets, we
+        # may want to make normalizing optional, or allow other normalization
+        # forms.
+        normalize_text,
+        TranslateForEncoding(encoding, _to_ascii))

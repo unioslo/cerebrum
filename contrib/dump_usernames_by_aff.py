@@ -24,7 +24,6 @@
 import sys
 import getopt
 
-import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 
