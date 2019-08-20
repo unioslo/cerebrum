@@ -62,11 +62,14 @@ import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, read_password
 from Cerebrum.utils.atomicfile import AtomicFileWriter
-from Cerebrum.utils.transliterate import to_ascii
+from Cerebrum.utils.transliterate import for_encoding
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 
 
 logger = logging.getLogger(__name__)
+
+encoding = 'latin1'
+transliterate = for_encoding(encoding)
 
 
 def fnr2names(person, const, fnr):
@@ -161,30 +164,6 @@ def leave_covered(xml_person, employment):
     return total >= 100
 
 
-def _transliterate_to_latin1_or_ascii(string):
-    """
-    Converts any non latin-1 chars in a string to ascii.
-    AtomicFileWriter does not like UTF-8 chars not in latin-1.
-    This should be fixed with the new UA-sync..
-
-    :param string: string to be transliterated
-    :return: unicode string with any none latin-1 chars converted to ascii.
-    """
-    try:
-        string.encode('latin-1')
-    except UnicodeEncodeError:
-        res = []
-        for c in string:
-            try:
-                c.encode('latin-1')
-            except UnicodeEncodeError:
-                c = to_ascii(c)
-            res.append(c)
-
-        return "".join(res)
-    return string
-
-
 def process_employee(db_person, ou, const, xml_person, fnr, stream):
     """
     Output an UA entry corresponding to PERSON's employment represented by
@@ -212,8 +191,8 @@ def process_employee(db_person, ou, const, xml_person, fnr, stream):
         if employment.end:
             sluttdato = employment.end.strftime("%d.%m.%Y")
 
-        first_name = _transliterate_to_latin1_or_ascii(first_name)
-        last_name = _transliterate_to_latin1_or_ascii(last_name)
+        first_name = transliterate(first_name)
+        last_name = transliterate(last_name)
 
         # systemnr = 1 for students
         # systemnr = 2 for employees
@@ -264,7 +243,7 @@ def do_sillydiff(db, dirname, oldfile, newfile, outfile):
     today = time.strftime("%d.%m.%Y")
     try:
         oldfile = io.open(os.path.join(dirname, oldfile), "r",
-                          encoding="latin1")
+                          encoding=encoding)
         line = oldfile.readline()
         line = line.rstrip()
     except IOError:
@@ -284,8 +263,8 @@ def do_sillydiff(db, dirname, oldfile, newfile, outfile):
     oldfile.close()
 
     out = AtomicFileWriter(os.path.join(dirname, outfile), 'w',
-                           encoding="latin1")
-    newin = io.open(os.path.join(dirname, newfile), encoding="latin1")
+                           encoding=encoding)
+    newin = io.open(os.path.join(dirname, newfile), encoding=encoding)
 
     for newline in newin:
         newline = newline.rstrip()
@@ -314,6 +293,8 @@ def do_sillydiff(db, dirname, oldfile, newfile, outfile):
     for leftpnr in old_dict:
         # FIXME: it is unsafe to assume that this will succeed
         first, last = fnr2names(person, const, leftpnr[:-1])
+        first = transliterate(first) if first else first
+        last = transliterate(last) if last else last
         if not (first and last):
             logger.warn("No name information for %s is available. %d "
                         "entry(ies) will be skipped",
@@ -326,7 +307,13 @@ def do_sillydiff(db, dirname, oldfile, newfile, outfile):
             vals[3] = last
             vals[13] = today
             vals[17] = ""
-            out.write("%s;%s\n" % (leftpnr, ";".join(vals)))
+            # out.write("%s;%s\n" % (leftpnr, ";".join(vals)))
+            try:
+                out.write("%s;%s\n" % (leftpnr, ";".join(vals)))
+            except Exception:
+                logger.debug('Failed writing entry %s: %s', repr(leftpnr),
+                             repr(entry))
+                raise
     out.close()
     newin.close()
 
@@ -379,7 +366,7 @@ def main(inargs=None):
 
     output_file = AtomicFileWriter(
         os.path.join(args.output_directory, "uadata.new"), "w",
-        encoding="latin1")
+        encoding=encoding)
 
     db = Factory.get("Database")()
 
