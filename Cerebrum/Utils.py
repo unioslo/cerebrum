@@ -827,18 +827,11 @@ def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
         "Small wrapper that calls L{functor} while ignoring exceptions."
 
         # None means trap all exceptions. Use with care!
-        if exc_list is None:
-            try:
-                return functor(*rest, **kw_args)
-            except exc_list:
-                if logger:
-                    logger.warn(format_exception_context(*sys.exc_info()))
-        else:
-            try:
-                return functor(*rest, **kw_args)
-            except exc_list:
-                if logger:
-                    logger.warn(format_exception_context(*sys.exc_info()))
+        try:
+            return functor(*rest, **kw_args)
+        except exc_list:
+            if logger:
+                logger.warn(format_exception_context(*sys.exc_info()))
         return return_on_exc
 
     return wrapper
