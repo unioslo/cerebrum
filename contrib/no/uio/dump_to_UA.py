@@ -46,15 +46,15 @@ are output.
 """
 from __future__ import unicode_literals
 
-import cereconf
-
 import argparse
-import time
-import os
-import io
 import ftplib
+import io
+import os
+import time
 
 from six import text_type
+
+import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, read_password
@@ -317,7 +317,7 @@ def do_sillydiff(dirname, oldfile, newfile, outfile):
     # Now, there is one problem left: we cannot output the old data blindly,
     # as people's names might have changed. So, we force *every* old record to
     # the current names in Cerebrum. This may result in the exactly same
-    # record being output twice, but it should be fine. 
+    # record being output twice, but it should be fine.
     person = Factory.get("Person")(db)
     const = Factory.get("Constants")(db)
     logger.debug("%d old records left", len(old_dict))
