@@ -49,6 +49,7 @@ from __future__ import unicode_literals
 import argparse
 import ftplib
 import io
+import logging
 import os
 import time
 
@@ -56,6 +57,8 @@ from six import text_type
 
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, read_password
 from Cerebrum.utils.atomicfile import AtomicFileWriter
@@ -63,20 +66,7 @@ from Cerebrum.utils.transliterate import to_ascii
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 
 
-logger = Factory.get_logger("cronjob")
-db = Factory.get("Database")()
-
-
-def locate_fnr(person, const):
-    """ Get a persons Norwegian national ID """
-    # Force SAP to be the first source system to be tried
-    systems = [const.system_sap]
-    systems.extend([getattr(const, name)
-                    for name in cereconf.SYSTEM_LOOKUP_ORDER])
-    for system in systems:
-        for fnr in person.get_external_id(system, const.externalid_fodselsnr):
-            return fnr['external_id']
-    return None
+logger = logging.getLogger(__name__)
 
 
 def fnr2names(person, const, fnr):
@@ -237,7 +227,7 @@ def process_employee(db_person, ou, const, xml_person, fnr, stream):
                                    sluttdato=sluttdato))
 
 
-def generate_output(stream, do_employees, sysname, person_file):
+def generate_output(db, stream, do_employees, sysname, person_file):
     """
     Create dump for UA
     """
@@ -269,7 +259,7 @@ def generate_output(stream, do_employees, sysname, person_file):
             db_person.clear()
 
 
-def do_sillydiff(dirname, oldfile, newfile, outfile):
+def do_sillydiff(db, dirname, oldfile, newfile, outfile):
     """ This very silly. Why? """
     today = time.strftime("%d.%m.%Y")
     try:
@@ -349,43 +339,56 @@ def ftpput(host, uname, password, local_dir, file, remote_dir):
     ftp.quit()
 
 
-def main():
+def main(inargs=None):
     parser = argparse.ArgumentParser(
-        description='Generates a dump file for the UA database')
+        description='Generates a dump file for the UA database',
+    )
     parser.add_argument(
         '-i', '--input-file',
         type=text_type,
-        help='system name and input file (e.g. system_sap:/path/to/file)')
+        help='system name and input file (e.g. system_sap:/path/to/file)',
+    )
     parser.add_argument(
         '-o', '--output-directory',
         type=text_type,
-        help='output directory')
+        help='output directory',
+    )
     parser.add_argument(
         '-d', '--distribute',
         action='store_true',
         dest='distribute',
         default=False,
-        help='transfer file')
+        help='upload file (cereconf.UA_*)',
+    )
     parser.add_argument(
         '-e', '--employees',
         action='store_true',
         dest='do_employees',
         default=False,
-        help='include employees in the output')
-    args = parser.parse_args()
+        help='include employees in the output',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    logger.info("Generating UA dump")
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start of %s', parser.prog)
+    logger.debug('args: %r', args)
 
     sysname, person_file = args.input_file.split(":")
 
     output_file = AtomicFileWriter(
         os.path.join(args.output_directory, "uadata.new"), "w",
         encoding="latin1")
-    generate_output(output_file, args.do_employees, sysname, person_file)
+
+    db = Factory.get("Database")()
+
+    generate_output(db, output_file, args.do_employees, sysname, person_file)
     output_file.close()
 
     diff_file = "uadata.%s" % time.strftime("%Y-%m-%d")
-    do_sillydiff(args.output_directory, "uadata.old", "uadata.new", diff_file)
+    do_sillydiff(db, args.output_directory, "uadata.old", "uadata.new",
+                 diff_file)
     os.rename(os.path.join(args.output_directory, "uadata.new"),
               os.path.join(args.output_directory, "uadata.old"))
 
@@ -399,7 +402,7 @@ def main():
                file=diff_file,
                remote_dir="ua-lt")
 
-    logger.info('Done')
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':
