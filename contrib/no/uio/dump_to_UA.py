@@ -311,9 +311,8 @@ def do_sillydiff(db, dirname, oldfile, newfile, outfile):
             try:
                 out.write("%s;%s\n" % (leftpnr, ";".join(vals)))
             except Exception:
-                logger.info('entry=%s', repr(entry))
-                logger.info('vals=%s', repr(vals))
-                logger.info('leftpnr=%s', repr(leftpnr))
+                logger.debug('Failed writing entry %s: %s', repr(leftpnr),
+                             repr(entry))
                 raise
     out.close()
     newin.close()
