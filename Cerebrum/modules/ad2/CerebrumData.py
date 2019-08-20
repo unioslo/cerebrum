@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2011-2013 University of Oslo, Norway
+# Copyright 2011-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Module for making easier comparison of entities between Cerebrum and AD.
+"""
+Module for making easier comparison of entities between Cerebrum and AD.
 
 The object types in AD are organized differently than the entities in Cerebrum,
 which is why we have the classes in here to cache and use the Cerebrum data for
@@ -27,16 +26,18 @@ AD more easily.
 
 Some object types in AD we should be able to update:
 
-    - User: Like Users in Cerebrum, but with other attributes.
-    - Security group: Like Groups in Cerebrum.
-    - Distribution group: A combination of Groups in Cerebrum and mailing lists.
-    - Computer: A simple variety of hosts in Cerebrum.
-    - Contact: TODO
+- User: Like Users in Cerebrum, but with other attributes.
+- Security group: Like Groups in Cerebrum.
+- Distribution group: A combination of Groups in Cerebrum and mailing lists.
+- Computer: A simple variety of hosts in Cerebrum.
+- Contact: TODO
 
 How the caching class(es) should be used:
 
+::
+
     # 1. Instantiate the class with generic info:
-    ent = CerebrumEntity(cerelogger, ad-config, en.entity_id, en.entity_name)
+    ent = CerebrumEntity(logger, ad-config, en.entity_id, en.entity_name)
 
     # 2. Add more data to the cache:
     ent.description = en.description
@@ -54,10 +55,8 @@ How the caching class(es) should be used:
 
 Each class has a calc_ad_attrs method that defines the attributes which are to
 be compared with attributes from data objects from AD.
-
 """
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import NotSet
@@ -111,18 +110,10 @@ class CerebrumEntity(object):
     def __init__(self, logger, config, entity_id, entity_name):
         """Set up the basic values for the entity.
 
-        @type logger: cerelog
-        @param logger: The logger to use.
-
-        @type config: dict
-        @param config: The configuration dict. Used for different settings.
-
-        @type entity_id: int
-        @param entity_id: The id of the entity to represent.
-
-        @type entity_name: string
-        @param entity_name: The name of the entity to represent, as registered
-            in Cerebrum.
+        :type logger: Cerebrum.logutils.loggers.CerebrumLogger
+        :param dict config: A configuration dict
+        :param int entity_id: The Cerebrum id of the entity
+        :param str entity_name: The Cerebrum name of the entity
 
         """
         self.logger = logger
@@ -459,9 +450,10 @@ class CerebrumEntity(object):
     def _add_attribute_data(self, value):
         """Add extra common data to a value, i.e. string substitute in elements.
 
-        Some common elements, like the L{ad_id}, L{entity_id} and L{ou} could be
-        added in to attribute strings by regular string substitution. Example on
-        a given value:
+        Some common elements, like the L{ad_id}, L{entity_id} and L{ou} could
+        be added in to attribute strings by regular string substitution.
+
+        Example on a given value:
 
             'group-%(ad_id)s'
 
@@ -505,8 +497,8 @@ class CerebrumEntity(object):
 class CerebrumUser(CerebrumEntity):
     """A representation for a Cerebrum Account which may be exported to AD.
 
-    An instance contains information about one Account from Cerebrum and methods
-    for comparing this information with the data from AD.
+    An instance contains information about one Account from Cerebrum and
+    methods for comparing this information with the data from AD.
 
     TODO: Some reorganisation is needed.
 
@@ -514,8 +506,8 @@ class CerebrumUser(CerebrumEntity):
 
     def __init__(self, logger, config, entity_id, entity_name, owner_id=None,
                  owner_type=None):
-        """CerebrumUser constructor
-        
+        """ CerebrumUser constructor
+
         @type owner_id: int
         @param owner_id: The entity_id for the owner of the user, e.g. a person
             or group.
@@ -534,14 +526,14 @@ class CerebrumUser(CerebrumEntity):
         # subclass?
 
         # default values
-        #self.email_addrs = list()
-        #self.contact_objects = list()
+        # self.email_addrs = list()
+        # self.contact_objects = list()
 
-    def calculate_ad_values(self): #exchange=False):
+    def calculate_ad_values(self):  # exchange=False):
         """Calculate entity values for AD from Cerebrum data.
 
-        TODO: How to calculate AD attr values from Cerebrum data and policy must
-        be hardcoded somewhere. Do this here?
+        TODO: How to calculate AD attr values from Cerebrum data and policy
+              must be hardcoded somewhere. Do this here?
 
         """
         super(CerebrumUser, self).calculate_ad_values()
@@ -553,13 +545,13 @@ class CerebrumUser(CerebrumEntity):
                                   self.config['domain'], )
         self.contact_objects.append(contact)
 
-
     def create_dist_group(self):
         name = getattr(cereconf, "AD_FORWARD_GROUP_PREFIX", "") + self.uname
         # TBD: cereconf?
         description = "Forward group for " + self.uname
         dg = CerebrumDistGroup(name, description)
         dg.calc_ad_attrs()
+
 
 class PosixCerebrumUser(CerebrumUser):
     """A posix user from Cerebrum, implementing extra attributes for POSIX data.
@@ -575,6 +567,7 @@ class PosixCerebrumUser(CerebrumUser):
         """Making the object ready for posix data."""
         super(PosixCerebrumUser, self).__init__(*args, **kwargs)
         self.posix = dict()
+
 
 class MailTargetEntity(CerebrumUser):
     """An entity with Mailtarget, which becomes a Mail-object in Exchange.
@@ -592,6 +585,7 @@ class MailTargetEntity(CerebrumUser):
         super(MailTargetEntity, self).__init__(*args, **kwargs)
         self.maildata = dict()
 
+
 class CerebrumContact(CerebrumEntity):
     """
     This class contains forward info for a Cerebrum account.
@@ -600,8 +594,8 @@ class CerebrumContact(CerebrumEntity):
     def __init__(self, name, forward_addr, domain, ou):
         """
         CerebrumContact constructor
-        
-        @param name: Owners name 
+
+        @param name: Owners name
         @type name: str
         @param forward_addr: forward address
         @type forward_addr: str
@@ -612,10 +606,8 @@ class CerebrumContact(CerebrumEntity):
         self.name = name
         self.forward_addr = forward_addr
 
-
     def __str__(self):
         return self.name
-
 
     def calc_forward_attrs(self):
         """
@@ -632,6 +624,7 @@ class CerebrumContact(CerebrumEntity):
         self.forward_attrs["msExchHideFromAddressLists"] = True
         self.forward_attrs["targetAddress"] = self.forward_addr
 
+
 class CerebrumGroup(CerebrumEntity):
     """A representation of a Cerebrum group which may be exported to AD.
 
@@ -641,7 +634,8 @@ class CerebrumGroup(CerebrumEntity):
     TODO: some reorganisation is needed.
 
     """
-    def __init__(self, logger, config, entity_id, entity_name, description=None):
+    def __init__(self, logger, config, entity_id, entity_name,
+                 description=None):
         """CerebrumGroup constructor."""
         super(CerebrumGroup, self).__init__(logger, config, entity_id,
                                             entity_name)
@@ -651,14 +645,15 @@ class CerebrumGroup(CerebrumEntity):
     def calculate_ad_values(self):
         """Calculate entity values for AD from Cerebrum data.
 
-        TODO: How to calculate AD attr values from Cerebrum data and policy must
-        be hardcoded somewhere. Do this here?
+        TODO: How to calculate AD attr values from Cerebrum data and policy
+              must be hardcoded somewhere. Do this here?
 
         """
         super(CerebrumGroup, self).calculate_ad_values()
         self.set_attribute('Description', getattr(self, 'description', None))
         # TODO: any changes to this? Should it be formatted else than
         # DisplayName?
+
 
 class CerebrumDistGroup(CerebrumGroup):
     """
@@ -668,7 +663,7 @@ class CerebrumDistGroup(CerebrumGroup):
     def __init__(self, gname, group_id, description, domain, ou):
         """
         CerebrumDistGroup constructor
-        
+
         @param name: Cerebrum group name
         @type name: str
         @param group_id: Cerebrum id
@@ -679,7 +674,6 @@ class CerebrumDistGroup(CerebrumGroup):
         CerebrumGroup.__init__(self, gname, group_id, description, domain, ou)
         # Dist groups should be exposed to Exchange
         self.to_exchange = True
-        
 
     def add_change(self, attr_type, value):
         """
@@ -694,14 +688,14 @@ class CerebrumDistGroup(CerebrumGroup):
         """
         self.changes[attr_type] = value
         # Should update_Recipients be run for this dist group?
-        if not self.update_recipient and attr_type in cereconf.AD_DIST_GRP_UPDATE_EX:
+        if (not self.update_recipient and
+                attr_type in cereconf.AD_DIST_GRP_UPDATE_EX):
             self.update_recipient = True
-
 
     def calc_ad_attrs(self):
         """
         Calculate AD attrs from Cerebrum data.
-        
+
         How to calculate AD attr values from Cerebrum data and policy
         must be hardcoded somewhere. Do this here and try to leave the
         rest of the code general.
@@ -709,7 +703,7 @@ class CerebrumDistGroup(CerebrumGroup):
         # Read which attrs to calculate from cereconf
         ad_attrs = dict().fromkeys(cereconf.AD_DIST_GRP_ATTRIBUTES, None)
         ad_attrs.update(cereconf.AD_DIST_GRP_DEFAULTS)
-        
+
         # Do the hardcoding for this sync.
         ad_attrs["name"] = self.gname
         ad_attrs["displayName"] = cereconf.AD_DIST_GROUP_PREFIX + self.gname
@@ -719,5 +713,3 @@ class CerebrumDistGroup(CerebrumGroup):
         # TODO: add mail and proxyAddresses, etc
 
         self.ad_attrs.update(ad_attrs)
-
-

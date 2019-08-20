@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2004 University of Oslo, Norway
@@ -49,12 +49,10 @@ import types
 import locale
 from six import text_type
 
-import cerebrum_path
 
 from Cerebrum.extlib.sets import Set
 from Cerebrum.Utils import Factory
 
-del cerebrum_path
 logger = None
 
 

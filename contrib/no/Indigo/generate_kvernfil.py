@@ -91,7 +91,8 @@ class PersonLookup(object):
         logger.debug("... external ids ...")
         self.person_id_to_extid = dict(
             (int(row['entity_id']), row['external_id'])
-            for row in pe.list_external_ids(id_type=co.externalid_fodselsnr))
+            for row in pe.search_external_ids(id_type=co.externalid_fodselsnr,
+                                              fetchall=False))
 
         logger.debug("... auth data ...")
         self.account_id_to_auth = dict()

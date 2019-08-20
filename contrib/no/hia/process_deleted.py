@@ -38,15 +38,17 @@ TODO: this script must be more robust and pretty (but first we make it work)
 """
 
 
+import argparse
 import time
 import os
 import mx
 import string
 
+import cereconf
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 
 
 logger = Factory.get_logger("cronjob")
@@ -197,28 +199,6 @@ def process_delete_requests():
                 account.clear_home(row['spread'])
                 logger.debug("clear_home in %s", row['spread'])
                 account.delete_spread(row['spread'])
-            # Account is valid in nisans@hia, remove account@nisans spread,
-            # register nisans-home delete
-            elif row['spread'] == const.spread_ans_nis_user:
-                posix_home = posix_user.get_posix_home(row['spread'])
-                uid = posix_user.posix_uid
-                gid = posix_user.gid_id
-                shell = posix_user.shell
-                line = string.join([account.account_name, pwd, str(uid),
-                                    str(gid), gecos, posix_home, str(shell)],
-                                   ':')
-                line = 'NISANS:' + line
-                del_file.append(line)
-                try:
-                    home = account.get_home(row['spread'])
-                except Errors.NotFoundError:
-                    continue
-                account.set_homedir(current_id=home['homedir_id'],
-                                    status=const.home_status_archived)
-                logger.debug("Set home to archived %s (%s)",
-                             home['homedir_id'], row['spread'])
-                account.clear_home(row['spread'])
-                account.delete_spread(row['spread'])
             else:
                 account.delete_spread(row['spread'])
         if posix_user:
@@ -269,10 +249,18 @@ def set_operator(entity_id=None):
 def main():
     global start_time, max_requests
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-o', '--outfile_dir',
+        help='set output file directory',
+        default=os.path.join(cereconf.CACHE_DIR, 'Delete/'))
+
+    args = parser.parse_args()
+
     del_list = []
     date = "%d-%d-%d" % time.localtime()[:3]
-    outfile_dir = '/cerebrum/var/cache/Delete/'
-    outfile = outfile_dir + str(date) + '-' + str(os.getpid()) + '-slettes.dat'
+    filename = date + '-' + str(os.getpid()) + '-slettes.dat'
+    outfile = os.path.join(args.outfile_dir, filename)
     max_requests = 999999
     start_time = time.time()
 
@@ -284,6 +272,7 @@ def main():
             stream.write(i)
             stream.write('\n')
         stream.close()
+
 
 if __name__ == '__main__':
     main()

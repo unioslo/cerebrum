@@ -1,5 +1,5 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2005-2006 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+# Copyright 2005-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,6 @@
 
 import re
 
-from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Errors
 from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import CNameRecord
@@ -41,11 +40,13 @@ class Validator(object):
         self._find = Utils.Find(self._db, default_zone)
 
     def dns_reg_owner_ok(self, name, record_type, allow_underscores=False):
-        """Checks if it is legal to register a record of type
+        """
+        Checks if it is legal to register a record of type
         record_type with given name.  Raises an exception if record_type
         is illegal, or name is illegal.  Returns:
           - dns_owner_ref: reference to dns_owner or None if non-existing
-          - same_type: boolean set to true if a record of the same type exists."""
+          - same_type: boolean set to true if a record of the same type exists.
+        """
 
         dns_owner = DnsOwner.DnsOwner(self._db)
         self.legal_dns_owner_name(name, record_type, allow_underscores)
@@ -57,14 +58,14 @@ class Validator(object):
         owner_types = self._find.find_dns_owners(dns_owner.entity_id)
 
         if dns.CNAME_OWNER in owner_types:
-            raise DNSError, "%s is already a CNAME" % name
+            raise DNSError("%s is already a CNAME" % (name, ))
 
         if record_type == dns.CNAME_OWNER:
             if owner_types:
-                raise DNSError, "%s already exists" % name
+                raise DNSError("%s already exists" % (name, ))
         if record_type == dns.HOST_INFO:
             if dns.HOST_INFO in owner_types:
-                raise DNSError, "%s already exists" % name
+                raise DNSError("%s already exists" % (name, ))
         # TODO: This should probarbly be rewritten, since it is a bit ugly.
         # The difference between A- and AAAA-records is minimal, so this is
         # enough for now.
@@ -83,22 +84,29 @@ class Validator(object):
             valid_chars = re.compile(r'^[a-zA-Z\-0-9]+$')
 
         if not name.endswith('.'):
-            raise DNSError, "Name not fully qualified"
+            raise DNSError("Name not fully qualified")
 
         for n in name[:-1].split("."):
             if n.startswith("-") or n.endswith("-"):
-                raise DNSError, "Illegal name: '%s'; Cannot start or end with '-'" % name
+                raise DNSError(
+                    "Illegal name: '%s'; Cannot start or end with '-'"
+                    % (name,))
             if uber_hyphen.search(n):
-                raise DNSError, "Illegal name: '%s'; More than two '-' in a row" % name
+                raise DNSError(
+                    "Illegal name: '%s'; More than two '-' in a row"
+                    % (name, ))
             if not valid_chars.search(n):
-                raise DNSError, "Illegal name: '%s'; Invalid character(s)" % name
+                raise DNSError(
+                    "Illegal name: '%s'; Invalid character(s)" % (name, ))
             if record_type == dns.SRV_OWNER:
                 if uber_underscore.search(n):
-                    raise DNSError, "Illegal name: '%s'; More than one '_' in a row" % name
+                    raise DNSError(
+                        "Illegal name: '%s'; More than one '_' in a row"
+                        % (name, ))
 
     def legal_mx_target(self, target_id):
         owner_types = self._find.find_dns_owners(target_id)
-        if not dns.A_RECORD in owner_types:
+        if dns.A_RECORD not in owner_types:
             raise errors.CerebrumError("MX target must be an A-record")
 
 
@@ -154,9 +162,12 @@ class Updater(object):
         # a_record.
         # TODO: This check should be somewhere that makes it is easier
         # to always enforce this constraint.
-        refs = self._find.find_referers(dns_owner_id=dns_owner_id,
-                                        ip_type=ip_type)
-        if record_type not in refs:
+        refs = set(self._find.find_referers(dns_owner_id=dns_owner_id,
+                                            ip_type=dns.IP_NUMBER))
+        refs.update(self._find.find_referers(dns_owner_id=dns_owner_id,
+                                             ip_type=dns.IPv6_NUMBER))
+        if not any(r_type in refs
+                   for r_type in (dns.A_RECORD, dns.AAAA_RECORD)):
             if dns.SRV_TARGET in refs or dns.CNAME_TARGET in refs:
                 raise DNSError("Host is used as target for CNAME or SRV")
 
@@ -171,7 +182,7 @@ class Updater(object):
             return              # No deletion needed
         hi._delete()
         if try_dns_remove:
-            self.remove_dns_owner(dns.entity_id)
+            self.remove_dns_owner(dns_owner_id)
 
     def remove_cname(self, dns_owner_id, try_dns_remove=False):
         c = CNameRecord.CNameRecord(self._db)
@@ -181,7 +192,7 @@ class Updater(object):
             return              # No deletion needed
         c._delete()
         if try_dns_remove:
-            self.remove_dns_owner(dns.entity_id)
+            self.remove_dns_owner(dns_owner_id)
 
     def remove_dns_owner(self, dns_owner_id):
         refs = self._find.find_referers(dns_owner_id=dns_owner_id)
@@ -197,14 +208,13 @@ class Updater(object):
             for t in dns_owner.get_traits().keys():
                 try:
                     dns_owner.delete_trait(t)
-                except errors.NotFoundError:
+                except Errors.NotFoundError:
                     pass
             dns_owner.mx_set_id = None
             dns_owner.write_db()
 
-
     def full_remove_dns_owner(self, dns_owner_id):
-        # fjerner alle entries der dns_owner vil være til venstre i
+        # fjerner alle entries der dns_owner vil vÃ¦re til venstre i
         # sonefila.
 
         self.remove_host_info(dns_owner_id)
@@ -217,13 +227,12 @@ class Updater(object):
         self.remove_cname(dns_owner_id)
         dns_owner = DnsOwner.DnsOwner(self._db)
         for row in dns_owner.list_general_dns_records(
-            dns_owner_id=dns_owner_id):
+                dns_owner_id=dns_owner_id):
             dns_owner.delete_general_dns_record(dns_owner_id,
                                                 row['field_type'])
         self.remove_dns_owner(dns_owner_id)
-
-        # rev-map override må brukeren rydde i selv, da vi ikke vet
-        #   hva som er rett.
+        # rev-map override mÃ¥ brukeren rydde i selv, da vi ikke vet
+        # hva som er rett.
 
     def _update_override(self, ip_number_id, dns_owner_id):
         """Handles the updating of the override_reversemap when an
@@ -239,14 +248,13 @@ class Updater(object):
             ipnumber = IPv6Number.IPv6Number(self._db)
             ar = AAAARecord.AAAARecord(self._db)
 
-
         owners = []
         for row in ipnumber.list_override(ip_number_id=ip_number_id):
             if dns_owner_id == row['dns_owner_id']:
                 # Always remove the reverse which corresponds to the
                 # ARecord which is being removed.
                 ipnumber.delete_reverse_override(ip_number_id, dns_owner_id)
-            elif row['dns_owner_id'] == None:
+            elif row['dns_owner_id'] is None:
                 # We know that this IP has been associated with an
                 # ARecord.  If PTR generation has been surpressed by
                 # setting owner to NULL, we want to remove the reverse
@@ -266,7 +274,7 @@ class Updater(object):
 
     def add_reverse_override(self, ip_number_id, dest_host):
         # TODO: Only allow one None/ip
-        try: 
+        try:
             ipnumber = IPv6Number.IPv6Number(self._db)
             ipnumber.find(ip_number_id)
         except Errors.NotFoundError:
@@ -296,20 +304,21 @@ class Updater(object):
 
         ipnumber.delete_reverse_override(ip_number_id, dest_host)
 
-        refs = self._find.find_referers(ip_number_id=ip_number_id, ip_type=ip_type)
+        refs = self._find.find_referers(ip_number_id=ip_number_id,
+                                        ip_type=ip_type)
         if not (dns.REV_IP_NUMBER in refs or a_type in refs):
             # IP no longer used
             ipnumber.delete()
 
         if dest_host is not None:
-            refs = self._find.find_referers(dns_owner_id=dest_host, 
+            refs = self._find.find_referers(dns_owner_id=dest_host,
                                             ip_type=ip_type)
             refs += self._find.find_referers(dns_owner_id=dest_host,
-                                            ip_type=o_ip_type)
+                                             ip_type=o_ip_type)
             if not refs:
                 tmp = []
                 for row in ipnumber.list_override(dns_owner_id=dest_host):
-                    # One might argue that find_referers also should find 
+                    # One might argue that find_referers also should find
                     # this type of refs.
                     tmp.append((dns.DNS_OWNER, row['dns_owner_id']))
                 for row in o_ipnumber.list_override(dns_owner_id=dest_host):
@@ -319,4 +328,3 @@ class Updater(object):
                     dns_owner = DnsOwner.DnsOwner(self._db)
                     dns_owner.find(dest_host)
                     dns_owner.delete()
-

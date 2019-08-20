@@ -22,7 +22,7 @@
 category:metainfo;
 name=password_history;
 category:metainfo;
-version=1.0;
+version=1.1;
 category:drop;
 DROP TABLE password_history;
 category:main;
@@ -31,7 +31,7 @@ CREATE TABLE password_history
   entity_id     NUMERIC(12,0)
                 CONSTRAINT password_history_entity_id 
                   REFERENCES entity_info(entity_id),
-  md5base64     CHAR VARYING(22)
+  hash          CHAR VARYING(128)
                 NOT NULL,
   set_at        TIMESTAMP
                 DEFAULT [:now]

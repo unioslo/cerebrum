@@ -19,7 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""Create e-mail addresses and filegroups for the courses at Dept. of
+"""
+Create e-mail addresses and filegroups for the courses at Dept. of
 Informatics.
 """
 
@@ -32,7 +33,6 @@ import time
 from six import text_type
 
 from mx import DateTime
-import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -40,7 +40,6 @@ from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 
 
-del cerebrum_path
 db = co = logger = group_creator = dryrun = None
 
 

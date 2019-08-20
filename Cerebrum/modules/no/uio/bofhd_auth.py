@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2017 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,19 +20,15 @@
 """ Site specific auth.py for UiO. """
 import cereconf
 
-from Cerebrum import Constants
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
+from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
+from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
-
-
-class Constants(Constants.Constants):
-    auth_set_password_important = _AuthRoleOpCode(
-        'set_password_imp', 'Set password for important/critical accounts')
 
 
 class UioContactAuthMixin(BofhdContactAuth):
@@ -94,7 +90,8 @@ class UioAuth(UioContactAuthMixin, BofhdAuth):
     def _is_important_account(self, operator, account):
         """If an account is considered important."""
         # Accounts owned by a group, i.e. system account
-        # is_account_owner() will allow this if operator is a group member
+        # has_privileged_access_to_account_or_person() will allow this if
+        # operator is a group member
         if account.owner_type == self.const.entity_group:
             return True
         # Tagged sysadmin accounts
@@ -166,6 +163,19 @@ class UioAuth(UioContactAuthMixin, BofhdAuth):
             return False
         raise PermissionDenied('Not allowed to create sysadmin accounts')
 
+    def can_add_affiliation(self, operator, person=None, ou=None, aff=None,
+                            aff_status=None, query_run_any=False):
+        # Restrict affiliation types
+        if not query_run_any and aff in (
+                self.const.affiliation_ansatt,
+                self.const.affiliation_student):
+            raise PermissionDenied(
+                "Affiliations STUDENT/ANSATT can only be set by "
+                "automatic imports")
+        return super(UioAuth, self).can_add_affiliation(
+            operator, person=person, ou=ou, aff=aff, aff_status=aff_status,
+            query_run_any=query_run_any)
+
 
 class UioContactAuth(UioAuth):
     # can_get_contact_info is included in UioAuth, because it is used by
@@ -234,7 +244,7 @@ class UioEmailAuth(UioAuth, BofhdEmailAuth):
         if person.entity_id != account.owner_id:
             raise PermissionDenied('Cannot modify name for other persons')
 
-        all_names = person.get_all_names()
+        all_names = person.get_names()
 
         # Last name must match one of the registered last names
         last_names = [x['name'] for x in all_names
@@ -256,3 +266,21 @@ class UioEmailAuth(UioAuth, BofhdEmailAuth):
         if query_run_any:
             return False
         raise PermissionDenied("Currently limited to superusers")
+
+
+class UiOBofhdRequestsAuth(UioAuth, RequestsAuth):
+    pass
+
+
+class UioAccessAuth(UioAuth, bofhd_access.BofhdAccessAuth):
+    """UiO specific access * command auth"""
+    pass
+
+
+class BofhdApiKeyAuth(UioAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
+    pass
+
+
+class UioPassWordAuth(UioAuth):
+    """UiO specific password * command auth"""
+    pass

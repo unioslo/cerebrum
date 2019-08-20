@@ -52,7 +52,17 @@ follows:
 See contrib/generate_mail_ldif.py for an example of a script exporting
 the email data.  Note, though, that this example assumes that your
 Cerebrum instance uses more than the minimal subset of email-related
-classes."""
+classes.
+
+Cereconf variables (not complete):
+
+EMAIL_DEFAULT_DOMAINS <array>:
+    Used to create default email addresses to all users. The addresses will
+    be on the form <uname>@<domain> or <cn>@<domain> depending on the domain
+    configuration. If more then one domain is used, the first element in the
+    array  will be treated as the primary default domain.
+
+"""
 from __future__ import unicode_literals
 
 import re
@@ -64,369 +74,43 @@ import six
 from Cerebrum import Utils
 from Cerebrum.Utils import prepare_string, argument_to_sql
 from Cerebrum.utils import transliterate
-from Cerebrum import Constants
 from Cerebrum.Entity import Entity
 from Cerebrum.Disk import Host
 from Cerebrum import Person
 from Cerebrum import Account
 from Cerebrum import Errors
-
+from EmailConstants import (_EmailTargetCode, _EmailSpamActionCode,
+                            _EmailSpamLevelCode, _EmailVirusFoundCode,
+                            _EmailVirusRemovedCode)
 import cereconf
 
 __version__ = "1.5"
 
 
-class _EmailTargetCode(Constants._CerebrumCode):
-    _lookup_table = '[:table schema=cerebrum name=email_target_code]'
-
-
-class _EmailDomainCategoryCode(Constants._CerebrumCode):
-    _lookup_table = '[:table schema=cerebrum name=email_domain_cat_code]'
-
-
-class _EmailServerTypeCode(Constants._CerebrumCode):
-    _lookup_table = '[:table schema=cerebrum name=email_server_type_code]'
-
-
-class _EmailTargetFilterCode(Constants._CerebrumCode):
-    _lookup_table = '[:table schema=cerebrum name=email_target_filter_code]'
-
-
-class _EmailSpamLevelCode(Constants._CerebrumCode):
-    _lookup_table = '[:table schema=cerebrum name=email_spam_level_code]'
-
-    def __init__(self, code, level=None, description=None):
-        super(_EmailSpamLevelCode, self).__init__(code, description)
-        self.level = level
-
-    def insert(self):
-        self._pre_insert_check()
-        self.sql.execute("""
-        INSERT INTO %(code_table)s
-          (%(code_col)s, %(str_col)s, level, %(desc_col)s)
-        VALUES
-          (%(code_seq)s, :str, :level, :desc)""" % {
-            'code_table': self._lookup_table,
-            'code_col': self._lookup_code_column,
-            'str_col': self._lookup_str_column,
-            'desc_col': self._lookup_desc_column,
-            'code_seq': self._code_sequence},
-            {'str': self.str,
-             'level': self.level,
-             'desc': self._desc})
-
-    def get_level(self):
-        if self.level is None:
-            self.level = int(self.sql.query_1("""
-            SELECT level
-            FROM %(code_table)s
-            WHERE code=:code""" % {'code_table': self._lookup_table},
-                                  {'code': int(self)}))
-        return self.level
-
-
-class _EmailSpamActionCode(Constants._CerebrumCode):
-    _lookup_table = '[:table schema=cerebrum name=email_spam_action_code]'
-
-
-class _EmailVirusFoundCode(Constants._CerebrumCode):
-    _lookup_table = '[:table schema=cerebrum name=email_virus_found_code]'
-
-
-class _EmailVirusRemovedCode(Constants._CerebrumCode):
-    _lookup_table = '[:table schema=cerebrum name=email_virus_removed_code]'
-
-
-class EmailConstants(Constants.Constants):
-    # TODO: Clean up these constants! And do it in a way that lets
-    # us import system specific constants
-    EmailTarget = _EmailTargetCode
-    EmailDomainCategory = _EmailDomainCategoryCode
-    EmailServerType = _EmailServerTypeCode
-    EmailSpamLevel = _EmailSpamLevelCode
-    EmailSpamAction = _EmailSpamActionCode
-    EmailTargetFilter = _EmailTargetFilterCode
-    EmailVirusFound = _EmailVirusFoundCode
-    EmailVirusRemoved = _EmailVirusRemovedCode
-
-    entity_email_domain = Constants._EntityTypeCode(
-        'email_domain',
-        'Email domain - see table "cerebrum.email_domain" and friends.')
-
-    entity_email_address = Constants._EntityTypeCode(
-        'email_address',
-        'Email address - see table "cerebrum.email_address" and friends.')
-
-    entity_email_target = Constants._EntityTypeCode(
-        'email_target',
-        'Email target - see table "cerebrum.email_target" and friends.')
-
-    email_domain_category_noexport = _EmailDomainCategoryCode(
-        'noexport',
-        'Addresses in these domains can be defined, but are not'
-        ' exported to the mail system.  This is useful for'
-        ' pre-defining addresses prior to taking over a new'
-        ' maildomain.')
-
-    email_domain_category_cnaddr = _EmailDomainCategoryCode(
-        'cnaddr',
-        "Primary user addresses in these domains will be based on the"
-        " owner's full common name, and not just e.g. the username.")
-
-    email_domain_category_uidaddr = _EmailDomainCategoryCode(
-        'uidaddr',
-        'Primary user addresses in these domains will be in the format'
-        'username@domain.')
-
-    email_domain_category_include_all_uids = _EmailDomainCategoryCode(
-        'all_uids',
-        'All account email targets should get a valid address in this domain,'
-        ' on the form <accountname@domain>.')
-
-    email_target_account = _EmailTargetCode(
-        'account',
-        "Target is the local delivery defined for the PosixUser whose"
-        " account_id == email_target.using_uid.")
-
-    # exchange-related-jazz
-    email_target_dl_group = _EmailTargetCode(
-        'group',
-        "Target is the Exchange - local delivery defined for"
-        " the DistributionGroup with"
-        " group_id == email_target.using_uid.")
-
-    email_target_deleted = _EmailTargetCode(
-        'deleted',
-        "Target type for addresses that are no longer working, but"
-        " for which it is useful to include a short custom text in"
-        " the error message returned to the sender.  The text"
-        " is taken from email_target.alias_value")
-
-    email_target_forward = _EmailTargetCode(
-        'forward',
-        "Target is a pure forwarding mechanism; local deliveries will"
-        " only occur as indirect deliveries to the addresses forwarded"
-        " to.  Both email_target.target_entity_id, email_target.using_uid and"
-        " email_target.alias_value should be NULL, as they are ignored."
-        "  The email address(es) to forward to is taken from table"
-        " email_forward.")
-
-    email_target_file = _EmailTargetCode(
-        'file',
-        "Target is a file.  The absolute path of the file is gathered"
-        " from email_target.alias_value.  Iff email_target.using_uid"
-        " is set, deliveries to this target will be run as that"
-        " PosixUser.")
-
-    email_target_pipe = _EmailTargetCode(
-        'pipe',
-        "Target is a shell pipe.  The command (and args) to pipe mail"
-        " into is gathered from email_target.alias_value.  Iff"
-        " email_target.using_uid is set, deliveries to this target"
-        " will be run as that PosixUser.")
-
-    email_target_RT = _EmailTargetCode(
-        'RT',
-        "Target is a RT queue.  The command (and args) to pipe mail"
-        " into is gathered from email_target.alias_value.  Iff"
-        " email_target.using_uid is set, deliveries to this target"
-        " will be run as that PosixUser.")
-
-    email_target_Sympa = _EmailTargetCode(
-        'Sympa',
-        "Target is a Sympa mailing list.  The command (and args) to"
-        " pipe mail into is gathered from email_target.alias_value."
-        "  Iff email_target.using_uid is set, deliveries to this target"
-        " will be run as that PosixUser.")
-
-    email_target_multi = _EmailTargetCode(
-        'multi',
-        "Target is the set of `account`-type targets corresponding to"
-        " the Accounts that are first-level members of the Group that"
-        " has group_id == email_target.target_entity_id.")
-
-    email_server_type_nfsmbox = _EmailServerTypeCode(
-        'nfsmbox',
-        "Server delivers mail as mbox-style mailboxes over NFS.")
-
-    email_server_type_cyrus = _EmailServerTypeCode(
-        'cyrus_IMAP',
-        "Server is a Cyrus IMAP server, which keeps mailboxes in a "
-        "Cyrus-specific format.")
-
-    email_server_type_sympa = _EmailServerTypeCode(
-        'sympa',
-        "Server is a Sympa mailing list server.")
-
-    email_server_type_exchange = _EmailServerTypeCode(
-        'exchange',
-        "Exchange server.")
-
-    email_target_filter_greylist = _EmailTargetFilterCode(
-        'greylist',
-        "Delay messages from unknown servers")
-
-    email_target_filter_uioonly = _EmailTargetFilterCode(
-        'uioonly',
-        "Only accept the use of an UiO address as sender address"
-        " on the UiO network, or when using authenticated SMTP")
-
-
-class CLConstants(Constants.CLConstants):
-    # ChangeTypes used by the email module
-    # TODO: Put these in it's own file? Put that file and this file into
-    # Cerebrum/modules/email/?
-
-    # email domain
-    email_dom_add = Constants._ChangeTypeCode(
-        'email_domain', 'add_domain', 'add email domain %(subject)s',
-        ('name=%(string:new_domain_name)'))
-    email_dom_rem = Constants._ChangeTypeCode(
-        'email_domain', 'rem_domain', 'remove email domain %(subject)s',
-        ('name=%(string:del_domain'))
-    # either domain name or domain description has been changed
-    email_dom_mod = Constants._ChangeTypeCode(
-        'email_domain', 'mod_domain', 'modify email domain %(subject)s',
-        ('name=%(string:new_domain_name)',
-         'desc=%(string:new_domain_desc'))
-    email_dom_addcat = Constants._ChangeTypeCode(
-        'email_domain', 'addcat_domain', 'add category in email domain'
-        ' %(subject)s',
-        ('cat=%(int:cat)'))
-    email_dom_remcat = Constants._ChangeTypeCode(
-        'email_domain', 'remcat_domain', 'remove category in email domain'
-        ' %(subject)s',
-        ('cat=%(int:cat)'))
-
-    # email target
-    email_target_add = Constants._ChangeTypeCode(
-        'email_target', 'add_target', 'add email target %(subject)s', )
-    email_target_rem = Constants._ChangeTypeCode(
-        'email_target', 'rem_target',  'remove email target %(subject)s')
-    email_target_mod = Constants._ChangeTypeCode(
-        'email_target', 'mod_target', 'modify email target %(subject)s',
-        ('type=id:%(int:target_type)s',
-         'server=id:%(int:server_id)s', ))
-    email_address_add = Constants._ChangeTypeCode(
-        'email_address', 'add_address', 'add email address %(subject)s',
-        ('lp=%(string:lp)s',
-         'domain=%(int:dom_id)s'))
-    email_address_rem = Constants._ChangeTypeCode(
-        'email_address', 'rem_address', 'remove email address %(subject)s',
-        ('lp=%(string:lp)s',
-         'domain=%(int:dom_id)s'))
-
-    # email entity domain affiliation
-    email_entity_dom_add = Constants._ChangeTypeCode(
-        'email_entity_dom', 'add_entdom', 'add domain aff for %(subject)s',
-        ('affiliation=%(int:aff)'))
-    email_entity_dom_rem = Constants._ChangeTypeCode(
-        'email_entity_dom', 'rem_entdom', 'remove domain aff for %(subject)s')
-    email_entity_dom_mod = Constants._ChangeTypeCode(
-        'email_entity_dom', 'mod_entdom', 'modify domain aff for %(subject)s',
-        ('affiliation=%(int:aff)'))
-
-    # email quota (subject here is an email_target)
-    email_quota_add = Constants._ChangeTypeCode(
-        'email_quota', 'add_quota', 'add quota for %(subject)s',
-        ('soft=%(int:soft)',
-         'hard=%(int:hard)'))
-    email_quota_rem = Constants._ChangeTypeCode(
-        'email_quota', 'rem_quota', 'remove quota for %(subject)s')
-    email_quota_mod = Constants._ChangeTypeCode(
-        'email_quota', 'mod_quota', 'modify quota for %(subject)s',
-        ('soft=%(int:soft)',
-         'hard=%(int:hard)'))
-
-    # email target filter
-    email_tfilter_add = Constants._ChangeTypeCode(
-        'email_tfilter', 'add_filter', 'add tfilter for %(subject)s',
-        ('filter=%(int:filter)'))
-    email_tfilter_rem = Constants._ChangeTypeCode(
-        'email_tfilter', 'rem_filter', 'remove tfilter for %(subject)s',
-        ('filter=%(int:filter)'))
-
-    # email spam_filter
-    email_sfilter_add = Constants._ChangeTypeCode(
-        'email_sfilter', 'add_sfilter', 'add sfilter for %(subject)s',
-        ('level=%(int:level)',
-         'action=%(int:action)'))
-    email_sfilter_mod = Constants._ChangeTypeCode(
-        'email_sfilter', 'mod_sfilter', 'modify sfilter for %(subject)s',
-        ('level=%(int:level)',
-         'action=%(int:action)'))
-
-    # email virus scan
-    email_scan_add = Constants._ChangeTypeCode(
-        'email_scan', 'add_scan', 'add scan for %(subject)s',
-        ('found=%(int:found)',
-         'removed=%(int:removed)',
-         'enable=%(int:enable)'))
-    email_scan_mod = Constants._ChangeTypeCode(
-        'email_scan', 'mod_scan', 'modify scan for %(subject)s')
-
-    # email forward (subject here is an email_target)
-    email_forward_add = Constants._ChangeTypeCode(
-        'email_forward', 'add_forward',
-        'add forward for %(subject)s',
-        ('forward=%(string:forward)s',
-         'enable=%(bool:enable)s'))
-    email_forward_rem = Constants._ChangeTypeCode(
-        'email_forward', 'rem_forward',
-        'remove forward for %(subject)s',
-        ('forward=%(string:forward)s', ))
-    email_forward_enable = Constants._ChangeTypeCode(
-        'email_forward', 'enable_forward',
-        'enable forward for %(subject)s',
-        ('forward=%(string:forward)s',
-         'cat=%(int:cat)s'))
-    email_forward_disable = Constants._ChangeTypeCode(
-        'email_forward', 'disable_forward',
-        'disable forward for %(subject)s',
-        ('forward=%(string:forward)s',
-         'cat=%(int:cat)s'))
-
-    # Local delivery of email forwards
-    email_local_delivery = Constants._ChangeTypeCode(
-        'email_forward', 'local_delivery',
-        'modify local delivery for subject %(subject)s',
-        ('enabled=%(string:enabled)s', ))
-
-    # email vacation (subject here is an email_target)
-    # TBD: should we bother to log this? I don't think so, vacation
-    # msg will be moved to exchange
-    email_vacation_add = Constants._ChangeTypeCode(
-        'email_vacation', 'add_vacation', 'add vacation for %(subject)s')
-    email_vacation_rem = Constants._ChangeTypeCode(
-        'email_vacation', 'rem_vacation', 'remove vacation for %(subject)s')
-    email_vacation_enable = Constants._ChangeTypeCode(
-        'email_vacation', 'enable_vaca', 'enable vacation msg for %(subject)s')
-    email_vacation_disable = Constants._ChangeTypeCode(
-        'email_vacation', 'disable_vaca',
-        'disable vacation msg for %(subject)s')
-
-    # email primary address target (subject here is an email_target)
-    email_primary_address_add = Constants._ChangeTypeCode(
-        'email_primary_address', 'add_primary',
-        'add primary address for %(subject)s', ('primary=%(int:addr_id)'))
-    email_primary_address_rem = Constants._ChangeTypeCode(
-        'email_primary_address', 'rem_primary',
-        'remove primary address for %(subject)s', ('primary=%(int:addr_id)'))
-    email_primary_address_mod = Constants._ChangeTypeCode(
-        'email_primary_address', 'mod_primary',
-        'modify primary address for %(subject)s', ('primary=%(int:addr_id)'))
-    # email server (subject here is an e-mail server)
-    email_server_add = Constants._ChangeTypeCode(
-        'email_server', 'add_server', 'add email server %(subject)s',
-        ('type=%(int:server_type)'))
-    email_server_rem = Constants._ChangeTypeCode(
-        'email_server', 'rem_server', 'remove email server %(subject)s',
-        ('type=%(int:server_type)'))
-    email_server_mod = Constants._ChangeTypeCode(
-        'email_server', 'mod_server', 'modify email server %(subject)s',
-        ('type=%(int:server_type)'))
-
 Entity_class = Utils.Factory.get("Entity")
+
+
+def get_default_email_domains():
+    """Get the default email domains"""
+    return getattr(cereconf, 'EMAIL_DEFAULT_DOMAINS', [])
+
+
+def get_primary_default_email_domain():
+    """
+    Get the primary default email domain.
+
+    The primary domain is the first domain in the EMAIL_DEFAULT_DOMAINS array.
+    """
+    res = tuple(getattr(cereconf, 'EMAIL_DEFAULT_DOMAINS', []))
+
+    if len(res) > 0:
+        return res[0]
+    return None
+
+
+def has_default_domains():
+    """Check if the instance has one or more default domains."""
+    return bool(getattr(cereconf, 'EMAIL_DEFAULT_DOMAINS', []))
 
 
 @six.python_2_unicode_compatible
@@ -515,11 +199,12 @@ class EmailDomain(Entity_class):
                           'name': self.email_domain_name,
                           'descr': self.email_domain_description})
             # exchange-relatert-jazz
-            self._db.log_change(self.entity_id, self.clconst.email_dom_add, None,
+            self._db.log_change(self.entity_id, self.clconst.email_dom_add,
+                                None,
                                 change_params={
                                     'new_domain_name': self.email_domain_name,
                                     'new_domain_desc':
-                                    self.email_domain_description})
+                                        self.email_domain_description})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_domain]
@@ -529,11 +214,12 @@ class EmailDomain(Entity_class):
                           'name': self.email_domain_name,
                           'descr': self.email_domain_description})
             # exchange-relatert-jazz
-            self._db.log_change(self.entity_id, self.clconst.email_dom_mod, None,
+            self._db.log_change(self.entity_id, self.clconst.email_dom_mod,
+                                None,
                                 change_params={
                                     'mod_domain_name': self.email_domain_name,
                                     'mod_domain_desc':
-                                    self.email_domain_description})
+                                        self.email_domain_description})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -585,7 +271,8 @@ class EmailDomain(Entity_class):
 
     def add_category(self, category):
         # exchange-relevant-jazz
-        self._db.log_change(self.entity_id, self.clconst.email_dom_addcat, None,
+        self._db.log_change(self.entity_id, self.clconst.email_dom_addcat,
+                            None,
                             change_params={'category': int(category)})
         # conv
         return self.execute("""
@@ -596,7 +283,8 @@ class EmailDomain(Entity_class):
 
     def remove_category(self, category):
         # exchange-relevant-jazz
-        self._db.log_change(self.entity_id, self.clconst.email_dom_remcat, None,
+        self._db.log_change(self.entity_id, self.clconst.email_dom_remcat,
+                            None,
                             change_params={'category': int(category)})
         # conv
         return self.execute("""
@@ -1005,6 +693,61 @@ class EmailTarget(Entity_class):
             ON epa.address_id=ea.address_id
           JOIN [:table schema=cerebrum name=email_domain] ed
             ON ea.domain_id=ed.domain_id
+        %s""" % where, binds)
+
+    def list_email_target_addresses(self, target_type=None,
+                                    target_entity_id=None,
+                                    domain=None,
+                                    uname_local=False):
+        """Return an iterator over email-addresses belonging to email_target.
+        Returns entity_name, target_id, target_entity_id, local_part and
+        domain.
+
+        :param target_type: decides which email_target to filter on.
+        :param target_entity_id: only get addresses for a single target_entity
+        :param basestring domain: only get addresses for a specific domain e.g
+        'uio.no'
+        :param bool uname_local: Set True to only get addresses where the local
+        part of the email matches the username of the owner
+        """
+
+        where = list()
+        binds = dict()
+        if target_type:
+            where.append(argument_to_sql(target_type,
+                                         "et.target_type",
+                                         binds,
+                                         int))
+
+        if target_entity_id is not None:
+            where.append(argument_to_sql(target_entity_id,
+                                         "et.target_entity_id",
+                                         binds,
+                                         int))
+        if domain is not None:
+            where.append(argument_to_sql(domain,
+                                         'ed.domain',
+                                         binds,
+                                         six.text_type))
+
+        if uname_local:
+            where.append("en.entity_name=ea.local_part")
+
+        if where:
+            where = "WHERE " + " AND ".join(where)
+        else:
+            where = ''
+
+        return self.query("""
+        SELECT en.entity_name, et.target_id, et.target_entity_id,
+        ea.local_part, ed.domain
+        FROM [:table schema=cerebrum name=email_target] et
+          JOIN [:table schema=cerebrum name=email_address] ea
+            ON et.target_id=ea.target_id
+          JOIN [:table schema=cerebrum name=email_domain] ed
+            ON ea.domain_id=ed.domain_id
+          JOIN [:table schema=cerebrum name=entity_name] en
+            ON en.entity_id=et.target_entity_id
         %s""" % where, binds)
 
     def get_target_type(self):
@@ -1552,7 +1295,7 @@ class EmailQuota(EmailTarget):
             JOIN email_quota eq ON et.target_id = eq.target_id
             WHERE et.server_id = :server AND et.target_type = :t_type""",
             {'server': int(server),
-             't_type': int(EmailConstants.email_target_account)})
+             't_type': int(self.const.email_target_account)})
 
 
 class EmailTargetFilter(EmailTarget):
@@ -2595,11 +2338,21 @@ class AccountEmailMixin(Account.Account):
                 # Person has more than one name, only use initials
                 given_names = 0
 
+        # List of prefixes that are not to be compressed
+        prefixes = ['de', 'van', 'von', 'der', 'af']
         if len(names) > given_names:
-            initials = [x[0] for x in names[given_names:]]
+            # Compress initials if not in prefix list
+            initials = []
+            for name in names[given_names:]:
+                if name not in prefixes:
+                    initials.append(name[0])
+                else:
+                    initials.append(name)
+            # Reduce number of initials to max_initials
             if max_initials is not None:
                 initials = initials[:max_initials]
             names = names[:given_names] + initials
+        # add last name
         names.append(last)
         return self.wash_email_local_part(".".join(names))
 
@@ -2613,17 +2366,23 @@ class AccountEmailMixin(Account.Account):
         full = p.get_name(self.const.system_cached, self.const.name_full)
         return full
 
-    def get_prospect_maildomains(self, use_default_domain=True):
+    def get_prospect_maildomains(self):
         """
         Return correct `domain_id's for the account's account_types regardless
         of what's populated in email_address.
 
         Domains will be sorted based on account_type priority and have
-        cereconf.EMAIL_DEFAULT_DOMAIN last in the list.
+        cereconf.EMAIL_DEFAULT_DOMAINS last in the list.
         """
-        dom = EmailDomain(self._db)
-        if use_default_domain:
-            dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
+        default_domains = []
+
+        for domain in get_default_email_domains():
+            dom = EmailDomain(self._db)
+            dom.find_by_domain(domain)
+            default_domains.append(dom)
+
+        default_domains_ids = [x.entity_id for x in default_domains]
+
         entdom = EntityEmailDomain(self._db)
         domains = []
         # Find OU and affiliation for this account.
@@ -2634,11 +2393,11 @@ class AccountEmailMixin(Account.Account):
             entdom.clear()
             try:
                 entdom.find(ou, affiliation=aff)
-                # If the default domain is specified, ignore this
-                # affiliation.
-                if use_default_domain:
-                    if entdom.entity_email_domain_id == dom.entity_id:
-                        continue
+
+                # Ignore if one of the default domains is specified for OU
+                if entdom.entity_email_domain_id in default_domains_ids:
+                    continue
+
                 domains.append(entdom.entity_email_domain_id)
             except Errors.NotFoundError:
                 # Otherwise, try falling back to tha maildomain associated
@@ -2646,22 +2405,24 @@ class AccountEmailMixin(Account.Account):
                 entdom.clear()
                 try:
                     entdom.find(ou)
-                    if entdom.entity_email_domain_id == dom.entity_id:
+                    if entdom.entity_email_domain_id in default_domains_ids:
                         continue
                     domains.append(entdom.entity_email_domain_id)
                 except Errors.NotFoundError:
                     pass
-        if use_default_domain:
-            # Append cereconf.EMAIL_DEFAULT_DOMAIN last to return a vaild
-            # domain always
-            domains.append(dom.entity_id)
+        # Append cereconf.EMAIL_DEFAULT_DOMAINS last to return a vaild
+        # domain always
+        for domain in default_domains:
+            domains.append(domain.entity_id)
+
         return domains
 
-    def get_primary_maildomain(self, use_default_domain=True):
+    def get_primary_maildomain(self):
         """Return correct `domain_id' for account's primary address."""
         dom = EmailDomain(self._db)
-        if use_default_domain:
-            dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
+
+        if has_default_domains():
+            dom.find_by_domain(get_primary_default_email_domain())
         entdom = EntityEmailDomain(self._db)
         # Find OU and affiliation for this user's best-priority
         # account_type entry.
@@ -2672,8 +2433,8 @@ class AccountEmailMixin(Account.Account):
             entdom.clear()
             try:
                 entdom.find(ou, affiliation=aff)
-                if use_default_domain:
-                    # If the default domai n is specified, ignore this
+                if has_default_domains():
+                    # If the default domain is specified, ignore this
                     # affiliation.
                     if entdom.entity_email_domain_id == dom.entity_id:
                         continue
@@ -2685,13 +2446,13 @@ class AccountEmailMixin(Account.Account):
             entdom.clear()
             try:
                 entdom.find(ou)
-                if use_default_domain:
+                if has_default_domains():
                     if entdom.entity_email_domain_id == dom.entity_id:
                         continue
                     return entdom.entity_email_domain_id
             except Errors.NotFoundError:
                 pass
-        if use_default_domain:
+        if has_default_domains():
             # Still no proper maildomain association has been found; fall
             # back to default maildomain.
             return dom.entity_id
@@ -2832,8 +2593,8 @@ class AccountEmailMixin(Account.Account):
         self.update_email_addresses()
         return ret
 
-    def delete_spread(self, *param, **kw):
-        ret = self.__super.delete_spread(*param, **kw)
+    def delete_spread(self, spread):
+        ret = self.__super.delete_spread(spread)
         self.update_email_addresses()
         return ret
 

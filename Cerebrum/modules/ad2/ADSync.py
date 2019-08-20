@@ -66,6 +66,7 @@ from Cerebrum.utils.email import sendmail
 from Cerebrum.modules.ad2 import ADUtils, ConfigUtils
 from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.ConfigUtils import ConfigError
+from Cerebrum.modules.ad2.winrm import CommandTooLongException
 from Cerebrum.modules.ad2.winrm import PowershellException
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
@@ -165,12 +166,8 @@ class BaseSync(object):
         only use ADclient directly in this class instead? Depends on how
         complicated things are getting.
 
-        @type db: Cerebrum.CLDatabase.CLDatabase
-        @param db: The Cerebrum database connection that should be used.
-
-        @type logger: Cerebrum.modules.cerelog.CerebrumLogger
-        @param logger: The Cerebrum logger to use.
-
+        :type db: Cerebrum.CLDatabase.CLDatabase
+        :type logger: Cerebrum.logutils.loggers.CerebrumLogger
         """
         super(BaseSync, self).__init__()
 
@@ -931,8 +928,8 @@ class BaseSync(object):
         id_type = self.co.EntityExternalId(
             self.sidtype_map[self.config['target_type']])
         i = 0
-        for row in en.list_external_ids(source_system=self.co.system_ad,
-                                        id_type=id_type):
+        for row in en.search_external_ids(source_system=self.co.system_ad,
+                                          id_type=id_type, fetchall=False):
             # TODO: how should we get it per spread?
             e = self.id2entity.get(row['entity_id'], None)
             if e:
@@ -1443,7 +1440,7 @@ class BaseSync(object):
                                   "one is the right one.", ent.ad_id)
                 return False
         except (ADUtils.SetAttributeException,
-                ADUtils.CommandTooLongException), e:
+                CommandTooLongException), e:
             # The creation of the object may have failed because of entity's
             # attributes. It may have been too many of them and the command
             # became too long, or they contained (yet) invalid paths in AD.

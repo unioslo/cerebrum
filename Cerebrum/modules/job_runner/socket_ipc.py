@@ -357,17 +357,18 @@ class SocketServer(object):
         self.cleanup()
 
     @classmethod
-    def send_cmd(cls, command, args=None, timeout=2):
+    def send_cmd(cls, command, args=None, timeout=2, jr_socket=None):
         """ Send command, decode and return response.
 
         Raises SocketTimeout if no response has come in timeout seconds.
         """
+        jr_socket = jr_socket or cereconf.JOB_RUNNER_SOCKET
         args = args or []
         signal.signal(signal.SIGALRM, signal_timeout)
         signal.alarm(timeout)
         try:
             with closing(socket.socket(socket.AF_UNIX)) as sock:
-                sock.connect(cereconf.JOB_RUNNER_SOCKET)
+                sock.connect(jr_socket)
                 return SocketProtocol.call(SocketConnection(sock), command,
                                            args)
         finally:

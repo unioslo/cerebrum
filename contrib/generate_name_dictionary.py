@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2007 University of Oslo, Norway
@@ -19,8 +19,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from __future__ import unicode_literals
-
 """ This file is part of the Cerebrum framework.
 
 It generates a list of names used in the password checking algorithm. Roughly,
@@ -30,17 +28,18 @@ for passwords. This has been known to happen.
 The idea is to sort all names and write them to a file where bofhd would be
 able to pick it up (cereconf.PASSWORD_DICTIONARIES).
 """
+
+from __future__ import unicode_literals
+
 import getopt
 import sys
 
-import cerebrum_path
 
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
 
 logger = Factory.get_logger("cronjob")
-del cerebrum_path
 
 
 def name_is_valid(name):

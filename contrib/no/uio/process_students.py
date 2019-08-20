@@ -19,47 +19,44 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""To create new users:
+        ./contrib/no/uio/process_students.py -C .../studconfig.xml
+        -S .../studieprogrammer.xml -s .../merged_persons.xml -c
+"""
+
 from __future__ import unicode_literals
+from __future__ import print_function
 
 import hotshot
 import hotshot.stats
-proffile = 'hotshot.prof'
 
-import getopt
+import argparse
 import sys
 import os
-import io
-import pickle
 import traceback
 from time import localtime, strftime, time
-from tempfile import mkdtemp
-from subprocess import Popen
 import pprint
-import shutil
 
 from mx.DateTime import now
 
-import cerebrum_path
 import cereconf
 
+import Cerebrum.logutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.utils.argutils import ParserContext
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
-from Cerebrum.modules.no.uio import DiskQuota
+from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio import PrinterQuotas
-from Cerebrum.modules.templates import config as _tmpl_config
-from Cerebrum.modules.templates import renderers
-from Cerebrum.modules.printutils.printer import LinePrinter
-from Cerebrum.modules.templates import mappers
-del cerebrum_path
+
+proffile = 'hotshot.prof'
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_students')
 const = Factory.get('Constants')(db)
-all_passwords = {}
 derived_person_affiliations = {}
 person_student_affiliations = {}
 has_quota = {}
@@ -74,22 +71,21 @@ posix_user_obj = Factory.get('PosixUser')(db)
 account_obj = Factory.get('Account')(db)
 person_obj = Factory.get('Person')(db)
 group_obj = Factory.get('Group')(db)
-disk_quota_obj = DiskQuota.DiskQuota(db)
+disk_quota_obj = DiskQuota(db)
 
 debug = 0
-max_errors = 50          # Max number of errors to accept in person-callback
+max_errors = 50  # Max number of errors to accept in person-callback
 posix_spreads = [int(const.Spread(_s)) for _s in cereconf.POSIX_SPREAD_CODES]
 
 # global Command-line alterable variables.  Defined here to make
 # pychecker happy
-skip_lpr = True       # Must explicitly tell that we want lpr
+skip_lpr = True  # Must explicitly tell that we want lpr
 create_users = move_users = dryrun = update_accounts = False
 with_quarantines = False
 remove_groupmembers = False
 ou_perspective = None
 workdir = None
-only_dump_to = None
-paper_money_file = None         # Default: don't check for paid paper money
+paper_money_file = None  # Default: don't check for paid paper money
 student_info_file = None
 studconfig_file = None
 studieprogs_file = None
@@ -98,7 +94,7 @@ fast_test = False
 with_diskquota = False
 
 # Other globals (to make pychecker happy)
-autostud = logger = accounts = persons = None
+autostud = accounts = persons = None
 default_creator_id = default_expire_date = default_shell = None
 
 merge_pdfs_cmd = ("/usr/bin/gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 "
@@ -130,13 +126,10 @@ class AccountUtil(object):
             disk_quota_obj.clear(h['homedir_id'])
             account.clear_home(h['spread'])
         account.expire_date = None
-        password = account.make_passwd(account.account_name)
         logger.debug("refreshing password write_db=%s", account.account_name)
-        account.set_password(password)
         account.write_db()
         account.populate_trait(code=const.trait_student_new, date=now())
         account.write_db()
-        all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
 
     @staticmethod
     def create_user(fnr, profile):
@@ -200,14 +193,11 @@ class AccountUtil(object):
                          person.entity_id,
                          None,
                          default_creator_id, default_expire_date)
-        password = account.make_passwd(uname)
         tmp = account.write_db()
         logger.debug("new Account, write_db=%s", tmp)
-        account.set_password(password)
         account.write_db()
         account.populate_trait(code=const.trait_student_new, date=now())
         account.write_db()
-        all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
         as_posix = False
         for spread in profile.get_spreads():
             if int(spread) in posix_spreads:
@@ -223,13 +213,15 @@ class AccountUtil(object):
         even if the person has no such affiliation"""
 
         changes = []
-        remove_idx = 1     # Do not remove last account affiliation
-        account_ous = [ou for aff, ou in accounts[account_id].get_affiliations()
+        remove_idx = 1  # Do not remove last account affiliation
+        account_ous = [ou for aff, ou in
+                       accounts[account_id].get_affiliations()
                        if aff == const.affiliation_student]
         for aff, ou, status in persons[fnr].get_affiliations():
             assert aff == const.affiliation_student
             if ou not in account_ous:
-                changes.append(('set_ac_type', (ou, const.affiliation_student)))
+                changes.append(('set_ac_type',
+                                (ou, const.affiliation_student)))
             else:
                 account_ous.remove(ou)
                 # The account has at least one valid affiliation, so
@@ -256,9 +248,9 @@ class AccountUtil(object):
                           parent=account_obj, expire_date=default_expire_date)
             user.write_db()
             user.map_user_spreads_to_pg()
-            logger.debug("Used dfg2: "+str(changes[0][1]))
+            logger.debug("Used dfg2: " + str(changes[0][1]))
             accounts[account_id].append_group(changes[0][1])
-            del(changes[0])
+            del (changes[0])
         else:
             user.find(account_id)
 
@@ -299,7 +291,7 @@ class AccountUtil(object):
             elif c_id == 'remove_quarantine_at_restore':
                 user.delete_entity_quarantine(dta)
             elif c_id == 'add_spread':
-                pass   # already processed
+                pass  # already processed
             elif c_id == 'add_person_spread':
                 if (not hasattr(person_obj, 'entity_id') or
                         person_obj.entity_id != user.owner_id):
@@ -320,7 +312,7 @@ class AccountUtil(object):
                     dta[0], default_creator_id, 'automatic', start_at)
             elif c_id == 'disk_kvote':
                 disk_id, homedir_id, quota, spread = dta
-                if homedir_id is None:    # homedir was added in this run
+                if homedir_id is None:  # homedir was added in this run
                     homedir_id = accounts[account_id].get_home(spread)[1]
                 disk_quota_obj.set_quota(homedir_id, quota=int(quota))
             else:
@@ -330,7 +322,7 @@ class AccountUtil(object):
 
     @staticmethod
     def _update_group_memberships(account_id, profile):
-        changes = []       # Changes is only used for debug output
+        changes = []  # Changes is only used for debug output
         already_member = {}
         for group_id in accounts[account_id].get_groups():
             already_member[group_id] = True
@@ -353,8 +345,8 @@ class AccountUtil(object):
                 del already_member[g]
         if remove_groupmembers:
             for g in already_member.keys():
-                if (autostud.pc.group_defs.get(g,
-                                               {}).get('auto', None) == 'auto'):
+                if (autostud.pc.group_defs.get(
+                        g, {}).get('auto', None) == 'auto'):
                     if accounts[account_id].get_gid() == g:
                         logger.warn("Can't remove %i from its dfg %i",
                                     account_id, g)
@@ -392,11 +384,11 @@ class AccountUtil(object):
             except AutoStud.ProfileHandler.NoDefaultGroup:
                 logger.info("Found no dfg for account %s", account_id)
                 # Setting it to a bad value, as UiO ignores the use of dfg.
-                # Other instances will get an exception later on, when trying to
-                # run write_db.
+                # Other instances will get an exception later on, when trying
+                # to run write_db.
                 gid = None
             # we no longer want to change the default-group if already set
-            if (ac.get_gid() is None):  # or ac['gid'] != gid):
+            if ac.get_gid() is None:  # or ac['gid'] != gid):
                 changes.append(('dfg', gid))
 
         if ac.get_expire_date() != default_expire_date:
@@ -460,7 +452,7 @@ class AccountUtil(object):
                 continue
             tmp.append(int(q['quarantine']))
             if (with_quarantines and not int(q['quarantine']) in
-                    ac.get_quarantines()):
+                                         ac.get_quarantines()):
                 changes.append(('add_quarantine', (q['quarantine'],
                                                    q['start_at'])))
 
@@ -472,11 +464,11 @@ class AccountUtil(object):
                 changes.append(("remove_autostud_quarantine", q))
 
         # Populate spreads
-        has_acount_spreads = ac.get_spreads()
+        has_account_spreads = ac.get_spreads()
         has_person_spreads = persons[fnr].get_spreads()
         for spread in profile.get_spreads():
             if spread.entity_type == const.entity_account:
-                if not int(spread) in has_acount_spreads:
+                if not int(spread) in has_account_spreads:
                     changes.append(('add_spread', spread))
             elif spread.entity_type == const.entity_person:
                 if not int(spread) in has_person_spreads:
@@ -492,7 +484,8 @@ class AccountUtil(object):
                 AccountUtil.restore_uname(account_id, profile)
                 for q in ac.get_quarantines():
                     if q in [int(const.quarantine_generell),
-                             int(const.quarantine_autopassord)]:
+                             int(const.quarantine_autopassord),
+                             int(const.quarantine_slutta)]:
                         changes.append(('remove_quarantine_at_restore', q))
 
         if changes:
@@ -579,8 +572,8 @@ class RecalcQuota(object):
         if paper_money_file:
             for p in AutoStud.StudentInfo.GeneralDataParser(paper_money_file,
                                                             'betalt'):
-                fnr = fodselsnr.personnr_ok("%06d%05d" % (int(p['fodselsdato']),
-                                                          int(p['personnr'])))
+                fnr = fodselsnr.personnr_ok("%06d%05d" % (
+                    int(p['fodselsdato']), int(p['personnr'])))
                 paid_paper_money[fnr] = True
         autostud.start_student_callbacks(student_info_file,
                                          RecalcQuota._recalc_quota_callback)
@@ -743,13 +736,6 @@ class BuildAccounts(object):
         logger.info("student_info_file processed")
         if not dryrun:
             db.commit()
-            logger.info("making letters")
-            if only_dump_to is not None:
-                f = open(only_dump_to, 'w')
-                pickle.dump(all_passwords, f)
-                f.close()
-            else:
-                make_letters()
         else:
             logger.info("Dryrun: Rolled back changed")
             db.rollback()
@@ -976,7 +962,9 @@ def get_existing_accounts():
 
     logger.info("Listing persons")
     pid2fnr = {}
-    for row in person_obj.list_external_ids(id_type=const.externalid_fodselsnr):
+    for row in person_obj.search_external_ids(
+            id_type=const.externalid_fodselsnr,
+            fetchall=False):
         if (row['source_system'] == int(const.system_fs) or
                 int(row['entity_id']) not in pid2fnr):
             pid2fnr[int(row['entity_id'])] = row['external_id']
@@ -1105,164 +1093,6 @@ def get_existing_accounts():
     return tmp_persons, tmp_ac
 
 
-def make_letters(data_file=None, type=None, range=None):
-    tmpl_config = _tmpl_config.get_config()
-    if data_file is not None:  # Load info on letters to print from file
-        with io.open(data_file, 'rb') as f:
-            tmp_passwords = pickle.load(f)
-        if range == '*':
-            s = 0
-            while s <= len(tmp_passwords):
-                tmp = tmp_passwords["%s-%i" % (type, s)]
-                tmp.append(s)
-                all_passwords[tmp[0]] = tmp[1]
-                s = s + 1
-        else:
-            for r in [int(x) for x in range.split(",")]:
-                tmp = tmp_passwords["%s-%i" % (type, r)]
-                tmp.append(r)
-                all_passwords[tmp[0]] = tmp[1]
-    person = Factory.get('Person')(db)
-    account = Factory.get('Account')(db)
-    dta = {}
-    logger.debug("Making %i letters", len(all_passwords))
-    current_dir = os.getcwd()
-    for account_id in all_passwords.keys():
-        try:
-            account.clear()
-            account.find(account_id)
-            person.clear()
-            person.find(account.owner_id)  # should be account.owner_id
-        except Errors.NotFoundError:
-            logger.warn("NotFoundError for account_id=%s", account_id)
-            continue
-
-        address_lookups = ((const.system_fs, const.address_post),
-                           (const.system_fs, const.address_post_private))
-        address = mappers.get_person_address(person, address_lookups)
-
-        if not address:
-            logger.info("Could not find authoritative address for %s",
-                        account_id)
-            continue
-
-        mappings = mappers.get_account_mappings(
-            account, all_passwords[account_id][0]
-        )
-        mappings.update(mappers.get_account_primary_email(account))
-        mappings.update(mappers.get_person_info(person, const))
-        mappings.update(mappers.get_address_mappings(address))
-
-        # First we group letters by 'order_by', default is 'zip'
-        brev_profil = all_passwords[account_id][1]
-        order_by = (brev_profil['order_by'] if 'order_by' in brev_profil
-                    else 'zip')
-        if order_by not in dta:
-            dta[order_by] = {}
-        dta[order_by][account_id] = mappings
-
-    # Do the actual sorting. We end up with one array with account_id's
-    # sorted in groups on sorting criteria.
-    sorted_keys = []
-    for order in dta.keys():
-        keys = dta[order].keys()
-        keys.sort(key=lambda x: dta[order][x][order_by])
-        sorted_keys = sorted_keys + keys
-
-    # Each template type has its own letter number sequence
-    letter_info = {}
-    files = {}
-    counters = {}
-    printers = {}
-    send_abroad = cereconf.AUTOADMIN_PRODUCE_ABROAD_LETTERS
-    rendered_pdf_files = {}
-    for account_id in sorted_keys:
-        password, brev_profil = all_passwords[account_id][:2]
-        order_by = (brev_profil['order_by'] if 'order_by' in brev_profil
-                    else 'zip')
-        if not send_abroad:
-            if (not dta[order_by][account_id]['zip'] or
-                    dta[order_by][account_id]['country']):
-                # TODO: Improve this check, which is supposed to skip foreign
-                # addresses
-                logger.info("Not sending abroad: %s",
-                            dta[order_by][account_id]['username'])
-                continue
-        printer = brev_profil.get('printer', cereconf.PRINT_PRINTER)
-
-        letter_type = "{}-{}.pdf".format(brev_profil['mal'], printer)
-        if letter_type not in files:
-            counters[letter_type] = 1
-            files[letter_type] = "{}-{}".format(letter_type, time())
-            printers[letter_type] = printer
-        if data_file is not None:
-            dta[order_by][account_id]['serial_no'] = all_passwords[account_id][2]
-        else:
-            dta[order_by][account_id]['serial_no'] = counters[letter_type]
-            letter_info["{}-{}".format(
-                brev_profil['mal'], counters[letter_type])] = [
-                            account_id, [password, brev_profil,
-                                         counters[letter_type]]]
-
-        def get_template_config(template_name):
-            for t in tmpl_config.process_students_templates:
-                if template_name == t['file']:
-                    return t
-            raise Errors.NotFoundError(template_name)
-
-        try:
-            tmpl = get_template_config(brev_profil['mal'])
-            tmp_dir = mkdtemp(prefix='ps-letter-{}'.format(account_id))
-            barcode_file_path = os.path.join(
-                tmp_dir, 'barcode_{}.png'.format(account_id)
-            )
-            renderers.render_barcode(tmpl_config, account_id, barcode_file_path)
-            pdf_file_path = os.path.join(
-                current_dir, 'account_{}.pdf'.format(account_id)
-            )
-            renderers.html_template_to_pdf(
-                tmpl_config, tmp_dir, tmpl['file'], dta[order_by][account_id],
-                lang='no', static_files=tmpl['static_files'],
-                pdf_abspath=pdf_file_path
-            )
-            shutil.rmtree(tmp_dir)
-        except Exception as e:
-            logger.info("Error while generating letter for account %s: %s",
-                        account_id, e)
-            continue
-        counters[letter_type] += 1
-        # Add the rendered pdf to the list of generated files for
-        # the given template type, so they can be merged together
-        # before they are printed.
-        if letter_type not in rendered_pdf_files:
-            rendered_pdf_files[letter_type] = [pdf_file_path]
-        else:
-            rendered_pdf_files[letter_type].append(pdf_file_path)
-    # Save passwords for created users so that letters may be
-    # re-printed at a later time in case of print-jam etc.
-    if data_file is None:
-        with io.open("letters.info", 'wb') as f:
-            pickle.dump(letter_info, f)
-
-    # Merge the generated PDFs into files for each template type that was used
-    for letter_type, file_name in files.items():
-        merged_file_name = os.path.join(current_dir, file_name)
-        pdf_files_str = ' '.join(rendered_pdf_files[letter_type])
-        try:
-            Popen(merge_pdfs_cmd.format(merged_file=merged_file_name,
-                                        pdf_files=pdf_files_str),
-                  shell=True).wait()
-        except Exception as e:
-            logger.warn('Failed to merge PDF-files: {}'.format(e))
-
-        if not skip_lpr:
-            line_printer = LinePrinter(
-                printers[letter_type], 'unknown', os.uname()[1],
-                'process_students_pw_letters.pdf'
-            )
-            line_printer.spool(file_name)
-
-
 def _filter_person_info(person_info):
     """Makes debugging easier by removing some of the irrelevant
     person-information."""
@@ -1275,7 +1105,7 @@ def _filter_person_info(person_info):
         'alumni': ['studieprogramkode', 'studierettstatkode'],
         'evu': ['etterutdkurskode'],
         'tilbud': ['studieprogramkode']
-        }
+    }
     for info_type in person_info.keys():
         if info_type in ('fodselsdato', 'personnr'):
             continue
@@ -1295,7 +1125,7 @@ def _debug_dump_profile_match(profile, fnr):
     # Thus this value may differ from the one used during an
     # update
     try:
-        dfg = profile.get_dfg()       # dfg is only mandatory for PosixGroups
+        dfg = profile.get_dfg()  # dfg is only mandatory for PosixGroups
     except AutoStud.ProfileHandler.NoDefaultGroup:
         dfg = "<no_dfg>"
     if keep_account_home[fnr]:
@@ -1316,14 +1146,13 @@ def _debug_dump_profile_match(profile, fnr):
 
 
 def validate_config():
-
     if studconfig_file is None or \
-       studieprogs_file is None or \
-       emne_info_file is None:
+            studieprogs_file is None or \
+            emne_info_file is None:
 
-        print ("Missing required parameter(s). 'studconfig_file' (-C), "
-               "studieprogs_file' (-S)\nand 'emne_info_file' (-e) needs "
-               "to be specified when running --validate.")
+        print("Missing required parameter(s). 'studconfig_file' (-C), "
+              "studieprogs_file' (-S)\nand 'emne_info_file' (-e) needs "
+              "to be specified when running --validate.")
         sys.exit(1)
 
     else:
@@ -1367,90 +1196,139 @@ def process_noncallback_users(reset_diskquota=False):
 
 
 def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dcus:C:S:e:p:',
-                                   ['debug', 'create-users', 'update-accounts',
-                                    'student-info-file=', 'only-dump-results=',
-                                    'studconfig-file=', 'fast-test', 'with-lpr',
-                                    'workdir=', 'type=', 'reprint=',
-                                    'ou-perspective=', 'reset-diskquota',
-                                    'emne-info-file=', 'move-users',
-                                    'recalc-pq', 'studie-progs-file=',
-                                    'paper-file=',
-                                    'remove-groupmembers',
-                                    'dryrun', 'validate',
-                                    'with-quarantines',
-                                    'with-diskquota',
-                                    'posix-tables'])
-    except getopt.GetoptError as e:
-        usage(str(e))
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
-    global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
-        dryrun, emne_info_file, move_users, remove_groupmembers, \
-        workdir, paper_money_file, ou_perspective, with_quarantines,\
-        with_diskquota, posix_tables
+    global student_info_file, studconfig_file, studieprogs_file, dryrun, \
+        emne_info_file, move_users, remove_groupmembers, workdir, \
+        paper_money_file, ou_perspective, with_quarantines, with_diskquota, \
+        posix_tables
 
-    recalc_pq = False
-    validate = False
-    _range = None
-    reset_diskquota = False
-    for opt, val in opts:
-        if opt in ('-d', '--debug'):
-            debug += 1
-        elif opt in ('-c', '--create-users'):
-            create_users = True
-        elif opt in ('-u', '--update-accounts'):
-            update_accounts = True
-        elif opt in ('-s', '--student-info-file'):
-            student_info_file = val
-        elif opt in ('-e', '--emne-info-file'):
-            emne_info_file = val
-        elif opt in ('-p', '--paper-file'):
-            paper_money_file = val
-        elif opt in ('-S', '--studie-progs-file'):
-            studieprogs_file = val
-        elif opt in ('--recalc-pq',):
-            recalc_pq = True
-        elif opt in ('--remove-groupmembers',):
-            remove_groupmembers = True
-        elif opt in ('--with-quarantines',):
-            with_quarantines = True
-        elif opt in ('--with-diskquota',):
-            with_diskquota = True
-        elif opt in ('--posix-tables',):
-            posix_tables = True
-        elif opt in ('--move-users',):
-            move_users = True
-        elif opt in ('-C', '--studconfig-file'):
-            studconfig_file = val
-        elif opt in ('--reset-diskquota',):
-            reset_diskquota = True
-        elif opt in ('--fast-test',):  # Internal debug use ONLY!
-            fast_test = True
-        elif opt in ('--ou-perspective',):
-            ou_perspective = const.OUPerspective(val)
-            int(ou_perspective)   # Assert that it is defined
-        elif opt in ('--only-dump-results',):
-            only_dump_to = val
-        elif opt in ('--dryrun',):
-            dryrun = True
-        elif opt in ('--validate',):
-            validate = True
-            workdir = '.'
-        elif opt in ('--with-lpr',):
-            skip_lpr = False
-        elif opt in ('--workdir',):
-            workdir = val
-        elif opt in ('--type',):
-            _type = val
-        elif opt in ('--reprint',):
-            _range = val
-        else:
-            usage("Unimplemented option: " + opt)
+    # Parse arguments
+    parser = argparse.ArgumentParser(description=__doc__)
+    input_grp = parser.add_argument_group('Input files')
+    input_grp.add_argument(
+        '-s',
+        '--student-info-file')
+    input_grp.add_argument(
+        '-e',
+        '--emne-info-file')
+    input_grp.add_argument(
+        '-p', '--paper-file',
+        help='check for paid-quota only done if set')
+    input_grp.add_argument(
+        '-S',
+        '--studie-progs-file')
+    input_grp.add_argument(
+        '-C',
+        '--studconfig-file')
 
-    if recalc_pq and (update_accounts or create_users):
-        raise ValueError("recalc-pq cannot be combined with other operations")
+    act_group = parser.add_argument_group('Actions')
+    act_group.add_argument(
+        '-c', '--create-users',
+        action='store_true',
+        help='create new users',
+        default=False)
+    act_group.add_argument(
+        '-u', '--update-accounts',
+        action='store_true',
+        help='update existing accounts',
+        default=False)
+    act_group.add_argument(
+        '--recalc-pq',
+        action='store_true',
+        help='recalculate printerquota settings (does not update quota). '
+             'Cannot be combined with -c/-u',
+        default=False)
+    act_group.add_argument(
+        '--reset-diskquota',
+        action='store_true',
+        help='remove disk quota from users on student disks that did not get '
+             'a callback',
+        default=False)
 
+    parser.add_argument(
+        '-d', '--debug',
+        action='store_true',
+        help='increases debug verbosity',
+        default=False)
+    parser.add_argument(
+        '--remove-groupmembers',
+        action='store_true',
+        help='remove groupmembers if profile says so',
+        default=False)
+    parser.add_argument(
+        '--with-quarantines',
+        action='store_true',
+        help='Enables quarantine settings',
+        default=False)
+    parser.add_argument(
+        '--with-diskquota',
+        action='store_true',
+        default=False)
+    parser.add_argument(
+        '--posix-tables',
+        action='store_true',
+        default=False)
+    parser.add_argument(
+        '--move-users',
+        action='store_true',
+        help='move users if profile says so',
+        default=False)
+    parser.add_argument(
+        '--fast-test',
+        action='store_true',
+        default=False)
+    parser.add_argument(
+        '--dryrun',
+        action='store_true',
+        help='don\'t do any changes to the database. '
+             'This can be used to get an idea of what changes a normal run '
+             'would do. TODO: also dryrun some parts of update/create user.',
+        default=False)
+    parser.add_argument(
+        '--workdir',
+        help='set workdir for --reprint')
+    parser.add_argument(
+        '--ou-perspective',
+        help='set ou_perspective (default: perspective_fs)')
+    parser.add_argument(
+        '--validate',
+        action='store_true',
+        help='parse the configuration file and report any errors, then exit.',
+        default=False)
+
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    Cerebrum.logutils.autoconf('studauto', args)
+
+    # Set values according to arguments
+    debug = args.debug
+    create_users = args.create_users
+    update_accounts = args.update_accounts
+    remove_groupmembers = args.remove_groupmembers
+    with_quarantines = args.with_quarantines
+    with_diskquota = args.with_diskquota
+    posix_tables = args.posix_tables
+    move_users = args.move_users
+    fast_test = args.fast_test  # Internal debug use ONLY!
+
+    if args.student_info_file:
+        student_info_file = args.student_info_file
+    if args.emne_info_file:
+        emne_info_file = args.emne_info_file
+    if args.paper_file:
+        paper_money_file = args.paper_file
+    if args.studie_progs_file:
+        studieprogs_file = args.studie_progs_file
+    if args.studconfig_file:
+        studconfig_file = args.studconfig_file
+
+    if args.ou_perspective:
+        ou_perspective = const.OUPerspective(args.ou_perspective)
+        int(ou_perspective)  # Assert that it is defined
+    if args.validate:
+        workdir = '.'
+    if args.workdir:
+        workdir = args.workdir
     if workdir is None:
         workdir = "%s/ps-%s.%i" % (cereconf.AUTOADMIN_LOG_DIR,
                                    strftime("%Y-%m-%d", localtime()),
@@ -1460,83 +1338,32 @@ def main():
 
     logger = Factory.get_logger("studauto")
     bootstrap()
-    if validate:
+
+    if args.validate:
         validate_config()
         print("The configuration was successfully validated.")
         sys.exit(0)
-    if _range is not None:
-        make_letters("letters.info", type=_type, range=_range)
-        return
 
-    if not (recalc_pq or update_accounts or create_users or
-            reset_diskquota):
-        usage("No action selected")
+    with ParserContext(parser):
+        if args.recalc_pq and (args.update_accounts or args.create_users):
+            raise ValueError("recalc-pq cannot be combined with other "
+                             "operations")
+        if not (args.recalc_pq or args.update_accounts or args.create_users):
+            raise ValueError('No action selected')
 
-    start_process_students(recalc_pq=recalc_pq,
-                           update_create=(create_users or reset_diskquota))
-    if reset_diskquota:
-        process_noncallback_users(reset_diskquota=reset_diskquota)
+    start_process_students(recalc_pq=args.recalc_pq,
+                           update_create=(args.create_users or
+                                          args.reset_diskquota))
+    if args.reset_diskquota:
+        process_noncallback_users(reset_diskquota=args.reset_diskquota)
     logger.debug("all done")
 
-
-def usage(error=None):
-    if error:
-        print("Error:", error)
-    print("""Usage: process_students.py
-    Actions:
-      -c | --create-user: create new users
-      -u | --update-accounts: update existing accounts
-      --reprint range: re-print letters in case of paper-jam etc.
-        (comma separated)
-      --recalc-pq: recalculate printerquota settings (does not update
-        quota).  Cannot be combined with -c/-u
-      --reset-diskquota: remove disk quota from users on student disks
-        that did not get a callback
-
-    Input files:
-      -s | --student-info-file file:
-      -e | --emne-info-file file:
-      -C | --studconfig-file file:
-      -S | --studie-progs-file file:
-      -p | --paper-file file: check for paid-quota only done if set
-
-    Other settings:
-      --only-dump-results file: just dump results with pickle without
-        entering make_letters
-      --workdir dir:  set workdir for --reprint
-      --with-lpr: Spool the file with new user letters to printer
-
-    Action limiters/enablers:
-      --remove-groupmembers: remove groupmembers if profile says so
-      --move-users: move users if profile says so
-      --with-quarantines: Enables quarantine settings
-
-    Misc:
-      -d | --debug: increases debug verbosity
-      --ou-perspective code_str: set ou_perspective (default: perspective_fs)
-      --dryrun: don't do any changes to the database.  This can be used
-        to get an idea of what changes a normal run would do.  TODO:
-        also dryrun some parts of update/create user.
-      --validate: parse the configuration file and report any errors,
-        then exit.
-      --type type: set type (=the mal attribute to <brev> in studconfig.xml)
-        for --reprint
-
-To create new users:
-  ./contrib/no/uio/process_students.py -C .../studconfig.xml
-      -S .../studieprogrammer.xml -s .../merged_persons.xml -c
-
-To reprint letters of a given type:
-  ./contrib/no/uio/process_students.py --workdir tmp/ps-2003-09-25.1265
-      --type new_stud_account --reprint 1,2
-    """)
-    sys.exit(0)
 
 if __name__ == '__main__':
     if False:
         print("Profilerer...")
         prof = hotshot.Profile(proffile)
-        prof.runcall(main)                # profiler hovedprogrammet
+        prof.runcall(main)  # profiler hovedprogrammet
         prof.close()
     else:
         main()

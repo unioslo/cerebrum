@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,6 +32,7 @@ import string
 import mx
 import hashlib
 import base64
+import re
 
 import six
 
@@ -390,6 +391,8 @@ class AccountHome(object):
         do not end up with homedir rows without corresponding
         account_home entries.
         """
+        if home and re.search('[:*"?<>|]', home):
+            raise ValueError("Illegal character in disk path")
         binds = {'account_id': self.entity_id,
                  'home': home,
                  'disk_id': disk_id,
@@ -549,7 +552,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def deactivate(self):
         """Deactivate is commonly thought of as removal of spreads and setting
         of expire_date < today. in addition a deactivated account should not
-        have any group memberships."""
+        have any group memberships or a password."""
         group = Utils.Factory.get("Group")(self._db)
         self.expire_date = mx.DateTime.now()
         for s in self.get_spread():
@@ -560,6 +563,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             group.remove_member(self.entity_id)
             group.write_db()
         self.write_db()
+
+        self.delete_password()
 
     def delete(self):
         """Really, really remove the account, homedir, account types and the
@@ -741,6 +746,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         if notimplemented:
             raise Errors.NotImplementedAuthTypeError("\n".join(notimplemented))
 
+    def delete_password(self):
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=account_authentication]
+        WHERE account_id=:a_id""", {'a_id': self.entity_id})
+
     def encrypt_password(self, method, plaintext, salt=None, binary=False):
         """Returns the plaintext hashed according to the specified
         method.  A mixin for a new method should not call super for
@@ -767,7 +777,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             assert(isinstance(unicode_plaintext, six.text_type))
             utf8_plaintext = unicode_plaintext.encode('utf-8')
         if method in (self.const.auth_type_md5_crypt,
-                      self.const.auth_type_crypt3_des,
                       self.const.auth_type_sha256_crypt,
                       self.const.auth_type_sha512_crypt,
                       self.const.auth_type_ssha):
@@ -782,13 +791,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 else:
                     salt = Utils.random_string(2, saltchars)
             if method == self.const.auth_type_ssha:
-                # encodestring annoyingly adds a '\n' at the end of
-                # the string, and OpenLDAP won't accept that.
-                # b64encode does not, but it requires Python 2.4
-                return base64.encodestring(
+                return base64.b64encode(
                     hashlib.sha1(
                         utf8_plaintext + salt.encode('utf-8')
-                    ).digest() + salt.encode('utf-8')).strip().decode()
+                    ).digest() + salt.encode('utf-8')).decode()
             return crypt.crypt(
                 plaintext if binary else utf8_plaintext,
                 salt.encode('utf-8')).decode()
@@ -818,7 +824,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         """
         if method in (self.const.auth_type_md5_crypt,
                       self.const.auth_type_ha1_md5,
-                      self.const.auth_type_crypt3_des,
                       self.const.auth_type_sha256_crypt,
                       self.const.auth_type_sha512_crypt,
                       self.const.auth_type_md4_nt):
@@ -835,7 +840,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         """
         if method not in (self.const.auth_type_md5_crypt,
                           self.const.auth_type_ha1_md5,
-                          self.const.auth_type_crypt3_des,
                           self.const.auth_type_md4_nt,
                           self.const.auth_type_ssha,
                           self.const.auth_type_sha256_crypt,
@@ -1033,7 +1037,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                                   'auth_data': self._auth_info[k]})
             elif self.__in_db and what == 'update':
                 self.execute("""
-                DELETE FROM [:table schema=cerebrum name=account_authentication]
+                DELETE FROM 
+                  [:table schema=cerebrum name=account_authentication]
                 WHERE account_id=:acc_id AND method=:method""",
                              {'acc_id': self.entity_id, 'method': k})
 

@@ -49,7 +49,6 @@ import argparse
 from mx.DateTime import today, DateTimeDelta
 import os
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors

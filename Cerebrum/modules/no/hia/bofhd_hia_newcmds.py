@@ -29,10 +29,12 @@ from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import Note
+from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
                                          BofhdAuthRole)
+from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessCommands
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
@@ -40,11 +42,15 @@ from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
-from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd_requests.request import BofhdRequests
+from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.access_FS import FS
 from Cerebrum.modules.no.hia.bofhd_uia_auth import (
+    BofhdApiKeyAuth,
+    UiaAccessAuth,
     UiaAuth,
+    UiaBofhdRequestsAuth,
     UiaContactAuth,
     UiaEmailAuth,
 )
@@ -73,63 +79,32 @@ def date_to_string(date):
 
 # Helper methods from bofhd_uio_cmd
 uio_helpers = [
+    '_assert_group_deletable',
     '_entity_info',
     '_fetch_member_names',
     '_format_changelog_entry',
     '_format_from_cl',
-    '_get_access_id',
-    '_get_access_id_disk',
-    '_get_access_id_global_group',
-    '_get_access_id_global_ou',
-    '_get_access_id_group',
-    '_get_access_id_host',
-    '_get_access_id_ou',
     '_get_affiliation_statusid',
     '_get_affiliationid',
-    '_get_auth_op_target',
     '_get_cached_passwords',
-    '_get_disk',
     '_get_group_opcode',
-    '_get_host',
-    '_get_opset',
     '_get_posix_account',
     '_get_shell',
-    '_grant_auth',
     '_group_add',
     '_group_add_entity',
     '_group_count_memberships',
     '_group_remove',
     '_group_remove_entity',
-    '_list_access',
     '_lookup_old_uid',
-    '_manipulate_access',
     '_person_affiliation_add_helper',
     '_person_create_externalid_helper',
     '_remove_auth_role',
     '_remove_auth_target',
-    '_revoke_auth',
-    '_validate_access',
-    '_validate_access_disk',
-    '_validate_access_global_group',
-    '_validate_access_global_ou',
-    '_validate_access_group',
-    '_validate_access_ou',
     'user_set_owner_prompt_func',
 ]
 
 # Methods and commands from bofhd_uio_cmd
 copy_uio = [
-    'access_disk',
-    'access_global_group',
-    'access_global_ou',
-    'access_grant',
-    'access_group',
-    'access_list',
-    'access_list_opsets',
-    'access_ou',
-    'access_revoke',
-    'access_show_opset',
-    'access_user',
     'entity_history',
     'group_add',
     'group_add_entity',
@@ -142,6 +117,7 @@ copy_uio = [
     'group_list',
     'group_list_expanded',
     'group_memberships',
+    'group_memberships_expanded',
     'group_padd',
     'group_personal',
     'group_promote_posix',
@@ -152,11 +128,9 @@ copy_uio = [
     'group_set_expire',
     'group_set_visibility',
     'misc_affiliations',
-    'misc_cancel_request',
     'misc_check_password',
     'misc_clear_passwords',
     'misc_list_passwords',
-    'misc_list_requests',
     'misc_verify_password',
     'ou_info',
     'ou_search',
@@ -202,7 +176,6 @@ copy_uio = [
 ]
 
 copy_uio_hidden = [
-    'access_list_alterable',
     'group_multi_add',
     'person_name_suggestions',
     'get_constant_description',
@@ -285,16 +258,15 @@ class BofhdExtension(BofhdCommonMethods):
         bar = BofhdAuthRole(self.db)
         is_moderator = False
         for auth in bar.list(op_target_id=targets[0]['op_target_id']):
-            if (auth['entity_id'] == account.entity_id
-                    and auth['op_set_id'] == op_set.op_set_id):
+            if (auth['entity_id'] == account.entity_id and
+                    auth['op_set_id'] == op_set.op_set_id):
                 is_moderator = True
         if not is_moderator:
             return
 
         mapping = {int(self.const.spread_nis_user):
                    int(self.const.spread_nis_fg),
-                   int(self.const.spread_ans_nis_user):
-                   int(self.const.spread_ans_nis_fg)}
+                   }
         wanted = []
         for r in account.get_spread():
             spread = int(r['spread'])
@@ -374,7 +346,8 @@ class BofhdExtension(BofhdCommonMethods):
                                              "source_system")),
             ("Primary account: %s [%s]", ("prim_acc", 'prim_acc_status')),
             ("Primary email: %s", ("prim_email",))
-        ]))
+        ]),
+        perm_filter='can_view_person')
 
     def person_info(self, operator, person_id):
         co = self.const
@@ -382,6 +355,7 @@ class BofhdExtension(BofhdCommonMethods):
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
+        self.ba.can_view_person(operator.get_entity_id(), person)
         try:
             p_name = person.get_name(co.system_cached,
                                      getattr(co, cereconf.DEFAULT_GECOS_NAME))
@@ -813,7 +787,8 @@ class BofhdExtension(BofhdCommonMethods):
              ("quarantined",)),
             ("Note:          (#%d) %s: %s",
              ('note_id', 'note_subject', 'note_description'))
-        ]))
+        ]),
+        perm_filter='can_view_user')
 
     def user_info(self, operator, accountname):
         is_posix = False
@@ -822,8 +797,9 @@ class BofhdExtension(BofhdCommonMethods):
             is_posix = True
         except CerebrumError:
             account = self._get_account(accountname)
-        if (account.is_deleted()
-                and not self.ba.is_superuser(operator.get_entity_id())):
+        self.ba.can_view_user(operator.get_entity_id(), account)
+        if (account.is_deleted() and
+                not self.ba.is_superuser(operator.get_entity_id())):
             raise CerebrumError("User is deleted")
         affiliations = []
         for row in account.get_account_types(filter_expired=False):
@@ -905,11 +881,10 @@ class BofhdExtension(BofhdCommonMethods):
         now = DateTime.now()
         for q in account.get_entity_quarantine():
             if q['start_date'] <= now:
-                if (q['end_date'] is not None
-                        and q['end_date'] < now):
+                if q['end_date'] is not None and q['end_date'] < now:
                     quarantined = 'expired'
-                elif (q['disable_until'] is not None
-                        and q['disable_until'] > now):
+                elif (q['disable_until'] is not None and
+                      q['disable_until'] > now):
                     quarantined = 'disabled'
                 else:
                     quarantined = 'active'
@@ -937,6 +912,13 @@ class BofhdExtension(BofhdCommonMethods):
 
     def user_promote_posix(self, operator, accountname, dfg=None, shell=None,
                            home=None):
+        # Verify that account name is legal
+        pu = Factory.get('PosixUser')(self.db)
+        illegal_name = pu.illegal_name(accountname)
+        if illegal_name:
+            raise CerebrumError("Illegal account name given. Account name " +
+                                illegal_name)
+
         is_posix = False
         try:
             self._get_account(accountname, actype="PosixUser")
@@ -946,7 +928,6 @@ class BofhdExtension(BofhdCommonMethods):
         if is_posix:
             raise CerebrumError("%s is already a PosixUser" % accountname)
         account = self._get_account(accountname)
-        pu = Factory.get('PosixUser')(self.db)
         old_uid = self._lookup_old_uid(account.entity_id)
         if old_uid is None:
             uid = pu.get_free_uid()
@@ -1183,7 +1164,7 @@ class BofhdExtension(BofhdCommonMethods):
         posix_user = Factory.get('PosixUser')(self.db)
         uid = posix_user.get_free_uid()
         shell = self._get_shell(shell)
-        path = '/hia/ravn/u4'
+        path = '/hia/ravn/u5'
         disk_id, home = self._get_disk(path)[1:3]
         posix_user.clear()
         gecos = None
@@ -1245,9 +1226,9 @@ class BofhdExtension(BofhdCommonMethods):
         acc = Factory.get('Account')(self.db)
         acc.clear()
         acc.find(acc_id)
-        if (acc.is_employee() or acc.is_affiliate()
-                or self._person_is_employee_or_affiliate(acc.owner_id,
-                                                         operator)):
+        if (acc.is_employee() or acc.is_affiliate() or
+                self._person_is_employee_or_affiliate(acc.owner_id,
+                                                      operator)):
             if not acc.has_spread(self.const.spread_ans_radius_user):
                 acc.add_spread(self.const.spread_ans_radius_user)
                 acc.write_db()
@@ -1361,6 +1342,12 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_multi_remove(self, operator, member_type, src_name, dest_group):
         """ Remove a person, account or group from a given group. """
+        # If int in any of the names we assume the user intended to write an
+        # entity id and prefix it with id: for them
+        if isinstance(src_name, int):
+            src_name = 'id:' + text_type(src_name)
+        if isinstance(dest_group, int):
+            dest_group = 'id:' + text_type(dest_group)
         if member_type not in ('group', 'account', 'person'):
             return 'Unknown member_type %r' % (member_type)
         return self._group_remove(operator, src_name, dest_group,
@@ -1379,19 +1366,19 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
     parent_commands = True
     omit_parent_commands = {
         # Commands that are *not* included from BofhdEmailCommands
-        'email_create_multi',
-        'email_create_pipe',
-        'email_delete_domain',
+        'email_address_set_primary',
+        'email_domain_delete',
         'email_delete_forward_target',
-        'email_delete_multi',
-        'email_delete_pipe',
         'email_domain_set_description',
-        'email_edit_pipe_command',
-        'email_edit_pipe_user',
         'email_failure_message',
-        'email_list_pause',
+        'email_multi_create',
+        'email_multi_delete',
+        'email_pipe_create',
+        'email_pipe_delete',
+        'email_pipe_edit_command',
+        'email_pipe_edit_user',
         'email_pause',
-        'email_primary_address',
+        'email_pause_list',
     }
     authz = UiaEmailAuth
 
@@ -1487,6 +1474,19 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         et.email_server_id = es.entity_id
         et.write_db()
         return "OK, updated e-mail server for %s (to %s)" % (uname, server)
+
+
+class RequestCommands(bofhd_requests_cmds.BofhdExtension):
+    authz = UiaBofhdRequestsAuth
+
+
+class UiaAccessCommands(BofhdAccessCommands):
+    """This is the place for UiA specific bofhd access * commands"""
+    authz = UiaAccessAuth
+
+
+class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
+    authz = BofhdApiKeyAuth
 
 
 HELP_GROUPS = {

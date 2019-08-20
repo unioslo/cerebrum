@@ -863,7 +863,8 @@ def prefetch_primaryusers():
 
     person = Factory.get('Person')(db)
     fnr_source = {}
-    for row in person.list_external_ids(id_type=const.externalid_fodselsnr):
+    for row in person.search_external_ids(id_type=const.externalid_fodselsnr,
+                                          fetchall=False):
         p_id = int(row['entity_id'])
         fnr = row['external_id']
         src_sys = int(row['source_system'])

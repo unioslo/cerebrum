@@ -4,13 +4,17 @@
 """Constants for the VirtHome project.
 """
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Constants import (Constants, CLConstants, _ChangeTypeCode)
 from Cerebrum.Constants import _SpreadCode as SpreadCode
 from Cerebrum.Constants import _QuarantineCode as QuarantineCode
-from Cerebrum.modules.EntityTrait import _EntityTraitCode as EntityTrait
+from Cerebrum.modules.EntityTraitConstants import _EntityTraitCode as EntityTrait
+
+
+class BofhdVirtHomeAuthConstants(Constants):
+    pass
+# end BofhdVirtHomeAuthConstants
 
 
 class VirtHomeCLConstants(CLConstants):

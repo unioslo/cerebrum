@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2005 University of Oslo, Norway
@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
 
 """
 Updates the weight traits associated with the e-mail servers.  The
@@ -42,15 +40,15 @@ fullest server, the chance of being assigned more users will be twice
 that of the fullest server.
 """
 
+from __future__ import unicode_literals
+
 import sys
 import argparse
 import re
-import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.Email import EmailQuota, EmailServer
 
-del cerebrum_path
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)

@@ -25,7 +25,6 @@ interaction for voip.
 
 
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.modules.bofhd.cmd_param import Parameter

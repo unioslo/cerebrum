@@ -81,8 +81,6 @@ import getopt
 import re
 import sys
 
-import cerebrum_path
-getattr(cerebrum_path, 'This will shut the linters up', None)
 import cereconf
 
 from Cerebrum import Errors

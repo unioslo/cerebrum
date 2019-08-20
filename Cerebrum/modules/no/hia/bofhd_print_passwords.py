@@ -53,6 +53,10 @@ class BofhdExtension(base.BofhdExtension):
             ))
         mapping['fullname'] = 'group:%s' % grp.group_name
         mapping['birthdate'] = account.created_at.strftime('%Y-%m-%d')
+        try:
+            mapping['email_adr'] = account.get_primary_mailaddress()
+        except (Errors.NotFoundError, AttributeError):
+            mapping['email_adr'] = ''
         return mapping
 
     def _get_person_account_mappings(self, account, tmpl_type):
@@ -66,10 +70,18 @@ class BofhdExtension(base.BofhdExtension):
                 (self.const.system_fs, self.const.address_post_private)
             )
             address = mappers.get_person_address(person, address_lookups)
-            mappings.update(mappers.get_address_mappings(address))
+            if address:
+                mappings.update(mappers.get_address_mappings(address,
+                                                             self.const))
+            else:
+                mappings.update(dict.fromkeys(
+                    ('address_line2', 'address_line3', 'zip', 'city',
+                     'country'),
+                    ''
+                ))
             try:
                 mappings['email_adr'] = account.get_primary_mailaddress()
-            except Errors.NotFoundError:
+            except (Errors.NotFoundError, AttributeError):
                 mappings['email_adr'] = ''
         return mappings
 

@@ -135,7 +135,7 @@ Så, i rekkefølge:
   #. Sørg for at denne cereconf-en er på rett sted (PYTHONPATH må peke et sted
      der det finnes en cereconf.py som inneholder punktet over)::
 
-       $ python -c 'import cerebrum_path, cereconf; print cereconf.CEREBRUM_DATABASE_NAME'
+       $ python -c 'import cereconf; print cereconf.CEREBRUM_DATABASE_NAME'
 
   #. Så kan vi populere databasen med tomme tabeller. Det enkleste er å
      begynne fra scratch og bruke cere-utv01 / dbpg-cereutv.uio.no til
@@ -153,7 +153,7 @@ Så, i rekkefølge:
      rettigheter til å tildele andre rettigheter gjennom bofhd. Dette gjøres
      gjennom API-et::
 
-        import cerebrum_path, cereconf
+        import cereconf
         from Cerebrum.Utils import Factory
         db = Factory.get("Database")()
         db.cl_init(change_program='manual hack')
@@ -173,7 +173,7 @@ Så, i rekkefølge:
 
      deretter må passordet settes for webapp-brukeren::
 
-        import cerebrum_path, cereconf
+        import cereconf
         from Cerebrum.Utils import Factory
         db = Factory.get("Database")()
         db.cl_init(change_program='manual hack')

@@ -31,8 +31,9 @@ directory of the given instance.
 
 """
 
+from __future__ import unicode_literals
+
 group_help = {
-    'access': "Access (authorisation) related commands",
     'disk': "Disk related commands",
     'entity': "Entity commands",
     'group': "Group commands",
@@ -51,46 +52,6 @@ group_help = {
 # The texts in command_help are automatically line-wrapped, and should
 # not contain \n
 command_help = {
-    'access': {
-        'access_grant':
-            "Grant authorisation to perform the operations in opset "
-            "<set> on <entity> of type <type> to the members of group <group>."
-            "  The meaning of <attr> depends on <type>.",
-        'access_disk':
-            "List who's authorised to operate on disk <disk>",
-        'access_global_dns':
-            "List who's authorised to operate on all dns targets",
-        'access_global_group':
-            "List who's authorised to operate on all groups",
-        'access_global_host':
-            "List who's authorised to operate on all hosts",
-        'access_global_maildom':
-            "List who's authorised to operate on all e-mail domains",
-        'access_global_ou':
-            "List who's authorised to operate on all OUs",
-        'access_group':
-            "List who's authorised to operate on group <gname>",
-        'access_host':
-            "List who's authorised to operate on host <hostname>",
-        'access_dns':
-            "List who's authorised to operate on given dns target",
-        'access_list':
-            "List everything an account or group can operate on.  Only direct "
-            "ownership is reported: the entities an account can access "
-            "due to group memberships will not be listed.",
-        'access_list_opsets':
-            "List all operation sets",
-        'access_maildom':
-            "List who's authorised to operate on e-mail domain <domain>",
-        'access_ou':
-            "List who's authorised to operate on OU <ou>",
-        'access_revoke':
-            "Revoke authorisation",
-        'access_show_opset':
-            "List the operations included in the operation set",
-        'access_user':
-            "List who's authorised to operate on account <uname>",
-    },
     'disk': {
         "disk_list":
             "List the disks registered with a host.  A quota value in "
@@ -131,6 +92,8 @@ command_help = {
         'group_list_expanded':
             'List all members of a group, direct and indirect',
         'group_memberships': 'List all groups an entity is a member of',
+        'group_memberships_expanded':
+            'List all groups an entity is a member of, direct and indirect',
         'group_padd': 'Let a person join a group',
         'group_premove': 'Remove a person from a group',
         'group_personal': 'Create a new personal filegroup for an account',
@@ -150,43 +113,45 @@ command_help = {
         'group_set_visibility': 'Set visibility for a group',
     },
     'host': {
-        'host_info': "Show information about a host",
-        'host_disk_quota': "Set the default disk quota for a host",
+        'host_info': 'Show information about a host',
+        'host_disk_quota': 'Set the default disk quota for a host',
     },
-    "misc": {
-        "misc_affiliations":
-            "List all known affiliations",
-        "misc_cancel_request":
-            "Cancel a pending request",
-        "misc_change_request":
-            "Change execution time for a pending request",
-        "misc_check_password":
-            "Test the quality of a given password",
-        "misc_clear_passwords":
-            "Forget the passwords which have been set this session",
-        "misc_dadd":
-            "Register a new disk",
-        "misc_dls":
+    'misc': {
+        'misc_affiliations':
+            'List all known affiliations',
+        'misc_cancel_request':
+            'Cancel a pending request',
+        'misc_change_request':
+            'Change execution time for a pending request',
+        'misc_check_password':
+            'Test the quality of a given password',
+        'misc_clear_passwords':
+            'Forget the passwords which have been set this session',
+        'misc_dadd':
+            'Register a new disk',
+        'misc_dls':
             "Use 'disk list' instead",
-        "misc_drem":
-            "Remove a disk",
-        "misc_hadd":
-            "Register a new host",
-        "misc_hrem":
-            "Remove a host",
+        'misc_drem':
+            'Remove a disk',
+        'misc_hadd':
+            'Register a new host',
+        'misc_hrem':
+            'Remove a host',
         'misc_list_bofhd_request_types':
             'List the various types of operations that can be done via '
             'bofhd-requests',
-        "misc_list_passwords":
-            "View/print all the password altered this session",
-        "misc_reload":
-            "Re-read server config file (use with care)",
-        "misc_list_requests":
-            "View pending jobs",
-        "misc_samba_mount":
-            "Maps disk to logon-server (for use with Samba)",
-        "misc_verify_password":
-            "Check whether an account has a given password",
+        'misc_list_passwords':
+            'View/print all the password altered this session',
+        'misc_reload':
+            'Re-read server config file (use with care)',
+        'misc_list_requests':
+            'View pending jobs',
+        'misc_samba_mount':
+            'Maps disk to logon-server (for use with Samba)',
+        'misc_verify_password':
+            'Check whether an account has a given password',
+        'misc_password_issues':
+            'Find out why a password cannot be changed',
     },
     'ou': {
         'ou_search': 'Search for OUs by name or a partial stedkode',
@@ -258,15 +223,15 @@ command_help = {
     },
     'trait': {
         'trait_info':
-            "Display all traits associated with an entity",
+            'Display all traits associated with an entity',
         'trait_list':
-            "List all entities which have specified trait",
+            'List all entities which have specified trait',
         'trait_remove':
-            "Remove a trait from an entity",
+            'Remove a trait from an entity',
         'trait_set':
             "Add or update an entity's trait",
         'trait_types':
-            "List all defined trait types (not all are editable)",
+            'List all defined trait types (not all are editable)',
     },
     'user': {
         'user_affiliation_add': 'Add affiliation for an account',
@@ -281,8 +246,8 @@ command_help = {
         'user_find': 'Search for users',
         'user_gecos': 'Set gecos field for a user account',
         'user_history':
-            "Show history of the account with uname. Limited to users "
-            "subordinate to a privilege group the BOFH user is a member of",
+            'Show history of the account with uname. Limited to users '
+            'subordinate to a privilege group the BOFH user is a member of',
         'user_info': 'View general information about an account',
         'user_migrate_exchange': 'Migrate echange user',
         'user_migrate_exchange_finished':
@@ -309,9 +274,17 @@ arg_help = {
     'account_name':
         ['uname', 'Enter account name',
          'Enter the name of the account for this operation'],
+    'account_name_id_uid':
+        ['uname', 'Enter account name',
+         """Enter the name of the account for this operation. """
+         """Also accepts Entity id as id:xxx or UID as uid:xxx"""],
+    'account_name_id':
+        ['uname', 'Enter account name',
+         """Enter the name of the account for this operation."""
+         """Also accepts Entity id as id:xxx"""],
     'account_name_member':
         ['uname', 'Enter members account name',
-         "Enter the name of an account that already is a member"],
+         'Enter the name of an account that already is a member'],
     'account_name_src':
         ['uname', 'Enter source account name',
          'You should enter the name of the source account for this operation'],
@@ -342,14 +315,14 @@ arg_help = {
         ['command', 'Enter command line'],
     'date':
         ['date', 'Enter date (YYYY-MM-DD)',
-         "The legal date format is 2003-12-31"],
+         'The legal date format is 2003-12-31'],
     'datetime':
         ['datetime', 'Enter datetime YYYY-MM-DD(THH:MM)',
-         "The legal datetime format is 2003-12-31T16:00,\n"
-         "or simply 2003-12-31 (time then defaults to 00:00)"],
+         'The legal datetime format is 2003-12-31T16:00,\n'
+         'or simply 2003-12-31 (time then defaults to 00:00)'],
     'date_birth':
         ['date', 'Enter date of birth(YYYY-MM-DD)',
-         "The legal date format is 2003-12-31"],
+         'The legal date format is 2003-12-31'],
     'disk':
         ['/path/to/disk', 'Enter disk',
          "Enter the path to the disk without trailing slash or username.  "
@@ -391,6 +364,9 @@ arg_help = {
             - addrbook_visibility (H/V)"""],
     'group_name':
         ['gname', 'Enter groupname'],
+    'group_name_id':
+        ['gname', 'Enter groupname',
+         """Accepts group name or entity id of group as id:gid"""],
     'group_name_dest':
         ['dest_gname', 'Enter the destination group'],
     'group_name_new':
@@ -505,7 +481,7 @@ arg_help = {
     'ou':
         ['ou', 'Enter OU',
          'Enter the 6-digit code of the organizational unit the person is '
-         'affiliated to'],
+         'affiliated to. Example: 150300'],
     'ou_stedkode_or_id':
         ['ou', 'Enter OU stedkode/id',
          'Enter a 6-digit stedkode of an organizational unit, or id:? to '
@@ -566,10 +542,7 @@ arg_help = {
          - 'ou' (entity id)
          - 'studnr'
          - 'sapnr'
-         - 'passnr'
-         - 'ssn' (international social security number)
-         - 'taxid' (tax identification number)
-         - 'vatnr' (value added tax number)"""],
+         - 'passnr'"""],
     'posix_shell':
         ['shell', 'Enter shell',
          'Enter the required shell without path.  Example: bash'],
@@ -639,13 +612,13 @@ arg_help = {
          pc*,spread:AD_group  - list all AD groups whose names start with """
          "'pc'"],
     'string_host':
-        ['hostname', 'Enter hostname.  Example: ulrik'],
+        ['hostname', 'Enter hostname', 'Accepts hostname. Example: ulrik'],
     'string_new_priority':
         ['new_priority', 'Enter value new priority value',
          'Enter a positive integer (1..999), lower integers give higher '
          'priority'],
     'string_np_type':
-        ['np_type', 'Enter np_type',
+        ['np_type', 'Enter non-personal account type',
          """Type of non-personal account.  Valid values include:
          'kursbruker'  - Course related
          'programvare' - Software packages
@@ -662,6 +635,10 @@ arg_help = {
     'string_perm_target_type':
         ['type', 'Enter target type',
          'Legal types: host, disk, group'],
+    'string_perm_target_type_access':
+        ['type', 'Enter target type',
+         'Legal types: host, disk, group, dns, ou, maildom, global_host, '
+         'global_group, global_person, global_ou, global_dns, global_maildom'],
     'string_disk_status':
         ['disk_status', 'Enter disk status',
          'Legal values: archived create_failed not_created on_disk'],
@@ -716,6 +693,11 @@ arg_help = {
          - 'stedkode'
          - 'host'
          - 'disk'"""],
+    'user_set_owner_group_person':
+        ['', '',
+         "Person: accepts user name or Entity id of person as id:xxx. "
+         "Group: accepts group name or Entity id of group as id:xxx."],
+
     'yes_no_force':
         ['force', 'Force the operation?'],
     'yes_no_all_op':

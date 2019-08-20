@@ -80,7 +80,6 @@ NAMETYPES={'fn'       : "NAME_FULL",
 # leave the above "untouched".
 
 # Provide Constants:
-import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 co = Factory.get('Constants')(Factory.get('Database')())

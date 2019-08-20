@@ -18,10 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
-
-"""Script for generating the various host policy csv files that is related to
+"""
+Script for generating the various host policy csv files that is related to
 cfengine. It can be specified what files to generate. The documentation about
 the host policies are located at:
 
@@ -55,13 +53,16 @@ There are four different files:
         source_policy_name;relationship_code_str;target_policy_name
 
 The date format is: YYYY-MM-DD
+
 """
+
+from __future__ import unicode_literals
+
 import sys
 import os
 
 from six import text_type
 
-import cerebrum_path
 
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
@@ -70,7 +71,6 @@ from Cerebrum.modules.hostpolicy.PolicyComponent import Atom
 from Cerebrum.modules.hostpolicy.PolicyComponent import Role
 
 logger = Factory.get_logger('cronjob')
-del cerebrum_path
 
 
 def usage(exitcode=0):

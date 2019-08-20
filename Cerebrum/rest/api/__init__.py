@@ -37,14 +37,19 @@ from .routing import NormalizedUnicodeConverter
 
 
 db = _database.DatabaseContext()
+proxy_auth = _auth.ProxyAuth()
 auth = _auth.Authentication()
 
 
 def create_app(config=None):
     app = Flask(__name__)
     app.config.from_object('Cerebrum.rest.default_config')
+
+    trusted_hosts = []
     if config:
         app.config.from_object(config)
+        trusted_hosts = app.config.get('TRUSTED_HOSTS', [])
+
     app.config['RESTFUL_JSON'] = {'ensure_ascii': False, 'encoding': 'utf-8'}
     app.wsgi_app = ProxyFix(app.wsgi_app)
     logging.config.dictConfig(app.config['LOGGING'])
@@ -69,6 +74,7 @@ def create_app(config=None):
         g.request_start = time.time()
 
     db.init_app(app)
+    proxy_auth.init_app(app, db)
     auth.init_app(app, db)
 
     @app.after_request
@@ -76,13 +82,18 @@ def create_app(config=None):
         req_time = time.time() - g.request_start
         req_time_millis = int(round(req_time * 1000))
 
+        ip_log = list(request.access_route)
+        for ip in ip_log:
+            if ip in trusted_hosts:
+                ip_log.pop(ip_log.index(ip))
+
         app.logger.info('"{method} {path}" - {code} - {req_time}ms - {auth} - '
                         '{ip} - "{ua}"'.format(
                             method=request.method,
                             path=request.full_path,
                             code=response.status_code,
                             auth=text_type(auth.ctx.module),
-                            ip=request.remote_addr,
+                            ip=ip_log,
                             ua=request.user_agent,
                             req_time=req_time_millis))
         return response

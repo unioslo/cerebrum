@@ -72,13 +72,3 @@ class Constants(Constants.Constants):
     spread_lms_group = _SpreadCode(
         'group@lms', Constants.Constants.entity_group,
         'Gruppe kjent i LMSen til NiH')
-
-    # external id's for accounts, fetched from AD
-    externalid_adsid = _EntityExternalIdCode(
-        'ADSID',
-        Constants.Constants.entity_account,
-        'SID for account as registered in AD')
-    externalid_adguid = _EntityExternalIdCode(
-        'ADGUID',
-        Constants.Constants.entity_account,
-        'GUID for account as registered in AD')

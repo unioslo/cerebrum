@@ -180,26 +180,24 @@ class ADFullUserSync(ADutils.ADuserUtil):
                 'TEMPuname': row['name'],
                 'ACCOUNTDISABLE': False,
             }
-        self.logger.info("Fetched %i accounts with spread %r",
-                         len(tmp_ret), spread)
+        self.logger.debug("Fetched %i accounts with spread %r",
+                          len(tmp_ret), spread)
 
         #
         # Remove/mark quarantined users
         #
-        self.logger.debug("..filtering quarantined users..")
         self._filter_quarantines(tmp_ret)
-        self.logger.info("%i accounts with spread %r after filter",
-                         len(tmp_ret), spread)
+        self.logger.debug("%i accounts with spread %r after quarantine filter",
+                          len(tmp_ret), spread)
         a = 0
         for u in tmp_ret.itervalues():
             if u['ACCOUNTDISABLE']:
                 a += 1
-        self.logger.info("Number of disabled accounts: %i", a)
+        self.logger.debug("Number of disabled accounts: %i", a)
 
         #
         # Set person names
         #
-        self.logger.debug("..setting names..")
         pid2names = {}
         for row in self.person.search_person_names(
                 source_system=self.co.system_cached,
@@ -215,14 +213,12 @@ class ADFullUserSync(ADutils.ADuserUtil):
                 v['givenName'] = firstName.strip()
                 v['sn'] = lastName.strip()
                 v['displayName'] = "%s %s" % (firstName, lastName)
-        self.logger.info("Fetched %i person names", len(pid2names))
 
         #
         # Posix attributes
         #
         # This requires that the domain is first set up with the UNIX
         # attributes schema (msSFU30).
-        self.logger.debug("..setting posix info..")
         groupid2gid = dict((row['group_id'], row['posix_gid'])
                            for row in self.pg.list_posix_groups())
         posixusers = dict((row['account_id'], row)
@@ -286,13 +282,11 @@ class ADFullUserSync(ADutils.ADuserUtil):
         #
         # Set mail info
         #
-        self.logger.debug("..setting mail info..")
         self._update_mail_info(userdict_ret)
 
         #
         # Set home drive info
         #
-        self.logger.debug("..setting home drive info..")
         self._update_home_drive_info(userdict_ret, spread)
 
         #
@@ -316,7 +310,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
         # Find a list of all groups' SID, to be used when populating the posix
         # attribute for primary group for the user, as it reuquires the last
         # part of the SID.
-        self.logger.debug("Fetching group SIDs for posix, OU: %r",
+        self.logger.debug("Fetching group SIDs for posix, from OU: %r",
                           self.ad_ldap)
         self.groupsids = self.server.getObjectID(True, False, self.ad_ldap,
                                                  'group')
@@ -346,7 +340,7 @@ class ADFullUserSync(ADutils.ADuserUtil):
         # husk aa definere AD som kildesystem
         # TBD: Check if we create a new object for a entity that already
         # have a externalid_accountsid defined in the db and delete old?
-        self.logger.debug("Writing Sid for %r %r to database", objtype, name)
+        self.logger.debug("Writing SID for %r %r to database", objtype, name)
         if objtype == 'account' and not dry_run:
             self.ac.clear()
             self.ac.find_by_name(name)
@@ -772,7 +766,6 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
         #
         # Posix attributes
         #
-        self.logger.debug("..setting posix info..")
         groupid2gid = dict((row['group_id'], row['posix_gid'])
                            for row in self.pg.list_posix_groups())
         groupid2uids = dict()
@@ -995,7 +988,7 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
         """
         # TBD: Check if we create a new object for a entity that already
         # have an externalid_groupsid defined in the db and delete old?
-        self.logger.info("Writing Sid for %r %r to database",
+        self.logger.info("Writing SID for %r %r to database",
                          objtype, crbname)
         if objtype == 'group' and not dry_run:
             self.group.clear()
@@ -1130,7 +1123,6 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
                         member_type=self.co.entity_person):
                     primary = pe2primary.get(usr['member_id'], None)
                     if primary:
-                        self.logger.debug('Adding primary: %r', primary)
                         user_members.add(primary)
                     else:
                         self.logger.debug("Person %r has no primary account",
@@ -1204,7 +1196,6 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
                     else:
                         members.append("%s%s" % (entity2name[group_id],
                                                  cereconf.AD_GROUP_POSTFIX))
-                self.logger.debug("Group: %r: %d members", grp, len(members))
 
                 if sendDN_boost:
                     members_in_ad = ad_dict.get(grp, {}).get("member", [])
@@ -1258,8 +1249,9 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
                     else:
                         self.server.bindObject(dn)
                         if members_add:
-                            self.logger.info("Adding members to group %r (%r)",
-                                             grp, members_add)
+                            self.logger.info("Add %d members to group %r: %r…",
+                                             len(members_add), grp,
+                                             members_add[:50])
                             res = self.server.addMembers(members_add,
                                                          sendDN_boost)
                             if not res[0]:
@@ -1276,7 +1268,6 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
                                 self.logger.warning(
                                     "Removing members for group %r failed: %r",
                                     dn, res[1])
-
             else:
                 self.logger.warning(
                     "Group %r has no group_id. Not syncing members.", grp)
@@ -1383,25 +1374,24 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
                          sendDN_boost, full_membersync)
 
         # Fetch cerebrum data.
-        self.logger.info("Fetching cerebrum data...")
+        self.logger.debug("Fetching cerebrum data...")
         cerebrumdump = self.fetch_cerebrum_data(group_spread)
-        self.logger.info("Fetched %i groups with spread %r",
-                         len(cerebrumdump), group_spread)
+        self.logger.debug("Fetched %i groups with spread %r",
+                          len(cerebrumdump), group_spread)
 
         # Fetch AD data
-        self.logger.info("Fetching AD data...")
+        self.logger.debug("Fetching AD data...")
         addump = self.fetch_ad_data()
-        self.logger.info("Fetched %i ad-groups", len(addump))
+        self.logger.debug("Fetched %i ad-groups", len(addump))
 
         # Filter AD-list
-        self.logger.info("Filtering list of AD groups...")
         self.delete_and_filter(addump, cerebrumdump, dry_run, delete)
-        self.logger.info("Comparing %i ad-groups after filtering", len(addump))
+        self.logger.debug("Comparing %i ad-groups after filtering",
+                          len(addump))
 
         # Compare groups and attributes (not members)
-        self.logger.info("Syncing group info...")
         changelist = self.sync_group_info(addump, cerebrumdump, dry_run)
-        self.logger.info("Found %i number of group changes", len(changelist))
+        self.logger.debug("Found %i number of group changes", len(changelist))
 
         # Perform changes
         self.perform_changes(changelist, dry_run, store_sid)

@@ -40,7 +40,6 @@ import mx
 
 import six
 
-import cerebrum_path
 import cereconf
 
 

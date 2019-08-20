@@ -46,10 +46,6 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.Indigo import bofhd_go_help
-from Cerebrum.modules.bofhd.bofhd_contact_info import (
-    BofhdContactAuth,
-    BofhdContactCommands,
-)
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as base
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import ConnectException
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import TimeoutException
@@ -92,7 +88,6 @@ class IndigoEmailAuth(IndigoAuth, bofhd_email.BofhdEmailAuth):
 
 # Helper methods from uio
 copy_helpers = [
-    '_get_disk',
     '_entity_info',
     '_fetch_member_names',
     '_get_cached_passwords',
@@ -105,6 +100,7 @@ copy_helpers = [
 copy_uio = [
     'person_list_user_priorities',
     'group_memberships',
+    'group_memberships_expanded',
     'group_search',
     'group_list',
     'misc_list_passwords',
@@ -361,11 +357,13 @@ class BofhdExtension(BofhdCommonMethods):
             "Entity id:      %d\n"
             "Owner id:       %d\n"
             "Owner type:     %d\n",
-            ("entity_id", "owner_id", "owner_type")))
+            ("entity_id", "owner_id", "owner_type")),
+        perm_filter='can_view_user')
 
     def user_info(self, operator, entity_id):
         """ Account info. """
         account = self._get_account(entity_id)
+        self.ba.can_view_user(operator.get_entity_id(), account=account)
         return {'entity_id': account.entity_id,
                 'owner_id': account.owner_id,
                 'owner_type': account.owner_type}
@@ -996,8 +994,8 @@ class ContactCommands(bofhd_contact_info.BofhdContactCommands):
     bofhd_email.BofhdEmailCommands,
     'all_commands', 'all_commands',
     commands=[
-        'email_add_address',
-        'email_remove_address',
+        'email_address_add',
+        'email_address_remove',
         'email_info',
     ]
 )

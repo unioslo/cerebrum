@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2015 University of Oslo, Norway
+# Copyright 2015-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -48,6 +48,9 @@ class CIMDataSource(object):
         self.ou_perspective = self.co.OUPerspective(
             self.config.ou_perspective)
         self.spread = self.co.Spread(self.config.spread)
+        self.auth_system_lookup_order = [self.co.AuthoritativeSystem(sys) for
+                                         sys in
+                                         self.config.auth_system_lookup_order]
 
     def is_eligible(self, person_id):
         """Decide whether a person should be exported to CIM.
@@ -79,7 +82,7 @@ class CIMDataSource(object):
         person['username'] = self.ac.get_account_name()
 
         # Get and add first and last names from authoritative system
-        pe_names = self.pe.get_all_names()
+        pe_names = self.pe.get_names()
         names = self._attr_filter(
             'source_system', self.authoritative_system, pe_names)
         first_name_list = self._attr_filter(

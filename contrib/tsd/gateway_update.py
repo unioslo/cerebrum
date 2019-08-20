@@ -31,7 +31,6 @@ from __future__ import unicode_literals
 
 import six
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
@@ -39,7 +38,8 @@ from Cerebrum import Errors
 from Cerebrum.modules.dns.Errors import SubnetError
 
 # Parts of the DNS module raises bofhd exceptions. Need to handle this:
-from Cerebrum.modules import dns
+from Cerebrum.modules.dns import (IPv6Subnet, Subnet, AAAARecord, ARecord,
+                                  IPv6Utils)
 from Cerebrum.modules.tsd import Gateway
 
 # Global logger
@@ -47,9 +47,8 @@ logger = Factory.get_logger('cronjob')
 
 
 def print_config():
-    """Print cerebrum_path and cereconf."""
+    """Print cereconf."""
     # Mostly to get rid of linter errors
-    print('cererbum_path: {}'.format(cerebrum_path))
     print('cereconf: {}'.format(cereconf))
 
 
@@ -81,8 +80,8 @@ class Processor:
         self.ac = Factory.get('Account')(self.db)
         self.pu = Factory.get('PosixUser')(self.db)
         self.pg = Factory.get('PosixGroup')(self.db)
-        self.subnet6 = dns.IPv6Subnet.IPv6Subnet(self.db)
-        self.subnet = dns.Subnet.Subnet(self.db)
+        self.subnet6 = IPv6Subnet.IPv6Subnet(self.db)
+        self.subnet = Subnet.Subnet(self.db)
 
         if self.dryrun:
             logger.info("Dryrun sync, no gateway changes will be performed")
@@ -491,10 +490,10 @@ class Processor:
             host2project[hostname] = hostid2pid[record['dns_owner_id']]
             host2ips.setdefault(hostname, set()).add(record[ip_attr])
 
-        for row in dns.AAAARecord.AAAARecord(self.db).list_ext():
+        for row in AAAARecord.AAAARecord(self.db).list_ext():
             _collect(row, 'aaaa_ip')
 
-        for row in dns.ARecord.ARecord(self.db).list_ext():
+        for row in ARecord.ARecord(self.db).list_ext():
             _collect(row, 'a_ip')
 
         logger.debug2("Mapped %d hosts to projects", len(host2project))
@@ -546,7 +545,7 @@ class Processor:
 
         # ipv6 subnets
         for row in self.subnet6.search():
-            _collect(row, explode=dns.IPv6Utils.IPv6Utils.explode)
+            _collect(row, explode=IPv6Utils.IPv6Utils.explode)
 
         # ipv4 subnets
         for row in self.subnet.search():

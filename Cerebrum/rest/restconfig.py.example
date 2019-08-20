@@ -13,6 +13,9 @@ APPNAME = u"cerebrum-rest"
 # Flask-RESTful 404 suggestions
 ERROR_404_HELP = False
 
+# Trusted hosts
+TRUSTED_HOSTS = []
+
 AUTH = [
     # {
     #     'name': 'CertAuth',

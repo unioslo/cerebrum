@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2002-2018 University of Oslo, Norway
+#
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,95 +18,19 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This is the install script for the Cerebrum module.
-
-Placement of files when installing Cerebrum
--------------------------------------------
-
-NOTE: At least while developing, I recommend using "--prefix
-/cerebrum".  Otherwise all these paths are relative to / unless
-otherwise noted.
-
-/
-  README.md:       usr/share/cerebrum/doc/
-  COPYING:      usr/share/cerebrum/doc/
-
-Cerebrum/
-  */*.py:       under site-packages of the running python interpreter
-  cereconf.py:  etc/cerebrum/
-  */tests/*:    Not installed
-
-  Note that the entire Cerebrum/modules catalog is installed.
-  Site-specific components should assert that they do not use names
-  that clashes with the files distributed with Cerebrum, otherwise
-  they may be overwritten by a later installation.  The naming
-  syntax should be that of a reversed dns name with '.' replaced with
-  '/'.  E.g., for uio.no, the directory modules/no/uio is used.
-
-design/
-  *.sql:        usr/share/cerebrum/design/
-  *.html,*.dia: usr/share/cerebrum/doc/
-
-doc/
-  *:            Not installed
-
-testsuite/
-  *:            Not installed
-
-servers/bofhd/
-  bofhd.py:     usr/sbin/
-  config.dat:   etc/cerebrum/bofhd.config
-  *.py:         usr/share/cerebrum/bofhd (site-packages/modules/bofhd better?)
-
-clients/
-  *:            Not installed
-
-contrib/
-  generate_nismaps.py:  usr/sbin
-
-contrib/no
-  *.py:         usr/sbin
-contrib/no/uio
-  *.py:         usr/sbin
-
-contrib/no/uio/studit
-  *:            usr/share/cerebrum/studit
-
-
-Other directories/files:
-
-  var/log/cerebrum/:
-    All log-files for cerebrum, unless the number of files is above 4, when a
-    seperate directory should be created.
-
-  usr/share/cerebrum/data:
-    A number of subdirectories for various backends
-
-TODO:
-  comment on template config files (logging.ini, config.dat, cereconf.py)
-
-To install python modules in standard locations, and cerebrum files
-under /cerebrum, run like:
- python setup.py install install_data --install-dir=/cerebrum
-
-To get the files in /etc under /cerebrum/etc, add:
- --root=/cerebrum
-
-To build dist file:
- python setup.py sdist
-
 """
+Install script for the Cerebrum scipts and modules.
+"""
+
 import os
+import pwd
 import subprocess
 import sys
-import pwd
-from glob import glob
-
-from distutils import sysconfig
 from distutils.command import install_data
 from distutils.core import setup, Command
 from distutils.util import change_root, convert_path
-from setuptools.command.develop import develop
+from glob import glob
+
 import Cerebrum
 
 
@@ -121,19 +45,9 @@ cerebrum_user = "cerebrum"
 #
 prefix = './'  # Is this 'safeguard' really neccessary?
 sharedir = prefix + 'share'
-sbindir = prefix + 'sbin'
 bindir = prefix + 'bin'
-sysconfdir = prefix + os.path.join('etc', 'cerebrum')
-logdir = prefix + os.path.join('var', 'log', 'cerebrum')
-locale_dir = os.path.join(sys.prefix, 'share', 'locale')
-
-#
-# Files that never should overwite installed versions.
-# Example: Template config files, like cereconf.py, logging.ini
-#
-do_not_replace = ('design/cereconf.py',
-                  'servers/bofhd/config.dat',
-                  'design/logging.ini', )
+sbindir = prefix + 'sbin'
+default_locale_dir = os.path.join(sys.prefix, 'share', 'locale')
 
 
 def _execute_wrapper(*args):
@@ -141,41 +55,57 @@ def _execute_wrapper(*args):
 
 
 class LocaleInstaller(Command):
-    """ Abstract install class for building locales. """
+    """Abstract command class for installing gettext locales."""
 
     description = 'Compile and install locales'
     user_options = [
         ('locale-dir=', None, "Install directory for locale files."),
     ]
 
+    namespaces = tuple()
+
     def initialize_options(self):
-        self.locale_dir = locale_dir
+        self.locale_dir = default_locale_dir
 
     def finalize_options(self):
         pass
 
     def run(self):
-        pass
+        for namespace in self.namespaces:
+            self.announce('Installing locale namespace ' + repr(namespace))
+            self._install_locale_namespace(namespace)
 
     def _install_locale_namespace(self, namespace):
+        """
+        Builds and installs gettext translations from locales/
+
+        For each language directory in ``locales/*``:
+
+        - If a LC_MESSAGES/<namespace>.mo machine object file exists, it is
+          copied directly to the appopriate directory in *locale_dir*.
+        - Otherwise, if a LC_MESSAGES/<namespace>.po portable object source
+          file exists, it is compiled with *msgfmt* and written to
+          *locale_dir*
+        """
         # go through all top dirs in 'locales/'
-        lang_base = os.path.join(os.path.dirname(__file__), 'locales')
+        source_dir = os.path.join(os.path.dirname(__file__), 'locales')
         mo_basename = os.path.extsep.join((namespace, 'mo'))
         po_basename = os.path.extsep.join((namespace, 'po'))
-        for lang_dir in os.listdir(lang_base):
+        for lang in os.listdir(source_dir):
             # Source dir
-            messages_dir = os.path.join(lang_base, lang_dir, 'LC_MESSAGES')
+            messages_dir = os.path.join(source_dir, lang, 'LC_MESSAGES')
 
-            # the abs. path for this specific language
-            lang_path = os.path.join(self.locale_dir, lang_dir, 'LC_MESSAGES')
-            if not os.path.exists(lang_path):
+            # the absolute target path for this specific language
+            install_dir = os.path.join(self.locale_dir, lang, 'LC_MESSAGES')
+            if not os.path.exists(install_dir):
                 # create the path if it doesn't exist
-                os.makedirs(lang_path)
+                self.announce('Making locale dir ' + repr(install_dir))
+                os.makedirs(install_dir)
 
             mo_file = os.path.join(messages_dir, mo_basename)
             if os.path.isfile(mo_file):
                 # .mo file exists for this language. Use it!
-                self.copy_file(mo_file, lang_path)
+                self.copy_file(mo_file, install_dir)
                 continue
             # no .mo file found. See is there is a .po file
             po_file = os.path.join(messages_dir, po_basename)
@@ -184,35 +114,32 @@ class LocaleInstaller(Command):
                 self.execute(_execute_wrapper,
                              ('msgfmt',
                               '-o',
-                              os.path.join(lang_path, mo_basename),
+                              os.path.join(install_dir, mo_basename),
                               po_file))
                 continue
-            self.warn('No locale for {!r} in language {!r}'.format(namespace,
-                                                                   lang_dir))
-
-
-class CerebrumDevelop(develop):
-    def run(self):
-        self.run_command('install_locales')
+            self.warn('Missing locale files for {namespace!r} in '
+                      'language {lang!r}'.format(namespace=namespace,
+                                                 lang=lang))
 
 
 class CerebrumLocales(LocaleInstaller):
-    def run(self):
-        self._install_locale_namespace('cerebrum')
+    """
+    Build and install gettext locales.
+    """
+    namespaces = ('cerebrum', )
 
 
-class my_install_data(install_data.install_data, object):
-    """ Custom install_data class. """
+class CerebrumData(install_data.install_data, object):
+    """
+    Custom class to install files from the data_files argument to setup().
+
+    The class adds support for:
+    - wildcards (* glob pattern) in filenames
+    - setting ownership and permissions for both files and directories
+    """
 
     def finalize_options(self):
-        """ Prepare my_install_data options.
-
-        This function adds wildcard support for filenames.
-        It also generates the cerebrum_path.py file (allthough this should
-        probably be performed by the run() method...
-
-        """
-        super(my_install_data, self).finalize_options()
+        super(CerebrumData, self).finalize_options()
 
         # Wildcard lookup.
         #
@@ -231,47 +158,6 @@ class my_install_data(install_data.install_data, object):
                     fdata.pop(i)
                     i -= 1
                 i += 1
-
-        # Remove files from data_files already exists in the target location,
-        # and are in the `do_not_replace' list.
-        for ldata, fdata in self.data_files:
-            path = os.path.realpath(os.path.join(self.install_dir,
-                                                 ldata.get('path')))
-            for fn, mode in fdata[:]:
-                # We iterate through a copy, so that fdata.remove() won't break
-                # the loop
-                if fn in do_not_replace and os.path.exists(
-                        os.path.join(path, os.path.basename(fn))):
-                    print "Ignoring '%s', already exists in '%s'" % (
-                        fn, path)
-                    fdata.remove((fn, mode))
-
-        # cerebrum_path.py.in -> cerebrum_path.py
-        # TODO/FIXME: We should do this smarter. If sysconfig.get_python_lib()
-        # is writeable by the user, we should try to install the
-        # cerebrum_path.py file. uid != null is not a good test.
-        #
-        # This is all very hacky and weird
-        if(os.geteuid() != 0):
-            print "Warning, uid!=0, not writing cerebrum_path.py"
-            return
-        f_in = open("cerebrum_path.py.in", "r")
-        cere_path = os.path.join(
-            sysconfig.get_python_lib(),
-            "cerebrum_path.py")
-        if self.root:
-            cere_path = os.path.normpath(cere_path)
-            if os.path.isabs(cere_path):
-                cere_path = cere_path[1:]
-            cere_path = os.path.join(self.root, cere_path)
-        f_out = open(cere_path, "w")
-        python_dir = sysconfig.get_python_lib(prefix=self.install_dir)
-        for line in f_in.readlines():
-            line = line.replace("@CONFDIR@", sysconfdir)
-            line = line.replace("@PYTHONDIR@", python_dir)
-            f_out.write(line)
-        f_in.close()
-        f_out.close()
 
     def run(self):
         self.mkpath(self.install_dir)
@@ -309,9 +195,14 @@ class my_install_data(install_data.install_data, object):
                         os.chown(out, uid, gid)
             self.run_command('install_locales')
 
+
 #
 # Files to install
 #
+bin_files = [
+    ('clients/job-runner-cli.py', 0755),
+]
+
 sbin_files = [
     ('servers/job_runner/job_runner.py', 0755),
     ('makedb.py', 0755),
@@ -322,15 +213,10 @@ sbin_files = [
     ('servers/cis/SoapIndividuationServer.py', 0755),
     ('servers/cis/SoapPostmasterServer.py', 0755),
     ('servers/cis/SoapGroupServer.py', 0755),
-    ('servers/cis/SoapServer.py', 0755),
     ('consumers/no/uio/tiny_scheduler.py', 0755),
     ('consumers/no/uio/consumer_sap.py', 0755),
     ('consumers/no/uio/consumer_enforce_forward_policy.py', 0755)
 ]
-
-bin_files = []
-
-share_files = []
 
 data_files = [
     ({'path': "%s/cerebrum/design" % sharedir,
@@ -345,6 +231,9 @@ data_files = [
       ('design/adminprotocol.html', 0644),
       ('README.md', 0644),
       ('COPYING', 0644), ]),
+    ({'path': bindir,
+      'owner': cerebrum_user,
+      'mode': 0755}, bin_files),
     ({'path': sbindir,
       'owner': cerebrum_user,
       'mode': 0755}, sbin_files),
@@ -364,6 +253,10 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/dns-info/*.py', 0755)]),
+    ({'path': "%s/cerebrum/contrib/disk-quota" % sharedir,
+      'owner': cerebrum_user,
+      'mode': 0755},
+     [('contrib/disk-quota/*.py', 0755)]),
     ({'path': "%s/cerebrum/contrib/hostpolicy" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
@@ -372,6 +265,10 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/migrate/*.py', 0755)]),
+    ({'path': "%s/cerebrum/contrib/nis" % sharedir,
+      'owner': cerebrum_user,
+      'mode': 0755},
+     [('contrib/nis/*.py', 0755)]),
     ({'path': "%s/cerebrum/contrib/no" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
@@ -404,6 +301,14 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/no/uio/printer_quota/*.py', 0755)]),
+    ({'path': "%s/cerebrum/contrib/no/uit" % sharedir,
+      'owner': cerebrum_user,
+      'mode': 0755},
+     [('contrib/no/uit/*.py', 0755)]),
+    ({'path': "%s/cerebrum/contrib/no/uit/misc/" % sharedir,
+      'owner': cerebrum_user,
+      'mode': 0755},
+     [('contrib/no/uit/misc/*.py', 0755)]),
     ({'path': "%s/cerebrum/contrib/no/hia" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
@@ -424,23 +329,6 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/tsd/*.py', 0755)]),
-    ({'path': bindir,
-      'owner': cerebrum_user,
-      'mode': 0755}, bin_files),
-    ({'path': sysconfdir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     [('design/cereconf.py', 0644),
-      ('servers/bofhd/config.dat', 0644),
-      ('design/logging.ini', 0644), ]),
-    ({'path': logdir,
-      'owner': cerebrum_user,
-      'mode': 0750},
-     []),
-    ({'path': "%s/cerebrum/data" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     []),
 ]
 
 
@@ -455,7 +343,7 @@ setup(
     long_description=("System for semi-automatic user "
                       "administration in a heterogenous "
                       "environment"),
-    platforms = "UNIX",
+    platforms="UNIX",
     # NOTE: all scripts ends up in the same dir!
     # scripts = ['contrib/no/uio/import_FS.py',
     # 'contrib/generate_nismaps.py'],
@@ -467,22 +355,27 @@ setup(
         'Cerebrum/modules',
         'Cerebrum/modules/ad',
         'Cerebrum/modules/ad2',
+        'Cerebrum/modules/apikeys',
         'Cerebrum/modules/audit',
         'Cerebrum/modules/statsd',
         'Cerebrum/modules/celery_tasks',
         'Cerebrum/modules/celery_tasks/apps',
         'Cerebrum/modules/consent',
         'Cerebrum/modules/cim',
+        'Cerebrum/modules/disk_quota',
         'Cerebrum/modules/dns',
+        'Cerebrum/modules/entity_expire',
         'Cerebrum/modules/event',
         'Cerebrum/modules/event/clients',
         'Cerebrum/modules/event_consumer',
         'Cerebrum/modules/event_publisher',
         'Cerebrum/modules/exchange',
         'Cerebrum/modules/feide',
+        'Cerebrum/modules/fs',
         'Cerebrum/modules/gpg',
         'Cerebrum/modules/hostpolicy',
         'Cerebrum/modules/bofhd',
+        'Cerebrum/modules/bofhd_requests',
         'Cerebrum/modules/guest',
         'Cerebrum/modules/job_runner',
         'Cerebrum/modules/no',
@@ -492,12 +385,12 @@ setup(
         'Cerebrum/modules/no/uio/voip',
         'Cerebrum/modules/no/uio/AutoStud',
         'Cerebrum/modules/no/uio/exchange',
-        'Cerebrum/modules/no/uio/SoapAPI',
         'Cerebrum/modules/no/hia',
         'Cerebrum/modules/no/hia/exchange',
         'Cerebrum/modules/no/hiof',
         'Cerebrum/modules/no/nmh',
         'Cerebrum/modules/no/nih',
+        'Cerebrum/modules/no/uit',
         'Cerebrum/modules/password_notifier',
         'Cerebrum/modules/password_generator',
         'Cerebrum/modules/posix',
@@ -532,16 +425,7 @@ setup(
 
     # Overridden command classes
     cmdclass={
-        'install_data': my_install_data,
+        'install_data': CerebrumData,
         'install_locales': CerebrumLocales,
-        'develop': CerebrumDevelop,
-    }
-)
-
-setup(
-    name='ClientAPI',
-    packages=['ClientAPI'],
-    cmdclass={
-        'install_locales': LocaleInstaller,
     }
 )

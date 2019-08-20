@@ -25,7 +25,7 @@ Functionality for the Individuation project that is specific to NIH.
 
 from __future__ import unicode_literals
 
-import cereconf, cerebrum_path
+import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 

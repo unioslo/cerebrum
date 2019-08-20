@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2017 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,14 +25,21 @@ Address, Gender etc. type.
 
 """
 from Cerebrum import Constants
-from Cerebrum.modules.PosixUser import _PosixShellCode
-from Cerebrum.modules import Email
-from Cerebrum.modules.EntityTrait import _EntityTraitCode
+from Cerebrum.modules.PosixConstants import _PosixShellCode
+from Cerebrum.modules import EmailConstants
+from Cerebrum.modules.EntityTraitConstants import _EntityTraitCode
+from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
 from Cerebrum.modules.consent import Consent
 from Cerebrum.modules.dns import DnsConstants
 
 
 class Constants(Constants.Constants):
+
+    #
+    # Bofhd Auth
+    #
+    auth_set_password_important = _AuthRoleOpCode(
+        'set_password_imp', 'Set password for important/critical accounts')
 
     #
     # Authoritative systems/source systems
@@ -81,10 +88,6 @@ class Constants(Constants.Constants):
         affiliation_ansatt,
         'bilag',
         'Bilagslønnet')
-    affiliation_status_ansatt_ltreg = Constants._PersonAffStatusCode(
-        affiliation_ansatt,
-        'ltreg',
-        'Registert som gjest, utdatert')
     affiliation_status_ansatt_tekadm = Constants._PersonAffStatusCode(
         affiliation_ansatt,
         'tekadm',
@@ -309,9 +312,6 @@ class Constants(Constants.Constants):
     posix_shell_sftp_server = _PosixShellCode(
         'sftp-server',
         '/local/openssh/libexec/sftp-server')
-    posix_shell_simonshell = _PosixShellCode(
-        'simonshell',
-        '/hom/simon/simonshell')
     posix_shell_sh = _PosixShellCode(
         'sh',
         '/bin/sh')
@@ -460,9 +460,6 @@ class Constants(Constants.Constants):
     quarantine_teppe = Constants._QuarantineCode(
         'teppe',
         'Kalt inn på teppet til drift')
-    quarantine_slutta = Constants._QuarantineCode(
-        'slutta',
-        'Personen har slutta')
     quarantine_system = Constants._QuarantineCode(
         'system',
         'Systembrukar som ikke skal logge inn')
@@ -536,38 +533,39 @@ class Constants(Constants.Constants):
     #
     # Email domains
     #
-    email_domain_category_uio_globals = Email._EmailDomainCategoryCode(
-        'UIO_GLOBALS',
-        "All local_parts defined in domain 'UIO_GLOBALS' are treated"
-        " as overrides for all domains posessing this category.")
+    email_domain_category_uio_globals = \
+        EmailConstants._EmailDomainCategoryCode(
+            'UIO_GLOBALS',
+            "All local_parts defined in domain 'UIO_GLOBALS' are treated"
+            " as overrides for all domains posessing this category.")
 
     #
     # Email spam settings
     #
-    email_spam_level_none = Email._EmailSpamLevelCode(
+    email_spam_level_none = EmailConstants._EmailSpamLevelCode(
         'no_filter',
         9999,
         "No email will be filtered as spam")
-    email_spam_level_standard = Email._EmailSpamLevelCode(
+    email_spam_level_standard = EmailConstants._EmailSpamLevelCode(
         'standard_spam',
         7,
         "Only filter email that obviously is spam")
-    email_spam_level_heightened = Email._EmailSpamLevelCode(
+    email_spam_level_heightened = EmailConstants._EmailSpamLevelCode(
         'most_spam',
         5,
         "Filter most emails that look like spam")
-    email_spam_level_aggressive = Email._EmailSpamLevelCode(
+    email_spam_level_aggressive = EmailConstants._EmailSpamLevelCode(
         'aggressive_spam',
         3,
         "Filter everything that resembles spam")
 
-    email_spam_action_none = Email._EmailSpamActionCode(
+    email_spam_action_none = EmailConstants._EmailSpamActionCode(
         'noaction',
         "Deliver spam just like legitimate email")
-    email_spam_action_folder = Email._EmailSpamActionCode(
+    email_spam_action_folder = EmailConstants._EmailSpamActionCode(
         'spamfolder',
         "Deliver spam to a separate IMAP folder")
-    email_spam_action_delete = Email._EmailSpamActionCode(
+    email_spam_action_delete = EmailConstants._EmailSpamActionCode(
         'dropspam',
         "Reject messages classified as spam")
 
@@ -582,25 +580,8 @@ class Constants(Constants.Constants):
 
     trait_email_pause = _EntityTraitCode(
         'email_pause',
-        Email.EmailConstants.entity_email_target,
+        EmailConstants.EmailConstants.entity_email_target,
         'Pauses delivery of email')
-
-    #
-    # Traits
-    #
-    # TBD: These may fit better into mod_disk_quota as actual mixin
-    # tables for disk_info and host_info
-    trait_host_disk_quota = _EntityTraitCode(
-        'host_disk_quota',
-        Constants.Constants.entity_host,
-        "The default quota each user gets for disks on this host, "
-        "stored in numval.")
-    trait_disk_quota = _EntityTraitCode(
-        'disk_quota',
-        Constants.Constants.entity_disk,
-        "The existence of this trait means this disk has quota. "
-        "numval contains the default quota.  If it is NULL, the default "
-        "quota value is taken from the host_disk_quota trait.")
 
     # Owner trait for GuestUsers module.
     trait_uio_guest_owner = _EntityTraitCode(
@@ -660,11 +641,27 @@ class Constants(Constants.Constants):
     #
     # Consents
     #
+
+    # Office 365
     consent_office365 = Consent.Constants.EntityConsent(
         'office365',
         entity_type=Constants.Constants.entity_person,
         consent_type=Consent.Constants.consent_opt_in,
         description="Export to office365?")
+
+    # Gsuite
+    consent_gsuite = Consent.Constants.EntityConsent(
+        'gsuite',
+        entity_type=Constants.Constants.entity_person,
+        consent_type=Consent.Constants.consent_opt_in,
+        description="Export to Google for Education")
+
+    # cristin
+    consent_cristin = Consent.Constants.EntityConsent(
+        'cristin',
+        entity_type=Constants.Constants.entity_person,
+        consent_type=Consent.Constants.consent_opt_in,
+        description="Export to Cristin")
 
     #
     # DNS Zones

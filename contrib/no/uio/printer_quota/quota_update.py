@@ -254,8 +254,9 @@ def get_bet_fritak_utv_data(sysname, person_file):
     sap_ansattnr2pid = {}
     roller_fritak = cereconf.PQUOTA_ROLLER_FRITAK
 
-    for p in person.list_external_ids(source_system=const.system_sap,
-                                      id_type=const.externalid_sap_ansattnr):
+    for p in person.search_external_ids(source_system=const.system_sap,
+                                        id_type=const.externalid_sap_ansattnr,
+                                        fetchall=False):
         sap_ansattnr2pid[p['external_id']] = int(p['entity_id'])
 
     # Parse person file
@@ -404,8 +405,9 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
 
     # Mappe fødselsnummer til person-id
     fnr2pid = {}
-    for p in person.list_external_ids(source_system=const.system_fs,
-                                      id_type=const.externalid_fodselsnr):
+    for p in person.search_external_ids(source_system=const.system_fs,
+                                        id_type=const.externalid_fodselsnr,
+                                        fetchall=False):
         fnr2pid[p['external_id']] = int(p['entity_id'])
 
     # Dr.grads studenter har fritak

@@ -70,7 +70,6 @@ shell!
 import getopt
 import sys
 
-import cerebrum_path
 import adconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.ad2.ADUtils import ADclient

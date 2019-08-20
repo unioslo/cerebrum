@@ -25,7 +25,6 @@ import time
 import sys
 import base64
 
-import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email

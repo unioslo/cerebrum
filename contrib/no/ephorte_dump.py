@@ -115,7 +115,8 @@ def ephorte_export(spread_id, filename):
         ou.clear()
         ou.find(int(ou.root()[0]['ou_id']))
         f.write(xml.xml_hdr + "<persons>\n")
-        f.write("<orgid>%s</orgid>\n" % ou.acronym.lower())
+        f.write("<orgid>%s</orgid>\n" % ou.get_language_with_name(
+            co.ou_name_acronym, co.language_nb).lower())
         for row in account.list_all_with_spread(spread_id):
             f.write("<person>\n")
             export_account(f, row['entity_id'])
@@ -143,7 +144,7 @@ def main():
     spread = co.human2constant(args.spread, co.Spread)
     if spread is None:
         raise SystemExit("Spread not found ({!r})".format(args.spread))
-    if spread.entity_type is not const.entity_account:
+    if spread.entity_type is not co.entity_account:
         raise SystemExit("Spread must be an account spread.")
     ephorte_export(int(spread), args.filename)
 

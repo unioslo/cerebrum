@@ -29,7 +29,6 @@ from __future__ import unicode_literals
 
 import six
 
-import cerebrum_path
 import cereconf
 
 from mx import DateTime

@@ -27,7 +27,6 @@ when the functionality needed by TSD has settled.
 
 """
 
-import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors

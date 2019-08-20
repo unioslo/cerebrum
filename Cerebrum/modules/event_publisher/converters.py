@@ -407,14 +407,10 @@ def entity_external_id(msg, db=None, **kwargs):
         # c.externalid_accountsid: 'sid',
         c.externalid_fodselsnr: 'nationalIdNumber',
         c.externalid_pass_number: 'passNumber',
-        c.externalid_social_security_number: 'socialSecurityNumber',
-        c.externalid_tax_identification_number: 'taxIdNumber',
-        c.externalid_value_added_tax_number: 'vatNumber',
         c.externalid_studentnr: 'studentNumber',
         c.externalid_sap_ansattnr: 'employeeNumber',
         c.externalid_sap_ou: 'sapOu',
         c.externalid_uname: 'externalUsername',
-        c.externalid_stedkode: 'OuCode',
     }.get(x) or six.text_type(x).capitalize()
 
     common = _make_common_args(msg)

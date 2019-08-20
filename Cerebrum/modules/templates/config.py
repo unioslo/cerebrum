@@ -23,6 +23,7 @@ from __future__ import absolute_import, unicode_literals
 
 import os
 import sys
+
 from six import text_type
 
 from Cerebrum.config.configuration import (ConfigDescriptor,
@@ -31,10 +32,20 @@ from Cerebrum.config.settings import String, Iterable, Setting
 from Cerebrum.config import loader
 
 DEFAULT_TEMPLATES_CONFIG = 'templates'
-DEFAULT_TEMPLATE_FOLDERS = [
-    os.path.join(sys.prefix, 'etc', 'cerebrum', 'base-templates'),
-    os.path.join(sys.prefix, 'etc', 'cerebrum', 'templates'),
-]
+
+# Make it possible to override sys.prefix for configuration path purposes
+sys_prefix = os.getenv('CEREBRUM_SYSTEM_PREFIX', sys.prefix)
+
+# make it possible to override default_template_folders in a dev. environment
+default_template_folders_env = os.getenv('CEREBRUM_DEFAULT_TEMPLATE_FOLDERS')
+
+if default_template_folders_env is None:
+    default_template_folders = [
+        os.path.join(sys_prefix, 'etc', 'cerebrum', 'base-templates'),
+        os.path.join(sys_prefix, 'etc', 'cerebrum', 'templates'),
+    ]
+else:
+    default_template_folders = default_template_folders_env.split(':')
 
 DEFAULT_RENDER_PDF_CMD = '/usr/bin/chromium-browser --headless --no-margins' \
                          '--disable-gpu --print-to-pdf={dest} file://{src}'
@@ -85,7 +96,7 @@ class TemplatesConfig(Configuration):
 
     template_folders = ConfigDescriptor(
         Iterable,
-        default=DEFAULT_TEMPLATE_FOLDERS,
+        default=default_template_folders,
         doc="Folders containing template files")
 
     render_pdf_cmd = ConfigDescriptor(

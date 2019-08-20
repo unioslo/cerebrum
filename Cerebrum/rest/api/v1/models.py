@@ -68,6 +68,8 @@ EntityOwner = api.model('EntityOwner', {
         description='Entity type'),
     'href': fields.UrlFromEntityType(
         description='URL to resource'),
+    'name': fields.base.String(
+        description='Name'),
 })
 
 
@@ -78,7 +80,6 @@ class ExternalIdType(object):
         'NO_BIRTHNO': 'norwegianNationalId',
         'PASSNR': 'passportNumber',
         'NO_SAPNO': 'employeeNumber',
-        'SSN': 'socialSecurityNumber',
         'NO_STUDNO': 'studentNumber',
     }
 

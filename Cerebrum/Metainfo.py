@@ -33,20 +33,55 @@ class Metainfo(object):
         self.db = database
 
     def get_metainfo(self, name):
+        """List version number of module name
+
+        :type name: basestring
+        :param name: Module name e.g sqlmodule_bofhd_auth
+
+        :rtype: basestring or tuple
+        :return: version number
+        """
         value = self.db.query_1("""
         SELECT value
         FROM [:table schema=cerebrum name=cerebrum_metainfo]
         WHERE name=:name""", {'name': name})
-        return pickle.loads(str(value))
+        # If it is not saved in the old format pickle.loads() should fail and
+        # we simply return the string as it is instead.
+        try:
+            return_value = pickle.loads(str(value))
+        except Exception:
+            return_value = str(value)
+        return return_value
 
     def list(self):
-        return [(row['name'], pickle.loads(str(row['value'])))
-                for row in self.db.query("""
+        """List the modules with version numbers in cerebrum_metainfo
+
+        :rtype: list
+        :return: modules on form [('module name', 'version number'), (), ... ]
+        """
+        modules = self.db.query("""
         SELECT name, value
-        FROM [:table schema=cerebrum name=cerebrum_metainfo]""")]
+        FROM [:table schema=cerebrum name=cerebrum_metainfo]""")
+        # Try doing the old method first. If that fails we assume that the
+        # switch from pickle serialized values to regular strings has happened.
+        try:
+            return_list = [(row['name'], pickle.loads(str(row['value']))) for
+                           row in modules]
+        except Exception:
+            return_list = [(row['name'], row['value']) for row in modules]
+        return return_list
 
     def set_metainfo(self, name, value):
-        value = pickle.dumps(value)
+        """Set the version number of a module in the cerebrum_metainfo table
+
+        :type name: basestring
+        :param name: Modulename e.g 'sqlmodule_bofhd_auth'
+
+        :type value: basestring
+        :param value: version number e.g '0.9.20'
+        """
+        if isinstance(value, tuple):
+            value = '.'.join(map(str, value))
         try:
             self.get_metainfo(name)
             self.db.execute("""

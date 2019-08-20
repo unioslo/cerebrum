@@ -126,7 +126,9 @@ def _mangle_name(classname, attr):
         raise ValueError("Invalid class name string: '%s'" % classname)
     # Attribute name starts with at least two underscores, and
     # ends with at most one underscore and is not all underscores
-    if (attr.startswith("__") and not attr.endswith("__")) and (classname.count("_") != len(classname)):
+    if (attr.startswith("__") and
+            not attr.endswith("__") and
+            classname.count("_") != len(classname)):
         # Strip leading underscores from classname.
         return "_" + classname.lstrip("_") + attr
     return attr
@@ -160,7 +162,11 @@ def read_password(user, system, host=None, encoding=None):
         return dbpass
 
 
-def spawn_and_log_output(cmd, log_exit_status=True, connect_to=[], shell=False):
+def spawn_and_log_output(
+        cmd,
+        log_exit_status=True,
+        connect_to=[],
+        shell=False):
     """Run command and copy stdout to logger.debug and stderr to
     logger.error.  cmd may be a sequence.  connect_to is a list of
     servers which will be contacted.  If debug_hostlist is set and
@@ -305,7 +311,7 @@ def pgp_decrypt(message, keyid, passphrase):
 
 # TODO: Deprecate when switching over to Python 3.x
 def to_unicode(obj, encoding='utf-8'):
-    """Decode obj to unicode if it is a str (basestring is either str or unicode)."""
+    """ Decode obj to unicode if it is a str."""
     if is_str(obj):
         return unicode(obj, encoding)
     return obj
@@ -319,9 +325,9 @@ def unicode2str(obj, encoding='utf-8'):
     return obj
 
 
-class auto_super(type):
-
-    """Metaclass adding a private class variable __super, set to super(cls).
+class auto_super(type):  # noqa: N801
+    """
+    Metaclass adding a private class variable __super, set to super(cls).
 
     Any class C of this metaclass can use the shortcut
       self.__super.method(args)
@@ -339,23 +345,24 @@ class auto_super(type):
           is a situation that hopefully won't be very common; however,
           if such a situation does arise, the subclass's definition
           will fail, raising a ValueError.
-
     """
-    def __init__(cls, name, bases, dict):
+
+    def __init__(cls, name, bases, dict):  # noqa: N805
         super(auto_super, cls).__init__(name, bases, dict)
         attr = _mangle_name(name, '__super')
         if hasattr(cls, attr):
             # The class-private attribute slot is already taken; the
             # most likely cause for this is a base class with the same
             # name as the subclass we're trying to create.
-            raise ValueError("Found '%s' in class '%s'; name clash with base class?" %
-                            (attr, name))
+            raise ValueError(
+                "Found '%s' in class '%s'; name clash with base class?" %
+                (attr, name))
         setattr(cls, attr, super(cls))
 
 
-class mark_update(auto_super):
-
-    """Metaclass marking objects as 'updated' per superclass.
+class mark_update(auto_super):  # noqa: N801
+    """
+    Metaclass marking objects as 'updated' per superclass.
 
     This metaclass looks in the class attributes ``__read_attr__`` and
     ``__write_attr__`` (which should be tuples of strings) to
@@ -475,10 +482,10 @@ class mark_update(auto_super):
         # Define the __setattr__ method that should be used in the
         # class we're creating.
         def __setattr__(self, attr, val):
-# print "%s.__setattr__:" % name, self, attr, val
+            # print "%s.__setattr__:" % name, self, attr, val
             if attr in read:
-            # Only allow setting if attr has no previous
-            # value.
+                # Only allow setting if attr has no previous
+                # value.
                 if hasattr(self, attr):
                     raise AttributeError("Attribute '%s' is read-only." % attr)
             elif attr in write:
@@ -493,7 +500,7 @@ class mark_update(auto_super):
             # it's OK to set the attribute.  Short circuit directly to
             # object's __setattr__, as that's where the attribute
             # actually gets its new value set.
-# print "%s.__setattr__: setting %s = %s" % (self, attr, val)
+            # print "%s.__setattr__: setting %s = %s" % (self, attr, val)
             object.__setattr__(self, attr, val)
             if attr in write:
                 getattr(self, mupdated).append(attr)
@@ -733,17 +740,8 @@ class Factory(object):
         Although this method does very little now, we should keep our
         options open for the future.
         """
-
-        from Cerebrum.modules import cerelog
-        cerelog.setup_warnings(getattr(cereconf, 'PYTHONWARNINGS', None) or [])
-        return cerelog.get_logger(cereconf.LOGGING_CONFIGFILE, name)
-
-
-# TODO: Temporary, test logutils by setting a CEREBRUM_LOGUTILS environment
-# variable to a non-empty value.
-if os.getenv('CEREBRUM_LOGUTILS'):
-    from Cerebrum.logutils import getLogger
-    Factory.get_logger = staticmethod(getLogger)
+        import Cerebrum.logutils
+        return Cerebrum.logutils.get_logger(name=name, _stacklevel=3)
 
 
 def random_string(length, characters=ascii_lowercase + digits):
@@ -1009,16 +1007,16 @@ def make_timer(logger, msg=None):
 
 
 class Messages(dict):
-
-    """Class for handling text in different languages.
+    """
+    Class for handling text in different languages.
 
     Should be filled with messages in different languages, and the message in
     either the set language or the fallback language is returned.
 
         msgs = Messages(lang='no', fallback='en')
 
-    The preferred way of adding text to Messages is through template files, e.g.
-    a python file with a large python dict on the format:
+    The preferred way of adding text to Messages is through template files,
+    e.g.  a python file with a large python dict on the format:
 
         {'key1':    {'en': 'This is a test',
                      'no': 'Dette er en test',
@@ -1068,7 +1066,7 @@ class Messages(dict):
         return dict.__getitem__(self, key)[self.fallback]
 
 
-class CerebrumIMAP4_SSL(imaplib.IMAP4_SSL):
+class CerebrumIMAP4_SSL(imaplib.IMAP4_SSL):  # noqa: N801
     """
     A changed version of imaplib.IMAP4_SSL that lets the caller specify
     ssl_version in order to please older versions of OpenSSL. CRB-1246

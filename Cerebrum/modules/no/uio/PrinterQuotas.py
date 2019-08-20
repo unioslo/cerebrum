@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2018 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,9 +20,10 @@
 
 from Cerebrum.Entity import Entity
 
+
 # TBD: Should this inherit from Entity or object?
 class PrinterQuotas(Entity):
-    #__metaclass__ = Utils.mark_update
+    # __metaclass__ = Utils.mark_update
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('account_id', 'printer_quota', 'pages_printed',
@@ -39,7 +40,7 @@ class PrinterQuotas(Entity):
                  weekly_quota, max_quota):
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
 
@@ -63,7 +64,8 @@ class PrinterQuotas(Entity):
         WHERE account_id=:entity_id""", {'entity_id': entity_id})
         (self.account_id, self.printer_quota, self.pages_printed,
          self.pages_this_semester, self.termin_quota,
-         self.has_printerquota, self.weekly_quota, self.max_quota) = self._db.pythonify_data(row)
+         self.has_printerquota, self.weekly_quota,
+         self.max_quota) = self._db.pythonify_data(row)
         try:
             del self.__in_db
         except AttributeError:
@@ -96,15 +98,17 @@ class PrinterQuotas(Entity):
             if is_new:
                 self.execute("""
                 INSERT INTO [:table schema=cerebrum name=printerquotas]
-                (%s) VALUES (%s)""" % (", ".join(cols.keys()),
-                                       ", ".join([":%s" % t for t in cols.keys()]
-                                                 )), cols)
+                (%s) VALUES (%s)""" %
+                             (", ".join(cols.keys()),
+                              ", ".join([":%s" % t for t in cols.keys()]
+                                        )), cols)
             else:
                 self.execute("""
                 UPDATE [:table schema=cerebrum name=printerquotas]
-                SET %s WHERE account_id=:account_id""" % 
-                             (", ".join(["%s=:%s" % (t,t) for t in cols.keys()])), cols)
+                SET %s WHERE account_id=:account_id""" %
+                             (", ".join(
+                                 ["%s=:%s" % (t, t) for t in cols.keys()]
+                             )), cols)
         else:
             is_new = None
         return is_new
-

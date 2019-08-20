@@ -91,8 +91,9 @@ def collect_ansattnr():
     start_time = DateTime.now()
     logger.debug('Collecting all ansattnrs')
     ansattnr_by_id = {}
-    for row in pe.list_external_ids(source_system=co.system_sap,
-                                 id_type=co.externalid_sap_ansattnr):
+    for row in pe.search_external_ids(source_system=co.system_sap,
+                                      id_type=co.externalid_sap_ansattnr,
+                                      fetchall=False):
         ansattnr_by_id[row['entity_id']] = row['external_id']
     logger.debug('%d ansattnrs collected in %s' % (len(ansattnr_by_id),
                                             str(DateTime.now() - start_time)))
