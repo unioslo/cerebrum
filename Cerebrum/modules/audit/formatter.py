@@ -119,7 +119,7 @@ class PreparedRecord(object):
     @property
     def change_by(self):
         """ formatted operator identifier, change_program or None. """
-        return (self.operator or self.change_program)
+        return (self.change_program or self.operator)
 
     def __getattr__(self, attr):
         return getattr(self._record, attr)
@@ -381,7 +381,10 @@ class _ConstantFormatter(object):
         return co_type in self.co_type_map
 
     def get_type(self, attr):
-        return getattr(self.const, attr, getattr(self.clconst, attr))
+        try:
+            return getattr(self.const, attr)
+        except AttributeError:
+            return getattr(self.clconst, attr)
 
     def __call__(self, ident, value):
         types = [self.get_type(attr) for attr in self.co_type_map[ident]]
