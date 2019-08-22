@@ -123,11 +123,3 @@ class OrgLDIFUiTMixin(norEduLDIFMixin):
         entry.pop('postalAddress', None)
 
         return dn, entry, alias_info
-
-    def format_cryptstring(self, method, password):
-        if method == self.const.auth_type_md5_b64:
-            return "{crypt}" + password
-        elif method == self.const.auth_type_md5_crypt:
-            return "{crypt}" + password
-        return super(OrgLDIFUiTMixin, self).format_cryptstring(method,
-                                                               password)
