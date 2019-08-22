@@ -106,6 +106,9 @@ class DbAuditRecord(AuditRecord):
             self.entity_id,
             self.timestamp.strftime('%Y-%m-%d %H:%M:%S %z'))
 
+    def __lt__(self, other):
+        return self.timestamp < other.timestamp
+
     @property
     def record_id(self):
         return self.__record_id
