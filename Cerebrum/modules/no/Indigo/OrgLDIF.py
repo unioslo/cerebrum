@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2006 University of Oslo, Norway
+#
+# Copyright 2006-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,13 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 from Cerebrum.modules.OrgLDIF import OrgLDIF
 
 
 class IndigoLDIFMixin(OrgLDIF):
-    def __init__(self, db, logger):
-        self.__super.__init__(db, logger)
 
     def get_orgUnitUniqueID(self):
         rows = self.ou.get_external_id(id_type=self.const.externalid_orgnr)
