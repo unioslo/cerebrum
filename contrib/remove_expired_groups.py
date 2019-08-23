@@ -35,6 +35,40 @@ from mx.DateTime import now
 logger = Factory.get_logger('cronjob')
 
 
+def is_empty_group(gr):
+    """Checks if a group is empty."""
+    for row in gr.search_members(group_id=gr.entity_id):
+        return False
+    return True
+
+
+def remove_posix_users(gr, posix_user2gid):
+    """Removes PosixUsers from PosixGroup if their Default
+    File Group is some other group.
+    """
+    group_member_counts = {'DFG members remaining': 0,
+                           'non-DFG members removed': 0}
+    for row in gr.search_members(group_id=gr.entity_id):
+        member = row['member_id']
+        if member in posix_user2gid:
+            # 1.1.1 - remove member
+            if posix_user2gid[member] != gr.entity_id:
+                group_member_counts['non-DFG members removed'] += 1
+                gr.remove_member(member)
+            # 1.1.2 - group member is irremovable
+            else:
+                group_member_counts['DFG members remaining'] += 1
+        else:
+            # PosixGroup, but not PosixUser..? This should
+            # never happen, but should be noted if it does.
+            logger.warning('Member %i of PosixGroup %r '
+                           'is not a PosixUser',
+                           member, gr.entity_id)
+    if sum(group_member_counts.values()):
+        logger.debug('(PosixGroup %r) %s',
+                     gr.entity_id, repr(group_member_counts))
+
+
 def remove_expired_groups(db, days, pretend):
     """
     Removes groups that have reached number of `days' past expiration-date.
@@ -47,9 +81,8 @@ def remove_expired_groups(db, days, pretend):
     logger.info('Caching personal file groups of users')
     pu = Factory.get('PosixUser')(db)
     posix_user2gid = {}
-    posix_users = pu.list_posix_users()
-    empty_posix_groups = 0
-    for row in posix_users:
+    num_empty = 0
+    for row in pu.list_posix_users():
         posix_user2gid[row['account_id']] = row['gid']
     try:
         amount_to_be_removed_groups = 0
@@ -74,44 +107,22 @@ def remove_expired_groups(db, days, pretend):
                     #         File Group (DFG).
                     # 1.1.2 - Corollary: Members with this group as their DFG
                     #         are not removable.
-                    # 1.2   - If there are any other extensions than, then the
-                    #         group shall be left untouched.
+                    # 1.2   - If there are any other extensions than
+                    #         PosixGroup, then the group shall be left
+                    #         untouched.
                     # 2     - Groups without any extensions are deleted
+
+                    # NB: Points 1.1.1 and 1.1.2 are handled in a separate
+                    # function `remove_posix_users`
 
                     # 1.1 Only extension as PosixGroup, possible removal
                     if exts and len(exts) == 1 and exts[0] == 'PosixGroup':
-                        dfg_members = 0
-                        non_dfg_members = 0
-                        for row in gr.search_members(group_id=gr.entity_id):
-                            member = int(row['member_id'])
-                            if member in posix_user2gid:
-                                # 1.1.1 - remove member and update counter
-                                if posix_user2gid[member] != gr.entity_id:
-                                    gr.remove_member(member)
-                                    non_dfg_members += 1
-                                # 1.1.2 - group member is irremovable
-                                else:
-                                    dfg_members += 1
-                            else:
-                                # PosixGroup, but not PosixUser..? This should
-                                # never happen, but should be noted if it does.
-                                logger.warning('Member %i of PosixGroup %r '
-                                               'is not a PosixUser',
-                                               member, gr.entity_id)
-                        # At least one members has been removed from group
-                        if non_dfg_members:
-                            logger.debug('Removed %i non-DFG members from '
-                                         'PosixGroup %r. %i DGF members '
-                                         'remains', non_dfg_members,
-                                         gr.entity_id, dfg_members)
-                        # There are still members in the group, but no removal
-                        elif dfg_members:
-                            logger.debug('%i members has PosixGroup %r as'
-                                         ' their DFG. No members removed',
-                                         dfg_members, gr.entity_id)
-                        # PosixGroup was empty all along
+                        if is_empty_group(gr):
+                            # Group is empty, nothing to do but book keeping
+                            num_empty += 1
                         else:
-                            empty_posix_groups += 1
+                            # 1.1.1/1.1.2 determined here
+                            remove_posix_users(gr, posix_user2gid)
                     # 1.2 Other extensions than PosixGroup - do not touch
                     elif exts:
                         logger.debug('Extensions %r in group %r - skipping!',
@@ -145,7 +156,7 @@ def remove_expired_groups(db, days, pretend):
                         group['name'],
                         group['description'],
                         int(time_until_removal.days)))
-        logger.debug('%i empty posixgroups left untouched', empty_posix_groups)
+        logger.debug('%i empty posixgroups found', num_empty)
     except Exception as e:
         logger.critical('Unexpected exception: %s' % (text_type(e)),
                         exc_info=True)
