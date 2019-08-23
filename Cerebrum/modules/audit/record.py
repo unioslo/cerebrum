@@ -131,12 +131,9 @@ class DbAuditRecord(AuditRecord):
         timestamp = d['timestamp']
         change_type = d['change_type']
         # TODO: assert _ChangeTypeCode?
-
         entity = int(d['entity'])
         operator = int(d['operator'])
-        target = d.get('target', None)
-        if target is not None:
-            target = int(target)
+        target = int(d['target']) if d.get('target') is not None else None
         metadata = d.get('metadata', None)
         params = d.get('params', None)
         record = cls(record_id, timestamp, change_type, operator, entity,
