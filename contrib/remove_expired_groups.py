@@ -35,13 +35,6 @@ from mx.DateTime import now
 logger = Factory.get_logger('cronjob')
 
 
-def is_empty_group(gr):
-    """Checks if a group is empty."""
-    for row in gr.search_members(group_id=gr.entity_id):
-        return False
-    return True
-
-
 def remove_posix_users(gr, posix_user2gid):
     """Removes PosixUsers from PosixGroup if their Default
     File Group is some other group.
@@ -117,7 +110,7 @@ def remove_expired_groups(db, days, pretend):
 
                     # 1.1 Only extension as PosixGroup, possible removal
                     if exts and len(exts) == 1 and exts[0] == 'PosixGroup':
-                        if is_empty_group(gr):
+                        if gr.is_empty():
                             # Group is empty, nothing to do but book keeping
                             num_empty += 1
                         else:

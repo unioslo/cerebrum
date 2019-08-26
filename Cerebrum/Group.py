@@ -92,6 +92,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             return False
         return True
 
+    def is_empty(self):
+        """Checks if a group is empty (no members)."""
+        for row in self.search_members(group_id=self.entity_id):
+            return False
+        return True
+
     # exchange-relatert-jazz
     # we need to be able to check group names for different
     # lengths and max length in database is 256 characters
