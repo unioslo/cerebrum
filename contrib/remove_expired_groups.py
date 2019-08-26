@@ -64,7 +64,7 @@ def remove_posix_users(gr, posix_user2gid):
 
 def remove_expired_groups(db, days, pretend):
     """
-    Removes groups that have reached number of `days' past expiration-date.
+    Removes or empties groups that have reached a number of days past expiry.
 
     :param Cerebrum.database.Database db: The database connection
     :param int days: Amount of days after past expiration-date
@@ -74,7 +74,7 @@ def remove_expired_groups(db, days, pretend):
     logger.info('Caching personal file groups of users')
     pu = Factory.get('PosixUser')(db)
     posix_user2gid = {}
-    num_empty = 0
+    num_empty_posixgroup = 0
     for row in pu.list_posix_users():
         posix_user2gid[row['account_id']] = row['gid']
     try:
@@ -112,7 +112,7 @@ def remove_expired_groups(db, days, pretend):
                     if exts and len(exts) == 1 and exts[0] == 'PosixGroup':
                         if gr.is_empty():
                             # Group is empty, nothing to do but book keeping
-                            num_empty += 1
+                            num_empty_posixgroup += 1
                         else:
                             # 1.1.1/1.1.2 determined here
                             remove_posix_users(gr, posix_user2gid)
@@ -149,7 +149,7 @@ def remove_expired_groups(db, days, pretend):
                         group['name'],
                         group['description'],
                         int(time_until_removal.days)))
-        logger.debug('%i empty posixgroups found', num_empty)
+        logger.debug('%i empty posixgroups found', num_empty_posixgroup)
     except Exception as e:
         logger.critical('Unexpected exception: %s' % (text_type(e)),
                         exc_info=True)
