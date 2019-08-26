@@ -19,23 +19,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from __future__ import unicode_literals
-import sys
-import getopt
-import re
-import time
-import io
-
-import cereconf
-from Cerebrum.Utils import Factory
-from Cerebrum.utils.email import sendmail
-from Cerebrum.modules.dns.Subnet import Subnet
-from Cerebrum.modules.bofhd.errors import CerebrumError
-
-progname = __file__.split("/")[-1]
-
-__doc__ = """
-Usage: %s [options]
+"""
+Usage: import_subnet_info.py [options]
    --datafile, -d   File containing info about subnets
    --vlanfile, -v   File containing info about VLAN
    --force, -f      Force import to make non-erronous changes,
@@ -100,7 +85,23 @@ RETURN VALUES
  2 - No datafile supplied
  3 - Data error, import rolled back
 
-""" % progname
+"""
+
+from __future__ import unicode_literals
+
+import sys
+import getopt
+import re
+import time
+import io
+
+import cereconf
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.email import sendmail
+from Cerebrum.modules.dns.Subnet import Subnet
+from Cerebrum.modules.bofhd.errors import CerebrumError
+
+progname = __file__.split("/")[-1]
 
 
 logger = Factory.get_logger("cronjob")

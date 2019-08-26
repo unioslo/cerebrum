@@ -397,10 +397,3 @@ class TsdAccessAuth(TsdBofhdAuth, bofhd_access.BofhdAccessAuth):
         if query_run_any:
             return True
         raise PermissionDenied("Restricted to superusers")
-
-    def can_grant_access(self, operator, operation=None, target_type=None,
-                         target_id=None, opset=None, query_run_any=False):
-        return self._can_any(operator, query_run_any=query_run_any)
-
-    def list_alterable_entities(self, operator, target_type):
-        return self._can_any(operator)

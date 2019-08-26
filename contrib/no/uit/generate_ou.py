@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2002-2019 University of Oslo, Norway
@@ -32,6 +32,7 @@ import datetime
 import io
 import logging
 import os
+import sys
 
 import six
 
@@ -41,17 +42,17 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no.access_FS import make_fs
+from Cerebrum.utils.atomicfile import SimilarSizeStreamRecoder
 
 logger = logging.getLogger(__name__)
 
 
 # Default file locations
-CB_SOURCEDATA_PATH = cereconf.CB_SOURCEDATA_PATH
 DUMPDIR = cereconf.DUMPDIR
 
 default_input_files = [
-    os.path.join(CB_SOURCEDATA_PATH, 'steder', 'stedtre-gjeldende.csv'),
-    os.path.join(CB_SOURCEDATA_PATH, 'steder', 'stedtre-eksterne.csv'),
+    os.path.join(sys.prefix, 'var/source', 'steder', 'stedtre-gjeldende.csv'),
+    os.path.join(sys.prefix, 'var/source', 'steder', 'stedtre-eksterne.csv'),
 ]
 
 default_output_file = os.path.join(
@@ -79,6 +80,7 @@ class OuGenerator(object):
     def get_fs_ou(self):
         """ Collect data about all active ou's from FS. """
         logger.info("Reading OU's from FS")
+        fs_data = {}
 
         ouer = self.fs.ou.list_ou(institusjonsnr=186)
 
@@ -111,7 +113,7 @@ class OuGenerator(object):
             if not 'adrlin2':
                 i['adrlin2'] = i['stednavn_bokmal']
 
-            self.fs_data[temp_inst_nr] = {
+            fs_data[temp_inst_nr] = {
                 'fakultetnr': format_int(i['faknr']),
                 'instituttnr': format_int(i['instituttnr']),
                 'gruppenr': format_int(i['gruppenr']),
@@ -143,7 +145,7 @@ class OuGenerator(object):
                 'poststednavn_intern_adr': i['adrlin3'],
             }
 
-        return self.fs_data
+        return fs_data
 
     def _parse_line(self, line):
         """
@@ -265,21 +267,19 @@ class OuGenerator(object):
 
     def print_ou(self, final_ou, out_file):
         logger.info("Writing OU file %s", out_file)
-        stream = open(out_file, "wb")
-
         encoding = 'iso-8859-1'
+        with SimilarSizeStreamRecoder(out_file, "w",
+                                      encoding=encoding) as stream:
+            writer = xmlprinter.xmlprinter(stream,
+                                           indent_level=2,
+                                           data_mode=True)
+            writer.startDocument(encoding=encoding)
+            writer.startElement("data")
 
-        writer = xmlprinter.xmlprinter(stream,
-                                       indent_level=2,
-                                       data_mode=True)
-        writer.startDocument(encoding=encoding)
-        writer.startElement("data")
-
-        for ou, ou_data in final_ou.items():
-            writer.emptyElement("sted", ou_data)
-        writer.endElement("data")
-        writer.endDocument()
-        stream.close()
+            for ou, ou_data in final_ou.items():
+                writer.emptyElement("sted", ou_data)
+            writer.endElement("data")
+            writer.endDocument()
 
 
 def _parse_ou_files(values):
@@ -310,7 +310,7 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf('crontab', args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Start %r', parser.prog)
     logger.debug("args: %r", args)

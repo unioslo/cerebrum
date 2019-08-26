@@ -430,12 +430,11 @@ class MailProcessor(object):
     """
 
     languages = ('no', 'en')
-    template_path = os.path.join(cereconf.CB_SOURCEDATA_PATH,
-                                 'templates/MailQ')
+    template_path = os.path.join(cereconf.TEMPLATE_DIR, 'MailQ')
 
     encoding = 'utf-8'
     master_template = 'Master_Default'
-    sender = cereconf.USER_NOTIFICATION_SENDER
+    sender = getattr(cereconf, 'USER_NOTIFICATION_SENDER', None)
 
     def __init__(self,
                  db,

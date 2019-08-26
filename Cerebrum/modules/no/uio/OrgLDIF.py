@@ -100,7 +100,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         norm_new_dn = normalize_string(new_structure_dn)
         if norm_new_dn in self.used_new_DNs:
             new_structure_dn = "%s=%s+%s" % (
-                self.FEIDE_attr_ou_id, entry[self.FEIDE_attr_ou_id][0],
+                'norEduOrgUnitUniqueIdentifier',
+                entry['norEduOrgUnitUniqueIdentifier'][0],
                 new_structure_dn)
         self.used_new_DNs[norm_new_dn] = True
         entry['#dn'] = (new_structure_dn,)
@@ -177,7 +178,6 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         self.__super.init_person_dump(use_mail_module)
         self.init_person_course()
         self.init_person_groups()
-        self.init_person_office365_consents()
 
     def init_person_titles(self):
         # Change from original: Search titles first by system_lookup_order,
@@ -217,7 +217,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 p = 'primary'
             ou = self.ou_id2ou_uniq_id[ou]
             if ou:
-                ret.append(''.join((p, ':', aff_str, '/', status_str, '@', ou)))
+                ret.append(''.join((p, ':', aff_str, '/', status_str, '@',
+                                    ou)))
         return ret
 
     def make_person_entry(self, row, person_id):
@@ -270,10 +271,6 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             if street:
                 entry['street'] = (street,)
 
-        # Add Office 365 consents
-        if person_id in self.office365_consents:
-            entry['uioOffice365consent'] = 'TRUE'
-
         return dn, entry, alias_info
 
     def _calculate_edu_OUs(self, p_ou, s_ous):
@@ -290,9 +287,9 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         """
         self.__super.init_person_selections(*args, **kwargs)
         # Set what affiliations that should be checked for visibility from SAP
-        # and FS. The default is to set the person to NOT visible, which happens
-        # for all persons that doesn't have _any_ of the affiliations defined
-        # here.
+        # and FS. The default is to set the person to NOT visible, which
+        # happens for all persons that doesn't have _any_ of the affiliations
+        # defined here.
         self.visible_sap_affs = (int(self.const.affiliation_ansatt),)
         tilkn_aff = int(self.const.affiliation_tilknyttet)
         self.visible_sap_statuses = (
@@ -338,7 +335,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         # Every person should be 'invisible', except if:
         #  * The person has a trait of the type 'reserve_public', and
         #  * The trait's numval is set to 0
-        # This means that a missing trait should be considered as a reservation.
+        # This means that a missing trait should be considered as a
+        # reservation.
 
         p_affs = self.affiliations[person_id]
         # If there is an affiliation from SAP then consider
@@ -355,12 +353,3 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 return person_id in self.fs_samtykke
         # Otherwise hide the person.
         return False
-
-    def init_person_office365_consents(self):
-        """Fetch the IDs of persons who have consented
-        to being exported to Office 365."""
-        timer = make_timer(self.logger, 'Fetching Office 365 consents...')
-        consents = self.person.list_consents(
-            consent_code=self.const.consent_office365)
-        self.office365_consents = set([c['entity_id'] for c in consents])
-        timer('...Office 365 consents done.')

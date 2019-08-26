@@ -27,7 +27,6 @@ import time
 
 import cereconf
 from Cerebrum import logutils
-from Cerebrum.Utils import XMLHelper
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no.uit.access_SYSY import SystemY
 from Cerebrum.utils.atomicfile import MinimumSizeWriter
@@ -35,8 +34,6 @@ from Cerebrum.utils.atomicfile import MinimumSizeWriter
 default_role_file = os.path.join(cereconf.DUMPDIR,
                                  'sysY',
                                  'sysY_%s.xml' % (time.strftime("%Y%m%d")))
-
-xml = XMLHelper()
 
 KiB = 1024
 logger = logging.getLogger(__name__)

@@ -325,7 +325,7 @@ def main():
     if args.include_delete:
         fsimporter.rem_old_aff()
 
-    if args.commit():
+    if args.commit:
         fsimporter.db.commit()
         logger.info('Changes were committed to the database')
     else:

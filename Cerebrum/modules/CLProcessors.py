@@ -342,7 +342,7 @@ class CreatePersonProcessor(EventProcessor):
 
     def calculate_count_by_source_system(self, source_system):
         """Implementations of superclass' abstract function."""
-        logger.debug("Given source system: " + source_system)
+        logger.debug("Given source system: %s", source_system)
         self._source_system = source_system
         person = Factory.get('Person')(self.db)
         for current_entity in self._entity_ids:

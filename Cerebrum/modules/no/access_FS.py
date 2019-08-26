@@ -2342,10 +2342,10 @@ class roles_xml_parser(non_nested_xml_parser):
                                   target, attrs)
                 attrs[self.target_key] = target
             else:
-                self.logger.error("Personrolle har ingen tilstrekkelig"
-                                  " spesifisering av target, inneholder"
-                                  " elementer fra: %r (XML = %r).",
-                                  tuple(possible_targets), attrs)
+                self.logger.warning("Personrolle har ingen tilstrekkelig"
+                                    " spesifisering av target, inneholder"
+                                    " elementer fra: %r (XML = %r).",
+                                    tuple(possible_targets), attrs)
                 attrs[self.target_key] = tuple(possible_targets)
             do_callback = False
         else:

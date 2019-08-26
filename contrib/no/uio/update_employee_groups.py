@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2003-2018 University of Oslo, Norway
@@ -20,8 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-"""This file performs group information update for certain employee
-categories.
+"""Performs group information update for certain employee categories.
 
 Specifically,
 

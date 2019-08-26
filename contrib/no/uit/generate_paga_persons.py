@@ -34,6 +34,7 @@ import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.extlib import xmlprinter
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,9 @@ KEY_UITKAT = 'UITkat'
 KEY_KJONN = 'Kjønn'
 KEY_FODSELSDATO = 'Fødselsdato'
 KEY_LOKASJON = 'Lokasjon'
+KEY_NATIONAL_ID_TYPE = 'edag_int_id_type'
+KEY_NATIONAL_ID = 'edag_id_nr'
+KEY_NATIONAL_LAND = 'edag_id_land'
 
 
 def parse_date(date_str):
@@ -139,6 +143,9 @@ def parse_paga_csv(pagafile):
             'poststed': detail[KEY_HJEMSTED_POSTSTED],
             'postnr': detail[KEY_HJEMSTED_POSTNR],
             'lokasjon': detail[KEY_LOKASJON],
+            'country': detail[KEY_NATIONAL_LAND],
+            'edag_id_nr': detail[KEY_NATIONAL_ID],
+            'edag_id_type': detail[KEY_NATIONAL_ID_TYPE],
         }
         tils_data = {
             'stillingskode': detail[KEY_STILLKODE],
@@ -245,21 +252,24 @@ class PagaPersonsXml:
         Build a xml that import_lt should process:
 
         <person tittel_personlig=""
-        fornavn=""
-        etternavn=""
-        fnr=""
-        fakultetnr_for_lonnsslip=""
-        instituttnr_for_lonnsslip=""
-        gruppenr_for_lonnsslip=""
-        #adresselinje1_privatadresse=""
-        #poststednr_privatadresse=""
-        #poststednavn_privatadresse=""
-        #uname=""
-        >
-        <bilag stedkode=""/>
+                fornavn=""
+                etternavn=""
+                fnr=""
+                national_id_type=""
+                national_id=""
+                country=""
+                fakultetnr_for_lonnsslip=""
+                instituttnr_for_lonnsslip=""
+                gruppenr_for_lonnsslip=""
+                #adresselinje1_privatadresse=""
+                #poststednr_privatadresse=""
+                #poststednavn_privatadresse=""
+                #uname="">
+            <bilag stedkode=""/>
         </person>
         """
-        stream = open(self.out_file, "wb")
+        stream = SimilarSizeWriter(self.out_file, "wb")
+        stream.max_pct_change = 50
         writer = xmlprinter.xmlprinter(stream,
                                        indent_level=2,
                                        data_mode=True)
@@ -308,7 +318,6 @@ default_outfile = os.path.join(
         date=datetime.date.today().strftime('%Y-%m-%d')))
 default_infile = os.path.join(
     sys.prefix, 'var/cache/paga', 'uit_paga_last.csv')
-default_log_preset = getattr(cereconf, 'DEFAULT_LOGGER_TARGET', 'console')
 
 
 def main(inargs=None):
@@ -337,7 +346,7 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf(default_log_preset, args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Start of %s', parser.prog)
     logger.debug('args: %r', args)

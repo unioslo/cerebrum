@@ -71,13 +71,15 @@ class ReminderManager(SMSManager):
         for row in self.ac.list_traits(code=self.trait, numval=None):
             if row['date'] > mx.DateTime.today() - 7:
                 continue
+            self.row = row
             yield row
 
     def remove_trait(self, ac, commit=False):
-        """In reminder mode we skip all trait removal operations."""
-        logger.debug("In reminder mode, keeping trait %s on account %s",
+        """In reminder mode we update the numval instead of removing the
+        trait since this will make it not get picked out the next time"""
+        logger.debug("In reminder mode, updating trait %s on account %s",
                      self.trait, ac.account_name)
-        pass
+        inc_attempt(self.db, ac, self.row, commit)
 
     def populate_trait(self, ac):
         """In reminder mode we don't populate traits, we only increment the

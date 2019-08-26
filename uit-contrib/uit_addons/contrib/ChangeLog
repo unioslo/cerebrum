@@ -1,4 +1,0 @@
-2017-03-14    <cerebrum@cleomedes.uit.no-cleomedes>
-
-	* permission_updates.py: Added to repo. This script updates the available opset commands (we need to add opset commands because of brukerinfo "group" section breaks withouth it)
-

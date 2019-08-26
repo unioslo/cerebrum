@@ -21,6 +21,13 @@
 #
 # This script is based on the deprecated script contrib/generate_nismaps.py.
 # It can be viewed in commit 851446bf25a6e69b87db7e7cea6c870a1ab3f0cd.
+"""Writes various NIS group files given specific spreads for user and groups
+
+Includes functionality for file groups, net groups, machine net groups. Can
+also include person objects. It then picks the primary account of person
+objects.
+
+"""
 import argparse
 import logging
 

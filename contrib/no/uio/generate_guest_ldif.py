@@ -26,11 +26,14 @@ structure. It will only contain each account object in LDAP format.
 This script take the following arguments:
 
 -h, --help : this message
+
 -s, --spread : Which spread to identify guests by.
                Defaults to guestconfig.LDAP_GUESTS['spread']
+
 -f, --filename : LDIF file to write
                  Defaults to guestconfig.LDAP_GEUSTS['file'] in
                  guestconfig.LDAP['dump_dir']
+
 -b, --base : base DN for the objects
              Defaults to guestconfig.LDAP['dn']
 

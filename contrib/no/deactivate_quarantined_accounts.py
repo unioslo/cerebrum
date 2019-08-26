@@ -19,8 +19,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from __future__ import unicode_literals
-
 """Deactivate accounts with a given quarantine.
 
 The criterias for deactivating accounts:
@@ -53,6 +51,8 @@ period. This is a problem which should be solved in other ways, and not by this
 script.
 
 """
+
+from __future__ import unicode_literals
 
 import sys
 import getopt

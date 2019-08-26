@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,48 +17,60 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Parse and validate Norwegian national id numbers.
 
-"""Check Norwegian Social security numbers.
+This module can be used to validate Norwegian national id numbers.  The
+national id number (fødselsnummer) consists of 11 digits, and follows a format
+DDMMYYIIGCC, where:
 
-This documentation is written in Norwegian.
+- DDMMYY is the birth date (fødselsdato)
+- IIGCC is a person identifier (personnummer), where
+- IIG is the identifier number
+- G indicates gender
+- CC is a checksum
 
-Denne modulen kan brukes for å sjekke norske personnummer.  De 2 siste
-siffrene i personnummerene er kontrollsiffre og må stemme overens med
-resten for at det skal være et gyldig nummer.  Modulen inneholder også
-funksjoner for å bestemme personens kjønn og personens fødselsdato.
+Most of the functions in this module will raise an InvalidFnrError if given an
+invalid national id.
 
-Ved ugyldig fødselsnummer reises en InvalidFnrError.
-
-Ported from the perl version written by Gisle Aas <aas@sn.no>"""
+Ported from the perl version written by Gisle Aas <aas@sn.no> (No::PersonNr).
+"""
+from __future__ import print_function
 
 import re
 
 
 class InvalidFnrError(ValueError):
-    "Exception som indikerer ugyldig norsk fødselsnummer."
+    """ Exception on invalid Norwegian national id value. """
     pass
 
 
 def personnr_ok(nr, _ret_date=0, accept_00x00=True):
-    """Returnerer 11-sifret fødselsnummer som str dersom det er gyldig.
+    """
+    Check if Norwegian national id is valid
 
-    Første argument kan være enten en (long) int eller en str.
+    :type nr: int, str
+    :param nr: Norwegian national id value
 
-    Andre argument, `_ret_date', skal kun brukes internt i denne
-    modulen.
+    :param _ret_date:
+        INTERNAL USAGE ONLY: if true, return a date tuple
 
+    :param accept_00x00:
+        Ignore checksums for national ids on the form: DDMMYY00X00
+
+    :returns:
+        Returns an 11 digit national id string.
     """
     re_strip = re.compile(r"[\s\-]", re.DOTALL)
     nr = re.sub(re_strip, "", str(nr))
     if len(nr) == 10:
         nr = "0" + nr
     if len(nr) != 11:
-        raise InvalidFnrError("Ugyldig lengde for fødselsnummer <%s>."
-                              % nr)
+        raise InvalidFnrError("Invalid length (%d) for %s" %
+                              (len(nr), repr(nr)))
 
     if nr != beregn_sjekksum(nr):
-        raise InvalidFnrError("Feil sjekksum for fødselsnummer <%s>."
-                              % nr)
+        raise InvalidFnrError("Invalid checksum for %s" % repr(nr))
 
     # Del opp fødselsnummeret i dets enkelte komponenter.
     day, month, year, pnr = (
@@ -66,7 +78,7 @@ def personnr_ok(nr, _ret_date=0, accept_00x00=True):
 
     # luk ut personnr fra SAP (12345600X00)
     if not accept_00x00 and re.search(r'00\d00$', nr):
-        raise InvalidFnrError("Fnr med gyldig sjekksum, men ugyldig personnr")
+        raise InvalidFnrError("Invalid person identifier (00X00)")
 
     # B-nummer -- midlertidig (max 6 mnd) personnr
     if day > 40:
@@ -87,14 +99,14 @@ def personnr_ok(nr, _ret_date=0, accept_00x00=True):
         year += 1800
 
     if not _is_legal_date(year, month, day):
-        raise InvalidFnrError("ugyldig dato")
+        raise InvalidFnrError("Invalid birth date")
     if not _ret_date:
         return nr
     return (year, month, day)
 
 
 def _is_legal_date(y, m, d):
-    """Returnerer 1 hvis dato er lovlig"""
+    """ Check if a date tuple is a valid date. """
     if d < 1:
         return
     if m < 1 or m > 12:
@@ -113,7 +125,16 @@ def _is_legal_date(y, m, d):
 
 
 def beregn_sjekksum(fnr):
-    """Returner ``fnr`` med korrekt kontrollsifferdel."""
+    """
+    calculate checksum for a given national id.
+
+    :type fnr: str
+    :param fnr: Norwegian national id value
+
+    :rtype: str
+    :return:
+        Returns an 11 digit national id with correct checksum values
+    """
     # TODO: Kanonikalisering av fnr; må være nøyaktig 11 elementer
     # lang.
     nr = list(fnr)
@@ -146,39 +167,62 @@ def beregn_sjekksum(fnr):
 
 
 def er_mann(nr):
-    """Vil returnere 1 hvis nr tilhører en mann."""
+    """
+    Validate national id and check if gender flag indicates male.
+
+    :type nr: int, str
+    :param nr: Norwegian national id value
+    """
     nr = personnr_ok(nr)
-    # croak "Feil i personnummer" unless $nr;
     return int(nr[8]) % 2
 
 
 def er_kvinne(nr):
-    """Vil returnere 1 hvis nr tilhører en kvinne."""
+    """
+    Validate national id and check if gender flag indicates female.
+
+    :type nr: int, str
+    :param nr: Norwegian national id value
+    """
     return not er_mann(nr)
 
 
 def fodt_dato(nr):
-    'Returner personens fødselsdato på formen (år, måned, dag).'
+    """ Validate national id and return a birth date tuple. """
     return personnr_ok(nr, _ret_date=1)
 
 
 def del_fnr(fnr):
-    """Returner ``fnr`` delt i 2 ints: (dato, personnr).
+    """
+    Validate and split national id into birth date and person identifier.
 
-    Sjekker at ``fnr`` er et gyldig fødselsnummer først; hvis ikke
-    raises en InvalidFnrError.
+    :type fnr: str
+    :param fnr: Norwegian national id value
 
+    :rtype: tuple
+    :return:
+        Returns a tuple with two items.
+        - The birth date part, as an integer
+        - The person identifier part, as an integer
     """
     fnr = personnr_ok(fnr)
     return (int(fnr[:-5]), int(fnr[-5:]))
 
 
 def del_fnr_4(fnr):
-    """Returner ``fnr`` delt i 4 ints: (dag, måned, 2-sifret år, personnr).
+    """
+    Validate and split national id into birth date and person identifier.
 
-    Sjekker at ``fnr`` er et gyldig fødselsnummer først; hvis ikke
-    raises en InvalidFnrError.
+    :type fnr: str
+    :param fnr: Norwegian national id value
 
+    :rtype: tuple
+    :return:
+        Returns a tuple with four items.
+        - The birth date day of month, as an integer
+        - The birth date month, as an integer (1-12)
+        - The birth date year, as an integer (0-99)
+        - The person identifier part, as an integer
     """
     fnr = personnr_ok(fnr)
     return (int(fnr[0:2]), int(fnr[2:4]), int(fnr[4:6]), int(fnr[6:]))
@@ -189,13 +233,13 @@ if __name__ == '__main__':
     fnrs = sys.argv[1:]
     for fnr in fnrs:
         sjekksum_fnr = beregn_sjekksum(fnr)
-        print "Riktig sjekksum for '%s' er '%s'" % (fnr[:9], sjekksum_fnr[9:])
+        print("Riktig sjekksum for '%s' er '%s'" % (fnr[:9], sjekksum_fnr[9:]))
         if fnr[9:] != sjekksum_fnr[9:]:
-            print "   (Riktig fnr blir da '%s')" % sjekksum_fnr
+            print("   (Riktig fnr blir da '%s')" % sjekksum_fnr)
         try:
-            print "Sjekksum ok for '%s'" % personnr_ok(fnr)
-            print "er_mann: %s" % er_mann(fnr)
-            print "er_kvinne: %s" % er_kvinne(fnr)
-            print "fodt_dato: %s" % str(fodt_dato(fnr))
-        except:
-            print "Sjekksum '%s' er ugyldig for '%s'" % (fnr[9:], fnr)
+            print("Sjekksum ok for '%s'" % personnr_ok(fnr))
+            print("er_mann: %s" % er_mann(fnr))
+            print("er_kvinne: %s" % er_kvinne(fnr))
+            print("fodt_dato: %s" % str(fodt_dato(fnr)))
+        except Exception:
+            print("Sjekksum '%s' er ugyldig for '%s'" % (fnr[9:], fnr))

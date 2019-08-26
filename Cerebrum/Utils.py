@@ -811,8 +811,12 @@ def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
     """
 
     # if it's a single exception type, convert it to a tuple now
-    if not isinstance(exc_list, (list, tuple, set)) and exc_list is not None:
+    if exc_list is None:
+        exc_list = (Exception,)
+    elif not isinstance(exc_list, (list, tuple, set)):
         exc_list = (exc_list,)
+    else:
+        exc_list = tuple(exc_list)
 
     # IVR 2008-03-11 FIXME: We cannot use this assert until all of Cerebrum
     # exceptions actually *are* derived from BaseException. But it is a good
@@ -823,18 +827,11 @@ def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
         "Small wrapper that calls L{functor} while ignoring exceptions."
 
         # None means trap all exceptions. Use with care!
-        if exc_list is None:
-            try:
-                return functor(*rest, **kw_args)
-            except:
-                if logger:
-                    logger.warn(format_exception_context(*sys.exc_info()))
-        else:
-            try:
-                return functor(*rest, **kw_args)
-            except tuple(exc_list):
-                if logger:
-                    logger.warn(format_exception_context(*sys.exc_info()))
+        try:
+            return functor(*rest, **kw_args)
+        except exc_list:
+            if logger:
+                logger.warn(format_exception_context(*sys.exc_info()))
         return return_on_exc
 
     return wrapper
@@ -863,7 +860,7 @@ def format_exception_context(etype, evalue, etraceback):
 
     return ("Exception %s occured (in context %s): %s" %
             (etype, "%s/%s() @line %s" % (filename, funcname, line),
-             evalue))
+             repr(evalue)))
 
 
 def argument_to_sql(argument,

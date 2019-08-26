@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2011, 2012 University of Oslo, Norway
@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
 
 """Script for setting person traits for being reserved from publication.
 
@@ -56,6 +54,8 @@ The script tags people in the following order:
 3. Everyone else, i.e. those which are not employees or students, gets reserved.
 
 """
+
+from __future__ import unicode_literals
 
 import sys
 import getopt

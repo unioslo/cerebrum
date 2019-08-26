@@ -66,6 +66,7 @@ from Cerebrum.utils.email import sendmail
 from Cerebrum.modules.ad2 import ADUtils, ConfigUtils
 from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.ConfigUtils import ConfigError
+from Cerebrum.modules.ad2.winrm import CommandTooLongException
 from Cerebrum.modules.ad2.winrm import PowershellException
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
@@ -1439,7 +1440,7 @@ class BaseSync(object):
                                   "one is the right one.", ent.ad_id)
                 return False
         except (ADUtils.SetAttributeException,
-                ADUtils.CommandTooLongException), e:
+                CommandTooLongException), e:
             # The creation of the object may have failed because of entity's
             # attributes. It may have been too many of them and the command
             # became too long, or they contained (yet) invalid paths in AD.

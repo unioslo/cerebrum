@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
 # Copyright 2013-2019 University of Oslo, Norway
@@ -44,7 +44,7 @@ db_person = Factory.get('Person')(db)
 e = Factory.get('Entity')(db)
 dryrun = False
 include_del = False
-logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+logger = Factory.get_logger('cronjob')
 progname = __file__.split("/")[-1]
 db.cl_init(change_program=progname)
 

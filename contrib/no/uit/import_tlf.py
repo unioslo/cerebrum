@@ -1,5 +1,6 @@
-#! /bin/env python
+#!/bin/env python
 # -*- coding: utf-8 -*-
+#
 # Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -17,31 +18,175 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 UiT specific extension to Cerebrum
 
 This program imports data from the phone system and populates
 entity_contact_info tables in Cerebrum.
+
+Configuration
+-------------
+Uses the following cereconf variables:
+
+TELEFONIERRORS_RECEIVER
+    Errors are aggregated and sent to this email address, unless the script
+    runs with --dryrun or --no-email.
+
+SYSX_EMAIL_NOTFICATION_SENDER
+    From-address for the error report.
+
+MAX_NUM_ALLOWED_CHANGES
+    Max number of changes to allow this script to make. The limit is ignored if
+    the script runs with --force
+
+DUMPDIR
+    Default location for Cerebrum exports. The default CSV-file to fetch phone
+    data from is <DUMPDIR>/telefoni/user_<date>.txt
+
+PHONE_CONNECT
+    URL to the remote phone system (for removing erroneous objects).
 """
-
-
 from __future__ import unicode_literals
 
 import argparse
 import csv
 import datetime
+import io
 import logging
-import mx.DateTime
-import time
+
+import requests
+
+import cereconf
 
 import Cerebrum.logutils
-import cereconf
-from Cerebrum.Utils import Factory
-from Cerebrum.utils.email import sendmail
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.utils.email import sendmail
 
 logger = logging.getLogger(__name__)
+
+
+default_charsep = ';'
+default_encoding = 'utf-8'
+
+# PY3: Enum?
+CSV_FIELDS = (
+    'firstname',
+    'lastname',
+    'phone',
+    'fax',
+    'mobile',
+    'phone_2',
+    'mail',
+    'userid',
+    'room',
+    'building',
+    'reservation',
+)
+
+
+def parse_csv(filename, encoding=default_encoding, charsep=default_charsep):
+    """
+    Read entries from a phone numbers CSV file.
+
+    :rtype: generator
+    :returns:
+        An iterator that yields one dict with for each valid entry in the CSV
+        file. Each dict should contain fields from CSV_FIELDS.
+    """
+    logger.info("reading csv file=%r (encoding=%r, charsep=%r)",
+                filename, encoding, charsep)
+    stats = {'reserved': 0, 'no_userid': 0, 'included': 0}
+    with open(filename, mode='r') as f:
+        for data in csv.reader(f, delimiter=charsep.encode(encoding)):
+            entry = dict(
+                (name, data[i].decode(encoding))
+                for i, name in enumerate(CSV_FIELDS))
+
+            if not entry['userid'].strip():
+                # empty user id
+                stats['no_userid'] += 1
+                continue
+            if entry['reservation'].lower() != 'kat':
+                # User is reserved
+                stats['reserved'] += 1
+                continue
+
+            if entry['userid'].strip() != entry['userid']:
+                # To be included, but log an error so it can be fixed
+                logger.error("user_id=%r has blanks, notify telefoni!",
+                             entry['userid'])
+                entry['userid'] = entry['userid'].strip()
+
+            yield entry
+            stats['included'] += 1
+    logger.info("read %d entries (%r) from file=%r",
+                sum(stats.values()), stats, filename)
+
+
+def send_report(self, report):
+    """Send email with import errors."""
+    recipient = cereconf.TELEFONIERRORS_RECEIVER
+    sender = cereconf.SYSX_EMAIL_NOTFICATION_SENDER
+    subject = 'Import telefoni errors from Cerebrum {0}'.format(
+        datetime.date.today().strftime('%Y%m%d'))
+    sendmail(
+        toaddr=recipient,
+        fromaddr=sender,
+        subject=subject,
+        body=report,
+    )
+
+
+def delete_remote(userid):
+    """Delete userid object in phone system"""
+    # TODO: No auth?
+    headers = {'System': 'BAS'}
+    object_url = '{}/{}'.format(cereconf.PHONE_CONNECT, userid)
+    logger.info("Removing remote userid=%r", userid)
+    response = requests.delete(object_url, headers=headers)
+    logger.debug("Response: %s", repr(response))
+    # TODO: Should really check return code? raise_for_status?
+    if response.text == 'User not found':
+        logger.warning("Unable to delete userid=%r in remote system (no user)",
+                       userid)
+
+
+class ErrorReport(object):
+    """Format a report."""
+
+    def __init__(self):
+        self._errors = {}
+        self._names = {}
+
+    def __iter__(self):
+        return iter(self._errors.keys())
+
+    def set_name(self, user_id, *names):
+        """Add a name to use in the report."""
+        if user_id in self._names:
+            return
+        names = [n.strip() for n in names if n.strip()]
+        if any(names):
+            self._names[user_id] = ' '.join(names)
+
+    def add_error(self, user_id, error_msg):
+        user_errors = self._errors.setdefault(user_id, [])
+        user_errors.append(error_msg)
+
+    def format_report(self):
+        """Format a report on all encountered errors."""
+        message = io.StringIO()
+        for user_id in sorted(self._errors,
+                              key=lambda uid: (self._names.get(uid), uid)):
+            header = '{} ({})'.format(self._names.get(user_id, ''), user_id)
+            items = self._errors[user_id]
+            message.write(header + "\n")
+            for item in items:
+                message.write("\t" + item + "\n")
+            message.write("\n")
+        return message.getvalue()
 
 
 class PhoneNumberImporter(object):
@@ -68,8 +213,9 @@ class PhoneNumberImporter(object):
 
         # Variables
         self._num_changes = 0
-        self._s_errors = {}
-        self._processed = []
+        # self._s_errors = {}
+        self.errors = ErrorReport()
+        self._processed = set()
 
         self._p = Factory.get('Person')(db)
         self._co = Factory.get('Constants')(db)
@@ -92,13 +238,10 @@ class PhoneNumberImporter(object):
             self._uname_to_mail = self._ac.getdict_uname2mailaddr(
                 filter_expired=False)
         logger.info("Caching account owners")
-        for a in self._ac.search(expire_start=None,
-                                 expire_stop=datetime.datetime(
-                                    datetime.MAXYEAR,
-                                    12,
-                                    31)):
+        for a in self._ac.search(expire_start=None, expire_stop=None):
             self._uname_to_ownerid[a['name']] = a['owner_id']
-            self._uname_to_expire[a['name']] = a['expire_date']
+            self._uname_to_expire[a['name']] = (a['expire_date'].pydate()
+                                                if a['expire_date'] else None)
         if self._checknames:
             logger.info("Caching person names")
             self._name_cache = self._p.getdict_persons_names(
@@ -110,9 +253,8 @@ class PhoneNumberImporter(object):
         for c in self._p.list_contact_info(source_system=self._co.system_tlf,
                                            entity_type=self._co.entity_person):
             idx = "{0}:{1}".format(c['contact_type'], c['contact_pref'])
-            tmp = self._person_to_contact.get(c['entity_id'], {})
-            tmp[idx] = c['contact_value']
-            self._person_to_contact[c['entity_id']] = tmp
+            p_dict = self._person_to_contact.setdefault(c['entity_id'], {})
+            p_dict[idx] = c['contact_value']
         logger.info("Caching finished")
 
     def handle_changes(self, p_id, changes):
@@ -162,27 +304,26 @@ class PhoneNumberImporter(object):
 
     def process_contact(self, user_id, data):
         """Process and find changes."""
-        owner_id = self._uname_to_ownerid.get(user_id, None)
 
+        owner_id = self._uname_to_ownerid.get(user_id, None)
         if owner_id is None:
-            logger.error("user_id: %s not found in Cerebrum!?", user_id)
-            self._s_errors.setdefault(user_id, []).append(
+            logger.error("No userid=%r in Cerebrum", user_id)
+            self.errors.add_error(
+                user_id,
                 "Account {0} not found in BAS".format(user_id))
             return
 
         # Remove MX
-        if self._uname_to_expire.get(user_id, mx.DateTime.today()) < \
-                mx.DateTime.today():
-            self._s_errors.setdefault(user_id, []).append(
+        expire_date = self._uname_to_expire.get(user_id)
+        if expire_date and expire_date < datetime.date.today():
+            self.errors.add_error(
+                user_id,
                 "WARN: account {0} expired {1} in BAS".format(
-                    user_id,
-                    self._uname_to_expire.get(user_id).Format('%Y-%m-%d')))
+                    user_id, expire_date.strftime('%Y-%m-%d')))
 
         cinfo = self._person_to_contact.get(owner_id, {})
         logger.debug("Process userid=%s (owner=%s) CBData=%s",
-                     user_id,
-                     owner_id,
-                     cinfo)
+                     user_id, owner_id, cinfo)
         changes = []
         idxlist = []
         contact_pref = 0
@@ -225,7 +366,8 @@ class PhoneNumberImporter(object):
                     user_id,
                     "").lower() != mail.lower():
 
-                self._s_errors.setdefault(user_id, []).append(
+                self.errors.add_error(
+                    user_id,
                     "Email wrong: yours={0}, ours={1}".format(
                         mail,
                         self._uname_to_mail.get(user_id)))
@@ -238,12 +380,11 @@ class PhoneNumberImporter(object):
                     cb_lname = namelist.get(int(self._co.name_last), "")
 
                     if cb_fname != tlf_fname or cb_lname != tlf_lname:
-                        self._s_errors.setdefault(user_id, []).append(
+                        self.errors.add_error(
+                            user_id,
                             "Name spelling differ: yours={0} {1}, ours={2} " +
-                            "{3}".format(tlf_fname,
-                                         tlf_lname,
-                                         cb_fname,
-                                         cb_lname))
+                            "{3}".format(tlf_fname, tlf_lname,
+                                         cb_fname, cb_lname))
 
         db_idx = set(cinfo.keys())
         src_idx = set(idxlist)
@@ -254,7 +395,7 @@ class PhoneNumberImporter(object):
             logger.info("Changes [%s/%s]: %s", user_id, owner_id, changes)
             self.handle_changes(owner_id, changes)
             logger.info("Update contact and write_db done")
-        self._processed.append(owner_id)
+        self._processed.add(owner_id)
 
     def update_phonenr(self, uid, phone):
         """
@@ -311,9 +452,9 @@ class PhoneNumberImporter(object):
         is_new_number = False
         data_phone_len = len(phone_number)
 
-        if owner_id in self._person_to_contact.keys():
-            for key, val in self._person_to_contact[owner_id].iteritems():
-                contact_type = int(key[:3])
+        if owner_id in self._person_to_contact:
+            for key, val in self._person_to_contact[owner_id].items():
+                contact_type = int(key.split(':')[0])
                 if contact_type == int(self._co.contact_phone):
                     num_to_compare = val
                     if len(num_to_compare) > data_phone_len:
@@ -324,40 +465,13 @@ class PhoneNumberImporter(object):
             is_new_number = True
         return is_new_number
 
-    def convert(self, data, encoding='utf-8'):
-        """Convert internal data to a given encoding."""
-        if isinstance(data, dict):
-            return {self.convert(key): self.convert(value, encoding)
-                    for key, value in data.iteritems()}
-        elif isinstance(data, list):
-            return [self.convert(element, encoding) for element in data]
-        elif isinstance(data, bytes):
-            return data.decode(encoding)
-        else:
-            return data
-
-    def process_telefoni(self, filename, notify_recipient):
+    def process_telefoni(self, entries):
         """
         Process the phone file and update Cerebrum with changes.
 
         We will add a prefix to internal phone numbers based on their first
         digits. Some will be marked for deletion based on prefix.
         """
-        # CSV field positions
-        fields = {
-            'fname': 0,
-            'lname': 1,
-            'phone': 2,
-            'fax': 3,
-            'mob': 4,
-            'phone_2': 5,
-            'mail': 6,
-            'userid': 7,
-            'room': 8,
-            'building': 9,
-            'reservation': 10,
-        }
-
         # TODO: move this to config at some point.
         prefix_table = [
             # (internal number first digits, prefix to add or "DELETE")
@@ -402,97 +516,66 @@ class PhoneNumberImporter(object):
             ("69", "DELETE"),
         ]
 
-        with open(filename, 'r') as fp:
-            reader = csv.reader(fp, delimiter=str(';'))
-            phonedata = {}
+        phonedata = {}
+        for data in entries:
+            user_id = data['userid'].strip()
+            if user_id not in self._uname_to_ownerid:
+                logger.warning("Unknown userid=%r, skipping", user_id)
+                continue
 
-            for row in reader:
-                # convert to unicode
-                row = self.convert(row, 'utf-8')
+            # Cache full name in error report, in case it is needed.
+            self.errors.set_name(user_id, data['firstname'], data['lastname'])
 
-                user_id = row[fields['userid']]
+            # Set phone extension or mark for deletion based on the
+            # first internal number's digits
+            added_prefix = False
+            changed_phone = False
 
-                if row[fields['reservation']].lower() == 'kat' and \
-                        user_id.strip():
+            for internal_first_digits, prefix in prefix_table:
+                if (len(data['phone']) == 5 and
+                        data['phone'].startswith(internal_first_digits)):
+                    if prefix == "DELETE":
+                        # Delete the phonenumber from the database
+                        logger.debug("DELETE: userid=%r, phone=%r",
+                                     user_id, data['phone'])
+                        self.delete_phonenr(user_id, data['phone'])
+                    else:
+                        logger.debug('unmodified phone=%r', data['phone'])
+                        data['phone'] = "{0}{1}".format(prefix, data['phone'])
+                        logger.debug('modified phone=%r', data['phone'])
+                        if self.is_new_number(data['phone'],
+                                              self._uname_to_ownerid[user_id]):
+                            changed_phone = True
+                    added_prefix = True
+                    break
 
-                    if user_id.strip() != user_id:
-                        logger.error("Userid %s has blanks in it. Notify " +
-                                     "telefoni!", user_id)
+            if data['phone'] and not added_prefix:
+                logger.debug("INVALID: userid=%r, phone=%r",
+                             user_id, data['phone'])
+                logger.warning(
+                    'Userid %s has a malformed internal phone number '
+                    'or a number that does not have a match '
+                    'in our number prefix table:%s', user_id, data)
 
-                    data = {'phone': row[fields['phone']],
-                            'mobile': row[fields['mob']],
-                            'room': row[fields['room']],
-                            'mail': row[fields['mail']],
-                            'fax': row[fields['fax']],
-                            'phone_2': row[fields['phone_2']],
-                            'firstname': row[fields['fname']],
-                            'lastname': row[fields['lname']],
-                            'building': row[fields['building']],
-                            }
+            # add "+47" phone number prefix
+            if (data['phone'] and
+                    self.is_new_number(data['phone'],
+                                       self._uname_to_ownerid[user_id])):
+                changed_phone = True
+                if not data['phone'].startswith('+47'):
+                    data['phone'] = "{0}{1}".format("+47", data['phone'])
+                logger.debug("%s's phone number with +47 prefix: %s",
+                             user_id,
+                             data['phone'])
 
-                    if row[fields['userid']] not in self._uname_to_ownerid:
-                        logger.warn("Unknown user: %s, continue with next " +
-                                    "user", row[fields['userid']])
-                        continue
-
-                    # Set phone extension or mark for deletion based on the
-                    # first internal number's digits
-                    added_prefix = False
-                    changed_phone = False
-
-                    for internal_first_digits, prefix in prefix_table:
-                        if len(data['phone']) == 5 and \
-                                data['phone'].startswith(
-                                    internal_first_digits):
-                            if prefix == "DELETE":
-                                logger.debug("DELETE: %s - %s",
-                                             user_id,
-                                             data['phone'])
-                                # Delete the phonenumber from the database
-                                self.delete_phonenr(user_id, data['phone'])
-
-                            else:
-                                logger.debug('unmodified phone:%s',
-                                             data['phone'])
-                                data['phone'] = "{0}{1}".format(prefix,
-                                                                data['phone'])
-                                logger.debug('modified phone:%s',
-                                             data['phone'])
-                                if self.is_new_number(
-                                        data['phone'],
-                                        self._uname_to_ownerid[user_id]):
-                                    changed_phone = True
-                            added_prefix = True
-                            break
-                    if data['phone'] and not added_prefix:
-                        logger.warning(
-                            'Userid %s has a malformed internal phone number '
-                            'or a number that does not have a match '
-                            'in our number prefix table:%s', user_id, data)
-                        logger.debug("INVALID: %s - %s",
-                                     user_id,
-                                     data['phone'])
-
-                    # add "+47" phone number prefix
-                    if data['phone'] and (self.is_new_number(
-                            data['phone'],
-                            self._uname_to_ownerid[user_id])):
-                        changed_phone = True
-                        if not data['phone'].startswith('+47'):
-                            data['phone'] = "{0}{1}".format("+47",
-                                                            data['phone'])
-                        logger.debug("%s's phone number with +47 prefix: %s",
-                                     user_id,
-                                     data['phone'])
-
-                    if changed_phone:
-                        self.update_phonenr(user_id, data['phone'])
-                    phonedata.setdefault(user_id.strip(), []).append(data)
+            if changed_phone:
+                self.update_phonenr(user_id, data['phone'])
+            phonedata.setdefault(user_id, []).append(data)
 
         for user_id, pdata in phonedata.items():
             self.process_contact(user_id, pdata)
 
-        unprocessed = set(self._person_to_contact.keys()) - set(self._processed)
+        unprocessed = set(self._person_to_contact) - self._processed
 
         for p_id in unprocessed:
             changes = []
@@ -500,53 +583,20 @@ class PhoneNumberImporter(object):
 
             for idx, value in contact_info.items():
                 changes.append(('del_contact', (idx, None)))
-            logger.debug("person(id=%s) not in source data, changes=%s",
-                         p_id,
-                         changes)
+            logger.debug("person (id=%s) not in source data, changes=%s",
+                         p_id, changes)
 
             self.handle_changes(p_id, changes)
 
-        if self._s_errors:
-            msg = {}
-            for userid, error in self._s_errors.items():
-                fname = phonedata[userid][0]['firstname']
-                lname = phonedata[userid][0]['lastname']
-                key = '{0} {1} ({2})'.format(fname, lname, userid)
-                msg[key] = []
-                for i in error:
-                    msg[key].append("\t%s\n" % (i,))
 
-            keys = msg.keys()
-            keys.sort()
-            mailmsg = ""
-            for k in keys:
-                mailmsg += k + '\n'
-                for i in msg[k]:
-                    mailmsg += i
-
-            self.notify_phoneadmin(mailmsg, notify_recipient)
-
-    def notify_phoneadmin(self, msg, notify_recipient):
-        """Send email with import errors."""
-        recipient = cereconf.TELEFONIERRORS_RECEIVER
-        sender = cereconf.SYSX_EMAIL_NOTFICATION_SENDER
-        subject = 'Import telefoni errors from Cerebrum {0}'.format(
-            time.strftime('%Y%m%d'))
-        if notify_recipient:
-            sendmail(recipient, sender, subject, msg)
-        else:
-            logger.warn("Do not notify phone admin via email")
-
-
-def main():
+def main(inargs=None):
     """Parser etc."""
-    db = Factory.get('Database')()
-    db.cl_init(change_program='import_tlf')
-    parser = argparse.ArgumentParser(description=__doc__)
-
+    parser = argparse.ArgumentParser(
+        description="Import telephone numbers",
+    )
     default_phonefile = '{0}/telefoni/user_{1}.txt'.format(
         cereconf.DUMPDIR,
-        time.strftime('%Y%m%d'))
+        datetime.date.today().strftime('%Y%m%d'))
     parser.add_argument(
         '-f',
         '--file',
@@ -571,10 +621,12 @@ def main():
              'messages',
     )
     parser.add_argument(
-        '--commit',
-        dest='commit',
-        action='store_true',
-        help='Commit changes to DB',
+        '-k',
+        '--keep-remote',
+        dest='delete_remote',
+        action='store_false',
+        default=True,
+        help="Do *not* delete contact info from remote phone system",
     )
     parser.add_argument(
         '--checknames',
@@ -588,12 +640,15 @@ def main():
         action='store_true',
         help='Check mails.',
     )
+    add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
-    args = parser.parse_args()
-    Cerebrum.logutils.autoconf('cronjob', args)
-    logger.info('Starting phone number import')
+    args = parser.parse_args(inargs)
 
-    logger.error(args)
+    Cerebrum.logutils.autoconf('cronjob', args)
+    logger.info('Starting %s', parser.prog)
+    logger.info('args: %r', args)
+    db = Factory.get('Database')()
+    db.cl_init(change_program='import_tlf')
 
     phone_importer = PhoneNumberImporter(
         db,
@@ -602,27 +657,54 @@ def main():
     )
 
     logger.info('Using sourcefile: %s', args.file)
-    phone_importer.process_telefoni(args.file, args.notify_recipient)
+    csv_entries = parse_csv(args.file)
+    phone_importer.process_telefoni(csv_entries)
     num_changes = phone_importer._num_changes
     max_changes_allowed = int(cereconf.MAX_NUM_ALLOWED_CHANGES)
-    logger.debug("Max number of allowed changes:%s", max_changes_allowed)
-    logger.debug("Number of changes:%s", num_changes)
-    if args.commit:
-        if args.force:
-            db.commit()
-            logger.warning("Forced writing: %s changes in phone processing",
-                           num_changes)
-        elif num_changes <= max_changes_allowed:
-            db.commit()
-            logger.info("Committing changes")
+    logger.info("Number of changes: %s (max: %s)",
+                num_changes, max_changes_allowed)
+
+    commit = args.commit
+    if num_changes > max_changes_allowed:
+        # Too many changes
+        if commit and not args.force:
+            logger.critical("Too many changes: %d (max: %d), force rollback",
+                            num_changes, max_changes_allowed)
+            commit = False
         else:
-            db.rollback()
-            logger.error("Too many changes: %s. Rolling back changes",
-                         num_changes)
+            logger.warning("Too many changes: %d (max: %d, commit: %r)",
+                           num_changes, max_changes_allowed, commit)
+
+    errors = list(phone_importer.errors)
+    logger.info("Got errors on %d users", len(errors))
+
+    if commit:
+        logger.info('Commiting changes')
+        db.commit()
     else:
+        logger.info('Rolling back changes')
         db.rollback()
-        logger.info("Dryrun, Rolling back changes")
-    logger.info('End of phone number import.')
+
+    if commit and args.delete_remote:
+        logger.info("Removing %d erroneous objects from remote system",
+                    len(errors))
+        for userid in errors:
+            try:
+                delete_remote(userid)
+            except Exception:
+                logger.error("Unable to delete userid=%r from remote system",
+                             userid, exc_info=True)
+                # TODO: Add error to phone_importer.errors?
+            else:
+                logger.info("Removed userid=%r from remote system", userid)
+
+    report = phone_importer.errors.format_report()
+
+    if errors and commit and args.notify_recipient:
+        logger.info("Sending error report")
+        send_report(report)
+
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == "__main__":
