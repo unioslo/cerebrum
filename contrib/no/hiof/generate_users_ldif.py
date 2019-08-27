@@ -21,6 +21,9 @@
 """
 LDAP user export
 
+TODO: This export is nearly identical to
+``contrib/no/hia/generate_radius_ldif.py``
+
 Configuration
 -------------
 

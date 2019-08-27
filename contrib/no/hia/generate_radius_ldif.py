@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: utf-8  -*-
-# Copyright 2007-2017 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2007-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,11 +18,38 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+LDAP radius export
 
+TODO: This export is nearly identical to
+``contrib/no/hiof/generate_users_ldif.py``
+
+Configuration
+-------------
+
+cereconf.LDAP_RADIUS
+    Settings for the export.
+
+    auth_attr
+        Select auth type and formatting for userPassword, ntPassword
+
+    dn
+        Sets distinguished name for users tree
+
+    dump_dir
+        Default location for LDAP related user export files. dump_dir will
+        usually be the same for all LDAP exports.
+
+    file
+        Absolute or relative name of the export file. If relative, it will be
+        placed in the LDAP_USER['dump_dir'].
+"""
+import argparse
 import logging
 
 import cereconf
 import Cerebrum.logutils
+from Cerebrum.export.auth import AuthExporter
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.LDIFutils import (ldapconf,
                                         ldif_outfile,
@@ -30,35 +58,18 @@ from Cerebrum.modules.LDIFutils import (ldapconf,
                                         container_entry_string)
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
+
 logger = logging.getLogger(__name__)
 
 
-class RadiusLDIF(object):
-    def load_quaratines(self):
-        self.quarantines = {}
-        for row in self.account.list_entity_quarantines(
-                entity_types=self.const.entity_account, only_active=True):
-            self.quarantines.setdefault(int(row['entity_id']), []).append(
-                int(row['quarantine_type']))
-
-    def make_auths(self, auth_type, old=None):
-        auth = old or {}
-        for row in self.account.list_account_authentication(auth_type):
-            auth[int(row['account_id'])] = (row['entity_name'],
-                                            row['auth_data'])
-        return auth
+class UserLDIF(object):
 
     def __init__(self):
-        self.radius_dn = ldapconf('RADIUS', 'dn', None)
+        self.user_dn = ldapconf('RADIUS', 'dn', None)
         self.db = Factory.get('Database')()
         self.const = Factory.get('Constants')(self.db)
         self.account = Factory.get('Account')(self.db)
-        self.md4_auth = self.make_auths(self.const.auth_type_md4_nt)
         self.auth = None
-        for auth_type in (self.const.auth_type_crypt3_des,
-                          self.const.auth_type_md5_crypt):
-            self.auth = self.make_auths(auth_type, self.auth)
-        self.load_quaratines()
         self.id2vlan_vpn = {}
         for spread in reversed(cereconf.LDAP_RADIUS['spreads']):
             vlan_vpn = (cereconf.LDAP_RADIUS['spread2vlan'][spread],
@@ -66,50 +77,91 @@ class RadiusLDIF(object):
             spread = self.const.Spread(spread)
             for row in self.account.search(spread=spread):
                 self.id2vlan_vpn[row['account_id']] = vlan_vpn
+        # Configure auth
+        auth_attr = ldapconf('RADIUS', 'auth_attr', None)
+        self.user_password = AuthExporter.make_exporter(
+            self.db, auth_attr['userPassword'])
+        self.nt_password = AuthExporter.make_exporter(
+            self.db, auth_attr['ntPassword'])
+
+    def cache_data(self):
+        self.account_names = {}
+        logger.info('Caching account names...')
+        for row in self.account.search():
+            self.account_names[row['account_id']] = row['name']
+
+        logger.info('Caching account authentication...')
+        self.user_password.cache.update_all()
+        self.nt_password.cache.update_all()
+
+        logger.info('Caching account quarantines...')
+        self.quarantines = {}
+        for row in self.account.list_entity_quarantines(
+                entity_types=self.const.entity_account, only_active=True):
+            self.quarantines.setdefault(int(row['entity_id']), []).append(
+                int(row['quarantine_type']))
 
     def dump(self):
         fd = ldif_outfile('RADIUS')
-
+        logger.debug('writing to %s', repr(fd))
         fd.write(container_entry_string('RADIUS'))
-        noAuth = (None, None)
-        for account_id, vlan_vpn in self.id2vlan_vpn.iteritems():
-            # self.auth is cached
-            if account_id not in self.auth:
-                logger.warning('%r not in self.auth (cached)', account_id)
-                continue
 
-            info = self.auth[account_id]
-            uname = info[0]
-            auth = info[1]
-            ntAuth = self.md4_auth.get(account_id, noAuth)[1]
+        logger.info('Generating export...')
+        for account_id, vlan_vpn in self.id2vlan_vpn.iteritems():
+            try:
+                uname = self.account_names[account_id]
+            except KeyError:
+                logger.error('No account name for account_id=%r', account_id)
+                continue
+            try:
+                auth = self.user_password.get(account_id)
+            except LookupError:
+                auth = None
+            try:
+                ntauth = self.nt_password.get(account_id)
+            except LookupError:
+                ntauth = None
             if account_id in self.quarantines:
                 qh = QuarantineHandler(self.db, self.quarantines[account_id])
                 if qh.should_skip():
                     continue
                 if qh.is_locked():
-                    auth = ntAuth = None
-            dn = ','.join(('uid=' + uname, self.radius_dn))
+                    auth = ntauth = None
+            dn = ','.join(('uid=' + uname, self.user_dn))
             entry = {
                 'objectClass': ['top', 'account', 'uiaRadiusAccount'],
                 'uid': (uname,),
                 'radiusTunnelType': ('VLAN',),
                 'radiusTunnelMediumType': ('IEEE-802',),
                 'radiusTunnelPrivateGroupId': (vlan_vpn[0],),
-                'radiusClass': (vlan_vpn[1],)}
+                'radiusClass': (vlan_vpn[1],),
+            }
             if auth:
                 entry['objectClass'].append('simpleSecurityObject')
-                entry['userPassword'] = ('{crypt}' + auth,)
-            if ntAuth:
-                entry['ntPassword'] = (ntAuth,)
+                entry['userPassword'] = auth
+            if ntauth:
+                entry['ntPassword'] = (ntauth,)
             fd.write(entry_string(dn, entry, False))
         end_ldif_outfile('RADIUS', fd)
 
 
-def main():
-    Cerebrum.logutils.autoconf('cronjob')
-    logger.info('Dumping RADIUS accounts...')
-    RadiusLDIF().dump()
-    logger.info('Done')
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description='Export ldif file with users',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %s', repr(args))
+
+    ldif = UserLDIF()
+    ldif.cache_data()
+    ldif.dump()
+
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':
