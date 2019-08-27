@@ -174,7 +174,8 @@ class AuditRecordBuilder(DatabaseAccessor):
         except Cerebrum.Errors.NotFoundError:
             return None
 
-    def build_meta(self, change_type, operator_id, entity_id, target_id):
+    def build_meta(self, change_type, operator_id, entity_id,
+                   target_id, change_program):
         """ Build default metadata from change_log arguments.
 
         TODO: This is a hack -- the ChangeLog/CLDatabase API should be modified
@@ -217,6 +218,8 @@ class AuditRecordBuilder(DatabaseAccessor):
         entity_name = self._get_name(entity_id, entity_type)
         target_type = self._get_type(target_id)
         target_name = self._get_name(target_id, target_type)
+        if change_program is not None:
+            change_program = six.text_type(change_program)
         return {
             'change': change,
             'operator_type': operator_type,
@@ -225,6 +228,7 @@ class AuditRecordBuilder(DatabaseAccessor):
             'entity_name': entity_name,
             'target_type': target_type,
             'target_name': target_name,
+            'change_program': change_program,
         }
 
     translate_params = _ChangeTypeCallbacks()
@@ -254,7 +258,8 @@ class AuditRecordBuilder(DatabaseAccessor):
         metadata = self.build_meta(change_type,
                                    change_by,
                                    subject_entity,
-                                   destination_entity)
+                                   destination_entity,
+                                   change_program)
         params = self.build_params(change_type,
                                    subject_entity,
                                    destination_entity,
