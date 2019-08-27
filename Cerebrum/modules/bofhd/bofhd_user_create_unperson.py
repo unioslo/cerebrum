@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2009-2019 University of Oslo, Norway
 #
@@ -18,10 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Pan-institutional 'user create_unpersonal' bofh daemon functionality.
+"""Pan-institutional 'user create_unperson' bofh daemon functionality.
 
 This module contains class, functions, etc. related to the command
-'user create_unpersonal'
+'user create_unperson'
 """
 from __future__ import unicode_literals
 
@@ -31,56 +30,34 @@ import six
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules.bofhd.bofhd_core import (BofhdCommonMethods,
+                                               BofhdCommandBase)
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.help import merge_help_strings
-
-logger = logging.getLogger(__name__)
-
-
-class BofhdCreateUnpersonalAuth(BofhdAuth):
-    """ Auth for user create_unpersonal command."""
-
-        def can_create_unpersonal(self, operator,
-                                  entity=None,
-                                  query_run_any=False):
-            """ Check if an operator is allowed to create unpersonal user
-
-            :param int operator: entity_id of the authenticated user
-            :param entity: A cerebrum entity object (e.g. person, account)
-            """
-            if self.is_superuser(operator):
-                return True
-            # OK?
-            if query_run_any:
-                return True
-            # check for permission through opset
-            # if (self._has_target_permissions(operator,
-            #                                  self.const.<something>, ...) or
-            #     self._has_target_permissions(operator,
-            #                                  self.const.<something_else>)):
-            #     return True
-            # The person itself should be able to see it:
-            raise PermissionDenied("Not allowed to create unpersonal user")
+from Cerebrum.modules.bofhd.cmd_param import (AccountName,
+                                              EmailAddress,
+                                              GroupName,
+                                              Command,
+                                              FormatSuggestion,
+                                              SimpleString)
 
 
 CMD_HELP = {
     'user': {
-        'user_create_unpersonal': 'Create a new unpersonal account',
+        'user_create_unperson': 'Create a new unperson account',
     }
 }
 
 CMD_ARGS = {
-    'unpersonal_account_type': ['account_type', 'Enter account type',
-                                'The type of unpersonal account.'],
+    'unperson_account_type': ['account_type', 'Enter account type',
+                                'The type of unperson account.'],
 }
 
 
-class BofhdUserUnpersonalCreateMethod(BofhdCommonMethods):
-    """Class with 'user create_unpersonal' method."""
+class BofhdExtension(BofhdCommonMethods):
+    """Class with 'user create_unperson' method."""
 
     all_commands = {}
-    authz = BofhdCreateUnpersonalAuth
 
     @classmethod
     def get_help_strings(cls):
@@ -91,7 +68,7 @@ class BofhdUserUnpersonalCreateMethod(BofhdCommonMethods):
         list_sep = '\n - '
         for k, v in CMD_ARGS.items():
             cmd_args[k] = v[:]
-            if k == 'unpersonal_account_type':
+            if k == 'unperson_account_type':
                 cmd_args[k][2] += '\nAccount types:'
                 cmd_args[k][2] += list_sep + list_sep.join(six.text_type(c) for
                                                            c in account_types)
@@ -103,23 +80,22 @@ class BofhdUserUnpersonalCreateMethod(BofhdCommonMethods):
 
 
     #
-    # user create_unpersonal
+    # user create_unperson
     #
-    all_commands['user_create_unpersonal'] = Command(
-        ('user', 'create_unpersonal'),
+    all_commands['user_create_unperson'] = Command(
+        ('user', 'create_unperson'),
         AccountName(),
         GroupName(),
         EmailAddress(),
         SimpleString(help_ref="string_np_type"),
-        fs=FormatSuggestion("Created account_id=%i", ("account_id",)),
-        perm_filter='can_create_user_unpersonal')
+        fs=FormatSuggestion("Created account_id=%i", ("account_id",)))
 
-    def user_create_unpersonal(self, operator,
-                               account_name, group_name,
-                               contact_address, account_type):
+    def user_create_unperson(self, operator,
+                             account_name, group_name,
+                             contact_address, account_type):
         owner_group = self._get_group(group_name)
-        self.ba.can_create_user_unpersonal(operator.get_entity_id(),
-                                           group=owner_group)
+        self.ba.can_create_user_unperson(operator.get_entity_id(),
+                                         group=owner_group)
 
         account_type = self._get_constant(self.const.Account, account_type,
                                           "account type")
@@ -150,12 +126,11 @@ class BofhdUserUnpersonalCreateMethod(BofhdCommonMethods):
         # TBD: Better way of checking if email forwards are in use, by
         # checking if bofhd command is available?
         if hasattr(self, '_email_create_forward_target'):
-            localaddr = '{}@{}'.format(
-                account_name,
+            localaddr = '{}@{}'.format(ccount_name,
                 Email.get_primary_default_email_domain())
             self._email_create_forward_target(localaddr, contact_address)
 
-        quar = cereconf.BOFHD_CREATE_UNPERSONAL_QUARANTINE
+        quar = cereconf.BOFHD_CREATE_UNPERSON_QUARANTINE
         if quar:
             qconst = self._get_constant(self.const.Quarantine, quar,
                                         "quarantine")

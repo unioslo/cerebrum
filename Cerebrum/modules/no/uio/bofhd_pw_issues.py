@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2019 University of Oslo, Norway
@@ -304,7 +303,7 @@ class PassWordIssues(BofhdCommonMethods):
             self.data.append(info)
 
 
-class BofhdExtension(BofhdCommandBase):
+class BofhdExtension(BofhdCommonMethods):
     all_commands = {}
 
     @classmethod

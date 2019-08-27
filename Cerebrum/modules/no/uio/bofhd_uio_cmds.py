@@ -90,6 +90,7 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio import bofhd_pw_issues
+from Cerebrum.modules.bofhd import bofhd_user_create_unperson
 from Cerebrum.modules.no.uio.bofhd_auth import (
     BofhdApiKeyAuth,
     UiOBofhdRequestsAuth,
@@ -6783,4 +6784,8 @@ class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
 
 class UioPassWordIssuesCommands(bofhd_pw_issues.BofhdExtension):
     """Uio specific password * commands"""
+    authz = UioPassWordAuth
+
+class UiOCreateUnpersonCommands(bofhd_user_create_unperson.BofhdExtension):
+    """Uio specific create unperson * commands"""
     authz = UioPassWordAuth
