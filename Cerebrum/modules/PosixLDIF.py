@@ -124,12 +124,6 @@ class PosixLDIF(object):
                     spread=self.spread_d['user'],
                     filter_expired=True):
                 account_id = row['account_id']
-                # try:
-                #     self.user_password.get(account_id)
-                # except LookupError:
-                #     logger.debug('no auth data for account_id=%r',
-                #                  account_id)
-                #     continue
                 dn, entry = self.user_object(row)
                 if not dn:
                     logger.debug('no dn for account_id=%r', account_id)
