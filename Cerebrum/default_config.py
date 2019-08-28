@@ -650,7 +650,6 @@ PASSWORD_TMP_STORE_DIR = """C:\passwords"""
 # Generation of LDIF/POSIX files
 CLASS_ORGLDIF = ['Cerebrum.modules.OrgLDIF/OrgLDIF']
 CLASS_POSIXLDIF = ['Cerebrum.modules.PosixLDIF/PosixLDIF']
-CLASS_POSIXEXPORT = ['Cerebrum.modules.PosixExport/PosixExport']
 
 # General LDAP info
 LDAP = {
