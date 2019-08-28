@@ -90,7 +90,7 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio import bofhd_pw_issues
-from Cerebrum.modules.bofhd import bofhd_user_create_unperson
+from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.uio.bofhd_auth import (
     BofhdApiKeyAuth,
     UiOBofhdRequestsAuth,
@@ -4604,69 +4604,6 @@ class BofhdExtension(BofhdCommonMethods):
                                               self._format_ou_name(ou),
                                               accountname)
 
-    #
-    # user create_unpersonal
-    #
-    all_commands['user_create_unpersonal'] = Command(
-        ('user', 'create_unpersonal'),
-        AccountName(),
-        GroupName(),
-        EmailAddress(),
-        SimpleString(help_ref="string_np_type"),
-        fs=FormatSuggestion("Created account_id=%i", ("account_id",)),
-        perm_filter='can_create_user_unpersonal')
-
-    def user_create_unpersonal(self, operator,
-                               account_name, group_name,
-                               contact_address, account_type):
-        owner_group = self._get_group(group_name)
-        self.ba.can_create_user_unpersonal(operator.get_entity_id(),
-                                           group=owner_group)
-
-        account_type = self._get_constant(self.const.Account, account_type,
-                                          "account type")
-        account = self._user_create_basic(operator, owner_group, account_name,
-                                          account_type)
-        self._user_password(operator, account)
-
-        # Validate the contact address
-        # TBD: Check if address is instance-internal?
-        local_part, domain = bofhd_email.split_address(contact_address)
-        ea = Email.EmailAddress(self.db)
-        ed = Email.EmailDomain(self.db)
-        try:
-            if not ea.validate_localpart(local_part):
-                raise AttributeError('Invalid local part')
-            ed._validate_domain_name(domain)
-        except AttributeError as e:
-            raise CerebrumError("Invalid contact address: %s" % exc_to_text(e))
-
-        # Unpersonal accounts shouldn't normally have a mail inbox, but they
-        # get a forward target for the account, to be sent to those responsible
-        # for the account, preferrably a sysadm mail list.
-        if hasattr(account, 'add_contact_info'):
-            account.add_contact_info(self.const.system_manual,
-                                     self.const.contact_email,
-                                     contact_address)
-
-        # TBD: Better way of checking if email forwards are in use, by
-        # checking if bofhd command is available?
-        if hasattr(self, '_email_create_forward_target'):
-            localaddr = '{}@{}'.format(
-                account_name,
-                Email.get_primary_default_email_domain())
-            self._email_create_forward_target(localaddr, contact_address)
-
-        quar = cereconf.BOFHD_CREATE_UNPERSONAL_QUARANTINE
-        if quar:
-            qconst = self._get_constant(self.const.Quarantine, quar,
-                                        "quarantine")
-            account.add_entity_quarantine(qconst, operator.get_entity_id(),
-                                          "Not granted for global password "
-                                          "auth (ask IT-sikkerhet)",
-                                          self._today())
-        return {'account_id': int(account.entity_id)}
-
     def _user_create_prompt_func(self, session, *args):
         """A prompt_func on the command level should return
         {'prompt': message_string, 'map': dict_mapping}
@@ -6786,6 +6723,6 @@ class UioPassWordIssuesCommands(bofhd_pw_issues.BofhdExtension):
     """Uio specific password * commands"""
     authz = UioPassWordAuth
 
-class UiOCreateUnpersonCommands(bofhd_user_create_unperson.BofhdExtension):
-    """Uio specific create unperson * commands"""
+class UiOCreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
+    """Uio specific create unpersonal * commands"""
     authz = UioPassWordAuth

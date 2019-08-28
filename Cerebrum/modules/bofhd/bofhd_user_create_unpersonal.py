@@ -45,7 +45,7 @@ from Cerebrum.modules.bofhd.help import merge_help_strings
 
 CMD_HELP = {
     'user': {
-        'user_create_unpersonal': 'Create user account owned by a group',
+        'user_create_unperson': 'Create user account owned by a group',
     }
 }
 
