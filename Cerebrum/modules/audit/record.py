@@ -107,6 +107,8 @@ class DbAuditRecord(AuditRecord):
             self.timestamp.strftime('%Y-%m-%d %H:%M:%S %z'))
 
     def __lt__(self, other):
+        if not hasattr(other, 'timestamp'):
+            return NotImplemented
         return self.timestamp < other.timestamp
 
     @property
