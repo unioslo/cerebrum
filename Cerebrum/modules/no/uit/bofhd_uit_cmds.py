@@ -109,6 +109,10 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
     authz = bofhd_auth.UitAuth
     external_id_mappings = {}
 
+    def __init__(self, *args, **kwargs):
+        super(BofhdExtension, self).__init__(*args, **kwargs)
+        self.external_id_mappings['studnr'] = self.const.externalid_studentnr
+
     @classmethod
     def get_help_strings(cls):
         groups, cmds, args = super(BofhdExtension, cls).get_help_strings()
