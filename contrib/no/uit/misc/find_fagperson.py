@@ -19,49 +19,40 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""
-Reads a text file containing fnr and returns a csv file of all fnrs existing in the database and their accounts.
-The csv file contains: <fnr>;<username>;<notes..if any>
-"""
 from __future__ import print_function
 
 # Generic imports
 import argparse
 import os 
 import sys
+import csv
+import io
+import collections
 
 # cerebrum imports
 import cerebrum_path
 import cereconf
+import logging
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-
-
+#from Cerebrum.utils import csvutils
+from Cerebrum.utils.csvutils import UnicodeDictWriter
 
 # global variables
 __doc__="""
-    Reads a txt file containing fnrs and returns a csv file containing <fnr>;[username];[notes]
-    for all fnrs having active accounts.
+    Reads a txt file containing fnrs and returns a csv file containing <fnr>;[username];[comments]
+    
 """
-db = Factory.get('Database')()
-ac = Factory.get('Account')(db)
-pe = Factory.get('Person')(db)
-co = Factory.get('Constants')(db)
 
-
-
-# print to stderr
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
 
 #
 # Return True if file exists, False if not
 #
 def file_exists(filename):
-    if(os.path.isfile(filename) == False):
-        return False
-    else:
+    if os.path.isfile(filename):
         return True
+    else:
+        return False
 
 
 # 
@@ -88,17 +79,17 @@ def process_line(line):
 # Read input file
 # and make sure to return a 11 digit fnr for each entry
 #
-def read_file(input_file,output_file):
+def read_file(input_file,output_file,logger):
     fnrs = []
-    print ("Reading file: %s" % input_file)
-    print ("Writing to file: %s" % output_file)
+    logger.info("Reading file: %s" % input_file)
+    logger.info("Writing file: %s" % output_file)
     fh = open(input_file,'r')
     for lines in fh.readlines():
         line = process_line(lines)
         if line.isdigit() and len(line) == 11:
             fnrs.append(line)
         else:
-            eprint("Unable to process line:%s. Not on propper format" % line) 
+            logger.warn("Unable to process line:%s. Not on propper format" % line) 
     return fnrs
 
 
@@ -106,15 +97,19 @@ def read_file(input_file,output_file):
 # Read fnr_list and return a dict of persons having active UiT accounts today
 # dict format is: {'fnr':{'username' : [username],'note' : [notes..if any]}}
 #
-def get_accounts(fnr_list):
+def get_accounts(fnr_list,db):
+    ac = Factory.get('Account')(db)
+    pe = Factory.get('Person')(db)
+    co = Factory.get('Constants')(db)
     fagpersons_dict = {}
+
     for fnr in fnr_list:
         person_dict = {'username' : '', 'note' : ''}
         pe.clear()
         try:
             pe.find_by_external_id(co.externalid_fodselsnr,fnr,source_system = co.system_fs)
         except Errors.NotFoundError:
-            errormsg = "does not exist in cerebrum. Skipping..."
+            errormsg = "does not exist in cerebrum with source=FS. Skipping..."
             person_dict['note'] = errormsg
         else:
             # persons exits in cerebrum. now try to find the accounts
@@ -138,51 +133,53 @@ def get_accounts(fnr_list):
     return fagpersons_dict
 
 
+
+
 #
 # Write output to file on csv format: <fnr>;[[username]|[error message]
 #
-def write_to_file(fagperson_dict,output_file):
-    fh = open(output_file,"w")
-    fh.writelines("<fnr>;<brukernavn>;<kommentar>\n")
-    for fnr,items in fagperson_dict.iteritems():
+def write_to_file(fagperson_dict,output_file,logger):
+    column_names = ['fnr','username','comment']
+    errors ='replace'
+    with io.open(output_file,'w', encoding='UTF-8',errors=errors) as stream:
+        try:
+            writer = UnicodeDictWriter(stream,column_names)
+            writer.writeheader()
+            for fnr,items in fagperson_dict.iteritems():
+                writer.writerow({'fnr':fnr,'username' : items['username'],'comment':items['note']})
+        except Exception as m:
+            logger.error("Unexpected error. Reason:%s" % m)
 
-            fh.writelines("%s;%s;%s\n" % (fnr,items['username'],items['note']))
-    fh.close()
 
 #
 # Main function
 #
 def main(args=None):
+    db = Factory.get('Database')()
+    logger = logging.getLogger(__name__)
+
     parser = argparse.ArgumentParser(description=__doc__)
     
     parser.add_argument('--input','-i',
-                        required=False,
+                        required=True,
                         dest='input_file',
-                        default = None,
-                        action='store',
                         help='Input filename')
     parser.add_argument('--output','-o',
-                        required=False,
+                        required=True,
                         dest='output_file',
-                        default = None,
-                        action='store',
                         help='Output filename')
     args = parser.parse_args()
     
     
     #This test really should have been done natively in argparse..another time..
-    if args.input_file != None and args.output_file != None:
-        if(file_exists(args.input_file)):
-            fnr_list = read_file(args.input_file,args.output_file)
-            fagpersons = get_accounts(fnr_list)
-            write_to_file(fagpersons,args.output_file)
-        else:
-            # input file does not exist. print error message and exit
-            eprint("file :%s does not exist. Exiting.." % args.input_file)
+    if(file_exists(args.input_file)):
+        fnr_list = read_file(args.input_file,args.output_file,logger)
+        fagpersons = get_accounts(fnr_list,db)
+        write_to_file(fagpersons,args.output_file,logger)
     else:
-        # 
-        parser.print_help(sys.stderr)
-
+        # input file does not exist. print error message and exit
+        logger.error("file :%s does not exist. Exiting.." % args.input_file)
+    
 
 #
 # Kickstart main function
