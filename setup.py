@@ -345,6 +345,7 @@ setup(
     # 'contrib/generate_nismaps.py'],
     packages=[
         'Cerebrum',
+        'Cerebrum/export',
         'Cerebrum/extlib',
         'Cerebrum/extlib/Plex',
         'Cerebrum/logutils',
