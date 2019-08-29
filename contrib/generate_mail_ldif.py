@@ -372,7 +372,7 @@ def write_ldif(db, ldap, auth, f, verbose=False):
                 try:
                     passwd = auth.get(ei)
                 except LookupError:
-                    logger.error('No auth-data for account_id=%s, target=%s',
+                    logger.debug('No auth-data for account_id=%s, target=%s',
                                  repr(ei), repr(target))
                     passwd = '{crypt}*invalid',
             f.write("userPassword: %s\n" % passwd)
