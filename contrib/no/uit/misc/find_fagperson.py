@@ -61,16 +61,16 @@ def process_line(line):
 #
 def read_file(input_file, output_file, logger):
     fnrs = []
-    logger.info("Reading file: %s" % input_file)
-    logger.info("Writing file: %s" % output_file)
+    logger.info("Reading file: %s", input_file)
+    logger.info("Writing file: %s", output_file)
     fh = open(input_file, 'r')
     for lines in fh.readlines():
         line = process_line(lines)
         if line.isdigit() and len(line) == 11:
             fnrs.append(line)
         else:
-            logger.warn("Unable to process line:%s. Not on proper format"
-                        % line)
+            logger.warn("Unable to process line:%s. Not on proper format ",
+                        line)
     return fnrs
 
 
@@ -128,7 +128,7 @@ def write_to_file(fagperson_dict, output_file, logger):
                 writer.writerow({'fnr': fnr, 'username': items['username'],
                                 'comment': items['note']})
         except Exception as m:
-            logger.error("Unexpected error. Reason:%s" % m)
+            logger.error("Unexpected error. Reason:%s", m)
 
 
 #
@@ -155,7 +155,7 @@ def main(args=None):
         write_to_file(fagpersons, args.output_file, logger)
     else:
         # input file does not exist. print error message and exit
-        logger.error("file :%s does not exist. Exiting." % args.input_file)
+        logger.error("file :%s does not exist. Exiting.", args.input_file)
 
 
 #
