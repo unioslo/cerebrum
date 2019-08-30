@@ -38,13 +38,6 @@ from Cerebrum.utils.csvutils import UnicodeDictWriter
 """
 
 
-#
-# Return True if file exists, False if not
-#
-def file_exists(filename):
-    return os.path.isfile(filename)
-
-
 # process each line:
 # remove newlines, and space and and make sure each fnr consists of 11 digits.
 #   append leading zero if first or last part consits of 6/5 digits and first
