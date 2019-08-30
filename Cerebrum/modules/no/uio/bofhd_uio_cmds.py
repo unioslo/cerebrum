@@ -2736,9 +2736,9 @@ class BofhdExtension(BofhdCommonMethods):
             data['children'].append(c[0])
 
         for d in data:
-            if d is 'target':
+            if d == 'target':
                 indent = '* ' + (len(data['parents']) - 1) * '  '
-            elif d is 'children':
+            elif d == 'children':
                 indent = (len(data['parents']) + 1) * '  '
                 if len(data['parents']) == 0:
                     indent += '  '
@@ -2747,7 +2747,7 @@ class BofhdExtension(BofhdCommonMethods):
                 ou.clear()
                 ou.find(item)
 
-                if d is 'parents':
+                if d == 'parents':
                     indent = num * '  '
 
                 output.append({
@@ -4718,11 +4718,10 @@ class BofhdExtension(BofhdCommonMethods):
         # capital letters in their ids, and even then, just for system
         # users
         if uname != uname.lower():
-            if (not self.ba.is_superuser(operator.get_entity_id()) and
-                    owner_type != self.const.entity_group):
-                    raise CerebrumError(
-                        'Personal account names cannot contain '
-                        'capital letters')
+            sup_user_p = self.ba.is_superuser(operator.get_entity_id())
+            if (not sup_user_p and owner_type != self.const.entity_group):
+                raise CerebrumError('Personal account names cannot contain '
+                                    'capital letters')
 
         posix_user = Utils.Factory.get('PosixUser')(self.db)
         uid = posix_user.get_free_uid()
@@ -6635,7 +6634,8 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                 hidden = False
 
             if hidden:
-                members = randsone_group.search_members(group_id=randsone_group.entity_id, indirect_members=True)
+                members = randsone_group.search_members(
+                    group_id=randsone_group.entity_id, indirect_members=True)
                 for member in members:
                     if member['member_id'] == person.entity_id:
                         hidden = False
@@ -6723,6 +6723,7 @@ class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
 class UioPassWordIssuesCommands(bofhd_pw_issues.BofhdExtension):
     """Uio specific password * commands"""
     authz = UioPassWordAuth
+
 
 class UioCreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
     """Uio specific create unpersonal * commands"""

@@ -43,8 +43,8 @@ class UioContactAuthMixin(BofhdContactAuth):
             return True
         if query_run_any:
             return True
-        if (hasattr(cereconf, 'BOFHD_VOIP_ADMINS') and
-                self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS)):
+        if hasattr(cereconf, 'BOFHD_VOIP_ADMINS'):
+            if self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS):
                 return True
         return super(UioContactAuthMixin, self).can_get_contact_info(
             operator,
@@ -285,6 +285,7 @@ class BofhdApiKeyAuth(UioAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
 class UioPassWordAuth(UioAuth):
     """UiO specific password * command auth"""
     pass
+
 
 class UioUnpersonalAuth(
         UioAuth, bofhd_user_create_unpersonal.BofhdUnpersonalAuth):

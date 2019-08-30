@@ -24,15 +24,18 @@ This module contains class, functions, etc. related to the command
 """
 from __future__ import unicode_literals
 
-import logging
+import warnings
 import six
 
+import cereconf
+
 from Cerebrum.Utils import Factory
+from Cerebrum.modules import Email
+from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.bofhd.bofhd_core import (BofhdCommonMethods,
-                                               BofhdCommandBase)
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
-from Cerebrum.modules.bofhd.bofhd_utils import copy_func, format_time
+from Cerebrum.modules.bofhd.bofhd_utils import copy_func
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 from Cerebrum.modules.bofhd.cmd_param import (AccountName,
                                               EmailAddress,
@@ -42,6 +45,17 @@ from Cerebrum.modules.bofhd.cmd_param import (AccountName,
                                               SimpleString)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
+
+
+def exc_to_text(e):
+    """ Get an error text from an exception. """
+    try:
+        text = six.text_type(e)
+    except UnicodeError:
+        text = bytes(e).decode('utf-8', 'replace')
+        warnings.warn("Non-unicode data in exception {!r}".format(e),
+                      UnicodeWarning)
+    return text
 
 
 class BofhdUnpersonalAuth(BofhdAuth):
@@ -81,12 +95,12 @@ CMD_ARGS = {
                                 'The type of unpersonal account.'],
 }
 
+
 @copy_func(
     BofhdUserCreateMethod,
     methods=['_user_create_set_account_type', '_user_create_basic',
              '_user_password']
 )
-
 class BofhdExtension(BofhdCommonMethods):
     """Class with 'user create_unpersonal' method."""
 
@@ -110,7 +124,6 @@ class BofhdExtension(BofhdCommonMethods):
             ({}, {}, cmd_args),  # We want _our_ cmd_args to win!
             get_help_strings(),
             ({}, CMD_HELP, {}))
-
 
     #
     # user create_unpersonal
