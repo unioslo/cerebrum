@@ -29,6 +29,7 @@ from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 
 
 class UioContactAuthMixin(BofhdContactAuth):
@@ -283,4 +284,9 @@ class BofhdApiKeyAuth(UioAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
 
 class UioPassWordAuth(UioAuth):
     """UiO specific password * command auth"""
+    pass
+
+class UioUnpersonalAuth(
+        UioAuth, bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
+    """UiO specific user create unpersonal auth"""
     pass

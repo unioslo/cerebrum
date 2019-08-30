@@ -303,7 +303,7 @@ class PassWordIssues(BofhdCommonMethods):
             self.data.append(info)
 
 
-class BofhdExtension(BofhdCommonMethods):
+class BofhdExtension(BofhdCommandBase):
     all_commands = {}
 
     @classmethod

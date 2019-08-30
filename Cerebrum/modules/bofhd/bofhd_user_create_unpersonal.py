@@ -43,15 +43,42 @@ from Cerebrum.modules.bofhd.cmd_param import (AccountName,
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 
+
+class BofhdUnpersonalAuth(BofhdAuth):
+    """ Auth for user create command. """
+    def can_create_user_unpersonal(self, operator, group=None, disk=None,
+                                   query_run_any=False):
+        """Check if operator could create an account with group owner.
+
+        You need access to the given disk. If no disk is given, you only need
+        to have access to create unpersonal users *somewhere* to be allowed -
+        for now.
+
+        """
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return self._has_operation_perm_somewhere(
+                operator, self.const.auth_create_user_unpersonal)
+        if disk:
+            return self._query_disk_permissions(
+                operator, self.const.auth_create_user_unpersonal,
+                self._get_disk(disk), None)
+        if self._has_operation_perm_somewhere(
+                operator, self.const.auth_create_user_unpersonal):
+            return True
+        raise PermissionDenied("No access")
+
+
 CMD_HELP = {
     'user': {
-        'user_create_unperson': 'Create user account owned by a group',
+        'user_create_unpersonal': 'Create user account owned by a group',
     }
 }
 
 CMD_ARGS = {
-    'unperson_account_type': ['account_type', 'Enter account type',
-                              'The type of unpersonal account.'],
+    'unpersonal_account_type': ['account_type', 'Enter account type',
+                                'The type of unpersonal account.'],
 }
 
 @copy_func(
@@ -64,6 +91,7 @@ class BofhdExtension(BofhdCommonMethods):
     """Class with 'user create_unpersonal' method."""
 
     all_commands = {}
+    authz = BofhdUnpersonalAuth
 
     @classmethod
     def get_help_strings(cls):
@@ -73,7 +101,7 @@ class BofhdExtension(BofhdCommonMethods):
         list_sep = '\n - '
         for k, v in CMD_ARGS.items():
             cmd_args[k] = v[:]
-            if k == 'unperson_account_type':
+            if k == 'unpersonal_account_type':
                 cmd_args[k][2] += '\nValid account types:'
                 cmd_args[k][2] += list_sep + list_sep.join(six.text_type(c) for
                                                            c in account_types)
@@ -92,7 +120,7 @@ class BofhdExtension(BofhdCommonMethods):
         AccountName(),
         GroupName(),
         EmailAddress(),
-        SimpleString(help_ref="unperson_account_type"),
+        SimpleString(help_ref="unpersonal_account_type"),
         fs=FormatSuggestion("Created account_id=%i", ("account_id",)),
         perm_filter='can_create_user_unpersonal')
 
