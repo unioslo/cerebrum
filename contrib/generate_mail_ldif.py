@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-# Copyright 2003-2018 University of Oslo, Norway
+#
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,27 +18,55 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
-Write e-mail information for use by the mail system to an LDIF file,
-which can then be loaded into LDAP.
+Write an email address ldif for email routing.
 
+This script writes the mail-db.ldif file used for routing emails at the mail
+exchange.
+
+Configuration
+-------------
+This export is affected by the following settings in cereconf:
+
+cereconf.LDAP_MAIL
+    dn
+        Distingushed name of the tree where objects are placed
+
+    dump_dir
+        Default location for LDAP-related export files.
+
+    file
+        Default filename to write export to. If filename is relative, it will
+        be relative to dump_dir.
+
+    spread
+        Default value of spreads to include.
 """
 
 from __future__ import unicode_literals
 
-import base64
 import argparse
+import base64
+import contextlib
+import logging
 from time import time as now
 
 import cereconf
-from Cerebrum.Utils import Factory
-from Cerebrum.modules import Email
-from Cerebrum.modules.LDIFutils import ldapconf, map_spreads, ldif_outfile, \
-    end_ldif_outfile, container_entry_string
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.export.auth import AuthExporter
+from Cerebrum.modules import Email
+from Cerebrum.modules.LDIFutils import (
+    container_entry_string,
+    end_ldif_outfile,
+    ldapconf,
+    ldif_outfile,
+    map_spreads,
+)
 
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 default_spam_level = 9999
 default_spam_action = 0
 mail_dn = ldapconf('MAIL', 'dn')
@@ -75,8 +103,19 @@ def dict_to_ldif_string(d):
     return "".join(result)
 
 
-def write_ldif():
+@contextlib.contextmanager
+def log_time(action, level=logging.DEBUG):
+    logger.log(level, 'start %s ...', action)
+    start = now()
+    try:
+        yield
+    finally:
+        logger.log(level, 'done %s in %ds', action, now() - start)
+
+
+def write_ldif(db, ldap, auth, f, verbose=False):
     mail_targ = Email.EmailTarget(db)
+    co = Factory.get('Constants')(db)
     counter = 0
     curr = now()
     ldap.read_pending_moves()
@@ -326,14 +365,17 @@ def write_ldif():
             f.write("mailFilter: %s\n" % a)
 
         # Populate auth-data:
-        if auth and tt == co.email_target_account:
-            if ei in ldap.e_id2passwd:
-                passwd = ldap.e_id2passwd[ei]
-                if not passwd:
-                    passwd = "*invalid"
-                f.write("userPassword: {crypt}%s\n" % passwd)
+        if auth is not None and tt == co.email_target_account:
+            if ei in ldap.quarantined:
+                passwd = '{crypt}*locked',
             else:
-                logger.error("No auth-data for user: %s\n" % (target or ei))
+                try:
+                    passwd = auth.get(ei)
+                except LookupError:
+                    logger.debug('No auth-data for account_id=%s, target=%s',
+                                 repr(ei), repr(target))
+                    passwd = '{crypt}*invalid',
+            f.write("userPassword: %s\n" % passwd)
 
         misc = ldap.get_misc(row)
         if misc:
@@ -341,139 +383,142 @@ def write_ldif():
         f.write("\n")
 
 
-def get_data(spread):
-    if verbose:
-        logger.debug("Starting read_prim()...")
-        curr = now()
-    ldap.read_prim()
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
-        logger.debug("Starting read_spam()...")
-        curr = now()
-    ldap.read_spam()
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
-        logger.debug("Starting read_target_filter()...")
-        curr = now()
-    ldap.read_target_filter()
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
-        logger.debug("Starting read_quota()...")
-        curr = now()
-    ldap.read_quota()
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
-        logger.debug("Starting read_addr()...")
-        curr = now()
-    ldap.read_addr()
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
-        logger.debug("Starting read_server()...")
-        curr = now()
-    ldap.read_server(spread)
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
-        logger.debug("Starting read_vacation()...")
-        curr = now()
-    ldap.read_vacation()
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
-        logger.debug("Starting read_forward()...")
-        curr = now()
-    ldap.read_forward()
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
-        logger.debug("Starting read_local_delivery()...")
-        curr = now()
-    ldap.read_local_delivery()
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
-        logger.debug("Starting read_accounts()...")
-        curr = now()
+def get_data(db, ldap, auth_cache, spread):
+    with log_time('read_prim()'):
+        ldap.read_prim()
+
+    with log_time('read_spam()'):
+        ldap.read_spam()
+
+    with log_time('read_target_filter()'):
+        ldap.read_target_filter()
+
+    with log_time('read_quota()'):
+        ldap.read_quota()
+
+    with log_time('read_addr()'):
+        ldap.read_addr()
+
+    with log_time('read_server()'):
+        ldap.read_server(spread)
+
+    with log_time('read_vacation()'):
+        ldap.read_vacation()
+
+    with log_time('read_forward()'):
+        ldap.read_forward()
+
+    with log_time('read_local_delivery()'):
+        ldap.read_local_delivery()
+
     # exchange-relatert-jazz
     # this wil, at UiO work fine as long as all Exchange-accounts
     # have NIS_user@uio as well. if UiO should decide to
     # allow pure AD-accounts/Exchange mailboxes they will not
     # be exported to LDAP. A solution could be to allow spread
     # to be None and export all accounts regardless of (Jazz, 2013-12)
-    ldap.read_accounts(spread)
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
-    if auth:
-        if verbose:
-            logger.debug("Starting read_target_auth_data()...")
-            curr = now()
-        ldap.read_target_auth_data()
-        if verbose:
-            logger.debug("  done in %d sec." % (now() - curr))
-    if verbose:
-        logger.debug("Starting read_multi_data()...")
-        curr = now()
-    ldap.read_multi_data(ignore_missing=True)
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
-        logger.debug("Starting read_misc_target()...")
-        curr = now()
+    with log_time('read_accounts()'):
+        ldap.read_accounts(spread)
+
+    if auth_cache is not None:
+        with log_time('read_quarantines()'):
+            ldap.read_quarantines()
+
+        with log_time('auth_cache.update_all()'):
+            auth_cache.update_all()
+
+    with log_time('read_multi_data()'):
+        ldap.read_multi_data(ignore_missing=True)
+
     # ldap.read_misc_target() is by default empty. See EmailLDAP for details.
-    ldap.read_misc_target()
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
-        logger.debug("Starting write_ldif()...")
-        curr = now()
-    write_ldif()
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
-        logger.debug("Total time: %d" % (now() - start))
+    with log_time('read_misc_target()'):
+        ldap.read_misc_target()
 
 
-def main():
-    global verbose, f, db, co, ldap, auth, start
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description='Generate a mail-db.ldif',
+    )
+    parser.add_argument(
+        '-v', "--verbose",
+        action="count",
+        default=0,
+        help=('Show some statistics while running. '
+              'Repeat the option for more verbosity.'),
+    )
+    parser.add_argument(
+        '-m', "--mail-file",
+        help='Specify file to write to.',
+    )
+    parser.add_argument(
+        '-s', "--spread",
+        default=ldapconf('MAIL', 'spread', None),
+        help='Targets printed found in spread.',
+    )
+    parser.add_argument(
+        '-i', "--ignore-size",
+        dest="max_change",
+        action="store_const",
+        const=100,
+        help='Use file class instead of SimilarSizeWriter.',
+    )
+    parser.add_argument(
+        '-a', "--no-auth-data",
+        dest="auth",
+        action="store_false",
+        default=True,
+        help="Don't populate userPassword.",
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-v', "--verbose",
-                        action="count",
-                        default=0,
-                        help='Show some statistics while running. '
-                             'Repeat the option for more verbosity.')
-    parser.add_argument('-m', "--mail-file",
-                        help='Specify file to write to.')
-    parser.add_argument('-s', "--spread",
-                        default=ldapconf('MAIL', 'spread', None),
-                        help='Targets printed found in spread.')
-    parser.add_argument('-i', "--ignore-size",
-                        dest="max_change",
-                        action="store_const",
-                        const=100,
-                        help='Use file class instead of SimilarSizeWriter.')
-    parser.add_argument('-a', "--no-auth-data",
-                        dest="auth",
-                        action="store_false",
-                        default=True,
-                        help="Don't populate userPassword.")
-    args = parser.parse_args()
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-    verbose = args.verbose
-    auth = args.auth
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %s', repr(args))
 
     db = Factory.get('Database')()
-    co = Factory.get('Constants')(db)
 
     start = now()
-    curr = now()
 
-    if verbose:
-        logger.debug("Loading the EmailLDAP module...")
-    ldap = Factory.get('EmailLDAP')(db)
-    if verbose:
-        logger.debug("  done in %d sec." % (now() - curr))
+    with log_time('loading the EmailLDAP module'):
+        ldap = Factory.get('EmailLDAP')(db)
 
     spread = args.spread
     if spread is not None:
         spread = map_spreads(spread, int)
 
-    f = ldif_outfile('MAIL', args.mail_file, max_change=args.max_change)
-    get_data(spread)
-    end_ldif_outfile('MAIL', f)
+    # Configure auth
+    if args.auth:
+        auth_attr = ldapconf('MAIL', 'auth_attr', None)
+        user_password = AuthExporter.make_exporter(
+            db, auth_attr['userPassword'])
+    else:
+        user_password = None
+
+    outfile = ldif_outfile('MAIL', args.mail_file, max_change=args.max_change)
+    logger.debug('writing data to %s', repr(outfile))
+
+    with log_time('fetching data', level=logging.INFO):
+        get_data(
+            db,
+            ldap,
+            getattr(user_password, 'cache', None),
+            spread)
+
+    with log_time('generating ldif', level=logging.INFO):
+        write_ldif(
+            db,
+            ldap,
+            user_password,
+            outfile,
+            verbose=args.verbose)
+
+    end_ldif_outfile('MAIL', outfile)
+
+    logger.info("Total time: %ds" % (now() - start))
+    logger.info('Done %s', parser.prog)
+
 
 if __name__ == '__main__':
     main()

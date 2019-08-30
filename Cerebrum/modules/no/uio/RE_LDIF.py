@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2017 University of Oslo, Norway
+#
+# Copyright 2017-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,12 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """Mixin for contrib/no/uio/generate_randsone_ldif.py."""
-
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 
+
 class RE_LDIF(norEduLDIFMixin):
+
     def init_ou_structure(self):
         # Change from original: Drop OUs outside self.root_ou_id subtree.
         self.__super.init_ou_structure()
@@ -32,8 +33,10 @@ class RE_LDIF(norEduLDIFMixin):
 
     def init_attr2id2contacts(self):
         self.attr2id2contacts = {}
-        self.id2labeledURI    = {}
+        self.id2labeledURI = {}
+
     def init_person_titles(self):
         self.person_titles = {}
+
     def init_person_addresses(self):
         self.addr_info = {}

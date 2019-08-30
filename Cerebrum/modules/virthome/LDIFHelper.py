@@ -21,6 +21,7 @@
 generate structured data for LDIFutils """
 
 from Cerebrum.Utils import Factory
+from Cerebrum.export.auth import AuthExporter
 from Cerebrum.modules.LDIFutils import ldapconf
 
 
@@ -37,6 +38,10 @@ class LDIFHelper(object):
 
         # groups must be populated before users, since the latter relies on the
         # former due to data precaching.
+        auth_attr = ldapconf('USER', 'auth_attr', {})
+        self.user_password = AuthExporter.make_exporter(
+            self.db,
+            auth_attr['userPassword'])
         self.groups = self._load_groups()
         self.users = self._load_users()
 
@@ -136,15 +141,15 @@ class LDIFHelper(object):
     def _get_password_info(self, users):
         """Collect md5 hashes for VA-s."""
         self.logger.debug("Collecting password information")
-        account = Factory.get("Account")(self.db)
-        for row in account.list_account_authentication(
-                auth_type=self.const.auth_type_md5_crypt):
-            account_id = row["account_id"]
-            if account_id not in users:
+        self.user_password.cache.update_all()
+        for account_id in users:
+            user = users[account_id]
+            if user["np_type"] != self.const.virtaccount_type:
                 continue
-            if users[account_id]["np_type"] != self.const.virtaccount_type:
+            try:
+                user['userPassword'] = self.user_password.get(account_id)
+            except LookupError:
                 continue
-            users[account_id]["userPassword"] = ("{crypt}" + row["auth_data"],)
         return users
 
     def _get_membership_info(self, users):
