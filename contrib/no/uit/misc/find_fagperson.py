@@ -154,7 +154,7 @@ def main(args=None):
     # Add a logging subparser to an existing ArgumentParser.
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
-    
+
     # configure logger to default to console unless
     # its specified as a script argument
     Cerebrum.logutils.autoconf('console', args)
