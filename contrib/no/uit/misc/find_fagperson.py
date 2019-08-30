@@ -24,10 +24,7 @@ from __future__ import print_function
 # Generic imports
 import argparse
 import os.path
-import sys
-import csv
 import io
-import collections
 
 # cerebrum imports
 import logging
@@ -45,10 +42,7 @@ from Cerebrum.utils.csvutils import UnicodeDictWriter
 # Return True if file exists, False if not
 #
 def file_exists(filename):
-    if os.path.isfile(filename):
-        return True
-    else:
-        return False
+    return os.path.isfile(filename)
 
 
 # process each line:
@@ -82,8 +76,8 @@ def read_file(input_file, output_file, logger):
         if line.isdigit() and len(line) == 11:
             fnrs.append(line)
         else:
-            logger.warn("Unable to process line:%s. \
-                         Not on propper format" % line)
+            logger.warn("Unable to process line:%s. Not on proper format"
+                        % line)
     return fnrs
 
 
@@ -104,8 +98,8 @@ def get_accounts(fnr_list, db):
             pe.find_by_external_id(co.externalid_fodselsnr,
                                    fnr, source_system=co.system_fs)
         except Errors.NotFoundError:
-            person_dict['note'] = "does not exist in cerebrum with \
-                                   source=FS. Skipping..."
+            person_dict['note'] = ("does not exist in cerebrum with source=FS."
+                                   " Skipping.")
         else:
             # persons exits in cerebrum. now try to find the accounts
             try:
@@ -150,7 +144,6 @@ def write_to_file(fagperson_dict, output_file, logger):
 def main(args=None):
     db = Factory.get('Database')()
     logger = logging.getLogger(__name__)
-
     parser = argparse.ArgumentParser(description=__doc__)
 
     parser.add_argument('--input', '-i',
@@ -163,13 +156,13 @@ def main(args=None):
                         help='Output filename')
     args = parser.parse_args()
 
-    if(file_exists(args.input_file)):
+    if(os.path.isfile(args.input_file)):
         fnr_list = read_file(args.input_file, args.output_file, logger)
         fagpersons = get_accounts(fnr_list, db)
         write_to_file(fagpersons, args.output_file, logger)
     else:
         # input file does not exist. print error message and exit
-        logger.error("file :%s does not exist. Exiting.." % args.input_file)
+        logger.error("file :%s does not exist. Exiting." % args.input_file)
 
 
 #
