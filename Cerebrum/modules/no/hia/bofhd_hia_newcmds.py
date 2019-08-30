@@ -46,6 +46,7 @@ from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.access_FS import FS
+from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.hia.bofhd_uia_auth import (
     BofhdApiKeyAuth,
     UiaAccessAuth,
@@ -53,6 +54,7 @@ from Cerebrum.modules.no.hia.bofhd_uia_auth import (
     UiaBofhdRequestsAuth,
     UiaContactAuth,
     UiaEmailAuth,
+    UiaUnpersonalAuth,
 )
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as base
 
@@ -167,7 +169,6 @@ copy_uio = [
     'user_history',
     'user_password',
     'user_reserve_personal',
-    'user_create_unpersonal',
     'user_set_disk_status',
     'user_set_expire',
     'user_set_np_type',
@@ -1488,6 +1489,9 @@ class UiaAccessCommands(BofhdAccessCommands):
 class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
     authz = BofhdApiKeyAuth
 
+class UiaCreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
+    """Uia specific create unpersonal * commands"""
+    authz = UiaUnpersonalAuth
 
 HELP_GROUPS = {
     'print': 'Printer quota manipulation',

@@ -99,7 +99,7 @@ from Cerebrum.modules.no.uio.bofhd_auth import (
     UioContactAuth,
     UioEmailAuth,
     UioPassWordAuth,
-    UioUnpersonalAuth
+    UioUnpersonalAuth,
 )
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
@@ -6724,7 +6724,6 @@ class UioPassWordIssuesCommands(bofhd_pw_issues.BofhdExtension):
     """Uio specific password * commands"""
     authz = UioPassWordAuth
 
-# inherit both general and specific
-class UiOCreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
+class UioCreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
     """Uio specific create unpersonal * commands"""
     authz = UioUnpersonalAuth
