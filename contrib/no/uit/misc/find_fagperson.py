@@ -19,23 +19,28 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""
+    Reads a txt file containing fnrs and returns a csv file containing:
+     <fnr>;[username];[comments]
+"""
+
 from __future__ import print_function
 
 # Generic imports
 import argparse
 import os.path
 import io
+import logging
 
 # cerebrum imports
-import logging
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.utils.csvutils import UnicodeDictWriter
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 
-"""
-    Reads a txt file containing fnrs and returns a csv file containing:
-     <fnr>;[username];[comments]
-"""
+# global variables:
+logger = logging.getLogger(__name__)
 
 
 # process each line:
@@ -96,7 +101,7 @@ def get_accounts(fnr_list, db):
         else:
             # persons exits in cerebrum. now try to find the accounts
             try:
-                # this should only return active accounts
+                # this should return all accounts
                 accounts = pe.get_accounts(filter_expired=False)
             except Errors.NotFoundError:
                 person_dict['note'] = "This person has no accounts"
@@ -135,8 +140,6 @@ def write_to_file(fagperson_dict, output_file, logger):
 # Main function
 #
 def main(args=None):
-    db = Factory.get('Database')()
-    logger = logging.getLogger(__name__)
     parser = argparse.ArgumentParser(description=__doc__)
 
     parser.add_argument('--input', '-i',
@@ -147,15 +150,30 @@ def main(args=None):
                         required=True,
                         dest='output_file',
                         help='Output filename')
-    args = parser.parse_args()
 
-    if(os.path.isfile(args.input_file)):
-        fnr_list = read_file(args.input_file, args.output_file, logger)
-        fagpersons = get_accounts(fnr_list, db)
-        write_to_file(fagpersons, args.output_file, logger)
-    else:
+    # Add a logging subparser to an existing ArgumentParser.
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args()
+    
+    # configure logger to default to console unless
+    # its specified as a script argument
+    Cerebrum.logutils.autoconf('console', args)
+
+    if not os.path.isfile(args.input_file):
         # input file does not exist. print error message and exit
-        logger.error("file :%s does not exist. Exiting.", args.input_file)
+        raise ValueError("File: %s does not exist. Exiting" % args.input_file)
+    else:
+        # read input file
+        fnr_list = read_file(args.input_file, args.output_file, logger)
+
+        # connect to the database
+        db = Factory.get('Database')()
+
+        # get all accounts for the fnrs given
+        fagpersons = get_accounts(fnr_list, db)
+
+        # write output
+        write_to_file(fagpersons, args.output_file, logger)
 
 
 #
