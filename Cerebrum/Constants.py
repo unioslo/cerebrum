@@ -175,12 +175,12 @@ class _CerebrumCode(DatabaseAccessor):
         with _CerebrumCode._db_proxy_lock:
             try:
                 _CerebrumCode._private_db_proxy.ping()
-            except Exception:
+            except Exception as e:
                 if _CerebrumCode._private_db_proxy is None:
                     logger.debug('No _CerebrumCode.sql, creating new')
                 else:
-                    logger.error('unable to use _CerebrumCode.sql, recreating',
-                                 exc_info=True)
+                    logger.debug('Unable to use _CerebrumCode.sql, recreating'
+                                 ' (%s)', repr(e))
                 _CerebrumCode._private_db_proxy = SynchronizedDatabase()
             return _CerebrumCode._private_db_proxy
 
