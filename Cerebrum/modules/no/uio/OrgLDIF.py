@@ -240,10 +240,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
         # Add group memberships
         if person_id in self.person2group:
-            # TODO: remove member and uioPersonObject after transition period
-            entry['uioMemberOf'] = entry['member'] = \
-                self.person2group[person_id]
-            entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
+            entry['uioMemberOf'] = self.person2group[person_id]
+            entry['objectClass'].append('uioMembership')
 
         # Add scoped affiliations
         pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(
@@ -251,9 +249,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         entry['uioPersonScopedAffiliation'] = \
             self.make_uioPersonScopedAffiliation(person_id, pri_aff, pri_ou)
 
-        # Add the uioPersonObject class if missing
-        if 'uioPersonObject' not in entry['objectClass']:
-            entry['objectClass'].extend(('uioPersonObject',))
+        # uio attributes require uioPersonObject
+        entry['objectClass'].append('uioPersonObject')
 
         # Check if there exists «avvikende» (deviant) addresses.
         # If so, export them instead.
