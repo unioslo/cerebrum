@@ -447,7 +447,8 @@ arg_help = {
     'limit_number_of_results':
         ['number', 'Number of results for query',
          "Gives upper limit for how many entries to include, counting " +
-         "backwards from the most recent. Default (when left empty) is 100"],
+         "backwards from the most recent.\n" +
+         "Default (when left empty) is 0, which means no limit"],
     'member_type':
         ['member_type', 'Enter type of member',
          'account, person or group'],
@@ -701,7 +702,9 @@ arg_help = {
     'yes_no_force':
         ['force', 'Force the operation?'],
     'yes_no_all_op':
-        ['all', 'All operations?'],
+        ['all', 'All operations?',
+         "Select all log event where the entity is involved (yes), or only " +
+         "the ones where the entity itself is changed (no)"],
     'yes_no_from_existing':
         ['from_existing', 'Create Exchange group from existing group, '
          'optional, def no, (y/n)?'],

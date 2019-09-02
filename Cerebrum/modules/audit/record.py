@@ -106,6 +106,11 @@ class DbAuditRecord(AuditRecord):
             self.entity_id,
             self.timestamp.strftime('%Y-%m-%d %H:%M:%S %z'))
 
+    def __lt__(self, other):
+        if not hasattr(other, 'timestamp'):
+            return NotImplemented
+        return self.timestamp < other.timestamp
+
     @property
     def record_id(self):
         return self.__record_id
@@ -128,12 +133,9 @@ class DbAuditRecord(AuditRecord):
         timestamp = d['timestamp']
         change_type = d['change_type']
         # TODO: assert _ChangeTypeCode?
-
         entity = int(d['entity'])
         operator = int(d['operator'])
-        target = d.get('target', None)
-        if target is not None:
-            target = int(target)
+        target = int(d['target']) if d.get('target') is not None else None
         metadata = d.get('metadata', None)
         params = d.get('params', None)
         record = cls(record_id, timestamp, change_type, operator, entity,
