@@ -31,6 +31,7 @@ import cereconf
 from Cerebrum import Utils
 from Cerebrum import QuarantineHandler
 from Cerebrum.modules import CLHandler
+from Cerebrum.modules.Email import EmailTarget
 from Cerebrum.modules.no.uio import ADutils
 from Cerebrum.utils import json
 
@@ -92,12 +93,15 @@ class ADFullUserSync(ADutils.ADuserUtil):
         @param user_dict: account_id -> account information
         @type user_dict: dict
         """
-        uname2primary_mail = self.ac.getdict_uname2mailaddr(
-            filter_expired=True,
-            primary_only=True)
-        for uname, prim_mail in uname2primary_mail.iteritems():
-            if uname in user_dict:
-                user_dict[uname]['mail'] = prim_mail
+        targets = EmailTarget(self.db).list_email_target_addresses
+        co = Utils.Factory.get('Constants')(self.db)
+        for row in targets(target_type=co.email_target_account,
+                           domain='uio.no', uname_local=True):
+            mail = "@".join((row['local_part'], row['domain']))
+            try:
+                user_dict[row['entity_name']]['mail'] = mail
+            except KeyError:
+                pass
 
     def _update_home_drive_info(self, user_dict, spread):
         """ Update user_dict with home directory.
