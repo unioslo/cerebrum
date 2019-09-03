@@ -132,6 +132,22 @@ class Action(object):
                 arguments.append(quote(text_type(p)))
         return "%s %s" % (self.call.cmd, " ".join(arguments))
 
+    def get_pretty_executable_cmd(self):
+        if not self.call:
+            return None
+
+        # We want to have pretty callable parameters
+        arguments = list()
+        for p in self.call.params:
+            if callable(p):
+                try:
+                    arguments.append(text_type(p()))
+                except IOError:
+                    arguments.append(repr(p))
+            else:
+                arguments.append(quote(text_type(p)))
+        return "%s %s" % (self.call.cmd, " ".join(arguments))
+
     def next_delta(self, last_run, current_time):
         """Return estimated number of seconds to next time the Action
         is allowed to run.  Jobs should only be ran if the returned
@@ -307,7 +323,7 @@ class System(CallableAction):
         except SystemExit:
             # Don't stop the above SystemExit
             raise
-        except:
+        except Exception:
             # Full disk etc. can trigger this
             self.logger.critical("Caught unexpected exception", exc_info=1)
         self.logger.error("OOPS!  This code should never be reached")

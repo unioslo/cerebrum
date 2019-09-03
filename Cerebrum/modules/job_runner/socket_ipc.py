@@ -220,7 +220,7 @@ class SocketProtocol(object):
 
     @commands.add('SHOWJOB', num_args=1)
     def __showjob(self, jobname):
-        job = self.job_queue.get_known_jobs().get(jobname)
+        job = self.job_queue.get_known_job(jobname)
         started_at = self.job_queue._started_at.get(jobname)
         done_at = self.job_queue._last_run.get(jobname)
         if not job:
@@ -235,6 +235,8 @@ class SocketProtocol(object):
                 ret.append("Status: not running.  Last run: %s" % tmp)
                 ret.append("Last exit status: %s" % job.last_exit_msg)
             ret.append("Command: %s" % job.get_pretty_cmd())
+            ret.append("Executable command (may change!):"
+                       " %s" % job.get_pretty_executable_cmd())
             ret.append("Pre-jobs: %s" % job.pre)
             ret.append("Post-jobs: %s" % job.post)
             ret.append("Non-concurrent jobs: %s" % job.nonconcurrent)
