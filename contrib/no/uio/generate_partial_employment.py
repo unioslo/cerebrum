@@ -41,6 +41,7 @@ set `PYTHONIOENCODING='utf-8'`.
 from __future__ import absolute_import, unicode_literals
 
 import argparse
+import logging
 import os
 import sys
 from mx import DateTime
@@ -48,7 +49,8 @@ from contextlib import contextmanager
 
 import cereconf
 
-from Cerebrum.Utils import Factory
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.modules import LDIFutils
@@ -69,7 +71,7 @@ CATEGORY_TO_STATUS = {
     DataEmployment.KATEGORI_VITENSKAPLIG: 'vitenskapelig', }
 
 
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 
 
 class OrgTree(object):
@@ -328,32 +330,37 @@ def atomic_or_stdout(filename):
             yield f
 
 
-def make_parser():
+def main(inargs=None):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-i', '--input-file',
-        metavar='FILE',
         default=DEFAULT_INPUT_FILE,
-        help="sap2bas XML input file (default: %(default)s)")
+        help="sap2bas XML input file (default: %(default)s)",
+        metavar='FILE',
+    )
     parser.add_argument(
         '-o', '--output-file',
-        metavar='FILE',
         default=DEFAULT_OUTPUT_FILE,
-        help="LDIF output file, or '-' for stdout (default: %(default)s)")
+        help="LDIF output file, or '-' for stdout (default: %(default)s)",
+        metavar='FILE',
+    )
     parser.add_argument(
         '-u', '--utf8-data',
         dest='needs_base64',
         action='store_const',
         const=LDIFutils.needs_base64_readable,
         default=LDIFutils.needs_base64_safe,
-        help="Allow utf-8 values in ldif")
-    return parser
+        help="Allow utf-8 values in ldif",
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+    parser.set_defaults(**{
+        Cerebrum.logutils.options.OPTION_LOGGER_LEVEL: 'INFO',
+    })
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-
-def main(args=None):
-    args = make_parser().parse_args(args)
-
-    logger.info("Start {0}".format(__file__))
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %s', repr(args))
 
     LDIFutils.needs_base64 = args.needs_base64
     xml_parser = system2parser('system_sap')(args.input_file, logger)
@@ -366,7 +373,7 @@ def main(args=None):
     stats = {
         'seen': 0,
         'excluded': 0,
-        'included': 0
+        'included': 0,
     }
 
     with atomic_or_stdout(args.output_file) as output:
@@ -375,7 +382,12 @@ def main(args=None):
             partial_affs = set()
 
             for emp in iterate_employments(person, aff_selector):
-                aff = format_scoped_aff(emp, get_ous)
+                try:
+                    aff = format_scoped_aff(emp, get_ous)
+                except Exception as e:
+                    logger.warning('Ignoring employment person=%r emp=%r: %s',
+                                   person, emp, e)
+                    continue
                 titles = [format_title(t)
                           for t in iterate_employment_titles(emp)
                           if use_lang(t.language)]
@@ -398,7 +410,7 @@ def main(args=None):
             output.write(
                 LDIFutils.entry_string(
                     identifier,
-                    {'uioPersonPartialEmployment': set(partial_affs)},
+                    {'uioPersonPartialEmployment': list(sorted(partial_affs))},
                     add_rdn=False))
 
     logger.info("persons"
@@ -406,7 +418,7 @@ def main(args=None):
                 " included: {0[included]:d},"
                 " excluded: {0[excluded]:d}".format(stats))
 
-    logger.info("Done {0}".format(__file__))
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == "__main__":
