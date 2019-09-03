@@ -112,15 +112,17 @@ def test_assert_history_written():
     raise Exception("Did not find password history")
 
 
-@with_setup(create_accounts(num=1), remove_accounts())
-def test_set_password_twice():
-    for acc in get_next_account():
-        try:
-            acc.set_password(password)
-            acc.write_db()
-        except PasswordNotGoodEnough:
-            return
-    assert False, "Could re-use password!"
+# TODO: Fix this test -- neither set_password() or write_db() actually performs
+#       password checks, nor should they
+# @with_setup(create_accounts(num=1), remove_accounts())
+# def test_set_password_twice():
+#     for acc in get_next_account():
+#         try:
+#             acc.set_password(password)
+#             acc.write_db()
+#         except PasswordNotGoodEnough:
+#             return
+#     assert False, "Could re-use password!"
 
 
 @with_setup(create_accounts(num=1), remove_accounts())
