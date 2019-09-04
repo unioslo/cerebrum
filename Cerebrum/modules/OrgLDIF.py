@@ -546,19 +546,19 @@ class OrgLDIF(object):
         u""" Cache account mail addresses.
 
         This method builds a dict cache that maps account_id -> primary email
-        address, and assigns the `dict.get` method to `self.account_mail`.
+        address, and saves this to `self.account_mail`.
 
         NOTE: The LDAP_PERSON['mail_target_types'] setting decides which email
         target types are considered.
 
         :param bool use_mail_module:
             If True, Cerebrum.modules.Email will be used to populate this
-            cache; otherwise the `self.account_mail` method will be None (not
+            cache; otherwise the `self.account_mail` dict will be None (not
             implemented).
 
         """
         # Set self.account_mail = None if not use_mail_module, otherwise
-        #                         function: account_id -> ('address' or None).
+        #                         dict: account_id -> ('address' or None).
         if use_mail_module:
             timer = make_timer(self.logger,
                                "Fetching account e-mail addresses...")
@@ -591,7 +591,7 @@ class OrgLDIF(object):
                     except TypeError:
                         continue
                 target_timer("...target_type '{!s}' done".format(code))
-            self.account_mail = mail.get
+            self.account_mail = mail
             timer("...account e-mail addresses done.")
         else:
             self.account_mail = None
@@ -810,7 +810,7 @@ from None and LDAP_PERSON['dn'].""")
                     URIs, normalize_caseExactString)
 
         if self.account_mail:
-            mail = self.account_mail(account_id)
+            mail = self.account_mail.get(account_id)
             if mail:
                 entry['mail'] = (mail,)
         else:
