@@ -177,7 +177,7 @@ class AccountUiTMixin(Account.Account):
             return enc_auth_type_crypt3_des(utf8_plaintext, salt=salt)
         else:
             return super(AccountUiTMixin, self).encrypt_password(
-                method, utf8_plaintext, salt=salt, binary=True)
+                method, plaintext, salt=salt, binary=binary)
 
     def decrypt_password(self, method, cryptstring):
         """
