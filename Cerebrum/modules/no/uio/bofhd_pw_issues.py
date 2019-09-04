@@ -368,12 +368,7 @@ class BofhdExtension(BofhdCommandBase):
         # Primary intended users are Houston.
         # They are privileged, but not superusers.
         ac = self._get_account(accountname, idtype='name')
-        pe = Utils.Factory.get('Person')(self.db)
-        try:
-            pe.find(ac.owner_id)
-        except Errors.NotFoundError:
-            pe = None
-        if not self.ba.can_create_user(operator.get_entity_id(), pe):
+        if not self.ba.can_create_user(operator.get_entity_id(), ac):
             raise PermissionDenied("Access denied")
         pwi = PassWordIssues(ac, self.db)
         _ = pwi()
