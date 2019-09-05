@@ -1040,9 +1040,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 namespaces = include_member_entity_name
             else:
                 namespaces = dict(
-                    (self.const.EntityType(k),
-                     self.const.ValueDomain(v))
-                    for k, v in cereconf.ENTITY_TYPE_NAMESPACE)
+                    (self.const.EntityType(k), self.const.ValueDomain(v))
+                    for k, v in cereconf.ENTITY_TYPE_NAMESPACE.items())
             case = []
             for i, (e_type, vdomain) in enumerate(namespaces.items()):
                 e_type_name = "e_type{:d}".format(i)
