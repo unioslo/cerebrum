@@ -393,7 +393,7 @@ def test_search_members_assert_keys(gr, groups):
     if len(groups) < 2:
         pytest.skip('Test needs at least two groups')
 
-    attributes = ('member_type', 'member_id', 'expire_date')
+    attributes = ('member_type', 'member_id')
     modify_add_member(gr)(groups[0]['entity_id'], groups[1]['entity_id'])
 
     result = list(gr.search_members(group_id=groups[0]['entity_id'],
