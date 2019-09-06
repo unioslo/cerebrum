@@ -24,11 +24,13 @@ Create e-mail addresses and filegroups for the courses at Dept. of
 Informatics.
 """
 
+from __future__ import unicode_literals
+
 import sys
 import getopt
 import re
 import time
-from six import string_types
+from six import text_type
 
 from mx import DateTime
 import cereconf
@@ -382,7 +384,7 @@ def process_groups(super, fg_super):
 
 def get_group(id):
     gr = Factory.get('Group')(db)
-    if isinstance(id, string_types):
+    if isinstance(id, text_type):
         gr.find_by_name(id)
     else:
         gr.find(id)
