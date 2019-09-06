@@ -251,10 +251,10 @@ class IPNumber(Entity.Entity):
             where = "dns_owner_id IS NULL"
         else:
             where = "dns_owner_id=:dns_owner_id"
-        return self.execute("""
+        self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_override_reversemap]
         WHERE ip_number_id=:ip_number_id AND %s""" % where,
-                            locals())
+                     locals())
         self._db.log_change(ip_number_id, self.clconst.ip_number_del,
                             dns_owner_id)
 

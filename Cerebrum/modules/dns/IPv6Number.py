@@ -235,10 +235,10 @@ class IPv6Number(Entity.Entity):
             where = "dns_owner_id IS NULL"
         else:
             where = "dns_owner_id=:dns_owner_id"
-        return self.execute("""
+        self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_override_reversemap_ipv6]
         WHERE ipv6_number_id=:ipv6_number_id AND %s""" % where,
-                            locals())
+                     locals())
         self._db.log_change(ipv6_number_id, self.clconst.ipv6_number_del,
                             dns_owner_id)
 

@@ -31,6 +31,7 @@ from Cerebrum.ChangeLog import ChangeLog
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Entity import Entity, EntityName
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.Email import EmailAddress, EmailDomain
 
 from .auditdb import AuditLogAccessor
 from .record import AuditRecord
@@ -144,6 +145,24 @@ class AuditRecordBuilder(DatabaseAccessor):
         if not hasattr(self, '_clconst'):
             self._clconst = Factory.get('CLConstants')(self._db)
         return self._clconst
+
+    @property
+    def host(self):
+        if not hasattr(self, '_host'):
+            self._host = Factory.get('Host')(self._db)
+        return self._host
+
+    @property
+    def ea(self):
+        if not hasattr(self, '_ea'):
+            self._ea = EmailAddress(self._db)
+        return self._ea
+
+    @property
+    def ed(self):
+        if not hasattr(self, '_ed'):
+            self._ed = EmailDomain(self._db)
+        return self._ed
 
     def get_change_type(self, value):
         if isinstance(value, self.clconst.ChangeType):
@@ -267,11 +286,279 @@ class AuditRecordBuilder(DatabaseAccessor):
             metadata=metadata,
             params=params)
 
-    # Examples
-    # @translate_params.register('spread', 'add')
-    # def spread_add(self, subject_entity, destination_entity, change_params):
-    #     return change_params
+    # Register translation parameters for different types of changes
+    def add_str_of_int_const(self, keypairs, change_params):
+        """Add the str val of a constant int to change params if possible
 
-    # @translate_params.register('spread', 'remove')
-    # def spread_remove(self, subject_entity, destination_entity, change_params):
-    #     return change_params
+        Typically useful when we have been saving the int value of a constant
+        and we now want to save the string as well.
+        If the constant no longer exists, and we can not find what the string
+        value of the constant should be, we keep.
+
+        >>> db = Factory.get('Database')()
+        >>> cp = {'foo': 1}
+        >>> AuditRecordBuilder(db).add_str_of_int_const([('foo','bar')], cp)
+        {'foo': 1, 'bar': u'aggressive_spam'}
+
+        :param list keypairs: list of tuples with keypairs
+        :param dict change_params: the change_param dict we want to manipulate
+        :rtype: dict
+        :return: the new manipulated change_params
+        """
+        for pair in keypairs:
+            if pair[0] in change_params:
+                change = self.const.human2constant(change_params[pair[0]])
+                if change:
+                    change_params[pair[1]] = six.text_type(change)
+        return change_params
+
+    @translate_params.register('e_account', 'create')
+    @translate_params.register('e_account', 'mod')
+    def account_create_mod(self, subject_entity, destination_entity,
+                           change_params):
+        change_params = self.add_str_of_int_const([
+            ('np_type', 'np_type_str'), ('owner_type', 'owner_type_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('e_account', 'home_update')
+    @translate_params.register('e_account', 'home_added')
+    @translate_params.register('e_account', 'home_removed')
+    @translate_params.register('spread', 'add')
+    @translate_params.register('spread', 'delete')
+    @translate_params.register('exchange', 'acc_mbox_create')
+    @translate_params.register('exchange', 'acc_mbox_delete')
+    def spread_int_to_str(self, subject_entity, destination_entity,
+                          change_params):
+        change_params = self.add_str_of_int_const(
+            [('spread', 'spread_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('homedir', 'add')
+    @translate_params.register('homedir', 'update')
+    def status_str(self, subject_entity, destination_entity,
+                   change_params):
+        change_params = self.add_str_of_int_const(
+            [('status', 'status_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('ac_type', 'add')
+    @translate_params.register('ac_type', 'del')
+    def aff_to_affstr(self, subject_entity, destination_entity,
+                      change_params):
+        change_params = self.add_str_of_int_const(
+            [('affiliation', 'aff_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('disk', 'add')
+    @translate_params.register('disk', 'mod')
+    @translate_params.register('disk', 'del')
+    def disk_add_mod_del(self, subject_entity, destination_entity,
+                         change_params):
+        if 'host_id' in change_params:
+            self.host.clear()
+            try:
+                self.host.find(int(change_params['host_id']))
+            except Cerebrum.Errors.NotFoundError:
+                pass
+            else:
+                change_params['host_name'] = self.host.name
+        return change_params
+
+    @translate_params.register('ou', 'unset_parent')
+    @translate_params.register('ou', 'set_parent')
+    def ou_unset_parent(self, subject_entity, destination_entity,
+                        change_params):
+        change_params = self.add_str_of_int_const(
+            [('perspective', 'perspective_str')], change_params)
+        return change_params
+
+    @translate_params.register('person', 'name_del')
+    @translate_params.register('person', 'name_add')
+    @translate_params.register('person', 'name_mod')
+    def person_name_add_mod_del(self, subject_entity, destination_entity,
+                                change_params):
+        change_params = self.add_str_of_int_const(
+            [('src', 'src_str'), ('name_variant', 'name_variant_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('entity_name', 'add')
+    @translate_params.register('entity_name', 'del')
+    def entity_name_add_del(self, subject_entity, destination_entity,
+                            change_params):
+        change_params = self.add_str_of_int_const(
+            [('domain', 'domain_str'), ('name_variant', 'name_variant_str'),
+             ('name_language', 'name_language_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('entity_name', 'mod')
+    def entity_name_mod(self, subject_entity, destination_entity,
+                        change_params):
+        change_params = self.add_str_of_int_const(
+            [('domain', 'domain_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('entity_cinfo', 'add')
+    @translate_params.register('entity_cinfo', 'del')
+    def entity_cinfo_add_del(self, subject_entity, destination_entity,
+                             change_params):
+        change_params = self.add_str_of_int_const(
+            [('type', 'type_str'), ('src', 'src_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('entity', 'ext_id_del')
+    @translate_params.register('entity', 'ext_id_mod')
+    @translate_params.register('entity', 'ext_id_add')
+    def entity_ext_id_del(self, subject_entity, destination_entity,
+                          change_params):
+        change_params = self.add_str_of_int_const(
+            [('id_type', 'id_type_str'), ('src', 'src_str')],
+            change_params)
+        return change_params
+
+    # Quarantine changes
+    @translate_params.register('quarantine', 'add')
+    @translate_params.register('quarantine', 'mod')
+    @translate_params.register('quarantine', 'del')
+    def quarantine_add_mod(self, subject_entity, destination_entity,
+                           change_params):
+        change_params = self.add_str_of_int_const(
+            [('q_type', 'q_type_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('posix', 'promote')
+    def posix_promote(self, subject_entity, destination_entity, change_params):
+        change_params = self.add_str_of_int_const(
+            [('shell', 'shell_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('email_domain', 'addcat_domain')
+    @translate_params.register('email_domain', 'remcat_domain')
+    def email_dom_cat_add_rem(self, subject_entity, destination_entity,
+                              change_params):
+        change_params = self.add_str_of_int_const(
+            [('category', 'category_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('email_target', 'add_target')
+    @translate_params.register('email_target', 'rem_target')
+    def email_target_add_rem(self, subject_entity, destination_entity,
+                             change_params):
+        change_params = self.add_str_of_int_const(
+            [('target_type', 'target_type_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('email_target', 'mod_target')
+    def email_target_mod(self, subject_entity, destination_entity,
+                         change_params):
+        change_params = self.add_str_of_int_const(
+            [('target_type', 'target_type_str')],
+            change_params)
+        if 'server_id' in change_params:
+            self.host.clear()
+            try:
+                self.host.find(int(change_params['server_id']))
+            except Cerebrum.Errors.NotFoundError:
+                pass
+            else:
+                change_params['server_name'] = self.host.name
+        return change_params
+
+    @translate_params.register('email_address', 'add_address')
+    @translate_params.register('email_address', 'rem_address')
+    def email_address_add(self, subject_entity, destination_entity,
+                          change_params):
+        if 'dom_id' in change_params:
+            self.ed.clear()
+            try:
+                self.ed.find(int(change_params['dom_id']))
+            except Cerebrum.Errors.NotFoundError:
+                pass
+            else:
+                change_params['dom_name'] = self.ed.get_domain_name()
+        return change_params
+
+    @translate_params.register('email_entity_dom', 'add_entdom')
+    @translate_params.register('email_entity_dom', 'rem_entdom')
+    @translate_params.register('email_entity_dom', 'mod_entdom')
+    def email_entity_dom_add_rem_mod(self, subject_entity, destination_entity,
+                                     change_params):
+        change_params = self.add_str_of_int_const(
+            [('aff', 'aff_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('email_tfilter', 'add_filter')
+    @translate_params.register('email_tfilter', 'rem_filter')
+    def email_tfilter_add(self, subject_entity, destination_entity,
+                          change_params):
+        change_params = self.add_str_of_int_const(
+            [('filter', 'filter_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('email_sfilter', 'add_sfilter')
+    @translate_params.register('email_sfilter', 'mod_sfilter')
+    def email_sfilter_add(self, subject_entity, destination_entity,
+                          change_params):
+        change_params = self.add_str_of_int_const(
+            [('level', 'level_str'), ('action', 'action_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('email_primary_address', 'add_primary')
+    @translate_params.register('email_primary_address', 'rem_primary')
+    @translate_params.register('email_primary_address', 'mod_primary')
+    @translate_params.register('exchange', 'acc_primaddr')
+    def email_primary_address_add(self, subject_entity, destination_entity,
+                                  change_params):
+        if 'addr_id' in change_params:
+            self.ea.clear()
+            try:
+                self.ea.find(change_params['addr_id'])
+            except Cerebrum.Errors.NotFoundError:
+                pass
+            else:
+                change_params['addr'] = self.ea.get_address()
+        return change_params
+
+    @translate_params.register('email_server', 'add_server')
+    @translate_params.register('email_server', 'rem_server')
+    @translate_params.register('email_server', 'mod_server')
+    def email_server_add(self, subject_entity, destination_entity,
+                         change_params):
+        change_params = self.add_str_of_int_const(
+            [('server_type', 'server_type_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('trait', 'add')
+    @translate_params.register('trait', 'mod')
+    @translate_params.register('trait', 'del')
+    def trait_mod(self, subject_entity, destination_entity,
+                  change_params):
+        change_params = self.add_str_of_int_const(
+            [('entity_type', 'entity_type_str'), ('code', 'code_str')],
+            change_params)
+        return change_params
+
+    @translate_params.register('ephorte', 'role_add')
+    @translate_params.register('ephorte', 'role_rem')
+    @translate_params.register('ephorte', 'role_upd')
+    def ephorte_role_add(self, subject_entity, destination_entity,
+                         change_params):
+        change_params = self.add_str_of_int_const(
+            [('arkivdel', 'arkivdel_str'), ('rolle_type', 'rolle_type_str')],
+            change_params)
+        return change_params
