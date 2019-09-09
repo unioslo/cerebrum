@@ -48,8 +48,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
             self.attr2syntax['uioVisiblePrivateMobile'] = \
                 self.attr2syntax['mobile']
-            self.attr2syntax['uioPrimaryEmail'] = (None, verify_IA5String,
-                                                   normalize_IA5String),
+            self.attr2syntax['uioPrimaryMail'] = (None, verify_IA5String,
+                                                  normalize_IA5String),
     else:
         # Hacks for old LDAP structure
         def __init__(self, db, logger):
@@ -64,8 +64,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                                      'cn=organization,dc=uio,dc=no',
                                      'ou=--,ou=organization,dc=uio,dc=no':
                                      'cn=organization,dc=uio,dc=no'}
-            self.attr2syntax['uioPrimaryEmail'] = (None, verify_IA5String,
-                                                   normalize_IA5String),
+            self.attr2syntax['uioPrimaryMail'] = (None, verify_IA5String,
+                                                  normalize_IA5String),
 
     def init_ou_dump(self):
         self.__super.init_ou_dump()
@@ -301,7 +301,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         if self.account_primary_mail:
             mail = self.account_primary_mail.get(account_id)
             if mail:
-                entry['uioPrimaryEmail'] = mail
+                entry['uioPrimaryMail'] = mail
 
         return dn, entry, alias_info
 
