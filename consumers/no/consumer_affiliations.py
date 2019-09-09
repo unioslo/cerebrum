@@ -38,6 +38,7 @@ from Cerebrum.modules.event.mapping import CallbackMap
 from Cerebrum.modules.event_consumer import get_consumer
 from Cerebrum.modules.event_consumer.config import AMQPClientConsumerConfig
 from Cerebrum import logutils
+from Cerebrum.Errors import NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,11 @@ def handle_person(database, data):
     """
     pid = int(data.get('sub').split('/')[-1])
     pe = Factory.get('Person')(database)
-    pe.find(pid)
+    try:
+        pe.find(pid)
+    except NotFoundError:
+        logger.info('Person id %s not found. Skipping', pid)
+        return
     if not pe.get_affiliations():
         logger.info(
             'Person %s has no affiliations. Removing group memberships', pid)
