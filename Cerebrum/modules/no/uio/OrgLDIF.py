@@ -209,8 +209,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
         :param bool use_mail_module:
             If True, Cerebrum.modules.Email will be used to populate this
-            cache; otherwise the `self.account_mail` method will be None (not
-            implemented).
+            cache; otherwise the `self.account_mail` dict will be None.
         """
         super(OrgLDIFUiOMixin, self).init_account_mail(use_mail_module)
         if use_mail_module:
