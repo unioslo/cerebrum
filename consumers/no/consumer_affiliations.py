@@ -106,7 +106,7 @@ def handle_person(database, data):
                 gid_id = None
             for group_row in gr.search(member_id=acc_id):
                 group_id = group_row['group_id']
-                group_name = group_row['group_name']
+                group_name = group_row['name']
                 # Leave personal file groups alone
                 if group_id == gid_id:
                     continue
