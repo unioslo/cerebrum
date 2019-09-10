@@ -326,6 +326,10 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/tsd/*.py', 0755)]),
+    ({'path': "%s/cerebrum/contrib/utils" % sharedir,
+      'owner': cerebrum_user,
+      'mode': 0755},
+     [('contrib/utils/*.py', 0755)]),
 ]
 
 
