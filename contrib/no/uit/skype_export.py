@@ -179,7 +179,7 @@ def main(inargs=None):
 
     logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
-    logutils.autoconf(cereconf.DEFAULT_LOGGER_TARGET, args)
+    logutils.autoconf('cronjob', args)
 
     logger.debug("outfile:%s", args.outfile)
     logger.debug("spread: %s", args.spread)

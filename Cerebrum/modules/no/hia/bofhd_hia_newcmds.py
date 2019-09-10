@@ -29,6 +29,7 @@ from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import Note
+from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
@@ -46,11 +47,12 @@ from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.access_FS import FS
 from Cerebrum.modules.no.hia.bofhd_uia_auth import (
+    BofhdApiKeyAuth,
+    UiaAccessAuth,
     UiaAuth,
     UiaBofhdRequestsAuth,
     UiaContactAuth,
     UiaEmailAuth,
-    UiaAccessAuth,
 )
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as base
 
@@ -1481,6 +1483,10 @@ class RequestCommands(bofhd_requests_cmds.BofhdExtension):
 class UiaAccessCommands(BofhdAccessCommands):
     """This is the place for UiA specific bofhd access * commands"""
     authz = UiaAccessAuth
+
+
+class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
+    authz = BofhdApiKeyAuth
 
 
 HELP_GROUPS = {

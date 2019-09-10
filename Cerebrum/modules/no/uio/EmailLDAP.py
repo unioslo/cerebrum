@@ -1,6 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2003-2018 University of Oslo, Norway
+#
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,7 +23,6 @@ from __future__ import unicode_literals
 from collections import defaultdict
 
 from Cerebrum import Errors
-from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.EmailLDAP import EmailLDAP
@@ -46,7 +45,8 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # Host cache for get_target_info
         self.target_hosts_cache = {}
 
-        # keys: account email target ids with pending 'email_primary_address' events
+        # keys: account email target ids with pending 'email_primary_address'
+        # events
         # values: list of event ids
         # read_pending_primary_email() is called by read_addr()
         self.pending_primary_email = defaultdict(list)
@@ -62,16 +62,19 @@ class EmailLDAPUiOMixin(EmailLDAP):
         return self.db_tt2ldif_tt.get(str(targettype), str(targettype))
 
     def get_server_info(self, row):
-        """Return additional mail server info for EmailLDAP-entry derived from row.
+        """Return additional mail server info for EmailLDAP-entry derived
+        from row.
 
         Return additional mail server information for certain EmailTargets.
-        Specifically, server info is gathered for email_target_account only, the rest we don't
-        care about.
+        Specifically, server info is gathered for email_target_account only,
+        the rest we don't care about.
 
         @param row: cf. L{get_target_info}
 
         @rtype: dict (basestring to basestring)
-        @return: A dictionary with additional attributes for the EmailLDAP-entry based on L{row}.
+        @return:
+          A dictionary with additional attributes for the EmailLDAP-entry
+          based on L{row}.
         """
         result = dict()
         target_id = int(row["target_id"])
@@ -86,14 +89,16 @@ class EmailLDAPUiOMixin(EmailLDAP):
         if target_id not in self.targ2server_id:
             return result
 
-        server_type, server_name = self.serv_id2server[int(self.targ2server_id[target_id])]
+        server_type, server_name = self.serv_id2server[
+                                       int(self.targ2server_id[target_id])]
         result["IMAPserver"] = server_name
         return result
 
     def get_target_info(self, row):
         """Return additional EmailLDAP-entry derived from L{row}.
 
-        Return site-specific mail-ldap-information pertaining to the EmailTarget info in L{row}.
+        Return site-specific mail-ldap-information pertaining to the
+        EmailTarget info in L{row}.
 
         @type row: db-row instance
         @param row:
@@ -101,7 +106,8 @@ class EmailLDAPUiOMixin(EmailLDAP):
 
         @rtype: dict
         @return:
-          A dictinary mapping attributes to values for the specified EmailTarget in L{row}.
+          A dictinary mapping attributes to values for the specified
+          EmailTarget in L{row}.
         """
 
         sdict = super(EmailLDAPUiOMixin, self).get_target_info(row)
@@ -156,14 +162,15 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # overriding any entry for that local_part in any of those
         # domains.
         glob_addr = {}
-        for dom_catg in (self.const.email_domain_category_uio_globals,):
-            domain = str(dom_catg)
+        for domain_category in (self.const.email_domain_category_uio_globals,):
+            domain = str(domain_category)
             lp_dict = {}
             glob_addr[domain] = lp_dict
             # Fill glob_addr[magic domain][local_part]
             for row in mail_addr.list_email_addresses_ext(domain):
                 lp_dict[row['local_part']] = row
-            for row in self.mail_dom.list_email_domains_with_category(dom_catg):
+            for row in self.mail_dom.list_email_domains_with_category(
+                                                             domain_category):
                 # Alias glob_addr[domain name] to glob_addr[magic domain],
                 # for later "was local_part@domain overridden" check.
                 glob_addr[row['domain']] = lp_dict
@@ -192,21 +199,9 @@ class EmailLDAPUiOMixin(EmailLDAP):
                 continue
             self.targ2addr[t_id].add(addr)
 
-        # look for primary email changes that are still pending in the event log
+        # look for primary email changes that are still pending in the event
+        # log
         self.read_pending_primary_email()
-
-    def read_target_auth_data(self):
-        a = Factory.get('Account')(self._db)
-        # Same as default, but omit co.quarantine_auto_emailonly
-        quarantines = dict(
-            [(x, "*locked") for x in
-             QuarantineHandler.get_locked_entities(
-             self._db,
-             entity_types=self.const.entity_account,
-             ignore_quarantine_types=self.const.quarantine_auto_emailonly)])
-        for row in a.list_account_authentication():
-            a_id = int(row['account_id'])
-            self.e_id2passwd[a_id] = quarantines.get(a_id) or row['auth_data']
 
     # exchange-relatert-jazz
     # hardcoding exchange spread since there is no case for any other
@@ -226,10 +221,6 @@ class EmailLDAPUiOMixin(EmailLDAP):
         return ret
 
     # exchange-relatert-jazz
-    # it would have been more elegant to split read_forward
-    # into more managable parts and reduce the code that
-    # needs to be doubled in that manner, but no time for
-    # such things now (Jazz, 2013-12)
     # overriding read forward locally in order to be able to
     # exclude forward for accounts with exchange_spread
     def read_forward(self):
@@ -243,10 +234,6 @@ class EmailLDAPUiOMixin(EmailLDAP):
                 self.targ2forward[t_id].append(row['forward_to'])
 
     # exchange-relatert-jazz
-    # it would have been more elegant to split read_vacation
-    # into more managable parts and reduce the code that
-    # needs to be doubled in that manner, but no time for
-    # such things now (Jazz, 2013-12)
     # overriding read_vacation locally in order to be able to
     # exclude vacation messages for accounts with exchange_spread
     def read_vacation(self):

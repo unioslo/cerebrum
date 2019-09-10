@@ -73,7 +73,7 @@ def enc_auth_type_md5_b64(plaintext, salt=None):
     Added by kennethj, 2005-08-03
     """
     m = hashlib.md5()
-    m.update(plaintext.encode('utf-8'))
+    m.update(plaintext)
     foo = m.digest()
     encrypted = base64.encodestring(foo)
     encrypted = encrypted.rstrip()
@@ -154,9 +154,9 @@ class AccountUiTMixin(Account.Account):
     # Override username generator in core Account.py
     # Do it the UiT way!
     #
-    def suggest_unames(self, ssn, fname, lname):
+    def suggest_unames(self, external_id, fname, lname):
         full_name = "%s %s" % (fname, lname)
-        return [UsernamePolicy(self._db).get_uit_uname(ssn, full_name)]
+        return [UsernamePolicy(self._db).get_uit_uname(external_id, full_name)]
 
     def encrypt_password(self, method, plaintext, salt=None, binary=False):
         """
@@ -177,7 +177,7 @@ class AccountUiTMixin(Account.Account):
             return enc_auth_type_crypt3_des(utf8_plaintext, salt=salt)
         else:
             return super(AccountUiTMixin, self).encrypt_password(
-                method, utf8_plaintext, salt=salt, binary=True)
+                method, plaintext, salt=salt, binary=binary)
 
     def decrypt_password(self, method, cryptstring):
         """
@@ -379,7 +379,7 @@ class UsernamePolicy(DatabaseAccessor):
         sito_post = cereconf.USERNAME_POSTFIX['sito']
         return self.get_serial(inits, cstart, step=step, postfix=sito_post)
 
-    def get_uit_uname(self, fnr, name, regime=None):
+    def get_uit_uname(self, external_id, name, regime=None):
         """
         UiT function that generates a username.
 
@@ -390,12 +390,12 @@ class UsernamePolicy(DatabaseAccessor):
             NNN = unique numeric identifier
 
         This method will also check for pre-existing, available usernames for
-        the owner identified by *fnr*, as usernames from legacy systems may be
-        recorded in the *LegacyUsers* module.  If more than one legacy username
-        exists, the first found will be used.  If no legacy usernames exists, a
-        new one will be generated.
+        the owner identified by *external_id*, as usernames from legacy systems
+        may be recorded in the *LegacyUsers* module.  If more than one legacy
+        username exists, the first found will be used.  If no legacy usernames
+        exists, a new one will be generated.
 
-        :param fnr:
+        :param external_id:
             Norwegian national id of the account owner, 11 digits
         :param name:
             Name of the account owner
@@ -417,19 +417,21 @@ class UsernamePolicy(DatabaseAccessor):
 
         co = Factory.get('Constants')(self._db)
 
-        for id_type in (co.externalid_fodselsnr, co.externalid_sys_x_id):
+        for id_type in (co.externalid_fodselsnr,
+                        co.externalid_pass_number,
+                        co.externalid_sys_x_id):
             try:
-                pe = self._get_person_by_extid(id_type, fnr)
+                pe = self._get_person_by_extid(id_type, external_id)
                 break
             except Errors.NotFoundError:
                 continue
         else:
             raise RuntimeError(
                 "Trying to create account for person:%s that "
-                "does not exist!" % fnr)
+                "does not exist!" % external_id)
 
         try:
-            return self._find_legacy_username(pe, fnr, legacy_type)
+            return self._find_legacy_username(pe, external_id, legacy_type)
         except Errors.NotFoundError:
             inits = self.get_initials(name)
             return self.get_serial(inits, cstart, step=step)
@@ -467,9 +469,24 @@ class UsernamePolicy(DatabaseAccessor):
         name_length = len(name)
 
         if name_length == 1:
+            # Only one name, get all chars from that
             inits = name[0][0:3]
-        else:
+        elif len(name[-1]) > 1:
+            # Get two chars from last name
             inits = name[0][0:1] + name[-1][0:2]
+        else:
+            # Last name has less than 2 chars,
+            # try to use two chars from the first name
+            inits = name[0][0:2] + name[-1][0:1]
+
+        # Having a q or x as 2nd or 3rd inits is extremely uncommon. At the
+        # time of implementation:
+        #   2nd pos: {'y': 90, 'q': 9, 'x': 8}
+        #   3rd pos: {'z': 28, 'q': 5, 'x': 4}
+        if len(inits) < 2:
+            inits += 'qx'
+        elif len(inits) < 3:
+            inits += 'x'
 
         # sanity check
         p = re.compile('^[a-z]{3}$')
@@ -477,4 +494,5 @@ class UsernamePolicy(DatabaseAccessor):
             return inits
         else:
             raise RuntimeError(
-                "Generated invalid initials %r for %r" % (inits, full_name))
+                "Generated invalid initials %r for full_name=%r" %
+                (inits, full_name))

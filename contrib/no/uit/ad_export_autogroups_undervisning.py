@@ -28,6 +28,7 @@ import argparse
 import locale
 import logging
 import os
+import sys
 
 import cereconf
 import mx.DateTime
@@ -40,7 +41,7 @@ from Cerebrum.utils.funcwrap import memoize
 logger = logging.getLogger(__name__)
 
 # Define default file locations
-default_log_dir = os.path.join(cereconf.CB_PREFIX, 'var', 'log')
+default_log_dir = os.path.join(sys.prefix, 'var', 'log')
 default_export_file = os.path.join(cereconf.DUMPDIR, 'AD',
                                    'autogroups-undervisning.xml')
 default_studieprog_file = os.path.join(cereconf.DUMPDIR, 'FS',
@@ -522,7 +523,7 @@ def main(inargs=None):
 
     logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
-    logutils.autoconf('console', args)  # TODO: Do we really want console here?
+    logutils.autoconf('cronjob', args)
 
     logger.debug("setting studieprogfile to '%s'", args.studieprogfile)
     logger.debug("setting undenhfile to '%s'", args.undenhfile)

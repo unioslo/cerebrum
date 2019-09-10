@@ -18,10 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
-from __future__ import print_function
-
 """ Quarantine accounts without person affiliations.
 
 The accounts are warned, by e-mail, unless they are reserved, i.e. are not
@@ -44,7 +40,11 @@ The flow of the script is something like this:
         the notify_user-function successfully sends an email to the user.
     4. Optionally call the remove_quarantine-function, in order to remove
         quarantines set on persons who are affiliated.
+
 """
+
+from __future__ import unicode_literals
+from __future__ import print_function
 
 import sys
 import getopt

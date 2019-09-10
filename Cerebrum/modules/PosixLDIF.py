@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2004-2018 University of Oslo, Norway
+#
+# Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,6 +26,7 @@ from collections import defaultdict
 from six import text_type
 
 import cereconf
+from Cerebrum.export.auth import AuthExporter
 from Cerebrum.modules import LDIFutils
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory, auto_super, make_timer
@@ -63,6 +65,9 @@ class PosixLDIF(object):
         self.posuser = Factory.get('PosixUser')(self.db)
         self.posgrp = PosixGroup.PosixGroup(self.db)
         self.user_dn = LDIFutils.ldapconf('USER', 'dn', None)
+        # This is an odd one -- if set to False, then id2uname should be
+        # populated with users exported in the users export -- which makes the
+        # group exports filter group members by *actually* exported users...
         self.get_name = True
         self.fd = fd
         self.spread_d = {}
@@ -84,7 +89,6 @@ class PosixLDIF(object):
         self.group2persons = defaultdict(list)
         self.shell_tab = dict()
         self.quarantines = dict()
-
         self.user_exporter = UserExporter(self.db)
         if len(self.spread_d['user']) > 1:
             logger.warning('Exporting users with multiple spreads, '
@@ -92,6 +96,11 @@ class PosixLDIF(object):
                            self.spread_d['user'][1:])
         self.homedirs = HomedirResolver(db, self.spread_d['user'][0])
         self.owners = OwnerResolver(db)
+
+        auth_attr = LDIFutils.ldapconf('USER', 'auth_attr', None)
+        self.user_password = AuthExporter.make_exporter(
+            db,
+            auth_attr['userPassword'])
         timer('... done initing PosixLDIF.')
 
     def write_user_objects_head(self, f):
@@ -101,9 +110,9 @@ class PosixLDIF(object):
         pass
 
     @clock_time
-    def user_ldif(self, filename=None, auth_meth=None):
+    def user_ldif(self, filename=None):
         """Generate posix-user."""
-        self.init_user(auth_meth)
+        self.init_user()
         f = LDIFutils.ldif_outfile('USER', filename, self.fd)
         self.write_user_objects_head(f)
 
@@ -115,10 +124,6 @@ class PosixLDIF(object):
                     spread=self.spread_d['user'],
                     filter_expired=True):
                 account_id = row['account_id']
-                if (account_id not in self.account2auth):
-                    logger.debug('no auth method for account_id=%r',
-                                 account_id)
-                    continue
                 dn, entry = self.user_object(row)
                 if not dn:
                     logger.debug('no dn for account_id=%r', account_id)
@@ -127,11 +132,15 @@ class PosixLDIF(object):
 
         for dn, entry in sorted(generate_users(),
                                 key=operator.itemgetter(0)):
-            f.write(LDIFutils.entry_string(dn, entry, False))
+            try:
+                f.write(LDIFutils.entry_string(dn, entry, False))
+            except Exception:
+                logger.error('Got error on dn=%r', dn)
+                raise
         LDIFutils.end_ldif_outfile('USER', f, self.fd)
 
     @clock_time
-    def init_user(self, auth_meth=None):
+    def init_user(self):
         self.get_name = False
         self.qh = QuarantineHandler(self.db, None)
         self.posuser = Factory.get('PosixUser')(self.db)
@@ -144,11 +153,7 @@ class PosixLDIF(object):
         self.owners.make_name_cache()
         self.homedirs.make_home_cache()
         self.group2gid = self.user_exporter.make_posix_gid_cache()
-        self.account2auth = self.user_exporter.make_auth_cache(
-            spread=self.spread_d['user'],
-            auth_method=auth_meth,
-        )
-        self.load_auth_tab(auth_meth)
+        self.load_auth_tab()
         self.cache_account2name()
         self.id2uname = {}
 
@@ -157,14 +162,23 @@ class PosixLDIF(object):
         """Cache account_id to username.
            This one is a bit more lenient that what the self.id2uname
            dictionary contains, as it blindly adds users with correct
-           spread."""
-        if not self.get_name:
-            return
+           spread.  It should *not* be used for filtering!
+           """
         if len(self.account2name) > 0:
             return
+        # TODO> OMG! For some reason, Account.search() takes a *wildcard*
+        # spread argument for filtering, but does not support filtering by
+        # multiple spread values!
+        if len(self.spread_d['user']) == 1:
+            # Only look up account names with the given spread.
+            spread = self.spread_d['user'][0]
+        else:
+            # We'll have to look up all names, for now.
+            spread = None
+
         self.account2name = dict(
             (r['account_id'], r['name']) for r in
-            self.posuser.search(spread=self.spread_d['user'],
+            self.posuser.search(spread=spread,
                                 expire_start=None,
                                 expire_stop=None))
 
@@ -220,85 +234,18 @@ class PosixLDIF(object):
         """Cache person members in groups. Not used in main module."""
         pass
 
-    def auth_methods(self, auth_meth=None):
-        """Which authentication methods to fetch. Mixin-support.
-        If all only one entry, it will prefect any in auth_table.
-        If None, it will use default API authentication (md5_crypt).
-        """
-        self.auth_format = {}
-        auth_meth_l = []
-        self.user_auth = None
-        code = '_AuthenticationCode'
-        # Priority is arg, else cereconf default value
-        # auth_meth_l is a list sent to load_auth_tab and contains
-        # all methods minus primary which is called by
-        auth = auth_meth or cereconf.LDAP['auth_attr']
-        if isinstance(auth, dict):
-            if 'userPassword' not in auth:
-                self.logger.warn("Only support 'userPassword'-attribute")
-                return None
-            default_auth = auth['userPassword'][:1][0]
-            self.user_auth = LDIFutils.map_constants(code, default_auth[0])
-            if len(default_auth) == 2:
-                format = default_auth[1]
-            else:
-                format = None
-            self.auth_format[int(self.user_auth)] = {'attr': 'userPassword',
-                                                     'format': format}
-            for entry in auth['userPassword'][1:]:
-                auth_t = LDIFutils.map_constants(code, entry[0])
-                if len(entry) == 2:
-                    format = entry[1]
-                else:
-                    format = None
-                auth_meth_l.append(auth_t)
-                self.auth_format[int(auth_t)] = {'attr': 'userPassword',
-                                                 'format': format}
-        if isinstance(auth, (list, tuple)):
-            self.user_auth = int(getattr(self.const, auth[:1][0]))
-            for entry in auth[1:]:
-                auth_meth_l.append(int(getattr(self.const, entry)))
-        elif isinstance(auth, str):
-            self.user_auth = int(getattr(self.const, auth))
-        return auth_meth_l
-
     @clock_time
-    def load_auth_tab(self, auth_meth=None):
-        self.a_meth = self.auth_methods(auth_meth)
-        if not self.a_meth:
-            return
-        self.auth_data = defaultdict(dict)
-        for x in self.posuser.list_account_authentication(
-                auth_type=self.a_meth,
-                spread=self.spread_d['user']
-        ):
-            if not x['account_id'] or not x['method']:
-                continue
-            acc_id, meth = int(x['account_id']), int(x['method'])
-            self.auth_data[acc_id][meth] = x['auth_data']
+    def load_auth_tab(self):
+        self.user_password.cache.update_all()
 
     def user_object(self, row):
         account_id = int(row['account_id'])
-        uname, auth_data = self.account2auth[account_id]
-        passwd = '{crypt}*Invalid'
+        uname = self.account2name[account_id]
+        try:
+            passwd = self.user_password.get(account_id)
+        except LookupError:
+            passwd = '{crypt}*Invalid'
 
-        if auth_data:
-            if self.auth_format[self.user_auth]['format']:
-                passwd = self.auth_format[self.user_auth]['format'] % \
-                        auth_data
-            else:
-                passwd = auth_data
-        else:
-            for uauth in [x for x in self.a_meth if x in self.auth_format]:
-                try:
-                    if self.auth_format[uauth]['format']:
-                        passwd = self.auth_format[uauth]['format'] % \
-                                self.auth_data[account_id][uauth]
-                    else:
-                        passwd = self.auth_data[account_id][uauth]
-
-                except KeyError:
-                    pass
         if not row['shell']:
             self.logger.warn("User %s has no POSIX shell", uname)
             return None, None
@@ -309,7 +256,7 @@ class PosixLDIF(object):
             if self.qh.should_skip():
                 return None, None
             if self.qh.is_locked():
-                passwd = '{crypt}' + '*Locked'
+                passwd = '{crypt}*Locked'
             qshell = self.qh.get_shell()
             if qshell is not None:
                 shell = qshell
@@ -564,30 +511,41 @@ class PosixLDIF(object):
 class PosixLDIFRadius(PosixLDIF):
     """ General mixin for Radius type attributes. """
 
-    def auth_methods(self, auth_meth=None):
-        # Also fetch NT password, for attribute sambaNTPassword.
-        meth = self.__super.auth_methods(auth_meth)
-        meth.append(int(self.const.auth_type_md4_nt))
-        return meth
+    def __init__(self, *args, **kwargs):
+        super(PosixLDIFRadius, self).__init__(*args, **kwargs)
+
+        auth_attr = LDIFutils.ldapconf('USER', 'auth_attr', None)
+        self.samba_nt_password = AuthExporter.make_exporter(
+            self.db,
+            auth_attr['sambaNTPassword'])
+
+    @clock_time
+    def load_auth_tab(self):
+        super(PosixLDIFRadius, self).load_auth_tab()
+        self.samba_nt_password.cache.update_all()
 
     def update_user_entry(self, account_id, entry, owner_id):
         # sambaNTPassword (used by FreeRadius)
         try:
-            hash = self.auth_data[account_id][int(self.const.auth_type_md4_nt)]
-        except KeyError:
-            pass
-        else:
-            skip = False
-            if account_id in self.quarantines:
-                self.qh.quarantines = self.quarantines[account_id]
-                if self.qh.should_skip() or self.qh.is_locked():
-                    skip = True
-            if not skip:
-                entry['sambaNTPassword'] = (hash,)
-                # TODO: Remove sambaSamAccount and sambaSID after Radius-testing
-                entry['objectClass'].append('sambaSamAccount')
-                entry['sambaSID'] = entry['uidNumber']
-        return self.__super.update_user_entry(account_id, entry, owner_id)
+            nt_passwd = self.samba_nt_password.get(account_id)
+        except LookupError:
+            nt_passwd = None
+
+        skip = False
+        if nt_passwd and account_id in self.quarantines:
+            self.qh.quarantines = self.quarantines[account_id]
+            if self.qh.should_skip() or self.qh.is_locked():
+                skip = True
+
+        if nt_passwd and not skip:
+            entry['sambaNTPassword'] = (nt_passwd,)
+            # TODO: Remove sambaSamAccount and sambaSID after Radius-testing
+            entry['objectClass'].append('sambaSamAccount')
+            entry['sambaSID'] = entry['uidNumber']
+
+        return super(PosixLDIFRadius, self).update_user_entry(account_id,
+                                                              entry,
+                                                              owner_id)
 
 
 class PosixLDIFMail(PosixLDIF):

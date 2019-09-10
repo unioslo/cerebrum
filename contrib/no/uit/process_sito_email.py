@@ -28,9 +28,6 @@ Configuration
 -------------
 This script use the following cereconf variables:
 
-DEFAULT_LOGGER_TARGET
-    The default logger preset to use if no --logger-name is given.
-
 SITO_PRIMARY_MAILDOMAIN
     Which mail domain to assign new email addresses to.
 
@@ -213,9 +210,6 @@ def process_mail(db):
             em.process_mail(acc_id, addr, is_primary=is_primary)
 
 
-default_log_preset = getattr(cereconf, 'DEFAULT_LOGGER_TARGET', 'console')
-
-
 def main(inargs=None):
     parser = argparse.ArgumentParser(
         description="Process accounts for SITO employees")
@@ -224,7 +218,7 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf(default_log_preset, args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Start of %s', parser.prog)
     logger.debug('args: %r', args)

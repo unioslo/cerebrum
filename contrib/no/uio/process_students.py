@@ -51,6 +51,7 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio import PrinterQuotas
+
 proffile = 'hotshot.prof'
 
 db = Factory.get('Database')()
@@ -73,18 +74,18 @@ group_obj = Factory.get('Group')(db)
 disk_quota_obj = DiskQuota(db)
 
 debug = 0
-max_errors = 50          # Max number of errors to accept in person-callback
+max_errors = 50  # Max number of errors to accept in person-callback
 posix_spreads = [int(const.Spread(_s)) for _s in cereconf.POSIX_SPREAD_CODES]
 
 # global Command-line alterable variables.  Defined here to make
 # pychecker happy
-skip_lpr = True       # Must explicitly tell that we want lpr
+skip_lpr = True  # Must explicitly tell that we want lpr
 create_users = move_users = dryrun = update_accounts = False
 with_quarantines = False
 remove_groupmembers = False
 ou_perspective = None
 workdir = None
-paper_money_file = None         # Default: don't check for paid paper money
+paper_money_file = None  # Default: don't check for paid paper money
 student_info_file = None
 studconfig_file = None
 studieprogs_file = None
@@ -212,7 +213,7 @@ class AccountUtil(object):
         even if the person has no such affiliation"""
 
         changes = []
-        remove_idx = 1     # Do not remove last account affiliation
+        remove_idx = 1  # Do not remove last account affiliation
         account_ous = [ou for aff, ou in
                        accounts[account_id].get_affiliations()
                        if aff == const.affiliation_student]
@@ -247,9 +248,9 @@ class AccountUtil(object):
                           parent=account_obj, expire_date=default_expire_date)
             user.write_db()
             user.map_user_spreads_to_pg()
-            logger.debug("Used dfg2: "+str(changes[0][1]))
+            logger.debug("Used dfg2: " + str(changes[0][1]))
             accounts[account_id].append_group(changes[0][1])
-            del(changes[0])
+            del (changes[0])
         else:
             user.find(account_id)
 
@@ -290,7 +291,7 @@ class AccountUtil(object):
             elif c_id == 'remove_quarantine_at_restore':
                 user.delete_entity_quarantine(dta)
             elif c_id == 'add_spread':
-                pass   # already processed
+                pass  # already processed
             elif c_id == 'add_person_spread':
                 if (not hasattr(person_obj, 'entity_id') or
                         person_obj.entity_id != user.owner_id):
@@ -311,7 +312,7 @@ class AccountUtil(object):
                     dta[0], default_creator_id, 'automatic', start_at)
             elif c_id == 'disk_kvote':
                 disk_id, homedir_id, quota, spread = dta
-                if homedir_id is None:    # homedir was added in this run
+                if homedir_id is None:  # homedir was added in this run
                     homedir_id = accounts[account_id].get_home(spread)[1]
                 disk_quota_obj.set_quota(homedir_id, quota=int(quota))
             else:
@@ -321,7 +322,7 @@ class AccountUtil(object):
 
     @staticmethod
     def _update_group_memberships(account_id, profile):
-        changes = []       # Changes is only used for debug output
+        changes = []  # Changes is only used for debug output
         already_member = {}
         for group_id in accounts[account_id].get_groups():
             already_member[group_id] = True
@@ -451,7 +452,7 @@ class AccountUtil(object):
                 continue
             tmp.append(int(q['quarantine']))
             if (with_quarantines and not int(q['quarantine']) in
-                    ac.get_quarantines()):
+                                         ac.get_quarantines()):
                 changes.append(('add_quarantine', (q['quarantine'],
                                                    q['start_at'])))
 
@@ -483,7 +484,8 @@ class AccountUtil(object):
                 AccountUtil.restore_uname(account_id, profile)
                 for q in ac.get_quarantines():
                     if q in [int(const.quarantine_generell),
-                             int(const.quarantine_autopassord)]:
+                             int(const.quarantine_autopassord),
+                             int(const.quarantine_slutta)]:
                         changes.append(('remove_quarantine_at_restore', q))
 
         if changes:
@@ -1103,7 +1105,7 @@ def _filter_person_info(person_info):
         'alumni': ['studieprogramkode', 'studierettstatkode'],
         'evu': ['etterutdkurskode'],
         'tilbud': ['studieprogramkode']
-        }
+    }
     for info_type in person_info.keys():
         if info_type in ('fodselsdato', 'personnr'):
             continue
@@ -1123,7 +1125,7 @@ def _debug_dump_profile_match(profile, fnr):
     # Thus this value may differ from the one used during an
     # update
     try:
-        dfg = profile.get_dfg()       # dfg is only mandatory for PosixGroups
+        dfg = profile.get_dfg()  # dfg is only mandatory for PosixGroups
     except AutoStud.ProfileHandler.NoDefaultGroup:
         dfg = "<no_dfg>"
     if keep_account_home[fnr]:
@@ -1144,10 +1146,9 @@ def _debug_dump_profile_match(profile, fnr):
 
 
 def validate_config():
-
     if studconfig_file is None or \
-       studieprogs_file is None or \
-       emne_info_file is None:
+            studieprogs_file is None or \
+            emne_info_file is None:
 
         print("Missing required parameter(s). 'studconfig_file' (-C), "
               "studieprogs_file' (-S)\nand 'emne_info_file' (-e) needs "
@@ -1195,7 +1196,6 @@ def process_noncallback_users(reset_diskquota=False):
 
 
 def main():
-
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, studieprogs_file, dryrun, \
         emne_info_file, move_users, remove_groupmembers, workdir, \
@@ -1324,7 +1324,7 @@ def main():
 
     if args.ou_perspective:
         ou_perspective = const.OUPerspective(args.ou_perspective)
-        int(ou_perspective)   # Assert that it is defined
+        int(ou_perspective)  # Assert that it is defined
     if args.validate:
         workdir = '.'
     if args.workdir:
@@ -1363,7 +1363,7 @@ if __name__ == '__main__':
     if False:
         print("Profilerer...")
         prof = hotshot.Profile(proffile)
-        prof.runcall(main)                # profiler hovedprogrammet
+        prof.runcall(main)  # profiler hovedprogrammet
         prof.close()
     else:
         main()

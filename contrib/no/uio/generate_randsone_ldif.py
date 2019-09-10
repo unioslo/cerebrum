@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2002-2017 University of Oslo, Norway
+#
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,18 +18,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Usage: generate_randsone_ldif.py [options]
-
-Write FEIDE information to an LDIF file for Randsone organizations
-affiliated to UiO.  Like generate_org_ldif, but reads an <inst>conf
-file which can override some cereconf LDAP variables.
 """
+Generate an organization ldif file using an alternative configuration module.
 
-import getopt
-import sys
+This script will generate an organization.ldif, just like
+`contrib/generate_org_ldif.py`, but using LDAP_ORG, LDAP_OU and LDAP_PERSON
+settings from another module.
+
+The configuration module should be importable, and named <inst>_ldap_conf
+"""
+import argparse
 import importlib
-
+import logging
 
 # Save default values of LDAP vars which cereconf will modify.
 # Must be done before anything imports cereconf.
@@ -40,67 +41,90 @@ import cereconf as _c
     (_d.LDAP, _d.LDAP_ORG, _d.LDAP_OU, _d.LDAP_PERSON) = _save
 del _c, _d, _save
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.modules.LDIFutils import ldif_outfile, end_ldif_outfile
 
 
-def main():
-    logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 
-    # The script is designed to use the mail-module.
-    module_name = None
-    unit = None
-    use_mail_module = True
-    config = ofile = None
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "ho:i:m",
-                                   ("help", "org=", "inst=",
-                                    "omit-mail-module"))
-    except getopt.GetoptError, e:
-        usage(str(e))
-    if args:
-        usage("Invalid arguments: " + " ".join(args))
-    for opt, val in opts:
-        if opt in ("-o", "--org"):
-            ofile = val
-        elif opt in ("-i", "--inst"):
-                unit = str(val)
-                module_name = str(unit)+'_ldap_conf'
-        elif opt in ("-m", "--omit-mail-module"):
-            use_mail_module = False
-        else:
-            usage()
-    if not unit:
-        usage("\nThe -i or --inst option must be provided with valid argument")
-        return 1
-    # The following overrides some imported values from cereconf.
-    try:
-        importlib.import_module(module_name)
-    except:
-        usage("\nNo configuration with a file name %s found, aborting"
-              % module_name)
-        return 1
 
-    ldif = Factory.get('OrgLDIF')(Factory.get('Database')(), logger)
-    timer = make_timer(logger, 'Starting dump.')
-    outfile = ldif_outfile('ORG', ofile)
+def generate_dump(db, filename, use_mail_module):
+    ldif = Factory.get('OrgLDIF')(db, logger.getChild('OrgLDIF'))
+
+    timer = make_timer(logger, 'Starting dump')
+    outfile = ldif_outfile('ORG', filename)
+    logger.debug('writing org data to %r', outfile)
+
+    timer('Generating org data...')
     ldif.generate_org_object(outfile)
-    ou_outfile = ldif_outfile('OU', default=outfile, explicit_default=ofile)
+
+    ou_outfile = ldif_outfile('OU', default=outfile, explicit_default=filename)
+    logger.debug('Writing ou data to %r', outfile)
+    timer('Generating ou data...')
     ldif.generate_ou(ou_outfile)
-    pers_outfile= ldif_outfile('PERSON',default=outfile,explicit_default=ofile)
+
+    pers_outfile = ldif_outfile('PERSON',
+                                default=outfile,
+                                explicit_default=filename)
+    logger.debug('Writing person data to %r', outfile)
+    timer('Generating person data...')
     ldif.generate_person(pers_outfile, ou_outfile, use_mail_module)
+
     end_ldif_outfile('PERSON', pers_outfile, outfile)
     end_ldif_outfile('OU', ou_outfile, outfile)
     end_ldif_outfile('ORG', outfile)
-    timer("Dump done.")
+    timer("Dump done")
 
 
-def usage(err=0):
-    if err:
-        print >>sys.stderr, err
-    print >>sys.stderr, __doc__
-    sys.exit(bool(err))
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description='Generate org.ldif for randsone units',
+    )
+    parser.add_argument(
+        '-o', '--org',
+        dest='filename',
+        help='Write dump to %(metavar)s',
+        metavar='<filename>',
+    )
+    parser.add_argument(
+        '-i', '--inst',
+        dest='unit',
+        type=str,
+        required=True,
+        help='Fetch settings from %(metavar)_ldap_conf',
+        metavar='<unit>',
+    )
+    parser.add_argument(
+        '-m', '--omit-mail-module',
+        dest='use_mail_module',
+        action='store_false',
+        default=True,
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %s', repr(args))
+
+    module_name = args.unit + '_ldap_conf'
+
+    # The following overrides some imported values from cereconf.
+    logger.info('Importing module_name=%r', module_name)
+    try:
+        importlib.import_module(module_name)
+    except ImportError:
+        logger.error("Unable to import module_name=%r", module_name,
+                     exc_info=True)
+        raise SystemExit("Invalid configuration module %r" % (module_name, ))
+
+    db = Factory.get('Database')()
+    generate_dump(db, args.filename, args.use_mail_module)
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == '__main__':
-        main()
+    main()

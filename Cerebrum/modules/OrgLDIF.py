@@ -27,6 +27,7 @@ from six import text_type
 
 import cereconf
 from Cerebrum import Entity, Errors
+from Cerebrum.export.auth import AuthExporter
 from Cerebrum.Utils import Factory, auto_super, make_timer
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.LDIFutils import (ldapconf,
@@ -97,6 +98,10 @@ class OrgLDIF(object):
             'labeledURI': (None, None, normalize_caseExactString),
             'mail': (None, verify_IA5String, normalize_IA5String),
         }
+        # userPassword config
+        auth_attr = ldapconf('PERSON', 'auth_attr', None)
+        self.user_password = AuthExporter.make_exporter(
+            self.db, auth_attr['userPassword'])
 
     def init_languages(self):
         self.languages, self.lang2opt, self.lang2pref, pref = [], {}, {}, -1
@@ -489,37 +494,22 @@ class OrgLDIF(object):
         # Set self.acc_passwd      = dict {account_id: password hash}.
         # Set self.acc_quarantines = dict {account_id: [quarantine list]}.
         # Set acc_locked_quarantines = acc_quarantines or separate dict
-        timer = make_timer(self.logger, "Fetching account information...")
-        timer2 = make_timer(self.logger)
+        timer_all = make_timer(self.logger, "Fetching account information...")
+        timer_auth = make_timer(self.logger)
+        timer_quar = make_timer(self.logger)
         self.acc_name = {}
-        self.account_auth = {}
+        # self.account_auth = {}
         self.acc_locked_quarantines = self.acc_quarantines = defaultdict(list)
-        crypt_methods = []
-        for entry in ldapconf('PERSON',
-                              'auth_methods',
-                              default=('auth_type_md5_crypt', )):
-            method = self.const.human2constant(entry)
-            if method is None:
-                raise Errors.NotFoundError(
-                    'No corresponding auth_type constant found for method {}'
-                    .format(method))
-            else:
-                crypt_methods.append(method)
-        for row in self.account.list_account_authentication(
-                auth_type=crypt_methods):
-            account_id = int(row['account_id'])
-            crypt_method = row['method']
-            # Add any method if nothing set for the account so far
-            if account_id not in self.acc_name:
-                self.update_password(account_id, row)
-            # Update with higher priority methods if available
-            else:
-                assert(crypt_method in crypt_methods)
-                if crypt_methods.index(crypt_method) < crypt_methods.index(
-                        self.account_auth[account_id]['method']):
-                    self.update_password(account_id, row)
 
-        timer2("...account quarantines...")
+        for row in self.account.search():
+            self.acc_name[row['account_id']] = row['name']
+
+        timer_auth('...account authentication...')
+        self.logger.info('Getting userPassword from auth_types: %r',
+                         self.user_password.cache.auth_types)
+        self.user_password.cache.update_all()
+
+        timer_quar("...account quarantines...")
         nonlock_quarantines = [
             int(self.const.Quarantine(code))
             for code in getattr(cereconf, 'QUARANTINE_FEIDE_NONLOCK', ())]
@@ -534,7 +524,7 @@ class OrgLDIF(object):
             self.acc_quarantines[entity_id].append(qt)
             if nonlock_quarantines and qt not in nonlock_quarantines:
                 self.acc_locked_quarantines[entity_id].append(qt)
-        timer("...account information done.")
+        timer_all("...account information done.")
 
     # If fetching addresses from entity_contact_info, this is True
     # to use persons' contacts and False to use accounts' contacts.
@@ -669,13 +659,6 @@ from None and LDAP_PERSON['dn'].""")
         # FIXME
         return [p_ou] + s_ous
 
-    def update_password(self, account_id, row):
-        self.acc_name[account_id] = row['entity_name']
-        self.account_auth[account_id] = {
-            'method': self.const.human2constant(row['method']),
-            'password': row['auth_data']
-        }
-
     def make_person_entry(self, row, person_id):
         # Return (dn, person entry, alias_info) for a person to output,
         # or (None, anything, anything) if the person should not be output.
@@ -717,12 +700,13 @@ from None and LDAP_PERSON['dn'].""")
         if account_id in self.acc_name:
             entry['uid'] = (self.acc_name[account_id],)
 
-        account_auth = self.account_auth.get(account_id)
         try:
-            passwd = self.format_cryptstring(account_auth['method'],
-                                             account_auth['password'])
-        except Errors.NotImplementedAuthTypeError:
+            passwd = self.user_password.get(account_id)
+        except LookupError:
+            self.logger.warning('No authentication data for account_id=%r',
+                                account_id)
             passwd = False
+
         qt = self.acc_quarantines.get(account_id)
         if qt:
             qh = QuarantineHandler(self.db, qt)
@@ -736,6 +720,7 @@ from None and LDAP_PERSON['dn'].""")
                     qh = QuarantineHandler(self.db, qt)
             if qt and qh.is_locked():
                 passwd = 0
+
         if passwd:
             entry['userPassword'] = passwd
         elif passwd != 0 and entry.get('uid'):
@@ -1205,40 +1190,3 @@ from None and LDAP_PERSON['dn'].""")
                 if not got_given:
                     given.extend(full)
         return [' '.join(n) for n in given, last]
-
-    def format_cryptstring(self, method, password):
-        """Formats cryptstring according to specifics of the encryption method
-
-        Makes a crypstring ready for export to the LDAP-attribute userPassword.
-        If the method is not supported a NotImplementedError is raised.
-
-        :param method: int of Cerebrum.Constants auth_type object. e.g
-        auth_type_md5_crypt
-
-        :param password: row['auth_data'] as returned by the
-                Cerebrum.Account.list_account_authentication method
-
-        :return: The cryptstring intended for export to LDAP
-        """
-        if method in (
-                int(self.const.auth_type_md5_crypt),
-                int(self.const.auth_type_sha256_crypt),
-                int(self.const.auth_type_sha512_crypt),
-                int(self.const.auth_type_crypt3_des),
-        ):
-            return "{crypt}" + password,
-        elif method == int(self.const.auth_type_ssha):
-            return "{SSHA}" + password,
-        elif method == int(self.const.auth_type_md5_unsalt):
-            return "{MD5}" + password,
-        elif method == int(self.const.auth_type_md4_nt):
-            return "{MD4}" + password,
-        elif method in (
-                int(self.const.auth_type_plaintext),
-        ):
-            return password,
-        elif method is None:
-            return password
-        else:
-            raise Errors.NotImplementedAuthTypeError(
-                'Unknown method {}. Please implement.'.format(method))

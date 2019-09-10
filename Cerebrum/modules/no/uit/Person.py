@@ -30,14 +30,26 @@ class UiTPersonMixin(Person.Person):
     This class provides an UiT-specific extension to the core Person class.
     """
 
-    # check if a person has an electronic listing reservation
+    # This REALLY shoulda been in Entity class, but since we havent extended
+    # that class already, we set it here instead. Extening the Entity class for
+    # a single function doesnt make sense!
+    def get_country_code(self, code_str):
+        """
+        Get a given country code id.
+
+        :return: The code int value, or None if the code was not found.
+        """
+        for row in self.list_country_codes():
+            if row['code_str'] == code_str:
+                return row['code']
+        return None
+
     def has_e_reservation(self):
-        # this method may be applied to any Cerebrum-instances that
-        # use trait_public_reservation
-        r = self.get_trait(self.const.trait_public_reservation)
-        if r and r['numval'] == 0:
-            return False
-        return True
+        """Check if a person has an electronic listing reservation."""
+        # TODO: In use by UiT code, but the trait is not automatically updated.
+        #       Used to mirror `PersonUiOMixin.has_e_reservation`. Forcing it
+        #       to be false for now.
+        return False
 
     # We want to raise an error when person.populate is called on a person with
     # deceased_date set in the DB.
@@ -57,10 +69,12 @@ class UiTPersonMixin(Person.Person):
 
     def list_deceased(self):
         ret = {}
-        for row in self.query("""
-                              SELECT pi.person_id, pi.deceased_date
-                              FROM [:table schema=cerebrum name=person_info] pi
-                              WHERE pi.deceased_date IS NOT NULL """):
+        for row in self.query(
+                """
+                  SELECT pi.person_id, pi.deceased_date
+                  FROM [:table schema=cerebrum name=person_info] pi
+                  WHERE pi.deceased_date IS NOT NULL
+                """):
             ret[int(row['person_id'])] = row['deceased_date']
             return ret
 
@@ -71,11 +85,11 @@ class UiTPersonMixin(Person.Person):
             tmp = other.get_name(self._pn_affect_source, type)
             if tmp is None:
                 raise KeyError
-        except:
+        except Exception:
             raise Person.MissingOtherException
         try:
             myname = self._name_info[type]
-        except:
+        except Exception:
             raise Person.MissingSelfException
         return tmp == myname
 
@@ -92,7 +106,9 @@ class UiTPersonMixin(Person.Person):
             conditions.append(cond)
 
         where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
-        return self.query("""
-        SELECT *
-        FROM [:table schema=cerebrum name=person_name]
-        """ + where, binds)
+        return self.query(
+            """
+              SELECT *
+              FROM [:table schema=cerebrum name=person_name]
+            """ + where,
+            binds)

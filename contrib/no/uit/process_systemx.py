@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright 2004-2019 University of Oslo, Norway
@@ -25,7 +25,6 @@ import htmlentitydefs
 import mx.DateTime
 import os
 import re
-from sets import Set
 import sys
 
 from Cerebrum.utils import transliterate
@@ -36,7 +35,7 @@ from Cerebrum.modules.no.uit import Email
 from Cerebrum.utils import email
 from Cerebrum.Utils import Factory
 from Cerebrum.Entity import EntityName
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_systemx')
@@ -67,7 +66,8 @@ def get_existing_accounts():
     logger.info("Loading persons...")
     pid2sysxid = {}
     sysx2pid = {}
-    for row in pers.list_external_ids(id_type=co.externalid_sys_x_id):
+    for row in pers.search_external_ids(id_type=co.externalid_sys_x_id,
+                                        fetchall=False):
         # denne henter ut alle fra system x
         # logger.info("1. row['external_id'] %s" % row['external_id'])
 
@@ -106,14 +106,14 @@ def get_existing_accounts():
                     sys_x_affs[tmp] = ou_stedkode_mapping[row['ou_id']]
                     logger.info("storing stedkode: %s for sys_x_user:%s",
                                 ou_stedkode_mapping[row['ou_id']], tmp)
-                except:
+                except Exception:
                     logger.info("sysx-id:%s has expired stedkode:%s." % (
                         row['person_id'], row['ou_id']))
                     # logger.info("unable to store stedkode")
                     pass
-            except EntityExpiredError as msg:
+            except EntityExpiredError:
                 logger.error("Skipping affiliation to ou_id %s (expired) for "
-                             "person with sysx_id %s." % (row['ou_id'], tmp))
+                             "person with sysx_id %s.", row['ou_id'], tmp)
                 continue
 
     tmp_ac = {}
@@ -212,7 +212,7 @@ def get_existing_accounts():
                 ou.find(int(row['ou_id']))
                 tmp.append_affiliation(int(row['affiliation']),
                                        int(row['ou_id']))
-            except EntityExpiredError as msg:
+            except EntityExpiredError:
                 logger.warn(
                     "Skipping affiliation to ou_id %s (OU expired) for person"
                     " with account_id %s. (Is person affiliation on OU not "
@@ -266,8 +266,7 @@ def send_mail(type, person_info, account_id):
     if type == 'ansvarlig':
         t_code = co.trait_sysx_registrar_notified
 
-        template = (cereconf.CB_SOURCEDATA_PATH +
-                    '/templates/sysx/ansvarlig.tpl')
+        template = os.path.join(cereconf.TEMPLATE_DIR, 'sysx/ansvarlig.tpl')
         recipient = person_info.get('ansvarlig_epost')
         person_info['AD_MSG'] = ""
         if 'AD_account' in person_info.get('spreads'):
@@ -279,7 +278,7 @@ def send_mail(type, person_info, account_id):
                 'No recipient when sending bruker_epost, message not sent')
             return
         t_code = co.trait_sysx_user_notified
-        template = cereconf.CB_SOURCEDATA_PATH + '/templates/sysx/bruker.tpl'
+        template = os.path.join(cereconf.TEMPLATE_DIR, 'sysx/bruker.tpl')
     else:
         logger.error("Unknown type '%s' in send_mail()" % type)
         return
@@ -349,10 +348,8 @@ def get_creator_id():
     return id
 
 
-# get_creator_id=simple_memoize(get_creator_id)
-
 def _handle_changes(a_id, changes):
-    TODAY = mx.DateTime.today().strftime("%Y-%m-%d")
+    today = mx.DateTime.today().strftime("%Y-%m-%d")
     do_promote_posix = False
     ac = Factory.get('Account')(db)
     ac.find(a_id)
@@ -363,7 +360,7 @@ def _handle_changes(a_id, changes):
                 ac.add_spread(s)
                 ac.set_home_dir(s)
         elif ccode == 'quarantine_add':
-            ac.add_entity_quarantine(cdata, get_creator_id(), start=TODAY)
+            ac.add_entity_quarantine(cdata, get_creator_id(), start=today)
             # ac.quarantine_add(cdata)
         elif ccode == 'quarantine_del':
             ac.delete_entity_quarantine(cdata)
@@ -489,11 +486,9 @@ class Build(object):
             sysx_id, sysx_person = item
             self._process_sysx(int(sysx_id), sysx_person)
 
-    def _CreateAccount(self, sysx_id):
-
+    def _create_account(self, sysx_id):
         today = mx.DateTime.today()
         default_creator_id = self.bootstrap_id
-        default_group_id = self.posix_group
         p_obj = Factory.get('Person')(db)
         logger.info("Try to create user for person with sysx_id=%s" % sysx_id)
         try:
@@ -573,7 +568,7 @@ class Build(object):
 
         if not p_obj.has_account():
             new_account = True
-            acc_id = self._CreateAccount(sysx_id)
+            acc_id = self._create_account(sysx_id)
             mailq.append({
                 'account_id': acc_id,
                 'person_info': person_info,
@@ -634,7 +629,7 @@ class Build(object):
         # Check if at the affiliation from SystemX could qualify for
         # exchange_mailbox spread
         could_have_exchange = False
-        got_exchange = False
+        # got_exchange = False
         try:
             person_sko = sys_x_affs[sysx_id]
         except KeyError:
@@ -666,8 +661,8 @@ class Build(object):
             aff_str = str(co.affiliation_manuell_gjest_u_konto).split("/")
             if aff_status == aff_str[1]:
                 no_account = True
-        except:
-            logger.debug("sysx id:%s has no affs" % (sysx_id))
+        except Exception:
+            logger.debug("sysx id:%s has no affs", sysx_id)
 
         # make sure all spreads defined in sysX is set
 
@@ -690,7 +685,7 @@ class Build(object):
                 #    got_sut = True
                 #    tmp_spread.append(int(co.Spread('fd@uit')))
                 if s == "AD_account" and could_have_exchange:
-                    got_exchange = True
+                    # got_exchange = True
                     tmp_spread.append(int(co.Spread('exchange_mailbox')))
             # if not got_exchange:
             #    tmp_spread.append(int(co.Spread('sut_mailbox')))
@@ -704,17 +699,17 @@ class Build(object):
         #             got_exchange = True
         #             tmp_spread.append(int(co.Spread('exchange_mailbox')))
         #             tmp_spread.append(int(co.Spread('people@ldap')))
-        sysX_spreads = Set(tmp_spread)
+        sysx_spreads = set(tmp_spread)
 
         # Set spread expire date
         # Use new_expire in order to guarantee that SystemX specific spreads
         # get SystemX specific expiry_dates
-        for ss in sysX_spreads:
+        for ss in sysx_spreads:
             spread_acc.set_spread_expire(spread=ss, expire_date=new_expire,
                                          entity_id=acc_id)
 
-        cb_spreads = Set(acc_obj.get_spreads())
-        to_add = sysX_spreads - cb_spreads
+        cb_spreads = set(acc_obj.get_spreads())
+        to_add = sysx_spreads - cb_spreads
 
         if to_add:
             changes.append(('spreads_add', to_add))
@@ -913,12 +908,10 @@ class ExistingPerson(object):
 
 
 def main():
-    skipped = added = updated = unchanged = deletedaff = 0
-
     dryrun = False
-
+    datafile = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'd', ['dryrun'])
+        opts, args = getopt.getopt(sys.argv[1:], 'd', ['dryrun', 'datafile='])
     except getopt.GetoptError as m:
         print("Unknown option: {}".format(m))
         usage()
@@ -926,8 +919,10 @@ def main():
     for opt, val in opts:
         if opt in ('--dryrun',):
             dryrun = True
+        if opt in ('--datafile',):
+            datafile = val
 
-    sysx = SYSX()
+    sysx = SYSX(data_file=datafile)
     sysx.list()
     persons, accounts = get_existing_accounts()
 
@@ -947,6 +942,7 @@ def usage():
     print("""
     usage:: %s [-d|--dryrun]
     --dryrun : do no commit changes to database
+    --datafile: path to sysx user data file
     --logger-name name: name of logger to use
     --logger-level level: loglevel to use
     """ % progname)

@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2004-2019 University of Tromsø, Norway
@@ -774,7 +774,6 @@ def get_creator_id(db):
     return entity_name.entity_id
 
 
-default_log_preset = getattr(cereconf, 'DEFAULT_LOGGER_TARGET', 'console')
 default_person_file = os.path.join(sys.prefix,
                                    'var/cache/sito/Sito-Persons.xml')
 
@@ -793,7 +792,7 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf(default_log_preset, args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Start of %s', parser.prog)
     logger.debug('args: %r', args)

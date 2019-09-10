@@ -23,44 +23,39 @@
 from __future__ import unicode_literals
 
 import argparse
+import datetime
 import logging
 import os
 import re
+import sys
+
+import mx.DateTime
 
 import cereconf
-import mx.DateTime
 from Cerebrum import Errors
 from Cerebrum import logutils
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.Email import EmailTarget, EmailForward
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
+from Cerebrum.modules.fs.import_from_FS import AtomicStreamRecoder
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
 
-today_tmp = mx.DateTime.today()
-tomorrow_tmp = today_tmp + 1
-TODAY = today_tmp.strftime("%Y-%m-%d")
-TOMORROW = tomorrow_tmp.strftime("%Y-%m-%d")
-default_user_file = os.path.join(cereconf.DUMPDIR, 'AD',
-                                 'ad_export_%s.xml' % TODAY)
-default_employees_file = ('/cerebrum/var/dumps/employees/paga_persons_%s.xml'
-                          % TODAY)
-
 
 def wash_sitosted(name):
     # removes preceeding and trailing numbers and whitespaces
     # samskipnaden has a habit of putting metadata (numbers) in the name... :(
-    washed = re.sub(r"^[0-9\ ]+|\,|\&\ |[0-9\ -\.]+$", "", name)
+    washed = re.sub(r"^[0-9 ]+|,|& |[0-9 -.]+$", "", name)
     return washed
 
 
-class AdExport:
+class AdExport(object):
 
-    def __init__(self, userfile, db, acctlist):
+    def __init__(self, userfile, db):
         self.userfile = userfile
         self.db = db
         self.co = Factory.get('Constants')(self.db)
@@ -71,13 +66,9 @@ class AdExport:
         self.et = EmailTarget(self.db)
         self.aff_to_stilling_map = dict()
         self.num2const = dict()
+        self.userexport = []
 
-        #
-        self.load_cbdata()
-        self.userexport = self.build_cbdata()
-        self.build_xml(self.userexport, acctlist)
-
-    def load_cbdata(self):
+    def load_cbdata(self, empfile):
 
         logger.info("Loading stillingtable")
         self.stillingskode_map = load_stillingstable(self.db)
@@ -85,7 +76,7 @@ class AdExport:
         logger.info(
             'Generating dict of PAGA persons affiliations and their '
             'stillingskoder, dbh_kat, etc')
-        PagaDataParserClass(default_employees_file, self.scan_person_affs)
+        PagaDataParserClass(empfile, self.scan_person_affs)
 
         logger.info("Loading PagaIDs")
         self.pid2pagaid = dict()
@@ -113,9 +104,10 @@ class AdExport:
             name_types=(self.co.name_first, self.co.name_last))
 
         logger.info("Cache AD accounts")
+        expire_start = mx.DateTime.now() + 1
         self.ad_accounts = self.account.search(
             spread=int(self.co.spread_uit_ad_account),
-            expire_start=TOMORROW)
+            expire_start=expire_start)
         logger.info("Build helper translation tables")
         self.accid2ownerid = dict()
         self.ownerid2accid = dict()
@@ -215,6 +207,7 @@ class AdExport:
             p_id = aff['person_id']
             ou_id = aff['ou_id']
             source_system = aff['source_system']
+            precedence = aff['precedence']
 
             if source_system == self.co.system_sito:
                 perspective_code = self.co.perspective_sito
@@ -230,7 +223,6 @@ class AdExport:
                     continue
             last_date = aff['last_date'].strftime("%Y-%m-%d")
             try:
-
                 sko = ou_info['sko']
                 company = ou_info['company']
             except EntityExpiredError:
@@ -247,6 +239,7 @@ class AdExport:
             affinfo = {'affstr': str(aff_stat).replace('/', '-'),
                        'sko': sko,
                        'lastdate': last_date,
+                       'precedence': precedence,
                        'company': company}
 
             if aff['source_system'] == self.co.system_paga:
@@ -335,12 +328,12 @@ class AdExport:
             entry['emails'] = emails
             entry['forward'] = forward
             userexport.append(entry)
-        return userexport
+        self.userexport = userexport
 
-    def build_xml(self, userexport, acctlist=None):
+    def build_xml(self, acctlist=None):
 
-        incrMAX = 20
-        if acctlist is not None and len(acctlist) > incrMAX:
+        incrmax = 20
+        if acctlist is not None and len(acctlist) > incrmax:
             logger.error("Too many changes in incremental mode")
             return
 
@@ -349,22 +342,24 @@ class AdExport:
         validate_guests = re.compile('^gjest[0-9]{2}$')
         validate_sito = re.compile('^[a-z][a-z][a-z][0-9][0-9][0-9]%s$' % (
             cereconf.USERNAME_POSTFIX['sito']))
-        fh = file(self.userfile, 'w')
-        xml = xmlprinter(fh, indent_level=2, data_mode=True,
+        stream = AtomicStreamRecoder(self.userfile,
+                                     mode=str('w'),
+                                     encoding='ISO-8859-1')
+        xml = xmlprinter(stream, indent_level=2, data_mode=True,
                          input_encoding='ISO-8859-1')
         xml.startDocument(encoding='utf-8')
         xml.startElement('data')
         xml.startElement('properties')
         xml.dataElement('tstamp', str(mx.DateTime.now()))
         if acctlist:
-            type = "incr"
+            export_type = "incr"
         else:
-            type = "fullsync"
-        xml.dataElement('type', type)
+            export_type = "fullsync"
+        xml.dataElement('type', export_type)
         xml.endElement('properties')
 
         xml.startElement('users')
-        for item in userexport:
+        for item in self.userexport:
             if (acctlist is not None) and (item['name'] not in acctlist):
                 continue
             if (not (validate.match(item['name']) or
@@ -438,7 +433,7 @@ class AdExport:
                 for c in campus:
                     campus_name = str(c['address_text'].encode('utf-8'))
                     xml.dataElement('l', str(campus_name))
-            if (item['forward'] != ''):
+            if item['forward'] != '':
                 xml.dataElement('targetAddress', str(item['forward']))
             if contact:
                 xml.startElement('contactinfo')
@@ -464,7 +459,7 @@ class AdExport:
                     paff = person_aff['affstr'].split('-')[
                         0]  # first elment in "ansatt-123456"
                     aaff = str(self.num2const[acc_aff])
-                    if (paff == aaff):
+                    if paff == aaff:
                         person_aff['affstr'] = person_aff['affstr'].replace(
                             'sys_x-ansatt', 'sys_xansatt')
                         resaffs.append(person_aff)
@@ -472,10 +467,20 @@ class AdExport:
                     else:
                         pass
             if resaffs:
+                # Sort the affiliations by precedence and delete the precedence
+                # key before writing to file. To accomplish this we have to
+                # make copies of the entries in the list, otherwise they still
+                # point to the dicts in the old list and we risk removing the
+                # precedence key from an affiliation that may be used later.
                 xml.startElement('affiliations')
-                for aff in resaffs:
+                for aff in sorted(resaffs,
+                                  key=lambda row: row.get('precedence', 999)):
                     # dumps content of dict as xml attributes
-                    xml.emptyElement('aff', aff)
+                    # skip precedence key
+                    xml.emptyElement(
+                        'aff',
+                        dict((k, aff[k]) for k in aff if k != 'precedence')
+                    )
                 xml.endElement('affiliations')
 
             quarantines = self.account_quarantines.get(item['name'])
@@ -491,6 +496,7 @@ class AdExport:
         xml.endElement('users')
         xml.endElement('data')
         xml.endDocument()
+        stream.close()
 
     def scan_person_affs(self, person):
 
@@ -672,8 +678,7 @@ class AdExport:
                 break
             self.ou.clear()
             self.ou.find(parent_id)
-            logger.debug("Lookup returned: id=%s,name=%s", self.ou.entity_id,
-                         self.ou.name)
+            logger.debug("Lookup returned: id=%s", self.ou.entity_id)
             # Detect infinite loops
             if self.ou.entity_id in visited:
                 raise RuntimeError("DEBUG: Loop detected: %r" % visited)
@@ -696,16 +701,34 @@ def load_stillingstable(db):
     return stillingskode_map
 
 
+default_user_file = os.path.join(
+    sys.prefix, 'var/cache/AD',
+    'ad_export_{}.xml'.format(datetime.date.today().strftime('%Y-%m-%d')))
+
+default_employees_file = os.path.join(
+    sys.prefix, 'var/cache/employees',
+    'paga_persons_{}.xml'.format(datetime.date.today().strftime('%Y-%m-%d')))
+
+
 def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '-i', '--in',
+        dest='infile',
+        default=default_employees_file,
+        help='Read employee data from %(metavar)s (%(default)s)',
+        metavar='<file>',
+    )
+    parser.add_argument(
+        '-o', '--out',
+        dest='outfile',
+        default=default_user_file,
+        help='Write AD data to %(metavar)s (%(default)s)',
+        metavar='<file>',
+    )
     parser.add_argument('-a', '--account',
                         default=None,
                         help='export single account. NB DOES NOT WORK!'
-                        )
-    parser.add_argument('-o', '--out',
-                        default=default_user_file,
-                        dest='outfile',
-                        help='writes to given filename'
                         )
     parser.add_argument('-t', '--type',
                         default='fullsync',
@@ -713,21 +736,30 @@ def main(inargs=None):
 
     logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
-    logutils.autoconf('console', args)
+    logutils.autoconf('cronjob', args)
+
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %s', repr(args))
 
     if args.type == "incr":
         acctlist = args.account.split(",")
     else:
         acctlist = None
 
-    start = mx.DateTime.now()
+    start = datetime.datetime.now()
     db = Factory.get('Database')()
-    AdExport(args.outfile, db, acctlist)
 
-    stop = mx.DateTime.now()
-    logger.debug("Started %s ended %s", start, stop)
-    logger.debug("Script running time was %s ",
-                 (stop - start).strftime("%M minutes %S secs"))
+    export = AdExport(args.outfile, db)
+    export.load_cbdata(args.infile)
+    export.build_cbdata()
+    export.build_xml(acctlist)
+
+    stop = datetime.datetime.now()
+    logger.debug("Started at=%s, ended at=%s",
+                 start.isoformat(), stop.isoformat())
+    logger.debug('Script used %f seconds', (stop - start).total_seconds())
+    logger.info('Wrote ad data to filename=%r', args.outfile)
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':

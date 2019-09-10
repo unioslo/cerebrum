@@ -168,20 +168,25 @@ class QuarantineHandler(object):
             spreads)
 
     @staticmethod
-    def get_locked_entities(db, entity_types=None, only_active=True,
+    def get_locked_entities(db, entity_types=None, quarantine_types=None,
+                            only_active=True, only_disabled=False,
                             entity_ids=None, ignore_quarantine_types=None):
-        """Utility method that the returns the entity-id of all locked accounts.
+        """Utility method that the returns the entity-id of all locked entities.
 
         :param db: A database object
         :param entity_types: Entity types to filter on
+        :param quarantine_types: Quarantine types to filter on
         :param only_active: Only return locked and active quarantines
+        :param only_disabled: Only return disabled quarantines
         :param entity_ids: Spesific entity-ids to check
         :param ignore_quarantine_types: Quarantines to ignore"""
         cache = defaultdict(list)
         eq = Entity.EntityQuarantine(db)
         for row in eq.list_entity_quarantines(
                 entity_types=entity_types,
+                quarantine_types=quarantine_types,
                 only_active=only_active,
+                only_disabled=only_disabled,
                 entity_ids=entity_ids,
                 ignore_quarantine_types=ignore_quarantine_types):
             cache[row['entity_id']].append(

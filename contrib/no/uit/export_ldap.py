@@ -8,6 +8,7 @@ import argparse
 import datetime
 import logging
 import os
+import sys
 
 import cereconf
 
@@ -21,7 +22,7 @@ def ldap_export():
     global_ret = 0
     today = datetime.date.today()
 
-    script_dir = os.path.join(cereconf.CB_PREFIX,
+    script_dir = os.path.join(sys.prefix,
                               'share', 'cerebrum', 'contrib')
 
     logger.info("Starting export of ldap data")
@@ -56,7 +57,7 @@ def ldap_export():
         os.path.join(my_dump, "group.ldif"),
         os.path.join(my_dump, "/users_ldif"),
         os.path.join(my_dump, "kurs.ldif"),
-        os.path.join(cereconf.CB_PREFIX,
+        os.path.join(sys.prefix,
                      "var/source/ldap/fake_ldap_users.ldif"),
         ">",
         os.path.join(my_dump, "temp_uit_ldif"),

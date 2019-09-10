@@ -29,7 +29,9 @@ import cereconf
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 from Cerebrum.modules.OrgLDIF import postal_escape_re
 from Cerebrum.modules.LDIFutils import (
-    ldapconf, normalize_string, hex_escape_match)
+    ldapconf, normalize_string, hex_escape_match,
+    normalize_IA5String, verify_IA5String,
+)
 from Cerebrum.Utils import make_timer
 
 # Replace these characters with spaces in OU RDNs.
@@ -46,6 +48,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
             self.attr2syntax['uioVisiblePrivateMobile'] = \
                 self.attr2syntax['mobile']
+            self.attr2syntax['uioPrimaryMail'] = (None, verify_IA5String,
+                                                  normalize_IA5String),
     else:
         # Hacks for old LDAP structure
         def __init__(self, db, logger):
@@ -60,6 +64,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                                      'cn=organization,dc=uio,dc=no',
                                      'ou=--,ou=organization,dc=uio,dc=no':
                                      'cn=organization,dc=uio,dc=no'}
+            self.attr2syntax['uioPrimaryMail'] = (None, verify_IA5String,
+                                                  normalize_IA5String),
 
     def init_ou_dump(self):
         self.__super.init_ou_dump()
@@ -178,7 +184,6 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         self.__super.init_person_dump(use_mail_module)
         self.init_person_course()
         self.init_person_groups()
-        self.init_person_office365_consents()
 
     def init_person_titles(self):
         # Change from original: Search titles first by system_lookup_order,
@@ -199,20 +204,19 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
     def init_account_mail(self, use_mail_module):
         u""" Cache account mail addresses.
 
-        This method overrides the general method with emails of the type
-        username@uio.no if that email is tied to that account.
+        This method adds to the general to fill the primary email attribute
+        This is done to prepare for changing the normal email attribute
 
         :param bool use_mail_module:
             If True, Cerebrum.modules.Email will be used to populate this
-            cache; otherwise the `self.account_mail` method will be None (not
-            implemented).
-
+            cache; otherwise the `self.account_mail` dict will be None.
         """
         super(OrgLDIFUiOMixin, self).init_account_mail(use_mail_module)
         if use_mail_module:
             timer = make_timer(
                 self.logger,
                 "Doing UiO specific changes to account e-mail addresses...")
+            self.account_primary_mail = self.account_mail.copy()
             # We don't want to import this if mod_email isn't present.
             from Cerebrum.modules.Email import EmailTarget
             targets = EmailTarget(self.db).list_email_target_addresses
@@ -254,6 +258,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
     def make_person_entry(self, row, person_id):
         """ Extend with UiO functionality. """
         dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
+        account_id = int(row['account_id'])
+
         if not dn:
             return dn, entry, alias_info
 
@@ -270,10 +276,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
         # Add group memberships
         if person_id in self.person2group:
-            # TODO: remove member and uioPersonObject after transition period
-            entry['uioMemberOf'] = entry['member'] = \
-                self.person2group[person_id]
-            entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
+            entry['uioMemberOf'] = self.person2group[person_id]
+            entry['objectClass'].append('uioMembership')
 
         # Add scoped affiliations
         pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(
@@ -281,9 +285,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         entry['uioPersonScopedAffiliation'] = \
             self.make_uioPersonScopedAffiliation(person_id, pri_aff, pri_ou)
 
-        # Add the uioPersonObject class if missing
-        if 'uioPersonObject' not in entry['objectClass']:
-            entry['objectClass'].extend(('uioPersonObject',))
+        # uio attributes require uioPersonObject
+        entry['objectClass'].append('uioPersonObject')
 
         # Check if there exists «avvikende» (deviant) addresses.
         # If so, export them instead.
@@ -301,9 +304,10 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             if street:
                 entry['street'] = (street,)
 
-        # Add Office 365 consents
-        if person_id in self.office365_consents:
-            entry['uioOffice365consent'] = 'TRUE'
+        if self.account_primary_mail:
+            mail = self.account_primary_mail.get(account_id)
+            if mail:
+                entry['uioPrimaryMail'] = mail
 
         return dn, entry, alias_info
 
@@ -387,12 +391,3 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 return person_id in self.fs_samtykke
         # Otherwise hide the person.
         return False
-
-    def init_person_office365_consents(self):
-        """Fetch the IDs of persons who have consented
-        to being exported to Office 365."""
-        timer = make_timer(self.logger, 'Fetching Office 365 consents...')
-        consents = self.person.list_consents(
-            consent_code=self.const.consent_office365)
-        self.office365_consents = set([c['entity_id'] for c in consents])
-        timer('...Office 365 consents done.')

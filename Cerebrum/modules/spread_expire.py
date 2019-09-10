@@ -86,6 +86,10 @@ class SpreadExpire(DatabaseAccessor):
 
     def exists(self, entity_id, spread):
         """
+        Check if there is an expire date for a given spread on a given entity.
+
+        :type entity_id: int
+        :type spread: Cerebrum.Constants._SpreadCode
         """
         if not entity_id or not spread:
             raise ValueError("missing args")
@@ -106,6 +110,10 @@ class SpreadExpire(DatabaseAccessor):
 
     def get(self, entity_id, spread):
         """
+        Get an expire date for a given spread on a given entity.
+
+        :type entity_id: int
+        :type spread: Cerebrum.Constants._SpreadCode
         """
         if not entity_id or not spread:
             raise ValueError("missing args")
@@ -125,6 +133,10 @@ class SpreadExpire(DatabaseAccessor):
     def set(self, entity_id, spread, expire_date):
         """
         Add or update a spread expire date.
+
+        :type entity_id: int
+        :type spread: Cerebrum.Constants._SpreadCode
+        :type expire_date: mx.DateTime.DateTime, datetime.date
         """
         try:
             old_date = self.get(entity_id, spread)
@@ -147,6 +159,9 @@ class SpreadExpire(DatabaseAccessor):
     def delete(self, entity_id, spread):
         """
         Delete a spread expire date.
+
+        :type entity_id: int
+        :type spread: Cerebrum.Constants._SpreadCode
         """
         if not self.exists(entity_id, spread):
             raise Errors.NotFoundError(
@@ -170,6 +185,20 @@ class SpreadExpire(DatabaseAccessor):
     def search(self, entity_id=None, spread=None, before_date=None,
                after_date=None, fetchall=False):
         """
+        Search for spread expire dates.
+
+        :param entity_id:
+            Filter results by a single entity_id or a sequence of entity_id
+            values.
+
+        :param spread:
+            Filter results by a single spread or a sequence of spread values.
+
+        :param before_date:
+            Only include results with an expire_date older than this date.
+
+        :param after_date:
+            Only include results with an expire_date newer than this date.
         """
         filters = []
         binds = dict()
@@ -317,7 +346,6 @@ class SpreadExpireNotify(DatabaseAccessor):
           DELETE FROM
             [:table schema=cerebrum name=spread_expire_notification]
           {filters}
-        )
         """.format(filters=(('WHERE ' + ' AND '.join(conditions))
                             if conditions else ''))
         logger.debug('deleting spread_expire_notification for entity_id=%r'

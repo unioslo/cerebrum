@@ -544,7 +544,7 @@ class BofhdCommandBase(object):
                         not account_id.isdigit()):
                     raise CerebrumError("Entity id %r must be a number" %
                                         account_id)
-                account.find(int(account_id))
+                account.find(account_id)
             else:
                 raise CerebrumError("Unknown idtype: %r" % idtype)
         except Errors.NotFoundError:
@@ -613,19 +613,6 @@ class BofhdCommandBase(object):
             return ""
         return u",".join(six.text_type(self.const.Spread(x['spread']))
                          for x in entity.get_spread())
-
-    def _get_disk(self, path, host_id=None, raise_not_found=True):
-        disk = Factory.get('Disk')(self.db)
-        try:
-            if isinstance(path, basestring):
-                disk.find_by_path(path, host_id)
-            else:
-                disk.find(path)
-            return disk, disk.entity_id, None
-        except Errors.NotFoundError:
-            if raise_not_found:
-                raise CerebrumError("Unknown disk: %s" % path)
-            return disk, None, path
 
     def _get_person(self, idtype, id):
         """ Get person. """

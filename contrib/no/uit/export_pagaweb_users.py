@@ -86,6 +86,10 @@ KEY_UNIKAT = 'Univkat'
 KEY_UITKAT = 'UITkat'
 KEY_KJONN = 'Kjønn'
 KEY_FODSELSDATO = 'Fødselsdato'
+KEY_LOKASJON = 'Lokasjon'
+KEY_NATIONAL_ID_TYPE = 'edag_int_id_type'
+KEY_NATIONAL_ID = 'edag_id_nr'
+KEY_NATIONAL_LAND = 'edag_id_land'
 
 
 def read_csv_file(filename, encoding, charsep):
@@ -124,24 +128,33 @@ def parse_paga_csv(db, pagafile):
     ac = Factory.get('Account')(db)
     pe = Factory.get('Person')(db)
     co = Factory.get('Constants')(db)
-    paga_extid = co.externalid_paga_ansattnr
-    paga_source = co.system_paga
-    fnr_extid = co.externalid_fodselsnr
 
     personid_ansattnr = {}
     logger.info("Caching person ids...")
     for ansattnr in persons.keys():
         pe.clear()
         try:
-            pe.find_by_external_id(paga_extid, ansattnr)
-            persons[ansattnr]['fnr'] = pe.get_external_id(
-                source_system=paga_source,
-                id_type=fnr_extid
-            )[0]['external_id']
+            pe.find_by_external_id(co.externalid_paga_ansattnr, ansattnr)
             personid_ansattnr[pe.entity_id] = ansattnr
         except Errors.NotFoundError:
             logger.error("Person not found in BAS with ansattnr=%r", ansattnr)
             continue
+
+        for key, extid_type in (('fnr', co.externalid_fodselsnr),
+                                ('passnr', co.externalid_pass_number)):
+            try:
+                persons[ansattnr][key] = pe.get_external_id(
+                    source_system=co.system_paga,
+                    id_type=extid_type,
+                )[0]['external_id']
+            except IndexError:
+                logger.error("No id_type=%s for entity_id=%r, ansattnr=%r",
+                             extid_type, pe.entity_id, ansattnr)
+                continue
+            else:
+                logger.debug("Using id_type=%s for entity_id=%r, ansattnr=%r",
+                             extid_type, pe.entity_id, ansattnr)
+                break
 
     logger.info("Caching e-mails...")
     uname_mail = ac.getdict_uname2mailaddr()
@@ -205,8 +218,8 @@ def write_persons(filename, pers, sequence, encoding=default_out_encoding):
                                pers[ansattnr].get('brukernavn', 'N/A'))
 
             if pers[ansattnr].get('fnr', None) is None:
-                logger.error("FNR empty: %s (%s)", ansattnr,
-                             pers[ansattnr].get('brukernavn', 'N/A'))
+                logger.warning("FNR empty: %s (%s)", ansattnr,
+                               pers[ansattnr].get('brukernavn', 'N/A'))
 
             fp.write("\n10; UiT; %s; %s; %s; %s" % (
                 ansattnr,
@@ -222,7 +235,6 @@ def write_persons(filename, pers, sequence, encoding=default_out_encoding):
 default_infile = os.path.join(sys.prefix, 'var/cache/paga',
                               'uit_paga_last.csv')
 default_outfile = os.path.join(sys.prefix, 'var/cache/pagaweb', 'last.csv')
-default_log_preset = getattr(cereconf, 'DEFAULT_LOGGER_TARGET', 'console')
 
 
 def main(inargs=None):
@@ -243,10 +255,23 @@ def main(inargs=None):
         help='Write output to XML-file %(metavar)s',
         metavar='file',
     )
+    parser.add_argument(
+        '--touch-file',
+        dest='touch_file',
+        help='Write an empty marker file on completion',
+        metavar='file',
+    )
+    parser.add_argument(
+        '--write-copy',
+        dest='copies',
+        action='append',
+        help='Write a copy to %(metavar)s',
+        metavar='file',
+    )
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
-    Cerebrum.logutils.autoconf(default_log_preset, args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Start of %s', parser.prog)
     logger.debug('args: %r', args)
@@ -261,9 +286,21 @@ def main(inargs=None):
     write_persons(args.outfile, pers, sequence)
     logger.info('Wrote output to %r', args.outfile)
 
-    new_copy = args.outfile + '.new'
-    shutil.copyfile(args.outfile, new_copy)
-    logger.info('Wrote copy to %r', new_copy)
+    for filename in (args.copies or ()):
+        # TODO: This is to replace an old UiT script which makes a copy of the
+        # CSV file when copying to Bluegarden
+        shutil.copyfile(args.outfile, filename)
+        logger.info('Wrote copy to %r', filename)
+
+    if args.touch_file:
+        # TODO: This is to replace an old UiT script which makes a last.csv.new
+        # file to indicate to Bluegarden that a new file is ready for import.
+        # This should all probably be replaced by a AtomicFileWriter like file
+        # object - we should probably also diff the content of any existing
+        # pre-existing file with the content that we've just generated and only
+        # write a new one if there are any changes.
+        with open(args.touch_file, 'w'):
+            pass
 
     logger.info('Done %s', parser.prog)
 

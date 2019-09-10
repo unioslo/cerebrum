@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2008-2018 University of Oslo, Norway
+# Copyright 2008-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -425,8 +425,13 @@ class HR2FSSyncer(object):
         # reality the only way to break unknowns (i.e. what happens when no
         # account matches the specified affiliations? We cannot NOT export at
         # least some OU and the process must be deterministic).
+        # This breaks if my_affiliations is empty, but then no sensible value
+        # can be returned.
         if ou_id is None:
-            ou_id = min(x[0] for x in my_affiliations)
+            try:
+                ou_id = min(x[0] for x in my_affiliations)
+            except ValueError:
+                ou_id = None
 
         return ou_id
 
@@ -713,8 +718,10 @@ class HR2FSSyncer(object):
         person = Factory.get("Person")(self.db)
         person.find(person_id)
         primary_ou_id = self.find_primary_ou(person, selection_criteria)
-
-        primary_sko = self.find_primary_sko(primary_ou_id)
+        if primary_ou_id is None:
+            primary_sko = None
+        else:
+            primary_sko = self.find_primary_sko(primary_ou_id)
         if primary_sko is None:
             logger.warn("Missing primary OU for person_id=%r, skipping "
                         "fagperson", person_id)

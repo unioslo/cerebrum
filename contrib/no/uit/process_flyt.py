@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
 # Copyright 2014 University of Tromso, Norway
@@ -35,15 +35,18 @@ import cereconf
 import mx
 from Cerebrum import Entity
 from Cerebrum import Errors
-from Cerebrum import Utils
-from Cerebrum.Utils import Factory, simple_memoize
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit import Email
-from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
+from Cerebrum.utils.email import sendmail
+from Cerebrum.utils.funcwrap import memoize
 
 #
 # Global variables
 #
+logger = Factory.get_logger('cronjob')
+
 accounts = None
 persons = None
 db = Factory.get('Database')()
@@ -56,7 +59,6 @@ progname = __file__.split(os.sep)[-1]
 db.cl_init(change_program=progname)
 em = Email.email_address(db)
 person_file = ''
-logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
 
 __doc__ = """
     usage:: %s Generates user accounts and general user maintenance for flyt
@@ -356,10 +358,13 @@ class Build:
             # replace \\n with ''
             email_body = email_body.replace('\\n', '')
             cc = "bas-admin@cc.uit.no"
-            foo = Utils.sendmail(email, email_from, email_subject,
-                                 email_body.decode('utf-8').encode(
-                                     "iso-8859-1"), cc, debug=False)
-            logger.info("sendmail returned:%s", foo)
+            sendmail(
+                toaddr=email,
+                fromaddr=email_from,
+                subject=email_subject,
+                body=email_body.decode('utf-8').encode("iso-8859-1"),
+                cc=cc,
+                debug=False)
 
     #
     # create an account for every person processed
@@ -664,6 +669,7 @@ def create_flyt_account(fnr, expire_date):
     return acc_obj.entity_id
 
 
+@memoize
 def is_ou_expired(ou_id):
     ou.clear()
     try:
@@ -673,9 +679,6 @@ def is_ou_expired(ou_id):
         return True
     else:
         return False
-
-
-is_ou_expired = simple_memoize(is_ou_expired)
 
 
 class ExistingAccount(object):
@@ -841,6 +844,7 @@ class ExistingPerson(object):
         return self._deceased_date
 
 
+@memoize
 def get_creator_id():
     entity_name = Entity.EntityName(db)
     entity_name.find_by_name(cereconf.INITIAL_ACCOUNTNAME,
@@ -849,9 +853,7 @@ def get_creator_id():
     return id
 
 
-get_creator_id = simple_memoize(get_creator_id)
-
-
+@memoize
 def get_sko(ou_id):
     ou.clear()
     try:
@@ -863,9 +865,6 @@ def get_sko(ou_id):
         # print "unable to find stedkode. Return NoneNoneNone"
         return "NoneNoneNone"
     return "%02s%02s%02s" % (ou.fakultet, ou.institutt, ou.avdeling)
-
-
-get_sko = simple_memoize(get_sko)
 
 
 #

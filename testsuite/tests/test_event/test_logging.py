@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 # encoding: utf-8
 """ Unit tests for event logging. """
-import pytest
-
+import logging
 import pickle
-
 from Queue import Empty
 from collections import namedtuple
 from functools import partial
+
+import pytest
+
 
 
 @pytest.fixture
@@ -52,9 +53,10 @@ def logutils():
 
 
 @pytest.fixture
-def queue_logger(logutils, queue):
+def queue_handler(logutils, queue):
     u""" The EventMap module to test. """
-    return logutils.QueueLogger('test', queue)
+    queue_handler = logutils.QueueHandler(queue)
+    return queue_handler
 
 
 @pytest.fixture
@@ -62,41 +64,78 @@ def log_thread(logutils, real_logger, queue):
     return logutils.LoggerThread(logger=real_logger, queue=queue)
 
 
-def test_log_info(queue, queue_logger):
-    assert queue is queue_logger.queue
-    queue_logger.info(u'some log message')
+def test_log_info(queue, queue_handler):
+    record = logging.makeLogRecord({
+        'levelno': logging.INFO,
+        'levelname': 'INFO',
+        'name': 'tests.test_event.test_logging',
+        'msg': u'some log message',
+        'args': (),
+    })
+    queue_handler.emit(record)
     assert len(queue.q) == 1
+
     item = queue.get()
-    assert item.msg == 'some log message'
-    assert item.level == 'info'
+    other = queue_handler.protocol.deserialize(item)
+    assert other.msg == 'some log message'
+    assert other.levelno == logging.INFO
 
 
-def test_log_args(queue, queue_logger):
-    assert queue is queue_logger.queue
-    queue_logger.info(u'{!s} {num:d}', 'foo', num=5)
+def test_log_args(queue, queue_handler):
+    record = logging.makeLogRecord({
+        'levelno': logging.INFO,
+        'levelname': 'INFO',
+        'name': 'tests.test_event.test_logging',
+        'msg': u'%s %d',
+        'args': ('foo', 5),
+    })
+    queue_handler.emit(record)
     assert len(queue.q) == 1
+
     item = queue.get()
-    assert item.msg == u'foo 5'
+    other = queue_handler.protocol.deserialize(item)
+    assert other.getMessage() == 'foo 5'
 
 
-def test_log_args_error(queue, queue_logger):
-    assert queue is queue_logger.queue
-    queue_logger.info(u'message: {!d} {:d}', 'foo', bar='baz')
+def test_log_args_error(queue, queue_handler):
+    record = logging.makeLogRecord({
+        'levelno': logging.INFO,
+        'levelname': 'INFO',
+        'name': 'tests.test_event.test_logging',
+        'msg': u'asdf %d %d',
+        'args': ('foo', 573),
+    })
+    queue_handler.emit(record)
     assert len(queue.q) == 1
+
     item = queue.get()
-    assert 'foo' in item.msg
-    assert 'bar' in item.msg
-    assert 'baz' in item.msg
-    assert 'message' in item.msg
+    other = queue_handler.protocol.deserialize(item)
+    msg = other.getMessage()
+    print(repr(msg))
+    assert 'asdf' in msg
+    assert 'foo' in msg
+    assert '573' in msg
 
 
-def test_logrecord_repr_unpickleable(queue, queue_logger):
+def test_logrecord_repr_unpickleable(queue, queue_handler):
     # The items thrown on a multiprocessing queue must be pickleable
     unpickleable = lambda x: x * 2
     with pytest.raises(pickle.PicklingError):
         # Make sure it's not pickleable
         pickle.dumps(unpickleable)
 
-    queue_logger.info(u'Logging unpickleable object: {!r}', unpickleable)
+    record = logging.makeLogRecord({
+        'levelno': logging.INFO,
+        'levelname': 'INFO',
+        'name': 'tests.test_event.test_logging',
+        'msg': u'callable=%r',
+        'args': (unpickleable,),
+    })
+
+    queue_handler.emit(record)
+    assert len(queue.q) == 1
+
     item = queue.get()
-    print pickle.dumps(item)
+    other = queue_handler.protocol.deserialize(item)
+    msg = other.getMessage()
+    assert 'callable' in msg

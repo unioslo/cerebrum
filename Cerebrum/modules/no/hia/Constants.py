@@ -228,7 +228,6 @@ class Constants(Constants.Constants):
         "IT services at UiA.")
 
     # KARANTENEGRUPPER
-    quarantine_slutta = _QuarantineCode('slutta', 'Personen har slutta')
     quarantine_permisjon = _QuarantineCode('permisjon',
                                            'Brukeren har permisjon')
     quarantine_autoekstern = _QuarantineCode('autoekstern',

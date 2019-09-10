@@ -67,6 +67,7 @@ import Cerebrum.utils.argutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
+from Cerebrum.utils.transliterate import for_encoding
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.access_FS import make_fs
@@ -490,7 +491,7 @@ def output_people():
                               (constants.name_first, "given")):
             name = names.get(int(tmp))
             if name:
-                name_collection[xml_name] = name
+                name_collection[xml_name] = transliterate(name)
 
         id_collection = dict()
         ids = person_id2external_ids.get(id, {})
@@ -977,6 +978,8 @@ class AtomicStreamRecoder(AtomicFileWriter):
 def main(inargs=None):
     global cerebrum_db, constants, fs_db, xmlwriter
     global with_email, with_cell, extra_contact_fields
+    # Sorry, but the alternative is to rewrite this whole thing.
+    global transliterate
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-f', '--out-file', dest='filename',
@@ -1008,6 +1011,13 @@ def main(inargs=None):
                         dest='encoding',
                         default='iso8859-1',
                         help='Override the default encoding (iso8859-1)')
+    parser.add_argument('-r', '--errors',
+                        dest='encoding_errors',
+                        default='strict',
+                        help=('Override default encoding error handler '
+                              '(strict). Common handlers: strict, ignore, '
+                              'replace. See Python Codec Base Classes for all '
+                              'supported handlers.'))
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
@@ -1017,6 +1027,8 @@ def main(inargs=None):
 
     cerebrum_db = Factory.get("Database")()
     constants = Factory.get("Constants")(cerebrum_db)
+
+    transliterate = for_encoding(args.encoding)
 
     if args.extra_contact_fields is not None:
         extra_fields_unparsed = args.extra_contact_fields.split(',')
@@ -1037,6 +1049,7 @@ def main(inargs=None):
 
     with_email = args.with_email
     with_cell = args.with_cell
+    encoding_errors = args.encoding_errors
 
     _cache_id_types()
     fs_db = make_fs()
@@ -1046,7 +1059,8 @@ def main(inargs=None):
         xmlwriter = xmlprinter.xmlprinter(stream,
                                           indent_level=2,
                                           # human-friendly output
-                                          data_mode=True)
+                                          data_mode=True,
+                                          encoding_errors=encoding_errors)
         generate_report(args.institution, args.encoding)
         logger.info('Report written to %s', stream.name)
     logger.info('Done with script %s', parser.prog)
