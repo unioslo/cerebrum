@@ -217,6 +217,16 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 self.logger,
                 "Doing UiO specific changes to account e-mail addresses...")
             self.account_primary_mail = self.account_mail.copy()
+            # We don't want to import this if mod_email isn't present.
+            from Cerebrum.modules.Email import EmailTarget
+            targets = EmailTarget(self.db).list_email_target_addresses
+            mail = {}
+            for row in targets(target_type=self.const.email_target_account,
+                               domain='uio.no', uname_local=True):
+                # Can only return username@uio.no so no need for any checks
+                mail[int(row['target_entity_id'])] = "@".join(
+                    (row['local_part'], row['domain']))
+            self.account_mail.update(mail)
             timer("...UiO specfic account e-mail addresses done.")
 
     def make_uioPersonScopedAffiliation(self, p_id, pri_aff, pri_ou):
@@ -236,8 +246,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 status_str = str(self.const.PersonAffStatus(status).str)
                 self.status_cache[status] = status_str
             p = 'secondary'
-            if (aff_str == pri_aff_str
-                    and status_str == pri_status_str and ou == pri_ou):
+            if (aff_str == pri_aff_str and
+                    status_str == pri_status_str and ou == pri_ou):
                 p = 'primary'
             ou = self.ou_id2ou_uniq_id[ou]
             if ou:
