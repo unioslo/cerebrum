@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2015-2018 University of Oslo, Norway""
+#
+# Copyright 2015-2019 University of Oslo, Norway""
 #
 # This file is part of Cerebrum.
 #
@@ -23,29 +24,13 @@ Generate and send an email report of accounts with quarantines.
 This script generates a list of *active users* with quarantines, accordig to a
 time criteria based on the date when the active quarantine was set first.
 
-Examples:
+History
+-------
+This script was moved here from the 'cerebrum_config' repository.  The original
+'bin/quarantine_users_report.py', can be seen in:
 
-- To generate a list of users with quarantines of type "auto_no_aff" or
-  "auto_inaktiv", that has been active for at least 30 days:
-
-      quarantine_users_report.py -b 30 -q auto_no_aff -q auto_inaktiv
-
-- To generate a list of users with a recent "autopassord" quarantine:
-
-      quarantine_users_report.py -a 30 -q autopassord
-
-- To generate a list of all quarantines from the last week, and send by mail:
-
-      quarantine_users_report.py -a 7 --mail /path/to/email-template.txt
-      quarantine_users_report.py -a 7 --mail <(cat <<"EOF"
-      To: example@example.org
-      From: noreply@example.org
-      Subject: Some quarantines here
-
-      Here are some users with new quarantines:
-      ${REPORT}
-      EOF
-      )
+    Commit: fdfd2171f843b97938486287bdd0515f5f9007ea
+    Date:   Wed May 23 19:34:39 2018 +0200
 
 """
 
@@ -212,14 +197,46 @@ def days_ago_date_type(value):
     return datetime.date.fromordinal(datetime.date.today().toordinal() - days)
 
 
+description = """
+Generate and send an email report of accounts with quarantines.
+
+This script generates a list of *active users* with quarantines, accordig to a
+time criteria based on the date when the active quarantine was set first.
+""".strip()
+
+epilog = """
+Examples:
+
+- To generate a list of users with quarantines of type "auto_no_aff" or
+  "auto_inaktiv", that has been active for at least 30 days:
+
+      quarantine_users_report.py -b 30 -q auto_no_aff -q auto_inaktiv
+
+- To generate a list of users with a recent "autopassord" quarantine:
+
+      quarantine_users_report.py -a 30 -q autopassord
+
+- To generate a list of all quarantines from the last week, and send by mail:
+
+      quarantine_users_report.py -a 7 --mail /path/to/email-template.txt
+      quarantine_users_report.py -a 7 --mail <(cat <<"EOF"
+      To: example@example.org
+      From: noreply@example.org
+      Subject: Some quarantines here
+
+      Here are some users with new quarantines:
+      ${REPORT}
+      EOF
+      )
+""".lstrip()
+
+
 def main(inargs=None):
-    doc = (__doc__ or '').lstrip().split('\n')
-    description = doc[0]
-    epilog = '\n'.join(doc[1:]).lstrip()
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=description,
-        epilog=epilog)
+        epilog=epilog,
+    )
 
     # TODO: Rework so that *both* before and after can be used
     date_arg = parser.add_mutually_exclusive_group(required=True)
