@@ -220,7 +220,7 @@ class SocketProtocol(object):
 
     @commands.add('SHOWJOB', num_args=1)
     def __showjob(self, jobname):
-        job = self.job_queue.get_known_job(jobname)
+        job = self.job_queue.get_known_jobs().get(jobname)
         started_at = self.job_queue._started_at.get(jobname)
         done_at = self.job_queue._last_run.get(jobname)
         if not job:
