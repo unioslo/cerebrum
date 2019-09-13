@@ -339,7 +339,7 @@ class SocketServer(object):
             if self.send_cmd("PING") == 'PONG':
                 return True
         except socket.error:   # No server seems to be running
-            # print "WARNING: Removing stale socket"
+            print "WARNING: Removing stale socket"
             os.unlink(cereconf.JOB_RUNNER_SOCKET)
             return False
         except OSError:        # File didn't exist
