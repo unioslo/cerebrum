@@ -234,9 +234,8 @@ class SocketProtocol(object):
                 tmp = fmt_asc(done_at) if done_at else 'unknown'
                 ret.append("Status: not running.  Last run: %s" % tmp)
                 ret.append("Last exit status: %s" % job.last_exit_msg)
-            ret.append("Command: %s" % job.get_pretty_cmd())
             ret.append("Executable command (may change!):"
-                       " %s" % job.get_pretty_executable_cmd())
+                       " %s" % job.get_pretty_cmd())
             ret.append("Pre-jobs: %s" % job.pre)
             ret.append("Post-jobs: %s" % job.post)
             ret.append("Non-concurrent jobs: %s" % job.nonconcurrent)
@@ -324,7 +323,7 @@ class SocketServer(object):
         self._is_listening = True
         while True:
             try:
-                conn, addr = self.socket.accept()
+                conn, _ = self.socket.accept()
             except socket.error:
                 # "Interrupted system call" May happen occasionaly, Try again
                 time.sleep(1)
@@ -340,12 +339,11 @@ class SocketServer(object):
             if self.send_cmd("PING") == 'PONG':
                 return True
         except socket.error:   # No server seems to be running
-            print "WARNING: Removing stale socket"
+            # print "WARNING: Removing stale socket"
             os.unlink(cereconf.JOB_RUNNER_SOCKET)
-            pass
+            return False
         except OSError:        # File didn't exist
-            pass
-        return False
+            return False
 
     def cleanup(self):
         if not self._is_listening:
