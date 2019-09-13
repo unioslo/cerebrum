@@ -46,7 +46,7 @@ callback_filters = CallbackMap()
 
 def filter_meta(l):
     """Filter out the __metadata key of a dict."""
-    return dict(filter(lambda (k, _): k != u'__metadata', l.keys()))
+    return dict(filter(lambda (k, _): k != u'__metadata', l.items()))
 
 
 def translate_keys(d, m):
@@ -169,9 +169,8 @@ def parse_names(d):
     :return: A tuple with the fields that should be updated"""
     logger.info('parsing names')
     co = Factory.get('Constants')
-    retval = ((co.name_first, d.get(u'firstName')),
+    return ((co.name_first, d.get(u'firstName')),
               (co.name_last, d.get(u'lastName')))
-    return retval
 
 
 def parse_contacts(d):
@@ -742,8 +741,8 @@ def update_names(database, source_system, hr_person, cerebrum_person):
         *map(lambda (k, _): k, to_remove | to_add))
     for (k, v) in to_add:
         cerebrum_person.populate_name(k, v)
-        logger.info('Adding name %r for id: %r',
-                    v, cerebrum_person.entity_id)
+        logger.info('Adding name %r of type %r for id: %r',
+                    v, k, cerebrum_person.entity_id)
 
 
 # Transform list of db_rows to a set of (address_type, (('city': '', …)))
