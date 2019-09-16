@@ -1015,7 +1015,6 @@ def callback(database, source_system, routing_key, content_type, body,
         logger.error('Failed processing %r:\n %r', body, e, exc_info=True)
     # Always rollback, since we do an implicit begin and we want to discard
     # possible outstanding changes.
-    logger.info('Rolling back changes')
     database.rollback()
     return message_processed
 
