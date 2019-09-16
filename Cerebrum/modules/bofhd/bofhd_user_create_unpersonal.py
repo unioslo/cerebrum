@@ -33,7 +33,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
@@ -47,13 +47,13 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 
 
-def exc_to_text(e):
+def exc_to_text(error):
     """ Get an error text from an exception. """
     try:
-        text = six.text_type(e)
+        text = six.text_type(error)
     except UnicodeError:
-        text = bytes(e).decode('utf-8', 'replace')
-        warnings.warn("Non-unicode data in exception {!r}".format(e),
+        text = bytes(error).decode('utf-8', 'replace')
+        warnings.warn("Non-unicode data in exception {!r}".format(error),
                       UnicodeWarning)
     return text
 
@@ -101,7 +101,7 @@ CMD_ARGS = {
     methods=['_user_create_set_account_type', '_user_create_basic',
              '_user_password']
 )
-class BofhdExtension(BofhdCommonMethods):
+class BofhdExtension(BofhdCommandBase):
     """Class with 'user create_unpersonal' method."""
 
     all_commands = {}
@@ -109,17 +109,17 @@ class BofhdExtension(BofhdCommonMethods):
 
     @classmethod
     def get_help_strings(cls):
-        co = Factory.get('Constants')()
-        account_types = co.fetch_constants(co.Account)
+        const = Factory.get('Constants')()
+        account_types = const.fetch_constants(const.Account)
         cmd_args = {}
         list_sep = '\n - '
-        for k, v in CMD_ARGS.items():
-            cmd_args[k] = v[:]
-            if k == 'unpersonal_account_type':
-                cmd_args[k][2] += '\nValid account types:'
-                cmd_args[k][2] += list_sep + list_sep.join(six.text_type(c) for
-                                                           c in account_types)
-        del co
+        for key, value in CMD_ARGS.items():
+            cmd_args[key] = value[:]
+            if key == 'unpersonal_account_type':
+                cmd_args[key][2] += '\nValid account types:'
+                cmd_args[key][2] += list_sep + list_sep.join(
+                    six.text_type(c) for c in account_types)
+        del const
         return merge_help_strings(
             ({}, {}, cmd_args),  # We want _our_ cmd_args to win!
             get_help_strings(),
@@ -140,27 +140,28 @@ class BofhdExtension(BofhdCommonMethods):
     def user_create_unpersonal(self, operator,
                                account_name, group_name,
                                contact_address, account_type):
-        owner_group = self._get_group(group_name)
+        """Bofh command: user create_unpersonal"""
         self.ba.can_create_user_unpersonal(operator.get_entity_id(),
-                                           group=owner_group)
+                                           group=self._get_group(group_name))
 
         account_type = self._get_constant(self.const.Account, account_type,
                                           "account type")
-        account = self._user_create_basic(operator, owner_group, account_name,
-                                          account_type)
+        account = self._user_create_basic(operator,
+                                          self._get_group(group_name),
+                                          account_name, account_type)
         self._user_password(operator, account)
 
         # Validate the contact address
         # TBD: Check if address is instance-internal?
         local_part, domain = bofhd_email.split_address(contact_address)
-        ea = Email.EmailAddress(self.db)
         ed = Email.EmailDomain(self.db)
         try:
-            if not ea.validate_localpart(local_part):
+            if not Email.EmailAddress(self.db).validate_localpart(local_part):
                 raise AttributeError('Invalid local part')
             ed._validate_domain_name(domain)
-        except AttributeError as e:
-            raise CerebrumError("Invalid contact address: %s" % exc_to_text(e))
+        except AttributeError as error:
+            raise CerebrumError('Invalid contact address:'
+                                '%s' % exc_to_text(error))
 
         # Unpersonal accounts shouldn't normally have a mail inbox, but they
         # get a forward target for the account, to be sent to those responsible
@@ -178,10 +179,11 @@ class BofhdExtension(BofhdCommonMethods):
                 Email.get_primary_default_email_domain())
             self._email_create_forward_target(localaddr, contact_address)
 
-        quar = cereconf.BOFHD_CREATE_UNPERSONAL_quarantine
-        if quar:
-            qconst = self._get_constant(self.const.Quarantine, quar,
-                                        "quarantine")
+        if cereconf.BOFHD_CREATE_UNPERSONAL_quarantine:
+            qconst = self._get_constant(
+                self.const.Quarantine,
+                cereconf.BOFHD_CREATE_UNPERSONAL_quarantine,
+                "quarantine")
             account.add_entity_quarantine(qconst, operator.get_entity_id(),
                                           "Not granted for global password "
                                           "auth (ask IT-sikkerhet)",

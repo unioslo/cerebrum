@@ -29,7 +29,8 @@ from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd.errors import PermissionDenied
-from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
+from Cerebrum.modules.bofhd.bofhd_user_create_unpersonal import (
+    BofhdUnpersonalAuth)
 
 
 class UioContactAuthMixin(BofhdContactAuth):
@@ -43,9 +44,10 @@ class UioContactAuthMixin(BofhdContactAuth):
             return True
         if query_run_any:
             return True
-        if hasattr(cereconf, 'BOFHD_VOIP_ADMINS'):
-            if self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS):
-                return True
+        if (
+                hasattr(cereconf, 'BOFHD_VOIP_ADMINS') and
+                self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS)):
+            return True
         return super(UioContactAuthMixin, self).can_get_contact_info(
             operator,
             entity=entity,
@@ -179,12 +181,13 @@ class UioAuth(UioContactAuthMixin, BofhdAuth):
 
 
 class UioContactAuth(UioAuth):
+    """UIO specific contact auth"""
     # can_get_contact_info is included in UioAuth, because it is used by
     # person_info
-    pass
 
 
 class UioEmailAuth(UioAuth, BofhdEmailAuth):
+    """UiO specific auth for email * commands"""
 
     def can_email_address_delete(self, operator_id,
                                  account=None,
@@ -255,10 +258,10 @@ class UioEmailAuth(UioAuth, BofhdEmailAuth):
 
         # All parts of the given name must exist somewhere
         first_names = sum([x['name'].split(' ') for x in all_names
-                          if x['name_variant'] == self.const.name_first], [])
-        for n in firstname.split(' '):
-            if n not in first_names:
-                raise PermissionDenied('Invalid given name: {}'.format(n))
+                           if x['name_variant'] == self.const.name_first], [])
+        for name in firstname.split(' '):
+            if name not in first_names:
+                raise PermissionDenied('Invalid given name: {}'.format(name))
         return True
 
     def can_email_move(self, operator, account=None, query_run_any=False):
@@ -270,24 +273,20 @@ class UioEmailAuth(UioAuth, BofhdEmailAuth):
 
 
 class UiOBofhdRequestsAuth(UioAuth, RequestsAuth):
-    pass
+    """UiO auth for request"""
 
 
 class UioAccessAuth(UioAuth, bofhd_access.BofhdAccessAuth):
     """UiO specific access * command auth"""
-    pass
 
 
 class BofhdApiKeyAuth(UioAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
-    pass
+    """UiO specific API keys auth"""
 
 
 class UioPassWordAuth(UioAuth):
     """UiO specific password * command auth"""
-    pass
 
 
-class UioUnpersonalAuth(
-        UioAuth, bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
+class UioUnpersonalAuth(UioAuth, BofhdUnpersonalAuth):
     """UiO specific user create unpersonal auth"""
-    pass
