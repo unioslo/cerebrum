@@ -347,7 +347,7 @@ class BofhdExtension(BofhdCommandBase):
             ('Additional info:\n'
              ' - %s', ('info0',)),
             (' - %s', ('infon',)), ]),
-        perm_filter='can_create_user')
+        perm_filter='can_set_password')
 
     def misc_password_issues(self, operator, accountname):
         """Determine why a user can't use the SMS service for resetting pw.
@@ -367,12 +367,7 @@ class BofhdExtension(BofhdCommandBase):
         # Primary intended users are Houston.
         # They are privileged, but not superusers.
         ac = self._get_account(accountname, idtype='name')
-        pe = Utils.Factory.get('Person')(self.db)
-        try:
-            pe.find(ac.owner_id)
-        except Errors.NotFoundError:
-            pe = None
-        if not self.ba.can_create_user(operator.get_entity_id(), pe):
+        if not self.ba.can_set_password(operator.get_entity_id(), ac):
             raise PermissionDenied("Access denied")
         pwi = PassWordIssues(ac, self.db)
         _ = pwi()

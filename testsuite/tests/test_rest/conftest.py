@@ -13,6 +13,7 @@ from Cerebrum.Errors import NotFoundError
 
 class TestConfig(object):
     TESTING = True
+    SERVER_NAME = 'localhost'
     AUTH = [
         {
             'name': 'HeaderAuth',
@@ -42,17 +43,17 @@ def client(app):
         yield client
 
 
-@pytest.fixture
-def db_ctx(app, database):
-    u""" DatabaseContext. """
-    from Cerebrum.rest.api import database as _db_module
-    return _db_module.DatabaseContext(app)
-
-
 @pytest.yield_fixture
 def app_ctx(app):
     with app.app_context() as ctx:
         yield ctx
+
+
+@pytest.fixture
+def db_ctx(app, app_ctx, database):
+    u""" DatabaseContext. """
+    from Cerebrum.rest.api import database as _db_module
+    return _db_module.DatabaseContext(app)
 
 
 @pytest.yield_fixture
