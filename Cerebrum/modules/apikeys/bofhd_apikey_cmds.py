@@ -252,7 +252,7 @@ class BofhdApiKeyCommands(BofhdCommandBase):
         fs=FormatSuggestion(
             "\n".join((
                 "Identifier:  %s",
-                "Account:     %s (%s)",
+                "Account:     %s (%d)",
                 "Last update: %s",
                 "Description: %s",
             )),
