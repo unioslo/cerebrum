@@ -579,7 +579,7 @@ def group_create(msg, **kwargs):
 @EventFilter.register('e_group', 'add')
 def group_add(msg, **kwargs):
     common = _make_common_args(msg)
-    return event.Event(event.MODIFY,
+    return event.Event(event.ADD,
                        attributes=['member'],
                        **common)
 
@@ -587,7 +587,7 @@ def group_add(msg, **kwargs):
 @EventFilter.register('e_group', 'rem')
 def group_rem(msg, **kwargs):
     common = _make_common_args(msg)
-    return event.Event(event.MODIFY,
+    return event.Event(event.REMOVE,
                        attributes=['member'],
                        **common)
 
