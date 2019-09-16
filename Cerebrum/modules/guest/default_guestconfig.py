@@ -1,6 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2014 University of Oslo, Norway
+#
+# Copyright 2014-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,10 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Default configuration for guest users.
+"""
+Default configuration for guest users.
 
 This config applies to the .bofhd_guest_cmds module.
-
 """
 
 # The maximum number of days a guest account can live. The set expire date for
@@ -43,8 +43,12 @@ GUEST_OWNER_GROUP = 'guestaccounts'
 #  - spreads : A list/set/tuple of spreads to add to the guest account at
 #              creation. Must be set, but can be empty.
 #
-GUEST_TYPES = {'gjest': {'prefix': 'guest-',
-                         'spreads': tuple(), }, }
+GUEST_TYPES = {
+    'gjest': {
+        'prefix': 'guest-',
+        'spreads': tuple(),
+    },
+}
 
 # The default type of guest account. Must be one of the keys from GUEST_TYPES.
 GUEST_TYPES_DEFAULT = 'gjest'
@@ -78,11 +82,23 @@ GUEST_REQUIRE_MOBILE = False
 
 # LDAP export stuff
 
-LDAP = {'dump_dir': '/cerebrum/var/cache/LDAP/',
-        'max_change': 10, }
+# TODO: Why is this here?
+LDAP = {
+    'dump_dir': '/cerebrum/var/cache/LDAP/',
+    'max_change': 10,
+}
 
-LDAP_GUESTS = {'file': 'guests.ldif',
-               'spread': None,
-               #'dn': 'dc=no',
-               #'auth_attr': {'userPassword': ('crypt3-DES', '{crypt}%s'), },
-               'objectClass': [], }
+
+# Settings for the contrib/no/uio/generate_guest_ldif.py
+# and similar guest ldap exports.
+LDAP_GUESTS = {
+    # 'dn': 'dc=no',
+    'file': 'guests.ldif',
+    # 'auth_attr': {
+    #     'userPassword': [
+    #         ('crypt3-DES', '{crypt}%s'),
+    #     ],
+    # },
+    'objectClass': [],
+    'spread': None,
+}

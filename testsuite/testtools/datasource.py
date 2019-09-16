@@ -368,7 +368,7 @@ class BasicAccountSource(BaseDataSource, NameMixin, ExpireDateMixin,
     name_prefix = 'aq3zcx'
 
     passwd_attr = 'password'
-    passwd_val = 'adobe123'
+    passwd_val = u'adobe123'
 
     def __init__(self):
         parent = super(BasicAccountSource, self)

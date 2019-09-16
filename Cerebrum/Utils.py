@@ -643,7 +643,6 @@ class Factory(object):
                       'EmailLDAP': 'CLASS_EMAILLDAP',
                       'EmailTarget': 'CLASS_EMAILTARGET',
                       'OrgLDIF': 'CLASS_ORGLDIF',
-                      'PosixExport': 'CLASS_POSIXEXPORT',
                       'PosixLDIF': 'CLASS_POSIXLDIF',
                       'PosixUser': 'CLASS_POSIX_USER',
                       'PosixGroup': 'CLASS_POSIX_GROUP',

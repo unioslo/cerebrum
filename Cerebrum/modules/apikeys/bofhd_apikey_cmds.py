@@ -94,12 +94,13 @@ HELP_CMD = {
         'api_subscription_set': 'set api subscription for account',
         'api_subscription_clear': 'remove api subscription for account',
         'api_subscription_list': 'list api subscriptions for account',
+        'api_subscription_info': 'show info on a subscription identifier',
     },
 }
 
 HELP_ARGS = {
     'api_client_identifier': [
-        'identifier'
+        'identifier',
         'Enter client identifier',
         'A client subscription identifier',
     ],
@@ -186,7 +187,11 @@ class BofhdApiKeyCommands(BofhdCommandBase):
             raise CerebrumError("Invalid identifier")
 
         keys = ApiMapping(self.db)
-        mapping = keys.get(identifier)
+        try:
+            mapping = keys.get(identifier)
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown subscription identifier %r" %
+                                (identifier,))
 
         # check permissions
         account = self.Account_class(self.db)
@@ -266,7 +271,11 @@ class BofhdApiKeyCommands(BofhdCommandBase):
             raise no_access_error
 
         keys = ApiMapping(self.db)
-        mapping = keys.get(identifier)
+        try:
+            mapping = keys.get(identifier)
+        except Errors.NotFoundError:
+            raise CerebrumError("Unknown subscription identifier %r" %
+                                (identifier,))
         account = self.Account_class(self.db)
         account.find(mapping['account_id'])
         self.ba.can_list_api_mapping(operator.get_entity_id(), account=account)

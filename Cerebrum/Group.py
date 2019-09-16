@@ -365,14 +365,27 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         @param member_id:
           Member (id) to remove from this group.
         """
+        return self.remove_member_from_group(member_id, self.entity_id)
+
+    def remove_member_from_group(self, member_id, group_id):
+        """Remove L{member_id}'s membership from this group.
+
+        @type member_id: int
+        @param member_id:
+          Member (id) to remove from group.
+
+        @type group_id: int
+        @param group_id:
+            Group (id) to remove member from
+        """
 
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=group_member]
         WHERE
           group_id=:g_id AND
-          member_id=:m_id""", {'g_id': self.entity_id,
+          member_id=:m_id""", {'g_id': group_id,
                                'm_id': member_id})
-        self._db.log_change(self.entity_id, self.clconst.group_rem, member_id)
+        self._db.log_change(group_id, self.clconst.group_rem, member_id)
 
     def search(self,
                group_id=None,

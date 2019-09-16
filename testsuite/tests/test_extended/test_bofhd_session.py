@@ -149,7 +149,8 @@ def test_get_owner_id(long_session, account):
 
 
 def test_store_state(long_session):
-    long_session.store_state('foo', 'string', entity_id=long_session.get_entity_id())
+    long_session.store_state('foo', 'string',
+                             entity_id=long_session.get_entity_id())
     long_session.store_state('bar', 10)
     state = long_session.get_state()
     assert len(state) == 2
@@ -163,9 +164,10 @@ def test_store_state(long_session):
 @pytest.fixture
 def state(long_session):
     st = {
-        'test_bofhd_session a': tuple(('foo', 3)),
-        'test_bofhd_session b': dict(foo=1, bar=2), }
-    for state_type, state_data in st.iteritems():
+        'test_bofhd_session a': ['foo', 3],
+        'test_bofhd_session b': dict(foo=1, bar=2),
+    }
+    for state_type, state_data in st.items():
         long_session.store_state(state_type, state_data)
     return st
 

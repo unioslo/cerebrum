@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-# Copyright 2007-2018 University of Oslo, Norway
+#
+# Copyright 2007-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,35 +18,36 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Generate ldif files to populate VirtHome's LDAP tree.
+"""
+Generate ldif files to populate VirtHome's LDAP tree.
 
 This script can generate both user- and group LDIF files.
 """
+import argparse
+import logging
 
-import getopt
-import sys
-
-from Cerebrum.Utils import Factory
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.modules.LDIFutils import (ldif_outfile,
                                         end_ldif_outfile,
                                         container_entry_string,
                                         entry_string)
 from Cerebrum.modules.virthome.LDIFHelper import LDIFHelper
 
-logger = Factory.get_logger("cronjob")
+
+logger = logging.getLogger(__name__)
 
 
 def generate_all(fname):
     """Write user + group LDIF to fname."""
-    logger.debug("Generating ldif into %s", fname)
-
     out = ldif_outfile("ORG", fname)
+    logger.debug('writing to %r', out)
+
     out.write(container_entry_string("ORG"))
 
-    helper = LDIFHelper(logger)
+    helper = LDIFHelper(logger.getChild('LDIFHelper'))
 
-    logger.debug("Generating user ldif...")
+    logger.info("Generating user ldif...")
     out.write(container_entry_string("USER"))
     for user in helper.yield_users():
         dn = user["dn"][0]
@@ -60,23 +62,35 @@ def generate_all(fname):
         del group["dn"]
         out.write(entry_string(dn, group, False))
     end_ldif_outfile("GROUP", out)
-    logger.debug("Done with group ldif (all done)")
 
 
-def main(argv):
-    opts, junk = getopt.getopt(argv[1:],
-                               "f:",
-                               ("file=",))
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description='Generate a virthome ldif',
+    )
+    parser.add_argument(
+        '-f', '--file',
+        dest='filename',
+        required=True,
+        help='',
+        metavar='<filename>',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    filename = None
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-    for option, value in opts:
-        if option in ('-f', '--file',):
-            filename = value
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %s', repr(args))
 
-    if filename:
-        generate_all(filename)
+    filename = args.filename
+
+    logger.info('Generating ldif data...')
+    generate_all(filename)
+
+    logger.info('Wrote ldif to %r', filename)
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == "__main__":
-    main(sys.argv[:])
+    main()
