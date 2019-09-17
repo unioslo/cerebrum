@@ -18,6 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Job Runner socket protocol. """
+from __future__ import print_function
+
 import json
 import logging
 import os
@@ -339,7 +341,7 @@ class SocketServer(object):
             if self.send_cmd("PING") == 'PONG':
                 return True
         except socket.error:   # No server seems to be running
-            print "WARNING: Removing stale socket"
+            print("WARNING: Removing stale socket")
             os.unlink(cereconf.JOB_RUNNER_SOCKET)
             return False
         except OSError:        # File didn't exist
