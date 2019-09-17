@@ -57,16 +57,16 @@ SYNCS['AD_account'] = {
         # What change types the quicksync should treat:
         # TODO: note that if new change types are added, all such events would
         # be processed, even those created before the previous quicksync run.
-        'change_types': (#('e_account', 'create'),
-                         #('e_account', 'delete'),
-                         #('e_account', 'mod'), 
-                         ('e_account', 'password'), 
+        'change_types': (#('account', 'create'),
+                         #('account', 'delete'),
+                         #('account', 'modify'),
+                         ('account_password', 'set'),
                          ('quarantine', 'add'), 
-                         ('quarantine', 'mod'), 
-                         ('quarantine', 'del'), 
+                         ('quarantine', 'modify'),
+                         ('quarantine', 'remove'),
                          ('quarantine', 'refresh'), 
                          ('ad_attr', 'add'),
-                         ('ad_attr', 'del')),
+                         ('ad_attr', 'remove')),
 
         'attributes': {'SamAccountName': None,
                 #'Name': None, # TODO: how should we update Name - can't be
@@ -136,9 +136,9 @@ SYNCS['consent'] = {
         ('consent', 'approve'),
         ('consent', 'decline'),
         ('consent', 'delete'),
-        ('person', 'aff_add'),
-        ('person', 'aff_mod'),
-        ('person', 'aff_del'), ),
+        ('person_aff', 'add'),
+        ('person_aff', 'modify'),
+        ('person_aff', 'remove'), ),
 
     'handle_unknown_objects': ('delete', None),
     'handle_deactivated_objects': ('disable', None),

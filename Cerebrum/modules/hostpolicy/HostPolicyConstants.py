@@ -59,36 +59,36 @@ class Constants(CereConst.Constants):
 class CLConstants(CereConst.CLConstants):
     # ChangeLog constants
     hostpolicy_atom_create = CereConst._ChangeTypeCode(
-        'hostpolicy', 'atom_create', 'create atom %(subject)s')
+        'hostpolicy_atom', 'create', 'create atom %(subject)s')
     hostpolicy_atom_mod = CereConst._ChangeTypeCode(
-        'hostpolicy', 'atom_mod', 'modify atom %(subject)s')
+        'hostpolicy_atom', 'modify', 'modify atom %(subject)s')
     hostpolicy_atom_delete = CereConst._ChangeTypeCode(
-        'hostpolicy', 'atom_delete', 'delete atom %(subject)s')
+        'hostpolicy_atom', 'delete', 'delete atom %(subject)s')
     hostpolicy_role_create = CereConst._ChangeTypeCode(
-        'hostpolicy', 'role_create', 'create role %(subject)s')
+        'hostpolicy_role', 'create', 'create role %(subject)s')
     hostpolicy_role_mod = CereConst._ChangeTypeCode(
-        'hostpolicy', 'role_mod', 'modify role %(subject)s')
+        'hostpolicy_role', 'modify', 'modify role %(subject)s')
     hostpolicy_role_delete = CereConst._ChangeTypeCode(
-        'hostpolicy', 'role_delete', 'delete role %(subject)s')
+        'hostpolicy_role', 'delete', 'delete role %(subject)s')
 
     hostpolicy_relationship_add = CereConst._ChangeTypeCode(
-        'hostpolicy',
-        'relationship_add',
+        'hostpolicy_relationship',
+        'add',
         'add relationship %(subject)s -> %(dest)s')
     # TODO: type is not given here
     hostpolicy_relationship_remove = CereConst._ChangeTypeCode(
-        'hostpolicy',
-        'relationship_remove',
+        'hostpolicy_relationship',
+        'remove',
         'remove relationship %(subject)s -> %(dest)s')
     # TODO: type is not given here
 
     hostpolicy_policy_add = CereConst._ChangeTypeCode(
-        'hostpolicy',
-        'policy_add',
+        'hostpolicy_policy',
+        'add',
         'add policy %(dest)s to host %(subject)s')
     hostpolicy_policy_remove = CereConst._ChangeTypeCode(
-        'hostpolicy',
-        'policy_remove',
+        'hostpolicy_policy',
+        'remove',
         'remove policy %(dest)s from host %(subject)s')
 
 

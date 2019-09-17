@@ -170,20 +170,20 @@ class EphorteConstants(ConstantsBase):
 
 class CLConstants(Constants.CLConstants):
     ephorte_role_add = Constants._ChangeTypeCode(
-        'ephorte', 'role_add', 'add ephorte role @ %(dest)s',
+        'ephorte_role', 'add', 'add ephorte role @ %(dest)s',
         ('type=%(rolle_type:rolle_type)s',))
 
     ephorte_role_upd = Constants._ChangeTypeCode(
-        'ephorte', 'role_upd', 'update ephorte role @ %(dest)s')
+        'ephorte_role', 'modify', 'update ephorte role @ %(dest)s')
 
     ephorte_role_rem = Constants._ChangeTypeCode(
-        'ephorte', 'role_rem', 'remove ephorte role @ %(dest)s',
+        'ephorte_role', 'remove', 'remove ephorte role @ %(dest)s',
         ('type=%(rolle_type:rolle_type)s',))
 
     ephorte_perm_add = Constants._ChangeTypeCode(
-        'ephorte', 'perm_add', 'add ephorte perm @ %(dest)s',
+        'ephorte_perm', 'add', 'add ephorte perm @ %(dest)s',
         ('type=%(perm_type:perm_type)s',))
 
     ephorte_perm_rem = Constants._ChangeTypeCode(
-        'ephorte', 'perm_rem', 'remove ephorte perm @ %(dest)s',
+        'ephorte_perm', 'remove', 'remove ephorte perm @ %(dest)s',
         ('type=%(perm_type:perm_type)s',))
