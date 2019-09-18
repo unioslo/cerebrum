@@ -268,9 +268,9 @@ SYNCS = dict()
 #   TODO: are there shorter constants names to use instead?
 #
 #   Example:
-#       (('account', 'password'), # password changes
+#       (('account_password', 'set'), # password changes
 #        ('account', 'create'),   # new accounts
-#        ('person', 'name_mod'),    # a person's name is changed
+#        ('person_name', 'modify'),    # a person's name is changed
 #        ('ad_attr', 'add'),        # an AD-attribute is set
 #        ('ad_attr', 'del')),       # an AD-attribute is removed
 #        )

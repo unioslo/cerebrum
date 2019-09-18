@@ -257,27 +257,27 @@ class CLConstants(cereconst.CLConstants):
         'modify',
         'update rev-override %(subject)s -> %(dest)s')
     subnet_create = cereconst._ChangeTypeCode(
-        'subnet_subnet',
+        'subnet',
         'create',
         'create subnet %(subject)s')
     subnet_mod = cereconst._ChangeTypeCode(
-        'subnet_subnet',
+        'subnet',
         'modify',
         'modify subnet %(subject)s')
     subnet_delete = cereconst._ChangeTypeCode(
-        'subnet_subnet',
+        'subnet',
         'delete',
         'delete subnet %(subject)s')
     subnet6_create = cereconst._ChangeTypeCode(
-        'subnet_subnet6',
+        'subnet6',
         'create',
         'create IPv6 subnet %(subject)s')
     subnet6_mod = cereconst._ChangeTypeCode(
-        'subnet_subnet6',
+        'subnet6',
         'modify',
         'modify IPv6 subnet %(subject)s')
     subnet6_delete = cereconst._ChangeTypeCode(
-        'subnet_subnet6',
+        'subnet6',
         'delete',
         'delete IPv6 subnet %(subject)s')
     srv_record_add = cereconst._ChangeTypeCode(
