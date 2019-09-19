@@ -32,6 +32,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.modules.no.uit.access_SYSX import SYSX
 from Cerebrum.modules.no.uit import Email
+from Cerebrum.modules.no.uit import POSIX_GROUP_NAME
 from Cerebrum.utils import email
 from Cerebrum.Utils import Factory
 from Cerebrum.Entity import EntityName
@@ -325,7 +326,7 @@ def _promote_posix(acc_obj):
     pu = Factory.get('PosixUser')(db)
     uid = pu.get_free_uid()
     shell = co.posix_shell_bash
-    grp_name = "posixgroup"
+    grp_name = POSIX_GROUP_NAME
     group.clear()
     group.find_by_name(grp_name, domain=co.group_namespace)
     try:
@@ -448,7 +449,7 @@ class Build(object):
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
         self.bootstrap_id = ac.entity_id
         gr = Factory.get('Group')(db)
-        gr.find_by_name("posixgroup", domain=co.group_namespace)
+        gr.find_by_name(POSIX_GROUP_NAME)
         self.posix_group = gr.entity_id
         self.num_expired = 0
         self.sysx = sysx

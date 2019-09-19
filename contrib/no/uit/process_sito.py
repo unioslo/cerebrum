@@ -41,6 +41,7 @@ from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit.Account import UsernamePolicy
+from Cerebrum.modules.no.uit import POSIX_GROUP_NAME
 from Cerebrum.utils.argutils import add_commit_args
 
 
@@ -751,9 +752,7 @@ def _promote_posix(db, acc_obj):
     pu = PosixUser.PosixUser(db)
     uid = pu.get_free_uid()
     shell = co.posix_shell_bash
-    grp_name = "posixgroup"
-    group.clear()
-    group.find_by_name(grp_name, domain=co.group_namespace)
+    group.find_by_name(POSIX_GROUP_NAME)
     try:
         pu.populate(uid, group.entity_id, None, shell, parent=acc_obj)
         pu.write_db()

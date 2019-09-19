@@ -41,6 +41,7 @@ from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.utils.email import sendmail
 from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.modules.no.uit import POSIX_GROUP_NAME
 
 #
 # Global variables
@@ -537,7 +538,7 @@ def _promote_posix(acc_obj):
     pu = PosixUser.PosixUser(db)
     uid = pu.get_free_uid()
     shell = const.posix_shell_bash
-    grp_name = "posixgroup"
+    grp_name = POSIX_GROUP_NAME
     group.clear()
     group.find_by_name(grp_name, domain=const.group_namespace)
     try:
