@@ -305,11 +305,11 @@ class AuditRecordBuilder(DatabaseAccessor):
         :rtype: dict
         :return: the new manipulated change_params
         """
-        for pair in keypairs:
-            if pair[0] in change_params:
-                change = self.const.human2constant(change_params[pair[0]])
+        for old_key, new_key in keypairs:
+            if old_key in change_params:
+                change = self.const.human2constant(change_params[old_key])
                 if change:
-                    change_params[pair[1]] = six.text_type(change)
+                    change_params[new_key] = six.text_type(change)
         return change_params
 
     @translate_params.register('e_account', 'create')
