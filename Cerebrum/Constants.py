@@ -1715,7 +1715,7 @@ class CLConstants(ConstantsBase):
     account_create = _ChangeTypeCode(
         'account', 'create', 'created %(subject)s')
     account_delete = _ChangeTypeCode(
-        'account', 'delete', 'deleted %(subject)s')
+        'account', 'delete (legacy)', 'deleted %(subject)s')
     account_mod = _ChangeTypeCode(
         'account', 'modify', 'modified %(subject)s',
         ("new owner=%(entity:owner_id)s",
@@ -1726,7 +1726,7 @@ class CLConstants(ConstantsBase):
         'account_passwordtoken', 'set', 'password token sent for %(subject)s',
         ('phone_to=%(string:phone_to)s',))
     account_destroy = _ChangeTypeCode(
-        'account', 'destroy', 'destroyed %(subject)s')
+        'account', 'delete', 'destroyed %(subject)s')
     # TODO: account_move is obsolete, remove it
     account_move = _ChangeTypeCode(
         'account', 'move', '%(subject)s moved',
