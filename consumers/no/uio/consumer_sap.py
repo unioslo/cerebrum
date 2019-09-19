@@ -902,7 +902,7 @@ def update_reservation(database, hr_person, cerebrum_person):
 
 def perform_update(database, source_system, hr_person, cerebrum_person):
     """Update or create a person."""
-    logger.info('Starting perform_update for %r', cerebrum_person.entity_id)
+    logger.info('Starting perform_update for %r', hr_person.get('id'))
     update_person(database, source_system, hr_person, cerebrum_person)
     update_external_ids(database, source_system, hr_person, cerebrum_person)
     update_names(database, source_system, hr_person, cerebrum_person)
