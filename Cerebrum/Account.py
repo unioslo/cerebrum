@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 # Copyright 2002-2019 University of Oslo, Norway
+# -*- coding: utf-8 -*-
 #
 # This file is part of Cerebrum.
 #
@@ -164,6 +164,9 @@ class AccountType(object):
                 'affiliation': all_pris[orig_pri]['affiliation'],
                 'account_id': all_pris[orig_pri]['account_id'],
                 'priority': new_pri}
+        if orig_pri == new_pri:
+            # False positive, abort!
+            return
         self.execute("""
         UPDATE [:table schema=cerebrum name=account_type]
         SET priority=:priority
@@ -183,8 +186,7 @@ class AccountType(object):
         priority = self.query_1(
             """SELECT priority FROM [:table schema=cerebrum name=account_type]
             WHERE {}""".format(where), cols)
-        self.execute("""
-                     DELETE FROM [:table schema=cerebrum name=account_type]
+        self.execute("""DELETE FROM [:table schema=cerebrum name=account_type]
                      WHERE {}""".format(where), cols)
         self._db.log_change(self.entity_id, self.clconst.account_type_del,
                             None,
@@ -195,9 +197,22 @@ class AccountType(object):
     def delete_ac_types(self):
         """Delete all the AccountTypes for the account."""
 
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=account_type]
-        WHERE account_id=:a_id""", {'a_id': self.entity_id})
+        binds = {'a_id': self.entity_id}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=account_type]
+            WHERE account_id=:a_id
+          )
+        """
+        if not self.query_1(exists_stmt, binds):
+            # false positive
+            return
+        delete_stmt = """
+          DELETE FROM [:table schema=cerebrum name=account_type]
+          WHERE account_id=:a_id
+        """
+        self.execute(delete_stmt, binds)
 
     def list_accounts_by_type(self, ou_id=None, affiliation=None,
                               status=None, filter_expired=True,
@@ -358,11 +373,27 @@ class AccountHome(object):
         old_home = self.resolve_homedir(disk_id=ah['disk_id'],
                                         home=ah['home'],
                                         spread=spread)
-        self.execute("""
+        binds = {'account_id': self.entity_id,
+                 'spread': int(spread)}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=account_home]
+            WHERE
+              account_id=:account_id AND
+              spread=:spread
+          )
+        """
+        if not self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=account_home]
-        WHERE account_id=:account_id AND spread=:spread""", {
-            'account_id': self.entity_id,
-            'spread': int(spread)})
+        WHERE
+          account_id=:account_id AND
+          spread=:spread
+        """
+        self.execute(delete_stmt, binds)
         self._db.log_change(
             self.entity_id, self.clconst.account_home_removed, None,
             change_params={'spread': int(spread),
@@ -421,9 +452,18 @@ class AccountHome(object):
             for key, value in binds.items():
                 if value is NotSet:
                     del binds[key]
-
             binds['homedir_id'] = current_id
-
+            exists_stmt = """
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=homedir]
+                WHERE
+                  homedir_id=:homedir_id AND
+                  %s
+               )""" % (" AND ".join(["%s=:%s" % (t, t) for t in binds]))
+            if self.query_1(exists_stmt):
+                # False positive; entry exists as is
+                return current_id
             sql = """
             UPDATE [:table schema=cerebrum name=homedir]
               SET %s
@@ -433,7 +473,6 @@ class AccountHome(object):
             change_type = self.clconst.homedir_update
 
         self.execute(sql, binds)
-
         if binds.get('disk_id') or binds.get('home'):
             tmp = {'home': self.resolve_homedir(disk_id=binds.get('disk_id'),
                                                 home=binds.get('home'))}
@@ -454,10 +493,21 @@ class AccountHome(object):
         tmp = self.get_homedir(homedir_id)
         tmp = self.resolve_homedir(disk_id=tmp['disk_id'],
                                    home=tmp['home'])
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=homedir]
-        WHERE homedir_id=:homedir_id""",
-                     {'homedir_id': homedir_id})
+        binds = {'homedir_id': homedir_id}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=homedir]
+            WHERE homedir_id=:homedir_id
+        """
+        if not self.query_1(exists_stmt, binds):
+            # False positive; no homedir to clear
+            return
+        delete_stmt = """
+          DELETE FROM [:table schema=cerebrum name=homedir]
+          WHERE homedir_id=:homedir_id
+        """
+        self.execute(delete_stmt, binds)
         self._db.log_change(
             self.entity_id, self.clconst.homedir_remove, None,
             change_params={'homedir_id': homedir_id,
@@ -488,10 +538,23 @@ class AccountHome(object):
                                    spread=spread)
         try:
             old = self.get_home(spread)
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=account_home]
-            SET homedir_id=:homedir_id
-            WHERE account_id=:account_id AND spread=:spread""", binds)
+            exists_stmt = """
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=account_home]
+                WHERE account_id=:account_id AND
+                      spread=:spread AND
+                      homedir_id=:homedir_id
+            """
+            if self.query_1(exists_stmt, binds):
+                # False positive
+                return
+            set_stmt = """
+              UPDATE [:table schema=cerebrum name=account_home]
+              SET homedir_id=:homedir_id
+              WHERE account_id=:account_id AND spread=:spread
+            """
+            self.execute(set_stmt, binds)
             self._db.log_change(
                 self.entity_id, self.clconst.account_home_updated, None,
                 change_params={
@@ -967,20 +1030,29 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     ('creator_id', ':c_id'),
                     ('description', ':desc'),
                     ('expire_date', ':exp_date')]
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=account_info]
-            SET %(defs)s
-            WHERE account_id=:acc_id""" % {'defs': ", ".join(
-                ["%s=%s" % x for x in cols])},
-                {'o_type': int(self.owner_type),
-                 'c_id': self.creator_id,
-                 'o_id': self.owner_id,
-                 'np_type': np_type,
-                 'exp_date': self.expire_date,
-                 'desc': self.description,
-                 'acc_id': self.entity_id})
-            self._db.log_change(self.entity_id, self.clconst.account_mod,
-                                None, change_params=newvalues)
+            binds = {'o_type': int(self.owner_type),
+                     'c_id': self.creator_id,
+                     'o_id': self.owner_id,
+                     'np_type': np_type,
+                     'exp_date': self.expire_date,
+                     'desc': self.description,
+                     'acc_id': self.entity_id}
+            exists_stmt = """
+            SELECT EXISTS (
+              SELECT 1
+              FROM [:table schema=cerebrum name=account_info]
+              WHERE account_id=:acc_id AND %(defs)s""" % {'defs': " AND ".join(
+                  ["%s=%s" % x for x in cols])}
+            if not self.query_1(exists_stmt, binds):
+                # True positive
+                update_stmt = """
+                UPDATE [:table schema=cerebrum name=account_info]
+                SET %(defs)s
+                WHERE account_id=:acc_id""" % {'defs': ", ".join(
+                    ["%s=%s" % x for x in cols])}
+                self.execute(update_stmt, binds)
+                self._db.log_change(self.entity_id, self.clconst.account_mod,
+                                    None, change_params=newvalues)
             if 'account_name' in self.__updated:
                 self.update_entity_name(self.const.account_namespace,
                                         self.account_name)
@@ -1037,7 +1109,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                                   'auth_data': self._auth_info[k]})
             elif self.__in_db and what == 'update':
                 self.execute("""
-                DELETE FROM 
+                DELETE FROM
                   [:table schema=cerebrum name=account_authentication]
                 WHERE account_id=:acc_id AND method=:method""",
                              {'acc_id': self.entity_id, 'method': k})
