@@ -171,8 +171,11 @@ def _make_common_args(msg):
     for k in ('subject', 'objects', 'context', ):
         if msg.get(k):
             common_args[k] = msg[k]
-    if isinstance(msg, dict):
+    try:
         schedule = msg.get('data', dict()).get('schedule')
+    except AttributeError:
+        pass
+    else:
         if schedule:
             common_args['scheduled'] = schedule
     return common_args
