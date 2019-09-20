@@ -34,6 +34,8 @@ from Cerebrum.Errors import NotFoundError
 from Cerebrum.Person import Person
 from Cerebrum.Utils import Factory
 
+DEFAULT_EXEMPTION = True
+
 
 class PrinterQuotaExemption(DatabaseAccessor):
     """Database accessor class for the printer_quotas table"""
@@ -41,7 +43,6 @@ class PrinterQuotaExemption(DatabaseAccessor):
     def __init__(self, database):
         super(PrinterQuotaExemption, self).__init__(database)
         self.clconst = Factory.get('CLConstants')(database)
-        self.default_exemption = True
 
     def list(self, only_without_exempt=True):
         """List exempt info for all persons in the db table
@@ -57,11 +58,11 @@ class PrinterQuotaExemption(DatabaseAccessor):
         return self.query(
             """
             SELECT person_id, exempt
-            FROM [:table schema=cerebrum name=printer_quotas]
+            FROM [:table schema=cerebrum name=pq_exemption]
             """ + where
         )
 
-    def set(self, person_id, exempt=True):
+    def set(self, person_id, exempt):
         """Register person in the pq_exemption table
 
         :param int person_id: entity id of a person
@@ -199,7 +200,7 @@ class PrinterQuotaExemption(DatabaseAccessor):
         try:
             quota = self.get(person_id)
         except NotFoundError:
-            return self.default_exemption
+            return DEFAULT_EXEMPTION
         else:
             return quota['exempt']
 
