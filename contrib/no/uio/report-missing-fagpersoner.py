@@ -62,15 +62,12 @@ logger = logging.getLogger(__name__)
 now = datetime.datetime.now
 
 template = u"""
-{# HTML template for 'generate_accounts_without_affiliations.py'
- # Note: this template requires a custom filter, sort_by_quarantine
--#}
 <!DOCTYPE html>
 <html>
   <head>
     <meta http-equiv="Content-Type"
           content="text/html; charset={{ encoding | default('utf-8') }}">
-    <title>{{ title | default('Users on disk without affiliations') }}</title>
+    <title>Fagpersonar utan tilknytning frå SAP</title>
     <style type="text/css">
       /* <![CDATA[ */
       h1 {
