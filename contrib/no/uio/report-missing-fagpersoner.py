@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Generate list of fagpersons not registered in SAP.
+"""
+Generate list of fagpersons not registered in SAP.
 
 We want an overview of all persons with the affiliation TILKNYTTET/fagperson
 from FS, but no with any affiliation registered from SAP. This is originally
@@ -41,23 +42,21 @@ The original can be found in cerebrum_hacks.git, as
   Merge: 1f396ba f248bf8
   Date:   Tue Jun 11 11:08:24 2019 +0200
 """
-
 import argparse
 import codecs
 import collections
 import csv
 import datetime
-import io
 import logging
 import os
 import sys
 
-from six import text_type
-from jinja2 import Environment
+import jinja2
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.csvutils import UnicodeWriter as CsvUnicodeWriter
 
 logger = logging.getLogger(__name__)
 now = datetime.datetime.now
@@ -159,34 +158,6 @@ class CsvDialect(csv.excel):
     """
     delimiter = ';'
     lineterminator = '\n'
-
-
-class CsvUnicodeWriter:
-    """ Unicode-compatible CSV writer.
-
-    Adopted from https://docs.python.org/2/library/csv.html
-    """
-    def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
-        self.queue = io.BytesIO()
-        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
-        self.stream = f
-        self.encoder = codecs.getincrementalencoder(encoding)()
-
-    def writerow(self, row):
-        # Write utf-8 encoded output to queue
-        self.writer.writerow([text_type(s).encode("utf-8") for s in row])
-        data = self.queue.getvalue()
-
-        # Read formatted CSV data from queue, re-encode and write to stream
-        data = data.decode("utf-8")
-        data = self.encoder.encode(data)
-        self.stream.write(data)
-        self.queue.truncate(0)
-        self.queue.seek(0)
-
-    def writerows(self, rows):
-        for row in rows:
-            self.writerow(row)
 
 
 def fetch_targets(db, stats=None):
@@ -322,15 +293,9 @@ def aggregate(iterable):
 def write_csv_report(stream, codec, data, stats):
     """ Write a CSV report to an open bytestream. """
     logger.debug('write_csv_report')
-    # output = codec.streamwriter(stream)
-    # output.write('# Encoding: %s\n' % codec.name)
-    # output.write('# Generated: %s\n' % now().strftime('%Y-%m-%d %H:%M:%S'))
-    # output.write('# Stats: total=%(total)d with_account=%(accounts)d\n' %
-    #              stats)
 
-    # join account lists
-
-    writer = CsvUnicodeWriter(stream, dialect=CsvDialect, encoding=codec.name)
+    output = codec.streamwriter(stream)
+    writer = CsvUnicodeWriter(output, dialect=CsvDialect)
 
     # TODO: should probably use a proper dict writer
     writer.writerow(
@@ -349,7 +314,7 @@ def write_html_report(stream, codec, data, stats):
     """ Write an HTML report to an open bytestream. """
     logger.debug('write_html_report')
     output = codec.streamwriter(stream)
-    template_env = Environment(trim_blocks=True, lstrip_blocks=True)
+    template_env = jinja2.Environment(trim_blocks=True, lstrip_blocks=True)
 
     report = template_env.from_string(template)
     output.write(
@@ -381,28 +346,45 @@ DEFAULT_ENCODING = 'latin1'
 DEFAULT_FORMAT = 'csv'
 
 
+description = """
+Generate list of fagpersons not registered in SAP.
+
+We want an overview of all persons with the affiliation TILKNYTTET/fagperson
+from FS, but no with any affiliation registered from SAP. This is originally
+requested by UiO, as fagpersons should in most cases also be registered in SAP.
+""".lstrip()
+
+
 def main(inargs=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=description,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument(
         '-e', '--output-encoding',
         dest='codec',
         default=DEFAULT_ENCODING,
         type=codec_type,
-        help="output file encoding, defaults to %(default)s")
+        help="output file encoding (default: %(default)s)",
+        metavar='<encoding>',
+    )
     format_arg = parser.add_argument(
         '-f', '--output-format',
         dest='format',
         choices=FORMATS.keys(),
         default=None,
-        help="output file format, will try to guess if filename is given,"
-             " or default to %s for stdout/stderr" % (DEFAULT_FORMAT))
+        help=("output file format, will try to guess if filename is given"
+              " (default:  %s" % (DEFAULT_FORMAT,)),
+        metavar='<format>',
+    )
     parser.add_argument(
         'output',
         type=argparse.FileType('w'),
         default='-',
         nargs='?',
-        metavar='FILE',
-        help='output file for the report, defaults to stdout')
+        metavar='<file>',
+        help='output file for the report (default: stdout)',
+    )
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
