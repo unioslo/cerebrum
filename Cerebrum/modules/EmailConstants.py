@@ -268,12 +268,12 @@ class CLConstants(Constants.CLConstants):
 
     # email entity domain affiliation
     email_entity_dom_add = Constants._ChangeTypeCode(
-        'email_entity_dom', 'add', 'add domain aff for %(subject)s',
+        'email_entity_domain', 'add', 'add domain aff for %(subject)s',
         'affiliation=%(int:aff)')
     email_entity_dom_rem = Constants._ChangeTypeCode(
-        'email_entity_dom', 'remove', 'remove domain aff for %(subject)s')
+        'email_entity_domain', 'remove', 'remove domain aff for %(subject)s')
     email_entity_dom_mod = Constants._ChangeTypeCode(
-        'email_entity_dom', 'modify', 'modify domain aff for %(subject)s',
+        'email_entity_domain', 'modify', 'modify domain aff for %(subject)s',
         'affiliation=%(int:aff)')
 
     # email quota (subject here is an email_target)
