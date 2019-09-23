@@ -383,6 +383,7 @@ setup(
         'Cerebrum/modules/no/Indigo',
         'Cerebrum/modules/no/uio',
         'Cerebrum/modules/no/uio/printer_quota',
+        'Cerebrum/modules/no/uio/pq_exemption',
         'Cerebrum/modules/no/uio/voip',
         'Cerebrum/modules/no/uio/AutoStud',
         'Cerebrum/modules/no/uio/exchange',
