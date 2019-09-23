@@ -287,38 +287,22 @@ class AuditRecordBuilder(DatabaseAccessor):
             params=params)
 
     # Register translation parameters for different types of changes
-    def add_str_of_int_const(self, keypairs, change_params):
-        """Add the str val of a constant int to change params if possible
-
-        Typically useful when we have been saving the int value of a constant
-        and we now want to save the string as well.
-        If the constant no longer exists, and we can not find what the string
-        value of the constant should be, we keep.
-
-        >>> db = Factory.get('Database')()
-        >>> cp = {'foo': 1}
-        >>> AuditRecordBuilder(db).add_str_of_int_const([('foo','bar')], cp)
-        {'foo': 1, 'bar': u'aggressive_spam'}
-
-        :param list keypairs: list of tuples with keypairs
-        :param dict change_params: the change_param dict we want to manipulate
-        :rtype: dict
-        :return: the new manipulated change_params
-        """
-        for old_key, new_key in keypairs:
-            if old_key in change_params:
-                change = self.const.human2constant(change_params[old_key])
-                if change:
-                    change_params[new_key] = six.text_type(change)
-        return change_params
-
     @translate_params.register('e_account', 'create')
     @translate_params.register('e_account', 'mod')
     def account_create_mod(self, subject_entity, destination_entity,
                            change_params):
-        change_params = self.add_str_of_int_const([
-            ('np_type', 'np_type_str'), ('owner_type', 'owner_type_str')],
-            change_params)
+        if 'np_type' in change_params:
+            change_params.update(
+                {'np_type_str': six.text_type(
+                    self.const.Account(change_params['np_type'])),
+                 }
+            )
+        if 'owner_type' in change_params:
+            change_params.update(
+                {'owner_type_str': six.text_type(self.const.EntityType(
+                    change_params['owner_type'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('e_account', 'home_update')
@@ -330,27 +314,36 @@ class AuditRecordBuilder(DatabaseAccessor):
     @translate_params.register('exchange', 'acc_mbox_delete')
     def spread_int_to_str(self, subject_entity, destination_entity,
                           change_params):
-        change_params = self.add_str_of_int_const(
-            [('spread', 'spread_str')],
-            change_params)
+        if 'spread' in change_params:
+            change_params.update(
+                {'spread_str': six.text_type(self.const.Spread(
+                    change_params['spread'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('homedir', 'add')
     @translate_params.register('homedir', 'update')
     def status_str(self, subject_entity, destination_entity,
                    change_params):
-        change_params = self.add_str_of_int_const(
-            [('status', 'status_str')],
-            change_params)
+        if 'status' in change_params:
+            change_params.update(
+                {'status_str': six.text_type(self.const.AccountHomeStatus(
+                    change_params['status'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('ac_type', 'add')
     @translate_params.register('ac_type', 'del')
     def aff_to_affstr(self, subject_entity, destination_entity,
                       change_params):
-        change_params = self.add_str_of_int_const(
-            [('affiliation', 'aff_str')],
-            change_params)
+        if 'affiliation' in change_params:
+            change_params.update(
+                {'aff_str': six.text_type(self.const.PersonAffiliation(
+                    change_params['affiliation'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('disk', 'add')
@@ -372,8 +365,12 @@ class AuditRecordBuilder(DatabaseAccessor):
     @translate_params.register('ou', 'set_parent')
     def ou_unset_parent(self, subject_entity, destination_entity,
                         change_params):
-        change_params = self.add_str_of_int_const(
-            [('perspective', 'perspective_str')], change_params)
+        if 'perspective' in change_params:
+            change_params.update(
+                {'perspective_str': six.text_type(self.const.OUPerspective(
+                    change_params['perspective'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('person', 'name_del')
@@ -381,36 +378,71 @@ class AuditRecordBuilder(DatabaseAccessor):
     @translate_params.register('person', 'name_mod')
     def person_name_add_mod_del(self, subject_entity, destination_entity,
                                 change_params):
-        change_params = self.add_str_of_int_const(
-            [('src', 'src_str'), ('name_variant', 'name_variant_str')],
-            change_params)
+        if 'src' in change_params:
+            change_params.update(
+                {'src_str': six.text_type(self.const.AuthoritativeSystem(
+                    change_params['src'])),
+                 }
+            )
+        if 'name_variant' in change_params:
+            change_params.update(
+                {'name_variant_str': six.text_type(self.const.PersonName(
+                    change_params['name_variant'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('entity_name', 'add')
     @translate_params.register('entity_name', 'del')
     def entity_name_add_del(self, subject_entity, destination_entity,
                             change_params):
-        change_params = self.add_str_of_int_const(
-            [('domain', 'domain_str'), ('name_variant', 'name_variant_str'),
-             ('name_language', 'name_language_str')],
-            change_params)
+        if 'domain' in change_params:
+            change_params.update(
+                {'domain_str': six.text_type(self.const.ValueDomain(
+                    change_params['domain'])),
+                 }
+            )
+        if 'name_variant' in change_params:
+            change_params.update(
+                {'name_variant_str': six.text_type(self.const.EntityNameCode(
+                    change_params['name_variant'])),
+                 }
+            )
+        if 'name_language' in change_params:
+            change_params.update(
+                {'name_language_str': six.text_type(self.const.LanguageCode(
+                    change_params['name_language'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('entity_name', 'mod')
     def entity_name_mod(self, subject_entity, destination_entity,
                         change_params):
-        change_params = self.add_str_of_int_const(
-            [('domain', 'domain_str')],
-            change_params)
+        if 'domain' in change_params:
+            change_params.update(
+                {'domain_str': six.text_type(self.const.ValueDomain(
+                    change_params['domain'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('entity_cinfo', 'add')
     @translate_params.register('entity_cinfo', 'del')
     def entity_cinfo_add_del(self, subject_entity, destination_entity,
                              change_params):
-        change_params = self.add_str_of_int_const(
-            [('type', 'type_str'), ('src', 'src_str')],
-            change_params)
+        if 'type' in change_params:
+            change_params.update(
+                {'type_str': six.text_type(self.const.ContactInfo(
+                    change_params['type'])),
+                 }
+            )
+        if 'src' in change_params:
+            change_params.update(
+                {'src_str': six.text_type(self.const.AuthoritativeSystem(
+                    change_params['src'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('entity', 'ext_id_del')
@@ -418,9 +450,18 @@ class AuditRecordBuilder(DatabaseAccessor):
     @translate_params.register('entity', 'ext_id_add')
     def entity_ext_id_del(self, subject_entity, destination_entity,
                           change_params):
-        change_params = self.add_str_of_int_const(
-            [('id_type', 'id_type_str'), ('src', 'src_str')],
-            change_params)
+        if 'id_type' in change_params:
+            change_params.update(
+                {'id_type_str': six.text_type(self.const.EntityExternalId(
+                    change_params['id_type'])),
+                 }
+            )
+        if 'src' in change_params:
+            change_params.update(
+                {'src_str': six.text_type(self.const.AuthoritativeSystem(
+                    change_params['src'])),
+                 }
+            )
         return change_params
 
     # Quarantine changes
@@ -429,42 +470,55 @@ class AuditRecordBuilder(DatabaseAccessor):
     @translate_params.register('quarantine', 'del')
     def quarantine_add_mod(self, subject_entity, destination_entity,
                            change_params):
-        change_params = self.add_str_of_int_const(
-            [('q_type', 'q_type_str')],
-            change_params)
+        if 'q_type' in change_params:
+            change_params.update(
+                {'q_type_str': six.text_type(self.const.Quarantine(
+                    change_params['q_type'])),
+                 }
+             )
         return change_params
 
     @translate_params.register('posix', 'promote')
     def posix_promote(self, subject_entity, destination_entity, change_params):
-        change_params = self.add_str_of_int_const(
-            [('shell', 'shell_str')],
-            change_params)
+        if 'shell' in change_params:
+            change_params.update(
+                {'shell_str': six.text_type(self.const.PosixShell(
+                    change_params['shell'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('email_domain', 'addcat_domain')
     @translate_params.register('email_domain', 'remcat_domain')
     def email_dom_cat_add_rem(self, subject_entity, destination_entity,
                               change_params):
-        change_params = self.add_str_of_int_const(
-            [('category', 'category_str')],
-            change_params)
+        if 'category' in change_params:
+            change_params.update(
+                {'category_str': six.text_type(self.const.EmailDomainCategory(
+                    change_params['category'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('email_target', 'add_target')
     @translate_params.register('email_target', 'rem_target')
     def email_target_add_rem(self, subject_entity, destination_entity,
                              change_params):
-        change_params = self.add_str_of_int_const(
-            [('target_type', 'target_type_str')],
-            change_params)
+        if 'target_type' in change_params:
+            change_params.update(
+                {'target_type_str': six.text_type(self.const.EmailTarget(
+                    change_params['target_type'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('email_target', 'mod_target')
     def email_target_mod(self, subject_entity, destination_entity,
                          change_params):
-        change_params = self.add_str_of_int_const(
-            [('target_type', 'target_type_str')],
-            change_params)
+        if 'target_type' in change_params:
+            change_params.update(
+                {'target_type_str': six.text_type(self.const.EmailTarget(
+                    change_params['target_type']))})
         if 'server_id' in change_params:
             self.host.clear()
             try:
@@ -494,27 +548,40 @@ class AuditRecordBuilder(DatabaseAccessor):
     @translate_params.register('email_entity_dom', 'mod_entdom')
     def email_entity_dom_add_rem_mod(self, subject_entity, destination_entity,
                                      change_params):
-        change_params = self.add_str_of_int_const(
-            [('aff', 'aff_str')],
-            change_params)
+        if 'aff' in change_params:
+            change_params.update(
+                {'aff_str': six.text_type(self.const.PersonAffiliation(
+                    change_params['aff'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('email_tfilter', 'add_filter')
     @translate_params.register('email_tfilter', 'rem_filter')
     def email_tfilter_add(self, subject_entity, destination_entity,
                           change_params):
-        change_params = self.add_str_of_int_const(
-            [('filter', 'filter_str')],
-            change_params)
+        if 'filter' in change_params:
+            change_params.update(
+                {'filter_str': six.text_type(self.const.EmailTargetFilter(
+                    change_params['filter'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('email_sfilter', 'add_sfilter')
     @translate_params.register('email_sfilter', 'mod_sfilter')
     def email_sfilter_add(self, subject_entity, destination_entity,
                           change_params):
-        change_params = self.add_str_of_int_const(
-            [('level', 'level_str'), ('action', 'action_str')],
-            change_params)
+        if 'level' in change_params:
+            change_params.update(
+                {'level_str': six.text_type(self.const.EmailSpamLevel(
+                    change_params['level'])),
+                 }
+            )
+        if 'action' in change_params:
+            change_params.update(
+                {'action_str': six.text_type(self.const.EmailSpamAction(
+                    change_params['action']))})
         return change_params
 
     @translate_params.register('email_primary_address', 'add_primary')
@@ -538,9 +605,12 @@ class AuditRecordBuilder(DatabaseAccessor):
     @translate_params.register('email_server', 'mod_server')
     def email_server_add(self, subject_entity, destination_entity,
                          change_params):
-        change_params = self.add_str_of_int_const(
-            [('server_type', 'server_type_str')],
-            change_params)
+        if 'server_type' in change_params:
+            change_params.update(
+                {'server_type_str': six.text_type(self.const.EmailServerType(
+                    change_params['server_type'])),
+                 }
+            )
         return change_params
 
     @translate_params.register('trait', 'add')
@@ -548,9 +618,16 @@ class AuditRecordBuilder(DatabaseAccessor):
     @translate_params.register('trait', 'del')
     def trait_mod(self, subject_entity, destination_entity,
                   change_params):
-        change_params = self.add_str_of_int_const(
-            [('entity_type', 'entity_type_str'), ('code', 'code_str')],
-            change_params)
+        if 'entity_type' in change_params:
+            change_params.update(
+                {'entity_type_str': six.text_type(self.const.EntityType(
+                    change_params['entity_type'])),
+                 }
+            )
+        if 'code' in change_params:
+            change_params.update(
+                {'code_str': six.text_type(self.const.EntityTrait(
+                    change_params['code']))})
         return change_params
 
     @translate_params.register('ephorte', 'role_add')
@@ -558,7 +635,12 @@ class AuditRecordBuilder(DatabaseAccessor):
     @translate_params.register('ephorte', 'role_upd')
     def ephorte_role_add(self, subject_entity, destination_entity,
                          change_params):
-        change_params = self.add_str_of_int_const(
-            [('arkivdel', 'arkivdel_str'), ('rolle_type', 'rolle_type_str')],
-            change_params)
+        if 'arkivdel' in change_params:
+            change_params.update(
+                {'arkivdel_str': six.text_type(self.const.EphorteArkivdel(
+                    change_params['arkivdel']))})
+        if 'rolle_type' in change_params:
+            change_params.update(
+                {'rolle_type_str': six.text_type(self.const.EphorteRole(
+                    change_params['rolle_type']))})
         return change_params
