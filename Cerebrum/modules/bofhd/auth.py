@@ -1534,29 +1534,6 @@ class BofhdAuth(DatabaseAccessor):
                 operator, self.const.auth_create_user, person)
         raise PermissionDenied("No access")
 
-    def can_create_user_unpersonal(self, operator, group=None, disk=None,
-                                   query_run_any=False):
-        """Check if operator could create an account with group owner.
-
-        You need access to the given disk. If no disk is given, you only need
-        to have access to create unpersonal users *somewhere* to be allowed -
-        for now.
-
-        """
-        if self.is_superuser(operator):
-            return True
-        if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_create_user_unpersonal)
-        if disk:
-            return self._query_disk_permissions(
-                operator, self.const.auth_create_user_unpersonal,
-                self._get_disk(disk), None)
-        if self._has_operation_perm_somewhere(
-                operator, self.const.auth_create_user_unpersonal):
-            return True
-        raise PermissionDenied("No access")
-
     def can_delete_user(self, operator, account=None,
                         query_run_any=False):
         if self.is_superuser(operator):
