@@ -58,6 +58,30 @@ class AccountType(object):
     """The AccountType class does not use populate logic as the only
     data stored represent a PK in the database"""
 
+    def exists(self, cols):
+        """
+        Check if matching account type exists
+
+        :type cols: dict
+        """
+        if not cols:
+            raise ValueError("missing args")
+        where = ' AND '.join(('{} = :{}'.format(x, x) for x in cols.keys()))
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=account_type]
+            WHERE {}
+          )
+        """.format(where)
+        try:
+            self.query_1(exists_stmt, binds)
+            return True
+        except NotFoundError:
+            return False
+        except TooManyRowsError:
+            return True
+
     def get_account_types(self, all_persons_types=False, owner_id=None,
                           filter_expired=True):
         """Return dbrows of account_types for the given account.
@@ -182,12 +206,18 @@ class AccountType(object):
                 'ou_id': ou_id,
                 'affiliation': int(affiliation),
                 'account_id': self.entity_id}
+        if not self.exists(cols):
+            # False positive
+            return
         where = ' AND '.join(('{} = :{}'.format(x, x) for x in cols.keys()))
         priority = self.query_1(
             """SELECT priority FROM [:table schema=cerebrum name=account_type]
             WHERE {}""".format(where), cols)
-        self.execute("""DELETE FROM [:table schema=cerebrum name=account_type]
-                     WHERE {}""".format(where), cols)
+        delete_stmt = """
+        DELETE FROM [:table schema=cerebrum name=account_type]
+        WHERE {}
+        """.format(where)
+        self.execute(delete_stmt, cols)
         self._db.log_change(self.entity_id, self.clconst.account_type_del,
                             None,
                             change_params={'ou_id': int(ou_id),
@@ -196,17 +226,9 @@ class AccountType(object):
 
     def delete_ac_types(self):
         """Delete all the AccountTypes for the account."""
-
-        binds = {'a_id': self.entity_id}
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name=account_type]
-            WHERE account_id=:a_id
-          )
-        """
-        if not self.query_1(exists_stmt, binds):
-            # false positive
+        binds = {'account_id': self.entity_id}
+        if not self.exists(binds):
+            # False positive
             return
         delete_stmt = """
           DELETE FROM [:table schema=cerebrum name=account_type]
@@ -330,6 +352,39 @@ class AccountHome(object):
     convenience, we also log this path when the entry is deleted.
     """
 
+    def exists(self, table=None, where=None, binds=None):
+        """
+        Check if entry exists
+
+        :type table: string
+        :type where: dict, list or string
+        :type binds: dict
+        """
+        if not table or not where or not binds:
+            raise ValueError("missing args")
+        if type(where) == dict:
+            where = ' AND '.join(('{}=:{}'.format(x, x) for x in where.keys()))
+        elif type(where) == list:
+            where = ' AND '.join(('{}=:{}'.format(x, x) for x in where))
+        elif type(where) == str:
+            pass
+        else:
+            raise ValueError("Illegal format of where")
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name={table}]
+            WHERE {}
+          )
+        """.format(where)
+        try:
+            self.query_1(exists_stmt, binds)
+            return True
+        except NotFoundError:
+            return False
+        except TooManyRowsError:
+            return True
+
     def resolve_homedir(self, account_name=None, disk_id=None,
                         disk_path=None, home=None, spread=None):
         """Constructs and returns the users homedir-path.  Subclasses
@@ -375,16 +430,7 @@ class AccountHome(object):
                                         spread=spread)
         binds = {'account_id': self.entity_id,
                  'spread': int(spread)}
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name=account_home]
-            WHERE
-              account_id=:account_id AND
-              spread=:spread
-          )
-        """
-        if not self.query_1(exists_stmt, binds):
+        if not self.exists(table='account_home', where=binds, binds=binds):
             # False positive
             return
         delete_stmt = """
@@ -453,15 +499,7 @@ class AccountHome(object):
                 if value is NotSet:
                     del binds[key]
             binds['homedir_id'] = current_id
-            exists_stmt = """
-              SELECT EXISTS (
-                SELECT 1
-                FROM [:table schema=cerebrum name=homedir]
-                WHERE
-                  homedir_id=:homedir_id AND
-                  %s
-               )""" % (" AND ".join(["%s=:%s" % (t, t) for t in binds]))
-            if self.query_1(exists_stmt):
+            if self.exists(table='homedir', where=binds, binds=binds):
                 # False positive; entry exists as is
                 return current_id
             sql = """
@@ -471,7 +509,6 @@ class AccountHome(object):
                 ", ".join(["%s=:%s" % (t, t) for t in binds]))
 
             change_type = self.clconst.homedir_update
-
         self.execute(sql, binds)
         if binds.get('disk_id') or binds.get('home'):
             tmp = {'home': self.resolve_homedir(disk_id=binds.get('disk_id'),
@@ -485,7 +522,6 @@ class AccountHome(object):
                             change_type,
                             None,
                             change_params=tmp)
-
         return binds['homedir_id']
 
     def _clear_homedir(self, homedir_id):
@@ -494,13 +530,7 @@ class AccountHome(object):
         tmp = self.resolve_homedir(disk_id=tmp['disk_id'],
                                    home=tmp['home'])
         binds = {'homedir_id': homedir_id}
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name=homedir]
-            WHERE homedir_id=:homedir_id
-        """
-        if not self.query_1(exists_stmt, binds):
+        if not self.exists(table='homedir', where=binds, binds=binds):
             # False positive; no homedir to clear
             return
         delete_stmt = """
@@ -538,23 +568,15 @@ class AccountHome(object):
                                    spread=spread)
         try:
             old = self.get_home(spread)
-            exists_stmt = """
-              SELECT EXISTS (
-                SELECT 1
-                FROM [:table schema=cerebrum name=account_home]
-                WHERE account_id=:account_id AND
-                      spread=:spread AND
-                      homedir_id=:homedir_id
-            """
-            if self.query_1(exists_stmt, binds):
+            if self.exists(table='account_home', where=binds, binds=binds):
                 # False positive
                 return
-            set_stmt = """
+            update_stmt = """
               UPDATE [:table schema=cerebrum name=account_home]
               SET homedir_id=:homedir_id
               WHERE account_id=:account_id AND spread=:spread
             """
-            self.execute(set_stmt, binds)
+            self.execute(update_stmt, binds)
             self._db.log_change(
                 self.entity_id, self.clconst.account_home_updated, None,
                 change_params={
