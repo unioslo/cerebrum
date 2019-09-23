@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2004-2018 University of Oslo, Norway
+# Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,7 +21,7 @@ from __future__ import unicode_literals
 
 import cereconf
 from Cerebrum.modules.PosixLDIF import PosixLDIF
-from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
+from Cerebrum.modules.no.uio.pq_exemption import pq_exemption
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory, make_timer
 
@@ -82,8 +82,8 @@ class PosixLDIF_UiOMixin(PosixLDIF):
 
         self.pq_people = frozenset(
             int(row['person_id'])
-            for row in PaidPrinterQuotas.PaidPrinterQuotas(self.db).list(
-                    only_with_quota=True))
+            for row in pq_exemption.PrinterQuotaExemption(self.db).list(
+                    only_without_exempt=True))
         timer('... done UiO init_user')
 
     def init_netgroup(self, *args, **kwargs):
