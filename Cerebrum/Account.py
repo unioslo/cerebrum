@@ -66,7 +66,7 @@ class AccountType(object):
         """
         if not cols:
             raise ValueError("missing args")
-        where = ' AND '.join(('{} = :{}'.format(x, x) for x in cols.keys()))
+        where = ' AND '.join(('{0} = :{0}'.format(x) for x in cols))
         exists_stmt = """
           SELECT EXISTS (
             SELECT 1
@@ -308,7 +308,7 @@ class AccountType(object):
             join += " JOIN [:table schema=cerebrum name=entity_spread] es" \
                     " ON es.entity_id = at.account_id" \
                     " AND es.spread " + account_spread
-        if exclude_account_id is not None and len(exclude_account_id):
+        if exclude_account_id is not None and len(exclude_account_id) > 0:
             extra += " AND NOT " + argument_to_sql(exclude_account_id,
                                                    "ai.account_id",
                                                    binds,
@@ -993,7 +993,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             tmp = self.illegal_name(self.account_name)
             if tmp:
                 raise self._db.IntegrityError, "Illegal username: %s" % tmp
-
         is_new = not self.__in_db
         # make dict of changes to send to changelog
         newvalues = {}
