@@ -58,11 +58,9 @@ db.cl_init(change_program='process_students')
 const = Factory.get('Constants')(db)
 derived_person_affiliations = {}
 person_student_affiliations = {}
-has_quota = {}
 processed_students = {}
 processed_accounts = {}
 keep_account_home = {}
-paid_paper_money = {}
 account_id2fnr = {}
 posix_tables = False
 
@@ -84,7 +82,6 @@ with_quarantines = False
 remove_groupmembers = False
 ou_perspective = None
 workdir = None
-paper_money_file = None  # Default: don't check for paid paper money
 student_info_file = None
 studconfig_file = None
 studieprogs_file = None
@@ -1089,7 +1086,7 @@ def main():
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, studieprogs_file, dryrun, \
         emne_info_file, move_users, remove_groupmembers, workdir, \
-        paper_money_file, ou_perspective, with_quarantines, with_diskquota, \
+        ou_perspective, with_quarantines, with_diskquota, \
         posix_tables
 
     # Parse arguments
@@ -1101,9 +1098,6 @@ def main():
     input_grp.add_argument(
         '-e',
         '--emne-info-file')
-    input_grp.add_argument(
-        '-p', '--paper-file',
-        help='check for paid-quota only done if set')
     input_grp.add_argument(
         '-S',
         '--studie-progs-file')
@@ -1199,8 +1193,6 @@ def main():
         student_info_file = args.student_info_file
     if args.emne_info_file:
         emne_info_file = args.emne_info_file
-    if args.paper_file:
-        paper_money_file = args.paper_file
     if args.studie_progs_file:
         studieprogs_file = args.studie_progs_file
     if args.studconfig_file:
