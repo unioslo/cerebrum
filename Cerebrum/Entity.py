@@ -282,23 +282,32 @@ class EntitySpread(Entity):
 
     def add_spread(self, spread):
         """Add ``spread`` to this entity."""
+        binds = {'entity_id': self.entity_id,
+                 'entity_type': int(self.entity_type),
+                 'spread': int(spread)}
+        if self.exists(binds):
+            # False positive
+            return None
         self._db.log_change(self.entity_id, self.clconst.spread_add,
                             None, change_params={'spread': int(spread)})
-        return self.execute("""
-        INSERT INTO [:table schema=cerebrum name=entity_spread]
+        insert_stmt = """
+          INSERT INTO [:table schema=cerebrum name=entity_spread]
           (entity_id, entity_type, spread)
-        VALUES (:e_id, :e_type, :spread)""", {'e_id': self.entity_id,
-                                              'e_type': int(self.entity_type),
-                                              'spread': int(spread)})
+          VALUES (:entity_id, :entity_type, :spread)"""
+        return self.execute(insert_stmt, binds)
 
     def delete_spread(self, spread):
         """Remove ``spread`` from this entity."""
+        binds = {'entity_id': self.entity_id,
+                 'spread': int(spread)}
+        if not self.exists(binds):
+            # False positive
+            return
         self._db.log_change(self.entity_id, self.clconst.spread_del,
-                            None, change_params={'spread': int(spread)})
-        return self.execute("""
+                                None, change_params={'spread': int(spread)})
+        self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_spread]
-        WHERE entity_id=:e_id AND spread=:spread""", {'e_id': self.entity_id,
-                                                      'spread': int(spread)})
+        WHERE entity_id=:e_id AND spread=:spread""", binds)
 
     def list_all_with_spread(self, spreads=None, entity_types=None):
         """Return sequence of all 'entity_id's that has ``spread``."""
@@ -365,6 +374,25 @@ class EntitySpread(Entity):
                 return 1
         return 0
 
+    def exists(self, table=None, binds=None):
+        """Check for existance"""
+        if not binds:
+            raise ValueError('missing args')
+        exists_stmt = """
+        SELECT EXISTS (
+          SELECT 1
+          FROM [:table schema=cerebrum name={table}]
+          WHERE {where}
+        )
+        """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds),
+                   table=table)
+        try:
+            self.query_1(exists_stmt, binds)
+            return True
+        except Errors.NotFoundError:
+            return False
+        except Errors.TooManyRowsError:
+            return True
 
 class EntityName(Entity):
     "Mixin class, usable alongside Entity for entities having names."
@@ -401,14 +429,21 @@ class EntityName(Entity):
                                             'name': name})
 
     def delete_entity_name(self, domain):
-        self._db.log_change(self.entity_id, self.clconst.entity_name_del, None,
-                            change_params={'domain': int(domain),
-                                           'name': self.get_name(int(domain))})
-        return self.execute("""
+        binds = {'entity_id': self.entity_id,
+                 'domain': int(domain)}
+        if not self.exists(table='entity_name', binds=binds):
+            # False positive
+            return
+        delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=entity_name]
-        WHERE entity_id=:e_id AND value_domain=:domain""",
-                            {'e_id': self.entity_id,
-                             'domain': int(domain)})
+        WHERE entity_id=:e_id AND value_domain=:domain"""
+        self._db.log_change(
+            self.entity_id,
+            self.clconst.entity_name_del,
+            None,
+            change_params={'domain': int(domain),
+                           'name': self.get_name(int(domain))})
+        self.execute(delete_stmt, binds)
 
     def update_entity_name(self, domain, name):
         if int(domain) in [int(self.const.ValueDomain(code_str))
@@ -416,14 +451,20 @@ class EntityName(Entity):
                            cereconf.NAME_DOMAINS_THAT_DENY_CHANGE]:
             raise self._db.IntegrityError(
                 "Name change illegal for the domain: %s" % domain)
-        self.execute("""
+        binds = {'entity_id': self.entity_id,
+                 'domain': int(domain),
+                 'name': name}
+        if self.exists(table='entity_name', binds=binds):
+            # False positive
+            return
+        update_stmt = """
         UPDATE [:table schema=cerebrum name=entity_name]
         SET entity_name=:name
-        WHERE entity_id=:e_id AND value_domain=:domain""",
-                     {'e_id': self.entity_id,
-                      'domain': int(domain),
-                      'name': name})
-        self._db.log_change(self.entity_id, self.clconst.entity_name_mod, None,
+        WHERE entity_id=:e_id AND value_domain=:domain"""
+        self.execute(update_stmt, binds)
+        self._db.log_change(self.entity_id,
+                            self.clconst.entity_name_mod,
+                            None,
                             change_params={'domain': int(domain),
                                            'name': name})
 
@@ -1239,13 +1280,17 @@ class EntityQuarantine(Entity):
         :type until: mx.DateTime
         :param until: Disable quarantine until this point in time
         """
-        self.execute("""
+        binds = {'entity_id': self.entity_id,
+                 'quarantine_type': int(qtype),
+                 'disable_until': until}
+        if self.exists(table='entity_quarantine', binds=binds):
+            # false positive
+            return
+        update_stmt = """
         UPDATE [:table schema=cerebrum name=entity_quarantine]
-        SET disable_until=:d_until
-        WHERE entity_id=:e_id AND quarantine_type=:q_type""",
-                     {'e_id': self.entity_id,
-                      'q_type': int(qtype),
-                      'd_until': until})
+        SET disable_until=:disable_until
+        WHERE entity_id=:entity_id AND quarantine_type=:quarantine_type"""
+        self.execute(update_stmt, binds)
         self._db.log_change(self.entity_id, self.clconst.quarantine_mod,
                             None, change_params={'q_type': int(qtype)})
 
@@ -1258,11 +1303,15 @@ class EntityQuarantine(Entity):
         :rtype: bool
         :returns: Was a quarantine deleted?
         """
+        binds = {'entity_id': self.entity_id,
+                 'quarantine_type': int(qtype)}
+        if not self.exists(table='entity_quarantine', binds=binds):
+            # False positive
+            return False
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_quarantine]
-        WHERE entity_id=:e_id AND quarantine_type=:q_type""",
-                     {'e_id': self.entity_id,
-                      'q_type': int(qtype)})
+        WHERE entity_id=:entity_id AND quarantine_type=:quarantine_type""",
+                     )
         if self._db.rowcount:
             self._db.log_change(self.entity_id, self.clconst.quarantine_del,
                                 None, change_params={'q_type': int(qtype)})
@@ -1377,23 +1426,41 @@ class EntityExternalId(Entity):
         self._external_id[int(id_type)] = external_id
 
     def _delete_external_id(self, source_system, id_type):
-        self.execute("""
+        binds = {'entity_id': self.entity_id,
+                 'id_type': int(id_type),
+                 'source_system': int(source_system)}
+        if not self.exists(table='entity_external_id', binds=binds):
+            # False positive
+            return
+        delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=entity_external_id]
-        WHERE entity_id=:p_id AND id_type=:id_type AND source_system=:src""",
-                     {'p_id': self.entity_id,
-                      'id_type': int(id_type),
-                      'src': int(source_system)})
-        self._db.log_change(self.entity_id, self.clconst.entity_ext_id_del,
-                            None,
-                            change_params={'id_type': int(id_type),
-                                           'src': int(source_system)})
+        WHERE entity_id=:entity_id AND
+              id_type=:id_type AND
+              source_system=:source_system"""
+        self.execute(delete_stmt, binds)
+        if self._db.rowcount:
+            self._db.log_change(self.entity_id,
+                                self.clconst.entity_ext_id_del,
+                                None,
+                                change_params={'id_type': int(id_type),
+                                               'src': int(source_system)})
 
     def _set_external_id(self, source_system, id_type, external_id,
                          update=False):
+        binds = {'entity_id': self.entity_id,
+                 'entity_type': int(self.entity_type),
+                 'id_type': int(id_type),
+                 'source_system': int(source_system),
+                 'external_id': external_id}
         if update:
+            if self.exists(table='entity_external_id', binds=binds):
+                # False positive
+                return
             sql = """UPDATE [:table schema=cerebrum name=entity_external_id]
-            SET external_id=:ext_id
-            WHERE entity_id=:e_id AND id_type=:id_type AND source_system=:src
+            SET external_id=:external_id
+            WHERE entity_id=:entity_id AND
+                  id_type=:id_type AND
+                  source_system=:source_system
             """
             self._db.log_change(
                 self.entity_id, self.clconst.entity_ext_id_mod, None,
@@ -1410,11 +1477,7 @@ class EntityExternalId(Entity):
                 change_params={'id_type': int(id_type),
                                'src': int(source_system),
                                'value': external_id})
-        self.execute(sql, {'e_id': self.entity_id,
-                           'e_type': int(self.entity_type),
-                           'id_type': int(id_type),
-                           'src': int(source_system),
-                           'ext_id': external_id})
+        self.execute(sql, binds)
 
     def get_external_id(self, source_system=None, id_type=None):
         binds = dict()
