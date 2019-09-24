@@ -58,15 +58,15 @@ class AccountType(object):
     """The AccountType class does not use populate logic as the only
     data stored represent a PK in the database"""
 
-    def exists(self, cols):
+    def exists(self, binds=None):
         """
         Check if matching account type exists
 
-        :type cols: dict
+        :type binds: dict
         """
-        if not cols:
+        if not binds:
             raise ValueError("missing args")
-        where = ' AND '.join(('{0} = :{0}'.format(x) for x in cols))
+        where = ' AND '.join(('{0} = :{0}'.format(x) for x in binds))
         exists_stmt = """
           SELECT EXISTS (
             SELECT 1
@@ -75,7 +75,7 @@ class AccountType(object):
           )
         """.format(where)
         try:
-            self.query_1(exists_stmt, cols)
+            self.query_1(exists_stmt, binds)
             return True
         except NotFoundError:
             return False
@@ -352,7 +352,7 @@ class AccountHome(object):
     convenience, we also log this path when the entry is deleted.
     """
 
-    def exists(self, table=None, where=None, binds=None):
+    def exists(self, table=None, binds=None):
         """
         Check if entry exists
 
@@ -360,12 +360,12 @@ class AccountHome(object):
         :type where: dict, list or string
         :type binds: dict
         """
-        if not table or not where or not binds:
+        if not table or not binds:
             raise ValueError("missing args")
         if type(where) == dict:
-            where = ' AND '.join(('{0}=:{0}'.format(x) for x in where()))
+            where = ' AND '.join(('{0}=:{0}'.format(x) for x in binds))
         elif type(where) == list:
-            where = ' AND '.join(('{0}=:{0}'.format(x) for x in where))
+            where = ' AND '.join(('{0}=:{0}'.format(x) for x in binds))
         elif type(where) == str:
             pass
         else:
@@ -430,7 +430,7 @@ class AccountHome(object):
                                         spread=spread)
         binds = {'account_id': self.entity_id,
                  'spread': int(spread)}
-        if not self.exists(table='account_home', where=binds, binds=binds):
+        if not self.exists(table='account_home', binds=binds):
             # False positive
             return
         delete_stmt = """
@@ -499,7 +499,7 @@ class AccountHome(object):
                 if value is NotSet:
                     del binds[key]
             binds['homedir_id'] = current_id
-            if self.exists(table='homedir', where=binds, binds=binds):
+            if self.exists(table='homedir', binds=binds):
                 # False positive; entry exists as is
                 return current_id
             sql = """
@@ -530,7 +530,7 @@ class AccountHome(object):
         tmp = self.resolve_homedir(disk_id=tmp['disk_id'],
                                    home=tmp['home'])
         binds = {'homedir_id': homedir_id}
-        if not self.exists(table='homedir', where=binds, binds=binds):
+        if not self.exists(table='homedir', binds=binds):
             # False positive; no homedir to clear
             return
         delete_stmt = """
@@ -568,7 +568,7 @@ class AccountHome(object):
                                    spread=spread)
         try:
             old = self.get_home(spread)
-            if self.exists(table='account_home', where=binds, binds=binds):
+            if self.exists(table='account_home', binds=binds):
                 # False positive
                 return
             update_stmt = """
@@ -1064,8 +1064,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
               FROM [:table schema=cerebrum name=account_info]
               WHERE account_id=:acc_id AND %(defs)s""" % {'defs': " AND ".join(
                   ["%s=%s" % x for x in cols])}
-            if not self.query_1(exists_stmt, binds):
-                # True positive
+            exists_p = True
+            try:
+                self.query_1(exists_stmt, binds)
+            except Errors.NotFoundError:
+                # False positive
+                exists_p = False
+            except Errors.TooManyRowsError:
+                pass
+            if exists_p:
                 update_stmt = """
                 UPDATE [:table schema=cerebrum name=account_info]
                 SET %(defs)s
