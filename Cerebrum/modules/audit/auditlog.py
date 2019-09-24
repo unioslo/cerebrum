@@ -71,6 +71,7 @@ class AuditLog(ChangeLog):
                    change_params=None,
                    change_by=None,
                    change_program=None,
+                   skip_audit=False,
                    **kw):
         super(AuditLog, self).log_change(
             subject_entity,
@@ -80,6 +81,9 @@ class AuditLog(ChangeLog):
             change_by=change_by,
             change_program=change_program,
             **kw)
+
+        if skip_audit:
+            return
 
         change_program = change_program or self.change_program
         if not change_by and change_program:

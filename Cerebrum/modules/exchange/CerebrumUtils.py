@@ -519,7 +519,8 @@ class CerebrumUtils(object):
         ct = self.clconst.ChangeType(trigger[0], trigger[1])
         parm = {'change_program': 'ExchangeIntegration',
                 'skip_event': True,
-                'skip_publish': True}
+                'skip_publish': True,
+                'skip_audit': True}
 
         # Only log params if they actually contain something.
         param = self.load_params(event)
