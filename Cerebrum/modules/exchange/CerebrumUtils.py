@@ -25,9 +25,6 @@ This file consists mainly of badly refactored code."""
 from __future__ import unicode_literals
 
 import logging
-import pickle
-
-from six import text_type
 
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import json
