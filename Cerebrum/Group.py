@@ -58,7 +58,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
     def exists(self, table=None, binds=None):
         if not (table and binds):
             raise ValueError("missing args")
-        where = 'AND '.join('{0}=:{0}'.format(x) for x in binds if x != 'g_id')
+        where = 'AND '.join(
+            '{0}=:{0}'.format(x) for x in binds if x != 'group_id')
         exists_stmt = """
           SELECT EXISTS (
             SELECT 1
@@ -113,7 +114,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         return True
 
     def is_empty(self):
-        """Checks if a group is empty (no members)."""
+        """Checks if group is empty"""
         for row in self.search_members(group_id=self.entity_id):
             return False
         return True
