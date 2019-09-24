@@ -77,9 +77,9 @@ class AccountType(object):
         try:
             self.query_1(exists_stmt, binds)
             return True
-        except NotFoundError:
+        except Errors.dError:
             return False
-        except TooManyRowsError:
+        except Errors.TooManyRowsError:
             return True
 
     def get_account_types(self, all_persons_types=False, owner_id=None,
@@ -373,9 +373,9 @@ class AccountHome(object):
         try:
             self.query_1(exists_stmt, binds)
             return True
-        except NotFoundError:
+        except Errors.NotFoundError:
             return False
-        except TooManyRowsError:
+        except Errors.TooManyRowsError:
             return True
 
     def resolve_homedir(self, account_name=None, disk_id=None,
