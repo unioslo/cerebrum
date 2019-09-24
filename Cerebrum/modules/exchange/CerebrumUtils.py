@@ -137,7 +137,7 @@ class CerebrumUtils(object):
         elif account_id:
             self.ac.clear()
             self.ac.find(account_id)
-            ret = self.ac.owner_has_ereservation()
+            ret = self.ac.owner_has_e_reservation()
         # TODO: This is sane?
         else:
             ret = True
