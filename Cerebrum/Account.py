@@ -362,14 +362,7 @@ class AccountHome(object):
         """
         if not table or not binds:
             raise ValueError("missing args")
-        if type(where) == dict:
-            where = ' AND '.join(('{0}=:{0}'.format(x) for x in binds))
-        elif type(where) == list:
-            where = ' AND '.join(('{0}=:{0}'.format(x) for x in binds))
-        elif type(where) == str:
-            pass
-        else:
-            raise ValueError("Illegal format of where")
+        where = ' AND '.join(('{0}=:{0}'.format(x) for x in binds))
         exists_stmt = """
           SELECT EXISTS (
             SELECT 1
