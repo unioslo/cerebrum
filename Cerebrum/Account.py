@@ -209,7 +209,7 @@ class AccountType(object):
         if not self.exists(cols):
             # False positive
             return
-        where = ' AND '.join(('{} = :{}'.format(x, x) for x in cols.keys()))
+        where = ' AND '.join(('{0} = :{0}'.format(x) for x in cols()))
         priority = self.query_1(
             """SELECT priority FROM [:table schema=cerebrum name=account_type]
             WHERE {}""".format(where), cols)
@@ -363,9 +363,9 @@ class AccountHome(object):
         if not table or not where or not binds:
             raise ValueError("missing args")
         if type(where) == dict:
-            where = ' AND '.join(('{}=:{}'.format(x, x) for x in where.keys()))
+            where = ' AND '.join(('{0}=:{0}'.format(x) for x in where()))
         elif type(where) == list:
-            where = ' AND '.join(('{}=:{}'.format(x, x) for x in where))
+            where = ' AND '.join(('{0}=:{0}'.format(x) for x in where))
         elif type(where) == str:
             pass
         else:
