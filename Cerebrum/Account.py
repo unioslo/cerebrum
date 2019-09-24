@@ -75,7 +75,7 @@ class AccountType(object):
           )
         """.format(where)
         try:
-            self.query_1(exists_stmt, binds)
+            self.query_1(exists_stmt, cols)
             return True
         except NotFoundError:
             return False
