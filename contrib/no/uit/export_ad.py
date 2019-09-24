@@ -344,9 +344,9 @@ class AdExport(object):
             cereconf.USERNAME_POSTFIX['sito']))
         stream = AtomicStreamRecoder(self.userfile,
                                      mode=str('w'),
-                                     encoding='ISO-8859-1')
+                                     encoding='utf-8')
         xml = xmlprinter(stream, indent_level=2, data_mode=True,
-                         input_encoding='ISO-8859-1')
+                         input_encoding='utf-8')
         xml.startDocument(encoding='utf-8')
         xml.startElement('data')
         xml.startElement('properties')
