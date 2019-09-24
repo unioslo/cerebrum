@@ -1853,14 +1853,14 @@ class CLConstants(ConstantsBase):
         'entity_note', 'remove', 'del entity_note for %(subject)s',
         ('note_id=%(int:note_id)s',))
     entity_ext_id_del = _ChangeTypeCode(
-        'entity_ext_id', 'remove', 'del ext_id for %(subject)s',
+        'entity_external_id', 'remove', 'del ext_id for %(subject)s',
         ('src=%(source_system:src)s, type=%(extid:id_type)s',))
     entity_ext_id_mod = _ChangeTypeCode(
-        'entity_ext_id', 'modify', 'mod ext_id for %(subject)s',
+        'entity_external_id', 'modify', 'mod ext_id for %(subject)s',
         ('value=%(string:value)s, src=%(source_system:src)s, ' +
          'type=%(extid:id_type)s',))
     entity_ext_id_add = _ChangeTypeCode(
-        'entity_ext_id', 'add', 'add ext_id for %(subject)s',
+        'entity_external_id', 'add', 'add ext_id for %(subject)s',
         ('value=%(string:value)s, src=%(source_system:src)s, ' +
          'type=%(extid:id_type)s',))
 

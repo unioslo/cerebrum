@@ -322,7 +322,7 @@ def entity_note(*args, **kwargs):
     return None
 
 
-@EventFilter.register('entity_ext_id')
+@EventFilter.register('entity_external_id')
 def entity_external_id(msg, db=None, **kwargs):
     if not msg['subject']:
         # No subject: noop

@@ -83,11 +83,11 @@ class CLConstants(CereConst.CLConstants):
     # TODO: type is not given here
 
     hostpolicy_policy_add = CereConst._ChangeTypeCode(
-        'hostpolicy_policy',
+        'hostpolicy',
         'add',
         'add policy %(dest)s to host %(subject)s')
     hostpolicy_policy_remove = CereConst._ChangeTypeCode(
-        'hostpolicy_policy',
+        'hostpolicy',
         'remove',
         'remove policy %(dest)s from host %(subject)s')
 
