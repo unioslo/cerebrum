@@ -285,29 +285,30 @@ class EntitySpread(Entity):
         binds = {'entity_id': self.entity_id,
                  'entity_type': int(self.entity_type),
                  'spread': int(spread)}
-        if self.exists(binds):
+        if self.exists(table='entity_spread', binds=binds):
             # False positive
-            return None
-        self._db.log_change(self.entity_id, self.clconst.spread_add,
-                            None, change_params={'spread': int(spread)})
+            return
         insert_stmt = """
           INSERT INTO [:table schema=cerebrum name=entity_spread]
           (entity_id, entity_type, spread)
           VALUES (:entity_id, :entity_type, :spread)"""
-        return self.execute(insert_stmt, binds)
+        self.execute(insert_stmt, binds)
+        self._db.log_change(self.entity_id, self.clconst.spread_add,
+                            None, change_params={'spread': int(spread)})
 
     def delete_spread(self, spread):
         """Remove ``spread`` from this entity."""
         binds = {'entity_id': self.entity_id,
                  'spread': int(spread)}
-        if not self.exists(binds):
+        if not self.exists(table='entity_spread', binds=binds):
             # False positive
             return
+        delete_stmt = """
+        DELETE FROM [:table schema=cerebrum name=entity_spread]
+        WHERE entity_id=:e_id AND spread=:spread"""
+        self.execute(delete_stmt, binds)
         self._db.log_change(self.entity_id, self.clconst.spread_del,
                                 None, change_params={'spread': int(spread)})
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=entity_spread]
-        WHERE entity_id=:e_id AND spread=:spread""", binds)
 
     def list_all_with_spread(self, spreads=None, entity_types=None):
         """Return sequence of all 'entity_id's that has ``spread``."""
@@ -376,7 +377,7 @@ class EntitySpread(Entity):
 
     def exists(self, table=None, binds=None):
         """Check for existance"""
-        if not binds:
+        if not table or not binds:
             raise ValueError('missing args')
         exists_stmt = """
         SELECT EXISTS (
@@ -430,20 +431,20 @@ class EntityName(Entity):
 
     def delete_entity_name(self, domain):
         binds = {'entity_id': self.entity_id,
-                 'domain': int(domain)}
+                 'value_domain': int(domain)}
         if not self.exists(table='entity_name', binds=binds):
             # False positive
             return
         delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=entity_name]
-        WHERE entity_id=:e_id AND value_domain=:domain"""
-        self._db.log_change(
-            self.entity_id,
-            self.clconst.entity_name_del,
-            None,
-            change_params={'domain': int(domain),
-                           'name': self.get_name(int(domain))})
+        WHERE entity_id=:entity_id AND
+              value_domain=:value_domain"""
         self.execute(delete_stmt, binds)
+        self._db.log_change(self.entity_id,
+                            self.clconst.entity_name_del,
+                            None,
+                            change_params={'domain': int(domain),
+                                           'name': self.get_name(int(domain))})
 
     def update_entity_name(self, domain, name):
         if int(domain) in [int(self.const.ValueDomain(code_str))
