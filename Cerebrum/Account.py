@@ -77,7 +77,7 @@ class AccountType(object):
         try:
             self.query_1(exists_stmt, binds)
             return True
-        except Errors.dError:
+        except Errors.NotFoundError:
             return False
         except Errors.TooManyRowsError:
             return True
