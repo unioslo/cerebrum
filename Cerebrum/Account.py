@@ -1065,7 +1065,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 exists_p = False
             except Errors.TooManyRowsError:
                 pass
-            if exists_p:
+            if not exists_p:
                 update_stmt = """
                 UPDATE [:table schema=cerebrum name=account_info]
                 SET %(defs)s
