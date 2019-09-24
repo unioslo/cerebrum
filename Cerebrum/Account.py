@@ -1,5 +1,5 @@
-# Copyright 2002-2019 University of Oslo, Norway
 # -*- coding: utf-8 -*-
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -209,7 +209,7 @@ class AccountType(object):
         if not self.exists(cols):
             # False positive
             return
-        where = ' AND '.join(('{0} = :{0}'.format(x) for x in cols()))
+        where = ' AND '.join('{0} = :{0}'.format(x) for x in cols)
         priority = self.query_1(
             """SELECT priority FROM [:table schema=cerebrum name=account_type]
             WHERE {}""".format(where), cols)
@@ -308,7 +308,7 @@ class AccountType(object):
             join += " JOIN [:table schema=cerebrum name=entity_spread] es" \
                     " ON es.entity_id = at.account_id" \
                     " AND es.spread " + account_spread
-        if exclude_account_id is not None and len(exclude_account_id) > 0:
+        if exclude_account_id:
             extra += " AND NOT " + argument_to_sql(exclude_account_id,
                                                    "ai.account_id",
                                                    binds,
