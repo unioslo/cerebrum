@@ -287,8 +287,8 @@ class AuditRecordBuilder(DatabaseAccessor):
             params=params)
 
     # Register translation parameters for different types of changes
-    @translate_params.register('e_account', 'create')
-    @translate_params.register('e_account', 'mod')
+    @translate_params.register('account', 'create')
+    @translate_params.register('account', 'modify')
     def account_create_mod(self, subject_entity, destination_entity,
                            change_params):
         if 'np_type' in change_params:
@@ -305,13 +305,13 @@ class AuditRecordBuilder(DatabaseAccessor):
             )
         return change_params
 
-    @translate_params.register('e_account', 'home_update')
-    @translate_params.register('e_account', 'home_added')
-    @translate_params.register('e_account', 'home_removed')
+    @translate_params.register('account_home', 'add')
+    @translate_params.register('account_home', 'remove')
+    @translate_params.register('account_home', 'modify')
     @translate_params.register('spread', 'add')
     @translate_params.register('spread', 'delete')
-    @translate_params.register('exchange', 'acc_mbox_create')
-    @translate_params.register('exchange', 'acc_mbox_delete')
+    @translate_params.register('exchange_acc_mbox', 'create')
+    @translate_params.register('exchange_acc_mbox', 'delete')
     def spread_int_to_str(self, subject_entity, destination_entity,
                           change_params):
         if 'spread' in change_params:
@@ -323,7 +323,7 @@ class AuditRecordBuilder(DatabaseAccessor):
         return change_params
 
     @translate_params.register('homedir', 'add')
-    @translate_params.register('homedir', 'update')
+    @translate_params.register('homedir', 'modify')
     def status_str(self, subject_entity, destination_entity,
                    change_params):
         if 'status' in change_params:
@@ -334,8 +334,8 @@ class AuditRecordBuilder(DatabaseAccessor):
             )
         return change_params
 
-    @translate_params.register('ac_type', 'add')
-    @translate_params.register('ac_type', 'del')
+    @translate_params.register('account_type', 'add')
+    @translate_params.register('account_type', 'remove')
     def aff_to_affstr(self, subject_entity, destination_entity,
                       change_params):
         if 'affiliation' in change_params:
@@ -347,8 +347,8 @@ class AuditRecordBuilder(DatabaseAccessor):
         return change_params
 
     @translate_params.register('disk', 'add')
-    @translate_params.register('disk', 'mod')
-    @translate_params.register('disk', 'del')
+    @translate_params.register('disk', 'remove')
+    @translate_params.register('disk', 'modify')
     def disk_add_mod_del(self, subject_entity, destination_entity,
                          change_params):
         if 'host_id' in change_params:
@@ -361,8 +361,8 @@ class AuditRecordBuilder(DatabaseAccessor):
                 change_params['host_name'] = self.host.name
         return change_params
 
-    @translate_params.register('ou', 'unset_parent')
-    @translate_params.register('ou', 'set_parent')
+    @translate_params.register('ou_parent', 'clear')
+    @translate_params.register('ou_parent', 'set')
     def ou_unset_parent(self, subject_entity, destination_entity,
                         change_params):
         if 'perspective' in change_params:
@@ -373,9 +373,9 @@ class AuditRecordBuilder(DatabaseAccessor):
             )
         return change_params
 
-    @translate_params.register('person', 'name_del')
-    @translate_params.register('person', 'name_add')
-    @translate_params.register('person', 'name_mod')
+    @translate_params.register('person_name', 'add')
+    @translate_params.register('person_name', 'remove')
+    @translate_params.register('person_name', 'modify')
     def person_name_add_mod_del(self, subject_entity, destination_entity,
                                 change_params):
         if 'src' in change_params:
@@ -393,7 +393,7 @@ class AuditRecordBuilder(DatabaseAccessor):
         return change_params
 
     @translate_params.register('entity_name', 'add')
-    @translate_params.register('entity_name', 'del')
+    @translate_params.register('entity_name', 'remove')
     def entity_name_add_del(self, subject_entity, destination_entity,
                             change_params):
         if 'domain' in change_params:
@@ -416,7 +416,7 @@ class AuditRecordBuilder(DatabaseAccessor):
             )
         return change_params
 
-    @translate_params.register('entity_name', 'mod')
+    @translate_params.register('entity_name', 'modify')
     def entity_name_mod(self, subject_entity, destination_entity,
                         change_params):
         if 'domain' in change_params:
@@ -428,7 +428,7 @@ class AuditRecordBuilder(DatabaseAccessor):
         return change_params
 
     @translate_params.register('entity_cinfo', 'add')
-    @translate_params.register('entity_cinfo', 'del')
+    @translate_params.register('entity_cinfo', 'remove')
     def entity_cinfo_add_del(self, subject_entity, destination_entity,
                              change_params):
         if 'type' in change_params:
@@ -445,9 +445,9 @@ class AuditRecordBuilder(DatabaseAccessor):
             )
         return change_params
 
-    @translate_params.register('entity', 'ext_id_del')
-    @translate_params.register('entity', 'ext_id_mod')
-    @translate_params.register('entity', 'ext_id_add')
+    @translate_params.register('entity_external_id', 'add')
+    @translate_params.register('entity_external_id', 'modify')
+    @translate_params.register('entity_external_id', 'remove')
     def entity_ext_id_del(self, subject_entity, destination_entity,
                           change_params):
         if 'id_type' in change_params:
@@ -466,8 +466,8 @@ class AuditRecordBuilder(DatabaseAccessor):
 
     # Quarantine changes
     @translate_params.register('quarantine', 'add')
-    @translate_params.register('quarantine', 'mod')
-    @translate_params.register('quarantine', 'del')
+    @translate_params.register('quarantine', 'modify')
+    @translate_params.register('quarantine', 'remove')
     def quarantine_add_mod(self, subject_entity, destination_entity,
                            change_params):
         if 'q_type' in change_params:
@@ -478,7 +478,7 @@ class AuditRecordBuilder(DatabaseAccessor):
              )
         return change_params
 
-    @translate_params.register('posix', 'promote')
+    @translate_params.register('posix_user', 'create')
     def posix_promote(self, subject_entity, destination_entity, change_params):
         if 'shell' in change_params:
             change_params.update(
@@ -488,8 +488,8 @@ class AuditRecordBuilder(DatabaseAccessor):
             )
         return change_params
 
-    @translate_params.register('email_domain', 'addcat_domain')
-    @translate_params.register('email_domain', 'remcat_domain')
+    @translate_params.register('email_domain_category', 'add')
+    @translate_params.register('email_domain_category', 'remove')
     def email_dom_cat_add_rem(self, subject_entity, destination_entity,
                               change_params):
         if 'category' in change_params:
@@ -500,8 +500,8 @@ class AuditRecordBuilder(DatabaseAccessor):
             )
         return change_params
 
-    @translate_params.register('email_target', 'add_target')
-    @translate_params.register('email_target', 'rem_target')
+    @translate_params.register('email_target', 'add')
+    @translate_params.register('email_target', 'remove')
     def email_target_add_rem(self, subject_entity, destination_entity,
                              change_params):
         if 'target_type' in change_params:
@@ -512,7 +512,7 @@ class AuditRecordBuilder(DatabaseAccessor):
             )
         return change_params
 
-    @translate_params.register('email_target', 'mod_target')
+    @translate_params.register('email_target', 'modify')
     def email_target_mod(self, subject_entity, destination_entity,
                          change_params):
         if 'target_type' in change_params:
@@ -529,8 +529,8 @@ class AuditRecordBuilder(DatabaseAccessor):
                 change_params['server_name'] = self.host.name
         return change_params
 
-    @translate_params.register('email_address', 'add_address')
-    @translate_params.register('email_address', 'rem_address')
+    @translate_params.register('email_address', 'add')
+    @translate_params.register('email_address', 'remove')
     def email_address_add(self, subject_entity, destination_entity,
                           change_params):
         if 'dom_id' in change_params:
@@ -543,9 +543,9 @@ class AuditRecordBuilder(DatabaseAccessor):
                 change_params['dom_name'] = self.ed.get_domain_name()
         return change_params
 
-    @translate_params.register('email_entity_dom', 'add_entdom')
-    @translate_params.register('email_entity_dom', 'rem_entdom')
-    @translate_params.register('email_entity_dom', 'mod_entdom')
+    @translate_params.register('email_entity_domain', 'add')
+    @translate_params.register('email_entity_domain', 'remove')
+    @translate_params.register('email_entity_domain', 'modify')
     def email_entity_dom_add_rem_mod(self, subject_entity, destination_entity,
                                      change_params):
         if 'aff' in change_params:
@@ -556,8 +556,8 @@ class AuditRecordBuilder(DatabaseAccessor):
             )
         return change_params
 
-    @translate_params.register('email_tfilter', 'add_filter')
-    @translate_params.register('email_tfilter', 'rem_filter')
+    @translate_params.register('email_tfilter', 'add')
+    @translate_params.register('email_tfilter', 'remove')
     def email_tfilter_add(self, subject_entity, destination_entity,
                           change_params):
         if 'filter' in change_params:
@@ -568,8 +568,8 @@ class AuditRecordBuilder(DatabaseAccessor):
             )
         return change_params
 
-    @translate_params.register('email_sfilter', 'add_sfilter')
-    @translate_params.register('email_sfilter', 'mod_sfilter')
+    @translate_params.register('email_sfilter', 'add')
+    @translate_params.register('email_sfilter', 'modify')
     def email_sfilter_add(self, subject_entity, destination_entity,
                           change_params):
         if 'level' in change_params:
@@ -584,9 +584,9 @@ class AuditRecordBuilder(DatabaseAccessor):
                     change_params['action']))})
         return change_params
 
-    @translate_params.register('email_primary_address', 'add_primary')
-    @translate_params.register('email_primary_address', 'rem_primary')
-    @translate_params.register('email_primary_address', 'mod_primary')
+    @translate_params.register('email_primary_address', 'add')
+    @translate_params.register('email_primary_address', 'remove')
+    @translate_params.register('email_primary_address', 'modify')
     @translate_params.register('exchange', 'acc_primaddr')
     def email_primary_address_add(self, subject_entity, destination_entity,
                                   change_params):
@@ -600,9 +600,9 @@ class AuditRecordBuilder(DatabaseAccessor):
                 change_params['addr'] = self.ea.get_address()
         return change_params
 
-    @translate_params.register('email_server', 'add_server')
-    @translate_params.register('email_server', 'rem_server')
-    @translate_params.register('email_server', 'mod_server')
+    @translate_params.register('email_server', 'add')
+    @translate_params.register('email_server', 'remove')
+    @translate_params.register('email_server', 'modify')
     def email_server_add(self, subject_entity, destination_entity,
                          change_params):
         if 'server_type' in change_params:
@@ -613,9 +613,9 @@ class AuditRecordBuilder(DatabaseAccessor):
             )
         return change_params
 
-    @translate_params.register('trait', 'add')
-    @translate_params.register('trait', 'mod')
-    @translate_params.register('trait', 'del')
+    @translate_params.register('entity_trait', 'add')
+    @translate_params.register('entity_trait', 'remove')
+    @translate_params.register('entity_trait', 'modify')
     def trait_mod(self, subject_entity, destination_entity,
                   change_params):
         if 'entity_type' in change_params:
@@ -630,9 +630,9 @@ class AuditRecordBuilder(DatabaseAccessor):
                     change_params['code']))})
         return change_params
 
-    @translate_params.register('ephorte', 'role_add')
-    @translate_params.register('ephorte', 'role_rem')
-    @translate_params.register('ephorte', 'role_upd')
+    @translate_params.register('ephorte_role', 'add')
+    @translate_params.register('ephorte_role', 'remove')
+    @translate_params.register('ephorte_role', 'modify')
     def ephorte_role_add(self, subject_entity, destination_entity,
                          change_params):
         if 'arkivdel' in change_params:
