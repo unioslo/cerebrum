@@ -240,11 +240,11 @@ class CLConstants(Constants.CLConstants):
         ('name=%(string:new_domain_name)',
          'desc=%(string:new_domain_desc'))
     email_dom_addcat = Constants._ChangeTypeCode(
-        'email_domain_cat', 'add', 'add category in email domain'
+        'email_domain_category', 'add', 'add category in email domain'
         ' %(subject)s',
         'cat=%(int:cat)')
     email_dom_remcat = Constants._ChangeTypeCode(
-        'email_domain_cat', 'remove', 'remove category in email domain'
+        'email_domain_category', 'remove', 'remove category in email domain'
         ' %(subject)s',
         'cat=%(int:cat)')
 
