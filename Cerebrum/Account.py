@@ -54,33 +54,32 @@ from Cerebrum.modules.password_generator.generator import PasswordGenerator
 import cereconf
 
 
+def _account_existence_query(database, table, binds):
+    """Perform existence queries for Account
+
+    :type database: database object
+
+    :type table: basestring
+    :param table: name of table for query
+
+    :type binds: dict
+    :param binds: Pre-formattet dict where the keys *must* match the database
+    """
+    # This will fail for a badly formatted dict of binds
+    where = 'AND '.join('{0}=:{0}'.format(x) for x in binds)
+    exists_stmt = """
+    SELECT EXISTS (
+    SELECT 1
+    FROM [:table schema=cerebrum name={table}]
+    WHERE {where}
+    )
+    """.format(table=table, where=where)
+    return db.query_1(exists_stmt, binds)
+
+
 class AccountType(object):
     """The AccountType class does not use populate logic as the only
     data stored represent a PK in the database"""
-
-    def exists(self, binds=None):
-        """
-        Check if matching account type exists
-
-        :type binds: dict
-        """
-        if not binds:
-            raise ValueError("missing args")
-        where = ' AND '.join(('{0} = :{0}'.format(x) for x in binds))
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name=account_type]
-            WHERE {}
-          )
-        """.format(where)
-        try:
-            self.query_1(exists_stmt, binds)
-            return True
-        except Errors.NotFoundError:
-            return False
-        except Errors.TooManyRowsError:
-            return True
 
     def get_account_types(self, all_persons_types=False, owner_id=None,
                           filter_expired=True):
@@ -202,22 +201,22 @@ class AccountType(object):
                                                  'old_pri': int(orig_pri)})
 
     def del_account_type(self, ou_id, affiliation):
-        cols = {'person_id': self.owner_id,
+        binds = {'person_id': self.owner_id,
                 'ou_id': ou_id,
                 'affiliation': int(affiliation),
                 'account_id': self.entity_id}
-        if not self.exists(cols):
+        if not _account_existence_query(self.db, 'account_type', binds):
             # False positive
             return
-        where = ' AND '.join('{0} = :{0}'.format(x) for x in cols)
+        where = ' AND '.join('{0}=:{0}'.format(x) for x in binds)
         priority = self.query_1(
             """SELECT priority FROM [:table schema=cerebrum name=account_type]
-            WHERE {}""".format(where), cols)
+            WHERE {}""".format(where), binds)
         delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=account_type]
         WHERE {}
         """.format(where)
-        self.execute(delete_stmt, cols)
+        self.execute(delete_stmt, binds)
         self._db.log_change(self.entity_id, self.clconst.account_type_del,
                             None,
                             change_params={'ou_id': int(ou_id),
@@ -227,7 +226,7 @@ class AccountType(object):
     def delete_ac_types(self):
         """Delete all the AccountTypes for the account."""
         binds = {'account_id': self.entity_id}
-        if not self.exists(binds):
+        if not _account_existence_query(self.db, 'account_type', binds):
             # False positive
             return
         delete_stmt = """
@@ -352,31 +351,6 @@ class AccountHome(object):
     convenience, we also log this path when the entry is deleted.
     """
 
-    def exists(self, table=None, binds=None):
-        """
-        Check if entry exists
-
-        :type table: string
-        :type binds: dict
-        """
-        if not table or not binds:
-            raise ValueError("missing args")
-        where = ' AND '.join(('{0}=:{0}'.format(x) for x in binds))
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name={table}]
-            WHERE {}
-          )
-        """.format(where)
-        try:
-            self.query_1(exists_stmt, binds)
-            return True
-        except Errors.NotFoundError:
-            return False
-        except Errors.TooManyRowsError:
-            return True
-
     def resolve_homedir(self, account_name=None, disk_id=None,
                         disk_path=None, home=None, spread=None):
         """Constructs and returns the users homedir-path.  Subclasses
@@ -422,7 +396,7 @@ class AccountHome(object):
                                         spread=spread)
         binds = {'account_id': self.entity_id,
                  'spread': int(spread)}
-        if not self.exists(table='account_home', binds=binds):
+        if not _account_existence_query(self.db, 'account_home', binds):
             # False positive
             return
         delete_stmt = """
@@ -491,7 +465,7 @@ class AccountHome(object):
                 if value is NotSet:
                     del binds[key]
             binds['homedir_id'] = current_id
-            if self.exists(table='homedir', binds=binds):
+            if _account_existence_query(self.db, 'homedir', binds):
                 # False positive; entry exists as is
                 return current_id
             sql = """
@@ -522,7 +496,7 @@ class AccountHome(object):
         tmp = self.resolve_homedir(disk_id=tmp['disk_id'],
                                    home=tmp['home'])
         binds = {'homedir_id': homedir_id}
-        if not self.exists(table='homedir', binds=binds):
+        if not _account_existence_query(self.db, 'homedir', binds):
             # False positive; no homedir to clear
             return
         delete_stmt = """
@@ -560,7 +534,7 @@ class AccountHome(object):
                                    spread=spread)
         try:
             old = self.get_home(spread)
-            if self.exists(table='account_home', binds=binds):
+            if _account_existence_query(self.db, 'account_home', binds):
                 # False positive
                 return
             update_stmt = """
@@ -1043,33 +1017,20 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     ('creator_id', ':c_id'),
                     ('description', ':desc'),
                     ('expire_date', ':exp_date')]
-            binds = {'o_type': int(self.owner_type),
-                     'c_id': self.creator_id,
-                     'o_id': self.owner_id,
+            binds = {'owner_type': int(self.owner_type),
+                     'owner_id': self.owner_id,
                      'np_type': np_type,
-                     'exp_date': self.expire_date,
-                     'desc': self.description,
-                     'acc_id': self.entity_id}
-            exists_stmt = """
-            SELECT EXISTS (
-              SELECT 1
-              FROM [:table schema=cerebrum name=account_info]
-              WHERE account_id=:acc_id AND %(defs)s""" % {'defs': " AND ".join(
-                  ["%s=%s" % x for x in cols])}
-            exists_p = True
-            try:
-                self.query_1(exists_stmt, binds)
-            except Errors.NotFoundError:
-                # False positive
-                exists_p = False
-            except Errors.TooManyRowsError:
-                pass
-            if not exists_p:
+                     'creator_id': self.creator_id,
+                     'description': self.description,
+                     'expire_date': self.expire_date,
+                     'account_id': self.entity_id}
+            if not _account_existence_query(self.db, 'account_info', binds):
+                set_str = ', '.join(
+                    '{0}=:{0}'.format(x) for x in binds if x != 'account_id')
                 update_stmt = """
                 UPDATE [:table schema=cerebrum name=account_info]
-                SET %(defs)s
-                WHERE account_id=:acc_id""" % {'defs': ", ".join(
-                    ["%s=%s" % x for x in cols])}
+                SET %s
+                WHERE account_id=:account_id""" % set_str
                 self.execute(update_stmt, binds)
                 self._db.log_change(self.entity_id, self.clconst.account_mod,
                                     None, change_params=newvalues)
