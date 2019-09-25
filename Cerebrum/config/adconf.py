@@ -272,7 +272,7 @@ SYNCS = dict()
 #        ('account', 'create'),   # new accounts
 #        ('person_name', 'modify'),    # a person's name is changed
 #        ('ad_attr', 'add'),        # an AD-attribute is set
-#        ('ad_attr', 'del')),       # an AD-attribute is removed
+#        ('ad_attr', 'remove')),       # an AD-attribute is removed
 #        )
 #
 # - changes_too_old_seconds (int):
