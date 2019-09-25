@@ -34,6 +34,29 @@ from Cerebrum.Utils import NotSet
 from Cerebrum.Utils import to_unicode
 
 
+def _entity_existence_query(db, table, binds):
+    """Perform existence queries for Entity
+
+    :type database: database object
+
+    :type table: basestring
+    :param table: name of table for query
+
+    :type binds: dict
+    :param binds: Pre-formattet dict where the keys *must* match the database
+    """
+    # This will fail for a badly formatted dict of binds
+    where = ' AND '.join('{0}=:{0}'.format(x) for x in binds)
+    exists_stmt = """
+    SELECT EXISTS (
+    SELECT 1
+    FROM [:table schema=cerebrum name={table}]
+    WHERE {where}
+    )
+    """.format(table=table, where=where)
+    return db.query_1(exists_stmt, binds)
+
+
 @six.python_2_unicode_compatible
 class Entity(DatabaseAccessor):
     """Class for generic access to Cerebrum entities.
@@ -285,7 +308,7 @@ class EntitySpread(Entity):
         binds = {'entity_id': self.entity_id,
                  'entity_type': int(self.entity_type),
                  'spread': int(spread)}
-        if self.exists(table='entity_spread', binds=binds):
+        if _entity_existence_query(self.db, 'entity_spread', binds):
             # False positive
             return
         insert_stmt = """
@@ -300,7 +323,7 @@ class EntitySpread(Entity):
         """Remove ``spread`` from this entity."""
         binds = {'entity_id': self.entity_id,
                  'spread': int(spread)}
-        if not self.exists(table='entity_spread', binds=binds):
+        if not _entity_existence_query(self.db, 'entity_spread', binds):
             # False positive
             return
         delete_stmt = """
@@ -375,26 +398,6 @@ class EntitySpread(Entity):
                 return 1
         return 0
 
-    def exists(self, table=None, binds=None):
-        """Check for existance"""
-        if not table or not binds:
-            raise ValueError('missing args')
-        exists_stmt = """
-        SELECT EXISTS (
-          SELECT 1
-          FROM [:table schema=cerebrum name={table}]
-          WHERE {where}
-        )
-        """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds),
-                   table=table)
-        try:
-            self.query_1(exists_stmt, binds)
-            return True
-        except Errors.NotFoundError:
-            return False
-        except Errors.TooManyRowsError:
-            return True
-
 class EntityName(Entity):
     "Mixin class, usable alongside Entity for entities having names."
 
@@ -432,7 +435,7 @@ class EntityName(Entity):
     def delete_entity_name(self, domain):
         binds = {'entity_id': self.entity_id,
                  'value_domain': int(domain)}
-        if not self.exists(table='entity_name', binds=binds):
+        if not _entity_existence_query(self.db, 'entity_name', binds):
             # False positive
             return
         delete_stmt = """
@@ -455,7 +458,7 @@ class EntityName(Entity):
         binds = {'entity_id': self.entity_id,
                  'domain': int(domain),
                  'name': name}
-        if self.exists(table='entity_name', binds=binds):
+        if _entity_existence_query(self.db, 'entity_name', binds):
             # False positive
             return
         update_stmt = """
@@ -1284,7 +1287,7 @@ class EntityQuarantine(Entity):
         binds = {'entity_id': self.entity_id,
                  'quarantine_type': int(qtype),
                  'disable_until': until}
-        if self.exists(table='entity_quarantine', binds=binds):
+        if _entity_existence_query(self.db, 'entity_quarantine', binds):
             # false positive
             return
         update_stmt = """
@@ -1306,7 +1309,7 @@ class EntityQuarantine(Entity):
         """
         binds = {'entity_id': self.entity_id,
                  'quarantine_type': int(qtype)}
-        if not self.exists(table='entity_quarantine', binds=binds):
+        if not _entity_existence_query(self.db, 'entity_quarantine', binds):
             # False positive
             return False
         self.execute("""
@@ -1430,7 +1433,7 @@ class EntityExternalId(Entity):
         binds = {'entity_id': self.entity_id,
                  'id_type': int(id_type),
                  'source_system': int(source_system)}
-        if not self.exists(table='entity_external_id', binds=binds):
+        if not _entity_existence_query(self.db, 'entity_external_id', binds):
             # False positive
             return
         delete_stmt = """
@@ -1454,7 +1457,8 @@ class EntityExternalId(Entity):
                  'source_system': int(source_system),
                  'external_id': external_id}
         if update:
-            if self.exists(table='entity_external_id', binds=binds):
+            if not _entity_existence_query(
+                    self.db, 'entity_external_id', binds):
                 # False positive
                 return
             sql = """UPDATE [:table schema=cerebrum name=entity_external_id]
