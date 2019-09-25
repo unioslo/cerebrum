@@ -16,12 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""
-"""
+
+
 from __future__ import unicode_literals
 
 import six
 
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory, prepare_string, argument_to_sql
 from Cerebrum.Entity import EntityName, EntitySpread
 
@@ -78,6 +79,7 @@ class Disk(EntitySpread, Entity_class):
             return False
         except Errors.TooManyRowsError:
             return True
+        return False
 
     def write_db(self):
         """Sync instance with Cerebrum database.
@@ -97,7 +99,7 @@ class Disk(EntitySpread, Entity_class):
                  'description': self.description}
 
         if is_new:
-            binds['e_type'] = int(self.const.entity_disk),
+            binds['e_type'] = int(self.const.entity_disk)
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=disk_info]
               (entity_type, host_id, disk_id, path, description)
@@ -250,8 +252,11 @@ class Disk(EntitySpread, Entity_class):
         SELECT DISTINCT di.disk_id AS disk_id, di.path AS path,
                 di.description AS description
         FROM %s %s""" % (','.join(tables), where_str),
-            {'spread': spread, 'entity_type': int(self.const.entity_disk),
-             'host_id': host_id, 'path': path, 'description': description})
+                          {'spread': spread,
+                           'entity_type': int(self.const.entity_disk),
+                           'host_id': host_id,
+                           'path': path,
+                           'description': description})
 
     def __str__(self):
         if hasattr(self, 'entity_id'):
@@ -329,6 +334,7 @@ class Host(EntityName, EntitySpread, Entity_class):
             return False
         except Errors.TooManyRowsError:
             return True
+        return False
 
     def write_db(self):
         """Sync instance with Cerebrum database.
