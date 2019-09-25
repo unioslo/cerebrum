@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+o# -*- coding: utf-8 -*-
 # Copyright 2002-2016 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -28,8 +28,8 @@ that fashion.  Hence, this module **requires** the caller to supply a
 name when constructing a Group object."""
 
 
-import six
 import mx
+import six
 
 import cereconf
 from Cerebrum import Utils
@@ -40,6 +40,28 @@ from Cerebrum.Utils import argument_to_sql, prepare_string
 
 
 Entity_class = Utils.Factory.get("Entity")
+
+def _group_existence_query(database, table, binds):
+    """Perform existence queries for Group
+
+    :type database: database object
+
+    :type table: basestring
+    :param table: name of table for query
+
+    :type binds: dict
+    :param binds: Pre-formattet dict where the keys *must* match the database
+    """
+    # This will fail for a badly formatted dict of binds
+    where = 'AND '.join('{0}=:{0}'.format(x) for x in binds)
+    exists_stmt = """
+    SELECT EXISTS (
+    SELECT 1
+    FROM [:table schema=cerebrum name={table}]
+    WHERE {where}
+    )
+    """.format(table=table, where=where)
+    return db.query_1(exists_stmt, binds)
 
 
 @six.python_2_unicode_compatible
@@ -54,26 +76,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         super(Group, self).clear()
         self.clear_class(Group)
         self.__updated = []
-
-    def exists(self, table=None, binds=None):
-        if not (table and binds):
-            raise ValueError("missing args")
-        where = 'AND '.join(
-            '{0}=:{0}'.format(x) for x in binds if x != 'group_id')
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name={table}]
-            WHERE {where}
-          )
-        """.format(table=table, where=where)
-        try:
-            self.query_1(exists_stmt, binds)
-            return True
-        except Errors.NotFoundError:
-            return False
-        except Errors.TooManyRowsError:
-            return True
 
     def populate(self, creator_id=None, visibility=None, name=None,
                  description=None, expire_date=None, parent=None):
@@ -153,37 +155,25 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             tmp = self.illegal_name(self.group_name)
             if tmp:
                 raise self._db.IntegrityError("Illegal groupname: %s" % tmp)
+        binds = {'description': self.description,
+                 'group_id': self.entity_id,
+                 'visibility': int(self.visibility),
+                 'creator_id': self.creator_id,
+                 'expire_date': self.expire_date}
 
         if is_new:
-            cols = [('entity_type', ':e_type'),
-                    ('group_id', ':g_id'),
-                    ('description', ':desc'),
-                    ('visibility', ':visib'),
-                    ('creator_id', ':creator_id')]
-            # Columns that have default values through DDL.
-            if self.expire_date is not None:
-                cols.append(('expire_date', ':exp_date'))
+            binds['entity_type'] = int(self.const.entity_group),
+            descriptors = {'tcols': ", ".join([x for x in binds]),
+                           'binds': ", ".join([':' + x for x in binds])}
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=group_info] (%(tcols)s)
-            VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
-                                     'binds': ", ".join([x[1] for x in cols])},
-                         {'e_type': int(self.const.entity_group),
-                          'g_id': self.entity_id,
-                          'desc': self.description,
-                          'visib': int(self.visibility),
-                          'creator_id': self.creator_id,
-                          'exp_date': self.expire_date})
+            VALUES (%(binds)s)""" % descriptors, binds)
             self._db.log_change(self.entity_id,
                                 self.clconst.group_create,
                                 None)
             self.add_entity_name(self.const.group_namespace, self.group_name)
         else:
-            binds = {'desc': self.description,
-                     'group_id': self.entity_id,
-                     'visib': int(self.visibility),
-                     'creator_id': self.creator_id,
-                     'exp_date': self.expire_date}
-            if not self.exists(table='group_info', binds=binds):
+            if not _group_existence_query(self.db, 'group_info', binds):
                 # True positive
                 set_str = ', '.join(
                     '{0}=:{0}'.format(x) for x in binds if x != 'group_id')
@@ -404,7 +394,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
 
         binds = {'group_id': group_id,
                  'member_id': member_id}
-        if not self.exists(table='group_member', binds=binds):
+        if not _group_existence_query(self.db, 'group_member', binds):
             # False positive
             return
         delete_stmt = """
