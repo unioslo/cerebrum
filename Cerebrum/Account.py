@@ -357,7 +357,6 @@ class AccountHome(object):
         Check if entry exists
 
         :type table: string
-        :type where: dict, list or string
         :type binds: dict
         """
         if not table or not binds:
