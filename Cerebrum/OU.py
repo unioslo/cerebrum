@@ -92,7 +92,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         logger = Utils.Factory.get_logger()
         logger.warn("Deprecated usage of OU:"
                     " OU.%s cannot be accessed directly."
-                    " Use get/add/delete_name_with_language" % (name,))
+                    " Use get/add/delete_name_with_language", name)
         # For the "unspecified" case we assume Norwegian bokmål.
         return self.get_name_with_language(name_map[name],
                                            self.const.language_nb,
@@ -170,6 +170,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
             return False
         except Errors.TooManyRowsError:
             return True
+        return False
 
     def find(self, ou_id):
         """Associate the object with the OU whose identifier is OU_ID.
