@@ -305,7 +305,7 @@ class EntitySpread(Entity):
             return
         delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=entity_spread]
-        WHERE entity_id=:e_id AND spread=:spread"""
+        WHERE entity_id=:entity_id AND spread=:spread"""
         self.execute(delete_stmt, binds)
         self._db.log_change(self.entity_id, self.clconst.spread_del,
                                 None, change_params={'spread': int(spread)})
@@ -461,7 +461,7 @@ class EntityName(Entity):
         update_stmt = """
         UPDATE [:table schema=cerebrum name=entity_name]
         SET entity_name=:name
-        WHERE entity_id=:e_id AND value_domain=:domain"""
+        WHERE entity_id=:entity_id AND value_domain=:domain"""
         self.execute(update_stmt, binds)
         self._db.log_change(self.entity_id,
                             self.clconst.entity_name_mod,
