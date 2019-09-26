@@ -62,9 +62,10 @@ class AAAARecord(Entity):
                                 if x != 'aaaa_record_id'),
                 'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}
         if is_new:
-            self.execute("""
+            insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=dns_aaaa_record] (%(tc)s)
-            VALUES (%(tb)s)""" % defs, binds)
+            VALUES (%(tb)s)""" % defs
+            self.execute(insert_stmt, binds)
             self._db.log_change(self.dns_owner_id,
                                 self.clconst.aaaa_record_add,
                                 self.ipv6_number_id)
@@ -78,11 +79,11 @@ class AAAARecord(Entity):
             """ % defs
             if not self.query_1(exists_stmt, binds):
                 # True positive
-                execute_stmt = """
-                  UPDATE [:table schema=cerebrum name=dns_aaaa_record]
-                  SET %(ts)s
-                  WHERE aaaa_record_id=:aaaa_record_id""" % defs
-                self.execute(execute_stmt, binds)
+                update_stmt = """
+                UPDATE [:table schema=cerebrum name=dns_aaaa_record]
+                SET %(ts)s
+                WHERE aaaa_record_id=:aaaa_record_id""" % defs
+                self.execute(update_stmt, binds)
                 self._db.log_change(self.dns_owner_id,
                                     self.clconst.aaaa_record_update,
                                     self.ipv6_number_id)
