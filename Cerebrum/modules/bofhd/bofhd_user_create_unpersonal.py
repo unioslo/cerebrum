@@ -179,10 +179,10 @@ class BofhdExtension(BofhdCommandBase):
                 Email.get_primary_default_email_domain())
             self._email_create_forward_target(localaddr, contact_address)
 
-        if cereconf.BOFHD_CREATE_UNPERSONAL_quarantine:
+        if cereconf.BOFHD_CREATE_UNPERSONAL_QUARANTINE:
             qconst = self._get_constant(
                 self.const.Quarantine,
-                cereconf.BOFHD_CREATE_UNPERSONAL_quarantine,
+                cereconf.BOFHD_CREATE_UNPERSONAL_QUARANTINE,
                 "quarantine")
             account.add_entity_quarantine(qconst, operator.get_entity_id(),
                                           "Not granted for global password "
