@@ -60,27 +60,6 @@ class Disk(EntitySpread, Entity_class):
         self.path = path
         self.description = description
 
-    def exists(self, table=None, binds=None):
-        """Check for existance"""
-        if not table or not binds:
-            raise ValueError('missing args')
-        exists_stmt = """
-        SELECT EXISTS (
-          SELECT 1
-          FROM [:table schema=cerebrum name={table}]
-          WHERE {where}
-        )
-        """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds),
-                   table=table)
-        try:
-            self.query_1(exists_stmt, binds)
-            return True
-        except Errors.NotFoundError:
-            return False
-        except Errors.TooManyRowsError:
-            return True
-        return False
-
     def write_db(self):
         """Sync instance with Cerebrum database.
 
@@ -109,7 +88,15 @@ class Disk(EntitySpread, Entity_class):
                                 change_params={'host_id': self.host_id,
                                                'path': self.path})
         else:
-            if not self.exists(table='disk_info', binds=binds):
+            exists_stmt = """
+            SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=disk_info]
+            WHERE {where}
+            )
+            """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds),
+                       table=table)
+            if not self.query_1(exists_stmt, binds):
                 # True positive
                 update_stmt = """
                 UPDATE [:table schema=cerebrum name=disk_info]
@@ -315,27 +302,6 @@ class Host(EntityName, EntitySpread, Entity_class):
         """Return a string with error message if host name is illegal"""
         return False
 
-    def exists(self, table=None, binds=None):
-        """Check for existance"""
-        if not table or not binds:
-            raise ValueError('missing args')
-        exists_stmt = """
-        SELECT EXISTS (
-          SELECT 1
-          FROM [:table schema=cerebrum name={table}]
-          WHERE {where}
-        )
-        """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds),
-                   table=table)
-        try:
-            self.query_1(exists_stmt, binds)
-            return True
-        except Errors.NotFoundError:
-            return False
-        except Errors.TooManyRowsError:
-            return True
-        return False
-
     def write_db(self):
         """Sync instance with Cerebrum database.
 
@@ -368,7 +334,15 @@ class Host(EntityName, EntitySpread, Entity_class):
                                 change_params={'name': self.name})
             self.add_entity_name(self.const.host_namespace, self.name)
         else:
-            if not self.exists(table='host_info', binds=binds):
+            exists_stmt = """
+            SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=host_info]
+            WHERE {where}
+            )
+            """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds),
+                       table=table)
+            if not self.query_1(exists_stmt, binds):
                 # True positive
                 update_stmt = """
                 UPDATE [:table schema=cerebrum name=host_info]

@@ -151,27 +151,6 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
             self._db.log_change(self.entity_id, self.clconst.ou_del, None)
         self.__super.delete()
 
-    def exists(self, table=None, binds=None):
-        """Check for existance"""
-        if not table or not binds:
-            raise ValueError('missing args')
-        exists_stmt = """
-        SELECT EXISTS (
-          SELECT 1
-          FROM [:table schema=cerebrum name={table}]
-          WHERE {where}
-        )
-        """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds),
-                   table=table)
-        try:
-            self.query_1(exists_stmt, binds)
-            return True
-        except Errors.NotFoundError:
-            return False
-        except Errors.TooManyRowsError:
-            return True
-        return False
-
     def find(self, ou_id):
         """Associate the object with the OU whose identifier is OU_ID.
 
@@ -233,8 +212,16 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
     def unset_parent(self, perspective):
         binds = {'ou_id': self.entity_id,
                  'perspective': int(perspective)}
-        if not self.exists(table='ou_structure', binds=binds):
-            # false positive
+        exists_stmt = """
+        SELECT EXISTS (
+          SELECT 1
+          FROM [:table schema=cerebrum name=ou_structure]
+          WHERE {where}
+        )
+        """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds),
+                   table=table)
+        if not self.query_1(exists_stmt, binds):
+            # False positive
             return
         delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=ou_structure]
