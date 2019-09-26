@@ -268,7 +268,6 @@ class IPv6Subnet(Entity):
             # Only need to check for overlaps when subnet is being
             # added, since a subnet's ip-range is never changed.
             self.check_for_overlaps()
-
             if perform_checks:
                 self.check_reserved_addresses_in_use()
             binds = {'no_of_reserved_adr': self.no_of_reserved_adr,
