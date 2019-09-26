@@ -21,6 +21,7 @@
 
 # $Id: Subnet.py 14318 2011-05-31 12:37:00Z matmeis $
 
+
 import math
 
 import cereconf
@@ -53,6 +54,7 @@ class IPv6Subnet(Entity):
         # Set of reserved adresses, represented as longs (i.e. not x.x.x.x)
         self.reserved_adr = set()
 
+    @staticmethod
     def is_valid_subnet(subnet):
         """True/False-check that a subnet specification is correctly
         formatted and with legal values.
@@ -63,8 +65,8 @@ class IPv6Subnet(Entity):
             return True
         except SubnetError:
             return False
-    is_valid_subnet = staticmethod(is_valid_subnet)
 
+    @staticmethod
     def validate_subnet(subnet):
         """Validates that a subnet specification is correctly
         formatted and with legal values.
@@ -87,8 +89,8 @@ class IPv6Subnet(Entity):
             raise SubnetError("Invalid subnet mask '%s'; "
                               "outside range 0-128" % mask)
         return True
-    validate_subnet = staticmethod(validate_subnet)
 
+    @staticmethod
     def calculate_subnet_mask(ip_min, ip_max):
         """Calculates the subnetmask of a subnet based on the highest
         and lowest IP available to on that subnet.
@@ -99,7 +101,6 @@ class IPv6Subnet(Entity):
         """
         net_size = ip_max - ip_min + 1
         return int(128 - math.log(net_size, 2))
-    calculate_subnet_mask = staticmethod(calculate_subnet_mask)
 
     def clear(self):
         """Clear all data residing in this Subnet-instance."""
@@ -156,12 +157,16 @@ class IPv6Subnet(Entity):
                WHERE NOT (:max < ip_min OR :min > ip_max)""", binds)
 
         if overlap_entries:
-            overlaps = ["%s/%s" % (o['subnet_ip'],
-                        IPv6Subnet.calculate_subnet_mask(o['ip_min'], o['ip_max']))
+            overlaps = ["%s/%s" % (
+                o['subnet_ip'],
+                IPv6Subnet.calculate_subnet_mask(o['ip_min'],
+                                                 o['ip_max']))
                         for o in overlap_entries]
             raise SubnetError(
-                "Subnet '%s/%s' overlaps with the following subnet(s): '%s'" % (
-                    self.subnet_ip, self.subnet_mask, "', '".join(overlaps)))
+                "Subnet '%s/%s' overlaps with the following "
+                "subnet(s): '%s'" % (self.subnet_ip,
+                                     self.subnet_mask,
+                                     "', '".join(overlaps)))
 
     def calculate_reserved_addresses(self):
         """Populates the list over reserved addresses.
@@ -177,14 +182,16 @@ class IPv6Subnet(Entity):
         # after it.
         if (self.ip_min + self.no_of_reserved_adr) > self.ip_max:
             raise SubnetError(
-                "Trying to reserve %i addresses in a subnet " % self.no_of_reserved_adr +
-                "that has %i addresses available. " % (self.ip_max - self.ip_min) +
+                "Trying to reserve %i addresses in "
+                "a subnet " % self.no_of_reserved_adr +
+                "that has %i addresses "
+                "available. " % (self.ip_max - self.ip_min) +
                 "You can't do that! Because it's *wrong*")
 
         # Designate the first X adresses in subnet as reserved,
         # where X equals the, number specifically set as reserved addresses.
-        self.reserved_adr = set([x + self.ip_min for
-                                 x in range(self.no_of_reserved_adr)])
+        self.reserved_adr = set(x + self.ip_min for
+                                x in range(self.no_of_reserved_adr))
 
     def has_adresses_in_use(self):
         """Check whether or not there are any IPs in use on this subnet.
@@ -195,13 +202,10 @@ class IPv6Subnet(Entity):
         # Need to import Utils here, since Utils imports this module,
         # and we cannot have circular module dependencies.
         from Cerebrum.modules.dns.Utils import Find
-        default_zone = self.const.DnsZone(getattr(cereconf, 'DNS_DEFAULT_ZONE', 'uio'))
+        default_zone = self.const.DnsZone(
+            getattr(cereconf, 'DNS_DEFAULT_ZONE', 'uio'))
         find = Find(self._db, default_zone)
-
-        if find.find_used_ips(self.subnet_ip):
-            return True
-        else:
-            return False
+        return bool(find.find_used_ips(self.subnet_ip))
 
     def check_reserved_addresses_in_use(self):
         """Raise a SubnetError if this subnet has addresses in use, that are
@@ -221,7 +225,8 @@ class IPv6Subnet(Entity):
             res_adr_in_use.sort()
             raise SubnetError(
                 "The following reserved ip's are already in " +
-                "use on (new?) subnet %s/%s: " % (self.subnet_ip, self.subnet_mask) +
+                "use on (new?) subnet %s/%s: " % (self.subnet_ip,
+                                                  self.subnet_mask) +
                 "'%s'." % (', '.join(res_adr_in_use)))
 
     def write_db(self, perform_checks=True):
@@ -238,7 +243,7 @@ class IPv6Subnet(Entity):
         """
         self.__super.write_db()
         if not self.__updated:
-            return
+            return None
 
         is_new = not self.__in_db
 
@@ -266,71 +271,72 @@ class IPv6Subnet(Entity):
 
             if perform_checks:
                 self.check_reserved_addresses_in_use()
-
-            cols = [('entity_type', ':e_type'),
-                    ('entity_id', ':ent_id'),
-                    ('subnet_ip', ':subnet_ip'),
-                    ('ip_min', ':ip_min'),
-                    ('ip_max', ':ip_max'),
-                    ('no_of_reserved_adr', ':res_adr'),
-                    ('description', ':desc')]
+            binds = {'no_of_reserved_adr': self.no_of_reserved_adr,
+                     'description': self.description,
+                     'entity_type': int(self.const.entity_dns_ipv6_subnet),
+                     'entity_id': self.entity_id,
+                     'subnet_ip': self.subnet_ip,
+                     'ip_min': self.ip_min,
+                     'ip_max': self.ip_max}
             if self.vlan is not None:
-                cols.append(('vlan_number', ':vlan'))
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=dns_ipv6_subnet] (%(tcols)s)
-            VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
-                                     'binds': ", ".join([x[1] for x in cols])},
-                                    {'e_type': int(self.const.entity_dns_ipv6_subnet),
-                                     'ent_id': self.entity_id,
-                                     'subnet_ip': self.subnet_ip,
-                                     'ip_min': self.ip_min,
-                                     'ip_max': self.ip_max,
-                                     'desc': self.description,
-                                     'res_adr': self.no_of_reserved_adr,
-                                     'vlan': self.vlan})
-            self._db.log_change(self.entity_id, self.clconst.subnet6_create, None)
-
+                binds['vlan_number'] = self.vlan
+            defs = {'tc': ', '.join(x for x in binds),
+                    'tb': ', '.join(':{0}'.format(x) for x in binds)}
+            insert_stmt = """
+            INSERT INTO [:table schema=cerebrum name=dns_ipv6_subnet] (%(tc)s)
+            VALUES (%(tb)s)""" % defs
+            self.execute(insert_stmt, binds)
+            self._db.log_change(self.entity_id,
+                                self.clconst.subnet6_create,
+                                None)
         else:
             if perform_checks:
                 self.check_reserved_addresses_in_use()
-
-            cols = [('description', ':desc'),
-                    ('no_of_reserved_adr', ':res_adr'),
-                    ('vlan_number', ':vlan'),
-                    ('dns_delegated', ':dns_delegated'),
-                    ('name_prefix', ':name_pre')]
-            binds = {'e_id': self.entity_id,
-                     'desc': self.description,
-                     'vlan': self.vlan_number,
+            binds = {'entity_id': self.entity_id,
+                     'description': self.description,
+                     'vlan_number': self.vlan_number,
                      'dns_delegated': self.dns_delegated,
                      'name_pre': self.name_prefix,
-                     'res_adr': self.no_of_reserved_adr
+                     'no_of_reserved_adr': self.no_of_reserved_adr
                      }
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=dns_ipv6_subnet]
-            SET %(defs)s
-            WHERE entity_id=:e_id""" % {'defs': ", ".join(
-                ["%s=%s" % x for x in cols if x[0] != 'entity_id'])}, binds)
-            self._db.log_change(self.entity_id, self.clconst.subnet6_mod, None,
-                                change_params=binds)
-
+            defs = {'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
+                                    if x != 'entity_id'),
+                    'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}
+            exists_stmt = """
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=dns_ipv6_subnet]
+                WHERE %(tw)s
+              )
+            """ % defs
+            if not self.query_1(exists_stmt, binds):
+                # True positive
+                update_stmt = """
+                UPDATE [:table schema=cerebrum name=dns_ipv6_subnet]
+                SET %(ts)s
+                WHERE entity_id=:entity_id""" % defs
+                self.execute(update_stmt, binds)
+                self._db.log_change(self.entity_id,
+                                    self.clconst.subnet6_mod,
+                                    None,
+                                    change_params=binds)
         del self.__in_db
         self.__in_db = True
         self.__updated = []
         return is_new
 
     def delete(self, perform_checks=True):
-        if perform_checks:
-            if self.has_adresses_in_use():
-                raise SubnetError(
-                    "Subnet '%s/%s' cannot be deleted; it has addresses in use" % (
-                        self.subnet_ip, self.subnet_mask))
-
-        self._db.log_change(self.entity_id, self.clconst.subnet6_delete, None)
+        if perform_checks and self.has_adresses_in_use():
+            raise SubnetError(
+                "Subnet '%s/%s' cannot be deleted; it has addresses in use" % (
+                    self.subnet_ip, self.subnet_mask))
         if self.__in_db:
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=dns_ipv6_subnet]
             WHERE entity_id=:e_id""", {'e_id': self.entity_id})
+            self._db.log_change(self.entity_id,
+                                self.clconst.subnet6_delete,
+                                None)
         self.__super.delete()
 
     def new(self):
@@ -344,9 +350,9 @@ class IPv6Subnet(Entity):
 
         @type identifier: mixed
         @param identifier:
-            The identifier of the Subnet. Note that the DNS module behaves a bit
-            differently than other Cerebrum modules, in that this find method
-            accepts other input than entity_id. Possibilities are:
+            The identifier of the Subnet. Note that the DNS module behaves a
+            bit differently than other Cerebrum modules, in that this find
+            method accepts other input than entity_id. Possibilities are:
 
                 - A string containing the entity_id, prefixed with 'entity_id:'
                   or 'id:'.
@@ -357,15 +363,15 @@ class IPv6Subnet(Entity):
 
         """
         binds = {}
-
         if identifier is None:
-            raise SubnetError("Unable to find IPv6 subnet identified by '%s'" % identifier)
-
+            raise SubnetError("Unable to find IPv6 subnet identified"
+                              " by '%s'" % identifier)
         if isinstance(identifier, (int, long)):
             # The proper way of running find()
             where_param = "entity_id = :e_id"
             binds['e_id'] = identifier
-        elif identifier.startswith('id:') or identifier.startswith('entity_id:'):
+        elif identifier.startswith('id:') or identifier.startswith(
+                'entity_id:'):
             # E.g. 'id:X' or 'entity_id:X';
             where_param = "entity_id = :e_id"
             try:
@@ -381,7 +387,6 @@ class IPv6Subnet(Entity):
             # Last valid type is simply an IP; need to find correct range
             where_param = "ip_min <= :ip AND ip_max >= :ip"
             binds['ip'] = IPv6Calc.ip_to_long(identifier)
-
         try:
             (eid, self.subnet_ip, self.ip_min, self.ip_max,
              self.description, self.dns_delegated, self.name_prefix,
@@ -391,15 +396,13 @@ class IPv6Subnet(Entity):
                             no_of_reserved_adr
                      FROM [:table schema=cerebrum name=dns_ipv6_subnet]
                      WHERE %s""" % where_param, binds)
-
             self.__super.find(eid)
-
             self.subnet_mask = IPv6Subnet.calculate_subnet_mask(self.ip_min,
                                                                 self.ip_max)
             self.calculate_reserved_addresses()
-
         except NotFoundError:
-            raise SubnetError("Unable to find IPv6 subnet identified by '%s'" % identifier)
+            raise SubnetError("Unable to find IPv6 subnet identified"
+                              " by '%s'" % identifier)
 
         self.__in_db = True
         self.__updated = []
@@ -422,9 +425,10 @@ class IPv6Subnet(Entity):
                FROM [:table schema=cerebrum name=dns_ipv6_subnet]""")
 
         for row in result:
-            row["subnet_mask"] = IPv6Subnet.calculate_subnet_mask(row['ip_min'], row['ip_max'])
-
+            row["subnet_mask"] = IPv6Subnet.calculate_subnet_mask(
+                row['ip_min'], row['ip_max'])
         return result
+
 
 if __name__ == '__main__':
     pass
