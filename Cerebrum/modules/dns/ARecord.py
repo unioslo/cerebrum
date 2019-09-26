@@ -62,9 +62,10 @@ class ARecord(Entity):
                                 if x != 'a_record_id'),
                 'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}
         if is_new:
-            self.execute("""
+            insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=dns_a_record] (%(tc)s)
-            VALUES (%(tb)s)""" % defs, binds)
+            VALUES (%(tb)s)""" % defs
+            self.execute(insert_stmt, binds)
             self._db.log_change(self.dns_owner_id, self.clconst.a_record_add,
                                 self.ip_number_id)
         else:
