@@ -25,9 +25,6 @@ This file consists mainly of badly refactored code."""
 from __future__ import unicode_literals
 
 import logging
-import pickle
-
-from six import text_type
 
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import json
@@ -140,7 +137,7 @@ class CerebrumUtils(object):
         elif account_id:
             self.ac.clear()
             self.ac.find(account_id)
-            ret = self.ac.owner_has_ereservation()
+            ret = self.ac.owner_has_e_reservation()
         # TODO: This is sane?
         else:
             ret = True
@@ -522,7 +519,8 @@ class CerebrumUtils(object):
         ct = self.clconst.ChangeType(trigger[0], trigger[1])
         parm = {'change_program': 'ExchangeIntegration',
                 'skip_event': True,
-                'skip_publish': True}
+                'skip_publish': True,
+                'skip_audit': True}
 
         # Only log params if they actually contain something.
         param = self.load_params(event)
