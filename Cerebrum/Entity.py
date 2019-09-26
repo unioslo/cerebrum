@@ -1316,11 +1316,9 @@ class EntityQuarantine(Entity):
         DELETE FROM [:table schema=cerebrum name=entity_quarantine]
         WHERE entity_id=:entity_id AND quarantine_type=:quarantine_type""",
                      )
-        if self._db.rowcount:
-            self._db.log_change(self.entity_id, self.clconst.quarantine_del,
-                                None, change_params={'q_type': int(qtype)})
-            return True
-        return False
+        self._db.log_change(self.entity_id, self.clconst.quarantine_del,
+                            None, change_params={'q_type': int(qtype)})
+        return True
 
     def list_entity_quarantines(self, entity_types=None, quarantine_types=None,
                                 only_active=False, only_disabled=False,
@@ -1442,12 +1440,11 @@ class EntityExternalId(Entity):
               id_type=:id_type AND
               source_system=:source_system"""
         self.execute(delete_stmt, binds)
-        if self._db.rowcount:
-            self._db.log_change(self.entity_id,
-                                self.clconst.entity_ext_id_del,
-                                None,
-                                change_params={'id_type': int(id_type),
-                                               'src': int(source_system)})
+        self._db.log_change(self.entity_id,
+                            self.clconst.entity_ext_id_del,
+                            None,
+                            change_params={'id_type': int(id_type),
+                                           'src': int(source_system)})
 
     def _set_external_id(self, source_system, id_type, external_id,
                          update=False):
