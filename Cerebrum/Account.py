@@ -69,7 +69,8 @@ def _account_row_exists(database, table, binds):
     where = ' AND '.join('{0}=:{0}'.format(x) for x in binds)
     exists_stmt = """
       SELECT EXISTS (
-        SELECT 1 FROM [:table schema=cerebrum name={table}]
+        SELECT 1
+        FROM [:table schema=cerebrum name={table}]
         WHERE {where}
       ) """.format(table=table, where=where)
     return database.query_1(exists_stmt, binds)
