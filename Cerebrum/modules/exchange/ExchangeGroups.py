@@ -276,8 +276,8 @@ class DistributionGroup(Group_class):
                             change_params={'hidden': hidden})
 
     def ret_standard_attr_values(self, room=False):
-        return {'roomlist': 'F',
-                'hidden': 'T'} if room else {'roomlist': 'T', 'hidden': 'F'}
+        return {'roomlist': 'T' if room else 'F',
+                'hidden': 'F' if room else  'T'}
 
     def ret_standard_language(self):
         return 'nb'
