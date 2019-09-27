@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2004-2017 University of Oslo, Norway
+# Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,7 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import sys
-import time
 import logging
 import argparse
 
@@ -183,12 +182,6 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
         for d in do_del:
             new_person.delete_affiliation(*d)
 
-    if with_uio_pq:
-        join_uio_printerquotas(old_id, new_id, db, co)
-
-    if with_uia_pq:
-        join_uia_printerquotas(old_id, new_id, db)
-
     # account_type
     account = Factory.get('Account')(db)
     old_account_types = []
@@ -309,87 +302,6 @@ def join_ephorte_roles(old_id, new_id, db):
         ephorte_role.remove_role(old_id, int(row['role_type']),
                                  int(row['adm_enhet']),
                                  row['arkivdel'], row['journalenhet'])
-
-
-def join_uia_printerquotas(old_id, new_id, db):
-    # import relevant, UiA-specific pq-module
-    from Cerebrum.modules.no.hia.printerquotas import PQuota
-    pq_old = PQuota.PQuota(db)
-    pq_new = PQuota.PQuota(db)
-    old_quota = None
-    new_quota = None
-    # find quota if registered for old_person_id
-    try:
-        old_quota = pq_old.find(old_id)
-    except Errors.NotFoundError:
-        logger.debug("No quota registered for %s, skipping", old_id)
-    # find quota if registered for new_person_id
-    try:
-        new_quota = pq_new.find(new_id)
-    except Errors.NotFoundError:
-        logger.debug("No quota registered for %s, skipping", old_id)
-    if old_quota and new_quota:
-        # if both person entities have a registered quota ditch the quota
-        # for the "old" person
-        pq_old.delete_quota(old_id)
-    elif old_quota and not new_quota:
-        # if no quota is registered for the new person entity copy the
-        # old quota total to new_person_id pquota_status
-        pq_new.insert_new_quota(new_id)
-        pq_new.update_total(new_id, old_quota['total_quota'])
-        pq_old.delete_quota(old_id)
-    else:
-        # if no quota is registered for either persons or quota is
-        # registered for the new_person_id only do nothing
-        logger.info("No need to transfer quotas from %s (old) to %s (new)",
-                    old_id, new_id)
-
-
-def join_uio_printerquotas(old_id, new_id, db, co):
-    # Delayed import in case module is not installed
-    from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
-    from Cerebrum.modules.no.uio.printer_quota import PPQUtil
-
-    pq_util = PPQUtil.PPQUtil(db)
-    if not pq_util.join_persons(old_id, new_id):
-        return  # No changes done, so no more work needed
-
-    ppq = PaidPrinterQuotas.PaidPrinterQuotas(db)
-    # Assert that user hasn't received a free quota more than once
-    term_init_prefix = PPQUtil.get_term_init_prefix(*time.localtime()[0:3])
-    free_this_term = {}
-
-    # Now figure out if the user has been granted the same free-quota
-    # twice, and if so, undo the duplicate(s)
-    for row in ppq.get_history_payments(
-            transaction_type=co.pqtt_quota_fill_free,
-            desc_mask=term_init_prefix+'%%',
-            person_id=new_id, order_by_job_id=True):
-
-        free_this_term[int(row['job_id'])] = row['description']
-
-    logger.debug("Free this_term: %s" % free_this_term)
-    for row in ppq.get_history_payments(
-            transaction_type=co.pqtt_undo,
-            person_id=new_id, order_by_job_id=True):
-
-        if int(row['target_job_id']) in free_this_term:
-            del free_this_term[int(row['target_job_id'])]
-
-    logger.debug("... removed already undone: %s" % free_this_term)
-    tmp = {}
-    for job_id, desc in free_this_term.items():
-        tmp.setdefault(desc, []).append(job_id)
-    logger.debug("Potential duplicates: %s" % tmp)
-    for desc, job_ids in tmp.items():
-        if len(job_ids) > 1:
-            for job_id in job_ids[1:]:
-                logger.debug("Undoing pq_job_id %i" % job_id)
-                pq_util.undo_transaction(
-                    new_id, job_id, '',
-                    'Join-persons resulted in duplicate free quota',
-                    update_program='join_persons',
-                    ignore_transaction_type=True)
 
 
 def join_uio_voip_objects(old_id, new_id, db):

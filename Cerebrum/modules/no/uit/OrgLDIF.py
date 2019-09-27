@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013 University of Oslo, Norway
+# Copyright 2013-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,6 @@
 
 # kbj005 2015.02.16: copied from
 # /cerebrum/lib/python2.7/site-packages/Cerebrum/modules/no/hih
-
 """Mixin for OrgLDIF for UiT."""
 from __future__ import unicode_literals
 
@@ -33,6 +32,7 @@ from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 
 
 class OrgLDIFUiTMixin(norEduLDIFMixin):
+
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
@@ -93,16 +93,14 @@ class OrgLDIFUiTMixin(norEduLDIFMixin):
         super(OrgLDIFUiTMixin, self).init_account_info()
 
         # Filter out sito accounts
-        acc_names = self.acc_name.copy()
-        for account_id in acc_names:
-            self.logger.debug("processing account:%s" % acc_names[account_id])
-            if len(acc_names[account_id]) == 7:
-                if acc_names[account_id][-1] == 's':
-                    self.logger.debug(
-                        "filtering out account:%s" % acc_names[account_id])
+        for account_id in tuple(self.acc_name):
+            name = self.acc_name[account_id]
+            self.logger.debug("processing account: %r (%s)", account_id, name)
+            if len(name) == 7:
+                if name[-1] == 's':
+                    self.logger.debug("filtering out account %r (%s)",
+                                      account_id, name)
                     self.acc_name.pop(account_id)
-                    self.account_auth.pop(account_id)
-        del acc_names
 
     def make_person_entry(self, row, person_id):
         """ Extend with UiO functionality. """
@@ -120,16 +118,8 @@ class OrgLDIFUiTMixin(norEduLDIFMixin):
 
         #
         # UiT does not wish to populate the postalAddress field with either
-        # home or work address set it to empty string
+        # home or work address. Remove it if set by super.
         #
-        entry['postalAddress'] = ''
+        entry.pop('postalAddress', None)
 
         return dn, entry, alias_info
-
-    def format_cryptstring(self, method, password):
-        if method == self.const.auth_type_md5_b64:
-            return "{crypt}" + password
-        elif method == self.const.auth_type_md5_crypt:
-            return "{crypt}" + password
-        return super(OrgLDIFUiTMixin, self).format_cryptstring(method,
-                                                               password)

@@ -18,6 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Job Runner socket protocol. """
+from __future__ import print_function
+
 import json
 import logging
 import os
@@ -327,7 +329,7 @@ class SocketServer(object):
         self._is_listening = True
         while True:
             try:
-                conn, addr = self.socket.accept()
+                conn, _ = self.socket.accept()
             except socket.error:
                 # "Interrupted system call" May happen occasionaly, Try again
                 time.sleep(1)
@@ -343,7 +345,7 @@ class SocketServer(object):
             if self.send_cmd("PING") == 'PONG':
                 return True
         except socket.error:   # No server seems to be running
-            print "WARNING: Removing stale socket"
+            print("WARNING: Removing stale socket")
             os.unlink(self.socket_path)
             pass
         except OSError:        # File didn't exist

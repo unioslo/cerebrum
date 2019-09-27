@@ -26,6 +26,7 @@ from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 
+from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
@@ -94,6 +95,10 @@ class NihAccessAuth(NihAuth, bofhd_access.BofhdAccessAuth):
 
     Used for overriding default behavior
     """
+    pass
+
+
+class BofhdApiKeyAuth(NihAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
     pass
 
 
@@ -406,6 +411,10 @@ class NihAccessCommands(bofhd_access.BofhdAccessCommands):
 
     """
     authz = NihAccessAuth
+
+
+class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
+    authz = BofhdApiKeyAuth
 
 
 HELP_CMDS = {

@@ -58,3 +58,20 @@ def test_transliterate_for_posix(text, expect):
 ])
 def test_transliterate_for_gecos(text, expect):
     assert transliterate.for_gecos(text) == expect
+
+
+@pytest.mark.parametrize("text,encoding,expect", [
+    # Check that compatible letters remains
+    ('Blåbær\N{LATIN SMALL LETTER S WITH DOT ABOVE}aft',
+     'utf-8', 'Blåbærṡaft'),
+    ('Blåbær\N{LATIN SMALL LETTER S WITH DOT ABOVE}aft',
+     'iso8859-1', 'Blåbærsaft'),
+    ('Blåbær\N{LATIN SMALL LETTER S WITH DOT ABOVE}aft',
+     'ascii', 'Blaabaersaft'),
+    # Check that NFD is normalized
+    ('Bla\N{COMBINING RING ABOVE}bærsaft',
+     'latin-1', 'Blåbærsaft'),
+])
+def test_transliterate_for_encoding(text, encoding, expect):
+    trans = transliterate.for_encoding(encoding)
+    assert trans(text) == expect

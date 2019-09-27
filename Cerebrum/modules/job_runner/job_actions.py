@@ -19,7 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Job runner job types. """
 
-import inspect
 import io
 import os
 import random
@@ -125,7 +124,7 @@ class Action(object):
         for p in self.call.params:
             if callable(p):
                 try:
-                    arguments.append(inspect.getsource(p))
+                    arguments.append(text_type(p()))
                 except IOError:
                     arguments.append(repr(p))
             else:
@@ -134,7 +133,7 @@ class Action(object):
 
     def next_delta(self, last_run, current_time):
         """Return estimated number of seconds to next time the Action
-        is allowed to run.  Jobs should only be ran if the returned
+        is allowed to run.  Jobs should only be run if the returned
         value is negative."""
         if self.when is not None:
             if self.notwhen is not None:
@@ -143,6 +142,7 @@ class Action(object):
                     return leave_at
             n = self.when.next_delta(last_run, current_time)
             return n
+        return None
 
 
 class LockFile(object):
@@ -307,7 +307,7 @@ class System(CallableAction):
         except SystemExit:
             # Don't stop the above SystemExit
             raise
-        except:
+        except Exception:
             # Full disk etc. can trigger this
             self.logger.critical("Caught unexpected exception", exc_info=1)
         self.logger.error("OOPS!  This code should never be reached")
@@ -340,8 +340,7 @@ class System(CallableAction):
             self.last_exit_msg = "Ok"
             self._cleanup()
             return 1
-        else:
-            self.logger.debug("Wait returned %s/%s", pid, exit_code)
+        self.logger.debug("Wait returned %s/%s", pid, exit_code)
         return None
 
     def _cleanup(self):
@@ -375,8 +374,7 @@ class UniqueActionAttrs(type):
     """
 
     def __new__(cls, name, bases, dict_):
-        known = dict([(k, name) for k, v in dict_.items()
-                      if isinstance(v, Action)])
+        known = {k: name for k, v in dict_.items() if isinstance(v, Action)}
         for base in bases:
             for k in dir(base):
                 if isinstance(getattr(base, k), Action):
@@ -431,12 +429,12 @@ class Jobs(object):
             graph[name] = node(name, job.pre, job.post)
 
         # remap names to object (it'll be easier later)
-        for n in graph.itervalues():
+        for n in graph.values():
             n.pre = [graph[key] for key in n.pre]
             n.post = [graph[key] for key in n.post]
 
         # scan all graph nodes and try to find cycles.
-        for n in graph.itervalues():
+        for n in graph.values():
             tmp = self.find_cycle(n)
             if tmp:
                 raise ValueError("joblist has a cycle: %r"

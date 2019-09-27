@@ -18,47 +18,29 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+This program collects mobile_numbers from Difi's 'Kontakt- og
+reservasjonssregister' for all persons in the given Paga file and
+populates entity_contact_info table in Cerebrum.
+"""
 from __future__ import print_function
 
+import argparse
 import csv
-import getopt
 import json
+import logging
 import sys
 import urllib2
 
+import Cerebrum.logutils
 import phonenumbers
-
-import cereconf
-from Cerebrum.Utils import Factory, read_password
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory, read_password
+from Cerebrum.utils.argutils import add_commit_args
 
-progname = __file__.split("/")[-1]
-__doc__ = """
-
-    Usage: %s [options]
-    Options are:
-    -p | --pagafile filename    : Read national identities from given Paga file
-    -h | --help                 : This text
-    -d | --dryrun               : Do not change DB, default is do change DB.
-
-
-    This program collects mobile_numbers from Difi's "Kontakt- og
-    reservasjonssregister" for all persons in the given Paga file and
-    populates entity_contact_info table in Cerebrum.
-
-""" % progname
-
-pagafile = None
-reader = None
 national_identity_column = 0
-mobile_count = 0
 
-logger = Factory.get_logger('cronjob')
-
-db = Factory.get('Database')()
-db.cl_init(change_program=progname)
-p = Factory.get('Person')(db)
-co = Factory.get('Constants')(db)
+logger = logging.getLogger(__name__)
 
 
 def format_e164(number, country_code="NO"):
@@ -88,12 +70,11 @@ def format_e164(number, country_code="NO"):
         return None
 
 
-def get_national_identies(number_of_columns):
+def get_national_identies(reader, number_of_columns):
     """
     Function that parses the uit_paga_YYYY-MM-DD.csv file and extracts all
     national identities (fødselsnummer)
     """
-    global reader
 
     national_identity = []
     i = 0
@@ -145,11 +126,13 @@ def get_mobile_list(token, social_security_number_list):
     return result_dict
 
 
-def update_bas(mobile_phones):
+def update_bas(db, mobile_phones):
     """
     Function to update BAS with mobile phone numbers
     """
-    global mobile_count
+    p = Factory.get('Person')(db)
+    co = Factory.get('Constants')(db)
+
     for national_identity, mobile_phone in mobile_phones.items():
         logger.debug("Processing nin=%r", national_identity)
         if mobile_phone is None:
@@ -179,10 +162,10 @@ def update_bas(mobile_phones):
                          "ignoring...", national_identity)
             continue
 
-        # ?? is it better to make a list over registered ice_numbers
-        # (just once) with: p.list_contact_info(source_system =
-        # co.system_kr_reg, contact_type = co.contact_ice_phone) instead of
-        # calling get_contact_info for each person?
+        # TODO: is it better to make a list over registered ice_numbers
+        #  (just once) with: p.list_contact_info(source_system =
+        #  co.system_kr_reg, contact_type = co.contact_ice_phone) instead of
+        #  calling get_contact_info for each person?
 
         ice_num_info = p.get_contact_info(source=co.system_kr_reg,
                                           type=co.contact_ice_phone)
@@ -211,54 +194,39 @@ def update_bas(mobile_phones):
                                type=co.contact_ice_phone,
                                value=mobile_phone_e164)
 
-        mobile_count += 1
         p.write_db()
+        return 1
 
 
-def usage(exitcode=0, msg=None):
-    if msg:
-        print(msg)
-    print(__doc__)
-    sys.exit(exitcode)
+def main(inargs=None):
+    # Parse arguments
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-p',
+                        '--pagafile',
+                        metavar='filename',
+                        help='Read national identities from given Paga file',
+                        required=True)
+    add_commit_args(parser)
 
-
-def main():
-    global dryrun
-    global pagafile
-    global reader
-    global mobile_count
-
-    dryrun = False
-
-    try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                   'dhp:',
-                                   ['dryrun', 'help', "pagafile="])
-    except getopt.GetoptError:
-        usage(1)
-    for opt, val in opts:
-        if opt in ['-d', '--dryrun']:
-            dryrun = True
-        elif opt in ['-p', '--pagafile']:
-            pagafile = val
-        elif opt in ['-h', '--help']:
-            usage(0)
-        else:
-            usage(1)
-
-    if not pagafile:
-        usage(1, "Pagafile must be given.")
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     try:
-        file = open(pagafile, 'r')
+        file_obj = open(args.pagafile, 'r')
     except IOError:
-        sys.exit("Could not open file: '{}'".format(pagafile))
-    reader = csv.reader(file, delimiter=';')
+        sys.exit("Could not open file: '{}'".format(args.pagafile))
+    reader = csv.reader(file_obj, delimiter=';')
 
     row_fetched = 0
     row_fetch_max = 1000
-    row_count = sum(1 for row in file)
-    file.seek(0)
+    row_count = sum(1 for row in file_obj)
+    file_obj.seek(0)
+    mobile_count = 0
+
+    # Initialize database
+    db = Factory.get('Database')()
+    db.cl_init(change_program='fetch_mobile')
 
     logger.info("Updating BAS with ICE numbers from Difi's"
                 "'Kontakt- og reservasjonssregister'.")
@@ -268,11 +236,11 @@ def main():
 
     while row_fetched < row_count:
         # GET all national identities
-        national_identies = get_national_identies(row_fetch_max)
+        national_identies = get_national_identies(reader, row_fetch_max)
         # GET all mobile phone numbers
         mobile_phones = get_mobile_list(token, national_identies)
         # UPDATE BAS
-        update_bas(mobile_phones)
+        mobile_count += update_bas(db, mobile_phones)
 
         row_fetched += row_fetch_max
 
@@ -281,12 +249,12 @@ def main():
 
     if mobile_count > 0:
         logger.info("%s new ICE numbers added to BAS." % mobile_count)
-        if dryrun:
-            db.rollback()
-            logger.info("Dryrun. Rollback changes.")
-        else:
+        if args.commit:
             db.commit()
             logger.info("Committed all changes.")
+        else:
+            db.rollback()
+            logger.info("Dryrun. Rollback changes.")
     else:
         logger.info("No new ICE numbers found.")
 

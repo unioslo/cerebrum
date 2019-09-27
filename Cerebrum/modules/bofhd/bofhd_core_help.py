@@ -113,43 +113,45 @@ command_help = {
         'group_set_visibility': 'Set visibility for a group',
     },
     'host': {
-        'host_info': "Show information about a host",
-        'host_disk_quota': "Set the default disk quota for a host",
+        'host_info': 'Show information about a host',
+        'host_disk_quota': 'Set the default disk quota for a host',
     },
-    "misc": {
-        "misc_affiliations":
-            "List all known affiliations",
-        "misc_cancel_request":
-            "Cancel a pending request",
-        "misc_change_request":
-            "Change execution time for a pending request",
-        "misc_check_password":
-            "Test the quality of a given password",
-        "misc_clear_passwords":
-            "Forget the passwords which have been set this session",
-        "misc_dadd":
-            "Register a new disk",
-        "misc_dls":
+    'misc': {
+        'misc_affiliations':
+            'List all known affiliations',
+        'misc_cancel_request':
+            'Cancel a pending request',
+        'misc_change_request':
+            'Change execution time for a pending request',
+        'misc_check_password':
+            'Test the quality of a given password',
+        'misc_clear_passwords':
+            'Forget the passwords which have been set this session',
+        'misc_dadd':
+            'Register a new disk',
+        'misc_dls':
             "Use 'disk list' instead",
-        "misc_drem":
-            "Remove a disk",
-        "misc_hadd":
-            "Register a new host",
-        "misc_hrem":
-            "Remove a host",
+        'misc_drem':
+            'Remove a disk',
+        'misc_hadd':
+            'Register a new host',
+        'misc_hrem':
+            'Remove a host',
         'misc_list_bofhd_request_types':
             'List the various types of operations that can be done via '
             'bofhd-requests',
-        "misc_list_passwords":
-            "View/print all the password altered this session",
-        "misc_reload":
-            "Re-read server config file (use with care)",
-        "misc_list_requests":
-            "View pending jobs",
-        "misc_samba_mount":
-            "Maps disk to logon-server (for use with Samba)",
-        "misc_verify_password":
-            "Check whether an account has a given password",
+        'misc_list_passwords':
+            'View/print all the password altered this session',
+        'misc_reload':
+            'Re-read server config file (use with care)',
+        'misc_list_requests':
+            'View pending jobs',
+        'misc_samba_mount':
+            'Maps disk to logon-server (for use with Samba)',
+        'misc_verify_password':
+            'Check whether an account has a given password',
+        'misc_password_issues':
+            'Find out why a password cannot be changed',
     },
     'ou': {
         'ou_search': 'Search for OUs by name or a partial stedkode',
@@ -221,15 +223,15 @@ command_help = {
     },
     'trait': {
         'trait_info':
-            "Display all traits associated with an entity",
+            'Display all traits associated with an entity',
         'trait_list':
-            "List all entities which have specified trait",
+            'List all entities which have specified trait',
         'trait_remove':
-            "Remove a trait from an entity",
+            'Remove a trait from an entity',
         'trait_set':
             "Add or update an entity's trait",
         'trait_types':
-            "List all defined trait types (not all are editable)",
+            'List all defined trait types (not all are editable)',
     },
     'user': {
         'user_affiliation_add': 'Add affiliation for an account',
@@ -244,8 +246,8 @@ command_help = {
         'user_find': 'Search for users',
         'user_gecos': 'Set gecos field for a user account',
         'user_history':
-            "Show history of the account with uname. Limited to users "
-            "subordinate to a privilege group the BOFH user is a member of",
+            'Show history of the account with uname. Limited to users '
+            'subordinate to a privilege group the BOFH user is a member of',
         'user_info': 'View general information about an account',
         'user_migrate_exchange': 'Migrate echange user',
         'user_migrate_exchange_finished':
@@ -282,7 +284,7 @@ arg_help = {
          """Also accepts Entity id as id:xxx"""],
     'account_name_member':
         ['uname', 'Enter members account name',
-         "Enter the name of an account that already is a member"],
+         'Enter the name of an account that already is a member'],
     'account_name_src':
         ['uname', 'Enter source account name',
          'You should enter the name of the source account for this operation'],
@@ -313,14 +315,14 @@ arg_help = {
         ['command', 'Enter command line'],
     'date':
         ['date', 'Enter date (YYYY-MM-DD)',
-         "The legal date format is 2003-12-31"],
+         'The legal date format is 2003-12-31'],
     'datetime':
         ['datetime', 'Enter datetime YYYY-MM-DD(THH:MM)',
-         "The legal datetime format is 2003-12-31T16:00,\n"
-         "or simply 2003-12-31 (time then defaults to 00:00)"],
+         'The legal datetime format is 2003-12-31T16:00,\n'
+         'or simply 2003-12-31 (time then defaults to 00:00)'],
     'date_birth':
         ['date', 'Enter date of birth(YYYY-MM-DD)',
-         "The legal date format is 2003-12-31"],
+         'The legal date format is 2003-12-31'],
     'disk':
         ['/path/to/disk', 'Enter disk',
          "Enter the path to the disk without trailing slash or username.  "
@@ -617,10 +619,7 @@ arg_help = {
          'priority'],
     'string_np_type':
         ['np_type', 'Enter non-personal account type',
-         """Type of non-personal account.  Valid values include:
-         'kursbruker'  - Course related
-         'programvare' - Software packages
-         'testbruker'  - Accounts for testing purposes"""],
+         """Type of non-personal account."""],
     'string_op_set':
         ['op_set_name', 'Enter name of operation set',
          "Experts only. See the documentation for details"],

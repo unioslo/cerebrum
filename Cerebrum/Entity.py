@@ -446,14 +446,20 @@ class EntityName(Entity):
         # Populate all of self's class (and base class) attributes.
         self.find(entity_id)
 
-    def list_names(self, value_domain):
-        return self.query(
-            """
+    def list_names(self, value_domain=None):
+        """List names of entities for a given namespace"""
+
+        binds = dict()
+        where = ''
+        if value_domain:
+            where = 'WHERE ' + argument_to_sql(value_domain, 'value_domain',
+                                               binds, int)
+        query = """
             SELECT entity_id, value_domain, entity_name
             FROM [:table schema=cerebrum name=entity_name]
-            WHERE value_domain=:value_domain
-            """,
-            {'value_domain': int(value_domain)})
+            {where}
+            """.format(where=where)
+        return self.query(query, binds)
 
     def entity_name_exists(self, name, domain=None):
         """
@@ -1076,6 +1082,9 @@ class EntityAddress(Entity):
         self._db.log_change(self.entity_id, self.clconst.entity_addr_add, None)
 
     def delete_entity_address(self, source_type, a_type):
+        if not self.get_entity_address(source_type, a_type):
+            # Nothing to delete
+            return
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_address]
         WHERE entity_id=:e_id AND
@@ -1368,7 +1377,8 @@ class EntityExternalId(Entity):
         self._external_id[int(id_type)] = external_id
 
     def _delete_external_id(self, source_system, id_type):
-        self.execute("""DELETE FROM [:table schema=cerebrum name=entity_external_id]
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=entity_external_id]
         WHERE entity_id=:p_id AND id_type=:id_type AND source_system=:src""",
                      {'p_id': self.entity_id,
                       'id_type': int(id_type),

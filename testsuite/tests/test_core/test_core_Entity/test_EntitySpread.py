@@ -72,7 +72,7 @@ def entities(entity_obj, entity_type, entity_spread, entity_spread_alt):
                 'entity_type': entity_obj.entity_type,
                 'spreads': spreads, }
             entities.append(entry)
-        except:
+        except Exception:
             entity_obj._db.rollback()
             raise
         finally:
@@ -149,4 +149,4 @@ def test_list_entity_spreads(entity_obj, entities, entity_type):
     assert len(all_results) >= len(expected)
 
     results = entity_obj.list_entity_spreads(entity_types=entity_types)
-    assert results == expected
+    assert list(tuple(r) for r in results) == expected

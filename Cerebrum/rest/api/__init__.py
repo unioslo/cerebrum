@@ -37,6 +37,7 @@ from .routing import NormalizedUnicodeConverter
 
 
 db = _database.DatabaseContext()
+proxy_auth = _auth.ProxyAuth()
 auth = _auth.Authentication()
 
 
@@ -73,6 +74,7 @@ def create_app(config=None):
         g.request_start = time.time()
 
     db.init_app(app)
+    proxy_auth.init_app(app, db)
     auth.init_app(app, db)
 
     @app.after_request

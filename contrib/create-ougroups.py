@@ -18,24 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-import sys
-import argparse
-
-import cereconf
-from Cerebrum.config.configuration import (ConfigDescriptor,
-                                           Configuration,
-                                           Namespace)
-from Cerebrum.config.settings import (Iterable,
-                                      Choice,
-                                      String)
-from Cerebrum.Utils import Factory
-from Cerebrum.config.loader import read, read_config
-
-
-
-"""
-Generate OU groups based on config file.
+"""Generate OU groups based on config file.
 
 Example config (JSON with comments):
 {
@@ -70,6 +53,19 @@ Example config (JSON with comments):
 }
 
 """
+
+import sys
+import argparse
+
+import cereconf
+from Cerebrum.config.configuration import (ConfigDescriptor,
+                                           Configuration,
+                                           Namespace)
+from Cerebrum.config.settings import (Iterable,
+                                      Choice,
+                                      String)
+from Cerebrum.Utils import Factory
+from Cerebrum.config.loader import read, read_config
 
 
 class TypeConfig(Configuration):

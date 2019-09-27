@@ -24,6 +24,7 @@ Site specific auth.py for UiA
 """
 
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
@@ -31,6 +32,7 @@ from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
 from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessAuth
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.no.bofhd_note_cmds import EntityNoteBofhdAuth
+from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 
 
 class UiaAuth(EntityNoteBofhdAuth, BofhdAuth):
@@ -170,4 +172,14 @@ class UiaAccessAuth(UiaAuth, BofhdAccessAuth):
     Used for overriding default behavior
 
     """
+    pass
+
+
+class BofhdApiKeyAuth(UiaAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
+    pass
+
+
+class UiaUnpersonalAuth(
+        UiaAuth, bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
+    """UiA specific user create unpersonal auth"""
     pass

@@ -24,18 +24,51 @@ Access to Cerebrum code values.
 The Constants class defines a set of methods that should be used to
 get the actual database code/code_str representing a given Entity,
 Address, Gender etc. type.
+
+Configuration
+-------------
+The following cereconf values affect the behaviour of :py:class:`_CerebrumCode`
+and :py:class:`ConstantsBase` classes.
+
+CLASS_CONSTANTS
+    Class constants should be a tuple of :py:class:`ConstantsBase` classes that
+    provides constants for Cerebrum.
+
+CLASS_CLCONSTANTS
+    Class constants should be a tuple of :py:class:`ConstantsBase` classes that
+    provides :py:class:`_ChangeTypeCode` constants for Cerebrum.
+
+ENTITY_TYPE_NAMESPACE
+    A mapping with :py:class:`_ValueDomainCode` strvals for use with
+    :py:class:`CoreConstants`:
+
+    - 'group' - the group namespace (_CoreConstants.group_namespace).
+    - 'account' - the account namespace (_CoreConstants.account_namespace).
+    - 'host' - the host namespace (_CoreConstants.host_namespace).
+
+    TODO: Why is this a thing? We should probably just remove the cereconf
+    value and hard-code the strvals like any other constant.
+
+    This constant is mostly used elsewhere, to iterate over namespaces, or map
+    entity_type to namespace. That can be solved in other ways.
+
+SYSTEM_LOOKUP_ORDER
+    An ordered list of :py:class:`_AuthoritativeSystemCode` strvals.
+
+    This list decides which source system to use when fetching and exporting
+    data from Cerebrum.
 """
+from __future__ import print_function
 import copy
 import logging
-import threading
 import re
+import threading
+
+import six
 
 import cereconf
-from six import (string_types as string,  # standard Python module?!?
-                 text_type as text,
-                 python_2_unicode_compatible)
-from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Errors
+from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import context
 
@@ -44,7 +77,7 @@ logger = logging.getLogger(__name__)
 
 def _uchlp(arg):
     """'Anything' to text (unicode)"""
-    if isinstance(arg, text):
+    if isinstance(arg, six.text_type):
         return arg
     if isinstance(arg, bytes):
         try:
@@ -52,7 +85,7 @@ def _uchlp(arg):
         except UnicodeDecodeError:
             return arg.decode('latin-1')
     if isinstance(arg, _CerebrumCode):
-        return text(arg)
+        return six.text_type(arg)
     raise TypeError('Arguments must be constants or strings')
 
 
@@ -113,7 +146,7 @@ class SynchronizedDatabase(Database_class):
             SynchronizedDatabase._db_proxy_lock.release()
 
 
-@python_2_unicode_compatible
+@six.python_2_unicode_compatible
 class _CerebrumCode(DatabaseAccessor):
     """Abstract base class for accessing code tables in Cerebrum.
 
@@ -142,12 +175,12 @@ class _CerebrumCode(DatabaseAccessor):
         with _CerebrumCode._db_proxy_lock:
             try:
                 _CerebrumCode._private_db_proxy.ping()
-            except Exception:
+            except Exception as e:
                 if _CerebrumCode._private_db_proxy is None:
                     logger.debug('No _CerebrumCode.sql, creating new')
                 else:
-                    logger.error('unable to use _CerebrumCode.sql, recreating',
-                                 exc_info=True)
+                    logger.debug('Unable to use _CerebrumCode.sql, recreating'
+                                 ' (%s)', repr(e))
                 _CerebrumCode._private_db_proxy = SynchronizedDatabase()
             return _CerebrumCode._private_db_proxy
 
@@ -198,7 +231,7 @@ class _CerebrumCode(DatabaseAccessor):
         # If the key is composite and only one argument is given, it
         # _should_ be the code value as an integer of some sort, and
         # enter the else branch.
-        if isinstance(args[0], (string, _CerebrumCode)):
+        if isinstance(args[0], (six.string_types, _CerebrumCode)):
             if cls._key_size > 1 and len(args) > 1:
                 code = tuple(map(_uchlp, args[:cls._key_size]))
             else:
@@ -212,7 +245,7 @@ class _CerebrumCode(DatabaseAccessor):
                 # Python.  Wasted effort, but not worth worrying
                 # about.
                 new.__init__(*args, **kwargs)
-                cls._cache[text(new)] = new
+                cls._cache[six.text_type(new)] = new
         else:
             if cls._key_size > 1 and len(args) > 1:
                 raise ValueError("When initialising a multi key constant, "
@@ -233,7 +266,7 @@ class _CerebrumCode(DatabaseAccessor):
             # cached one instead.
             new = DatabaseAccessor.__new__(cls)
             new.__init__(*args, **kwargs)
-            code_str = text(new)
+            code_str = six.text_type(new)
             if code_str in cls._cache:
                 cls._cache[code] = cls._cache[code_str]
                 return cls._cache[code]
@@ -247,7 +280,7 @@ class _CerebrumCode(DatabaseAccessor):
     # Database arg every time?
     def __init__(self, code, description=None, lang=None):
         # self may be an already initialised singleton.
-        if isinstance(description, string):
+        if isinstance(description, six.string_types):
             description = description.strip()
 
         # Let's try to keep the value unicode internally
@@ -260,7 +293,7 @@ class _CerebrumCode(DatabaseAccessor):
 
         self._desc = description
 
-        if isinstance(code, string):
+        if isinstance(code, six.string_types):
             # We can't initialise self.int here since the database is
             # unavailable while all the constants are defined, nor
             # would we want to, since we often never need the
@@ -294,13 +327,13 @@ class _CerebrumCode(DatabaseAccessor):
         except AttributeError:
             value = None
 
-        if value is None or isinstance(value, text):
+        if value is None or isinstance(value, six.text_type):
             return value
         raise AttributeError("no valid _desc set")
 
     @_desc.setter
     def _desc(self, value):
-        if value is None or isinstance(value, text):
+        if value is None or isinstance(value, six.text_type):
             self.__desc = value
         else:
             raise ValueError("_desc must be unicode or None")
@@ -337,7 +370,7 @@ class _CerebrumCode(DatabaseAccessor):
             key = language.str
         elif isinstance(language, (long, int)):
             key = lang_kls(language).str
-        elif isinstance(language, string):
+        elif isinstance(language, six.string_types):
             # Make sure that a string refers to a valid language code
             key = lang_kls(int(lang_kls(language))).str
 
@@ -353,13 +386,14 @@ class _CerebrumCode(DatabaseAccessor):
         return self.str
 
     def __repr__(self):
-        return "<{class} instance{str}{int} at {id}>".format(**{
-            'class': self.__class__.__name__,
-            'str': ("" if getattr(self, 'str', None) is None
+        return "<{cls} instance{strval}{intval} at 0x{addr:02x}>".format(
+            cls=self.__class__.__name__,
+            strval=("" if getattr(self, 'str', None) is None
                     else " code_str=" + self.str.encode('UTF-8')),
-            'int': ("" if getattr(self, 'int', None) is None
+            intval=("" if getattr(self, 'int', None) is None
                     else " code=" + str(self.int)),
-            'id': hex(id(self) & 2 ** 32 - 1)})
+            addr=id(self),
+        )
 
     @property
     def description(self):
@@ -386,9 +420,6 @@ class _CerebrumCode(DatabaseAccessor):
         return self._desc
 
     def __int__(self):
-        if not cereconf.CACHE_CONSTANTS:
-            self.int = None
-
         if self.int is None:
             try:
                 self.int = int(
@@ -676,7 +707,7 @@ class _PersonAffiliationCode(_CerebrumCode):
     pass
 
 
-@python_2_unicode_compatible
+@six.python_2_unicode_compatible
 class _PersonAffStatusCode(_CerebrumCode):
 
     "Mappings stored in the person_aff_status_code table"
@@ -716,15 +747,16 @@ class _PersonAffStatusCode(_CerebrumCode):
         super(_PersonAffStatusCode, self).__init__(status, description, lang)
 
     def __repr__(self):
-        return "<%(class)s instance%(aff)s%(str)s%(int)s at %(id)s>" % {
-            'class': self.__class__.__name__,
-            'str': ("" if getattr(self, 'str', None) is None
+        return "<{cls} instance{aff}{strval}{intval} at 0x{addr:02x}>".format(
+            cls=self.__class__.__name__,
+            strval=("" if getattr(self, 'str', None) is None
                     else " code_str=%r" % self.str),
-            'int': ("" if getattr(self, 'int', None) is None
+            intval=("" if getattr(self, 'int', None) is None
                     else " code=%d" % self.int),
-            'aff': ("" if getattr(self, 'affiliation', None) is None
-                    else " affiliation=%r" % self.affiliation),
-            'id': hex(id(self) & 2 ** 32 - 1)}
+            aff=("" if getattr(self, 'affiliation', None) is None
+                 else " affiliation=%r" % self.affiliation),
+            addr=id(self),
+        )
 
     def __int__(self):
         if self.int is None:
@@ -858,18 +890,13 @@ class _QuarantineCode(_CerebrumCode):
              'desc': self._desc})
 
 
-@python_2_unicode_compatible
+@six.python_2_unicode_compatible
 class _ChangeTypeCode(_CerebrumCode):
-    _lookup_code_column = 'change_type_id'
-    # _lookup_str_column = 'status_str'
-    _lookup_table = '[:table schema=cerebrum name=change_type]'
-    # _insert_dependency = _PersonAffiliationCode
-    _lookup_desc_column = 'msg_string'
-    _key_size = 2
+    """
+    Identifies the type of change in the change-log.
 
-    """Identifies the type of change in the change-log.  category +
-    type identifies the type of change.  The split is done to emulate
-    the behaviour of the two-parts bofh commands.
+    category + type identifies the type of change.  The split is done
+    to emulate the behaviour of the two-parts bofh commands.
 
     msg_string is a string that can be used to format a textly
     representation of the change (typically for showing a user).  It
@@ -881,6 +908,13 @@ class _ChangeTypeCode(_CerebrumCode):
     that may contain %%(type:key)s, which will result in key being
     formatted as type.
     """
+    _lookup_code_column = 'change_type_id'
+    # _lookup_str_column = 'status_str'
+    _lookup_table = '[:table schema=cerebrum name=change_type]'
+    # _insert_dependency = _PersonAffiliationCode
+    _lookup_desc_column = 'msg_string'
+    _key_size = 2
+
     # TODO: the formatting is currently done by bofhd_uio_cmds.py.  It
     # would make more sense to do it here, but then we need some
     # helper classes for efficient conversion from entity_id to names
@@ -922,17 +956,19 @@ class _ChangeTypeCode(_CerebrumCode):
         super(_ChangeTypeCode, self).__init__(category, type)
 
     def __repr__(self):
-        return "<%(class)s instance%(cat)s%(type)s%(str)s%(int)s at %(id)s>" % {
-            'class': self.__class__.__name__,
-            'str': ("" if getattr(self, 'str', None) is None
+        return ("<{cls} instance{cat}{typ}{strval}{intval} "
+                "at 0x{addr:02x}>").format(
+            cls=self.__class__.__name__,
+            cat=("" if getattr(self, 'category', None) is None
+                 else " category=%r" % self.category),
+            typ=("" if getattr(self, 'type', None) is None
+                 else " type=%r" % self.type),
+            strval=("" if getattr(self, 'str', None) is None
                     else " code_str=%r" % self.str),
-            'int': ("" if getattr(self, 'int', None) is None
+            intval=("" if getattr(self, 'int', None) is None
                     else " code=%d" % self.int),
-            'cat': ("" if getattr(self, 'category', None) is None
-                    else " category=%r" % self.category),
-            'type': ("" if getattr(self, 'type', None) is None
-                     else " type=%r" % self.type),
-            'id': hex(id(self) & 2 ** 32 - 1)}
+            addr=id(self),
+        )
 
     def __str__(self):
         return u"{}:{}".format(self.category, self.type)
@@ -980,7 +1016,7 @@ class _ChangeTypeCode(_CerebrumCode):
         """
         if self.msg_string is None:
             return '{}, subject {}, destination {}'.format(
-                text(self),
+                six.text_type(self),
                 subject,
                 dest)
         return self.msg_string % {
@@ -1006,7 +1042,7 @@ class _ChangeTypeCode(_CerebrumCode):
         :return: Formatted string
         """
         from Cerebrum.utils import json
-        if isinstance(params, string):
+        if isinstance(params, six.string_types):
             params = json.loads(params)
 
         def helper():
@@ -1021,7 +1057,7 @@ class _ChangeTypeCode(_CerebrumCode):
                                 self.param_formatters.get(fmt_type)(
                                     self.sql,
                                     params.get(key, None))
-                        except:
+                        except Exception:
                             pass
                 if any(repl.values()):
                     for k, v in repl.items():
@@ -1036,7 +1072,7 @@ class _ChangeTypeCode(_CerebrumCode):
 @_ChangeTypeCode.formatter('date')
 @_ChangeTypeCode.formatter('timestamp')
 def format_cl_string(co, s):
-    return text(s)
+    return six.text_type(s)
 
 
 @_ChangeTypeCode.formatter('entity')
@@ -1046,7 +1082,7 @@ def format_cl_entity(co, e):
             ret = ent.get_subclassed_object()
         except ValueError:
             ret = ent
-        return text(ret)
+        return six.text_type(ret)
 
 
 @_ChangeTypeCode.formatter('homedir')
@@ -1067,15 +1103,15 @@ def format_cl_disk(co, d):
 def _get_code(get, code, fallback=False):
     def f(get):
         try:
-            return 1, text(get(code))
+            return 1, six.text_type(get(code))
         except Errors.NotFoundError:
             if fallback:
                 return 2, fallback
             else:
-                return 2, text(code)
+                return 2, six.text_type(code)
     if not isinstance(get, (tuple, list)):
         get = [get]
-    return text(sorted(map(f, get))[0][1])
+    return six.text_type(sorted(map(f, get))[0][1])
 
 
 @_ChangeTypeCode.formatter('spread_code')
@@ -1086,7 +1122,7 @@ def format_cl_spread(co, code):
 @_ChangeTypeCode.formatter('ou')
 def format_cl_ou(co, val):
     with context.entity.ou(val) as ou:
-        return text(ou)
+        return six.text_type(ou)
 
 
 @_ChangeTypeCode.formatter('affiliation')
@@ -1096,14 +1132,14 @@ def format_cl_aff(co, val):
 
 @_ChangeTypeCode.formatter('int')
 def format_cl_int(co, val):
-    return text(val)
+    return six.text_type(val)
 
 
 @_ChangeTypeCode.formatter('bool')
 def format_cl_bool(co, val):
     if val == 'F':
-        return text(False)
-    return text(val)
+        return six.text_type(False)
+    return six.text_type(val)
 
 
 @_ChangeTypeCode.formatter('home_status')
@@ -1196,7 +1232,7 @@ class ConstantsBase(DatabaseAccessor):
                 cls = type(attr)
                 if cls not in order[dep]:
                     order[dep][cls] = {}
-                order[dep][cls][text(attr)] = attr
+                order[dep][cls][six.text_type(attr)] = attr
         return order
 
     def _get_superfluous_codes(self):
@@ -1208,7 +1244,7 @@ class ConstantsBase(DatabaseAccessor):
             code_vals = [int(x) for x in order[root][cls].values()]
             for code in table_vals:
                 if code not in code_vals:
-                    name = text(cls(code))
+                    name = six.text_type(cls(code))
                     yield cls, code, name
 
     def initialize(self, update=True, delete=False):
@@ -1253,7 +1289,7 @@ class ConstantsBase(DatabaseAccessor):
                     for c in table_vals:
                         if c not in code_vals:
                             if delete:
-                                tmp_cls_c = text(cls(c))
+                                tmp_cls_c = six.text_type(cls(c))
                                 cls(c).delete()
                                 stats['deleted'] += 1
                                 stats['details'].append(
@@ -1291,7 +1327,7 @@ class ConstantsBase(DatabaseAccessor):
 
         clist = list()
         for const_obj in self.__iterate_constants(wanted_class):
-            if text(const_obj).startswith(prefix_match):
+            if six.text_type(const_obj).startswith(prefix_match):
                 clist.append(const_obj)
         return clist
 
@@ -1333,7 +1369,7 @@ class ConstantsBase(DatabaseAccessor):
         obj = None
         if isinstance(human_repr, (int, long)):
             obj = self.map_const(human_repr)
-        elif isinstance(human_repr, string):
+        elif isinstance(human_repr, six.string_types):
             if isinstance(human_repr, bytes):
                 try:
                     human_repr = human_repr.decode('UTF-8')
@@ -1350,7 +1386,7 @@ class ConstantsBase(DatabaseAccessor):
             # all proper constants with the parameter...
             if obj is None:
                 for const_obj in self.__iterate_constants(const_type):
-                    if text(const_obj) == human_repr:
+                    if six.text_type(const_obj) == human_repr:
                         obj = const_obj
             # assume it's a textual representation of the code int...
             if obj is None and human_repr.isdigit():
@@ -1367,6 +1403,54 @@ class ConstantsBase(DatabaseAccessor):
             c = Factory.get(t)(database).human2constant(constant, const_type)
             if c:
                 return c
+
+    def get_affiliation(self, aff_hint):
+        """
+        Get an affiliation from hint.
+
+        Utility function to look up affiliation and affiliation status from
+        strings. Example:
+
+        >>> Constants().get_affiliation('MY_AFFILIATION')
+        >>> Constants().get_affiliation('MY_AFFILIATION/my_status')
+
+        :type aff_hint: str, _PersonAffiliation, _PersonAffStatus
+        :param aff_hint:
+            The affiliation we want to look up.
+
+        :return tuple:
+            Returns a tuple with the affiliation and affiliation status.
+            Affiliation status may be None.
+
+        :raise NotFoundError:
+            If the affiliation or affiliation status doesn't exist.
+        """
+        if isinstance(aff_hint, _PersonAffiliationCode):
+            int(aff_hint)
+            return aff_hint, None
+        if isinstance(aff_hint, _PersonAffStatusCode):
+            int(aff_hint)
+            return aff_hint.affiliation, aff_hint
+        try:
+            aff_str, status_str = aff_hint.split('/')
+        except ValueError:
+            aff = _PersonAffiliationCode(aff_hint)
+            int(aff)
+            return aff, None
+        else:
+            aff = _PersonAffiliationCode(aff_str)
+            status = _PersonAffStatusCode(aff, status_str)
+            int(aff)
+            int(status)
+            return aff, status
+
+    def get_system_lookup_order(self):
+        """Get the system lookup order."""
+        order = tuple(self.human2constant(value, _AuthoritativeSystemCode) for
+                      value in getattr(cereconf, 'SYSTEM_LOOKUP_ORDER', ()))
+        for n in order:
+            int(n)
+        return order
 
 
 class CoreConstants(ConstantsBase):
@@ -1603,45 +1687,6 @@ class Constants(CoreConstants, CommonConstants):
     LanguageCode = _LanguageCode
     EntityNameCode = _EntityNameCode
 
-    def get_affiliation(self, aff_hint):
-        u""" Get an affiliation from hint.
-
-        Utility function to look up affiliation and affiliation status from
-        strings. Example:
-
-        >>> Constants().get_affiliation('MY_AFFILIATION')
-        >>> Constants().get_affiliation('MY_AFFILIATION/my_status')
-
-        :type aff_hint: str, _PersonAffiliation, _PersonAffStatus
-        :param aff_hint:
-            The affiliation we want to look up.
-
-        :return tuple:
-            Returns a tuple with the affiliation and affiliation status.
-            Affiliation status may be None.
-
-        :raise NotFoundError:
-            If the affiliation or affiliation status doesn't exist.
-        """
-        if isinstance(aff_hint, self.PersonAffiliation):
-            int(aff_hint)
-            return aff_hint, None
-        if isinstance(aff_hint, self.PersonAffStatus):
-            int(aff_hint)
-            return aff_hint.affiliation, aff_hint
-        try:
-            aff_str, status_str = aff_hint.split('/')
-        except ValueError:
-            aff = self.PersonAffiliation(aff_hint)
-            int(aff)
-            return aff, None
-        else:
-            aff = self.PersonAffiliation(aff_str)
-            status = self.PersonAffStatus(aff, status_str)
-            int(aff)
-            int(status)
-            return aff, status
-
 
 class CLConstants(ConstantsBase):
 
@@ -1714,7 +1759,7 @@ class CLConstants(ConstantsBase):
          'pri=%(int:priority)s',))
     account_type_mod = _ChangeTypeCode(
         'ac_type', 'mod', 'ac_type mod for account %(subject)s',
-        ('old_pri=%(int:old_pri)s, old_pri=%(int:new_pri)s',))
+        ('old_pri=%(int:old_pri)s, new_pri=%(int:new_pri)s',))
     account_type_del = _ChangeTypeCode(
         'ac_type', 'del', 'ac_type del for account %(subject)s',
         ('ou=%(ou:ou_id)s, aff=%(affiliation:affiliation)s',))
@@ -1888,13 +1933,12 @@ class ExampleConstants(Constants):
 
 
 def main():
-    from Cerebrum.Utils import Factory
     from Cerebrum import Errors
 
-    Cerebrum = Factory.get('Database')()
-    co = Constants(Cerebrum)
+    database = Factory.get('Database')()
+    co = Constants(database)
 
-    skip = dir(Cerebrum)
+    skip = dir(database)
     skip.append('map_const')
     for x in filter(lambda x: x[0] != '_' and x not in skip, dir(co)):
         if type(getattr(co, x)) == type or callable(getattr(co, x)):
@@ -1902,14 +1946,14 @@ def main():
         if not isinstance(getattr(co, x), co.CerebrumCode):
             continue
         try:
-            print "FOUND: co.%s:" % x
-            print "  strval: %r" % str(getattr(co, x))
-            print "  intval: %d" % int(getattr(co, x))
+            print("FOUND: co.%s:" % x)
+            print("  strval: %r" % str(getattr(co, x)))
+            print("  intval: %d" % int(getattr(co, x)))
         except Errors.NotFoundError:
-            print "NOT FOUND: co.%s" % x
-        except Exception, e:
-            print "ERROR: co.%s - %r" % (x, e)
-    print "Map '7' back to str: %s" % co.map_const(7)
+            print("NOT FOUND: co.%s" % x)
+        except Exception as e:
+            print("ERROR: co.%s - %r" % (x, e))
+    print("Map '7' back to str: %s" % co.map_const(7))
 
 
 if __name__ == '__main__':

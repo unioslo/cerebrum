@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2003-2018 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,7 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """Generates a mail tree for LDAP."""
 
 from __future__ import unicode_literals
@@ -26,11 +25,11 @@ import mx
 from collections import defaultdict
 
 from Cerebrum import Errors
+from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.QuarantineHandler import QuarantineHandler
+from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.modules import Email
 from Cerebrum.modules import EmailConstants
-from Cerebrum.Utils import Factory, mark_update
-from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 
 
@@ -72,6 +71,7 @@ class EmailLDAP(DatabaseAccessor):
         self.multi_addr_cache = {}
         self.multi_missing_cache = {}
         self.multi_reserved_cache = set()
+        self.quarantined = set()
 
     def _build_addr(self, local_part, domain):
         return '@'.join((local_part, domain))
@@ -311,15 +311,12 @@ class EmailLDAP(DatabaseAccessor):
                 for group_id in group2groupmembers[m_group]:
                     update_addr_and_missing(m_group, group_id)
 
-    def read_target_auth_data(self):
-        # For the time being, remove passwords for all quarantined
-        # accounts, regardless of quarantine type.
-        quarantines = dict([(x, "*locked") for x in
-                            QuarantineHandler.get_locked_entities(
-                            self._db, entity_types=self.const.entity_account)])
-        for row in self.acc.list_account_authentication():
-            a_id = int(row['account_id'])
-            self.e_id2passwd[a_id] = quarantines.get(a_id) or row['auth_data']
+    def read_quarantines(self):
+        # For the time being, fetch all quarantines, regardless of quarantine
+        # types.
+        self.quarantined.update(
+            QuarantineHandler.get_locked_entities(
+                self._db, entity_types=self.const.entity_account))
 
     def read_misc_target(self):
         # Dummy method for Mixin-classes. By default it generates a hash with

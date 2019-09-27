@@ -177,7 +177,7 @@ class AccountUiTMixin(Account.Account):
             return enc_auth_type_crypt3_des(utf8_plaintext, salt=salt)
         else:
             return super(AccountUiTMixin, self).encrypt_password(
-                method, utf8_plaintext, salt=salt, binary=True)
+                method, plaintext, salt=salt, binary=binary)
 
     def decrypt_password(self, method, cryptstring):
         """
@@ -469,9 +469,24 @@ class UsernamePolicy(DatabaseAccessor):
         name_length = len(name)
 
         if name_length == 1:
+            # Only one name, get all chars from that
             inits = name[0][0:3]
-        else:
+        elif len(name[-1]) > 1:
+            # Get two chars from last name
             inits = name[0][0:1] + name[-1][0:2]
+        else:
+            # Last name has less than 2 chars,
+            # try to use two chars from the first name
+            inits = name[0][0:2] + name[-1][0:1]
+
+        # Having a q or x as 2nd or 3rd inits is extremely uncommon. At the
+        # time of implementation:
+        #   2nd pos: {'y': 90, 'q': 9, 'x': 8}
+        #   3rd pos: {'z': 28, 'q': 5, 'x': 4}
+        if len(inits) < 2:
+            inits += 'qx'
+        elif len(inits) < 3:
+            inits += 'x'
 
         # sanity check
         p = re.compile('^[a-z]{3}$')
@@ -479,4 +494,5 @@ class UsernamePolicy(DatabaseAccessor):
             return inits
         else:
             raise RuntimeError(
-                "Generated invalid initials %r for %r" % (inits, full_name))
+                "Generated invalid initials %r for full_name=%r" %
+                (inits, full_name))

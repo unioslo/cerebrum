@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2004-2010 University of Oslo, Norway
+#
+# Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -133,8 +134,9 @@ class norEduLDIFMixin(OrgLDIF):
     def get_orgUnitUniqueID(self):
         # Make norEduOrgUnitUniqueIdentifier attribute from the current OU.
         # Requires 'Cerebrum.modules.no.Stedkode/Stedkode' in CLASS_OU.
-        return "%02d%02d%02d" % \
-               (self.ou.fakultet, self.ou.institutt, self.ou.avdeling)
+        return "%02d%02d%02d" % (self.ou.fakultet,
+                                 self.ou.institutt,
+                                 self.ou.avdeling)
 
     def update_dummy_ou_entry(self, entry):
         # Changes from superclass:

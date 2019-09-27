@@ -42,6 +42,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no.access_FS import make_fs
+from Cerebrum.utils.atomicfile import SimilarSizeStreamRecoder
 
 logger = logging.getLogger(__name__)
 
@@ -266,21 +267,19 @@ class OuGenerator(object):
 
     def print_ou(self, final_ou, out_file):
         logger.info("Writing OU file %s", out_file)
-        stream = open(out_file, "wb")
-
         encoding = 'iso-8859-1'
+        with SimilarSizeStreamRecoder(out_file, "w",
+                                      encoding=encoding) as stream:
+            writer = xmlprinter.xmlprinter(stream,
+                                           indent_level=2,
+                                           data_mode=True)
+            writer.startDocument(encoding=encoding)
+            writer.startElement("data")
 
-        writer = xmlprinter.xmlprinter(stream,
-                                       indent_level=2,
-                                       data_mode=True)
-        writer.startDocument(encoding=encoding)
-        writer.startElement("data")
-
-        for ou, ou_data in final_ou.items():
-            writer.emptyElement("sted", ou_data)
-        writer.endElement("data")
-        writer.endDocument()
-        stream.close()
+            for ou, ou_data in final_ou.items():
+                writer.emptyElement("sted", ou_data)
+            writer.endElement("data")
+            writer.endDocument()
 
 
 def _parse_ou_files(values):

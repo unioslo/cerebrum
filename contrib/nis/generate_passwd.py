@@ -18,6 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""Generate a NSS passwd file for users with a given spread"""
+
 import argparse
 import logging
 
@@ -31,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Generate a NSS passwd file for users with a given spread',
+        description=__doc__,
     )
     parser.add_argument(
         '--user_spread',

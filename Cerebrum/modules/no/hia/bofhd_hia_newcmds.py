@@ -29,6 +29,7 @@ from Cerebrum import database
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import Note
+from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
@@ -45,12 +46,15 @@ from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.access_FS import FS
+from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.hia.bofhd_uia_auth import (
+    BofhdApiKeyAuth,
+    UiaAccessAuth,
     UiaAuth,
     UiaBofhdRequestsAuth,
     UiaContactAuth,
     UiaEmailAuth,
-    UiaAccessAuth,
+    UiaUnpersonalAuth,
 )
 from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as base
 
@@ -165,7 +169,6 @@ copy_uio = [
     'user_history',
     'user_password',
     'user_reserve_personal',
-    'user_create_unpersonal',
     'user_set_disk_status',
     'user_set_expire',
     'user_set_np_type',
@@ -300,7 +303,7 @@ class BofhdExtension(BofhdCommonMethods):
                     n['description'] if len(n['description']) > 0
                     else '<not set>'
                 })
-        except:
+        except Exception:
             pass
 
     #
@@ -449,7 +452,7 @@ class BofhdExtension(BofhdCommonMethods):
                 try:
                     for nr, line in enumerate(
                             address['address_text'].split("\n")):
-                        if nr is 0:
+                        if nr == 0:
                             data.append({'address_line_1': line})
                         else:
                             data.append({'address_line': line})
@@ -532,7 +535,7 @@ class BofhdExtension(BofhdCommonMethods):
                 'source_system': text_type(
                     co.AuthoritativeSystem(employment['source_system'])),
             })
-        except:
+        except Exception:
             pass
 
         # Get primary account
@@ -697,7 +700,7 @@ class BofhdExtension(BofhdCommonMethods):
                                None,
                                change_params={'subject': person.entity_id})
             person.write_db()
-        except:
+        except Exception:
             raise CerebrumError("Could not delete address %s:%s for %s" %
                                 (text_type(ss), text_type(addresstype),
                                  person_id))
@@ -735,7 +738,7 @@ class BofhdExtension(BofhdCommonMethods):
         if account.has_spread(int(spread)):
             try:
                 account.get_home(int(spread))
-            except:
+            except Exception:
                 homedir_id = account.set_homedir(
                     disk_id=disk_id,
                     home=home,
@@ -1481,6 +1484,15 @@ class RequestCommands(bofhd_requests_cmds.BofhdExtension):
 class UiaAccessCommands(BofhdAccessCommands):
     """This is the place for UiA specific bofhd access * commands"""
     authz = UiaAccessAuth
+
+
+class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
+    authz = BofhdApiKeyAuth
+
+
+class UiaCreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
+    """Uia specific create unpersonal * commands"""
+    authz = UiaUnpersonalAuth
 
 
 HELP_GROUPS = {

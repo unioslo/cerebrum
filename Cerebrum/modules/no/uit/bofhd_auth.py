@@ -22,6 +22,7 @@ import cereconf
 
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
@@ -187,6 +188,15 @@ class UitAuth(UitContactAuthMixin, BofhdAuth):
                                "external ids for person entity {}".format(
                                    person.entity_id))
 
+    def can_create_personal_group(self, operator, account=None,
+                                  query_run_any=False):
+        """Check if the user is allowed to create a personal group
+
+        UiT users are not allowed to create personal groups, so this returns
+        False unless the user is a superuser or query_run_any = True
+        """
+        return query_run_any or self.is_superuser(operator)
+
 
 class UitContactAuth(UitAuth):
     # can_get_contact_info is included in UioAuth, because it is used by
@@ -290,4 +300,8 @@ class UitAccessAuth(UitAuth, bofhd_access.BofhdAccessAuth):
 
 class UitBofhdJobRunnerAuth(UitAuth, BofhdJobRunnerAuth):
     """Uit specific job_runner auth."""
+    pass
+
+
+class BofhdApiKeyAuth(UitAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
     pass

@@ -18,190 +18,158 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+This program adds accounts to groups. The program can
+either read users and their groups from a text file, or from user input.
+"""
+from __future__ import print_function
 
+import argparse
+import logging
 
-#
-# Generic imports
-#
-import string
-import getopt
-import sys
-import os
-
-#
-# cerebrum imports
-#
-import cerebrum_path
-import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uit import Email
+from Cerebrum import logutils
+from Cerebrum.utils.argutils import add_commit_args
 
-#
-# Global variables
-#
-db = Factory.get('Database')()
-logger = Factory.get_logger("cronjob")
-person = Factory.get('Person')(db)
-account = Factory.get('Account')(db)
-const = Factory.get('Constants')(db)
-Cgroup = Factory.get('Group')(db)
-ou = Factory.get('OU')(db)
+logger = logging.getLogger(__name__)
 
 group = []
 current_group = None
-progname = __file__.split("/")[-1]
-db.cl_init(change_program=progname)
-#
-# doc string
-#
-__doc__=""" This program adds accounts to groups. The program can
-either read users and their groups from a text file, or from user input
 
-usage:: %s [options] 
 
-options:
-       -h | --help       : this text
-       -f | --file       : file containing groups and member username
-       -i | --input      : read group names and usernames from user input
-""" % (progname)
-
-def process_file(file):
-    fh = open(file,'r')
+def process_file(filename):
+    fh = open(filename, 'r')
     for line in fh:
         line = line.strip()
         process_line(line)
     fh.close()
 
+
 def process_line(line):
     global current_group
-    global group
-    if ((line[0:3].isalpha()) and (line[3:5].isdigit()) and (len(line) == 6)):
-#        print "\t adding username: %s" % line
+    if (line[0:3].isalpha()) and (line[3:5].isdigit()) and (len(line) == 6):
         add_user(line)
-    elif(len(line) > 0):
+    elif len(line) > 0:
         current_group = line.strip()
         add_group(line)
-        #group.append(line)
-#        print "adding group: %s" % line
-        
+
 
 def add_group(group_name):
-    global group
-    group_info = {'group_name' : group_name, 'member' : ''}
+    group_info = {'group_name': group_name, 'member': ''}
     group.append(group_info)
 
+
 def add_user(user):
-    global current_group
-    global group
     for group_info in group:
-        if group_info['group_name'] == current_group:            
-            group_info['member'] ="%s,%s" % (group_info['member'],user)
-    
+        if group_info['group_name'] == current_group:
+            group_info['member'] = "%s,%s" % (group_info['member'], user)
+
 
 def print_all():
-    global group
     for item in group:
-        print "group: %s has members:%s" % (item['group_name'],item['member'])
+        print(
+            "group: %s has members:%s" % (item['group_name'], item['member'])
+        )
 
 
 #
 # Parse group list. foreach group, add all members.
 #
-def add_user_to_group():
-    global group
-    member_list = []
+def add_user_to_group(db):
+    person = Factory.get('Person')(db)
+    account = Factory.get('Account')(db)
+    const = Factory.get('Constants')(db)
+    cere_group = Factory.get('Group')(db)
+
     for item in group:
-        Cgroup.clear()
-        print "group is:%s" % item['group_name'].decode('utf-8')
-        #foo = "%s" % item['group_name'].decode('utf-8')
-        #bar = u"%s" % foo
-        Cgroup.find_by_name(item['group_name'].decode('utf-8'))
+        cere_group.clear()
+        print("group is:%s" % item['group_name'].decode('utf-8'))
+        cere_group.find_by_name(item['group_name'].decode('utf-8'))
 
         member_list = item['member'].split(',')
         for member in member_list:
-            if(len(member) > 0):
+            if len(member) > 0:
                 try:
                     logger.info("processing account name:%s" % member)
                     account.clear()
                     account.find_by_name(member)
                     logger.info("\t account found")
-                except:
+                except Exception:
                     logger.error("Account %s not found" % (member,))
                     continue
                 try:
                     person.clear()
                     person.find(account.owner_id)
                     logger.info("\t found person_id:%s" % person.entity_id)
-                    if(person.has_spread(const.spread_uit_ldap_person) == 0):
-                            person.add_spread(const.spread_uit_ldap_person)
+                    if person.has_spread(const.spread_uit_ldap_person) == 0:
+                        person.add_spread(const.spread_uit_ldap_person)
                 except Errors.NotFoundError:
-                    logger.error("\r unable to set person spread LDAP_person for person:%s" % (account.owner_id))
+                    logger.error(
+                        "\r unable to set person spread LDAP_person for "
+                        "person:%s",
+                        account.owner_id)
                     continue
                 try:
-                    retval = Cgroup.has_member(account.entity_id)
-                    print "retval:%s" % retval
-                    if retval == False:
-                        Cgroup.add_member(account.entity_id)
-                        logger.info("adding account_id:%s to group id:%s" % (account.entity_id,Cgroup.entity_id) ) 
+                    retval = cere_group.has_member(account.entity_id)
+                    print("retval:%s" % retval)
+                    if retval is False:
+                        cere_group.add_member(account.entity_id)
+                        logger.info("adding account_id:%s to group id:%s",
+                                    account.entity_id, cere_group.entity_id)
                     else:
-                        logger.info("account_id:%s is already a member of  group id:%s" % (account.entity_id,Cgroup.entity_id))
-                except:
-                    #print dir(Cgroup)
-                    logger.error("unable to add account_id:%s to group_id:%s" % (account.entity_id,Cgroup.entity_id))
+                        logger.info(
+                            "account_id:%s is already a member of group id:%s",
+                            account.entity_id, cere_group.entity_id)
+                except Exception:
+                    logger.error(
+                        "unable to add account_id:%s to group_id:%s",
+                        account.entity_id, cere_group.entity_id)
                     logger.error("is account already a member of this group?")
                     db.rollback()
                     continue
-                  
-    
 
-def main():
 
-    input_file = None
-    input == False
-    dryrun = False
-    try:
-        opts,args = getopt.getopt(sys.argv[1:],'f:ihd',
-                                  ['file=','input','help','dryrun'])
-    except getopt.GetoptError,m:
-        usage(1,m)
+def main(inargs=None):
+    # Parse arguments
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-f',
+                        '--file',
+                        dest='input_file')
+    parser.add_argument('-i',
+                        '--input',
+                        action='store_true')
+    # Add args.commit and args.dryrun args
+    add_commit_args(parser)
 
-    for opt,val in opts:
-        if opt in ('-h','--help'):
-            usage()
-        if opt in ('-f','--file'):
-            input_file = val
-        if opt in('-i','--input'):
-            input == True
-        if opt in('-d','--dryrun'):
-            logger.info("Dryrun. no changes to database")
-            dryrun = True
+    logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    logutils.autoconf('cronjob', args)
 
-    if(input == True):
+    # Initialize database and objects
+    db = Factory.get('Database')()
+    db.cl_init(change_program='groupadd')
+
+    if not args.commit:
+        logger.info("Dryrun. no changes to database")
+    if not args.input and not args.input_file:
+        parser.error(
+            "You must specify either -f or -i to add/remove accounts to groups"
+        )
+    if args.input:
         input()
-    elif(input_file != None):
-        process_file(input_file)
+    if args.input_file:
+        process_file(args.input_file)
         print_all()
-        add_user_to_group()
-    else:
-        msg = "You must spesify either -f or -i to add/remove accounts to groups"
-        usage(msg)
+        add_user_to_group(db)
 
-    if(dryrun):
+    if args.commit:
+        db.commit()
+        logger.info("Committing changes to database")
+    else:
         db.rollback()
         logger.info("Dryrun, rollback changes")
-    else:
-        db.commit()
-        logger.info("Comitting changes to database")
-
-
-def usage(exitcode=0,msg=None):
-    if msg: print msg
-    print __doc__
-    sys.exit(exitcode)
-
 
 
 if __name__ == '__main__':
     main()
-                           

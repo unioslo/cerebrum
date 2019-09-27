@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2018 University of Oslo, Norway
+#
+# Copyright 2007-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,11 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 from __future__ import unicode_literals
 
 import pickle
-
 from os.path import join as join_paths
 
 from Cerebrum.modules.OrgLDIF import OrgLDIF
@@ -29,6 +28,7 @@ from Cerebrum.Utils import make_timer
 
 
 class hiofLDIFMixin(OrgLDIF):
+
     def init_person_addresses(self):
         # No snail mail addresses for persons.
         self.addr_info = {}

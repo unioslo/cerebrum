@@ -18,6 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Generate report of all employee accounts with inactive employee affiliation
+"""
 
 from __future__ import unicode_literals, absolute_import
 

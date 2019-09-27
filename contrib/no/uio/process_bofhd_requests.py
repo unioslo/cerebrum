@@ -18,6 +18,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""Process bofhd requests
+
+This script reads from the bofhd_request table in the database and picks the
+requests of the given types for processing.
+
+"""
 
 import mx
 import pickle
