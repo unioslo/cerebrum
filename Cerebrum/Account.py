@@ -54,7 +54,7 @@ from Cerebrum.modules.password_generator.generator import PasswordGenerator
 import cereconf
 
 
-def _account_existence_query(database, table, binds):
+def _account_row_exists(database, table, binds):
     """Perform existence queries for Account
 
     :type database: database object
@@ -66,15 +66,10 @@ def _account_existence_query(database, table, binds):
     :param binds: Pre-formattet dict where the keys *must* match the database
     """
     # This will fail for a badly formatted dict of binds
-    where = 'AND '.join('{0}=:{0}'.format(x) for x in binds)
-    exists_stmt = """
-    SELECT EXISTS (
-    SELECT 1
-    FROM [:table schema=cerebrum name={table}]
-    WHERE {where}
-    )
-    """.format(table=table, where=where)
-    return db.query_1(exists_stmt, binds)
+    where = ' AND '.join('{0}=:{0}'.format(x) for x in binds)
+    exists_stmt = """ SELECT EXISTS ( SELECT 1 FROM [:table schema=cerebrum name={table}]
+      WHERE {where} ) """.format(table=table, where=where)
+    return database.query_1(exists_stmt, binds)
 
 
 class AccountType(object):
@@ -205,7 +200,7 @@ class AccountType(object):
                 'ou_id': ou_id,
                 'affiliation': int(affiliation),
                 'account_id': self.entity_id}
-        if not _account_existence_query(self.db, 'account_type', binds):
+        if not _account_row_exists(self.db, 'account_type', binds):
             # False positive
             return
         where = ' AND '.join('{0}=:{0}'.format(x) for x in binds)
@@ -226,7 +221,7 @@ class AccountType(object):
     def delete_ac_types(self):
         """Delete all the AccountTypes for the account."""
         binds = {'account_id': self.entity_id}
-        if not _account_existence_query(self.db, 'account_type', binds):
+        if not _account_row_exists(self.db, 'account_type', binds):
             # False positive
             return
         delete_stmt = """
@@ -396,7 +391,7 @@ class AccountHome(object):
                                         spread=spread)
         binds = {'account_id': self.entity_id,
                  'spread': int(spread)}
-        if not _account_existence_query(self.db, 'account_home', binds):
+        if not _account_row_exists(self.db, 'account_home', binds):
             # False positive
             return
         delete_stmt = """
@@ -465,7 +460,7 @@ class AccountHome(object):
                 if value is NotSet:
                     del binds[key]
             binds['homedir_id'] = current_id
-            if _account_existence_query(self.db, 'homedir', binds):
+            if _account_row_exists(self.db, 'homedir', binds):
                 # False positive; entry exists as is
                 return current_id
             sql = """
@@ -496,7 +491,7 @@ class AccountHome(object):
         tmp = self.resolve_homedir(disk_id=tmp['disk_id'],
                                    home=tmp['home'])
         binds = {'homedir_id': homedir_id}
-        if not _account_existence_query(self.db, 'homedir', binds):
+        if not _account_row_exists(self.db, 'homedir', binds):
             # False positive; no homedir to clear
             return
         delete_stmt = """
@@ -534,7 +529,7 @@ class AccountHome(object):
                                    spread=spread)
         try:
             old = self.get_home(spread)
-            if _account_existence_query(self.db, 'account_home', binds):
+            if _account_row_exists(self.db, 'account_home', binds):
                 # False positive
                 return
             update_stmt = """
@@ -1024,7 +1019,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                      'description': self.description,
                      'expire_date': self.expire_date,
                      'account_id': self.entity_id}
-            if not _account_existence_query(self.db, 'account_info', binds):
+            if not _account_row_exists(self.db, 'account_info', binds):
                 set_str = ', '.join(
                     '{0}=:{0}'.format(x) for x in binds if x != 'account_id')
                 update_stmt = """
