@@ -240,8 +240,10 @@ class DistributionGroup(Group_class):
         self.execute(stmt, {'g_id': self.entity_id,
                             'roomlist': roomlist})
 
-    def get_DG_hiddenstatus(self):
-        """Determine wether DistributionGroup visibility is on or off."""
+    def get_distribution_group_hidden_status(self):
+        """Determine wether DistributionGroup visibility is on or off.
+
+        Returns 'T' for True, 'F' for False """
         binds = {'g_id': self.entity_id,
                  'hidden': 'T'}
         exists_stmt = """
@@ -259,14 +261,19 @@ class DistributionGroup(Group_class):
 
         :type hidden: basestring
         :param hidden: 'T' if hidden, 'F' if visible."""
-        self._db.log_change(self.entity_id, self.clconst.dl_group_hidden,
-                            None,
-                            change_params={'hidden': hidden})
-        return self.execute("""
+        if hidden == self.get_distribution_group_hidden_status():
+            # False positive; status is already correctly set
+            return
+        binds = {'g_id': self.entity_id, 'hidden': hidden}
+        update_stmt = """
           UPDATE [:table schema=cerebrum name=distribution_group]
             SET hidden=:hidden
-          WHERE group_id=:g_id""", {'g_id': self.entity_id,
-                                    'hidden': hidden})
+          WHERE group_id=:g_id"""
+        self.execute(update_stmt, binds)
+        self._db.log_change(self.entity_id,
+                            self.clconst.dl_group_hidden,
+                            None,
+                            change_params={'hidden': hidden})
 
     def ret_standard_attr_values(self, room=False):
         return {'roomlist': 'F',
