@@ -87,19 +87,19 @@ class PosixUser(Account_class):
                 "Unable to determine which entity to delete.")
         if hasattr(super(PosixUser, self), 'delete_posixuser'):
             super(PosixUser, self).delete_posixuser()
-        binds = {'e_id': self.entity_id}
+        binds = {'account_id': self.entity_id}
         exists_stmt = """
           SELECT EXISTS (
             SELECT 1
             FROM [:table schema=cerebrum name=posix_user]
-            WHERE account_id=:_id
+            WHERE account_id=:account_id
           )"""
         if not self.query_1(exists_stmt, binds):
             # False positive
             return
         delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=posix_user]
-        WHERE account_id=:_id"""
+        WHERE account_id=:account_id"""
         self.execute(delete_stmt, binds)
         self._db.log_change(self.entity_id, self.clconst.posix_demote,
                             None, change_params={'uid': int(self.posix_uid),
@@ -168,7 +168,7 @@ class PosixUser(Account_class):
               SELECT EXISTS (
                 SELECT 1
                 FROM [:table schema=cerebrum name=posix_user]
-                WHERE (%(tb)s)
+                WHERE (%(tw)s)
               )
             """ % defs
             if not self.query_1(exists_stmt, binds):
