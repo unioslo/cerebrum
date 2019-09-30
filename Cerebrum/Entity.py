@@ -34,7 +34,7 @@ from Cerebrum.Utils import NotSet
 from Cerebrum.Utils import to_unicode
 
 
-def _entity_existence_query(db, table, binds):
+def _entity_row_exists(db, table, binds):
     """Perform existence queries for Entity
 
     :type database: database object
@@ -43,7 +43,7 @@ def _entity_existence_query(db, table, binds):
     :param table: name of table for query
 
     :type binds: dict
-    :param binds: Pre-formattet dict where the keys *must* match the database
+    :param binds: Pre-formatted dict where the keys *must* match the database
     """
     # This will fail for a badly formatted dict of binds
     where = ' AND '.join('{0}=:{0}'.format(x) for x in binds)
@@ -308,7 +308,7 @@ class EntitySpread(Entity):
         binds = {'entity_id': self.entity_id,
                  'entity_type': int(self.entity_type),
                  'spread': int(spread)}
-        if _entity_existence_query(self.db, 'entity_spread', binds):
+        if _entity_row_exists(self.db, 'entity_spread', binds):
             # False positive
             return
         insert_stmt = """
@@ -323,7 +323,7 @@ class EntitySpread(Entity):
         """Remove ``spread`` from this entity."""
         binds = {'entity_id': self.entity_id,
                  'spread': int(spread)}
-        if not _entity_existence_query(self.db, 'entity_spread', binds):
+        if not _entity_row_exists(self.db, 'entity_spread', binds):
             # False positive
             return
         delete_stmt = """
@@ -435,7 +435,7 @@ class EntityName(Entity):
     def delete_entity_name(self, domain):
         binds = {'entity_id': self.entity_id,
                  'value_domain': int(domain)}
-        if not _entity_existence_query(self.db, 'entity_name', binds):
+        if not _entity_row_exists(self.db, 'entity_name', binds):
             # False positive
             return
         delete_stmt = """
@@ -458,7 +458,7 @@ class EntityName(Entity):
         binds = {'entity_id': self.entity_id,
                  'domain': int(domain),
                  'name': name}
-        if _entity_existence_query(self.db, 'entity_name', binds):
+        if _entity_row_exists(self.db, 'entity_name', binds):
             # False positive
             return
         update_stmt = """
@@ -1287,7 +1287,7 @@ class EntityQuarantine(Entity):
         binds = {'entity_id': self.entity_id,
                  'quarantine_type': int(qtype),
                  'disable_until': until}
-        if _entity_existence_query(self.db, 'entity_quarantine', binds):
+        if _entity_row_exists(self.db, 'entity_quarantine', binds):
             # false positive
             return
         update_stmt = """
@@ -1309,7 +1309,7 @@ class EntityQuarantine(Entity):
         """
         binds = {'entity_id': self.entity_id,
                  'quarantine_type': int(qtype)}
-        if not _entity_existence_query(self.db, 'entity_quarantine', binds):
+        if not _entity_row_exists(self.db, 'entity_quarantine', binds):
             # False positive
             return False
         self.execute("""
@@ -1431,7 +1431,7 @@ class EntityExternalId(Entity):
         binds = {'entity_id': self.entity_id,
                  'id_type': int(id_type),
                  'source_system': int(source_system)}
-        if not _entity_existence_query(self.db, 'entity_external_id', binds):
+        if not _entity_row_exists(self.db, 'entity_external_id', binds):
             # False positive
             return
         delete_stmt = """
@@ -1453,8 +1453,10 @@ class EntityExternalId(Entity):
                  'id_type': int(id_type),
                  'source_system': int(source_system),
                  'external_id': external_id}
+        defs = {'ts': ', '.join(binds.keys()),
+                'tv': ', '.join(':{0}'.format(x) for x in binds)}
         if update:
-            if not _entity_existence_query(
+            if not _entity_row_exists(
                     self.db, 'entity_external_id', binds):
                 # False positive
                 return
@@ -1472,8 +1474,8 @@ class EntityExternalId(Entity):
         else:
             sql = """
             INSERT INTO [:table schema=cerebrum name=entity_external_id]
-            (entity_id, entity_type, id_type, source_system, external_id)
-            VALUES (:e_id, :e_type, :id_type, :src, :ext_id)"""
+            (%(ts)s)
+            VALUES (%(tv)s)""" % defs
             self._db.log_change(
                 self.entity_id, self.clconst.entity_ext_id_add, None,
                 change_params={'id_type': int(id_type),
