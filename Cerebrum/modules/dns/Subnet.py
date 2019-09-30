@@ -312,8 +312,8 @@ class Subnet(Entity):
                      'no_of_reserved_adr': self.no_of_reserved_adr}
             if self.vlan is not None:
                 binds['vlan_number'] = self.vlan
-            defs = {'tc': ', '.join(x for x in binds),
-                    'tb': ', '.join(':{0}'.format(x) for x in binds)}
+            defs = {'tc': ', '.join(x for x in sorted(binds)),
+                    'tb': ', '.join(':{0}'.format(x) for x in sorted(binds))}
             insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=dns_subnet]
             (%(tc)s)

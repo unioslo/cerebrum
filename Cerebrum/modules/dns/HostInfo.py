@@ -85,8 +85,8 @@ class HostInfo(Entity):
                  'dns_owner_id': self.dns_owner_id,
                  'hinfo': self.hinfo,
                  'ttl': self.ttl}
-        defs = {'tc': ', '.join(x for x in binds),
-                'tb': ', '.join(':{0}'.format(x) for x in binds),
+        defs = {'tc': ', '.join(x for x in sorted(binds)),
+                'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
                 'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
                                 if x != 'host_id'),
                 'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}

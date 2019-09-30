@@ -71,8 +71,8 @@ class IPNumber(Entity.Entity):
                  'aaaa_ip': self.aaaa_ip,
                  'ipnr': self.ipnr,
                  'mac_adr': self.mac_adr}
-        defs = {'tc': ', '.join(x for x in binds),
-                'tb': ', '.join(':{0}'.format(x) for x in binds),
+        defs = {'tc': ', '.join(x for x in sorted(binds)),
+                'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
                 'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
                                 if x != 'ip_number_id'),
                 'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}

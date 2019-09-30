@@ -55,8 +55,8 @@ class CNameRecord(Entity):
                  'cname_owner_id': self.cname_owner_id,
                  'ttl': self.ttl,
                  'target_owner_id': self.target_owner_id}
-        defs = {'tc': ', '.join(x for x in binds),
-                'tb': ', '.join(':{0}'.format(x) for x in binds),
+        defs = {'tc': ', '.join(x for x in sorted(binds)),
+                'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
                 'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
                                 if x != 'cname_id'),
                 'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}

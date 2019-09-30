@@ -56,8 +56,8 @@ class ARecord(Entity):
                  'ip_number_id': self.ip_number_id,
                  'ttl': self.ttl,
                  'mac': self.mac}
-        defs = {'tc': ', '.join(x for x in binds),
-                'tb': ', '.join(':{0}'.format(x) for x in binds),
+        defs = {'tc': ', '.join(x for x in sorted(binds)),
+                'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
                 'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
                                 if x != 'a_record_id'),
                 'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}

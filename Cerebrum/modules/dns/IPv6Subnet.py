@@ -279,8 +279,8 @@ class IPv6Subnet(Entity):
                      'ip_max': self.ip_max}
             if self.vlan is not None:
                 binds['vlan_number'] = self.vlan
-            defs = {'tc': ', '.join(x for x in binds),
-                    'tb': ', '.join(':{0}'.format(x) for x in binds)}
+            defs = {'tc': ', '.join(x for x in sorted(binds)),
+                    'tb': ', '.join(':{0}'.format(x) for x in sorted(binds))}
             insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=dns_ipv6_subnet] (%(tc)s)
             VALUES (%(tb)s)""" % defs
