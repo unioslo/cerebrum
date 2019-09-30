@@ -50,16 +50,15 @@ def _group_existence_query(database, table, binds):
     :param table: name of table for query
 
     :type binds: dict
-    :param binds: Pre-formattet dict where the keys *must* match the database
+    :param binds: Pre-formatted dict where the keys *must* match the database
     """
-    # This will fail for a badly formatted dict of binds
     where = 'AND '.join('{0}=:{0}'.format(x) for x in binds)
     exists_stmt = """
-    SELECT EXISTS (
-    SELECT 1
-    FROM [:table schema=cerebrum name={table}]
-    WHERE {where}
-    )
+      SELECT EXISTS (
+        SELECT 1
+        FROM [:table schema=cerebrum name={table}]
+        WHERE {where}
+      )
     """.format(table=table, where=where)
     return db.query_1(exists_stmt, binds)
 
@@ -160,14 +159,14 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                  'visibility': int(self.visibility),
                  'creator_id': self.creator_id,
                  'expire_date': self.expire_date}
-
         if is_new:
             binds['entity_type'] = int(self.const.entity_group),
-            descriptors = {'tcols': ", ".join([x for x in binds]),
-                           'binds': ", ".join([':' + x for x in binds])}
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=group_info] (%(tcols)s)
-            VALUES (%(binds)s)""" % descriptors, binds)
+            defs = {'tc': ", ".join(x for x in sorted(binds)),
+                    'tb': ", ".join(':{0}'.format(x) for x in sorted(binds))}
+            insert_stmt = """
+              INSERT INTO [:table schema=cerebrum name=group_info] (%(tc)s)
+              VALUES (%(tb)s)""" % defs
+            self.execute(insert_stmt, binds)
             self._db.log_change(self.entity_id,
                                 self.clconst.group_create,
                                 None)
@@ -178,18 +177,17 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 set_str = ', '.join(
                     '{0}=:{0}'.format(x) for x in binds if x != 'group_id')
                 update_stmt = """
-                UPDATE [:table schema=cerebrum name=group_info]
-                SET {set_str}
-                WHERE group_id=:group_id""".format(set_str=set_str)
+                  UPDATE [:table schema=cerebrum name=group_info]
+                  SET {set_str}
+                  WHERE group_id=:group_id""".format(set_str=set_str)
                 self.execute(update_stmt, binds)
                 self._db.log_change(self.entity_id,
                                     self.clconst.group_mod,
                                     None,
                                     change_params=self.__updated)
             if 'group_name' in self.__updated:
-                self.update_entity_name(
-                    self.const.group_namespace,
-                    self.group_name)
+                self.update_entity_name(self.const.group_namespace,
+                                        self.group_name)
         # EntityName.write_db(self, as_object)
         del self.__in_db
         self.__in_db = True
