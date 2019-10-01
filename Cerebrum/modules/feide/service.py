@@ -154,14 +154,13 @@ class FeideService(Entity_class):
             where.append("LOWER(fsi.name) LIKE :name")
         if feide_id is not None:
             where.append("fsi.feide_id=:feide_id")
-        where_str = " AND ".join(where) if where else ""
+        where_str = "WHERE " + " AND ".join(where) if where else ""
         binds = {'feide_id': feide_id, 'name': name}
         return self.query("""
         SELECT DISTINCT fsi.service_id AS service_id,
                         fsi.feide_id AS feide_id,
                         fsi.name AS name
-        FROM %s
-        WHERE %s""" % (','.join(tables), where_str), binds)
+        FROM %s %s""" % (','.join(tables), where_str), binds)
 
     def get_person_to_authn_level_map(self):
         """ Creates a mapping from person_id to (feide_id, level). """
@@ -191,12 +190,12 @@ class FeideService(Entity_class):
                 'ai.owner_id=ei.entity_id',
                 argument_to_sql(
                     co.entity_person, 'ei.entity_type', binds, int)]
-            where_str = "WHERE " + " AND ".join(where)
+            where_str = " AND ".join(where)
             sql = """
             SELECT DISTINCT ai.owner_id
             FROM [:table schema=cerebrum name=account_info] ai,
                  [:table schema=cerebrum name=entity_info] ei
-            {}""".format(where_str)
+            WHERE {}""".format(where_str)
             return [x['owner_id'] for x in self.query(sql, binds)]
 
         def make_entry(data):
@@ -304,7 +303,7 @@ class FeideServiceAuthnLevelMixin(Entity_class):
             where.append("fsal.entity_id=:entity_id")
         if level is not None:
             where.append("fsal.level=:level")
-        where_str = " AND ".join(where) if where else ""
+        where_str = "WHERE " + " AND ".join(where) if where else ""
         binds = {'service_id': service_id,
                  'entity_id': entity_id,
                  'level': level}
@@ -312,5 +311,4 @@ class FeideServiceAuthnLevelMixin(Entity_class):
         SELECT DISTINCT fsal.service_id AS service_id,
                         fsal.entity_id AS entity_id,
                         fsal.level AS level
-        FROM %s
-        WHERE %s""" % (','.join(tables), where_str), binds)
+        FROM %s %s""" % (','.join(tables), where_str), binds)
