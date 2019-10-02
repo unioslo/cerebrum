@@ -119,12 +119,22 @@ class EphorteRole(DatabaseAccessor):
             'arkivdel': arkivdel,
             'journalenhet': journalenhet
         }
-        self.execute("""
+        exists_stmt = """
+        SELECT EXISTS (
+        SELECT 1
+        FROM [:table schema=cerebrum name=ephorte_role]
+        WHERE %s""" % " AND ".join(
+            ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
+            ["%s IS NULL" % x for x in binds if binds[x] is None])
+        if not self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=ephorte_role]
         WHERE %s""" % " AND ".join(
             ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
-            ["%s IS NULL" % x for x in binds if binds[x] is None]),
-            binds)
+            ["%s IS NULL" % x for x in binds if binds[x] is None])
+        self.execute(delete_stmt, binds)
         self._db.log_change(
             person_id, self.clconst.ephorte_role_rem, sko,
             change_params={
@@ -210,6 +220,16 @@ class EphortePermission(DatabaseAccessor):
             'adm_enhet': sko,
             'requestee_id': requestee
         }
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=ephorte_permission]
+            WHERE %s
+          )
+        """ % ' AND '.join('{0}=:{0}'.format(x) for x in binds)
+        if self.query_1(exists_stmt, binds):
+            # False positive
+            return
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=ephorte_permission]
           (%s) VALUES (%s)""" % (", ".join(binds.keys()),
@@ -228,12 +248,23 @@ class EphortePermission(DatabaseAccessor):
             'perm_type': perm_type,
             'adm_enhet': sko
         }
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=ephorte_permission]
-        WHERE %s""" % " AND ".join(
+        where = " AND ".join(
             ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
-            ["%s IS NULL" % x for x in binds if binds[x] is None]),
-            binds)
+            ["%s IS NULL" % x for x in binds if binds[x] is None])
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=ephorte_permission]
+            WHERE %s
+          )
+        """ % where
+        if not self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        delete_stmt = """
+        DELETE FROM [:table schema=cerebrum name=ephorte_permission]
+        WHERE %s""" % where
+        self.execute(delete_stmt, binds)
         self._db.log_change(
             person_id, self.clconst.ephorte_perm_rem, sko,
             change_params={
@@ -271,7 +302,8 @@ class EphortePermission(DatabaseAccessor):
         if adm_enhet:
             where.append("adm_enhet=:adm_enhet")
         if filter_expired:
-            where.append("start_date <= [:now] AND (end_date IS NULL OR end_date > [:now])")
+            where.append("start_date <= [:now] AND "
+                         "(end_date IS NULL OR end_date > [:now])")
         if where:
             where = "WHERE %s" % " AND ".join(where)
         else:
