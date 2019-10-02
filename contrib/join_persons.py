@@ -41,8 +41,7 @@ def get_constants_by_type(co, class_type):
     return ret
 
 
-def person_join(old_person, new_person, with_uio_pq, with_uia_pq,
-                with_uio_ephorte, with_uio_voip, db):
+def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip, db):
     co = Factory.get('Constants')(db)
     source_systems = get_constants_by_type(co,
                                            Constants._AuthoritativeSystemCode)
@@ -369,16 +368,6 @@ def main():
         required=True,
         type=int)
     parser.add_argument(
-        '--pq-uio',
-        dest='with_uio_pq',
-        help="Transfer uio-printerquotas",
-        action='store_true')
-    parser.add_argument(
-        '--pq-uia',
-        dest='with_uia_pq',
-        help='Transfer uia-printerquotas',
-        action='store_true')
-    parser.add_argument(
         '--ephorte-uio',
         dest='with_uio_ephorte',
         help='transfer uio-ephorte roles',
@@ -406,7 +395,7 @@ def main():
     old_person.find(args.old)
     new_person = Factory.get('Person')(db)
     new_person.find(args.new)
-    person_join(old_person, new_person, args.with_uio_pq, args.with_uia_pq,
+    person_join(old_person, new_person,
                 args.with_uio_ephorte, args.with_uio_voip, db)
     old_person.delete()
 
