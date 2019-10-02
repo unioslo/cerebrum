@@ -77,7 +77,7 @@ class FeideService(Entity_class):
                     name=:name
               )
             """
-            if self.query_1(exists_stmt, binds):
+            if not self.query_1(exists_stmt, binds):
                 # True positive
                 update_stmt = """
                   UPDATE [:table schema=cerebrum name=feide_service_info]
