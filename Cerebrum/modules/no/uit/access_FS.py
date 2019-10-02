@@ -1937,7 +1937,6 @@ class FS(access_FS.FS):
         # Override with uit-spesific classes
         for comp in 'person student undervisning evu'.split():
             setattr(self, comp, self._component(comp)(self.db))
-        self.betaling = UiTBetaling(self.db)
         self.info = self._component('studieinfo')(self.db)
         self.ou = self._component('ou')(self.db)
 
