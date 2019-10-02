@@ -46,6 +46,7 @@ from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
+from Cerebrum.modules.no.uit.Account import UsernamePolicy
 from Cerebrum.modules.disk_quota import DiskQuota
 
 
@@ -985,14 +986,11 @@ def get_existing_accounts():
     # added to the list of "other_accounts"
     # The problem is that these sito accounts may have lost their sito spread
     # and affiliation(account type) and the ONLY way to make 100% sure that
-    # these accounts are skipped is to look at their username. its on the form
-    # "aaa111s" with the trailing 's' indicating its a sito account.
-    # As such.. we need to get the account name, and remove the account from
-    # the tmp_ac list if it is 7 characters long and ends with an 's'.
+    # these accounts are skipped is to look at their username.
+    #
     # To avoid creating an account object everytime we need to get the account
     # names,we will use search instead of account.list(). this entire problem
     # could have been avoided if sito had their own cerebrum instance..
-    #
 
     for row in account_obj.search(expire_start=None):
         if not row['owner_id'] or int(row['owner_id']) not in pid2fnr:
@@ -1001,7 +999,7 @@ def get_existing_accounts():
             logger.debug(
                 "we do not want to process admin account:%s" % (row['name']))
             continue
-        if row['name'].endswith(cereconf.USERNAME_POSTFIX['sito']):
+        if UsernamePolicy.is_valid_sito_name(row['name']):
             # we only want to process uit accounts
             logger.debug(
                 "account name:%s is a sito account, do not add to list" % row[
