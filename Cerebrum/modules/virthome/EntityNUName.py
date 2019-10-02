@@ -38,23 +38,25 @@ from Cerebrum.Constants import Constants
 from Cerebrum.Constants import _ChangeTypeCode as ChangeType
 
 
-
-
-
 class EntityNUNameConstants(Constants):
+    """ChangeType constants"""
     entity_nu_name_add = ChangeType(
-        'entity_nu_name', 'add', 'add (non-unique) entity_name for %(subject)s',
+        'entity_nu_name',
+        'add',
+        'add (non-unique) entity_name for %(subject)s',
         ('domain=%(value_domain:domain)s, name=%(string:name)s',))
 
     entity_nu_name_mod = ChangeType(
-        'entity_nu_name', 'mod', 'mod (non-unique) entity_name for %(subject)s',
+        'entity_nu_name',
+        'mod',
+        'mod (non-unique) entity_name for %(subject)s',
         ('domain=%(value_domain:domain)s, name=%(string:name)s',))
 
     entity_nu_name_del = ChangeType(
-        'entity_nu_name', 'del', 'del (non-unique) entity_name for %(subject)s',
+        'entity_nu_name',
+        'del',
+        'del (non-unique) entity_name for %(subject)s',
         ('domain=%(value_domain:domain)s, name=%(string:name)s',))
-# end Constants
-
 
 
 class EntityNonUniqueName(Entity):
@@ -69,7 +71,6 @@ class EntityNonUniqueName(Entity):
                    EntityName and EntityNonUniqueName cannot co-exist (does it
                    make sense?)
     """
-
 
     def delete(self):
         """Remove all non-unique names belonging to this entity from the db.
@@ -86,8 +87,6 @@ class EntityNonUniqueName(Entity):
             self.delete_entity_nu_name(row["domain_code"])
 
         self.__super.delete()
-    # end delete
-        
 
     def get_nu_name(self, domain):
         """Search for a name within the specified domain for a given entity.
@@ -97,76 +96,111 @@ class EntityNonUniqueName(Entity):
           Name domain where we look for a name for this entity.
 
         @rtype: basestring
-        @return: 
+        @return:
           Name of self.entity_id within the specified domain, or raises an
           exception if no name is found.
         """
-        
         return self.query_1("""
-        SELECT entity_name FROM [:table schema=cerebrum name=entity_nonunique_name]
+        SELECT entity_name
+        FROM [:table schema=cerebrum name=entity_nonunique_name]
         WHERE entity_id=:e_id AND value_domain=:domain""",
-                          {'e_id': self.entity_id,
-                           'domain': int(domain)})
-    # end get_nu_name
-
+                            {'e_id': self.entity_id,
+                             'domain': int(domain)})
 
     def get_nu_names(self):
         """Locate all names belonging to a given entity.
 
         Much like get_names, except this method search for all names.
         """
-        
         return self.query("""
         SELECT en.entity_name AS name, en.value_domain AS domain_code
         FROM [:table schema=cerebrum name=entity_nonunique_name] en
         WHERE en.entity_id=:e_id""",
                           {'e_id': self.entity_id})
-    # end get_nu_names
-
 
     def add_entity_nu_name(self, domain, name):
-        self._db.log_change(self.entity_id, self.clconst.entity_nu_name_add, None,
-                            change_params={'domain': int(domain),
-                                           'name': name})
-        return self.execute("""
+        """Add name to a given entity"""
+        binds = {'e_id': self.entity_id,
+                 'domain': int(domain),
+                 'name': name}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=entity_nonunique_name]
+            WHERE entity_id=:e_id AND
+                  value_domain=:domain AND
+                  entity_name=:name
+          )
+        """
+        if self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        insert_stmt = """
         INSERT INTO [:table schema=cerebrum name=entity_nonunique_name]
           (entity_id, value_domain, entity_name)
-        VALUES (:e_id, :domain, :name)""", {'e_id': self.entity_id,
-                                            'domain': int(domain),
-                                            'name': name})
-    # end add_entity_nu_name
-
-
-    def delete_entity_nu_name(self, domain):
-        self._db.log_change(self.entity_id, self.clconst.entity_nu_name_del, None,
-                            change_params={'domain': int(domain),
-                                           'name': self.get_name(int(domain))})
-        return self.execute("""
-        DELETE FROM [:table schema=cerebrum name=entity_nonunique_name]
-        WHERE entity_id=:e_id AND value_domain=:domain""",
-                            {'e_id': self.entity_id,
-                             'domain': int(domain)})
-    # end delete_entity_nu_name
-
-
-    def update_entity_nu_name(self, domain, name):
-        self._db.log_change(self.entity_id, self.clconst.entity_nu_name_mod, None,
+        VALUES (:e_id, :domain, :name)"""
+        self.execute(insert_stmt, binds)
+        self._db.log_change(self.entity_id,
+                            self.clconst.entity_nu_name_add,
+                            None,
                             change_params={'domain': int(domain),
                                            'name': name})
-        if int(domain) in [int(self.const.ValueDomain(code_str))
-                           for code_str in cereconf.NAME_DOMAINS_THAT_DENY_CHANGE]:
-            raise self._db.IntegrityError("Name change illegal for the domain: %s"
-                                          % domain)
-        
-        self.execute("""
-        UPDATE [:table schema=cerebrum name=entity_nonunique_name]
-        SET entity_name=:name
-        WHERE entity_id=:e_id AND value_domain=:domain""",
-                     {'e_id': self.entity_id,
-                      'domain': int(domain),
-                      'name': name})
-    # end update_entity_nu_name
-    
+
+    def delete_entity_nu_name(self, domain):
+        """Remove name from a given entity"""
+        binds = {'e_id': self.entity_id,
+                 'domain': int(domain)}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=entity_nonunique_name]
+            WHERE entity_id=:e_id AND value_domain=:domain
+          )
+        """
+        if not self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        delete_stmt = """
+          DELETE FROM [:table schema=cerebrum name=entity_nonunique_name]
+          WHERE entity_id=:e_id AND value_domain=:domain"""
+        self.execute(delete_stmt, binds)
+        self._db.log_change(self.entity_id,
+                            self.clconst.entity_nu_name_del,
+                            None,
+                            change_params={'domain': int(domain),
+                                           'name': self.get_name(int(domain))})
+
+    def update_entity_nu_name(self, domain, name):
+        """Change  name for a given entity"""
+        for code_str in cereconf.NAME_DOMAINS_THAT_DENY_CHANGE:
+            if int(domain) == int(self.const.ValueDomain(code_str)):
+                raise self._db.IntegrityError("Name change illegal for "
+                                              "the domain: %s" % domain)
+        binds = {'e_id': self.entity_id,
+                 'domain': int(domain),
+                 'name': name}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=entity_nonunique_name]
+            WHERE entity_id=:e_id AND
+                  value_domain=:domain AND
+                  entity_name=:name
+          )
+        """
+        if self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        update_stmt = """
+          UPDATE [:table schema=cerebrum name=entity_nonunique_name]
+          SET entity_name=:name
+          WHERE entity_id=:e_id AND value_domain=:domain"""
+        self.execute(update_stmt, binds)
+        self._db.log_change(self.entity_id,
+                            self.clconst.entity_nu_name_mod,
+                            None,
+                            change_params={'domain': int(domain),
+                                           'name': name})
 
     def find_by_nu_name(self, name, value_domain):
         """Locate all entities with the specified name in the specified
@@ -174,26 +208,19 @@ class EntityNonUniqueName(Entity):
 
         Naturally, since MULTIPLE entities may match a specified name, this
         method always returns a sequence (as opposed to
-        EntityName.find_by_name). 
+        EntityName.find_by_name).
         """
-        
         return self.query("""
         SELECT entity_id, value_domain, entity_name
         FROM [:table schema=cerebrum name=entity_nonunique_name]
         WHERE value_domain=:value_domain and entity_name = :name""",
-                            {'value_domain': int(value_domain),
-                             'name': name})
-    # end list_by_nu_name
-
+                          {'value_domain': int(value_domain),
+                           'name': name})
 
     def list_nu_names(self, value_domain):
+        """List names in the specified domain"""
         return self.query("""
         SELECT entity_id, value_domain, entity_name
         FROM [:table schema=cerebrum name=entity_nonunique_name]
         WHERE value_domain=:value_domain""",
                           {'value_domain': int(value_domain)})
-    # end list_nu_names
-# end EntityNonUniqueName
-
-
-
