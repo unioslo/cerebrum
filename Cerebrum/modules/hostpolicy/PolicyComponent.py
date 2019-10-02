@@ -83,7 +83,7 @@ class PolicyComponent(EntityName, Entity_class):
         """
         self.__super.write_db()
         if not self.__updated:
-            return
+            return None
 
         # validate data
         if 'component_name' in self.__updated:
@@ -121,11 +121,11 @@ class PolicyComponent(EntityName, Entity_class):
                 (%(tcols)s)
             VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                      'binds': ", ".join([x[1] for x in cols])},
-                                    {'e_type': int(self.entity_type),
-                                     'component_id': self.entity_id,
-                                     'description': self.description,
-                                     'foundation': self.foundation,
-                                     'foundation_date': self.foundation_date})
+                         {'e_type': int(self.entity_type),
+                          'component_id': self.entity_id,
+                          'description': self.description,
+                          'foundation': self.foundation,
+                          'foundation_date': self.foundation_date})
             self._db.log_change(self.entity_id, event, None)
             self.add_entity_name(self.const.hostpolicy_component_namespace,
                                  self.component_name)
@@ -137,25 +137,38 @@ class PolicyComponent(EntityName, Entity_class):
             else:
                 raise RuntimeError('Unknown entity_type=%s for entity_id=%s' %
                                    (self.entity_type, self.entity_id))
+            binds = {'component_id': self.entity_id,
+                     'description': self.description,
+                     'foundation': self.foundation}
             cols = [('description', ':description'),
-                    ('foundation', ':foundation'), ]
+                    ('foundation', ':foundation')]
             if self.foundation_date is not None:
                 cols.append(('foundation_date', ':foundation_date'))
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=hostpolicy_component]
-            SET %(defs)s
-            WHERE component_id=:component_id""" %
-                         {'defs': ", ".join(["%s=%s" % x for x in cols])},
-                         {'component_id': self.entity_id,
-                          'description': self.description,
-                          'foundation': self.foundation,
-                          'foundation_date': self.foundation_date})
-            self._db.log_change(
-                self.entity_id, event, None, change_params={
-                    'description': self.description,
-                    'foundation': self.foundation,
-                    'foundation_date': str(self.foundation_date),
-                })
+                binds['foundation_date'] = self.foundation_date
+            defs = {'set_defs': ', '.join(
+                '%s=%s' % x for x in cols if x != 'component_id'),
+                    'where_defs': ' AND '.join('%s=%s' % x for x in cols)}
+            exists_stmt = """
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=hostpolicy_component]
+                WHERE %(where_defs)s
+              )
+            """ % defs
+            if not self.query_1(exists_stmt, binds):
+                # True positive
+                update_stmt = """
+                  UPDATE [:table schema=cerebrum name=hostpolicy_component]
+                  SET %(set_defs)s
+                  WHERE component_id=:component_id""" % defs
+                self.execute(update_stmt, binds)
+                self._db.log_change(
+                    self.entity_id, event,
+                    None,
+                    change_params={
+                        'description': self.description,
+                        'foundation': self.foundation,
+                        'foundation_date': str(self.foundation_date)})
             if 'component_name' in self.__updated:
                 self.update_entity_name(
                     self.const.hostpolicy_component_namespace,
@@ -194,7 +207,7 @@ class PolicyComponent(EntityName, Entity_class):
         self.__super.find(component_id)
         (self.description, self.foundation,
          self.foundation_date, self.component_name) = self.query_1(
-            """SELECT
+             """SELECT
                 co.description, co.foundation,
                 co.foundation_date, en.entity_name
             FROM
@@ -204,8 +217,8 @@ class PolicyComponent(EntityName, Entity_class):
                 en.entity_id = co.component_id AND
                 en.value_domain = :domain AND
                 co.component_id = :component_id
-            """, {'component_id': component_id,
-                  'domain': self.const.hostpolicy_component_namespace, })
+             """, {'component_id': component_id,
+                   'domain': self.const.hostpolicy_component_namespace})
         try:
             del self.__in_db
         except AttributeError:
@@ -246,27 +259,48 @@ class PolicyComponent(EntityName, Entity_class):
         # TODO: check that mutex constraints are fullfilled!
 
         # TODO: other checks before executing the change?
-
-        self.execute("""
+        binds = {'dns_owner': int(dns_owner_id),
+                 'policy_id': self.entity_id}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=hostpolicy_host_policy]
+            WHERE dns_owner_id=:dns_owner AND policy_id=:policy_id
+          )
+        """
+        if self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=hostpolicy_host_policy]
               (dns_owner_id, policy_id)
-            VALUES (:dns_owner, :policy_id)""",
-                     {'dns_owner': int(dns_owner_id),
-                      'policy_id': self.entity_id})
+            VALUES (:dns_owner, :policy_id)"""
+        self.execute(insert_stmt, binds)
         self._db.log_change(dns_owner_id, self.clconst.hostpolicy_policy_add,
                             self.entity_id)
 
     def remove_from_host(self, dns_owner_id):
         """Remove this policy from a given dns_owner_id (host)."""
-        # TODO: anything to check before executing the change?
-        self.execute("""
-            DELETE FROM [:table schema=cerebrum name=hostpolicy_host_policy]
-            WHERE
-                policy_id = :policy AND
-                dns_owner_id = :dns_owner""",
-                     {'policy': self.entity_id,
-                      'dns_owner': dns_owner_id})
-        self._db.log_change(dns_owner_id, self.clconst.hostpolicy_policy_remove,
+        binds = {'policy': self.entity_id,
+                 'dns_owner': dns_owner_id}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=hostpolicy_host_policy]
+            WHERE policy_id = :policy AND
+                  dns_owner_id = :dns_owner
+          )
+        """
+        if not self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        delete_stmt = """
+        DELETE FROM [:table schema=cerebrum name=hostpolicy_host_policy]
+        WHERE policy_id = :policy AND
+              dns_owner_id = :dns_owner"""
+        self.execute(delete_stmt, binds)
+        self._db.log_change(dns_owner_id,
+                            self.clconst.hostpolicy_policy_remove,
                             self.entity_id)
 
     def search_hostpolicies(self, policy_id=None, policy_type=None,
@@ -536,7 +570,7 @@ class PolicyComponent(EntityName, Entity_class):
             else:
                 workset = set((start_id_set,))
             while workset:
-                new_set = set([x[field] for x in searcher(workset)])
+                new_set = set(x[field] for x in searcher(workset))
                 result.update(workset)
                 workset = new_set.difference(result)
             return result
@@ -593,8 +627,7 @@ class PolicyComponent(EntityName, Entity_class):
             FROM %(tables)s
             WHERE %(where)s
             """ % {'where': ' AND '.join(where),
-                   'tables': ', '.join(tables)},
-                binds)
+                   'tables': ', '.join(tables)}, binds)
 
 
 class Role(PolicyComponent):
@@ -626,15 +659,17 @@ class Role(PolicyComponent):
         return False
 
     def illegal_relationship(self, relationship_code, member_id):
-        """Check if a new relationship is allowed, e.g. if all mutexes are okay,
-        and that the member doesn't have the active role as a member (infinite
-        loops)."""
+        """Check if a new relationship is allowed, e.g. if all mutexes are okay
+         and that the member doesn't have the active role as a member
+        (infinite loops).
+        """
         mem = Entity_class(self._db)
         mem.find(member_id)
-        if (mem.entity_type == self.const.entity_hostpolicy_role and
+        if (
+                mem.entity_type == self.const.entity_hostpolicy_role and
                 self._illegal_membership_loop(self.entity_id, member_id)):
-                return True
-        # TODO: mutex checks are not ready yet...
+            return True
+            # TODO: mutex checks are not ready yet...
         return False
 
     def add_relationship(self, relationship_code, target_id):
@@ -658,21 +693,33 @@ class Role(PolicyComponent):
                       'rel': int(relationship_code),
                       'target': target_id})
         self._db.log_change(self.entity_id,
-                            self.clconst.hostpolicy_relationship_add, target_id)
+                            self.clconst.hostpolicy_relationship_add,
+                            target_id)
 
     def remove_relationship(self, relationship_code, target_id):
         """Remove a relationship of given type between this role and a target
         component (atom or role)."""
-        # TODO: check that the relationship actually exists? Group.remove_member
-        # doesn't do that, so don't know what's correcty for the API.
-        self.execute("""
-            DELETE FROM [:table schema=cerebrum name=hostpolicy_relationship]
-            WHERE
-                source_policy = :source AND
+        binds = {'source': self.entity_id,
+                 'target': target_id,
+                 'rel': relationship_code}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=hostpolicy_relationship]
+            WHERE source_policy = :source AND
+                  target_policy = :target AND
+                  relationship  = :rel
+          )
+        """
+        if not self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        delete_stmt = """
+          DELETE FROM [:table schema=cerebrum name=hostpolicy_relationship]
+          WHERE source_policy = :source AND
                 target_policy = :target AND
-                relationship  = :rel""", {'source': self.entity_id,
-                                          'target': target_id,
-                                          'rel': relationship_code})
+                relationship  = :rel"""
+        self.execute(delete_stmt, binds)
         self._db.log_change(self.entity_id,
                             self.clconst.hostpolicy_relationship_remove,
                             target_id)
@@ -704,4 +751,3 @@ class Atom(PolicyComponent):
         return self.__super.search(
             entity_type=self.const.entity_hostpolicy_atom,
             *args, **kwargs)
-
