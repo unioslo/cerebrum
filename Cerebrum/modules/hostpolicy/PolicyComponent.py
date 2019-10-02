@@ -145,14 +145,13 @@ class PolicyComponent(EntityName, Entity_class):
             if self.foundation_date is not None:
                 cols.append(('foundation_date', ':foundation_date'))
                 binds['foundation_date'] = self.foundation_date
-            defs = {'set_defs': ', '.join(
-                '%s=%s' % x for x in cols if x != 'component_id'),
+            defs = {'set_defs': ', '.join('%s=%s' % x for x in cols),
                     'where_defs': ' AND '.join('%s=%s' % x for x in cols)}
             exists_stmt = """
               SELECT EXISTS (
                 SELECT 1
                 FROM [:table schema=cerebrum name=hostpolicy_component]
-                WHERE %(where_defs)s
+                WHERE component_id=:component_id AND %(where_defs)s
               )
             """ % defs
             if not self.query_1(exists_stmt, binds):
