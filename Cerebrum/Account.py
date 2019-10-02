@@ -800,7 +800,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 plaintext if binary else utf8_plaintext,
                 salt.encode('utf-8')).decode()
         elif method == self.const.auth_type_md4_nt:
-            return passlib.hash.nthash.hash(utf8_plaintext).decode()
+            # Previously the smbpasswd module was used to create nthash, and it
+            # only produced uppercase hashes. The hash is case insensitive, but
+            # be backwards compatible if some comsumers depend on upper case strings.
+            return passlib.hash.nthash.hash(utf8_plaintext).decode().upper()
         elif method == self.const.auth_type_plaintext:
             return unicode_plaintext
         elif method == self.const.auth_type_md5_unsalt:
