@@ -185,7 +185,7 @@ class EmailDomain(Entity_class):
             WHERE domain_id=:e_id
           )
         """
-        if not self.query_1(exists_stmt, binds):
+        if self.query_1(exists_stmt, binds):
             # True positive
             delete_stmt = """
             DELETE FROM [:table schema=cerebrum name=email_domain]
@@ -231,7 +231,7 @@ class EmailDomain(Entity_class):
                       description=:descr
               )
             """
-            if self.query_1(exists_stmt, binds):
+            if not self.query_1(exists_stmt, binds):
                 # True positive
                 update_stmt = """
                 UPDATE [:table schema=cerebrum name=email_domain]
@@ -1820,18 +1820,6 @@ class EmailForward(EmailTarget):
     def disable_local_delivery(self):
         """Disable local delivery for EmailTarget."""
         if self.local_delivery:
-            self.local_delivery = False
-            binds = {'t_id': self.entity_id}
-            exists_stmt = """
-              SELECT EXISTS (
-                SELECT 1
-                FROM [:table schema=cerebrum name=email_local_delivery]
-                WHERE target_id = :t_id
-              )
-            """
-            if not self.query_1(exists_stmt, binds):
-                # False positive
-                return
             delete_stmt = """
             DELETE FROM [:table schema=cerebrum name=email_local_delivery]
             WHERE target_id = :t_id"""
@@ -1934,7 +1922,7 @@ class EmailForward(EmailTarget):
         delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=email_forward]
         WHERE target_id=:t_id AND forward_to=:forward"""
-        return self.execute(delete_stmt, binds)
+        self.execute(delete_stmt, binds)
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
                             self.clconst.email_forward_rem,
