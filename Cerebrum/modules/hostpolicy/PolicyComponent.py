@@ -260,22 +260,13 @@ class PolicyComponent(EntityName, Entity_class):
         # TODO: other checks before executing the change?
         binds = {'dns_owner': int(dns_owner_id),
                  'policy_id': self.entity_id}
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name=hostpolicy_host_policy]
-            WHERE dns_owner_id=:dns_owner AND policy_id=:policy_id
-          )
-        """
-        if self.query_1(exists_stmt, binds):
-            # False positive
-            return
         insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=hostpolicy_host_policy]
               (dns_owner_id, policy_id)
             VALUES (:dns_owner, :policy_id)"""
         self.execute(insert_stmt, binds)
-        self._db.log_change(dns_owner_id, self.clconst.hostpolicy_policy_add,
+        self._db.log_change(dns_owner_id,
+                            self.clconst.hostpolicy_policy_add,
                             self.entity_id)
 
     def remove_from_host(self, dns_owner_id):
