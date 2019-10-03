@@ -98,11 +98,10 @@ class OrgLDIFUiTMixin(norEduLDIFMixin):
         for account_id in tuple(self.acc_name):
             name = self.acc_name[account_id]
             self.logger.debug("processing account: %r (%s)", account_id, name)
-            if len(name) == 7:
-                if UsernamePolicy.is_valid_sito_name(name):
-                    self.logger.debug("filtering out account %r (%s)",
-                                      account_id, name)
-                    self.acc_name.pop(account_id)
+            if UsernamePolicy.is_valid_sito_name(name):
+                self.logger.debug("filtering out account %r (%s)",
+                                  account_id, name)
+                self.acc_name.pop(account_id)
 
     def make_person_entry(self, row, person_id):
         """ Extend with UiO functionality. """
