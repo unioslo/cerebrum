@@ -1,6 +1,6 @@
 #!/bin/env python
-# -- coding: utf-8 --
-
+# -*- coding: utf-8 -*-
+#
 # Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -18,22 +18,16 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 UiT specific extension to Cerebrum.
 
 Create an csv file that SecuriMaster (access control system) reads
 """
-# kbj005 2015.02.26: Copied from Leetah.
-
 from __future__ import unicode_literals
 
 import argparse
 import logging
-import os
-import time
 
-import cereconf
 import Cerebrum.logutils
 import Cerebrum.utils.csvutils as _csvutil
 
@@ -238,31 +232,29 @@ class SecurimasterExporter(object):
                                                 dialect=CerebrumDialect)
             writer.writeheader()
             writer.writerows(persons)
-        logger.info("Export finished")
+        logger.info("Wrote data to %r", outfile)
 
 
-def main():
-    db = Factory.get('Database')()
-    default_outfile = os.path.join(cereconf.DUMPDIR,
-                                   "securimaster",
-                                   "securimaster_dump_{0}.csv".format(
-                                        time.strftime("%Y%m%d")))
+def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '-o', '--outfile',
         dest='outfile',
-        default=default_outfile,
-        help='The ePhorte XML export file'
+        required=True,
+        help='Write securimaster CSV data to %(metavar)s',
+        metavar='<file>',
     )
-
     Cerebrum.logutils.options.install_subparser(parser)
-    args = parser.parse_args()
+
+    args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    logger.info("Generating Securimaster export")
+    logger.info('Start %s', parser.prog)
+    logger.debug('args=%r', args)
+    db = Factory.get('Database')()
     exporter = SecurimasterExporter(db)
     exporter.build_export(args.outfile)
-    logger.info("Finished generating Securimaster export")
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == "__main__":

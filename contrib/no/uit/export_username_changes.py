@@ -18,26 +18,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-# kbj005 2015.02.24: Copied from Leetah.
-
 """
 This program exports BAS username changes to an file.
 
 This script is a UiT specific export script for keeping track of changes in
 usernames.
 """
-
 from __future__ import unicode_literals
 
 import argparse
-import datetime
 import logging
-import os.path
 
-import cereconf
 import Cerebrum.logutils
-
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.legacy_users import LegacyUsers
 
@@ -150,28 +142,27 @@ def generate_export(export, file_name):
         fp.writelines(export)
 
 
-def main():
-    date = datetime.datetime.today()
-    date_today = date.strftime("%Y%m%d")
-    default_export_file = os.path.join(cereconf.DUMPDIR,
-                                       'username_changes',
-                                       'username_changes_{0}'.format(
-                                           date_today))
+def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-f',
-                        '--file',
-                        dest='export_file',
-                        default=default_export_file,
-                        help='export file')
+    parser.add_argument(
+        '-f', '--file',
+        dest='export_file',
+        required=True,
+        help='Write changes to %(metavar)s',
+        metavar='<file>',
+    )
     Cerebrum.logutils.options.install_subparser(parser)
-    args = parser.parse_args()
+
+    args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    logger.info('Start of username changes export')
+    logger.info('Start %s', parser.prog)
+
     db = Factory.get('Database')()
     export = find_username_changes(db)
     generate_export(export, args.export_file)
-    logger.info('End of username changes export')
+
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+#
 # Copyright 2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -18,32 +18,23 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """This script overrides display name for a list of users from the portal."""
-
 from __future__ import unicode_literals
 
+import argparse
 import io
 import logging
-import requests
-import argparse
-import os
-import mx
 import re
 
-import cereconf
+import requests
+
 import Cerebrum.logutils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import add_commit_args
 
 
-SCRIPT_NAME = __file__.split("/")[-1]
-TODAY = mx.DateTime.today().strftime("%Y-%m-%d")
 URL = 'https://uit.no/navnealias'
-DEFAULT_FILENAME = 'name_updates_%s.csv' % (TODAY,)
-DEFAULT_OUTFILE = os.path.join(cereconf.DUMPDIR, 'name_updates',
-                               DEFAULT_FILENAME)
 MOCK_RESPONSE = \
     '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" ' \
     '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\r\n' \
@@ -64,7 +55,7 @@ logger = logging.getLogger(__name__)
 def get_changes(url, test=False):
     """ Get name updates from Portal HTML """
     changes = {}
-    invalid_chars = re.compile('[,;"=\+\\\\<>]')
+    invalid_chars = re.compile(r'[,;"=\+\\\\<>]')
 
     if test:
         logger.info('Running script with mock response data')
@@ -103,14 +94,14 @@ def get_changes(url, test=False):
                 logger.error(
                     "Skipped line because of invalid characters. Username: %s."
                     " Firstname: %s. Lastname %s.",
-                        username, first_name, last_name)
+                    username, first_name, last_name)
             else:
                 changes[username] = (first_name, last_name)
         else:
             logger.info(
                 "Skipped line because of missing data. Username: %s. "
                 "Firstname: %s. Lastname %s.",
-                    username, first_name, last_name)
+                username, first_name, last_name)
 
     return changes
 
@@ -188,7 +179,7 @@ def change_names(changes, outfile, const, account, person, db):
 
                     try:
                         person.write_db()
-                    except db.DatabaseError, m:
+                    except db.DatabaseError as m:
                         logger.error(
                             "Database error, override names not updated for"
                             " %s: %s", account_name, m)
@@ -197,7 +188,7 @@ def change_names(changes, outfile, const, account, person, db):
                     person._update_cached_names()
                     try:
                         person.write_db()
-                    except db.DatabaseError, m:
+                    except db.DatabaseError as m:
                         logger.error(
                             "Database error, cached name not updated for"
                             " %s: %s", account_name, m)
@@ -207,12 +198,11 @@ def change_names(changes, outfile, const, account, person, db):
                         "Name changed for user %s. "
                         "First name: \"%s\" -> \"%s\". "
                         "Last name: \"%s\" -> \"%s\".",
-                            account_name,
-                            cached_name.get(int(const.name_first)),
-                            firstname,
-                            cached_name.get(int(const.name_last)),
-                            lastname
-                    )
+                        account_name,
+                        cached_name.get(int(const.name_first)),
+                        firstname,
+                        cached_name.get(int(const.name_last)),
+                        lastname)
                     fp.write('%s,%s,%s,%s,%s\n' % (
                         account_name,
                         cached_name.get(int(const.name_first)),
@@ -234,7 +224,7 @@ def change_names(changes, outfile, const, account, person, db):
         else:
             logger.warning(
                 "Account %s not found in dict, cannot set new display name",
-                    account_name)
+                account_name)
             continue
 
     logger.info("Registered %s changes", registered_changes)
@@ -245,7 +235,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '-o', '--outfile',
-        default=DEFAULT_OUTFILE
+        required=True,
+        metavar='<filename>',
     )
     parser.add_argument(
         '-t', '--test',
@@ -258,14 +249,20 @@ def main():
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
 
+    logger.info('Start %s', parser.prog)
+    logger.info('args=%r', args)
+
+    logger.info('Fetching display name changes from %r (test=%r)',
+                URL, args.test)
     changes = get_changes(URL, test=args.test)
 
     db = Factory.get('Database')()
-    db.cl_init(change_program=SCRIPT_NAME)
+    db.cl_init(change_program=parser.prog)
     const = Factory.get('Constants')(db)
     account = Factory.get('Account')(db)
     person = Factory.get('Person')(db)
 
+    logger.info('Updating %d display names', len(changes))
     change_names(changes, args.outfile, const, account, person, db)
 
     if args.commit:
@@ -274,6 +271,8 @@ def main():
     else:
         db.rollback()
         logger.info("Dryrun, rollback changes")
+
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':

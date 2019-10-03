@@ -49,9 +49,7 @@ EMPLOYEE_FILTER_EXCHANGE_SKO
     A list of stedkode codes to exclude from exchange spreads.
 """
 import argparse
-import datetime
 import logging
-import os
 import xml.sax
 
 import mx.DateTime
@@ -814,20 +812,14 @@ def check_cereconf():
         raise RuntimeError("Missing cereconf values: %r", missing)
 
 
-default_filename = 'paga_persons_{date}.xml'.format(
-    date=datetime.date.today().strftime('%Y-%m-%d'))
-default_person_file = os.path.join(
-    cereconf.DUMPDIR, 'employees', default_filename)
-
-
 def main(inargs=None):
     parser = argparse.ArgumentParser(
-        description="Import Paga XML files into the Cerebrum database")
-
+        description="Import Paga XML files into the Cerebrum database",
+    )
     parser.add_argument(
-        '-f', '-p', '--file', '--person-file',
+        '--person-file',
         dest='filename',
-        default=default_person_file,
+        required=True,
         help='Read and import persons from %(metavar)s',
         metavar='xml-file',
     )
