@@ -201,7 +201,7 @@ def account_create(msg, **kwargs):
                        **common)
 
 
-@EventFilter.register('account', 'destroy')
+@EventFilter.register('account', 'delete')
 def account_delete(msg, **kwargs):
     common = _make_common_args(msg)
     return event.Event(event.DELETE,
