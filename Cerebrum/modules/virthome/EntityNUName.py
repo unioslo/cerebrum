@@ -123,18 +123,6 @@ class EntityNonUniqueName(Entity):
         binds = {'e_id': self.entity_id,
                  'domain': int(domain),
                  'name': name}
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name=entity_nonunique_name]
-            WHERE entity_id=:e_id AND
-                  value_domain=:domain AND
-                  entity_name=:name
-          )
-        """
-        if self.query_1(exists_stmt, binds):
-            # False positive
-            return
         insert_stmt = """
         INSERT INTO [:table schema=cerebrum name=entity_nonunique_name]
           (entity_id, value_domain, entity_name)
