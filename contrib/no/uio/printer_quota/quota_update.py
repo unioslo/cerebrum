@@ -132,8 +132,7 @@ def recalc_quota_callback(person_info, fnr2pid, quota_victims, autostud,
         return
 
     # Har fritak fra kvote
-    if (person_id in betaling_fritak or
-            profile and profile.get_printer_betaling_fritak()):
+    if person_id in betaling_fritak:
         logger.debug("%s is exempt from quota", person_id)
         set_pq_exempt(person_id, exempt=True)
         return
