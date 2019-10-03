@@ -31,7 +31,7 @@ def new_db():
     cmd = ["./makedb.py"]
     for mod in ('bofhd_tables', 'bofhd_auth', 'mod_posix_user',
                 'mod_changelog', 'mod_stedkode', 'mod_email', 'mod_entity_trait',
-                'mod_lt', 'mod_printer_quota', 'mod_dns', 'mod_job_runner'):
+                'mod_lt', 'mod_dns', 'mod_job_runner'):
         cmd.append("--extra-file=design/%s.sql" % mod)
     run(" ".join(cmd))
 

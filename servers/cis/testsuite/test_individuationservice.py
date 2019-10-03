@@ -173,7 +173,7 @@ class IndividuationTestSetup:
         for f in ('mod_changelog.sql', 'mod_entity_trait.sql',
                   'mod_password_history.sql', 'mod_posix_user.sql',
                   'mod_email.sql', 'mod_employment.sql', 'mod_sap.sql',
-                  'mod_printer_quota.sql', 'mod_stedkode.sql',
+                  'mod_stedkode.sql',
                   'mod_ephorte.sql', 'mod_voip.sql',
                   'bofhd_tables.sql', 'bofhd_auth.sql',
                   'mod_hostpolicy.sql', 'mod_dns.sql',

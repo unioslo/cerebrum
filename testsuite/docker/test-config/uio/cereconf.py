@@ -43,8 +43,6 @@ CLASS_CONSTANTS = [
     'Cerebrum.modules.disk_quota.constants/Constants',
     'Cerebrum.modules.virtualgroup.Constants/OUGroupConstants',
     'Cerebrum.modules.feide.Constants/Constants',
-    "Cerebrum.modules.no.uio.printer_quota.PPQConstants/Constants",
-    "Cerebrum.modules.no.uio.printer_quota.bofhd_pq_Constants/Constants",
     'Cerebrum.modules.no.uio.voip.Constants/VoipConstants',
     'Cerebrum.modules.no.uio.voip.Constants/VoipAuthConstants',
     'Cerebrum.modules.dns.DnsConstants/Constants',
