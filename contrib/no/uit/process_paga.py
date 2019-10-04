@@ -36,9 +36,6 @@ The following cereconf values affects the Paga account maintenance:
 INITIAL_ACCOUNTNAME
     Creator of Paga accounts.
 
-USERNAME_POSTFIX['sito']
-    Postfix that identifies Sito accounts (we don't touch sito accounts).
-
 EMPLOYEE_SPREADLIST
     A list of spreads to load (and maintain) for Paga accounts.
 
@@ -64,6 +61,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit import POSIX_GROUP_NAME
+from Cerebrum.modules.no.uit.Account import UsernamePolicy
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.argutils import ParserContext
 from Cerebrum.utils.funcwrap import memoize
@@ -384,7 +382,6 @@ def get_existing_accounts(db):
         del p_id, key
 
     logger.info("Loading accounts...")
-    sito_postfix = cereconf.USERNAME_POSTFIX['sito']
     for row in account_obj.search(expire_start=None):
         a_id = int(row['account_id'])
         id_type = id_value = None
@@ -398,7 +395,7 @@ def get_existing_accounts(db):
             id_value = pid2passnr[int(row['owner_id'])]
         else:
             continue
-        if row['name'].endswith(sito_postfix):
+        if UsernamePolicy.is_valid_sito_name(row['name']):
             # this is a sito account, do not process as part of uit employees
             logger.debug("Omitting account id=%r (%s), sito account",
                          a_id, row['name'])

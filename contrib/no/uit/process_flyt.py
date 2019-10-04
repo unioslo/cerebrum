@@ -38,6 +38,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit import Email
+from Cerebrum.modules.no.uit.Account import UsernamePolicy
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.utils.email import sendmail
 from Cerebrum.utils.funcwrap import memoize
@@ -124,7 +125,7 @@ def get_existing_accounts(person_type):
         if not row['owner_id'] or not int(row['owner_id']) in pid2fnr:
             continue
         account_name = row.name
-        if account_name.endswith(cereconf.USERNAME_POSTFIX['sito']):
+        if UsernamePolicy.is_valid_sito_name(account_name):
             # This is a sito account. do not process as part of flyt accounts
             logger.debug(
                 "%s is a sito account. Do not process as part of flyt import",

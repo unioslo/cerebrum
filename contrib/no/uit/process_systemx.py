@@ -39,6 +39,7 @@ from Cerebrum.Entity import EntityName
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.modules.no.uit import POSIX_GROUP_NAME
+from Cerebrum.modules.no.uit.Account import UsernamePolicy
 from Cerebrum.modules.no.uit.access_SYSX import SYSX
 from Cerebrum.utils import email
 from Cerebrum.utils import transliterate
@@ -129,8 +130,7 @@ def get_existing_accounts(db):
         #
         account_name_obj.clear()
         account_name_obj.find(row['account_id'])
-        if (account_name_obj.account_name.endswith(
-                cereconf.USERNAME_POSTFIX['sito'])):
+        if UsernamePolicy.is_valid_sito_name(account_name_obj.account_name):
             logger.debug(
                 "Skipping sito account_id=%r (%s)",
                 account_name_obj.entity_id, account_name_obj.account_name)
