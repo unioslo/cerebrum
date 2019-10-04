@@ -4733,6 +4733,9 @@ class BofhdExtension(BofhdCommonMethods):
                 raise PermissionDenied(
                     'Only superusers may use hardcoded path')
             disk_id, home = None, home[1:]
+        if uname.endswith('-drift'):
+            raise CerebrumError('Users ending with -drift should be created '
+                'with user create_sysadm')
         posix_user.clear()
         gecos = None
         expire_date = None
