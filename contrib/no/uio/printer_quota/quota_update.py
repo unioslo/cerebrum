@@ -38,7 +38,6 @@ import mx.DateTime
 
 import cereconf
 from Cerebrum import Account
-from Cerebrum import Errors
 from Cerebrum import Group
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
@@ -62,7 +61,7 @@ processed_pids = {}
 processed_person = {}
 
 
-def set_pq_exempt(person_id, exempt=False):
+def set_pq_exempt(person_id, exempt):
     """Set exempt for a person
 
     Checks if the person has a quota set before and uses the appropriate
@@ -78,9 +77,8 @@ def set_pq_exempt(person_id, exempt=False):
     db.commit()
 
 
-def recalc_quota_callback(person_info, fnr2pid, quota_victims, autostud,
-                          person_id_member, person_id_affs, kopiavgift_fritak,
-                          betaling_fritak):
+def recalc_quota_callback(person_info, fnr2pid, quota_victims,
+                          kopiavgift_fritak, betaling_fritak):
     # Kun kvoteverdier styres av studconfig.xml.  De øvrige
     # parameterene er for komplekse til å kunne uttrykkes der uten å
     # introdusere nye tag'er.
@@ -107,34 +105,18 @@ def recalc_quota_callback(person_info, fnr2pid, quota_victims, autostud,
         set_pq_exempt(person_id, exempt=True)
         return
 
-    # Sjekk matching mot studconfig.xml
-    try:
-        profile = autostud.get_profile(
-            person_info,
-            member_groups=person_id_member.get(person_id, []),
-            person_affs=person_id_affs.get(person_id, [])
-        )
-    except AutoStud.ProfileHandler.NoMatchingProfiles:
-        # A common situation, so we won't log it
-        profile = None
-    except Errors.NotFoundError as msg:
-        logger.warn("(person) not found error for %r: %s", person_id, msg)
-        profile = None
-    # Set quota for those without har kopiavgift-fritak
-    if (
-            not kopiavgift_fritak.get(person_id, False) and
-            not (profile and profile.get_printer_kopiavgift_fritak())
-    ):
-        logger.debug("block %r (fritak=%r)",
-                     person_id,
-                     kopiavgift_fritak.get(person_id, False))
-        set_pq_exempt(person_id, exempt=False)
-        return
-
     # Har fritak fra kvote
     if person_id in betaling_fritak:
         logger.debug("%s is exempt from quota", person_id)
         set_pq_exempt(person_id, exempt=True)
+        return
+
+    # Set quota for those without har kopiavgift-fritak
+    if person_id not in kopiavgift_fritak:
+        logger.debug("block %r (fritak=%r)",
+                     person_id,
+                     kopiavgift_fritak.get(person_id, False))
+        set_pq_exempt(person_id, exempt=False)
         return
 
     set_pq_exempt(person_id, exempt=False)
@@ -405,9 +387,6 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
         functools.partial(recalc_quota_callback,
                           fnr2pid=fnr2pid,
                           quota_victims=quota_victims,
-                          autostud=autostud,
-                          person_id_member=person_id_member,
-                          person_id_affs=person_id_affs,
                           kopiavgift_fritak=kopiavgift_fritak,
                           betaling_fritak=betaling_fritak
                           )
@@ -420,8 +399,7 @@ def auto_stud(studconfig_file, student_info_file, studieprogs_file,
         if p not in processed_person:
             recalc_quota_callback(
                 {'person_id': p},
-                fnr2pid, quota_victims, autostud,
-                person_id_member, person_id_affs, kopiavgift_fritak,
+                fnr2pid, quota_victims, kopiavgift_fritak,
                 betaling_fritak)
 
     # Turn off quota for anyone that has quota and that we didn't
