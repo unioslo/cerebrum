@@ -921,7 +921,6 @@ class EmailAddress(Entity_class):
                       domain_id=:d_id AND
                       target_id=:t_id AND
                       expire_date=:expire AND
-                      change_date=[:now] AND
                       address_id=:a_id
               )
             """
@@ -961,10 +960,11 @@ class EmailAddress(Entity_class):
         # target system
         binds = {'e_id': self.entity_id}
         exists_stmt = """
-        SELECT EXISTS (
-        SELECT 1
-        FROM [:table schema=cerebrum name=email_address]
-        WHERE address_id=:e_id
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=email_address]
+            WHERE address_id=:e_id
+          )
         """
         if self.query_1(exists_stmt, binds):
             # True positive
@@ -1820,10 +1820,11 @@ class EmailForward(EmailTarget):
     def disable_local_delivery(self):
         """Disable local delivery for EmailTarget."""
         if self.local_delivery:
+            self.local_delivery = False
             delete_stmt = """
             DELETE FROM [:table schema=cerebrum name=email_local_delivery]
             WHERE target_id = :t_id"""
-            self.execute(delete_stmt, binds)
+            self.execute(delete_stmt, {'t_id': self.entity_id})
             self._db.log_change(self.entity_id,
                                 self.clconst.email_local_delivery,
                                 None,
