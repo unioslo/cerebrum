@@ -18,21 +18,14 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
-# Uit specific extension to Cerebrum
-
 from __future__ import unicode_literals
 
 import argparse
 import datetime
 import logging
-import os
 import re
 
 import Cerebrum.logutils
-import cereconf
-
 from Cerebrum import Errors
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
@@ -43,16 +36,10 @@ from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
 
-
 today_tmp = datetime.datetime.today()
 tomorrow_tmp = today_tmp + datetime.timedelta(days=1)
 TODAY = today_tmp.strftime("%Y%m%d")
 TOMORROW = tomorrow_tmp.strftime("%Y%m%d")
-
-DEFAULT_PAYXML = os.path.join(cereconf.DUMPDIR, "safecom",
-                              "safecom_pay_%s.xml" % TODAY)
-DEFAULT_TRACKXML = os.path.join(cereconf.DUMPDIR, "safecom",
-                                "safecom_track_%s.xml" % TODAY)
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -462,43 +449,43 @@ class SafecomExporter:
             logger.info("Writing done")
 
 
-def main():
+def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
 
     # TODO do we write to these or do we read from?
-    parser.add_argument('-p',
-                        '--payfile',
-                        dest='payfile',
-                        help='Write Safecom Pay users to file')
-    parser.add_argument('-t',
-                        '--trackfile',
-                        dest='trackfile',
-                        help='Write Safecom Track user to file'
-                        )
-
+    parser.add_argument(
+        '-p', '--payfile',
+        dest='payfile',
+        required=True,
+        help='Write Safecom Pay users to %(metavar)s',
+        metavar='<file>',
+    )
+    parser.add_argument(
+        '-t', '--trackfile',
+        dest='trackfile',
+        required=True,
+        help='Write Safecom Track user to %(metavar)s',
+        metavar='<file>',
+    )
     Cerebrum.logutils.options.install_subparser(parser)
-    args = parser.parse_args()
+
+    args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    logger.info('Starting Safecom exports')
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %r', args)
 
-    payfile = DEFAULT_PAYXML
-    trackfile = DEFAULT_TRACKXML
-
-    if args.payfile:
-        payfile = args.payfile
-
-    if args.trackfile:
-        trackfile = args.trackfile
+    payfile = args.payfile
+    trackfile = args.trackfile
 
     start = datetime.datetime.now()
     worker = SafecomExporter(payfile, trackfile)
     worker.create_exports()
     stop = datetime.datetime.now()
     runtime = stop - start
-    logger.info("Started %s ended %s" % (start, stop))
-    logger.info("Script running time was %d seconds" % (
-        int(runtime.total_seconds())))
+    logger.debug("started=%s, ended=%s", start, stop)
+    logger.info("Script running time was %r", runtime.total_seconds())
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':

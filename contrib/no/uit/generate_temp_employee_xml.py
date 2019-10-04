@@ -410,10 +410,6 @@ def get_persons(db, affiliation_status_types):
     logger.info("Found %d persons in database", count)
 
 
-default_in_file = os.path.join(cereconf.DUMPDIR, 'paga/uit_paga_last.csv')
-default_out_file = os.path.join(
-    cereconf.DUMPDIR,
-    "temp_emp_%s.xml" % datetime.date.today().strftime("%Y-%m-%d"))
 default_aff_status = 'ANSATT/vitenskapelig'
 
 
@@ -424,15 +420,15 @@ def main(inargs=None):
     parser.add_argument(
         '-p', '--person-file',
         dest='in_filename',
+        required=True,
         help='Read and import persons from %(metavar)s (%(default)s)',
-        default=default_in_file,
         metavar='<filename>',
     )
     parser.add_argument(
         '-o', '--out-file',
         dest='out_filename',
+        required=True,
         help='Write XML file to %(metavar)s (%(default)s)',
-        default=default_out_file,
         metavar='<filename>',
     )
     aff_status_arg = parser.add_argument(
@@ -465,8 +461,6 @@ def main(inargs=None):
     person_file = args.in_filename
     out_file = args.out_filename
 
-    if not person_file:
-        raise ValueError("Invalid input filename %r" % (person_file, ))
     if not os.path.exists(person_file):
         raise IOError("Input file %r does not exist" % (person_file, ))
     if not out_file:

@@ -1776,9 +1776,6 @@ Data assosiert direkte med en enkelt konto:
 
  * Unix shell						0..N
 
- * Printerkvote						0..N
-   Har/har ikke, ukekvote, maxkvote, semesterkvote.
-
  * Mailadresser						0..N
 
  * Plassering i organisasjon (stedkode)			== 1

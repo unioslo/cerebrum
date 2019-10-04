@@ -83,8 +83,6 @@ def usage():
                        Default: pre_course.xml.
     --regkort-file: Override regkort xml filename.
                     Default: regkort.xml.
-    --betalt-papir-file: Override betalt-papir xml filename.
-                         Default: betalt_papir.xml.
     --edu-file: Override edu-info xml filename.
                 Default edu_info.xml.
     --db-user: connect with given database username
@@ -101,7 +99,6 @@ def usage():
     -o: Generate ou xml file
     -n: Generate netpublication reservation xml file
     -t: Generate topics xml file
-    -b: Generate betalt-papir xml file
     -R: Generate regkort xml file
     -d: Gemerate edu info xml file
     -P: Generate a pre-course xml file
@@ -128,7 +125,6 @@ class FilePaths(object):
         # Uit Extras
         self.topics_file = os.path.join(self.datadir, "topics.xml")
         self.regkort_file = os.path.join(self.datadir, "regkort.xml")
-        self.betalt_papir_file = os.path.join(self.datadir, "betalt_papir.xml")
         self.edu_file = os.path.join(self.datadir, "edu_info.xml")
         self.pre_course_file = os.path.join(self.datadir, "pre_course.xml")
 
@@ -162,8 +158,6 @@ class FilePaths(object):
                 self.topics_file = set_filepath(self.datadir, val)
             elif o in ('--regkort-file',):
                 self.regkort_file = set_filepath(self.datadir, val)
-            elif o in ('--betalt-papir-file',):
-                self.betalt_papir_file = set_filepath(self.datadir, val)
             elif o in ('--edu-file',):
                 self.edu_file = set_filepath(self.datadir, val)
             elif o in ('--pre-course-file',):
@@ -264,6 +258,56 @@ class ImportFromFsUiT(ImportFromFs):
         f.write("</data>\n")
         f.close()
 
+    def write_ou_info(self, institution_number, ou_file):
+        """Lager fil med informasjon om alle OU-er"""
+        logger.info("Writing OU info to '%s'", ou_file)
+        f = SimilarSizeWriter(ou_file, mode='w', encoding=XML_ENCODING)
+        f.max_pct_change = 50
+        f.write(xml.xml_hdr + "<data>\n")
+        cols, ouer = self._ext_cols(
+            self.fs.info.list_ou(institution_number))
+        for o in ouer:
+            sted = {}
+            for fs_col, xml_attr in (
+                    ('faknr', 'fakultetnr'),
+                    ('instituttnr', 'instituttnr'),
+                    ('gruppenr', 'gruppenr'),
+                    ('stedakronym', 'akronym'),
+                    ('stedakronym', 'forkstednavn'),
+                    ('stednavn_bokmal', 'stednavn'),
+                    ('faknr_org_under', 'fakultetnr_for_org_sted'),
+                    ('instituttnr_org_under', 'instituttnr_for_org_sted'),
+                    ('gruppenr_org_under', 'gruppenr_for_org_sted'),
+                    ('adrlin1', 'adresselinje1_intern_adr'),
+                    ('adrlin2', 'adresselinje2_intern_adr'),
+                    ('postnr', 'poststednr_intern_adr'),
+                    ('adrlin1_besok', 'adresselinje1_besok_adr'),
+                    ('adrlin2_besok', 'adresselinje2_besok_adr'),
+                    ('postnr_besok', 'poststednr_besok_adr')):
+                if o[fs_col] is not None:
+                    sted[xml_attr] = xml.escape_xml_attr(o[fs_col])
+            komm = []
+            for fs_col, typekode in (
+                    ('telefonnr', 'EKSTRA TLF'),
+                    ('faxnr', 'FAX'),
+            ):
+                if o[fs_col]:  # Skip NULLs and empty strings
+                    komm.append(
+                        {'kommtypekode': xml.escape_xml_attr(typekode),
+                         'kommnrverdi': xml.escape_xml_attr(o[fs_col])})
+            # TODO: Kolonnene 'url' og 'bibsysbeststedkode' hentes ut fra
+            # FS, men tas ikke med i outputen herfra.
+            f.write('<sted ' +
+                    ' '.join(["%s=%s" % item for item in sted.items()]) +
+                    '>\n')
+            for k in komm:
+                f.write('<komm ' +
+                        ' '.join(["%s=%s" % item for item in k.items()]) +
+                        ' />\n')
+            f.write('</sted>\n')
+        f.write("</data>\n")
+        f.close()
+
 
 def main():
     Cerebrum.logutils.autoconf('cronjob')
@@ -282,7 +326,6 @@ def main():
                                     "misc-file=",
                                     "misc-tag=",
                                     "topics-file=",
-                                    "betalt-papir-file=",
                                     "regkort-file=",
                                     "edu-file=",
                                     "pre-course-file=",
@@ -330,9 +373,6 @@ def main():
                 fsimporter.write_netpubl_info(file_paths.netpubl_file)
             elif o in ('-t',):
                 fsimporter.write_topic_info(file_paths.topics_file)
-            elif o in ('-b',):
-                fsimporter.write_betalt_papir_info(
-                    file_paths.betalt_papir_file)
             elif o in ('-R',):
                 fsimporter.write_regkort_info(file_paths.regkort_file)
             elif o in ('-d',):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
-
+# -*- coding: utf-8 -*-
+#
 # Copyright 2013-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -18,17 +18,14 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-# Global imports
-
 import datetime
 import getopt
 import pprint
 import sys
 
 import mx.DateTime
+import six
 
-# Cerebrum imports
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
@@ -113,7 +110,7 @@ def clean_affi_s_list():
 #
 def decode_text(text):
     # print "original text:%s" % text
-    new_text = unicode(text, 'utf-8').encode('iso-8859-1')
+    new_text = six.text_type(text).encode('iso-8859-1')
     # print "decoded text:%s" % new_text
     return new_text
 
@@ -143,7 +140,7 @@ def decode_text(text):
 #
 #######################################################################
 def import_person(persons, all_nodes):
-    print "import person"
+    print("import person")
     global dryrun
     global cere_list
     global include_del
@@ -151,9 +148,7 @@ def import_person(persons, all_nodes):
         "database:%s" % cereconf.CEREBRUM_DATABASE_CONNECT_DATA['host'])
     for person in persons:
 
-        ssn_is_missing = False
         ssn_not_valid = False
-        valid_birthday = True
         person_to_be_processed = {}
 
         person = person.rstrip()
@@ -337,7 +332,6 @@ def import_person(persons, all_nodes):
             person_list[13]
             logger.debug("has mobile:%s" % person_list[13])
             number = person_list[13]
-            type = 'mobile'
             c_prefs = {}
             c_type = int(const.contact_mobile_phone)
             pref = c_prefs.get(c_type, 0)
@@ -363,7 +357,6 @@ def import_person(persons, all_nodes):
 def determine_affiliation(person_list, all_nodes):
     aff_stat = []
     ou = []
-    id_values = []
     calculated_aff_stat = []
     # affiliation tree contains a list of affiliation status types
     # and the affiliation types not valid when the key is encountered.
@@ -470,8 +463,6 @@ def get_person_data(person_file):
 
 def main():
     default_person_filename = "/cerebrum/var/dumps/flyt/flyt_person.txt"
-    default_file = True
-    default_file_path = cereconf.DUMPDIR
     all_nodes = False
     global include_del
     global dryrun
