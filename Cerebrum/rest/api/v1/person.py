@@ -190,7 +190,7 @@ class PersonResource(Resource):
         name_keys = [PersonName.get(k).attribute or k for k in PersonName]
 
         # Filter out appropriate fields from db_row objects
-        names = [filter(lambda (k, _): k in name_keys, e.items()) for
+        names = [filter(lambda k, _: k in name_keys, e.items()) for
                  e in pe.get_names()]
         names = [dict(n) for n in names]
 
@@ -210,7 +210,9 @@ class PersonAffiliationListResource(Resource):
 
     person_affiliations_filter = api.parser()
     person_affiliations_filter.add_argument(
-        'include_deleted', type=utils.str_to_bool, dest='include_deleted',
+        'include_deleted',
+        type=utils.str_to_bool,
+        dest='include_deleted',
         help='If true, deleted affiliations are included.')
 
     @auth.require()
