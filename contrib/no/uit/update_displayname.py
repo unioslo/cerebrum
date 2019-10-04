@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 def get_changes(url, test=False):
     """ Get name updates from Portal HTML """
     changes = {}
-    invalid_chars = re.compile(r'[,;"=\+\\\\<>]')
+    invalid_chars = re.compile(r'[,;"=\+\\<>]')
 
     if test:
         logger.info('Running script with mock response data')
