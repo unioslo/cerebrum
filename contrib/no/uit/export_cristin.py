@@ -18,10 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import unicode_literals
-
 """
-
 This file is part of the Cerebrum framework.
 
 It generates an xml dump, suitable for importing into the FRIDA framework
@@ -55,16 +52,16 @@ file is ignored and no <URL> elements are generated in frida.xml (in
 violation of the FRIDA.dtd).
 
 """
+from __future__ import unicode_literals
 
 import argparse
 import logging
-import os
-import six
 import time
 import string
 import xml.sax
-
 from xml.sax import make_parser
+
+import six
 
 import cereconf
 import Cerebrum.logutils
@@ -103,7 +100,7 @@ class PersonHandler(xml.sax.ContentHandler):
         self.tils_attrs = {}
         self.person_attrs = {}
 
-    def startElement(self, name, attrs):
+    def startElement(self, name, attrs):  # noqa: N802
         if name == 'tils':
             self.tils_attrs = {}
             for k in attrs.keys():
@@ -122,7 +119,7 @@ class PersonHandler(xml.sax.ContentHandler):
             self.var = tmp
             self._elemdata.append(tmp)
 
-    def endElement(self, name):
+    def endElement(self, name):  # noqa: N802
         if name == 'person':
             self.call_back_function(self, name)
         elif name == 'tils':
@@ -549,7 +546,7 @@ class LTPersonParser(xml.sax.ContentHandler, object):
             raise SystemExit('Missing filename. Operation aborted')
         xml.sax.parse(self.filename, self)
 
-    def startElement(self, name, attributes):
+    def startElement(self, name, attributes):  # noqa: N802
         """
         NB! we only handle elements interesting for the FRIDA output.
 
@@ -575,7 +572,7 @@ class LTPersonParser(xml.sax.ContentHandler, object):
               self.current_person):
             self.current_person.register_element(name, attributes)
 
-    def endElement(self, name):
+    def endElement(self, name):  # noqa: N802
         if name == self.PERSON_ELEMENT and self.current_person:
             self.callback(self.current_person)
 
@@ -1248,7 +1245,7 @@ def output_person(writer, pobj, phd_cache, system_source):
     # We need the one with lowest contact_pref, if there are many
     contact = person_db.get_contact_info(source=constants.system_tlf,
                                          type=constants.contact_phone)
-    contact.sort(lambda x, y: cmp(x.contact_pref, y.contact_pref))
+    contact.sort(key=lambda row: row['contact_pref'])
 
     if len(contact) > 0:
         contact = contact[0]['contact_value']
@@ -1531,53 +1528,51 @@ def output_xml(output_file,
 
 
 def main():
-    """Start method for this script."""
-    date = time.localtime()
-    date_today_paga = "%02d-%02d-%02d" % (date[0], date[1], date[2])
-    date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
+    parser = argparse.ArgumentParser(
+        description='Generate a CRISTIN XML export file',
+    )
 
-    default_output_file = os.path.join(cereconf.DUMPDIR, 'cristin',
-                                       'cristin.xml')
-    default_person_file = os.path.join(cereconf.DUMPDIR, 'employees',
-                                       'paga_persons_{0}.xml'.format(
-                                           date_today_paga))
-    default_sted_file = os.path.join(cereconf.DUMPDIR, 'ou',
-                                     'uit_ou_{0}.xml'.format(date_today))
-
-    parser = argparse.ArgumentParser(description=__doc__)
-
-    parser.add_argument('-o',
-                        '--output-file',
-                        dest='output_file',
-                        default=default_output_file,
-                        help='Output file')
-    parser.add_argument('-p',
-                        '--person-file',
-                        dest='person_file',
-                        default=default_person_file,
-                        help='Output file')
-    parser.add_argument('-s',
-                        '--sted-file',
-                        dest='sted_file',
-                        default=default_sted_file,
-                        help='Sted input file')
-    parser.add_argument('-d',
-                        '--data-source',
-                        dest='data_source',
-                        default='UITO',
-                        help='Source that generates frida.xml '
-                             '(Default: UITO)')
-    parser.add_argument('-t',
-                        '--target',
-                        dest='target',
-                        default='FRIDA',
-                        help='Result target. (Default: FRIDA)')
+    parser.add_argument(
+        '-o', '--output-file',
+        dest='output_file',
+        required=True,
+        help='Write cristin export to %(metavar)s XML file',
+        metavar='<file>',
+    )
+    parser.add_argument(
+        '-p', '--person-file',
+        dest='person_file',
+        required=True,
+        help='Read paga employee data from %(metavar)s XML file',
+        metavar='<file>',
+    )
+    parser.add_argument(
+        '-s', '--sted-file',
+        dest='sted_file',
+        required=True,
+        help='Read paga ou data from %(metavar)s XML file',
+        metavar='<file>',
+    )
+    parser.add_argument(
+        '-d',
+        '--data-source', dest='data_source',
+        default='UITO',
+        help='Source that generates frida.xml (Default: UITO)',
+    )
+    parser.add_argument(
+        '-t', '--target',
+        dest='target',
+        default='FRIDA',
+        help='Result target. (Default: FRIDA)',
+    )
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    logger.info('Starting Cristin exports')
+    logger.info('Start %s', parser.prog)
+    logger.debug('args=%r', args)
+
     person_parser = make_parser()
     current_person_handler = PersonHandler(args.person_file, person_helper)
     person_parser.setContentHandler(current_person_handler)
@@ -1589,7 +1584,7 @@ def main():
                target=args.target,
                person_file=args.person_file,
                sted_file=args.sted_file)
-    logger.info("Generating Cristin export finished")
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == "__main__":

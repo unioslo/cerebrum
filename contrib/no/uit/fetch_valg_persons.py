@@ -20,12 +20,9 @@ TODO: Do we really need a separate version for UiT? The major differences are:
 from __future__ import unicode_literals
 
 import argparse
-import datetime
 import io
 import logging
-import os
 
-import cereconf
 import Cerebrum.logutils
 
 from Cerebrum.Utils import Factory
@@ -33,12 +30,6 @@ from Cerebrum.Utils import XMLHelper
 
 
 logger = logging.getLogger(__name__)
-DUMPDIR = cereconf.DUMPDIR
-
-default_output_file = os.path.join(
-    DUMPDIR,
-    'uit_evalg_persons_{}.xml'.format(datetime.date.today().strftime(
-        '%Y%m%d')))
 
 
 def dump_person_info(db, fname):
@@ -53,9 +44,8 @@ def dump_person_info(db, fname):
         int(co.system_x): 3,
     }
 
-    def sort_by_source_system(a, b):
-        return cmp(src_sys_order.get(int(a['source_system']), 99),
-                   src_sys_order.get(int(b['source_system']), 99))
+    def source_system_key(row):
+        return src_sys_order.get(int(row['source_system']), 99)
 
     def _fetch_names(name_type):
         # Fetch persons full-name from most-significant source system
@@ -64,7 +54,7 @@ def dump_person_info(db, fname):
             pid = int(row['person_id'])
             ret.setdefault(pid, []).append(row)
         for pid, rows in ret.items():
-            rows.sort(sort_by_source_system)
+            rows.sort(key=source_system_key)
             ret[pid] = rows[0]
             assert int(name_type) == rows[0]['name_variant']
         return ret
@@ -80,7 +70,7 @@ def dump_person_info(db, fname):
         pid = int(row['entity_id'])
         pid2ext_ids.setdefault(pid, []).append(row)
     for pid, rows in pid2ext_ids.items():
-        rows.sort(sort_by_source_system)
+        rows.sort(key=source_system_key)
         pid2ext_ids[pid] = rows[0]
 
     # Fetch birth-date
@@ -131,26 +121,29 @@ def dump_person_info(db, fname):
 
 
 def main():
-    db = Factory.get('Database')()
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
         '-v',
         dest='filename',
-        help='output file name')
+        required=True,
+        help='Write evalg data to %(metavar)s',
+        metavar='<filename>',
+    )
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
-    logger.info('Starting evalg2 export')
 
-    if args.filename:
-        output_file = args.filename
-    else:
-        output_file = default_output_file
+    logger.info('Start %s', parser.prog)
+    logger.debug('args=%r', args)
 
+    db = Factory.get('Database')()
+    output_file = args.filename
     dump_person_info(db, output_file)
-    logger.info('End of evalg2 export')
+
+    logger.info('Wrote evalg data to %r', output_file)
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':

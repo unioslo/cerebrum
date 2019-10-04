@@ -1,7 +1,7 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003, 2004, 2019 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,22 +18,14 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
 import argparse
 import logging
-import os
-import time
 
 import cereconf
 from Cerebrum import logutils
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no.uit.access_SYSY import SystemY
 from Cerebrum.utils.atomicfile import MinimumSizeWriter
-
-default_role_file = os.path.join(cereconf.DUMPDIR,
-                                 'sysY',
-                                 'sysY_%s.xml' % (time.strftime("%Y%m%d")))
 
 KiB = 1024
 logger = logging.getLogger(__name__)
@@ -81,32 +73,46 @@ def write_roles(stream, items):
 def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
 
-    parser.add_argument('-r',
-                        action='store_true',
-                        default=False,
-                        dest='write_roles',
-                        help='write role info file')
+    parser.add_argument(
+        '-r',
+        action='store_true',
+        default=False,
+        dest='write_roles',
+        help='write role info file',
+    )
 
-    parser.add_argument('--role-file',
-                        required=False,
-                        metavar='filename',
-                        default=default_role_file)
-    parser.add_argument('--db-user',
-                        default=cereconf.SYS_Y['db_user'])
-    parser.add_argument('--db-host',
-                        default=cereconf.SYS_Y['db_host'])
-    parser.add_argument('--db-service',
-                        default=cereconf.SYS_Y['db_service'])
+    parser.add_argument(
+        '--role-file',
+        metavar='filename',
+    )
 
+    parser.add_argument(
+        '--db-user',
+        default=cereconf.SYS_Y['db_user'],
+    )
+    parser.add_argument(
+        '--db-host',
+        default=cereconf.SYS_Y['db_host'],
+    )
+    parser.add_argument(
+        '--db-service',
+        default=cereconf.SYS_Y['db_service'],
+    )
     logutils.options.install_subparser(parser)
+
     args = parser.parse_args(inargs)
     logutils.autoconf('cronjob', args)
 
-    sys_y = SystemY(user=args.db_user, database=args.db_service,
+    logger.info('Start %s', parser.prog)
+
+    sys_y = SystemY(user=args.db_user,
+                    database=args.db_service,
                     host=args.db_host)
 
     if args.write_roles:
         write_role_info(sys_y, args.role_file)
+
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':
