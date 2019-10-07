@@ -324,12 +324,15 @@ class BofhdExtension(BofhdCommonMethods):
     #
     all_commands['user_get_pwd'] = None
 
-    def user_get_pwd(self, operator, id):
+    def user_get_pwd(self, operator, id_):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
-        account = self._get_account(int(id), 'id')
-        pwd = account.get_account_authentication(
-            self.const.auth_type_plaintext)
+        account = self._get_account(id_, 'id')
+        try:
+            pwd = account.get_account_authentication(
+                self.const.auth_type_plaintext)
+        except Errors.NotFoundError:
+            raise CerebrumError('Cannot find user with id:{}'.format(int(id_)))
         return {'password': pwd,
                 'uname': account.account_name}
 
