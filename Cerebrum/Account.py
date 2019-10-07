@@ -65,7 +65,6 @@ def _account_row_exists(database, table, binds):
     :type binds: dict
     :param binds: Pre-formattet dict where the keys *must* match the database
     """
-    # This will fail for a badly formatted dict of binds
     where = ' AND '.join('{0}=:{0}'.format(x) for x in binds)
     exists_stmt = """
       SELECT EXISTS (
@@ -178,6 +177,9 @@ class AccountType(object):
     def _set_account_type_priority(self, all_pris, orig_pri, new_pri):
         """Recursively insert the new priority, increasing parent
         priority with one if there is a conflict"""
+        if orig_pri == new_pri:
+            # False positive, abort!
+            return
         if new_pri in all_pris:
             self._set_account_type_priority(all_pris, new_pri, new_pri + 1)
         orig_pri = int(orig_pri)
@@ -186,9 +188,6 @@ class AccountType(object):
                 'affiliation': all_pris[orig_pri]['affiliation'],
                 'account_id': all_pris[orig_pri]['account_id'],
                 'priority': new_pri}
-        if orig_pri == new_pri:
-            # False positive, abort!
-            return
         self.execute("""
         UPDATE [:table schema=cerebrum name=account_type]
         SET priority=:priority
@@ -204,7 +203,7 @@ class AccountType(object):
                 'ou_id': ou_id,
                 'affiliation': int(affiliation),
                 'account_id': self.entity_id}
-        if not _account_row_exists(self.db, 'account_type', binds):
+        if not _account_row_exists(self._db, 'account_type', binds):
             # False positive
             return
         where = ' AND '.join('{0}=:{0}'.format(x) for x in binds)
@@ -225,12 +224,12 @@ class AccountType(object):
     def delete_ac_types(self):
         """Delete all the AccountTypes for the account."""
         binds = {'account_id': self.entity_id}
-        if not _account_row_exists(self.db, 'account_type', binds):
+        if not _account_row_exists(self._db, 'account_type', binds):
             # False positive
             return
         delete_stmt = """
           DELETE FROM [:table schema=cerebrum name=account_type]
-          WHERE account_id=:a_id
+          WHERE account_id=:account_id
         """
         self.execute(delete_stmt, binds)
 
@@ -395,7 +394,7 @@ class AccountHome(object):
                                         spread=spread)
         binds = {'account_id': self.entity_id,
                  'spread': int(spread)}
-        if not _account_row_exists(self.db, 'account_home', binds):
+        if not _account_row_exists(self._db, 'account_home', binds):
             # False positive
             return
         delete_stmt = """
@@ -464,7 +463,7 @@ class AccountHome(object):
                 if value is NotSet:
                     del binds[key]
             binds['homedir_id'] = current_id
-            if _account_row_exists(self.db, 'homedir', binds):
+            if _account_row_exists(self._db, 'homedir', binds):
                 # False positive; entry exists as is
                 return current_id
             sql = """
@@ -495,7 +494,7 @@ class AccountHome(object):
         tmp = self.resolve_homedir(disk_id=tmp['disk_id'],
                                    home=tmp['home'])
         binds = {'homedir_id': homedir_id}
-        if not _account_row_exists(self.db, 'homedir', binds):
+        if not _account_row_exists(self._db, 'homedir', binds):
             # False positive; no homedir to clear
             return
         delete_stmt = """
@@ -533,7 +532,7 @@ class AccountHome(object):
                                    spread=spread)
         try:
             old = self.get_home(spread)
-            if _account_row_exists(self.db, 'account_home', binds):
+            if _account_row_exists(self._db, 'account_home', binds):
                 # False positive
                 return
             update_stmt = """
@@ -1010,12 +1009,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 self.const.account_namespace,
                 self.account_name)
         else:
-            cols = [('owner_type', ':o_type'),
-                    ('owner_id', ':o_id'),
-                    ('np_type', ':np_type'),
-                    ('creator_id', ':c_id'),
-                    ('description', ':desc'),
-                    ('expire_date', ':exp_date')]
             binds = {'owner_type': int(self.owner_type),
                      'owner_id': self.owner_id,
                      'np_type': np_type,
@@ -1023,7 +1016,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                      'description': self.description,
                      'expire_date': self.expire_date,
                      'account_id': self.entity_id}
-            if not _account_row_exists(self.db, 'account_info', binds):
+            if not _account_row_exists(self._db, 'account_info', binds):
                 set_str = ', '.join(
                     '{0}=:{0}'.format(x) for x in binds if x != 'account_id')
                 update_stmt = """
