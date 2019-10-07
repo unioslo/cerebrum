@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+0#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright 2007-2018 University of Oslo, Norway
@@ -120,10 +120,12 @@ class EphorteRole(DatabaseAccessor):
             'journalenhet': journalenhet
         }
         exists_stmt = """
-        SELECT EXISTS (
-        SELECT 1
-        FROM [:table schema=cerebrum name=ephorte_role]
-        WHERE %s""" % " AND ".join(
+           SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=ephorte_role]
+            WHERE %s
+          )
+        """ % " AND ".join(
             ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
             ["%s IS NULL" % x for x in binds if binds[x] is None])
         if not self.query_1(exists_stmt, binds):
@@ -220,16 +222,6 @@ class EphortePermission(DatabaseAccessor):
             'adm_enhet': sko,
             'requestee_id': requestee
         }
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name=ephorte_permission]
-            WHERE %s
-          )
-        """ % ' AND '.join('{0}=:{0}'.format(x) for x in binds)
-        if self.query_1(exists_stmt, binds):
-            # False positive
-            return
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=ephorte_permission]
           (%s) VALUES (%s)""" % (", ".join(binds.keys()),
