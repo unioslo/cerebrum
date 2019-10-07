@@ -45,14 +45,13 @@ def _entity_row_exists(db, table, binds):
     :type binds: dict
     :param binds: Pre-formatted dict where the keys *must* match the database
     """
-    # This will fail for a badly formatted dict of binds
     where = ' AND '.join('{0}=:{0}'.format(x) for x in binds)
     exists_stmt = """
-    SELECT EXISTS (
-    SELECT 1
-    FROM [:table schema=cerebrum name={table}]
-    WHERE {where}
-    )
+      SELECT EXISTS (
+        SELECT 1
+        FROM [:table schema=cerebrum name={table}]
+        WHERE {where}
+      )
     """.format(table=table, where=where)
     return db.query_1(exists_stmt, binds)
 
@@ -308,9 +307,6 @@ class EntitySpread(Entity):
         binds = {'entity_id': self.entity_id,
                  'entity_type': int(self.entity_type),
                  'spread': int(spread)}
-        if _entity_row_exists(self.db, 'entity_spread', binds):
-            # False positive
-            return
         insert_stmt = """
           INSERT INTO [:table schema=cerebrum name=entity_spread]
           (entity_id, entity_type, spread)
@@ -323,7 +319,7 @@ class EntitySpread(Entity):
         """Remove ``spread`` from this entity."""
         binds = {'entity_id': self.entity_id,
                  'spread': int(spread)}
-        if not _entity_row_exists(self.db, 'entity_spread', binds):
+        if not _entity_row_exists(self._db, 'entity_spread', binds):
             # False positive
             return
         delete_stmt = """
@@ -435,7 +431,7 @@ class EntityName(Entity):
     def delete_entity_name(self, domain):
         binds = {'entity_id': self.entity_id,
                  'value_domain': int(domain)}
-        if not _entity_row_exists(self.db, 'entity_name', binds):
+        if not _entity_row_exists(self._db, 'entity_name', binds):
             # False positive
             return
         delete_stmt = """
@@ -458,7 +454,16 @@ class EntityName(Entity):
         binds = {'entity_id': self.entity_id,
                  'domain': int(domain),
                  'name': name}
-        if _entity_row_exists(self.db, 'entity_name', binds):
+        where = ' AND '.join('{0}=:{0}'.format(x) for x in binds)
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name={table}]
+            WHERE {where}
+          )
+        """.format(table=table, where=where)
+
+        if _entity_row_exists(self._db, 'entity_name', binds):
             # False positive
             return
         update_stmt = """
@@ -1287,7 +1292,7 @@ class EntityQuarantine(Entity):
         binds = {'entity_id': self.entity_id,
                  'quarantine_type': int(qtype),
                  'disable_until': until}
-        if _entity_row_exists(self.db, 'entity_quarantine', binds):
+        if _entity_row_exists(self._db, 'entity_quarantine', binds):
             # false positive
             return
         update_stmt = """
@@ -1309,7 +1314,7 @@ class EntityQuarantine(Entity):
         """
         binds = {'entity_id': self.entity_id,
                  'quarantine_type': int(qtype)}
-        if not _entity_row_exists(self.db, 'entity_quarantine', binds):
+        if not _entity_row_exists(self._db, 'entity_quarantine', binds):
             # False positive
             return False
         self.execute("""
@@ -1431,7 +1436,7 @@ class EntityExternalId(Entity):
         binds = {'entity_id': self.entity_id,
                  'id_type': int(id_type),
                  'source_system': int(source_system)}
-        if not _entity_row_exists(self.db, 'entity_external_id', binds):
+        if not _entity_row_exists(self._db, 'entity_external_id', binds):
             # False positive
             return
         delete_stmt = """
@@ -1457,7 +1462,7 @@ class EntityExternalId(Entity):
                 'tv': ', '.join(':{0}'.format(x) for x in binds)}
         if update:
             if not _entity_row_exists(
-                    self.db, 'entity_external_id', binds):
+                    self._db, 'entity_external_id', binds):
                 # False positive
                 return
             sql = """UPDATE [:table schema=cerebrum name=entity_external_id]
