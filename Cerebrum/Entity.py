@@ -454,22 +454,25 @@ class EntityName(Entity):
         binds = {'entity_id': self.entity_id,
                  'domain': int(domain),
                  'name': name}
-        where = ' AND '.join('{0}=:{0}'.format(x) for x in binds)
+        # WARNING: beware of naming confusion!
+        # table: name=entity_name; SET/WHERE: entity_name=:name
         exists_stmt = """
           SELECT EXISTS (
             SELECT 1
-            FROM [:table schema=cerebrum name={table}]
-            WHERE {where}
+            FROM [:table schema=cerebrum name=entity_name]
+            WHERE entity_id=:entity_id AND
+                  value_domain=:domain AND
+                  entity_name=:name
           )
-        """.format(table=table, where=where)
-
-        if _entity_row_exists(self._db, 'entity_name', binds):
+        """
+        if self.query_1(exists_stmt, binds):
             # False positive
             return
         update_stmt = """
-        UPDATE [:table schema=cerebrum name=entity_name]
-        SET entity_name=:name
-        WHERE entity_id=:entity_id AND value_domain=:domain"""
+          UPDATE [:table schema=cerebrum name=entity_name]
+            SET entity_name=:name
+          WHERE entity_id=:entity_id AND
+              value_domain=:domain"""
         self.execute(update_stmt, binds)
         self._db.log_change(self.entity_id,
                             self.clconst.entity_name_mod,
