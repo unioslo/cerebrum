@@ -21,13 +21,54 @@
 
 """Office 365 specific account selection criterias.
 
-We only provision primary accounts for Office365."""
+We only provision primary accounts for Office365.
 
-from Cerebrum.utils.funcwrap import memoize
+Configuration:
+--------------
+Extends the configuration with the following options:
+
+grace_period
+    Grace period for affiliations.
+
+"""
+
+import mx.DateTime
+
 from Cerebrum.modules.ad2.froupsync import _FroupSync
+from Cerebrum.utils.funcwrap import memoize
 
 
 class O365ConsentGroupSync(_FroupSync):
+    def configure(self, config_args):
+        """Override the base configuration with O365 specific config
+
+        :param dict config_args: configuration
+        """
+        super(O365ConsentGroupSync, self).configure(config_args)
+        self.config['grace_period'] = config_args.get('grace_period', 0)
+
+    @memoize
+    def pe2affs(self, person_id):
+        """ Get affiliations for a person.
+
+        Set the affiliations enabled for deleted affiliations as well, as long
+        as they are within the grace period.
+
+        :param int person_id: The entity ID of an *existing* person entity.
+
+        :return list:
+            Tuples of (source system, affiliation type) for a given person.
+
+        """
+
+        self.pe.clear()
+        self.pe.find(person_id)
+        too_old = mx.DateTime.now() - self.config['grace_period']
+        affs = [(row['source_system'], row['affiliation'])
+                for row in self.pe.get_affiliations(include_deleted=True) if
+                not row['deleted_date'] or row['deleted_date'] > too_old]
+        return affs
+
     @memoize
     def pe2accs(self, person_id):
         """ Fetch the primary account for a person.
