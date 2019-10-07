@@ -37,38 +37,38 @@ class VirtHomeCLConstants(CLConstants):
     # Bofhd requests
     #####
     va_pending_create = _ChangeTypeCode(
-        'virthome_account_create_request',
-        'add',
+        'virthome_account_create',
+        'request',
         'waiting for creation confirmation on %(subject)s')
 
     va_email_change = _ChangeTypeCode(
-        'virthome_account_email_request',
-        'add',
+        'virthome_account_email',
+        'request',
         'waiting for e-mail change confirmation on %(subject)s')
 
     va_group_invitation = _ChangeTypeCode(
-        'virthome_group_member_request',
-        'add',
+        'virthome_group_member',
+        'request',
         'issued invitation to join group')
 
     va_group_owner_swap = _ChangeTypeCode(
-        'virthome_group_owner_change_request',
-        'add',
+        'virthome_group_owner_change',
+        'request',
         'waiting for a group owner change')
 
     va_group_moderator_add = _ChangeTypeCode(
-        'virthome_group_moderator_add_request',
-        'add',
+        'virthome_group_moderator_add',
+        'request',
         'waiting for a new group moderator')
 
     va_password_recover = _ChangeTypeCode(
-        'virthome_account_password_recover_request',
-        'add',
+        'virthome_account_pwd_recover',
+        'request',
         'a pending password recovery request')
 
     va_reset_expire_date = _ChangeTypeCode(
-        'virthome_account_reset_expire_date_request',
-        'add',
+        'virthome_account_reset_exp_date',
+        'request',
         "push VA/FA's expire date into the future")
 
 
