@@ -172,7 +172,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                                 None)
             self.add_entity_name(self.const.group_namespace, self.group_name)
         else:
-            if not _group_existence_query(self.db, 'group_info', binds):
+            if not _group_existence_query(self._db, 'group_info', binds):
                 # True positive
                 set_str = ', '.join(
                     '{0}=:{0}'.format(x) for x in binds if x != 'group_id')
@@ -392,7 +392,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
 
         binds = {'group_id': group_id,
                  'member_id': member_id}
-        if not _group_existence_query(self.db, 'group_member', binds):
+        if not _group_existence_query(self._db, 'group_member', binds):
             # False positive
             return
         delete_stmt = """
