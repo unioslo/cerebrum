@@ -119,23 +119,22 @@ class EphorteRole(DatabaseAccessor):
             'arkivdel': arkivdel,
             'journalenhet': journalenhet
         }
+        where_str = " AND ".join(
+            '{0}=:{0}'.format(k) if v is not None else '{0} IS NULL'.format(k)
+            for k, v in binds.items())
         exists_stmt = """
            SELECT EXISTS (
             SELECT 1
             FROM [:table schema=cerebrum name=ephorte_role]
             WHERE %s
           )
-        """ % " AND ".join(
-            ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
-            ["%s IS NULL" % x for x in binds if binds[x] is None])
+        """ % where_str
         if not self.query_1(exists_stmt, binds):
             # False positive
             return
         delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=ephorte_role]
-        WHERE %s""" % " AND ".join(
-            ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
-            ["%s IS NULL" % x for x in binds if binds[x] is None])
+        WHERE %s""" % where_str
         self.execute(delete_stmt, binds)
         self._db.log_change(
             person_id, self.clconst.ephorte_role_rem, sko,
