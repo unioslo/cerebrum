@@ -454,8 +454,6 @@ class EntityName(Entity):
         binds = {'entity_id': self.entity_id,
                  'domain': int(domain),
                  'name': name}
-        # WARNING: beware of naming confusion!
-        # table: name=entity_name; SET/WHERE: entity_name=:name
         exists_stmt = """
           SELECT EXISTS (
             SELECT 1
