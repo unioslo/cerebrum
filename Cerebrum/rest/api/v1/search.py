@@ -24,7 +24,6 @@ from __future__ import unicode_literals
 
 from flask_restplus import Namespace, Resource, abort
 from flask_restplus import fields as base_fields
-from six import text_type
 
 from Cerebrum.Entity import EntityExternalId
 from Cerebrum import Errors
@@ -98,8 +97,7 @@ class ExternalIdResource(Resource):
                     source_systems.append(code)
                 except Errors.NotFoundError:
                     abort(404,
-                          message='Unknown source system for source_system={}'.format(
-                              entry))
+                          message='Unknown source_system={}'.format(entry))
             filters['source_system'] = source_systems
 
         if 'id_type' in filters:
@@ -114,8 +112,7 @@ class ExternalIdResource(Resource):
                     id_types.append(code)
                 except Errors.NotFoundError:
                     abort(404,
-                          message='Unknown external ID type for id_type={}'.format(
-                              entry))
+                          message='Unknown id_type={}'.format(entry))
             filters['id_type'] = id_types
 
         strip_wildcards = {ord(c): '' for c in '*?%_'}

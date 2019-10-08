@@ -22,7 +22,7 @@
 
 from __future__ import unicode_literals
 
-from flask_restplus import Namespace, Resource, abort, reqparse
+from flask_restplus import Namespace, Resource, abort
 from flask_restplus import fields as base_fields
 from werkzeug.exceptions import NotFound
 from six import text_type
@@ -37,7 +37,7 @@ api = Namespace('groups', description='Group operations')
 
 
 def find_group(identifier, idtype='name'):
-    if idtype == 'name' and isinstance(identifier, unicode):
+    if idtype == 'name' and isinstance(identifier, text_type):
         identifier = identifier
     try:
         try:
@@ -244,12 +244,12 @@ class GroupResource(Resource):
 
     # PUT /<group>
     #
-    new_group_parser = reqparse.RequestParser()
+    new_group_parser = api.parser()
     new_group_parser.add_argument(
         'visibility',
         choices=GroupVisibility._rev_map.keys(),
         required=True,
-        location='form',
+        location=['form', 'json'],
         case_sensitive=False,
         nullable=False,
         help='{error_msg}',
@@ -257,7 +257,7 @@ class GroupResource(Resource):
     new_group_parser.add_argument(
         'description',
         type=validator.String(min_len=0, max_len=512),
-        location='form',
+        location=['form', 'json'],
         nullable=True,
         help='{error_msg}',
     )
