@@ -133,6 +133,7 @@ import logging
 import os
 import re
 import sys
+import time
 
 from itertools import izip, repeat
 
@@ -940,6 +941,20 @@ def account_id2uname(account_id):
         return None
 
 
+def get_year_and_semester():
+    """Get year and semester
+
+    This is similar to the __init__ of modules.no.access_FS.FSObject
+    """
+    t = time.localtime()[0:3]
+    if t[1] <= 6:
+        semester = 'vår'
+    else:
+        semester = 'høst'
+    year = t[0]
+    return year, semester
+
+
 # IVR 2007-11-08 FIXME: OMG! split this monstrosity into something manageable.
 def populate_enhet_groups(enhet_id, role_mapping):
     enhet_id = str2key(enhet_id)
@@ -968,10 +983,11 @@ def populate_enhet_groups(enhet_id, role_mapping):
 
         # TODO: generaliser ifi-hack seinare
         # IVR 2008-05-14: itslp added at ifi-drift's request
+        year, semester = get_year_and_semester()
         if (re.match(r"(dig|inf|in|med-inf|tool|humit|itslp|mat-in)",
                      emnekode.lower()) and
-                termk == fs.info.semester.lower() and
-                aar == str(fs.info.year)):
+                termk == semester and
+                aar == str(year)):
             logger.debug(" (ta med Ifi-spesifikke grupper)")
             ifi_hack = True
             netgr_emne = emnekode.lower().replace("-", "")
@@ -1881,7 +1897,6 @@ def main(inargs=None):
     #
     # Initialize globals
     #
-    fs = make_fs()
     db = Factory.get('Database')()
     db.cl_init(change_program='CF_gen_groups')
     co = Factory.get('Constants')(db)
