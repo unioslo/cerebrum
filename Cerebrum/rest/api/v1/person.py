@@ -187,12 +187,15 @@ class PersonResource(Resource):
         """Get person information"""
         pe = find_person(id)
 
-        name_keys = [PersonName.get(k).attribute or k for k in PersonName]
+        name_keys = set(PersonName.get(k).attribute or k for k in PersonName)
+
+        def name_dict(row):
+            return {
+                k: v for k, v in row.items()
+                if k in name_keys}
 
         # Filter out appropriate fields from db_row objects
-        names = [filter(lambda k, _: k in name_keys, e.items()) for
-                 e in pe.get_names()]
-        names = [dict(n) for n in names]
+        names = [name_dict(r) for r in pe.get_names()]
 
         return {
             'id': pe.entity_id,
