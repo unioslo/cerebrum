@@ -506,7 +506,7 @@ def main(inargs=None):
     test_group = parser.add_argument_group('Testing',
                                            'Arguments useful when testing')
     test_group.add_argument(
-        '-ten',
+        '--ten',
         action='store_true',
         help='Only process 10 group owners'
     )
