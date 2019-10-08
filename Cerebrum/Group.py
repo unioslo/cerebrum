@@ -60,7 +60,7 @@ def _group_existence_query(database, table, binds):
         WHERE {where}
       )
     """.format(table=table, where=where)
-    return db.query_1(exists_stmt, binds)
+    return database.query_1(exists_stmt, binds)
 
 
 @six.python_2_unicode_compatible
