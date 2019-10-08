@@ -134,6 +134,7 @@ import os
 import re
 import sys
 import time
+import datetime
 
 from itertools import izip, repeat
 
@@ -144,6 +145,7 @@ from Cerebrum.Utils import Factory, NotSet
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.modules import Email
+from Cerebrum.modules.fs.fs_group import FsGroupCategorizer
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.modules.no.access_FS import roles_xml_parser, make_fs
 from Cerebrum.modules.no.fronter_lib import (UE2KursID, key2fields,
@@ -1526,10 +1528,15 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
             group.description = descr
             group.write_db()
 
-        if group.is_expired():
-            # Extend the group's life by 6 months
-            from mx.DateTime import now, DateTimeDelta
-            group.expire_date = now() + DateTimeDelta(6 * 30)
+        # Find the groups lifetime to set expire date
+        try:
+            category, match = fs_group_categorizer.get_category(gname)
+            lifetime = cereconf.FS_GROUP_LIFETIMES.get(category, None)
+        except LookupError:
+            logger.warning('Group %s does not match any category', gname)
+        else:
+            group.expire_date = datetime.date.today() + datetime.timedelta(
+                days=365 * lifetime)
             group.write_db()
 
         for row in group.search_members(group_id=group.entity_id,
@@ -1825,6 +1832,7 @@ def main(inargs=None):
     global known_FS_groups, fs_supergroup, auto_supergroup
     global group_creator, UndervEnhet
     global ifi_netgr_g, ifi_netgr_lkurs, dryrun
+    global fs_group_categorizer
 
     # TODO: This shouldn't be need anymore?
     # Upper/lowercasing of Norwegian letters.
@@ -1900,6 +1908,7 @@ def main(inargs=None):
     db = Factory.get('Database')()
     db.cl_init(change_program='CF_gen_groups')
     co = Factory.get('Constants')(db)
+    fs_group_categorizer = FsGroupCategorizer(db)
 
     dryrun = not args.commit
 
