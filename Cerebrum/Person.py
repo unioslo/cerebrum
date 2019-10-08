@@ -134,26 +134,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                      (other.deceased_date == self.deceased_date))
         return identical
 
-    def exists(self, table=None, binds=None):
-        """Check for existance"""
-        if not table or not binds:
-            raise ValueError('missing args')
-        exists_stmt = """
-        SELECT EXISTS (
-          SELECT 1
-          FROM [:table schema=cerebrum name={table}]
-          WHERE {where}
-        )
-        """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds),
-                   table=table)
-        try:
-            self.query_1(exists_stmt, binds)
-            return True
-        except Errors.NotFoundError:
-            return False
-        except Errors.TooManyRowsError:
-            return True
-
     def write_db(self):
         """ Sync instance with Cerebrum database.
 
@@ -196,7 +176,19 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                          'deceased_date': self.deceased_date,
                          'description': self.description,
                          'person_id': self.entity_id}
-                if not self.exists(table='person_info', binds=binds):
+                exists_stmt = """
+                  SELECT EXISTS (
+                    SELECT 1
+                    FROM [:table schema=cerebrum name=person_info]
+                    WHERE export_id=:export_id AND
+                          birth_date=:birth_date AND
+                          gender=:gender AND
+                          deceased_date=:deceased_date AND
+                          description=:description AND
+                          person_id=:person_id
+                  )
+                """
+                if not self.query_1(exists_stmt, binds):
                     # True positive
                     update_stmt = """
                     UPDATE [:table schema=cerebrum name=person_info]
@@ -376,15 +368,24 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         binds = {'person_id': self.entity_id,
                  'source_system': int(source),
                  'name_variant': int(variant)}
-        if not self.exists(table='person_name', binds=binds):
+        exists_stmt = """
+        SELECT EXISTS (
+          SELECT 1
+          FROM [:table schema=cerebrum name=person_name]
+          WHERE person_id=:person_id AND
+                source_system=:source_system AND
+                name_variant=:name_variant
+          )
+        """
+        if not self.query_1(exists_stmt, binds):
             # False positive
             return
         delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=person_name]
-        WHERE
-          person_id=:person_id AND
-          source_system=:source_system AND
-          name_variant=:name_variant"""
+        WHERE person_id=:person_id AND
+              source_system=:source_system AND
+              name_variant=:name_variant
+        """
         self.execute(delete_stmt, binds)
         self._db.log_change(self.entity_id,
                             self.clconst.person_name_del, None,
@@ -397,16 +398,25 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                  'person_id': self.entity_id,
                  'source_system': int(source_system),
                  'name_variant': int(variant)}
-        if self.exists(table='person_name', binds=binds):
+        exists_stmt = """
+        SELECT EXISTS (
+          SELECT 1
+          WHERE prson_id=:person_id AND
+                source_system=:source_system AND
+                name_variant=:name_variant AND
+                name=:name
+          )
+        """
+        if self.query_1(exists_stmt, binds):
             # False positive
             return
         update_stmt = """
           UPDATE [:table schema=cerebrum name=person_name]
           SET name=:name
-          WHERE
-            person_id=:person_id AND
-            source_system=:source_system AND
-            name_variant=:name_variant"""
+          WHERE person_id=:person_id AND
+                source_system=:source_system AND
+                name_variant=:name_variant
+        """
         self.execute(update_stmt, binds)
         self._db.log_change(self.entity_id,
                             self.clconst.person_name_mod,
