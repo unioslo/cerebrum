@@ -33,7 +33,8 @@ class AccountHiAMixin(Account.Account):
         if (hasattr(self.const, 'trait_guest_owner') and
                 self.get_trait(self.const.trait_guest_owner)):
             if spread not in (self.const.spread_ad_guest,
-                              self.const.spread_radius_guest):
+                              self.const.spread_radius_guest,
+                              self.const.spread_radius_guestcair):
                 raise self._db.IntegrityError(
                     "Guest accounts are not allowed other than guest spreads."
                 )
