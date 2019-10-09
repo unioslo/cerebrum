@@ -122,6 +122,7 @@ class JobQueue(object):
         self._last_duration = {}  # For statistics in --status
         self._debug_time = debug_time
         self._forced_run_queue = []
+        self._last_status = {}
 
         self.reload_scheduled_jobs()
 
@@ -235,9 +236,11 @@ class JobQueue(object):
             self._run_queue.remove(job_name)
         self.logger.debug("Started [%s]" % job_name)
 
-    def job_done(self, job_name, pid, force=False):
+    def job_done(self, job_name, pid, error=None, force=False):
         if pid is not None:
             self._running_jobs.remove((job_name, pid))
+
+        self._last_status[job_name] = error or 'ok'
 
         if job_name in self._started_at:
             self._last_duration[job_name] = (
@@ -376,3 +379,46 @@ class JobQueue(object):
                 # that conflicts
                 return True
         return False
+
+    def is_running(self, job_name):
+        """ Check if job is currently running. """
+        running = set(tup[0] for tup in self._running_jobs)
+        return job_name in running
+
+    def last_started_at(self, job_name):
+        """
+        Check when a given job was last started.
+
+        :returns:
+            Returns timestamp in localtime, or 0 if the job hasn't been started
+            or is unknown.
+        """
+        return self._started_at.get(job_name, 0)
+
+    def last_done_at(self, job_name):
+        """
+        Check when a given job was last done.
+
+        ..note:: Failed jobs also counts as 'done'.
+
+        :returns:
+            Returns timestamp in localtime, or 0 if the job hasn't been started
+            or is unknown.
+        """
+        return self._last_run.get(job_name, 0)
+
+    def is_queued(self, job_name, include_forced=False):
+        """
+        Check if job is currently queued.
+
+        :param job_name:
+        :param include_forced: If True, also check the forced_run_queue
+
+        :returns: True if the job_name is queued.
+        """
+        if include_forced and job_name in self._forced_run_queue:
+            return True
+        return job_name in self._run_queue
+
+    def last_status(self, job_name):
+        return self._last_status.get(job_name) or 'unknown'
