@@ -177,9 +177,6 @@ class AccountType(object):
     def _set_account_type_priority(self, all_pris, orig_pri, new_pri):
         """Recursively insert the new priority, increasing parent
         priority with one if there is a conflict"""
-        if orig_pri == new_pri:
-            # False positive, abort!
-            return
         if new_pri in all_pris:
             self._set_account_type_priority(all_pris, new_pri, new_pri + 1)
         orig_pri = int(orig_pri)
