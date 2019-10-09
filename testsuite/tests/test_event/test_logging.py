@@ -10,7 +10,6 @@ from functools import partial
 import pytest
 
 
-
 @pytest.fixture
 def real_logger():
     LogItem = namedtuple('LogItem', ('level', 'msg', 'args', 'kwargs'))
@@ -49,7 +48,7 @@ def queue():
 
 @pytest.fixture
 def logutils():
-    return pytest.importorskip('Cerebrum.modules.event.logutils')
+    return pytest.importorskip('Cerebrum.logutils.mp')
 
 
 @pytest.fixture

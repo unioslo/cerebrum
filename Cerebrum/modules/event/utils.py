@@ -28,9 +28,9 @@ import logging
 import signal
 import multiprocessing
 from multiprocessing import managers
-from Cerebrum.utils.funcwrap import memoize
 
-from . import logutils
+from Cerebrum.logutils import mp as logutils
+from Cerebrum.utils.funcwrap import memoize
 
 
 class Manager(managers.BaseManager):

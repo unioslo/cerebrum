@@ -30,7 +30,7 @@ from multiprocessing.sharedctypes import Synchronized
 from Queue import Empty
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
-from .logutils import QueueHandler
+from Cerebrum.logutils.mp import QueueHandler
 
 
 class ProcessBase(multiprocessing.Process):
@@ -81,7 +81,7 @@ class ProcessBase(multiprocessing.Process):
 class ProcessLoggingMixin(ProcessBase):
     """ Mixin to supply a QueueLogger logging object for processes.
 
-    The log records should be processed in a .logutils.LogRecordThread, running
+    The log records should be processed in a LogRecordThread, running
     in the main process of your multiprocessing script.
 
     Example
