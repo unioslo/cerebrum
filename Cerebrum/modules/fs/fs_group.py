@@ -177,7 +177,7 @@ class FsGroupCategorizer(object):
             ('undenh-role', make_internal(undenh, role), 2),
             ('undenh-role-sub', make_internal(undenh, subrole),
              2),
-            # fs:<institusjon>:studieprogram (uit)
+            # fs:<institusjon>:studieprogram
             ('studieprogram', make_internal(studieprogram), 3),
 
             ('sp-kull-type', make_internal(sp_kull_type),6),
@@ -220,8 +220,10 @@ class FsGroupCategorizer(object):
 
     @staticmethod
     def get_expire_date(lifetime, year, group_name):
-        if not lifetime or not year:
+        if not lifetime:
             return None
+        if not year:
+            return TODAY + datetime.timedelta(days=lifetime * 365)
         if not TODAY.year + 5 > year > 1990:
             logger.warning('Year %s not in allowed range, %s',
                            year,

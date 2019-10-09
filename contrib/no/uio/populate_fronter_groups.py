@@ -1528,8 +1528,11 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
         except LookupError:
             logger.warning('Group %s does not match any category', gname)
         else:
-            group.expire_date = (datetime.date.today() +
-                                 datetime.timedelta(days=365 * lifetime))
+            if lifetime:
+                expire_date = (datetime.date.today() +
+                               datetime.timedelta(days=365 * lifetime))
+                logger.debug('Setting expire_date: %s', expire_date)
+                group.expire_date = expire_date
         group.write_db()
     else:
         # If group already exists, update its information...
