@@ -32,12 +32,12 @@ import logging
 
 import cereconf
 
-from Cerebrum.Utils import Factory, NotSet
+from Cerebrum.Utils import Factory
 
 logger = logging.getLogger(__name__)
 
+
 TODAY = datetime.date.today()
-EXPIRE_YEAR = 2016
 
 org_regex = r'(?P<org>[^:]+):fs'
 
@@ -52,9 +52,9 @@ kurs_unit = ':'.join((
     r'(?P<type>kurs)',
     r'(?P<institusjon>\d+)',
     r'(?P<emne>[^:]+)',
-    r'(?P<ver>\d+)',
+    r'(?P<ver>[^:]+)',
     r'(?P<sem>[^:]+)',
-    r'(?P<year>\d+)',
+    r'(?P<year>\d{4})',
 ))
 
 kurs_unit_id = ':'.join((
@@ -62,11 +62,48 @@ kurs_unit_id = ':'.join((
     r'(?P<type>kurs)',
     r'(?P<institusjon>\d+)',
     r'(?P<emne>[^:]+)',
-    r'(?P<ver>\d+)',
+    r'(?P<ver>[^:]+)',
     r'(?P<sem>[^:]+)',
-    r'(?P<year>\d+)',
+    r'(?P<year>\d{4})',
     r'(?P<n>\d+)',
 ))
+
+undenh = ':'.join((
+    org_regex,
+    r'(?P<institusjon>\d+)',
+    r'(?P<type>undenh)',
+    r'(?P<year>\d{4})',
+    r'(?P<sem>[^:]+)',
+    r'(?P<emne>[^:]+)',
+    r'(?P<ver>[^:]+)',
+    r'(?P<n>[^:]+)',
+))
+
+studieprogram = ':'.join((
+    org_regex,
+    r'(?P<institusjon>\d+)',
+    r'(?P<type>studieprogram)',
+    r'(?P<prog>[^:]+)',
+
+))
+
+sp_kull_type = ':'.join((
+    studieprogram,
+    r'(?P<kull>(studiekull|rolle-kull){1})',
+))
+
+sp_rolle_type = ':'.join((
+    studieprogram,
+    r'(?P<rolle>(rolle-program|rolle){1})',
+))
+
+studieprogram_kull = ':'.join((
+    sp_kull_type,
+    r'(?P<year>\d{4})',
+    r'(?P<sem>[^:]+)',
+
+))
+
 
 evu = ':'.join((org_regex, r'(?P<type>evu)', r'(?P<kurs>[^:]+)',))
 evu_unit = ':'.join((evu, r'(?P<kurstid>[^:]+)',))
@@ -94,19 +131,6 @@ def _date_or_none(d):
     return d.pydate()
 
 
-def get_groups(db):
-    gr = Factory.get('Group')(db)
-    # co = Factory.get('Constants')(db)
-    for row in gr.search(name='%{}%'.format(cereconf.FS_GROUP_PREFIX)):
-        yield {
-            # 'id': int(row['group_id']),
-            'name': row['name'],
-            # 'visibility': co.GroupVisibility(row['visibility']),
-            # 'description': row['description'],
-            'expire_date': _date_or_none(row['expire_date']),
-        }
-
-
 def get_year(cat, match):
     try:
         if cat in ('evu-ue', 'evu-role', 'evu-role-sub'):
@@ -122,84 +146,137 @@ def get_year(cat, match):
 
 
 class FsGroupCategorizer(object):
-    def __init__(self, db):
+    def __init__(self, db, fs_group_prefix=None):
+        self.db = db
+        self.fs_group_prefix = fs_group_prefix or cereconf.FS_GROUP_PREFIX
+        if self.fs_group_prefix is None:
+            raise Exception('No prefix given')
+        # The elements of categories are lists of category, regex and lifetime
         self.categories = (
-            ('super', make_internal(org_regex, '{supergroup}')),
-            ('auto', make_internal(org_regex, '{autogroup}')),
-            ('ifi_auto_fg', make_internal(org_regex, '{ifi_auto_fg}')),
+            ('super', make_internal(org_regex, '{supergroup}'), None),
+            ('auto', make_internal(org_regex, '{autogroup}'), None),
+            ('ifi_auto_fg', make_internal(org_regex, '{ifi_auto_fg}'), None),
             # fs:kurs
-            ('kurs', make_internal(kurs)),
-            ('kurs-ue', make_internal(kurs_unit)),
-            ('kurs-role', make_external(kurs_unit_id, role)),
-            ('kurs-role-sub', make_external(kurs_unit_id, subrole)),
+            ('kurs', make_internal(kurs), 3),
+            ('kurs-ue', make_internal(kurs_unit), 2),
+            ('kurs-role', make_external(kurs_unit_id, role), 2),
+            ('kurs-role-sub', make_external(kurs_unit_id, subrole), 2),
             # fs:evu
-            ('evu', make_internal(evu)),
-            ('evu-ue', make_internal(evu_unit)),
-            ('evu-role', make_external(evu_unit, role)),
-            ('evu-role-sub', make_external(evu_unit, subrole)),
+            ('evu', make_internal(evu), 3),
+            ('evu-ue', make_internal(evu_unit), 2),
+            ('evu-role', make_external(evu_unit, role), 2),
+            ('evu-role-sub', make_external(evu_unit, subrole), 2),
             # fs:kull
-            ('kull-ue', make_internal(kull)),
-            ('kull-ua', make_internal(kull_unit)),
-            ('kull-role', make_external(kull_unit, role)),
+            ('kull-ue', make_internal(kull), 6),
+            ('kull-ua', make_internal(kull_unit), 6),
+            ('kull-role', make_external(kull_unit, role), 6),
+
+            # Non uio types:
+            # fs:<institusjon>:undenh
+            ('undenh', make_internal(undenh), 3),
+            ('undenh-role', make_internal(undenh, role), 2),
+            ('undenh-role-sub', make_internal(undenh, subrole),
+             2),
+            # fs:<institusjon>:studieprogram (uit)
+            ('studieprogram', make_internal(studieprogram), 3),
+
+            ('sp-kull-type', make_internal(sp_kull_type),6),
+            ('sp-kull-role', make_internal(studieprogram_kull, role), 6),
+            ('sp-kull-role-sub', make_internal(studieprogram_kull, subrole), 6),
+
+            ('sp-rolle-type', make_internal(sp_rolle_type), 3),
+            ('sp-rolle', make_internal(sp_rolle_type, role), 3),
         )
-        self.groups = get_groups(db)
 
-    def get_category(self, group_name):
-        for cat, regex in self.categories:
-            match = regex.match(group_name)
-            if match:
-                return cat, match
-        raise LookupError('No category for %r' % (group_name,))
+    def get_groups(self):
+        gr = Factory.get('Group')(self.db)
+        # co = Factory.get('Constants')(db)
+        for row in gr.search(name='%{}%'.format(self.fs_group_prefix)):
+            yield {
+                'id': int(row['group_id']),
+                'name': row['name'],
+                # 'visibility': co.GroupVisibility(row['visibility']),
+                # 'description': row['description'],
+                'expire_date': _date_or_none(row['expire_date']),
+            }
 
-    def categorize(self, expire_year=EXPIRE_YEAR):
+    def get_group_category(self, group_name):
+        category = match = lifetime = None
+        for cat, regex, l in self.categories:
+            m = regex.match(group_name)
+            if m:
+                if category:
+                    logger.error('Multiple categories for %s', group_name)
+                    raise LookupError
+                else:
+                    category = cat
+                    match = m
+                    lifetime = l
+
+        if category:
+            return category, match, lifetime
+        logger.error('No category for %s', group_name)
+        raise LookupError
+
+    @staticmethod
+    def get_expire_date(lifetime, year, group_name):
+        if not lifetime or not year:
+            return None
+        if not TODAY.year + 5 > year > 1990:
+            logger.warning('Year %s not in allowed range, %s',
+                           year,
+                           group_name)
+            return TODAY + datetime.timedelta(days=lifetime * 365)
+
+        years_until_expiration = year + lifetime + 1 - TODAY.year
+        if years_until_expiration <= 0:
+            return TODAY
+        return TODAY + datetime.timedelta(days=years_until_expiration * 365)
+
+    def categorize_groups(self):
         specific_stats = collections.defaultdict(
             lambda: collections.defaultdict(int)
         )
         general_stats = collections.defaultdict(int)
         new_expire_dates = {}
 
-        for group in self.groups:
+        for group in self.get_groups():
             try:
-                cat, match = self.get_category(group['name'])
-                specific_stats[cat]['count'] += 1
+                cat, match, lifetime = self.get_group_category(group['name'])
             except LookupError:
-                logger.warning('No category for %s', group['name'])
                 general_stats['errors'] += 1
                 continue
 
+            specific_stats[cat]['count'] += 1
+
             year = get_year(cat, match)
 
-            if not group['expire_date']:
-                if year:
-                    if year <= expire_year:
-                        new_expire_dates[match.string] = TODAY
-                        specific_stats[cat]['should-expire-now'] += 1
-                    else:
-                        years_until_expiration = (
-                                year + cereconf.FS_GROUP_LIFETIMES[
-                            cat] + 1 -
-                                TODAY.year)
-
-                        if years_until_expiration <= 0:
-                            new_expire_dates[match.string] = TODAY
-                            specific_stats[cat]['should-expire-now'] += 1
-                        else:
-                            expire_date = TODAY + datetime.timedelta(
-                                days=years_until_expiration * 365)
-                            new_expire_dates[match.string] = expire_date
-                            specific_stats[cat]['should-set-expire-date'] += 1
-                elif cat in ('super', 'auto', 'ifi_auto_fg'):
-                    specific_stats[cat]['should-do-nothing'] += 1
-                else:
-                    expire_date = TODAY + datetime.timedelta(
-                        days=cereconf.FS_GROUP_LIFETIMES[cat] * 365)
-                    new_expire_dates[match.string] = expire_date
-                    specific_stats[cat]['should-set-expire-date'] += 1
-            else:
+            if group['expire_date']:
                 specific_stats[cat]['should-do-nothing'] += 1
+            else:
+                expire_date = self.get_expire_date(lifetime,
+                                                   year,
+                                                   group['name'])
+                if expire_date:
+                    new_expire_dates[group['id']] = expire_date
+                    specific_stats[cat][
+                        'should-expire-{}'.format(expire_date.year)] += 1
+                else:
+                    specific_stats[cat]['should-do-nothing'] += 1
 
-        for k, v in specific_stats.items():
-            for stat, value in v.items():
+        for key, stats in specific_stats.items():
+            for stat, value in stats.items():
                 general_stats[stat] += value
-            specific_stats[k] = dict(v)
+            specific_stats[key] = dict(stats)
         return dict(general_stats), dict(specific_stats), new_expire_dates
+
+    def set_expire_dates(self, new_expire_dates):
+        gr = Factory.get('Group')(self.db)
+        for group_id, expire_date in new_expire_dates.items():
+            gr.clear()
+            gr.find(group_id)
+            gr.expire_date = expire_date
+            gr.write_db()
+            logger.debug('Set expire_date %s for group %s',
+                         expire_date,
+                         group_id)

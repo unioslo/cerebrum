@@ -512,25 +512,7 @@ FS_EXCLUDE_AFFILIATIONS_FROM_GRACE = []
 FS_GROUP_NAME = "FS-aktivt-samtykke"
 FS_GROUP_DESC = "Internal group for students which will be shown online."
 
-# Lifetimes for fronter groups in years. Used for setting expiration dates.
-FS_GROUP_LIFETIMES = {
-    # fs:kurs
-    'kurs': 3,
-    'kurs-ue': 2,
-    'kurs-role': 2,
-    'kurs-role-sub': 2,
-    # fs:evu
-    'evu': 3,
-    'evu-ue': 2,
-    'evu-role': 2,
-    'evu-role-sub': 2,
-    # fs:kull
-    'kull-ue': 3,
-    'kull-ua': 3,
-    'kull-role': 3,
-}
-
-FS_GROUP_PREFIX = ''
+FS_GROUP_PREFIX = None
 
 # make autostud use studentnr as uname
 USE_STUDENTNR_AS_UNAME = False
