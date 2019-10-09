@@ -147,12 +147,15 @@ import Cerebrum.logutils.options
 from Cerebrum.modules import Email
 from Cerebrum.modules.fs.fs_group import FsGroupCategorizer
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
-from Cerebrum.modules.no.access_FS import roles_xml_parser, make_fs
+from Cerebrum.modules.no.access_FS import roles_xml_parser
 from Cerebrum.modules.no.fronter_lib import (UE2KursID, key2fields,
                                              str2key, fields2key)
 from Cerebrum.modules.xmlutils.fsxml2object import EduGenericIterator
 from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 from Cerebrum.utils import transliterate
+
+# Grace period from a group disappears from the fs-files to group deletion
+GRACE_PERIOD = 6 * 30
 
 # IVR 2007-11-08 FIXME: Should this be in fronter_lib?
 # Roles that are considered at all
@@ -1514,10 +1517,19 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
 
     try:
         group = get_group(gname)
-    except Errors.NotFoundError:
+    except Errors.NotFoundError:        
         group = Factory.get('Group')(db)
         group.clear()
         group.populate(group_creator, correct_visib, gname, description=descr)
+        # Find the group's lifetime to set expire date
+        try:
+            category, match, lifetime = (
+                fs_group_categorizer.get_group_category(gname))
+        except LookupError:
+            logger.warning('Group %s does not match any category', gname)
+        else:
+            group.expire_date = (datetime.date.today() +
+                                 datetime.timedelta(days=365 * lifetime))
         group.write_db()
     else:
         # If group already exists, update its information...
@@ -1528,15 +1540,10 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
             group.description = descr
             group.write_db()
 
-        # Find the groups lifetime to set expire date
-        try:
-            category, match = fs_group_categorizer.get_category(gname)
-            lifetime = cereconf.FS_GROUP_LIFETIMES.get(category, None)
-        except LookupError:
-            logger.warning('Group %s does not match any category', gname)
-        else:
-            group.expire_date = datetime.date.today() + datetime.timedelta(
-                days=365 * lifetime)
+        if group.is_expired():
+            # Extend the group's life by 6 months
+            from mx.DateTime import now, DateTimeDelta
+            group.expire_date = now() + DateTimeDelta(GRACE_PERIOD)
             group.write_db()
 
         for row in group.search_members(group_id=group.entity_id,
