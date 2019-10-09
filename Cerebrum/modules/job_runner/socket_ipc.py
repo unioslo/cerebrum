@@ -268,15 +268,8 @@ class SocketProtocol(object):
 
         def fmt_job_times(job):
             fmt_last = fmt_dur = 'unknown'
-            fmt_human = fmt_ago = ''
 
             last_run = queue._last_run[job]
-
-            # debug
-            if last_run:
-                fmt_human = time.strftime(' (%F %T)', time.localtime(last_run))
-            logger.debug("Last run of '%s' is '%s'%s",
-                         job, last_run, fmt_human)
 
             if last_run:
                 fmt_last = fmt_time(last_run)
