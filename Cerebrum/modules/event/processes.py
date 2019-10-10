@@ -30,7 +30,7 @@ from multiprocessing.sharedctypes import Synchronized
 from Queue import Empty
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
-from Cerebrum.logutils.mp import QueueHandler
+from Cerebrum.logutils.mp import ChannelHandler
 
 
 class ProcessBase(multiprocessing.Process):
@@ -86,25 +86,24 @@ class ProcessLoggingMixin(ProcessBase):
 
     Example
     -------
-    >>> class MyClass(ProcessLoggingMixin):
-    ...     def main(self):
-    ...         super(MyClass, self).main()
-    ...         self.logger.info('Process {!r} is done', self.name)
-    >>> proc = MyClass(log_queue=Queue())
-    >>> proc.start()
+    ::
+        class MyClass(ProcessLoggingMixin):
+            def main(self):
+                super(MyClass, self).main()
+                self.logger.info('Process {!r} is done', self.name)
+        proc = MyClass(log_channel=QueueChannel(...))
+        proc.start()
 
     """
 
-    def __init__(self, log_queue=None, log_proto=None, **kwargs):
+    def __init__(self, log_channel=None, **kwargs):
         """ Initialize process with a logger.
 
-        :param Queue log_queue:
-            A queue for log messages.
-        :param LogRecordProtocol log_proto:
-            A serializer for log records.
+        :param log_channel:
+            A Cerebrum.modules.mp.channel._BaseChannel implementation.
         """
         super(ProcessLoggingMixin, self).__init__(**kwargs)
-        self._handler = QueueHandler(log_queue, log_proto)
+        self._handler = ChannelHandler(log_channel)
 
         # Get our custom logger as self.logger, for compability reasons
         self.logger = logging.getLogger(__name__)

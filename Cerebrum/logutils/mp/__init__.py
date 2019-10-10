@@ -39,28 +39,25 @@ class LogQueue(Queue):
         return self.maxsize
 
 
-class QueueHandler(logging.Handler):
-    """ Handler that sticks serialized `LogRecord` dicts onto a queue. """
+class ChannelHandler(logging.Handler):
+    """ Handler that sticks serialized `LogRecord` dicts onto a 'channel'. """
 
-    def __init__(self, queue, protocol):
+    def __init__(self, channel):
         """
-        :type queue: Queue.Queue
-        :type protocol: LogRecordProtocol
+        :type channel: _BaseChannel
         """
-        if queue is None:
-            raise ValueError("Invalid queue")
-        self.protocol = protocol
-        self.queue = queue
-        super(QueueHandler, self).__init__()
+        if channel is None:
+            raise ValueError("invalid channel")
+        self.channel = channel
+        super(ChannelHandler, self).__init__()
 
-    def send(self, s):
+    def send(self, record):
         # TODO: Copy error handling from logging.handlers.SocketHandler?
-        self.queue.put(s)
+        self.channel.send(record)
 
     def emit(self, record):
         try:
-            s = self.protocol.serialize(record)
-            self.send(s)
+            self.send(record)
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception:

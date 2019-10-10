@@ -7,7 +7,7 @@ from __future__ import print_function, unicode_literals
 import logging
 import threading
 
-from six.moves.queue import Empty
+logger = logging.getLogger(__name__)
 
 
 class _StoppableThread(threading.Thread):
@@ -29,45 +29,40 @@ class _StoppableThread(threading.Thread):
 class LogRecordThread(_StoppableThread):
     """ A thread for listening on a Queue with serialized LogRecords. """
 
-    timeout = 3
+    timeout = 1
     """ Timeout for listening on the log queue """
 
-    def __init__(self, queue, protocol, **kwargs):
+    def __init__(self, channel, timeout=timeout, **kwargs):
         """
-        :type queue: Queue.Queue
-        :type protocol: LogRecordProtocol
-        :param logger: deprecated argument
+        :type channel: LogRecordProtocol
 
         passes all other kwargs to `threading.Thread.__init__`
         """
         # The logger keyword is deprecated
-        kwargs.pop('logger', None)
-        self.queue = queue
-        self.logger = logging.getLogger(__name__)
-        self.protocol = protocol
+        self.channel = channel
+        self.timeout = timeout
         super(LogRecordThread, self).__init__(**kwargs)
 
     def run(self):
-        self.logger.info('Logger thread started')
+        logger.info('Logger thread started')
         while not self.is_stopped():
             try:
-                message = self.queue.get(block=True, timeout=self.timeout)
-            except Empty:
+                record = self.channel.poll(timeout=self.timeout)
+            except Exception:
+                logger.error("Unable to receive record", exc_info=True)
+                continue
+
+            if record is None:
                 continue
 
             try:
-                # self.logger.debug('got_message: %r', message)
-                record = self.protocol.deserialize(message)
+                _log = logging.getLogger(record.name)
+                _enabled = _log.isEnabledFor(record.levelno)
+                if _enabled:
+                    _log.handle(record)
             except Exception:
-                self.logger.error("Unable to deserialize record: %r", message,
-                                  exc_info=True)
-            else:
-                lg = logging.getLogger(record.name)
-                if lg.isEnabledFor(record.levelno):
-                    lg.handle(record)
-            finally:
-                self.queue.task_done()
-        self.logger.info('Logger thread stopped')
+                logger.error("Unable to log record: %r", record, exc_info=True)
+        logger.info('Logger thread stopped')
 
 
 class LogMonitorThread(_StoppableThread):
@@ -103,11 +98,10 @@ class LogMonitorThread(_StoppableThread):
         self.interval = float(interval)
         self.threshold_error = threshold_error
         self.threshold_warning = threshold_warning
-        self.logger = logging.getLogger(__name__)
         super(LogMonitorThread, self).__init__(**kwargs)
 
     def run(self):
-        self.logger.info('Queue monitor thread started')
+        logger.info('Queue monitor thread started')
         while not self.is_stopped(self.interval):
             size = self.queue.qsize()
 
@@ -122,12 +116,12 @@ class LogMonitorThread(_StoppableThread):
                 ratio = -1
 
             if self.threshold_error and ratio > self.threshold_error:
-                log = self.logger.error
+                log = logger.error
             elif self.threshold_warning and ratio > self.threshold_warning:
-                log = self.logger.warning
+                log = logger.warning
             else:
-                log = self.logger.info
+                log = logger.info
 
             log('~%s items on the log queue (%d%% full)',
                 format(size, ',d'), ratio)
-        self.logger.info('Queue monitor thread stopped')
+        logger.info('Queue monitor thread stopped')

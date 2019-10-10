@@ -31,6 +31,7 @@ from multiprocessing import managers
 
 from Cerebrum.logutils import mp as logutils
 from Cerebrum.logutils.mp.protocol import LogRecordProtocol
+from Cerebrum.logutils.mp.channel import QueueChannel
 from Cerebrum.logutils.mp.threads import LogRecordThread, LogMonitorThread
 from Cerebrum.utils.funcwrap import memoize
 
@@ -149,8 +150,7 @@ class ProcessHandler(object):
                          self.mgr.pid, self.mgr.name)
 
         self._logger_thread = LogRecordThread(
-            self.log_queue,
-            self.log_proto,
+            self.log_channel,
             name='LogQueueListener')
         self._logger_thread.start()
         self._monitor_thread = LogMonitorThread(
@@ -169,6 +169,11 @@ class ProcessHandler(object):
     @memoize
     def log_proto(self):
         return LogRecordProtocol()
+
+    @property
+    @memoize
+    def log_channel(self):
+        return QueueChannel(self.log_queue, self.log_proto)
 
     @property
     @memoize
@@ -229,7 +234,7 @@ class ProcessHandler(object):
             log('Process %r terminated with exit code %r', proc, proc.exitcode)
 
         self.logger.info('Processing remaining log records ...')
-        self._logger_thread.queue.join()
+        self.log_queue.join()
 
         self.logger.info('Shutting down logger...')
         self._logger_thread.stop()
@@ -254,7 +259,7 @@ def is_target_system_const(self, target_system):
     try:
         int(targets._target_system_to_code(target_system))
         return True
-    except:
+    except Exception:
         return False
 
 
