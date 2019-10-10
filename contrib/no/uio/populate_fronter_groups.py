@@ -137,6 +137,7 @@ import time
 import datetime
 
 from itertools import izip, repeat
+from mx.DateTime import now, DateTimeDelta
 
 import cereconf
 
@@ -1526,7 +1527,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
             category, match, lifetime = (
                 fs_group_categorizer.get_group_category(gname))
         except LookupError:
-            logger.warning('Group %s does not match any category', gname)
+            pass
         else:
             if lifetime:
                 expire_date = (datetime.date.today() +
@@ -1544,8 +1545,9 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
             group.write_db()
 
         if group.is_expired():
-            # Extend the group's life by 6 months
-            from mx.DateTime import now, DateTimeDelta
+            logger.debug('Extending lifetime of group %s with %s days',
+                         gname,
+                         GRACE_PERIOD)
             group.expire_date = now() + DateTimeDelta(GRACE_PERIOD)
             group.write_db()
 

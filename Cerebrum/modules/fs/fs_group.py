@@ -79,7 +79,7 @@ undenh = ':'.join((
     r'(?P<n>[^:]+)',
 ))
 
-studieprogram = ':'.join((
+sp = ':'.join((
     org_regex,
     r'(?P<institusjon>\d+)',
     r'(?P<type>studieprogram)',
@@ -88,20 +88,19 @@ studieprogram = ':'.join((
 ))
 
 sp_kull_type = ':'.join((
-    studieprogram,
+    sp,
     r'(?P<kull>(studiekull|rolle-kull){1})',
 ))
 
 sp_rolle_type = ':'.join((
-    studieprogram,
+    sp,
     r'(?P<rolle>(rolle-program|rolle){1})',
 ))
 
-studieprogram_kull = ':'.join((
+sp_kull = ':'.join((
     sp_kull_type,
     r'(?P<year>\d{4})',
     r'(?P<sem>[^:]+)',
-
 ))
 
 
@@ -151,7 +150,7 @@ class FsGroupCategorizer(object):
         self.fs_group_prefix = fs_group_prefix or cereconf.FS_GROUP_PREFIX
         if self.fs_group_prefix is None:
             raise Exception('No prefix given')
-        # The elements of categories are lists of category, regex and lifetime
+        # The elements of categories are tuples of category, regex and lifetime
         self.categories = (
             ('super', make_internal(org_regex, '{supergroup}'), None),
             ('auto', make_internal(org_regex, '{autogroup}'), None),
@@ -178,11 +177,11 @@ class FsGroupCategorizer(object):
             ('undenh-role-sub', make_internal(undenh, subrole),
              2),
             # fs:<institusjon>:studieprogram
-            ('studieprogram', make_internal(studieprogram), 3),
+            ('sp', make_internal(sp), 3),
 
-            ('sp-kull-type', make_internal(sp_kull_type),6),
-            ('sp-kull-role', make_internal(studieprogram_kull, role), 6),
-            ('sp-kull-role-sub', make_internal(studieprogram_kull, subrole), 6),
+            ('sp-kull-type', make_internal(sp_kull_type), 6),
+            ('sp-kull-role', make_internal(sp_kull, role), 6),
+            ('sp-kull-role-sub', make_internal(sp_kull, subrole), 6),
 
             ('sp-rolle-type', make_internal(sp_rolle_type), 3),
             ('sp-rolle', make_internal(sp_rolle_type, role), 3),
