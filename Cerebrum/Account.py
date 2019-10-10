@@ -789,6 +789,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                     salt = "$5$" + Utils.random_string(16, saltchars)
                 elif method == self.const.auth_type_sha512_crypt:
                     salt = "$6$" + Utils.random_string(16, saltchars)
+                elif method == self.const.auth_type_ssha:
+                    salt = Utils.random_string(16, saltchars)
                 else:
                     salt = Utils.random_string(2, saltchars)
             if method == self.const.auth_type_ssha:
