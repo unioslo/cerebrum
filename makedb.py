@@ -610,7 +610,7 @@ def runfile(fname, db, debug, phase):
                     output_col = 0
                 sys.stdout.flush()
                 db.commit()
-    if phase == 'main' or phase == 'metainfo':
+    if phase in {'main', 'metainfo', 'drop'}:
         meta = Metainfo.Metainfo(db)
         if metainfo['name'] == 'core':
             name = Metainfo.SCHEMA_VERSION_KEY
@@ -618,7 +618,10 @@ def runfile(fname, db, debug, phase):
         else:
             name = 'sqlmodule_%s' % metainfo['name']
             version = metainfo['version']
-        meta.set_metainfo(name, version)
+        if phase == 'drop':
+            meta.del_metainfo(name)
+        else:
+            meta.set_metainfo(name, version)
         db.commit()
     if state != NO_CATEGORY:
         raise ValueError(

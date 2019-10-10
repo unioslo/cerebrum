@@ -93,4 +93,22 @@ class Metainfo(object):
             INSERT INTO [:table schema=cerebrum name=cerebrum_metainfo]
               (name, value)
             VALUES (:name, :value)""", {'name': name, 'value': value})
-# end class Metainfo
+
+    def del_metainfo(self, name):
+        """Delete entry from metainfo table
+
+        :type name: basestring
+        :param name: Modulename e.g 'sqlmodule_bofhd_auth'
+        """
+        try:
+            self.get_metainfo(name)
+        except Errors.NotFoundError:
+            # Nothing to delete, ignore
+            pass
+        else:
+            binds = {'name': name}
+            self.db.execute(
+                """
+                DELETE FROM [:table schema=cerebrum name=cerebrum_metainfo]
+                WHERE name=:name
+                """, binds)
