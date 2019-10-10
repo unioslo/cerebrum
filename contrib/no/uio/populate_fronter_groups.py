@@ -1443,7 +1443,7 @@ def populate_ifi_groups():
 
 def set_default_expire_date(group, gname):
     try:
-        category, match, lifetime = (
+        _category, _match, lifetime = (
             fs_group_categorizer.get_group_category(gname))
     except LookupError:
         return
