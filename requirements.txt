@@ -11,6 +11,7 @@ Jinja2
 jsonschema
 lxml
 nose
+passlib
 phonenumbers
 pid
 pika==0.13.1
@@ -26,7 +27,6 @@ requests
 rpclib==2.7.0-beta
 sasl
 six>=1.10
-smbpasswd
 statsd==3.2.2
 suds
 unidecode

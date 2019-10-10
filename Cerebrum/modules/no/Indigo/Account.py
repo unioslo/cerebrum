@@ -16,7 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-import base64
 import random
 import string
 import time
@@ -130,27 +129,6 @@ class AccountOfkMixin(Account.Account):
             count += 1
         random.shuffle(pwd)
         return six.text_type(string.join(pwd, ''))
-
-    def verify_password(self, method, plaintext, cryptstring):
-        """Returns True if the plaintext matches the cryptstring,
-        False if it doesn't.  If the method doesn't support
-        verification, NotImplemented is returned.
-        """
-        if method not in (self.const.auth_type_md5_crypt,
-                          self.const.auth_type_md5_unsalt,
-                          self.const.auth_type_ha1_md5,
-                          self.const.auth_type_md4_nt,
-                          self.const.auth_type_ssha,
-                          self.const.auth_type_sha256_crypt,
-                          self.const.auth_type_sha512_crypt,
-                          self.const.auth_type_plaintext):
-            raise ValueError('Unknown method {method}'.format(method=method))
-        salt = cryptstring
-        if method == self.const.auth_type_ssha:
-            salt = base64.decodestring(str(cryptstring))[20:].decode()
-        return (self.encrypt_password(method,
-                                      plaintext,
-                                      salt=salt) == cryptstring)
 
     def _get_old_homeMDB(self):
         """

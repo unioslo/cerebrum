@@ -15,7 +15,7 @@ Dependencies
 
 * M2Crypto (yum install m2crypto / pip install M2Crypto)
 * psycopg2 (yum install python-psycopg2 / pip install psycopg2)
-* smbpasswd (yum install python-smbpasswd / pip install smbpasswd)
+* passlib (pip install passlib)
 * ldap (yum install python-ldap / pip install python-ldap)
 * lxml (yum install python-lxml / pip install lxml)
 * processing (? / pip install processing)

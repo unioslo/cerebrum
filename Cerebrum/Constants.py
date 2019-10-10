@@ -1533,8 +1533,7 @@ class CommonConstants(ConstantsBase):
         "/hopwood/crypto/scan/ph.html#Traditional-crypt3>.")
     auth_type_md4_nt = _AuthenticationCode(
         'MD4-NT',
-        "MD4-derived password hash with Microsoft-added security.  "
-        "Requires the smbpasswd module to be installed.")
+        "MD4-derived password hash with Microsoft-added security.  ")
     auth_type_ha1_md5 = _AuthenticationCode(
         'HA1-MD5',
         "Used in digest access authentication as specified in RFC 2617. "
