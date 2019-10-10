@@ -134,7 +134,6 @@ import os
 import re
 import sys
 import time
-import datetime
 
 from itertools import izip, repeat
 from mx.DateTime import now, DateTimeDelta
@@ -1442,6 +1441,18 @@ def populate_ifi_groups():
     add_spread_to_group("lkurs", co.spread_ifi_nis_ng)
 
 
+def set_default_expire_date(group, gname):
+    try:
+        category, match, lifetime = (
+            fs_group_categorizer.get_group_category(gname))
+    except LookupError:
+        return
+    if lifetime:
+        expire_date = now() + DateTimeDelta(365 * lifetime)
+        logger.debug('Setting expire_date: %s', expire_date)
+        group.expire_date = expire_date
+
+
 def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
                auto_spread=NotSet):
     """Update/create a fronter group with new information.
@@ -1518,22 +1529,12 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
 
     try:
         group = get_group(gname)
-    except Errors.NotFoundError:        
+    except Errors.NotFoundError:
+        logger.debug('Creating group with name %s', gname)
         group = Factory.get('Group')(db)
         group.clear()
         group.populate(group_creator, correct_visib, gname, description=descr)
-        # Find the group's lifetime to set expire date
-        try:
-            category, match, lifetime = (
-                fs_group_categorizer.get_group_category(gname))
-        except LookupError:
-            pass
-        else:
-            if lifetime:
-                expire_date = (datetime.date.today() +
-                               datetime.timedelta(days=365 * lifetime))
-                logger.debug('Setting expire_date: %s', expire_date)
-                group.expire_date = expire_date
+        set_default_expire_date(group, gname)
         group.write_db()
     else:
         # If group already exists, update its information...
@@ -1544,11 +1545,11 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
             group.description = descr
             group.write_db()
 
-        if group.is_expired():
-            logger.debug('Extending lifetime of group %s with %s days',
-                         gname,
-                         GRACE_PERIOD)
+        if group.expire_date - DateTimeDelta(GRACE_PERIOD) < now():
             group.expire_date = now() + DateTimeDelta(GRACE_PERIOD)
+            logger.debug('Setting expire_date of group %s to %s',
+                         gname,
+                         group.expire_date)
             group.write_db()
 
         for row in group.search_members(group_id=group.entity_id,
