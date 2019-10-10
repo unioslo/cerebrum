@@ -30,6 +30,7 @@ import multiprocessing
 from multiprocessing import managers
 
 from Cerebrum.logutils import mp as logutils
+from Cerebrum.logutils.mp.threads import LogRecordThread, LogMonitorThread
 from Cerebrum.utils.funcwrap import memoize
 
 
@@ -146,11 +147,12 @@ class ProcessHandler(object):
         self.logger.info('Started manager process (pid=%d): %s',
                          self.mgr.pid, self.mgr.name)
 
-        self._logger_thread = logutils.LogRecordThread(
+        self._logger_thread = LogRecordThread(
             self.log_queue,
+            logutils.LogRecordProtocol(),
             name='LogQueueListener')
         self._logger_thread.start()
-        self._monitor_thread = logutils.LogMonitorThread(
+        self._monitor_thread = LogMonitorThread(
             self.log_queue,
             interval=self.log_queue_monitor_interval,
             name='LogQueueMonitor')
