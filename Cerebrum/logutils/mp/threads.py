@@ -65,8 +65,9 @@ class LogRecordThread(_StoppableThread):
         logger.info('Logger thread stopped')
 
 
-class LogMonitorThread(_StoppableThread):
-    """ A thread that logs the number of items in a queue.
+class QueueMonitorThread(_StoppableThread):
+    """
+    A thread that logs the number of items on a queue.
 
     If the queue is a `LogQueue` object, some additional behaviour applies:
 
@@ -79,12 +80,16 @@ class LogMonitorThread(_StoppableThread):
 
     threshold_error = 90
     threshold_warning = 75
+    threshold_info = 5
+
+    default_level = logging.DEBUG
 
     def __init__(self,
                  queue,
                  interval,
                  threshold_error=threshold_error,
                  threshold_warning=threshold_warning,
+                 threshold_info=threshold_info,
                  **kwargs):
         """
         :type queue: Queue.Queue
@@ -98,7 +103,8 @@ class LogMonitorThread(_StoppableThread):
         self.interval = float(interval)
         self.threshold_error = threshold_error
         self.threshold_warning = threshold_warning
-        super(LogMonitorThread, self).__init__(**kwargs)
+        self.threshold_info = threshold_info
+        super(QueueMonitorThread, self).__init__(**kwargs)
 
     def run(self):
         logger.info('Queue monitor thread started')
@@ -116,12 +122,16 @@ class LogMonitorThread(_StoppableThread):
                 ratio = -1
 
             if self.threshold_error and ratio > self.threshold_error:
-                log = logger.error
+                level = logging.ERROR
             elif self.threshold_warning and ratio > self.threshold_warning:
-                log = logger.warning
+                level = logging.WARNING
+            elif self.threshold_info and ratio > self.threshold_info:
+                level = logging.INFO
             else:
-                log = logger.info
+                level = self.default_level
 
-            log('~%s items on the log queue (%d%% full)',
+            logger.log(
+                level,
+                '~%s items on the log queue (%d%% full)',
                 format(size, ',d'), ratio)
         logger.info('Queue monitor thread stopped')

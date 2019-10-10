@@ -32,7 +32,7 @@ from multiprocessing import managers
 from Cerebrum.logutils import mp as logutils
 from Cerebrum.logutils.mp import protocol
 from Cerebrum.logutils.mp.channel import QueueChannel
-from Cerebrum.logutils.mp.threads import LogRecordThread, LogMonitorThread
+from Cerebrum.logutils.mp.threads import LogRecordThread, QueueMonitorThread
 from Cerebrum.utils.funcwrap import memoize
 
 
@@ -153,7 +153,7 @@ class ProcessHandler(object):
             self.log_channel,
             name='LogQueueListener')
         self._logger_thread.start()
-        self._monitor_thread = LogMonitorThread(
+        self._monitor_thread = QueueMonitorThread(
             self.log_queue,
             interval=self.log_queue_monitor_interval,
             name='LogQueueMonitor')
