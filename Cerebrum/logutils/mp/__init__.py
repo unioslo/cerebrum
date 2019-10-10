@@ -22,9 +22,6 @@ This module contains simple multiprocess logging tools.
 """
 from __future__ import print_function
 
-import logging
-import multiprocessing
-
 from six.moves.queue import Queue
 
 
@@ -37,37 +34,3 @@ class LogQueue(Queue):
     """
     def get_maxsize(self):
         return self.maxsize
-
-
-class ChannelHandler(logging.Handler):
-    """ Handler that sticks serialized `LogRecord` dicts onto a 'channel'. """
-
-    def __init__(self, channel):
-        """
-        :type channel: _BaseChannel
-        """
-        if channel is None:
-            raise ValueError("invalid channel")
-        self.channel = channel
-        super(ChannelHandler, self).__init__()
-
-    def send(self, record):
-        # TODO: Copy error handling from logging.handlers.SocketHandler?
-        self.channel.send(record)
-
-    def emit(self, record):
-        try:
-            self.send(record)
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except Exception:
-            self.handleError(record)
-
-    def close(self):
-        pass
-
-
-def get_stderr_logger(level=multiprocessing.SUBDEBUG):
-    lug = multiprocessing.log_to_stderr()
-    lug.setLevel(level)
-    return lug

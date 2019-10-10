@@ -49,7 +49,8 @@ def log_queue():
 @pytest.fixture
 def log_proto():
     mod = pytest.importorskip('Cerebrum.logutils.mp.protocol')
-    return mod.LogRecordProtocol()
+    serializer = mod.JsonSerializer()
+    return mod.LogRecordProtocol(serializer)
 
 
 @pytest.fixture
@@ -61,7 +62,7 @@ def log_channel(log_queue, log_proto):
 @pytest.fixture
 def log_handler(log_channel):
     u""" The EventMap module to test. """
-    mod = pytest.importorskip('Cerebrum.logutils.mp')
+    mod = pytest.importorskip('Cerebrum.logutils.mp.handlers')
     handler = mod.ChannelHandler(log_channel)
     return handler
 

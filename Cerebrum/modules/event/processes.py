@@ -30,7 +30,7 @@ from multiprocessing.sharedctypes import Synchronized
 from Queue import Empty
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
-from Cerebrum.logutils.mp import ChannelHandler
+from Cerebrum.logutils.mp.handlers import ChannelHandler
 from Cerebrum.logutils.mp.utils import reset_logging
 
 
