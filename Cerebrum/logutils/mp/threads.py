@@ -96,6 +96,7 @@ class QueueMonitorThread(_StoppableThread):
         :type interval: float
         :type threshold_error: int
         :type threshold_warning: int
+        :type threshold_info: int
 
         passes all other kwargs to `threading.Thread.__init__`
         """

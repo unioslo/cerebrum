@@ -31,6 +31,7 @@ from Queue import Empty
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.logutils.mp import ChannelHandler
+from Cerebrum.logutils.mp.utils import reset_logging
 
 
 class ProcessBase(multiprocessing.Process):
@@ -113,9 +114,8 @@ class ProcessLoggingMixin(ProcessBase):
 
         # re-configure root logger after the new process has forked, with a
         # handler that ships data to self._log_queue
+        reset_logging()
         root = logging.getLogger()
-        root.handlers = []
-        root.setLevel(self.logger.level)
         root.addHandler(self._handler)
 
         self.logger.info('Process starting (pid=%r): %s',
