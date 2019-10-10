@@ -19,18 +19,62 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 This module contains simple multiprocess logging tools.
+
+Logging in multiprocessing applications
+=======================================
+
+The challenge with Python, logging and multiprocessing is that there are no
+locks between processes when accessing log handler resources (e.g. log files).
+
+This library tries to fix that by providing a set of tools that allows
+multiprocessing programs to set up the following logging structure:
+
+
+- Main process configures logging however it likes, and starts a thread that
+  listens for log records on a shared ipc *channel*, and processes the log
+  records according to configuration.
+
+- Subprocesses resets all log configuration so that:
+  - All loggers propagate their log messages up to the root logger
+  - The root logger handles log messages by sending them out on a shared
+    *channel*
+
+
+Module overview
+---------------
+
+channel
+    Implementation of IPC between processes.
+
+    The only channel implementation is currently the ``QueueChannel``, which
+    uses managed ``Queue.Queue`` objects or ``multiprocessing.queues.Queue``
+    objects.
+
+handlers
+    Log handlers that sends serialized log records to a *channel*.
+
+protocol
+    Utilities to serialize and deserialize log records (``logging.LogRecord``
+    objects).
+
+threads
+    Generic implementations of logger threads for use in the process
+    responsible for logging.  The logger threads are responsible for monitoring
+    the *channel* and handling any log records.
 """
 from __future__ import print_function
 
-from six.moves.queue import Queue
+from . import channel
+from . import handlers
+from . import protocol
+from . import threads
+from . import utils
 
 
-class LogQueue(Queue):
-    """ A Queue.Queue object with access to the maxsize attribute.
-
-    Proxied objects (from a multiprocessing.manager.BaseManager) does not
-    expose attributes, only methods. This class exposes the maxsize attribute
-    through a method.
-    """
-    def get_maxsize(self):
-        return self.maxsize
+__all__ = [
+    'channel',
+    'handlers',
+    'protocol',
+    'threads',
+    'utils',
+]

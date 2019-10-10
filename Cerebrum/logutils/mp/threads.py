@@ -7,6 +7,8 @@ from __future__ import print_function, unicode_literals
 import logging
 import threading
 
+from six.moves.queue import Queue
+
 logger = logging.getLogger(__name__)
 
 
@@ -48,6 +50,9 @@ class LogRecordThread(_StoppableThread):
         while not self.is_stopped():
             try:
                 record = self.channel.poll(timeout=self.timeout)
+            except IOError:
+                logger.critical("IPC seems to be broken!", exc_info=True)
+                raise
             except Exception:
                 logger.error("Unable to receive record", exc_info=True)
                 continue
@@ -69,7 +74,7 @@ class QueueMonitorThread(_StoppableThread):
     """
     A thread that logs the number of items on a queue.
 
-    If the queue is a `LogQueue` object, some additional behaviour applies:
+    If the queue is a `SizedQueue` object, some additional behaviour applies:
 
     - The log message will include a fill ratio (in percent)
     - If the ratio exceeds `threshold_error`, the message will be logged as an
@@ -136,3 +141,14 @@ class QueueMonitorThread(_StoppableThread):
                 '~%s items on the log queue (%d%% full)',
                 format(size, ',d'), ratio)
         logger.info('Queue monitor thread stopped')
+
+
+class SizedQueue(Queue):
+    """ A Queue.Queue object with access to the maxsize attribute.
+
+    Proxied objects (from a multiprocessing.manager.BaseManager) does not
+    expose attributes, only methods. This class exposes the maxsize attribute
+    through a method.
+    """
+    def get_maxsize(self):
+        return self.maxsize

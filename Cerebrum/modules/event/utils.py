@@ -29,10 +29,7 @@ import signal
 import multiprocessing
 from multiprocessing import managers
 
-from Cerebrum.logutils import mp as logutils
-from Cerebrum.logutils.mp import protocol
-from Cerebrum.logutils.mp.channel import QueueChannel
-from Cerebrum.logutils.mp.threads import LogRecordThread, QueueMonitorThread
+from Cerebrum.logutils import mp
 from Cerebrum.utils.funcwrap import memoize
 
 
@@ -99,7 +96,7 @@ class Manager(managers.BaseManager):
         super(Manager, self).start(*args, **kwargs)
 
 
-Manager.register('LogQueue', logutils.LogQueue)
+Manager.register('LogQueue', mp.threads.SizedQueue)
 
 
 class ProcessHandler(object):
@@ -149,11 +146,11 @@ class ProcessHandler(object):
         self.logger.info('Started manager process (pid=%d): %s',
                          self.mgr.pid, self.mgr.name)
 
-        self._logger_thread = LogRecordThread(
+        self._logger_thread = mp.threads.LogRecordThread(
             self.log_channel,
             name='LogQueueListener')
         self._logger_thread.start()
-        self._monitor_thread = QueueMonitorThread(
+        self._monitor_thread = mp.threads.QueueMonitorThread(
             self.log_queue,
             interval=self.log_queue_monitor_interval,
             name='LogQueueMonitor')
@@ -168,9 +165,9 @@ class ProcessHandler(object):
     @property
     @memoize
     def log_channel(self):
-        serializer = protocol.JsonSerializer()
-        proto = protocol.LogRecordProtocol(serializer)
-        return QueueChannel(self.log_queue, proto)
+        serializer = mp.protocol.JsonSerializer()
+        proto = mp.protocol.LogRecordProtocol(serializer)
+        return mp.channel.QueueChannel(self.log_queue, proto)
 
     @property
     @memoize

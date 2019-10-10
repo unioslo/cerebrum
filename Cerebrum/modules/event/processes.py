@@ -27,7 +27,9 @@ import ctypes
 import logging
 import multiprocessing
 from multiprocessing.sharedctypes import Synchronized
-from Queue import Empty
+
+from six.moves.queue import Empty
+
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.logutils.mp.handlers import ChannelHandler
