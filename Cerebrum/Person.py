@@ -401,7 +401,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         exists_stmt = """
         SELECT EXISTS (
           SELECT 1
-          WHERE prson_id=:person_id AND
+          FROM [:table schema=cerebrum name=person_name]
+          WHERE person_id=:person_id AND
                 source_system=:source_system AND
                 name_variant=:name_variant AND
                 name=:name
