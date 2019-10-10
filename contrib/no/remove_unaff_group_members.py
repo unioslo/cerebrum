@@ -22,7 +22,7 @@
 
 For users, this is done in the following steps:
  1. Check if the account has affiliations
- 2. If not, check if it is is member of any groups.
+ 2. If not, check if it is member of any groups.
  3. If it is member of a group, remove it unless the group is the account's
     default file group.
 
@@ -94,15 +94,16 @@ def remove_accounts(database, logger, posix_user2gid):
     )
 
     logger.info('Beginning membership deletion')
+    if not group_rows_for_deletion:
+        logger.info('No memberships to delete')
     for row in group_rows_for_deletion:
         # Skip default file group
-        if (row['member_id'] in posix_user2gid and
-                row['group_id'] == posix_user2gid[row['member_id']]):
+        mid = row['member_id']
+        gid = row['group_id']
+        if mid in posix_user2gid and gid == posix_user2gid[mid]:
             continue
-        logger.info("Removing account %i from group %i",
-                    row['member_id'],
-                    row['group_id'])
-        group.remove_member_from_group(row['member_id'], row['group_id'])
+        logger.info("Removing account %i from group %i", mid, gid)
+        group.remove_member_from_group(mid, gid)
 
 
 def remove_persons(database, logger, posix_user2gid, grace_period):
@@ -124,12 +125,12 @@ def remove_persons(database, logger, posix_user2gid, grace_period):
     person_cache = cache_person_affs(database)
 
     filtered_persons = set()
-    for pid in person_cache:
-        if None in person_cache[pid]:
+    for pid, aff_del_dates in person_cache.items():
+        if None in aff_del_dates:
             continue
-        if not any([delete_date > mx.DateTime.now() -
-                    mx.DateTime.DateTimeDeltaFromDays(grace_period)
-                    for delete_date in person_cache[pid]]):
+        if not any(delete_date > mx.DateTime.now() -
+                   mx.DateTime.DateTimeDeltaFromDays(grace_period)
+                   for delete_date in aff_del_dates):
             filtered_persons.add(pid)
 
     # Find the accounts of those persons
@@ -142,16 +143,15 @@ def remove_persons(database, logger, posix_user2gid, grace_period):
     logger.info("Removing accounts from groups")
     for row in group.search_members(member_id=potential_accs,
                                     member_type=const.entity_account):
-        member_id = int(row['member_id'])
-        group_id = int(row['group_id'])
+        mid = int(row['member_id'])
+        gid = int(row['group_id'])
         # Skip default file group
-        if (member_id in posix_user2gid and
-                group_id == posix_user2gid[member_id]):
+        if mid in posix_user2gid and gid == posix_user2gid[mid]:
             continue
-        logger.info("Remove account %i from group %i", member_id, group_id)
-        persons_affected.add(member_id)
-        groups_affected.add(group_id)
-        group.remove_member_from_group(member_id, group_id)
+        logger.info("Remove account %i from group %i", mid, gid)
+        persons_affected.add(mid)
+        groups_affected.add(gid)
+        group.remove_member_from_group(mid, gid)
     logger.info("Removed {} persons from {} groups".format(
         len(persons_affected), len(groups_affected)))
 
