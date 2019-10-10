@@ -6,6 +6,7 @@ from __future__ import print_function, unicode_literals
 
 import json
 import logging
+import pickle
 
 
 class LogRecordSerializer(object):
@@ -40,12 +41,20 @@ class JsonSerializer(LogRecordSerializer):
         return dct
 
 
+class PickleSerializer(LogRecordSerializer):
+    """ Pickle serializer, for use with QueueHandler. """
+
+    def _serialize(self, data):
+        return pickle.dumps(data)
+
+    def _deserialize(self, data):
+        return pickle.loads(data)
+
+
 class LogRecordProtocol(object):
     """ Serialize and Deserialize LogRecord objects. """
 
-    serializer = JsonSerializer()
-
-    def __init__(self, serializer=serializer):
+    def __init__(self, serializer):
         """
         :param object serializer:
             an object with callable attributes `dumps` and `loads`

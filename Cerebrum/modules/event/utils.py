@@ -30,7 +30,7 @@ import multiprocessing
 from multiprocessing import managers
 
 from Cerebrum.logutils import mp as logutils
-from Cerebrum.logutils.mp.protocol import LogRecordProtocol
+from Cerebrum.logutils.mp import protocol
 from Cerebrum.logutils.mp.channel import QueueChannel
 from Cerebrum.logutils.mp.threads import LogRecordThread, LogMonitorThread
 from Cerebrum.utils.funcwrap import memoize
@@ -167,13 +167,10 @@ class ProcessHandler(object):
 
     @property
     @memoize
-    def log_proto(self):
-        return LogRecordProtocol()
-
-    @property
-    @memoize
     def log_channel(self):
-        return QueueChannel(self.log_queue, self.log_proto)
+        serializer = protocol.JsonSerializer()
+        proto = protocol.LogRecordProtocol(serializer)
+        return QueueChannel(self.log_queue, proto)
 
     @property
     @memoize
