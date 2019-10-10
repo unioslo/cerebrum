@@ -79,6 +79,7 @@ def serve(config, num_workers, enable_listener, enable_collector):
                 daemon=True,
                 queue=event_queue,
                 log_queue=daemon.log_queue,
+                log_proto=daemon.log_proto,
                 running=daemon.run_trigger))
 
     # The 'event listener'
@@ -90,6 +91,7 @@ def serve(config, num_workers, enable_listener, enable_collector):
                 daemon=True,
                 queue=event_queue,
                 log_queue=daemon.log_queue,
+                log_proto=daemon.log_proto,
                 running=daemon.run_trigger))
 
     # The 'event collector'
@@ -101,6 +103,7 @@ def serve(config, num_workers, enable_listener, enable_collector):
                 daemon=True,
                 queue=event_queue,
                 log_queue=daemon.log_queue,
+                log_proto=daemon.log_proto,
                 running=daemon.run_trigger,
                 config=config.event_daemon_collector))
 

@@ -68,6 +68,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
                 daemon=True,
                 queue=event_queue,
                 log_queue=cimd.log_queue,
+                log_proto=cimd.log_proto,
                 running=cimd.run_trigger,
                 cim_config=cim_config))
 
@@ -77,6 +78,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
                 daemon=True,
                 queue=event_queue,
                 log_queue=cimd.log_queue,
+                log_proto=cimd.log_proto,
                 running=cimd.run_trigger,
                 channels=channels))
 
@@ -87,6 +89,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
                     daemon=True,
                     queue=event_queue,
                     log_queue=cimd.log_queue,
+                    log_proto=cimd.log_proto,
                     running=cimd.run_trigger,
                     channel=chan,
                     config=cim_config.eventcollector))

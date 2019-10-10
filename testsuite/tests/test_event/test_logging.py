@@ -31,7 +31,7 @@ def real_logger():
 
 @pytest.fixture
 def queue():
-    class _queue(object):
+    class _Queue(object):
         def __init__(self):
             self.q = []
 
@@ -43,24 +43,21 @@ def queue():
                 return self.q.pop(0)
             except IndexError:
                 raise Empty()
-    return _queue()
+    return _Queue()
 
 
 @pytest.fixture
-def logutils():
-    return pytest.importorskip('Cerebrum.logutils.mp')
+def log_proto():
+    mod = pytest.importorskip('Cerebrum.logutils.mp.protocol')
+    return mod.LogRecordProtocol()
 
 
 @pytest.fixture
-def queue_handler(logutils, queue):
+def queue_handler(queue, log_proto):
     u""" The EventMap module to test. """
-    queue_handler = logutils.QueueHandler(queue)
+    mod = pytest.importorskip('Cerebrum.logutils.mp')
+    queue_handler = mod.QueueHandler(queue, log_proto)
     return queue_handler
-
-
-@pytest.fixture
-def log_thread(logutils, real_logger, queue):
-    return logutils.LoggerThread(logger=real_logger, queue=queue)
 
 
 def test_log_info(queue, queue_handler):
@@ -118,7 +115,7 @@ def test_log_args_error(queue, queue_handler):
 
 def test_logrecord_repr_unpickleable(queue, queue_handler):
     # The items thrown on a multiprocessing queue must be pickleable
-    unpickleable = lambda x: x * 2
+    unpickleable = lambda x: x * 2  # noqa: E731
     with pytest.raises(pickle.PicklingError):
         # Make sure it's not pickleable
         pickle.dumps(unpickleable)

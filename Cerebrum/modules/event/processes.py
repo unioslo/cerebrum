@@ -95,16 +95,16 @@ class ProcessLoggingMixin(ProcessBase):
 
     """
 
-    def __init__(self, log_queue=None, **kwargs):
+    def __init__(self, log_queue=None, log_proto=None, **kwargs):
         """ Initialize process with a logger.
 
         :param Queue log_queue:
-            A queue for log messages. Log messages should be formatted as
-            tuples:
-                ('<source>', '<log-level>', '<message>')
+            A queue for log messages.
+        :param LogRecordProtocol log_proto:
+            A serializer for log records.
         """
         super(ProcessLoggingMixin, self).__init__(**kwargs)
-        self._handler = QueueHandler(log_queue)
+        self._handler = QueueHandler(log_queue, log_proto)
 
         # Get our custom logger as self.logger, for compability reasons
         self.logger = logging.getLogger(__name__)
