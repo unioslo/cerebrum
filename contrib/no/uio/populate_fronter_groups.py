@@ -1545,7 +1545,8 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
             group.description = descr
             group.write_db()
 
-        if group.expire_date - DateTimeDelta(GRACE_PERIOD) < now():
+        if group.expire_date and (group.expire_date -
+                                  DateTimeDelta(GRACE_PERIOD) < now()):
             group.expire_date = now() + DateTimeDelta(GRACE_PERIOD)
             logger.debug('Setting expire_date of group %s to %s',
                          gname,

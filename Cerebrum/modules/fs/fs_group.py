@@ -204,13 +204,13 @@ class FsGroupCategorizer(object):
         for cat, regex, l in self.categories:
             m = regex.match(group_name)
             if m:
-                if category:
-                    logger.error('Multiple categories for %s', group_name)
-                    raise LookupError
-                else:
+                if not category:
                     category = cat
                     match = m
                     lifetime = l
+                else:
+                    logger.error('Multiple categories for %s', group_name)
+                    raise LookupError
 
         if category:
             return category, match, lifetime
