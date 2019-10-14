@@ -23,6 +23,7 @@ import cereconf
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
+from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
@@ -299,9 +300,13 @@ class UitAccessAuth(UitAuth, bofhd_access.BofhdAccessAuth):
 
 
 class UitBofhdJobRunnerAuth(UitAuth, BofhdJobRunnerAuth):
-    """Uit specific job_runner auth."""
     pass
 
 
 class BofhdApiKeyAuth(UitAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
+    pass
+
+
+class BofhdUnpersonalAuth(UitAuth,
+                          bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
     pass
