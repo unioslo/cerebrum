@@ -58,7 +58,7 @@ SYNCS['AD_account'] = {
         # TODO: note that if new change types are added, all such events would
         # be processed, even those created before the previous quicksync run.
         'change_types': (#('account', 'create'),
-                         #('account', 'delete (legacy)'),
+                         #('account', 'deactivate'),
                          #('account', 'modify'),
                          ('account_password', 'set'),
                          ('quarantine', 'add'), 

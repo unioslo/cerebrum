@@ -1714,7 +1714,7 @@ class CLConstants(ConstantsBase):
     account_create = _ChangeTypeCode(
         'account', 'create', 'created %(subject)s')
     account_delete = _ChangeTypeCode(
-        'account', 'delete (legacy)', 'deleted %(subject)s')
+        'account', 'deactivate', 'deleted %(subject)s')
     account_mod = _ChangeTypeCode(
         'account', 'modify', 'modified %(subject)s',
         ("new owner=%(entity:owner_id)s",

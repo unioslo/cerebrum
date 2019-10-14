@@ -440,11 +440,6 @@ def quarantine_mod(msg, **kwargs):
                        **common)
 
 
-@EventFilter.register('group')
-def group(*args, **kwargs):
-    return None
-
-
 @EventFilter.register('group', 'create')
 def group_create(msg, **kwargs):
     common = _make_common_args(msg)
