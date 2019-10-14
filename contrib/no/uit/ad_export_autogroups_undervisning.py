@@ -27,11 +27,10 @@ from __future__ import unicode_literals
 import argparse
 import locale
 import logging
-import os
-import sys
+
+import mx.DateTime
 
 import cereconf
-import mx.DateTime
 from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib.xmlprinter import xmlprinter
@@ -39,15 +38,6 @@ from Cerebrum.modules.no.uit import access_FS
 from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
-
-# Define default file locations
-default_log_dir = os.path.join(sys.prefix, 'var', 'log')
-default_export_file = os.path.join(cereconf.DUMPDIR, 'AD',
-                                   'autogroups-undervisning.xml')
-default_studieprog_file = os.path.join(cereconf.DUMPDIR, 'FS',
-                                       'studieprogrammer.xml')
-default_undenh_file = os.path.join(cereconf.DUMPDIR, 'FS',
-                                   'undervisningenheter.xml')
 
 # FIXME: Move to cereconf
 autogroups_maildomain = "auto.uit.no"
@@ -429,7 +419,7 @@ def aggregate_studieprogram_groups(ac):
     return agrgroup_dict
 
 
-def write_xml(agrgroup_dict, xmlfile=default_export_file):
+def write_xml(agrgroup_dict, xmlfile):
     """
     write results to file
 
@@ -444,22 +434,40 @@ def write_xml(agrgroup_dict, xmlfile=default_export_file):
                 <name>AD navn</name>
                 <samaccountname>sam_name_of_group</samaccountname>
                 <description>some descriptive text</description>
-                <displayname>displayname of group</displayname>         # this name will show in Addressbook
+                <!-- this name will show in Addressbook -->
+                <displayname>displayname of group</displayname>
                 <member>usera,userb,userc,userd</member>
                 <mail>samaccountname@auto.uit.no</mail>
-                <mailnickname>alias@auto.uit.no</mailnickname>          # startswith emnekode/stprogrkode. Easy searchable in adrbook
-                <extensionAttribute1>type</extensionAttribute1>         #undenh or studierprogram
-                <extensionAttribute2>emnekode</extensionAttribute2>     # emnekode or studieprogramkode
-                <extensionAttribute3>2014</extensionAttribute3>         # year
-                <extensionAttribute4>h�st</extensionAttribute4>         # semester
-                <extensionAttribute5>versjonskode</extensionAttribute5> # only for emner
-                <extensionAttribute6>terminkode</extensionAttribute6>   # only for emner
-                <extensionAttribute7>rolle</extensionAttribute7>        # only student at present
-                <extensionAttribute8>emne or stprognavn</extensionAttribute8>               # full name of emne or studieprogram
-                <extensionAttribute9>emne or studieprog forkortelse</extensionAttribute9>   # short versjon of nr 8
-                <extensionAttribute10>Institutt for samfunnsmedisin</extensionAttribute10>  # ansvarlig enhets fulle navn
-                <extensionAttribute11>ISM</extensionAttribute11>                            # ansvarlig enhets forkortelse
-                <extensionAttribute12>UiT.Helsefak.ISM</extensionAttribute12>               # ansvarlig enhets plassering i org
+                <!-- startswith emnekode/progkode (searchable in adrbook) -->
+                <mailnickname>alias@auto.uit.no</mailnickname>
+                <!-- undenh or studierprogram -->
+                <extensionAttribute1>type</extensionAttribute1>
+                <!-- emnekode or studieprogramkode -->
+                <extensionAttribute2>emnekode</extensionAttribute2>
+                <!-- year -->
+                <extensionAttribute3>2014</extensionAttribute3>
+                <!-- semester -->
+                <extensionAttribute4>høst</extensionAttribute4>
+                <!-- only for emner -->
+                <extensionAttribute5>versjonskode</extensionAttribute5>
+                <!-- only for emner -->
+                <extensionAttribute6>terminkode</extensionAttribute6>
+                <!-- only student at present -->
+                <extensionAttribute7>rolle</extensionAttribute7>
+                <!-- full name of emne or studieprogram -->
+                <extensionAttribute8>emne or stprognavn</extensionAttribute8>
+                <!-- short versjon of nr 8 -->
+                <extensionAttribute9>
+                    emne or studieprog forkortelse
+                </extensionAttribute9>
+                <!-- ansvarlig enhets fulle navn -->
+                <extensionAttribute10>
+                    Institutt for samfunnsmedisin
+                </extensionAttribute10>
+                <!-- ansvarlig enhets forkortelse -->
+                <extensionAttribute11>ISM</extensionAttribute11>
+                <!-- ansvarlig enhets plassering i org -->
+                <extensionAttribute12>UiT.Helsefak.ISM</extensionAttribute12>
                 <extensionAttribute13></extensionAttribute13>
                 <extensionAttribute14><extensionAttribute14>
                 <extensionAttribute15></extensionAttribute15>
@@ -510,16 +518,22 @@ def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '--studieprogfile',
-        default=default_studieprog_file,
-        help='filename containing studieprog data from FS')
+        required=True,
+        help='Read FS study programs (studieprogrammer) from %(metavar)s',
+        metavar='<file>',
+    )
     parser.add_argument(
         '--undenhfile',
-        default=default_undenh_file,
-        help='filename containing undervisningsenhet data from FS')
+        required=True,
+        help='Read FS course units (undervisningsenheter) from %(metavar)s',
+        metavar='<file>',
+    )
     parser.add_argument(
         '--exportfile',
-        default=default_export_file,
-        help='filname to write resulting xml to')
+        required=True,
+        help='Write XML to %(metavar)s',
+        metavar='<file>',
+    )
 
     logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
@@ -543,7 +557,7 @@ def main(inargs=None):
     get_undenh_groups(db, co, ac, gr)
     get_studieprogramgroups(db, co, ac, gr)
     agrgroup_dict = aggregate_studieprogram_groups(ac)
-    write_xml(agrgroup_dict, xmlfile=args.exportfile)
+    write_xml(agrgroup_dict, args.exportfile)
 
     stop = mx.DateTime.now()
     logger.debug("Started %s, ended %s", start, stop)

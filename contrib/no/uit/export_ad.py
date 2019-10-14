@@ -40,6 +40,7 @@ from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.Email import EmailTarget, EmailForward
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.modules.fs.import_from_FS import AtomicStreamRecoder
+from Cerebrum.modules.no.uit.Account import UsernamePolicy
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.utils.funcwrap import memoize
 
@@ -317,7 +318,7 @@ class AdExport(object):
             # now to get any email forward addresses
             entry = dict()
             entry['name'] = name
-            if name.endswith(cereconf.USERNAME_POSTFIX['sito']):
+            if UsernamePolicy.is_valid_sito_name(name):
                 upndomain = cereconf.SITO_PRIMARY_MAILDOMAIN
             else:
                 upndomain = cereconf.INSTITUTION_DOMAIN_NAME
@@ -338,10 +339,6 @@ class AdExport(object):
             return
 
         logger.info("Start building export, writing to %s" % self.userfile)
-        validate = re.compile('^[a-z][a-z][a-z][0-9][0-9][0-9]$')
-        validate_guests = re.compile('^gjest[0-9]{2}$')
-        validate_sito = re.compile('^[a-z][a-z][a-z][0-9][0-9][0-9]%s$' % (
-            cereconf.USERNAME_POSTFIX['sito']))
         stream = AtomicStreamRecoder(self.userfile,
                                      mode=str('w'),
                                      encoding='utf-8')
@@ -362,9 +359,10 @@ class AdExport(object):
         for item in self.userexport:
             if (acctlist is not None) and (item['name'] not in acctlist):
                 continue
-            if (not (validate.match(item['name']) or
-                     (validate_guests.match(item['name'])) or
-                     (validate_sito.match(item['name'])))):
+            if not any(valid(item['name'])
+                       for valid in (UsernamePolicy.is_valid_uit_name,
+                                     UsernamePolicy.is_valid_sito_name,
+                                     UsernamePolicy.is_valid_guest_name)):
                 logger.error("Username not valid for AD: %s", item['name'])
                 continue
             xml.startElement('user')

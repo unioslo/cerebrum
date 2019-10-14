@@ -655,8 +655,7 @@ class Build(object):
                 # Account did not have a sito type (only set on active
                 # accounts).  we will have to check account name in case we
                 # have to reopen an inactive account.
-                if account.account_name.endswith(
-                        cereconf.USERNAME_POSTFIX['sito']):
+                if UsernamePolicy.is_valid_sito_name(account.account_name):
                     sito_account = account.entity_id
                     logger.info("Found sito account_id=%r (%s) for "
                                 "person_id=%r (from username)", sito_account,

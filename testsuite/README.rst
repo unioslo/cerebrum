@@ -74,7 +74,7 @@ following files:
 
    * ``egenix-mx-base``
    * ``psycopg2``
-   * ``smbpasswd``
+   * ``passlib``
 
 
 In addition, the config folder for the job should also contain other config

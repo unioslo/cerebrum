@@ -262,11 +262,6 @@ class Profile(object):
             return b
         return None  # TBD: Raise error?
         
-    def get_printer_kopiavgift_fritak(self):
-        return self.matcher.get_match("print_kopiavgift_fritak") and 1 or 0
-
-    def get_printer_betaling_fritak(self):
-        return self.matcher.get_match("print_betaling_fritak") and 1 or 0
 
     def get_build(self):
         home = False
@@ -299,34 +294,6 @@ class Profile(object):
     def get_quarantines(self):
         """Returns [{'quarantine': QuarantineCode, 'start_at': seconds}]"""
         return self.matcher.get_match("quarantine")
-
-    def get_pquota(self, as_list=False):
-        """Return information about printerquota.  Throws a
-        NoMatchingQuotaSettings if profile has no quota information
-
-        as_list=False is for the old quota system"""
-        if as_list:
-            return self.matcher.get_match('printer_kvote')
-        ret = {}
-        if not self.matcher.get_match('printer_kvote'):
-            raise NoMatchingQuotaSettings, "No matching quota settings"
-        for m in self.matcher.get_match('printer_kvote'):
-            for k in ('start', 'uke', 'max_akk', 'max_sem'):
-                if ret.get(k, '') == 'UL':
-                    continue
-                if m[k] == 'UL':
-                    ret[k] = m[k]
-                else:
-                    try:
-                        ret[k] = int(ret.get(k, 0)) + int(m[k])
-                    except ValueError:
-                        self._logger.warn("Bad value: %s / %s" % (ret.get(k, 0), m[k]))
-        return {
-            'initial_quota': ret['start'],
-            'weekly_quota': ret['uke'],
-            'max_quota': ret['max_akk'],
-            'termin_quota': ret['max_sem']
-            }
 
 
 class ProfileMatcher(object):

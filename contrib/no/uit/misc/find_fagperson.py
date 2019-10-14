@@ -23,7 +23,6 @@
     Reads a txt file containing fnrs and returns a csv file containing:
      <fnr>;[username];[comments]
 """
-
 from __future__ import print_function
 
 # Generic imports
@@ -33,11 +32,12 @@ import io
 import logging
 
 # cerebrum imports
-from Cerebrum.Utils import Factory
-from Cerebrum import Errors
-from Cerebrum.utils.csvutils import UnicodeDictWriter
 import Cerebrum.logutils
 import Cerebrum.logutils.options
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+from Cerebrum.utils.csvutils import UnicodeDictWriter
+from Cerebrum.modules.no.uit.Account import UsernamePolicy
 
 # global variables:
 logger = logging.getLogger(__name__)
@@ -111,7 +111,7 @@ def get_accounts(fnr_list, db):
                 ac.clear()
                 ac.find(account[0])
                 username = ac.get_account_name()
-                if len(username) == 6 and username[-1] != 's':
+                if UsernamePolicy.is_valid_uit_name(username):
                     # this is a uit account. add it
                     person_dict['username'] = username
                 if ac.is_expired():

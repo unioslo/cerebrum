@@ -21,7 +21,7 @@
 
 from __future__ import unicode_literals
 
-from flask import make_response, request
+from flask import make_response
 from flask_restplus import Namespace, Resource, abort
 from six import text_type
 
@@ -189,7 +189,7 @@ password_parser.add_argument(
     'password',
     type=validator.String(),
     required=True,
-    location='form',
+    location=['form', 'json'],
     help='Password',
 )
 
@@ -299,6 +299,7 @@ class AccountQuarantineListResource(Resource):
     account_quarantines_filter.add_argument(
         'context',
         type=validator.String(),
+        location=['form', 'json'],
         help='Consider locked status based on context.')
 
     @api.marshal_with(AccountQuarantineList)
@@ -388,20 +389,24 @@ class AccountQuarantineItemResource(Resource):
         type=lambda v, k, s: date.parse(v),
         required=True,
         nullable=False,
+        location=['form', 'json'],
         help='when the quarantine should take effect (ISO8601 datetime)')
     quarantine_parser.add_argument(
         'end',
         type=lambda v, k, s: date.parse(v),
         nullable=True,
+        location=['form', 'json'],
         help='if/when the quarantine should end (ISO8601 datetime)')
     quarantine_parser.add_argument(
         'disable_until',
         type=lambda v, k, s: date.parse(v),
         nullable=True,
+        location=['form', 'json'],
         help='if/when the quarantine should really start (ISO8601 datetime)')
     quarantine_parser.add_argument(
         'comment',
         nullable=True,
+        location=['form', 'json'],
         help='{error_msg}')
 
     @api.expect(quarantine_parser)
@@ -581,14 +586,17 @@ class AccountGroupListResource(Resource):
 
     account_groups_filter = api.parser()
     account_groups_filter.add_argument(
-        'indirect_memberships', type=utils.str_to_bool,
+        'indirect_memberships',
+        type=utils.str_to_bool,
         dest='indirect_members',
         help='If true, include indirect group memberships.')
     account_groups_filter.add_argument(
-        'filter_expired', type=utils.str_to_bool,
+        'filter_expired',
+        type=utils.str_to_bool,
         help='If false, include expired groups.')
     account_groups_filter.add_argument(
-        'expired_only', type=utils.str_to_bool,
+        'expired_only',
+        type=utils.str_to_bool,
         help='If true, only include expired groups.')
 
     @api.marshal_with(group.GroupListItem, as_list=True, envelope='groups')
@@ -685,7 +693,7 @@ class AccountPasswordResource(Resource):
         'password',
         type=validator.String(),
         required=False,
-        location='form',
+        location=['form', 'json'],
         help='Password, leave empty to generate one',
     )
 
@@ -697,7 +705,7 @@ class AccountPasswordResource(Resource):
     def post(self, name):
         """Change the password for this account."""
         ac = find_account(name)
-        data = request.get_json()
+        data = self.new_password_parser.parse_args()
         password = data.get('password', None)
         if password is None:
             password = ac.make_passwd(ac.account_name)
@@ -728,8 +736,8 @@ class AccountPasswordVerifierResource(Resource):
     def post(self, name):
         """Verify the password for this account."""
         ac = find_account(name)
-        data = request.get_json()
-        password = data.get('password', None)
+        args = password_parser.parse_args()
+        password = args['password']
         assert isinstance(password, text_type)
         verified = bool(ac.verify_auth(password))
         return {'verified': verified}
@@ -748,8 +756,8 @@ class AccountPasswordCheckerResource(Resource):
     def post(self, name):
         """Check if a password is valid according to rules."""
         ac = find_account(name)
-        data = request.get_json()
-        password = data.get('password', None)
+        args = password_parser.parse_args()
+        password = args['password']
         assert isinstance(password, text_type)
         return check_password(password, account=ac, structured=True)
 

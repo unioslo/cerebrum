@@ -236,8 +236,7 @@ class SocketProtocol(object):
                 tmp = fmt_asc(done_at) if done_at else 'unknown'
                 ret.append("Status: not running.  Last run: %s" % tmp)
                 ret.append("Last exit status: %s" % job.last_exit_msg)
-            ret.append("Executable command (may change!):"
-                       " %s" % job.get_pretty_cmd())
+            ret.append("Command: %s" % job.get_pretty_cmd())
             ret.append("Pre-jobs: %s" % job.pre)
             ret.append("Post-jobs: %s" % job.post)
             ret.append("Non-concurrent jobs: %s" % job.nonconcurrent)
@@ -269,15 +268,8 @@ class SocketProtocol(object):
 
         def fmt_job_times(job):
             fmt_last = fmt_dur = 'unknown'
-            fmt_human = fmt_ago = ''
 
             last_run = queue._last_run[job]
-
-            # debug
-            if last_run:
-                fmt_human = time.strftime(' (%F %T)', time.localtime(last_run))
-            logger.debug("Last run of '%s' is '%s'%s",
-                         job, last_run, fmt_human)
 
             if last_run:
                 fmt_last = fmt_time(last_run)
@@ -314,13 +306,18 @@ class SocketProtocol(object):
 
 class SocketServer(object):
 
-    def __init__(self):
+    default_socket = getattr(cereconf, 'JOB_RUNNER_SOCKET', None)
+
+    def __init__(self, jr_socket=None):
         self._is_listening = False
         signal.signal(signal.SIGALRM, signal_timeout)
+        self.socket_path = jr_socket or self.default_socket
 
     def start_listener(self, job_runner):
+        if not self.socket_path:
+            raise RuntimeError("No socket_path set")
         self.socket = socket.socket(socket.AF_UNIX)
-        self.socket.bind(cereconf.JOB_RUNNER_SOCKET)
+        self.socket.bind(self.socket_path)
         self.socket.listen(1)
         self._is_listening = True
         while True:
@@ -337,21 +334,22 @@ class SocketServer(object):
 
     def ping_server(self):
         try:
-            os.stat(cereconf.JOB_RUNNER_SOCKET)
+            os.stat(self.socket_path)
             if self.send_cmd("PING") == 'PONG':
                 return True
         except socket.error:   # No server seems to be running
             print("WARNING: Removing stale socket")
-            os.unlink(cereconf.JOB_RUNNER_SOCKET)
-            return False
+            os.unlink(self.socket_path)
+            pass
         except OSError:        # File didn't exist
-            return False
+            pass
+        return False
 
     def cleanup(self):
         if not self._is_listening:
             return
         try:
-            os.unlink(cereconf.JOB_RUNNER_SOCKET)
+            os.unlink(self.socket_path)
         except OSError:
             pass
 
@@ -364,7 +362,7 @@ class SocketServer(object):
 
         Raises SocketTimeout if no response has come in timeout seconds.
         """
-        jr_socket = jr_socket or cereconf.JOB_RUNNER_SOCKET
+        jr_socket = jr_socket or cls.default_socket
         args = args or []
         signal.signal(signal.SIGALRM, signal_timeout)
         signal.alarm(timeout)

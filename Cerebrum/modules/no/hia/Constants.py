@@ -196,6 +196,9 @@ class Constants(Constants.Constants):
     spread_radius_guest = _SpreadCode(
         'guest@radius', Constants.Constants.entity_account,
         'Guest in Radius domain "stud"')
+    spread_radius_guestcair = _SpreadCode(
+        'guestcair@radius', Constants.Constants.entity_account,
+        'Guest in Radius domain "cair"')
 
     spread_uia_ad_account_ehelse_nhn = _SpreadCode(
         'acc@ehelse-nhn', Constants.Constants.entity_account,

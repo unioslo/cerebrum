@@ -54,9 +54,9 @@ class Constant(base.String):
             return self.transform(strval)
         return strval
 
-    def output(self, key, data):
+    def output(self, key, obj, **kwargs):
         code = base.get_value(key if self.attribute is None
-                              else self.attribute, data)
+                              else self.attribute, obj)
         return self.format(code)
 
 
@@ -80,14 +80,14 @@ class UrlFromEntityType(base.Url):
         self.type_field = type_field
         self.ctype = ctype
 
-    def output(self, key, obj):
+    def output(self, key, obj, **kwargs):
         if not obj:
             return None
         try:
             if not self.endpoint:
                 self.endpoint = '.' + Constant(ctype=self.ctype).format(
                     code=obj[self.type_field])
-            return super(UrlFromEntityType, self).output(key, obj)
+            return super(UrlFromEntityType, self).output(key, obj, **kwargs)
         except BuildError:
             return None
 

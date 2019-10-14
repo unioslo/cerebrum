@@ -18,6 +18,9 @@ import Cerebrum.logutils.options
 logger = logging.getLogger(__name__)
 
 
+DUMPDIR = cereconf.CACHE_DIR
+
+
 def ldap_export():
     global_ret = 0
     today = datetime.date.today()
@@ -31,7 +34,7 @@ def ldap_export():
     script = os.path.join(script_dir, 'generate_posix_ldif.py')
     script_arg = (
         "--user-spread system@ldap --user-file %s/ldap_users_ldif" %
-        (cereconf.DUMPDIR, ))
+        (DUMPDIR, ))
 
     script_cmd = "%s %s %s" % ('python', script, script_arg)
     logger.debug("Running %s" % script_cmd)
@@ -41,7 +44,7 @@ def ldap_export():
 
     # 2. create the ou_ldif
     script = os.path.join(script_dir, 'generate_org_ldif.py')
-    script_arg = "-o %s/ldap/ou_ldif" % (cereconf.DUMPDIR, )
+    script_arg = "-o %s/ldap/ou_ldif" % (DUMPDIR, )
     script_cmd = "%s %s %s" % ('python', script, script_arg)
     logger.debug("Running %s" % script_cmd)
     ret = os.system(script_cmd)
@@ -49,7 +52,7 @@ def ldap_export():
     logger.info("generate_org_ldif.py: %s" % ret)
 
     # 3. concatenate all the ldif files into temp_uit_ldif
-    my_dump = os.path.join(cereconf.DUMPDIR, "ldap")
+    my_dump = os.path.join(DUMPDIR, "ldap")
 
     script_cmd = ' '.join((
         "/bin/cat",
@@ -75,10 +78,10 @@ def ldap_export():
 
     script = os.path.join(script_dir, 'no', 'uit', 'ldif-diff.pl')
     script_arg = ' '.join((
-        os.path.join(cereconf.DUMPDIR, "/ldap/uit_ldif"),
-        os.path.join(cereconf.DUMPDIR, "ldap/temp_uit_ldif"),
+        os.path.join(DUMPDIR, "/ldap/uit_ldif"),
+        os.path.join(DUMPDIR, "ldap/temp_uit_ldif"),
         ">",
-        os.path.join(cereconf.DUMPDIR, "ldap", outfile),
+        os.path.join(DUMPDIR, "ldap", outfile),
     ))
     script_cmd = "%s %s %s" % ('perl', script, script_arg)
     logger.debug("Running %s" % script_cmd)
@@ -87,8 +90,8 @@ def ldap_export():
     aret = os.system(
         ' '.join((
             "cp",
-            os.path.join(cereconf.DUMPDIR, 'ldap', outfile),
-            os.path.join(cereconf.DUMPDIR, 'ldap', outcpy),
+            os.path.join(DUMPDIR, 'ldap', outfile),
+            os.path.join(DUMPDIR, 'ldap', outcpy),
         )))
     global_ret += ret + aret
     logger.info("cp: %s" % aret)

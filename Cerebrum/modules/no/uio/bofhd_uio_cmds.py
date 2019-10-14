@@ -4733,6 +4733,9 @@ class BofhdExtension(BofhdCommonMethods):
                 raise PermissionDenied(
                     'Only superusers may use hardcoded path')
             disk_id, home = None, home[1:]
+        if uname.endswith('-drift'):
+            raise CerebrumError('Users ending with -drift should be created '
+                'with user create_sysadm')
         posix_user.clear()
         gecos = None
         expire_date = None
@@ -5545,14 +5548,14 @@ class BofhdExtension(BofhdCommonMethods):
             elif operator.get_entity_id() != account.entity_id:
                 raise CerebrumError(
                     "Cannot specify password for another user.")
-        try:
-            check_password(password, account, structured=False)
-        except RigidPasswordNotGoodEnough as e:
-            raise CerebrumError('Bad password: %s' % exc_to_text(e))
-        except PhrasePasswordNotGoodEnough as e:
-            raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
-        except PasswordNotGoodEnough as e:
-            raise CerebrumError('Bad password: %s' % exc_to_text(e))
+            try:
+                check_password(password, account, structured=False)
+            except RigidPasswordNotGoodEnough as e:
+                raise CerebrumError('Bad password: %s' % exc_to_text(e))
+            except PhrasePasswordNotGoodEnough as e:
+                raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
+            except PasswordNotGoodEnough as e:
+                raise CerebrumError('Bad password: %s' % exc_to_text(e))
         account.set_password(password)
         account.write_db()
         operator.store_state("user_passwd",

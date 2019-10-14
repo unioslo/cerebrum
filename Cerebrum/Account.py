@@ -34,6 +34,7 @@ import hashlib
 import base64
 import re
 
+import passlib.hash
 import six
 
 from Cerebrum import Utils, Disk
@@ -799,10 +800,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 plaintext if binary else utf8_plaintext,
                 salt.encode('utf-8')).decode()
         elif method == self.const.auth_type_md4_nt:
-            # Do the import locally to avoid adding a dependency for
-            # those who don't want to support this method.
-            import smbpasswd
-            return smbpasswd.nthash(unicode_plaintext).decode()
+            # Previously the smbpasswd module was used to create nthash, and it
+            # only produced uppercase hashes. The hash is case insensitive, but
+            # be backwards compatible if some comsumers depend on upper case strings.
+            return passlib.hash.nthash.hash(utf8_plaintext).decode().upper()
         elif method == self.const.auth_type_plaintext:
             return unicode_plaintext
         elif method == self.const.auth_type_md5_unsalt:
@@ -839,6 +840,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         verification, NotImplemented is returned.
         """
         if method not in (self.const.auth_type_md5_crypt,
+                          self.const.auth_type_md5_unsalt,
                           self.const.auth_type_ha1_md5,
                           self.const.auth_type_md4_nt,
                           self.const.auth_type_ssha,
@@ -850,9 +852,13 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         if method == self.const.auth_type_ssha:
             salt = base64.decodestring(
                 cryptstring.encode())[20:].decode()
-        return (self.encrypt_password(method,
-                                      plaintext,
-                                      salt=salt) == cryptstring)
+
+        if method == self.const.auth_type_md4_nt:
+            return passlib.hash.nthash.verify(plaintext, cryptstring)
+        else:
+            return (self.encrypt_password(method,
+                                          plaintext,
+                                          salt=salt) == cryptstring)
 
     def verify_auth(self, plaintext):
         """Try to verify all authentication data stored for an
@@ -1294,26 +1300,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def make_passwd(self, uname, phrase=False, checkers=None):
         """Generate a random password"""
         password_generator = PasswordGenerator()
-        for attempt in range(10):
-            # try with 10 random passwords before giving up
-            if phrase:
-                r = password_generator.generate_dictionary_passphrase()
-            else:
-                r = password_generator.generate_password()
-            try:
-                check_password(r, self, checkers=checkers)
-                return r
-            except PasswordNotGoodEnough as e:
-                if attempt == 9:  # last attempt
-                    # raise PasswordNotGoodEnough(
-                    #     '(after 10 attempts) ' + str(e))
-
-                    # Keep the old behaviour and let the caller handle the bad
-                    # password.
-                    # Should not happen unless the configured password rules
-                    # are too restrictive or min_length > MAKE_PASSWORD_LENGTH
-                    return r  # give up and return the last password
-                continue  # make a new attempt
+        if phrase:
+            password = password_generator.generate_dictionary_passphrase()
+        else:
+            password = password_generator.generate_password()
+        return password
 
     def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
         """Returns a tuple with 15 (unused) username suggestions based
