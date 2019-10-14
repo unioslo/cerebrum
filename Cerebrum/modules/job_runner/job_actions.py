@@ -105,7 +105,6 @@ class Action(object):
         self.when = when
         self.post = post or []
         self.multi_ok = multi_ok
-        self.last_exit_msg = None
         self.notwhen = notwhen
         self.nonconcurrent = nonconcurrent
 
@@ -218,7 +217,7 @@ class CallableAction(object):
         :return:
             - None: job has not completed
             - 1: Job completed successfully
-            - (exitcode, dirname_for_output_files): on error
+            - (error, dirname_for_output_files): on error
         """
         pass
 
@@ -315,32 +314,36 @@ class System(CallableAction):
 
     def cond_wait(self, child_pid):
         # May raise OSError: [Errno 4]: Interrupted system call
-        pid, exit_code = os.waitpid(child_pid, os.WNOHANG)
+        pid, status = os.waitpid(child_pid, os.WNOHANG)
         self.logger.debug("cond_wait(%r) id=%r, wait=%r, ret=%r",
-                          child_pid, self.id, self.wait, (pid, exit_code))
+                          child_pid, self.id, self.wait, (pid, status))
+
         if pid == child_pid:
             if not all(os.path.exists(p) for p in (self.run_dir,
                                                    self.stdout_file,
                                                    self.stderr_file)):
                 # May happen if the exec failes due to full-disk etc.
-                if not exit_code:
-                    self.logger.warn("exit_code=0, and %s don't exist!",
-                                     self.run_dir)
-                self.last_exit_msg = "exit_code=%i, full disk?" % exit_code
-                return (exit_code, None)
-            if (exit_code != 0
+                if not status:
+                    self.logger.warning(
+                        "exit_status=%r, but %r don't exist! Full disk?",
+                        status, self.run_dir)
+                return ("exit_status=%i (full disk?)" % status, None)
+            if (status != 0
                     or (os.path.getsize(self.stdout_file) > 0
                         and not self.stdout_ok)
                     or os.path.getsize(self.stderr_file) > 0):
+                if os.WIFEXITED(status):
+                    msg = "exit_code=%i" % os.WEXITSTATUS(status)
+                elif os.WIFSIGNALED(status):
+                    msg = "exit_signal=%i" % os.WTERMSIG(status)
+                else:
+                    msg = "exit_status=%i" % status
                 newdir = "%s.%s/" % (self.run_dir, time.time())
                 os.rename(self.run_dir, newdir)
-                self.last_exit_msg = "exit_code=%i, check %s" % (exit_code,
-                                                                 newdir)
-                return (exit_code, newdir)
-            self.last_exit_msg = "Ok"
+                return (msg, newdir)
             self._cleanup()
             return 1
-        self.logger.debug("Wait returned %s/%s", pid, exit_code)
+        self.logger.debug("Wait returned %s/%s", pid, status)
         return None
 
     def _cleanup(self):

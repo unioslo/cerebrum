@@ -223,19 +223,23 @@ class SocketProtocol(object):
     @commands.add('SHOWJOB', num_args=1)
     def __showjob(self, jobname):
         job = self.job_queue.get_known_jobs().get(jobname)
-        started_at = self.job_queue._started_at.get(jobname)
-        done_at = self.job_queue._last_run.get(jobname)
+        is_running = self.job_queue.is_running(jobname)
+        is_queued = self.job_queue.is_queued(jobname, include_forced=True)
+        started_at = self.job_queue.last_started_at(jobname)
+        done_at = self.job_queue.last_done_at(jobname)
+        last_status = self.job_queue.last_status(jobname)
         if not job:
             self.respond('Unknown job %s' % jobname)
         else:
             ret = []
-            if started_at:
-                ret.append("Status: running, started at %s" %
-                           fmt_asc(started_at))
-            else:
-                tmp = fmt_asc(done_at) if done_at else 'unknown'
-                ret.append("Status: not running.  Last run: %s" % tmp)
-                ret.append("Last exit status: %s" % job.last_exit_msg)
+            ret.append("Status: %s, %s" %
+                       ('running' if is_running else 'not running',
+                        'queued' if is_queued else 'not queued'))
+            ret.append("Last start: %s" %
+                       (fmt_asc(started_at) if started_at else 'unknown'))
+            ret.append("Last done: %s" %
+                       (fmt_asc(done_at) if done_at else 'unknown'))
+            ret.append("Last status: %s" % (last_status,))
             ret.append("Command: %s" % job.get_pretty_cmd())
             ret.append("Pre-jobs: %s" % job.pre)
             ret.append("Post-jobs: %s" % job.post)
