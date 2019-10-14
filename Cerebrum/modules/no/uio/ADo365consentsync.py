@@ -32,7 +32,7 @@ grace_period
 
 """
 
-import mx.DateTime
+import datetime
 
 from Cerebrum.modules.ad2.froupsync import _FroupSync
 from Cerebrum.utils.funcwrap import memoize
@@ -63,10 +63,12 @@ class O365ConsentGroupSync(_FroupSync):
 
         self.pe.clear()
         self.pe.find(person_id)
-        too_old = mx.DateTime.now() - self.config['grace_period']
+        too_old = datetime.date.today() - datetime.timedelta(
+            days=self.config['grace_period'])
         affs = [(row['source_system'], row['affiliation'])
                 for row in self.pe.get_affiliations(include_deleted=True) if
-                not row['deleted_date'] or row['deleted_date'] > too_old]
+                not row['deleted_date'] or row['deleted_date'].pydate() >
+                too_old]
         return affs
 
     @memoize
