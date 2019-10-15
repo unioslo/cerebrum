@@ -117,10 +117,23 @@ class EntityTrait(Entity):
                 return
             del self.__trait_updates[code]
         params = self._pickle_fixup(self.__traits[code])
-        self.execute("""
+        binds = {'entity_id': self.entity_id,
+                 'code': int(code)}
+        exists_stmt = """
+        SELECT EXISTS (
+          SELECT 1
+          FROM [:table schema=cerebrum name=entity_trait]
+          WHERE entity_id=:entity_id AND code=:code
+        )
+        """
+        if not self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=entity_trait]
         WHERE entity_id=:entity_id AND code=:code
-        """, {'entity_id': self.entity_id, 'code': int(code)})
+        """
+        self.execute(delete_stmt, binds)
         self._db.log_change(self.entity_id, self.clconst.trait_del, None,
                             change_params=params)
         del self.__traits[code]
