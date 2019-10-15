@@ -23,7 +23,7 @@ from __future__ import unicode_literals
 
 from six import text_type
 
-from Cerebrum.rest.api import db
+from Cerebrum.rest.api import db, fields
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -308,3 +308,14 @@ def str_to_bool(value):
     if value not in ('true', 'false'):
         raise ValueError('Need true or false; got {}'.format(value))
     return value == 'true'
+
+
+def href_from_entity_type(entity_type, entity_id):
+    if entity_type == db.const.entity_person:
+        return fields.base.url_for('.person', id=entity_id)
+    elif entity_type == db.const.entity_group:
+        return fields.base.url_for('.group', name=get_entity_name(entity_id))
+    elif entity_type == db.const.entity_account:
+        return fields.base.url_for('.account',
+                                   name=get_entity_name(entity_id))
+    return None

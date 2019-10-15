@@ -228,6 +228,8 @@ class AccountResource(Resource):
                 'type': ac.owner_type,
                 'name': utils.get_entity_name(
                     utils.get_entity(ac.owner_id, idtype='entity_id')),
+                'href': utils.href_from_entity_type(entity_type=ac.owner_type,
+                                                    entity_id=ac.owner_id),
             },
             'created_at': ac.created_at,
             'expire_date': ac.expire_date,
