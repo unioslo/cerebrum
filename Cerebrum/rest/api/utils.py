@@ -21,13 +21,13 @@
 
 from __future__ import unicode_literals
 
+from flask import url_for
 from six import text_type
 
-from Cerebrum.rest.api import db, fields
-
+import Cerebrum.modules.bofhd.auth as bofhd_auth
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-import Cerebrum.modules.bofhd.auth as bofhd_auth
+from Cerebrum.rest.api import db
 
 
 class EntityLookupError(Exception):
@@ -310,12 +310,20 @@ def str_to_bool(value):
     return value == 'true'
 
 
-def href_from_entity_type(entity_type, entity_id):
+def href_from_entity_type(entity_type, entity_id, entity_name=None):
+    """Generate an href matching the type of an entity
+
+    :param int entity_type: int value entity type constant
+    :param int entity_id: The entity id of the entity
+    :param str entity_name: Name if we already have
+    :return: None or href pointing to entity
+    """
     if entity_type == db.const.entity_person:
-        return fields.base.url_for('.person', id=entity_id)
+        return url_for('.person', id=entity_id)
     elif entity_type == db.const.entity_group:
-        return fields.base.url_for('.group', name=get_entity_name(entity_id))
+        return url_for('.group',
+                       name=entity_name or get_entity_name(entity_id))
     elif entity_type == db.const.entity_account:
-        return fields.base.url_for('.account',
-                                   name=get_entity_name(entity_id))
+        return url_for('.account',
+                       name=entity_name or get_entity_name(entity_id))
     return None
