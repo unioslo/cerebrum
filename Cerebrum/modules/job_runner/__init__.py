@@ -152,14 +152,14 @@ class JobRunner(object):
             else:
                 did_wait = True
                 if isinstance(ret, tuple):
-                    if os.WIFEXITED(ret[0]):
-                        msg = "exit_code=%i" % os.WEXITSTATUS(ret[0])
-                    else:
-                        msg = "exit_status=%i" % ret[0]
+                    msg, rundir = ret
                     logger.error(
                         "{} for {}, check %s".format(msg, job['name']),
-                        ret[1])
-                self.job_queue.job_done(job['name'], job['pid'])
+                        rundir)
+                    error = '{}, check {}'.format(msg, rundir)
+                else:
+                    error = None
+                self.job_queue.job_done(job['name'], job['pid'], error=error)
         return did_wait
 
     def wake_runner_signal(self):

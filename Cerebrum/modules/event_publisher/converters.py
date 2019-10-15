@@ -473,7 +473,7 @@ def group_mod(msg, **kwargs):
 
 
 @EventFilter.register('group', 'delete')
-def group_destroy(msg, *kwargs):
+def group_destroy(msg, **kwargs):
     common = _make_common_args(msg)
     # We may be missing some data here, as it has been deleted, so let's
     # manipulate the 'subject' part of our message.

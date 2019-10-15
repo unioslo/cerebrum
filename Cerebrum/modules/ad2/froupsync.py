@@ -389,7 +389,7 @@ class AffGroupSync(_FroupSync):
 
         # Decide which affiliations this user has
         memberships = defaultdict(lambda: False)
-        for group, criterias in self.config['affiliation_groups'].iteritems():
+        for group, criterias in self.config['affiliation_groups'].items():
             for aff in criterias:
                 if aff in self.pe2affs(person_id):
                     memberships[group] = True
@@ -401,7 +401,7 @@ class AffGroupSync(_FroupSync):
             adds = [uname for uname, enable in self.pe2accs(person_id)
                     if enable and memberships[gname]]
             removes = [uname for uname, enable in self.pe2accs(person_id)
-                       if enable and not memberships[group]]
+                       if enable and not memberships[gname]]
             result &= self._update_group(gname, adds, removes)
         return result
 
@@ -488,7 +488,7 @@ class ConsentGroupSync(_FroupSync):
             adds = [uname for uname, enable in self.pe2accs(person_id)
                     if enable and memberships[gname]]
             removes = [uname for uname, enable in self.pe2accs(person_id)
-                       if enable and not memberships[group]]
+                       if enable and not memberships[gname]]
             result &= self._update_group(gname, adds, removes)
         return result
 

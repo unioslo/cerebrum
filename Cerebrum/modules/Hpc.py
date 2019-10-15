@@ -127,8 +127,8 @@ class Machine(Host_class):
     def delete_machine(self):
         """Demotes Machine to a normal host"""
         if self.entity_id is None:
-            raise Errors.NoEntityAssociationError, \
-                  "Unable to determine which entity to delete."
+            raise Errors.NoEntityAssociationError(
+                  "Unable to determine which entity to delete.")
         self._db.log_change(self.entity_id, self.const.machine_demote,
                             None)
         self.execute("""
@@ -245,7 +245,7 @@ class Project(Entity_class):
         
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
         
@@ -273,17 +273,34 @@ class Project(Entity_class):
                           'science' : int(self.science)})
             self._db.log_change(self.entity_id, self.const.project_create, None)
         else:
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=project_info]
-            SET owner=:owner, science=:science, title=:title,
-                description=:description
-            WHERE project_id=:project_id""",
-                         {'project_id' : self.entity_id,
-                          'owner' : self.owner_id,
-                          'title' : self.title,
-                          'description' : self.description,
-                          'science' : int(self.science)})
-            self._db.log_change(self.entity_id, self.const.project_mod, None)
+            binds = {'project_id': self.entity_id,
+                     'owner': self.owner_id,
+                     'title': self.title,
+                     'description': self.description,
+                     'science': int(self.science)}
+            exists_stmt = """
+              SELECT EXIST (
+                SELECT 1
+                FROM [:table schema=cerebrum name=project_info]
+                WHERE
+                  owner=:owner AND
+                  science=:science AND
+                  title=:title AND
+                  description=:description AND
+                  project_id=:project_id
+                )
+            """
+            if not self.query_1(exists_stmt, binds):
+                # True positive
+                update_stmt = """
+                  UPDATE [:table schema=cerebrum name=project_info]
+                  SET owner=:owner, science=:science, title=:title,
+                      description=:description
+                  WHERE project_id=:project_id"""
+                self.execute(update_stmt, binds)
+                self._db.log_change(self.entity_id,
+                                    self.const.project_mod,
+                                    None)
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -430,7 +447,7 @@ class AllocationPeriod(Entity_class):
         
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
 
@@ -538,7 +555,7 @@ class Allocation(Entity_class):
         
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
 
