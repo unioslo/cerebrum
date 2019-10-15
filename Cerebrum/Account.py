@@ -829,14 +829,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                       self.const.auth_type_ssha):
             if salt is None:
                 saltchars = string.ascii_letters + string.digits + "./"
+                salt = Utils.random_string(8, saltchars)
                 if method == self.const.auth_type_md5_crypt:
                     salt = "$1$" + Utils.random_string(8, saltchars)
                 elif method == self.const.auth_type_sha256_crypt:
                     salt = "$5$" + Utils.random_string(16, saltchars)
                 elif method == self.const.auth_type_sha512_crypt:
                     salt = "$6$" + Utils.random_string(16, saltchars)
-                else:
-                    salt = Utils.random_string(2, saltchars)
+                elif method == self.const.auth_type_ssha:
+                    salt = Utils.random_string(16, saltchars)
             if method == self.const.auth_type_ssha:
                 return base64.b64encode(
                     hashlib.sha1(
