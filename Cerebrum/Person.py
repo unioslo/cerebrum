@@ -180,12 +180,16 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                   SELECT EXISTS (
                     SELECT 1
                     FROM [:table schema=cerebrum name=person_info]
-                    WHERE export_id=:export_id AND
-                          birth_date=:birth_date AND
-                          gender=:gender AND
-                          deceased_date=:deceased_date AND
-                          description=:description AND
-                          person_id=:person_id
+                    WHERE (export_id is NULL AND :export_id is NULL OR
+                             export_id=:export_id) AND
+                          (birth_date is NULL AND :birth_date is NULL OR
+                             birth_date=:birth_date) AND
+                          (deceased_date is NULL AND :deceased_date is NULL OR
+                             deceased_date=:deceased_date) AND
+                          (description is NULL AND :description is NULL OR
+                             description=:description) AND
+                         gender=:gender AND
+                         person_id=:person_id
                   )
                 """
                 if not self.query_1(exists_stmt, binds):
