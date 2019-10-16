@@ -155,7 +155,6 @@ from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 from Cerebrum.utils import transliterate
 
 
-TODAY = datetime.date.today()
 # IVR 2007-11-08 FIXME: Should this be in fronter_lib?
 # Roles that are considered at all
 valid_roles = ("ADMIN", "DLO", "FAGANSVAR", "FORELESER", "GJESTEFORE",
@@ -1440,7 +1439,7 @@ def populate_ifi_groups():
     add_spread_to_group("lkurs", co.spread_ifi_nis_ng)
 
 
-def set_default_expire_date(group, gname):
+def set_default_expire_date(group, gname, today):
     try:
         _category, _match, lifetime = (
             fs_group_categorizer.get_group_category(gname))
@@ -1448,16 +1447,16 @@ def set_default_expire_date(group, gname):
         logger.warning(e)
         return
     if lifetime:
-        expire_date = TODAY + datetime.timedelta(days=365 * lifetime)
+        expire_date = today + datetime.timedelta(days=365 * lifetime)
         logger.debug('Setting expire_date: %s', expire_date)
         group.expire_date = expire_date
 
 
-def should_postpone_expire_date(group):
+def should_postpone_expire_date(group, today):
     return (group.expire_date and
             group.expire_date -
             datetime.timedelta(days=cereconf.FS_GROUP_GRACE_PERIOD) <
-            TODAY)
+            today)
 
 
 def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
@@ -1534,6 +1533,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
         AffiliatedGroups.setdefault(affil, {})[gname] = 1
     known_FS_groups[gname] = 1
 
+    today = datetime.date.today()
     try:
         group = get_group(gname)
     except Errors.NotFoundError:
@@ -1541,7 +1541,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
         group = Factory.get('Group')(db)
         group.clear()
         group.populate(group_creator, correct_visib, gname, description=descr)
-        set_default_expire_date(group, gname)
+        set_default_expire_date(group, gname, today)
         group.write_db()
     else:
         # If group already exists, update its information...
@@ -1552,9 +1552,9 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
             group.description = descr
             group.write_db()
 
-        if should_postpone_expire_date(group):
+        if should_postpone_expire_date(group, today):
             group.expire_date = (
-                    TODAY +
+                    today +
                     datetime.timedelta(days=cereconf.FS_GROUP_GRACE_PERIOD)
             )
             logger.debug('Postponing expire_date of group %s to %s',

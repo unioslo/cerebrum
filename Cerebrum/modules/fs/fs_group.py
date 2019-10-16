@@ -36,8 +36,7 @@ from Cerebrum.Utils import Factory
 
 logger = logging.getLogger(__name__)
 
-
-org_regex = r'(?P<org>[^:]+):fs'
+org_regex = r'(?:internal:)?(?P<org>[^:]+):fs'
 
 kurs = ':'.join((
     org_regex,
@@ -101,7 +100,6 @@ sp_kull = ':'.join((
     r'(?P<sem>[^:]+)',
 ))
 
-
 evu = ':'.join((org_regex, r'(?P<type>evu)', r'(?P<kurs>[^:]+)',))
 evu_unit = ':'.join((evu, r'(?P<kurstid>[^:]+)',))
 
@@ -114,11 +112,7 @@ subrole = ':'.join((role, r'(?P<akt>[^:]+)'))
 evu_year = re.compile(r'(?P<year>\d{4})')
 
 
-def make_internal(*args):
-    return re.compile('^internal:' + ':'.join(args) + '$')
-
-
-def make_external(*args):
+def make_regex(*args):
     return re.compile('^' + ':'.join(args) + '$')
 
 
@@ -131,7 +125,9 @@ def _date_or_none(d):
 def get_year(cat, match):
     try:
         if cat in ('evu-ue', 'evu-role', 'evu-role-sub'):
-            year = int(evu_year.findall(match.group('kurstid'))[-1])
+            year = max(int(year) for year in evu_year.findall(
+                match.group('kurstid')
+            ))
         else:
             year = int(match.group('year'))
     except IndexError:
@@ -150,39 +146,39 @@ class FsGroupCategorizer(object):
             raise Exception('No prefix given')
         # The elements of categories are tuples of category, regex and lifetime
         self.categories = (
-            ('super', make_internal(org_regex, '{supergroup}'), None),
-            ('auto', make_internal(org_regex, '{autogroup}'), None),
-            ('ifi_auto_fg', make_internal(org_regex, '{ifi_auto_fg}'), None),
+            ('super', make_regex(org_regex, '{supergroup}'), None),
+            ('auto', make_regex(org_regex, '{autogroup}'), None),
+            ('ifi_auto_fg', make_regex(org_regex, '{ifi_auto_fg}'), None),
             # fs:kurs
-            ('kurs', make_internal(kurs), 3),
-            ('kurs-ue', make_internal(kurs_unit), 2),
-            ('kurs-role', make_external(kurs_unit_id, role), 2),
-            ('kurs-role-sub', make_external(kurs_unit_id, subrole), 2),
+            ('kurs', make_regex(kurs), 3),
+            ('kurs-ue', make_regex(kurs_unit), 2),
+            ('kurs-role', make_regex(kurs_unit_id, role), 2),
+            ('kurs-role-sub', make_regex(kurs_unit_id, subrole), 2),
             # fs:evu
-            ('evu', make_internal(evu), 3),
-            ('evu-ue', make_internal(evu_unit), 2),
-            ('evu-role', make_external(evu_unit, role), 2),
-            ('evu-role-sub', make_external(evu_unit, subrole), 2),
+            ('evu', make_regex(evu), 3),
+            ('evu-ue', make_regex(evu_unit), 2),
+            ('evu-role', make_regex(evu_unit, role), 2),
+            ('evu-role-sub', make_regex(evu_unit, subrole), 2),
             # fs:kull
-            ('kull-ue', make_internal(kull), 6),
-            ('kull-ua', make_internal(kull_unit), 6),
-            ('kull-role', make_external(kull_unit, role), 6),
+            ('kull-ue', make_regex(kull), 6),
+            ('kull-ua', make_regex(kull_unit), 6),
+            ('kull-role', make_regex(kull_unit, role), 6),
 
             # Non uio types:
             # fs:<institusjon>:undenh
-            ('undenh', make_internal(undenh), 3),
-            ('undenh-role', make_internal(undenh, role), 2),
-            ('undenh-role-sub', make_internal(undenh, subrole),
+            ('undenh', make_regex(undenh), 3),
+            ('undenh-role', make_regex(undenh, role), 2),
+            ('undenh-role-sub', make_regex(undenh, subrole),
              2),
             # fs:<institusjon>:studieprogram
-            ('sp', make_internal(sp), 3),
+            ('sp', make_regex(sp), 3),
 
-            ('sp-kull-type', make_internal(sp_kull_type), 6),
-            ('sp-kull-role', make_internal(sp_kull, role), 6),
-            ('sp-kull-role-sub', make_internal(sp_kull, subrole), 6),
+            ('sp-kull-type', make_regex(sp_kull_type), 6),
+            ('sp-kull-role', make_regex(sp_kull, role), 6),
+            ('sp-kull-role-sub', make_regex(sp_kull, subrole), 6),
 
-            ('sp-rolle-type', make_internal(sp_rolle_type), 3),
-            ('sp-rolle', make_internal(sp_rolle_type, role), 3),
+            ('sp-rolle-type', make_regex(sp_rolle_type), 3),
+            ('sp-rolle', make_regex(sp_rolle_type, role), 3),
         )
 
     def get_groups(self):
