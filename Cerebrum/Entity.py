@@ -438,12 +438,12 @@ class EntityName(Entity):
         DELETE FROM [:table schema=cerebrum name=entity_name]
         WHERE entity_id=:entity_id AND
               value_domain=:value_domain"""
-        self.execute(delete_stmt, binds)
         self._db.log_change(self.entity_id,
                             self.clconst.entity_name_del,
                             None,
                             change_params={'domain': int(domain),
                                            'name': self.get_name(int(domain))})
+        self.execute(delete_stmt, binds)
 
     def update_entity_name(self, domain, name):
         if int(domain) in [int(self.const.ValueDomain(code_str))
