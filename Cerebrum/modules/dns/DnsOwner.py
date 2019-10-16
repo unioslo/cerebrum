@@ -220,15 +220,15 @@ class GeneralDnsRecord(object):
 
     def update_general_dns_record(self, dns_owner_id, field_type, ttl, data):
         cols, binds = self.__fill_coldata(locals())
-        defs = {'set_defs': ", ".join(["%s=%s" % x for x in cols]),
-                'where_defs': " AND ".join(["%s=%s" % x for x in cols])}
+        defs = {'set_defs': ", ".join(["%s=%s" % x for x in cols])}
         exists_stmt = """
         SELECT EXISTS (
         SELECT 1
         FROM [:table schema=cerebrum name=dns_general_dns_record]
         WHERE dns_owner_id=:dns_owner_id AND
               field_type=:field_type AND
-              %(where_defs)s
+              data=:data AND
+             (ttl is NULL AND :ttl is NULL OR ttl=:ttl)
         )
         """ % defs
         if self.query_1(exists_stmt, binds):
@@ -348,7 +348,8 @@ class DnsOwner(GeneralDnsRecord, EntityName, EntitySpread, Entity_class):
                 SELECT 1
                 FROM [:table schema=cerebrum name=dns_owner]
                 WHERE dns_owner_id=:e_id AND
-                      mx_set_id=:mx_set_id AND
+                     (mx_set_id is NULL AND :mx_set_id is NULL OR
+                        mx_set_id=:mx_set_id) AND
                       zone_id=:zone_id
               )
             """

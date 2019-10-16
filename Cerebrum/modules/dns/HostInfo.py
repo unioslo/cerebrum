@@ -89,7 +89,9 @@ class HostInfo(Entity):
                 'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
                 'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
                                 if x != 'host_id'),
-                'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}
+                'tw': ' AND '.join(
+                    '{0}=:{0}'.format(x) for x in binds if x not in {'ttl',
+                                                                     'hinfo'})}
         if is_new:
             insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=dns_host_info] (%(tc)s)
@@ -104,10 +106,12 @@ class HostInfo(Entity):
               SELECT EXISTS (
                 SELECT 1
                 FROM [:table schema=cerebrum name=dns_host_info]
-                WHERE %(tw)s
+                WHERE (ttl is NULL AND :ttl is NULL OR ttl=:ttl) AND
+                      (hinfo is NULL AND :hinfo is NULL OR hinfo=:hinfo) AND
+                     %(tw)s
               )
             """ % defs
-            if self.query_1(exists_stmt, binds):
+            if not self.query_1(exists_stmt, binds):
                 update_stmt = """
                 UPDATE [:table schema=cerebrum name=dns_host_info]
                 SET %(ts)s

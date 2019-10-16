@@ -75,7 +75,9 @@ class IPNumber(Entity.Entity):
                 'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
                 'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
                                 if x != 'ip_number_id'),
-                'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}
+                'tw': ' AND '.join(
+                    '{0}=:{0}'.format(x) for x in binds if x not in {
+                        'mac_adr', 'aaaa_ip'})}
 
         if is_new:
             insert_stmt = """
@@ -89,7 +91,11 @@ class IPNumber(Entity.Entity):
               SELECT EXISTS (
                 SELECT 1
                 FROM [:table schema=cerebrum name=dns_ip_number]
-                WHERE %(tw)s
+                WHERE (mac_adr is NULL AND :mac_adr is NULL OR
+                        mac_adr:=mac_adr) AND
+                      (aaaa_ip is NULL AND :aaaa_ip is NULL OR
+                        aaaa_ip:=aaaa_ip) AND
+                     %(tw)s
               )
             """ % defs
             if not self.query_1(exists_stmt, binds):
@@ -252,8 +258,8 @@ class IPNumber(Entity.Entity):
         INSERT INTO (%(tb)s) (%(tcols)s)
         VALUES (%(tbinds)s)""" % {
             'tb': '[:table schema=cerebrum name=dns_override_reversemap]',
-            'tcols': ", ".join([x[0] for x in cols]),
-            'tbinds': ", ".join([x[1] for x in cols])},
+            'tcols': ", ".join([x[0] for x in sorted(cols)]),
+            'tbinds': ", ".join([x[1] for x in sorted(cols)])},
                      binds)
         self._db.log_change(ip_number_id, self.clconst.ip_number_add,
                             dns_owner_id)
@@ -285,7 +291,9 @@ class IPNumber(Entity.Entity):
           SELECT EXISTS (
             SELECT 1
             FROM [:table schema=cerebrum name=dns_override_reversemap]
-            WHERE ip_number_id=:ip_number_id AND dns_owner_id=:dns_owner_id
+            WHERE ip_number_id=:ip_number_id AND
+                  (dns_owner_id is NULL AND :dns_owner_id is NULL OR
+                     dns_owner_id=:dns_owner_id)
           )
         """
         if self.query_1(exists_stmt, locals()):

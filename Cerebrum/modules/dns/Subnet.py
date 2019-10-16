@@ -85,9 +85,7 @@ class Subnet(Entity):
         try:
             Subnet.validate_subnet(subnet)
             return True
-        except ValueError:
-            return False
-        except SubnetError:
+        except (ValueError, SubnetError) as e:
             return False
 
     @staticmethod
@@ -333,12 +331,15 @@ class Subnet(Entity):
                      'no_of_reserved_adr': self.no_of_reserved_adr}
             defs = {'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
                                     if x != 'entity_id'),
-                    'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}
+                    'tw': ' AND '.join('{0}=:{0}'.format(
+                            x) for x in binds if x != 'vlan_number')}
             exists_stmt = """
               SELECT EXISTS (
                 SELECT 1
                 FROM [:table schema=cerebrum name=dns_ipv6_subnet]
-                WHERE %(tw)s
+                WHERE (vlan_number is NULL AND :vlan_number is NULL OR
+                         vlan_number=:vlan_number) AND
+                     %(tw)s
               )
             """ % defs
             if not self.query_1(exists_stmt, binds):

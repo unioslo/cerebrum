@@ -58,8 +58,7 @@ class CNameRecord(Entity):
         defs = {'tc': ', '.join(x for x in sorted(binds)),
                 'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
                 'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
-                                if x != 'cname_id'),
-                'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}
+                                if x != 'cname_id')}
         if is_new:
             insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=dns_cname_record] (%(tc)s)
@@ -72,7 +71,14 @@ class CNameRecord(Entity):
               SELECT EXISTS (
                 SELECT 1
                 FROM [:table schema=cerebrum name=dns_cname_record]
-                WHERE %(tw)s
+
+                WHERE cname_id=:cname_id AND
+                      entity_type=:entity_type AND
+                     (ttl is NULL AND :ttl is NULL OR ttl=:ttl) AND
+                     (cname_owner_id is NULL AND :cname_owner_id is NULL OR
+                       cname_owner_id=:cname_owner_id) AND
+                     (target_owner_id is NULL AND :target_owner_id is NULL OR
+                       target_owner_id=:target_owner_id)
               )
             """ % defs
             if not self.query_1(exists_stmt, binds):

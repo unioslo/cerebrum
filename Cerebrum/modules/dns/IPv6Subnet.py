@@ -305,7 +305,9 @@ class IPv6Subnet(Entity):
               SELECT EXISTS (
                 SELECT 1
                 FROM [:table schema=cerebrum name=dns_ipv6_subnet]
-                WHERE %(tw)s
+                WHERE (vlan_number is NULL AND :vlan_number is NULL OR
+                         vlan_number=:vlan_number) AND
+                     %(tw)s
               )
             """ % defs
             if not self.query_1(exists_stmt, binds):

@@ -59,8 +59,7 @@ class ARecord(Entity):
         defs = {'tc': ', '.join(x for x in sorted(binds)),
                 'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
                 'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
-                                if x != 'a_record_id'),
-                'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}
+                                if x != 'a_record_id')}
         if is_new:
             insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=dns_a_record] (%(tc)s)
@@ -73,9 +72,17 @@ class ARecord(Entity):
               SELECT EXISTS (
                 SELECT 1
                 FROM [:table schema=cerebrum name=dns_a_record]
-                WHERE %(tw)s
+                WHERE a_record_id=:a_record_id AND
+                      entity_type=:entity_type AND
+                     (ttl is NULL AND :ttl is NULL OR ttl=:ttl) AND
+                     (dns_owner_id is NULL AND :dns_owner_id is NULL OR
+                       dns_owner_id=:dns_owner_id) AND
+                     (ip_number_id is NULL AND :ip_number_id is NULL OR
+                       ip_number_id=:ip_number_id) AND
+                     (mac_adr is NULL AND :mac_adr is NULL OR
+                       mac_adr=:mac_adr)
               )
-            """ % defs
+            """
             if not self.query_1(exists_stmt, binds):
                 # True positive
                 update_stmt = """

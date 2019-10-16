@@ -59,7 +59,9 @@ class IPv6Number(Entity.Entity):
                 'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
                 'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
                                 if x != 'ipv6_number_id'),
-                'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}
+                'tw': ' AND '.join(
+                    '{0}=:{0}'.format(x) for x in binds if x not in {
+                        'aaaa_ip', 'mac_adr'})}
 
         if is_new:
             insert_stmt = """
@@ -73,7 +75,11 @@ class IPv6Number(Entity.Entity):
               SELECT EXISTS (
                 SELECT 1
                 FROM [:table schema=cerebrum name=dns_ipv6_number]
-                WHERE ipv6_number_id=:ipv6_number_id AND %(tw)s
+                WHERE (mac_adr is NULL AND :mac_adr is NULL OR
+                        mac_adr:=mac_adr) AND
+                      (aaaa_ip is NULL AND :aaaa_ip is NULL OR
+                        aaaa_ip:=aaaa_ip) AND
+                     %(tw)s
               )
             """ % defs
             if not self.query_1(exists_stmt, binds):
@@ -269,8 +275,11 @@ class IPv6Number(Entity.Entity):
           SELECT EXISTS (
             SELECT 1
             FROM [:table schema=cerebrum name=dns_override_reversemap_ipv6]
-            WHERE ipv6_number_id=:ipv6_number_id AND
-                  dns_owner_id=:dns_owner_id"""
+            WHERE ip_number_id=:ip_number_id AND
+                 (dns_owner_id is NULL AND :dns_owner_id is NULL OR
+                    dns_owner_id=:dns_owner_id)
+          )
+        """
         if self.query_1(exists_stmt, locals()):
             # False positive
             return
