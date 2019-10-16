@@ -134,9 +134,9 @@ import os
 import re
 import sys
 import time
+import datetime
 
 from itertools import izip, repeat
-from mx.DateTime import now, DateTimeDelta
 
 import cereconf
 
@@ -155,7 +155,7 @@ from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 from Cerebrum.utils import transliterate
 
 
-TODAY = now()
+TODAY = datetime.date.today()
 # IVR 2007-11-08 FIXME: Should this be in fronter_lib?
 # Roles that are considered at all
 valid_roles = ("ADMIN", "DLO", "FAGANSVAR", "FORELESER", "GJESTEFORE",
@@ -1447,7 +1447,7 @@ def set_default_expire_date(group, gname):
     except LookupError:
         return
     if lifetime:
-        expire_date = TODAY + DateTimeDelta(365 * lifetime)
+        expire_date = TODAY + datetime.timedelta(days=365 * lifetime)
         logger.debug('Setting expire_date: %s', expire_date)
         group.expire_date = expire_date
 
@@ -1455,7 +1455,7 @@ def set_default_expire_date(group, gname):
 def should_postpone_expire_date(group):
     return (group.expire_date and
             group.expire_date -
-            DateTimeDelta(cereconf.FS_GROUP_GRACE_PERIOD) <
+            datetime.timedelta(days=cereconf.FS_GROUP_GRACE_PERIOD) <
             TODAY)
 
 
@@ -1553,7 +1553,8 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
 
         if should_postpone_expire_date(group):
             group.expire_date = (
-                    TODAY + DateTimeDelta(cereconf.FS_GROUP_GRACE_PERIOD)
+                    TODAY +
+                    datetime.timedelta(days=cereconf.FS_GROUP_GRACE_PERIOD)
             )
             logger.debug('Postponing expire_date of group %s to %s',
                          gname,
