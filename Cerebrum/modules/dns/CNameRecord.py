@@ -80,7 +80,7 @@ class CNameRecord(Entity):
                      (target_owner_id is NULL AND :target_owner_id is NULL OR
                        target_owner_id=:target_owner_id)
               )
-            """ % defs
+            """
             if not self.query_1(exists_stmt, binds):
                 # True positive
                 update_stmt = """
