@@ -48,13 +48,13 @@ class EntityNUNameConstants(Constants):
 
     entity_nu_name_mod = ChangeType(
         'entity_nu_name',
-        'mod',
+        'modify',
         'mod (non-unique) entity_name for %(subject)s',
         ('domain=%(value_domain:domain)s, name=%(string:name)s',))
 
     entity_nu_name_del = ChangeType(
         'entity_nu_name',
-        'del',
+        'remove',
         'del (non-unique) entity_name for %(subject)s',
         ('domain=%(value_domain:domain)s, name=%(string:name)s',))
 

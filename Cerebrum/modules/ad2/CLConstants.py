@@ -31,5 +31,5 @@ class CLConstants(Constants.CLConstants):
          'value=%(string:value)s',))
 
     ad_attr_del = Constants._ChangeTypeCode(
-        'ad_attr', 'del', 'removed AD-attribute for %(subject)s',
+        'ad_attr', 'remove', 'removed AD-attribute for %(subject)s',
         ('spread=%(string:spread)s, attr=%(string:attr)s',))

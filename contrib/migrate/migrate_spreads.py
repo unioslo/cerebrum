@@ -151,7 +151,7 @@ def mangle(from_spread, to_spread, file,
             if gid in exclude_gids and not add_to_auto_group:
                 continue
 
-            ct = clconst.ChangeType('e_group', 'add')
+            ct = clconst.ChangeType('group_member', 'add')
             db.log_change(gid,
                           int(ct),
                           ac.entity_id,

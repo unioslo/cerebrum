@@ -147,9 +147,9 @@ class CimConsumer(evhandlers.EventLogConsumer):
         return True
 
     @event_map(
-        'e_account:create',
-        'e_account:mod',
-        'e_account:password')
+        'account:create',
+        'account:modify',
+        'account_password:set')
     def account_change(self, key, event):
         """ Account change """
         pe = Factory.get('Person')(self.db)
@@ -166,9 +166,9 @@ class CimConsumer(evhandlers.EventLogConsumer):
         self.update_user(key, event, pe.entity_id)
 
     @event_map(
-        'ac_type:add',
-        'ac_type:mod',
-        'ac_type:del')
+        'account_type:add',
+        'account_type:modify',
+        'account_type:remove')
     def account_pri_change(self, key, event):
         """ Account priority change """
         pe = Factory.get('Person')(self.db)
@@ -193,7 +193,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
 
     @event_map(
         'person:create',
-        'person:update')
+        'person:modify')
     def person_change(self, key, event):
         """ Person change """
         pe = Factory.get('Person')(self.db)
@@ -206,9 +206,9 @@ class CimConsumer(evhandlers.EventLogConsumer):
         self.update_user(key, event, pe.entity_id)
 
     @event_map(
-        'person:name_del',
-        'person:name_add',
-        'person:name_mod')
+        'person_name:remove',
+        'person_name:add',
+        'person_name:modify')
     def person_name_change(self, key, event):
         """ Person name change """
         pe = Factory.get('Person')(self.db)
@@ -222,7 +222,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
 
     @event_map(
         'entity_cinfo:add',
-        'entity_cinfo:del')
+        'entity_cinfo:remove')
     def entity_cinfo_change(self, key, event):
         """ Person contact info change """
         pe = Factory.get('Person')(self.db)
@@ -237,7 +237,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
 
     @event_map(
         'spread:add',
-        'spread:delete')
+        'spread:remove')
     def spread_change(self, key, event):
         """ Spread change """
         change_params = json.loads(event['change_params'])
@@ -262,12 +262,12 @@ class CimConsumer(evhandlers.EventLogConsumer):
                                      except_account_id=primary)
 
     @event_map(
-        'person:aff_add',
-        'person:aff_mod',
-        'person:aff_del',
-        'person:aff_src_add',
-        'person:aff_src_mod',
-        'person:aff_src_del')
+        'person_aff:add',
+        'person_aff:modify',
+        'person_aff:remove',
+        'person_aff_src:add',
+        'person_aff_src:modify',
+        'person_aff_src:remove')
     def person_aff_change(self, key, event):
         """ Person aff change. """
         pe = Factory.get('Person')(self.db)

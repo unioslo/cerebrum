@@ -214,7 +214,7 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
                     'Callback %r failed for event %r (%r): %s',
                     callback, key, event, e)
 
-    @event_map('exchange:group_add')
+    @event_map('exchange_group_member:add')
     def add_group_members(self, event):
         """Addition of member to group.
 
@@ -245,7 +245,7 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
                     mod_ev = event.copy()
                     mod_ev['dest_entity'] = entity_id
                     mod_ev['subject_entity'] = group_id
-                    self.ut.log_event_receipt(mod_ev, 'dlgroup:add')
+                    self.ut.log_event_receipt(mod_ev, 'dlgroup_member:add')
                 except AlreadyPerformedException:
                     pass
                 except (ExchangeException, ServerUnavailableException), e:
@@ -258,7 +258,7 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
                             reason=e))
                     raise EventExecutionException
 
-    @event_map('exchange:group_rem')
+    @event_map('exchange_group_member:remove')
     def remove_group_member(self, event):
         """Removal of member from group.
 
@@ -291,7 +291,7 @@ class ExchangeGroupEventHandler(evhandlers.EventLogConsumer):
                     mod_ev = event.copy()
                     mod_ev['dest_entity'] = cand_id
                     mod_ev['subject_entity'] = group_id
-                    self.ut.log_event_receipt(mod_ev, 'dlgroup:rem')
+                    self.ut.log_event_receipt(mod_ev, 'dlgroup_member:remove')
                 except AlreadyPerformedException:
                     pass
                 except (ExchangeException, ServerUnavailableException), e:

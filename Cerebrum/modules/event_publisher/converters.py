@@ -105,11 +105,11 @@ class EventFilter(object):
     def register(cls, category, change=None):
         """ Register an event generator for a given change type.
 
-        >>> @EventFilter.register('person', 'aff_mod')
+        >>> @EventFilter.register('person_aff', 'modify')
         ... def person_aff(msg, **kwargs):
         ...     return event.Event(event.MODIFY)
 
-        >>> @EventFilter.register('person', 'aff_(add|del)')
+        >>> @EventFilter.register('person_aff', 'add|remove')
         ... def person_other(msg):
         ...    return None
 
@@ -181,49 +181,7 @@ def _make_common_args(msg):
     return common_args
 
 
-"""
-
-    # Account changes
-
-    account_create = _ChangeTypeCode(
-        'e_account', 'create', 'created %(subject)s')
-    account_delete = _ChangeTypeCode(
-        'e_account', 'delete', 'deleted %(subject)s')
-    account_mod = _ChangeTypeCode(
-        'e_account', 'mod', 'modified %(subject)s',
-        ("new owner=%(entity:owner_id)s",
-         "new expire_date=%(date:expire_date)s"))
-    account_password = _ChangeTypeCode(
-        'e_account', 'password', 'new password for %(subject)s')
-    account_password_token = _ChangeTypeCode(
-        'e_account', 'passwordtoken', 'password token sent for %(subject)s',
-        ('phone_to=%(string:phone_to)s',))
-    account_destroy = _ChangeTypeCode(
-        'e_account', 'destroy', 'destroyed %(subject)s')
-    # TODO: account_move is obsolete, remove it
-    account_move = _ChangeTypeCode(
-        'e_account', 'move', '%(subject)s moved',
-        ('from=%(string:old_host)s:%(string:old_disk)s,'
-            + 'to=%(string:new_host)s:%(string:new_disk)s,',))
-
-
-
-    account_home_updated = _ChangeTypeCode(
-        'e_account', 'home_update', 'home updated for %(subject)s',
-        ('old=%(homedir:old_homedir_id)s',
-         'old_home=%(string:old_home)s',
-         'old_disk_id=%(disk:old_disk_id)s',
-         'spread=%(spread_code:spread)s'))
-    account_home_added = _ChangeTypeCode(
-        'e_account', 'home_added', 'home added for %(subject)s',
-        ('spread=%(spread_code:spread)s', 'home=%(string:home)s'))
-    account_home_removed = _ChangeTypeCode(
-        'e_account', 'home_removed', 'home removed for %(subject)s',
-        ('spread=%(spread_code:spread)s', 'home=%(string:home)s'))
-"""
-
-
-@EventFilter.register('e_account', 'password')
+@EventFilter.register('account_password', 'set')
 def account_password(msg, **kwargs):
     """Issue a password message."""
     common = _make_common_args(msg)
@@ -232,12 +190,7 @@ def account_password(msg, **kwargs):
                        **common)
 
 
-# @EventFilter.register('e_account', 'password_token')
-# def password_token(*args, **kwargs):
-#    return None
-
-
-@EventFilter.register('e_account', 'create')
+@EventFilter.register('account', 'create')
 def account_create(msg, **kwargs):
     """account create (by write_db)
     attributes other than _auth_info, _acc_affect_auth_types, password
@@ -248,14 +201,14 @@ def account_create(msg, **kwargs):
                        **common)
 
 
-@EventFilter.register('e_account', 'destroy')
+@EventFilter.register('account', 'delete')
 def account_delete(msg, **kwargs):
     common = _make_common_args(msg)
     return event.Event(event.DELETE,
                        **common)
 
 
-@EventFilter.register('e_account', 'mod')
+@EventFilter.register('account', 'modify')
 def account_mod(msg, **kwargs):
     """account mod (by write_db)
     attributes that have been changed
@@ -288,7 +241,7 @@ def _ou(msg, db):
         msg['data']['ou'] = six.text_type(o)
 
 
-@EventFilter.register('ac_type')
+@EventFilter.register('account_type')
 def account_type(msg, **kwargs):
     common = _make_common_args(msg)
     return event.Event(event.MODIFY,
@@ -302,36 +255,6 @@ def homedir(msg, **kwargs):
     return event.Event(event.MODIFY,
                        attributes=['home'],
                        **common)
-
-"""
-    # Disk changes
-
-    disk_add = _ChangeTypeCode('disk', 'add', 'new disk %(subject)s')
-    disk_mod = _ChangeTypeCode('disk', 'mod', 'update disk %(subject)s')
-    disk_del = _ChangeTypeCode('disk', 'del', "delete disk %(subject)s")
-
-    # Host changes
-
-    host_add = _ChangeTypeCode('host', 'add', 'new host %(subject)s')
-    host_mod = _ChangeTypeCode('host', 'mod', 'update host %(subject)s')
-    host_del = _ChangeTypeCode('host', 'del', 'del host %(subject)s')
-
-    # OU changes
-
-    ou_create = _ChangeTypeCode(
-        'ou', 'create', 'created OU %(subject)s')
-    ou_mod = _ChangeTypeCode(
-        'ou', 'mod', 'modified OU %(subject)s')
-    ou_unset_parent = _ChangeTypeCode(
-        'ou', 'unset_parent', 'parent for %(subject)s unset',
-        ('perspective=%(int:perspective)s',))
-    ou_set_parent = _ChangeTypeCode(
-        'ou', 'set_parent', 'parent for %(subject)s set to %(dest)s',
-        ('perspective=%(int:perspective)s',))
-    ou_del = _ChangeTypeCode(
-        'ou', 'del', 'deleted OU %(subject)s')
-
-"""
 
 
 # suppress entity, the usually follow something else
@@ -399,7 +322,7 @@ def entity_note(*args, **kwargs):
     return None
 
 
-@EventFilter.register('entity', 'ext_id.*')
+@EventFilter.register('entity_external_id')
 def entity_external_id(msg, db=None, **kwargs):
     if not msg['subject']:
         # No subject: noop
@@ -457,7 +380,7 @@ def person_update(msg, **kwargs):
                        **common)
 
 
-@EventFilter.register('person', 'name_.*')
+@EventFilter.register('person_name')
 def person_name_ops(msg, db=None, **kwargs):
     co = Factory.get('Constants')(db)
     if msg['data']['src'] == co.system_cached:
@@ -468,7 +391,7 @@ def person_name_ops(msg, db=None, **kwargs):
     return None
 
 
-@EventFilter.register('person', 'aff_(add|mod|del)')
+@EventFilter.register('person_aff')
 def person_affiliation_ops(msg, **kwargs):
     common = _make_common_args(msg)
     return event.Event(event.MODIFY,
@@ -476,7 +399,7 @@ def person_affiliation_ops(msg, **kwargs):
                        **common)
 
 
-@EventFilter.register('person', 'aff_src.*')
+@EventFilter.register('person_aff_src')
 def person_affiliation_source_ops(msg, **kwargs):
     common = _make_common_args(msg)
     return event.Event(event.MODIFY,
@@ -501,14 +424,14 @@ def quarantine_add(msg, **kwargs):
                        **common)
 
 
-@EventFilter.register('quarantine', 'del')
+@EventFilter.register('quarantine', 'remove')
 def quarantine_del(msg, **kwargs):
     common = _make_common_args(msg)
     return event.Event(event.ACTIVATE,
                        **common)
 
 
-@EventFilter.register('quarantine', 'mod')
+@EventFilter.register('quarantine', 'modify')
 def quarantine_mod(msg, **kwargs):
     # TBD: Is this really ACTIVATE? Or is it DEACTIVATE? Is this relative to
     # the point in time the quarantine should be enforced?
@@ -516,63 +439,8 @@ def quarantine_mod(msg, **kwargs):
     return event.Event(event.ACTIVATE,
                        **common)
 
-# TODO: What to translate to?
 
-"""
-    # TBD: Is it correct to have posix_demote in this module?
-
-    posix_demote = _ChangeTypeCode(
-        'posix', 'demote', 'demote posix %(subject)s',
-        ('uid=%(int:uid)s, gid=%(int:gid)s',))
-    posix_group_demote = _ChangeTypeCode(
-        'posix', 'group-demote', 'group demote posix %(subject)s',
-        ('gid=%(int:gid)s',))
-    posix_promote = _ChangeTypeCode(
-        'posix', 'promote', 'promote posix %(subject)s',
-        ('uid=%(int:uid)s, gid=%(int:gid)s',))
-    posix_group_promote = _ChangeTypeCode(
-        'posix', 'group-promote', 'group promote posix %(subject)s',
-        ('gid=%(int:gid)s',))
-
-    # Guest functionality
-
-    guest_create = _ChangeTypeCode(
-        'guest', 'create', 'created guest %(dest)s',
-        ('mobile=%(string:mobile)s, name=%(string:name)s,
-        owner_id=%(string:owner)s',))
-
-
-    # AD functionality
-    ad_attr_add = CLConstants._ChangeTypeCode(
-        'ad_attr', 'add', 'added AD-attribute for %(subject)s',
-        ('spread=%(string:spread)s, attr=%(string:attr)s,
-        value=%(string:value)s',))
-
-    ad_attr_del = CLConstants._ChangeTypeCode(
-        'ad_attr', 'del', 'removed AD-attribute for %(subject)s',
-        ('spread=%(string:spread)s, attr=%(string:attr)s',))
-
-
-"""
-
-
-"""
-   # Group changes
-
-    group_add = _ChangeTypeCode(
-        'e_group', 'add', 'added %(subject)s to %(dest)s')
-    group_rem = _ChangeTypeCode(
-        'e_group', 'rem', 'removed %(subject)s from %(dest)s')
-    group_create = _ChangeTypeCode(
-        'e_group', 'create', 'created %(subject)s')
-    group_mod = _ChangeTypeCode(
-        'e_group', 'mod', 'modified %(subject)s')
-    group_destroy = _ChangeTypeCode(
-        'e_group', 'destroy', 'destroyed %(subject)s')
-"""
-
-
-@EventFilter.register('e_group', 'create')
+@EventFilter.register('group', 'create')
 def group_create(msg, **kwargs):
     common = _make_common_args(msg)
     return event.Event(event.CREATE,
@@ -580,7 +448,7 @@ def group_create(msg, **kwargs):
                        **common)
 
 
-@EventFilter.register('e_group', 'add')
+@EventFilter.register('group_member', 'add')
 def group_add(msg, **kwargs):
     common = _make_common_args(msg)
     return event.Event(event.ADD,
@@ -588,7 +456,7 @@ def group_add(msg, **kwargs):
                        **common)
 
 
-@EventFilter.register('e_group', 'rem')
+@EventFilter.register('group_member', 'remove')
 def group_rem(msg, **kwargs):
     common = _make_common_args(msg)
     return event.Event(event.REMOVE,
@@ -596,7 +464,7 @@ def group_rem(msg, **kwargs):
                        **common)
 
 
-@EventFilter.register('e_group', 'mod')
+@EventFilter.register('group', 'modify')
 def group_mod(msg, **kwargs):
     common = _make_common_args(msg)
     return event.Event(event.MODIFY,
@@ -604,7 +472,7 @@ def group_mod(msg, **kwargs):
                        **common)
 
 
-@EventFilter.register('e_group', 'destroy')
+@EventFilter.register('group', 'delete')
 def group_destroy(msg, **kwargs):
     common = _make_common_args(msg)
     # We may be missing some data here, as it has been deleted, so let's
@@ -613,17 +481,6 @@ def group_destroy(msg, **kwargs):
     common['subject'].entity_type = 'group'
     return event.Event(event.DELETE,
                        **common)
-
-
-#   @EventFilter.register('ad_attr')
-#   def ad_attr(*args, **kwags):
-#       return None
-
-
-#   @EventFilter.register('dlgroup')
-#   def dlgroup(msg, *rest):
-#       """distribution group roomlist"""
-#       return None
 
 
 # python -m Cerebrum.modules.event_publisher.converters

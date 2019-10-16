@@ -282,7 +282,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                                     ou=self.config.client.mailbox_path)
                 self.logger.info('eid:%d: Created new mailbox for %s',
                                  event['event_id'], uname)
-                self.ut.log_event_receipt(event, 'exchange:acc_mbox_create')
+                self.ut.log_event_receipt(event, 'exchange_acc_mbox:create')
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn('eid:%d: Failed creating mailbox for %s: %s',
                                  event['event_id'], uname, e)
@@ -295,7 +295,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     self.logger.info(
                         'eid:%d: Publishing %s in address book...',
                         event['event_id'], uname)
-                    self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
+                    self.ut.log_event_receipt(event, 'exchange_per_e_reserv:set')
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn(
                         'eid:%d: Could not publish %s in address book',
@@ -310,7 +310,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                                  event['event_id'], uname)
                 # TODO: Higher resolution? Should we do this for all addresses,
                 # and mangle the event to represent this?
-                self.ut.log_event_receipt(event, 'exchange:acc_addr_add')
+                self.ut.log_event_receipt(event, 'exchange_acc_addr:add')
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn(
                     'eid:%d: Could not add e-mail addresses for %s',
@@ -358,7 +358,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
 
                 self.logger.debug1('eid:%d: Creating event: Adding %s to %s',
                                    event['event_id'], uname, gname)
-                self.ut.log_event(faux_event, 'e_group:add')
+                self.ut.log_event(faux_event, 'group_member:add')
 
             # Set forwarding address
             fwds = self.ut.get_account_forwards(aid)
@@ -396,7 +396,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     rcpt = {'subject_entity': tid,
                             'dest_entity': None,
                             'change_params': {'enabled': True}}
-                    self.ut.log_event_receipt(rcpt, 'exchange:local_delivery')
+                    self.ut.log_event_receipt(rcpt,
+                                              'exchange_local_delivery:set')
 
                     self.logger.info(
                         '%s local delivery for %s',
@@ -451,7 +452,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     'eid:{event_id}: Created shared mailbox {name}'.format(
                         event_id=event['event_id'],
                         name=name))
-                self.ut.log_event_receipt(event, 'exchange:shared_mbox_create')
+                self.ut.log_event_receipt(event, 'exchange_shared_mbox:create')
             except (ExchangeException, ServerUnavailableException) as e:
                 self.logger.warn(
                     'eid:{event_id}: Couldn\'t create shared mailbox for '
@@ -460,7 +461,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                                              error=e))
                 raise EventExecutionException
 
-    @event_map('spread:delete')
+    @event_map('spread:remove')
     def remove_shared_mailbox(self, event):
         """Event handler for removal of shared mailbox.
 
@@ -475,7 +476,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     'eid:{event_id}: Deleted shared mailbox {name}'.format(
                         event_id=event['event_id'],
                         name=name))
-                self.ut.log_event_receipt(event, 'exchange:shared_mbox_delete')
+                self.ut.log_event_receipt(event, 'exchange_shared_mbox:delete')
             except (ExchangeException, ServerUnavailableException) as e:
                 self.logger.warn(
                     'eid:{event_id}: Couldn\'t delete shared mailbox for '
@@ -484,7 +485,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                                              error=e))
                 raise EventExecutionException
 
-    @event_map('spread:delete')
+    @event_map('spread:remove')
     def remove_mailbox(self, event):
         """Event handler for removal of mailbox when an account looses its
         spread.
@@ -502,7 +503,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                         uname=uname))
                 # Log a reciept that represents completion of the operation in
                 # ChangeLog.
-                self.ut.log_event_receipt(event, 'exchange:acc_mbox_delete')
+                self.ut.log_event_receipt(event, 'exchange_acc_mbox:delete')
             except (ExchangeException, ServerUnavailableException) as e:
                 self.logger.warn(
                     'eid:{event_id}: Couldn\'t remove mailbox for {uname}'
@@ -511,7 +512,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                                       error=e))
                 raise EventExecutionException
 
-    @event_map('person:name_add', 'person:name_del', 'person:name_mod')
+    @event_map('person_name:add', 'person_name:remove', 'person_name:modify')
     def set_names(self, event):
         """Event handler method used for updating a persons accounts with
         the persons new name.
@@ -572,8 +573,9 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                               e))
             return False
 
-    @event_map('trait:add', 'trait:mod', 'trait:del', 'e_group:add',
-               'e_group:rem')
+    @event_map('entity_trait:add', 'entity_trait:modify',
+               'entity_trait:remove', 'group_member:add',
+               'group_member:remove')
     def set_address_book_visibility(self, event):
         """Set the visibility of a persons accounts in the address book.
 
@@ -688,9 +690,10 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                      'change_params':
                          {'visible': (aid == primary_account_id and
                                       not hidden_from_address_book)}}
-            self.ut.log_event_receipt(recpt, 'exchange:per_e_reserv')
+            self.ut.log_event_receipt(recpt, 'exchange_per_e_reserv:set')
 
-    @event_map('ac_type:add', 'ac_type:mod', 'ac_type:del')
+    @event_map('account_type:add', 'account_type:modify',
+               'account_type:remove')
     def set_address_book_visibility_for_primary_account_change(self, event):
         """Update address book visibility when primary account changes.
 
@@ -749,10 +752,10 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     'change_params':
                         {'visible': (aid == new_primary_id and
                                      not is_reserved)}}
-            self.ut.log_event_receipt(rcpt, 'exchange:per_e_reserv')
+            self.ut.log_event_receipt(rcpt, 'exchange_per_e_reserv:set')
 
-    @event_map('email_quota:add_quota', 'email_quota:mod_quota',
-               'email_quota:rem_quota')
+    @event_map('email_quota:add', 'email_quota:modify',
+               'email_quota:remove')
     def set_mailbox_quota(self, event):
         """Set quota on a mailbox.
 
@@ -791,8 +794,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 (event['event_id'], hard, soft, name, e))
             raise EventExecutionException
 
-    @event_map('email_forward:add_forward', 'email_forward:rem_forward',
-               'email_forward:enable_forward', 'email_forward:disable_forward')
+    @event_map('email_forward:add', 'email_forward:remove',
+               'email_forward:enable', 'email_forward:disable')
     def set_mailbox_forward_addr(self, event):
         """Event handler method used for handling setting of forward adresses.
 
@@ -833,7 +836,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 (event['event_id'], uname, address, e))
             raise EventExecutionException
 
-    @event_map('email_forward:local_delivery')
+    @event_map('email_forward_local_delivery:set')
     def set_local_delivery(self, event):
         """Event handler method that sets the DeliverToMailboxAndForward option.
 
@@ -872,13 +875,13 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         rcpt = {'subject_entity': tid,
                 'dest_entity': None,
                 'change_params': {'enabled': params['enabled']}}
-        self.ut.log_event_receipt(rcpt, 'exchange:local_delivery')
+        self.ut.log_event_receipt(rcpt, 'exchange_local_delivery:set')
 
 
 ####
 # Generic functions
 ####
-    @event_map('email_address:add_address')
+    @event_map('email_address:add')
     def add_address(self, event):
         """Event handler method used for adding e-mail addresses to
         accounts and distribution groups.
@@ -915,7 +918,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 # Log a reciept that represents completion of the operation in
                 # ChangeLog.
                 # TODO: Move this to the caller sometime
-                self.ut.log_event_receipt(event, 'exchange:acc_addr_add')
+                self.ut.log_event_receipt(event, 'exchange_acc_addr:add')
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn('eid:%d: Can\'t add %s to %s: %s' %
                                  (event['event_id'], address, uname, e))
@@ -930,7 +933,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     self.logger.info(
                         'eid:%d: Added %s to %s' %
                         (event['event_id'], address, gname))
-                    self.ut.log_event_receipt(event, 'dlgroup:addaddr')
+                    self.ut.log_event_receipt(event, 'dlgroup_addr:add')
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn('eid:%d: Can\'t add %s to %s: %s' %
                                      (event['event_id'], address, gname, e))
@@ -939,7 +942,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             # If we can't handle the object type, silently discard it
             raise EntityTypeError
 
-    @event_map('email_address:rem_address')
+    @event_map('email_address:remove')
     def remove_address(self, event):
         """Event handler method used for removing e-mail addresses to
         accounts and distribution groups.
@@ -972,7 +975,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                                                  [address])
                 self.logger.info('eid:%d: Removed %s from %s' %
                                  (event['event_id'], address, uname))
-                self.ut.log_event_receipt(event, 'exchange:acc_addr_rem')
+                self.ut.log_event_receipt(event, 'exchange_acc_addr:remove')
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn('eid:%d: Can\'t remove %s from %s: %s' %
                                  (event['event_id'], address, uname, e))
@@ -986,7 +989,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     self.ec.remove_distgroup_addresses(gname, [address])
                     self.logger.info('eid:%d: Removed %s from %s' %
                                      (event['event_id'], address, gname))
-                    self.ut.log_event_receipt(event, 'dlgroup:remaddr')
+                    self.ut.log_event_receipt(event, 'dlgroup_addr:remove')
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn('eid:%d: Can\'t remove %s from %s: %s' %
                                      (event['event_id'], address, gname, e))
@@ -995,9 +998,9 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             # If we can't handle the object type, silently discard it
             raise EntityTypeError
 
-    @event_map('email_primary_address:add_primary',
-               'email_primary_address:mod_primary',
-               'email_primary_address:rem_primary')
+    @event_map('email_primary_address:add',
+               'email_primary_address:modify',
+               'email_primary_address:remove')
     def set_primary_address(self, event):
         """Event handler method used for setting the primary
         e-mail addresses of accounts and distribution groups.
@@ -1027,7 +1030,8 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 self.logger.info(
                     'eid:%d: Changing primary address of %s to %s' %
                     (event['event_id'], uname, addr))
-                self.ut.log_event_receipt(event, 'exchange:acc_primaddr')
+                self.ut.log_event_receipt(event,
+                                          'exchange_acc_primaddr:set')
 
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn(
@@ -1038,7 +1042,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             # If we can't handle the object type, silently discard it
             raise EntityTypeError
 
-    @event_map('email_sfilter:add_sfilter', 'email_sfilter:mod_sfilter')
+    @event_map('email_sfilter:add', 'email_sfilter:modify')
     def set_spam_settings(self, event):
         """Set spam settings for a user.
 
@@ -1131,7 +1135,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     self.ec.new_roomlist(gname, self.config.client.group_ou)
                     self.logger.info('eid:%d: Created roomlist %s' %
                                      (event['event_id'], gname))
-                    self.ut.log_event_receipt(event, 'dlgroup:roomcreate')
+                    self.ut.log_event_receipt(event, 'dlgroup_room:create')
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn(
                         'eid:%d: Could not create roomlist %s: %s' %
@@ -1157,7 +1161,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     self.logger.info(
                         'eid:%d: Set primary %s for %s' %
                         (event['event_id'], data['primary'], gname))
-                    self.ut.log_event_receipt(event, 'dlgroup:primary')
+                    self.ut.log_event_receipt(event, 'dlgroup_primary:set')
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn(
                         'eid:%d: Can\'t set primary %s for %s: %s' %
@@ -1181,7 +1185,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                                       data['aliases']))
                     # TODO: More resolution here? We want to mangle the event
                     # to show addresses?
-                    self.ut.log_event_receipt(event, 'dlgroup:addaddr')
+                    self.ut.log_event_receipt(event, 'dlgroup_addr:add')
 
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn(
@@ -1207,14 +1211,14 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     self.logger.info(
                         'eid:%d: Set %s visible: %s' %
                         (event['event_id'], gname, data['hidden']))
-                    self.ut.log_event_receipt(event, 'dlgroup:modhidden')
+                    self.ut.log_event_receipt(event, 'dlgroup_hidden:modify')
                 except (ExchangeException, ServerUnavailableException), e:
                     self.logger.warn(
                         'eid:%d: Can\'t set visibility for %s: %s' %
                         (event['event_id'], gname, e))
                     ev_mod = event.copy()
                     ev_mod['change_params'] = {'hidden': data['hidden']}
-                    self.ut.log_event(ev_mod, 'dlgroup:modhidden')
+                    self.ut.log_event(ev_mod, 'dlgroup_hidden:modify')
 
             # Set manager
             mngdby_address = cereconf.DISTGROUP_DEFAULT_ADMIN
@@ -1223,14 +1227,14 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 self.logger.info(
                     'eid:%d: Set manager of %s to %s' %
                     (event['event_id'], gname, mngdby_address))
-                self.ut.log_event_receipt(event, 'dlgroup:modmanby')
+                self.ut.log_event_receipt(event, 'dlgroup_manager:set')
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn(
                     'eid:%d: Can\'t set manager of %s to %s: %s' %
                     (event['event_id'], gname, mngdby_address, e))
                 ev_mod = event.copy()
                 ev_mod['change_params'] = {'manby': mngdby_address}
-                self.ut.log_event(ev_mod, 'dlgroup:modmanby')
+                self.ut.log_event(ev_mod, 'dlgroup_manager:set')
             tmp_fail = False
             # Set displayname
             try:
@@ -1294,9 +1298,9 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     event_id=event['event_id'],
                     entity_name=entity_name,
                     group_name=gname))
-            self.ut.log_event(ev_mod, 'e_group:add')
+            self.ut.log_event(ev_mod, 'group:member:add')
 
-    @event_map('dlgroup:remove')
+    @event_map('dlgroup:delete')
     def remove_group(self, event):
         """Removal of group when spread is removed.
 
@@ -1308,7 +1312,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 self.ec.remove_group(data['name'])
                 self.logger.info('eid:%d: Removed group %s' %
                                  (event['event_id'], data['name']))
-                self.ut.log_event_receipt(event, 'dlgroup:remove')
+                self.ut.log_event_receipt(event, 'dlgroup:delete')
 
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn('eid:%d: Couldn\'t remove group %s' %
@@ -1319,36 +1323,36 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 self.ec.remove_roomlist(data['name'])
                 self.logger.info('eid:%d: Removed roomlist %s' %
                                  (event['event_id'], data['name']))
-                self.ut.log_event_receipt(event, 'dlgroup:remove')
+                self.ut.log_event_receipt(event, 'dlgroup:delete')
 
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn('eid:%d: Couldn\'t remove roomlist %s: %s' %
                                  (event['event_id'], data['name'], e))
                 raise EventExecutionException
 
-    @event_map('e_group:add')
+    @event_map('group_member:add')
     def add_group_members(self, event):
         """Defer addition of member to group.
 
         :type event: cerebrum.extlib.db_row.row
         :param event: the event returned from change- or eventlog."""
         self.logger.debug4(
-            'Converting e_group:add to exchange:group_add for {}'.format(
+            'Converting group_member:add to exchange_group:add for {}'.format(
                 event))
-        self.ut.log_event(event, 'exchange:group_add')
+        self.ut.log_event(event, 'exchange_group:add')
 
-    @event_map('e_group:rem')
+    @event_map('group_member:remove')
     def remove_group_member(self, event):
         """Defer removal of member from group.
 
         :type event: Cerebrum.extlib.db_row.row
         :param event: The event returned from Change- or EventLog."""
         self.logger.debug4(
-            'Converting e_group:rem to exchange:group_rem for {}'.format(
+            'Converting group_member:remove to exchange_group_member:remove for {}'.format(
                 event))
-        self.ut.log_event(event, 'exchange:group_rem')
+        self.ut.log_event(event, 'exchange_group_member:remove')
 
-    @event_map('dlgroup:modhidden')
+    @event_map('dlgroup_hidden:modify')
     def set_group_visibility(self, event):
         """Set the visibility of a group.
 
@@ -1369,7 +1373,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     'eid:%d: Group visibility set to %s for %s' %
                     (event['event_id'], show, gname))
 
-                self.ut.log_event_receipt(event, 'dlgroup:modhidden')
+                self.ut.log_event_receipt(event, 'dlgroup_hidden:modify')
             except (ExchangeException, ServerUnavailableException), e:
                 self.logger.warn(
                     'eid:%d: Can\'t set hidden to %s for %s: %s' %
@@ -1378,7 +1382,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         else:
             raise UnrelatedEvent
 
-    @event_map('dlgroup:modmanby')
+    @event_map('dlgroup_manager:set')
     def set_distgroup_manager(self, event):
         """Set a distribution groups manager.
 
@@ -1392,7 +1396,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
             self.logger.info('eid:%d: Setting manager %s for %s' %
                              (event['event_id'], mngdby_address, gname))
 
-            self.ut.log_event_receipt(event, 'dlgroup:modmanby')
+            self.ut.log_event_receipt(event, 'dlgroup_manager:set')
         except (ExchangeException, ServerUnavailableException), e:
             self.logger.warn('eid:%d: Failed to set manager %s for %s: %s' %
                              (event['event_id'], mngdby_address, gname, e))
@@ -1400,7 +1404,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
 
     # TODO: Is add and del relevant?
     # TODO: This works for description?
-    @event_map('entity_name:add', 'entity_name:mod', 'entity_name:del')
+    @event_map('entity_name:add', 'entity_name:modify', 'entity_name:remove')
     def set_group_description_and_name(self, event):
         """Update displayname / description on a group.
 

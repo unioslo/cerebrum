@@ -451,7 +451,7 @@ class CreatePersonProcessor(EventProcessor):
         print("")
 
 
-@processor_map.register('e_account', 'create')
+@processor_map.register('account', 'create')
 class CreateAccountProcessor(EventProcessor):
 
     """Handles 'create account'-events."""
@@ -490,7 +490,7 @@ class CreateAccountProcessor(EventProcessor):
             print("No new accounts, therefore no new usernames.")
 
 
-@processor_map.register('e_account', 'mod')
+@processor_map.register('account', 'modify')
 class ModifyAccountProcessor(EventProcessor):
 
     """Handles 'modify account'-events.
@@ -585,7 +585,7 @@ class ModifyAccountProcessor(EventProcessor):
                   " re-activated usernames.")
 
 
-@processor_map.register('e_group', 'create')
+@processor_map.register('group', 'create')
 class CreateGroupProcessor(EventProcessor):
 
     """Handles 'create group'-events.
