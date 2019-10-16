@@ -1293,7 +1293,6 @@ class EntityQuarantine(Entity):
         binds = {'entity_id': self.entity_id,
                  'quarantine_type': int(qtype),
                  'disable_until': until}
-        where = ' AND '.join('{0}=:{0}'.format(x) for x in binds)
         exists_stmt = """
         SELECT EXISTS (
           SELECT 1
