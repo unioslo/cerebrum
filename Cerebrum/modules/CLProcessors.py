@@ -434,7 +434,7 @@ class CreatePersonProcessor(EventProcessor):
         account = Factory.get('Account')(self.db)
         print("")
         if not self._persons_by_source_system:
-            print("No new persons from source system: " + self._source_system)
+            print("No new persons from source system: " + str(self._source_system))
             return
 
         for source, persons in self._persons_by_source_system.iteritems():
