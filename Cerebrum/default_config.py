@@ -512,6 +512,10 @@ FS_EXCLUDE_AFFILIATIONS_FROM_GRACE = []
 FS_GROUP_NAME = "FS-aktivt-samtykke"
 FS_GROUP_DESC = "Internal group for students which will be shown online."
 
+# Grace period from a group disappears from the fs-files to group deletion in
+# Cerebrum
+FS_GROUP_GRACE_PERIOD = 6 * 30
+
 FS_GROUP_PREFIX = None
 
 # make autostud use studentnr as uname

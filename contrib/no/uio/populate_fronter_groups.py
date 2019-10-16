@@ -154,9 +154,8 @@ from Cerebrum.modules.xmlutils.fsxml2object import EduGenericIterator
 from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 from Cerebrum.utils import transliterate
 
-# Grace period from a group disappears from the fs-files to group deletion
-GRACE_PERIOD = 6 * 30
 
+TODAY = now()
 # IVR 2007-11-08 FIXME: Should this be in fronter_lib?
 # Roles that are considered at all
 valid_roles = ("ADMIN", "DLO", "FAGANSVAR", "FORELESER", "GJESTEFORE",
@@ -1448,9 +1447,16 @@ def set_default_expire_date(group, gname):
     except LookupError:
         return
     if lifetime:
-        expire_date = now() + DateTimeDelta(365 * lifetime)
+        expire_date = TODAY + DateTimeDelta(365 * lifetime)
         logger.debug('Setting expire_date: %s', expire_date)
         group.expire_date = expire_date
+
+
+def should_postpone_expire_date(group):
+    return (group.expire_date and
+            group.expire_date -
+            DateTimeDelta(cereconf.FS_GROUP_GRACE_PERIOD) <
+            TODAY)
 
 
 def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
@@ -1545,10 +1551,11 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
             group.description = descr
             group.write_db()
 
-        if group.expire_date and (group.expire_date -
-                                  DateTimeDelta(GRACE_PERIOD) < now()):
-            group.expire_date = now() + DateTimeDelta(GRACE_PERIOD)
-            logger.debug('Setting expire_date of group %s to %s',
+        if should_postpone_expire_date(group):
+            group.expire_date = (
+                    TODAY + DateTimeDelta(cereconf.FS_GROUP_GRACE_PERIOD)
+            )
+            logger.debug('Postponing expire_date of group %s to %s',
                          gname,
                          group.expire_date)
             group.write_db()

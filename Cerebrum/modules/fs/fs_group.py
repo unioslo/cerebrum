@@ -231,7 +231,8 @@ class FsGroupCategorizer(object):
 
         years_until_expiration = year + lifetime + 1 - TODAY.year
         if years_until_expiration <= 0:
-            return TODAY
+            return (TODAY +
+                    datetime.timedelta(days=cereconf.FS_GROUP_GRACE_PERIOD))
         return TODAY + datetime.timedelta(days=years_until_expiration * 365)
 
     def categorize_groups(self):
@@ -278,6 +279,7 @@ class FsGroupCategorizer(object):
             gr.find(group_id)
             gr.expire_date = expire_date
             gr.write_db()
-            logger.debug('Set expire_date %s for group %s',
+            logger.debug('Set expire_date %s for group %s with name %s',
                          expire_date,
-                         group_id)
+                         group_id,
+                         gr.group_name)
