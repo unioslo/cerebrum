@@ -209,13 +209,11 @@ class FsGroupCategorizer(object):
                     match = m
                     lifetime = l
                 else:
-                    logger.error('Multiple categories for %s', group_name)
-                    raise LookupError
+                    raise LookupError('Multiple categories for %s', group_name)
 
         if category:
             return category, match, lifetime
-        logger.error('No category for %s', group_name)
-        raise LookupError
+        raise LookupError('No category for %s', group_name)
 
     @staticmethod
     def get_expire_date(lifetime, year, group_name):
@@ -245,7 +243,8 @@ class FsGroupCategorizer(object):
         for group in self.get_groups():
             try:
                 cat, match, lifetime = self.get_group_category(group['name'])
-            except LookupError:
+            except LookupError as e:
+                logger.warning(e)
                 general_stats['errors'] += 1
                 continue
 

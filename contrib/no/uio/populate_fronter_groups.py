@@ -1444,7 +1444,8 @@ def set_default_expire_date(group, gname):
     try:
         _category, _match, lifetime = (
             fs_group_categorizer.get_group_category(gname))
-    except LookupError:
+    except LookupError as e:
+        logger.warning(e)
         return
     if lifetime:
         expire_date = TODAY + datetime.timedelta(days=365 * lifetime)
