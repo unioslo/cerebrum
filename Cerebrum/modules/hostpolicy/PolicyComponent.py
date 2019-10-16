@@ -140,26 +140,27 @@ class PolicyComponent(EntityName, Entity_class):
             binds = {'component_id': self.entity_id,
                      'description': self.description,
                      'foundation': self.foundation}
-            cols = [('description', ':description'),
-                    ('foundation', ':foundation')]
             if self.foundation_date is not None:
-                cols.append(('foundation_date', ':foundation_date'))
                 binds['foundation_date'] = self.foundation_date
-            defs = {'set_defs': ', '.join('%s=%s' % x for x in cols),
-                    'where_defs': ' AND '.join('%s=%s' % x for x in cols)}
+            set_str = ', '.join(
+                '{0}=:{0}'.format(x) for x in binds if x != 'component_id')
+            where_str = ' AND '.join(
+                '{0}=:{0}'.format(x) for x in binds if x != 'foundation')
             exists_stmt = """
               SELECT EXISTS (
                 SELECT 1
                 FROM [:table schema=cerebrum name=hostpolicy_component]
-                WHERE component_id=:component_id AND %(where_defs)s
+                WHERE (foundation is NULL AND :foundation is NULL OR
+                        foundation=:foundation) AND
+                      %s
               )
-            """ % defs
+            """ % where_str
             if not self.query_1(exists_stmt, binds):
                 # True positive
                 update_stmt = """
                   UPDATE [:table schema=cerebrum name=hostpolicy_component]
-                  SET %(set_defs)s
-                  WHERE component_id=:component_id""" % defs
+                  SET (%s)
+                  WHERE component_id=:component_id""" % set_str
                 self.execute(update_stmt, binds)
                 self._db.log_change(
                     self.entity_id, event,
