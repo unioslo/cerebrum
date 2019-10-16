@@ -461,7 +461,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                                              error=e))
                 raise EventExecutionException
 
-    @event_map('spread:remove')
+    @event_map('spread:delete')
     def remove_shared_mailbox(self, event):
         """Event handler for removal of shared mailbox.
 
@@ -485,7 +485,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                                              error=e))
                 raise EventExecutionException
 
-    @event_map('spread:remove')
+    @event_map('spread:delete')
     def remove_mailbox(self, event):
         """Event handler for removal of mailbox when an account looses its
         spread.

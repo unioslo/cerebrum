@@ -237,7 +237,7 @@ class CimConsumer(evhandlers.EventLogConsumer):
 
     @event_map(
         'spread:add',
-        'spread:remove')
+        'spread:delete')
     def spread_change(self, key, event):
         """ Spread change """
         change_params = json.loads(event['change_params'])
