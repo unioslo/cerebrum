@@ -11,7 +11,7 @@ import string
 import sys
 import time
 
-from Cerebrum.modules.job_runner.times import to_seconds
+from Cerebrum.utils.date import to_seconds
 from .config import LoggerConfig
 from .stream import CerelogStreamWriter
 
