@@ -438,12 +438,12 @@ class EntityName(Entity):
         DELETE FROM [:table schema=cerebrum name=entity_name]
         WHERE entity_id=:entity_id AND
               value_domain=:value_domain"""
-        self.execute(delete_stmt, binds)
         self._db.log_change(self.entity_id,
                             self.clconst.entity_name_del,
                             None,
                             change_params={'domain': int(domain),
                                            'name': self.get_name(int(domain))})
+        self.execute(delete_stmt, binds)
 
     def update_entity_name(self, domain, name):
         if int(domain) in [int(self.const.ValueDomain(code_str))
@@ -1293,7 +1293,17 @@ class EntityQuarantine(Entity):
         binds = {'entity_id': self.entity_id,
                  'quarantine_type': int(qtype),
                  'disable_until': until}
-        if _entity_row_exists(self._db, 'entity_quarantine', binds):
+        exists_stmt = """
+        SELECT EXISTS (
+          SELECT 1
+          FROM [:table schema=cerebrum name=entity_quarantine]
+          WHERE entity_id=:entity_id AND
+                quarantine_type=:quarantine_type AND
+               (disable_until is NULL AND :disable_until is NULL OR
+                 disable_until=:disable_until)
+        )
+        """
+        if self.query_1(exists_stmt, binds):
             # false positive
             return
         update_stmt = """
@@ -1321,7 +1331,7 @@ class EntityQuarantine(Entity):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_quarantine]
         WHERE entity_id=:entity_id AND quarantine_type=:quarantine_type""",
-                     )
+                     binds)
         self._db.log_change(self.entity_id, self.clconst.quarantine_del,
                             None, change_params={'q_type': int(qtype)})
         return True
