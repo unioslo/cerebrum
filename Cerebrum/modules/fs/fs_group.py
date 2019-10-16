@@ -37,8 +37,6 @@ from Cerebrum.Utils import Factory
 logger = logging.getLogger(__name__)
 
 
-TODAY = datetime.date.today()
-
 org_regex = r'(?P<org>[^:]+):fs'
 
 kurs = ':'.join((
@@ -219,19 +217,20 @@ class FsGroupCategorizer(object):
     def get_expire_date(lifetime, year, group_name):
         if not lifetime:
             return None
+        today = datetime.date.today()
         if not year:
-            return TODAY + datetime.timedelta(days=lifetime * 365)
-        if not TODAY.year + 5 > year > 1990:
+            return today + datetime.timedelta(days=lifetime * 365)
+        if not today.year + 5 > year > 1990:
             logger.warning('Year %s not in allowed range, %s',
                            year,
                            group_name)
-            return TODAY + datetime.timedelta(days=lifetime * 365)
+            return today + datetime.timedelta(days=lifetime * 365)
 
-        years_until_expiration = year + lifetime + 1 - TODAY.year
+        years_until_expiration = year + lifetime + 1 - today.year
         if years_until_expiration <= 0:
-            return (TODAY +
+            return (today +
                     datetime.timedelta(days=cereconf.FS_GROUP_GRACE_PERIOD))
-        return TODAY + datetime.timedelta(days=years_until_expiration * 365)
+        return today + datetime.timedelta(days=years_until_expiration * 365)
 
     def categorize_groups(self):
         specific_stats = collections.defaultdict(
