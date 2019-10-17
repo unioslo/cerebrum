@@ -20,8 +20,112 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """This module contains functionality for maintaining fs groups
 
-It is the result of a refactoring of populate_fronter_groups.py and
-fs_group_stats.py.
+Here is a bit of documentation merged from the populate_fronter_groups-scripts
+of uio, uia and uit:
+
+Disse gruppene blir bl.a. brukt ved eksport av data til ClassFronter, og ved
+populering av visse NIS (Ifi).
+
+Først litt terminologi:
+
+  - Studieprogram: et studium som normalt leder frem til en grad. Bygges opp
+                   ved emner.
+  - Emne: den enheten som er byggesteinen i alle studium. Har en omfang, og
+          normalt en eller annen form for avsluttende evaluering.
+  - Undervisningsenhet (undenh): en instansiering av et emne.
+  - Undervisningsaktivitet (undakt): en serie aktivitet knyttet til en
+                                     undenh. F.eks. en forelesningsrekke, et
+                                     labparti, en serie regneøvinger. Kan også
+                                     være en enkel aktivitet.
+  - Kurs (evu): Samsvarer med undenh, men er for etter- og videreutdanning
+  - Kursaktivitet: Samsvarer med undakt, men er for etter- og videreutdanning
+  - Kull: Årsklasse av et studieprogram.
+
+Gruppene er organisert i en tre-struktur.  Øverst finnes en supergruppe; denne
+brukes for å holde orden på hvilke grupper som er automatisk opprettet av
+dette scriptet, og dermed hvilke grupper som skal slettes i det dataene de
+bygger på ikke lenger finnes i FS.  Supergruppen har navnet::
+
+  internal:<domene>:fs:{supergroup}
+
+Her representerer <domene> domenet til institusjonen hvor gruppa hører til.
+Denne supergruppen har så medlemmer som også er grupper.
+Medlemsgruppene har navn på følgende format::
+
+  internal:<domene>:kurs:<emnekode>
+  internal:<domene>:evu:<kurskode>
+  internal:<domene>:kull:<studieprogram>
+
+Hver av disse 'enhet-supergruppene' har medlemmer som er grupper med navn på
+følgende format::
+
+  internal:<domene>:fs:kurs:<institusjonsnr>:<emnekode>:<versjon>:<sem>:<år>
+  internal:<domene>:fs:evu:<kurskode>:<tidsangivelse>
+  internal:<domene>:fs:kull:<studieprogram>:<terminkode>:<aar>
+
+Merk at for undenh, så er ikke en tilsvarende 'enhet'-gruppe *helt* ekvivalent
+med begrepet undervisningsenhet slik det brukes i FS.  Gruppen representerer
+semesteret et gitt kurs startet i (terminnr == 1).  For kurs som strekker seg
+over mer enn ett semester vil det derfor i FS finnes multiple
+undervisningsenheter, mens gruppen som representerer kurset vil beholde navnet
+sitt i hele kurstiden.
+
+'enhet'-gruppene har igjen grupper som medlemmer; disse kan deles i to
+kategorier:
+
+  - Grupper (med primærbrukermedlemmer) som brukes ved eksport til
+    ClassFronter, har navn på følgende format::
+
+      Rolle ved undenh:     <domene>:fs:<enhetid>:<rolletype>
+      Rolle ved undakt:     <domene>:fs:<enhetid>:<rolletype>:<aktkode>
+      Ansvar und.enh:       <domene>:fs:<enhetid>:enhetsansvar
+      Ansvar und.akt:       <domene>:fs:<enhetid>:aktivitetsansvar:<aktkode>
+      Alle stud. v/enh:     <domene>:fs:<enhetid>:student
+      Alle stud. v/akt:     <domene>:fs:<enhetid>:student:<aktkode>
+
+  - Ytterligere grupper hvis medlemmer kun er ikke-primære ('sekundære')
+    konti. Genereres kun for informatikk-emner, og har navn på formen::
+
+      Ansvar und.enh:       <domene>:fs:<enhetid>:enhetsansvar-sek
+      Ansvar und.akt:       <domene>:fs:<enhetid>:aktivitetsansvar-sek:<aktkode>
+      Alle stud. v/enh:     <domene>:fs:<enhetid>:student-sek
+
+<rolletype> er en av 12 predefinerte roller (jfr. valid_roles). enhetsansvar
+og aktivitetsansvar-gruppene finnes kun for Ifi, som ønsker sine grupper (for
+NIS) bygget litt annerledes. Alle slike grupper hvor det er meningen det skal
+være accounts, får en passende fronterspread, basert på informasjonen fra
+FS. Det er kun slike grupper, hvis fronterspreads vil ha noe å si (dvs. andre
+grupper kan også få fronterspreads, men generate_fronter_full.py vil ignorere
+dem).
+
+Poenget med å ha dette nokså kompliserte hierarkiet var å tillate
+DML/Houston/andre å kunne enkelt si at de vil eksportere en bestemt entitet
+til fronter uten å bry seg om gruppene som måtte være generert for denne
+entiteten. Dette er ikke mer nødvendig for undenh/undakt/kurs/kursakt, siden
+de populeres automatisk, men det *er* nødvendig for kull.
+
+Kullgruppene har også grupper som medlemmer; det er en gruppe med studenter,
+samt en gruppe for hver rolle ved kullet::
+
+  Alle stud. på kull:   <domene>:fs:<enhetid>:student
+  Rolle ved kull:       <domene>:fs:<enhetid>:<rolletype>
+
+Siden <enhetid> inneholder gruppetypen (kurs, evu og kull), vil det ikke
+oppstå navnekollisjon forskjellige enhetgrupper imellom.
+
+I tillegg blir disse nettgruppene laget med spread til Ifi::
+
+  Ansvar und.enh:        g<enhetid>-0          (alle konti)
+  Ansvar und.akt:        g<enhetid>-<aktkode>  (alle konti)
+  Ansvar enh. og akt.:   g<enhetid>            (alle konti)
+  Alle stud. v/enh:      s<enhetid>            (alle konti)
+  Alle stud. v/akt:      s<enhetid>-<aktkode>  (primærkonti)
+  Alle stud. kun eks:    s<enhetid>-e          (primærkonti)
+  Alle akt-ansv:         ifi-g                 (alle konti)
+  Alle akt- og enh-ansv: lkurs                 (alle konti)
+
+Som sagt, populering av disse gruppene er litt annerledes. *Alle* med en eller
+annen rolle til Ifi-kursene havner i 'g'-ansvarlige-gruppene.
 """
 
 from __future__ import unicode_literals
