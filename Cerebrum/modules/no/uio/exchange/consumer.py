@@ -300,7 +300,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     self.logger.warn(
                         'eid:%d: Could not publish %s in address book',
                         event['event_id'], uname)
-                    self.ut.log_event(event, 'trait:add')
+                    self.ut.log_event(event, 'entity_trait:add')
 
             # Collect'n set valid addresses for the mailbox
             addrs = self.ut.get_account_mailaddrs(event['subject_entity'])
@@ -325,7 +325,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     etid, tra, sh, hq, sq = self.ut.get_email_target_info(
                         target_entity=event['subject_entity'])
                     mod_ev['subject_entity'] = etid
-                    self.ut.log_event(mod_ev, 'email_address:add_address')
+                    self.ut.log_event(mod_ev, 'email_address:add')
 
             # Set the initial quota
             aid = self.ut.get_account_id(uname)
@@ -345,7 +345,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     'dest_entity': None,
                     'subject_entity': et_eid,
                     'change_params': {'soft': sq, 'hard': hq}}
-                self.ut.log_event(mod_ev, 'email_quota:add_quota')
+                self.ut.log_event(mod_ev, 'email_quota:add')
 
             # Generate events for addition of the account into the groups the
             # account should be a member of
@@ -387,7 +387,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     self.logger.debug1(
                         'eid:%d: Creating event: Set forward %s on %s',
                         event['event_id'], fwds[0], uname)
-                    self.ut.log_event(faux_event, 'email_forward:add_forward')
+                    self.ut.log_event(faux_event, 'email_forward:add')
 
             if local_delivery:
                 try:
@@ -419,7 +419,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                                   'dest_entity': None,
                                   'change_params': {'enabled': True}}
                     self.ut.log_event(
-                        faux_event, 'email_forward:local_delivery')
+                        faux_event, 'email_forward_local_delivery:set')
 
                     self.logger.debug1(
                         'eid:%d: Creating event: Set local delivery on %s',
@@ -1175,7 +1175,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                         self.ut.get_email_target_info(
                             target_entity=event['subject_entity'])
                     self.ut.log_event(
-                        ev_mod, 'email_primary_address:add_primary')
+                        ev_mod, 'email_primary_address:add')
 
                 # Set mailaddrs
                 try:
@@ -1202,7 +1202,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                             email_domain_name=x[1])
                         ev_mod['change_params'] = {'dom_id': info['id'],
                                                    'lp': x[0]}
-                        self.ut.log_event(ev_mod, 'email_address:add_address')
+                        self.ut.log_event(ev_mod, 'email_address:add')
 
                 # Set hidden
                 try:
@@ -1269,7 +1269,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                 # We don't mangle the event here, since the only thing we care
                 # about when updating the name or description is the
                 # subject_entity.
-                self.ut.log_event(event, 'entity_name:mod')
+                self.ut.log_event(event, 'entity_name:modify')
 
         else:
             # TODO: Fix up this comment, it is not the entire truth.
@@ -1298,7 +1298,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
                     event_id=event['event_id'],
                     entity_name=entity_name,
                     group_name=gname))
-            self.ut.log_event(ev_mod, 'group:member:add')
+            self.ut.log_event(ev_mod, 'group_member:add')
 
     @event_map('dlgroup:delete')
     def remove_group(self, event):
@@ -1339,7 +1339,7 @@ class ExchangeEventHandler(evhandlers.EventLogConsumer):
         self.logger.debug4(
             'Converting group_member:add to exchange_group:add for {}'.format(
                 event))
-        self.ut.log_event(event, 'exchange_group:add')
+        self.ut.log_event(event, 'exchange_group_member:add')
 
     @event_map('group_member:remove')
     def remove_group_member(self, event):
