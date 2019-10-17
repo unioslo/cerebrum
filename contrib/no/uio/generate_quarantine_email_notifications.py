@@ -130,11 +130,11 @@ def generate_event_info(event):
 
 
 def generate_mail_notification(quar_info, event_info, debug=False):
-    if event_info['change_type'] == 'quarantine:mod':
+    if event_info['change_type'] == 'quarantine:modify':
         event_type = 'altered'
     elif event_info['change_type'] == 'quarantine:add':
         event_type = 'added'
-    elif event_info['change_type'] == 'quarantine:del':
+    elif event_info['change_type'] == 'quarantine:remove':
         event_type = 'deleted'
     else:
         raise Errors.CerebrumError('Unknown quarantine action: %s'
