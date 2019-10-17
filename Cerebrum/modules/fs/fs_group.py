@@ -128,8 +128,8 @@ Som sagt, populering av disse gruppene er litt annerledes. *Alle* med en eller
 annen rolle til Ifi-kursene havner i 'g'-ansvarlige-gruppene.
 
 
-Noen institusjoner har i tillegg en del grupper som følger en litt annen
-navne-syntaks:
+Noen institusjoner (ikke uio) har i tillegg en del grupper som følger en litt
+annen navne-syntaks:
 
    1  Gruppering av alle undervisningsenhet-relaterte grupper ved en
       institusjon
@@ -202,50 +202,49 @@ logger = logging.getLogger(__name__)
 
 org_regex = r'(?:internal:)?(?P<org>[^:]+):fs'
 
-kurs = ':'.join((
+# Evu-related regexes (non-uio)
+evu_supergroup = ':'.join((
     org_regex,
-    r'(?P<type>kurs)',
-    r'(?P<emne>[^:]+)',
+    r'(?P<institusjonsnr>\d+)',
+    r'(?P<type>evu)',
 ))
 
-kurs_unit = ':'.join((
-    org_regex,
-    r'(?P<type>kurs)',
-    r'(?P<institusjon>\d+)',
-    r'(?P<emne>[^:]+)',
-    r'(?P<ver>[^:]+)',
-    r'(?P<sem>[^:]+)',
-    r'(?P<year>\d{4})',
+non_uio_evu = ':'.join((
+    evu_supergroup,
+    r'(?P<kurs>[^:]+)',
+    r'(?P<kurstid>[^:]+)',
 ))
 
-kurs_unit_id = ':'.join((
+# Undenh-related regexes (non-uio)
+undenh_supergroup = ':'.join((
     org_regex,
-    r'(?P<type>kurs)',
-    r'(?P<institusjon>\d+)',
-    r'(?P<emne>[^:]+)',
-    r'(?P<ver>[^:]+)',
-    r'(?P<sem>[^:]+)',
+    r'(?P<institusjonsnr>\d+)',
+    r'(?P<type>undenh)',
+))
+
+undenh_term = ':'.join((
+    undenh_supergroup,
     r'(?P<year>\d{4})',
-    r'(?P<n>\d+)',
+    r'(?P<sem>[^:]+)',
 ))
 
 undenh = ':'.join((
-    org_regex,
-    r'(?P<institusjon>\d+)',
-    r'(?P<type>undenh)',
-    r'(?P<year>\d{4})',
-    r'(?P<sem>[^:]+)',
+    undenh_term,
     r'(?P<emne>[^:]+)',
     r'(?P<ver>[^:]+)',
     r'(?P<n>[^:]+)',
 ))
 
-sp = ':'.join((
+# Studieprogram-related regexes (non-uio)
+sp_supergroup = ':'.join((
     org_regex,
-    r'(?P<institusjon>\d+)',
+    r'(?P<institusjonsnr>\d+)',
     r'(?P<type>studieprogram)',
-    r'(?P<prog>[^:]+)',
+))
 
+sp = ':'.join((
+    sp_supergroup,
+    r'(?P<prog>[^:]+)',
 ))
 
 sp_kull_type = ':'.join((
@@ -264,16 +263,46 @@ sp_kull = ':'.join((
     r'(?P<sem>[^:]+)',
 ))
 
+# Kurs-related regexes
+kurs = ':'.join((
+    org_regex,
+    r'(?P<type>kurs)',
+    r'(?P<emne>[^:]+)',
+))
+
+kurs_unit = ':'.join((
+    org_regex,
+    r'(?P<type>kurs)',
+    r'(?P<institusjonsnr>\d+)',
+    r'(?P<emne>[^:]+)',
+    r'(?P<ver>[^:]+)',
+    r'(?P<sem>[^:]+)',
+    r'(?P<year>\d{4})',
+))
+
+kurs_unit_id = ':'.join((
+    org_regex,
+    r'(?P<type>kurs)',
+    r'(?P<institusjonsnr>\d+)',
+    r'(?P<emne>[^:]+)',
+    r'(?P<ver>[^:]+)',
+    r'(?P<sem>[^:]+)',
+    r'(?P<year>\d{4})',
+    r'(?P<n>\d+)',
+))
+
+# Evu-related regexes
 evu = ':'.join((org_regex, r'(?P<type>evu)', r'(?P<kurs>[^:]+)',))
 evu_unit = ':'.join((evu, r'(?P<kurstid>[^:]+)',))
+evu_year = re.compile(r'(?P<year>\d{4})')
 
+# Kull-related regexes
 kull = ':'.join((org_regex, r'(?P<type>kull)', '(?P<prog>[^:]+)'))
 kull_unit = ':'.join((kull, '(?P<termin>[^:]+)', r'(?P<year>\d+)'))
 
+# Role-related regexes
 role = r'(?P<role>[^:]+)'
 subrole = ':'.join((role, r'(?P<akt>[^:]+)'))
-
-evu_year = re.compile(r'(?P<year>\d{4})')
 
 
 def make_regex(*args):
@@ -288,7 +317,11 @@ def _date_or_none(d):
 
 def get_year(cat, match):
     try:
-        if cat in ('evu-ue', 'evu-role', 'evu-role-sub'):
+        if cat in ('evu-ue',
+                   'evu-role',
+                   'evu-role-sub',
+                   'non-uio-evu',
+                   'non-uio-evu-role'):
             year = max(int(year) for year in evu_year.findall(
                 match.group('kurstid')
             ))
@@ -348,12 +381,18 @@ class FsGroupCategorizer(object):
             ('kull-role', make_regex(kull_unit, role), 6),
 
             # Non uio types:
-            # fs:<institusjon>:undenh
+            # fs:<institusjonsnr>:evu
+            ('non-uio-evu-super', make_regex(evu_supergroup), None),
+            ('non-uio-evu', make_regex(non_uio_evu), 2),
+            ('non-uio-evu-role', make_regex(non_uio_evu, role), 2),
+            # fs:<institusjonsnr>:undenh
+            ('undenh-super', make_regex(undenh_supergroup), None),
             ('undenh', make_regex(undenh), 3),
+            ('undenh-term', make_regex(undenh_term), 3),
             ('undenh-role', make_regex(undenh, role), 2),
-            ('undenh-role-sub', make_regex(undenh, subrole),
-             2),
-            # fs:<institusjon>:studieprogram
+            ('undenh-role-sub', make_regex(undenh, subrole), 2),
+            # fs:<institusjonsnr>:studieprogram
+            ('sp-super', make_regex(sp_supergroup), None),
             ('sp', make_regex(sp), 3),
 
             ('sp-kull-type', make_regex(sp_kull_type), 6),
