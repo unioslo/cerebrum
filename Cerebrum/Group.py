@@ -172,7 +172,20 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                                 None)
             self.add_entity_name(self.const.group_namespace, self.group_name)
         else:
-            if not _group_existence_query(self._db, 'group_info', binds):
+            exists_stmt = '''
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=group_info]
+                WHERE (description is NULL AND :description is NULL OR
+                         description=:description) AND
+                      (expire_date is NULL AND :expire_date is NULL OR
+                         expire_date=:expire_date) AND
+                      group_id=:group_id AND
+                      visibility=:visibility AND
+                      creator_id=:creator_id
+                )
+            '''
+            if not self.query_1(exists_stmt, binds):
                 # True positive
                 set_str = ', '.join(
                     '{0}=:{0}'.format(x) for x in binds if x != 'group_id')
