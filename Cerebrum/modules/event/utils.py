@@ -28,9 +28,9 @@ import logging
 import signal
 import multiprocessing
 from multiprocessing import managers
-from Cerebrum.utils.funcwrap import memoize
 
-from . import logutils
+from Cerebrum.logutils import mp
+from Cerebrum.utils.funcwrap import memoize
 
 
 class Manager(managers.BaseManager):
@@ -96,7 +96,7 @@ class Manager(managers.BaseManager):
         super(Manager, self).start(*args, **kwargs)
 
 
-Manager.register('LogQueue', logutils.LogQueue)
+Manager.register('LogQueue', mp.threads.SizedQueue)
 
 
 class ProcessHandler(object):
@@ -146,11 +146,11 @@ class ProcessHandler(object):
         self.logger.info('Started manager process (pid=%d): %s',
                          self.mgr.pid, self.mgr.name)
 
-        self._logger_thread = logutils.LogRecordThread(
-            self.log_queue,
+        self._logger_thread = mp.threads.LogRecordThread(
+            self.log_channel,
             name='LogQueueListener')
         self._logger_thread.start()
-        self._monitor_thread = logutils.LogMonitorThread(
+        self._monitor_thread = mp.threads.QueueMonitorThread(
             self.log_queue,
             interval=self.log_queue_monitor_interval,
             name='LogQueueMonitor')
@@ -161,6 +161,13 @@ class ProcessHandler(object):
     def log_queue(self):
         """ A shared queue to use for log messages. """
         return self.mgr.LogQueue(self.log_queue_size)
+
+    @property
+    @memoize
+    def log_channel(self):
+        serializer = mp.protocol.JsonSerializer()
+        proto = mp.protocol.LogRecordProtocol(serializer)
+        return mp.channel.QueueChannel(self.log_queue, proto)
 
     @property
     @memoize
@@ -221,7 +228,7 @@ class ProcessHandler(object):
             log('Process %r terminated with exit code %r', proc, proc.exitcode)
 
         self.logger.info('Processing remaining log records ...')
-        self._logger_thread.queue.join()
+        self.log_queue.join()
 
         self.logger.info('Shutting down logger...')
         self._logger_thread.stop()
@@ -246,7 +253,7 @@ def is_target_system_const(self, target_system):
     try:
         int(targets._target_system_to_code(target_system))
         return True
-    except:
+    except Exception:
         return False
 
 

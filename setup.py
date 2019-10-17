@@ -204,6 +204,7 @@ bin_files = [
 ]
 
 sbin_files = [
+    ('servers/gunicorn-server.py', 0755),
     ('servers/job_runner/job_runner.py', 0755),
     ('makedb.py', 0755),
     ('servers/bofhd/bofhd.py', 0755),
@@ -354,6 +355,7 @@ setup(
         'Cerebrum/extlib',
         'Cerebrum/extlib/Plex',
         'Cerebrum/logutils',
+        'Cerebrum/logutils/mp',
         'Cerebrum/modules',
         'Cerebrum/modules/ad',
         'Cerebrum/modules/ad2',

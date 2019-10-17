@@ -19,6 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Processes to handle events from the Cerebrum.modules.EventLog module."""
+import datetime
 import time
 import select
 import traceback
@@ -423,6 +424,8 @@ class EventLogCollector(EventLogMixin, DBProducer):
         self.db.rollback()
 
     def process(self):
+        _now = datetime.datetime.utcnow
+        start = _now()
         tmp_db = Factory.get('Database')(client_encoding=self.db_enc)
         for db_row in tmp_db.get_unprocessed_events(
                 self.target_system,
@@ -433,7 +436,11 @@ class EventLogCollector(EventLogMixin, DBProducer):
             self.push(self._row_to_event(db_row))
         tmp_db.close()
 
-        self.logger.debug2("Ping!")
+        # Ensure process() takes run_interval seconds, by sleeping in
+        # self.timeout intervals
+        while self.running:
+            if (_now() - start).total_seconds() > self.config['run_interval']:
+                # We've used at least run_interval seconds
+                break
 
-        # Sleep for a while
-        time.sleep(self.config['run_interval'])
+            time.sleep(self.timeout)

@@ -6,7 +6,7 @@ cx-Oracle>=5
 egenix-mx-base
 Flask==1.1.1
 flask-restplus==0.13.0
-gunicorn
+gunicorn==19.9.0
 Jinja2
 jsonschema
 lxml

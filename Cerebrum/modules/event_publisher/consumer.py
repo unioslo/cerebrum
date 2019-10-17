@@ -25,6 +25,7 @@ re-publishes it using the specified AMQP client implementation/configuration.
 
 """
 # import json
+import datetime
 import time
 
 from Cerebrum import Errors
@@ -128,6 +129,8 @@ class EventCollector(evhandlers.DBProducer):
         super(EventCollector, self).__init__(**kwargs)
 
     def process(self):
+        _now = datetime.datetime.utcnow
+        start = _now()
         tmp_db = Factory.get('Database')(client_encoding='UTF-8')
         event_db = EventsAccessor(tmp_db)
         for db_row in event_db.get_unprocessed(
@@ -139,5 +142,11 @@ class EventCollector(evhandlers.DBProducer):
             self.push(event)
         tmp_db.close()
 
-        # Sleep for a while
-        time.sleep(self.config['run_interval'])
+        # Ensure process() takes run_interval seconds, by sleeping in
+        # self.timeout intervals
+        while self.running:
+            if (_now() - start).total_seconds() > self.config['run_interval']:
+                # We've used at least run_interval seconds
+                break
+
+            time.sleep(self.timeout)
