@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright 2019 University of Oslo, Norway
@@ -18,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""This module contains functionality for maintaining fs groups
+"""This module contains functionality for categorizing fs groups
 
 Here is a bit of documentation compiled from the
 populate_fronter_groups-scripts of uio, uia and uit:
@@ -309,12 +308,6 @@ def make_regex(*args):
     return re.compile('^' + ':'.join(args) + '$')
 
 
-def _date_or_none(d):
-    if d is None:
-        return None
-    return d.pydate()
-
-
 def get_year(cat, match):
     try:
         if cat in ('evu-ue',
@@ -402,18 +395,6 @@ class FsGroupCategorizer(object):
             ('sp-rolle-type', make_regex(sp_rolle_type), 3),
             ('sp-rolle', make_regex(sp_rolle_type, role), 3),
         )
-
-    def get_groups(self):
-        gr = Factory.get('Group')(self.db)
-        # co = Factory.get('Constants')(db)
-        for row in gr.search(name='%{}%'.format(self.fs_group_prefix)):
-            yield {
-                'id': int(row['group_id']),
-                'name': row['name'],
-                # 'visibility': co.GroupVisibility(row['visibility']),
-                # 'description': row['description'],
-                'expire_date': _date_or_none(row['expire_date']),
-            }
 
     def get_group_category(self, group_name):
         category = match = lifetime = None
