@@ -45,7 +45,9 @@ from Cerebrum.Utils import Factory, NotSet
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.modules import Email
-from Cerebrum.modules.fs.fs_group import FsGroupCategorizer
+from Cerebrum.modules.fs.fs_group import (FsGroupCategorizer,
+                                          set_default_expire_date,
+                                          should_postpone_expire_date)
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.modules.no.access_FS import roles_xml_parser
 from Cerebrum.modules.no.fronter_lib import (UE2KursID, key2fields,
@@ -1339,26 +1341,6 @@ def populate_ifi_groups():
     add_spread_to_group("lkurs", co.spread_ifi_nis_ng)
 
 
-def set_default_expire_date(group, gname, today):
-    try:
-        _category, _match, lifetime = (
-            fs_group_categorizer.get_group_category(gname))
-    except LookupError as e:
-        logger.warning(e)
-        return
-    if lifetime:
-        expire_date = today + datetime.timedelta(days=365 * lifetime)
-        logger.debug('Setting expire_date: %s', expire_date)
-        group.expire_date = expire_date
-
-
-def should_postpone_expire_date(group, today):
-    return (group.expire_date and
-            group.expire_date -
-            datetime.timedelta(days=cereconf.FS_GROUP_GRACE_PERIOD) <
-            today)
-
-
 def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
                auto_spread=NotSet):
     """Update/create a fronter group with new information.
@@ -1441,7 +1423,10 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
         group = Factory.get('Group')(db)
         group.clear()
         group.populate(group_creator, correct_visib, gname, description=descr)
-        set_default_expire_date(group, gname, today)
+        set_default_expire_date(fs_group_categorizer,
+                                group,
+                                gname,
+                                today=today)
         group.write_db()
     else:
         # If group already exists, update its information...
@@ -1452,10 +1437,11 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
             group.description = descr
             group.write_db()
 
-        if should_postpone_expire_date(group, today):
+        grace = fs_group_categorizer.get_group_category(gname)[3]
+        if should_postpone_expire_date(group, grace, today=today):
             group.expire_date = (
                     today +
-                    datetime.timedelta(days=cereconf.FS_GROUP_GRACE_PERIOD)
+                    datetime.timedelta(days=grace['high_limit'])
             )
             logger.debug('Postponing expire_date of group %s to %s',
                          gname,
@@ -1831,7 +1817,7 @@ def main(inargs=None):
     db = Factory.get('Database')()
     db.cl_init(change_program='CF_gen_groups')
     co = Factory.get('Constants')(db)
-    fs_group_categorizer = FsGroupCategorizer(db)
+    fs_group_categorizer = FsGroupCategorizer()
 
     dryrun = not args.commit
 

@@ -193,11 +193,14 @@ import re
 import datetime
 import logging
 
-import cereconf
-
-from Cerebrum.Utils import Factory
 
 logger = logging.getLogger(__name__)
+
+# Default grace for fs groups. When a group's expire_date is in less than
+# low_limit days, the expire_date is extended to high_limit days, if the group
+# is still present in the fs-files.
+DEFAULT_GRACE = {'low_limit': 1 * 30,
+                 'high_limit': 6 * 30}
 
 org_regex = r'(?:internal:)?(?P<org>[^:]+):fs'
 
@@ -328,7 +331,30 @@ def get_year(cat, match):
     return year
 
 
-def get_expire_date(lifetime, year, group_name, today=None):
+def set_default_expire_date(fs_group_categorizer, group, gname, today=None):
+    today = today or datetime.date.today()
+    try:
+        lifetime = fs_group_categorizer.get_group_category(gname)[2]
+    except LookupError as e:
+        logger.warning(e)
+        return
+    if lifetime:
+        expire_date = today + datetime.timedelta(days=365 * lifetime)
+        logger.debug('Setting expire_date: %s', expire_date)
+        group.expire_date = expire_date
+
+
+def should_postpone_expire_date(group, grace, today=None):
+    if not grace:
+        return False
+    today = today or datetime.date.today()
+    return (group.expire_date and
+            group.expire_date -
+            datetime.timedelta(days=grace['low_limit']) <
+            today)
+
+
+def get_expire_date(lifetime, year, group_name, grace, today=None):
     if not lifetime:
         return None
     today = today or datetime.date.today()
@@ -342,72 +368,80 @@ def get_expire_date(lifetime, year, group_name, today=None):
 
     years_until_expiration = year + lifetime + 1 - today.year
     if years_until_expiration <= 0:
-        return (today +
-                datetime.timedelta(days=cereconf.FS_GROUP_GRACE_PERIOD))
+        if not grace:
+            return today
+        return today + datetime.timedelta(days=grace['high_limit'])
     return today + datetime.timedelta(days=years_until_expiration * 365)
 
 
 class FsGroupCategorizer(object):
-    def __init__(self, db, fs_group_prefix=None):
-        self.db = db
-        self.fs_group_prefix = fs_group_prefix or cereconf.FS_GROUP_PREFIX
-        if self.fs_group_prefix is None:
-            raise Exception('No prefix given')
-        # The elements of categories are tuples of category, regex and lifetime
+    def __init__(self):
+        # The elements of categories are tuples of category, regex, lifetime
+        # and grace
         self.categories = (
-            ('super', make_regex(org_regex, '{supergroup}'), None),
-            ('auto', make_regex(org_regex, '{autogroup}'), None),
-            ('ifi_auto_fg', make_regex(org_regex, '{ifi_auto_fg}'), None),
+            ('super', make_regex(org_regex, '{supergroup}'), None, None),
+            ('auto', make_regex(org_regex, '{autogroup}'), None, None),
+            ('ifi_auto_fg',
+             make_regex(org_regex, '{ifi_auto_fg}'),
+             None,
+             None),
             # fs:kurs
-            ('kurs', make_regex(kurs), 3),
-            ('kurs-ue', make_regex(kurs_unit), 2),
-            ('kurs-role', make_regex(kurs_unit_id, role), 2),
-            ('kurs-role-sub', make_regex(kurs_unit_id, subrole), 2),
+            ('kurs', make_regex(kurs), 3, DEFAULT_GRACE),
+            ('kurs-ue', make_regex(kurs_unit), 2, DEFAULT_GRACE),
+            ('kurs-role', make_regex(kurs_unit_id, role), 2, DEFAULT_GRACE),
+            ('kurs-role-sub',
+             make_regex(kurs_unit_id, subrole),
+             2,
+             DEFAULT_GRACE),
             # fs:evu
-            ('evu', make_regex(evu), 3),
-            ('evu-ue', make_regex(evu_unit), 2),
-            ('evu-role', make_regex(evu_unit, role), 2),
-            ('evu-role-sub', make_regex(evu_unit, subrole), 2),
+            ('evu', make_regex(evu), 3, DEFAULT_GRACE),
+            ('evu-ue', make_regex(evu_unit), 2, DEFAULT_GRACE),
+            ('evu-role', make_regex(evu_unit, role), 2, DEFAULT_GRACE),
+            ('evu-role-sub', make_regex(evu_unit, subrole), 2, DEFAULT_GRACE),
             # fs:kull
-            ('kull-ue', make_regex(kull), 6),
-            ('kull-ua', make_regex(kull_unit), 6),
-            ('kull-role', make_regex(kull_unit, role), 6),
+            ('kull-ue', make_regex(kull), 6, None),
+            ('kull-ua', make_regex(kull_unit), 6, None),
+            ('kull-role', make_regex(kull_unit, role), 6, None),
 
             # Non uio types:
             # fs:<institusjonsnr>:evu
-            ('non-uio-evu-super', make_regex(evu_supergroup), None),
-            ('non-uio-evu', make_regex(non_uio_evu), 2),
-            ('non-uio-evu-role', make_regex(non_uio_evu, role), 2),
+            ('non-uio-evu-super', make_regex(evu_supergroup), None, None),
+            ('non-uio-evu', make_regex(non_uio_evu), 2, DEFAULT_GRACE),
+            ('non-uio-evu-role',
+             make_regex(non_uio_evu, role),
+             2,
+             DEFAULT_GRACE),
             # fs:<institusjonsnr>:undenh
-            ('undenh-super', make_regex(undenh_supergroup), None),
-            ('undenh', make_regex(undenh), 3),
-            ('undenh-term', make_regex(undenh_term), 3),
-            ('undenh-role', make_regex(undenh, role), 2),
-            ('undenh-role-sub', make_regex(undenh, subrole), 2),
+            ('undenh-super', make_regex(undenh_supergroup), None, None),
+            ('undenh', make_regex(undenh), 3, DEFAULT_GRACE),
+            ('undenh-term', make_regex(undenh_term), 3, DEFAULT_GRACE),
+            ('undenh-role', make_regex(undenh, role), 2, DEFAULT_GRACE),
+            ('undenh-role-sub', make_regex(undenh, subrole), 2, DEFAULT_GRACE),
             # fs:<institusjonsnr>:studieprogram
-            ('sp-super', make_regex(sp_supergroup), None),
-            ('sp', make_regex(sp), 3),
+            ('sp-super', make_regex(sp_supergroup), None, None),
+            ('sp', make_regex(sp), 3, DEFAULT_GRACE),
 
-            ('sp-kull-type', make_regex(sp_kull_type), 6),
-            ('sp-kull-role', make_regex(sp_kull, role), 6),
-            ('sp-kull-role-sub', make_regex(sp_kull, subrole), 6),
+            ('sp-kull-type', make_regex(sp_kull_type), 6, None),
+            ('sp-kull-role', make_regex(sp_kull, role), 6, None),
+            ('sp-kull-role-sub', make_regex(sp_kull, subrole), 6, None),
 
-            ('sp-rolle-type', make_regex(sp_rolle_type), 3),
-            ('sp-rolle', make_regex(sp_rolle_type, role), 3),
+            ('sp-rolle-type', make_regex(sp_rolle_type), 3, DEFAULT_GRACE),
+            ('sp-rolle', make_regex(sp_rolle_type, role), 3, DEFAULT_GRACE),
         )
 
     def get_group_category(self, group_name):
-        category = match = lifetime = None
-        for cat, regex, l in self.categories:
+        category = match = lifetime = grace = None
+        for cat, regex, l, g in self.categories:
             m = regex.match(group_name)
             if m:
                 if not category:
                     category = cat
                     match = m
                     lifetime = l
+                    grace = g
                 else:
                     raise LookupError('Multiple categories for %s', group_name)
 
         if category:
-            return category, match, lifetime
+            return category, match, lifetime, grace
         raise LookupError('No category for %s', group_name)
