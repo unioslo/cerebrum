@@ -1045,7 +1045,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 account_id=:account_id AND
                 owner_type=:owner_type AND
                 owner_id=:owner_id AND
-                creator_id=:creator_id AND
+                creator_id=:creator_id
             )
             """
             if not self.query_1(exists_stmt, binds):
