@@ -20,8 +20,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """This module contains functionality for maintaining fs groups
 
-Here is a bit of documentation merged from the populate_fronter_groups-scripts
-of uio, uia and uit:
+Here is a bit of documentation compiled from the
+populate_fronter_groups-scripts of uio, uia and uit:
 
 Disse gruppene blir bl.a. brukt ved eksport av data til ClassFronter, og ved
 populering av visse NIS (Ifi).
@@ -126,6 +126,67 @@ I tillegg blir disse nettgruppene laget med spread til Ifi::
 
 Som sagt, populering av disse gruppene er litt annerledes. *Alle* med en eller
 annen rolle til Ifi-kursene havner i 'g'-ansvarlige-gruppene.
+
+
+Noen institusjoner har i tillegg en del grupper som følger en litt annen
+navne-syntaks:
+
+   1  Gruppering av alle undervisningsenhet-relaterte grupper ved en
+      institusjon
+        internal:DOMAIN:fs:INSTITUSJONSNR:undenh
+        Eks "internal:hia.no:fs:201:undenh"
+      2  Gruppering av alle undervisningsenhet-grupper i et semester
+           internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:TERMINKODE
+           Eks "internal:hia.no:fs:201:undenh:2004:vår"
+         3  Gruppering av alle grupper knyttet til en bestemt und.enhet
+              internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
+                TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR
+              Eks "internal:hia.no:fs:201:undenh:2004:vår:be-102:g:1"
+            4  Gruppe med studenter som tar und.enhet
+                 Eks "internal:hia.no:fs:201:undenh:2004:vår:be-102:g:1:
+                      student"
+            4  Gruppe med forelesere som gir und.enhet
+                 Eks "internal:hia.no:fs:201:undenh:2004:vår:be-102:g:1:
+                      foreleser"
+            4  Gruppe med studieledere knyttet til en und.enhet
+                 Eks "internal:hia.no:fs:201:undenh:2004:vår:be-102:g:1:
+                      studieleder"
+   1  Gruppering av alle grupper relatert til studieprogram ved en
+      institusjon
+        internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram
+        Eks "internal:hia.no:fs:201:studieprogram"
+      2  Gruppering av alle grupper knyttet til et bestemt studieprogram
+           internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:STUDIEPROGRAMKODE
+           Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp"
+         3  Gruppering av alle studiekull-grupper for et studieprogram
+              internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:
+                STUDIEPROGRAMKODE:studiekull
+              Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:studiekull"
+            4  Gruppe med alle studenter i et kull
+                 internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:
+                   STUDIEPROGRAMKODE:studiekull:ARSTALL_KULL:
+                   TERMINKODE_KULL:student
+                 Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:
+                      studiekull:2004:vår:student"
+         3  Gruppering av alle personrolle-grupper for et studieprogram
+              internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:
+                STUDIEPROGRAMKODE:rolle
+              Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:rolle"
+            4  Gruppe med alle studieledere knyttet til et studieprogram
+                 internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:
+                   STUDIEPROGRAMKODE:rolle:studieleder
+                 Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:
+                      rolle:studieleder"
+   1  Gruppering av alle grupper relatert til EVU
+        Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu"
+      2  Gruppering av alle grupper knyttet til et bestemt EVU-kurs
+           Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vår"
+         3  Gruppe med kursdeltakere på et bestemt EVU-kurs
+              Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vår:
+                   kursdeltakere"
+         3  Gruppe med forelesere på et bestemt EVU-kurs
+              Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vår:
+                   forelesere"
 """
 
 from __future__ import unicode_literals
