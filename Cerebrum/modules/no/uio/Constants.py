@@ -232,6 +232,10 @@ class Constants(Constants.Constants):
         'ekstern',
         'Person tilknyttet enhet med avtale om utvidede IT-tilganger (FEIDE)')
 
+    affiliation_tilknyttet_komitemedlem = Constants._PersonAffStatusCode(
+        affiliation_tilknyttet,
+        'komitemedlem',
+        'Registrert med rolle KOMITEMEDLEM i SAPUiO ')
     #
     # Affiliation MANUELL
     #
