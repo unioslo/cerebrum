@@ -192,7 +192,6 @@ navne-syntaks:
 from __future__ import unicode_literals
 import re
 import datetime
-import collections
 import logging
 
 import cereconf
@@ -303,6 +302,25 @@ def get_year(cat, match):
     return year
 
 
+def get_expire_date(lifetime, year, group_name, today=None):
+    if not lifetime:
+        return None
+    today = today or datetime.date.today()
+    if not year:
+        return today + datetime.timedelta(days=lifetime * 365)
+    if not today.year + 5 > year > 1990:
+        logger.warning('Year %s not in allowed range, %s',
+                       year,
+                       group_name)
+        return today + datetime.timedelta(days=lifetime * 365)
+
+    years_until_expiration = year + lifetime + 1 - today.year
+    if years_until_expiration <= 0:
+        return (today +
+                datetime.timedelta(days=cereconf.FS_GROUP_GRACE_PERIOD))
+    return today + datetime.timedelta(days=years_until_expiration * 365)
+
+
 class FsGroupCategorizer(object):
     def __init__(self, db, fs_group_prefix=None):
         self.db = db
@@ -373,72 +391,3 @@ class FsGroupCategorizer(object):
         if category:
             return category, match, lifetime
         raise LookupError('No category for %s', group_name)
-
-    @staticmethod
-    def get_expire_date(lifetime, year, group_name):
-        if not lifetime:
-            return None
-        today = datetime.date.today()
-        if not year:
-            return today + datetime.timedelta(days=lifetime * 365)
-        if not today.year + 5 > year > 1990:
-            logger.warning('Year %s not in allowed range, %s',
-                           year,
-                           group_name)
-            return today + datetime.timedelta(days=lifetime * 365)
-
-        years_until_expiration = year + lifetime + 1 - today.year
-        if years_until_expiration <= 0:
-            return (today +
-                    datetime.timedelta(days=cereconf.FS_GROUP_GRACE_PERIOD))
-        return today + datetime.timedelta(days=years_until_expiration * 365)
-
-    def categorize_groups(self):
-        specific_stats = collections.defaultdict(
-            lambda: collections.defaultdict(int)
-        )
-        general_stats = collections.defaultdict(int)
-        new_expire_dates = {}
-
-        for group in self.get_groups():
-            try:
-                cat, match, lifetime = self.get_group_category(group['name'])
-            except LookupError as e:
-                logger.warning(e)
-                general_stats['errors'] += 1
-                continue
-
-            specific_stats[cat]['count'] += 1
-
-            year = get_year(cat, match)
-
-            if group['expire_date']:
-                specific_stats[cat]['should-do-nothing'] += 1
-            else:
-                expire_date = self.get_expire_date(lifetime,
-                                                   year,
-                                                   group['name'])
-                if expire_date:
-                    new_expire_dates[group['id']] = expire_date
-                    specific_stats[cat][
-                        'should-expire-{}'.format(expire_date.year)] += 1
-                else:
-                    specific_stats[cat]['should-do-nothing'] += 1
-
-        for key, stats in specific_stats.items():
-            for stat, value in stats.items():
-                general_stats[stat] += value
-            specific_stats[key] = dict(stats)
-        return dict(general_stats), dict(specific_stats), new_expire_dates
-
-    def set_expire_dates(self, new_expire_dates):
-        gr = Factory.get('Group')(self.db)
-        for group_id, expire_date in new_expire_dates.items():
-            gr.clear()
-            gr.find(group_id)
-            gr.expire_date = expire_date
-            gr.write_db()
-            logger.debug('Set expire_date %s for group %s with name %s',
-                         expire_date,
-                         group_id,
-                         gr.group_name)
