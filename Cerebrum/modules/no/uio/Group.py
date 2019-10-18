@@ -77,10 +77,10 @@ class GroupUiOMixin(Group.Group):
                 return ("name too long ({name_length} characters; "
                         "{max_length} is max)".format(
                             name_length=len(name), max_length=max_length))
-            if re.search("^[^a-z]", name):
-                return "name must start with a character (%s)" % name
             if re.search("[^a-z0-9\-_]", name):
                 return "name contains illegal characters (%s)" % name
+            if re.search("^[^a-z]", name):
+                return "name must start with a character (%s)" % name
         elif isinstance(self, ExchangeGroups.DistributionGroup):
             # allow [a-z0-9], '-' and '.' in DistributionGroup names
             if re.search("[^a-z0-9\-\.]", name):

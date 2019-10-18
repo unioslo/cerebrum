@@ -1069,8 +1069,8 @@ class BofhdExtension(BofhdCommonMethods):
                 err_str = pg.illegal_name(groupname)
                 if err_str:
                     if not isinstance(err_str, basestring):  # paranoia
-                        err_str = 'Illegal groupname'
-                    raise CerebrumError('Group-name error: {err_str}'.format(
+                        err_str = u'Illegal groupname'
+                    raise CerebrumError(u'Group-name error: {err_str}'.format(
                         err_str=err_str))
                 body.append("group promote_posix %s" % groupname)
         if spread:
