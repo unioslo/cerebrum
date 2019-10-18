@@ -1472,7 +1472,7 @@ class EntityExternalId(Entity):
         defs = {'ts': ', '.join(binds.keys()),
                 'tv': ', '.join(':{0}'.format(x) for x in binds)}
         if update:
-            if not _entity_row_exists(
+            if _entity_row_exists(
                     self._db, 'entity_external_id', binds):
                 # False positive
                 return
