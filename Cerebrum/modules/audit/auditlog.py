@@ -31,6 +31,7 @@ from Cerebrum.ChangeLog import ChangeLog
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Entity import Entity, EntityName
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.Email import EmailAddress, EmailDomain
 
 from .auditdb import AuditLogAccessor
 from .record import AuditRecord
@@ -148,6 +149,24 @@ class AuditRecordBuilder(DatabaseAccessor):
         if not hasattr(self, '_clconst'):
             self._clconst = Factory.get('CLConstants')(self._db)
         return self._clconst
+
+    @property
+    def host(self):
+        if not hasattr(self, '_host'):
+            self._host = Factory.get('Host')(self._db)
+        return self._host
+
+    @property
+    def ea(self):
+        if not hasattr(self, '_ea'):
+            self._ea = EmailAddress(self._db)
+        return self._ea
+
+    @property
+    def ed(self):
+        if not hasattr(self, '_ed'):
+            self._ed = EmailDomain(self._db)
+        return self._ed
 
     def get_change_type(self, value):
         if isinstance(value, self.clconst.ChangeType):
@@ -276,11 +295,361 @@ class AuditRecordBuilder(DatabaseAccessor):
             metadata=metadata,
             params=params)
 
-    # Examples
-    # @translate_params.register('spread', 'add')
-    # def spread_add(self, subject_entity, destination_entity, change_params):
-    #     return change_params
+    # Register translation parameters for different types of changes
+    @translate_params.register('account', 'create')
+    @translate_params.register('account', 'modify')
+    def account_create_mod(self, subject_entity, destination_entity,
+                           change_params):
+        if 'np_type' in change_params:
+            change_params.update(
+                {'np_type_str': six.text_type(
+                    self.const.Account(change_params['np_type'])),
+                 }
+            )
+        if 'owner_type' in change_params:
+            change_params.update(
+                {'owner_type_str': six.text_type(self.const.EntityType(
+                    change_params['owner_type'])),
+                 }
+            )
+        return change_params
 
-    # @translate_params.register('spread', 'remove')
-    # def spread_remove(self, subject_entity, destination_entity, change_params):
-    #     return change_params
+    @translate_params.register('account_home', 'add')
+    @translate_params.register('account_home', 'remove')
+    @translate_params.register('account_home', 'modify')
+    @translate_params.register('spread', 'add')
+    @translate_params.register('spread', 'delete')
+    @translate_params.register('exchange_acc_mbox', 'create')
+    @translate_params.register('exchange_acc_mbox', 'delete')
+    def spread_int_to_str(self, subject_entity, destination_entity,
+                          change_params):
+        if 'spread' in change_params:
+            change_params.update(
+                {'spread_str': six.text_type(self.const.Spread(
+                    change_params['spread'])),
+                 }
+            )
+        return change_params
+
+    @translate_params.register('homedir', 'add')
+    @translate_params.register('homedir', 'modify')
+    def status_str(self, subject_entity, destination_entity,
+                   change_params):
+        if 'status' in change_params:
+            change_params.update(
+                {'status_str': six.text_type(self.const.AccountHomeStatus(
+                    change_params['status'])),
+                 }
+            )
+        return change_params
+
+    @translate_params.register('account_type', 'add')
+    @translate_params.register('account_type', 'remove')
+    def aff_to_affstr(self, subject_entity, destination_entity,
+                      change_params):
+        if 'affiliation' in change_params:
+            change_params.update(
+                {'aff_str': six.text_type(self.const.PersonAffiliation(
+                    change_params['affiliation'])),
+                 }
+            )
+        return change_params
+
+    @translate_params.register('disk', 'add')
+    @translate_params.register('disk', 'remove')
+    @translate_params.register('disk', 'modify')
+    def disk_add_mod_del(self, subject_entity, destination_entity,
+                         change_params):
+        if 'host_id' in change_params:
+            self.host.clear()
+            try:
+                self.host.find(int(change_params['host_id']))
+            except Cerebrum.Errors.NotFoundError:
+                pass
+            else:
+                change_params['host_name'] = self.host.name
+        return change_params
+
+    @translate_params.register('ou_parent', 'clear')
+    @translate_params.register('ou_parent', 'set')
+    def ou_unset_parent(self, subject_entity, destination_entity,
+                        change_params):
+        if 'perspective' in change_params:
+            change_params.update(
+                {'perspective_str': six.text_type(self.const.OUPerspective(
+                    change_params['perspective'])),
+                 }
+            )
+        return change_params
+
+    @translate_params.register('person_name', 'add')
+    @translate_params.register('person_name', 'remove')
+    @translate_params.register('person_name', 'modify')
+    def person_name_add_mod_del(self, subject_entity, destination_entity,
+                                change_params):
+        if 'src' in change_params:
+            change_params.update(
+                {'src_str': six.text_type(self.const.AuthoritativeSystem(
+                    change_params['src'])),
+                 }
+            )
+        if 'name_variant' in change_params:
+            change_params.update(
+                {'name_variant_str': six.text_type(self.const.PersonName(
+                    change_params['name_variant'])),
+                 }
+            )
+        return change_params
+
+    @translate_params.register('entity_name', 'add')
+    @translate_params.register('entity_name', 'remove')
+    def entity_name_add_del(self, subject_entity, destination_entity,
+                            change_params):
+        if 'domain' in change_params:
+            change_params.update(
+                {'domain_str': six.text_type(self.const.ValueDomain(
+                    change_params['domain'])),
+                 }
+            )
+        if 'name_variant' in change_params:
+            change_params.update(
+                {'name_variant_str': six.text_type(self.const.EntityNameCode(
+                    change_params['name_variant'])),
+                 }
+            )
+        if 'name_language' in change_params:
+            change_params.update(
+                {'name_language_str': six.text_type(self.const.LanguageCode(
+                    change_params['name_language'])),
+                 }
+            )
+        return change_params
+
+    @translate_params.register('entity_name', 'modify')
+    def entity_name_mod(self, subject_entity, destination_entity,
+                        change_params):
+        if 'domain' in change_params:
+            change_params.update(
+                {'domain_str': six.text_type(self.const.ValueDomain(
+                    change_params['domain'])),
+                 }
+            )
+        return change_params
+
+    @translate_params.register('entity_cinfo', 'add')
+    @translate_params.register('entity_cinfo', 'remove')
+    def entity_cinfo_add_del(self, subject_entity, destination_entity,
+                             change_params):
+        if 'type' in change_params:
+            change_params.update(
+                {'type_str': six.text_type(self.const.ContactInfo(
+                    change_params['type'])),
+                 }
+            )
+        if 'src' in change_params:
+            change_params.update(
+                {'src_str': six.text_type(self.const.AuthoritativeSystem(
+                    change_params['src'])),
+                 }
+            )
+        return change_params
+
+    @translate_params.register('entity_external_id', 'add')
+    @translate_params.register('entity_external_id', 'modify')
+    @translate_params.register('entity_external_id', 'remove')
+    def entity_ext_id_del(self, subject_entity, destination_entity,
+                          change_params):
+        if 'id_type' in change_params:
+            change_params.update(
+                {'id_type_str': six.text_type(self.const.EntityExternalId(
+                    change_params['id_type'])),
+                 }
+            )
+        if 'src' in change_params:
+            change_params.update(
+                {'src_str': six.text_type(self.const.AuthoritativeSystem(
+                    change_params['src'])),
+                 }
+            )
+        return change_params
+
+    # Quarantine changes
+    @translate_params.register('quarantine', 'add')
+    @translate_params.register('quarantine', 'modify')
+    @translate_params.register('quarantine', 'remove')
+    def quarantine_add_mod(self, subject_entity, destination_entity,
+                           change_params):
+        if 'q_type' in change_params:
+            change_params.update(
+                {'q_type_str': six.text_type(self.const.Quarantine(
+                    change_params['q_type'])),
+                 }
+             )
+        return change_params
+
+    @translate_params.register('posix_user', 'create')
+    def posix_promote(self, subject_entity, destination_entity, change_params):
+        if 'shell' in change_params:
+            change_params.update(
+                {'shell_str': six.text_type(self.const.PosixShell(
+                    change_params['shell'])),
+                 }
+            )
+        return change_params
+
+    @translate_params.register('email_domain_category', 'add')
+    @translate_params.register('email_domain_category', 'remove')
+    def email_dom_cat_add_rem(self, subject_entity, destination_entity,
+                              change_params):
+        if 'category' in change_params:
+            change_params.update(
+                {'category_str': six.text_type(self.const.EmailDomainCategory(
+                    change_params['category'])),
+                 }
+            )
+        return change_params
+
+    @translate_params.register('email_target', 'add')
+    @translate_params.register('email_target', 'remove')
+    def email_target_add_rem(self, subject_entity, destination_entity,
+                             change_params):
+        if 'target_type' in change_params:
+            change_params.update(
+                {'target_type_str': six.text_type(self.const.EmailTarget(
+                    change_params['target_type'])),
+                 }
+            )
+        return change_params
+
+    @translate_params.register('email_target', 'modify')
+    def email_target_mod(self, subject_entity, destination_entity,
+                         change_params):
+        if 'target_type' in change_params:
+            change_params.update(
+                {'target_type_str': six.text_type(self.const.EmailTarget(
+                    change_params['target_type']))})
+        if 'server_id' in change_params:
+            self.host.clear()
+            try:
+                self.host.find(int(change_params['server_id']))
+            except Cerebrum.Errors.NotFoundError:
+                pass
+            else:
+                change_params['server_name'] = self.host.name
+        return change_params
+
+    @translate_params.register('email_address', 'add')
+    @translate_params.register('email_address', 'remove')
+    def email_address_add(self, subject_entity, destination_entity,
+                          change_params):
+        if 'dom_id' in change_params:
+            self.ed.clear()
+            try:
+                self.ed.find(int(change_params['dom_id']))
+            except Cerebrum.Errors.NotFoundError:
+                pass
+            else:
+                change_params['dom_name'] = self.ed.get_domain_name()
+        return change_params
+
+    @translate_params.register('email_entity_domain', 'add')
+    @translate_params.register('email_entity_domain', 'remove')
+    @translate_params.register('email_entity_domain', 'modify')
+    def email_entity_dom_add_rem_mod(self, subject_entity, destination_entity,
+                                     change_params):
+        if 'aff' in change_params:
+            change_params.update(
+                {'aff_str': six.text_type(self.const.PersonAffiliation(
+                    change_params['aff'])),
+                 }
+            )
+        return change_params
+
+    @translate_params.register('email_tfilter', 'add')
+    @translate_params.register('email_tfilter', 'remove')
+    def email_tfilter_add(self, subject_entity, destination_entity,
+                          change_params):
+        if 'filter' in change_params:
+            change_params.update(
+                {'filter_str': six.text_type(self.const.EmailTargetFilter(
+                    change_params['filter'])),
+                 }
+            )
+        return change_params
+
+    @translate_params.register('email_sfilter', 'add')
+    @translate_params.register('email_sfilter', 'modify')
+    def email_sfilter_add(self, subject_entity, destination_entity,
+                          change_params):
+        if 'level' in change_params:
+            change_params.update(
+                {'level_str': six.text_type(self.const.EmailSpamLevel(
+                    change_params['level'])),
+                 }
+            )
+        if 'action' in change_params:
+            change_params.update(
+                {'action_str': six.text_type(self.const.EmailSpamAction(
+                    change_params['action']))})
+        return change_params
+
+    @translate_params.register('email_primary_address', 'add')
+    @translate_params.register('email_primary_address', 'remove')
+    @translate_params.register('email_primary_address', 'modify')
+    @translate_params.register('exchange', 'acc_primaddr')
+    def email_primary_address_add(self, subject_entity, destination_entity,
+                                  change_params):
+        if 'addr_id' in change_params:
+            self.ea.clear()
+            try:
+                self.ea.find(change_params['addr_id'])
+            except Cerebrum.Errors.NotFoundError:
+                pass
+            else:
+                change_params['addr'] = self.ea.get_address()
+        return change_params
+
+    @translate_params.register('email_server', 'add')
+    @translate_params.register('email_server', 'remove')
+    @translate_params.register('email_server', 'modify')
+    def email_server_add(self, subject_entity, destination_entity,
+                         change_params):
+        if 'server_type' in change_params:
+            change_params.update(
+                {'server_type_str': six.text_type(self.const.EmailServerType(
+                    change_params['server_type'])),
+                 }
+            )
+        return change_params
+
+    @translate_params.register('entity_trait', 'add')
+    @translate_params.register('entity_trait', 'remove')
+    @translate_params.register('entity_trait', 'modify')
+    def trait_mod(self, subject_entity, destination_entity,
+                  change_params):
+        if 'entity_type' in change_params:
+            change_params.update(
+                {'entity_type_str': six.text_type(self.const.EntityType(
+                    change_params['entity_type'])),
+                 }
+            )
+        if 'code' in change_params:
+            change_params.update(
+                {'code_str': six.text_type(self.const.EntityTrait(
+                    change_params['code']))})
+        return change_params
+
+    @translate_params.register('ephorte_role', 'add')
+    @translate_params.register('ephorte_role', 'remove')
+    @translate_params.register('ephorte_role', 'modify')
+    def ephorte_role_add(self, subject_entity, destination_entity,
+                         change_params):
+        if 'arkivdel' in change_params:
+            change_params.update(
+                {'arkivdel_str': six.text_type(self.const.EphorteArkivdel(
+                    change_params['arkivdel']))})
+        if 'rolle_type' in change_params:
+            change_params.update(
+                {'rolle_type_str': six.text_type(self.const.EphorteRole(
+                    change_params['rolle_type']))})
+        return change_params
