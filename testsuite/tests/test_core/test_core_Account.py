@@ -291,8 +291,8 @@ class MultipleAccountsTest(BaseAccountTest):
     def test_search_name_wildcard(self):
         """ Account.search() for name with wildcards. """
         search_expr = self.account_ds.name_prefix + '%'
-        result = map(lambda x: dict(x), self._ac.search(
-            name=search_expr, expire_start=None))
+        result = list(map(lambda x: dict(x),
+                self._ac.search(name=search_expr, expire_start=None)))
         self.assertEqual(len(result), len(self._accounts))
 
         # The test group should contain names with unique prefixes, or this
