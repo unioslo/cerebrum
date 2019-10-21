@@ -366,6 +366,42 @@ class GroupOwnerCacher(object):
                 cache[member['member_id']].append(group_id)
         return cache
 
+    def cache_one_accounts_groups(self, auth_op_set_names, account_name):
+        owner_id2groups = collections.defaultdict(list)
+        self.account.clear()
+        self.account.find_by_name(account_name)
+        for auth_op_set_name in auth_op_set_names:
+            if not find_bofhd_auth_op_set(self.db,
+                                          self.bofhd_auth_op_set,
+                                          auth_op_set_name):
+                continue
+
+            for group in self.group.search(member_id=self.account.entity_id):
+                for role in self.bofhd_auth_role.list(
+                        entity_ids=group['group_id'],
+                        op_set_id=self.bofhd_auth_op_set.op_set_id
+                ):
+                    self.bofhd_auth_op_target.clear()
+                    self.bofhd_auth_op_target.find(role['op_target_id'])
+
+                    if not self.bofhd_auth_op_target.target_type == 'group':
+                        continue
+
+                    group_id = self.bofhd_auth_op_target.entity_id
+
+                    group_name = self.get_entity_name(group_id,
+                                                      self.co.entity_group)
+                    owner_id2groups[role['entity_id']].append(
+                        {
+                            'group_id': group_id,
+                            'role': auth_op_set_name,
+                            'group_name': group_name,
+                            'manage_link': (BRUKERINFO_GROUP_MANAGE_LINK +
+                                            group_name)
+                        }
+                    )
+        return owner_id2groups
+
     def cache_owner_id2groups(self, auth_op_set_names, ten):
         """Caches groups which have an auth_role for a group
 
@@ -438,13 +474,22 @@ class GroupOwnerCacher(object):
 def send_mails(db, args):
     group_owner_cacher = GroupOwnerCacher(db)
 
-    owner_id2groups = group_owner_cacher.cache_owner_id2groups(
-        args.auth_operation_set,
-        args.ten,
-    )
-    entity_id2owner_ids = group_owner_cacher.cache_member_id2group_ids(
-        owner_id2groups.keys()
-    )
+    if args.only_owner:
+        owner_id2groups = group_owner_cacher.cache_one_accounts_groups(
+            args.auth_operation_set,
+            args.only_owner,
+        )
+        entity_id2owner_ids = {
+            group_owner_cacher.account.entity_id:  owner_id2groups.keys()
+        }
+    else:
+        owner_id2groups = group_owner_cacher.cache_owner_id2groups(
+            args.auth_operation_set,
+            args.ten,
+        )
+        entity_id2owner_ids = group_owner_cacher.cache_member_id2group_ids(
+            owner_id2groups.keys()
+        )
     all_owned_groups = []
     map(all_owned_groups.extend, owner_id2groups.values())
     group_id2members = group_owner_cacher.cache_group_id2members(
@@ -517,8 +562,14 @@ def main(inargs=None):
     )
     test_group = parser.add_argument_group('Testing',
                                            'Arguments useful when testing')
-    test_group.add_argument(
-        '--ten',
+    test_mutex = test_group.add_mutually_exclusive_group()
+    test_mutex.add_argument(
+        '-o', '--only-owner',
+        default=None,
+        help='Only search for groups owned by the given account'
+    )
+    test_mutex.add_argument(
+        '-ten',
         action='store_true',
         help='Only process 10 group owners'
     )
