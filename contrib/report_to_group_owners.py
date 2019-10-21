@@ -108,12 +108,24 @@ TRANSLATION = {
 }
 
 
-def get_title(language='english'):
+def get_title(language):
     iso_timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    if language == 'english':
+    if language == 'en':
         return (
             'Review of the groups you are administrating ({timestamp})'.format(
                 timestamp=iso_timestamp)
+        )
+    elif language == 'nb':
+        return (
+            'Oversikt over gruppene du administrerer ({timestamp})'.format(
+                timestamp=iso_timestamp
+            )
+        )
+    elif language == 'nn':
+        return (
+            'Oversikt over gruppene du administrerer ({timestamp})'.format(
+                timestamp=iso_timestamp
+            )
         )
 
 
@@ -453,7 +465,7 @@ def send_mails(db, args):
         for owner_id in owner_ids:
             owned_groups.extend(owner_id2groups[owner_id])
 
-        title = get_title()
+        title = get_title(DEFAULT_LANGUAGE)
 
         html = write_html_report(
             args.template_folder,
