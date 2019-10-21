@@ -344,6 +344,14 @@ def set_default_expire_date(fs_group_categorizer, group, gname, today=None):
         group.expire_date = expire_date
 
 
+def get_grace(fs_group_categorizer, gname, default_grace=None):
+    try:
+        return fs_group_categorizer.get_group_category(gname)[3]
+    except LookupError as e:
+        logger.warning(e)
+        return default_grace or DEFAULT_GRACE
+
+
 def should_postpone_expire_date(group, grace, today=None):
     if not grace:
         return False

@@ -47,7 +47,8 @@ import Cerebrum.logutils.options
 from Cerebrum.modules import Email
 from Cerebrum.modules.fs.fs_group import (FsGroupCategorizer,
                                           set_default_expire_date,
-                                          should_postpone_expire_date)
+                                          should_postpone_expire_date,
+                                          get_grace)
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.modules.no.access_FS import roles_xml_parser
 from Cerebrum.modules.no.fronter_lib import (UE2KursID, key2fields,
@@ -1437,7 +1438,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
             group.description = descr
             group.write_db()
 
-        grace = fs_group_categorizer.get_group_category(gname)[3]
+        grace = get_grace(fs_group_categorizer, gname)
         if should_postpone_expire_date(group, grace, today=today):
             group.expire_date = (
                     today +
