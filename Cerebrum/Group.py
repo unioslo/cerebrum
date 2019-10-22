@@ -41,27 +41,6 @@ from Cerebrum.Utils import argument_to_sql, prepare_string
 
 Entity_class = Utils.Factory.get("Entity")
 
-def _group_existence_query(database, table, binds):
-    """Perform existence queries for Group
-
-    :type database: database object
-
-    :type table: basestring
-    :param table: name of table for query
-
-    :type binds: dict
-    :param binds: Pre-formatted dict where the keys *must* match the database
-    """
-    where = 'AND '.join('{0}=:{0}'.format(x) for x in binds)
-    exists_stmt = """
-      SELECT EXISTS (
-        SELECT 1
-        FROM [:table schema=cerebrum name={table}]
-        WHERE {where}
-      )
-    """.format(table=table, where=where)
-    return database.query_1(exists_stmt, binds)
-
 
 @six.python_2_unicode_compatible
 class Group(EntityQuarantine, EntityExternalId, EntityName,
@@ -405,7 +384,15 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
 
         binds = {'group_id': group_id,
                  'member_id': member_id}
-        if not _group_existence_query(self._db, 'group_member', binds):
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=group_member]
+            WHERE group_id=:group_id AND
+                  member_id=:member_id
+          )
+        """
+        if not self.query_1('exists_stmt', binds):
             # False positive
             return
         delete_stmt = """
