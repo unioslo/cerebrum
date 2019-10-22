@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block additional_headers%}
+<meta charset="{{ encoding | default('utf-8') }}">
 <style>
   table {border-spacing: 0; border-top: solid; border-left: solid}
   th  {background-color: lightgray; border-bottom: solid; border-right: solid;}

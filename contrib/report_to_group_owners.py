@@ -255,6 +255,7 @@ def write_plain_text_report(codec, translation=None, sender=None,
 
 def create_html_message(html,
                         plain_text,
+                        codec,
                         subject=None,
                         from_addr=None,
                         to_addrs=None):
@@ -266,8 +267,8 @@ def create_html_message(html,
     if to_addrs:
         message['To'] = to_addrs
 
-    message.attach(MIMEText(plain_text, 'plain'))
-    message.attach(MIMEText(html, 'html'))
+    message.attach(MIMEText(plain_text, 'plain', codec.name))
+    message.attach(MIMEText(html, 'html', codec.name))
     return message
 
 
@@ -533,6 +534,7 @@ def send_mails(db, args):
 
         message = create_html_message(html,
                                       plain_text,
+                                      args.codec,
                                       subject=title,
                                       from_addr=FROM_ADDRESS,
                                       to_addrs=entity_email_address)
