@@ -392,7 +392,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                   member_id=:member_id
           )
         """
-        if not self.query_1('exists_stmt', binds):
+        if not self.query_1(exists_stmt, binds):
             # False positive
             return
         delete_stmt = """
