@@ -138,23 +138,19 @@ class PosixUser(Account_class):
         # if it's not a member already?  There are many occurences of
         # code like this, and but none of them implement all the
         # robustness below.
-        binds = {'account_id': self.entity_id,
-                 'posix_uid': self.posix_uid,
+        binds = {'a_id': self.entity_id,
+                 'u_id': self.posix_uid,
                  'gid': self.gid_id,
                  'gecos': self.gecos,
                  'shell': int(self.shell)}
-        defs = {'tc': ', '.join(x for x in sorted(binds)),
-                'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
-                'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
-                                if x != 'account_id'),
-                'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}
         if not primary_group.has_member(self.entity_id):
             primary_group.add_member(self.entity_id)
-
         if is_new:
             insert_stmt = """
-              INSERT INTO [:table schema=cerebrum name=posix_user] (%(tc)s)
-              VALUES (%(tb)s)""" % defs
+            INSERT INTO [:table schema=cerebrum name=posix_user]
+              (account_id, posix_uid, gid, gecos, shell)
+            VALUES (:a_id, :u_id, :gid, :gecos, :shell)
+            """
             self.execute(insert_stmt, binds)
             self._db.log_change(self.entity_id,
                                 self.clconst.posix_promote,
@@ -168,15 +164,19 @@ class PosixUser(Account_class):
               SELECT EXISTS (
                 SELECT 1
                 FROM [:table schema=cerebrum name=posix_user]
-                WHERE (%(tw)s)
+                WHERE (gecos is NULL AND :gecos is NULL OR gecos=:gecos) AND
+                       posix_uid=:u_id AND
+                       gid=:gid AND
+                       shell=:shell
               )
-            """ % defs
+            """
             if not self.query_1(exists_stmt, binds):
                 # True positive
                 update_stmt = """
-                  UPDATE [:table schema=cerebrum name=posix_user]
-                  SET (%(ts)s)
-                  WHERE account_id=:account_id""" % defs
+                UPDATE [:table schema=cerebrum name=posix_user]
+                SET posix_uid=:u_id, gid=:gid, gecos=:gecos, shell=:shell
+                WHERE account_id=:a_id
+                """
                 self.execute(update_stmt, binds)
                 self._db.log_change(self.entity_id,
                                     self.clconst.posix_promote,
