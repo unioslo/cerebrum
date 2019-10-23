@@ -109,8 +109,6 @@ class group_attributes(object):
         self.group_id = group_proxy.entity_id
         self.group_name = group_proxy.group_name
         self.description = group_proxy.description
-    # end __init__
-# end group_attributes
 
 
 def format_sko(*rest):
@@ -120,9 +118,9 @@ def format_sko(*rest):
     """
     assert len(rest) == 3
     return "%02d%02d%02d" % rest
-# end format_sko
 
 
+@memoize
 def ou_id2ou_info(ou_id):
     """Locate information about the OU with the specied ou_id.
 
@@ -151,12 +149,8 @@ def ou_id2ou_info(ou_id):
     except Errors.NotFoundError:
         return None
 
-    # NOTREACHED
-    assert False
-# end ou_id2ou_info
-ou_id2ou_info = memoize(ou_id2ou_info)
 
-
+@memoize
 def ou_id2parent_info(ou_id, perspective):
     """Similar to L{ou_id2ou_info}, except return info for the parent.
 
@@ -183,12 +177,8 @@ def ou_id2parent_info(ou_id, perspective):
     except Errors.NotFoundError:
         return None
 
-    # NOTREACHED
-    assert False
-# end ou_id2parent_info
-ou_id2parent_info = memoize(ou_id2parent_info)
 
-
+@memoize
 def ou_get_children(ou_id, perspective):
     """Check if ou_id has any subordinate OUs in perspective.
 
@@ -213,12 +203,8 @@ def ou_get_children(ou_id, perspective):
         # If we can't find the OU, it does not have a parent :)
         return False
 
-    # NOTREACHED
-    assert False
-# end ou_get_children
-ou_get_children = memoize(ou_get_children)
 
-
+@memoize
 def get_create_account_id():
     """Fetch account_id for group creation.
 
@@ -228,8 +214,6 @@ def get_create_account_id():
     account = Factory.get("Account")(database)
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     return account.entity_id
-# end get_create_account_id
-get_create_account_id = memoize(get_create_account_id)
 
 
 def group_name_is_valid(group_name):
@@ -238,7 +222,6 @@ def group_name_is_valid(group_name):
     The format in question is <something>-<sko>, where <sko> is \d{6}.
     """
     return re.search("[a-zA-Z0-9_-]+-\d{6}$", group_name) is not None
-# end group_name_is_valid
 
 
 def find_all_auto_groups():
@@ -265,7 +248,6 @@ def find_all_auto_groups():
                 continue
 
             result[group.group_name] = group_attributes(group)
-    # end slurt_data
 
     result = dict()
     entity = Factory.get("Group")(database)
@@ -276,7 +258,6 @@ def find_all_auto_groups():
 
     logger.debug("Collected %d existing auto groups", len(result))
     return result
-# end find_all_auto_groups
 
 
 def group_name2group_id(group_name, description, current_groups, trait=NotSet):
@@ -361,7 +342,6 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
         current_groups[group_name].description = description
 
     return current_groups[group_name].group_id
-# end group_name2group_id
 
 
 def _load_selection_helper(iterable):
@@ -397,7 +377,6 @@ def _load_selection_helper(iterable):
             result[co_object] = prefix
 
     return result
-# end load_selection_helper
 
 
 def load_registration_criteria(criteria):
@@ -433,7 +412,6 @@ def load_registration_criteria(criteria):
                      str(aff_or_status),
                      prefix)
     return result
-# end load_registration_criteria
 
 
 def affiliation2groups(row, current_groups, select_criteria, perspective):
@@ -541,7 +519,6 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
                 tmp_ou_id = parent_info["ou_id"]
 
     return result
-# end affiliation2groups
 
 
 def populate_groups_from_rule(generator, row2groups, current_groups,
@@ -607,7 +584,6 @@ def populate_groups_from_rule(generator, row2groups, current_groups,
 
     logger.debug("After processing rule, we have %d groups", len(new_groups))
     logger.debug("... and <= %d members", count)
-# end populate_groups_from_rule
 
 
 def remove_members(group, member_sequence):
@@ -628,7 +604,6 @@ def remove_members(group, member_sequence):
 
     logger.debug("Removed %d members from group id=%s, name=%s",
                  len(member_sequence), group.entity_id, group.group_name)
-# end remove_members
 
 
 def add_members(group, member_sequence):
@@ -649,7 +624,6 @@ def add_members(group, member_sequence):
 
     logger.debug("Added %d members to group id=%s, name=%s",
                  len(member_sequence), group.entity_id, group.group_name)
-# end add_members
 
 
 def synchronise_spreads(group, spreads, omit_spreads):
@@ -699,7 +673,6 @@ def synchronise_spreads(group, spreads, omit_spreads):
         logger.debug("Removing spread %s to group %s (id=%s)",
                      str(spread), group_name, group.entity_id)
         group.delete_spread(spread)
-# end synchronise_spreads
 
 
 def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads,
@@ -776,7 +749,6 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads,
         group.write_db()
 
     return groups_from_cerebrum
-# end synchronise_groups
 
 
 def empty_defunct_groups(groups_from_cerebrum):
@@ -818,7 +790,6 @@ def empty_defunct_groups(groups_from_cerebrum):
         remove_members(group, members)
         logger.info("Removed %d members from defunct group id=%s, name=%s",
                     count, group_id, group_name)
-# end empty_defunct_groups
 
 
 def delete_defunct_groups(groups):
@@ -886,7 +857,6 @@ def delete_defunct_groups(groups):
         # If we get here, then the group has to be deleted.
         group.delete()
         logger.info("Deleted group id=%s, name=%s", group_id, group_name)
-# end delete_defunct_groups
 
 
 def perform_sync(select_criteria, perspective, source_system, spreads,
@@ -998,7 +968,6 @@ def perform_sync(select_criteria, perspective, source_system, spreads,
     # And finally, from these empty groups, delete the ones that should no
     # longer exist.
     delete_defunct_groups(current_groups)
-# end perform_sync
 
 
 def perform_delete():
@@ -1051,7 +1020,6 @@ def perform_delete():
 
         group.delete()
         logger.info("Deleted group id=%s, name=%s", group_id, group_name)
-# end perform_delete
 
 
 class gnode(object):
@@ -1073,13 +1041,11 @@ class gnode(object):
         self._non_group_children = set()
         self._parent = None
         self._description = self._fetch_description()
-    # end __init__
 
     def _fetch_description(self):
         group = Factory.get("Group")(database)
         group.find(self._gid)
         return group.description
-    # end _fetch_description
 
     def __hash__(self):
         """Return a hash value for the object."""
@@ -1104,7 +1070,6 @@ class gnode(object):
                       humans]
 
         return "group %s" % ", ".join(components)
-    # end prepare_output
 
     def add_group_child(self, gnode_other):
         """Add child in group hierarchy."""
@@ -1112,22 +1077,18 @@ class gnode(object):
             return
 
         self._group_children[gnode_other._gid] = gnode_other
-    # end add_child
 
     def add_nongroup_child(self, key):
         """Add a child that is not a group."""
         self._non_group_children.add(key)
-    # end add_nongroup_child
 
     def add_parent(self, node):
         """Set the parent node."""
         self._parent = node
-    # end add_parent
 
     def get_parent(self):
         """Return the parent node."""
         return self._parent
-    # end get_parent
 
     def matches_filters(self, *filters):
         """Check if the group name matches the supplied filters."""
@@ -1140,7 +1101,6 @@ class gnode(object):
                 return True
 
         return False
-    # end matches_filters
 
     def output(self, stream, indent=0):
         """Write the group tree to the supplied stream."""
@@ -1149,8 +1109,6 @@ class gnode(object):
         stream.write("\n")
         for child in self._group_children.itervalues():
             child.output(stream, indent + INDENT_STEP)
-    # end output
-# end gnode
 
 
 def person_id2uname():
@@ -1164,7 +1122,6 @@ def person_id2uname():
 
     logger.debug("%d entries in the cache", len(pid2uname))
     return pid2uname
-# end person_id2uname
 
 
 def build_ou_roots(filters, perspective):
@@ -1202,7 +1159,6 @@ def build_ou_roots(filters, perspective):
             ou_roots[ou_id] = filtered_set[ou_id]
 
     return ou_roots
-# end build_ou_roots
 
 
 def output_group_forest(filters, perspective):
@@ -1250,7 +1206,6 @@ def output_group_forest(filters, perspective):
                           ou_get_children(current_ou["ou_id"],
                                           perspective)
                           if ou_id2ou_info(child_id))
-# end output_group_forest
 
 
 def output_ou(ou_info, indent, stream):
@@ -1262,7 +1217,6 @@ def output_ou(ou_info, indent, stream):
     stream.write(indent)
     stream.write("OU %s (id=%s)" % (ou_info["sko"], ou_info["ou_id"]))
     stream.write("\n")
-# end output_ou
 
 
 def build_complete_group_forest():
@@ -1321,7 +1275,6 @@ def build_complete_group_forest():
         result[node._gname] = node
 
     return result
-# end build_complete_forest
 
 
 def usage(exitcode):
