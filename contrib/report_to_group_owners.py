@@ -542,6 +542,14 @@ def send_mails(db, args):
                                           debug=not args.commit)
 
 
+def check_date(dates, today=None):
+    """Check if today is one of the given dates"""
+    if not dates:
+        return True
+    today = today or datetime.date.today()
+    return (today.month, today.day) in [(d.month, d.day) for d in dates]
+
+
 def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -561,6 +569,15 @@ def main(inargs=None):
         '-t', '--template-folder',
         default=DEFAULT_TEMPLATE_FOLDER,
         help='Path to the template folder'
+    )
+    parser.add_argument(
+        '-d', '--dates',
+        type=lambda date: datetime.datetime.strptime(date, '%d-%m'),
+        default=None,
+        action='append',
+        help='Check date before running the script. Yearly dates to run the '
+             'script on the format: <day>-<month>. The script runs normally if'
+             ' no date is given.'
     )
     test_group = parser.add_argument_group('Testing',
                                            'Arguments useful when testing')
@@ -584,9 +601,11 @@ def main(inargs=None):
     logger.info('Start of script %s', parser.prog)
     logger.debug("args: %r", args)
 
-    db = Factory.get('Database')()
-
-    send_mails(db, args)
+    if check_date(args.dates):
+        db = Factory.get('Database')()
+        send_mails(db, args)
+    else:
+        logger.info('Today is not in the given list of dates')
 
     logger.info('Done with script %s', parser.prog)
 
