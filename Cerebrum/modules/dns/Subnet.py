@@ -393,7 +393,6 @@ class Subnet(Entity):
               )
             """
             if self.query_1(exists_stmt, binds):
-                # True positive
                 delete_stmt = """
                 DELETE FROM [:table schema=cerebrum name=dns_subnet]
                 WHERE entity_id=:e_id"""

@@ -332,12 +332,22 @@ class IPv6Subnet(Entity):
                 "Subnet '%s/%s' cannot be deleted; it has addresses in use" % (
                     self.subnet_ip, self.subnet_mask))
         if self.__in_db:
-            self.execute("""
-            DELETE FROM [:table schema=cerebrum name=dns_ipv6_subnet]
-            WHERE entity_id=:e_id""", {'e_id': self.entity_id})
-            self._db.log_change(self.entity_id,
-                                self.clconst.subnet6_delete,
-                                None)
+            binds = {'e_id': self.entity_id}
+            exists_stmt = """
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=dns_ipv6_subnet]
+                WHERE entity_id=:e_id
+              )
+            """
+            if self.query_1(exists_stmt, binds):
+                delete_stmt = """
+                DELETE FROM [:table schema=cerebrum name=dns_ipv6_subnet]
+                WHERE entity_id=:e_id"""
+                self.execute(delete_stmt, binds)
+                self._db.log_change(self.entity_id,
+                                    self.clconst.subnet6_delete,
+                                    None)
         self.__super.delete()
 
     def new(self):

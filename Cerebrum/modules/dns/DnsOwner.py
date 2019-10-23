@@ -197,21 +197,22 @@ class GeneralDnsRecord(object):
                                                  'data': data})
 
     def delete_general_dns_record(self, dns_owner_id, field_type):
-        where = " AND ".join(['dns_owner_id=:dns_owner_id',
-                              'field_type=:field_type'])
         exists_stmt = """
           SELECT EXISTS (
             SELECT 1
             FROM [:table schema=cerebrum name=dns_general_dns_record]
-            WHERE  %s
-          )
-        """ % where
+            WHERE  dns_owner_id=:dns_owner_id AND
+                   field_type=:field_type
+           )
+        """
         if not self.query_1(exists_stmt, locals()):
             # False positive
             return
         delete_stmt = """
           DELETE FROM [:table schema=cerebrum name=dns_general_dns_record]
-          WHERE  %s """ % where
+          WHERE dns_owner_id=:dns_owner_id AND
+                field_type=:field_type
+        """
         self.execute(delete_stmt, locals())
         self._db.log_change(dns_owner_id,
                             self.clconst.general_dns_record_del,
