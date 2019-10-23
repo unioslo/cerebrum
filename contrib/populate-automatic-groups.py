@@ -77,15 +77,16 @@ FIXME: Profile this baby.
 """
 
 import collections
-import getopt
 import re
 import sys
+import argparse
 
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.utils.argutils import add_commit_args
 
 
 logger = Factory.get_logger("cronjob")
@@ -439,7 +440,7 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
 
     :rtype: sequence
     :return:
-      A sequence of triples (x, y), where
+      A sequence of tuples (x, y), where
         - x is the member id (entity_id)
         - y is the group id where x is to be member.
 
@@ -861,7 +862,7 @@ def delete_defunct_groups(groups):
 
 def perform_sync(select_criteria, perspective, source_system, spreads,
                  omit_spread, populate_with_primary_acc=False):
-    """Set up the environment for synchronisation and synch all groups.
+    """Set up the environment for synchronisation and sync all groups.
 
     :type select_criteria: a dict (aff/status constant -> str)
     :param select_criteria:
@@ -888,7 +889,6 @@ def perform_sync(select_criteria, perspective, source_system, spreads,
       instead of the person, into the groups.
 
     """
-    assert perspective is not None, "Must have a perspective"
 
     # Collect all existing auto groups. Whatever is left here after several
     # processing passes are groups that no longer have any reason to exist.
@@ -899,8 +899,7 @@ def perform_sync(select_criteria, perspective, source_system, spreads,
     selecting_affiliations = [x
                               for x in select_criteria
                               if isinstance(x, constants.PersonAffiliation)]
-    # TBD: If the select list is empty, should the script abort, or just go for
-    # all affiliations?
+
     if not selecting_affiliations:
         selecting_affiliations = None
 
@@ -1277,151 +1276,140 @@ def build_complete_group_forest():
     return result
 
 
-def usage(exitcode):
-    """Help text for the commandline options."""
-    print """Usage: populate-automatic-groups.py -p SYSTEM [OPTIONS]
-
-    -p --perspective SYSTEM     Set the system perspective to fetch the OU
-                                structure from, e.g. SAP or FS. This sets what
-                                system that controls the OU hierarchy which
-                                should be used for the group hierarchy.
-
-    -s --source_system SYSTEM   Set the source system to fetch the person
-                                affiliations from. Could be a single system or
-                                a list of systems. Defaults to 'system_sap'.
-
-    -c --collect CRITERIA       Update the select criterias for what
-                                affiliations or statuses that shoul be
-                                collected and used for populating auto groups.
-                                Note that this comes in addition to what is set
-                                in the mapping in cereconf.AUTOMATIC_GROUPS.
-
-                                Format: The aff or status must be tailed with a
-                                colon and what group prefix to use. Example:
-
-                                    affilation_status_tilknyttet_eremitus:auto-eremitus
-
-    -a --accounts               Populate the groups with primary accounts
-                                instead of persons.
-
-    -r --spread PREFIX:SPREAD   Add a spread to the auto groups. Each given
-                                spread must have a prefix that must match the
-                                start of the group name for the spread to be
-                                given. Examples:
-
-                                   ansatt:group@ad # Each group starting with
-                                                   # "ansatt..." will get to
-                                                   # AD.
-
-                                   :group@ldap # All groups will get to LDAP,
-                                               # since the prefix is blank and
-                                               # will match all groups.
-
-    --omit-spread SPREAD        These spreads will be ommitted from
-                                syncronization.
-                                In other words, they won't be touched.  Should
-                                be specified in the same way as for --spread.
-
-    --remove-all-auto-groups    Delete all auto groups, which means all groups
-                                that has the autogroup trait.
-
-    -o --output-groups          Print out the group forest of auto groups and
-                                quit, without doing any changes.
-
-    -f --filters                Add an output filter that is used for finding
-                                the root OUs that are used when printing out
-                                the forest - see --output-groups.
-
-    -d --dryrun                 Do not commit the changes.
-
-    -h --help                   Show this and quit.
-
-    """
-    print __doc__
-    sys.exit(exitcode)
-
-
 def main():
     """Argument parsing and start of execution."""
-    options, junk = getopt.getopt(sys.argv[1:],
-                                  "p:ds:c:of:ar:h",
-                                  ("perspective=",
-                                   "dryrun",
-                                   "source_system=",
-                                   "remove-all-auto-groups",
-                                   "collect=",
-                                   "output-groups",
-                                   "filters=",
-                                   "spread=",
-                                   "omit-spread=",
-                                   "accounts",
-                                   "help"))
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-p', '--perspective',
+        type=lambda p: int(constants.OUPerspective(p)),
+        help='Set the system perspective to fetch the OU'
+             'structure from, e.g. SAP or FS. This sets what'
+             'system that controls the OU hierarchy which'
+             'should be used for the group hierarchy.',
+        required=True,
+    )
+    parser.add_argument(
+        '-s', '--source-system',
+        type=lambda s: getattr(constants, s),
+        help='Set the source system to fetch the person'
+             'affiliations from. Could be a single system or'
+             'a list of systems. Defaults to \'system_sap\'.',
+        default=constants.system_sap,
+    )
+    parser.add_argument(
+        '--remove-all-auto-groups',
+        dest='wipe_all',
+        action='store_true',
+        help='Delete all auto groups, which means all groups'
+             'that has the autogroup trait.'
+    )
+    parser.add_argument(
+        '-c', '--collect',
+        type=str,
+        action='append',
+        default=[],
+        help='Update the select criterias for what affiliations or statuses '
+             'that should be collected and used for populating auto groups. '
+             'Note that this comes in addition to what is set in the mapping '
+             'in cereconf.AUTOMATIC_GROUPS. \n'
+             '  Format: The aff or status must be tailed with a colon and '
+             'what group prefix to use. \n '
+             '  Example: affilation_status_tilknyttet_eremitus:auto-eremitus'
+    )
+    parser.add_argument(
+        '-f', '--filters',
+        dest='output_filters',
+        action='append',
+        default=[],
+        help='Add an output filter that is used for finding the root OUs that '
+             'are used when printing out the forest - see --output-groups.'
+    )
+    parser.add_argument(
+        '-o', '--output-groups',
+        dest='output_groups',
+        action='store_true',
+        help='Print out the group forest of auto groups and quit, without '
+             'doing any changes.'
+    )
+    parser.add_argument(
+        '-a', '--accounts',
+        dest='populate_with_primary_acc',
+        action='store_true',
+        help='Populate the groups with primary accounts instead of persons.'
+    )
+    parser.add_argument(
+        '-r', '--spread',
+        type=str,
+        action='append',
+        default=[],
+        help='Add a spread to the auto groups. Each given spread must have a '
+             'prefix that must match the start of the group name for the '
+             'spread to be given. \n'
+             'Examples:\n'
+             '  ansatt:group@ad # Each group starting with\n'
+             '                  # "ansatt..." will get to\n'
+             '                  # AD.\n'
+             '  :group@ldap # All groups will get to LDAP,\n'
+             '              # since the prefix is blank and\n'
+             '              # will match all groups.'
+    )
+    parser.add_argument(
+        '--omit-spread',
+        type=str,
+        action='append',
+        default=[],
+        help='These spreads will be ommitted from syncronization. In other '
+             'words, they won\'t be touched.  Should be specified in the same '
+             'way as for --spread.'
+    )
+    add_commit_args(parser, default=True)
 
-    dryrun = False
-    perspective = None
-    wipe_all = False
-    populate_with_primary_acc = False
-    source_system = constants.system_sap
+    args = parser.parse_args()
+
     select_criteria = dict()
-    output_groups = False
-    output_filters = list()
-    const = Factory.get("Constants")()
+    for value in args.collect:
+        aff_or_status, prefix = value.split(":")
+        select_criteria[aff_or_status] = prefix
+
     spreads = NotSet
     omit_spreads = set()
+    const = Factory.get("Constants")()
 
-    for option, value in options:
-        if option in ("-p", "--perspective"):
-            perspective = int(constants.OUPerspective(value))
-        elif option in ("-d", "--dryrun"):
-            dryrun = True
-        elif option in ("-s", "--source_system"):
-            source_system = getattr(constants, value)
-        elif option in ("--remove-all-auto-groups",):
-            wipe_all = True
-        elif option in ("-c", "--collect"):
-            aff_or_status, prefix = value.split(":")
-            select_criteria[aff_or_status] = prefix
-        elif option in ("-f", "--filters"):
-            output_filters.append(value)
-        elif option in ("-o", "--output-groups"):
-            output_groups = True
-        elif option in ("-h", "--help"):
-            usage(1)
-        elif option in ('-a', '--accounts'):
-            populate_with_primary_acc = True
-        elif option in ("-r", "--spread"):
-            try:
-                prefix, spread = value.split(":")
-            except ValueError:
-                print "Missing prefix in %s, e.g. ansatt:group@ldap" % option
-                sys.exit(1)
-            spread = const.human2constant(spread, const.Spread)
-            if spread is None:
-                logger.warn("Unknown spread value %s", value)
-                continue
-
-            if spreads is NotSet:
-                spreads = set()
-            spreads.add((prefix, spread))
-        elif option in ("--omit-spread"):
+    for value in args.spread:
+        try:
             prefix, spread = value.split(":")
-            spread = const.human2constant(spread, const.Spread)
-            if spread is None:
-                logger.warn("Unknown spread value %s", value)
-                continue
+        except ValueError:
+            print("Missing prefix in --spread, e.g. ansatt:group@ldap")
+            sys.exit(1)
+        spread = const.human2constant(spread, const.Spread)
+        if spread is None:
+            logger.warn("Unknown spread value %s", value)
+            continue
 
-            omit_spreads.add((prefix, spread))
-    if output_groups:
-        output_group_forest(output_filters, perspective)
+        if spreads is NotSet:
+            spreads = set()
+        spreads.add((prefix, spread))
+
+    for value in args.omit_spread:
+        prefix, spread = value.split(":")
+        spread = const.human2constant(spread, const.Spread)
+        if spread is None:
+            logger.warn("Unknown spread value %s", value)
+            continue
+
+        omit_spreads.add((prefix, spread))
+
+    if args.output_groups:
+        output_group_forest(args.output_filters, args.perspective)
         sys.exit(0)
-    elif wipe_all:
+    elif args.wipe_all:
         perform_delete()
     else:
         select_criteria = load_registration_criteria(select_criteria)
-        perform_sync(select_criteria, perspective, source_system, spreads,
-                     omit_spreads, populate_with_primary_acc)
+        perform_sync(select_criteria, args.perspective, args.source_system,
+                     spreads, omit_spreads, args.populate_with_primary_acc)
 
-    if dryrun:
+    if not args.commit:
         database.rollback()
         logger.debug("Rolled back all changes")
     else:
