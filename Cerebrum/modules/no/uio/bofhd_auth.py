@@ -30,6 +30,7 @@ from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
 from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
+from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
 
 
 class UioContactAuthMixin(BofhdContactAuth):
@@ -290,3 +291,10 @@ class UioPassWordAuth(UioAuth):
 class UioUnpersonalAuth(UioAuth,
                         bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
     """UiO specific user create unpersonal auth"""
+
+
+class BofhdOUDiskMappingAuth(
+    UioAuth,
+    bofhd_cmds.BofhdOUDiskMappingAuth
+):
+    """UiO specific OU Settings commands"""
