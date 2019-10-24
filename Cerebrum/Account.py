@@ -457,8 +457,9 @@ class AccountHome(object):
             change_type = self.clconst.homedir_add
         else:
             # Leave previous value alone if update
+
             # Status cannot be NULL, but it *can* be NotSet.
-            # The existence querey therefore needs this mapping
+            # The existence query therefore needs this mapping
             exist_strings = {
                 'disk_id': 16*' ' + ' '.join(['(disk_id is NULL AND',
                                               ':disk_id is NULL OR',
