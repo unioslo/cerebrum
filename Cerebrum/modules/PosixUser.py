@@ -167,7 +167,8 @@ class PosixUser(Account_class):
                 WHERE (gecos is NULL AND :gecos is NULL OR gecos=:gecos) AND
                        posix_uid=:u_id AND
                        gid=:gid AND
-                       shell=:shell
+                       shell=:shell AND
+                       account_id=:a_id
               )
             """
             if not self.query_1(exists_stmt, binds):
