@@ -349,6 +349,18 @@ class GroupOwnerCacher(object):
                 if entity_type == self.co.entity_person:
                     return cls.get_name(self.co.system_cached,
                                         self.co.name_full)
+                elif entity_type == self.co.entity_account:
+                    self.person.clear()
+                    try:
+                        self.person.find(cls.owner_id)
+                        owner_name = self.person.get_name(
+                            self.co.system_cached,
+                            self.co.name_full
+                        )
+                    except NotFoundError:
+                        return cls.account_name
+                    else:
+                        return cls.account_name + ' ({})'.format(owner_name)
                 return cls.get_domain_name()
             except NotFoundError:
                 pass
