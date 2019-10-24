@@ -72,6 +72,7 @@ class DistributionGroup(Group_class):
                  name=None,
                  description=None,
                  expire_date=None,
+                 group_type=None,
                  roomlist=None,
                  hidden=None,
                  parent=None):
@@ -112,7 +113,9 @@ class DistributionGroup(Group_class):
                 visibility=visibility,
                 name=name,
                 description=description,
-                expire_date=expire_date)
+                expire_date=expire_date,
+                group_type=group_type,
+            )
         self.__in_db = False
         self.roomlist = roomlist
         self.hidden = hidden

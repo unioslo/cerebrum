@@ -47,23 +47,34 @@ def group_visibility(constant_module):
 
 
 @pytest.fixture
-def groups(gr, group_visibility, group_ds, initial_account):
+def group_type(constant_module):
+    u""" A new, unique group type setting. """
+    code = constant_module._GroupTypeCode
+    gt = code('3e94030c921dbdee', description='test group type')
+    gt.insert()
+    return gt
+
+
+@pytest.fixture
+def groups(gr, group_visibility, group_type, group_ds, initial_account):
     u""" Group info on five new groups. """
     groups = list()
     for entry in group_ds(limit=5):
         try:
             # creator_id = self.get_initial_account_id()
             gr.populate(
-                initial_account.entity_id,
-                int(group_visibility),
-                entry['group_name'],
-                entry['description'])
+                creator_id=initial_account.entity_id,
+                visibility=int(group_visibility),
+                name=entry['group_name'],
+                description=entry['description'],
+                group_type=int(group_type),
+            )
             gr.expire_date = entry.get('expire_date')
             gr.write_db()
             entry['entity_id'] = gr.entity_id
             entry['entity_type'] = gr.entity_type
             groups.append(entry)
-        except:
+        except Exception:
             gr._db.rollback()
             raise
         finally:
