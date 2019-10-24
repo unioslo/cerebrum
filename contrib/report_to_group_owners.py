@@ -62,7 +62,7 @@ SENDER = 'USIT\nUiO'
 DEFAULT_AUTH_OPERATION_SET = ['Group-owner']
 DEFAULT_ENCODING = 'utf-8'
 DEFAULT_LANGUAGE = 'nb'
-MAX_SHOWABLE_MEMBERS = 20
+MAX_SHOWABLE_MEMBERS = 30
 MEMBERS_PR_LINE = 5
 BRUKERINFO_GROUP_MANAGE_LINK = 'https://brukerinfo.uio.no/groups/?group='
 TRANSLATION = {
@@ -73,11 +73,12 @@ TRANSLATION = {
         'signature': 'Best regards,',
         'headers': collections.OrderedDict([
             ('group_name', 'Group name'),
-            ('role', 'Role'),
             ('members', 'Members'),
             ('manage_link', 'Manage group'),
         ]),
         'remaining': ' (+{} more members)',
+        'group': 'group',
+        'person': 'person',
     },
     'nb': {
         'greeting': 'Hei,',
@@ -86,11 +87,12 @@ TRANSLATION = {
         'signature': 'Med vennlig hilsen,',
         'headers': collections.OrderedDict([
             ('group_name', 'Gruppenavn'),
-            ('role', 'Rolle'),
             ('members', 'Medlemmer'),
             ('manage_link', 'Administrer gruppe'),
         ]),
         'remaining': ' (+{} medlemmer til)',
+        'group': 'gruppe',
+        'person': 'person',
     },
     'nn': {
         'greeting': 'Hei,',
@@ -99,11 +101,12 @@ TRANSLATION = {
         'signature': 'Med vennleg helsing,',
         'headers': collections.OrderedDict([
             ('group_name', 'Gruppenamn'),
-            ('role', 'Rolle'),
             ('members', 'Medlem'),
             ('manage_link', 'Administrer gruppe'),
         ]),
         'remaining': ' (+{} fleire medlem)',
+        'group': 'gruppe',
+        'person': 'person',
     }
 }
 
@@ -189,9 +192,8 @@ def write_plain_text_report(codec, translation=None, sender=None,
 
         for group in owned_groups:
             columns[0].append(group['group_name'])
-            columns[1].append(group['role'])
-            columns[2].extend(get_member_lines(group['group_id'])[0])
-            columns[3].append(group['manage_link'])
+            columns[1].extend(get_member_lines(group['group_id'])[0])
+            columns[2].append(group['manage_link'])
 
         return map(get_longest_item_length, columns)
 
@@ -199,11 +201,15 @@ def write_plain_text_report(codec, translation=None, sender=None,
         rows = ''
         for group in owned_groups:
             group_name = group['group_name']
-            role = group['role']
             member_lines, remaining_members = get_member_lines(
                 group['group_id'])
             # Avoid mutating the memoized value
             member_lines = copy.copy(member_lines)
+            member_lines = [
+                l.format(group=translation['group'],
+                         person=translation['person']
+                         ) for l in member_lines
+            ]
 
             if remaining_members > 0:
                 member_lines.append(
@@ -214,7 +220,7 @@ def write_plain_text_report(codec, translation=None, sender=None,
             first_line = assemble_line(
                 '|',
                 get_cell_contents(
-                    [group_name, role, member_lines[0], manage_link],
+                    [group_name, member_lines[0], manage_link],
                     cell_widths)
             )
             if len(member_lines) > 1:
@@ -222,7 +228,7 @@ def write_plain_text_report(codec, translation=None, sender=None,
                     [
                         assemble_line(
                             '|',
-                            get_cell_contents(['', '', l, ''], cell_widths)
+                            get_cell_contents(['', l, ''], cell_widths)
                         ) for l in member_lines[1:]
                     ]
                 )
@@ -466,8 +472,10 @@ class GroupOwnerCacher(object):
                     member['member_id'],
                     member['member_type']))
                 if not member['member_type'] == self.co.entity_account:
-                    group_id2members[group_id][-1] += ' ({})'.format(
-                        str(self.co.EntityType(member['member_type']))
+                    group_id2members[group_id][-1] += (
+                            ' ({' +
+                            str(self.co.EntityType(member['member_type'])) +
+                            '})'
                     )
         return group_id2members
 
@@ -531,7 +539,6 @@ def send_mails(db, args):
             owned_groups=owned_groups,
             get_member_lines=get_member_lines,
         )
-
         message = create_html_message(html,
                                       plain_text,
                                       args.codec,

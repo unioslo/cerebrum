@@ -15,19 +15,18 @@
 <table>
     <tr>
         <th>{{ translation['headers']['group_name'] }}</th>
-        <th>{{ translation['headers']['role'] }}</th>
         <th>{{ translation['headers']['members'] }}</th>
         <th>{{ translation['headers']['manage_link'] }}</th>
     </tr>
     {% for group in owned_groups %}
     <tr>
         <td>{{ group['group_name'] }}</td>
-        <td>{{ group['role'] }}</td>
         <td>
             {% set member_lines, remaining_members =
             get_member_lines(group['group_id']) %}
             {% for member_line in member_lines %}
-            {{ member_line }}
+            {{ member_line.format(group=translation['group'],
+                person=translation['person']) }}
             <br/>
             {% endfor %}
             {% if remaining_members %}
@@ -35,7 +34,9 @@
             {% endif %}
         </td>
         <td>
-            <a href="{{ group['manage_link'] }}">Manage group</a>
+            <a href="{{ group['manage_link'] }}">
+                {{ group['manage_link'] }}
+            </a>
         </td>
     </tr>
     {% endfor %}
