@@ -122,14 +122,15 @@ class DistributionGroup(Group_class):
         self.__super.write_db()
         if not self.__updated:
             return
+        binds = {'g_id': self.entity_id,
+                 'roomlist': self.roomlist,
+                 'hidden': self.hidden}
         if not self.__in_db:
-            self.execute("""
+            insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=distribution_group]
-              (group_id, roomlist, hidden)
-            VALUES (:g_id, :roomlist, :hidden)""",
-                         {'g_id': self.entity_id,
-                          'roomlist': self.roomlist,
-                          'hidden': self.hidden})
+            (group_id, roomlist, hidden)
+            VALUES (:g_id, :roomlist, :hidden)"""
+            self.execute(insert_stmt, binds)
             if self.roomlist == 'T':
                 self._db.log_change(self.entity_id,
                                     self.clconst.dl_roomlist_create,
@@ -139,16 +140,27 @@ class DistributionGroup(Group_class):
                                     self.clconst.dl_group_create,
                                     None)
         else:
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=distribution_group]
-            SET roomlist=:roomlist, hidden=:hidden
-            WHERE group_id=:g_id""", {'g_id': self.entity_id,
-                                      'roomlist': self.roomlist,
-                                      'hidden': self.hidden})
-        # should probably param-log all relevant data!
-        self._db.log_change(self.entity_id,
-                            self.clconst.dl_group_modify,
-                            None)
+            exists_stmt = """
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=distribution_group]
+                WHERE
+                  group_id=:g_id AND
+                  roomlist=:roomlist AND
+                  hidden=:hidden
+              )
+            """
+            if not self.query_1(exists_stmt, binds):
+                # True positive
+                update_stmt = """
+                UPDATE [:table schema=cerebrum name=distribution_group]
+                SET roomlist=:roomlist, hidden=:hidden
+                WHERE group_id=:g_id"""
+                self.execute(update_stmt, binds)
+                # should probably param-log all relevant data!
+                self._db.log_change(self.entity_id,
+                                    self.clconst.dl_group_modify,
+                                    None)
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -214,13 +226,33 @@ class DistributionGroup(Group_class):
         :type roomlist: basestring
         :param roomlist: 'T' if the DistributionGroup should be a roomlist. 'F'
             otherwise."""
+        current_status = self.get_roomlist_status()
+        if current_status == roomlist:
+            return
         self._db.log_change(self.entity_id, self.clconst.dl_group_room,
                             None, change_params={'roomlist': roomlist})
-        return self.execute("""
+        stmt = """
           UPDATE [:table schema=cerebrum name=distribution_group]
-            SET roomlist=:roomlist
-          WHERE group_id=:g_id""", {'g_id': self.entity_id,
-                                    'roomlist': roomlist})
+          SET roomlist=:roomlist
+          WHERE
+            group_id=:g_id
+        """
+        self.execute(stmt, {'g_id': self.entity_id,
+                            'roomlist': roomlist})
+
+    def get_distribution_group_hidden_status(self):
+        """Determine wether DistributionGroup visibility is on or off.
+
+        Returns 'T' for True, 'F' for False """
+        binds = {'g_id': self.entity_id,
+                 'hidden': 'T'}
+        exists_stmt = """
+        SELECT EXISTS (
+          SELECT 1
+          FROM [:table schema=cerebrum name=distribution_group]
+          WHERE group_id=:g_id AND hidden=:hidden
+        )"""
+        return 'T' if self.query_1(exists_stmt, binds) else 'F'
 
     # change the visibility in address list for a distribution group
     # default is visible
@@ -229,22 +261,23 @@ class DistributionGroup(Group_class):
 
         :type hidden: basestring
         :param hidden: 'T' if hidden, 'F' if visible."""
-        self._db.log_change(self.entity_id, self.clconst.dl_group_hidden,
-                            None,
-                            change_params={'hidden': hidden})
-        return self.execute("""
+        if hidden == self.get_distribution_group_hidden_status():
+            # False positive; status is already correctly set
+            return
+        binds = {'g_id': self.entity_id, 'hidden': hidden}
+        update_stmt = """
           UPDATE [:table schema=cerebrum name=distribution_group]
             SET hidden=:hidden
-          WHERE group_id=:g_id""", {'g_id': self.entity_id,
-                                    'hidden': hidden})
+          WHERE group_id=:g_id"""
+        self.execute(update_stmt, binds)
+        self._db.log_change(self.entity_id,
+                            self.clconst.dl_group_hidden,
+                            None,
+                            change_params={'hidden': hidden})
 
     def ret_standard_attr_values(self, room=False):
-        if not room:
-            return {'roomlist': 'F',
-                    'hidden': 'T'}
-        else:
-            return {'roomlist': 'T',
-                    'hidden': 'F'}
+        return {'roomlist': 'T' if room else 'F',
+                'hidden': 'F' if room else  'T'}
 
     def ret_standard_language(self):
         return 'nb'
@@ -323,6 +356,7 @@ class DistributionGroup(Group_class):
     # distribution groups we are, at this time, satisfied to let
     # them be a part of the main DistGroup-class. (Jazz, 2013-13)
     def create_distgroup_mailtarget(self):
+        """Make e-mail target for group"""
         et = Email.EmailTarget(self._db)
         target_type = self.const.email_target_dl_group
         if self.is_expired():
@@ -351,8 +385,8 @@ class DistributionGroup(Group_class):
         try:
             ea.find_by_local_part_and_domain(lp, dom.entity_id)
             if ea.email_addr_target_id != et.entity_id:
-                raise self._db.IntegrityError, \
-                    "Address %s is already taken!" % addr_str
+                raise self._db.IntegrityError(
+                    "Address %s is already taken!" % addr_str)
         except Errors.NotFoundError:
             ea.populate(lp, dom.entity_id, et.entity_id, expire=None)
         ea.write_db()
