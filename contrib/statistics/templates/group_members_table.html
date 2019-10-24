@@ -12,6 +12,9 @@
 {% block body %}
 <p>{{ translation['greeting'] }}</p>
 <p>{{ translation['message'] }}</p>
+<p>{{ translation['info_link'] }}
+    <a href="{{ info_link }}">{{ translation['here'] }}</a>
+</p>
 <table>
     <tr>
         <th>{{ translation['headers']['group_name'] }}</th>

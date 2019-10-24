@@ -65,11 +65,16 @@ DEFAULT_LANGUAGE = 'nb'
 MAX_SHOWABLE_MEMBERS = 30
 MEMBERS_PR_LINE = 5
 BRUKERINFO_GROUP_MANAGE_LINK = 'https://brukerinfo.uio.no/groups/?group='
+INFO_LINK = 'https://www.uio.no/tjenester/it/brukernavn-passord/brukeradministrasjon/hjelp/grupper/rapportering/?'
 TRANSLATION = {
     'en': {
         'greeting': 'Hi,',
-        'message': 'The following is an overview of all the groups where you '
-                   'have an administrating role.',
+        'message': 'The following is an overview of all the groups that you '
+                   'are administrating. Please make sure that the member list '
+                   'is correct and remove members which do not belong in the '
+                   'group.',
+        'info_link': 'For more information go to the page ',
+        'here': 'Automatisk rapportering av grupper',
         'signature': 'Best regards,',
         'headers': collections.OrderedDict([
             ('group_name', 'Group name'),
@@ -82,8 +87,11 @@ TRANSLATION = {
     },
     'nb': {
         'greeting': 'Hei,',
-        'message': 'Her følger en oversikt over alle grupper hvor du har'
-                   ' en administrerende rolle.',
+        'message': 'Her følger en oversikt over alle grupper du kan '
+                   'administrerere. Se over at medlemmene er riktige, og '
+                   'fjern medlemmer som ikke lenger skal være med.',
+        'info_link': 'For mer informasjon gå til siden ',
+        'here': 'Automatisk rapportering av grupper',
         'signature': 'Med vennlig hilsen,',
         'headers': collections.OrderedDict([
             ('group_name', 'Gruppenavn'),
@@ -96,8 +104,11 @@ TRANSLATION = {
     },
     'nn': {
         'greeting': 'Hei,',
-        'message': 'Her følgjer ei oversikt over alle grupper kor du har'
-                   ' ei administrerende rolle.',
+        'message': 'Her følgjer ei oversikt over alle grupper du kan'
+                   'administrerere. Sjå over at medlemma er riktige, og '
+                   'fjern medlem som ikkje lenger skal vere med.',
+        'info_link': 'For meir informasjon gå til sida ',
+        'here': 'Automatisk rapportering av grupper',
         'signature': 'Med vennleg helsing,',
         'headers': collections.OrderedDict([
             ('group_name', 'Gruppenamn'),
@@ -253,9 +264,13 @@ def write_plain_text_report(codec, translation=None, sender=None,
         )
 
     return (
-            '\n' + translation['greeting'] + '\n\n' + translation['message'] +
-            '\n' + get_table() + '\n' + translation['signature'] + '\n' +
-            sender
+            '\n' + translation['greeting'] + 
+            '\n\n' + translation['message'] + 
+            '\n\n' + translation['info_link'] + translation['here'] + ': ' +
+            INFO_LINK + 
+            '\n\n' + get_table() + 
+            '\n' + translation['signature'] + 
+            '\n' + sender
     ).encode(codec.name)
 
 
@@ -543,6 +558,7 @@ def send_mails(db, args):
             group_id2members=group_id2members,
             max_members=MAX_SHOWABLE_MEMBERS,
             get_member_lines=get_member_lines,
+            info_link=INFO_LINK,
         )
         plain_text = write_plain_text_report(
             args.codec,
