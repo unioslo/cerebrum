@@ -11,7 +11,7 @@ import unittest
 
 from Cerebrum.Utils import Factory
 from Cerebrum.Account import Account
-from Cerebrum.auth.Auth import get_crypt_methods
+from Cerebrum.auth import Auth
 
 from datasource import BasicAccountSource, BasicPersonSource
 from dbtools import DatabaseTools
@@ -76,15 +76,25 @@ class SimpleAuthImplementationTest(BaseAccountTest):
     """ This is a test case for simple SHA-1 hashing implementation. """
 
     def test_auth_ssha(self):
-        methods = get_crypt_methods()
-        method = methods["auth_type_ssha"]()
-        _hash = method.encrypt_password("hesterbest", salt="ABCDEFGI")
+        auth_methods = self._co.get_system_auth_methods()
+        method_name = "SSHA"
+        if method_name not in auth_methods:
+            return
+        auth_map = Auth.AuthMap()
+        methods = auth_map.get_crypt_subset(auth_methods)
+        method = methods[method_name]()
+        _hash = method.encrypt("hesterbest", salt="ABCDEFGI")
         self.assertEqual(
             _hash, "qBVr/e8BtH7dw2h09V8WL0jxEaxBQkNERUZHSQ==")
 
     def test_auth_sha256(self):
-        methods = get_crypt_methods()
-        method = methods["auth_type_sha256"]()
+        auth_methods = self._co.get_system_auth_methods()
+        method_name = "SHA-256-crypt"
+        if method_name not in auth_methods:
+            return
+        auth_map = Auth.AuthMap()
+        methods = auth_map.get_crypt_subset(auth_methods)
+        method = methods[method_name]()
         _hash = method.encrypt_password("hesterbest", salt="$5$ABCDEFGI")
         logger.info(_hash)
         self.assertEqual(

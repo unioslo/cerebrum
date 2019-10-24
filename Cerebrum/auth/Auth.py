@@ -2,28 +2,24 @@ import base64
 import crypt
 import hashlib
 import passlib
-import passlib.hash
 import string
+from collections import Mapping
+
+import passlib.hash
 import six
 
-from collections import MutableMapping
-
-from Cerebrum import Utils
-
 import cereconf
+from Cerebrum import Utils
 
 
 class AuthBaseClass(object):
 
-    def encrypt_password(self):
+    def encrypt(self, plaintext, salt=None, binary=False):
         """Returns the plaintext hashed according to the specified
         method.  A mixin for a new method should not call super for
         the method it handles.
 
         This should be fixed for python3
-
-        :type method: Constants.AccountAuthentication
-        :param method: Some auth_type_x constant
 
         :type plaintext: String (unicode)
         :param plaintext: The plaintext to hash
@@ -36,7 +32,7 @@ class AuthBaseClass(object):
         """
         raise NotImplementedError
 
-    def decrypt_password(self):
+    def decrypt(self, cryptstring):
         """Returns the decrypted plaintext according to the specified
         method.  If decryption is impossible, NotImplementedError is
         raised.  A mixin for a new method should not call super for
@@ -44,7 +40,7 @@ class AuthBaseClass(object):
         """
         raise NotImplementedError("This auth method does not support decrypt")
 
-    def verify_hash(self):
+    def verify(self, plaintext, cryptstring):
         """Returns True if the plaintext matches the cryptstring,
         False if it doesn't.  If the method doesn't support
         verification, NotImplemented is returned.
@@ -52,38 +48,47 @@ class AuthBaseClass(object):
         raise NotImplementedError
 
 
-class AuthMap(MutableMapping):
-    def __setitem__(self, key, item):
-        self.__dict__[key] = item
+class AuthMap(Mapping):
+    def __init__(self, *args, **kwargs):
+        self._data = dict(*args, **kwargs)
 
     def __getitem__(self, key):
-        return self.__dict__[key]
+        return self._data[key]
 
     def __len__(self):
-        return len(self.__dict__)
-
-    def __delitem__(self, key):
-        del self.__dict__[key]
+        return len(self._data)
 
     def __iter__(self):
-        return iter(self.__dict__)
+        return iter(self._data)
+
+    def add_method(self, method_key, method):
+        if method_key not in self._data:
+            self._data[method_key] = method
 
     def update(self, *args, **kwargs):
-        return self.__dict__.update(*args, **kwargs)
+        return self._data.update(*args, **kwargs)
 
     def __call__(self, method_key):
         def wrapper(cls):
-            self.__dict__[str(method_key)] = cls
+            self._data[str(method_key)] = cls
             return cls
         return wrapper
+
+    def get_crypt_subset(self, methods):
+        auth_crypt_methods = AuthMap()
+        for m in methods:
+            if str(m) in all_auth_methods._data:
+                auth_crypt_methods.add_method(
+                    str(m), all_auth_methods._data[str(m)])
+        return auth_crypt_methods
 
 
 all_auth_methods = AuthMap()
 
 
-@all_auth_methods('auth_type_ssha')
+@all_auth_methods('SSHA')
 class AuthTypeSSHA(AuthBaseClass):
-    def encrypt_password(self, plaintext, salt=None, binary=False):
+    def encrypt(self, plaintext, salt=None, binary=False):
         if not binary:
             assert(isinstance(plaintext, six.text_type))
             plaintext = plaintext.encode('utf-8')
@@ -94,14 +99,14 @@ class AuthTypeSSHA(AuthBaseClass):
         return base64.b64encode(
             hashlib.sha1(plaintext + salt).digest() + salt).decode()
 
-    def verify_password(self, plaintext, cryptstring):
+    def verify(self, plaintext, cryptstring):
         salt = base64.decodestring(cryptstring.encode())[20:].decode()
         return (self.encrypt_password(plaintext, salt=salt) == cryptstring)
 
 
-@all_auth_methods('auth_type_sha256')
+@all_auth_methods('SHA-256-crypt')
 class AuthTypeSHA256(AuthBaseClass):
-    def encrypt_password(self, plaintext, salt=None, binary=False):
+    def encrypt(self, plaintext, salt=None, binary=False):
         if not binary:
             assert(isinstance(plaintext, six.text_type))
             plaintext = plaintext.encode('utf-8')
@@ -110,14 +115,14 @@ class AuthTypeSHA256(AuthBaseClass):
             salt = "$5$" + Utils.random_string(16, saltchars)
         return crypt.crypt(plaintext, salt.encode('utf-8')).decode()
 
-    def verify_password(self, plaintext, cryptstring):
+    def verify(self, plaintext, cryptstring):
         salt = cryptstring
         return (self.encrypt_password(plaintext, salt=salt) == cryptstring)
 
 
-@all_auth_methods('auth_type_sha512')
+@all_auth_methods('SHA-512-crypt')
 class AuthTypeSHA512(AuthBaseClass):
-    def encrypt_password(self, plaintext, salt=None, binary=False):
+    def encrypt(self, plaintext, salt=None, binary=False):
         if not binary:
             assert(isinstance(plaintext, six.text_type))
             plaintext = plaintext.encode('utf-8')
@@ -126,14 +131,14 @@ class AuthTypeSHA512(AuthBaseClass):
             salt = "$6$" + Utils.random_string(16, saltchars)
         return crypt.crypt(plaintext, salt.encode('utf-8')).decode()
 
-    def verify_password(self, plaintext, cryptstring):
+    def verify(self, plaintext, cryptstring):
         salt = cryptstring
         return (self.encrypt_password(plaintext, salt=salt) == cryptstring)
 
 
-@all_auth_methods('auth_type_md5')
+@all_auth_methods('MD5-crypt')
 class AuthTypeMD5(AuthBaseClass):
-    def encrypt_password(self, plaintext, salt=None, binary=False):
+    def encrypt(self, plaintext, salt=None, binary=False):
         if not binary:
             assert(isinstance(plaintext, six.text_type))
             plaintext = plaintext.encode('utf-8')
@@ -142,14 +147,14 @@ class AuthTypeMD5(AuthBaseClass):
             salt = "$1$" + Utils.random_string(8, saltchars)
         return crypt.crypt(plaintext, salt.encode('utf-8')).decode()
 
-    def verify_password(self, plaintext, cryptstring):
+    def verify(self, plaintext, cryptstring):
         salt = cryptstring
         return (self.encrypt_password(plaintext, salt=salt) == cryptstring)
 
 
-@all_auth_methods('auth_type_md4_nt')
+@all_auth_methods('MD4-NT')
 class AuthTypeMD4NT(AuthBaseClass):
-    def encrypt_password(self, plaintext, salt=None, binary=False):
+    def encrypt(self, plaintext, salt=None, binary=False):
         if not binary:
             assert(isinstance(plaintext, six.text_type))
             plaintext = plaintext.encode('utf-8')
@@ -159,38 +164,39 @@ class AuthTypeMD4NT(AuthBaseClass):
         # depend on upper case strings.
         return passlib.hash.nthash.hash(plaintext).decode().upper()
 
-    def verify_password(self, plaintext, cryptstring):
+    def verify(self, plaintext, cryptstring):
         return passlib.hash.nthash.verify(plaintext, cryptstring)
 
 
-@all_auth_methods('auth_type_plaintext')
+@all_auth_methods('plaintext')
 class AuthTypePlaintext(AuthBaseClass):
-    def encrypt_password(self, plaintext, salt=None, binary=False):
+    def encrypt(self, plaintext, salt=None, binary=False):
         if not binary:
             assert(isinstance(plaintext, six.text_type))
             plaintext = plaintext.encode('utf-8')
         return plaintext
 
-    def decrypt_password(self, plaintext, cryptstring):
+    def decrypt(self, plaintext, cryptstring):
         return cryptstring
 
 
-@all_auth_methods('auth_type_md5_unsalt')
+@all_auth_methods('md5-unstalted')
 class AuthTypeMD5Unsalt(AuthBaseClass):
-    def encrypt_password(self, plaintext, salt=None, binary=False):
+    def encrypt(self, plaintext, salt=None, binary=False):
         if not binary:
             assert(isinstance(plaintext, six.text_type))
             plaintext = plaintext.encode('utf-8')
         return hashlib.md5(plaintext).hexdigest().decode()
 
-    def decrypt_password(self, plaintext, cryptstring):
+    def decrypt(self, plaintext, cryptstring):
         salt = cryptstring
         return (self.encrypt_password(plaintext, salt=salt) == cryptstring)
 
 
-@all_auth_methods('auth_type_ha1_md5')
+# TODO: FIXME: Maby consider draging this out of here
+@all_auth_methods('HA1-MD5')
 class AuthTypeHA1MD5(AuthBaseClass):
-    def encrypt_password(self, plaintext, salt=None, binary=False):
+    def encrypt(self, plaintext, salt=None, binary=False):
         if not binary:
             assert(isinstance(plaintext, six.text_type))
             plaintext = plaintext.encode('utf-8')
@@ -199,25 +205,6 @@ class AuthTypeHA1MD5(AuthBaseClass):
         s = ":".join([self.account_name, cereconf.AUTH_HA1_REALM, plaintext])
         return hashlib.md5(s.encode('utf-8')).hexdigest().decode()
 
-    def decrypt_password(self, plaintext, cryptstring):
+    def decrypt(self, plaintext, cryptstring):
         salt = cryptstring
         return (self.encrypt_password(plaintext, salt=salt) == cryptstring)
-
-
-cereconf.AUTH_CRYPT_METHODS = [
-    'auth_type_ssha',
-    'auth_type_sha256',
-    'auth_type_sha512',
-    'auth_type_md5',
-    'auth_type_md4_nt',
-    'auth_type_plaintext',
-    'auth_type_md5_unsalt',
-    'auth_type_ha1_md5'
-]
-
-
-def get_crypt_methods():
-    auth_crypt_methods = AuthMap()
-    for m in cereconf.AUTH_CRYPT_METHODS:
-        auth_crypt_methods[m] = all_auth_methods[m]
-    return auth_crypt_methods
