@@ -430,6 +430,7 @@ class AccountHome(object):
         do not end up with homedir rows without corresponding
         account_home entries.
         """
+
         if home and re.search('[:*"?<>|]', home):
             raise ValueError("Illegal character in disk path")
         binds = {'account_id': self.entity_id,
@@ -461,25 +462,25 @@ class AccountHome(object):
             # Status cannot be NULL, but it *can* be NotSet.
             # The existence query therefore needs this mapping
             exist_strings = {
-                'disk_id': 16*' ' + ' '.join(['(disk_id is NULL AND',
-                                              ':disk_id is NULL OR',
-                                              'disk_id=:disk_id) AND']),
-                'home': 16*' ' + ' '.join(['(home is NULL AND',
-                                           ':home is NULL OR',
-                                           'home=:home) AND']),
-                'status': 16*' ' + 'status=:status AND'}
+                'disk_id': """
+                    (disk_id is NULL AND :disk_id is NULL
+                        OR 'disk_id=:disk_id) AND""",
+                'home': """
+                    (home is NULL AND :home is NULL
+                        OR home=:home) AND""",
+                'status': """
+                    status=:status AND"""}
             for key, value in dict(binds).items():
                 if value is NotSet:
                     del binds[key]
                     del exist_strings[key]
-            variable_exists_str = '\n'.join(v for v in exist_strings.values())
+            variable_exists_str = ''.join(v for v in exist_strings.values())
             binds['homedir_id'] = current_id
             exists_stmt = """
             SELECT EXISTS (
               SELECT 1
               FROM [:table schema=cerebrum name=homedir]
-              WHERE
-            %s
+              WHERE %s
                 account_id=:account_id AND
                 homedir_id=:homedir_id
             )
