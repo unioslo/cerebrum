@@ -474,7 +474,7 @@ class AccountHome(object):
                 if value is NotSet:
                     del binds[key]
                     del exist_strings[key]
-            variable_exists_str = ''.join(v for v in exist_strings.values())
+            variable_exists_str = ' '.join(v for v in exist_strings.values())
             binds['homedir_id'] = current_id
             exists_stmt = """
             SELECT EXISTS (
