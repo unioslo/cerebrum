@@ -66,7 +66,7 @@ class IPv6Number(Entity.Entity):
         if is_new:
             insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=dns_ipv6_number] (%(tc)s)
-            VALUES (%(tb)s)""" % binds
+            VALUES (%(tb)s)""" % defs
             self.execute(insert_stmt, binds)
             self._db.log_change(self.entity_id, self.clconst.ipv6_number_add,
                                 None, change_params={'aaaa_ip': self.aaaa_ip})
