@@ -9,9 +9,9 @@ from __future__ import unicode_literals
 import logging
 import unittest
 
+import Cerebrum.auth as Auth
 from Cerebrum.Utils import Factory
 from Cerebrum.Account import Account
-from Cerebrum.auth import Auth
 
 from datasource import BasicAccountSource, BasicPersonSource
 from dbtools import DatabaseTools
@@ -78,7 +78,7 @@ class SimpleAuthImplementationTest(BaseAccountTest):
     def test_auth_ssha(self):
         auth_methods = self._co.get_system_auth_methods()
         method_name = "SSHA"
-        if method_name not in auth_methods:
+        if method_name not in map(lambda x: str(x), auth_methods):
             return
         auth_map = Auth.AuthMap()
         methods = auth_map.get_crypt_subset(auth_methods)
@@ -90,35 +90,48 @@ class SimpleAuthImplementationTest(BaseAccountTest):
     def test_auth_sha256(self):
         auth_methods = self._co.get_system_auth_methods()
         method_name = "SHA-256-crypt"
-        if method_name not in auth_methods:
+        if method_name not in map(lambda x: str(x), auth_methods):
             return
         auth_map = Auth.AuthMap()
         methods = auth_map.get_crypt_subset(auth_methods)
         method = methods[method_name]()
-        _hash = method.encrypt_password("hesterbest", salt="$5$ABCDEFGI")
-        logger.info(_hash)
+        _hash = method.encrypt("hesterbest", salt="$5$ABCDEFGI")
         self.assertEqual(
             _hash, "$5$ABCDEFGI$wRL35zTjgAhecyc9CWv5Id.qsz5RZqXvDD3EXmlkUJ4")
 
     def test_auth_sha512(self):
-        methods = get_crypt_methods()
-        method = methods["auth_type_sha512"]()
-        _hash = method.encrypt_password("hesterbest", salt="$6$ABCDEFGI")
-        logger.info(_hash)
+        auth_methods = self._co.get_system_auth_methods()
+        method_name = "SHA-512-crypt"
+        if method_name not in map(lambda x: str(x), auth_methods):
+            return
+        auth_map = Auth.AuthMap()
+        methods = auth_map.get_crypt_subset(auth_methods)
+        method = methods[method_name]()
+        _hash = method.encrypt("hesterbest", salt="$6$ABCDEFGI")
         self.assertEqual(
             _hash, "$6$ABCDEFGI$s5rS3hTF2FJrqxToloyKaOcmUwFMVvEft"
             "Yen3WjaetYz726AFZQkI572G0o/bO9BWC86Sae1QjMUe7TZYBeYg1")
 
     def test_auth_md5(self):
-        methods = get_crypt_methods()
-        method = methods["auth_type_md5"]()
-        _hash = method.encrypt_password("hesterbest", salt="$1$ABCDEFGI")
+        auth_methods = self._co.get_system_auth_methods()
+        method_name = "MD5-crypt"
+        if method_name not in map(lambda x: str(x), auth_methods):
+            return
+        auth_map = Auth.AuthMap()
+        methods = auth_map.get_crypt_subset(auth_methods)
+        method = methods[method_name]()
+        _hash = method.encrypt("hesterbest", salt="$1$ABCDEFGI")
         self.assertEqual(
             _hash, "$1$ABCDEFGI$iO4CKjwcmvejNZ7j1MEW./")
 
     def test_auth_md4_nt(self):
-        methods = get_crypt_methods()
-        method = methods["auth_type_md4_nt"]()
-        _hash = method.encrypt_password("hesterbest", salt="ABC")
+        auth_methods = self._co.get_system_auth_methods()
+        method_name = "MD4-NT"
+        if method_name not in map(lambda x: str(x), auth_methods):
+            return
+        auth_map = Auth.AuthMap()
+        methods = auth_map.get_crypt_subset(auth_methods)
+        method = methods[method_name]()
+        _hash = method.encrypt("hesterbest", salt="ABC")
         self.assertEqual(
             _hash, "5DDE3A6B19D3DEB6B63E304A5574A193")
