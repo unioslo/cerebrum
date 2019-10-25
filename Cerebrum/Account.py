@@ -464,7 +464,7 @@ class AccountHome(object):
             exist_strings = {
                 'disk_id': """
                     (disk_id is NULL AND :disk_id is NULL
-                        OR 'disk_id=:disk_id) AND""",
+                        OR disk_id=:disk_id) AND""",
                 'home': """
                     (home is NULL AND :home is NULL
                         OR home=:home) AND""",
