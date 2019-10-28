@@ -26,15 +26,11 @@ default username is stored in is yet to be determined.
 """
 from __future__ import unicode_literals
 
-import crypt
 import functools
-import string
 import mx
 import hashlib
-import base64
 import re
 
-import passlib.hash
 import six
 
 import Cerebrum.auth as Auth
@@ -49,8 +45,6 @@ from Cerebrum.Utils import (NotSet,
                             argument_to_sql,
                             prepare_string)
 from Cerebrum.utils.username import suggest_usernames
-from Cerebrum.modules.pwcheck.checker import (check_password,
-                                              PasswordNotGoodEnough)
 from Cerebrum.modules.password_generator.generator import PasswordGenerator
 
 import cereconf
@@ -823,10 +817,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=account_authentication]
         WHERE account_id=:a_id""", {'a_id': self.entity_id})
-
-    def verify(self, plaintext, cryptstring):
-        salt = cryptstring
-        return (self.encrypt_password(plaintext, salt=salt) == cryptstring)
 
     def encrypt_ha1_md5(self, plaintext, salt=None, binary=False):
         if not binary:

@@ -66,9 +66,6 @@ class AuthMap(Mapping):
         if method_key not in self._data:
             self._data[method_key] = method
 
-    def update(self, *args, **kwargs):
-        return self._data.update(*args, **kwargs)
-
     def __call__(self, method_key):
         def wrapper(cls):
             self._data[method_key] = cls
