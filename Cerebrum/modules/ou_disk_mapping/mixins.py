@@ -24,7 +24,7 @@ from Cerebrum.OU import OU
 from .dbal import OuDiskMapping
 
 
-class OuDiskMappingOuMixin(OU):
+class OUMixin(OU):
     """
     OU mixin class that provides disk mapping cleanup.
     """
@@ -32,12 +32,14 @@ class OuDiskMappingOuMixin(OU):
     def delete(self):
         """Delete any mappings to an OU."""
         ous = OuDiskMapping(self._db)
-        for row in ous.get(ou_id=self.entity_id, aff_code=None):
-            ous.delete(ou_id=self.entity_id, aff_code=row['aff_code'])
-        super(OuDiskMappingOuMixin, self).delete()
+        for row in ous.get(ou_id=self.entity_id, aff_code=None,
+                           status_code=None):
+            ous.delete(ou_id=self.entity_id, aff_code=row['aff_code'],
+                       status_code=row['status_code'])
+        super(OUMixin, self).delete()
 
 
-class OUDiskMappingDiskMixin(Disk):
+class DiskMixin(Disk):
     """
     Disk mixin class that provides disk mapping cleanup.
     """
@@ -46,5 +48,6 @@ class OUDiskMappingDiskMixin(Disk):
         """Delete any mappings to a disk"""
         ous = OuDiskMapping(self._db)
         for row in ous.get_disk(disk_id=self.entity_id):
-            ous.delete(ou_id=row['ou_id'], aff_code=row['aff_code'])
-        super(OUDiskMappingDiskMixin, self).delete()
+            ous.delete(ou_id=row['ou_id'], aff_code=row['aff_code'],
+                       status_code=row['status_code'])
+        super(DiskMixin, self).delete()

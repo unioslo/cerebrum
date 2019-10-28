@@ -55,7 +55,7 @@ class OuDiskMapping(DatabaseAccessor):
 
         self.disk.clear()
         self.disk.find(disk_id)
-        self._db.log_change(int(ou_id), CLConstants.ou_path_set, None,
+        self._db.log_change(int(ou_id), CLConstants.ou_disk_add, None,
                             change_params={
                                 'aff': str(aff_code),
                                 'status': status_code,
@@ -94,7 +94,7 @@ class OuDiskMapping(DatabaseAccessor):
 
         self.disk.clear()
         self.disk.find(disk_id)
-        self._db.log_change(int(ou_id), CLConstants.ou_path_modify, None,
+        self._db.log_change(int(ou_id), CLConstants.ou_disk_add, None,
                             change_params={
                                 'aff': str(aff_code),
                                 'status': status_code,
@@ -131,7 +131,7 @@ class OuDiskMapping(DatabaseAccessor):
 
         self.disk.clear()
         self.disk.find(disk_id)
-        self._db.log_change(int(ou_id), CLConstants.ou_path_clear, None,
+        self._db.log_change(int(ou_id), CLConstants.ou_disk_remove, None,
                             change_params={
                                 'aff': aff_code,
                                 'status': status_code,
@@ -258,7 +258,7 @@ class OuDiskMapping(DatabaseAccessor):
 
         self.disk.clear()
         self.disk.find(disk_id)
-        self._db.log_change(ou_id, CLConstants.ou_path_clear, None,
+        self._db.log_change(ou_id, CLConstants.ou_disk_remove, None,
                             change_params={'aff': aff_code,
                                            'status': status_code,
                                            'path': self.disk.path})

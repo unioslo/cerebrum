@@ -26,20 +26,14 @@ from Cerebrum import Constants
 
 
 class CLConstants(Constants.CLConstants):
-    ou_path_set = Constants._ChangeTypeCode(
+    ou_disk_add = Constants._ChangeTypeCode(
         'ou_disk_mapping',
         'set',
-        'Default disk for aff %(aff)s set to %(disk)s',
+        'Default disk for aff %(aff)s/%(status)s set to %(disk)s',
 
     )
-    ou_path_clear = Constants._ChangeTypeCode(
+    ou_disk_remove = Constants._ChangeTypeCode(
         'ou_disk_mapping',
         'clear',
-        'Default disk for aff %(aff)s  cleared',
-    )
-
-    ou_path_modify = Constants._ChangeTypeCode(
-        'ou_disk_mapping',
-        'modify',
-        'Default disk for aff %(aff)s modified to %(disk)s',
+        'Default disk for aff %(aff)s/%(status)s cleared',
     )
