@@ -2,6 +2,7 @@
 from Cerebrum.Entity import Entity
 from Cerebrum.modules.dns.DnsOwner import DnsOwner
 
+
 class ARecord(Entity):
     """``ARecord(Entity)`` is used to store information
     about A-records in the dns_a_record table.  It uses the standard
@@ -27,7 +28,7 @@ class ARecord(Entity):
             Entity.populate(self, self.const.entity_dns_a_record)
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
         for k in locals().keys():
@@ -36,10 +37,11 @@ class ARecord(Entity):
 
     def __eq__(self, other):
         assert isinstance(other, ARecord)
-        if (self.dns_owner_id != other.dns_owner_id or
-            self.ip_number_id != other.ip_number_id or
-            self.ttl != other.ttl or
-            self.mac != other.mac):
+        if (
+                self.dns_owner_id != other.dns_owner_id or
+                self.ip_number_id != other.ip_number_id or
+                self.ttl != other.ttl or
+                self.mac != other.mac):
             return False
         return True
 
@@ -48,38 +50,50 @@ class ARecord(Entity):
         if not self.__updated:
             return
         is_new = not self.__in_db
-        cols = [('a_record_id', ':e_id'),
-                ('entity_type', ':e_type'),
-                ('dns_owner_id', ':dns_owner_id'),
-                ('ip_number_id', ':ip_number_id'),
-                ('ttl', ':ttl'),
-                ('mac', ':mac')]
-        binds = {'e_id': self.entity_id,
-                 'e_type' : int(self.const.entity_dns_a_record),
+        binds = {'a_record_id': self.entity_id,
+                 'entity_type': int(self.const.entity_dns_a_record),
                  'dns_owner_id': self.dns_owner_id,
                  'ip_number_id': self.ip_number_id,
-                 'ttl' : self.ttl,
+                 'ttl': self.ttl,
                  'mac': self.mac}
-
+        defs = {'tc': ', '.join(x for x in sorted(binds)),
+                'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
+                'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
+                                if x != 'a_record_id')}
         if is_new:
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=dns_a_record] (%(tcols)s)
-            VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
-                                     'binds': ", ".join([x[1] for x in cols])},
-                         binds)
+            insert_stmt = """
+            INSERT INTO [:table schema=cerebrum name=dns_a_record] (%(tc)s)
+            VALUES (%(tb)s)""" % defs
+            self.execute(insert_stmt, binds)
             self._db.log_change(self.dns_owner_id, self.clconst.a_record_add,
                                 self.ip_number_id)
         else:
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=dns_a_record]
-            SET %(defs)s
-            WHERE a_record_id=:e_id""" % {'defs': ", ".join(
-                ["%s=%s" % x for x in cols])}, binds)
-            self._db.log_change(self.dns_owner_id,
-                                self.clconst.a_record_update,
-                                self.ip_number_id)
+            exists_stmt = """
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=dns_a_record]
+                WHERE a_record_id=:a_record_id AND
+                      entity_type=:entity_type AND
+                     (ttl is NULL AND :ttl is NULL OR ttl=:ttl) AND
+                     (dns_owner_id is NULL AND :dns_owner_id is NULL OR
+                       dns_owner_id=:dns_owner_id) AND
+                     (ip_number_id is NULL AND :ip_number_id is NULL OR
+                       ip_number_id=:ip_number_id) AND
+                     (mac_adr is NULL AND :mac_adr is NULL OR
+                       mac_adr=:mac_adr)
+              )
+            """
+            if not self.query_1(exists_stmt, binds):
+                # True positive
+                update_stmt = """
+                UPDATE [:table schema=cerebrum name=dns_a_record]
+                SET %(ts)s
+                WHERE a_record_id=:a_record_id""" % defs
+                self.execute(update_stmt, binds)
+                self._db.log_change(self.dns_owner_id,
+                                    self.clconst.a_record_update,
+                                    self.ip_number_id)
         del self.__in_db
-        
         self.__in_db = True
         self.__updated = []
         return is_new
@@ -120,11 +134,13 @@ class ARecord(Entity):
     def find(self, a_record_id):
         self.__super.find(a_record_id)
 
-        (self.ip_number_id, self.ttl, self.mac, self.dns_owner_id
-         ) =  self.query_1("""
-        SELECT ip_number_id, ttl, mac, dns_owner_id
-        FROM [:table schema=cerebrum name=dns_a_record]
-        WHERE a_record_id=:a_record_id""", {'a_record_id' : a_record_id})
+        (self.ip_number_id,
+         self.ttl,
+         self.mac,
+         self.dns_owner_id) = self.query_1("""
+         SELECT ip_number_id, ttl, mac, dns_owner_id
+         FROM [:table schema=cerebrum name=dns_a_record]
+         WHERE a_record_id=:a_record_id""", {'a_record_id': a_record_id})
         dns = DnsOwner(self._db)
         dns.find(self.dns_owner_id)
         self.name = dns.name
@@ -139,14 +155,27 @@ class ARecord(Entity):
         """Deletion of a-records should be done through the
         IntegrityHelper to avoid leaving entries in ip_number that has
         no FKs to it"""
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=dns_a_record]
-        WHERE a_record_id=:e_id""", {'e_id': self.entity_id})
+        binds = {'e_id': self.entity_id}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=dns_a_record]
+            WHERE a_record_id=:e_id
+          )
+        """
+        if not self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        delete_stmt = """
+          DELETE FROM [:table schema=cerebrum name=dns_a_record]
+          WHERE a_record_id=:e_id"""
+        self.execute(delete_stmt, binds)
         self._db.log_change(self.dns_owner_id, self.clconst.a_record_del,
                             self.ip_number_id)
         self.__super.delete()
 
-    def list_ext(self, ip_number_id=None, dns_owner_id=None, start=None, stop=None, zone=None):
+    def list_ext(self, ip_number_id=None, dns_owner_id=None, start=None,
+                 stop=None, zone=None):
         """List out extended information about ARecords.
 
         @type ip_number_id: int
@@ -157,13 +186,13 @@ class ARecord(Entity):
             entity_id.
 
         @type start: int
-        @param start: 
-            Limit the return to only IP numbers that are equal to or higher than
-            the given start number. Note that the IP number is in this case
-            considered in a 32-bit format and not as a string.
+        @param start:
+            Limit the return to only IP numbers that are equal to or higher
+            than the given start number. Note that the IP number is in this
+            case considered in a 32-bit format and not as a string.
 
         @type stop: int
-        @param stop: 
+        @param stop:
             Limit the return to only IP numbers that are equal to or lower than
             the given stop number. Note that the IP number is in this case
             considered in a 32-bit format and not as a string.
@@ -204,5 +233,4 @@ class ARecord(Entity):
             'ip_number_id': ip_number_id,
             'dns_owner_id': dns_owner_id,
             'start': start, 'stop': stop,
-            'zone': zone} )
-
+            'zone': zone})
