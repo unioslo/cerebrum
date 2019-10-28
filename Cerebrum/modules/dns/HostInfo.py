@@ -81,17 +81,14 @@ class HostInfo(Entity):
         if len(self.hinfo.split("\t")) != 2:
             raise ValueError("Illegal HINFO (missing tab)")
         binds = {'entity_type': int(self.const.entity_dns_host),
-                 'entity_id': self.entity_id,
+                 'host_id': self.entity_id,
                  'dns_owner_id': self.dns_owner_id,
                  'hinfo': self.hinfo,
                  'ttl': self.ttl}
         defs = {'tc': ', '.join(x for x in sorted(binds)),
                 'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
                 'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
-                                if x != 'host_id'),
-                'tw': ' AND '.join(
-                    '{0}=:{0}'.format(x) for x in binds if x not in {'ttl',
-                                                                     'hinfo'})}
+                                if x != 'host_id')}
         if is_new:
             insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=dns_host_info] (%(tc)s)
@@ -108,7 +105,9 @@ class HostInfo(Entity):
                 FROM [:table schema=cerebrum name=dns_host_info]
                 WHERE (ttl is NULL AND :ttl is NULL OR ttl=:ttl) AND
                       (hinfo is NULL AND :hinfo is NULL OR hinfo=:hinfo) AND
-                     %(tw)s
+                      host_id=:host_id AND
+                      entity_type=:entity_type AND
+                      dns_owner_id=:dns_owner_id
               )
             """ % defs
             if not self.query_1(exists_stmt, binds):
