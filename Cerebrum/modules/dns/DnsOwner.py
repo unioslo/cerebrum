@@ -101,19 +101,16 @@ class MXSet(DatabaseAccessor):
             where.append('mxs.mx_set_id=:mx_set_id')
         if target_id:
             where.append('target_id=:target_id')
-        defs = {'where': ' AND '.join(where),
-                'select': ', '.join(['mxs.mx_set_id', 'ttl', 'pri',
-                                     'target_id',
-                                     'en.entity_name AS target_name'])}
-        binds = {'mx_set_id': mx_set_id,
-                 'target_id': target_id}
+        where = " AND ".join(where)
         return self.query("""
-        SELECT (%(select)s)
+        SELECT mxs.mx_set_id, ttl, pri, target_id, en.entity_name AS target_name
         FROM [:table schema=cerebrum name=dns_mx_set_member] mxs,
              [:table schema=cerebrum name=dns_owner] d,
              [:table schema=cerebrum name=entity_name] en
-        WHERE (%(where)s)
-        ORDER BY mxs.mx_set_id, pri, target_id""" % defs, binds)
+        WHERE %s
+        ORDER BY mxs.mx_set_id, pri, target_id""" % where, {
+            'mx_set_id': mx_set_id,
+            'target_id': target_id})
 
     def add_mx_set_member(self, ttl, pri, target_id):
         binds = {'mx_set_id': self.mx_set_id,

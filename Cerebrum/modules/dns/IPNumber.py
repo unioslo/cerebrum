@@ -74,11 +74,7 @@ class IPNumber(Entity.Entity):
         defs = {'tc': ', '.join(x for x in sorted(binds)),
                 'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
                 'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
-                                if x != 'ip_number_id'),
-                'tw': ' AND '.join(
-                    '{0}=:{0}'.format(x) for x in binds if x not in {
-                        'mac_adr', 'aaaa_ip'})}
-
+                                if x != 'ip_number_id')}
         if is_new:
             insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=dns_ip_number] (%(tc)s)
@@ -95,9 +91,11 @@ class IPNumber(Entity.Entity):
                         mac_adr:=mac_adr) AND
                       (aaaa_ip is NULL AND :aaaa_ip is NULL OR
                         aaaa_ip:=aaaa_ip) AND
-                     %(tw)s
+                      ip_number_id=:ip_number_id AND
+                      a_ip=:a_ip AND
+                      ipnr=:ipnr
               )
-            """ % defs
+            """
             if not self.query_1(exists_stmt, binds):
                 # True positive
                 update_stmt = """

@@ -58,11 +58,7 @@ class IPv6Number(Entity.Entity):
         defs = {'tc': ', '.join(x for x in sorted(binds)),
                 'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
                 'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
-                                if x != 'ipv6_number_id'),
-                'tw': ' AND '.join(
-                    '{0}=:{0}'.format(x) for x in binds if x not in {
-                        'aaaa_ip', 'mac_adr'})}
-
+                                if x != 'ipv6_number_id')}
         if is_new:
             insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=dns_ipv6_number] (%(tc)s)
@@ -79,9 +75,9 @@ class IPv6Number(Entity.Entity):
                         mac_adr:=mac_adr) AND
                       (aaaa_ip is NULL AND :aaaa_ip is NULL OR
                         aaaa_ip:=aaaa_ip) AND
-                     %(tw)s
+                      ipv6_number_id=:ipv6_number_id
               )
-            """ % defs
+            """
             if not self.query_1(exists_stmt, binds):
                 # True positive
                 update_stmt = """
