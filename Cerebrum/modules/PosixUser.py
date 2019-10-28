@@ -45,7 +45,6 @@ import cereconf
 from Cerebrum.Utils import Factory, argument_to_sql
 from Cerebrum.utils import transliterate
 from Cerebrum import Errors
-from Cerebrum import Constants
 from Cerebrum.modules import PosixGroup
 
 __version__ = "1.1"
@@ -73,9 +72,10 @@ class PosixUser(Account_class):
 
     def __eq__(self, other):
         assert isinstance(other, PosixUser)
-        if (self.posix_uid == other.posix_uid and
-            self.gid_id == other.gid_id and
-            self.gecos == other.gecos and
+        if (
+                self.posix_uid == other.posix_uid and
+                self.gid_id == other.gid_id and
+                self.gecos == other.gecos and
                 int(self.shell) == int(other.shell)):
             return self.__super.__eq__(other)
         return False
@@ -87,14 +87,25 @@ class PosixUser(Account_class):
                 "Unable to determine which entity to delete.")
         if hasattr(super(PosixUser, self), 'delete_posixuser'):
             super(PosixUser, self).delete_posixuser()
+        binds = {'account_id': self.entity_id}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=posix_user]
+            WHERE account_id=:account_id
+          )"""
+        if not self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        delete_stmt = """
+        DELETE FROM [:table schema=cerebrum name=posix_user]
+        WHERE account_id=:account_id"""
+        self.execute(delete_stmt, binds)
         self._db.log_change(self.entity_id, self.clconst.posix_demote,
                             None, change_params={'uid': int(self.posix_uid),
                                                  'gid': int(self.gid_id),
                                                  'shell': int(self.shell),
                                                  'gecos': self.gecos})
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=posix_user]
-        WHERE account_id=:e_id""", {'e_id': self.entity_id})
 
     def populate(self, posix_uid, gid_id, gecos, shell, name=None,
                  owner_type=None, owner_id=None, np_type=None,
@@ -114,13 +125,12 @@ class PosixUser(Account_class):
     def map_user_spreads_to_pg(self, group=None):
         """Syncs self's spreads to default group's spreads.
         This uses mappings implemented in subclasses. """
-        pass
 
     def write_db(self):
         """Write PosixUser instance to database."""
         self.__super.write_db()
         if not self.__updated:
-            return
+            return None
         is_new = not self.__in_db
         primary_group = PosixGroup.PosixGroup(self._db)
         primary_group.find(self.gid_id)
@@ -128,36 +138,54 @@ class PosixUser(Account_class):
         # if it's not a member already?  There are many occurences of
         # code like this, and but none of them implement all the
         # robustness below.
+        binds = {'a_id': self.entity_id,
+                 'u_id': self.posix_uid,
+                 'gid': self.gid_id,
+                 'gecos': self.gecos,
+                 'shell': int(self.shell)}
         if not primary_group.has_member(self.entity_id):
             primary_group.add_member(self.entity_id)
-
         if is_new:
-            self.execute("""
+            insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=posix_user]
               (account_id, posix_uid, gid, gecos, shell)
-            VALUES (:a_id, :u_id, :gid, :gecos, :shell)""",
-                         {'a_id': self.entity_id,
-                          'u_id': self.posix_uid,
-                          'gid': self.gid_id,
-                          'gecos': self.gecos,
-                          'shell': int(self.shell)})
+            VALUES (:a_id, :u_id, :gid, :gecos, :shell)
+            """
+            self.execute(insert_stmt, binds)
+            self._db.log_change(self.entity_id,
+                                self.clconst.posix_promote,
+                                None,
+                                change_params={'uid': int(self.posix_uid),
+                                               'gid': int(self.gid_id),
+                                               'shell': int(self.shell),
+                                               'gecos': self.gecos})
         else:
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=posix_user]
-            SET posix_uid=:u_id, gid=:gid, gecos=:gecos,
-                shell=:shell
-            WHERE account_id=:a_id""",
-                         {'a_id': self.entity_id,
-                          'u_id': self.posix_uid,
-                          'gid': self.gid_id,
-                          'gecos': self.gecos,
-                          'shell': int(self.shell)})
-
-        self._db.log_change(self.entity_id, self.clconst.posix_promote,
-                            None, change_params={'uid': int(self.posix_uid),
-                                                 'gid': int(self.gid_id),
-                                                 'shell': int(self.shell),
-                                                 'gecos': self.gecos})
+            exists_stmt = """
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=posix_user]
+                WHERE (gecos is NULL AND :gecos is NULL OR gecos=:gecos) AND
+                       posix_uid=:u_id AND
+                       gid=:gid AND
+                       shell=:shell AND
+                       account_id=:a_id
+              )
+            """
+            if not self.query_1(exists_stmt, binds):
+                # True positive
+                update_stmt = """
+                UPDATE [:table schema=cerebrum name=posix_user]
+                SET posix_uid=:u_id, gid=:gid, gecos=:gecos, shell=:shell
+                WHERE account_id=:a_id
+                """
+                self.execute(update_stmt, binds)
+                self._db.log_change(self.entity_id,
+                                    self.clconst.posix_promote,
+                                    None,
+                                    change_params={'uid': int(self.posix_uid),
+                                                   'gid': int(self.gid_id),
+                                                   'shell': int(self.shell),
+                                                   'gecos': self.gecos})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -175,6 +203,7 @@ class PosixUser(Account_class):
         self.__updated = []
 
     def find_by_uid(self, uid):
+        """Find posix user by posix_uid"""
         account_id = self.query_1("""
         SELECT account_id
         FROM [:table schema=cerebrum name=posix_user]
@@ -212,7 +241,7 @@ class PosixUser(Account_class):
                 if x[1] < x[0]:
                     raise Errors.ProgrammingError(
                         'Wrong order in cereconf.UID_RESERVED_RANGE')
-                if uid >= x[0] and uid <= x[1]:
+                if x[0] <= uid <= x[1]:
                     self._db.setval('posix_uid_seq', x[1])
                     uid = self.nextval("posix_uid_seq")
             # If the UID is not in use, we return it, else, we try over.
@@ -262,10 +291,11 @@ class PosixUser(Account_class):
             return self.resolve_homedir(disk_id=tmp['disk_id'],
                                         home=tmp['home'],
                                         spread=spread)
-        except:
+        except Exception:
             return None
 
     def list_shells(self):
+        """Returns all shells"""
         return self.query("""
         SELECT code, shell
         FROM [:table schema=cerebrum name=posix_shell_code]""")

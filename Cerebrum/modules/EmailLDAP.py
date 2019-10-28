@@ -326,6 +326,3 @@ class EmailLDAP(DatabaseAccessor):
         # with a '\n' between them.
         pass
 
-    def get_misc(self, row):
-        """Return optional strings to the script."""
-        return dict()
