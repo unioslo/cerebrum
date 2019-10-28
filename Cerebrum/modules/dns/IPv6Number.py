@@ -72,9 +72,9 @@ class IPv6Number(Entity.Entity):
                 SELECT 1
                 FROM [:table schema=cerebrum name=dns_ipv6_number]
                 WHERE (mac_adr is NULL AND :mac_adr is NULL OR
-                        mac_adr:=mac_adr) AND
+                        mac_adr=:mac_adr) AND
                       (aaaa_ip is NULL AND :aaaa_ip is NULL OR
-                        aaaa_ip:=aaaa_ip) AND
+                        aaaa_ip=:aaaa_ip) AND
                       ipv6_number_id=:ipv6_number_id
               )
             """

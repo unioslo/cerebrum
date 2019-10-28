@@ -88,9 +88,9 @@ class IPNumber(Entity.Entity):
                 SELECT 1
                 FROM [:table schema=cerebrum name=dns_ip_number]
                 WHERE (mac_adr is NULL AND :mac_adr is NULL OR
-                        mac_adr:=mac_adr) AND
+                        mac_adr=:mac_adr) AND
                       (aaaa_ip is NULL AND :aaaa_ip is NULL OR
-                        aaaa_ip:=aaaa_ip) AND
+                        aaaa_ip=:aaaa_ip) AND
                       ip_number_id=:ip_number_id AND
                       a_ip=:a_ip AND
                       ipnr=:ipnr
