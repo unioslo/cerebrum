@@ -14,11 +14,7 @@ from Cerebrum import Utils
 class AuthBaseClass(object):
 
     def encrypt(self, plaintext, salt=None, binary=False):
-        """Returns the plaintext hashed according to the specified
-        method.  A mixin for a new method should not call super for
-        the method it handles.
-
-        This should be fixed for python3
+        """ Returns the hashed plaintext of a specific method
 
         :type plaintext: String (unicode)
         :param plaintext: The plaintext to hash
@@ -32,15 +28,16 @@ class AuthBaseClass(object):
         raise NotImplementedError
 
     def decrypt(self, cryptstring):
-        """Returns the decrypted plaintext according to the specified
-        method.  If decryption is impossible, NotImplementedError is
-        raised.  A mixin for a new method should not call super for
-        the method it handles.
+        """ Returns the decrypted plaintext of a specific method
+
+        :type cryptstring: String (unicode)
+        :param cryptstring: The plaintext to hash
         """
         raise NotImplementedError("This auth method does not support decrypt")
 
     def verify(self, plaintext, cryptstring):
-        """Returns True if the plaintext matches the cryptstring,
+        """Returns True if the plaintext matches the cryptstring
+
         False if it doesn't.  If the method doesn't support
         verification, NotImplemented is returned.
         """
