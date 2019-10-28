@@ -175,7 +175,7 @@ class AuthTypePlaintext(AuthBaseClass):
         return cryptstring
 
 
-@all_auth_methods('md5-unstalted')
+@all_auth_methods('md5-unsalted')
 class AuthTypeMD5Unsalt(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=False):
         if not isinstance(plaintext, six.text_type) and not binary:
