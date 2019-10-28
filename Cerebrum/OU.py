@@ -218,8 +218,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
           FROM [:table schema=cerebrum name=ou_structure]
           WHERE {where}
         )
-        """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds),
-                   table=table)
+        """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds))
         if not self.query_1(exists_stmt, binds):
             # False positive
             return
