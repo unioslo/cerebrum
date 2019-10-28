@@ -33,7 +33,9 @@ import re
 
 import six
 
+import cereconf
 import Cerebrum.auth as Auth
+from Cerebrum.auth import encrypt_ha1_md5, verify_ha1_md5
 from Cerebrum import Utils, Disk
 from Cerebrum.Entity import (EntityName,
                              EntityQuarantine,
@@ -46,8 +48,6 @@ from Cerebrum.Utils import (NotSet,
                             prepare_string)
 from Cerebrum.utils.username import suggest_usernames
 from Cerebrum.modules.password_generator.generator import PasswordGenerator
-
-import cereconf
 
 
 def _account_row_exists(database, table, binds):
@@ -818,15 +818,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         DELETE FROM [:table schema=cerebrum name=account_authentication]
         WHERE account_id=:a_id""", {'a_id': self.entity_id})
 
-    def encrypt_ha1_md5(self, plaintext, salt=None, binary=False):
-        if not binary:
-            assert(isinstance(plaintext, six.text_type))
-            plaintext = plaintext.encode('utf-8')
-
-        # TODO: FIXME: This needs some things from Account
-        s = ":".join([self.account_name, cereconf.AUTH_HA1_REALM, plaintext])
-        return hashlib.md5(s.encode('utf-8')).hexdigest().decode()
-
     def encrypt_password(self, method, plaintext, salt=None, binary=False):
         """Returns the plaintext hashed according to the specified
         method.  A mixin for a new method should not call super for
@@ -847,7 +838,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         :param binary: Treat plaintext as binary data
         """
         if method == self.const.auth_type_ha1_md5:
-            return self.encrypt_ha1_md5(plaintext, salt, binary)
+            realm = cereconf.AUTH_HA1_REALM
+            return encrypt_ha1_md5(
+                self.account_name, realm, plaintext, salt, binary)
         auth_map = Auth.AuthMap()
         try:
             methods = auth_map.get_crypt_subset([method])
@@ -892,9 +885,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         verification, NotImplemented is returned.
         """
         if method == self.const.auth_type_ha1_md5:
-            salt = cryptstring
-            return (self.encrypt_password(
-                method, plaintext, salt=salt) == cryptstring)
+            realm = cereconf.AUTH_HA1_REALM
+            return verify_ha1_md5(
+                self.account_name, realm, plaintext, cryptstring)
         auth_map = Auth.AuthMap()
         try:
             methods = auth_map.get_crypt_subset([method])
