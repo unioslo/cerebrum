@@ -84,9 +84,9 @@ all_auth_methods = AuthMap()
 @all_auth_methods('SSHA')
 class AuthTypeSSHA(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=False):
-        if not binary:
-            assert(isinstance(plaintext, six.text_type))
-            plaintext = plaintext.encode('utf-8')
+        if not isinstance(plaintext, six.text_type) and not binary:
+            raise ValueError("plaintext cannot be bytestring and not binary")
+        plaintext = plaintext.encode('utf-8')
         if salt is None:
             saltchars = string.ascii_letters + string.digits + "./"
             salt = "$6$" + Utils.random_string(16, saltchars)
@@ -102,9 +102,9 @@ class AuthTypeSSHA(AuthBaseClass):
 @all_auth_methods('SHA-256-crypt')
 class AuthTypeSHA256(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=False):
-        if not binary:
-            assert(isinstance(plaintext, six.text_type))
-            plaintext = plaintext.encode('utf-8')
+        if not isinstance(plaintext, six.text_type) and not binary:
+            raise ValueError("plaintext cannot be bytestring and not binary")
+        plaintext = plaintext.encode('utf-8')
         if salt is None:
             saltchars = string.ascii_letters + string.digits + "./"
             salt = "$5$" + Utils.random_string(16, saltchars)
@@ -118,9 +118,9 @@ class AuthTypeSHA256(AuthBaseClass):
 @all_auth_methods('SHA-512-crypt')
 class AuthTypeSHA512(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=False):
-        if not binary:
-            assert(isinstance(plaintext, six.text_type))
-            plaintext = plaintext.encode('utf-8')
+        if not isinstance(plaintext, six.text_type) and not binary:
+            raise ValueError("plaintext cannot be bytestring and not binary")
+        plaintext = plaintext.encode('utf-8')
         if salt is None:
             saltchars = string.ascii_letters + string.digits + "./"
             salt = "$6$" + Utils.random_string(16, saltchars)
@@ -134,9 +134,9 @@ class AuthTypeSHA512(AuthBaseClass):
 @all_auth_methods('MD5-crypt')
 class AuthTypeMD5(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=False):
-        if not binary:
-            assert(isinstance(plaintext, six.text_type))
-            plaintext = plaintext.encode('utf-8')
+        if not isinstance(plaintext, six.text_type) and not binary:
+            raise ValueError("plaintext cannot be bytestring and not binary")
+        plaintext = plaintext.encode('utf-8')
         if salt is None:
             saltchars = string.ascii_letters + string.digits + "./"
             salt = "$1$" + Utils.random_string(8, saltchars)
@@ -150,9 +150,9 @@ class AuthTypeMD5(AuthBaseClass):
 @all_auth_methods('MD4-NT')
 class AuthTypeMD4NT(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=False):
-        if not binary:
-            assert(isinstance(plaintext, six.text_type))
-            plaintext = plaintext.encode('utf-8')
+        if not isinstance(plaintext, six.text_type) and not binary:
+            raise ValueError("plaintext cannot be bytestring and not binary")
+        plaintext = plaintext.encode('utf-8')
         # Previously the smbpasswd module was used to create nthash, and it
         # only produced uppercase hashes. The hash is case insensitive, but
         # be backwards compatible if some comsumers
@@ -166,9 +166,9 @@ class AuthTypeMD4NT(AuthBaseClass):
 @all_auth_methods('plaintext')
 class AuthTypePlaintext(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=False):
-        if not binary:
-            assert(isinstance(plaintext, six.text_type))
-            plaintext = plaintext.encode('utf-8')
+        if not isinstance(plaintext, six.text_type) and not binary:
+            raise ValueError("plaintext cannot be bytestring and not binary")
+        plaintext = plaintext.encode('utf-8')
         return plaintext
 
     def decrypt(self, cryptstring):
@@ -178,9 +178,9 @@ class AuthTypePlaintext(AuthBaseClass):
 @all_auth_methods('md5-unstalted')
 class AuthTypeMD5Unsalt(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=False):
-        if not binary:
-            assert(isinstance(plaintext, six.text_type))
-            plaintext = plaintext.encode('utf-8')
+        if not isinstance(plaintext, six.text_type) and not binary:
+            raise ValueError("plaintext cannot be bytestring and not binary")
+        plaintext = plaintext.encode('utf-8')
         return hashlib.md5(plaintext).hexdigest().decode()
 
     def verify(self, plaintext, cryptstring):
