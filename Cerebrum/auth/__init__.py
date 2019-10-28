@@ -176,7 +176,7 @@ class AuthTypePlaintext(AuthBaseClass):
             plaintext = plaintext.encode('utf-8')
         return plaintext
 
-    def decrypt(self, plaintext, cryptstring):
+    def decrypt(self, cryptstring):
         return cryptstring
 
 
@@ -188,23 +188,8 @@ class AuthTypeMD5Unsalt(AuthBaseClass):
             plaintext = plaintext.encode('utf-8')
         return hashlib.md5(plaintext).hexdigest().decode()
 
-    def decrypt(self, plaintext, cryptstring):
+    def verify(self, plaintext, cryptstring):
         salt = cryptstring
         return (self.encrypt_password(plaintext, salt=salt) == cryptstring)
 
 
-# TODO: FIXME: Maby consider draging this out of here
-@all_auth_methods('HA1-MD5')
-class AuthTypeHA1MD5(AuthBaseClass):
-    def encrypt(self, plaintext, salt=None, binary=False):
-        if not binary:
-            assert(isinstance(plaintext, six.text_type))
-            plaintext = plaintext.encode('utf-8')
-
-        # TODO: FIXME: This needs some things from Account
-        s = ":".join([self.account_name, cereconf.AUTH_HA1_REALM, plaintext])
-        return hashlib.md5(s.encode('utf-8')).hexdigest().decode()
-
-    def decrypt(self, plaintext, cryptstring):
-        salt = cryptstring
-        return (self.encrypt_password(plaintext, salt=salt) == cryptstring)
