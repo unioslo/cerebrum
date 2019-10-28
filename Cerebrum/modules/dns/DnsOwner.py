@@ -341,6 +341,9 @@ class DnsOwner(GeneralDnsRecord, EntityName, EntitySpread, Entity_class):
                                 self.clconst.dns_owner_add,
                                 None)
         else:
+            if 'name' in self.__updated:
+                self.update_entity_name(self.const.dns_owner_namespace,
+                                        self.name)
             exists_stmt = """
               SELECT EXISTS (
                 SELECT 1
@@ -358,9 +361,6 @@ class DnsOwner(GeneralDnsRecord, EntityName, EntitySpread, Entity_class):
                   SET mx_set_id=:mx_set_id, zone_id=:zone_id
                   WHERE dns_owner_id=:e_id"""
                 self.execute(update_stmt, binds)
-                if 'name' in self.__updated:
-                    self.update_entity_name(self.const.dns_owner_namespace,
-                                            self.name)
                 self._db.log_change(self.entity_id,
                                     self.clconst.dns_owner_update,
                                     None)
