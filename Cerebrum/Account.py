@@ -865,7 +865,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             return method.encrypt(plaintext, salt, binary)
         except NotImplementedError as ne:
             if hasattr(self, 'logger'):
-                self.logger.warn("Auth method not implemented: %s", str(ne))
+                self.logger.warn(
+                    "Encrypt Auth method (%s) not implemented: %s",
+                    str(method), str(ne))
+            raise Errors.NotImplementedAuthTypeError
         except Exception as e:
             if hasattr(self, 'logger'):
                 self.logger.error(
@@ -884,62 +887,39 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             return method.encrypt(cryptstring)
         except NotImplementedError as ne:
             if hasattr(self, 'logger'):
-                self.logger.warn("Auth method not implemented: %s", str(ne))
+                self.logger.warn(
+                    "Decrypt Auth method (%s) not implemented: %s",
+                    str(method), str(ne))
+            raise Errors.NotImplementedAuthTypeError
         except Exception as e:
             if hasattr(self, 'logger'):
                 self.logger.error(
                     "Fatal exception in decrypt_password: %s", str(e))
-
-        # if method in (self.const.auth_type_md5_crypt,
-                      # self.const.auth_type_ha1_md5,
-                      # self.const.auth_type_sha256_crypt,
-                      # self.const.auth_type_sha512_crypt,
-                      # self.const.auth_type_md4_nt):
-            # raise NotImplementedError(
-                # "Can't decrypt {method}".format(method=method))
-        # elif method == self.const.auth_type_plaintext:
-            # return cryptstring
-        # raise ValueError('Unknown method {method}'.format(method=method))
 
     def verify_password(self, method, plaintext, cryptstring):
         """Returns True if the plaintext matches the cryptstring,
         False if it doesn't.  If the method doesn't support
         verification, NotImplemented is returned.
         """
+        if method == self.const.auth_type_ha1_md5:
+            salt = cryptstring
+            return (self.encrypt_password(
+                method, plaintext, salt=salt) == cryptstring)
         auth_map = Auth.AuthMap()
-
         try:
             methods = auth_map.get_crypt_subset([method])
             method = methods[str(method)]()
             return method.verify(plaintext, cryptstring)
         except NotImplementedError as ne:
             if hasattr(self, 'logger'):
-                self.logger.warn("Auth method not implemented: %s", str(ne))
+                self.logger.warn(
+                    "Verify Auth method (%s) not implemented: %s",
+                    str(method), str(ne))
+            raise Errors.NotImplementedAuthTypeError
         except Exception as e:
             if hasattr(self, 'logger'):
                 self.logger.error(
                     "Fatal exception in verify_password: %s", str(e))
-
-        # if method not in (self.const.auth_type_md5_crypt,
-                          # self.const.auth_type_md5_unsalt,
-                          # self.const.auth_type_ha1_md5,
-                          # self.const.auth_type_md4_nt,
-                          # self.const.auth_type_ssha,
-                          # self.const.auth_type_sha256_crypt,
-                          # self.const.auth_type_sha512_crypt,
-                          # self.const.auth_type_plaintext):
-            # raise ValueError('Unknown method {method}'.format(method=method))
-        # salt = cryptstring
-        # if method == self.const.auth_type_ssha:
-            # salt = base64.decodestring(
-                # cryptstring.encode())[20:].decode()
-
-        # if method == self.const.auth_type_md4_nt:
-            # return passlib.hash.nthash.verify(plaintext, cryptstring)
-        # else:
-            # return (self.encrypt_password(method,
-                                          # plaintext,
-                                          # salt=salt) == cryptstring)
 
     def verify_auth(self, plaintext):
         """Try to verify all authentication data stored for an

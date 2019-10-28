@@ -8,7 +8,6 @@ from collections import Mapping
 import passlib.hash
 import six
 
-import cereconf
 from Cerebrum import Utils
 
 
@@ -53,6 +52,8 @@ class AuthMap(Mapping):
         self._data = dict(*args, **kwargs)
 
     def __getitem__(self, key):
+        if key not in self._data:
+            raise NotImplementedError
         return self._data[key]
 
     def __len__(self):
@@ -70,7 +71,7 @@ class AuthMap(Mapping):
 
     def __call__(self, method_key):
         def wrapper(cls):
-            self._data[str(method_key)] = cls
+            self._data[method_key] = cls
             return cls
         return wrapper
 
@@ -101,7 +102,7 @@ class AuthTypeSSHA(AuthBaseClass):
 
     def verify(self, plaintext, cryptstring):
         salt = base64.decodestring(cryptstring.encode())[20:].decode()
-        return (self.encrypt_password(plaintext, salt=salt) == cryptstring)
+        return (self.encrypt(plaintext, salt=salt) == cryptstring)
 
 
 @all_auth_methods('SHA-256-crypt')
@@ -117,7 +118,7 @@ class AuthTypeSHA256(AuthBaseClass):
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
-        return (self.encrypt_password(plaintext, salt=salt) == cryptstring)
+        return (self.encrypt(plaintext, salt=salt) == cryptstring)
 
 
 @all_auth_methods('SHA-512-crypt')
@@ -133,7 +134,7 @@ class AuthTypeSHA512(AuthBaseClass):
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
-        return (self.encrypt_password(plaintext, salt=salt) == cryptstring)
+        return (self.encrypt(plaintext, salt=salt) == cryptstring)
 
 
 @all_auth_methods('MD5-crypt')
@@ -149,7 +150,7 @@ class AuthTypeMD5(AuthBaseClass):
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
-        return (self.encrypt_password(plaintext, salt=salt) == cryptstring)
+        return (self.encrypt(plaintext, salt=salt) == cryptstring)
 
 
 @all_auth_methods('MD4-NT')
@@ -190,6 +191,4 @@ class AuthTypeMD5Unsalt(AuthBaseClass):
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
-        return (self.encrypt_password(plaintext, salt=salt) == cryptstring)
-
-
+        return (self.encrypt(plaintext, salt=salt) == cryptstring)
