@@ -865,6 +865,12 @@ class _GroupVisibilityCode(_CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=group_visibility_code]'
 
 
+class _GroupTypeCode(_CerebrumCode):
+    """ Code values for group types """
+
+    _lookup_table = '[:table schema=cerebrum name=group_type_code]'
+
+
 class _QuarantineCode(_CerebrumCode):
 
     "Mappings stored in quarantine_code table"
@@ -1589,10 +1595,52 @@ class CommonConstants(ConstantsBase):
     gender_female = _GenderCode('F', 'Female')
     gender_unknown = _GenderCode('X', 'Unknown gender')
 
+    #
+    # _GroupTypeCode - Group.group_type values
+    #
+    # GroupType splits groups into categories, and can be used to decide if
+    # a group can be moderated by a given user or process.
+    #
+
+    # Undefined group type - initial value from migration.
+    # May serve some other purpose in the future.  Should be treated mostly
+    # like group_type_manual
+    group_type_unknown = _GroupTypeCode(
+        'unknown-group',
+        'Manual group - no group type given yet')
+
+    # Manual groups - needs to be maintained!
+    group_type_manual = _GroupTypeCode(
+        'manual-group',
+        'Manual group - generic moderated group')
+
+    group_type_internal = _GroupTypeCode(
+        'internal-group',
+        'Manual group - relates to some internal function')
+
+    # Groups typically used as dfg for new PosixUser promotions
+    group_type_personal = _GroupTypeCode(
+        'personal-group',
+        'Manual group - initial default file group for user accounts')
+
+    # populate-automatic-groups.py
+    group_type_affiliation = _GroupTypeCode(
+        'affiliation-group',
+        'Automatic group - periodically generated from person affiliations')
+
+    #
+    # _GroupVisibilityCode - Group.visibility values
+    #
+    # TODO: GroupVisibility is a legacy export hint - its use should be
+    # re-considered or the feature should be removed.
+    #
     group_visibility_all = _GroupVisibilityCode('A', 'All')
     group_visibility_none = _GroupVisibilityCode('N', 'None')
     group_visibility_internal = _GroupVisibilityCode('I', 'Internal')
 
+    #
+    # _PersonNameCode - name variants
+    #
     name_first = _PersonNameCode('FIRST', 'First name')
     name_last = _PersonNameCode('LAST', 'Last name')
     name_full = _PersonNameCode('FULL', 'Full name')
@@ -1681,6 +1729,7 @@ class Constants(CoreConstants, CommonConstants):
     ValueDomain = _ValueDomainCode
     Authentication = _AuthenticationCode
     GroupMembershipOp = _GroupMembershipOpCode
+    GroupType = _GroupTypeCode
     GroupVisibility = _GroupVisibilityCode
     Quarantine = _QuarantineCode
     LanguageCode = _LanguageCode

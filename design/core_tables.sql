@@ -23,7 +23,7 @@
 category:metainfo;
 name=cerebrum_database_schema_version;
 category:metainfo;
-version=0.9.20;
+version=0.9.21;
 
 /* Konvensjoner
  *
@@ -1870,11 +1870,38 @@ GRANT INSERT, UPDATE, DELETE ON group_visibility_code
   TO change_code;
 
 
+/*  group_type_code
+ */
+category:code;
+CREATE TABLE group_type_code
+(
+  code
+    NUMERIC(6,0)
+    CONSTRAINT group_type_code_pk PRIMARY KEY,
+
+  code_str
+    CHAR VARYING(32)
+    NOT NULL
+    CONSTRAINT group_type_codestr_u UNIQUE,
+
+  description
+    CHAR VARYING(512)
+    NOT NULL
+);
+
+category:code/Oracle;
+GRANT SELECT ON group_type_code TO read_code;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON group_type_code TO change_code;
+
+
 /*  group_info
  *
- * gname
- *   Name of the group.  Must be lowercase, but can contain (some)
- *   non-alphabetic characters.
+ * group_type
+ *   Group category - a group_type_code used to separate between different
+ *   groups in business logic.  Typical categories are 'automatic' and 'manual',
+ *   where automatic groups are maintained by Cerebrum-scripts, and manual
+ *   groups are maintained by some group moderator through some interface.
  *
  * visibility
  *   Who should the name/contents of this list be visible to?
@@ -1896,6 +1923,12 @@ CREATE TABLE group_info
   group_id
     NUMERIC(12,0)
     CONSTRAINT group_info_pk PRIMARY KEY,
+
+  group_type
+    NUMERIC(6,0)
+    NOT NULL
+    CONSTRAINT group_info_type
+      REFERENCES group_type_code(code),
 
   description
     CHAR VARYING(512),
@@ -2036,6 +2069,8 @@ category:drop;
 DROP TABLE group_info;
 category:drop;
 DROP TABLE group_visibility_code;
+category:drop;
+DROP TABLE group_type_code;
 category:drop;
 DROP TABLE account_authentication;
 category:drop;

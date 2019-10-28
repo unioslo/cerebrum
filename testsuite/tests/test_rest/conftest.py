@@ -104,7 +104,9 @@ def group_bar(db_ctx, factory, account_foo):
         creator_id=account_foo.entity_id,
         expire_date=None,
         visibility=const.group_visibility_all,
-        description="Group bar")
+        description="Group bar",
+        group_type=const.group_type_unknown,
+    )
     group.write_db()
     yield group
     # teardown?

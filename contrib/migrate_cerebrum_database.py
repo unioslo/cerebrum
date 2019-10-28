@@ -40,11 +40,13 @@ from Cerebrum.utils.funcwrap import memoize
 
 # run migrate_* in this order
 targets = {
-    'core': ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5',
-             'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9',
-             'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
-             'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',
-             'rel_0_9_18', 'rel_0_9_19', 'rel_0_9_20', ),
+    'core': (
+        'rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5',
+        'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9',
+        'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
+        'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',
+        'rel_0_9_18', 'rel_0_9_19', 'rel_0_9_20', 'rel_0_9_21',
+    ),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3', 'bofhd_1_4',),
     'bofhd_auth': ('bofhd_auth_1_1', 'bofhd_auth_1_2',),
     'changelog': ('changelog_1_2', 'changelog_1_3', 'changelog_1_4',
@@ -792,6 +794,37 @@ def migrate_to_rel_0_9_20():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 20))
     print("Migration to 0.9.20 completed successfully")
+    db.commit()
+
+
+def migrate_to_rel_0_9_21():
+    """Migrate from 0.9.20 database to the 0.9.21 database schema."""
+    assert_db_version("0.9.20")
+    makedb('0_9_21', 'pre')
+    print("\ndone.")
+
+    # Update schema version
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 21))
+
+    # Get an initial group_type code
+    from Cerebrum.Constants import CommonConstants
+    initial_type = CommonConstants.group_type_unknown
+    initial_type.int = None
+    code = int(initial_type)
+
+    # Set a default group_type so we can enforce NOT NULL
+    db.execute(
+        """
+          UPDATE [:table schema=cerebrum name=group_info]
+          SET group_type=:group_type
+        """,
+        {'group_type': code})
+    db.commit()
+
+    makedb('0_9_21', 'post')
+
+    print("Migration to 0.9.21 completed successfully")
     db.commit()
 
 
@@ -1715,11 +1748,10 @@ def migrate_to_job_runner_1_1():
 def init():
     global db, co, clconst
 
-    Factory = Utils.Factory
-    db = Factory.get('Database')()
+    db = Utils.Factory.get('Database')()
     db.cl_init(change_program="migrate")
-    co = Factory.get('Constants')(db)
-    clconst = Factory.get('CLConstants')(db)
+    co = Utils.Factory.get('Constants')(db)
+    clconst = Utils.Factory.get('CLConstants')(db)
 
 
 def show_migration_info():
@@ -1744,11 +1776,18 @@ def show_migration_info():
 def main():
     global makedb_path, design_path
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'r',
-                                   ['help', 'releases', 'from=', 'to=',
-                                    'makedb-path=', 'design-path=',
-                                    'component=',
-                                    'no-changelog', 'info'])
+        opts, args = getopt.getopt(
+            sys.argv[1:],
+            'r',
+            ['help',
+             'releases',
+             'from=',
+             'to=',
+             'makedb-path=',
+             'design-path=',
+             'component=',
+             'no-changelog',
+             'info'])
     except getopt.GetoptError as e:
         print(e)
         usage()
