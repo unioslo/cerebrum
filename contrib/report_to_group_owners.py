@@ -62,62 +62,63 @@ SENDER = 'USIT\nUiO'
 DEFAULT_AUTH_OPERATION_SET = ['Group-owner']
 DEFAULT_ENCODING = 'utf-8'
 DEFAULT_LANGUAGE = 'nb'
-MAX_SHOWABLE_MEMBERS = 30
-MEMBERS_PR_LINE = 5
 BRUKERINFO_GROUP_MANAGE_LINK = 'https://brukerinfo.uio.no/groups/?group='
 INFO_LINK = 'https://www.uio.no/tjenester/it/brukernavn-passord/brukeradministrasjon/hjelp/grupper/rapportering/?'
 TRANSLATION = {
     'en': {
         'greeting': 'Hi,',
         'message': 'The following is an overview of all the groups that you '
-                   'are administrating. Please make sure that the member list '
+                   'are administrating. At UiO access to web pages and some '
+                   'tools is defined by group memberships. Therefore it is '
+                   'important that only the correct persons are members in '
+                   'each group. Please make sure that the member list '
                    'is correct and remove members which do not belong in the '
                    'group.',
         'info_link': 'For more information go to the page ',
-        'here': 'Automatisk rapportering av grupper',
+        'here': 'Automatisk rapportering av grupper.',
         'signature': 'Best regards,',
+        'manage': 'Manage group',
         'headers': collections.OrderedDict([
             ('group_name', 'Group name'),
-            ('members', 'Members'),
-            ('manage_link', 'Manage group'),
+            ('members', 'Member count'),
+            ('manage_link', 'Link to brukerinfo'),
         ]),
-        'remaining': ' (+{} more members)',
-        'group': 'group',
-        'person': 'person',
     },
     'nb': {
         'greeting': 'Hei,',
         'message': 'Her følger en oversikt over alle grupper du kan '
-                   'administrerere. Se over at medlemmene er riktige, og '
+                   'administrerere. På UiO blir tilgang til nettsider og en '
+                   'del verktøy definert av gruppemedlemskap. Det er derfor '
+                   'viktig at kun riktige personer er medlemmer i hver gruppe.'
+                   ' Se over at medlemmene er riktige, og '
                    'fjern medlemmer som ikke lenger skal være med.',
         'info_link': 'For mer informasjon gå til siden ',
-        'here': 'Automatisk rapportering av grupper',
+        'here': 'Automatisk rapportering av grupper.',
         'signature': 'Med vennlig hilsen,',
+        'manage': 'Administrer gruppe',
         'headers': collections.OrderedDict([
             ('group_name', 'Gruppenavn'),
-            ('members', 'Medlemmer'),
-            ('manage_link', 'Administrer gruppe'),
+            ('members', 'Antall medlemmer'),
+            ('manage_link', 'Link til brukerinfo'),
         ]),
-        'remaining': ' (+{} medlemmer til)',
-        'group': 'gruppe',
-        'person': 'person',
     },
     'nn': {
         'greeting': 'Hei,',
         'message': 'Her følgjer ei oversikt over alle grupper du kan'
-                   'administrerere. Sjå over at medlemma er riktige, og '
-                   'fjern medlem som ikkje lenger skal vere med.',
+                   'administrerere. På UiO blir tilgang til nettsider og ein '
+                   'del verktøy definert av gruppemedlemskap. Det er derfor '
+                   'viktig at kun riktige personer er medlemmar i kvar gruppe.'
+                   'Sjå over at medlemma er riktige, og '
+                   'fjern medlemmar som ikkje lenger skal vere med.',
         'info_link': 'For meir informasjon gå til sida ',
-        'here': 'Automatisk rapportering av grupper',
+        'here': 'Automatisk rapportering av grupper.',
         'signature': 'Med vennleg helsing,',
+        'manage': 'Administrer gruppe',
         'headers': collections.OrderedDict([
             ('group_name', 'Gruppenamn'),
-            ('members', 'Medlem'),
-            ('manage_link', 'Administrer gruppe'),
+            ('members', 'Antal medlemmar'),
+            ('manage_link', 'Link til brukerinfo'),
         ]),
-        'remaining': ' (+{} fleire medlem)',
-        'group': 'gruppe',
-        'person': 'person',
     }
 }
 
@@ -143,35 +144,6 @@ def get_title(language):
         )
 
 
-def pop_multiple_from_front(lst, amount):
-    ret = lst[:amount]
-    del lst[:amount]
-    return ret
-
-
-class MemberLinesGetter(object):
-    def __init__(self, group_id2members):
-        self.group_id2members = group_id2members
-
-    @memoize
-    def __call__(self, group_id):
-        members = self.group_id2members[group_id]
-        members_count = len(members)
-        member_lines = []
-        members_to_write = members[:min(members_count, MAX_SHOWABLE_MEMBERS)]
-
-        if not members_to_write:
-            member_lines.append('')
-        for i in range(0, len(members_to_write), MEMBERS_PR_LINE):
-            member_lines.append(', '.join(
-                pop_multiple_from_front(members_to_write, MEMBERS_PR_LINE)
-            ))
-            if members_to_write:
-                member_lines[-1] += ','
-
-        return member_lines, max(members_count - MAX_SHOWABLE_MEMBERS, 0)
-
-
 def write_html_report(template_path, codec, **kwargs):
     env = jinja2.Environment(
         loader=jinja2.FileSystemLoader(template_path)
@@ -182,7 +154,7 @@ def write_html_report(template_path, codec, **kwargs):
 
 
 def write_plain_text_report(codec, translation=None, sender=None,
-                            owned_groups=None, get_member_lines=None):
+                            owned_groups=None, group_id2members=None):
     def get_cell_content(text, cell_width):
         return text + (cell_width - len(text)) * ' '
 
@@ -203,7 +175,7 @@ def write_plain_text_report(codec, translation=None, sender=None,
 
         for group in owned_groups:
             columns[0].append(group['group_name'])
-            columns[1].extend(get_member_lines(group['group_id'])[0])
+            columns[1].append(str(group_id2members[group['group_id']]))
             columns[2].append(group['manage_link'])
 
         return map(get_longest_item_length, columns)
@@ -212,40 +184,16 @@ def write_plain_text_report(codec, translation=None, sender=None,
         rows = ''
         for group in owned_groups:
             group_name = group['group_name']
-            member_lines, remaining_members = get_member_lines(
-                group['group_id'])
-            # Avoid mutating the memoized value
-            member_lines = copy.copy(member_lines)
-            member_lines = [
-                l.format(group=translation['group'],
-                         person=translation['person']
-                         ) for l in member_lines
-            ]
-
-            if remaining_members > 0:
-                member_lines.append(
-                    translation['remaining'].format(remaining_members)
-                )
+            members_count = str(group_id2members[group['group_id']])
             manage_link = group['manage_link']
 
-            first_line = assemble_line(
+            row_content_line = assemble_line(
                 '|',
-                get_cell_contents(
-                    [group_name, member_lines[0], manage_link],
-                    cell_widths)
+                get_cell_contents([group_name, members_count, manage_link],
+                                  cell_widths)
             )
-            if len(member_lines) > 1:
-                remaining_lines = ''.join(
-                    [
-                        assemble_line(
-                            '|',
-                            get_cell_contents(['', l, ''], cell_widths)
-                        ) for l in member_lines[1:]
-                    ]
-                )
-            else:
-                remaining_lines = ''
-            rows += (first_line + remaining_lines + divider_line)
+
+            rows += (row_content_line + divider_line)
         return rows
 
     def get_table():
@@ -490,20 +438,13 @@ class GroupOwnerCacher(object):
         return owner_id2groups
 
     def cache_group_id2members(self, groups):
-        group_id2members = collections.defaultdict(list)
+        group_id2members = {}
         for group in groups:
             group_id = group['group_id']
-
-            for member in self.group.search_members(group_id=group_id):
-                group_id2members[group_id].append(self.get_entity_name(
-                    member['member_id'],
-                    member['member_type']))
-                if not member['member_type'] == self.co.entity_account:
-                    group_id2members[group_id][-1] += (
-                            ' ({' +
-                            str(self.co.EntityType(member['member_type'])) +
-                            '})'
-                    )
+            members_count = len(
+                [m for m in self.group.search_members(group_id=group_id)]
+            )
+            group_id2members[group_id] = members_count
         return group_id2members
 
 
@@ -531,8 +472,6 @@ def send_mails(db, args):
     group_id2members = group_owner_cacher.cache_group_id2members(
         all_owned_groups)
 
-    get_member_lines = MemberLinesGetter(group_id2members)
-
     for entity_id, owner_ids in entity_id2owner_ids.items():
         entity_type = group_owner_cacher.get_entity_type(entity_id)
         entity_email_address = group_owner_cacher.get_entity_primary_email(
@@ -556,8 +495,6 @@ def send_mails(db, args):
             sender=SENDER,
             owned_groups=owned_groups,
             group_id2members=group_id2members,
-            max_members=MAX_SHOWABLE_MEMBERS,
-            get_member_lines=get_member_lines,
             info_link=INFO_LINK,
         )
         plain_text = write_plain_text_report(
@@ -565,7 +502,7 @@ def send_mails(db, args):
             translation=TRANSLATION[DEFAULT_LANGUAGE],
             sender=SENDER,
             owned_groups=owned_groups,
-            get_member_lines=get_member_lines,
+            group_id2members=group_id2members,
         )
         message = create_html_message(html,
                                       plain_text,
