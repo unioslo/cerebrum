@@ -109,7 +109,7 @@ class HostInfo(Entity):
                       entity_type=:entity_type AND
                       dns_owner_id=:dns_owner_id
               )
-            """ % defs
+            """
             if not self.query_1(exists_stmt, binds):
                 update_stmt = """
                 UPDATE [:table schema=cerebrum name=dns_host_info]
