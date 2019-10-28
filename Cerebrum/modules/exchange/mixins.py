@@ -24,31 +24,23 @@ The exchange.mixins module contains mixins that should go into the base
 Group classes to support detection, deletion and cleanup of exchange data.
 
 """
-import cereconf
-getattr(cereconf, "linter", "should not bother!")
-
 from Cerebrum import Errors
 from Cerebrum.Group import Group
 
 
 class SecurityGroupMixin(Group):
-
     """ Base functionality for Exchange Security Groups.
 
     This class is intended as a mixin to the base Group class, to enable
     identification and cleanup of Security Group data.
-
     """
-    pass
 
 
 class DistributionGroupMixin(Group):
-
     """ Base functionality for Exchange Distribution Groups.
 
     This class is intended as a mixin to the base Group class, to enable
     identification and cleanup of Distribution Group data.
-
     """
 
     def _is_roomlist(self):
@@ -81,17 +73,25 @@ class DistributionGroupMixin(Group):
             is_roomlist = self._is_roomlist()
         except Errors.NotFoundError:
             return False
-
-        self._db.log_change(self.entity_id,
-                            self.clconst.dl_group_remove,
-                            None,
-                            change_params={'name': self.group_name,
-                                           'roomlist': is_roomlist})
-
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=distribution_group]
-        WHERE group_id=:g_id""", {'g_id': self.entity_id})
-
+        binds = {'g_id': self.entity_id}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=distribution_group]
+            WHERE group_id=:g_id
+          )
+        """
+        if self.query_1(exists_stmt, binds):
+            # True positive
+            delete_stmt = """
+            DELETE FROM [:table schema=cerebrum name=distribution_group]
+            WHERE group_id=:g_id"""
+            self.execute(delete_stmt, binds)
+            self._db.log_change(self.entity_id,
+                                self.clconst.dl_group_remove,
+                                None,
+                                change_params={'name': self.group_name,
+                                               'roomlist': is_roomlist})
         return True
 
     def delete(self):

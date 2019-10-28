@@ -87,13 +87,14 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         self.write_db()
 
     def is_expired(self):
+        """Checks if group is expired"""
         now = mx.DateTime.now()
         if self.expire_date is None or self.expire_date >= now:
             return False
         return True
 
     def is_empty(self):
-        """Checks if a group is empty (no members)."""
+        """Checks if group is empty"""
         for row in self.search_members(group_id=self.entity_id):
             return False
         return True
@@ -103,7 +104,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
     # lengths and max length in database is 256 characters
     def illegal_name(self, name, max_length=256):
         """Return a string with error message if groupname is illegal"""
-        if len(name) == 0:
+        if not name:
             return "Must specify group name"
         if len(name) > max_length:
             return "Name %s too long (%d char allowed)" % (name, max_length)
@@ -132,51 +133,53 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             tmp = self.illegal_name(self.group_name)
             if tmp:
                 raise self._db.IntegrityError("Illegal groupname: %s" % tmp)
-
+        binds = {'description': self.description,
+                 'group_id': self.entity_id,
+                 'visibility': int(self.visibility),
+                 'creator_id': self.creator_id,
+                 'expire_date': self.expire_date}
         if is_new:
-            cols = [('entity_type', ':e_type'),
-                    ('group_id', ':g_id'),
-                    ('description', ':desc'),
-                    ('visibility', ':visib'),
-                    ('creator_id', ':creator_id')]
-            # Columns that have default values through DDL.
-            if self.expire_date is not None:
-                cols.append(('expire_date', ':exp_date'))
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=group_info] (%(tcols)s)
-            VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
-                                     'binds': ", ".join([x[1] for x in cols])},
-                         {'e_type': int(self.const.entity_group),
-                          'g_id': self.entity_id,
-                          'desc': self.description,
-                          'visib': int(self.visibility),
-                          'creator_id': self.creator_id,
-                          'exp_date': self.expire_date})
-            self._db.log_change(self.entity_id, self.clconst.group_create, None)
+            binds['entity_type'] = int(self.const.entity_group),
+            defs = {'tc': ", ".join(x for x in sorted(binds)),
+                    'tb': ", ".join(':{0}'.format(x) for x in sorted(binds))}
+            insert_stmt = """
+              INSERT INTO [:table schema=cerebrum name=group_info] (%(tc)s)
+              VALUES (%(tb)s)""" % defs
+            self.execute(insert_stmt, binds)
+            self._db.log_change(self.entity_id,
+                                self.clconst.group_create,
+                                None)
             self.add_entity_name(self.const.group_namespace, self.group_name)
         else:
-            cols = [('description', ':desc'),
-                    ('visibility', ':visib'),
-                    ('creator_id', ':creator_id'),
-                    ('expire_date', ':exp_date')]
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=group_info]
-            SET %(defs)s
-            WHERE group_id=:g_id""" % {'defs': ", ".join(
-                ["%s=%s" % x for x in cols if x[0] != 'group_id'])},
-                {'g_id': self.entity_id,
-                 'desc': self.description,
-                 'visib': int(self.visibility),
-                 'creator_id': self.creator_id,
-                 'exp_date': self.expire_date})
-            self._db.log_change(self.entity_id,
-                                self.clconst.group_mod,
-                                None,
-                                change_params=self.__updated)
+            exists_stmt = '''
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=group_info]
+                WHERE (description is NULL AND :description is NULL OR
+                         description=:description) AND
+                      (expire_date is NULL AND :expire_date is NULL OR
+                         expire_date=:expire_date) AND
+                      group_id=:group_id AND
+                      visibility=:visibility AND
+                      creator_id=:creator_id
+                )
+            '''
+            if not self.query_1(exists_stmt, binds):
+                # True positive
+                set_str = ', '.join(
+                    '{0}=:{0}'.format(x) for x in binds if x != 'group_id')
+                update_stmt = """
+                  UPDATE [:table schema=cerebrum name=group_info]
+                  SET {set_str}
+                  WHERE group_id=:group_id""".format(set_str=set_str)
+                self.execute(update_stmt, binds)
+                self._db.log_change(self.entity_id,
+                                    self.clconst.group_mod,
+                                    None,
+                                    change_params=self.__updated)
             if 'group_name' in self.__updated:
-                self.update_entity_name(
-                    self.const.group_namespace,
-                    self.group_name)
+                self.update_entity_name(self.const.group_namespace,
+                                        self.group_name)
         # EntityName.write_db(self, as_object)
         del self.__in_db
         self.__in_db = True
@@ -379,12 +382,24 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             Group (id) to remove member from
         """
 
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=group_member]
-        WHERE
-          group_id=:g_id AND
-          member_id=:m_id""", {'g_id': group_id,
-                               'm_id': member_id})
+        binds = {'group_id': group_id,
+                 'member_id': member_id}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=group_member]
+            WHERE group_id=:group_id AND
+                  member_id=:member_id
+          )
+        """
+        if not self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        delete_stmt = """
+          DELETE FROM [:table schema=cerebrum name=group_member]
+          WHERE group_id=:group_id AND
+                member_id=:member_id"""
+        self.execute(delete_stmt, binds)
         self._db.log_change(group_id, self.clconst.group_rem, member_id)
 
     def search(self,
@@ -504,7 +519,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             # workset contains ids of the entities that are members. in each
             # iteration we are looking for direct parents of whatever is in
             # workset.
-            workset = set([int(x) for x in member_id])
+            workset = set(int(x) for x in member_id)
             while workset:
                 tmp = workset
                 workset = set()

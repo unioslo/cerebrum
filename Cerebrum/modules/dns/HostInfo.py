@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# 
+#
 # Copyright 2005, 2013 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -25,19 +25,19 @@ L{TTL}.
 
 HostInfo was previously referenced to as "mreg" at UiO. You should be aware of
 this looking in the documentation.
-
 """
 
 from Cerebrum.Entity import Entity
-from Cerebrum.Utils import argument_to_sql, prepare_string
+from Cerebrum.Utils import argument_to_sql
 from Cerebrum.modules.dns.DnsOwner import DnsOwner
+
 
 class HostInfo(Entity):
     """``HostInfo(Entity)`` is used to store information
     about machines in the dns_host_info table.  It uses the standard
     Cerebrum populate logic for handling updates.
     """
-    
+
     __read_attr__ = ('__in_db', 'name')
     __write_attr__ = ('dns_owner_id', 'ttl', 'hinfo')
 
@@ -57,7 +57,7 @@ class HostInfo(Entity):
             Entity.populate(self, self.const.entity_dns_host)
         try:
             if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
+                raise RuntimeError("populate() called multiple times")
         except AttributeError:
             self.__in_db = False
         for k in locals().keys():
@@ -66,9 +66,10 @@ class HostInfo(Entity):
 
     def __eq__(self, other):
         assert isinstance(other, HostInfo)
-        if (self.primary_arecord != other.primary_arecord or
-            self.hinfo != other.hinfo or
-            self.ttl != other.ttl):
+        if (
+                self.primary_arecord != other.primary_arecord or
+                self.hinfo != other.hinfo or
+                self.ttl != other.ttl):
             return False
         return True
 
@@ -77,50 +78,60 @@ class HostInfo(Entity):
         if not self.__updated:
             return
         is_new = not self.__in_db
-        if(len(self.hinfo.split("\t")) != 2):
-            raise ValueError, "Illegal HINFO (missing tab)"
-
-        cols = [('entity_type', ':e_type'),
-                ('host_id', ':e_id'),
-                ('dns_owner_id', ':dns_owner_id'),
-                ('ttl', ':ttl'),
-                ('hinfo', ':hinfo')]
-        binds = {'e_type' : int(self.const.entity_dns_host),
-                 'e_id': self.entity_id,
+        if len(self.hinfo.split("\t")) != 2:
+            raise ValueError("Illegal HINFO (missing tab)")
+        binds = {'entity_type': int(self.const.entity_dns_host),
+                 'entity_id': self.entity_id,
                  'dns_owner_id': self.dns_owner_id,
                  'hinfo': self.hinfo,
-                 'ttl' : self.ttl}
+                 'ttl': self.ttl}
+        defs = {'tc': ', '.join(x for x in sorted(binds)),
+                'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
+                'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
+                                if x != 'host_id'),
+                'tw': ' AND '.join(
+                    '{0}=:{0}'.format(x) for x in binds if x not in {'ttl',
+                                                                     'hinfo'})}
         if is_new:
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=dns_host_info] (
-               %(tcols)s) VALUES (%(binds)s)""" % {
-                'tcols': ", ".join([x[0] for x in cols]),
-                'binds': ", ".join([x[1] for x in cols])},
-                         binds)
-            self._db.log_change(self.entity_id, self.clconst.host_info_add, None,
+            insert_stmt = """
+            INSERT INTO [:table schema=cerebrum name=dns_host_info] (%(tc)s)
+            VALUES (%(tb)s)""" % defs
+            self.execute(insert_stmt, binds)
+            self._db.log_change(self.entity_id,
+                                self.clconst.host_info_add,
+                                None,
                                 change_params={'hinfo': self.hinfo})
         else:
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=dns_host_info]
-            SET %(defs)s
-            WHERE host_id=:e_id""" % {'defs': ", ".join(
-                ["%s=%s" % x for x in cols])},
-                         binds)
-            self._db.log_change(self.entity_id, self.clconst.host_info_update, None,
-                                change_params={'hinfo': self.hinfo})
+            exists_stmt = """
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=dns_host_info]
+                WHERE (ttl is NULL AND :ttl is NULL OR ttl=:ttl) AND
+                      (hinfo is NULL AND :hinfo is NULL OR hinfo=:hinfo) AND
+                     %(tw)s
+              )
+            """ % defs
+            if not self.query_1(exists_stmt, binds):
+                update_stmt = """
+                UPDATE [:table schema=cerebrum name=dns_host_info]
+                SET %(ts)s
+                WHERE host_id=:host_id""" % defs
+                self.execute(update_stmt, binds)
+                self._db.log_change(self.entity_id,
+                                    self.clconst.host_info_update,
+                                    None,
+                                    change_params={'hinfo': self.hinfo})
         del self.__in_db
-        
         self.__in_db = True
         self.__updated = []
         return is_new
 
     def find(self, host_id):
         self.__super.find(host_id)
-
         (self.dns_owner_id, self.ttl, self.hinfo) = self.query_1("""
         SELECT dns_owner_id, ttl, hinfo
         FROM [:table schema=cerebrum name=dns_host_info]
-        WHERE host_id=:host_id""", {'host_id' : host_id})
+        WHERE host_id=:host_id""", {'host_id': host_id})
         dns = DnsOwner(self._db)
         dns.find(self.dns_owner_id)
         self.name = dns.name
@@ -163,16 +174,28 @@ class HostInfo(Entity):
         SELECT host_id, dns_owner_id, ttl, hinfo
         FROM [:table schema=cerebrum name=dns_host_info]
         WHERE dns_owner_id=:dns_owner_id""", {'dns_owner_id': dns_owner_id})
- 
 
     def _delete(self):
         """Deletion in host_info should be done through the DnsHelper
         class to avoid leaving entries in dns_owner that has no FKs to
         it"""
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=dns_host_info]
-        WHERE host_id=:e_id""", {'e_id': self.entity_id})
-        self._db.log_change(self.entity_id, self.clconst.host_info_del, None)
+        binds = {'e_id': self.entity_id}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=dns_host_info]
+            WHERE host_id=:e_id
+          )
+        """
+        if self.query_1(exists_stmt, binds):
+            # True positive
+            stmt = """
+            DELETE FROM [:table schema=cerebrum name=dns_host_info]
+            WHERE host_id=:e_id"""
+            self.execute(stmt, binds)
+            self._db.log_change(self.entity_id,
+                                self.clconst.host_info_del,
+                                None)
         self.__super.delete()
 
     def search(self, spread=None, host_id=None, dns_owner_id=None,
