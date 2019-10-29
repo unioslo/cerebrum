@@ -252,8 +252,8 @@ class OuDiskMapping(DatabaseAccessor):
                 binds['status_code'] = int(status_code)
         stmt = """
           DELETE FROM [:table schema=cerebrum name=ou_disk_mapping]
-          WHERE {}
-        """.format(where)
+          WHERE {where}
+        """.format(where=where)
         self.execute(stmt, binds)
 
         self.disk.clear()
