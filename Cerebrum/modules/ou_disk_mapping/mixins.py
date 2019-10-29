@@ -32,10 +32,9 @@ class OUMixin(OU):
     def delete(self):
         """Delete any mappings to an OU."""
         ous = OuDiskMapping(self._db)
-        for row in ous.get(ou_id=self.entity_id, aff_code=None,
-                           status_code=None):
-            ous.delete(ou_id=self.entity_id, aff_code=row['aff_code'],
-                       status_code=row['status_code'])
+        for row in ous.search(ou_id=self.entity_id):
+            ous.delete(ou_id=self.entity_id,
+                       aff_code=row['status_code'])
         super(OUMixin, self).delete()
 
 
@@ -47,7 +46,7 @@ class DiskMixin(Disk):
     def delete(self):
         """Delete any mappings to a disk"""
         ous = OuDiskMapping(self._db)
-        for row in ous.get_disk(disk_id=self.entity_id):
-            ous.delete(ou_id=row['ou_id'], aff_code=row['aff_code'],
-                       status_code=row['status_code'])
+        for row in ous.get_with_disk(disk_id=self.entity_id):
+            ous.delete(ou_id=row['ou_id'],
+                       aff_code=row['status_code'])
         super(DiskMixin, self).delete()

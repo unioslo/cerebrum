@@ -21,29 +21,41 @@ Implementation of mod_ou_disk_mapping database access.
 """
 import six
 
+from Cerebrum import Errors
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Disk import Disk
+from Cerebrum.Utils import NotSet, Factory
 from .constants import CLConstants
+from .utils import aff_lookup
 
 
 class OuDiskMapping(DatabaseAccessor):
+    """
+    Map OU and Affiliation to Disk
+    """
     def __init__(self, database):
         super(OuDiskMapping, self).__init__(database)
         self.disk = Disk(self._db)
+        self.const = Factory.get('Constants')(self._db)
 
-    def __insert(self, ou_id, aff_code, status_code, disk_id):
+    def __insert(self, ou_id, aff_code, disk_id):
         """
         Insert a new row in the ou_disk_mapping table.
 
         :param int ou_id: entity_id of the ou
-        :param int aff_code: int of affiliation constant
-        :param int disk_id: entity_id of the disk
+        :param int or None aff_code: int of affiliation constant
+        :param int or None disk_id: entity_id of the disk
         """
+        if aff_code is None:
+            status_code = None
+        else:
+            aff_code, status_code = aff_lookup(self.const, int(aff_code))
         binds = {
-            'ou_id': ou_id,
-            'aff_code': aff_code,
-            'status_code': status_code,
-            'disk_id': disk_id,
+            'ou_id': int(ou_id),
+            'aff_code': aff_code if aff_code is None else int(aff_code),
+            'status_code': status_code if status_code is None else int(
+                status_code),
+            'disk_id': int(disk_id),
         }
         stmt = """
           INSERT INTO [:table schema=cerebrum name=ou_disk_mapping]
@@ -54,15 +66,19 @@ class OuDiskMapping(DatabaseAccessor):
         self.execute(stmt, binds)
 
         self.disk.clear()
-        self.disk.find(disk_id)
-        self._db.log_change(int(ou_id), CLConstants.ou_disk_add, None,
-                            change_params={
-                                'aff': str(aff_code),
-                                'status': status_code,
-                                'path': six.text_type(self.disk.path),
-                            })
+        self.disk.find(int(disk_id))
+        self._db.log_change(
+            int(ou_id),
+            CLConstants.ou_disk_add,
+            None,
+            change_params={
+                'aff': six.text_type(
+                    status_code) if status_code else six.text_type(aff_code),
+                'path': six.text_type(self.disk.path),
+            }
+        )
 
-    def __update(self, ou_id, aff_code, status_code, disk_id):
+    def __update(self, ou_id, aff_code, disk_id):
         """
         Update a row in the ou_disk_mapping table.
 
@@ -70,84 +86,108 @@ class OuDiskMapping(DatabaseAccessor):
         :param int aff_code: int of affiliation constant
         :param int disk_id: entity_id of the disk
         """
+        if aff_code is None:
+            status_code = None
+        else:
+            aff_code, status_code = aff_lookup(self.const, int(aff_code))
+
         binds = {
-            'ou_id': ou_id,
-            'aff_code': aff_code,
-            'status_code': status_code,
-            'disk_id': disk_id,
+            'ou_id': int(ou_id),
+            'disk_id': int(disk_id),
         }
+        where = "ou_id = :ou_id"
+        if aff_code is None:
+            where += " AND aff_code IS NULL"
+        else:
+            where += " AND aff_code = :aff_code"
+            binds['aff_code'] = int(aff_code)
+
+        if status_code is None:
+            where += " AND status_code IS NULL"
+        else:
+            where += " AND status_code = :status_code"
+            binds['status_code'] = int(status_code)
 
         stmt = """
           UPDATE [:table schema=cerebrum name=ou_disk_mapping]
           SET 
             disk_id = :disk_id
-          WHERE
-            ou_id = :ou_id
-            AND
-            (aff_code = :aff_code OR (aff_code is NULL AND
-                                      :aff_code IS NULL))
-            AND
-            (status_code = :status_code OR (status_code is NULL AND
-                                            :status_code IS NULL))
-        """
+          WHERE {where}
+        """.format(where=where)
         self.execute(stmt, binds)
 
         self.disk.clear()
-        self.disk.find(disk_id)
-        self._db.log_change(int(ou_id), CLConstants.ou_disk_add, None,
-                            change_params={
-                                'aff': str(aff_code),
-                                'status': status_code,
-                                'path': six.text_type(self.disk.path),
-                            })
+        self.disk.find(int(disk_id))
+        self._db.log_change(
+            int(ou_id),
+            CLConstants.ou_disk_add,
+            None,
+            change_params={
+                'aff': six.text_type(
+                    status_code) if status_code else six.text_type(aff_code),
+                'path': six.text_type(self.disk.path),
+            }
+        )
 
-    def delete(self, ou_id, aff_code, status_code):
+    def delete(self, ou_id, aff_code):
         """
         Delete disk_id for a given ou_id and aff_code
 
         :param int ou_id: entity_id of the ou
         :param int or None aff_code: int of affiliation constant
-        :param int or None status_code: int or aff status constant
         """
-        data = self.get(ou_id, aff_code, status_code)
-        disk_id = data.get('disk_id')
+        try:
+            old_values = self.get(ou_id, aff_code)
+        except Errors.NotFoundError:
+            # Nothing to remove
+            return
+        disk_id = old_values['disk_id']
+        aff_code = old_values['aff_code']
+        status_code = old_values['status_code']
 
-        binds = {'ou_id': ou_id,
-                 'aff_code': aff_code,
-                 'status_code': status_code,
-                 }
+        binds = {
+            'ou_id': int(ou_id),
+        }
+
+        where = "ou_id = :ou_id"
+        if aff_code is None:
+            where += " AND aff_code IS NULL AND status_code IS NULL"
+        else:
+            where += " AND aff_code = :aff_code"
+            binds['aff_code'] = int(aff_code)
+            if status_code is not None:
+                where += " AND status_code = :status_code"
+                binds['status_code'] = int(status_code)
+
         stmt = """
           DELETE FROM [:table schema=cerebrum name=ou_disk_mapping]
-          WHERE
-            ou_id = :ou_id
-            AND
-            (aff_code = :aff_code OR (aff_code is NULL AND
-                                      :aff_code IS NULL))
-            AND
-            (status_code = :status_code OR (status_code is NULL AND
-                                            :status_code IS NULL))
-        """
+          WHERE {where}
+        """.format(where=where)
         self.execute(stmt, binds)
 
         self.disk.clear()
-        self.disk.find(disk_id)
-        self._db.log_change(int(ou_id), CLConstants.ou_disk_remove, None,
-                            change_params={
-                                'aff': aff_code,
-                                'status': status_code,
-                                'path': six.text_type(self.disk.path)}
-                            )
+        self.disk.find(int(disk_id))
+        self._db.log_change(
+            int(ou_id),
+            CLConstants.ou_disk_remove,
+            None,
+            change_params={
+                'aff': six.text_type(
+                    status_code) if status_code else six.text_type(aff_code),
+                'path': six.text_type(self.disk.path)
+            }
+        )
 
-    def get_disk(self, disk_id):
-        # TODO: Give this a better name! We are not getting a disk
+    def get_with_disk(self, disk_id):
         """
         Get all OUs and Affiliations that use a disk_id
 
         :param int disk_id:
         :return: list of db.rows with keys ou_id, aff_code, disk_id
         """
-        binds = {'disk_id': disk_id,
-                 }
+        binds = {
+            'disk_id': int(disk_id),
+        }
         stmt = """
           SELECT ou_id, aff_code, status_code
           FROM [:table schema=cerebrum name=ou_disk_mapping]
@@ -156,109 +196,106 @@ class OuDiskMapping(DatabaseAccessor):
         """
         return self.query(stmt, binds)
 
-    def get(self, ou_id, aff_code, status_code):
+    def get(self, ou_id, aff_code):
         """
-        Get values for a given combination of ou (and affiliation).
+        Get values for a given combination of ou, aff, status
 
         :param int ou_id: entity_id of the ou
 
-        :type aff_code: int, None or 'null'
-        :param aff_code: int or 'null' for specific entry, None for any
+        :type aff_code: int, None
+        :param aff_code: Cerebrum person aff (status) constant
 
-        :type status_code: int, None or 'null'
-        :param status_code: int or 'null' for specific entry, None for any
-
-        :return: list of db.rows with keys ou_id, aff_code, disk_id
+        :rtype: db.row
+        :return: ou_id, aff_code, status_code, disk_id
         """
         binds = {
-            'ou_id': ou_id,
+            'ou_id': int(ou_id),
         }
+
         where = "ou_id = :ou_id"
-        if aff_code:
-            if aff_code == 'null':
-                where += " AND aff_code is NULL"
-            else:
-                where += " AND aff_code = :aff_code"
-                binds['aff_code'] = int(aff_code)
-        if status_code:
-            if status_code == 'null':
-                where += " AND status_code IS NULL"
+        if aff_code is None:
+            where += " AND aff_code IS NULL AND status_code IS NULL"
+        else:
+            aff_code, status_code = aff_lookup(self.const, int(aff_code))
+            where += " AND aff_code = :aff_code"
+            binds['aff_code'] = int(aff_code)
+            if status_code is not None:
+                where += " AND status_code = :status_code"
+                binds['status_code'] = int(status_code)
+
+        stmt = """
+          SELECT ou_id, aff_code, status_code, disk_id
+          FROM [:table schema=cerebrum name=ou_disk_mapping]
+          WHERE {where}
+        """.format(where=where)
+        return self.query_1(stmt, binds)
+
+    def add(self, ou_id, aff_code, disk_id):
+        """
+        Set disk_id for a given combination of ou and affiliation
+
+        :param int ou_id: entity_id of the ou
+        :param int or None aff_code: int of affiliation constant
+        :param int disk_id: entity_id of the disk
+        """
+        # Check old values
+        try:
+            old_values = self.get(ou_id, aff_code)
+        except Errors.NotFoundError:
+            is_new = True
+        else:
+            is_new = False
+            # Check if anything is new
+            if old_values['disk_id'] == disk_id:
+                return
+
+        # Insert new values
+        if is_new:
+            self.__insert(ou_id, aff_code, disk_id)
+        else:
+            self.__update(ou_id, aff_code, disk_id)
+
+    def search(self, ou_id, aff_code=NotSet, any_status=True):
+        """
+        Search for rows matching ou, aff, status
+
+        Similar to get but allows NotSet for aff_code and status_code so that
+        one can find all entries for an OU or OU+aff combination
+
+        :param int ou_id: entity_id of the ou
+
+        :type aff_code: int, None
+        :param aff_code: Cerebrum person aff (status) constant
+
+        :param bool any_status: Look for any matching status if aff_code is set
+         to a person affiliation
+
+        :rtype: db.row
+        :return: ou_id, aff_code, status_code, disk_id
+        """
+        binds = {
+            'ou_id': int(ou_id),
+        }
+
+        where = "ou_id = :ou_id"
+        if aff_code is None:
+            where += " AND aff_code IS NULL AND status_code IS NULL"
+        elif aff_code is NotSet:
+            pass
+        else:
+            aff_code, status_code = aff_lookup(self.const, int(aff_code))
+            where += " AND aff_code = :aff_code"
+            binds['aff_code'] = int(aff_code)
+            if status_code is None:
+                if not any_status:
+                    where += " AND status_code IS NULL"
             else:
                 where += " AND status_code = :status_code"
                 binds['status_code'] = int(status_code)
+
         stmt = """
           SELECT ou_id, aff_code, status_code, disk_id
           FROM [:table schema=cerebrum name=ou_disk_mapping]
           WHERE {where}
         """.format(where=where)
         return self.query(stmt, binds)
-
-    def set(self, ou_id, aff_code, status_code, disk_id):
-        """
-        Set disk_id for a given combination of ou and affiliation
-
-        :param int ou_id: entity_id of the ou
-        :param int aff_code: int of affiliation constant
-        :param int or None status_code: int of affiliation status constant
-        :param int disk_id: entity_id of the disk
-        """
-        # Check old values
-        old_aff = 'null' if aff_code is None else aff_code
-        old_status = 'null' if status_code is None else status_code
-        old_values = self.get(ou_id, old_aff, old_status)
-
-        # Check if anything is new
-        if old_values and old_values[0].get('disk_id') == disk_id:
-            return
-
-        # Insert new values
-        aff_code = None if aff_code == 'null' else aff_code
-        status_code = None if status_code == 'null' else status_code
-        if not old_values:
-            self.__insert(ou_id, aff_code, status_code, disk_id)
-        else:
-            self.__update(ou_id, aff_code, status_code, disk_id)
-
-    def clear(self, ou_id, aff_code, status_code):
-        """
-        Delete disk_id for a given combination of ou and affiliation
-
-        :param int ou_id: entity_id of the ou
-        :param int aff_code: int of affiliation constant
-        :param int status_code: int of aff status constant
-        """
-        old_aff = 'null' if aff_code is None else aff_code
-        old_status = 'null' if status_code is None else status_code
-        old_values = self.get(ou_id, old_aff, old_status)
-
-        if not old_values:
-            # Nothing to update
-            return
-        disk_id = old_values[0].get('disk_id')
-        binds = {'ou_id': ou_id,
-                 }
-        where = "ou_id = :ou_id"
-        if aff_code:
-            if aff_code == 'null':
-                where += " AND aff_code is NULL"
-            else:
-                where += " AND aff_code = :aff_code"
-                binds['aff_code'] = int(aff_code)
-        if status_code:
-            if status_code == 'null':
-                where += " AND status_code IS NULL"
-            else:
-                where += " AND status_code = :status_code"
-                binds['status_code'] = int(status_code)
-        stmt = """
-          DELETE FROM [:table schema=cerebrum name=ou_disk_mapping]
-          WHERE {where}
-        """.format(where=where)
-        self.execute(stmt, binds)
-
-        self.disk.clear()
-        self.disk.find(disk_id)
-        self._db.log_change(ou_id, CLConstants.ou_disk_remove, None,
-                            change_params={'aff': aff_code,
-                                           'status': status_code,
-                                           'path': self.disk.path})
