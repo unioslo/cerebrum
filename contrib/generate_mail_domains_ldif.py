@@ -62,14 +62,12 @@ def get_email_domains():
     co = Factory.get("Constants")(db)
     email = Email.EmailDomain(db)
 
-    exclude = set(
-        (
-            int(row["domain_id"])
-            for row in email.list_email_domains_with_category(
-                co.email_domain_category_noexport
-            )
+    exclude = {
+        int(row["domain_id"])
+        for row in email.list_email_domains_with_category(
+            co.email_domain_category_noexport
         )
-    )
+    }
 
     for row in email.list_email_domains():
         if int(row["domain_id"]) in exclude:
@@ -83,14 +81,17 @@ def write_mail_domains():
     logger.debug("Reading domains...")
     domains = sorted(get_email_domains())
 
-    lw = LDIFutils.LDIFWriter("MAIL_DOMAINS", filename=None)
+    lw = LDIFutils.LDIFWriter("MAIL_DOMAINS")
     dn_suffix = lw.getconf("dn")
     lw.write_container()
 
     logger.debug("Writing domains...")
     for domain in domains:
         dn = "cn=%s,%s" % (domain, dn_suffix)
-        entry = {"cn": domain, "host": domain, "objectClass": ("uioHost",)}
+        entry = {"cn": domain,
+                 "host": domain,
+                 "objectClass": ("uioHost",),
+                 }
         lw.write_entry(dn, entry)
     logger.debug("Done.")
     lw.close()
