@@ -39,7 +39,8 @@ import string
 import six
 
 import cereconf
-
+import Cerebrum.auth as Auth
+from Cerebrum.auth import all_auth_methods
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum import Utils
@@ -53,46 +54,52 @@ from Cerebrum.utils import transliterate
 logger = logging.getLogger(__name__)
 
 
-def enc_auth_type_md5_crypt_hex(plaintext, salt=None):
-    """
-    Unsalted md5 hex-digest for UiT.
+@all_auth_methods('MD5-crypt')
+class AuthTypeMD5Crypt2(Auth.AuthBaseClass):
+    def encrypt(self, plaintext, salt=None, binary=None):
+        """
+        Unsalted md5 hex-digest for UiT.
 
-    Added by kennethj, 2005-08-03
-    """
-    plaintext = plaintext.rstrip("\n")
-    m = hashlib.md5()
-    m.update(plaintext)
-    encrypted = m.hexdigest()
-    return encrypted
-
-
-def enc_auth_type_md5_b64(plaintext, salt=None):
-    """
-    Unsalted md5 b64-digest for UiT.
-
-    Added by kennethj, 2005-08-03
-    """
-    m = hashlib.md5()
-    m.update(plaintext)
-    foo = m.digest()
-    encrypted = base64.encodestring(foo)
-    encrypted = encrypted.rstrip()
-    return encrypted
+        Added by kennethj, 2005-08-03
+        """
+        plaintext = plaintext.rstrip("\n")
+        m = hashlib.md5()
+        m.update(plaintext)
+        encrypted = m.hexdigest()
+        return encrypted
 
 
-def enc_auth_type_crypt3_des(plaintext, salt=None):
-    """
-    Salted triple-DES.
+@all_auth_methods('MD5-crypt_base64')
+class AuthTypeMD5Base64(Auth.AuthBaseClass):
+    def encrypt(self, plaintext, salt=None, binary=None):
+        """
+        Unsalted md5 b64-digest for UiT.
 
-    Added by fhl, 2019-05-15, copied from an older UiT copy of
-    Cerebrum.Account, as triple-DES was removed from UiO code.
-    """
-    if salt is None:
-        saltchars = string.ascii_letters + string.digits + "./"
-        salt = Utils.random_string(2, saltchars)
-    return crypt.crypt(
-        plaintext,
-        salt.encode('utf-8')).decode()
+        Added by kennethj, 2005-08-03
+        """
+        m = hashlib.md5()
+        m.update(plaintext)
+        foo = m.digest()
+        encrypted = base64.encodestring(foo)
+        encrypted = encrypted.rstrip()
+        return encrypted
+
+
+@all_auth_methods('crypt3-DES')
+class AuthTypeCrypt3DES(Auth.AuthBaseClass):
+    def encrypt(self, plaintext, salt=None, binary=None):
+        """
+        Salted triple-DES.
+
+        Added by fhl, 2019-05-15, copied from an older UiT copy of
+        Cerebrum.Account, as triple-DES was removed from UiO code.
+        """
+        if salt is None:
+            saltchars = string.ascii_letters + string.digits + "./"
+            salt = Utils.random_string(2, saltchars)
+        return crypt.crypt(
+            plaintext,
+            salt.encode('utf-8')).decode()
 
 
 def generate_homedir(account_name):
@@ -162,33 +169,43 @@ class AccountUiTMixin(Account.Account):
         """
         Support UiT added encryption methods, for other methods call super()
         """
-        unicode_plaintext = plaintext
-        if binary:
-            utf8_plaintext = plaintext  # a small lie
-        else:
-            assert(isinstance(unicode_plaintext, six.text_type))
-            utf8_plaintext = unicode_plaintext.encode('utf-8')
-
-        if method == self.const.auth_type_md5_crypt_hex:
-            return enc_auth_type_md5_crypt_hex(utf8_plaintext)
-        elif method == self.const.auth_type_md5_b64:
-            return enc_auth_type_md5_b64(utf8_plaintext)
-        elif method == self.const.auth_type_crypt3_des:
-            return enc_auth_type_crypt3_des(utf8_plaintext, salt=salt)
-        else:
-            return super(AccountUiTMixin, self).encrypt_password(
-                method, plaintext, salt=salt, binary=binary)
+        auth_map = Auth.AuthMap()
+        try:
+            methods = auth_map.get_crypt_subset([method])
+            method = methods[str(method)]()
+            return method.encrypt(plaintext, salt, binary)
+        except NotImplementedError as ne:
+            if hasattr(self, 'logger'):
+                self.logger.warn(
+                    "Encrypt Auth method (%s) not implemented: %s",
+                    str(method), str(ne))
+            raise Errors.NotImplementedAuthTypeError
+        except Exception as e:
+            if hasattr(self, 'logger'):
+                self.logger.error(
+                    "Fatal exception in encrypt_password: %s", str(e))
+            raise
 
     def decrypt_password(self, method, cryptstring):
         """
         Support UiT added encryption methods, for other methods call super()
         """
-        if method in (self.const.auth_type_md5_crypt_hex,
-                      self.const.auth_type_md5_b64,
-                      self.const.auth_type_crypt3_des):
-            raise NotImplementedError("Cant decrypt %s" % repr(method))
-        return super(AccountUiTMixin, self).decrypt_password(method,
-                                                             cryptstring)
+        auth_map = Auth.AuthMap()
+        try:
+            methods = auth_map.get_crypt_subset([method])
+            method = methods[str(method)]()
+            return method.encrypt(cryptstring)
+        except NotImplementedError as ne:
+            if hasattr(self, 'logger'):
+                self.logger.warn(
+                    "Decrypt Auth method (%s) not implemented: %s",
+                    str(method), str(ne))
+            raise Errors.NotImplementedAuthTypeError
+        except Exception as e:
+            if hasattr(self, 'logger'):
+                self.logger.error(
+                    "Fatal exception in decrypt_password: %s", str(e))
+            raise
 
     def verify_password(self, method, plaintext, cryptstring):
         """ Verify a password against a cryptstring.
@@ -196,15 +213,22 @@ class AccountUiTMixin(Account.Account):
         Returns True if the plaintext matches the cryptstring, False if it
         doesn't.  Raises a ValueError if the method is unsupported.
         """
-        if method in (self.const.auth_type_md5_crypt_hex,
-                      self.const.auth_type_md5_b64,
-                      self.const.auth_type_crypt3_des):
-            salt = cryptstring
-            to_check = self.encrypt_password(method, plaintext, salt=salt)
-            return to_check == cryptstring
-        else:
-            return super(AccountUiTMixin, self).verify_password(
-                method, plaintext, cryptstring)
+        auth_map = Auth.AuthMap()
+        try:
+            methods = auth_map.get_crypt_subset([method])
+            method = methods[str(method)]()
+            return method.verify(plaintext, cryptstring)
+        except NotImplementedError as ne:
+            if hasattr(self, 'logger'):
+                self.logger.warn(
+                    "Verify Auth method (%s) not implemented: %s",
+                    str(method), str(ne))
+            raise Errors.NotImplementedAuthTypeError
+        except Exception as e:
+            if hasattr(self, 'logger'):
+                self.logger.error(
+                    "Fatal exception in verify_password: %s", str(e))
+            raise
 
     def set_home_dir(self, spread):
         """

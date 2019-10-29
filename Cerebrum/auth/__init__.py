@@ -48,6 +48,12 @@ class AuthMap(Mapping):
     def __init__(self, *args, **kwargs):
         self._data = dict(*args, **kwargs)
 
+    def __repr__(self):
+        def iter():
+            for key, val in self._data.iteritems():
+                yield ("Key:{}  Val:{}".format(key, val))
+        return "\n".join(iter()) or "Empty AuthMap"
+
     def __getitem__(self, key):
         if key not in self._data:
             raise NotImplementedError

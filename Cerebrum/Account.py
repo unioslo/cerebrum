@@ -856,6 +856,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             if hasattr(self, 'logger'):
                 self.logger.error(
                     "Fatal exception in encrypt_password: %s", str(e))
+            raise
 
     def decrypt_password(self, method, cryptstring):
         """Returns the decrypted plaintext according to the specified
@@ -878,6 +879,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             if hasattr(self, 'logger'):
                 self.logger.error(
                     "Fatal exception in decrypt_password: %s", str(e))
+            raise
 
     def verify_password(self, method, plaintext, cryptstring):
         """Returns True if the plaintext matches the cryptstring,
@@ -903,6 +905,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             if hasattr(self, 'logger'):
                 self.logger.error(
                     "Fatal exception in verify_password: %s", str(e))
+            raise
 
     def verify_auth(self, plaintext):
         """Try to verify all authentication data stored for an
