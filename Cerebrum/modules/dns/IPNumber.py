@@ -255,9 +255,9 @@ class IPNumber(Entity.Entity):
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=dns_override_reversemap]
          (%(tcols)s)
-        VALUES (%(binds)s)
+        VALUES (%(tbinds)s)
         """ % {'tcols': ", ".join([x[0] for x in sorted(cols)]),
-               'binds': ", ".join([x[1] for x in sorted(cols)])},
+               'tbinds': ", ".join([x[1] for x in sorted(cols)])},
                      binds)
         self._db.log_change(
             ip_number_id, self.clconst.ip_number_add, dns_owner_id)
