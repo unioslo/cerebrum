@@ -28,7 +28,7 @@ def aff_lookup(constants, in_aff):
     :type constants: Cerebrum.Utils._dynamic_Constants
     :param constants: Constants generated with Factory.get
 
-    :type in_aff: int, str, PersonaffStatus, PersonAffiliation
+    :type in_aff: int, str, PersonAffStatus, PersonAffiliation
     :param in_aff: Constant or str/int of the Constant
     """
     if isinstance(in_aff, constants.PersonAffStatus):

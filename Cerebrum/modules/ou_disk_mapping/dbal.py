@@ -110,7 +110,7 @@ class OuDiskMapping(DatabaseAccessor):
 
         stmt = """
           UPDATE [:table schema=cerebrum name=ou_disk_mapping]
-          SET 
+          SET
             disk_id = :disk_id
           WHERE {where}
         """.format(where=where)
