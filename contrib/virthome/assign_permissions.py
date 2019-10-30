@@ -100,13 +100,11 @@ def get_system_group(db):
 # end get_system_group
 
 
-
 def create_group(gname, db):
     """Helper function to create some system critical groups in VH.
 
     gname will be owned by the system account (cereconf.INITIAL_ACCOUNTNAME)
     """
-
     group = Group(db)
     constants = Factory.get("Constants")()
     try:
@@ -117,14 +115,15 @@ def create_group(gname, db):
     except Errors.NotFoundError:
         # They are all owned by system account...
         account = get_system_account(db)
-        group.populate(account.entity_id,
-                       constants.group_visibility_all,
-                       gname)
+        group.populate(
+            crator_id=account.entity_id,
+            visibility=constants.group_visibility_all,
+            name=gname,
+            group_type=constants.group_type_internal,
+        )
         group.write_db()
         logger.debug("Created group name=%s, id=%s",
                      group.group_name, group.entity_id)
-# end create_group    
-
 
 
 def create_user(uname, db):

@@ -936,10 +936,13 @@ class BofhdCommonMethods(BofhdCommandBase):
             raise CerebrumError("Group name is already in use")
 
         # Populate group
-        g.populate(creator_id=operator.get_entity_id(),
-                   visibility=self.const.group_visibility_all,
-                   name=groupname,
-                   description=description)
+        g.populate(
+            creator_id=operator.get_entity_id(),
+            visibility=self.const.group_visibility_all,
+            name=groupname,
+            description=description,
+            group_type=self.const.group_type_manual,
+        )
         g.write_db()
 
         # Add spread

@@ -72,9 +72,13 @@ class PosixUserTSDMixin(PosixUser.PosixUser):
         try:
             self.pg.find_by_name(groupname)
         except Errors.NotFoundError:
-            self.pg.populate(visibility=self.const.group_visibility_all,
-                             name=groupname, creator_id=creator_id,
-                             description=('Personal file group for %s' % aname))
+            self.pg.populate(
+                visibility=self.const.group_visibility_all,
+                name=groupname,
+                creator_id=creator_id,
+                description=('Personal file group for %s' % aname),
+                group_type=self.const.group_type_personal,
+            )
 
         # The gid_id is not given to the super class, but should be set at
         # write_db, when we have the group's entity_id.

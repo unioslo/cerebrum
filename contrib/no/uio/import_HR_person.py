@@ -817,16 +817,22 @@ def locate_and_build((group_name, group_desc)):
         group.find_by_name(group_name)
         for row in group.search_members(group_id=group.entity_id):
             members['current'].add(int(row['member_id']))
-    except:
+    except Exception:
         group.clear()
         account = Factory.get("Account")(db)
         account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-        group.populate(account.entity_id, const.group_visibility_internal,
-                       group_name, group_desc)
+        group.populate(
+            creator_id=account.entity_id,
+            visibility=const.group_visibility_internal,
+            name=group_name,
+            description=group_desc,
+            # TODO: This function is only used to create reservation groups.
+            # Group type should *probably* be group_type_internal
+            group_type=const.group_type_unknown,
+        )
         group.write_db()
 
     return group, members
-# end locate_and_build
 
 
 def update_reservations(group, group_members, person2external):

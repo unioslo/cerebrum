@@ -709,11 +709,14 @@ class BofhdExtension(BofhdCommonMethods):
                 # one could imagine making a helper function in the future
                 # _make_dl_group_new, as the functionality is required
                 # both here and for the roomlist creation (Jazz, 2013-12)
-                dl_group.new(operator.get_entity_id(),
-                             group_vis,
-                             groupname, description=description,
-                             roomlist=std_values['roomlist'],
-                             hidden=std_values['hidden'])
+                dl_group.new(
+                    creator_id=operator.get_entity_id(),
+                    visibility=group_vis,
+                    name=groupname,
+                    description=description,
+                    group_type=self.const.group_type_manual,
+                    roomlist=std_values['roomlist'],
+                    hidden=std_values['hidden'])
             else:
                 dl_group.populate(roomlist=std_values['roomlist'],
                                   hidden=std_values['hidden'],
@@ -1553,10 +1556,13 @@ class BofhdExtension(BofhdCommonMethods):
             group.find_by_name(uname)
             raise CerebrumError("Group %r already exists" % uname)
         except Errors.NotFoundError:
-            group.populate(creator_id=op,
-                           visibility=self.const.group_visibility_all,
-                           name=uname,
-                           description=('Personal file group for %s' % uname))
+            group.populate(
+                creator_id=op,
+                visibility=self.const.group_visibility_all,
+                name=uname,
+                description=('Personal file group for %s' % uname),
+                group_type=self.const.group_type_personal,
+            )
             group.write_db()
         # Promote to PosixGroup
         pg = Utils.Factory.get('PosixGroup')(self.db)
