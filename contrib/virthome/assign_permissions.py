@@ -116,7 +116,7 @@ def create_group(gname, db):
         # They are all owned by system account...
         account = get_system_account(db)
         group.populate(
-            crator_id=account.entity_id,
+            creator_id=account.entity_id,
             visibility=constants.group_visibility_all,
             name=gname,
             group_type=constants.group_type_internal,
