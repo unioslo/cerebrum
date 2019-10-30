@@ -648,7 +648,7 @@ class GroupListResource(Resource):
         'context',
         type=validator.String(),
         dest='spread',
-        help='Filter by context. Accepts * and ? as wildcards.')
+        help='Filter by context.')
     group_search_filter.add_argument(
         'member_id',
         type=int,
@@ -682,6 +682,14 @@ class GroupListResource(Resource):
         args = self.group_search_filter.parse_args()
         filters = {key: value for (key, value) in args.items() if
                    value is not None}
+
+        if 'spread' in filters:
+            try:
+                group_spread = db.const.Spread(filters['spread'])
+                filters['spread'] = int(group_spread)
+            except Errors.NotFoundError:
+                abort(404, message='Unknown context={}'.format(
+                    filters['spread']))
 
         gr = Factory.get('Group')(db.connection)
 
