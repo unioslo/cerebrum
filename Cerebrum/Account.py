@@ -35,7 +35,7 @@ import six
 
 import cereconf
 import Cerebrum.auth as Auth
-from Cerebrum.auth import encrypt_ha1_md5, verify_ha1_md5
+from Cerebrum.auth import all_auth_methods, encrypt_ha1_md5, verify_ha1_md5
 from Cerebrum import Utils, Disk
 from Cerebrum.Entity import (EntityName,
                              EntityQuarantine,
@@ -841,10 +841,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             realm = cereconf.AUTH_HA1_REALM
             return encrypt_ha1_md5(
                 self.account_name, realm, plaintext, salt, binary)
-        auth_map = Auth.AuthMap()
         try:
-            methods = auth_map.get_crypt_subset([method])
-            method = methods[str(method)]()
+            method = all_auth_methods[str(method)]()
             return method.encrypt(plaintext, salt, binary)
         except NotImplementedError as ne:
             if hasattr(self, 'logger'):
@@ -864,10 +862,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         raised.  A mixin for a new method should not call super for
         the method it handles.
         """
-        auth_map = Auth.AuthMap()
         try:
-            methods = auth_map.get_crypt_subset([method])
-            method = methods[str(method)]()
+            method = all_auth_methods[str(method)]()
             return method.encrypt(cryptstring)
         except NotImplementedError as ne:
             if hasattr(self, 'logger'):
@@ -890,10 +886,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             realm = cereconf.AUTH_HA1_REALM
             return verify_ha1_md5(
                 self.account_name, realm, plaintext, cryptstring)
-        auth_map = Auth.AuthMap()
         try:
-            methods = auth_map.get_crypt_subset([method])
-            method = methods[str(method)]()
+            method = all_auth_methods[str(method)]()
             return method.verify(plaintext, cryptstring)
         except NotImplementedError as ne:
             if hasattr(self, 'logger'):

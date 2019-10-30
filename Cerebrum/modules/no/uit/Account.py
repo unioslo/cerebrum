@@ -68,6 +68,10 @@ class AuthTypeMD5Crypt2(Auth.AuthBaseClass):
         encrypted = m.hexdigest()
         return encrypted
 
+    def verify(self, plaintext, cryptstring):
+        salt = cryptstring
+        return (self.encrypt(plaintext, salt=salt) == cryptstring)
+
 
 @all_auth_methods('MD5-crypt_base64')
 class AuthTypeMD5Base64(Auth.AuthBaseClass):
@@ -83,6 +87,10 @@ class AuthTypeMD5Base64(Auth.AuthBaseClass):
         encrypted = base64.encodestring(foo)
         encrypted = encrypted.rstrip()
         return encrypted
+
+    def verify(self, plaintext, cryptstring):
+        salt = cryptstring
+        return (self.encrypt(plaintext, salt=salt) == cryptstring)
 
 
 @all_auth_methods('crypt3-DES')
@@ -100,6 +108,10 @@ class AuthTypeCrypt3DES(Auth.AuthBaseClass):
         return crypt.crypt(
             plaintext,
             salt.encode('utf-8')).decode()
+
+    def verify(self, plaintext, cryptstring):
+        salt = cryptstring
+        return (self.encrypt(plaintext, salt=salt) == cryptstring)
 
 
 def generate_homedir(account_name):
@@ -169,10 +181,8 @@ class AccountUiTMixin(Account.Account):
         """
         Support UiT added encryption methods, for other methods call super()
         """
-        auth_map = Auth.AuthMap()
         try:
-            methods = auth_map.get_crypt_subset([method])
-            method = methods[str(method)]()
+            method = all_auth_methods[str(method)]()
             return method.encrypt(plaintext, salt, binary)
         except NotImplementedError as ne:
             if hasattr(self, 'logger'):
@@ -190,10 +200,8 @@ class AccountUiTMixin(Account.Account):
         """
         Support UiT added encryption methods, for other methods call super()
         """
-        auth_map = Auth.AuthMap()
         try:
-            methods = auth_map.get_crypt_subset([method])
-            method = methods[str(method)]()
+            method = all_auth_methods[str(method)]()
             return method.encrypt(cryptstring)
         except NotImplementedError as ne:
             if hasattr(self, 'logger'):
@@ -213,10 +221,8 @@ class AccountUiTMixin(Account.Account):
         Returns True if the plaintext matches the cryptstring, False if it
         doesn't.  Raises a ValueError if the method is unsupported.
         """
-        auth_map = Auth.AuthMap()
         try:
-            methods = auth_map.get_crypt_subset([method])
-            method = methods[str(method)]()
+            method = all_auth_methods[str(method)]()
             return method.verify(plaintext, cryptstring)
         except NotImplementedError as ne:
             if hasattr(self, 'logger'):
