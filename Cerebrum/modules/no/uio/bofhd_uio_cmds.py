@@ -942,11 +942,15 @@ class BofhdExtension(BofhdCommonMethods):
         if not displayname:
             displayname = groupname
         # using DistributionGroup.new(...)
-        room_list.new(operator.get_entity_id(),
-                      group_vis,
-                      groupname, description=description,
-                      roomlist=std_values['roomlist'],
-                      hidden=std_values['hidden'])
+        room_list.new(
+            creator_id=operator.get_entity_id(),
+            visibility=group_vis,
+            name=groupname,
+            description=description,
+            group_type=self.const.group_type_manual,
+            roomlist=std_values['roomlist'],
+            hidden=std_values['hidden'],
+        )
         room_list.write_db()
         room_list.add_spread(self.const.Spread(cereconf.EXCHANGE_GROUP_SPREAD))
         self._set_display_name(groupname, displayname, disp_name_variant,
