@@ -21,7 +21,7 @@ Mixins related to mod_ou_disk_mapping.
 """
 from Cerebrum.Disk import Disk
 from Cerebrum.OU import OU
-from .dbal import OuDiskMapping
+from .dbal import OUDiskMapping
 
 
 class OUMixin(OU):
@@ -31,7 +31,7 @@ class OUMixin(OU):
 
     def delete(self):
         """Delete any mappings to an OU."""
-        ous = OuDiskMapping(self._db)
+        ous = OUDiskMapping(self._db)
         for row in ous.search(ou_id=self.entity_id):
             ous.delete(ou_id=self.entity_id,
                        aff_code=row['status_code'])
@@ -45,7 +45,7 @@ class DiskMixin(Disk):
 
     def delete(self):
         """Delete any mappings to a disk"""
-        ous = OuDiskMapping(self._db)
+        ous = OUDiskMapping(self._db)
         for row in ous.get_with_disk(disk_id=self.entity_id):
             ous.delete(ou_id=row['ou_id'],
                        aff_code=row['status_code'])

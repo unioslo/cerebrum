@@ -29,12 +29,12 @@ from .constants import CLConstants
 from .utils import aff_lookup
 
 
-class OuDiskMapping(DatabaseAccessor):
+class OUDiskMapping(DatabaseAccessor):
     """
     Map OU and Affiliation to Disk
     """
     def __init__(self, database):
-        super(OuDiskMapping, self).__init__(database)
+        super(OUDiskMapping, self).__init__(database)
         self.disk = Disk(self._db)
         self.const = Factory.get('Constants')(self._db)
 
