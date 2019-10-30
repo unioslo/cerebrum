@@ -253,14 +253,14 @@ class IPNumber(Entity.Entity):
     def add_reverse_override(self, ip_number_id, dns_owner_id):
         cols, binds = self.__fill_coldata(locals())
         self.execute("""
-        INSERT INTO (%(tb)s) (%(tcols)s)
-        VALUES (%(tbinds)s)""" % {
-            'tb': '[:table schema=cerebrum name=dns_override_reversemap]',
-            'tcols': ", ".join([x[0] for x in sorted(cols)]),
-            'tbinds': ", ".join([x[1] for x in sorted(cols)])},
+        INSERT INTO [:table schema=cerebrum name=dns_override_reversemap]
+         (%(tcols)s)
+        VALUES (%(tbinds)s)
+        """ % {'tcols': ", ".join([x[0] for x in sorted(cols)]),
+               'tbinds': ", ".join([x[1] for x in sorted(cols)])},
                      binds)
-        self._db.log_change(ip_number_id, self.clconst.ip_number_add,
-                            dns_owner_id)
+        self._db.log_change(
+            ip_number_id, self.clconst.ip_number_add, dns_owner_id)
 
     def delete_reverse_override(self, ip_number_id, dns_owner_id):
         if not dns_owner_id:
