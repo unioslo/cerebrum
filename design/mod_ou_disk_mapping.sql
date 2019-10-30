@@ -42,20 +42,14 @@ version=1.0;
  *   Entity id of a Disk in the disk_info table
 **/
 category:main;
-CREATE TABLE ou_disk_mapping (
-  ou_id    NUMERIC(12,0)
-             NOT NULL
-             REFERENCES ou_info(ou_id),
-  aff_code    NUMERIC(12,0)
-                REFERENCES person_affiliation_code(code),
-  status_code    NUMERIC(12,0)
-                   REFERENCES person_aff_status_code(status),
-  disk_id    NUMERIC(12,0)
-               NOT NULL
-               REFERENCES disk_info(disk_id),
-  CONSTRAINT ou_disk_mapping_unique UNIQUE (ou_id, aff_code, status_code),
-  CONSTRAINT ou_disk_mapping_statuswoaff CHECK (NOT (aff_code IS NULL AND
-                                                     NOT status_code is NULL))
+CREATE TABLE ou_disk_mapping(
+   ou_id       NUMERIC(12, 0) NOT NULL REFERENCES ou_info (ou_id),
+   aff_code    NUMERIC(12, 0) REFERENCES person_affiliation_code (code),
+   status_code NUMERIC(12, 0) REFERENCES person_aff_status_code (status),
+   disk_id     NUMERIC(12, 0) NOT NULL REFERENCES disk_info (disk_id),
+   CONSTRAINT ou_disk_mapping_unique UNIQUE (ou_id, aff_code, status_code),
+   CONSTRAINT ou_disk_mapping_statuswoaff CHECK (NOT (aff_code IS NULL AND NOT
+   status_code IS NULL))
 );
 
 /**
