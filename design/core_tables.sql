@@ -23,7 +23,7 @@
 category:metainfo;
 name=cerebrum_database_schema_version;
 category:metainfo;
-version=0.9.20;
+version=0.9.21;
 
 /* Konvensjoner
  *
@@ -1998,6 +1998,32 @@ category:main;
 CREATE INDEX group_member_member_id_idx ON group_member(member_id);
 
 
+/* group_moderator
+*
+* Table connecting groups and their moderators
+*
+* group_id
+*   The entity_id of the group
+* moderator_id
+*   The entity_id of the moderator
+* moderator_type
+*   The entity_type of the moderator
+*/
+
+category:main;
+CREATE TABLE group_moderator
+(
+group_id     NUMERIC(12, 0)
+CONSTRAINT group_exists
+REFERENCES group_info(group_id),
+moderator_id NUMERIC(12, 0)
+CONSTRAINT moderator_exists
+REFERENCES entity_info(entity_id),
+CONSTRAINT group_moderator_pkey PRIMARY KEY (group_id, moderator_id)
+
+);
+
+
 /*  change_type
  */
 category:code;
@@ -2030,6 +2056,8 @@ category:drop;
 DROP TABLE cerebrum_metainfo;
 category:drop;
 DROP TABLE group_member;
+category:drop;
+DROP TABLE group_moderator;
 category:drop;
 DROP TABLE group_membership_op_code;
 category:drop;
