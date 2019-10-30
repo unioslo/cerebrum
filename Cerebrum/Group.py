@@ -338,6 +338,28 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                       'm_id': member_id})
         self._db.log_change(self.entity_id, self.clconst.group_add, member_id)
 
+    def add_moderator(self, moderator_id):
+        """Add L{moderator_id} as moderator of this group.
+
+        :param int moderator_id:
+          Moderator (id) to add to this group. This must be an entity
+          (i.e. registered in entity_info).
+        """
+        moderator_type = self.query_1("""
+            SELECT entity_type
+            FROM [:table schema=cerebrum name=entity_info]
+            WHERE entity_id = :moderator_id""", {"moderator_id": moderator_id})
+
+        self.execute("""
+        INSERT INTO [:table schema=cerebrum name=group_moderator]
+          (group_id, moderator_type, moderator_id)
+        VALUES (:group_id, :moderator_type, :moderator_id)""",
+                     {'group_id': self.entity_id,
+                      'moderator_type': int(moderator_type),
+                      'moderator_id': moderator_id})
+        self._db.log_change(self.entity_id, self.clconst.group_add,
+                            moderator_id)
+
     def has_member(self, member_id):
         """Check whether L{member_id} is a member of this group.
 
@@ -371,7 +393,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         return self.remove_member_from_group(member_id, self.entity_id)
 
     def remove_member_from_group(self, member_id, group_id):
-        """Remove L{member_id}'s membership from this group.
+        """Remove L{member_id}'s membership from a group.
 
         @type member_id: int
         @param member_id:
@@ -402,6 +424,46 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         self.execute(delete_stmt, binds)
         self._db.log_change(group_id, self.clconst.group_rem, member_id)
 
+    def remove_moderator(self, moderator_id):
+        """Remove L{moderator_id}'s moderatorship from this group.
+
+        @type moderator_id: int
+        @param member_id:
+          Member (id) to remove from this group.
+        """
+        return self.remove_moderator_from_group(moderator_id, self.entity_id)
+
+    def remove_moderator_from_group(self, moderator_id, group_id):
+        """Remove L{moderator_id}'s moderatroship from a group.
+
+        @type moderator_id: int
+        @param moderator_id:
+          Moderator (id) to remove from group.
+
+        @type group_id: int
+        @param group_id:
+            Group (id) to remove moderator from
+        """
+
+        binds = {'group_id': group_id,
+                 'moderator_id': moderator_id}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=group_moderator]
+            WHERE group_id=:group_id AND
+                  moderator_id=:moderator_id
+          )
+        """
+        if self.query_1(exists_stmt, binds):
+            delete_stmt = """
+              DELETE FROM [:table schema=cerebrum name=moderator_member]
+                WHERE group_id=:group_id AND
+                moderator_id=:moderator_id"""
+            self.execute(delete_stmt, binds)
+            self._db.log_change(group_id, self.clconst.group_rem, moderator_id)
+
+    # TODO: legg til noe om moderator her også?
     def search(self,
                group_id=None,
                member_id=None,
@@ -633,6 +695,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         # an abysmal perfomance penalty.
         return self.query(query_str, binds, fetchall=True)
 
+    # TODO: this must exist for moderators
     def search_members(self, group_id=None, spread=None,
                        member_id=None, member_type=None,
                        indirect_members=False,
