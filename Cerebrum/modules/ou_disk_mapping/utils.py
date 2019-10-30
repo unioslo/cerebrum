@@ -22,43 +22,51 @@ Utilities related to ou_disk_mapping module
 from Cerebrum import Errors
 
 
-def aff_lookup(constants, aff_string):
+def aff_lookup(constants, in_aff):
     """Find the aff code or status we want
 
-    :param constants:
-    :param int or str aff_string:
+    :type constants: Cerebrum.Utils._dynamic_Constants
+    :param constants: Constants generated with Factory.get
+
+    :type in_aff: int, str, PersonaffStatus, PersonAffiliation
+    :param in_aff: Constant or str/int of the Constant
     """
-    if isinstance(aff_string, int) or aff_string.isdigit():
+    if isinstance(in_aff, constants.PersonAffStatus):
+        return in_aff.affiliation, in_aff
+    if isinstance(in_aff, constants.PersonAffiliation):
+        return in_aff, None
+
+    if isinstance(in_aff, int) or in_aff.isdigit():
         # Assume we got the id of the constant
         try:
-            status = constants.PersonAffStatus(int(aff_string))
+            status = constants.PersonAffStatus(int(in_aff))
         except Errors.NotFoundError:
             status = None
-            aff = constants.PersonAffiliation(int(aff_string))
+            aff = constants.PersonAffiliation(int(in_aff))
             try:
                 int(aff)
             except Errors.NotFoundError:
-                raise Exception("Unknown affiliation: %s" % aff_string)
+                raise Exception("Unknown affiliation: %s" % in_aff)
             else:
                 return aff, status
         else:
             return status.affiliation, status
 
-    aff = aff_string.split('/', 1)
+    aff = in_aff.split("/", 1)
     if len(aff) > 1:
         try:
             status = constants.PersonAffStatus(aff[0], aff[1])
             aff = status.affiliation
         except Errors.NotFoundError:
-            raise Exception("Unknown affiliation: %s" % aff_string)
+            raise Exception("Unknown affiliation: %s" % in_aff)
         else:
             return aff, status
     else:
-        aff = constants.PersonAffiliation(aff_string)
+        aff = constants.PersonAffiliation(in_aff)
         status = None
         try:
             int(aff)
         except Errors.NotFoundError:
-            raise Exception("Unknown affiliation: %s" % aff_string)
+            raise Exception("Unknown affiliation: %s" % in_aff)
         else:
             return aff, status
