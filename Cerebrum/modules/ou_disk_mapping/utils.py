@@ -54,12 +54,13 @@ def aff_lookup(constants, in_aff):
 
     aff = in_aff.split("/", 1)
     if len(aff) > 1:
+        status = constants.PersonAffStatus(aff[0], aff[1])
         try:
-            status = constants.PersonAffStatus(aff[0], aff[1])
-            aff = status.affiliation
+            int(status)
         except Errors.NotFoundError:
             raise Exception("Unknown affiliation: %s" % in_aff)
         else:
+            aff = status.affiliation
             return aff, status
     else:
         aff = constants.PersonAffiliation(in_aff)

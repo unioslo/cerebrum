@@ -155,7 +155,9 @@ class OUDiskMapping(DatabaseAccessor):
         else:
             where += " AND aff_code = :aff_code"
             binds['aff_code'] = int(aff_code)
-            if status_code is not None:
+            if status_code is None:
+                where += " AND status_code IS NULL"
+            else:
                 where += " AND status_code = :status_code"
                 binds['status_code'] = int(status_code)
 
@@ -219,7 +221,9 @@ class OUDiskMapping(DatabaseAccessor):
             aff_code, status_code = aff_lookup(self.const, int(aff_code))
             where += " AND aff_code = :aff_code"
             binds['aff_code'] = int(aff_code)
-            if status_code is not None:
+            if status_code is None:
+                where += " AND status_code IS NULL"
+            else:
                 where += " AND status_code = :status_code"
                 binds['status_code'] = int(status_code)
 
