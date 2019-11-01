@@ -385,13 +385,9 @@ def load_registration_criteria(criteria):
 
     The script is driven by affiliations/statuses: a person with a certain
     affiliation (or affiliation status) becomes a member of a certain
-    group. Specifically which affiliation/status results in which group
-    membership is determined in two ways:
-
-      1) There may be settings in cereconf.AUTOMATIC_GROUPS.
-      2) There may be settings specified on the command line.
-
-    Command line settings supersedes cereconf's settings.
+    group. Specifically, which affiliation/status results in which group
+    membership is determined by the --collect settings specified on the
+    command line.
 
     The resulting data structure is a dict, mapping affiliation, or
     affiliation status to a group prefix for an automatically administered
@@ -399,10 +395,7 @@ def load_registration_criteria(criteria):
     'ansatt'-groups are special: they are ALSO members of the corresponding
     'meta-ansatt' groups.
     """
-    logger.debug("AUTO_GROUPS=%s", getattr(cereconf, "AUTOMATIC_GROUPS", {}))
-    result = _load_selection_helper(
-        getattr(cereconf, "AUTOMATIC_GROUPS", {}).items())
-    result.update(_load_selection_helper(criteria.items()))
+    result = _load_selection_helper(criteria.items())
     logger.debug("The following affs/statuses will result in memberships")
     logger.debug("Result is %s", result)
     for aff_or_status in result:
@@ -1309,9 +1302,7 @@ def main():
         action='append',
         default=[],
         help='Update the select criterias for what affiliations or statuses '
-             'that should be collected and used for populating auto groups. '
-             'Note that this comes in addition to what is set in the mapping '
-             'in cereconf.AUTOMATIC_GROUPS. \n'
+             'that should be collected and used for populating auto groups. \n'
              '  Format: The aff or status must be tailed with a colon and '
              'what group prefix to use. \n '
              '  Example: affilation_status_tilknyttet_eremitus:auto-eremitus'
