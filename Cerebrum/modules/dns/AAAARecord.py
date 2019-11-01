@@ -55,7 +55,7 @@ class AAAARecord(Entity):
                  'dns_owner_id': self.dns_owner_id,
                  'ipv6_number_id': self.ipv6_number_id,
                  'ttl': self.ttl,
-                 'mac': self.mac}
+                 'mac_adr': self.mac}
         defs = {'tc': ', '.join(x for x in sorted(binds)),
                 'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
                 'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
