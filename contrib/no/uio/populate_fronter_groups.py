@@ -1499,7 +1499,13 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
     except Errors.NotFoundError:
         group = Factory.get('Group')(db)
         group.clear()
-        group.populate(group_creator, correct_visib, gname, description=descr)
+        group.populate(
+            creator_id=group_creator,
+            visibility=correct_visib,
+            name=gname,
+            description=descr,
+            group_type=co.group_type_lms,
+        )
         group.write_db()
     else:
         # If group already exists, update its information...

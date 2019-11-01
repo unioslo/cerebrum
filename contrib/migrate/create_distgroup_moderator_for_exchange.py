@@ -52,10 +52,13 @@ ac.clear()
 ac.find_by_name('bootstrap_account')
 
 gr.clear()
-gr.populate(ac.entity_id,
-            co.group_visibility_all,
-            'groupadmin',
-            'Default group moderator')
+gr.populate(
+    creator_id=ac.entity_id,
+    visibility=co.group_visibility_all,
+    name='groupadmin',
+    description='Default group moderator',
+    group_type=co.group_type_unknown,
+)
 gr.write_db()
 
 et.clear()
@@ -75,14 +78,7 @@ epat.populate(ea.entity_id, parent=et)
 epat.write_db()
 
 dg.clear()
-dg.populate(creator_id=ac.entity_id,
-            visibility=co.group_visibility_all,
-            name='groupadmin',
-            description='Default group moderator',
-            expire_date=None,
-            roomlist='F',
-            hidden='T',
-            parent=gr)
+dg.populate(roomlist='F', hidden='T', parent=gr)
 dg.write_db()
 
 db.commit()

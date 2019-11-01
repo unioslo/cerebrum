@@ -95,10 +95,12 @@ class BofhdExtension(BofhdCommonMethods):
                          guestconfig.GUEST_OWNER_GROUP)
         ac = self.Account_class(self.db)
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-        gr.populate(creator_id=ac.entity_id,
-                    visibility=self.const.group_visibility_all,
-                    name=guestconfig.GUEST_OWNER_GROUP,
-                    description="The owner of all the guest accounts")
+        gr.populate(
+            creator_id=ac.entity_id,
+            visibility=self.const.group_visibility_all,
+            name=guestconfig.GUEST_OWNER_GROUP,
+            description="The owner of all the guest accounts",
+            group_type=self.const.group_type_internal)
         gr.write_db()
         return gr
 

@@ -40,17 +40,18 @@ from Cerebrum import Errors
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Utils import Factory
 
+
 def process_line(infile):
     """
     Traverse infile line for line.
     """
     stream = open(infile, 'r')
     for line in stream:
-	 logger.debug5("Processing line: |%s|", line.rstrip())
+        logger.debug5("Processing line: |%s|", line.rstrip())
 
-         gname = line.strip()
-	 if gname:
-             process_group(gname)
+        gname = line.strip()
+        if gname:
+            process_group(gname)
 
 
 def process_group(name, description = None):
@@ -62,10 +63,15 @@ def process_group(name, description = None):
         posixgroup.clear()
         posixgroup.find_by_name(name)
         logger.debug5("Group |%s| exists.", name)
-    except Errors.NotFoundError:	
-        posixgroup.populate(default_creator_id, constants.group_visibility_all,
-                            name, description,
-                            time.strftime("%Y-%m-%d", time.localtime()))
+    except Errors.NotFoundError:
+        posixgroup.populate(
+            creator_id=default_creator_id,
+            visibility=constants.group_visibility_all,
+            name=name,
+            description=description,
+            expire_date=time.strftime("%Y-%m-%d", time.localtime()),
+            group_type=constants.group_type_unknown,
+        )
         posixgroup.write_db()
         if not dryrun:
             db.commit()
