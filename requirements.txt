@@ -30,4 +30,4 @@ smbpasswd
 statsd==3.2.2
 suds
 unidecode
-Twisted==10.2.0
+Twisted==19.7.0
