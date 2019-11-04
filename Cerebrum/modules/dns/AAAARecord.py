@@ -55,7 +55,7 @@ class AAAARecord(Entity):
                  'dns_owner_id': self.dns_owner_id,
                  'ipv6_number_id': self.ipv6_number_id,
                  'ttl': self.ttl,
-                 'mac_adr': self.mac}
+                 'mac': self.mac}
         defs = {'tc': ', '.join(x for x in sorted(binds)),
                 'tb': ', '.join(':{0}'.format(x) for x in sorted(binds)),
                 'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
@@ -80,8 +80,8 @@ class AAAARecord(Entity):
                        dns_owner_id=:dns_owner_id) AND
                      (ipv6_number_id is NULL AND :ipv6_number_id is NULL OR
                        ipv6_number_id=:ipv6_number_id) AND
-                     (mac_adr is NULL AND :mac_adr is NULL OR
-                       mac_adr=:mac_adr)
+                     (mac is NULL AND :mac is NULL OR
+                       mac=:mac)
               )
             """
             if not self.query_1(exists_stmt, binds):
