@@ -612,8 +612,8 @@ class EmailTarget(Entity_class):
     def find_by_target_entity(self, target_entity_id):
         # NA
 
-        # This might find no rows.  In those cases, query_1() will
-        # raise an exception.
+        # This might find no rows, and it might find more than one
+        # row. In those cases, query_1() will raise an exception.
         target_id = self.query_1("""
         SELECT target_id
         FROM [:table schema=cerebrum name=email_target]
@@ -624,7 +624,7 @@ class EmailTarget(Entity_class):
         # NA
 
         # This might find no rows, and it might find more than one
-        # row.  In those cases, query_1() will raise an exception.
+        # row. In those cases, query_1() will raise an exception.
         target_id = self.query_1("""
         SELECT target_id
         FROM [:table schema=cerebrum name=email_target]

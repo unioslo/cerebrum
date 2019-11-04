@@ -79,8 +79,8 @@ class ARecord(Entity):
                        dns_owner_id=:dns_owner_id) AND
                      (ip_number_id is NULL AND :ip_number_id is NULL OR
                        ip_number_id=:ip_number_id) AND
-                     (mac_adr is NULL AND :mac_adr is NULL OR
-                       mac_adr=:mac_adr)
+                     (mac is NULL AND :mac is NULL OR
+                       mac=:mac)
               )
             """
             if not self.query_1(exists_stmt, binds):
