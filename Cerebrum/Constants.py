@@ -1452,7 +1452,7 @@ class ConstantsBase(DatabaseAccessor):
             int(n)
         return order
 
-    def get_system_auth_methods(self):
+    def get_auth_crypt_methods(self):
         """Get list of auth methods, humanized"""
         human_consts = []
         for value in getattr(cereconf, 'AUTH_CRYPT_METHODS'):

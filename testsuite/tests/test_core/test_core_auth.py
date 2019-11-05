@@ -75,7 +75,7 @@ class SimpleAuthImplementationTest(BaseAccountTest):
     """ This is a test case for simple SHA-1 hashing implementation. """
 
     def test_auth_ssha(self):
-        auth_methods = self._co.get_system_auth_methods()
+        auth_methods = self._co.get_auth_crypt_methods()
         method_name = "SSHA"
         if method_name not in map(lambda x: str(x), auth_methods):
             return
@@ -87,7 +87,7 @@ class SimpleAuthImplementationTest(BaseAccountTest):
             _hash, "qBVr/e8BtH7dw2h09V8WL0jxEaxBQkNERUZHSQ==")
 
     def test_auth_sha256(self):
-        auth_methods = self._co.get_system_auth_methods()
+        auth_methods = self._co.get_auth_crypt_methods()
         method_name = "SHA-256-crypt"
         if method_name not in map(lambda x: str(x), auth_methods):
             return
@@ -99,7 +99,7 @@ class SimpleAuthImplementationTest(BaseAccountTest):
             _hash, "$5$ABCDEFGI$wRL35zTjgAhecyc9CWv5Id.qsz5RZqXvDD3EXmlkUJ4")
 
     def test_auth_sha512(self):
-        auth_methods = self._co.get_system_auth_methods()
+        auth_methods = self._co.get_auth_crypt_methods()
         method_name = "SHA-512-crypt"
         if method_name not in map(lambda x: str(x), auth_methods):
             return
@@ -112,7 +112,7 @@ class SimpleAuthImplementationTest(BaseAccountTest):
             "Yen3WjaetYz726AFZQkI572G0o/bO9BWC86Sae1QjMUe7TZYBeYg1")
 
     def test_auth_md5(self):
-        auth_methods = self._co.get_system_auth_methods()
+        auth_methods = self._co.get_auth_crypt_methods()
         method_name = "MD5-crypt"
         if method_name not in map(lambda x: str(x), auth_methods):
             return
@@ -124,7 +124,7 @@ class SimpleAuthImplementationTest(BaseAccountTest):
             _hash, "$1$ABCDEFGI$iO4CKjwcmvejNZ7j1MEW./")
 
     def test_auth_md4_nt(self):
-        auth_methods = self._co.get_system_auth_methods()
+        auth_methods = self._co.get_auth_crypt_methods()
         method_name = "MD4-NT"
         if method_name not in map(lambda x: str(x), auth_methods):
             return
