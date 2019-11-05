@@ -39,8 +39,7 @@ import string
 import six
 
 import cereconf
-import Cerebrum.auth as Auth
-from Cerebrum.auth import all_auth_methods
+from Cerebrum.auth import all_auth_methods, AuthBaseClass
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum import Utils
@@ -55,7 +54,7 @@ logger = logging.getLogger(__name__)
 
 
 @all_auth_methods('MD5-crypt')
-class AuthTypeMD5Crypt2(Auth.AuthBaseClass):
+class AuthTypeMD5Crypt2(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=None):
         """
         Unsalted md5 hex-digest for UiT.
@@ -74,7 +73,7 @@ class AuthTypeMD5Crypt2(Auth.AuthBaseClass):
 
 
 @all_auth_methods('MD5-crypt_base64')
-class AuthTypeMD5Base64(Auth.AuthBaseClass):
+class AuthTypeMD5Base64(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=None):
         """
         Unsalted md5 b64-digest for UiT.
@@ -94,7 +93,7 @@ class AuthTypeMD5Base64(Auth.AuthBaseClass):
 
 
 @all_auth_methods('crypt3-DES')
-class AuthTypeCrypt3DES(Auth.AuthBaseClass):
+class AuthTypeCrypt3DES(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=None):
         """
         Salted triple-DES.

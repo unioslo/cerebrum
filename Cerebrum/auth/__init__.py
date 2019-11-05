@@ -20,7 +20,7 @@
 """Auth module containers.
 
 This module handles all auth implmentations by wrapping them in a dict-like
-object, from which you can derive different implementations from.
+object, which you can derive different implementations from.
 New implemtations should follow the same pattern as below.
 """
 import base64
