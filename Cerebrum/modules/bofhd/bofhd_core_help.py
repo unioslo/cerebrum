@@ -379,6 +379,8 @@ arg_help = {
         ['op', 'Enter group operation',
          """Three values are legal: union, intersection and difference.
          Normally only union is used."""],
+    'group_type':
+        ['type', 'Enter type', "Group type (e.g. manual-group)"],
     'group_visibility':
         ['vis', 'Enter visibility', "Example: A (= all)"],
     'id':

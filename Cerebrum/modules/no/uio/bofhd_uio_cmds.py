@@ -390,6 +390,7 @@ class BofhdExtension(BofhdCommonMethods):
                                           for r in entity.get_spread()])
         if entity.entity_type == co.entity_group:
             result['name'] = entity.group_name
+            result['group_type'] = text_type(co.GroupType(entity.group_type))
             result['description'] = entity.description
             result['visibility'] = entity.visibility
             try:
@@ -1340,10 +1341,11 @@ class BofhdExtension(BofhdCommonMethods):
         GroupName(help_ref="id:gid:name"),
         fs=FormatSuggestion([
             ("Name:         %s\n"
+             "Type:         %s\n"
              "Spreads:      %s\n"
              "Description:  %s\n"
              "Expire:       %s\n"
-             "Entity id:    %i", ("name", "spread", "description",
+             "Entity id:    %i", ("name", "group_type", "spread", "description",
                                   format_day("expire_date"), "entity_id")),
             ("Moderator:    %s %s (%s)", ('owner_type', 'owner', 'opset')),
             ("Gid:          %i", ('gid',)),
@@ -1704,6 +1706,32 @@ class BofhdExtension(BofhdCommonMethods):
                 'desc': r['description'],
             })
         return ret
+
+    #
+    # group set_type <name> <type>
+    #
+    all_commands['group_set_type'] = Command(
+        ("group", "set_type"),
+        GroupName(),
+        SimpleString(help_ref='group_type'),
+        fs=FormatSuggestion(
+            "Ok, group_type='%s' for group='%s'",
+            ('group_type', 'group_name'),
+        ),
+        perm_filter='can_set_group_type')
+
+    def group_set_type(self, operator, group, group_type):
+        grp = self._get_group(group)
+        group_type = self._get_constant(self.const.GroupType, group_type)
+        self.ba.can_set_group_type(operator.get_entity_id(), grp, group_type)
+
+        grp.group_type = group_type
+        grp.write_db()
+        return {
+            'group_type': str(group_type),
+            'group_name': grp.group_name,
+            'group_id': grp.entity_id,
+        }
 
     #
     # group set_description <name> <desc>
