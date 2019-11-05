@@ -362,7 +362,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                      {'group_id': self.entity_id,
                       'moderator_type': int(moderator_type),
                       'moderator_id': moderator_id})
-        self._db.log_change(self.entity_id, self.clconst.group_add,
+        self._db.log_change(self.entity_id,
+                            self.clconst.group_moderator_add,
                             moderator_id)
 
     def has_member(self, member_id):
@@ -462,11 +463,13 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         """
         if self.query_1(exists_stmt, binds):
             delete_stmt = """
-              DELETE FROM [:table schema=cerebrum name=moderator_member]
+              DELETE FROM [:table schema=cerebrum name=group_moderator]
                 WHERE group_id=:group_id AND
                 moderator_id=:moderator_id"""
             self.execute(delete_stmt, binds)
-            self._db.log_change(group_id, self.clconst.group_rem, moderator_id)
+            self._db.log_change(group_id,
+                                self.clconst.group_moderator_rem,
+                                moderator_id)
 
     # TODO: legg til noe om moderator her også?
     def search(self,
