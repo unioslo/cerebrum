@@ -26,7 +26,6 @@ from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Disk import Disk
 from Cerebrum.Utils import NotSet, Factory
 from .constants import CLConstants
-from .utils import aff_lookup
 
 
 class OUDiskMapping(DatabaseAccessor):
@@ -38,7 +37,7 @@ class OUDiskMapping(DatabaseAccessor):
         self.disk = Disk(self._db)
         self.const = Factory.get('Constants')(self._db)
 
-    def __insert(self, ou_id, aff_code, disk_id):
+    def __insert(self, ou_id, aff_code, status_code, disk_id):
         """
         Insert a new row in the ou_disk_mapping table.
 
@@ -46,10 +45,6 @@ class OUDiskMapping(DatabaseAccessor):
         :param int or None aff_code: int of affiliation constant
         :param int or None disk_id: entity_id of the disk
         """
-        if aff_code is None:
-            status_code = None
-        else:
-            aff_code, status_code = aff_lookup(self.const, int(aff_code))
         binds = {
             'ou_id': int(ou_id),
             'aff_code': aff_code if aff_code is None else int(aff_code),
@@ -78,7 +73,7 @@ class OUDiskMapping(DatabaseAccessor):
             }
         )
 
-    def __update(self, ou_id, aff_code, disk_id):
+    def __update(self, ou_id, aff_code, status_code, disk_id):
         """
         Update a row in the ou_disk_mapping table.
 
@@ -86,11 +81,6 @@ class OUDiskMapping(DatabaseAccessor):
         :param int aff_code: int of affiliation constant
         :param int disk_id: entity_id of the disk
         """
-        if aff_code is None:
-            status_code = None
-        else:
-            aff_code, status_code = aff_lookup(self.const, int(aff_code))
-
         binds = {
             'ou_id': int(ou_id),
             'disk_id': int(disk_id),
@@ -218,7 +208,7 @@ class OUDiskMapping(DatabaseAccessor):
         if aff_code is None:
             where += " AND aff_code IS NULL AND status_code IS NULL"
         else:
-            aff_code, status_code = aff_lookup(self.const, int(aff_code))
+            aff_code, status_code = self.const.get_affiliation(aff_code)
             where += " AND aff_code = :aff_code"
             binds['aff_code'] = int(aff_code)
             if status_code is None:
@@ -253,11 +243,16 @@ class OUDiskMapping(DatabaseAccessor):
             if old_values['disk_id'] == disk_id:
                 return
 
+        if aff_code is None:
+            status_code = None
+        else:
+            aff_code, status_code = self.const.get_affiliation(aff_code)
+
         # Insert new values
         if is_new:
-            self.__insert(ou_id, aff_code, disk_id)
+            self.__insert(ou_id, aff_code, status_code, disk_id)
         else:
-            self.__update(ou_id, aff_code, disk_id)
+            self.__update(ou_id, aff_code, status_code, disk_id)
 
     def search(self, ou_id, aff_code=NotSet, any_status=True):
         """
@@ -287,7 +282,7 @@ class OUDiskMapping(DatabaseAccessor):
         elif aff_code is NotSet:
             pass
         else:
-            aff_code, status_code = aff_lookup(self.const, int(aff_code))
+            aff_code, status_code = self.const.get_affiliation(aff_code)
             where += " AND aff_code = :aff_code"
             binds['aff_code'] = int(aff_code)
             if status_code is None:
