@@ -1586,8 +1586,8 @@ class EntityExternalId(Entity):
         if entity_id is not None:
             where.append(argument_to_sql(entity_id, "entity_id", binds, int))
         if external_id is not None:
-            external_id = prepare_string(external_id)
-            where.append("(LOWER(external_id) LIKE :external_id)")
+            external_id = prepare_string(external_id, transform=False)
+            where.append("(external_id LIKE :external_id)")
             binds['external_id'] = external_id
 
         where_str = ''
