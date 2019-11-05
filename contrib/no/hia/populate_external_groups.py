@@ -255,28 +255,27 @@ class group_tree(object):
         :returns: a (newly created) group
         """
         today = datetime.date.today()
-        group_name = self.name()
         try:
-            gr = get_group(group_name)
+            gr = get_group(self.name())
         except Errors.NotFoundError:
             gr = Factory.get('Group')(db)
             gr.populate(self.group_creator(),
                         const.group_visibility_internal,
-                        group_name,
+                        self.name(),
                         description=self.description())
             set_default_expire_date(fs_group_categorizer,
                                     gr,
-                                    group_name,
+                                    self.name(),
                                     today=today)
             gr.write_db()
             logger.debug("Created group %s", self.name())
         else:
-            grace = get_grace(fs_group_categorizer, group_name)
+            grace = get_grace(fs_group_categorizer, self.name())
             if should_postpone_expire_date(gr, grace):
                 gr.expire_date = (today +
                                   datetime.timedelta(days=grace['high_limit']))
                 logger.debug('Postponing expire_date of group %s to %s',
-                             group_name,
+                             self.name(),
                              gr.expire_date)
                 gr.write_db()
         return gr
