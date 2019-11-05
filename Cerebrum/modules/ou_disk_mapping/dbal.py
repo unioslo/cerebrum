@@ -42,7 +42,13 @@ class OUDiskMapping(DatabaseAccessor):
         Insert a new row in the ou_disk_mapping table.
 
         :param int ou_id: entity_id of the ou
-        :param int or None aff_code: int of affiliation constant
+
+        :type aff_code: None, Cerebrum.Constants._PersonAffiliationCode
+        :param aff_code: Cerebrum person aff constant
+
+        :type status_code: None, Cerebrum.Constants._PersonAffStatusCode
+        :param status_code: Cerebrum person aff status constant
+
         :param int or None disk_id: entity_id of the disk
         """
         binds = {
@@ -119,21 +125,24 @@ class OUDiskMapping(DatabaseAccessor):
             }
         )
 
-    def delete(self, ou_id, aff_code):
+    def delete(self, ou_id, aff_code, status_code):
         """
         Delete disk_id for a given ou_id and aff_code
 
         :param int ou_id: entity_id of the ou
-        :param int or None aff_code: int of affiliation constant
+
+        :type aff_code: None, Cerebrum.Constants._PersonAffiliationCode
+        :param aff_code: Cerebrum person aff constant
+
+        :type status_code: None, Cerebrum.Constants._PersonAffStatusCode
+        :param status_code: Cerebrum person aff status constant
         """
         try:
-            old_values = self.get(ou_id, aff_code)
+            old_values = self.get(ou_id, aff_code, status_code)
         except Errors.NotFoundError:
             # Nothing to remove
             return
         disk_id = old_values['disk_id']
-        aff_code = old_values['aff_code']
-        status_code = old_values['status_code']
 
         binds = {
             'ou_id': int(ou_id),
@@ -188,14 +197,17 @@ class OUDiskMapping(DatabaseAccessor):
         """
         return self.query(stmt, binds)
 
-    def get(self, ou_id, aff_code):
+    def get(self, ou_id, aff_code, status_code):
         """
         Get values for a given combination of ou, aff, status
 
         :param int ou_id: entity_id of the ou
 
-        :type aff_code: int, None
-        :param aff_code: Cerebrum person aff (status) constant
+        :type aff_code: None, Cerebrum.Constants._PersonAffiliationCode
+        :param aff_code: Cerebrum person aff constant
+
+        :type status_code: None, Cerebrum.Constants._PersonAffStatusCode
+        :param status_code: Cerebrum person aff status constant
 
         :rtype: db.row
         :return: ou_id, aff_code, status_code, disk_id
@@ -208,7 +220,6 @@ class OUDiskMapping(DatabaseAccessor):
         if aff_code is None:
             where += " AND aff_code IS NULL AND status_code IS NULL"
         else:
-            aff_code, status_code = self.const.get_affiliation(aff_code)
             where += " AND aff_code = :aff_code"
             binds['aff_code'] = int(aff_code)
             if status_code is None:
@@ -224,17 +235,24 @@ class OUDiskMapping(DatabaseAccessor):
         """.format(where=where)
         return self.query_1(stmt, binds)
 
-    def add(self, ou_id, aff_code, disk_id):
+    def add(self, ou_id, aff_code, status_code, disk_id):
         """
         Set disk_id for a given combination of ou and affiliation
 
         :param int ou_id: entity_id of the ou
-        :param int or None aff_code: int of affiliation constant
+
+        :type aff_code: None, Cerebrum.Constants._PersonAffiliationCode
+        :param aff_code: Cerebrum person aff constant
+
+        :type status_code: None, Cerebrum.Constants._PersonAffStatusCode
+        :param status_code: Cerebrum person aff status constant
+
         :param int disk_id: entity_id of the disk
         """
+
         # Check old values
         try:
-            old_values = self.get(ou_id, aff_code)
+            old_values = self.get(ou_id, aff_code, status_code)
         except Errors.NotFoundError:
             is_new = True
         else:
@@ -242,11 +260,6 @@ class OUDiskMapping(DatabaseAccessor):
             # Check if anything is new
             if old_values['disk_id'] == disk_id:
                 return
-
-        if aff_code is None:
-            status_code = None
-        else:
-            aff_code, status_code = self.const.get_affiliation(aff_code)
 
         # Insert new values
         if is_new:

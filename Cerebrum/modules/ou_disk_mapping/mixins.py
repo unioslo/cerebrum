@@ -33,8 +33,21 @@ class OUMixin(OU):
         """Delete any mappings to an OU."""
         ous = OUDiskMapping(self._db)
         for row in ous.search(ou_id=self.entity_id):
+            # No aff, can't have status
+            if row['aff_code'] is None:
+                aff_code = None
+                status_code = None
+            # Status, so must have an aff
+            elif row['status_code'] is not None:
+                status_code = self.const.PersonAffStatus(row['status_code'])
+                aff_code = status_code.affiliation
+            # We found a row so it must be an aff with no status
+            else:
+                aff_code = self.const.PersonAffiliation(row['aff_code'])
+                status_code = None
             ous.delete(ou_id=self.entity_id,
-                       aff_code=row['status_code'])
+                       aff_code=aff_code,
+                       status_code=status_code)
         super(OUMixin, self).delete()
 
 
@@ -47,6 +60,19 @@ class DiskMixin(Disk):
         """Delete any mappings to a disk"""
         ous = OUDiskMapping(self._db)
         for row in ous.get_with_disk(disk_id=self.entity_id):
+            # No aff, can't have status
+            if row['aff_code'] is None:
+                aff_code = None
+                status_code = None
+            # Status, so must have an aff
+            elif row['status_code'] is not None:
+                status_code = self.const.PersonAffStatus(row['status_code'])
+                aff_code = status_code.affiliation
+            # We found a row so it must be an aff with no status
+            else:
+                aff_code = self.const.PersonAffiliation(row['aff_code'])
+                status_code = None
             ous.delete(ou_id=row['ou_id'],
-                       aff_code=row['status_code'])
+                       aff_code=aff_code,
+                       status_code=status_code)
         super(DiskMixin, self).delete()
