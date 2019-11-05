@@ -86,7 +86,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.utils.funcwrap import memoize
-from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.utils.argutils import add_commit_args, get_constant
 
 
 logger = Factory.get_logger("cronjob")
@@ -1271,40 +1271,41 @@ def build_complete_group_forest():
 
 def main():
     """Argument parsing and start of execution."""
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument(
         '-p', '--perspective',
-        type=lambda p: int(constants.OUPerspective(p)),
-        help='Set the system perspective to fetch the OU'
-             'structure from, e.g. SAP or FS. This sets what'
-             'system that controls the OU hierarchy which'
-             'should be used for the group hierarchy.',
+        type=str,
+        help='Set the system perspective to fetch the OU structure from, \n'
+             'e.g. SAP or FS. \n'
+             'This sets what system that controls the OU hierarchy \n'
+             'which should be used for the group hierarchy.',
         required=True,
     )
     parser.add_argument(
         '-s', '--source-system',
-        type=lambda s: getattr(constants, s),
-        help='Set the source system to fetch the person'
-             'affiliations from. Could be a single system or'
-             'a list of systems. Defaults to \'system_sap\'.',
-        default=constants.system_sap,
+        type=str,
+        help='Set the source system to fetch the personaffiliations from. \n'
+             'Could be a single system or a list of systems. \n '
+             'Defaults to \'system_sap\'.',
+        default='SAP',
     )
     parser.add_argument(
         '--remove-all-auto-groups',
         dest='wipe_all',
         action='store_true',
-        help='Delete all auto groups, which means all groups'
-             'that has the autogroup trait.'
+        help='Delete all auto groups, which means all groups that has the \n'
+             'autogroup trait.'
     )
     parser.add_argument(
         '-c', '--collect',
         type=str,
         action='append',
         default=[],
-        help='Update the select criterias for what affiliations or statuses '
+        help='Update the select criterias for what affiliations or statuses \n'
              'that should be collected and used for populating auto groups. \n'
-             '  Format: The aff or status must be tailed with a colon and '
-             'what group prefix to use. \n '
+             '  Format: The aff or status must be tailed with a colon and \n'
+             '          what group prefix to use. \n'
              '  Example: affilation_status_tilknyttet_eremitus:auto-eremitus'
     )
     parser.add_argument(
@@ -1312,14 +1313,15 @@ def main():
         dest='output_filters',
         action='append',
         default=[],
-        help='Add an output filter that is used for finding the root OUs that '
-             'are used when printing out the forest - see --output-groups.'
+        help='Add an output filter that is used for finding the root OUs \n'
+             'that are used when printing out the forest \n'
+             ' - see --output-groups.'
     )
     parser.add_argument(
         '-o', '--output-groups',
         dest='output_groups',
         action='store_true',
-        help='Print out the group forest of auto groups and quit, without '
+        help='Print out the group forest of auto groups and quit, without \n'
              'doing any changes.'
     )
     parser.add_argument(
@@ -1333,8 +1335,8 @@ def main():
         type=str,
         action='append',
         default=[],
-        help='Add a spread to the auto groups. Each given spread must have a '
-             'prefix that must match the start of the group name for the '
+        help='Add a spread to the auto groups. Each given spread must have \n'
+             'a prefix that must match the start of the group name for the \n'
              'spread to be given. \n'
              'Examples:\n'
              '  ansatt:group@ad # Each group starting with\n'
@@ -1349,13 +1351,23 @@ def main():
         type=str,
         action='append',
         default=[],
-        help='These spreads will be ommitted from syncronization. In other '
-             'words, they won\'t be touched.  Should be specified in the same '
+        help='These spreads will be ommitted from syncronization. In other\n'
+             'words, they won\'t be touched. Should be specified in the same\n'
              'way as for --spread.'
     )
     add_commit_args(parser, default=True)
 
     args = parser.parse_args()
+
+    args.perspective = get_constant(database,
+                                    parser,
+                                    constants.OUPerspective,
+                                    args.perspective)
+
+    args.source_system = get_constant(database,
+                                      parser,
+                                      constants.AuthoritativeSystem,
+                                      args.source_system)
 
     select_criteria = dict()
     for value in args.collect:
@@ -1372,7 +1384,7 @@ def main():
         except ValueError:
             print("Missing prefix in --spread, e.g. ansatt:group@ldap")
             sys.exit(1)
-        spread = const.human2constant(spread, const.Spread)
+        spread = const.resolve_constant(database, spread, const.Spread)
         if spread is None:
             logger.warn("Unknown spread value %s", value)
             continue
@@ -1383,7 +1395,7 @@ def main():
 
     for value in args.omit_spread:
         prefix, spread = value.split(":")
-        spread = const.human2constant(spread, const.Spread)
+        spread = const.resolve_constant(database, spread, const.Spread)
         if spread is None:
             logger.warn("Unknown spread value %s", value)
             continue
@@ -1400,12 +1412,12 @@ def main():
         perform_sync(select_criteria, args.perspective, args.source_system,
                      spreads, omit_spreads, args.populate_with_primary_acc)
 
-    if not args.commit:
-        database.rollback()
-        logger.debug("Rolled back all changes")
-    else:
+    if args.commit:
         database.commit()
         logger.debug("Committed all changes")
+    else:
+        database.rollback()
+        logger.debug("Rolled back all changes")
 
 
 if __name__ == "__main__":
