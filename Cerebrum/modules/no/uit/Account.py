@@ -177,7 +177,7 @@ class AccountUiTMixin(Account.Account):
             return enc_auth_type_crypt3_des(utf8_plaintext, salt=salt)
         else:
             return super(AccountUiTMixin, self).encrypt_password(
-                method, utf8_plaintext, salt=salt, binary=True)
+                method, plaintext, salt=salt, binary=binary)
 
     def decrypt_password(self, method, cryptstring):
         """
@@ -307,6 +307,28 @@ class UsernamePolicy(DatabaseAccessor):
     Object to generate available usernames for UiT.
     """
 
+    guest_prefix = 'gjest'
+    sito_postfix = 's'
+
+    _re_valid_uit_name = re.compile('^[a-z]{3}[0-9]{3}$')
+    _re_valid_guest_name = re.compile('^' + guest_prefix + '[0-9]{2}$')
+    _re_valid_sito_name = re.compile('^[a-z]{3}[0-9]{3}' + sito_postfix + '$')
+
+    @classmethod
+    def is_valid_uit_name(cls, username):
+        """ Check if ``username`` is a valid UiT username. """
+        return bool(cls._re_valid_uit_name.match(username))
+
+    @classmethod
+    def is_valid_guest_name(cls, username):
+        """ Check if ``username`` is a valid UiT guest username. """
+        return bool(cls._re_valid_guest_name.match(username))
+
+    @classmethod
+    def is_valid_sito_name(cls, username):
+        """ Check if ``username`` is a valid SITO username. """
+        return bool(cls._re_valid_sito_name.match(username))
+
     def _get_person_by_extid(self, id_type, id_value):
         pe = Factory.get('Person')(self._db)
         pe.find_by_external_id(id_type, id_value)
@@ -314,13 +336,12 @@ class UsernamePolicy(DatabaseAccessor):
 
     def _find_legacy_username(self, person, ssn, legacy_type):
         new_ac = Factory.get('Account')(self._db)
-        valid_uname_re = re.compile('^[a-z]{3}[0-9]{3}$')
 
         for row in sorted(
                 LegacyUsers(self._db).search(ssn=ssn, type=legacy_type),
                 key=lambda r: (r['source'], r['user_name'])):
             legacy_username = row['user_name']
-            if not valid_uname_re.match(legacy_username):
+            if not self.is_valid_uit_name(legacy_username):
                 logger.debug('skipping invalid legacy_username %r',
                              legacy_username)
                 continue
@@ -376,8 +397,8 @@ class UsernamePolicy(DatabaseAccessor):
         # getting here implies that person does not have a previous account in
         # BAS create a new username
         inits = self.get_initials(name)
-        sito_post = cereconf.USERNAME_POSTFIX['sito']
-        return self.get_serial(inits, cstart, step=step, postfix=sito_post)
+        return self.get_serial(inits, cstart, step=step,
+                               postfix=self.sito_postfix)
 
     def get_uit_uname(self, external_id, name, regime=None):
         """

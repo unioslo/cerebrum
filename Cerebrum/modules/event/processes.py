@@ -27,10 +27,13 @@ import ctypes
 import logging
 import multiprocessing
 from multiprocessing.sharedctypes import Synchronized
-from Queue import Empty
+
+from six.moves.queue import Empty
+
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
-from .logutils import QueueHandler
+from Cerebrum.logutils.mp.handlers import ChannelHandler
+from Cerebrum.logutils.mp.utils import reset_logging
 
 
 class ProcessBase(multiprocessing.Process):
@@ -81,30 +84,29 @@ class ProcessBase(multiprocessing.Process):
 class ProcessLoggingMixin(ProcessBase):
     """ Mixin to supply a QueueLogger logging object for processes.
 
-    The log records should be processed in a .logutils.LogRecordThread, running
+    The log records should be processed in a LogRecordThread, running
     in the main process of your multiprocessing script.
 
     Example
     -------
-    >>> class MyClass(ProcessLoggingMixin):
-    ...     def main(self):
-    ...         super(MyClass, self).main()
-    ...         self.logger.info('Process {!r} is done', self.name)
-    >>> proc = MyClass(log_queue=Queue())
-    >>> proc.start()
+    ::
+        class MyClass(ProcessLoggingMixin):
+            def main(self):
+                super(MyClass, self).main()
+                self.logger.info('Process {!r} is done', self.name)
+        proc = MyClass(log_channel=QueueChannel(...))
+        proc.start()
 
     """
 
-    def __init__(self, log_queue=None, **kwargs):
+    def __init__(self, log_channel=None, **kwargs):
         """ Initialize process with a logger.
 
-        :param Queue log_queue:
-            A queue for log messages. Log messages should be formatted as
-            tuples:
-                ('<source>', '<log-level>', '<message>')
+        :param log_channel:
+            A Cerebrum.modules.mp.channel._BaseChannel implementation.
         """
         super(ProcessLoggingMixin, self).__init__(**kwargs)
-        self._handler = QueueHandler(log_queue)
+        self._handler = ChannelHandler(log_channel)
 
         # Get our custom logger as self.logger, for compability reasons
         self.logger = logging.getLogger(__name__)
@@ -114,9 +116,8 @@ class ProcessLoggingMixin(ProcessBase):
 
         # re-configure root logger after the new process has forked, with a
         # handler that ships data to self._log_queue
+        reset_logging()
         root = logging.getLogger()
-        root.handlers = []
-        root.setLevel(self.logger.level)
         root.addHandler(self._handler)
 
         self.logger.info('Process starting (pid=%r): %s',

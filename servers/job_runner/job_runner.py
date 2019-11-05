@@ -61,26 +61,37 @@ from Cerebrum.logutils import autoconf
 from Cerebrum.logutils.options import install_subparser
 from Cerebrum.modules.job_runner import JobRunner, sigchld_handler
 from Cerebrum.modules.job_runner.job_actions import LockFile, LockExists
-from Cerebrum.modules.job_runner.job_config import get_job_config, dump_jobs
+from Cerebrum.modules.job_runner.job_config import get_job_config
 from Cerebrum.modules.job_runner.queue import JobQueue
 from Cerebrum.modules.job_runner.socket_ipc import (SocketServer,
                                                     SocketTimeout)
 
 logger = logging.getLogger('job_runner')
 
+default_socket = getattr(cereconf, 'JOB_RUNNER_SOCKET', None)
+
 signal.signal(signal.SIGCHLD, sigchld_handler)
 
 
 def make_parser():
     parser = argparse.ArgumentParser(
-        description="Start a job runner daemon, or send command to daemon")
+        description="Start a job runner daemon")
 
     parser.add_argument(
         '--quiet',
         dest='quiet',
         action='store_true',
         default=False,
-        help='exit silently if another server is already running')
+        help='exit silently if another server is already running',
+    )
+
+    parser.add_argument(
+        '-s', '--socket',
+        dest='socket',
+        required=not default_socket,
+        default=default_socket,
+        help='run the job_runner server on a given socket',
+    )
 
     config = parser.add_mutually_exclusive_group()
     config.add_argument(
@@ -88,103 +99,15 @@ def make_parser():
         dest='config',
         metavar='NAME',
         default='scheduled_jobs',
-        help='use alternative config (filename or module name)')
-
-    commands = parser.add_mutually_exclusive_group()
-
-    parser.add_argument(
-        '-t', '--timeout',
-        dest='timeout',
-        default=2,
-        type=int,
-        help="timeout for running commands")
-
-    commands.add_argument(
-        '--reload',
-        dest='command',
-        action='store_const',
-        const='RELOAD',
-        help='re-read the config file')
-
-    commands.add_argument(
-        '--quit',
-        dest='command',
-        action='store_const',
-        const='QUIT',
-        help='exit gracefully (allow current jobs to complete)')
-
-    commands.add_argument(
-        '--kill',
-        dest='command',
-        action='store_const',
-        const='KILL',
-        help='exit, but kill jobs not finished after 5 seconds')
-
-    commands.add_argument(
-        '--status',
-        dest='command',
-        action='store_const',
-        const='STATUS',
-        help='show status for a running job-runner')
-
-    commands.add_argument(
-        '--pause',
-        dest='command',
-        action='store_const',
-        const='PAUSE',
-        help='pause the queue, i.e. don\'t start any new jobs')
-
-    commands.add_argument(
-        '--resume',
-        dest='command',
-        action='store_const',
-        const='RESUME',
-        help='resume from paused state')
-
-    commands.add_argument(
-        '--run',
-        dest='run_job',
-        metavar='NAME',
-        help='adds %(metavar)s to the fron of the run queue'
-             ' (without dependencies')
-
-    parser.add_argument(
-        '--with-deps',
-        dest='run_with_deps',
-        action='store_true',
-        default=False,
-        help='make --run honor dependencies')
-
-    commands.add_argument(
-        '--show-job',
-        dest='show_job',
-        metavar='NAME',
-        help='show detailed information about the job %(metavar)s')
-
-    commands.add_argument(
-        '--dump',
-        dest='dump_jobs',
-        nargs=1,
-        type=int,
-        default=None,
-        metavar='DEPTH',
-        help='')
-
-    commands.set_defaults(command=None)
+        help='use alternative config (filename or module name)',
+    )
 
     return parser
 
 
-def run_command(command, args, timeout):
-    try:
-        return SocketServer.send_cmd(command, args=args, timeout=timeout)
-    except SocketTimeout:
-        raise RuntimeError("Timout contacting server, is it running?")
-
-
-def run_daemon(jobs, quiet=False, thread=True):
+def run_daemon(jr_socket, jobs, quiet=False, thread=True):
     """ Try to start a new job runner daemon. """
-    sock = SocketServer()
+    sock = SocketServer(jr_socket=jr_socket)
 
     # Abstract Action to get a lockfile
     # TODO: Couldn't we just use the socket to see if we're running?
@@ -205,7 +128,7 @@ def run_daemon(jobs, quiet=False, thread=True):
         # Assuming that previous run aborted without removing socket
         logger.warn("Socket timeout, assuming server is dead")
         try:
-            os.unlink(cereconf.JOB_RUNNER_SOCKET)
+            os.unlink(jr_socket)
         except OSError:
             pass
         pass
@@ -235,40 +158,17 @@ def main(inargs=None):
     args = parser.parse_args(inargs)
 
     autoconf('cronjob', args)
+
+    jr_socket = args.socket
     logger.debug("job_runner args=%r", args)
     logger.debug("job runner socket=%r exists=%r",
-                 cereconf.JOB_RUNNER_SOCKET,
-                 os.path.exists(cereconf.JOB_RUNNER_SOCKET))
-
-    command = None
-
-    # What to do:
-    if args.command:
-        command = args.command
-        c_args = []
-    elif args.run_job:
-        command = 'RUNJOB'
-        c_args = [args.run_job, args.run_with_deps]
-    elif args.show_job:
-        command = 'SHOWJOB'
-        c_args = [args.show_job, ]
-
-    if command:
-        logger.debug("job_runner running command=%r, args=%r, timeout=%r",
-                     command, c_args, args.timeout)
-        print(run_command(command, c_args, args.timeout))
-        raise SystemExit(0)
+                 jr_socket, os.path.exists(jr_socket))
 
     # Not running a command, so we'll need a config:
     scheduled_jobs = get_job_config(args.config)
 
-    if args.dump_jobs is not None:
-        print("Showing jobs in {0!r}".format(scheduled_jobs))
-        dump_jobs(scheduled_jobs, args.dump_jobs)
-        raise SystemExit(0)
-
     logger.info("Starting daemon with jobs from %r", scheduled_jobs)
-    run_daemon(scheduled_jobs)
+    run_daemon(jr_socket, scheduled_jobs)
 
 
 if __name__ == '__main__':

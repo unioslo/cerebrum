@@ -66,7 +66,7 @@ EntityOwner = api.model('EntityOwner', {
     'type': fields.Constant(
         ctype='EntityType',
         description='Entity type'),
-    'href': fields.UrlFromEntityType(
+    'href': fields.base.String(
         description='URL to resource'),
     'name': fields.base.String(
         description='Name'),

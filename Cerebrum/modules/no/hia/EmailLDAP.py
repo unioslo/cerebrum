@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2003-2015 University of Oslo, Norway
+#
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,6 +23,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.EmailLDAP import EmailLDAP
 
 import re
+
 
 class EmailLDAPUiAMixin(EmailLDAP):
     """Methods specific for UiA."""

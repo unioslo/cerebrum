@@ -22,6 +22,7 @@ Uit specific extension for Cerebrum. Read data from SystemX
 from __future__ import unicode_literals, print_function
 
 import argparse
+import datetime
 import logging
 import sys
 
@@ -33,143 +34,151 @@ from Cerebrum.utils import csvutils
 logger = logging.getLogger(__name__)
 
 
-class SYSX(object):
-    def __init__(self, data_file=None, update=False):
-        self._default_datafile = cereconf.GUEST_FILE
-        if update:
-            # Dummy username as password is a api key
-            self._guest_host = cereconf.GUEST_HOST
-            self._guest_host_dir = cereconf.GUEST_HOST_DIR
-            self._guest_host_file = cereconf.GUEST_HOST_FILE
-            self._guest_host_auth = "?auth={}".format(
-                read_password('systemx', cereconf.GUEST_HOST))
-        self.today = str(mx.DateTime.today())
+def parse_sysx_birth_date(value):
+    try:
+        day, mon, year = value.split('.')
+        return datetime.date(int(year), int(mon), int(day))
+    except ValueError:
+        return None
 
+
+def parse_sysx_expire_date(value):
+    try:
+        year, mon, day = value.split('-')
+        return datetime.date(int(year), int(mon), int(day))
+    except ValueError:
+        return None
+
+
+class SYSX(object):
+
+    SPLIT_CHAR = ':'
+
+    def __init__(self, data_file):
+        self.sysx_data = data_file
+        self.today = datetime.date.today()
         self.sysxids = {}
         self.sysxfnrs = {}
-        self.SPLIT_CHAR = ':'
-
-        if data_file:
-            self.sysx_data = data_file
-        else:
-            self.sysx_data = self._default_datafile
-
-        if update:
-            self._update()
-
-    def read_from_sysx(self):
-        url = "http://{}{}{}{}".format(
-            self._guest_host,
-            self._guest_host_dir,
-            self._guest_host_file,
-            self._guest_host_auth)
-        target_file = self.sysx_data
-        try:
-            import urllib
-            fname, headers = urllib.urlretrieve(url, target_file)
-        except Exception as m:
-            print("Failed to get data from {0}: reason: {1}".format(url, m))
-            return 0
-        else:
-            return 1
 
     def _prepare_data(self, data_list):
         """
         Take in a list of lists, where the inner lists contain strings in order
-        sysx_id, fodsels_dato, personnr, gender, fornavn, etternavn, ou,
+        sysx_id, fodsels_dato, fnr, gender, fornavn, etternavn, ou,
         affiliation, affiliation_status, expire_date, spreads, hjemmel,
         kontaktinfo, ansvarlig_epost, bruker_epost, national_id, approved
 
-        :param list data_list: list of strings in order sysx_id, fodsels_dato,
-            personnr, gender, fornavn, etternavn, ou, affiliation,
-            affiliation_status, expire_date, spreads, hjemmel, kontaktinfo,
-            ansvarlig_epost, bruker_epost, national_id, approved
+        :param data_list: iterable with data fields for one sysx person.
+
+        :rtype: dict
         :return: dict with the same information pre-processed
         """
         try:
-            (sysx_id, fodsels_dato, personnr, gender, fornavn, etternavn, ou,
-             affiliation, affiliation_status, expire_date, spreads,
-             hjemmel, kontaktinfo, ansvarlig_epost, bruker_epost,
-             national_id, approved) = data_list
+            (
+                sysx_id,
+                birth_date,
+                fnr,
+                gender,
+                fornavn,
+                etternavn,
+                ou,
+                affiliation,
+                affiliation_status,
+                expire_date,
+                spreads,
+                hjemmel,
+                kontaktinfo,
+                ansvarlig_epost,
+                bruker_epost,
+                national_id,
+                approved,
+            ) = data_list
         except ValueError as m:
             logger.error("data_list:%s##%s", data_list, m)
-            sys.exit(1)
-        else:
+            raise
 
-            def fixname(name):
-                # Cerebrum populate expects iso-8859-1.
-                return name.strip()
+        # Fix for people placed on top OU
+        if ou == '0':
+            ou = '000000'
 
-            # Fix for people placed on top OU
-            if ou == '0':
-                ou = '000000'
+        birth_date = parse_sysx_birth_date(birth_date)
 
-            if spreads:
-                spreads = spreads.split(',')
-            else:
-                spreads = []
-            return {'id': sysx_id,
-                    'fodsels_dato': fodsels_dato,
-                    'personnr': personnr,
-                    'gender': gender,
-                    'fornavn': fixname(fornavn.strip()),
-                    'etternavn': fixname(etternavn.strip()),
-                    'ou': ou,
-                    'affiliation': affiliation,
-                    'affiliation_status': affiliation_status.lower(),
-                    'expire_date': expire_date,
-                    'spreads': spreads,
-                    'ansvarlig_epost': ansvarlig_epost,
-                    'bruker_epost': bruker_epost,
-                    'national_id': national_id,
-                    'approved': approved,
-                    'kontaktinfo': kontaktinfo,
-                    'hjemmel': hjemmel}
+        expire_date = parse_sysx_expire_date(expire_date)
+        if not expire_date:
+            logger.warning('sysx_id=%r has no expire_date', sysx_id)
 
-    def _update(self):
-        return self.read_from_sysx()
+        spreads = [s.strip() for s in (spreads or '').split(',')]
 
-    def list(self, filter_expired=True, filter_approved=False):
-        self._load_data(filter_expired=filter_expired)
+        approved = (approved == 'Yes')
+        if not approved:
+            logger.warning('sysx_id=%r is not approved', sysx_id)
 
-    def _load_data(self, update=False, filter_expired=True):
-        if update:
-            self._update()
+        return {
+            'id': sysx_id,
+            'birth_date': birth_date,
+            'fnr': fnr,
+            'gender': gender,
+            'fornavn': fornavn.strip(),
+            'etternavn': etternavn.strip(),
+            'ou': ou,
+            'affiliation': affiliation,
+            'affiliation_status': affiliation_status.lower(),
+            'expire_date': expire_date,
+            'spreads': spreads,
+            'ansvarlig_epost': ansvarlig_epost,
+            'bruker_epost': bruker_epost,
+            'national_id': national_id,
+            'approved': approved,
+            'kontaktinfo': kontaktinfo,
+            'hjemmel': hjemmel,
+        }
+
+    def list(self, filter_expired=True):
+        stats = {
+            'expired': 0,
+        }
         for item in csvutils.read_csv_tuples(
                 self.sysx_data, 'utf-8', self.SPLIT_CHAR):
             sysx_data = self._prepare_data(item)
-            if filter_expired:
-                if sysx_data['expire_date'] < self.today:
+            sysx_id = sysx_data['id']
+
+            expire_date = sysx_data['expire_date']
+
+            if (not expire_date) or expire_date < self.today:
+                stats['expired'] += 1
+                if filter_expired:
+                    logger.debug('Skipping sysx_id=%r, expire=%r',
+                                 sysx_id, expire_date)
                     continue
-            self.sysxids[sysx_data['id']] = sysx_data
-            if sysx_data['personnr']:
-                self.sysxfnrs[sysx_data['personnr']] = sysx_data
+
+            self.sysxids[sysx_id] = sysx_data
+            if sysx_data['fnr']:
+                self.sysxfnrs[sysx_data['fnr']] = sysx_data
+
+        return self.sysxids
 
 
 def main(inargs=None):
-    """Function used for testing the module
-
     """
-    # Parse arguments
+    Function used for testing the module
+    """
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument('-u', '--update',
-                        action='store_true',
-                        help='',
-                        default=False)
-    parser.add_argument('-f', '--filter_expired',
-                        action='store_true',
-                        help='',
-                        default=False)
-    parser.add_argument('-d', '--datafile',
-                        default=cereconf.GUEST_FILE,
-                        help='Path to to guest file.')
+    parser.add_argument(
+        '-f', '--filter_expired',
+        action='store_true',
+        default=False,
+    )
+    parser.add_argument(
+        'datafile',
+        help='Path to to guest file',
+    )
     args = parser.parse_args(inargs)
 
-    sysx = SYSX(data_file=args.datafile, update=args.update)
+    sysx = SYSX(data_file=args.datafile)
     sysx.list(filter_expired=args.filter_expired)
     print("SYS_IDs: {}".format(len(sysx.sysxids)))
     print("SYS_Fnrs: {}".format(len(sysx.sysxfnrs)))
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     main()

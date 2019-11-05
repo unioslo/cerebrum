@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""
+r"""
 Backports data to FS from a HR system (SAP, LT or something else).
 
 Specifically, FS.person and FS.fagperson are populated based on the

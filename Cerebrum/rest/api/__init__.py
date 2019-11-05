@@ -23,8 +23,6 @@
 
 from __future__ import absolute_import, unicode_literals
 
-import logging
-import logging.config
 import time
 
 from flask import Flask, g, request
@@ -52,13 +50,6 @@ def create_app(config=None):
 
     app.config['RESTFUL_JSON'] = {'ensure_ascii': False, 'encoding': 'utf-8'}
     app.wsgi_app = ProxyFix(app.wsgi_app)
-    logging.config.dictConfig(app.config['LOGGING'])
-
-    # As of Flask 0.11, Flask sets up a logger by itself, logging to stderr.
-    # Add handlers from '' logger to log here, too.
-    logger = logging.getLogger('')
-    for handler in logger.handlers:
-        app.logger.addHandler(handler)
 
     # Replace builtin URL rule converters. Must be done before rules are added.
     app.url_map.converters.update({

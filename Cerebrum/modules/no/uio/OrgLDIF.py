@@ -29,7 +29,9 @@ import cereconf
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 from Cerebrum.modules.OrgLDIF import postal_escape_re
 from Cerebrum.modules.LDIFutils import (
-    ldapconf, normalize_string, hex_escape_match)
+    ldapconf, normalize_string, hex_escape_match,
+    normalize_IA5String, verify_IA5String,
+)
 from Cerebrum.Utils import make_timer
 
 # Replace these characters with spaces in OU RDNs.
@@ -46,6 +48,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
             self.attr2syntax['uioVisiblePrivateMobile'] = \
                 self.attr2syntax['mobile']
+            self.attr2syntax['uioPrimaryMail'] = (None, verify_IA5String,
+                                                  normalize_IA5String),
     else:
         # Hacks for old LDAP structure
         def __init__(self, db, logger):
@@ -60,6 +64,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                                      'cn=organization,dc=uio,dc=no',
                                      'ou=--,ou=organization,dc=uio,dc=no':
                                      'cn=organization,dc=uio,dc=no'}
+            self.attr2syntax['uioPrimaryMail'] = (None, verify_IA5String,
+                                                  normalize_IA5String),
 
     def init_ou_dump(self):
         self.__super.init_ou_dump()
@@ -195,6 +201,34 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                                    for p_id, t in titles.items()])
         timer("...personal titles done.")
 
+    def init_account_mail(self, use_mail_module):
+        u""" Cache account mail addresses.
+
+        This method adds to the general to fill the primary email attribute
+        This is done to prepare for changing the normal email attribute
+
+        :param bool use_mail_module:
+            If True, Cerebrum.modules.Email will be used to populate this
+            cache; otherwise the `self.account_mail` dict will be None.
+        """
+        super(OrgLDIFUiOMixin, self).init_account_mail(use_mail_module)
+        if use_mail_module:
+            timer = make_timer(
+                self.logger,
+                "Doing UiO specific changes to account e-mail addresses...")
+            self.account_primary_mail = self.account_mail.copy()
+            # We don't want to import this if mod_email isn't present.
+            from Cerebrum.modules.Email import EmailTarget
+            targets = EmailTarget(self.db).list_email_target_addresses
+            mail = {}
+            for row in targets(target_type=self.const.email_target_account,
+                               domain='uio.no', uname_local=True):
+                # Can only return username@uio.no so no need for any checks
+                mail[int(row['target_entity_id'])] = "@".join(
+                    (row['local_part'], row['domain']))
+            self.account_mail.update(mail)
+            timer("...UiO specfic account e-mail addresses done.")
+
     def make_uioPersonScopedAffiliation(self, p_id, pri_aff, pri_ou):
         # [primary|secondary]:<affiliation>@<status>/<stedkode>
         ret = []
@@ -212,8 +246,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 status_str = str(self.const.PersonAffStatus(status).str)
                 self.status_cache[status] = status_str
             p = 'secondary'
-            if (aff_str == pri_aff_str
-                    and status_str == pri_status_str and ou == pri_ou):
+            if (aff_str == pri_aff_str and
+                    status_str == pri_status_str and ou == pri_ou):
                 p = 'primary'
             ou = self.ou_id2ou_uniq_id[ou]
             if ou:
@@ -224,6 +258,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
     def make_person_entry(self, row, person_id):
         """ Extend with UiO functionality. """
         dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
+        account_id = int(row['account_id'])
+
         if not dn:
             return dn, entry, alias_info
 
@@ -240,10 +276,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
         # Add group memberships
         if person_id in self.person2group:
-            # TODO: remove member and uioPersonObject after transition period
-            entry['uioMemberOf'] = entry['member'] = \
-                self.person2group[person_id]
-            entry['objectClass'].extend(('uioMembership', 'uioPersonObject'))
+            entry['uioMemberOf'] = self.person2group[person_id]
+            entry['objectClass'].append('uioMembership')
 
         # Add scoped affiliations
         pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(
@@ -251,9 +285,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         entry['uioPersonScopedAffiliation'] = \
             self.make_uioPersonScopedAffiliation(person_id, pri_aff, pri_ou)
 
-        # Add the uioPersonObject class if missing
-        if 'uioPersonObject' not in entry['objectClass']:
-            entry['objectClass'].extend(('uioPersonObject',))
+        # uio attributes require uioPersonObject
+        entry['objectClass'].append('uioPersonObject')
 
         # Check if there exists «avvikende» (deviant) addresses.
         # If so, export them instead.
@@ -270,6 +303,11 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             street = self.make_address(", ", None, a_txt, p_num, city, country)
             if street:
                 entry['street'] = (street,)
+
+        if self.account_primary_mail:
+            mail = self.account_primary_mail.get(account_id)
+            if mail:
+                entry['uioPrimaryMail'] = mail
 
         return dn, entry, alias_info
 

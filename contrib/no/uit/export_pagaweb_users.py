@@ -51,6 +51,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.uit.Account import UsernamePolicy
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +104,6 @@ def read_csv_file(filename, encoding, charsep):
 
 def parse_paga_csv(db, pagafile):
     persons = {}
-    sito_postfix = cereconf.USERNAME_POSTFIX['sito']
 
     for detail in read_csv_file(pagafile,
                                 encoding=default_in_encoding,
@@ -161,12 +161,12 @@ def parse_paga_csv(db, pagafile):
 
     logger.info("Loading accounts...")
     for row in ac.search(expire_start=None):
-        if row['name'][3:5] == '99':
-            logger.debug("Skipping 999 account id=%r, name=%r",
+        if not UsernamePolicy.is_valid_uit_name(row['name']):
+            logger.debug("Skipping non-uit account id=%r, name=%r",
                          row['account_id'], row['name'])
             continue
-        elif row['name'].endswith(sito_postfix):
-            logger.debug("Skipping sito account id=%r, name=%r",
+        if row['name'][3:5] == '99':
+            logger.debug("Skipping 999 account id=%r, name=%r",
                          row['account_id'], row['name'])
             continue
         pid = row['owner_id']

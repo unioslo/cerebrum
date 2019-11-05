@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2004-2018 University of Oslo, Norway
+#
+# Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,8 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 from collections import defaultdict
+
 from six import text_type
 
 from Cerebrum import Entity
@@ -56,8 +57,8 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
         self.attr2id2contacts = [v for v in contacts if v[1]]
 
         # roomNumber
-        # Some employees have registered their office addresses in SAP. We store
-        # this as co.contact_office. The roomNumber is the alias.
+        # Some employees have registered their office addresses in SAP.
+        # We store this as co.contact_office. The roomNumber is the alias.
         attr = 'roomNumber'
         syntax = self.attr2syntax[attr]
         contacts = self.get_contact_aliases(
@@ -93,7 +94,8 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
         the PersonEmployment module."""
         self.__super.init_person_titles()
 
-        timer = make_timer(self.logger, 'Fetching personal employment titles...')
+        timer = make_timer(self.logger,
+                           'Fetching personal employment titles...')
         employments = self.person.search_employment(main_employment=True)
         for emp in employments:
             if emp['person_id'] not in self.person_titles:

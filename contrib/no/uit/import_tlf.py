@@ -39,10 +39,6 @@ MAX_NUM_ALLOWED_CHANGES
     Max number of changes to allow this script to make. The limit is ignored if
     the script runs with --force
 
-DUMPDIR
-    Default location for Cerebrum exports. The default CSV-file to fetch phone
-    data from is <DUMPDIR>/telefoni/user_<date>.txt
-
 PHONE_CONNECT
     URL to the remote phone system (for removing erroneous objects).
 """
@@ -594,16 +590,14 @@ def main(inargs=None):
     parser = argparse.ArgumentParser(
         description="Import telephone numbers",
     )
-    default_phonefile = '{0}/telefoni/user_{1}.txt'.format(
-        cereconf.DUMPDIR,
-        datetime.date.today().strftime('%Y%m%d'))
+
     parser.add_argument(
         '-f',
         '--file',
         dest='file',
-        default=default_phonefile,
-        help='Contact info source file. Default is user_yyyymmdd.txt in '
-             'dumps/telefon',
+        required=True,
+        help='Import telephone data from %(metavar)s',
+        metavar='<filename>',
     )
     parser.add_argument(
         '-F',

@@ -18,5 +18,4 @@ mod_hostpolicy.sql
 mod_consent.sql
 mod_ephorte.sql
 mod_voip.sql
-mod_printer_quota.sql
 mod_gpg.sql

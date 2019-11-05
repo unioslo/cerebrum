@@ -71,7 +71,7 @@ def serve(config, num_workers, enable_listener, enable_collectors):
             Handler(
                 daemon=True,
                 queue=event_queue,
-                log_queue=exchanged.log_queue,
+                log_channel=exchanged.log_channel,
                 running=exchanged.run_trigger,
                 config=config,
                 mock=config.client.mock))
@@ -85,7 +85,7 @@ def serve(config, num_workers, enable_listener, enable_collectors):
             hand(
                 daemon=True,
                 queue=group_event_queue,
-                log_queue=exchanged.log_queue,
+                log_channel=exchanged.log_channel,
                 running=exchanged.run_trigger,
                 config=config,
                 mock=config.client.mock))
@@ -97,7 +97,7 @@ def serve(config, num_workers, enable_listener, enable_collectors):
                 daemon=True,
                 queue=event_queue,
                 fan_out_queues=queues,
-                log_queue=exchanged.log_queue,
+                log_channel=exchanged.log_channel,
                 running=exchanged.run_trigger,
                 channels=channels))
 
@@ -108,7 +108,7 @@ def serve(config, num_workers, enable_listener, enable_collectors):
                     daemon=True,
                     queue=event_queue,
                     fan_out_queues=queues,
-                    log_queue=exchanged.log_queue,
+                    log_channel=exchanged.log_channel,
                     running=exchanged.run_trigger,
                     channel=chan,
                     config=config.eventcollector))

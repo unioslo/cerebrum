@@ -16,12 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""
-"""
+
+
 from __future__ import unicode_literals
 
 import six
 
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory, prepare_string, argument_to_sql
 from Cerebrum.Entity import EntityName, EntitySpread
 
@@ -71,32 +72,41 @@ class Disk(EntitySpread, Entity_class):
         if not self.__updated:
             return
         is_new = not self.__in_db
+        binds = {'path': self.path,
+                 'host_id': self.host_id,
+                 'disk_id': self.entity_id,
+                 'description': self.description}
+
         if is_new:
+            binds['e_type'] = int(self.const.entity_disk)
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=disk_info]
               (entity_type, host_id, disk_id, path, description)
             VALUES (:e_type, :host_id, :disk_id, :path, :description)
-                    """,
-                         {'e_type': int(self.const.entity_disk),
-                          'host_id': self.host_id,
-                          'disk_id': self.entity_id,
-                          'path': self.path,
-                          'description': self.description})
+                    """, binds)
             self._db.log_change(self.entity_id, self.clconst.disk_add, None,
                                 change_params={'host_id': self.host_id,
                                                'path': self.path})
         else:
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=disk_info]
-            SET path=:path, description=:description, host_id=:host_id
-            WHERE disk_id=:disk_id""",
-                         {'path': self.path,
-                          'host_id': self.host_id,
-                          'disk_id': self.entity_id,
-                          'description': self.description})
-            self._db.log_change(self.entity_id, self.clconst.disk_mod, None,
-                                change_params={'host_id': self.host_id,
-                                               'path': self.path})
+            exists_stmt = """
+            SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=disk_info]
+            WHERE {where}
+            )
+            """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds))
+            if not self.query_1(exists_stmt, binds):
+                # True positive
+                update_stmt = """
+                UPDATE [:table schema=cerebrum name=disk_info]
+                SET path=:path, description=:description, host_id=:host_id
+                WHERE disk_id=:disk_id"""
+                self.execute(update_stmt, binds)
+                self._db.log_change(self.entity_id,
+                                    self.clconst.disk_mod,
+                                    None,
+                                    change_params={'host_id': self.host_id,
+                                                   'path': self.path})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -228,8 +238,11 @@ class Disk(EntitySpread, Entity_class):
         SELECT DISTINCT di.disk_id AS disk_id, di.path AS path,
                 di.description AS description
         FROM %s %s""" % (','.join(tables), where_str),
-            {'spread': spread, 'entity_type': int(self.const.entity_disk),
-             'host_id': host_id, 'path': path, 'description': description})
+                          {'spread': spread,
+                           'entity_type': int(self.const.entity_disk),
+                           'host_id': host_id,
+                           'path': path,
+                           'description': description})
 
     def __str__(self):
         if hasattr(self, 'entity_id'):
@@ -306,30 +319,41 @@ class Host(EntityName, EntitySpread, Entity_class):
                 raise self._db.IntegrityError("Illegal host name: %s" % tmp)
 
         is_new = not self.__in_db
+        binds = {'host_id': self.entity_id,
+                 'description': self.description}
+
         if is_new:
+            binds['e_type'] = int(self.const.entity_host)
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=host_info]
               (entity_type, host_id, description)
             VALUES (:e_type, :host_id, :description)
-                    """,
-                         {'e_type': int(self.const.entity_host),
-                          'host_id': self.entity_id,
-                          'description': self.description})
+                    """, binds)
             self._db.log_change(self.entity_id, self.clconst.host_add, None,
                                 change_params={'name': self.name})
             self.add_entity_name(self.const.host_namespace, self.name)
         else:
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=host_info]
-            SET description=:description
-            WHERE host_id=:host_id""",
-                         {'host_id': self.entity_id,
-                          'description': self.description})
-            self._db.log_change(self.entity_id, self.clconst.host_mod, None,
-                                change_params={'name': self.name})
-            if 'name' in self.__updated:
-                self.update_entity_name(self.const.host_namespace, self.name)
-
+            exists_stmt = """
+            SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=host_info]
+            WHERE {where}
+            )
+            """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds))
+            if not self.query_1(exists_stmt, binds):
+                # True positive
+                update_stmt = """
+                UPDATE [:table schema=cerebrum name=host_info]
+                SET description=:description
+                WHERE host_id=:host_id"""
+                self.execute(update_stmt, binds)
+                self._db.log_change(self.entity_id,
+                                    self.clconst.host_mod,
+                                    None,
+                                    change_params={'name': self.name})
+                if 'name' in self.__updated:
+                    self.update_entity_name(self.const.host_namespace,
+                                            self.name)
         del self.__in_db
         self.__in_db = True
         self.__updated = []

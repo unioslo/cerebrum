@@ -92,7 +92,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         logger = Utils.Factory.get_logger()
         logger.warn("Deprecated usage of OU:"
                     " OU.%s cannot be accessed directly."
-                    " Use get/add/delete_name_with_language" % (name,))
+                    " Use get/add/delete_name_with_language", name)
         # For the "unspecified" case we assume Norwegian bokmål.
         return self.get_name_with_language(name_map[name],
                                            self.const.language_nb,
@@ -210,12 +210,25 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         return "/".join(components)
 
     def unset_parent(self, perspective):
-        self.execute("""
+        binds = {'ou_id': self.entity_id,
+                 'perspective': int(perspective)}
+        exists_stmt = """
+        SELECT EXISTS (
+          SELECT 1
+          FROM [:table schema=cerebrum name=ou_structure]
+          WHERE {where}
+        )
+        """.format(where=' AND '.join('{0}=:{0}'.format(x) for x in binds))
+        if not self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=ou_structure]
-        WHERE ou_id=:e_id AND perspective=:perspective""",
-                     {'e_id': self.entity_id,
-                      'perspective': int(perspective)})
-        self._db.log_change(self.entity_id, self.clconst.ou_unset_parent, None,
+        WHERE ou_id=:ou_id AND perspective=:perspective"""
+        self.execute(delete_stmt, binds)
+        self._db.log_change(self.entity_id,
+                            self.clconst.ou_unset_parent,
+                            None,
                             change_params={'perspective': int(perspective)})
 
     def set_parent(self, perspective, parent_id):

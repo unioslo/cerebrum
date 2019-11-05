@@ -30,9 +30,6 @@ This script use the following cereconf variables:
 
 SITO_PRIMARY_MAILDOMAIN
     Which mail domain to assign new email addresses to.
-
-USERNAME_POSTFIX['sito']
-    Required account name postfix to be considered a sito account.
 """
 from __future__ import absolute_import, print_function
 
@@ -46,6 +43,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.modules.no.uit import Email
+from Cerebrum.modules.no.uit.Account import UsernamePolicy
 from Cerebrum.modules.Email import EmailDomain, EmailAddress
 from Cerebrum.utils.argutils import add_commit_args
 
@@ -53,7 +51,6 @@ from Cerebrum.utils.argutils import add_commit_args
 logger = logging.getLogger(__name__)
 
 sito_domain = getattr(cereconf, 'SITO_PRIMARY_MAILDOMAIN')
-sito_postfix = getattr(cereconf, 'USERNAME_POSTFIX', {}).get('sito')
 
 
 @memoize
@@ -151,7 +148,7 @@ def process_mail(db):
 
     logger.info("Fetching all sito accounts with %r spread...", spread)
     for a in ac.search(spread=spread):
-        if not a['name'].endswith(sito_postfix):
+        if not UsernamePolicy.is_valid_sito_name(a['name']):
             stats['skipped'] += 1
             continue
         if a['owner_id'] not in sito_persons:

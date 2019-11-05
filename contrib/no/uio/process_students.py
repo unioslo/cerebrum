@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2003-2011 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -50,7 +50,6 @@ from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.disk_quota import DiskQuota
-from Cerebrum.modules.no.uio import PrinterQuotas
 
 proffile = 'hotshot.prof'
 
@@ -59,11 +58,9 @@ db.cl_init(change_program='process_students')
 const = Factory.get('Constants')(db)
 derived_person_affiliations = {}
 person_student_affiliations = {}
-has_quota = {}
 processed_students = {}
 processed_accounts = {}
 keep_account_home = {}
-paid_paper_money = {}
 account_id2fnr = {}
 posix_tables = False
 
@@ -85,7 +82,6 @@ with_quarantines = False
 remove_groupmembers = False
 ou_perspective = None
 workdir = None
-paper_money_file = None  # Default: don't check for paid paper money
 student_info_file = None
 studconfig_file = None
 studieprogs_file = None
@@ -101,6 +97,17 @@ merge_pdfs_cmd = ("/usr/bin/gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 "
                   "-dPDFSETTINGS=/default -dNOPAUSE -dQUIET -dBATCH "
                   "-dDetectDuplicateImages -dCompressFonts=true -r150 -"
                   "sOutputFile={merged_file} {pdf_files}")
+
+
+def is_free_period(year, month, mday):
+    if (cereconf.PQ_SPRING_FREE[0] <= (month, mday)
+            <= cereconf.PQ_SPRING_FREE[1]):
+        return True
+    elif (cereconf.PQ_FALL_FREE[0] <= (month, mday)
+            <= cereconf.PQ_FALL_FREE[1]):
+        return True
+    else:
+        return False
 
 
 def pformat(obj):
@@ -366,9 +373,6 @@ class AccountUtil(object):
 
             # We reuse the definition of the free period for printer
             # quotas.
-            from Cerebrum.modules.no.uio.printer_quota.PPQUtil \
-                import is_free_period
-
             year, month, mday = localtime()[0:3]
             return is_free_period(year, month, mday)
 
@@ -496,121 +500,6 @@ class AccountUtil(object):
 
         if changes:
             logger.debug("Changes [%i/%s]: %s", account_id, fnr, repr(changes))
-
-
-class RecalcQuota(object):
-    """Collection of methods to calculate proper quota settings for a
-    person"""
-
-    @staticmethod
-    def _recalc_quota_callback(person_info):
-        fnr = fodselsnr.personnr_ok("%06d%05d" %
-                                    (int(person_info['fodselsdato']),
-                                     int(person_info['personnr'])))
-        logger.set_indent(0)
-        logger.debug("Callback for %s", fnr)
-        logger.set_indent(3)
-        logger.debug(pformat(_filter_person_info(person_info)))
-        pq = PrinterQuotas.PrinterQuotas(db)
-
-        for account_id in persons.get(fnr, {}).keys():
-            try:
-                profile = autostud.get_profile(
-                    person_info, member_groups=persons[fnr].get_groups())
-                quota = profile.get_pquota()
-            except AutoStud.ProfileHandler.NoMatchingQuotaSettings as msg:
-                logger.warn("Error for %s: %s", fnr, msg)
-                logger.set_indent(0)
-                return
-            except AutoStud.ProfileHandler.NoMatchingProfiles as msg:
-                logger.warn("Error for %s: %s", fnr, msg)
-                logger.set_indent(0)
-                return
-            except Errors.NotFoundError as msg:
-                logger.warn("Error for %s: %s", fnr, msg)
-                logger.set_indent(0)
-                return
-            logger.debug("Setting %s as pquotas for %s", quota, account_id)
-            if dryrun:
-                continue
-            pq.clear()
-            try:
-                pq.find(account_id)
-            except Errors.NotFoundError:
-                # The quota update script should be ran just after this script
-                if quota['weekly_quota'] == 'UL':
-                    init_quota = 0
-                else:
-                    init_quota = (int(quota['initial_quota']) -
-                                  int(quota['weekly_quota']))
-                pq.populate(account_id, init_quota, 0, 0, 0, 0, 0, 0)
-            if (quota['weekly_quota'] == 'UL' or
-                    profile.get_printer_kvote_fritak()):
-                pq.has_printerquota = 'F'
-            else:
-                pq.has_printerquota = 'T'
-                pq.weekly_quota = quota['weekly_quota']
-                pq.max_quota = quota['max_quota']
-                pq.termin_quota = quota['termin_quota']
-            if paper_money_file:
-                if (not profile.get_printer_betaling_fritak() and
-                        not paid_paper_money.get(fnr, False)):
-                    logger.debug("didn't pay, max_quota=0 for %s ", fnr)
-                    pq.max_quota = 0
-                    pq.printer_quota = 0
-            pq.write_db()
-            has_quota[int(account_id)] = True
-        logger.set_indent(0)
-        # We commit once for each person to avoid locking too many db-rows
-        if not dryrun:
-            db.commit()
-
-    @staticmethod
-    def recalc_pq_main():
-        raise SystemExit("--recalc-quota is obsolete and will be removed"
-                         " shortly")
-        if paper_money_file:
-            for p in AutoStud.StudentInfo.GeneralDataParser(paper_money_file,
-                                                            'betalt'):
-                fnr = fodselsnr.personnr_ok("%06d%05d" % (
-                    int(p['fodselsdato']), int(p['personnr'])))
-                paid_paper_money[fnr] = True
-        autostud.start_student_callbacks(student_info_file,
-                                         RecalcQuota._recalc_quota_callback)
-        # Set default_quota for the rest that already has quota
-        pq = PrinterQuotas.PrinterQuotas(db)
-        dv = autostud.pc.default_values
-        for row in pq.list_quotas():
-            account_id = int(row['account_id'])
-            if row['has_printerquota'] == 'F' or has_quota.get(account_id,
-                                                               False):
-                continue
-            logger.debug("Default quota for %i", account_id)
-            # TODO: sjekk om det er nødvendig med oppdatering før vi gjør find.
-            pq.clear()
-            try:
-                pq.find(account_id)
-            except Errors.NotFoundError:
-                logger.error("not found: %i, recently deleted?", account_id)
-                continue
-            pq.weekly_quota = dv['print_uke']
-            pq.max_quota = dv['print_max_akk']
-            pq.termin_quota = dv['print_max_sem']
-            if paper_money_file:
-                if account_id not in account_id2fnr:
-                    # probably a deleted user
-                    logger.debug("account_id %i not in account_id2fnr, "
-                                 "deleted?", account_id)
-                elif not paid_paper_money.get(account_id2fnr[account_id],
-                                              False):
-                    logger.debug("didn't pay, max_quota=0 for %i ", account_id)
-                    pq.max_quota = 0
-                    pq.printer_quota = 0
-            pq.write_db()
-        if not dryrun:
-            db.commit()
-        else:
-            db.rollback()
 
 
 class BuildAccounts(object):
@@ -904,7 +793,7 @@ class ExistingPerson(object):
         return len(self._stud_ac) > 0
 
 
-def start_process_students(recalc_pq=False, update_create=False):
+def start_process_students(update_create=False):
     global autostud, accounts, persons
 
     logger.info("process_students started")
@@ -916,9 +805,7 @@ def start_process_students(recalc_pq=False, update_create=False):
     logger.info("config processed")
     persons, accounts = get_existing_accounts()
     logger.info("got student accounts")
-    if recalc_pq:
-        RecalcQuota.recalc_pq_main()
-    elif update_create:
+    if update_create:
         BuildAccounts.update_accounts_main()
     logger.info("process_students finished")
 
@@ -1199,7 +1086,7 @@ def main():
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, studieprogs_file, dryrun, \
         emne_info_file, move_users, remove_groupmembers, workdir, \
-        paper_money_file, ou_perspective, with_quarantines, with_diskquota, \
+        ou_perspective, with_quarantines, with_diskquota, \
         posix_tables
 
     # Parse arguments
@@ -1211,9 +1098,6 @@ def main():
     input_grp.add_argument(
         '-e',
         '--emne-info-file')
-    input_grp.add_argument(
-        '-p', '--paper-file',
-        help='check for paid-quota only done if set')
     input_grp.add_argument(
         '-S',
         '--studie-progs-file')
@@ -1231,12 +1115,6 @@ def main():
         '-u', '--update-accounts',
         action='store_true',
         help='update existing accounts',
-        default=False)
-    act_group.add_argument(
-        '--recalc-pq',
-        action='store_true',
-        help='recalculate printerquota settings (does not update quota). '
-             'Cannot be combined with -c/-u',
         default=False)
     act_group.add_argument(
         '--reset-diskquota',
@@ -1315,8 +1193,6 @@ def main():
         student_info_file = args.student_info_file
     if args.emne_info_file:
         emne_info_file = args.emne_info_file
-    if args.paper_file:
-        paper_money_file = args.paper_file
     if args.studie_progs_file:
         studieprogs_file = args.studie_progs_file
     if args.studconfig_file:
@@ -1345,14 +1221,10 @@ def main():
         sys.exit(0)
 
     with ParserContext(parser):
-        if args.recalc_pq and (args.update_accounts or args.create_users):
-            raise ValueError("recalc-pq cannot be combined with other "
-                             "operations")
-        if not (args.recalc_pq or args.update_accounts or args.create_users):
+        if not (args.update_accounts or args.create_users):
             raise ValueError('No action selected')
 
-    start_process_students(recalc_pq=args.recalc_pq,
-                           update_create=(args.create_users or
+    start_process_students(update_create=(args.create_users or
                                           args.reset_diskquota))
     if args.reset_diskquota:
         process_noncallback_users(reset_diskquota=args.reset_diskquota)

@@ -109,19 +109,27 @@ class EntityNote(Entity):
 
         @param note_id: Note ID to be removed
         @type note_id: Integer"""
-
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=entity_note]
-        WHERE entity_id=:e_id AND note_id=:n_id""",
-                     {
-                         'e_id': self.entity_id,
-                         'n_id': note_id
-                     })
-
-        self._db.log_change(self.entity_id, self.clconst.entity_note_del, None,
-                            change_params={
-                                'note_id': int(note_id),
-                            })
+        binds = {'e_id': self.entity_id,
+                 'n_id': note_id}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=entity_note]
+            WHERE entity_id=:e_id AND note_id=:n_id
+          )
+        """
+        if not self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        delete_stmt = """
+          DELETE FROM [:table schema=cerebrum name=entity_note]
+          WHERE entity_id=:e_id AND note_id=:n_id
+        """
+        self.execute(delete_stmt, binds)
+        self._db.log_change(self.entity_id,
+                            self.clconst.entity_note_del,
+                            None,
+                            change_params={'note_id': int(note_id)})
 
     def delete(self):
         """Deletes all notes associated with this entity."""

@@ -229,116 +229,116 @@ class CLConstants(Constants.CLConstants):
 
     # email domain
     email_dom_add = Constants._ChangeTypeCode(
-        'email_domain', 'add_domain', 'add email domain %(subject)s',
+        'email_domain', 'add', 'add email domain %(subject)s',
         'name=%(string:new_domain_name)')
     email_dom_rem = Constants._ChangeTypeCode(
-        'email_domain', 'rem_domain', 'remove email domain %(subject)s',
+        'email_domain', 'remove', 'remove email domain %(subject)s',
         'name=%(string:del_domain')
     # either domain name or domain description has been changed
     email_dom_mod = Constants._ChangeTypeCode(
-        'email_domain', 'mod_domain', 'modify email domain %(subject)s',
+        'email_domain', 'modify', 'modify email domain %(subject)s',
         ('name=%(string:new_domain_name)',
          'desc=%(string:new_domain_desc'))
     email_dom_addcat = Constants._ChangeTypeCode(
-        'email_domain', 'addcat_domain', 'add category in email domain'
+        'email_domain_category', 'add', 'add category in email domain'
         ' %(subject)s',
         'cat=%(int:cat)')
     email_dom_remcat = Constants._ChangeTypeCode(
-        'email_domain', 'remcat_domain', 'remove category in email domain'
+        'email_domain_category', 'remove', 'remove category in email domain'
         ' %(subject)s',
         'cat=%(int:cat)')
 
     # email target
     email_target_add = Constants._ChangeTypeCode(
-        'email_target', 'add_target', 'add email target %(subject)s', )
+        'email_target', 'add', 'add email target %(subject)s', )
     email_target_rem = Constants._ChangeTypeCode(
-        'email_target', 'rem_target',  'remove email target %(subject)s')
+        'email_target', 'remove',  'remove email target %(subject)s')
     email_target_mod = Constants._ChangeTypeCode(
-        'email_target', 'mod_target', 'modify email target %(subject)s',
+        'email_target', 'modify', 'modify email target %(subject)s',
         ('type=id:%(int:target_type)s',
          'server=id:%(int:server_id)s', ))
     email_address_add = Constants._ChangeTypeCode(
-        'email_address', 'add_address', 'add email address %(subject)s',
+        'email_address', 'add', 'add email address %(subject)s',
         ('lp=%(string:lp)s',
          'domain=%(int:dom_id)s'))
     email_address_rem = Constants._ChangeTypeCode(
-        'email_address', 'rem_address', 'remove email address %(subject)s',
+        'email_address', 'remove', 'remove email address %(subject)s',
         ('lp=%(string:lp)s',
          'domain=%(int:dom_id)s'))
 
     # email entity domain affiliation
     email_entity_dom_add = Constants._ChangeTypeCode(
-        'email_entity_dom', 'add_entdom', 'add domain aff for %(subject)s',
+        'email_entity_domain', 'add', 'add domain aff for %(subject)s',
         'affiliation=%(int:aff)')
     email_entity_dom_rem = Constants._ChangeTypeCode(
-        'email_entity_dom', 'rem_entdom', 'remove domain aff for %(subject)s')
+        'email_entity_domain', 'remove', 'remove domain aff for %(subject)s')
     email_entity_dom_mod = Constants._ChangeTypeCode(
-        'email_entity_dom', 'mod_entdom', 'modify domain aff for %(subject)s',
+        'email_entity_domain', 'modify', 'modify domain aff for %(subject)s',
         'affiliation=%(int:aff)')
 
     # email quota (subject here is an email_target)
     email_quota_add = Constants._ChangeTypeCode(
-        'email_quota', 'add_quota', 'add quota for %(subject)s',
+        'email_quota', 'add', 'add quota for %(subject)s',
         ('soft=%(int:soft)',
          'hard=%(int:hard)'))
     email_quota_rem = Constants._ChangeTypeCode(
-        'email_quota', 'rem_quota', 'remove quota for %(subject)s')
+        'email_quota', 'remove', 'remove quota for %(subject)s')
     email_quota_mod = Constants._ChangeTypeCode(
-        'email_quota', 'mod_quota', 'modify quota for %(subject)s',
+        'email_quota', 'modify', 'modify quota for %(subject)s',
         ('soft=%(int:soft)',
          'hard=%(int:hard)'))
 
     # email target filter
     email_tfilter_add = Constants._ChangeTypeCode(
-        'email_tfilter', 'add_filter', 'add tfilter for %(subject)s',
+        'email_tfilter', 'add', 'add tfilter for %(subject)s',
         'filter=%(int:filter)')
     email_tfilter_rem = Constants._ChangeTypeCode(
-        'email_tfilter', 'rem_filter', 'remove tfilter for %(subject)s',
+        'email_tfilter', 'remove', 'remove tfilter for %(subject)s',
         'filter=%(int:filter)')
 
     # email spam_filter
     email_sfilter_add = Constants._ChangeTypeCode(
-        'email_sfilter', 'add_sfilter', 'add sfilter for %(subject)s',
+        'email_sfilter', 'add', 'add sfilter for %(subject)s',
         ('level=%(int:level)',
          'action=%(int:action)'))
     email_sfilter_mod = Constants._ChangeTypeCode(
-        'email_sfilter', 'mod_sfilter', 'modify sfilter for %(subject)s',
+        'email_sfilter', 'modify', 'modify sfilter for %(subject)s',
         ('level=%(int:level)',
          'action=%(int:action)'))
 
     # email virus scan
     email_scan_add = Constants._ChangeTypeCode(
-        'email_scan', 'add_scan', 'add scan for %(subject)s',
+        'email_scan', 'add', 'add scan for %(subject)s',
         ('found=%(int:found)',
          'removed=%(int:removed)',
          'enable=%(int:enable)'))
     email_scan_mod = Constants._ChangeTypeCode(
-        'email_scan', 'mod_scan', 'modify scan for %(subject)s')
+        'email_scan', 'modify', 'modify scan for %(subject)s')
 
     # email forward (subject here is an email_target)
     email_forward_add = Constants._ChangeTypeCode(
-        'email_forward', 'add_forward',
+        'email_forward', 'add',
         'add forward for %(subject)s',
         ('forward=%(string:forward)s',
          'enable=%(bool:enable)s'))
     email_forward_rem = Constants._ChangeTypeCode(
-        'email_forward', 'rem_forward',
+        'email_forward', 'remove',
         'remove forward for %(subject)s',
         ('forward=%(string:forward)s', ))
     email_forward_enable = Constants._ChangeTypeCode(
-        'email_forward', 'enable_forward',
+        'email_forward', 'enable',
         'enable forward for %(subject)s',
         ('forward=%(string:forward)s',
          'cat=%(int:cat)s'))
     email_forward_disable = Constants._ChangeTypeCode(
-        'email_forward', 'disable_forward',
+        'email_forward', 'disable',
         'disable forward for %(subject)s',
         ('forward=%(string:forward)s',
          'cat=%(int:cat)s'))
 
     # Local delivery of email forwards
     email_local_delivery = Constants._ChangeTypeCode(
-        'email_forward', 'local_delivery',
+        'email_forward_local_delivery', 'set',
         'modify local delivery for subject %(subject)s',
         ('enabled=%(string:enabled)s', ))
 
@@ -346,32 +346,32 @@ class CLConstants(Constants.CLConstants):
     # TBD: should we bother to log this? I don't think so, vacation
     # msg will be moved to exchange
     email_vacation_add = Constants._ChangeTypeCode(
-        'email_vacation', 'add_vacation', 'add vacation for %(subject)s')
+        'email_vacation', 'add', 'add vacation for %(subject)s')
     email_vacation_rem = Constants._ChangeTypeCode(
-        'email_vacation', 'rem_vacation', 'remove vacation for %(subject)s')
+        'email_vacation', 'remove', 'remove vacation for %(subject)s')
     email_vacation_enable = Constants._ChangeTypeCode(
-        'email_vacation', 'enable_vaca', 'enable vacation msg for %(subject)s')
+        'email_vacation', 'enable', 'enable vacation msg for %(subject)s')
     email_vacation_disable = Constants._ChangeTypeCode(
-        'email_vacation', 'disable_vaca',
+        'email_vacation', 'disable',
         'disable vacation msg for %(subject)s')
 
     # email primary address target (subject here is an email_target)
     email_primary_address_add = Constants._ChangeTypeCode(
-        'email_primary_address', 'add_primary',
+        'email_primary_address', 'add',
         'add primary address for %(subject)s', 'primary=%(int:addr_id)')
     email_primary_address_rem = Constants._ChangeTypeCode(
-        'email_primary_address', 'rem_primary',
+        'email_primary_address', 'remove',
         'remove primary address for %(subject)s', 'primary=%(int:addr_id)')
     email_primary_address_mod = Constants._ChangeTypeCode(
-        'email_primary_address', 'mod_primary',
+        'email_primary_address', 'modify',
         'modify primary address for %(subject)s', 'primary=%(int:addr_id)')
     # email server (subject here is an e-mail server)
     email_server_add = Constants._ChangeTypeCode(
-        'email_server', 'add_server', 'add email server %(subject)s',
+        'email_server', 'add', 'add email server %(subject)s',
         'type=%(int:server_type)')
     email_server_rem = Constants._ChangeTypeCode(
-        'email_server', 'rem_server', 'remove email server %(subject)s',
+        'email_server', 'remove', 'remove email server %(subject)s',
         'type=%(int:server_type)')
     email_server_mod = Constants._ChangeTypeCode(
-        'email_server', 'mod_server', 'modify email server %(subject)s',
+        'email_server', 'modify', 'modify email server %(subject)s',
         'type=%(int:server_type)')

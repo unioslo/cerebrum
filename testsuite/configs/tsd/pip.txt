@@ -5,5 +5,4 @@ unittest2>=0.5.1
 pep8>=1.4.6
 egenix-mx-base==3.2.7
 psycopg2==2.3.2
-smbpasswd==1.0.2
-
+passlib

@@ -4,10 +4,9 @@
 """
 from __future__ import unicode_literals
 
-from nose.tools import raises, with_setup
+from nose.tools import with_setup
 from nose.plugins.skip import SkipTest
 
-import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.pwcheck.history import PasswordHistoryMixin
 from Cerebrum.modules.pwcheck.history import PasswordHistory
@@ -101,6 +100,9 @@ def get_next_account():
         yield ac
 
 
+password = '9aa56fa04cbfa6ddde4bcdb31ef72ab17ef3f3bd91385bddd55ebe6d3d68'
+
+
 @with_setup(create_accounts(num=1), remove_accounts())
 def test_assert_history_written():
     ph = PasswordHistory(db)
@@ -110,16 +112,17 @@ def test_assert_history_written():
     raise Exception("Did not find password history")
 
 
-@with_setup(create_accounts(num=1), remove_accounts())
-def test_set_password_twice():
-    for acc in get_next_account():
-        try:
-            password = acc.make_password(acc.account_name)
-            acc.set_password(password)
-            acc.write_db()
-        except PasswordNotGoodEnough:
-            return
-    assert False, "Could re-use password!"
+# TODO: Fix this test -- neither set_password() or write_db() actually performs
+#       password checks, nor should they
+# @with_setup(create_accounts(num=1), remove_accounts())
+# def test_set_password_twice():
+#     for acc in get_next_account():
+#         try:
+#             acc.set_password(password)
+#             acc.write_db()
+#         except PasswordNotGoodEnough:
+#             return
+#     assert False, "Could re-use password!"
 
 
 @with_setup(create_accounts(num=1), remove_accounts())
@@ -136,9 +139,7 @@ def test_delete_account():
 
 @with_setup(create_accounts(num=1), remove_accounts())
 def test_clear_password():
-    password = None
     for acc in get_next_account():
-        password = acc.make_password(acc.account_name)
         acc.set_password(password)
         acc.clear()
     for k, v in acc.__dict__.iteritems():
@@ -147,9 +148,7 @@ def test_clear_password():
 
 @with_setup(create_accounts(num=1), remove_accounts())
 def test_write_clear_password():
-    password = None
     for acc in get_next_account():
-        password = acc.make_password(acc.account_name)
         acc.set_password(password)
         acc.write_db()
     for k, v in acc.__dict__.iteritems():
@@ -158,9 +157,7 @@ def test_write_clear_password():
 
 @with_setup(create_accounts(num=1), remove_accounts())
 def test_delete_clear_password():
-    password = None
     for acc in get_next_account():
-        password = acc.make_password(acc.account_name)
         acc.set_password(password)
         acc.delete()
     for k, v in acc.__dict__.iteritems():

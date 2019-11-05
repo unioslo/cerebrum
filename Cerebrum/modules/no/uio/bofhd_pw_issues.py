@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2019 University of Oslo, Norway
@@ -25,10 +24,12 @@ from six import text_type
 from Cerebrum import Utils, Errors
 from Cerebrum.modules.bofhd.bofhd_core import (BofhdCommonMethods,
                                                BofhdCommandBase)
-from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import (CerebrumError,
+                                           PermissionDenied)
 from Cerebrum.modules.bofhd.cmd_param import (AccountName,
                                               Command,
                                               FormatSuggestion)
+
 
 def check_ac_basics(ac, correct_ac_type):
     """Checks if an account is deleted, expired or not belonging to a person"""
@@ -92,8 +93,8 @@ def investigate_traits(ac, co):
 def is_member_of_admingroups(ac, db):
     """Check account is member of group 'admin' or 'superusers'.
     pofh specifically checks these two"""
-    Group_class = Utils.Factory.get("Group")
-    groups = {r['name'] for r in Group_class(db).search(member_id=ac.entity_id)}
+    Groupclass = Utils.Factory.get("Group")
+    groups = {r['name'] for r in Groupclass(db).search(member_id=ac.entity_id)}
     return 'superusers' in groups or 'admin' in groups
 
 
@@ -176,6 +177,7 @@ def merge_affs_and_phones(valid_affiliations, phones):
                             'number': phone['number'], 'date': phone['date']})
     return entries
 
+
 def any_valid_phones(phone_table):
     """Return True if a phone table contains any entry with a
     status (phone number comes from a valid affiliation) and
@@ -194,12 +196,11 @@ def any_valid_phones(phone_table):
 def format_phone_table(co, phone_table):
     now = DateTime.now()
     lastweek = now - DateTime.TimeDelta(24*7)
-    date_issues = False
     table = []
     for i, entry in enumerate(sorted(phone_table)):
         ssys = entry['ssys']
         ssys_s = '{0: <8}'.format(text_type(
-        co.AuthoritativeSystem(ssys)))
+            co.AuthoritativeSystem(ssys)))
         status = entry['status']
         if status:
             status_s = '{0: <24}'.format(text_type(co.human2constant(status)))
@@ -225,7 +226,7 @@ def format_phone_table(co, phone_table):
     return table
 
 
-def format_simple(entries, keybase = 'issue'):
+def format_simple(entries, keybase='issue'):
     data = []
     for i, ie in enumerate(entries):
         data.append({keybase + '0': ie} if i == 0 else {keybase + 'n': ie})
@@ -281,7 +282,7 @@ class PassWordIssues(BofhdCommonMethods):
             self.pe.get_affiliations())]
         if not valid_affiliations:
             issues.append('No valid affiliatons')
-        phones = [entry for entry in filter_mobilephones(self.co, contact_rows)]
+        phones = [ent for ent in filter_mobilephones(self.co, contact_rows)]
         phone_table = merge_affs_and_phones(valid_affiliations, phones)
         if phone_table:
             if not any_valid_phones(phone_table):
@@ -294,13 +295,13 @@ class PassWordIssues(BofhdCommonMethods):
         if issues:
             self.data.append({'sms_work_p': 'UNAVAILABLE',
                               'accountname': self.ac.account_name})
-            for issue in format_simple(issues, keybase = 'issue'):
+            for issue in format_simple(issues, keybase='issue'):
                 self.data.append(issue)
         else:
             self.data.append({'sms_work_p': 'available',
                               'accountname': self.ac.account_name})
 
-        for info in format_simple(info, keybase = 'info'):
+        for info in format_simple(info, keybase='info'):
             self.data.append(info)
 
 
@@ -345,8 +346,8 @@ class BofhdExtension(BofhdCommandBase):
              ('ssysn', 'statusn', 'numbern', 'date_strn')),
             ('Additional info:\n'
              ' - %s', ('info0',)),
-            (' - %s', ('infon',)),]),
-        perm_filter='can_create_user')
+            (' - %s', ('infon',)), ]),
+        perm_filter='can_set_password')
 
     def misc_password_issues(self, operator, accountname):
         """Determine why a user can't use the SMS service for resetting pw.
@@ -364,10 +365,10 @@ class BofhdExtension(BofhdCommandBase):
         """
 
         # Primary intended users are Houston.
-        # They are privilegded, but not superusers.
-        if not self.ba.can_create_user(operator.get_entity_id()):
-            raise PermissionDenied("Access denied")
+        # They are privileged, but not superusers.
         ac = self._get_account(accountname, idtype='name')
+        if not self.ba.can_set_password(operator.get_entity_id(), ac):
+            raise PermissionDenied("Access denied")
         pwi = PassWordIssues(ac, self.db)
         _ = pwi()
         return pwi.data
@@ -376,4 +377,4 @@ class BofhdExtension(BofhdCommandBase):
 if __name__ == '__main__':
     db = Utils.Factory.get('Database')()
     logger = Utils.Factory.get_logger('console')
-    pwi = BofhdPasswordIssuesExtension(db, logger)
+    pwi = BofhdExtension(db, logger)

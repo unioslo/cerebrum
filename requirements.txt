@@ -4,13 +4,14 @@ celery
 cffi
 cx-Oracle>=5
 egenix-mx-base
-Flask==0.12.4
-flask-restplus==0.10.1
-gunicorn
+Flask==1.1.1
+flask-restplus==0.13.0
+gunicorn==19.9.0
 Jinja2
 jsonschema
 lxml
 nose
+passlib
 phonenumbers
 pid
 pika==0.13.1
@@ -26,7 +27,6 @@ requests
 rpclib==2.7.0-beta
 sasl
 six>=1.10
-smbpasswd
 statsd==3.2.2
 suds
 unidecode

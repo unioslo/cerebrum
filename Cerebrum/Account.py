@@ -34,6 +34,7 @@ import hashlib
 import base64
 import re
 
+import passlib.hash
 import six
 
 from Cerebrum import Utils, Disk
@@ -52,6 +53,27 @@ from Cerebrum.modules.pwcheck.checker import (check_password,
 from Cerebrum.modules.password_generator.generator import PasswordGenerator
 
 import cereconf
+
+
+def _account_row_exists(database, table, binds):
+    """Perform existence queries for Account
+
+    :type database: database object
+
+    :type table: basestring
+    :param table: name of table for query
+
+    :type binds: dict
+    :param binds: Pre-formattet dict where the keys *must* match the database
+    """
+    where = ' AND '.join('{0}=:{0}'.format(x) for x in binds)
+    exists_stmt = """
+      SELECT EXISTS (
+        SELECT 1
+        FROM [:table schema=cerebrum name={table}]
+        WHERE {where}
+      ) """.format(table=table, where=where)
+    return database.query_1(exists_stmt, binds)
 
 
 class AccountType(object):
@@ -175,17 +197,22 @@ class AccountType(object):
                                                  'old_pri': int(orig_pri)})
 
     def del_account_type(self, ou_id, affiliation):
-        cols = {'person_id': self.owner_id,
+        binds = {'person_id': self.owner_id,
                 'ou_id': ou_id,
                 'affiliation': int(affiliation),
                 'account_id': self.entity_id}
-        where = ' AND '.join(('{} = :{}'.format(x, x) for x in cols.keys()))
+        if not _account_row_exists(self._db, 'account_type', binds):
+            # False positive
+            return
+        where = ' AND '.join('{0}=:{0}'.format(x) for x in binds)
         priority = self.query_1(
             """SELECT priority FROM [:table schema=cerebrum name=account_type]
-            WHERE {}""".format(where), cols)
-        self.execute("""
-                     DELETE FROM [:table schema=cerebrum name=account_type]
-                     WHERE {}""".format(where), cols)
+            WHERE {}""".format(where), binds)
+        delete_stmt = """
+        DELETE FROM [:table schema=cerebrum name=account_type]
+        WHERE {}
+        """.format(where)
+        self.execute(delete_stmt, binds)
         self._db.log_change(self.entity_id, self.clconst.account_type_del,
                             None,
                             change_params={'ou_id': int(ou_id),
@@ -194,10 +221,15 @@ class AccountType(object):
 
     def delete_ac_types(self):
         """Delete all the AccountTypes for the account."""
-
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=account_type]
-        WHERE account_id=:a_id""", {'a_id': self.entity_id})
+        binds = {'account_id': self.entity_id}
+        if not _account_row_exists(self._db, 'account_type', binds):
+            # False positive
+            return
+        delete_stmt = """
+          DELETE FROM [:table schema=cerebrum name=account_type]
+          WHERE account_id=:account_id
+        """
+        self.execute(delete_stmt, binds)
 
     def list_accounts_by_type(self, ou_id=None, affiliation=None,
                               status=None, filter_expired=True,
@@ -271,7 +303,7 @@ class AccountType(object):
             join += " JOIN [:table schema=cerebrum name=entity_spread] es" \
                     " ON es.entity_id = at.account_id" \
                     " AND es.spread " + account_spread
-        if exclude_account_id is not None and len(exclude_account_id):
+        if exclude_account_id:
             extra += " AND NOT " + argument_to_sql(exclude_account_id,
                                                    "ai.account_id",
                                                    binds,
@@ -358,11 +390,18 @@ class AccountHome(object):
         old_home = self.resolve_homedir(disk_id=ah['disk_id'],
                                         home=ah['home'],
                                         spread=spread)
-        self.execute("""
+        binds = {'account_id': self.entity_id,
+                 'spread': int(spread)}
+        if not _account_row_exists(self._db, 'account_home', binds):
+            # False positive
+            return
+        delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=account_home]
-        WHERE account_id=:account_id AND spread=:spread""", {
-            'account_id': self.entity_id,
-            'spread': int(spread)})
+        WHERE
+          account_id=:account_id AND
+          spread=:spread
+        """
+        self.execute(delete_stmt, binds)
         self._db.log_change(
             self.entity_id, self.clconst.account_home_removed, None,
             change_params={'spread': int(spread),
@@ -391,6 +430,7 @@ class AccountHome(object):
         do not end up with homedir rows without corresponding
         account_home entries.
         """
+
         if home and re.search('[:*"?<>|]', home):
             raise ValueError("Illegal character in disk path")
         binds = {'account_id': self.entity_id,
@@ -418,22 +458,45 @@ class AccountHome(object):
             change_type = self.clconst.homedir_add
         else:
             # Leave previous value alone if update
-            for key, value in binds.items():
+
+            # Status cannot be NULL, but it *can* be NotSet.
+            # The existence query therefore needs this mapping
+            exist_strings = {
+                'disk_id': """
+                    (disk_id is NULL AND :disk_id is NULL
+                        OR disk_id=:disk_id) AND""",
+                'home': """
+                    (home is NULL AND :home is NULL
+                        OR home=:home) AND""",
+                'status': """
+                    status=:status AND"""}
+            for key, value in dict(binds).items():
                 if value is NotSet:
                     del binds[key]
-
+                    del exist_strings[key]
+            variable_exists_str = ' '.join(v for v in exist_strings.values())
             binds['homedir_id'] = current_id
-
+            exists_stmt = """
+            SELECT EXISTS (
+              SELECT 1
+              FROM [:table schema=cerebrum name=homedir]
+              WHERE %s
+                account_id=:account_id AND
+                homedir_id=:homedir_id
+            )
+            """ % variable_exists_str
+            if self.query_1(exists_stmt, binds):
+                # False positive; entry exists as is
+                return current_id
             sql = """
             UPDATE [:table schema=cerebrum name=homedir]
               SET %s
             WHERE homedir_id=:homedir_id""" % (
-                ", ".join(["%s=:%s" % (t, t) for t in binds]))
+                ", ".join(
+                    "{0}=:{0}".format(t) for t in binds if t != 'homedir_id'))
 
             change_type = self.clconst.homedir_update
-
         self.execute(sql, binds)
-
         if binds.get('disk_id') or binds.get('home'):
             tmp = {'home': self.resolve_homedir(disk_id=binds.get('disk_id'),
                                                 home=binds.get('home'))}
@@ -446,7 +509,6 @@ class AccountHome(object):
                             change_type,
                             None,
                             change_params=tmp)
-
         return binds['homedir_id']
 
     def _clear_homedir(self, homedir_id):
@@ -454,10 +516,15 @@ class AccountHome(object):
         tmp = self.get_homedir(homedir_id)
         tmp = self.resolve_homedir(disk_id=tmp['disk_id'],
                                    home=tmp['home'])
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=homedir]
-        WHERE homedir_id=:homedir_id""",
-                     {'homedir_id': homedir_id})
+        binds = {'homedir_id': homedir_id}
+        if not _account_row_exists(self._db, 'homedir', binds):
+            # False positive; no homedir to clear
+            return
+        delete_stmt = """
+          DELETE FROM [:table schema=cerebrum name=homedir]
+          WHERE homedir_id=:homedir_id
+        """
+        self.execute(delete_stmt, binds)
         self._db.log_change(
             self.entity_id, self.clconst.homedir_remove, None,
             change_params={'homedir_id': homedir_id,
@@ -488,10 +555,15 @@ class AccountHome(object):
                                    spread=spread)
         try:
             old = self.get_home(spread)
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=account_home]
-            SET homedir_id=:homedir_id
-            WHERE account_id=:account_id AND spread=:spread""", binds)
+            if _account_row_exists(self._db, 'account_home', binds):
+                # False positive
+                return
+            update_stmt = """
+              UPDATE [:table schema=cerebrum name=account_home]
+              SET homedir_id=:homedir_id
+              WHERE account_id=:account_id AND spread=:spread
+            """
+            self.execute(update_stmt, binds)
             self._db.log_change(
                 self.entity_id, self.clconst.account_home_updated, None,
                 change_params={
@@ -782,14 +854,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                       self.const.auth_type_ssha):
             if salt is None:
                 saltchars = string.ascii_letters + string.digits + "./"
+                salt = Utils.random_string(8, saltchars)
                 if method == self.const.auth_type_md5_crypt:
                     salt = "$1$" + Utils.random_string(8, saltchars)
                 elif method == self.const.auth_type_sha256_crypt:
                     salt = "$5$" + Utils.random_string(16, saltchars)
                 elif method == self.const.auth_type_sha512_crypt:
                     salt = "$6$" + Utils.random_string(16, saltchars)
-                else:
-                    salt = Utils.random_string(2, saltchars)
+                elif method == self.const.auth_type_ssha:
+                    salt = Utils.random_string(16, saltchars)
             if method == self.const.auth_type_ssha:
                 return base64.b64encode(
                     hashlib.sha1(
@@ -799,10 +872,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 plaintext if binary else utf8_plaintext,
                 salt.encode('utf-8')).decode()
         elif method == self.const.auth_type_md4_nt:
-            # Do the import locally to avoid adding a dependency for
-            # those who don't want to support this method.
-            import smbpasswd
-            return smbpasswd.nthash(unicode_plaintext).decode()
+            # Previously the smbpasswd module was used to create nthash, and it
+            # only produced uppercase hashes. The hash is case insensitive, but
+            # be backwards compatible if some comsumers depend on upper case strings.
+            return passlib.hash.nthash.hash(utf8_plaintext).decode().upper()
         elif method == self.const.auth_type_plaintext:
             return unicode_plaintext
         elif method == self.const.auth_type_md5_unsalt:
@@ -839,6 +912,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         verification, NotImplemented is returned.
         """
         if method not in (self.const.auth_type_md5_crypt,
+                          self.const.auth_type_md5_unsalt,
                           self.const.auth_type_ha1_md5,
                           self.const.auth_type_md4_nt,
                           self.const.auth_type_ssha,
@@ -850,9 +924,13 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         if method == self.const.auth_type_ssha:
             salt = base64.decodestring(
                 cryptstring.encode())[20:].decode()
-        return (self.encrypt_password(method,
-                                      plaintext,
-                                      salt=salt) == cryptstring)
+
+        if method == self.const.auth_type_md4_nt:
+            return passlib.hash.nthash.verify(plaintext, cryptstring)
+        else:
+            return (self.encrypt_password(method,
+                                          plaintext,
+                                          salt=salt) == cryptstring)
 
     def verify_auth(self, plaintext):
         """Try to verify all authentication data stored for an
@@ -908,7 +986,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             tmp = self.illegal_name(self.account_name)
             if tmp:
                 raise self._db.IntegrityError, "Illegal username: %s" % tmp
-
         is_new = not self.__in_db
         # make dict of changes to send to changelog
         newvalues = {}
@@ -961,26 +1038,39 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 self.const.account_namespace,
                 self.account_name)
         else:
-            cols = [('owner_type', ':o_type'),
-                    ('owner_id', ':o_id'),
-                    ('np_type', ':np_type'),
-                    ('creator_id', ':c_id'),
-                    ('description', ':desc'),
-                    ('expire_date', ':exp_date')]
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=account_info]
-            SET %(defs)s
-            WHERE account_id=:acc_id""" % {'defs': ", ".join(
-                ["%s=%s" % x for x in cols])},
-                {'o_type': int(self.owner_type),
-                 'c_id': self.creator_id,
-                 'o_id': self.owner_id,
-                 'np_type': np_type,
-                 'exp_date': self.expire_date,
-                 'desc': self.description,
-                 'acc_id': self.entity_id})
-            self._db.log_change(self.entity_id, self.clconst.account_mod,
-                                None, change_params=newvalues)
+            binds = {'owner_type': int(self.owner_type),
+                     'owner_id': self.owner_id,
+                     'np_type': np_type,
+                     'creator_id': self.creator_id,
+                     'description': self.description,
+                     'expire_date': self.expire_date,
+                     'account_id': self.entity_id}
+            exists_stmt = """
+            SELECT EXISTS (
+              SELECT 1
+              FROM [:table schema=cerebrum name=account_info]
+              WHERE
+               (np_type is NULL AND :np_type is NULL OR np_type=:np_type) AND
+               (expire_date is NULL AND :expire_date is NULL OR
+                  expire_date=:expire_date) AND
+               (description is NULL AND :description is NULL OR
+                  description=:description) AND
+                account_id=:account_id AND
+                owner_type=:owner_type AND
+                owner_id=:owner_id AND
+                creator_id=:creator_id
+            )
+            """
+            if not self.query_1(exists_stmt, binds):
+                set_str = ', '.join(
+                    '{0}=:{0}'.format(x) for x in binds if x != 'account_id')
+                update_stmt = """
+                UPDATE [:table schema=cerebrum name=account_info]
+                SET %s
+                WHERE account_id=:account_id""" % set_str
+                self.execute(update_stmt, binds)
+                self._db.log_change(self.entity_id, self.clconst.account_mod,
+                                    None, change_params=newvalues)
             if 'account_name' in self.__updated:
                 self.update_entity_name(self.const.account_namespace,
                                         self.account_name)
@@ -1037,7 +1127,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                                   'auth_data': self._auth_info[k]})
             elif self.__in_db and what == 'update':
                 self.execute("""
-                DELETE FROM 
+                DELETE FROM
                   [:table schema=cerebrum name=account_authentication]
                 WHERE account_id=:acc_id AND method=:method""",
                              {'acc_id': self.entity_id, 'method': k})
@@ -1294,26 +1384,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def make_passwd(self, uname, phrase=False, checkers=None):
         """Generate a random password"""
         password_generator = PasswordGenerator()
-        for attempt in range(10):
-            # try with 10 random passwords before giving up
-            if phrase:
-                r = password_generator.generate_dictionary_passphrase()
-            else:
-                r = password_generator.generate_password()
-            try:
-                check_password(r, self, checkers=checkers)
-                return r
-            except PasswordNotGoodEnough as e:
-                if attempt == 9:  # last attempt
-                    # raise PasswordNotGoodEnough(
-                    #     '(after 10 attempts) ' + str(e))
-
-                    # Keep the old behaviour and let the caller handle the bad
-                    # password.
-                    # Should not happen unless the configured password rules
-                    # are too restrictive or min_length > MAKE_PASSWORD_LENGTH
-                    return r  # give up and return the last password
-                continue  # make a new attempt
+        if phrase:
+            password = password_generator.generate_dictionary_passphrase()
+        else:
+            password = password_generator.generate_password()
+        return password
 
     def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
         """Returns a tuple with 15 (unused) username suggestions based

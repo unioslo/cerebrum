@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2006-2014 University of Oslo, Norway
+#
+# Copyright 2006-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,21 +17,25 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 from __future__ import unicode_literals
 
 import json
 from collections import defaultdict
+
 from six import text_type
 
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.OrgLDIF import OrgLDIF
 from Cerebrum.modules.LDIFutils import normalize_string
-from Cerebrum.modules.no.nmh.StudentStudyProgramCache import StudentStudyProgramCache
+from Cerebrum.modules.no.nmh import StudentStudyProgramCache
 
 
 class nmhOrgLDIFMixin(OrgLDIF):
+
+    # Fetch mail addresses from entity_contact_info of accounts, not persons.
+    person_contact_mail = False
+
     def __init__(self, db, logger):
         self.__super.__init__(db, logger)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
@@ -47,7 +52,9 @@ class nmhOrgLDIFMixin(OrgLDIF):
         return False
 
     def get_fagomrade(self):
-        """NMH wants 'fagomrade' exported, which consists one or more 'fagfelt'.
+        """
+        NMH wants 'fagomrade' exported, which consists one or more 'fagfelt'.
+
         This field is stored in a trait for each person. The trait string value
         is a JSON-serialized list of strings.
         """
@@ -68,22 +75,22 @@ class nmhOrgLDIFMixin(OrgLDIF):
         return person2fagfelt
 
     def get_fagmiljo(self):
-        """Returns a dict mapping from person_id to 'fagmiljø'.
+        """
+        Returns a dict mapping from person_id to 'fagmiljø'.
 
         NMH wants 'fagmiljø' exported, which is retrieved from SAP as 'utvalg'
         and stored in a trait for each person. We blindly treat them as
         plaintext.
-
         """
-        return dict((row['entity_id'], row['strval']) for row in
-                    self.person.list_traits(self.const.trait_fagmiljo))
+        return dict(
+            (row['entity_id'], row['strval'])
+            for row in self.person.list_traits(self.const.trait_fagmiljo))
 
     def get_study_programs(self):
         """Returns a dict mapping from person_id to 'studienivakode'
         and 'arstall_kull'."""
-        sspc = StudentStudyProgramCache(db=self.db,
-                                        logger=self.logger,
-                                        max_age={'hours': 12})
+        sspc = StudentStudyProgramCache.StudentStudyProgramCache(
+            db=self.db, logger=self.logger, max_age={'hours': 12})
         if sspc.data is None:
             raise Exception('Unable to load student study program cache')
         return sspc.data
@@ -105,8 +112,8 @@ class nmhOrgLDIFMixin(OrgLDIF):
         self.attr2id2contacts = [v for v in c if v[1]]
 
         # roomNumber
-        # Some employees have registered their office addresses in SAP. We store
-        # this as co.contact_office. The roomNumber is the alias.
+        # Some employees have registered their office addresses in SAP.
+        # We store this as co.contact_office. The roomNumber is the alias.
         attr = 'roomNumber'
         syntax = self.attr2syntax[attr]
         c = self.get_contact_aliases(
@@ -118,8 +125,8 @@ class nmhOrgLDIFMixin(OrgLDIF):
         if c:
             self.attr2id2contacts.append((attr, c))
 
-    def get_contact_aliases(self, contact_type=None, source_system=None, convert=None,
-                            verify=None, normalize=None):
+    def get_contact_aliases(self, contact_type=None, source_system=None,
+                            convert=None, verify=None, normalize=None):
         """Return a dict {entity_id: [list of contact aliases]}."""
         # The code mimics a reduced modules/OrgLDIF.py:get_contacts().
         entity = Entity.EntityContactInfo(self.db)
@@ -155,12 +162,9 @@ class nmhOrgLDIFMixin(OrgLDIF):
                 urns.add('urn:mace:feide.no:nmh.no:fagmiljo:{}'.format(fagm))
             # Add study programs
             study_programs = self.pe2study_program.get(person_id, [])
+            urn_format = 'urn:mace:feide.no:nmh.no:studies/studyprogram/{}/{}'
             for program in study_programs:
-                urn = 'urn:mace:feide.no:nmh.no:studies/studyprogram/{}/{}'.format(
-                    program['studieprogramkode'],
-                    program['arstall_kull'])
+                urn = urn_format.format(program['studieprogramkode'],
+                                        program['arstall_kull'])
                 urns.add(urn)
         return dn, entry, alias_info
-
-    # Fetch mail addresses from entity_contact_info of accounts, not persons.
-    person_contact_mail = False

@@ -28,15 +28,11 @@ that file.  For stedkoder who doesnt exist in FS, default data is inserted.
 from __future__ import unicode_literals
 
 import argparse
-import datetime
 import io
 import logging
 import os
-import sys
 
 import six
-
-import cereconf
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
@@ -45,19 +41,6 @@ from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.utils.atomicfile import SimilarSizeStreamRecoder
 
 logger = logging.getLogger(__name__)
-
-
-# Default file locations
-DUMPDIR = cereconf.DUMPDIR
-
-default_input_files = [
-    os.path.join(sys.prefix, 'var/source', 'steder', 'stedtre-gjeldende.csv'),
-    os.path.join(sys.prefix, 'var/source', 'steder', 'stedtre-eksterne.csv'),
-]
-
-default_output_file = os.path.join(
-    DUMPDIR,
-    'uit_ou_{}.xml'.format(datetime.date.today().strftime('%Y%m%d')))
 
 
 def format_int(value, fmt='02d'):
@@ -293,17 +276,21 @@ def _parse_ou_files(values):
 
 
 def main(inargs=None):
-    parser = argparse.ArgumentParser(description="Convert OU files")
+    parser = argparse.ArgumentParser(
+        description="Convert OU files",
+    )
     parser.add_argument(
-        '-o', '--ou-source', '--ou_source',
+        '--ou-source',
         dest='sources',
         action='append',
+        required=True,
         help='Read OUs from source file %(metavar)s',
         metavar='<file>',
     )
     parser.add_argument(
-        '-O', '--out-file', '--Out_file',
+        '--out-file',
         dest='output',
+        required=True,
         help='Write output a %(metavar)s XML file',
         metavar='<file>',
     )
@@ -315,16 +302,15 @@ def main(inargs=None):
     logger.info('Start %r', parser.prog)
     logger.debug("args: %r", args)
 
-    if args.sources:
-        ou_files = list(_parse_ou_files(args.sources))
-    else:
-        ou_files = default_input_files
+    ou_files = list(_parse_ou_files(args.sources or ()))
     logger.debug("sources: %r", ou_files)
 
-    if args.output:
-        output = args.output
-    else:
-        output = default_output_file
+    if not ou_files:
+        logger.error('No valid ou-source files (args=%r, valid=%r)',
+                     args.sources, ou_files)
+        parser.error('No valid ou-source files')
+
+    output = args.output
     logger.debug('output: %r', output)
 
     fs = make_fs()

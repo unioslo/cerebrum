@@ -170,21 +170,42 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                     self.clconst.person_create,
                     None)
             else:
-                self.execute("""
-                UPDATE [:table schema=cerebrum name=person_info]
-                SET export_id=:exp_id, birth_date=:b_date, gender=:gender,
-                    deceased_date=:deceased_date, description=:desc
-                WHERE person_id=:p_id""",
-                             {'exp_id': 'exp-' + six.text_type(self.entity_id),
-                              'b_date': self.birth_date,
-                              'gender': int(self.gender),
-                              'deceased_date': self.deceased_date,
-                              'desc': self.description,
-                              'p_id': self.entity_id})
-                self._db.log_change(
-                    self.entity_id,
-                    self.clconst.person_update,
-                    None)
+                binds = {'export_id': 'exp-' + six.text_type(self.entity_id),
+                         'birth_date': self.birth_date,
+                         'gender': int(self.gender),
+                         'deceased_date': self.deceased_date,
+                         'description': self.description,
+                         'person_id': self.entity_id}
+                exists_stmt = """
+                  SELECT EXISTS (
+                    SELECT 1
+                    FROM [:table schema=cerebrum name=person_info]
+                    WHERE (export_id is NULL AND :export_id is NULL OR
+                             export_id=:export_id) AND
+                          (birth_date is NULL AND :birth_date is NULL OR
+                             birth_date=:birth_date) AND
+                          (deceased_date is NULL AND :deceased_date is NULL OR
+                             deceased_date=:deceased_date) AND
+                          (description is NULL AND :description is NULL OR
+                             description=:description) AND
+                         gender=:gender AND
+                         person_id=:person_id
+                  )
+                """
+                if not self.query_1(exists_stmt, binds):
+                    # True positive
+                    update_stmt = """
+                    UPDATE [:table schema=cerebrum name=person_info]
+                    SET export_id=:export_id,
+                        birth_date=:birth_date,
+                        gender=:gender,
+                        deceased_date=:deceased_date,
+                        description=:description
+                    WHERE person_id=:person_id"""
+                    self.execute(update_stmt, binds)
+                    self._db.log_change(self.entity_id,
+                                        self.clconst.person_update,
+                                        None)
         else:
             is_new = None
 
@@ -348,15 +369,28 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                                            'name_variant': int(variant)})
 
     def _delete_name(self, source, variant):
-        self.execute("""
+        binds = {'person_id': self.entity_id,
+                 'source_system': int(source),
+                 'name_variant': int(variant)}
+        exists_stmt = """
+        SELECT EXISTS (
+          SELECT 1
+          FROM [:table schema=cerebrum name=person_name]
+          WHERE person_id=:person_id AND
+                source_system=:source_system AND
+                name_variant=:name_variant
+          )
+        """
+        if not self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        delete_stmt = """
         DELETE FROM [:table schema=cerebrum name=person_name]
-        WHERE
-          person_id=:p_id AND
-          source_system=:src AND
-          name_variant=:n_variant""",
-                     {'p_id': self.entity_id,
-                      'src': int(source),
-                      'n_variant': int(variant)})
+        WHERE person_id=:person_id AND
+              source_system=:source_system AND
+              name_variant=:name_variant
+        """
+        self.execute(delete_stmt, binds)
         self._db.log_change(self.entity_id,
                             self.clconst.person_name_del, None,
                             change_params={'src': int(source),
@@ -364,18 +398,34 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
     def _update_name(self, source_system, variant, name):
         # Class-internal use only
-        self.execute("""
-        UPDATE [:table schema=cerebrum name=person_name]
-        SET name=:name
-        WHERE
-          person_id=:p_id AND
-          source_system=:src AND
-          name_variant=:n_variant""",
-                     {'name': name,
-                      'p_id': self.entity_id,
-                      'src': int(source_system),
-                      'n_variant': int(variant)})
-        self._db.log_change(self.entity_id, self.clconst.person_name_mod, None,
+        binds = {'name': name,
+                 'person_id': self.entity_id,
+                 'source_system': int(source_system),
+                 'name_variant': int(variant)}
+        exists_stmt = """
+        SELECT EXISTS (
+          SELECT 1
+          FROM [:table schema=cerebrum name=person_name]
+          WHERE person_id=:person_id AND
+                source_system=:source_system AND
+                name_variant=:name_variant AND
+                name=:name
+          )
+        """
+        if self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        update_stmt = """
+          UPDATE [:table schema=cerebrum name=person_name]
+          SET name=:name
+          WHERE person_id=:person_id AND
+                source_system=:source_system AND
+                name_variant=:name_variant
+        """
+        self.execute(update_stmt, binds)
+        self._db.log_change(self.entity_id,
+                            self.clconst.person_name_mod,
+                            None,
                             change_params={'src': int(source_system),
                                            'name': name,
                                            'name_variant': int(variant)})
@@ -719,41 +769,40 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             return self.__calculate_affiliation_precedence(affiliation,
                                                            source, status,
                                                            precedence, old)
-        else:
-            # Assume some sequence
-            assert (isinstance(precedence, collections.Sequence) and
-                    len(precedence) in (2, 3))
-            if isinstance(precedence[0], six.string_types):
-                precedence = self.__get_affiliation_precedence_rule(
-                    source, *precedence)
-                return self.__calculate_affiliation_precedence(affiliation,
-                                                               source, status,
-                                                               precedence, old)
-            # We should now have a range, (min, max)
-            mn, mx = precedence[:2]  # special case of single value
-            if mn == mx:
-                return mn
-            if old:
-                # Old is in correct range, change nothing
-                if mn <= old < mx:
-                    return old
+        # Assume some sequence
+        assert (isinstance(precedence, collections.Sequence) and
+                len(precedence) in (2, 3))
+        if isinstance(precedence[0], six.string_types):
+            precedence = self.__get_affiliation_precedence_rule(
+                source, *precedence)
+            return self.__calculate_affiliation_precedence(affiliation,
+                                                           source, status,
+                                                           precedence, old)
+        # We should now have a range, (min, max)
+        mn, mx = precedence[:2]  # special case of single value
+        if mn == mx:
+            return mn
+        if old:
+            # Old is in correct range, change nothing
+            if mn <= old < mx:
+                return old
 
-                # If there is an override range, use old if inside
-                override = cereconf.PERSON_AFFILIATION_PRECEDENCE_RULE.get(
-                    'core:override')
-                if override and override[0] <= old < override[1]:
-                    return old
+            # If there is an override range, use old if inside
+            override = cereconf.PERSON_AFFILIATION_PRECEDENCE_RULE.get(
+                'core:override')
+            if override and override[0] <= old < override[1]:
+                return old
 
-            # No old, find new spot
-            all_precs = set((x['precedence'] for x in
-                             self.get_affiliations(include_deleted=True)))
-            x = max([mn] + [x for x in all_precs if mn <= x < mx])
-            step = 5
-            if len(precedence) > 2:
-                step = precedence[2]
-            while x in all_precs:
-                x += step
-            return x
+        # No old, find new spot
+        all_precs = set((x['precedence'] for x in
+                         self.get_affiliations(include_deleted=True)))
+        x = max([mn] + [x for x in all_precs if mn <= x < mx])
+        step = 5
+        if len(precedence) > 2:
+            step = precedence[2]
+        while x in all_precs:
+            x += step
+        return x
 
     def __clear_precedence(self, precedence, all_precs):
         """ Clear precedences. """
@@ -1043,8 +1092,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                                          owner_id=self.entity_id)
         if accounts:
             return accounts[0]["account_id"]
-        else:
-            return None
+        return None
 
     def getdict_external_id2primary_account(self, id_type):
         """

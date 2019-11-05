@@ -19,7 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Job runner job types. """
 
-import inspect
 import io
 import os
 import random
@@ -106,7 +105,6 @@ class Action(object):
         self.when = when
         self.post = post or []
         self.multi_ok = multi_ok
-        self.last_exit_msg = None
         self.notwhen = notwhen
         self.nonconcurrent = nonconcurrent
 
@@ -125,7 +123,7 @@ class Action(object):
         for p in self.call.params:
             if callable(p):
                 try:
-                    arguments.append(inspect.getsource(p))
+                    arguments.append(text_type(p()))
                 except IOError:
                     arguments.append(repr(p))
             else:
@@ -134,7 +132,7 @@ class Action(object):
 
     def next_delta(self, last_run, current_time):
         """Return estimated number of seconds to next time the Action
-        is allowed to run.  Jobs should only be ran if the returned
+        is allowed to run.  Jobs should only be run if the returned
         value is negative."""
         if self.when is not None:
             if self.notwhen is not None:
@@ -143,6 +141,7 @@ class Action(object):
                     return leave_at
             n = self.when.next_delta(last_run, current_time)
             return n
+        return None
 
 
 class LockFile(object):
@@ -218,7 +217,7 @@ class CallableAction(object):
         :return:
             - None: job has not completed
             - 1: Job completed successfully
-            - (exitcode, dirname_for_output_files): on error
+            - (error, dirname_for_output_files): on error
         """
         pass
 
@@ -307,7 +306,7 @@ class System(CallableAction):
         except SystemExit:
             # Don't stop the above SystemExit
             raise
-        except:
+        except Exception:
             # Full disk etc. can trigger this
             self.logger.critical("Caught unexpected exception", exc_info=1)
         self.logger.error("OOPS!  This code should never be reached")
@@ -315,33 +314,36 @@ class System(CallableAction):
 
     def cond_wait(self, child_pid):
         # May raise OSError: [Errno 4]: Interrupted system call
-        pid, exit_code = os.waitpid(child_pid, os.WNOHANG)
+        pid, status = os.waitpid(child_pid, os.WNOHANG)
         self.logger.debug("cond_wait(%r) id=%r, wait=%r, ret=%r",
-                          child_pid, self.id, self.wait, (pid, exit_code))
+                          child_pid, self.id, self.wait, (pid, status))
+
         if pid == child_pid:
             if not all(os.path.exists(p) for p in (self.run_dir,
                                                    self.stdout_file,
                                                    self.stderr_file)):
                 # May happen if the exec failes due to full-disk etc.
-                if not exit_code:
-                    self.logger.warn("exit_code=0, and %s don't exist!",
-                                     self.run_dir)
-                self.last_exit_msg = "exit_code=%i, full disk?" % exit_code
-                return (exit_code, None)
-            if (exit_code != 0
+                if not status:
+                    self.logger.warning(
+                        "exit_status=%r, but %r don't exist! Full disk?",
+                        status, self.run_dir)
+                return ("exit_status=%i (full disk?)" % status, None)
+            if (status != 0
                     or (os.path.getsize(self.stdout_file) > 0
                         and not self.stdout_ok)
                     or os.path.getsize(self.stderr_file) > 0):
+                if os.WIFEXITED(status):
+                    msg = "exit_code=%i" % os.WEXITSTATUS(status)
+                elif os.WIFSIGNALED(status):
+                    msg = "exit_signal=%i" % os.WTERMSIG(status)
+                else:
+                    msg = "exit_status=%i" % status
                 newdir = "%s.%s/" % (self.run_dir, time.time())
                 os.rename(self.run_dir, newdir)
-                self.last_exit_msg = "exit_code=%i, check %s" % (exit_code,
-                                                                 newdir)
-                return (exit_code, newdir)
-            self.last_exit_msg = "Ok"
+                return (msg, newdir)
             self._cleanup()
             return 1
-        else:
-            self.logger.debug("Wait returned %s/%s", pid, exit_code)
+        self.logger.debug("Wait returned %s/%s", pid, status)
         return None
 
     def _cleanup(self):
@@ -375,8 +377,7 @@ class UniqueActionAttrs(type):
     """
 
     def __new__(cls, name, bases, dict_):
-        known = dict([(k, name) for k, v in dict_.items()
-                      if isinstance(v, Action)])
+        known = {k: name for k, v in dict_.items() if isinstance(v, Action)}
         for base in bases:
             for k in dir(base):
                 if isinstance(getattr(base, k), Action):
@@ -431,12 +432,12 @@ class Jobs(object):
             graph[name] = node(name, job.pre, job.post)
 
         # remap names to object (it'll be easier later)
-        for n in graph.itervalues():
+        for n in graph.values():
             n.pre = [graph[key] for key in n.pre]
             n.post = [graph[key] for key in n.post]
 
         # scan all graph nodes and try to find cycles.
-        for n in graph.itervalues():
+        for n in graph.values():
             tmp = self.find_cycle(n)
             if tmp:
                 raise ValueError("joblist has a cycle: %r"

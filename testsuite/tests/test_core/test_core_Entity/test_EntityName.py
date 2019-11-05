@@ -151,7 +151,13 @@ def test_list_names(database, Entity, domain_foo, domain_bar, entity_type):
     assert len(results) == 2
     assert all(name in results[0].dict()
                for name in ['entity_id', 'value_domain', 'entity_name'])
-    assert all(
-        row in results for row
-        in [(long(first.entity_id), long(int(domain_foo)), 'first foo'),
-            (long(second.entity_id), long(int(domain_foo)), 'second foo')])
+    assert (
+        long(first.entity_id),
+        long(int(domain_foo)),
+        'first foo',
+    ) == tuple(results[0])
+    assert (
+        long(second.entity_id),
+        long(int(domain_foo)),
+        'second foo',
+    ) == tuple(results[1])
