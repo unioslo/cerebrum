@@ -103,7 +103,8 @@ def account_is_fresh(ac, co):
         if not date:
             continue
         cutoff = DateTime.now() - DateTime.DateTimeDelta(FRESH_DAYS)
-        return date > cutoff
+        if date > cutoff:
+            return True
     return False
 
 
