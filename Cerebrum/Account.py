@@ -846,7 +846,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             auth_impl = all_auth_methods[str(method)]()
             return auth_impl.encrypt(plaintext, salt, binary)
         except NotImplementedError as ne:
-            logger.warn(
+            logger.warning(
                 "Encrypt Auth method (%s) not implemented: %s",
                 str(method), str(ne))
             raise Errors.NotImplementedAuthTypeError
@@ -864,7 +864,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             auth_impl = all_auth_methods[str(method)]()
             return auth_impl.decrypt(cryptstring)
         except NotImplementedError as ne:
-            logger.warn(
+            logger.warning(
                 "Decrypt Auth method (%s) not implemented: %s",
                 str(method), str(ne))
             raise Errors.NotImplementedAuthTypeError
@@ -885,7 +885,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             auth_impl = all_auth_methods[str(method)]()
             return auth_impl.verify(plaintext, cryptstring)
         except NotImplementedError as ne:
-            logger.warn(
+            logger.warning(
                 "Verify Auth method (%s) not implemented: %s",
                 str(method), str(ne))
             raise Errors.NotImplementedAuthTypeError
