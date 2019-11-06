@@ -932,6 +932,13 @@ class EmailAddress(Entity_class):
                 expire_date=:expire, change_date=[:now]
                 WHERE address_id=:a_id"""
                 self.execute(update_stmt, binds)
+                self._db.log_change(
+                    self.email_addr_target_id,
+                    self.clconst.email_address_mod,
+                    self.entity_id,
+                    change_params={'lp': self.email_addr_local_part,
+                                   'dom_id': self.email_addr_domain_id})
+
         del self.__in_db
         self.__in_db = True
         self.__updated = []

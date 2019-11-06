@@ -308,12 +308,18 @@ class CLConstants(CLConstants.CLConstants):
         'email_target', 'mod_target', 'modify email target %(subject)s',
         ('type=id:%(int:target_type)s',
          'server=id:%(int:server_id)s', ))
+
+    # email address
     email_address_add = CLConstants._ChangeTypeCode(
         'email_address', 'add_address', 'add email address %(subject)s',
         ('lp=%(string:lp)s',
          'domain=%(int:dom_id)s'))
     email_address_rem = CLConstants._ChangeTypeCode(
         'email_address', 'rem_address', 'remove email address %(subject)s',
+        ('lp=%(string:lp)s',
+         'domain=%(int:dom_id)s'))
+    email_address_mod = Constants._ChangeTypeCode(
+        'email_address', 'mod', 'modify email address %(subject)s',
         ('lp=%(string:lp)s',
          'domain=%(int:dom_id)s'))
 
@@ -1109,16 +1115,37 @@ class EmailAddress(Entity_class):
                 change_params={'lp': self.email_addr_local_part,
                                'dom_id': self.email_addr_domain_id})
         else:
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=email_address]
-            SET local_part=:lp, domain_id=:d_id, target_id=:t_id,
-                expire_date=:expire, change_date=[:now]
-            WHERE address_id=:a_id""",
-                         {'a_id': self.entity_id,
-                          'lp': self.email_addr_local_part,
-                          'd_id': self.email_addr_domain_id,
-                          't_id': self.email_addr_target_id,
-                          'expire': self.email_addr_expire_date})
+            binds = {'a_id': self.entity_id,
+                     'lp': self.email_addr_local_part,
+                     'd_id': self.email_addr_domain_id,
+                     't_id': self.email_addr_target_id,
+                     'expire': self.email_addr_expire_date}
+            exists_stmt = """
+                          SELECT EXISTS (
+                            SELECT 1
+                            FROM [:table schema=cerebrum name=email_address]
+                            WHERE local_part=:lp AND
+                                  domain_id=:d_id AND
+                                  target_id=:t_id AND
+                                  expire_date=:expire AND
+                                  address_id=:a_id
+                          )
+                        """
+            if not self.query_1(exists_stmt, binds):
+                # True positive
+                update_stmt = """
+                            UPDATE [:table schema=cerebrum name=email_address]
+                            SET local_part=:lp, domain_id=:d_id, target_id=:t_id,
+                            expire_date=:expire, change_date=[:now]
+                            WHERE address_id=:a_id"""
+                self.execute(update_stmt, binds)
+                self._db.log_change(
+                    self.email_addr_target_id,
+                    self.const.email_address_mod,
+                    self.entity_id,
+                    change_params={'lp': self.email_addr_local_part,
+                                   'dom_id': self.email_addr_domain_id})
+
         del self.__in_db
         self.__in_db = True
         self.__updated = []
