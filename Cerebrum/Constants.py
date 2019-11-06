@@ -175,12 +175,12 @@ class _CerebrumCode(DatabaseAccessor):
         with _CerebrumCode._db_proxy_lock:
             try:
                 _CerebrumCode._private_db_proxy.ping()
-            except Exception:
+            except Exception as e:
                 if _CerebrumCode._private_db_proxy is None:
                     logger.debug('No _CerebrumCode.sql, creating new')
                 else:
-                    logger.error('unable to use _CerebrumCode.sql, recreating',
-                                 exc_info=True)
+                    logger.debug('Unable to use _CerebrumCode.sql, recreating'
+                                 ' (%s)', repr(e))
                 _CerebrumCode._private_db_proxy = SynchronizedDatabase()
             return _CerebrumCode._private_db_proxy
 
@@ -1533,8 +1533,7 @@ class CommonConstants(ConstantsBase):
         "/hopwood/crypto/scan/ph.html#Traditional-crypt3>.")
     auth_type_md4_nt = _AuthenticationCode(
         'MD4-NT',
-        "MD4-derived password hash with Microsoft-added security.  "
-        "Requires the smbpasswd module to be installed.")
+        "MD4-derived password hash with Microsoft-added security.  ")
     auth_type_ha1_md5 = _AuthenticationCode(
         'HA1-MD5',
         "Used in digest access authentication as specified in RFC 2617. "
@@ -1700,49 +1699,49 @@ class CLConstants(ConstantsBase):
     # Group changes
 
     group_add = _ChangeTypeCode(
-        'e_group', 'add', 'added %(dest)s to %(subject)s')
+        'group_member', 'add', 'added %(dest)s to %(subject)s')
     group_rem = _ChangeTypeCode(
-        'e_group', 'rem', 'removed %(dest)s from %(subject)s')
+        'group_member', 'remove', 'removed %(dest)s from %(subject)s')
     group_create = _ChangeTypeCode(
-        'e_group', 'create', 'created %(subject)s')
+        'group', 'create', 'created %(subject)s')
     group_mod = _ChangeTypeCode(
-        'e_group', 'mod', 'modified %(subject)s')
+        'group', 'modify', 'modified %(subject)s')
     group_destroy = _ChangeTypeCode(
-        'e_group', 'destroy', 'destroyed %(subject)s')
+        'group', 'delete', 'destroyed %(subject)s')
 
     # Account changes
 
     account_create = _ChangeTypeCode(
-        'e_account', 'create', 'created %(subject)s')
+        'account', 'create', 'created %(subject)s')
     account_delete = _ChangeTypeCode(
-        'e_account', 'delete', 'deleted %(subject)s')
+        'account', 'deactivate', 'deleted %(subject)s')
     account_mod = _ChangeTypeCode(
-        'e_account', 'mod', 'modified %(subject)s',
+        'account', 'modify', 'modified %(subject)s',
         ("new owner=%(entity:owner_id)s",
          "new expire_date=%(date:expire_date)s"))
     account_password = _ChangeTypeCode(
-        'e_account', 'password', 'new password for %(subject)s')
+        'account_password', 'set', 'new password for %(subject)s')
     account_password_token = _ChangeTypeCode(
-        'e_account', 'passwordtoken', 'password token sent for %(subject)s',
+        'account_passwordtoken', 'set', 'password token sent for %(subject)s',
         ('phone_to=%(string:phone_to)s',))
     account_destroy = _ChangeTypeCode(
-        'e_account', 'destroy', 'destroyed %(subject)s')
+        'account', 'delete', 'destroyed %(subject)s')
     # TODO: account_move is obsolete, remove it
     account_move = _ChangeTypeCode(
-        'e_account', 'move', '%(subject)s moved',
+        'account', 'move', '%(subject)s moved',
         ('from=%(string:old_host)s:%(string:old_disk)s,'
          'to=%(string:new_host)s:%(string:new_disk)s,', ))
     account_home_updated = _ChangeTypeCode(
-        'e_account', 'home_update', 'home updated for %(subject)s',
+        'account_home', 'modify', 'home updated for %(subject)s',
         ('old=%(homedir:old_homedir_id)s',
          'old_home=%(string:old_home)s',
          'old_disk_id=%(disk:old_disk_id)s',
          'spread=%(spread_code:spread)s'))
     account_home_added = _ChangeTypeCode(
-        'e_account', 'home_added', 'home added for %(subject)s',
+        'account_home', 'add', 'home added for %(subject)s',
         ('spread=%(spread_code:spread)s', 'home=%(string:home)s'))
     account_home_removed = _ChangeTypeCode(
-        'e_account', 'home_removed', 'home removed for %(subject)s',
+        'account_home', 'remove', 'home removed for %(subject)s',
         ('spread=%(spread_code:spread)s', 'home=%(string:home)s'))
 
     # Spread changes
@@ -1754,130 +1753,130 @@ class CLConstants(ConstantsBase):
         'spread', 'delete', 'delete spread for %(subject)s',
         ('spread=%(spread_code:spread)s',))
     account_type_add = _ChangeTypeCode(
-        'ac_type', 'add', 'ac_type add for account %(subject)s',
+        'account_type', 'add', 'ac_type add for account %(subject)s',
         ('ou=%(ou:ou_id)s, aff=%(affiliation:affiliation)s, '
          'pri=%(int:priority)s',))
     account_type_mod = _ChangeTypeCode(
-        'ac_type', 'mod', 'ac_type mod for account %(subject)s',
+        'account_type', 'modify', 'ac_type mod for account %(subject)s',
         ('old_pri=%(int:old_pri)s, new_pri=%(int:new_pri)s',))
     account_type_del = _ChangeTypeCode(
-        'ac_type', 'del', 'ac_type del for account %(subject)s',
+        'account_type', 'remove', 'ac_type del for account %(subject)s',
         ('ou=%(ou:ou_id)s, aff=%(affiliation:affiliation)s',))
 
     # AccountHomedir changes
 
     homedir_remove = _ChangeTypeCode(
-        'homedir', 'del', 'homedir del for account %(subject)s',
+        'homedir', 'remove', 'homedir del for account %(subject)s',
         ('id=%(int:homedir_id)s',))
     homedir_add = _ChangeTypeCode(
         'homedir', 'add', 'homedir add for account %(subject)s',
         ('id=%(int:homedir_id)s', 'home=%(string:home)s'))
     homedir_update = _ChangeTypeCode(
-        'homedir', 'update', 'homedir update for account %(subject)s',
+        'homedir', 'modify', 'homedir update for account %(subject)s',
         ('id=%(int:homedir_id)s',
          'home=%(string:home)s', 'status=%(home_status:status)s'))
 
     # Disk changes
 
     disk_add = _ChangeTypeCode('disk', 'add', 'new disk %(subject)s')
-    disk_mod = _ChangeTypeCode('disk', 'mod', 'update disk %(subject)s')
-    disk_del = _ChangeTypeCode('disk', 'del', "delete disk %(subject)s")
+    disk_mod = _ChangeTypeCode('disk', 'modify', 'update disk %(subject)s')
+    disk_del = _ChangeTypeCode('disk', 'remove', "delete disk %(subject)s")
 
     # Host changes
 
     host_add = _ChangeTypeCode('host', 'add', 'new host %(subject)s')
-    host_mod = _ChangeTypeCode('host', 'mod', 'update host %(subject)s')
-    host_del = _ChangeTypeCode('host', 'del', 'del host %(subject)s')
+    host_mod = _ChangeTypeCode('host', 'modify', 'update host %(subject)s')
+    host_del = _ChangeTypeCode('host', 'remove', 'del host %(subject)s')
 
     # OU changes
 
     ou_create = _ChangeTypeCode(
         'ou', 'create', 'created OU %(subject)s')
     ou_mod = _ChangeTypeCode(
-        'ou', 'mod', 'modified OU %(subject)s')
+        'ou', 'modify', 'modified OU %(subject)s')
     ou_unset_parent = _ChangeTypeCode(
-        'ou', 'unset_parent', 'parent for %(subject)s unset',
+        'ou_parent', 'clear', 'parent for %(subject)s unset',
         ('perspective=%(int:perspective)s',))
     ou_set_parent = _ChangeTypeCode(
-        'ou', 'set_parent', 'parent for %(subject)s set to %(dest)s',
+        'ou_parent', 'set', 'parent for %(subject)s set to %(dest)s',
         ('perspective=%(int:perspective)s',))
     ou_del = _ChangeTypeCode(
-        'ou', 'del', 'deleted OU %(subject)s')
+        'ou', 'delete', 'deleted OU %(subject)s')
 
     # Person changes
 
     person_create = _ChangeTypeCode(
         'person', 'create', 'created %(subject)s')
     person_update = _ChangeTypeCode(
-        'person', 'update', 'update %(subject)s')
+        'person', 'modify', 'update %(subject)s')
     person_name_del = _ChangeTypeCode(
-        'person', 'name_del', 'del name for %(subject)s',
+        'person_name', 'remove', 'del name for %(subject)s',
         ('src=%(source_system:src)s, ' +
          'variant=%(name_variant:name_variant)s',))
     person_name_add = _ChangeTypeCode(
-        'person', 'name_add', 'add name for %(subject)s',
+        'person_name', 'add', 'add name for %(subject)s',
         ('name=%(string:name)s, src=%(source_system:src)s, ' +
          'variant=%(name_variant:name_variant)s',))
     person_name_mod = _ChangeTypeCode(
-        'person', 'name_mod', 'mod name for %(subject)s',
+        'person_name', 'modify', 'mod name for %(subject)s',
         ('name=%(string:name)s, src=%(source_system:src)s, ' +
          'variant=%(name_variant:name_variant)s',))
 
     # Entity changes
 
     entity_add = _ChangeTypeCode(
-        'entity', 'add', 'add entity %(subject)s')
+        'entity', 'create', 'add entity %(subject)s')
     entity_del = _ChangeTypeCode(
-        'entity', 'del', 'del entity %(subject)s')
+        'entity', 'delete', 'del entity %(subject)s')
     entity_name_add = _ChangeTypeCode(
         'entity_name', 'add', 'add entity_name for %(subject)s',
         ('domain=%(value_domain:domain)s, name=%(string:name)s',))
     entity_name_mod = _ChangeTypeCode(
-        'entity_name', 'mod', 'mod entity_name for %(subject)s',
+        'entity_name', 'modify', 'mod entity_name for %(subject)s',
         ('domain=%(value_domain:domain)s, name=%(string:name)s',))
     entity_name_del = _ChangeTypeCode(
-        'entity_name', 'del', 'del entity_name for %(subject)s',
+        'entity_name', 'remove', 'del entity_name for %(subject)s',
         ('domain=%(value_domain:domain)s, name=%(string:name)s',))
     entity_cinfo_add = _ChangeTypeCode(
         'entity_cinfo', 'add', 'add entity_cinfo for %(subject)s')
     entity_cinfo_del = _ChangeTypeCode(
-        'entity_cinfo', 'del', 'del entity_cinfo for %(subject)s')
+        'entity_cinfo', 'remove', 'del entity_cinfo for %(subject)s')
     entity_addr_add = _ChangeTypeCode(
         'entity_addr', 'add', 'add entity_addr for %(subject)s')
     entity_addr_del = _ChangeTypeCode(
-        'entity_addr', 'del', 'del entity_addr for %(subject)s')
+        'entity_addr', 'remove', 'del entity_addr for %(subject)s')
     entity_note_add = _ChangeTypeCode(
         'entity_note', 'add', 'add entity_note for %(subject)s',
         ('note_id=%(int:note_id)s',))
     entity_note_del = _ChangeTypeCode(
-        'entity_note', 'del', 'del entity_note for %(subject)s',
+        'entity_note', 'remove', 'del entity_note for %(subject)s',
         ('note_id=%(int:note_id)s',))
     entity_ext_id_del = _ChangeTypeCode(
-        'entity', 'ext_id_del', 'del ext_id for %(subject)s',
+        'entity_external_id', 'remove', 'del ext_id for %(subject)s',
         ('src=%(source_system:src)s, type=%(extid:id_type)s',))
     entity_ext_id_mod = _ChangeTypeCode(
-        'entity', 'ext_id_mod', 'mod ext_id for %(subject)s',
+        'entity_external_id', 'modify', 'mod ext_id for %(subject)s',
         ('value=%(string:value)s, src=%(source_system:src)s, ' +
          'type=%(extid:id_type)s',))
     entity_ext_id_add = _ChangeTypeCode(
-        'entity', 'ext_id_add', 'add ext_id for %(subject)s',
+        'entity_external_id', 'add', 'add ext_id for %(subject)s',
         ('value=%(string:value)s, src=%(source_system:src)s, ' +
          'type=%(extid:id_type)s',))
 
     # PersonAffiliation changes
 
     person_aff_add = _ChangeTypeCode(
-        'person', 'aff_add', 'add aff for %(subject)s')
+        'person_aff', 'add', 'add aff for %(subject)s')
     person_aff_mod = _ChangeTypeCode(
-        'person', 'aff_mod', 'mod aff for %(subject)s')
+        'person_aff', 'modify', 'mod aff for %(subject)s')
     person_aff_del = _ChangeTypeCode(
-        'person', 'aff_del', 'del aff for %(subject)s')
+        'person_aff', 'remove', 'del aff for %(subject)s')
     person_aff_src_add = _ChangeTypeCode(
-        'person', 'aff_src_add', 'add aff_src for %(subject)s')
+        'person_aff_src', 'add', 'add aff_src for %(subject)s')
     person_aff_src_mod = _ChangeTypeCode(
-        'person', 'aff_src_mod', 'mod aff_src for %(subject)s')
+        'person_aff_src', 'modify', 'mod aff_src for %(subject)s')
     person_aff_src_del = _ChangeTypeCode(
-        'person', 'aff_src_del', 'del aff_src for %(subject)s')
+        'person_aff_src', 'remove', 'del aff_src for %(subject)s')
 
     # Quarantine changes
 
@@ -1885,10 +1884,10 @@ class CLConstants(ConstantsBase):
         'quarantine', 'add', 'add quarantine for %(subject)s',
         ('type=%(quarantine_type:q_type)s',))
     quarantine_mod = _ChangeTypeCode(
-        'quarantine', 'mod', 'mod quarantine for %(subject)s',
+        'quarantine', 'modify', 'mod quarantine for %(subject)s',
         ('type=%(quarantine_type:q_type)s',))
     quarantine_del = _ChangeTypeCode(
-        'quarantine', 'del', 'del quarantine for %(subject)s',
+        'quarantine', 'remove', 'del quarantine for %(subject)s',
         ('type=%(quarantine_type:q_type)s',))
     quarantine_refresh = _ChangeTypeCode(
         'quarantine', 'refresh', 'refresh quarantine for %(subject)s')
@@ -1896,16 +1895,16 @@ class CLConstants(ConstantsBase):
     # TBD: Is it correct to have posix_demote in this module?
 
     posix_demote = _ChangeTypeCode(
-        'posix', 'demote', 'demote posix %(subject)s',
+        'posix_user', 'delete', 'demote posix %(subject)s',
         ('uid=%(int:uid)s, gid=%(int:gid)s',))
     posix_group_demote = _ChangeTypeCode(
-        'posix', 'group-demote', 'group demote posix %(subject)s',
+        'posix_group', 'delete', 'group demote posix %(subject)s',
         ('gid=%(int:gid)s',))
     posix_promote = _ChangeTypeCode(
-        'posix', 'promote', 'promote posix %(subject)s',
+        'posix_user', 'create', 'promote posix %(subject)s',
         ('uid=%(int:uid)s, gid=%(int:gid)s',))
     posix_group_promote = _ChangeTypeCode(
-        'posix', 'group-promote', 'group promote posix %(subject)s',
+        'posix_group', 'create', 'group promote posix %(subject)s',
         ('gid=%(int:gid)s',))
 
     # Guest functionality

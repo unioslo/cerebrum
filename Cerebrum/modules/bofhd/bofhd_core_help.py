@@ -620,10 +620,7 @@ arg_help = {
          'priority'],
     'string_np_type':
         ['np_type', 'Enter non-personal account type',
-         """Type of non-personal account.  Valid values include:
-         'kursbruker'  - Course related
-         'programvare' - Software packages
-         'testbruker'  - Accounts for testing purposes"""],
+         """Type of non-personal account."""],
     'string_op_set':
         ['op_set_name', 'Enter name of operation set',
          "Experts only. See the documentation for details"],

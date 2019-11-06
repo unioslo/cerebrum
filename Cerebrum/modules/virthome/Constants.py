@@ -18,42 +18,57 @@ class BofhdVirtHomeAuthConstants(Constants):
 
 
 class VirtHomeCLConstants(CLConstants):
+    """
+    ChangeTypeCodes related to VirtHome
+
+    VirtHome change log events are used more as indicators of requests than as
+    regular change log events.
+
+    For instance, a typical use case would be to run the bofh command
+    user_virtaccount_create which would create an event in pending_changelog
+    with a confirmation key. Running the bofh command user_confirm_request
+    with that confirmation key would then create the user, and delete the
+    change log event, without logging the deletion of the request. This means
+    that there are no change_log events that confirm the deletion of the
+    "requests", only change_log events of pending requests.
+
+    """
     #
     # Bofhd requests
     #####
     va_pending_create = _ChangeTypeCode(
-        'e_account',
-        'pending_create',
+        'virthome_account_create',
+        'request',
         'waiting for creation confirmation on %(subject)s')
 
     va_email_change = _ChangeTypeCode(
-        'e_account',
-        'pending_email',
+        'virthome_account_email',
+        'request',
         'waiting for e-mail change confirmation on %(subject)s')
 
     va_group_invitation = _ChangeTypeCode(
-        'e_group',
-        'pending_invitation',
+        'virthome_group_member',
+        'request',
         'issued invitation to join group')
 
     va_group_owner_swap = _ChangeTypeCode(
-        'e_group',
-        'pending_owner_change',
+        'virthome_group_owner_change',
+        'request',
         'waiting for a group owner change')
 
     va_group_moderator_add = _ChangeTypeCode(
-        'e_group',
-        'pending_moderator_add',
+        'virthome_group_moderator_add',
+        'request',
         'waiting for a new group moderator')
 
     va_password_recover = _ChangeTypeCode(
-        'e_account',
-        'password_recover',
+        'virthome_account_pwd_recover',
+        'request',
         'a pending password recovery request')
 
     va_reset_expire_date = _ChangeTypeCode(
-        'e_account',
-        'reset_expire_date',
+        'virthome_account_reset_exp_date',
+        'request',
         "push VA/FA's expire date into the future")
 
 

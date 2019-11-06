@@ -122,6 +122,7 @@ class JobQueue(object):
         self._last_duration = {}  # For statistics in --status
         self._debug_time = debug_time
         self._forced_run_queue = []
+        self._last_status = {}
 
         self.reload_scheduled_jobs()
 
@@ -235,9 +236,11 @@ class JobQueue(object):
             self._run_queue.remove(job_name)
         self.logger.debug("Started [%s]" % job_name)
 
-    def job_done(self, job_name, pid, force=False):
+    def job_done(self, job_name, pid, error=None, force=False):
         if pid is not None:
             self._running_jobs.remove((job_name, pid))
+
+        self._last_status[job_name] = error or 'ok'
 
         if job_name in self._started_at:
             self._last_duration[job_name] = (
@@ -304,44 +307,63 @@ class JobQueue(object):
             # TODO: vent med å legge inn jobbene, slik at de som
             # har when=time kommer før de som har when=freq.
             if next_delta <= 0:
+                logger.debug('job=%r has delta=%r', job_name, next_delta)
                 pre_len = len(queue)
                 self.insert_job(queue, job_name)
                 if pre_len == len(queue):
-                    continue     # no jobs was added
+                    # no jobs was added
+                    continue
+
             min_delta = min(next_delta, min_delta)
-        self.logger.debug("Delta=%i, a=%i/%i Queue: %s", 
-            min_delta, append, len(self._run_queue), repr(queue))
+        self.logger.debug("Delta=%i, a=%i/%i Queue: %s",
+                          min_delta, append, len(self._run_queue), repr(queue))
         self._run_queue = queue
         return min_delta
 
-    def insert_job(self, queue, job_name, already_checked=None):
-        """Recursively add job and all its prerequisited jobs.
+    def insert_job(self, queue, job_name, _already_checked=None):
+        """
+        Add job to queue, with dependencies.
 
-        We allways process all parents jobs, but they are only added to
-        the queue if it won't violate max_freq."""
-
-        if already_checked is None:
-            already_checked = []
-        if job_name in already_checked:
-            self.logger.info("Attempted to add %s, but it is already in %s",
-                             job_name, already_checked)
+        Note: Job will only be added if it doesn't violate constraints for
+        queueing.
+        """
+        # Protect against recursion loop
+        if _already_checked is None:
+            _already_checked = set()
+        if job_name in _already_checked:
             return
-        already_checked.append(job_name)
+        _already_checked.add(job_name)
 
-        this_job = self._known_jobs[job_name]
-        for j in this_job.pre or []:
-            self.insert_job(queue, j, already_checked=already_checked)
+        job = self._known_jobs[job_name]
 
-        if job_name not in queue or this_job.multi_ok:
-            if (this_job.max_freq is None
-                    or current_time - self._last_run[job_name] >
-                    this_job.max_freq):
-                if job_name not in [x[0] for x in self._running_jobs]:
-                    # Don't add to queue if job is currently running
-                    queue.append(job_name)
+        if job_name in queue and not job.multi_ok:
+            logger.debug('job=%r is queued, multi_ok=%r',
+                         job_name, job.multi_ok)
+            return
 
-        for j in this_job.post or []:
-            self.insert_job(queue, j, already_checked=already_checked)
+        if (job.max_freq and
+                current_time - self._last_run[job_name] < job.max_freq):
+            logger.debug('job=%r ran less than %r sec ago',
+                         job_name, job.max_freq)
+            return
+
+        # TODO: What if job.multi_ok? Should it not be added then?
+        if job_name in (x[0] for x in self._running_jobs):
+            logger.debug('job=%r is currently running', job_name)
+            return
+
+        # Try to add pre-jobs
+        for pre_job_name in job.pre or []:
+            self.insert_job(queue, pre_job_name,
+                            _already_checked=_already_checked)
+
+        logger.info('adding job=%r to queue', job_name)
+        queue.append(job_name)
+
+        # Try to add post-jobs
+        for post_job_name in job.post or []:
+            self.insert_job(queue, post_job_name,
+                            _already_checked=_already_checked)
 
     def has_conflicting_jobs_running(self, job_name):
         """Finds out if there are any jobs running that conflict with
@@ -357,3 +379,46 @@ class JobQueue(object):
                 # that conflicts
                 return True
         return False
+
+    def is_running(self, job_name):
+        """ Check if job is currently running. """
+        running = set(tup[0] for tup in self._running_jobs)
+        return job_name in running
+
+    def last_started_at(self, job_name):
+        """
+        Check when a given job was last started.
+
+        :returns:
+            Returns timestamp in localtime, or 0 if the job hasn't been started
+            or is unknown.
+        """
+        return self._started_at.get(job_name, 0)
+
+    def last_done_at(self, job_name):
+        """
+        Check when a given job was last done.
+
+        ..note:: Failed jobs also counts as 'done'.
+
+        :returns:
+            Returns timestamp in localtime, or 0 if the job hasn't been started
+            or is unknown.
+        """
+        return self._last_run.get(job_name, 0)
+
+    def is_queued(self, job_name, include_forced=False):
+        """
+        Check if job is currently queued.
+
+        :param job_name:
+        :param include_forced: If True, also check the forced_run_queue
+
+        :returns: True if the job_name is queued.
+        """
+        if include_forced and job_name in self._forced_run_queue:
+            return True
+        return job_name in self._run_queue
+
+    def last_status(self, job_name):
+        return self._last_status.get(job_name) or 'unknown'

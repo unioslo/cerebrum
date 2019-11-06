@@ -144,22 +144,7 @@ $Id$
 <!ATTLIST spreaddef kode CDATA #REQUIRED
                     comment CDATA #IMPLIED>
 
-<!ELEMENT default_values (print?, mailkvote?, diskkvote?)>
-
-<!-- *************************************************************** -->
-<!--   Defaultverdi for utskriftskvote                               -->
-<!--                                                                 -->
-<!--                                                                 -->
-<!--   Atributter:                                                   -->
-<!--      -                                                          -->
-<!--                                                                 -->
-<!--                                                                 -->
-<!-- *************************************************************** -->
-<!ELEMENT print EMPTY>
-<!ATTLIST print start CDATA #REQUIRED
-                uke CDATA #REQUIRED
-                max_akk CDATA #REQUIRED
-                max_sem CDATA #REQUIRED>
+<!ELEMENT default_values (mailkvote?, diskkvote?)>
 
 
 <!ELEMENT mailkvote EMPTY>
@@ -189,8 +174,7 @@ $Id$
      som velges dersom et av select kriteriene matcher -->
 
 <!ELEMENT profil ((priority? | disk? | disk_kvote? | mail? | build? |
-                   spread* | gruppe* | printer_kvote? | 
-                   print_betaling_fritak? | print_kvote_fritak? |
+                   spread* | gruppe* |
                    brev? | stedkode? | quarantine?)*,
                    select?)>
 
@@ -271,46 +255,6 @@ $Id$
 <!-- *************************************************************** -->
 <!ELEMENT priority EMPTY>
 <!ATTLIST priority level CDATA #REQUIRED>
-
-<!-- ***************************************************************  -->
-<!--   Printerkvote                                                   -->
-<!--                                                                  -->
-<!--   Attributter:                                                   -->
-<!--      - start - Den kvote en person får ved semesterstart.  Denne -->
-<!--                er ikke akkumulerbar.                             -->
-<!--      - free_akk - Den kvote en person får efter                  -->
-<!--                   semesterregistrering.  Denne er akkumulerbar.  -->
-<!--      - uke - Er ikke i bruk                                      -->
-<!--      - max_akk - Er ikke i bruk                                  -->
-<!--      - max_sem - Er ikke i bruk                                  -->
-<!--                                                                  -->
-<!-- ***************************************************************  -->
-<!ELEMENT printer_kvote EMPTY>
-<!ATTLIST printer_kvote start CDATA #REQUIRED
-          uke CDATA #REQUIRED
-          free_akk CDATA #REQUIRED
-          max_akk CDATA #REQUIRED
-          max_sem CDATA #REQUIRED>
-
-<!-- *************************************************************** -->
-<!--                                                                 -->
-<!--  print_kopiavgift_fritak                                        -->
-<!--                                                                 -->
-<!--     For de som har dette attributtet skal det ikke avkreves     -->
-<!--     kopiavgift (papiravgift).                                   --> 
-<!--                                                                 -->
-<!-- *************************************************************** -->
-<!ELEMENT print_kopiavgift_fritak EMPTY>
-
-<!-- *************************************************************** -->
-<!--                                                                 -->
-<!--  print_betaling_fritak                                          -->
-<!--                                                                 -->
-<!--     De som har dette attributtet er fritatt fra å måtte betale  -->
-<!--     for sine utskrifter.                                        -->
-<!--                                                                 -->
-<!-- *************************************************************** -->
-<!ELEMENT print_betaling_fritak EMPTY>
 
 <!ELEMENT brev EMPTY>
 <!ATTLIST brev mal CDATA #REQUIRED
@@ -526,8 +470,9 @@ $Id$
 <!--                                                                 -->
 <!--  Medlem av gruppe                                               -->
 <!--                                                                 -->
-<!--     Sjekker opp mot medlemskap i grupper.  Brukt primært        -->
-<!--     for å lage unntakslister for printerkvoter                  -->
+<!--     Sjekker opp mot medlemskap i grupper.  Tidligere brukt      -->
+<!--     for å lage unntakslister for printerkvoter. Kan fortsatt    -->
+<!--     brukes, men til andre formål                                -->
 <!--                                                                 -->
 <!--  Attributter:                                                   -->
 <!--                                                                 -->

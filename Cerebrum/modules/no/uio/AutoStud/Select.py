@@ -1,5 +1,23 @@
 # -*- coding: utf-8 -*-
 
+# Copyright 2019 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 """How this stuff works:
 
 SelectTool.select_map_defs defines a mapping of studconfig.xml
@@ -120,7 +138,7 @@ class SelectMapTag(SelectMapSuper):
                         break
 
                 if n_matches == len(select_attrs):
-                    self._logger.debug2("OK: %s -> %s", select_attrs, profile)
+                    self._logger.debug("OK: %s -> %s", select_attrs, profile)
                     self._append_match(matches, profile, pdta)
         return matches
 
@@ -180,7 +198,7 @@ class SelectMapAktivtSted(SelectMapSuper):
                  'studieprogramkode', '_studieansv'),
                 (self._pc.autostud.emnekode2info,
                  'emnekode', '_reglement')):
-            # self._logger.debug2("Check with %s" % match_tag)
+            # self._logger.debug("Check with %s" % match_tag)
             for pdta in person_info.get('aktiv', []):
                 if not pdta.has_key(match_tag):
                     continue  # emnekode not set for some aktiv tags.
@@ -195,7 +213,7 @@ class SelectMapAktivtSted(SelectMapSuper):
                                                 'instituttnr%s' % col_postfix]),
                                         int(fs_info[
                                                 'gruppenr%s' % col_postfix]))
-                # self._logger.debug2("Is %s in %s?" % (sko, self._select_map.values()))
+                # self._logger.debug("Is %s in %s?" % (sko, self._select_map.values()))
                 for select_attrs in self._select_map.values():
                     if not sko in select_attrs['steder']:
                         continue
@@ -234,7 +252,7 @@ class SelectMapEmnestudSted(SelectMapAktivtSted):
                                                 'instituttnr%s' % col_postfix]),
                                         int(fs_info[
                                                 'gruppenr%s' % col_postfix]))
-                # self._logger.debug2("Is %s in %s?" % (sko, self._select_map.values()))
+                # self._logger.debug("Is %s in %s?" % (sko, self._select_map.values()))
                 for select_attrs in self._select_map.values():
                     if not sko in select_attrs['steder']:
                         continue
@@ -282,7 +300,7 @@ class SelectMapTilbudSted(SelectMapAktivtSted):
                                                 'instituttnr%s' % col_postfix]),
                                         int(fs_info[
                                                 'gruppenr%s' % col_postfix]))
-                # self._logger.debug2("Is %s in %s?" % (sko, self._select_map.values()))
+                # self._logger.debug("Is %s in %s?" % (sko, self._select_map.values()))
                 for select_attrs in self._select_map.values():
                     if not sko in select_attrs['steder']:
                         continue
@@ -340,7 +358,7 @@ class SelectMapGroupMember(SelectMapSuper):
 
 class SelectMapPersonAffiliation(SelectMapSuper):
     def set_select_map(self, select_attrs, profile):
-        self._logger.debug2("Paff Map: %s -> %s" % (select_attrs, profile))
+        self._logger.debug("Paff Map: %s -> %s" % (select_attrs, profile))
         for s_attr in select_attrs:
             affiliation = self._pc.autostud.co.PersonAffiliation(
                 s_attr['affiliation'])
@@ -415,7 +433,7 @@ class SelectTool(object):
             smd._pc = profile_config
         for p in profiles:
             for select_name, select_attrs in p.selection_criterias.items():
-                self._logger.debug2(
+                self._logger.debug(
                     "S: %s -> %s" % (select_name, select_attrs))
                 sm_obj = self.select_map_defs[select_name]
                 sm_obj.set_select_map(select_attrs, p)
@@ -468,7 +486,7 @@ class SelectTool(object):
             for m in matches:
                 if m[0].priority == min_pri:
                     tmp.append(m)
-            self._logger.debug2("Priority filter gave %i -> %i entries" % (
+            self._logger.debug("Priority filter gave %i -> %i entries" % (
                 len(matches), len(tmp)))
             matches = tmp
         self._logger.debug("Matching settings: %s", matches)

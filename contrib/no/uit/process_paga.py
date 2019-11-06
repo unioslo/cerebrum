@@ -36,9 +36,6 @@ The following cereconf values affects the Paga account maintenance:
 INITIAL_ACCOUNTNAME
     Creator of Paga accounts.
 
-USERNAME_POSTFIX['sito']
-    Postfix that identifies Sito accounts (we don't touch sito accounts).
-
 EMPLOYEE_SPREADLIST
     A list of spreads to load (and maintain) for Paga accounts.
 
@@ -49,9 +46,7 @@ EMPLOYEE_FILTER_EXCHANGE_SKO
     A list of stedkode codes to exclude from exchange spreads.
 """
 import argparse
-import datetime
 import logging
-import os
 import xml.sax
 
 import mx.DateTime
@@ -65,6 +60,8 @@ from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
+from Cerebrum.modules.no.uit import POSIX_GROUP_NAME
+from Cerebrum.modules.no.uit.Account import UsernamePolicy
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.argutils import ParserContext
 from Cerebrum.utils.funcwrap import memoize
@@ -385,7 +382,6 @@ def get_existing_accounts(db):
         del p_id, key
 
     logger.info("Loading accounts...")
-    sito_postfix = cereconf.USERNAME_POSTFIX['sito']
     for row in account_obj.search(expire_start=None):
         a_id = int(row['account_id'])
         id_type = id_value = None
@@ -399,7 +395,7 @@ def get_existing_accounts(db):
             id_value = pid2passnr[int(row['owner_id'])]
         else:
             continue
-        if row['name'].endswith(sito_postfix):
+        if UsernamePolicy.is_valid_sito_name(row['name']):
             # this is a sito account, do not process as part of uit employees
             logger.debug("Omitting account id=%r (%s), sito account",
                          a_id, row['name'])
@@ -483,7 +479,7 @@ def _promote_posix(db, acc_obj):
     pu = PosixUser.PosixUser(db)
     uid = pu.get_free_uid()
     shell = const.posix_shell_bash
-    grp_name = "posixgroup"
+    grp_name = POSIX_GROUP_NAME
     group.find_by_name(grp_name, domain=const.group_namespace)
     try:
         pu.populate(uid, group.entity_id, None, shell, parent=acc_obj)
@@ -813,20 +809,14 @@ def check_cereconf():
         raise RuntimeError("Missing cereconf values: %r", missing)
 
 
-default_filename = 'paga_persons_{date}.xml'.format(
-    date=datetime.date.today().strftime('%Y-%m-%d'))
-default_person_file = os.path.join(
-    cereconf.DUMPDIR, 'employees', default_filename)
-
-
 def main(inargs=None):
     parser = argparse.ArgumentParser(
-        description="Import Paga XML files into the Cerebrum database")
-
+        description="Import Paga XML files into the Cerebrum database",
+    )
     parser.add_argument(
-        '-f', '-p', '--file', '--person-file',
+        '--person-file',
         dest='filename',
-        default=default_person_file,
+        required=True,
         help='Read and import persons from %(metavar)s',
         metavar='xml-file',
     )

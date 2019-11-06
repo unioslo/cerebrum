@@ -22,7 +22,7 @@
 
 from __future__ import unicode_literals
 
-from flask_restplus import Namespace, Resource, abort, reqparse
+from flask_restplus import Namespace, Resource, abort
 from flask_restplus import fields as base_fields
 from werkzeug.exceptions import NotFound
 from six import text_type
@@ -37,7 +37,7 @@ api = Namespace('groups', description='Group operations')
 
 
 def find_group(identifier, idtype='name'):
-    if idtype == 'name' and isinstance(identifier, unicode):
+    if idtype == 'name' and isinstance(identifier, text_type):
         identifier = identifier
     try:
         try:
@@ -168,8 +168,7 @@ GroupListItem = api.model('GroupListItem', {
 
 
 GroupMember = api.model('GroupMember', {
-    'href': crb_fields.UrlFromEntityType(
-        type_field='member_type',
+    'href': base_fields.String(
         description='path to member resource'),
     'id': base_fields.Integer(
         attribute='member_id',
@@ -184,7 +183,7 @@ GroupMember = api.model('GroupMember', {
 
 
 GroupModerator = api.model('GroupModerator', {
-    'href': crb_fields.UrlFromEntityType(
+    'href': base_fields.String(
         description='url to moderator resource'),
     'id': base_fields.String(
         description='moderator id'),
@@ -244,12 +243,12 @@ class GroupResource(Resource):
 
     # PUT /<group>
     #
-    new_group_parser = reqparse.RequestParser()
+    new_group_parser = api.parser()
     new_group_parser.add_argument(
         'visibility',
         choices=GroupVisibility._rev_map.keys(),
         required=True,
-        location='form',
+        location=['form', 'json'],
         case_sensitive=False,
         nullable=False,
         help='{error_msg}',
@@ -257,7 +256,7 @@ class GroupResource(Resource):
     new_group_parser.add_argument(
         'description',
         type=validator.String(min_len=0, max_len=512),
-        location='form',
+        location=['form', 'json'],
         nullable=True,
         help='{error_msg}',
     )
@@ -357,8 +356,14 @@ class GroupModeratorListResource(Resource):
     def get(self, name):
         """ Get moderators for this group. """
         group = find_group(name)
-        return utils.get_auth_roles(group, 'group',
-                                    role_map=GroupAuthRoles._map)
+        moderators = utils.get_auth_roles(group, 'group',
+                                          role_map=GroupAuthRoles._map)
+        for entity in moderators:
+            entity.update(
+                {'href': utils.href_from_entity_type(entity['type'],
+                                                     entity['id'],
+                                                     entity['name'])})
+        return moderators
 
 
 @api.route('/<string:name>/moderators/<string:role>/<int:moderator_id>',
@@ -523,6 +528,10 @@ class GroupMemberListResource(Resource):
             member.update({
                 'id': row['member_id'],
                 'name': row['member_name'],
+                'href': utils.href_from_entity_type(
+                    entity_type=row['member_type'],
+                    entity_id=row['member_id'],
+                    entity_name=row['member_name']),
             })
             members.append(member)
         return members
@@ -546,12 +555,16 @@ class GroupMemberResource(Resource):
         member = find_entity(member_id)
         if not group.has_member(member.entity_id):
             abort(404, "No such member in group")
+        name = utils.get_entity_name(member)
         return {
             'member_type': member.entity_type,
             # id for the href builder, won't be shown in output
             'id': utils.get_entity_name(member) or member.entity_id,
             'member_id': member.entity_id,
-            'member_name': utils.get_entity_name(member),
+            'member_name': name,
+            'href': utils.href_from_entity_type(entity_type=member.entity_type,
+                                                entity_id=member.entity_id,
+                                                entity_name=name),
         }
 
     # PUT /<group>/members/<member>
@@ -567,12 +580,16 @@ class GroupMemberResource(Resource):
         member = find_entity(member_id)
         if not group.has_member(member.entity_id):
             group.add_member(member.entity_id)
+        name = utils.get_entity_name(member)
         return {
             'member_type': member.entity_type,
             # id for the href builder, won't be shown in output
             'id': utils.get_entity_name(member) or member.entity_id,
             'member_id': member.entity_id,
-            'member_name': utils.get_entity_name(member),
+            'member_name': name,
+            'href': utils.href_from_entity_type(entity_type=member.entity_type,
+                                                entity_id=member.entity_id,
+                                                entity_name=name),
         }
 
     # DELETE /<group>/members/<member>
@@ -631,7 +648,7 @@ class GroupListResource(Resource):
         'context',
         type=validator.String(),
         dest='spread',
-        help='Filter by context. Accepts * and ? as wildcards.')
+        help='Filter by context.')
     group_search_filter.add_argument(
         'member_id',
         type=int,
@@ -665,6 +682,14 @@ class GroupListResource(Resource):
         args = self.group_search_filter.parse_args()
         filters = {key: value for (key, value) in args.items() if
                    value is not None}
+
+        if 'spread' in filters:
+            try:
+                group_spread = db.const.Spread(filters['spread'])
+                filters['spread'] = int(group_spread)
+            except Errors.NotFoundError:
+                abort(404, message='Unknown context={}'.format(
+                    filters['spread']))
 
         gr = Factory.get('Group')(db.connection)
 

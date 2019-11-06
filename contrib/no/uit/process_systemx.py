@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+#
 # Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -18,37 +18,43 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import unicode_literals
+"""
+Process guest users from SYSTEM-X.
+"""
+from __future__ import print_function, unicode_literals
 
-import getopt
+import argparse
 import htmlentitydefs
-import mx.DateTime
+import logging
 import os
 import re
-import sys
 
-from Cerebrum.utils import transliterate
+import mx.DateTime
+
 import cereconf
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
-from Cerebrum.modules.no.uit.access_SYSX import SYSX
-from Cerebrum.modules.no.uit import Email
-from Cerebrum.utils import email
-from Cerebrum.Utils import Factory
 from Cerebrum.Entity import EntityName
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
+from Cerebrum.modules.no.uit import POSIX_GROUP_NAME
+from Cerebrum.modules.no.uit.Account import UsernamePolicy
+from Cerebrum.modules.no.uit.access_SYSX import SYSX
+from Cerebrum.utils import email
+from Cerebrum.utils import transliterate
+from Cerebrum.utils.argutils import add_commit_args
 
-db = Factory.get('Database')()
-db.cl_init(change_program='process_systemx')
-co = Factory.get('Constants')(db)
 
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 
 # Used for getting OU names
-ou = Factory.get('OU')(db)
 sys_x_affs = {}
 
 
-def get_existing_accounts():
+def get_existing_accounts(db):
+    co = Factory.get('Constants')(db)
+    ou = Factory.get('OU')(db)
     stedkoder = ou.get_stedkoder()
     ou_stedkode_mapping = {}
     for stedkode in stedkoder:
@@ -63,18 +69,15 @@ def get_existing_accounts():
     deceased = pers.list_deceased()
 
     tmp_persons = {}
-    logger.info("Loading persons...")
+    logger.debug("Loading persons...")
     pid2sysxid = {}
     sysx2pid = {}
     for row in pers.search_external_ids(id_type=co.externalid_sys_x_id,
                                         fetchall=False):
         # denne henter ut alle fra system x
-        # logger.info("1. row['external_id'] %s" % row['external_id'])
 
         if (row['source_system'] == int(co.system_x) or
                 (int(row['entity_id']) not in pid2sysxid)):
-
-            # logger.info("2. row.['external_id']:%s" % row['external_id'])
 
             pid2sysxid[int(row['entity_id'])] = int(row['external_id'])
             sysx2pid[int(row['external_id'])] = int(row['entity_id'])
@@ -84,46 +87,38 @@ def get_existing_accounts():
                 tmp_persons[int(row['external_id'])].set_deceased_date(
                     deceased[int(row['entity_id'])])
 
+    logger.debug("Loading affiliations...")
     for row in pers.list_affiliations(
             source_system=co.system_x,
             fetchall=False):
         # Denne henter ut alle personer med AKTIV system_x affiliation
 
-        # logger.info("person_id: %s" % row['person_id'])
         tmp = pid2sysxid.get(row['person_id'], None)
-        # logger.info("tmp:%s" % tmp)
         if tmp is not None:
             ou.clear()
             try:
-                # logger.info("ou_id: %s" % row['ou_id'])
-                # logger.info("tmp: %s" % tmp)
-                # logger.info("affiliation: %s" % row['affiliation'])
                 ou.find(int(row['ou_id']))
                 tmp_persons[tmp].append_affiliation(
                     int(row['affiliation']), int(row['ou_id']),
                     int(row['status']))
                 try:
                     sys_x_affs[tmp] = ou_stedkode_mapping[row['ou_id']]
-                    logger.info("storing stedkode: %s for sys_x_user:%s",
-                                ou_stedkode_mapping[row['ou_id']], tmp)
                 except Exception:
-                    logger.info("sysx-id:%s has expired stedkode:%s." % (
-                        row['person_id'], row['ou_id']))
-                    # logger.info("unable to store stedkode")
-                    pass
+                    logger.warning("person_id=%r has expired sko=%r",
+                                   row['person_id'], row['ou_id'])
             except EntityExpiredError:
-                logger.error("Skipping affiliation to ou_id %s (expired) for "
-                             "person with sysx_id %s.", row['ou_id'], tmp)
+                logger.error("Skipping aff for sysx_id=%r, ou_id=%r (expired)",
+                             tmp, row['ou_id'])
                 continue
 
     tmp_ac = {}
     account_obj = Factory.get('Account')(db)
     account_name_obj = Factory.get('Account')(db)
-    logger.info("Loading accounts...")
 
     #
     # hente alle kontoer for en person
     #
+    logger.info("Loading accounts...")
     for row in account_obj.list(filter_expired=False, fetchall=False):
         sysx_id = pid2sysxid.get(int(row['owner_id']), None)
 
@@ -135,13 +130,10 @@ def get_existing_accounts():
         #
         account_name_obj.clear()
         account_name_obj.find(row['account_id'])
-        if (account_name_obj.account_name.endswith(
-                cereconf.USERNAME_POSTFIX['sito'])):
-            # if (account_name_obj.account_name[-2:] ==
-            #         cereconf.USERNAME_POSTFIX['sito']):
+        if UsernamePolicy.is_valid_sito_name(account_name_obj.account_name):
             logger.debug(
-                "account:%s is a sito account and removed from systemx "
-                "account process list", account_name_obj.account_name)
+                "Skipping sito account_id=%r (%s)",
+                account_name_obj.entity_id, account_name_obj.account_name)
             continue
 
         #
@@ -149,15 +141,16 @@ def get_existing_accounts():
         # to be counted when checking for existing accounts)
         #
         if account_name_obj.account_name[3:6] == '999':
-            logger.info(
-                "account_name:%s is an admin account and excluded from list",
-                account_name_obj.account_name)
+            logger.debug(
+                "Skipping admin account_id=%r (%s)",
+                account_name_obj.entity_id, account_name_obj.account_name)
             continue
 
         tmp_ac[row['account_id']] = ExistingAccount(sysx_id,
                                                     row['expire_date'])
 
     # Posixusers
+    logger.info("Loading posix users...")
     posix_user_obj = Factory.get('PosixUser')(db)
     for row in posix_user_obj.list_posix_users():
         tmp = tmp_ac.get(int(row['account_id']), None)
@@ -165,6 +158,7 @@ def get_existing_accounts():
             tmp.set_posix(int(row['posix_uid']))
 
     # quarantines
+    logger.info("Loading posix quarantines...")
     for row in account_obj.list_entity_quarantines(
             entity_types=co.entity_account):
         tmp = tmp_ac.get(int(row['entity_id']), None)
@@ -172,11 +166,15 @@ def get_existing_accounts():
             tmp.append_quarantine(int(row['quarantine_type']))
 
     # Spreads
-    spread_list = [co.spread_uit_ldap_people,
-                   co.spread_uit_fronter_account,
-                   co.spread_uit_ldap_system,
-                   co.spread_uit_ad_account, co.spread_uit_cristin,
-                   co.spread_uit_exchange]
+    logger.info("Loading spreads...")
+    spread_list = [
+        co.spread_uit_ldap_people,
+        co.spread_uit_fronter_account,
+        co.spread_uit_ldap_system,
+        co.spread_uit_ad_account,
+        co.spread_uit_cristin,
+        co.spread_uit_exchange,
+    ]
     for spread_id in spread_list:
         is_account_spread = is_person_spread = False
         spread = co.Spread(spread_id)
@@ -185,7 +183,7 @@ def get_existing_accounts():
         elif spread.entity_type == co.entity_person:
             is_person_spread = True
         else:
-            logger.warn("Unknown spread type")
+            logger.warning("Unknown spread code=%r (%r)", spread_id, spread)
             continue
         for row in account_obj.list_all_with_spread(spread_id):
             if is_account_spread:
@@ -197,6 +195,7 @@ def get_existing_accounts():
 
     # Account homes
     # FIXME: This does not work for us!
+    logger.info("Loading account homedirs...")
     for row in account_obj.list_account_home():
         tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None and row['disk_id']:
@@ -204,6 +203,7 @@ def get_existing_accounts():
                          int(row['homedir_id']))
 
     # Affiliations
+    logger.info("Loading account affs...")
     for row in account_obj.list_accounts_by_type(filter_expired=False):
         tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None:
@@ -213,14 +213,13 @@ def get_existing_accounts():
                 tmp.append_affiliation(int(row['affiliation']),
                                        int(row['ou_id']))
             except EntityExpiredError:
-                logger.warn(
-                    "Skipping affiliation to ou_id %s (OU expired) for person"
-                    " with account_id %s. (Is person affiliation on OU not "
-                    "deleted because of grace?)",
-                    row['ou_id'], row['account_id'])
+                logger.warning("Skipping account aff for account_id=%r "
+                               "to ou_id=%r (expired)",
+                               row['account_id'], row['ou_id'])
                 continue
 
     # traits
+    logger.info("Loading traits...")
     for row in account_obj.list_traits(co.trait_sysx_registrar_notified):
         tmp = tmp_ac.get(int(row['entity_id']), None)
         if tmp is not None:
@@ -233,37 +232,22 @@ def get_existing_accounts():
     # organize sysx id's
     for acc_id, tmp in tmp_ac.items():
         sysx_id = tmp_ac[acc_id].get_sysxid()
-        logger.info(
-            "appending sys-x id:%s, account id:%s to list of existing "
-            "accounts", sysx_id, acc_id)
+        logger.info("Got existing sysx account_id=%r for sysx_id=%r",
+                    acc_id, sysx_id)
         tmp_persons[sysx_id].append_account(acc_id)
 
-    logger.info(" found %i persons and %i accounts" % (
-        len(tmp_persons), len(tmp_ac)))
+    logger.info("Found %i persons and %i accounts",
+                len(tmp_persons), len(tmp_ac))
     return tmp_persons, tmp_ac
 
 
-def expire_date_conversion(expire_date):
-    # historical reasons dictate that dates may be received on the format
-    # dd.mm.yyyy if this is the case, we need to convert it to yyyy-mm-dd
-    day, month, year = expire_date.split("-", 2)
-    expire_date = "%s-%s-%s" % (year, month, day)
-    return expire_date
-
-
-def _send_mailq(mailq):
-    for item in mailq:
-        type = item['template']
-        info = item['person_info']
-        account_id = item['account_id']
-        send_mail(type, info, account_id)
-
-
-def send_mail(type, person_info, account_id):
+def send_mail(db, tpl, person_info, account_id, dryrun=True):
     sender = cereconf.SYSX_EMAIL_NOTFICATION_SENDER
     cc = cereconf.SYSX_CC_EMAIL
-    logger.debug("in send_mail")
-    if type == 'ansvarlig':
+    logger.debug("in send_mail(tpl=%r, account_id=%r, dryrun=%r)",
+                 tpl, account_id, dryrun)
+    co = Factory.get('Constants')(db)
+    if tpl == 'ansvarlig':
         t_code = co.trait_sysx_registrar_notified
 
         template = os.path.join(cereconf.TEMPLATE_DIR, 'sysx/ansvarlig.tpl')
@@ -271,21 +255,21 @@ def send_mail(type, person_info, account_id):
         person_info['AD_MSG'] = ""
         if 'AD_account' in person_info.get('spreads'):
             person_info['AD_MSG'] = ""
-    elif type == 'bruker':
+    elif tpl == 'bruker':
         recipient = person_info.get('bruker_epost', None)
         if recipient in (None, ""):
-            logger.info(
-                'No recipient when sending bruker_epost, message not sent')
+            logger.warning('Missing recipient for template=%r, account_id=%r, '
+                           'unable to send email', tpl, account_id)
             return
         t_code = co.trait_sysx_user_notified
         template = os.path.join(cereconf.TEMPLATE_DIR, 'sysx/bruker.tpl')
     else:
-        logger.error("Unknown type '%s' in send_mail()" % type)
+        logger.error('Unknown template=%r for email to account_id=%r, ',
+                     'unable to send email', tpl, account_id)
         return
 
     # record the username in person_info dict.
     ac = Factory.get('Account')(db)
-    logger.debug("send_mail(): acc_id is ->%s<" % account_id)
     ac.find(account_id)
     person_info['USERNAME'] = ac.account_name
 
@@ -298,49 +282,46 @@ def send_mail(type, person_info, account_id):
         person_info[k] = person_info[k]
 
     # finally, send the message
-    debug = False
-    logger.debug(
-        "ABOUT to send email to user:%s with cc:%s" % (recipient, cc))
-    # sys.exit(1)
-
-    #
-    # Deaktivert for testing. 2014-12-04
-    #
-    # ea = Email.email_address(db)
+    logger.debug("Sending email for account_id=%r, to=%r, cc=%r",
+                 account_id, recipient, cc)
 
     ret = email.mail_template(recipient, template, sender=sender, cc=[cc],
                               substitute=person_info, charset='utf-8',
-                              debug=debug)
-    if debug:
-        logger.debug("DRYRUN: mailmsg=\n%s", ret)
+                              debug=dryrun)
+    if dryrun:
+        logger.debug("send_email(dryrun=True): msg=\n%s", ret)
 
     # set trait on user
     r = ac.populate_trait(t_code, strval=recipient, date=mx.DateTime.today())
-    logger.info("TRAIT populate result:%s", r)
+    logger.debug("populate_trait() -> %s", r)
     ac.write_db()
 
 
 def _promote_posix(acc_obj):
+    db = acc_obj._db
     group = Factory.get('Group')(db)
+    co = Factory.get('Constants')(db)
     pu = Factory.get('PosixUser')(db)
     uid = pu.get_free_uid()
     shell = co.posix_shell_bash
-    grp_name = "posixgroup"
+    grp_name = POSIX_GROUP_NAME
     group.clear()
     group.find_by_name(grp_name, domain=co.group_namespace)
     try:
         pu.populate(uid, group.entity_id, None, shell, parent=acc_obj)
         pu.write_db()
-    except Exception as msg:
-        logger.error("Error during promote_posix. Error was: %s", msg)
+    except Exception:
+        logger.error("Unable to posix promote account_id=%r",
+                     acc_obj.entity_id, exc_info=True)
         return False
     # only gets here if posix user created successfully
-    logger.info("%s promoted to posixaccount (uidnumber=%s)",
-                acc_obj.account_name, uid)
+    logger.info("Promoted account_id=%r (%s) to posixaccount (uid=%r)",
+                acc_obj.entity_id, acc_obj.account_name, uid)
     return True
 
 
-def get_creator_id():
+def get_creator_id(db):
+    co = Factory.get('Constants')(db)
     entity_name = EntityName(db)
     entity_name.find_by_name(cereconf.INITIAL_ACCOUNTNAME,
                              co.account_namespace)
@@ -348,7 +329,7 @@ def get_creator_id():
     return id
 
 
-def _handle_changes(a_id, changes):
+def _handle_changes(db, a_id, changes):
     today = mx.DateTime.today().strftime("%Y-%m-%d")
     do_promote_posix = False
     ac = Factory.get('Account')(db)
@@ -360,7 +341,7 @@ def _handle_changes(a_id, changes):
                 ac.add_spread(s)
                 ac.set_home_dir(s)
         elif ccode == 'quarantine_add':
-            ac.add_entity_quarantine(cdata, get_creator_id(), start=today)
+            ac.add_entity_quarantine(cdata, get_creator_id(db), start=today)
             # ac.quarantine_add(cdata)
         elif ccode == 'quarantine_del':
             ac.delete_entity_quarantine(cdata)
@@ -374,86 +355,35 @@ def _handle_changes(a_id, changes):
         elif ccode == 'promote_posix':
             do_promote_posix = True
         else:
-            logger.error("Change account: %s(id=%d): Unknown changecode: %s, "
-                         "changedata=%s",
-                         ac.account_name, a_id, ccode, cdata)
+            logger.error("Change account_id=%r (%s): Unknown changecode=%r "
+                         "(data=%r)",
+                         a_id, ac.account_name, ccode, cdata)
             continue
     ac.write_db()
     if do_promote_posix:
         _promote_posix(ac)
-    logger.info("Change Account %s(id=%d): All changes written",
-                ac.account_name, a_id)
-
-
-def _update_email(acc_id, bruker_epost):
-    account_obj = Factory.get('Account')(db)
-    account_obj.find(acc_id)
-    person_obj = Factory.get('Person')(db)
-    person_obj.find(account_obj.owner_id)
-
-    em = Email.email_address(db)
-    ad_email = em.get_employee_email(account_obj.account_name)
-
-    if len(ad_email) > 0:
-        ad_email = ad_email[account_obj.account_name]
-    else:
-        # TODO: Use default maildomain whenever AD email is nonexistant!
-        # No need to check for student aff.
-        person_aff = person_obj.list_affiliations(
-            person_id=person_obj.entity_id,
-            affiliation=co.affiliation_student)
-        logger.debug("update_email(): person_aff=%s" % person_aff)
-        if len(person_aff) > 0:
-            logger.debug(
-                "update_email(): %s has student affiliation",
-                account_obj.entity_id)
-            ad_email = "@".join(
-                (account_obj.account_name, cereconf.NO_MAILBOX_DOMAIN))
-        elif bruker_epost != "":
-            # FIXME: Never ever set extrernal email here !!!
-            ad_email = "%s" % bruker_epost
-        else:
-            no_mailbox_domain = cereconf.NO_MAILBOX_DOMAIN
-            ad_email = "@".join((account_obj.account_name, no_mailbox_domain))
-            logger.warning(
-                "update_email(): Using NO_MAILBOX_DOMAIN=>'%s'" % ad_email)
-
-    current_email = ""
-    try:
-        current_email = account_obj.get_primary_mailaddress()
-    except Errors.NotFoundError:
-        # no current primary mail.
-        pass
-
-    if current_email.lower() != ad_email.lower():
-        # update email!
-        logger.debug("Email update needed old='%s', new='%s'" % (
-            current_email, ad_email))
-        try:
-            em.process_mail(account_obj.entity_id, ad_email)
-        except Exception as m:
-            logger.critical(
-                "EMAIL UPDATE FAILED: account_id=%s , email=%s,error:%s",
-                account_obj.entity_id, ad_email, m)
-            sys.exit(2)
-    else:
-        logger.debug("Email update not needed old=new='%s'", current_email)
+    logger.info("Change account_id=%r (%s): %s",
+                a_id, ac.account_name,
+                ','.join(ccode for ccode, _ in changes))
 
 
 class Build(object):
 
-    def __init__(self, sysx, persons, accounts):
+    def __init__(self, db, sysx, persons, accounts, send_email):
         # init variables
+        self.db = db
+        self.co = Factory.get('Constants')(db)
         ac = Factory.get('Account')(db)
         ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
         self.bootstrap_id = ac.entity_id
         gr = Factory.get('Group')(db)
-        gr.find_by_name("posixgroup", domain=co.group_namespace)
+        gr.find_by_name(POSIX_GROUP_NAME)
         self.posix_group = gr.entity_id
         self.num_expired = 0
         self.sysx = sysx
         self.persons = persons
         self.accounts = accounts
+        self.send_email = send_email
 
     # RMI000 2009-05-07
     # convert_entity and unquote_html should be utility functions.
@@ -489,63 +419,68 @@ class Build(object):
     def _create_account(self, sysx_id):
         today = mx.DateTime.today()
         default_creator_id = self.bootstrap_id
-        p_obj = Factory.get('Person')(db)
-        logger.info("Try to create user for person with sysx_id=%s" % sysx_id)
+        p_obj = Factory.get('Person')(self.db)
+        logger.info("Creating account for sysx_id=%r", sysx_id)
         try:
-            p_obj.find_by_external_id(co.externalid_sys_x_id, str(sysx_id),
-                                      co.system_x, co.entity_person)
+            p_obj.find_by_external_id(self.co.externalid_sys_x_id,
+                                      str(sysx_id),
+                                      self.co.system_x,
+                                      self.co.entity_person)
             # p_obj.find_by_external_id(co.entity_person,sysx_id,co.externalid_sys_x_id)
         except Errors.NotFoundError:
-            logger.warn("OUCH! person (sysx_id=%s) not found" % sysx_id)
+            logger.error("No person with sysx_id=%r", sysx_id)
             return None
         else:
             person_id = p_obj.entity_id
 
         if not self.persons[sysx_id].get_affiliations():
-            logger.error("Person (sysx_id=%s) has no sysX affs" % sysx_id)
+            logger.error("No affs for person with sysx_id=%r", sysx_id)
             return None
 
         try:
-            first_name = p_obj.get_name(co.system_cached, co.name_first)
+            first_name = p_obj.get_name(self.co.system_cached,
+                                        self.co.name_first)
         except Errors.NotFoundError:
             # This can happen if the person has no first name and no
             # authoritative system has set an explicit name_first variant.
             first_name = ""
         try:
-            last_name = p_obj.get_name(co.system_cached, co.name_last)
+            last_name = p_obj.get_name(self.co.system_cached,
+                                       self.co.name_last)
         except Errors.NotFoundError:
             # See above.  In such a case, name_last won't be set either,
             # but name_full will exist.
-            last_name = p_obj.get_name(co.system_cached, co.name_full)
+            last_name = p_obj.get_name(self.co.system_cached,
+                                       self.co.name_full)
             assert last_name.count(' ') == 0
         full_name = " ".join((first_name, last_name))
 
         try:
-            fnr = p_obj.get_external_id(id_type=co.externalid_fodselsnr)[0][
-                'external_id']
+            fnr = p_obj.get_external_id(
+                id_type=self.co.externalid_fodselsnr)[0]['external_id']
         except IndexError:
             fnr = sysx_id
 
-        account = Factory.get('PosixUser')(db)
+        account = Factory.get('PosixUser')(self.db)
         fnr = str(fnr)
         uname = account.suggest_unames(fnr, first_name, last_name)[0]
-        account.populate(name=uname,
-                         owner_id=person_id,
-                         owner_type=co.entity_person,
-                         np_type=None,
-                         creator_id=default_creator_id,
-                         expire_date=today,
-                         posix_uid=account.get_free_uid(),
-                         gid_id=self.posix_group,
-                         gecos=transliterate.for_posix(full_name),
-                         shell=co.posix_shell_bash
-                         )
+        account.populate(
+            name=uname,
+            owner_id=person_id,
+            owner_type=self.co.entity_person,
+            np_type=None,
+            creator_id=default_creator_id,
+            expire_date=today,
+            posix_uid=account.get_free_uid(),
+            gid_id=self.posix_group,
+            gecos=transliterate.for_posix(full_name),
+            shell=self.co.posix_shell_bash)
 
         password = account.make_passwd(uname)
         account.set_password(password)
         tmp = account.write_db()
-        logger.debug(
-            "new Account=%s, write_db=%s" % (account.account_name, tmp))
+        logger.info("New account_id=%r (%s) for sysx_id=%r, write_db() -> %r",
+                    account.entity_id, account.account_name, sysx_id, tmp)
 
         acc_obj = ExistingAccount(sysx_id, today)
         # register new account as posix
@@ -554,13 +489,14 @@ class Build(object):
         return account.entity_id
 
     def _process_sysx(self, sysx_id, person_info):
-        spread_acc = Factory.get('Account')(db)
+        spread_acc = Factory.get('Account')(self.db)
+        ou = Factory.get('OU')(self.db)
         new_account = False
         user_mail_message = False
-        logger.info("Starting process of sysXid=%s", sysx_id)
+        logger.info("Processing person with sysx_id=%r", sysx_id)
         p_obj = self.persons.get(sysx_id, None)
         if not p_obj:
-            logger.error("ERROR Nonexistent sysx_id %s. Skipping", sysx_id)
+            logger.error("No person with sysx_id=%r, skipping", sysx_id)
             return None
 
         changes = []
@@ -600,8 +536,8 @@ class Build(object):
         if p_obj.get_deceased_date() is not None:
             new_expire = str(p_obj.get_deceased_date())
             if current_expire != new_expire:
-                # print person_info
-                logger.warn("Person deceased: %s", 'TEST')
+                logger.warning("Person with sysx_id=%r is deceased (%r)",
+                               sysx_id, new_expire)
                 new_deceased = True
 
         # current expire = from account object
@@ -633,9 +569,8 @@ class Build(object):
         try:
             person_sko = sys_x_affs[sysx_id]
         except KeyError:
-            logger.info(
-                "person with sysxid: %s does not have active sys_x "
-                "affiliation. Ignoring", sysx_id)
+            logger.info("Person with sysx_id=%r has no active sysx affs, "
+                        "ignoring", sysx_id)
             return None
         # No external codes should have exchange spread, except GENØK (999510)
         # and AK (999620) and KUNN (999410) and NorgesUniv (921000)
@@ -647,9 +582,8 @@ class Build(object):
         for skofilter in cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO:
             if skofilter == person_sko[
                             0:len(skofilter)] and not could_have_exchange:
-                logger.info(
-                    'Not setting exchange spread because OU %s is in '
-                    'EMPLOYEE_FILTER_EXCHANGE_SKO', person_sko)
+                logger.info("Skipping exchange spread for sysx_id=%r, sko=%r",
+                            sysx_id, person_sko)
                 could_have_exchange = False
                 break
 
@@ -657,48 +591,34 @@ class Build(object):
         no_account = False
         try:
             aff_status = person_info['affiliation_status']
-            logger.debug("sysx id:%s has affs:'%s'" % (sysx_id, aff_status))
-            aff_str = str(co.affiliation_manuell_gjest_u_konto).split("/")
+            logger.debug("sysx_id=%r has affs=%r", sysx_id, aff_status)
+            aff_str = str(self.co.affiliation_manuell_gjest_u_konto).split("/")
             if aff_status == aff_str[1]:
                 no_account = True
         except Exception:
-            logger.debug("sysx id:%s has no affs", sysx_id)
+            logger.debug("sysx_id=%r has no affs", sysx_id)
 
         # make sure all spreads defined in sysX is set
 
-        tmp_spread = [
-            int(co.Spread('system@ldap'))]  # everybody gets this one
+        # everybody gets this one:
+        tmp_spread = [int(self.co.Spread('system@ldap'))]
+
         if no_account is False:
             for s in person_info.get('spreads'):
                 if s == 'ldap@uit':
-                    s = 'people@ldap'
-                    tmp_spread.append(int(co.Spread(s)))
-                    s = 'system@ldap'
-                    tmp_spread.append(int(co.Spread(s)))
+                    for s in ('people@ldap', 'system@ldap'):
+                        tmp_spread.append(int(self.co.Spread(s)))
                 elif s == 'frida@uit':
-                    logger.warn("renaming old spread frida to cristin")
-                    s = 'cristin@uit'
-                    tmp_spread.append(int(co.Spread(s)))
+                    cristin_spread = 'cristin@uit'
+                    logger.warning("sysx_id=%r has spread=%r, using spread=%r",
+                                   sysx_id, s, cristin_spread)
+                    tmp_spread.append(int(self.co.Spread(cristin_spread)))
                 else:
-                    tmp_spread.append(int(co.Spread(s)))
-                # if s=='SUT@uit':
-                #    got_sut = True
-                #    tmp_spread.append(int(co.Spread('fd@uit')))
+                    tmp_spread.append(int(self.co.Spread(s)))
                 if s == "AD_account" and could_have_exchange:
                     # got_exchange = True
-                    tmp_spread.append(int(co.Spread('exchange_mailbox')))
-            # if not got_exchange:
-            #    tmp_spread.append(int(co.Spread('sut_mailbox')))
-            #    if not got_sut:
-            #        tmp_spread.append(int(co.Spread('SUT@uit')))
+                    tmp_spread.append(int(self.co.Spread('exchange_mailbox')))
 
-        # if(no_account == False):
-        #     for s in person_info.get('spreads'):
-        #         tmp_spread.append(int(co.Spread(s)))
-        #         if s=="AD_account" and could_have_exchange:
-        #             got_exchange = True
-        #             tmp_spread.append(int(co.Spread('exchange_mailbox')))
-        #             tmp_spread.append(int(co.Spread('people@ldap')))
         sysx_spreads = set(tmp_spread)
 
         # Set spread expire date
@@ -719,27 +639,24 @@ class Build(object):
         #  There is a bug in list_account_home()
 
         # check quarantine
-        if person_info.get('approved') == 'Yes':
-            if co.quarantine_sys_x_approved in acc_obj.get_quarantines():
+        approve_q = self.co.quarantine_sys_x_approved
+        if person_info['approved']:
+            if approve_q in acc_obj.get_quarantines():
                 changes.append(
-                    ('quarantine_del', co.quarantine_sys_x_approved))
+                    ('quarantine_del', self.co.quarantine_sys_x_approved))
         else:
             # make sure this account is quarantined
-            if co.quarantine_sys_x_approved not in acc_obj.get_quarantines():
+            if approve_q not in acc_obj.get_quarantines():
                 changes.append(
-                    ('quarantine_add', co.quarantine_sys_x_approved))
+                    ('quarantine_add', self.co.quarantine_sys_x_approved))
 
         if changes:
-
-            logger.debug("Changes [%i/%s]: %s" % (
-                acc_id,
-                sysx_id,
-                repr(changes)))
-            _handle_changes(acc_id, changes)
+            logger.debug("Changes [%i/%s]: %s", acc_id, sysx_id, repr(changes))
+            _handle_changes(self.db, acc_id, changes)
 
             # Add info for template and obfuscate fnr
-            if person_info['personnr'] != '':
-                person_info['personnr'] = person_info['personnr'][
+            if not person_info['fnr']:
+                person_info['fnr'] = person_info['fnr'][
                                           0:6] + "xxxxx"
             person_info['ou_navn'] = 'N/A'
 
@@ -749,8 +666,8 @@ class Build(object):
                                  int(person_info['ou'][2:4]),
                                  int(person_info['ou'][4:6]),
                                  cereconf.DEFAULT_INSTITUSJONSNR)
-                person_info['ou_navn'] = ou.name_with_language(co.ou_name,
-                                                               co.language_nb)
+                person_info['ou_navn'] = ou.name_with_language(
+                    self.co.ou_name, self.co.language_nb)
             except Exception as m:
                 logger.warn('OU not found from stedkode: %s. Error was: %s',
                             person_info['ou'], m)
@@ -767,8 +684,8 @@ class Build(object):
                     'template': 'ansvarlig'
                 })
                 ansv_rep = person_info.get('ansvarlig_epost')
-                logger.warn("sending ansvarlig email to:%s" % ansv_rep)
-            _send_mailq(mailq)
+                logger.warning("Sending ansvarlig email to=%r", ansv_rep)
+            self._send_mailq(mailq)
 
     def check_expired_sourcedata(self, expire_date):
         expire = mx.DateTime.DateFrom(expire_date)
@@ -787,18 +704,23 @@ class Build(object):
         changes = []
         account_affs = self.accounts[account_id].get_affiliations()
 
-        logger.debug("-->Person SysXID=%s has affs=%s",
-                     sysx_id,
-                     self.persons[sysx_id].get_affiliations())
-        logger.debug(
-            "-->Account_id=%s,SysXID=%s has account affs=%s" % (account_id,
-                                                                sysx_id,
-                                                                account_affs))
+        logger.debug("Person with sysx_id=%r has affs=%r",
+                     sysx_id, self.persons[sysx_id].get_affiliations())
+        logger.debug("Person with sysx_id=%r, account_id=%r has "
+                     "account affs=%r", sysx_id, account_id, account_affs)
         for aff, ou, status in self.persons[sysx_id].get_affiliations():
             if not (aff, ou) in account_affs:
                 changes.append(('set_ac_type', (ou, aff)))
         #  TODO: Fix removal of account affs
         return changes
+
+    def _send_mailq(self, mailq):
+        for item in mailq:
+            tpl = item['template']
+            info = item['person_info']
+            account_id = item['account_id']
+            send_mail(self.db, tpl, info, account_id,
+                      dryrun=not self.send_email)
 
 
 class ExistingAccount(object):
@@ -907,46 +829,55 @@ class ExistingPerson(object):
         return self._deceased_date
 
 
-def main():
-    dryrun = False
-    datafile = None
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'd', ['dryrun', 'datafile='])
-    except getopt.GetoptError as m:
-        print("Unknown option: {}".format(m))
-        usage()
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description="Import guest user data from SYSTEM-X",
+    )
+    parser.add_argument(
+        '--no-email',
+        dest='send_email',
+        action='store_false',
+        default=True,
+        help='Omit sending email to new users',
+    )
+    parser.add_argument(
+        'filename',
+        help='Process SYSTEM-X guests imported from %(metavar)s',
+        metavar='<file>',
+    )
+    add_commit_args(parser)
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    for opt, val in opts:
-        if opt in ('--dryrun',):
-            dryrun = True
-        if opt in ('--datafile',):
-            datafile = val
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-    sysx = SYSX(data_file=datafile)
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %r', args)
+
+    # Do *NOT* send e-mail if running in dryrun mode
+    send_email = args.send_email if args.commit else False
+
+    db = Factory.get('Database')()
+    db.cl_init(change_program='process_systemx')
+
+    logger.info('Reading file=%r ...', args.filename)
+    sysx = SYSX(args.filename)
     sysx.list()
-    persons, accounts = get_existing_accounts()
 
-    build = Build(sysx, persons, accounts)
+    logger.info('Fetching sysx cerebrum data...')
+    persons, accounts = get_existing_accounts(db)
+
+    logger.info('Processing sysx accounts...')
+    build = Build(db, sysx, persons, accounts, send_email)
     build.process_all()
 
-    if dryrun:
-        logger.info("Dryrun: Rollback all changes")
-        db.rollback()
-    else:
-        logger.info("Committing all changes to database")
+    if args.commit:
+        logger.info('Commiting changes')
         db.commit()
-
-
-def usage():
-    progname = __file__.split(os.sep)[-1]
-    print("""
-    usage:: %s [-d|--dryrun]
-    --dryrun : do no commit changes to database
-    --datafile: path to sysx user data file
-    --logger-name name: name of logger to use
-    --logger-level level: loglevel to use
-    """ % progname)
-    sys.exit(1)
+    else:
+        logger.info('Rolling back changes')
+        db.rollback()
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':

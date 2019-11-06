@@ -144,7 +144,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                 self.ec.new_mailbox(uname)
                 self.logger.info('eid:%d: Created new mailbox for %s',
                                  event['event_id'], uname)
-                self.ut.log_event_receipt(event, 'exchange:acc_mbox_create')
+                self.ut.log_event_receipt(event, 'exchange_acc_mbox:create')
             except ExchangeException as e:
                 self.logger.warn('eid:%d: Failed creating mailbox for %s: %s',
                                  event['event_id'], uname, e)
@@ -158,7 +158,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                 self.logger.warn(
                     'eid:%d: Failed disabling address policy for %s',
                     event['event_id'], uname)
-                self.ut.log_event(event, 'exchange:set_ea_policy')
+                self.ut.log_event(event, 'exchange_ea_policy:set')
                 ev_mod = event.copy()
                 etid, tra, sh, hq, sq = self.ut.get_email_target_info(
                     target_entity=event['subject_entity'])
@@ -173,7 +173,8 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                         'eid:%d: Publishing %s in address book...',
                         event['event_id'], uname)
                     # TODO: Mangle the event som it represents this correctly??
-                    self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
+                    self.ut.log_event_receipt(event,
+                                              'exchange_per_e_reserv:set')
                 except ExchangeException as e:
                     self.logger.warn(
                         'eid:%d: Could not publish %s in address book',
@@ -188,7 +189,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                                  event['event_id'], uname)
                 # TODO: Higher resolution? Should we do this for all addresses,
                 # and mangle the event to represent this?
-                self.ut.log_event_receipt(event, 'exchange:acc_addr_add')
+                self.ut.log_event_receipt(event, 'exchange_acc_addr:add')
             except ExchangeException as e:
                 self.logger.warn(
                     'eid:%d: Could not add e-mail addresses for %s',
@@ -213,7 +214,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
                                                     pri_addr)
                 self.logger.info('eid:%d: Defined primary address for %s',
                                  event['event_id'], uname)
-                self.ut.log_event_receipt(event, 'exchange:acc_primaddr')
+                self.ut.log_event_receipt(event, 'exchange_acc_primaddr:set')
             except ExchangeException as e:
                 self.logger.warn('eid:%d: Could not set primary address on %s',
                                  event['event_id'], uname)
@@ -254,7 +255,7 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
 
                 self.logger.debug1('eid:%d: Creating event: Adding %s to %s',
                                    event['event_id'], uname, gname)
-                self.ut.log_event(faux_event, 'e_group:add')
+                self.ut.log_event(faux_event, 'group_member:add')
 
             # Set forwarding address
             fwds = self.ut.get_account_forwards(aid)
@@ -321,8 +322,9 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
         else:
             raise UnrelatedEvent
 
-    @event_map('trait:add', 'trait:mod', 'trait:del', 'e_group:add',
-               'e_group:rem')
+    @event_map('entity_trait:add', 'entity_trait:modify',
+               'entity_trait:remove', 'group_member:add',
+               'group_member:remove')
     def set_address_book_visibility(self, event):
         """Set the visibility of a persons accounts in the address book.
 
@@ -456,9 +458,9 @@ class ExchangeEventHandler(UIOExchangeEventHandler):
             raise EventExecutionException
 
         # Log a reciept for this change.
-        self.ut.log_event_receipt(event, 'exchange:per_e_reserv')
+        self.ut.log_event_receipt(event, 'exchange_per_e_reserv:set')
 
-    @event_map('exchange:set_ea_policy')
+    @event_map('exchange_ea_policy:set')
     def set_address_policy(self, event):
         """Disable the address policy on mailboxes or groups.
 

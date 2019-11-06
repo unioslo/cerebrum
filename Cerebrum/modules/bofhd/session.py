@@ -462,23 +462,31 @@ class BofhdSession(object):
             where = "AND state_type=:state_type"
         else:
             where = ""
-        ret = self._db.query("""
-        SELECT state_type, entity_id, state_data, set_time
-        FROM [:table schema=cerebrum name=bofhd_session_state]
-        WHERE session_id=:session_id %s
-        ORDER BY set_time""" % where, {
+
+        stmt = """
+          SELECT state_type, entity_id, state_data, set_time
+          FROM [:table schema=cerebrum name=bofhd_session_state]
+          WHERE session_id=:session_id %s
+          ORDER BY set_time
+        """ % where
+        binds = {
             'session_id': self.get_session_id(),
-            'state_type': state_type})
-        for r in ret:
+            'state_type': state_type,
+        }
+
+        results = []
+        for row in self._db.query(stmt, binds):
+            r = dict(row)
             try:
                 r['state_data'] = json.loads(r['state_data'])
-            except:
+            except Exception:
                 r['state_data'] = None
                 self.logger.warn('Invalid state data for session id:'
                                  ' {session_id}. Cleaning state'.format(
                                      session_id=self.get_session_id()))
                 self.clear_state()
-        return ret
+            results.append(r)
+        return results
 
     def clear_state(self, state_types=None):
         """ Remove session state data.

@@ -42,11 +42,11 @@ class CLConstants(CereConst.CLConstants):
         'added feide service %(subject)s',
         ("feide_id=%(int:feide_id)s", "name=%(string:name)s"))
     feide_service_mod = CereConst._ChangeTypeCode(
-        'feide_service', 'mod',
+        'feide_service', 'modify',
         'modified feide service %(subject)s',
         ("feide_id=%(int:feide_id)s", "name=%(string:name)s"))
     feide_service_del = CereConst._ChangeTypeCode(
-        'feide_service', 'del',
+        'feide_service', 'remove',
         'deleted feide service %(subject)s',
         ("feide_id=%(int:feide_id)s", "name=%(string:name)s"))
 
@@ -55,10 +55,10 @@ class CLConstants(CereConst.CLConstants):
         'added authn level for %(subject)s, service=%(dest)s',
         "level=%(int:level)s")
     feide_service_authn_level_mod = CereConst._ChangeTypeCode(
-        'feide_service_authn_level', 'mod',
+        'feide_service_authn_level', 'modify',
         'modified authn level for %(subject)s, service=%(dest)s',
         "level=%(int:level)s")
     feide_service_authn_level_del = CereConst._ChangeTypeCode(
-        'feide_service_authn_level', 'del',
+        'feide_service_authn_level', 'remove',
         'deleted authn level for %(subject)s, service=%(dest)s',
         "level=%(int:level)s")

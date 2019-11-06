@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2015-2018 University of Oslo, Norway
+# Copyright 2015-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,14 +35,48 @@ from mx.DateTime import now
 logger = Factory.get_logger('cronjob')
 
 
+def remove_posix_users(gr, posix_user2gid):
+    """Removes PosixUsers from PosixGroup if their Default
+    File Group is some other group.
+    """
+    group_member_counts = {'DFG members remaining': 0,
+                           'non-DFG members removed': 0}
+    for row in gr.search_members(group_id=gr.entity_id):
+        member = row['member_id']
+        if member in posix_user2gid:
+            # 1.1.1 - remove member
+            if posix_user2gid[member] != gr.entity_id:
+                group_member_counts['non-DFG members removed'] += 1
+                gr.remove_member(member)
+            # 1.1.2 - group member is irremovable
+            else:
+                group_member_counts['DFG members remaining'] += 1
+        else:
+            # PosixGroup, but not PosixUser..? This should
+            # never happen, but should be noted if it does.
+            logger.warning('Member %i of PosixGroup %r '
+                           'is not a PosixUser',
+                           member, gr.entity_id)
+    if sum(group_member_counts.values()):
+        logger.debug('(PosixGroup %r) %s',
+                     gr.entity_id, repr(group_member_counts))
+
+
 def remove_expired_groups(db, days, pretend):
     """
-    Removes groups that have reached number of `days' past expiration-date.
+    Removes or empties groups that have reached a number of days past expiry.
 
     :param Cerebrum.database.Database db: The database connection
     :param int days: Amount of days after past expiration-date
     :param bool pretend: If True, do not actually remove from DB
     """
+    # Caching the default file group of users
+    logger.info('Caching personal file groups of users')
+    pu = Factory.get('PosixUser')(db)
+    posix_user2gid = {}
+    num_empty_posixgroup = 0
+    for row in pu.list_posix_users():
+        posix_user2gid[row['account_id']] = row['gid']
     try:
         amount_to_be_removed_groups = 0
         amount_removed_groups = 0
@@ -58,20 +92,46 @@ def remove_expired_groups(db, days, pretend):
                     gr.clear()
                     gr.find(group['group_id'])
                     exts = gr.get_extensions()
-                    if exts:
-                        logger.debug("Skipping group %r, has extensions %r",
-                                     gr.entity_id, exts)
-                        continue
-                    gr.delete()
+                    # 1     - If extensions exists, do not delete group.
+                    # 1.1   - If the only extension is PosixGroup, then all
+                    #         removable members must be removed from group.
+                    # 1.1.1 - Group members are removable if, and only if,
+                    #         they have some other group as their Default
+                    #         File Group (DFG).
+                    # 1.1.2 - Corollary: Members with this group as their DFG
+                    #         are not removable.
+                    # 1.2   - If there are any other extensions than
+                    #         PosixGroup, then the group shall be left
+                    #         untouched.
+                    # 2     - Groups without any extensions are deleted
+
+                    # NB: Points 1.1.1 and 1.1.2 are handled in a separate
+                    # function `remove_posix_users`
+
+                    # 1.1 Only extension as PosixGroup, possible removal
+                    if exts and len(exts) == 1 and exts[0] == 'PosixGroup':
+                        if gr.is_empty():
+                            # Group is empty, nothing to do but book keeping
+                            num_empty_posixgroup += 1
+                        else:
+                            # 1.1.1/1.1.2 determined here
+                            remove_posix_users(gr, posix_user2gid)
+                    # 1.2 Other extensions than PosixGroup - do not touch
+                    elif exts:
+                        logger.debug('Extensions %r in group %r - skipping!',
+                                     exts, gr.entity_id)
+                    # 2 No extensions, group is deleted
+                    else:
+                        gr.delete()
+                        amount_removed_groups += 1
+                        logger.info(
+                            'Expired group (%s - %s) removed' % (
+                                group['name'],
+                                group['description']))
                     if not pretend:
                         db.commit()
                     else:  # do not actually remove when running with -d
                         db.rollback()
-                    amount_removed_groups += 1
-                    logger.info(
-                        'Expired group (%s - %s) removed' % (
-                            group['name'],
-                            group['description']))
                 except DatabaseError as e:
                     logger.error(
                         'Database error: Could not delete expired group '
@@ -89,6 +149,7 @@ def remove_expired_groups(db, days, pretend):
                         group['name'],
                         group['description'],
                         int(time_until_removal.days)))
+        logger.debug('%i empty posixgroups found', num_empty_posixgroup)
     except Exception as e:
         logger.critical('Unexpected exception: %s' % (text_type(e)),
                         exc_info=True)

@@ -30,21 +30,21 @@ class _EntityTraitCode(_CerebrumCodeWithEntityType):
 
 
 class CLConstants(ClConst):
-    trait_add = _ChangeTypeCode("trait", "add",
+    trait_add = _ChangeTypeCode("entity_trait", "add",
                                 "new trait for %(subject)s",
                                 ("%(trait:code)s",
                                  "numval=%(int:numval)s",
                                  "strval=%(string:strval)s",
                                  "date=%(string:date)s",
                                  "target=%(entity:target_id)s"))
-    trait_del = _ChangeTypeCode("trait", "del",
+    trait_del = _ChangeTypeCode("entity_trait", "remove",
                                 "removed trait from %(subject)s",
                                 ("%(trait:code)s",
                                  "numval=%(int:numval)s",
                                  "strval=%(string:strval)s",
                                  "date=%(string:date)s",
                                  "target=%(entity:target_id)s"))
-    trait_mod = _ChangeTypeCode("trait", "mod",
+    trait_mod = _ChangeTypeCode("entity_trait", "modify",
                                 "modified trait for %(subject)s",
                                 ("%(trait:code)s",
                                  "numval=%(int:numval)s",

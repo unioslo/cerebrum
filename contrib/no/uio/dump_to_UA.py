@@ -46,37 +46,30 @@ are output.
 """
 from __future__ import unicode_literals
 
-import cereconf
-
 import argparse
-import time
-import os
-import io
 import ftplib
+import io
+import logging
+import os
+import time
 
 from six import text_type
 
+import cereconf
+
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, read_password
 from Cerebrum.utils.atomicfile import AtomicFileWriter
-from Cerebrum.utils.transliterate import to_ascii
+from Cerebrum.utils.transliterate import for_encoding
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 
 
-logger = Factory.get_logger("cronjob")
-db = Factory.get("Database")()
+logger = logging.getLogger(__name__)
 
-
-def locate_fnr(person, const):
-    """ Get a persons Norwegian national ID """
-    # Force SAP to be the first source system to be tried
-    systems = [const.system_sap]
-    systems.extend([getattr(const, name)
-                    for name in cereconf.SYSTEM_LOOKUP_ORDER])
-    for system in systems:
-        for fnr in person.get_external_id(system, const.externalid_fodselsnr):
-            return fnr['external_id']
-    return None
+encoding = 'latin1'
+transliterate = for_encoding(encoding)
 
 
 def fnr2names(person, const, fnr):
@@ -171,30 +164,6 @@ def leave_covered(xml_person, employment):
     return total >= 100
 
 
-def _transliterate_to_latin1_or_ascii(string):
-    """
-    Converts any non latin-1 chars in a string to ascii.
-    AtomicFileWriter does not like UTF-8 chars not in latin-1.
-    This should be fixed with the new UA-sync..
-
-    :param string: string to be transliterated
-    :return: unicode string with any none latin-1 chars converted to ascii.
-    """
-    try:
-        string.encode('latin-1')
-    except UnicodeEncodeError:
-        res = []
-        for c in string:
-            try:
-                c.encode('latin-1')
-            except UnicodeEncodeError:
-                c = to_ascii(c)
-            res.append(c)
-
-        return "".join(res)
-    return string
-
-
 def process_employee(db_person, ou, const, xml_person, fnr, stream):
     """
     Output an UA entry corresponding to PERSON's employment represented by
@@ -222,8 +191,8 @@ def process_employee(db_person, ou, const, xml_person, fnr, stream):
         if employment.end:
             sluttdato = employment.end.strftime("%d.%m.%Y")
 
-        first_name = _transliterate_to_latin1_or_ascii(first_name)
-        last_name = _transliterate_to_latin1_or_ascii(last_name)
+        first_name = transliterate(first_name)
+        last_name = transliterate(last_name)
 
         # systemnr = 1 for students
         # systemnr = 2 for employees
@@ -237,7 +206,7 @@ def process_employee(db_person, ou, const, xml_person, fnr, stream):
                                    sluttdato=sluttdato))
 
 
-def generate_output(stream, do_employees, sysname, person_file):
+def generate_output(db, stream, do_employees, sysname, person_file):
     """
     Create dump for UA
     """
@@ -269,12 +238,12 @@ def generate_output(stream, do_employees, sysname, person_file):
             db_person.clear()
 
 
-def do_sillydiff(dirname, oldfile, newfile, outfile):
+def do_sillydiff(db, dirname, oldfile, newfile, outfile):
     """ This very silly. Why? """
     today = time.strftime("%d.%m.%Y")
     try:
         oldfile = io.open(os.path.join(dirname, oldfile), "r",
-                          encoding="latin1")
+                          encoding=encoding)
         line = oldfile.readline()
         line = line.rstrip()
     except IOError:
@@ -294,8 +263,8 @@ def do_sillydiff(dirname, oldfile, newfile, outfile):
     oldfile.close()
 
     out = AtomicFileWriter(os.path.join(dirname, outfile), 'w',
-                           encoding="latin1")
-    newin = io.open(os.path.join(dirname, newfile), encoding="latin1")
+                           encoding=encoding)
+    newin = io.open(os.path.join(dirname, newfile), encoding=encoding)
 
     for newline in newin:
         newline = newline.rstrip()
@@ -317,13 +286,15 @@ def do_sillydiff(dirname, oldfile, newfile, outfile):
     # Now, there is one problem left: we cannot output the old data blindly,
     # as people's names might have changed. So, we force *every* old record to
     # the current names in Cerebrum. This may result in the exactly same
-    # record being output twice, but it should be fine. 
+    # record being output twice, but it should be fine.
     person = Factory.get("Person")(db)
     const = Factory.get("Constants")(db)
     logger.debug("%d old records left", len(old_dict))
     for leftpnr in old_dict:
         # FIXME: it is unsafe to assume that this will succeed
         first, last = fnr2names(person, const, leftpnr[:-1])
+        first = transliterate(first) if first else first
+        last = transliterate(last) if last else last
         if not (first and last):
             logger.warn("No name information for %s is available. %d "
                         "entry(ies) will be skipped",
@@ -336,7 +307,13 @@ def do_sillydiff(dirname, oldfile, newfile, outfile):
             vals[3] = last
             vals[13] = today
             vals[17] = ""
-            out.write("%s;%s\n" % (leftpnr, ";".join(vals)))
+            # out.write("%s;%s\n" % (leftpnr, ";".join(vals)))
+            try:
+                out.write("%s;%s\n" % (leftpnr, ";".join(vals)))
+            except Exception:
+                logger.debug('Failed writing entry %s: %s', repr(leftpnr),
+                             repr(entry))
+                raise
     out.close()
     newin.close()
 
@@ -349,43 +326,56 @@ def ftpput(host, uname, password, local_dir, file, remote_dir):
     ftp.quit()
 
 
-def main():
+def main(inargs=None):
     parser = argparse.ArgumentParser(
-        description='Generates a dump file for the UA database')
+        description='Generates a dump file for the UA database',
+    )
     parser.add_argument(
         '-i', '--input-file',
         type=text_type,
-        help='system name and input file (e.g. system_sap:/path/to/file)')
+        help='system name and input file (e.g. system_sap:/path/to/file)',
+    )
     parser.add_argument(
         '-o', '--output-directory',
         type=text_type,
-        help='output directory')
+        help='output directory',
+    )
     parser.add_argument(
         '-d', '--distribute',
         action='store_true',
         dest='distribute',
         default=False,
-        help='transfer file')
+        help='upload file (cereconf.UA_*)',
+    )
     parser.add_argument(
         '-e', '--employees',
         action='store_true',
         dest='do_employees',
         default=False,
-        help='include employees in the output')
-    args = parser.parse_args()
+        help='include employees in the output',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
 
-    logger.info("Generating UA dump")
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start of %s', parser.prog)
+    logger.debug('args: %r', args)
 
     sysname, person_file = args.input_file.split(":")
 
     output_file = AtomicFileWriter(
         os.path.join(args.output_directory, "uadata.new"), "w",
-        encoding="latin1")
-    generate_output(output_file, args.do_employees, sysname, person_file)
+        encoding=encoding)
+
+    db = Factory.get("Database")()
+
+    generate_output(db, output_file, args.do_employees, sysname, person_file)
     output_file.close()
 
     diff_file = "uadata.%s" % time.strftime("%Y-%m-%d")
-    do_sillydiff(args.output_directory, "uadata.old", "uadata.new", diff_file)
+    do_sillydiff(db, args.output_directory, "uadata.old", "uadata.new",
+                 diff_file)
     os.rename(os.path.join(args.output_directory, "uadata.new"),
               os.path.join(args.output_directory, "uadata.old"))
 
@@ -399,7 +389,7 @@ def main():
                file=diff_file,
                remote_dir="ua-lt")
 
-    logger.info('Done')
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':

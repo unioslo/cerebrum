@@ -36,7 +36,6 @@ import logging
 from multiprocessing import Queue
 
 import Cerebrum.logutils
-from Cerebrum import Utils
 from Cerebrum.modules.event import utils
 from Cerebrum.modules.event_publisher import consumer
 from Cerebrum.modules.event_publisher.config import load_daemon_config
@@ -78,7 +77,7 @@ def serve(config, num_workers, enable_listener, enable_collector):
                 config.event_formatter,
                 daemon=True,
                 queue=event_queue,
-                log_queue=daemon.log_queue,
+                log_channel=daemon.log_channel,
                 running=daemon.run_trigger))
 
     # The 'event listener'
@@ -89,7 +88,7 @@ def serve(config, num_workers, enable_listener, enable_collector):
             consumer.EventListener(
                 daemon=True,
                 queue=event_queue,
-                log_queue=daemon.log_queue,
+                log_channel=daemon.log_channel,
                 running=daemon.run_trigger))
 
     # The 'event collector'
@@ -100,7 +99,7 @@ def serve(config, num_workers, enable_listener, enable_collector):
             consumer.EventCollector(
                 daemon=True,
                 queue=event_queue,
-                log_queue=daemon.log_queue,
+                log_channel=daemon.log_channel,
                 running=daemon.run_trigger,
                 config=config.event_daemon_collector))
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+#
 # Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -21,10 +21,11 @@
 """
 Import guest user data from SYSTEM-X.
 """
-from __future__ import unicode_literals
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 
 import argparse
+import collections
+import datetime
 import logging
 
 import mx.DateTime
@@ -41,91 +42,108 @@ from Cerebrum.modules.no.uit.access_SYSX import SYSX
 from Cerebrum.utils.argutils import add_commit_args
 
 
-SPLIT_CHAR = ':'
-include_delete = True
-skipped = added = updated = unchanged = deletedaff = 0
-db = person = co = None
 logger = logging.getLogger(__name__)
 
 
-def _load_cere_aff():
-    cb_aff = {}
+def affiliation_key(person_id, ou_id, affiliation):
+    return "%s:%s:%s" % (int(person_id), int(ou_id), int(affiliation))
+
+
+def _load_cere_aff(db):
+    co = Factory.get('Constants')(db)
+    cb_aff = set()
     pers = Factory.get("Person")(db)
+    logger.debug('Finding sysx affs...')
     for row in pers.list_affiliations(source_system=co.system_x):
-        k = "%s:%s:%s" % (row['person_id'], row['ou_id'], row['affiliation'])
-        cb_aff[str(k)] = True
+        k = affiliation_key(row['person_id'], row['ou_id'], row['affiliation'])
+        cb_aff.add(k)
+    logger.info('Found %d sysx affs in Cerebrum', len(cb_aff))
     return cb_aff
 
 
-def rem_old_aff():
-    global deletedaff
+def rem_old_aff(db, old_affs, stats):
+    co = Factory.get('Constants')(db)
     person = Factory.get("Person")(db)
-    grace = 0
-    for k, v in old_aff.items():
-        if v:
-            ent_id, ou, affi = k.split(':')
-            person.clear()
-            person.find(int(ent_id))
-            for aff in person.list_affiliations(int(ent_id),
-                                                affiliation=int(affi),
-                                                ou_id=int(ou)):
-                last_date = aff['last_date']
-                end_grace_period = last_date + mx.DateTime.DateTimeDelta(grace)
-                if mx.DateTime.today() > end_grace_period:
-                    logger.warn(
-                        "Deleting sysX affiliation for person_id=%s,"
-                        "ou=%s,affi=%s last_date=%s,grace=%s",
-                        ent_id, ou, affi, last_date, grace)
-                    person.delete_affiliation(ou, affi, co.system_x)
-                    deletedaff += 1
+    grace = datetime.timedelta(days=0)
+    today = datetime.date.today()
+    logger.debug('Removing %d old sysx affs...', len(old_affs))
+    for aff_key in old_affs:
+        ent_id, ou, affi = aff_key.split(':')
+        person.clear()
+        person.find(int(ent_id))
+        for aff in person.list_affiliations(int(ent_id),
+                                            affiliation=int(affi),
+                                            ou_id=int(ou)):
+            last_date = aff['last_date'].pydate()
+            end_grace_period = last_date + grace
+            if today > end_grace_period:
+                logger.warning(
+                    "Deleting affiliation for person_id=%r, ou_id=%r, "
+                    "affiliation=%r, last_date=%r, grace=%r",
+                    ent_id, ou, affi, last_date, grace)
+                person.delete_affiliation(ou, affi, co.system_x)
+                stats['deletedaff'] += 1
+    logger.info('Removed %d old sysx affs', len(old_affs))
 
 
-def process_sysx_persons(source_file, update):
-    global old_aff
-    sysx = SYSX(source_file, update=update)
+def process_sysx_persons(db, source_file, remove_old_affs=True):
+    stats = collections.defaultdict(int)
+    sysx = SYSX(source_file)
     sysx.list()
-    old_aff = _load_cere_aff()
+
+    if remove_old_affs:
+        old_affs = _load_cere_aff(db)
+    else:
+        old_affs = set()
 
     for p in sysx.sysxids:
-        create_sysx_person(sysx.sysxids[p])
-    if include_delete:
-        rem_old_aff()
+        create_sysx_person(db, sysx.sysxids[p], old_affs, stats)
+
+    if remove_old_affs:
+        rem_old_aff(db, old_affs, stats)
+
+    return dict(stats)
 
 
 def check_expired_sourcedata(expire_date):
-    expire = mx.DateTime.DateFrom(expire_date)
-    today = mx.DateTime.today()
-    if expire < today:
+    if not expire_date:
+        # This is how it's always been!
         return True
-    else:
-        return False
+    return expire_date < datetime.date.today()
 
 
-# sxp =  dict from access_SYSX.prepare_data funtion
-def create_sysx_person(sxp):
-    global skipped, added, updated, unchanged, include_delete, old_aff
+def create_sysx_person(db, sxp, update_affs, stats):
+    """
+    Create or update person with sysx data.
+
+    :param db:
+    :param sxp: Person dict from ``SYSX``
+    :param update_affs: A set of current SYSX aff keys
+    :param stats: A defaultdict with counts
+    """
+
+    co = Factory.get('Constants')(db)
     add_sysx_id = fnr_found = False
 
-    id = sxp['id']
-    personnr = sxp['personnr']
+    sysx_id = sxp['id']
+    fnr = sxp['fnr']
     fornavn = sxp['fornavn']
     etternavn = sxp['etternavn']
     fullt_navn = "%s %s" % (fornavn, etternavn)
-    approved = sxp['approved']
 
-    # logger.debug("Trying to process %s %s ID=%s,approved=%s" %
-    #                       (fornavn,etternavn,id,approved))
     if check_expired_sourcedata(sxp['expire_date']):
         logger.info(
-            "Skip %s (SysXId=%s)(pnr=%s), it is expired %s",
-            fullt_navn, id, personnr, sxp['expire_date'])
-        skipped += 1
+            "Skipping sysx_id=%r (%s), expire_date=%r",
+            sysx_id, fullt_navn, sxp['expire_date'])
+        stats['skipped'] += 1
         return
 
     # check if approved. Ditch if not.
-    if approved != 'Yes':
+    if not sxp['approved']:
         logger.error(
-            "Person: %s (id=%s) not approved, Skip." % (fullt_navn, id))
+            "Skipping sysx_id=%r (%s), not approved",
+            sysx_id, fullt_navn)
+        stats['skipped'] += 1
         return
 
     my_stedkode = Factory.get('OU')(db)
@@ -133,60 +151,67 @@ def create_sysx_person(sxp):
     pers_fnr = Factory.get('Person')(db)
 
     try:
-        pers_sysx.find_by_external_id(co.externalid_sys_x_id, id)
+        pers_sysx.find_by_external_id(co.externalid_sys_x_id, sysx_id)
     except Errors.NotFoundError:
         add_sysx_id = True
-        # not found by sysX_id
 
-    if personnr != "":
+    if fnr:
         try:
-            fnr = fodselsnr.personnr_ok(personnr)
+            fnr = fodselsnr.personnr_ok(fnr)
         except fodselsnr.InvalidFnrError:
-            logger.error("Ugyldig fødselsnr: %s on sysX id=", personnr, id)
+            logger.error("Skipping sysx_id=%r (%s), invalid fnr",
+                         sysx_id, fullt_navn)
+            stats['skipped'] += 1
             return
-        (year, mon, day) = fodselsnr.fodt_dato(fnr)
-        gender = co.gender_male
+        birth_date = datetime.date(*fodselsnr.fodt_dato(fnr))
+
         if fodselsnr.er_kvinne(fnr):
             gender = co.gender_female
+        else:
+            gender = co.gender_male
 
         try:
             pers_fnr.find_by_external_id(co.externalid_fodselsnr, fnr)
         except Errors.NotFoundError:
             pass
-        except Errors.TooManyRowsError:
+        except Errors.TooManyRowsError as e:
             # This persons fnr has multiple rows in entity_external_id table
             # This is an error, person should not have not more than one entry.
             # Don't know which person object to use, return error message.
             logger.error(
-                "Person with ssn:%s has multiple entries in "
-                "entity_external_id. Resolve manually" % fnr)
+                "Skipping sysx_id=%r (%s), matched multiple persons (%s)",
+                sysx_id, fullt_navn, e)
+            stats['skipped'] += 1
             return
         else:
             if not add_sysx_id and (pers_fnr.entity_id != pers_sysx.entity_id):
                 logger.error(
-                    "SysXID=%s with fnr=%s is owned by different personid's! "
-                    "Fnr owned by person_id=%s in db "
-                    "Resolve manually",
-                    pers_sysx.entity_id, fnr, pers_fnr.entity_id)
+                    "Skipping sysx_id=%r (%s), matched multiple persons (sysx "
+                    "id matched person_id=%r, sysx fnr matched person_id=%r)",
+                    sysx_id, fullt_navn, pers_sysx.entity_id,
+                    pers_fnr.entity_id)
+                stats['skipped'] += 1
                 return
             fnr_found = True
 
     else:
         # foreigner without norwegian ssn,
-        date_field = sxp['fodsels_dato'].split(".")
-        year = int(date_field[2])
-        mon = int(date_field[1])
-        day = int(date_field[0])
+        birth_date = sxp['birth_date']
+        if not birth_date:
+            logger.error("sysx_id=%r (%s) is missing birth date",
+                         sysx_id, fullt_navn)
+
         if sxp['gender'] == 'M':
             gender = co.gender_male
         elif sxp['gender'] == 'F':
             gender = co.gender_female
         else:
-            logger.error("Invalid gender from SysXId=%s" % id)
+            logger.error("Skipping sysx_id=%r (%s), invalid gender %r",
+                         sysx_id, fullt_navn, sxp['gender'])
+            stats['skipped'] += 1
             return
 
-    logger.info(
-        "Processing '%s', SysXId=%s, fnr='%s'" % (fullt_navn, id, personnr))
+    logger.info("Processing sysx_id=%r (%s)", sysx_id, fullt_navn)
     if fnr_found:
         person = pers_fnr
     else:
@@ -194,9 +219,11 @@ def create_sysx_person(sxp):
 
     # person object located, populate...
     try:
-        person.populate(mx.DateTime.Date(year, mon, day), gender)
-    except Errors.CerebrumError as m:
-        logger.error("Person %s populate failed: %s" % (personnr or id, m))
+        person.populate(mx.DateTime.DateFrom(birth_date), gender)
+    except Errors.CerebrumError:
+        logger.error("Skipping sysx_id=%r (%s), populate() failed",
+                     sysx_id, fullt_navn, exc_info=True)
+        stats['skipped'] += 1
         return
 
     person.affect_names(co.system_x, co.name_first, co.name_last, co.name_full)
@@ -205,22 +232,25 @@ def create_sysx_person(sxp):
     person.populate_name(co.name_full, fullt_navn)
 
     # add external ids
-    if personnr:
+    if fnr:
         person.affect_external_id(co.system_x,
                                   co.externalid_fodselsnr,
                                   co.externalid_sys_x_id)
         person.populate_external_id(co.system_x, co.externalid_fodselsnr, fnr)
-        logger.debug("Set NO_BIRTHNO for id=%s,fnr=%s" % (id, personnr))
+        logger.debug("Set NO_BIRTHNO for sysx_id=%r (%s)",
+                     sysx_id, fullt_navn)
     else:
         person.affect_external_id(co.system_x, co.externalid_sys_x_id)
-    person.populate_external_id(co.system_x, co.externalid_sys_x_id, id)
-    logger.debug("Set syx_id for id=%s,fnr=%s" % (id, personnr))
+
+    person.populate_external_id(co.system_x, co.externalid_sys_x_id, sysx_id)
+    logger.debug("Set sysx_id for sysx_id=%r (%s)", sysx_id, fullt_navn)
 
     # setting affiliation and affiliation_status
-    aff = sxp['affiliation']
-    aff_stat = sxp['affiliation_status']
-    affiliation = int(co.PersonAffiliation(aff))
-    affiliation_status = int(co.PersonAffStatus(aff, aff_stat))
+    affiliation = co.PersonAffiliation(sxp['affiliation'])
+    affiliation_status = co.PersonAffStatus(affiliation,
+                                            sxp['affiliation_status'])
+    # Assert that the affs are real
+    int(affiliation), int(affiliation_status)
 
     # get ou_id of stedkode used
     fak = sxp['ou'][0:2]
@@ -229,17 +259,16 @@ def create_sysx_person(sxp):
 
     # KEB
     if fak == '0':
-        logger.warn(
-            "Person with SysX id=%s and fnr=%s, has invalid stedkode: %s%s%s",
-            id, personnr, fak, ins, avd)
-        ins = fak
-        avd = fak
+        logger.warning("sysx_id=%r (%s) has invalid sko=%r",
+                       sysx_id, fullt_navn, sxp['ou'])
+        ins = avd = fak
     try:
         my_stedkode.find_stedkode(fak, ins, avd,
                                   cereconf.DEFAULT_INSTITUSJONSNR)
     except EntityExpiredError:
-        logger.error("Person with SysX id %s on expired stedkode %s%s%s",
-                     id, fak, ins, avd)
+        logger.error("Skipping sysx_id=%r (%s), expired sko=%r",
+                     sysx_id, fullt_navn, sxp['ou'])
+        stats['skipped'] += 1
         return
 
     ou_id = int(my_stedkode.entity_id)
@@ -251,51 +280,40 @@ def create_sysx_person(sxp):
     # populate the person affiliation table
     person.populate_affiliation(co.system_x,
                                 ou_id,
-                                affiliation,
-                                affiliation_status
-                                )
+                                int(affiliation),
+                                int(affiliation_status))
+
     # make sure we don't delete this aff when processing deleted affs
-    if include_delete:
-        key_a = "%s:%s:%s" % (person.entity_id, ou_id, int(affiliation))
-        if key_a in old_aff:
-            logger.debug("Don't delete affiliation: %s", key_a)
-            old_aff[key_a] = False
+    aff_key = affiliation_key(person.entity_id, ou_id, affiliation)
+    update_affs.discard(aff_key)
+
     op2 = person.write_db()
 
     logger.debug("OP codes: op=%s,op2=%s" % (op, op2))
 
     if op is None and op2 is None:
         logger.info("**** EQUAL ****")
-        unchanged += 1
+        stats['unchanged'] += 1
     elif op is None and op2 is False:
         logger.info("**** AFF UPDATE ****")
-        updated += 1
+        stats['updated'] += 1
     elif op is True:
         logger.info("**** NEW ****")
-        added += 1
+        stats['added'] += 1
     elif op is False:
         logger.info("**** UPDATE ****")
-        updated += 1
-    return 0
+        stats['updated'] += 1
+    return
 
 
 def main(inargs=None):
-    global db, person, co
     parser = argparse.ArgumentParser(
         description="Import guest user data from SYSTEM-X",
     )
     parser.add_argument(
-        '-f', '--filename',
-        required=True,
-        dest='source_file',
-        help='Read and import persons from %(metavar)s',
-        metavar='file',
-    )
-    parser.add_argument(
-        '-u', '--update',
-        action='store_true',
-        default=False,
-        help='Fetch recent updates from SYSTEM-X',
+        'filename',
+        help='Read and import SYSTEM-X guests from %(metavar)s',
+        metavar='<file>',
     )
     add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
@@ -303,23 +321,15 @@ def main(inargs=None):
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    logger.info('Start of %s', parser.prog)
+    logger.info('Start %s', parser.prog)
     logger.debug('args: %r', args)
 
-    # TODO: Ugh, get rid of these globals
     db = Factory.get('Database')()
     db.cl_init(change_program='import_SYSX')
-    person = Factory.get('Person')(db)
-    co = Factory.get('Constants')(db)
 
-    # TODO: At UiO, source_file is kind of required, as we don't have access to
-    # the system x database
-    # TODO: Also, the update flag is not supported
-    process_sysx_persons(args.source_file, args.update)
+    stats = process_sysx_persons(db, args.filename)
 
-    logger.info("Stats: Added: %d, Updated=%d, Skipped=%d, Unchanged=%d, "
-                "Deleted affs=%d", added, updated, skipped, unchanged,
-                deletedaff)
+    logger.info("Stats: %r", dict(stats))
 
     if args.commit:
         logger.info('Commiting changes')

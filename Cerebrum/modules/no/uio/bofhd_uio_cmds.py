@@ -90,6 +90,7 @@ from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio import bofhd_pw_issues
+from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.uio.bofhd_auth import (
     BofhdApiKeyAuth,
     UiOBofhdRequestsAuth,
@@ -98,6 +99,7 @@ from Cerebrum.modules.no.uio.bofhd_auth import (
     UioContactAuth,
     UioEmailAuth,
     UioPassWordAuth,
+    UioUnpersonalAuth,
 )
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
@@ -1066,8 +1068,8 @@ class BofhdExtension(BofhdCommonMethods):
                 err_str = pg.illegal_name(groupname)
                 if err_str:
                     if not isinstance(err_str, basestring):  # paranoia
-                        err_str = 'Illegal groupname'
-                    raise CerebrumError('Group-name error: {err_str}'.format(
+                        err_str = u'Illegal groupname'
+                    raise CerebrumError(u'Group-name error: {err_str}'.format(
                         err_str=err_str))
                 body.append("group promote_posix %s" % groupname)
         if spread:
@@ -2733,9 +2735,9 @@ class BofhdExtension(BofhdCommonMethods):
             data['children'].append(c[0])
 
         for d in data:
-            if d is 'target':
+            if d == 'target':
                 indent = '* ' + (len(data['parents']) - 1) * '  '
-            elif d is 'children':
+            elif d == 'children':
                 indent = (len(data['parents']) + 1) * '  '
                 if len(data['parents']) == 0:
                     indent += '  '
@@ -2744,7 +2746,7 @@ class BofhdExtension(BofhdCommonMethods):
                 ou.clear()
                 ou.find(item)
 
-                if d is 'parents':
+                if d == 'parents':
                     indent = num * '  '
 
                 output.append({
@@ -4602,69 +4604,6 @@ class BofhdExtension(BofhdCommonMethods):
                                               self._format_ou_name(ou),
                                               accountname)
 
-    #
-    # user create_unpersonal
-    #
-    all_commands['user_create_unpersonal'] = Command(
-        ('user', 'create_unpersonal'),
-        AccountName(),
-        GroupName(),
-        EmailAddress(),
-        SimpleString(help_ref="string_np_type"),
-        fs=FormatSuggestion("Created account_id=%i", ("account_id",)),
-        perm_filter='can_create_user_unpersonal')
-
-    def user_create_unpersonal(self, operator,
-                               account_name, group_name,
-                               contact_address, account_type):
-        owner_group = self._get_group(group_name)
-        self.ba.can_create_user_unpersonal(operator.get_entity_id(),
-                                           group=owner_group)
-
-        account_type = self._get_constant(self.const.Account, account_type,
-                                          "account type")
-        account = self._user_create_basic(operator, owner_group, account_name,
-                                          account_type)
-        self._user_password(operator, account)
-
-        # Validate the contact address
-        # TBD: Check if address is instance-internal?
-        local_part, domain = bofhd_email.split_address(contact_address)
-        ea = Email.EmailAddress(self.db)
-        ed = Email.EmailDomain(self.db)
-        try:
-            if not ea.validate_localpart(local_part):
-                raise AttributeError('Invalid local part')
-            ed._validate_domain_name(domain)
-        except AttributeError as e:
-            raise CerebrumError("Invalid contact address: %s" % exc_to_text(e))
-
-        # Unpersonal accounts shouldn't normally have a mail inbox, but they
-        # get a forward target for the account, to be sent to those responsible
-        # for the account, preferrably a sysadm mail list.
-        if hasattr(account, 'add_contact_info'):
-            account.add_contact_info(self.const.system_manual,
-                                     self.const.contact_email,
-                                     contact_address)
-
-        # TBD: Better way of checking if email forwards are in use, by
-        # checking if bofhd command is available?
-        if hasattr(self, '_email_create_forward_target'):
-            localaddr = '{}@{}'.format(
-                account_name,
-                Email.get_primary_default_email_domain())
-            self._email_create_forward_target(localaddr, contact_address)
-
-        quar = cereconf.BOFHD_CREATE_UNPERSONAL_QUARANTINE
-        if quar:
-            qconst = self._get_constant(self.const.Quarantine, quar,
-                                        "quarantine")
-            account.add_entity_quarantine(qconst, operator.get_entity_id(),
-                                          "Not granted for global password "
-                                          "auth (ask IT-sikkerhet)",
-                                          self._today())
-        return {'account_id': int(account.entity_id)}
-
     def _user_create_prompt_func(self, session, *args):
         """A prompt_func on the command level should return
         {'prompt': message_string, 'map': dict_mapping}
@@ -4778,11 +4717,10 @@ class BofhdExtension(BofhdCommonMethods):
         # capital letters in their ids, and even then, just for system
         # users
         if uname != uname.lower():
-            if (not self.ba.is_superuser(operator.get_entity_id()) and
-                    owner_type != self.const.entity_group):
-                    raise CerebrumError(
-                        'Personal account names cannot contain '
-                        'capital letters')
+            sup_user_p = self.ba.is_superuser(operator.get_entity_id())
+            if (not sup_user_p and owner_type != self.const.entity_group):
+                raise CerebrumError('Personal account names cannot contain '
+                                    'capital letters')
 
         posix_user = Utils.Factory.get('PosixUser')(self.db)
         uid = posix_user.get_free_uid()
@@ -4794,6 +4732,9 @@ class BofhdExtension(BofhdCommonMethods):
                 raise PermissionDenied(
                     'Only superusers may use hardcoded path')
             disk_id, home = None, home[1:]
+        if uname.endswith('-drift'):
+            raise CerebrumError('Users ending with -drift should be created '
+                'with user create_sysadm')
         posix_user.clear()
         gecos = None
         expire_date = None
@@ -5606,14 +5547,14 @@ class BofhdExtension(BofhdCommonMethods):
             elif operator.get_entity_id() != account.entity_id:
                 raise CerebrumError(
                     "Cannot specify password for another user.")
-        try:
-            check_password(password, account, structured=False)
-        except RigidPasswordNotGoodEnough as e:
-            raise CerebrumError('Bad password: %s' % exc_to_text(e))
-        except PhrasePasswordNotGoodEnough as e:
-            raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
-        except PasswordNotGoodEnough as e:
-            raise CerebrumError('Bad password: %s' % exc_to_text(e))
+            try:
+                check_password(password, account, structured=False)
+            except RigidPasswordNotGoodEnough as e:
+                raise CerebrumError('Bad password: %s' % exc_to_text(e))
+            except PhrasePasswordNotGoodEnough as e:
+                raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
+            except PasswordNotGoodEnough as e:
+                raise CerebrumError('Bad password: %s' % exc_to_text(e))
         account.set_password(password)
         account.write_db()
         operator.store_state("user_passwd",
@@ -6695,7 +6636,8 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                 hidden = False
 
             if hidden:
-                members = randsone_group.search_members(group_id=randsone_group.entity_id, indirect_members=True)
+                members = randsone_group.search_members(
+                    group_id=randsone_group.entity_id, indirect_members=True)
                 for member in members:
                     if member['member_id'] == person.entity_id:
                         hidden = False
@@ -6783,3 +6725,8 @@ class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
 class UioPassWordIssuesCommands(bofhd_pw_issues.BofhdExtension):
     """Uio specific password * commands"""
     authz = UioPassWordAuth
+
+
+class UioCreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
+    """Uio specific create unpersonal * commands"""
+    authz = UioUnpersonalAuth

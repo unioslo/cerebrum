@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-# Copyright 2003-2017 University of Oslo, Norway
+
+# Copyright 2004-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,18 +18,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from require import require
+from . import pq_exemption
+from . import constants
 
+__version__ = "1.0"
 
-def test_unicode():
-    assert True
-
-
-@require('sqlmodule_posixuser')
-def test_not_skipped():
-    assert True
-
-
-@require('sqlmodule_that_does_not_exist')
-def test_skipped():
-    assert True
+__all__ = ['constants', 'pq_exemption']

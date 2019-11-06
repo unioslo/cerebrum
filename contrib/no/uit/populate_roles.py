@@ -1,7 +1,7 @@
 #!/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003, 2004, 2019 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,8 +29,6 @@ if rolename has admin attr=yes
 
 import argparse
 import logging
-import os
-import time
 import xml.sax
 
 import Cerebrum.logutils
@@ -55,10 +53,6 @@ account2name = dict((x["entity_id"], x["entity_name"]) for x in
                     Factory.get("Group")(db).list_names(
                         const.account_namespace))
 name_gen = UsernamePolicy(db)
-
-TODAY = time.strftime("%Y%m%d")
-sys_y_default_file = os.path.join(cereconf.DUMPDIR,
-                                  'sysY', 'sysY_%s.xml' % TODAY)
 
 
 class RolesXmlParser(xml.sax.ContentHandler):
@@ -320,14 +314,20 @@ def rolle_helper(obj, el_name):
 
 def main(inargs=None):
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument('-r', '--role_file',
-                        help='role filename',
-                        default=sys_y_default_file)
+    parser.add_argument(
+        '-r', '--role_file',
+        required=True,
+        help='Import role groups from %(metavar)s',
+        metavar='<file>',
+    )
     parser = add_commit_args(parser)
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %r', args)
 
     RolesXmlParser(args.role_file, rolle_helper)
 
@@ -337,6 +337,8 @@ def main(inargs=None):
     else:
         logger.info("Dryrun, rollback changes")
         db.rollback()
+
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':

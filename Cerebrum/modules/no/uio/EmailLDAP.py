@@ -1,5 +1,5 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
 # Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -23,7 +23,6 @@ from __future__ import unicode_literals
 from collections import defaultdict
 
 from Cerebrum import Errors
-from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.EmailLDAP import EmailLDAP
@@ -46,7 +45,8 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # Host cache for get_target_info
         self.target_hosts_cache = {}
 
-        # keys: account email target ids with pending 'email_primary_address' events
+        # keys: account email target ids with pending 'email_primary_address'
+        # events
         # values: list of event ids
         # read_pending_primary_email() is called by read_addr()
         self.pending_primary_email = defaultdict(list)
@@ -199,20 +199,9 @@ class EmailLDAPUiOMixin(EmailLDAP):
                 continue
             self.targ2addr[t_id].add(addr)
 
-        # look for primary email changes that are still pending in the event log
+        # look for primary email changes that are still pending in the event
+        # log
         self.read_pending_primary_email()
-
-    def read_target_auth_data(self):
-        a = Factory.get('Account')(self._db)
-        # Same as default, but omit co.quarantine_auto_emailonly
-        quarantines = dict(
-            [(x, "*locked") for x in
-             QuarantineHandler.get_locked_entities(
-             self._db, entity_types=self.const.entity_account,
-             ignore_quarantine_types=self.const.quarantine_auto_emailonly)])
-        for row in a.list_account_authentication():
-            a_id = int(row['account_id'])
-            self.e_id2passwd[a_id] = quarantines.get(a_id) or row['auth_data']
 
     # exchange-relatert-jazz
     # hardcoding exchange spread since there is no case for any other

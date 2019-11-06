@@ -31,6 +31,7 @@ import cereconf
 from Cerebrum import Utils
 from Cerebrum import QuarantineHandler
 from Cerebrum.modules import CLHandler
+from Cerebrum.modules.Email import EmailTarget
 from Cerebrum.modules.no.uio import ADutils
 from Cerebrum.utils import json
 
@@ -92,12 +93,15 @@ class ADFullUserSync(ADutils.ADuserUtil):
         @param user_dict: account_id -> account information
         @type user_dict: dict
         """
-        uname2primary_mail = self.ac.getdict_uname2mailaddr(
-            filter_expired=True,
-            primary_only=True)
-        for uname, prim_mail in uname2primary_mail.iteritems():
-            if uname in user_dict:
-                user_dict[uname]['mail'] = prim_mail
+        targets = EmailTarget(self.db).list_email_target_addresses
+        co = Utils.Factory.get('Constants')(self.db)
+        for row in targets(target_type=co.email_target_account,
+                           domain='uio.no', uname_local=True):
+            mail = "@".join((row['local_part'], row['domain']))
+            try:
+                user_dict[row['entity_name']]['mail'] = mail
+            except KeyError:
+                pass
 
     def _update_home_drive_info(self, user_dict, spread):
         """ Update user_dict with home directory.
@@ -1272,6 +1276,54 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
                 self.logger.warning(
                     "Group %r has no group_id. Not syncing members.", grp)
 
+    def get_group_members(self, entity2name, group_spread, user_spread,
+                          sendDN_boost, grp_id):
+        members = list()
+        account_type = self.co.entity_account
+        group_type = self.co.entity_group
+
+        for member in self.group.search_members(
+                group_id=grp_id,
+                member_spread=(int(self.co.Spread(user_spread)),
+                               int(self.co.Spread(group_spread)))):
+            member_id = member["member_id"]
+
+            if member['member_type'] == account_type:
+                try:
+                    if sendDN_boost:
+                        members.append(("CN={},{}".format(
+                            entity2name[member_id],
+                            cereconf.AD_USER_OU)))
+                    else:
+                        members.append(entity2name[member_id])
+                    self.logger.debug(
+                        "Try to sync member account id=%r, name=%r",
+                        member_id, entity2name[member_id])
+                except KeyError:
+                    self.logger.debug("Missing name for account id=%r",
+                                      member_id)
+                    continue
+
+            elif member['member_type'] == group_type:
+                try:
+                    if sendDN_boost:
+                        members.append(("CN={}{},{}".format(
+                                entity2name[member_id],
+                                cereconf.AD_GROUP_POSTFIX,
+                                cereconf.AD_GROUP_OU)))
+                    else:
+                        members.append('{}{}'.format(
+                            entity2name[member_id],
+                            cereconf.AD_GROUP_POSTFIX))
+                    self.logger.debug(
+                        "Try to sync member group id=%r, name=%r",
+                        member_id, entity2name[member_id])
+                except KeyError:
+                    self.logger.debug("Missing name for group id=%r",
+                                      member_id)
+                    continue
+        return members
+
     def sync_group_members(self, cerebrum_dict, group_spread, user_spread,
                            dry_run, sendDN_boost):
         """
@@ -1304,43 +1356,9 @@ class ADFullGroupSync(ADutils.ADgroupUtil):
                 # TODO: How to treat quarantined users???, some exist in AD,
                 # others do not. They generate errors when not in AD. We still
                 # want to update group membership if in AD.
-                members = list()
-                for usr in self.group.search_members(
-                        group_id=grp_id,
-                        member_spread=int(self.co.Spread(user_spread))):
-                    user_id = usr["member_id"]
-                    if user_id not in entity2name:
-                        self.logger.debug("Missing name for account id=%r",
-                                          user_id)
-                        continue
-                    if sendDN_boost:
-                        members.append(("CN=%s,%s" % (entity2name[user_id],
-                                                      cereconf.AD_USER_OU)))
-                    else:
-                        members.append(entity2name[user_id])
-                    self.logger.debug(
-                        "Try to sync member account id=%r, name=%r",
-                        user_id, entity2name[user_id])
-
-                for grp in self.group.search_members(
-                        group_id=grp_id,
-                        member_spread=int(self.co.Spread(group_spread))):
-                    group_id = grp["member_id"]
-                    if group_id not in entity2name:
-                        self.logger.debug("Missing name for group id=%r",
-                                          group_id)
-                        continue
-                    if sendDN_boost:
-                        members.append(
-                            ("CN=%s%s,%s" % (entity2name[group_id],
-                                             cereconf.AD_GROUP_POSTFIX,
-                                             cereconf.AD_GROUP_OU)))
-                    else:
-                        members.append('%s%s' % (entity2name[group_id],
-                                                 cereconf.AD_GROUP_POSTFIX))
-                    self.logger.debug(
-                        "Try to sync member group id=%r, name=%r",
-                        group_id, entity2name[group_id])
+                members = self.get_group_members(entity2name, group_spread,
+                                                 user_spread, sendDN_boost,
+                                                 grp_id)
 
                 dn = self.server.findObject(
                     '%s%s' % (grp_name, cereconf.AD_GROUP_POSTFIX))

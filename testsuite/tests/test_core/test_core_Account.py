@@ -206,7 +206,7 @@ class MultipleAccountsTest(BaseAccountTest):
         self.assertGreaterEqual(len(created_ids), 1)
 
         results = self._ac.search(owner_id=owner_id, expire_start=None)
-        owned_by = _set_of_ids(results)
+        owned_by = _set_of_ids(map(lambda x: dict(x), results))
 
         # INITIAL_GROUPNAME could own more than what we've created, but all our
         # created groups should be returned by the search
@@ -243,7 +243,7 @@ class MultipleAccountsTest(BaseAccountTest):
             sequence = seq_type((person_id, group_id))
             results = list(self._ac.search(owner_id=sequence,
                                            expire_start=None))
-            owned_by_seq = _set_of_ids(results)
+            owned_by_seq = _set_of_ids(map(lambda x: dict(x), results))
             self.assertGreaterEqual(len(results), len(created_ids) + 1)
             self.assertTrue(owned_by_seq.issuperset(created_ids))
             for result in results:
@@ -251,7 +251,7 @@ class MultipleAccountsTest(BaseAccountTest):
 
     def test_search_filter_expired(self):
         """ Account.search() with expire_start, expire_stop args. """
-        all = _set_of_ids(self._accounts)
+        all_accounts = _set_of_ids(self._accounts)
         non_expired = _set_of_ids(filter(nonexpired_filter, self._accounts))
         expired = _set_of_ids(filter(expired_filter, self._accounts))
 
@@ -259,18 +259,20 @@ class MultipleAccountsTest(BaseAccountTest):
         self.assertGreaterEqual(len(non_expired), 1)
         self.assertGreaterEqual(len(expired), 1)
 
+        search_params = (({'expire_start': None, 'expire_stop': None,
+              'owner_id': self.db_tools.get_initial_group_id()},
+             all_accounts, set()),
+            ({'expire_start': '[:now]', 'expire_stop': None,
+              'owner_id': self.db_tools.get_initial_group_id()},
+             non_expired, expired),
+            ({'expire_start': None, 'expire_stop': '[:now]',
+              'owner_id': self.db_tools.get_initial_group_id()},
+             expired, non_expired),)
+
         # Tests: search params, must match
-        for params, match_set, fail_set in (
-                ({'expire_start': None, 'expire_stop': None,
-                  'owner_id': self.db_tools.get_initial_group_id()},
-                 all, set()),
-                ({'expire_start': '[:now]', 'expire_stop': None,
-                  'owner_id': self.db_tools.get_initial_group_id()},
-                 non_expired, expired),
-                ({'expire_start': None, 'expire_stop': '[:now]',
-                  'owner_id': self.db_tools.get_initial_group_id()},
-                 expired, non_expired),):
-            result = _set_of_ids(self._ac.search(**params))
+        for params, match_set, fail_set in search_params:
+            result = _set_of_ids(
+                map(lambda x: dict(x), self._ac.search(**params)))
             self.assertGreaterEqual(len(result), len(match_set))
             self.assertTrue(result.issuperset(match_set))
             self.assertSetEqual(result.intersection(fail_set), set())
@@ -289,7 +291,8 @@ class MultipleAccountsTest(BaseAccountTest):
     def test_search_name_wildcard(self):
         """ Account.search() for name with wildcards. """
         search_expr = self.account_ds.name_prefix + '%'
-        result = list(self._ac.search(name=search_expr, expire_start=None))
+        result = list(map(lambda x: dict(x),
+                self._ac.search(name=search_expr, expire_start=None)))
         self.assertEqual(len(result), len(self._accounts))
 
         # The test group should contain names with unique prefixes, or this

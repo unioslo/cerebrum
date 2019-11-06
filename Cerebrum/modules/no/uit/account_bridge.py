@@ -25,6 +25,8 @@ import logging
 import psycopg2
 import psycopg2.extras
 
+from .Account import UsernamePolicy
+
 logger = logging.getLogger(__name__)
 default_database = "cerebrum"
 default_user = "cerebrum"
@@ -77,7 +79,6 @@ class AccountBridge(object):
     # NOTE that a person can have more than one account:
     # Sito employees can have two accounts if they are also students/employees
     # at uit.
-    # Sito usernames are longer than 6 characters and end with 's'
 
     # list_unames(self, ssn)
     #
@@ -123,11 +124,10 @@ class AccountBridge(object):
         uit_uname = None
         sito_uname = None
         for row in (self.list_unames(ssn) or ()):
-            if (len(row["entity_name"]) > 6 and
-                    row["entity_name"].endswith('s')):
+            if UsernamePolicy.is_valid_sito_name(row["entity_name"]):
                 sito_uname = row["entity_name"]
                 logger.debug("Found sito username=%r", row['entity_name'])
-            elif (len(row["entity_name"]) == 6 and
+            elif (UsernamePolicy.is_valid_uit_name(row["entity_name"]) and
                   row["entity_name"][3:5] == '99' and
                   row["entity_name"][5] in ('8', '9')):
                 # Do not collect usernames on the form aaa99(8,9). these are

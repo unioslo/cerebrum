@@ -70,13 +70,13 @@ class EventType(_VerbSingleton('EventTypeSingleton', (object,), {})):
 
 # Define event types:
 
-ADD = EventType('add', 'Add a spread to subject')
+ADD = EventType('add', 'Add an object to subject')
 CREATE = EventType('create', 'Create a new subject')
 ACTIVATE = EventType('activate', 'Subject has no longer quarantines in system')
 MODIFY = EventType('modify', 'Attributes has changed')
 DEACTIVATE = EventType('deactivate', 'Quarantine is activated')
 DELETE = EventType('delete', 'Subject is deleted')
-REMOVE = EventType('remove', 'Subject lost spread')
+REMOVE = EventType('remove', 'Remove an object from subject')
 PASSWORD = EventType('password', 'Subject has changed password')
 
 

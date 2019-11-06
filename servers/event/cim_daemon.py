@@ -67,7 +67,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
             CimConsumer(
                 daemon=True,
                 queue=event_queue,
-                log_queue=cimd.log_queue,
+                log_channel=cimd.log_channel,
                 running=cimd.run_trigger,
                 cim_config=cim_config))
 
@@ -76,7 +76,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
             evhandlers.EventLogListener(
                 daemon=True,
                 queue=event_queue,
-                log_queue=cimd.log_queue,
+                log_channel=cimd.log_channel,
                 running=cimd.run_trigger,
                 channels=channels))
 
@@ -86,7 +86,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
                 evhandlers.EventLogCollector(
                     daemon=True,
                     queue=event_queue,
-                    log_queue=cimd.log_queue,
+                    log_channel=cimd.log_channel,
                     running=cimd.run_trigger,
                     channel=chan,
                     config=cim_config.eventcollector))

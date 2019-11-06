@@ -109,6 +109,7 @@ from Cerebrum import Errors
 from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
+from Cerebrum.modules.no.uit import POSIX_GROUP_NAME
 from Cerebrum.utils import transliterate
 from Cerebrum.utils.argutils import add_commit_args
 from mx import DateTime
@@ -295,7 +296,7 @@ def process_account(db, account_data, logger, default_owner_id,
         logger.warn("Posix account not found. Trying to promote....")
         uid = pu.get_free_uid()
         shell = co.posix_shell_bash
-        grp_name = "posixgroup"
+        grp_name = POSIX_GROUP_NAME
         gr.find_by_name(grp_name, domain=co.group_namespace)
         try:
             pu.clear()

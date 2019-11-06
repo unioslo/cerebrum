@@ -28,11 +28,11 @@ class EntityExpireConstants(Constants.CLConstants):
         "added expire date for %(subject)s",
         ("new_expire_date=%(new_expire_date)s",))
     entity_expire_del = Constants._ChangeTypeCode(
-        "entity_expire", "del",
+        "entity_expire", "remove",
         "deleted expire date for %(subject)s",
         ("old_expire_date=%(old_expire_date)s",))
     entity_expire_mod = Constants._ChangeTypeCode(
-        "entity_expire", "mod",
+        "entity_expire", "modify",
         "modified expire date for %(subject)s",
         ("old_expire_date=%(old_expire_date)s",
          "new_expire_date=%(new_expire_date)s"))

@@ -47,6 +47,7 @@ class Subnet(Entity):
         # Set of reserved adresses, represented as longs (i.e. not x.x.x.x)
         self.reserved_adr = set()
 
+    @staticmethod
     def validate_subnet(subnet):
         """Validates that a subnet specification is correctly
         formatted and with legal values.
@@ -72,8 +73,7 @@ class Subnet(Entity):
                               mask)
         return True
 
-    validate_subnet = staticmethod(validate_subnet)
-
+    @staticmethod
     def is_valid_subnet(subnet):
         """
         Helper method for giving a simple True/False-result when trying
@@ -85,10 +85,10 @@ class Subnet(Entity):
         try:
             Subnet.validate_subnet(subnet)
             return True
-        except:
+        except (ValueError, SubnetError) as e:
             return False
-    is_valid_subnet = staticmethod(is_valid_subnet)
 
+    @staticmethod
     def calculate_subnet_mask(ip_min, ip_max):
         """Calculates the subnetmask of a subnet based on the highest
         and lowest IP available to on that subnet.
@@ -99,7 +99,6 @@ class Subnet(Entity):
         """
         net_size = ip_max - ip_min + 1
         return int(32 - math.log(net_size, 2))
-    calculate_subnet_mask = staticmethod(calculate_subnet_mask)
 
     def clear(self):
         """Clear all data residing in this Subnet-instance."""
@@ -168,12 +167,13 @@ class Subnet(Entity):
 
         overlap_entries = self.query(
             """SELECT subnet_ip, ip_min, ip_max
-               FROM [:table schema=cerebrum name=dns_subnet]
-               WHERE NOT (:max < ip_min OR :min > ip_max)""", binds)
+            FROM [:table schema=cerebrum name=dns_subnet]
+            WHERE NOT (:max < ip_min OR :min > ip_max)""", binds)
 
         if overlap_entries:
-            overlaps = ["%s/%s" % (o['subnet_ip'],
-                        Subnet.calculate_subnet_mask(o['ip_min'], o['ip_max']))
+            overlaps = ["%s/%s" % (
+                o['subnet_ip'],
+                Subnet.calculate_subnet_mask(o['ip_min'], o['ip_max']))
                         for o in overlap_entries]
             raise SubnetError("Subnet '%s/%s' overlaps with the following"
                               " subnet(s): '%s'" % (self.subnet_ip,
@@ -209,8 +209,8 @@ class Subnet(Entity):
         # Designate the first X adresses in subnet (not counting the
         # subnet's address itself) as reserved, where X equals the
         # number specifically set as reserved addresses.
-        self.reserved_adr = set([x + self.ip_min + 1 for
-                                 x in range(self.no_of_reserved_adr)])
+        self.reserved_adr = set(x + self.ip_min + 1 for
+                                x in range(self.no_of_reserved_adr))
 
         # Make sure the first (subnet address) and last (broadcast)
         # addresses in the subnet is set as reserved.
@@ -238,11 +238,7 @@ class Subnet(Entity):
         default_zone = self.const.DnsZone(getattr(cereconf, 'DNS_DEFAULT_ZONE',
                                                   'uio'))
         find = Find(self._db, default_zone)
-
-        if find.find_used_ips(self.subnet_ip):
-            return True
-        else:
-            return False
+        return bool(find.find_used_ips(self.subnet_ip))
 
     def check_reserved_addresses_in_use(self):
         """TODO: DOC
@@ -280,7 +276,6 @@ class Subnet(Entity):
         self.__super.write_db()
         if not self.__updated:
             return
-
         is_new = not self.__in_db
 
         # With some DB-interfaces (e.g. psycopg 1), DB-booleans may be
@@ -304,59 +299,60 @@ class Subnet(Entity):
             # Only need to check for overlaps when subnet is being
             # added, since a subnet's ip-range is never changed.
             self.check_for_overlaps()
-
             if perform_checks:
                 self.check_reserved_addresses_in_use()
-
-            cols = [('entity_type', ':e_type'),
-                    ('entity_id', ':ent_id'),
-                    ('subnet_ip', ':subnet_ip'),
-                    ('ip_min', ':ip_min'),
-                    ('ip_max', ':ip_max'),
-                    ('no_of_reserved_adr', ':res_adr'),
-                    ('description', ':desc')]
+            binds = {'entity_type': int(self.const.entity_dns_subnet),
+                     'entity_id': self.entity_id,
+                     'subnet_ip': self.subnet_ip,
+                     'ip_min': self.ip_min,
+                     'ip_max': self.ip_max,
+                     'description': self.description,
+                     'no_of_reserved_adr': self.no_of_reserved_adr}
             if self.vlan is not None:
-                cols.append(('vlan_number', ':vlan'))
-            self.execute(
-                """ INSERT INTO [:table schema=cerebrum name=dns_subnet]
-                (%(tcols)s)
-                VALUES (%(binds)s)
-                """ % {'tcols': ", ".join([x[0] for x in cols]),
-                       'binds': ", ".join([x[1] for x in cols])},
-                {'e_type': int(self.const.entity_dns_subnet),
-                 'ent_id': self.entity_id,
-                 'subnet_ip': self.subnet_ip,
-                 'ip_min': self.ip_min,
-                 'ip_max': self.ip_max,
-                 'desc': self.description,
-                 'res_adr': self.no_of_reserved_adr,
-                 'vlan': self.vlan, })
-            self._db.log_change(self.entity_id, self.clconst.subnet_create, None)
-
+                binds['vlan_number'] = self.vlan
+            defs = {'tc': ', '.join(x for x in sorted(binds)),
+                    'tb': ', '.join(':{0}'.format(x) for x in sorted(binds))}
+            insert_stmt = """
+            INSERT INTO [:table schema=cerebrum name=dns_subnet]
+            (%(tc)s)
+            VALUES (%(tb)s)""" % defs
+            self.execute(insert_stmt, binds)
+            self._db.log_change(self.entity_id,
+                                self.clconst.subnet_create,
+                                None)
         else:
             if perform_checks:
                 self.check_reserved_addresses_in_use()
-
-            cols = [('description', ':desc'),
-                    ('no_of_reserved_adr', ':res_adr'),
-                    ('vlan_number', ':vlan'),
-                    ('dns_delegated', ':dns_delegated'),
-                    ('name_prefix', ':name_pre')]
-            binds = {'e_id': self.entity_id,
-                     'desc': self.description,
-                     'vlan': self.vlan_number,
+            binds = {'entity_id': self.entity_id,
+                     'vlan_number': self.vlan_number,
                      'dns_delegated': self.dns_delegated,
-                     'name_pre': self.name_prefix,
-                     'res_adr': self.no_of_reserved_adr
-                     }
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=dns_subnet]
-            SET %(defs)s
-            WHERE entity_id=:e_id""" % {'defs': ", ".join(
-                ["%s=%s" % x for x in cols if x[0] != 'entity_id'])}, binds)
-            self._db.log_change(self.entity_id, self.clconst.subnet_mod, None,
+                     'name_prefix': self.name_prefix,
+                     'description': self.description,
+                     'no_of_reserved_adr': self.no_of_reserved_adr}
+            defs = {'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
+                                    if x != 'entity_id'),
+                    'tw': ' AND '.join('{0}=:{0}'.format(
+                            x) for x in binds if x != 'vlan_number')}
+            exists_stmt = """
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=dns_ipv6_subnet]
+                WHERE (vlan_number is NULL AND :vlan_number is NULL OR
+                         vlan_number=:vlan_number) AND
+                     %(tw)s
+              )
+            """ % defs
+            if not self.query_1(exists_stmt, binds):
+                # True positive
+                update_stmt = """
+                UPDATE [:table schema=cerebrum name=dns_subnet]
+                SET %(ts)s
+                WHERE entity_id=:entity_id""" % defs
+                self.execute(update_stmt, binds)
+            self._db.log_change(self.entity_id,
+                                self.clconst.subnet_mod,
+                                None,
                                 change_params=binds)
-
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -368,7 +364,6 @@ class Subnet(Entity):
                 raise SubnetError("Subnet '%s/%s' cannot be deleted;"
                                   " it has addresses in use" %
                                   (self.subnet_ip, self.subnet_mask))
-
         # Revoke BofhdAuthRoles associated with subnet
         baot = BofhdAuthOpTarget(self._db)
         bar = BofhdAuthRole(self._db)
@@ -379,7 +374,6 @@ class Subnet(Entity):
                 for x in bar.list(op_target_id=target):
                     bar.revoke_auth(*x)
             bar.commit()
-
         # Remove BofhdAuthOpTarget associated with subnet
         for x in targets:
             baot.clear()
@@ -389,12 +383,23 @@ class Subnet(Entity):
                 baot.commit()
             except NotFoundError:
                 pass
-
-        self._db.log_change(self.entity_id, self.clconst.subnet_delete, None)
         if self.__in_db:
-            self.execute("""
-            DELETE FROM [:table schema=cerebrum name=dns_subnet]
-            WHERE entity_id=:e_id""", {'e_id': self.entity_id})
+            binds = {'e_id': self.entity_id}
+            exists_stmt = """
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=dns_subnet]
+                WHERE entity_id=:e_id
+              )
+            """
+            if self.query_1(exists_stmt, binds):
+                delete_stmt = """
+                DELETE FROM [:table schema=cerebrum name=dns_subnet]
+                WHERE entity_id=:e_id"""
+                self.execute(delete_stmt, binds)
+                self._db.log_change(self.entity_id,
+                                    self.clconst.subnet_delete,
+                                    None)
         self.__super.delete()
 
     def new(self):
@@ -419,23 +424,20 @@ class Subnet(Entity):
 
         """
         binds = {}
-
         if identifier is None:
             raise SubnetError("Unable to find IPv4 subnet identified by '%s'" %
                               identifier)
-
         if (isinstance(identifier, (str, unicode))
                 and identifier.count(':') >= 2):
             # This is probably an IPv6 subnet
             raise SubnetError("Unable to find IPv4 subnet identified by '%s'" %
                               identifier)
-
         if isinstance(identifier, (int, long)):
             # The proper way of running find()
             where_param = "entity_id = :e_id"
             binds['e_id'] = identifier
         elif (identifier.startswith('id:')
-                or identifier.startswith('entity_id:')):
+              or identifier.startswith('entity_id:')):
             # E.g. 'id:X' or 'entity_id:X';
             where_param = "entity_id = :e_id"
             try:
@@ -455,7 +457,6 @@ class Subnet(Entity):
                 identifier += ".0"
             where_param = "ip_min <= :ip AND ip_max >= :ip"
             binds['ip'] = IPCalc.ip_to_long(identifier)
-
         try:
             (eid, self.subnet_ip, self.ip_min, self.ip_max,
              self.description, self.dns_delegated, self.name_prefix,
@@ -465,17 +466,13 @@ class Subnet(Entity):
                            no_of_reserved_adr
                     FROM [:table schema=cerebrum name=dns_subnet]
                     WHERE %s""" % where_param, binds)
-
             self.__super.find(eid)
-
             self.subnet_mask = Subnet.calculate_subnet_mask(self.ip_min,
                                                             self.ip_max)
             self.calculate_reserved_addresses()
-
         except NotFoundError:
             raise SubnetError("Unable to find IPv4 subnet identified by '%s'" %
                               identifier)
-
         self.__in_db = True
         self.__updated = []
 

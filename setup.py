@@ -204,6 +204,7 @@ bin_files = [
 ]
 
 sbin_files = [
+    ('servers/gunicorn-server.py', 0755),
     ('servers/job_runner/job_runner.py', 0755),
     ('makedb.py', 0755),
     ('servers/bofhd/bofhd.py', 0755),
@@ -213,6 +214,7 @@ sbin_files = [
     ('servers/cis/SoapIndividuationServer.py', 0755),
     ('servers/cis/SoapPostmasterServer.py', 0755),
     ('servers/cis/SoapGroupServer.py', 0755),
+    ('consumers/no/consumer_affiliations.py', 0755),
     ('consumers/no/uio/tiny_scheduler.py', 0755),
     ('consumers/no/uio/consumer_sap.py', 0755),
     ('consumers/no/uio/consumer_enforce_forward_policy.py', 0755)
@@ -329,6 +331,10 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/tsd/*.py', 0755)]),
+    ({'path': "%s/cerebrum/contrib/utils" % sharedir,
+      'owner': cerebrum_user,
+      'mode': 0755},
+     [('contrib/utils/*.py', 0755)]),
 ]
 
 
@@ -349,9 +355,11 @@ setup(
     # 'contrib/generate_nismaps.py'],
     packages=[
         'Cerebrum',
+        'Cerebrum/export',
         'Cerebrum/extlib',
         'Cerebrum/extlib/Plex',
         'Cerebrum/logutils',
+        'Cerebrum/logutils/mp',
         'Cerebrum/modules',
         'Cerebrum/modules/ad',
         'Cerebrum/modules/ad2',
@@ -381,7 +389,7 @@ setup(
         'Cerebrum/modules/no',
         'Cerebrum/modules/no/Indigo',
         'Cerebrum/modules/no/uio',
-        'Cerebrum/modules/no/uio/printer_quota',
+        'Cerebrum/modules/no/uio/pq_exemption',
         'Cerebrum/modules/no/uio/voip',
         'Cerebrum/modules/no/uio/AutoStud',
         'Cerebrum/modules/no/uio/exchange',
