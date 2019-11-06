@@ -30,8 +30,9 @@ from Cerebrum.modules.bofhd.cmd_param import (AccountName,
                                               Command,
                                               FormatSuggestion)
 
-
-FRESH_DAYS = 10
+# This should be equal to CEREBRUM_FRESH_DAYS which is configured in the
+# pofh-backend repo.
+FRESH_DAYS = 7
 
 
 def check_ac_basics(ac, correct_ac_type):
