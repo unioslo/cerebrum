@@ -53,12 +53,12 @@ from __future__ import print_function
 
 import getopt
 import os
-import re
 import sys
 import traceback
 
 import Cerebrum
 from Cerebrum import Metainfo
+from Cerebrum.database import sql_parser
 from Cerebrum.Utils import Factory, dyn_import
 
 import cereconf
@@ -436,98 +436,6 @@ def get_filelist(db, extra_files=None):
     return ret
 
 
-def parsefile(fname):
-    """Parse an SQL definition file and return the statements and categories.
-
-    Iterates through all lines in the file and generate statements from the
-    lines. Comments are for instance filtered out.
-
-    Note that the parser is somewhat limited. Long comments can for instance
-    not be on the same line as SQL statements. Long comments have to start and
-    stop on their own lines. Also, you can't stop and then start a new long
-    comment on the same line.
-
-    @type fname: str
-    @param fname:
-        The file path for the SQL definition file that should be parsed.
-
-    @rtype: list
-    @return:
-        A list of all the statements from the file.
-
-    """
-    # Regex for the parser:
-
-    # Find lines starting long comments: /*
-    long_comment_start = re.compile(r"\s*/\*", re.DOTALL)
-    # Find lines ending long comments: */
-    long_comment_stop = re.compile(r".*\*/", re.DOTALL)
-    # Find lines starting _and_ ending with long comment markers: /* ... */
-    long_line_comment = re.compile(r"\s*/\*.*\*/", re.DOTALL)
-    # Find lines with single line comments: -- ...
-    line_comment = re.compile(r"--.*")
-    # Find the end of a statement, i.e. semi-colon, to be able to remove it:
-    sc_pat_repl = re.compile(r';\s*')
-    # Find if line is ending a statement, i.e. ends with semi-colon. This is to
-    # know if the statement continues in the next line or not.
-    sc_pat = re.compile(r'.*;\s*')
-    # Find any newlines:
-    kill_newline_repl = re.compile('\n+')
-    # Find any whitespace. Used to remove any excess whitespace.
-    kill_spaces_repl = re.compile('\s+')
-
-    # States for when reading the file:
-    inside_comment = False
-    function_join_mode = False
-    join_str = ''
-
-    ret = []
-    with open(fname, 'r') as f:
-        for x in f.readlines():
-            x = kill_newline_repl.sub(' ', x)
-            x = kill_spaces_repl.sub(' ', x)
-            # Ignore empty lines:
-            if not x.strip():
-                continue
-
-            # Filter out lines with comments:
-            if re.match(long_line_comment, x):
-                inside_comment = False
-                continue
-            if re.match(long_comment_stop, x):
-                inside_comment = False
-                continue
-            if re.match(long_comment_start, x):
-                inside_comment = True
-                continue
-            if inside_comment:
-                continue
-            if re.match(line_comment, x):
-                continue
-
-            upperx = x.upper()
-            # Handle functions correctly, as they might contain semi-colons
-            if 'FUNCTION' in upperx and 'DROP FUNCTION' not in upperx:
-                function_join_mode = True
-                join_str += x
-            elif function_join_mode and 'LANGUAGE' in upperx:
-                function_join_mode = False
-                join_str += sc_pat_repl.sub('', x)
-                ret.append(join_str.strip())
-                join_str = ''
-            elif function_join_mode:
-                join_str += x
-            else:
-                # Handle everything else
-                if not sc_pat.match(x):
-                    join_str += x
-                else:
-                    join_str += sc_pat_repl.sub('', x)
-                    ret.append(join_str.strip())
-                    join_str = ''
-        return ret
-
-
 def runfile(fname, db, debug, phase):
     """Execute an SQL definition file.
 
@@ -552,92 +460,81 @@ def runfile(fname, db, debug, phase):
     """
     global all_ok
     print("Reading file (phase=%s): <%s>" % (phase, fname))
-    statements = parsefile(fname)
+    statements = list(sql_parser.parse_sql_file(fname))
 
-    NO_CATEGORY, WRONG_CATEGORY, CORRECT_CATEGORY, SET_METAINFO = (
-        'ready', 'wrong', 'correct', 'meta')
-    state = NO_CATEGORY
     output_col = None
     max_col = 78
     metainfo = {}
-    for stmt in statements:
-        if state == NO_CATEGORY:
-            (type_id, for_phase) = stmt.split(":", 1)
-            if type_id != 'category':
-                raise ValueError("Illegal type_id in file %s: %s" %
-                                 (fname, type_id))
-            for_rdbms = None
-            if for_phase == 'metainfo':
-                state = SET_METAINFO
-                continue
-            if '/' in for_phase:
-                for_phase, for_rdbms = for_phase.split("/", 1)
-            if for_phase == phase and (for_rdbms is None or
-                                       for_rdbms == db.rdbms_id):
-                state = CORRECT_CATEGORY
-            else:
-                state = WRONG_CATEGORY
-        elif state == WRONG_CATEGORY:
-            state = NO_CATEGORY
+    for _, for_phase, for_rdbms, stmt in sql_parser.categorize(statements):
+        if for_phase == sql_parser.PHASE_METAINFO:
+            key, value = sql_parser.parse_metainfo(stmt)
+            metainfo[key] = value
             continue
-        elif state == SET_METAINFO:
-            state = NO_CATEGORY
-            (key, val) = stmt.split("=", 1)
-            metainfo[key] = val
-        elif state == CORRECT_CATEGORY:
-            state = NO_CATEGORY
+
+        if for_phase != phase:
+            continue
+
+        if (for_rdbms is not None and for_rdbms != db.rdbms_id):
+            continue
+
+        try:
+            status = "."
             try:
-                status = "."
-                try:
-                    db.execute(stmt)
-                except db.DatabaseError as e:
-                    all_ok = False
-                    status = "E"
-                    print("\n  ERROR: [%s]" % stmt)
-                    print(e)
-                    if debug:
-                        print("  Database error: ", end="")
-                        if debug >= 2:
-                            # Re-raise error, causing us to (at least)
-                            # break out of this for loop.
-                            raise
-                        else:
-                            traceback.print_exc(file=sys.stdout)
-                except Exception as e:
-                    all_ok = False
-                    status = "E"
-                    print("\n  ERROR: [%s]" % (stmt,))
-                    print(e)
-                    traceback.print_exc(file=sys.stdout)
-                    raise
-            finally:
-                if not output_col:
-                    status = "    " + status
-                    output_col = 0
-                sys.stdout.write(status)
-                output_col += len(status)
-                if output_col >= max_col:
-                    sys.stdout.write("\n")
-                    output_col = 0
-                sys.stdout.flush()
-                db.commit()
-    if phase in {'main', 'metainfo', 'drop'}:
+                db.execute(stmt)
+            except db.DatabaseError as e:
+                all_ok = False
+                status = "E"
+                print("\n  ERROR: [%s]" % stmt)
+                print(e)
+                if debug:
+                    print("  Database error: ", end="")
+                    if debug >= 2:
+                        # Re-raise error, causing us to (at least)
+                        # break out of this for loop.
+                        raise
+                    else:
+                        traceback.print_exc(file=sys.stdout)
+            except Exception as e:
+                all_ok = False
+                status = "E"
+                print("\n  ERROR: [%s]" % (stmt,))
+                print(e)
+                traceback.print_exc(file=sys.stdout)
+                raise
+        finally:
+            if not output_col:
+                status = "    " + status
+                output_col = 0
+            sys.stdout.write(status)
+            output_col += len(status)
+            if output_col >= max_col:
+                sys.stdout.write("\n")
+                output_col = 0
+            sys.stdout.flush()
+
+            # TODO: Why commit after each statement? Wouldn't it be better to
+            # execute statements, and do rollback on failures? This just causes
+            # us to end up in a broken state if anything goes wrong...
+            db.commit()
+
+    if phase in {sql_parser.PHASE_MAIN,
+                 sql_parser.PHASE_METAINFO,
+                 sql_parser.PHASE_DROP}:
+        # Update metainfo
         meta = Metainfo.Metainfo(db)
         if metainfo['name'] == 'core':
             name = Metainfo.SCHEMA_VERSION_KEY
-            version = tuple([int(i) for i in metainfo['version'].split('.')])
+            # tuple, for some reason?
+            version = metainfo['version'].version
         else:
             name = 'sqlmodule_%s' % metainfo['name']
-            version = metainfo['version']
+            version = str(metainfo['version'])
         if phase == 'drop':
             meta.del_metainfo(name)
         else:
             meta.set_metainfo(name, version)
         db.commit()
-    if state != NO_CATEGORY:
-        raise ValueError(
-            'Found more category specs than statements in file {}'
-            ''.format(repr(fname)))
+
     if output_col is not None:
         print("")
 
