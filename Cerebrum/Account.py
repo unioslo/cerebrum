@@ -27,14 +27,13 @@ default username is stored in is yet to be determined.
 from __future__ import unicode_literals
 
 import functools
+import logging
 import mx
-import hashlib
 import re
 
 import six
 
 import cereconf
-import Cerebrum.auth as Auth
 from Cerebrum.auth import all_auth_methods, encrypt_ha1_md5, verify_ha1_md5
 from Cerebrum import Utils, Disk
 from Cerebrum.Entity import (EntityName,
@@ -48,6 +47,8 @@ from Cerebrum.Utils import (NotSet,
                             prepare_string)
 from Cerebrum.utils.username import suggest_usernames
 from Cerebrum.modules.password_generator.generator import PasswordGenerator
+
+logger = logging.getLogger(__name__)
 
 
 def _account_row_exists(database, table, binds):
@@ -842,18 +843,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             return encrypt_ha1_md5(
                 self.account_name, realm, plaintext, salt, binary)
         try:
-            method = all_auth_methods[str(method)]()
-            return method.encrypt(plaintext, salt, binary)
+            auth_impl = all_auth_methods[str(method)]()
+            return auth_impl.encrypt(plaintext, salt, binary)
         except NotImplementedError as ne:
-            if hasattr(self, 'logger'):
-                self.logger.warn(
-                    "Encrypt Auth method (%s) not implemented: %s",
-                    str(method), str(ne))
+            logger.warn(
+                "Encrypt Auth method (%s) not implemented: %s",
+                str(method), str(ne))
             raise Errors.NotImplementedAuthTypeError
         except Exception as e:
-            if hasattr(self, 'logger'):
-                self.logger.error(
-                    "Fatal exception in encrypt_password: %s", str(e))
+            logger.error("Fatal exception in encrypt_password: %s", str(e))
             raise
 
     def decrypt_password(self, method, cryptstring):
@@ -863,18 +861,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         the method it handles.
         """
         try:
-            method = all_auth_methods[str(method)]()
-            return method.encrypt(cryptstring)
+            auth_impl = all_auth_methods[str(method)]()
+            return auth_impl.decrypt(cryptstring)
         except NotImplementedError as ne:
-            if hasattr(self, 'logger'):
-                self.logger.warn(
-                    "Decrypt Auth method (%s) not implemented: %s",
-                    str(method), str(ne))
+            logger.warn(
+                "Decrypt Auth method (%s) not implemented: %s",
+                str(method), str(ne))
             raise Errors.NotImplementedAuthTypeError
         except Exception as e:
-            if hasattr(self, 'logger'):
-                self.logger.error(
-                    "Fatal exception in decrypt_password: %s", str(e))
+            logger.error("Fatal exception in decrypt_password: %s", str(e))
             raise
 
     def verify_password(self, method, plaintext, cryptstring):
@@ -887,18 +882,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             return verify_ha1_md5(
                 self.account_name, realm, plaintext, cryptstring)
         try:
-            method = all_auth_methods[str(method)]()
-            return method.verify(plaintext, cryptstring)
+            auth_impl = all_auth_methods[str(method)]()
+            return auth_impl.verify(plaintext, cryptstring)
         except NotImplementedError as ne:
-            if hasattr(self, 'logger'):
-                self.logger.warn(
-                    "Verify Auth method (%s) not implemented: %s",
-                    str(method), str(ne))
+            logger.warn(
+                "Verify Auth method (%s) not implemented: %s",
+                str(method), str(ne))
             raise Errors.NotImplementedAuthTypeError
         except Exception as e:
-            if hasattr(self, 'logger'):
-                self.logger.error(
-                    "Fatal exception in verify_password: %s", str(e))
+            logger.error("Fatal exception in verify_password: %s", str(e))
             raise
 
     def verify_auth(self, plaintext):
