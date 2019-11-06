@@ -73,6 +73,7 @@ import mx.DateTime
 import pytz
 
 import cereconf
+
 TIMEZONE = pytz.timezone(cereconf.TIMEZONE)
 
 # TODO: Use tzlocal for default TIMEZONE?
@@ -176,22 +177,77 @@ def mx2datetime(src, tz=TIMEZONE):
     return apply_timezone(dt, tz=tz)
 
 
-def parse_date(dtstr):
+def parse_datetime_tz(dtstr):
+    """
+    Parse an ISO8601 datetime string, and require timezone.
+
+    The datetime may be delimited by ' ' or 'T'.
+
+    :param dtstr: An ISO8601 formatted datetime string with timezone.
+
+    :rtype: datetime.datetime
+    :return: A timezone-aware datetime objet.
+    """
     # Allow use of space as separator
-    if 'T' not in dtstr:
-        date = aniso8601.parse_datetime(dtstr, delimiter=' ')
-    else:
-        date = aniso8601.parse_datetime(dtstr)
+    try:
+        if 'T' not in dtstr:
+            date = aniso8601.parse_datetime(dtstr, delimiter=' ')
+        else:
+            date = aniso8601.parse_datetime(dtstr)
+    except ValueError as e:
+        # The aniso8601 errors are not always great
+        raise ValueError("invalid iso8601 datetime (%s)" % (e,))
+
+    if not date.tzinfo:
+        raise ValueError("invalid iso8601 datetime (missing timezone)")
+    return date
+
+
+def parse_datetime(dtstr, default_timezone=TIMEZONE):
+    """
+    Parse an ISO8601 datetime string.
+
+    The datetime may be delimited by ' ' or 'T'.
+    If no timezone is included, the ``default_timezone`` will be applied
+
+    :param dtstr: An ISO8601 formatted datetime string
+    :param default_timezone: A default timezone to apply if missing.
+
+    :rtype: datetime.datetime
+    :return: A timezone-aware datetime objet.
+    """
+    # Allow use of space as separator
+    try:
+        if 'T' not in dtstr:
+            date = aniso8601.parse_datetime(dtstr, delimiter=' ')
+        else:
+            date = aniso8601.parse_datetime(dtstr)
+    except ValueError as e:
+        # The aniso8601 errors are not always great
+        raise ValueError("invalid iso8601 date (%s)" % (e,))
 
     if not date.tzinfo:
         # No timezone, assume UTC?
-        date = apply_timezone(date, tz=pytz.UTC)
+        date = apply_timezone(date, tz=default_timezone)
     return date
+
+
+def parse_date(dtstr):
+    """
+    Parse an ISO8601 date string.
+
+    :param dtstr: An ISO8601 formatted date string
+
+    :rtype: datetime.date
+    :return: A date object.
+    """
+    # Allow use of space as separator
+    return aniso8601.parse_date(dtstr)
 
 
 def parse(dtstr):
     """ Utility method, get a naive mx.DateTime. """
-    return datetime2mx(parse_date(dtstr))
+    return datetime2mx(parse_datetime(dtstr))
 
 
 # python -m Cerebrum.utils.date
@@ -207,7 +263,7 @@ def main(inargs=None):
         type=pytz.timezone,
         help="use custom timezone (default: cereconf.TIMEZONE=%(default)s)")
     parser.add_argument(
-        'date',
+        'datetime',
         nargs='*',
         default=[],
         help="iso8601 date to parse")
@@ -217,24 +273,24 @@ def main(inargs=None):
     print("now:         {0!s}".format(now(tz=args.timezone)))
     print("utcnow:      {0!s}".format(utcnow()))
 
-    for num, d in enumerate(args.date, 1):
+    for num, d in enumerate(args.datetime, 1):
         print("\ndate #{0:d}: {1!r}".format(num, d))
 
-        p = parse_date(d)
-        print("  parse_date:   {0!s}".format(p))
-        print("                {0!r}".format(p))
+        p = parse_datetime(d)
+        print("  parse_datetime: {0!s}".format(p))
+        print("                  {0!r}".format(p))
 
         l = localize(p, tz=args.timezone)
-        print("  localize:     {0!s}".format(l))
-        print("                {0!r}".format(l))
+        print("  localize:       {0!s}".format(l))
+        print("                  {0!r}".format(l))
 
         m = datetime2mx(p, tz=args.timezone)
-        print("  datetime2mx:  {0!s}".format(m))
-        print("                {0!r}".format(m))
+        print("  datetime2mx:    {0!s}".format(m))
+        print("                  {0!r}".format(m))
 
         n = mx2datetime(m, tz=args.timezone)
-        print("  mx2datetime:  {0!s}".format(n))
-        print("                {0!r}".format(n))
+        print("  mx2datetime:    {0!s}".format(n))
+        print("                  {0!r}".format(n))
 
 
 if __name__ == '__main__':
