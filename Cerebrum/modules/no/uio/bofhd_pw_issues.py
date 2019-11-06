@@ -31,6 +31,9 @@ from Cerebrum.modules.bofhd.cmd_param import (AccountName,
                                               FormatSuggestion)
 
 
+FRESH_DAYS = 10
+
+
 def check_ac_basics(ac, correct_ac_type):
     """Checks if an account is deleted, expired or not belonging to a person"""
     if ac.is_deleted():
@@ -88,6 +91,20 @@ def investigate_traits(ac, co):
         if info_traits:
             results['info'] = info_traits
     return results
+
+
+def account_is_fresh(ac, co):
+    traits = ac.get_traits()
+    relevant_traits = [traits[trait_code] for trait_code in
+                       (co.trait_student_new, co.trait_sms_welcome)
+                       if trait_code in traits]
+    for trait in relevant_traits:
+        date = trait['date']
+        if not date:
+            continue
+        cutoff = DateTime.now() - DateTime.DateTimeDelta(FRESH_DAYS)
+        return date > cutoff
+    return False
 
 
 def is_member_of_admingroups(ac, db):
@@ -178,7 +195,7 @@ def merge_affs_and_phones(valid_affiliations, phones):
     return entries
 
 
-def any_valid_phones(phone_table):
+def any_valid_phones(phone_table, fresh_account):
     """Return True if a phone table contains any entry with a
     status (phone number comes from a valid affiliation) and
     a non-recent date (one week or more)
@@ -187,6 +204,9 @@ def any_valid_phones(phone_table):
     last_week = now - DateTime.TimeDelta(24*7)
     for phone in phone_table:
         if phone['status'] and phone['number']:
+            if fresh_account:
+                return True
+
             date = phone['date']
             if not date or date < last_week:
                 return True
@@ -253,9 +273,10 @@ class PassWordIssues(BofhdCommonMethods):
 
     def __call__(self):
         # basics
-        _ = check_ac_basics(self.ac, self.co.entity_person)
+        check_ac_basics(self.ac, self.co.entity_person)
         # Problematic or informative traits?
         trait_data = investigate_traits(self.ac, self.co)
+        fresh_account = account_is_fresh(self.ac, self.co)
         issues = []
         info = []
         if 'info' in trait_data:
@@ -285,7 +306,7 @@ class PassWordIssues(BofhdCommonMethods):
         phones = [ent for ent in filter_mobilephones(self.co, contact_rows)]
         phone_table = merge_affs_and_phones(valid_affiliations, phones)
         if phone_table:
-            if not any_valid_phones(phone_table):
+            if not any_valid_phones(phone_table, fresh_account):
                 issues.append('No valid phones')
             for entry in format_phone_table(self.co, phone_table):
                 self.data.append(entry)
@@ -370,7 +391,7 @@ class BofhdExtension(BofhdCommandBase):
         if not self.ba.can_set_password(operator.get_entity_id(), ac):
             raise PermissionDenied("Access denied")
         pwi = PassWordIssues(ac, self.db)
-        _ = pwi()
+        pwi()
         return pwi.data
 
 
