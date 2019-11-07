@@ -471,11 +471,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                                 self.clconst.group_moderator_rem,
                                 moderator_id)
 
-    # TODO: legg til noe om moderator her også?
     def search(self,
                group_id=None,
                member_id=None,
                indirect_members=False,
+               moderator_id=None,
+               indirect_moderators=False,
                spread=None,
                name=None,
                description=None,
@@ -522,6 +523,24 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
 
           This filter makes sense only when L{member_id} is set.
 
+        :type moderator_id: int or sequence thereof or None.
+        :param moderator_id:
+          The resulting group list will be filtered by moderatorship - only
+          groups that have moderators specified by moderator_id will be
+          returned. If moderator_id is a sequence, then a group g1 is returned
+          if any of the ids in the sequence are a moderator of g1.
+
+        :type indirect_moderators: bool
+        :param indirect_moderators:
+          This parameter controls how the L{moderator_id} filter is applied.
+          When False, only groups where L{moderator_id} is a/are direct
+          moderator(s) will be returned. When True, the moderatorship of
+          L{moderator_id} does not have to be direct; if group g2 is a
+          moderator of group g1, and moderator_id m1 is a member of g2,
+          specifying indirect_moderators=True will return g1.
+
+          This filter makes sense only when L{moderator_id} is set.
+
         :type spread: int or SpreadCode or sequence thereof or None.
         :param spread:
           Filter the resulting group list by spread. I.e. only groups with
@@ -565,6 +584,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             assert member_id is not None
             if isinstance(member_id, (list, tuple, set)):
                 assert member_id
+
+        # same as above for indirect moderators
+        if indirect_moderators:
+            assert moderator_id is not None
+            if isinstance(moderator_id, (list, tuple, set)):
+                assert moderator_id
 
         # Sanity check: it is probably a bad idea to allow specifying both.
         assert not (member_id and group_id)
@@ -653,6 +678,23 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 tables.append("[:table schema=cerebrum name=group_member] gm")
                 where.append("(gi.group_id = gm.group_id)")
                 where.append(argument_to_sql(member_id, "gm.member_id",
+                                             binds, int))
+
+        #
+        # moderator_id filter (all of them)
+        if moderator_id is not None:
+            tables.append("[:table schema=cerebrum name=group_moderator] gmod")
+            where.append("(gi.group_id = gmod.group_moderator)")
+
+            if indirect_moderators:
+                mod_ids = (
+                    g['group_id'] for g in self.search(member_id=moderator_id))
+
+                mod_ids.append(moderator_id)
+                where.append(argument_to_sql(mod_ids, "gmod.moderator_id",
+                                             binds, int))
+            else:
+                where.append(argument_to_sql(moderator_id, "gmod.moderator_id",
                                              binds, int))
 
         #
