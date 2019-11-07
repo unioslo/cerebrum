@@ -841,16 +841,6 @@ class BofhdCommandBase(object):
             return None
         return DateTime.DateTimeFromTicks(ticks)
 
-    def _group_make_owner(self, owner, target):
-        op_set = BofhdAuthOpSet(self.db)
-        op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
-        op_target = BofhdAuthOpTarget(self.db)
-        op_target.populate(target.entity_id, 'group')
-        op_target.write_db()
-        role = BofhdAuthRole(self.db)
-        role.grant_auth(owner.entity_id, op_set.op_set_id,
-                        op_target.op_target_id)
-
 
 class BofhdCommonMethods(BofhdCommandBase):
     """Class with common methods that is used by most, 'normal' instances.
@@ -957,7 +947,7 @@ class BofhdCommonMethods(BofhdCommandBase):
                     raise CerebrumError('No moderator group with name: {}'
                                         .format(mod_group))
                 else:
-                    self._group_make_owner(mod_gr, g)
+                    g.add_moderator(mod_gr)
         return {'group_id': int(g.entity_id)}
 
     #
