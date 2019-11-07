@@ -1557,15 +1557,8 @@ class BofhdExtension(BofhdCommonMethods):
             pg.write_db()
         except self.db.DatabaseError as m:
             raise CerebrumError("Database error: %s" % m)
-        # Make user the owner of the group so he/she can administer it
-        op_set = BofhdAuthOpSet(self.db)
-        op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
-        op_target = BofhdAuthOpTarget(self.db)
-        op_target.populate(group.entity_id, 'group')
-        op_target.write_db()
-        role = BofhdAuthRole(self.db)
-        role.grant_auth(acc.entity_id, op_set.op_set_id,
-                        op_target.op_target_id)
+        # Make the user the moderator of the group so they can administer it
+        group.add_moderator(acc.entity_id)
         # Make user a member of his personal group
         self._group_add(None, uname, uname, member_type="account")
         # Add personal group-trait to group
