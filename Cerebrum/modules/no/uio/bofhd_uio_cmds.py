@@ -1338,7 +1338,7 @@ class BofhdExtension(BofhdCommonMethods):
              "Expire:       %s\n"
              "Entity id:    %i", ("name", "spread", "description",
                                   format_day("expire_date"), "entity_id")),
-            ("Moderator:    %s %s (%s)", ('owner_type', 'owner', 'opset')),
+            ("Moderator:    %s %s (%s)", ('mod_type', 'mod', 'opset')),
             ("Gid:          %i", ('gid',)),
             ("Members:      %s", ("members",))
         ]))
@@ -1357,27 +1357,19 @@ class BofhdExtension(BofhdCommonMethods):
         co = self.const
         ret = [self._entity_info(grp), ]
         # find owners
-        aot = BofhdAuthOpTarget(self.db)
-        targets = []
-        for row in aot.list(target_type='group', entity_id=grp.entity_id):
-            targets.append(int(row['op_target_id']))
-        ar = BofhdAuthRole(self.db)
-        aos = BofhdAuthOpSet(self.db)
-        for row in ar.list_owners(targets):
-            aos.clear()
-            aos.find(row['op_set_id'])
-            id = int(row['entity_id'])
+        for row in grp.search_moderators(group_id=grp.entity_id):
+            id = int(row['moderator_id'])
             en = self._get_entity(ident=id)
             if en.entity_type == co.entity_account:
-                owner = en.account_name
+                moderator = en.account_name
             elif en.entity_type == co.entity_group:
-                owner = en.group_name
+                moderator = en.group_name
             else:
-                owner = '#%d' % id
+                moderator = '#%d' % id
             ret.append({
-                'owner_type': text_type(co.EntityType(en.entity_type)),
-                'owner': owner,
-                'opset': aos.name,
+                'mod_type': text_type(co.EntityType(en.entity_type)),
+                'mod': moderator,
+                'opset': '(Group-moderator)'  # TODO: Is this needed?
             })
 
         # Member stats are a bit complex, since any entity may be a
