@@ -124,7 +124,7 @@ class VirthomeBase:
         for spread in getattr(cereconf, "BOFHD_NEW_GROUP_SPREADS", ()):
             gr.add_spread(self.co.human2constant(spread, self.co.Spread))
 
-        self.vhutils.grant_group_auth(owner, 'group-owner', gr)
+        gr.add_moderator(owner)
         gr.write_db()
         return gr
 
@@ -557,91 +557,6 @@ class VirthomeUtils:
         # Target exists, return it
         aot.find(op_targets[0]['op_target_id'])
         return aot
-
-
-    def grant_group_auth(self, account, opset_name, group):
-        """ Grants L{entity_id} access type L{opset_name} over group
-        L{group_id}.
-
-        This can be used to give admin and moderator access to groups.
-
-        @type account: self.account_class
-        @param account: The account that should be granted access
-
-        @type opset_name: str
-        @param opset_name: The name of the operation set (type of access)
-
-        @type group: self.group_class
-        @param group: The group that L{account} should be given access to
-
-        @rtype: bool
-        @return: True if access was granted, False if access already exists
-        """
-        assert opset_name in GROUP_AUTH_OPSETS
-        assert hasattr(account, 'entity_id')
-        assert hasattr(group, 'entity_id')
-
-        ar = BofhdAuthRole(self.db)
-        aos = BofhdAuthOpSet(self.db)
-        aot = self.find_or_create_op_target(group.entity_id,
-                                            self.co.auth_target_type_group)
-        aos.find_by_name(opset_name)
-
-        assert account.np_type in (self.co.fedaccount_type, self.co.account_program)
-        assert hasattr(aot, 'op_target_id') # Must be populated
-
-        roles = list(ar.list(account.entity_id, aos.op_set_id, aot.op_target_id))
-
-        if len(roles) == 0:
-            ar.grant_auth(account.entity_id, aos.op_set_id, aot.op_target_id)
-            return True # Access granted
-
-        return False # Already had access
-
-
-    def revoke_group_auth(self, account, opset_name, group):
-        """ Removes L{account_id} access type L{opset_name} over group
-        L{group_id}.
-
-        This can be used to remove admin and moderator access to groups.
-
-        @type account: self.account_class
-        @param account: The account that should be granted access
-
-        @type opset_name: str
-        @param opset_name: The name of the operation set (type of access)
-
-        @type group: self.group_class
-        @param group: The group that L{account} should be given access to
-
-        @rtype: bool
-        @return: True if access was revoked, False if access didn't exist.
-        """
-        assert opset_name in GROUP_AUTH_OPSETS
-        assert hasattr(account, 'entity_id')
-        assert hasattr(group, 'entity_id')
-
-        ar = BofhdAuthRole(self.db)
-        aos = BofhdAuthOpSet(self.db)
-
-        aos.find_by_name(opset_name)
-        aot = self.find_or_create_op_target(group.entity_id, self.co.auth_target_type_group)
-
-        assert account.np_type in (self.co.fedaccount_type, self.co.account_program)
-        assert aot.target_type == self.co.auth_target_type_group
-
-        roles = list(ar.list(account.entity_id, aos.op_set_id, aot.op_target_id))
-
-        if len(roles) == 0:
-            return False # No permissions to remove
-
-        ar.revoke_auth(account.entity_id, aos.op_set_id, aot.op_target_id)
-
-        # If that was the last permission for this op_target, kill op_target
-        if len(list(ar.list(op_target_id=aot.op_target_id))) == 0:
-            aot.delete()
-
-        return True # Permissions removed
 
 
     def remove_auth_targets(self, entity_id, target_type=None):

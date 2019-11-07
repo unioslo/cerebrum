@@ -330,10 +330,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             return "OK, no changes necessary"
 
         # Let's swap them
-        # ... first add a new owner
-        self.vhutils.grant_group_auth(new_owner, 'group-owner', group)
-        # ... then remove an old one
-        self.vhutils.revoke_group_auth(old_owner, 'group-owner', group)
+        group.add_moderator(new_owner.entity_id)
+        group.remove_moderator(old_owner.entity_id)
 
         # action e_group:pending_owner_change
         # Ok, <group> owner changed, <old_owner> -> <new_owner>
@@ -363,7 +361,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         self.ba.can_moderate_group(new_moderator.entity_id)
 
-        self.vhutils.grant_group_auth(new_moderator, 'group-moderator', group)
+        group.add_moderator(new_moderator)
 
         # action e_group:pending_moderator_add
         # Ok, added moderator <invitee> for group <group> (at <inviter>s
@@ -1429,7 +1427,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_change_moderators(operator.get_entity_id(),
                                       group.entity_id)
 
-        self.vhutils.revoke_group_auth(account, 'group-moderator', group)
+        group.remove_moderator(account.entity_id)
 
         return "OK, removed %s as moderator of %s" % (account.account_name,
                                                       group.group_name)
