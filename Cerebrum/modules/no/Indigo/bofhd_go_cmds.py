@@ -201,7 +201,7 @@ class BofhdExtension(BofhdCommonMethods):
                "description",
                format_day("expire_date"),
                "entity_id")),
-             ("Moderator:    %s %s (%s)", ('owner_type', 'owner', 'opset')),
+             ("Moderator:    %s %s", ('owner_type', 'owner')),
              ("Gid:          %i", ('gid',)),
              ("Members:      %s", ("members",))]))
 
@@ -222,7 +222,6 @@ class BofhdExtension(BofhdCommonMethods):
             ret.append({
                 'owner_type': text_type(co.EntityType(en.entity_type)),
                 'owner': owner,
-                'opset': 'Group-moderator',  # TODO: Is this needed?
             })
 
         # Count group members of different types

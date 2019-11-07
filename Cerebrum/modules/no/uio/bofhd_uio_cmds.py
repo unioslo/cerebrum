@@ -741,7 +741,7 @@ class BofhdExtension(BofhdCommonMethods):
              "Expire:       %s\n"
              "Entity id:    %i", ("name", "spread", "description",
                                   format_day("expire_date"), "entity_id")),
-            ("Moderator:    %s %s (%s)", ('mod_type', 'mod', 'opset')),
+            ("Moderator:    %s %s", ('mod_type', 'mod')),
             ("Gid:          %i", ('gid',)),
             ("Members:      %s", ("members",)),
             ("DisplayName:  %s", ('displayname',)),
@@ -781,7 +781,6 @@ class BofhdExtension(BofhdCommonMethods):
             ret.append({
                 'mod_type': text_type(co.EntityType(en.entity_type)),
                 'mod': moderator,
-                'opset': '(Group-moderator)'  # TODO: Is this needed?
             })
 
         # Member stats are a bit complex, since any entity may be a
@@ -1323,7 +1322,7 @@ class BofhdExtension(BofhdCommonMethods):
              "Expire:       %s\n"
              "Entity id:    %i", ("name", "spread", "description",
                                   format_day("expire_date"), "entity_id")),
-            ("Moderator:    %s %s (%s)", ('mod_type', 'mod', 'opset')),
+            ("Moderator:    %s %s", ('mod_type', 'mod')),
             ("Gid:          %i", ('gid',)),
             ("Members:      %s", ("members",))
         ]))
@@ -1354,7 +1353,6 @@ class BofhdExtension(BofhdCommonMethods):
             ret.append({
                 'mod_type': text_type(co.EntityType(en.entity_type)),
                 'mod': moderator,
-                'opset': '(Group-moderator)'  # TODO: Is this needed?
             })
 
         # Member stats are a bit complex, since any entity may be a
