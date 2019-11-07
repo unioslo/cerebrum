@@ -951,14 +951,7 @@ class BofhdExtension(BofhdCommonMethods):
             # we won't set a group owner.
             pass
         else:
-            op_set = BofhdAuthOpSet(self.db)
-            op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
-            op_target = BofhdAuthOpTarget(self.db)
-            op_target.populate(room_list.entity_id, 'group')
-            op_target.write_db()
-            role = BofhdAuthRole(self.db)
-            role.grant_auth(grp.entity_id, op_set.op_set_id,
-                            op_target.op_target_id)
+            room_list.add_moderator(grp.entity_id)
 
         return "Made roomlist %s" % groupname
 
