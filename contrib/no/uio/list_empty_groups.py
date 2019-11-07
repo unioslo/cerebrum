@@ -51,22 +51,14 @@ def select_empty_groups(groups):
 
     return empty_groups
 
+
 def get_groups_moderators(groups):
-    aot = BofhdAuthOpTarget(db)
-    ar = BofhdAuthRole(db)
-    aos = BofhdAuthOpSet(db)
-    co = Factory.get('Constants')(db)    
+    co = Factory.get('Constants')(db)
     en = Factory.get('Entity')(db)
 
     for group in groups:
-        group_id = group[0]
-        targets = []
-        for row in aot.list(target_type = 'group', entity_id = group_id):
-            targets.append(int(row['op_target_id']))
-        for row in ar.list_owners(targets):
-            aos.clear()
-            aos.find(row['op_set_id'])
-            id = int(row['entity_id'])
+        for row in group.search_moderators(group[0]):
+            id = int(row['moderator_id'])
             en.clear()
             en.find(id)
             entity_id = int(en.entity_id)
@@ -78,8 +70,8 @@ def get_groups_moderators(groups):
                 owner = ent.group_name
             else:
                 owner = '#%d' % id
-            group.append(" ".join([str(co.EntityType(ent.entity_type)), 
-                                   owner, aos.name]))            
+            group.append(" ".join([str(co.EntityType(ent.entity_type)),
+                                   owner, "Group-moderator"]))
 
 def print_empty_groups_info(groups, output_stream):
     for group in groups:
