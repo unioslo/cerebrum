@@ -703,7 +703,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         # an abysmal perfomance penalty.
         return self.query(query_str, binds, fetchall=True)
 
-    # TODO: this must exist for moderators
     def search_members(self, group_id=None, spread=None,
                        member_id=None, member_type=None,
                        indirect_members=False,
@@ -1003,6 +1002,107 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             elif entry["expire2"] is not None:
                 entry["expire_date"] = entry["expire2"]
             yield entry
+
+    def search_moderators(self, group_id=None, group_spread=None,
+                          moderator_id=None, moderator_type=None,
+                          include_group_name=False):
+        """Search for group *MODERATORS* satisfying certain criteria.
+
+        If a filter is None, it means that it will not be applied. Calling
+        this method without any argument will return all moderators of groups
+
+        All filters except for L{group_id} and L{group_spread} are applied to
+        moderators, rather than groups containing moderators.
+
+        The db-rows eventually returned by this method contain these keys:
+        group_id, moderator_type, moderator_id, as well as group_name if wanted
+
+        :type group_id: int or a sequence thereof or None.
+        :param group_id:
+          Group ids to look for. Given a group_id, only moderatorships in the
+          specified groups will be returned. This is useful for answering
+          questions like 'give a list of all moderators of group <foo>'.
+
+        :type spread: int or SpreadCode or sequence thereof or None.
+        :param spread:
+          Filter the resulting group list by spread. I.e. only groups with
+          specified spread(s) will be returned.
+
+        :type moderator_id: int or a sequence thereof or None.
+        :param moderator_id:
+          The result moderatorship list will be filtered by moderator_ids -
+          only the specified moderator_ids will be listed. This is useful for
+          answering questions like 'give a list of moderatorships held by
+          <entity_id>'.
+
+        :type moderator_type:
+          int or an EntityType constant or a sequence thereof or None.
+        :param moderator_type:
+          The resulting moderatorship list be filtered by moderator type -
+          only the moderator entities of the specified type will be returned.
+          This is useful for answering questions like 'give me a list of
+          *group* moderators of group <bla>'.
+
+        :type include_group_name: boolean
+        :param include_group_name:
+          The resulting rows will include the name of the group in addition to
+          the id.
+
+        :rtype: generator (yielding db-rows with moderatorship information)
+        :return:
+          A generator that yields successive db-rows (from group_moderator)
+          matching all of the specified filters. These keys are available in
+          each of the db_rows:
+            - group_id
+            - moderator_id
+            - moderator_type
+           (- group_name)
+        """
+        extra_select = []
+        tables = ["[:table schema=cerebrum name=group_moderator] gm",
+                  "[:table schema=cerebrum name=entity_info] ei"]
+        where = ["gm.moderator_id = ei.entity_id"]
+        binds = {}
+
+        if group_id is not None:
+            where.append(
+                argument_to_sql(
+                    group_id, "gm.group_id", binds, int))
+
+        if group_spread is not None:
+            tables.append("[:table schema=cerebrum name=entity_spread] es")
+            where.append("gm.group_id = es.entity_id")
+            where.append(
+                argument_to_sql(
+                    group_spread, "es.spread", binds, int))
+
+        if moderator_id is not None:
+            where.append(
+                argument_to_sql(
+                    moderator_id, "gm.moderator_id", binds, int))
+
+        if moderator_type is not None:
+            where.append(
+                argument_to_sql(
+                    moderator_type, "ei.entity_type", binds, int))
+
+        if include_group_name:
+            tables.append("[:table schema=cerebrum name=entity_name] en")
+            where.append("gm.group_id = en.entity_id")
+            extra_select.append("en.entity_name AS group_name")
+
+        query = """
+        SELECT gm.group_id AS group_id
+               gm.moderator_id AS moderator_id
+               ei.entity_type AS moderator_type,
+               {extra_select}
+        FROM {tables}
+        WHERE {where}
+        """.format(extra_select=", ".join(extra_select),
+                   tables=", ".join(tables),
+                   where=" AND ".join(where))
+
+        return self.query(query, binds, fetchall=False)
 
     def __str__(self):
         if hasattr(self, 'entity_id'):
