@@ -210,16 +210,8 @@ class BofhdExtension(BofhdCommonMethods):
         co = self.const
         ret = [self._entity_info(grp), ]
         # find owners
-        aot = BofhdAuthOpTarget(self.db)
-        targets = []
-        for row in aot.list(target_type='group', entity_id=grp.entity_id):
-            targets.append(int(row['op_target_id']))
-        ar = BofhdAuthRole(self.db)
-        aos = BofhdAuthOpSet(self.db)
-        for row in ar.list_owners(targets):
-            aos.clear()
-            aos.find(row['op_set_id'])
-            id = int(row['entity_id'])
+        for row in grp.search_moderators(group_id=grp.entity_id):
+            id = int(row['moderator_id'])
             en = self._get_entity(ident=id)
             if en.entity_type == co.entity_account:
                 owner = en.account_name
@@ -230,7 +222,7 @@ class BofhdExtension(BofhdCommonMethods):
             ret.append({
                 'owner_type': text_type(co.EntityType(en.entity_type)),
                 'owner': owner,
-                'opset': aos.name,
+                'opset': 'Group-moderator',  # TODO: Is this needed?
             })
 
         # Count group members of different types
