@@ -328,10 +328,8 @@ class GroupOwnerCacher(object):
         self.account.clear()
         self.account.find_by_name(account_name)
 
-        mod_ids = list(self.group.search(member_id=self.account.entity_id))
-        mod_ids.append(self.account.entity_id)
-
-        for group in self.group.search(moderator_id=mod_ids):
+        for group in self.group.search(moderator_id=self.account.entity_id,
+                                       indirect_moderators=True):
             owner_id2groups[self.account.entity_id].append(
                 {
                     'group_id': group['group_id'],
