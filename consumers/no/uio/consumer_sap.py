@@ -82,6 +82,14 @@ class RemoteSourceError(Exception):
     """An error occured in the source system."""
 
 
+class SourceSystemNotReachedError(Exception):
+    """Not found in the source system."""
+
+
+class SourceSystem404Error(Exception):
+    """Not found in the source system."""
+
+
 class ErroneousSourceData(Exception):
     """An error occured in the source system data."""
 
@@ -158,6 +166,14 @@ def parse_address(d):
                       translate_keys(filter_meta(r), m))])
 
 
+def verify_sap_header(header):
+    """Verify that the headers originate from SAP"""
+    print(header)
+    if 'sap-server' in header:
+        return header['sap-server'] == 'true'
+    return False
+
+
 def parse_names(d):
     """Parse data from SAP and return names.
 
@@ -170,7 +186,7 @@ def parse_names(d):
     logger.info('parsing names')
     co = Factory.get('Constants')
     return ((co.name_first, d.get(u'firstName')),
-              (co.name_last, d.get(u'lastName')))
+            (co.name_last, d.get(u'lastName')))
 
 
 def parse_contacts(d):
@@ -255,9 +271,9 @@ def parse_titles(d):
             co.work_title,
             lang_code,
             assignment.get(u'jobTitle').get(lang_str)),
-            [(co.language_nb, u'nb'),
-             (co.language_nn, u'nb'),
-             (co.language_en, u'en')]))
+                          [(co.language_nb, u'nb'),
+                           (co.language_nn, u'nb'),
+                           (co.language_en, u'en')]))
     return filter(lambda ((vk, vn), (lk, lv), (nk, nv)): nv, titles)
 
 
@@ -324,7 +340,7 @@ def parse_affiliations(database, d):
     r = []
     for x in d.get(u'assignments', {}).get(u'results', []):
         status = _sap_assignments_to_affiliation_map().get(
-                      x.get(u'jobCategory'))
+            x.get(u'jobCategory'))
         if not status:
             logger.warn('parse_affiliations: Unknown job category')
             # Unknown job category
@@ -423,7 +439,8 @@ def _parse_hr_person(database, source_system, data):
     }
 
 
-def get_hr_person(config, database, source_system, url):
+def get_hr_person(config, database, source_system, url,
+                  ignore_read_password=False):
     """Collect a person entry from the remote source system and parse the data.
 
     :param config: Authentication data
@@ -439,11 +456,14 @@ def get_hr_person(config, database, source_system, url):
     def _get_data(config, url, params=None):
         if not params:
             params = {}
-
-        headers = {'Accept': 'application/json',
-                   'X-Gravitee-API-Key': read_password(
-                       user=config.auth_user,
-                       system=config.auth_system)}
+        if ignore_read_password:
+            headers = {'Accept': 'application/json',
+                       'X-Gravitee-API-Key': 'true'}
+        else:
+            headers = {'Accept': 'application/json',
+                       'X-Gravitee-API-Key': read_password(
+                           user=config.auth_user,
+                           system=config.auth_system)}
         try:
             logger.debug4('Fetching %r', url)
             r = requests.get(url, headers=headers, params=params)
@@ -454,6 +474,9 @@ def get_hr_person(config, database, source_system, url):
             import time
             time.sleep(1)
             raise RemoteSourceUnavailable(str(e))
+        if not verify_sap_header(r.headers):
+            logger.warn('Source system not reached')
+            raise SourceSystemNotReachedError
         if r.status_code == 200:
             data = json.loads(r.text).get(u'd', None)
             for k in data:
@@ -472,6 +495,8 @@ def get_hr_person(config, database, source_system, url):
                     r = _get_data(config, deferred_uri, filter_param)
                     data.update({k: r})
             return data
+        elif r.status_code == 404:
+            raise SourceSystem404Error(u'404: Not Found')
         else:
             raise RemoteSourceError(
                 u'Could not fetch {} from remote source: {}: {}'.format(
@@ -920,8 +945,10 @@ def perform_delete(database, source_system, hr_person, cerebrum_person):
     """Delete a person."""
     logger.info('Deleting: %r', cerebrum_person.entity_id)
     # Update person and external IDs
-    update_person(database, source_system, hr_person, cerebrum_person)
-    update_external_ids(database, source_system, hr_person, cerebrum_person)
+    if hr_person:
+        update_person(database, source_system, hr_person, cerebrum_person)
+        update_external_ids(
+            database, source_system, hr_person, cerebrum_person)
     # Delete everything else
     update_names(database,
                  source_system,
@@ -960,14 +987,30 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
     :param source_system: The source system code
     :param url: The URL to the person object in the HR systems WS.
     :param datasource: The function used to fetch / parse the resource."""
-    hr_person = datasource(database, source_system, url)
-    logger.info('Handling person %r from source system %r',
-                _stringify_for_log(hr_person.get('names')),
-                source_system)
-    cerebrum_person = get_cerebrum_person(database,
-                                          map(lambda (k, v): (k, v),
-                                              hr_person.get(u'external_ids')))
-    if hr_person.get('affiliations') or hr_person.get('roles'):
+    try:
+        hr_person = datasource(database, source_system, url)
+        logger.info('Handling person %r from source system %r',
+                    _stringify_for_log(hr_person.get('names')),
+                    source_system)
+    except SourceSystem404Error:
+        logger.warn('URL %s does not resolve in source system %r (404) - '
+                    'deleting from Cerebrum',
+                    url, source_system)
+        hr_person = None
+    if hr_person:
+        cerebrum_person = get_cerebrum_person(
+            database,
+            map(lambda (k, v): (k, v),
+                hr_person.get(u'external_ids')))
+    else:
+        # assume manual url
+        employee_number = url.split('(')[-1].strip(')')
+        # get_cerebrum_person(database, employee_number)
+        pe = Factory.get('Person')(database)
+        co = Factory.get('Constants')(database)
+        cerebrum_person = pe.find_by_external_ids((co.externalid_sap_ansattnr,
+                                                   employee_number))
+    if hr_person and (hr_person.get('affiliations') or hr_person.get('roles')):
         perform_update(database, source_system, hr_person, cerebrum_person)
     elif cerebrum_person.entity_type:  # entity_type as indication of instance
         perform_delete(database, source_system, hr_person, cerebrum_person)
@@ -991,6 +1034,10 @@ def callback(database, source_system, routing_key, content_type, body,
     """Call appropriate handler functions."""
     try:
         url = get_resource_url(body)
+    except ValueError:
+        # Assume mock url, for example
+        # "http://127.0.0.1:5000/v2/employees(123456789)"
+        url = body
     except Exception as e:
         logger.warn('Received malformed message %r', body)
         return True
@@ -1004,19 +1051,17 @@ def callback(database, source_system, routing_key, content_type, body,
         logger.error('Failed processing %r:\n %r: %r',
                      body,
                      type(e).__name__, e)
-        message_processed = True
     except EntityNotResolvableError as e:
         logger.critical('Failed processing %r:\n %r: %r',
                         body,
                         type(e).__name__,
                         e)
-        message_processed = True
     except Exception as e:
-        message_processed = True
         logger.error('Failed processing %r:\n %r', body, e, exc_info=True)
-    # Always rollback, since we do an implicit begin and we want to discard
-    # possible outstanding changes.
-    database.rollback()
+    finally:
+        # Always rollback, since we do an implicit begin and we want to discard
+        # possible outstanding changes.
+        database.rollback()
     return message_processed
 
 
@@ -1047,6 +1092,12 @@ def main(args=None):
                         metavar=u'FILE',
                         default=None,
                         help=u'Load person object from JSON file')
+    parser.add_argument(u'-u', u'--url',
+                        dest=u'url',
+                        metavar='<url>',
+                        type=str,
+                        default=None,
+                        help=u'Load url manually')
     parser.add_argument(u'--dryrun',
                         dest=u'dryrun',
                         action=u'store_true',
@@ -1074,6 +1125,13 @@ def main(args=None):
         body = json.dumps({u'sub': None})
         callback(database, source_system, u'', u'', body,
                  datasource=lambda *x: parsed_mock_data)
+    elif args.url:
+        datasource = functools.partial(get_hr_person, config.ws,
+                                       ignore_read_password=True)
+        callback(
+            database, source_system, u'', u'',
+            args.url,
+            datasource=datasource)
     else:
         logger.info('Starting %r', prog_name)
         consumer = get_consumer(functools.partial(callback,
