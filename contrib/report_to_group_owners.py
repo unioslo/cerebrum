@@ -29,7 +29,6 @@ import datetime
 import logging
 import os
 import collections
-import copy
 
 import jinja2
 
@@ -358,8 +357,10 @@ class GroupOwnerCacher(object):
             moderator_type=self.co.entity_group,
             include_group_name=True)
 
+        if ten:
+            moderators = [moderators.next() for i in range(10)]
         for row in moderators:
-            owner_id2groups[row['moderator_id']].apppend(
+            owner_id2groups[row['moderator_id']].append(
                 {
                     'group_id': row['group_id'],
                     'group_name': row['group_name'],
@@ -367,6 +368,8 @@ class GroupOwnerCacher(object):
                                     row['group_name'])
                 }
             )
+        logger.info('%s moderator(s) found, all of them are groups themselves',
+                    len(owner_id2groups))
         return owner_id2groups
 
     def cache_group_id2members(self, groups):
