@@ -580,19 +580,21 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         """
         # Sanity check: if indirect members is specified, then at least we
         # need one id to go on.
-        if indirect_members:
-            assert member_id is not None
-            if isinstance(member_id, (list, tuple, set)):
-                assert member_id
+        if indirect_members and not member_id:
+            raise Errors.ProgrammingError(
+                'Cannot use indirect_members without member_id'
+            )
 
-        # same as above for indirect moderators
-        if indirect_moderators:
-            assert moderator_id is not None
-            if isinstance(moderator_id, (list, tuple, set)):
-                assert moderator_id
+        if indirect_moderators and not moderator_id:
+            raise Errors.ProgrammingError(
+                'Cannot use indirect_moderators without moderator_id'
+            )
 
         # Sanity check: it is probably a bad idea to allow specifying both.
-        assert not (member_id and group_id)
+        if member_id and group_id:
+            raise Errors.ProgrammingError(
+                'member_id and group_id cannot be used simultaneously'
+            )
 
         def search_transitive_closure(member_id):
             """Return all groups where member_id is/are indirect member(s).
