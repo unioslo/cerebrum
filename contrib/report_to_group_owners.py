@@ -26,6 +26,7 @@ each group.
 from __future__ import unicode_literals
 import argparse
 import datetime
+import itertools
 import logging
 import os
 import collections
@@ -356,7 +357,7 @@ class GroupOwnerCacher(object):
             include_group_name=True)
 
         if ten:
-            moderators = [moderators.next() for i in range(10)]
+            moderators = itertools.islice(moderators, 10)
         for row in moderators:
             owner_id2groups[row['moderator_id']].append(
                 {
