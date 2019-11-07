@@ -208,6 +208,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             DELETE FROM [:table schema=cerebrum name=group_member]
             WHERE group_id=:g_id""", {'g_id': self.entity_id})
 
+            # Empty this group's set of moderators.
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=group_moderator]
+            WHERE group_id=:g_id""", {'g_id': self.entity_id})
+
             # Empty this group's memberships.
             # IVR 2008-06-06 TBD: Is this really wise? I.e. should the caller
             # of delete() make sure that all memberships have been removed?
