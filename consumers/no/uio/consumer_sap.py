@@ -83,7 +83,7 @@ class RemoteSourceError(Exception):
 
 
 class SourceSystemNotReachedError(Exception):
-    """Not found in the source system."""
+    """Package not received from source system"""
 
 
 class SourceSystem404Error(Exception):
@@ -168,7 +168,6 @@ def parse_address(d):
 
 def verify_sap_header(header):
     """Verify that the headers originate from SAP"""
-    print(header)
     if 'sap-server' in header:
         return header['sap-server'] == 'true'
     return False
