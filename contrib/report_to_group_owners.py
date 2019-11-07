@@ -43,10 +43,7 @@ from Cerebrum.modules.dns.DnsOwner import DnsOwner
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.Utils import Factory
-from Cerebrum.Errors import NotFoundError, TooManyRowsError
-from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
-                                         BofhdAuthRole,
-                                         BofhdAuthOpTarget)
+from Cerebrum.Errors import NotFoundError
 from Cerebrum.modules.Email import EmailTarget, EmailAddress
 from Cerebrum.utils.argutils import codec_type
 
@@ -59,7 +56,6 @@ DEFAULT_TEMPLATE_FOLDER = os.path.join(os.path.dirname(__file__),
 TEMPLATE_NAME = 'group_members_table.html'
 FROM_ADDRESS = 'noreply@usit.uio.no'
 SENDER = 'USIT\nUiO'
-DEFAULT_AUTH_OPERATION_SET = ['Group-owner']
 DEFAULT_ENCODING = 'utf-8'
 DEFAULT_LANGUAGE = 'nb'
 BRUKERINFO_GROUP_MANAGE_LINK = 'https://brukerinfo.uio.no/groups/?group='
@@ -251,23 +247,6 @@ def find_group(db, gr, entity_id):
     return True
 
 
-def find_bofhd_auth_op_set(db, bofhd_auth_op_set, auth_op_set_name):
-    bofhd_auth_op_set.clear()
-    try:
-        bofhd_auth_op_set.find_by_name(auth_op_set_name)
-    except NotFoundError:
-        db.rollback()
-        logger.info('Bofhd auth operation set %s not found, skipping',
-                    auth_op_set_name)
-        return False
-    except TooManyRowsError:
-        db.rollback()
-        logger.info('Multiple bofhd auth operation sets %s not found, '
-                    'skipping', auth_op_set_name)
-        return False
-    return True
-
-
 def get_address(row):
     return row['local_part'] + '@' + row['domain']
 
@@ -283,9 +262,6 @@ class GroupOwnerCacher(object):
         self.dns_owner = DnsOwner(db)
         self.email_target = EmailTarget(db)
         self.email_address = EmailAddress(db)
-        self.bofhd_auth_op_set = BofhdAuthOpSet(self.db)
-        self.bofhd_auth_role = BofhdAuthRole(self.db)
-        self.bofhd_auth_op_target = BofhdAuthOpTarget(self.db)
 
     @memoize
     def get_entity_primary_email(self, member_id, member_type):
@@ -348,93 +324,49 @@ class GroupOwnerCacher(object):
                 cache[member['member_id']].append(group_id)
         return cache
 
-    def cache_one_accounts_groups(self, auth_op_set_names, account_name):
+    def cache_one_accounts_groups(self, account_name):
         owner_id2groups = collections.defaultdict(list)
         self.account.clear()
         self.account.find_by_name(account_name)
-        for auth_op_set_name in auth_op_set_names:
-            if not find_bofhd_auth_op_set(self.db,
-                                          self.bofhd_auth_op_set,
-                                          auth_op_set_name):
-                continue
 
-            for group in self.group.search(member_id=self.account.entity_id):
-                for role in self.bofhd_auth_role.list(
-                        entity_ids=group['group_id'],
-                        op_set_id=self.bofhd_auth_op_set.op_set_id
-                ):
-                    self.bofhd_auth_op_target.clear()
-                    self.bofhd_auth_op_target.find(role['op_target_id'])
+        mod_ids = list(self.group.search(member_id=self.account.entity_id))
+        mod_ids.append(self.account.entity_id)
 
-                    if not self.bofhd_auth_op_target.target_type == 'group':
-                        continue
-
-                    group_id = self.bofhd_auth_op_target.entity_id
-
-                    group_name = self.get_entity_name(group_id,
-                                                      self.co.entity_group)
-                    owner_id2groups[role['entity_id']].append(
-                        {
-                            'group_id': group_id,
-                            'role': auth_op_set_name,
-                            'group_name': group_name,
-                            'manage_link': (BRUKERINFO_GROUP_MANAGE_LINK +
-                                            group_name)
-                        }
-                    )
+        for group in self.group.search(moderator_id=mod_ids):
+            owner_id2groups[self.account.entity_id].append(
+                {
+                    'group_id': group['group_id'],
+                    'group_name': group['group_name'],
+                    'manage_link': (BRUKERINFO_GROUP_MANAGE_LINK +
+                                    group['group_name'])
+                }
+            )
         return owner_id2groups
 
-    def cache_owner_id2groups(self, auth_op_set_names, ten):
+    def cache_owner_id2groups(self, ten):
         """Caches groups which have an auth_role for a group
 
-        :argument auth_op_set_names: which auth_op_set to filter roles on
-        :type auth_op_set_names: list
         :returns: a mapping from owner_id to a list of dicts on the form:
             {
                 group_id: unicode,
-                role: unicode,
                 group_name: unicode,
                 manage_link: unicode
             }
         """
         owner_id2groups = collections.defaultdict(list)
-        for auth_op_set_name in auth_op_set_names:
-            count = 0
-            if not find_bofhd_auth_op_set(self.db,
-                                          self.bofhd_auth_op_set,
-                                          auth_op_set_name):
-                continue
-            for role in self.bofhd_auth_role.list(
-                    op_set_id=self.bofhd_auth_op_set.op_set_id):
+        moderators = self.group.search_moderators(
+            moderator_type=self.co.entity_group,
+            include_group_name=True)
 
-                # We only want to find owners who are groups
-                if not find_group(self.db, self.group, role['entity_id']):
-                    continue
-
-                self.bofhd_auth_op_target.clear()
-                self.bofhd_auth_op_target.find(role['op_target_id'])
-
-                if not self.bofhd_auth_op_target.target_type == 'group':
-                    continue
-                group_id = self.bofhd_auth_op_target.entity_id
-                count += 1
-
-                group_name = self.get_entity_name(group_id,
-                                                  self.co.entity_group)
-                owner_id2groups[role['entity_id']].append(
-                    {
-                        'group_id': group_id,
-                        'role': auth_op_set_name,
-                        'group_name': group_name,
-                        'manage_link': (BRUKERINFO_GROUP_MANAGE_LINK +
-                                        group_name)
-                    }
-                )
-                if ten and count >= 10:
-                    break
-            logger.info('%s %s(s) found. All the owners are groups themselves',
-                        count,
-                        auth_op_set_name)
+        for row in moderators:
+            owner_id2groups[row['moderator_id']].apppend(
+                {
+                    'group_id': row['group_id'],
+                    'group_name': row['group_name'],
+                    'manage_link': (BRUKERINFO_GROUP_MANAGE_LINK +
+                                    row['group_name'])
+                }
+            )
         return owner_id2groups
 
     def cache_group_id2members(self, groups):
@@ -453,7 +385,6 @@ def send_mails(db, args):
 
     if args.only_owner:
         owner_id2groups = group_owner_cacher.cache_one_accounts_groups(
-            args.auth_operation_set,
             args.only_owner,
         )
         entity_id2owner_ids = {
@@ -461,7 +392,6 @@ def send_mails(db, args):
         }
     else:
         owner_id2groups = group_owner_cacher.cache_owner_id2groups(
-            args.auth_operation_set,
             args.ten,
         )
         entity_id2owner_ids = group_owner_cacher.cache_member_id2group_ids(
@@ -530,13 +460,6 @@ def main(inargs=None):
         default=DEFAULT_ENCODING,
         type=codec_type,
         help="html encoding, defaults to %(default)s")
-    parser.add_argument(
-        '-a', '--auth-operation-set',
-        action='append',
-        default=DEFAULT_AUTH_OPERATION_SET,
-        help='Auth operation set names to filter bofhd_auth_roles by, '
-             'defaults to %(default)s'
-    )
     parser.add_argument(
         '-t', '--template-folder',
         default=DEFAULT_TEMPLATE_FOLDER,
