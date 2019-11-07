@@ -249,19 +249,10 @@ class BofhdExtension(BofhdCommonMethods):
         # the account has the 'Group-owner' op_set for this group, and
         # this is implemented below.
 
-        op_set = BofhdAuthOpSet(self.db)
-        op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
-
-        baot = BofhdAuthOpTarget(self.db)
-        targets = baot.list(entity_id=group.entity_id)
-        if len(targets) == 0:
-            return
-        bar = BofhdAuthRole(self.db)
         is_moderator = False
-        for auth in bar.list(op_target_id=targets[0]['op_target_id']):
-            if (auth['entity_id'] == account.entity_id and
-                    auth['op_set_id'] == op_set.op_set_id):
-                is_moderator = True
+        for mod in group.search_moderators(group_id=group.entity_id):
+            is_moderator = True
+            break
         if not is_moderator:
             return
 
