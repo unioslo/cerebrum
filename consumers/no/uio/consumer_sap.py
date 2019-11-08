@@ -1002,13 +1002,15 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
             map(lambda (k, v): (k, v),
                 hr_person.get(u'external_ids')))
     else:
-        # assume manual url
+        # assume manual ticket
         employee_number = url.split('(')[-1].strip(')')
-        # get_cerebrum_person(database, employee_number)
-        pe = Factory.get('Person')(database)
+        cerebrum_person = Factory.get('Person')(database)
         co = Factory.get('Constants')(database)
-        cerebrum_person = pe.find_by_external_ids((co.externalid_sap_ansattnr,
-                                                   employee_number))
+        cerebrum_person.find_by_external_id(
+            id_type=co.externalid_sap_ansattnr,
+            external_id=employee_number,
+            source_system=co.system_sap,
+            entity_type=co.entity_person)
     if hr_person and (hr_person.get('affiliations') or hr_person.get('roles')):
         perform_update(database, source_system, hr_person, cerebrum_person)
     elif cerebrum_person.entity_type:  # entity_type as indication of instance
