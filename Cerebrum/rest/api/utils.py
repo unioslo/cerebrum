@@ -195,38 +195,6 @@ def get_entity_name(entity):
     return name
 
 
-# Used to find auth role owners. Should probably be moved somewhere else.
-def get_auth_roles(entity, target_type, role_map=None):
-    aot = bofhd_auth.BofhdAuthOpTarget(db.connection)
-    ar = bofhd_auth.BofhdAuthRole(db.connection)
-    aos = bofhd_auth.BofhdAuthOpSet(db.connection)
-    targets = []
-    for row in aot.list(target_type=target_type, entity_id=entity.entity_id):
-        targets.append(int(row['op_target_id']))
-    roles = dict()
-    names = dict()
-    for row in ar.list_owners(targets):
-        aos.clear()
-        aos.find(row['op_set_id'])
-        if role_map and aos.name not in role_map:
-            continue
-        entity_id = int(row['entity_id'])
-        en = Factory.get('Entity')(db.connection).get_subclassed_object(
-            entity_id)
-        names[en.entity_id] = get_entity_name(en)
-        roles.setdefault((en.entity_id, en.entity_type), []).append(aos.name)
-
-    data = []
-    for (entity_id, entity_type), r in roles.iteritems():
-        data.append({
-            'id': entity_id,
-            'type': entity_type,
-            'name': names[entity_id],
-            'roles': [role_map[r_] for r_ in r] if role_map else r,
-        })
-    return data
-
-
 def get_opset(opset_name):
     aos = bofhd_auth.BofhdAuthOpSet(db.connection)
     aos.find_by_name(opset_name)
