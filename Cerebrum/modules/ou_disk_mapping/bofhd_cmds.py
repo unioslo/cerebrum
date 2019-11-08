@@ -188,6 +188,7 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
 
         # Try to find the Affiliation the user wants to edit
         aff_str = "*"
+        status = None
         if aff:
             try:
                 aff, status = self.const.get_affiliation(aff)
@@ -195,7 +196,6 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
                 raise CerebrumError(e)
             if status:
                 aff_str = six.text_type(status)
-                aff = status
             else:
                 aff_str = six.text_type(aff)
 
@@ -220,7 +220,7 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
 
         # Set the path and return some information to the user
         ous = OUDiskMapping(self.db)
-        ous.add(ou_class.entity_id, aff, disk_class.entity_id)
+        ous.add(ou_class.entity_id, aff, status, disk_class.entity_id)
         return {
             "ou": ou_class.entity_id,
             "aff": aff_str,
@@ -271,6 +271,7 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
 
         # Try to find the Affiliation the user wants to edit
         aff_str = "*"
+        status = None
         if aff:
             try:
                 aff, status = self.const.get_affiliation(aff)
@@ -278,13 +279,12 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
                 raise CerebrumError(e)
             if status:
                 aff_str = six.text_type(status)
-                aff = status
             else:
                 aff_str = six.text_type(aff)
 
         # Clear the path and return some information to the user
         ous = OUDiskMapping(self.db)
-        ous.delete(ou_class.entity_id, aff)
+        ous.delete(ou_class.entity_id, aff, status)
         return {
             "ou": ou_class.entity_id,
             "aff": aff_str,
