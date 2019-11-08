@@ -27,6 +27,7 @@ def get_disk(database,
              disk_mapping,
              ou_id,
              aff_code,
+             status_code,
              perspective,
              ou_class=None,
              constants=None):
@@ -38,7 +39,7 @@ def get_disk(database,
       OU+Aff+Status > OU+Aff > OU > parent OU+Aff+Status > parent OU+Aff
       and so on until there is a hit.
 
-    :param disk_mapping:
+    :param disk_mapping: Instance of OUDiskMapping
 
     :type constants: Cerebrum.Utils._dynamic_Constants
     :param constants: Constants generated with Factory.get
@@ -54,7 +55,9 @@ def get_disk(database,
 
     :param int ou_id: entity id of the OU
 
-    :param int or None aff_code: int value of PersonAffiliation Constant
+    :param aff_code: None or Cerebrum.Constants._PersonAffiliationCode
+
+    :param status_code: None or Cerebrum.Constants._PersonAffStatusCode
 
     :rtype: int
     :return: The entity id of the disk
@@ -64,12 +67,10 @@ def get_disk(database,
     if constants is None:
         constants = Factory.get("Constants")(database)
 
-    aff_code, status_code = aff_lookup(constants, aff_code)
-
     # Is there a hit for the specific one?
     if status_code:
         try:
-            row = disk_mapping.get(ou_id, status_code)
+            row = disk_mapping.get(ou_id, aff_code, status_code)
         except Errors.NotFoundError:
             pass
         else:
@@ -78,7 +79,7 @@ def get_disk(database,
     # With just Ou and aff?
     if aff_code:
         try:
-            row = disk_mapping.get(ou_id, aff_code)
+            row = disk_mapping.get(ou_id, aff_code, None)
         except Errors.NotFoundError:
             pass
         else:
@@ -86,7 +87,7 @@ def get_disk(database,
 
     # With just OU?
     try:
-        row = disk_mapping.get(ou_id, None)
+        row = disk_mapping.get(ou_id, None, None)
     except Errors.NotFoundError:
         pass
     else:
@@ -97,6 +98,7 @@ def get_disk(database,
     parent_id = ou_class.get_parent(perspective)
     ou_class.clear()
     disk_id = get_disk(database, disk_mapping, parent_id, aff_code,
+                       status_code,
                        perspective,
                        ou_class=ou_class)
     return disk_id

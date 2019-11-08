@@ -197,10 +197,15 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
             _, ou_id, aff, _, status, _, _, _, _ = pe.list_affiliations(
                 pe.entity_id)[0]
             # Find the right disk id for this person
+            if aff:
+                aff = co.PersonAffiliation(aff)
+            if status:
+                status = co.PersonAffStatus(status)
             disk_id = utils.get_disk(
                 db,
                 disk_mapping,
                 ou_id,
+                aff,
                 status,
                 co.OUPerspective(cereconf.DEFAULT_OU_PERSPECTIVE))
             home_spread = home.get('spread', cereconf.DEFAULT_HOME_SPREAD)
