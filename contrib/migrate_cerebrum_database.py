@@ -35,6 +35,7 @@ from Cerebrum import Utils
 from Cerebrum import Account
 from Cerebrum import Metainfo
 from Cerebrum.Constants import _SpreadCode
+from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet
 from Cerebrum.utils.funcwrap import memoize
 
 
@@ -44,7 +45,7 @@ targets = {
              'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9',
              'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
              'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',
-             'rel_0_9_18', 'rel_0_9_19', 'rel_0_9_20', ),
+             'rel_0_9_18', 'rel_0_9_19', 'rel_0_9_20', 'rel_0_9_21', ),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3', 'bofhd_1_4',),
     'bofhd_auth': ('bofhd_auth_1_1', 'bofhd_auth_1_2',),
     'changelog': ('changelog_1_2', 'changelog_1_3', 'changelog_1_4',
@@ -792,6 +793,56 @@ def migrate_to_rel_0_9_20():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0, 9, 20))
     print("Migration to 0.9.20 completed successfully")
+    db.commit()
+
+
+def migrate_to_rel_0_9_21():
+    """Migrate from 0.9.20 database to the 0.9.21 database schema."""
+    assert_db_version("0.9.20")
+    makedb('0_9_21', 'pre')
+
+    # Do some sql magic to get all group owners in the auth_role table into
+    # the new table we just generated above
+    print("Migrating moderator info to new table")
+    aos = BofhdAuthOpSet(db)
+    aos.find_by_name("Group-owner")
+    binds = {
+        'opset_id': aos.op_set_id
+    }
+    moderators = db.query(
+        """
+        SELECT ao.entity_id   AS group_id,
+               ar.entity_id   AS moderator_id
+        FROM   [:table schema=cerebrum name=auth_role] ar
+               JOIN [:table schema=cerebrum name=auth_op_target] ao
+                 ON ar.op_target_id = ao.op_target_id
+               JOIN [:table schema=cerebrum name=entity_info] ei
+                 ON ar.entity_id = ei.entity_id
+        WHERE  ar.op_set_id = :opset_id
+               AND ao.target_type = 'group'
+        """,
+        binds
+    )
+    for row in moderators:
+        binds = {
+            'group_id': row['group_id'],
+            'moderator_id': row['moderator_id'],
+        }
+        db.execute(
+            """
+            INSERT INTO [:table schema=cerebrum name=group_moderator]
+                        (group_id,
+                         moderator_id)
+            VALUES      (:group_id,
+                         :moderator_id)
+            """,
+            binds
+        )
+
+    print("\ndone.")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, "0.9.21")
+    print("Migration to 0.9.21 completed successfully")
     db.commit()
 
 
