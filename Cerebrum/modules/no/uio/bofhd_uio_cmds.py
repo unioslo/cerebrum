@@ -1059,7 +1059,7 @@ class BofhdExtension(BofhdCommonMethods):
                 body.append("group promote_posix %s" % groupname)
         if spread:
             body.append("spread add group %s %s" % (groupname, spreadstring))
-        body.append("access grant Group-owner (%s) group %s" %
+        body.append("make (%s) moderator of group %s" %
                     (moderator, groupname))
         body.append("group info %s" % groupname)
         body.append("")

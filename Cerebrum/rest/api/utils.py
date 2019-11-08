@@ -196,8 +196,6 @@ def get_entity_name(entity):
 
 
 # Used to find auth role owners. Should probably be moved somewhere else.
-# For example (entity_id=group_id, target_type='group') will find group
-# moderators.
 def get_auth_roles(entity, target_type, role_map=None):
     aot = bofhd_auth.BofhdAuthOpTarget(db.connection)
     ar = bofhd_auth.BofhdAuthRole(db.connection)

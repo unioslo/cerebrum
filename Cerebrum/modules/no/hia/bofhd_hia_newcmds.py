@@ -245,9 +245,8 @@ class BofhdExtension(BofhdCommonMethods):
         # if not group.description.startswith('Personal file group for '):
         #     return
         #
-        # The alternative is to use the bofhd_auth tables to see if
-        # the account has the 'Group-owner' op_set for this group, and
-        # this is implemented below.
+        # The alternative is to check if the account is the moderator of the
+        # group, and this is implemented below
 
         is_moderator = False
         for mod in group.search_moderators(group_id=group.entity_id):
