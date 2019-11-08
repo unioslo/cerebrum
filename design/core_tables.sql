@@ -2013,14 +2013,18 @@ CREATE INDEX group_member_member_id_idx ON group_member(member_id);
 category:main;
 CREATE TABLE group_moderator
 (
-group_id     NUMERIC(12, 0)
-CONSTRAINT group_exists
-REFERENCES group_info(group_id),
-moderator_id NUMERIC(12, 0)
-CONSTRAINT moderator_exists
-REFERENCES entity_info(entity_id),
-CONSTRAINT group_moderator_pkey PRIMARY KEY (group_id, moderator_id)
+  group_id
+    NUMERIC(12, 0)
+    CONSTRAINT group_exists
+      REFERENCES group_info(group_id),
 
+  moderator_id
+    NUMERIC(12, 0)
+    CONSTRAINT moderator_exists
+      REFERENCES entity_info(entity_id),
+
+  CONSTRAINT group_moderator_pkey
+    PRIMARY KEY (group_id, moderator_id)
 );
 
 
