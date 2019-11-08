@@ -187,7 +187,7 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
 
     if home or home_auto:
         # Deal with home argument
-        if 'disk_id' in home:
+        if home:
             disk_id = home['disk_id']
             home_spread = home['spread']
         # Deal with home_auto
@@ -395,9 +395,12 @@ def main(inargs=None):
     spreads = [co.Spread(s) for s in args.spreads]
     ignore_affs = [str2aff(co, a) for a in args.ignore_affs]
     remove_quars = [co.Quarantine(q) for q in args.remove_quars]
-    home = {'spread': int(co.Spread(args.home_spread))}
+    home = None
     if args.home_disk:
-        home['disk_id'] = get_disk(db, args.home_disk)
+        home = {
+            'spread': int(co.Spread(args.home_spread)),
+            'disk_id': get_disk(db, args.home_disk),
+        }
     posix = {}
     if args.with_posix:
         posix['enabled'] = True
