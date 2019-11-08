@@ -500,7 +500,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           given. With this filter, only the groups matching the specified
           id(s) will be returned.
 
-          This filter cannot be combined with L{member_id} or L{moderator_id}.
+          This filter cannot be combined with L{member_id}.
 
         :type member_id: int or sequence thereof or None.
         :param member_id:
