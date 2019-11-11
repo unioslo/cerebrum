@@ -84,11 +84,11 @@ class RemoteSourceError(Exception):
 
 
 class SourceSystemNotReachedError(Exception):
-    """Package not received from source system"""
+    """Package not received from source system."""
 
 
-class SourceSystem404Error(Exception):
-    """Not found in the source system."""
+class EntityDoesNotExistInSourceSystemError(Exception):
+    """Entity does not exist in source system."""
 
 
 class ErroneousSourceData(Exception):
@@ -496,7 +496,7 @@ def get_hr_person(config, database, source_system, url,
                     data.update({k: r})
             return data
         elif r.status_code == 404:
-            raise SourceSystem404Error('404: Not Found')
+            raise EntityDoesNotExistInSourceSystemError('404: Not Found')
         else:
             raise RemoteSourceError(
                 'Could not fetch {} from remote source: {}: {}'.format(
@@ -992,7 +992,7 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
         logger.info('Handling person %r from source system %r',
                     _stringify_for_log(hr_person.get('names')),
                     source_system)
-    except SourceSystem404Error:
+    except EntityDoesNotExistInSourceSystemError:
         logger.warn('URL %s does not resolve in source system %r (404) - '
                     'deleting from Cerebrum',
                     url, source_system)
