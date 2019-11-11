@@ -99,11 +99,12 @@ def account_is_fresh(ac, co):
     relevant_traits = [traits[trait_code] for trait_code in
                        (co.trait_student_new, co.trait_sms_welcome)
                        if trait_code in traits]
+    cutoff = DateTime.now() - DateTime.DateTimeDelta(FRESH_DAYS)
+
     for trait in relevant_traits:
         date = trait['date']
         if not date:
             continue
-        cutoff = DateTime.now() - DateTime.DateTimeDelta(FRESH_DAYS)
         if date > cutoff:
             return True
     return False
