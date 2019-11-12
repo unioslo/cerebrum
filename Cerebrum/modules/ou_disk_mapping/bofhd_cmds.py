@@ -57,7 +57,7 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from .dbal import OUDiskMapping
 
-no_access_error = PermissionDenied("Not allowed to access OU Settings")
+NO_ACCESS_ERROR = PermissionDenied("Not allowed to access ou disk mappings")
 
 
 class BofhdOUDiskMappingAuth(BofhdAuth):
@@ -72,7 +72,7 @@ class BofhdOUDiskMappingAuth(BofhdAuth):
         if query_run_any:
             return False
 
-        raise no_access_error
+        raise NO_ACCESS_ERROR
 
     def can_list_ou_path(self, operator, ou=None, query_run_any=False):
         return self.can_modify_ou_path(operator, ou, query_run_any)
@@ -99,7 +99,7 @@ HELP_ARGS = {
     "aff": [
         "aff",
         "Enter affiliation",
-        "The name of an affiliation, e.g STUDENT or STUDENT/aktiv",
+        "The name of an affiliation or status, e.g STUDENT or STUDENT/aktiv",
     ],
     "path": [
         "path",
@@ -184,7 +184,7 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
         if not self.ba.can_add_ou_path(
             operator.get_entity_id(), ou_class.entity_id
         ):
-            raise no_access_error
+            raise NO_ACCESS_ERROR
 
         # Try to find the Affiliation the user wants to edit
         aff_str = "*"
@@ -192,8 +192,8 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
         if aff:
             try:
                 aff, status = self.const.get_affiliation(aff)
-            except Exception as e:
-                raise CerebrumError(e)
+            except Errors.NotFoundError:
+                raise CerebrumError('Unknown affiliation {}'.format(aff))
             if status:
                 aff_str = six.text_type(status)
             else:
@@ -267,7 +267,7 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
         if not self.ba.can_remove_ou_path(
             operator.get_entity_id(), ou_class.entity_id
         ):
-            raise no_access_error
+            raise NO_ACCESS_ERROR
 
         # Try to find the Affiliation the user wants to edit
         aff_str = "*"
@@ -275,8 +275,8 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
         if aff:
             try:
                 aff, status = self.const.get_affiliation(aff)
-            except Exception as e:
-                raise CerebrumError(e)
+            except Errors.NotFoundError:
+                raise CerebrumError('Unknown affiliation {}'.format(aff))
             if status:
                 aff_str = six.text_type(status)
             else:
@@ -324,14 +324,14 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
         if not self.ba.can_list_ou_path(
             operator.get_entity_id(), ou_class.entity_id
         ):
-            raise no_access_error
+            raise NO_ACCESS_ERROR
 
         # Try to find the Affiliation the user wants to edit
         if aff:
             try:
                 aff, status = self.const.get_affiliation(aff)
-            except Exception as e:
-                raise CerebrumError(e)
+            except Errors.NotFoundError:
+                raise CerebrumError('Unknown affiliation {}'.format(aff))
             if status:
                 aff = status
         # Get the path and return some information to the user
