@@ -163,8 +163,8 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
         SimpleString(help_ref="ou"),
         SimpleString(help_ref="aff", optional=True),
         fs=FormatSuggestion(
-            "Set homedir='%s' for affiliation %s at OU %s",
-            ("path", "aff", "ou"),
+            "Set homedir='%s' for affiliation %s at OU %s %s",
+            ("path", "aff", "ou", "stedkode"),
         ),
         perm_filter="can_add_ou_path",
     )
@@ -225,6 +225,9 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
             "ou": ou_class.entity_id,
             "aff": aff_str,
             "path": six.text_type(disk_class.path),
+            "stedkode": "with stedkode {} ".format(ou_class.get_stedkode())
+                        if hasattr(ou_class, 'get_stedkode')
+                        else ""
         }
 
     #
@@ -235,8 +238,8 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
         SimpleString(help_ref="ou"),
         SimpleString(help_ref="aff", optional=True),
         fs=FormatSuggestion(
-            "Removed homedir for affiliation %s at OU %s",
-            ("aff", "ou"),
+            "Removed homedir for affiliation %s at OU %s %s",
+            ("aff", "ou", "stedkode"),
         ),
         perm_filter="can_remove_ou_path",
     )
@@ -288,6 +291,9 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
         return {
             "ou": ou_class.entity_id,
             "aff": aff_str,
+            "stedkode": "with stedkode {} ".format(ou_class.get_stedkode())
+                        if hasattr(ou_class, 'get_stedkode')
+                        else ""
         }
 
     #
@@ -353,7 +359,7 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
             stedkode = (
                 ou_class.get_stedkode()
                 if hasattr(ou_class, "get_stedkode")
-                else None
+                else ""
             )
             disk_class.clear()
             disk_class.find(row["disk_id"])
