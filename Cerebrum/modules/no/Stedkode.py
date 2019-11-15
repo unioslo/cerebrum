@@ -197,3 +197,6 @@ class Stedkode(OU):
         if avdeling is not None:
             sql += "AND avdeling = :avdeling "
         return self.query(sql, locals())
+
+    def get_stedkode(self):
+        return "%02d%02d%02d" % (self.fakultet, self.institutt, self.avdeling)
