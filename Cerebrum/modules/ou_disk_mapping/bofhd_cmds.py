@@ -163,7 +163,7 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
         SimpleString(help_ref="ou"),
         SimpleString(help_ref="aff", optional=True),
         fs=FormatSuggestion(
-            "Set homedir='%s' for affiliation %s at OU %s %s",
+            "Set homedir='%s' for affiliation %s at OU %i %s",
             ("path", "aff", "ou", "stedkode"),
         ),
         perm_filter="can_add_ou_path",
@@ -238,7 +238,7 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
         SimpleString(help_ref="ou"),
         SimpleString(help_ref="aff", optional=True),
         fs=FormatSuggestion(
-            "Removed homedir for affiliation %s at OU %s %s",
+            "Removed homedir for affiliation %s at OU %i %s",
             ("aff", "ou", "stedkode"),
         ),
         perm_filter="can_remove_ou_path",
@@ -304,9 +304,9 @@ class BofhdOUDiskMappingCommands(BofhdCommandBase):
         SimpleString(help_ref="ou"),
         SimpleString(help_ref="aff", optional=True),
         fs=FormatSuggestion(
-            "%8s %12s %26s %s",
+            "%8s %12i %26s %s",
             ("stedkode", "ou", "aff", "disk"),
-            hdr="%8s %12s %26s %s" % ("Stedkode", "Ou", "Affiliation", "Disk"),
+            hdr="%8s %12s %26s %s" % ("Stedkode", "OU", "Affiliation", "Disk"),
         ),
         perm_filter="can_list_ou_path",
     )
