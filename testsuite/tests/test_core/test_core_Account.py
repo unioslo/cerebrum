@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Basic tests for Cerebrum/Account.py.
 
@@ -5,8 +6,9 @@ Searching (members and groups) has to be thoroughly tested.
 """
 from __future__ import unicode_literals
 
-import logging
 import unittest
+
+import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -14,8 +16,6 @@ from Cerebrum.Account import Account
 from datasource import BasicAccountSource, BasicPersonSource
 from dbtools import DatabaseTools
 from datasource import expired_filter, nonexpired_filter
-
-logger = logging.getLogger(__name__)
 
 # TODO:
 #
@@ -370,8 +370,7 @@ class MultipleAccountsTest(BaseAccountTest):
             try:
                 # We add the salt to the password, just to get a different
                 # password from the unsalted test
-                salted = self._ac.encrypt_password(
-                    method, salt + password, salt)
+                salted = self._ac.encrypt_password(method, salt+password, salt)
                 self.assertTrue(bool(salted))
                 unsalted = self._ac.encrypt_password(method, password)
                 self.assertTrue(bool(unsalted))
@@ -379,18 +378,17 @@ class MultipleAccountsTest(BaseAccountTest):
                 self.assertNotIn(method, must_encode)
                 continue
             try:
-                self.assertTrue(self._ac.verify_password(
-                    method, salt + password, salted))
-                self.assertFalse(self._ac.verify_password(
-                    method, password, salted))
-                self.assertTrue(self._ac.verify_password(
-                    method, password, unsalted))
-                self.assertFalse(self._ac.verify_password(
-                    method, salt + password, unsalted))
-            except Errors.NotImplementedAuthTypeError:
+                self.assertTrue(self._ac.verify_password(method, salt+password,
+                                                         salted))
+                self.assertFalse(self._ac.verify_password(method, password,
+                                                          salted))
+                self.assertTrue(self._ac.verify_password(method, password,
+                                                         unsalted))
+                self.assertFalse(self._ac.verify_password(method,
+                                                          salt+password,
+                                                          unsalted))
+            except ValueError:
                 self.assertNotIn(method, must_verify)
-            # except ValueError:
-                # self.assertNotIn(method, must_verify)
 
     def test_populate_affect_auth(self):
         """ Account.populate_auth_type() and Account.affect_auth_types. """

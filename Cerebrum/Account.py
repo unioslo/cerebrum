@@ -26,15 +26,17 @@ default username is stored in is yet to be determined.
 """
 from __future__ import unicode_literals
 
+import crypt
 import functools
-import logging
+import string
 import mx
+import hashlib
+import base64
 import re
 
+import passlib.hash
 import six
 
-import cereconf
-from Cerebrum.auth import all_auth_methods, encrypt_ha1_md5, verify_ha1_md5
 from Cerebrum import Utils, Disk
 from Cerebrum.Entity import (EntityName,
                              EntityQuarantine,
@@ -46,9 +48,11 @@ from Cerebrum.Utils import (NotSet,
                             argument_to_sql,
                             prepare_string)
 from Cerebrum.utils.username import suggest_usernames
+from Cerebrum.modules.pwcheck.checker import (check_password,
+                                              PasswordNotGoodEnough)
 from Cerebrum.modules.password_generator.generator import PasswordGenerator
 
-logger = logging.getLogger(__name__)
+import cereconf
 
 
 def _account_row_exists(database, table, binds):
@@ -838,21 +842,52 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         :type binary: bool
         :param binary: Treat plaintext as binary data
         """
-        if method == self.const.auth_type_ha1_md5:
-            realm = cereconf.AUTH_HA1_REALM
-            return encrypt_ha1_md5(
-                self.account_name, realm, plaintext, salt, binary)
-        try:
-            auth_impl = all_auth_methods[str(method)]()
-            return auth_impl.encrypt(plaintext, salt, binary)
-        except NotImplementedError as ne:
-            logger.warning(
-                "Encrypt Auth method (%s) not implemented: %s",
-                str(method), str(ne))
-            raise Errors.NotImplementedAuthTypeError
-        except Exception as e:
-            logger.error("Fatal exception in encrypt_password: %s", str(e))
-            raise
+        unicode_plaintext = plaintext
+        if binary:
+            utf8_plaintext = plaintext  # a small lie
+        else:
+            assert(isinstance(unicode_plaintext, six.text_type))
+            utf8_plaintext = unicode_plaintext.encode('utf-8')
+        if method in (self.const.auth_type_md5_crypt,
+                      self.const.auth_type_sha256_crypt,
+                      self.const.auth_type_sha512_crypt,
+                      self.const.auth_type_ssha):
+            if salt is None:
+                saltchars = string.ascii_letters + string.digits + "./"
+                salt = Utils.random_string(8, saltchars)
+                if method == self.const.auth_type_md5_crypt:
+                    salt = "$1$" + Utils.random_string(8, saltchars)
+                elif method == self.const.auth_type_sha256_crypt:
+                    salt = "$5$" + Utils.random_string(16, saltchars)
+                elif method == self.const.auth_type_sha512_crypt:
+                    salt = "$6$" + Utils.random_string(16, saltchars)
+                elif method == self.const.auth_type_ssha:
+                    salt = Utils.random_string(16, saltchars)
+            if method == self.const.auth_type_ssha:
+                return base64.b64encode(
+                    hashlib.sha1(
+                        utf8_plaintext + salt.encode('utf-8')
+                    ).digest() + salt.encode('utf-8')).decode()
+            return crypt.crypt(
+                plaintext if binary else utf8_plaintext,
+                salt.encode('utf-8')).decode()
+        elif method == self.const.auth_type_md4_nt:
+            # Previously the smbpasswd module was used to create nthash, and it
+            # only produced uppercase hashes. The hash is case insensitive, but
+            # be backwards compatible if some comsumers depend on upper case strings.
+            return passlib.hash.nthash.hash(utf8_plaintext).decode().upper()
+        elif method == self.const.auth_type_plaintext:
+            return unicode_plaintext
+        elif method == self.const.auth_type_md5_unsalt:
+            return hashlib.md5(utf8_plaintext).hexdigest().decode()
+        elif method == self.const.auth_type_ha1_md5:
+            s = ":".join(
+                [self.account_name,
+                 cereconf.AUTH_HA1_REALM,
+                 unicode_plaintext])
+            return hashlib.md5(s.encode('utf-8')).hexdigest().decode()
+        raise Errors.NotImplementedAuthTypeError(
+            'Unknown method {method}'.format(method=method))
 
     def decrypt_password(self, method, cryptstring):
         """Returns the decrypted plaintext according to the specified
@@ -860,38 +895,42 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         raised.  A mixin for a new method should not call super for
         the method it handles.
         """
-        try:
-            auth_impl = all_auth_methods[str(method)]()
-            return auth_impl.decrypt(cryptstring)
-        except NotImplementedError as ne:
-            logger.warning(
-                "Decrypt Auth method (%s) not implemented: %s",
-                str(method), str(ne))
-            raise Errors.NotImplementedAuthTypeError
-        except Exception as e:
-            logger.error("Fatal exception in decrypt_password: %s", str(e))
-            raise
+        if method in (self.const.auth_type_md5_crypt,
+                      self.const.auth_type_ha1_md5,
+                      self.const.auth_type_sha256_crypt,
+                      self.const.auth_type_sha512_crypt,
+                      self.const.auth_type_md4_nt):
+            raise NotImplementedError(
+                "Can't decrypt {method}".format(method=method))
+        elif method == self.const.auth_type_plaintext:
+            return cryptstring
+        raise ValueError('Unknown method {method}'.format(method=method))
 
     def verify_password(self, method, plaintext, cryptstring):
         """Returns True if the plaintext matches the cryptstring,
         False if it doesn't.  If the method doesn't support
         verification, NotImplemented is returned.
         """
-        if method == self.const.auth_type_ha1_md5:
-            realm = cereconf.AUTH_HA1_REALM
-            return verify_ha1_md5(
-                self.account_name, realm, plaintext, cryptstring)
-        try:
-            auth_impl = all_auth_methods[str(method)]()
-            return auth_impl.verify(plaintext, cryptstring)
-        except NotImplementedError as ne:
-            logger.warning(
-                "Verify Auth method (%s) not implemented: %s",
-                str(method), str(ne))
-            raise Errors.NotImplementedAuthTypeError
-        except Exception as e:
-            logger.error("Fatal exception in verify_password: %s", str(e))
-            raise
+        if method not in (self.const.auth_type_md5_crypt,
+                          self.const.auth_type_md5_unsalt,
+                          self.const.auth_type_ha1_md5,
+                          self.const.auth_type_md4_nt,
+                          self.const.auth_type_ssha,
+                          self.const.auth_type_sha256_crypt,
+                          self.const.auth_type_sha512_crypt,
+                          self.const.auth_type_plaintext):
+            raise ValueError('Unknown method {method}'.format(method=method))
+        salt = cryptstring
+        if method == self.const.auth_type_ssha:
+            salt = base64.decodestring(
+                cryptstring.encode())[20:].decode()
+
+        if method == self.const.auth_type_md4_nt:
+            return passlib.hash.nthash.verify(plaintext, cryptstring)
+        else:
+            return (self.encrypt_password(method,
+                                          plaintext,
+                                          salt=salt) == cryptstring)
 
     def verify_auth(self, plaintext):
         """Try to verify all authentication data stored for an
