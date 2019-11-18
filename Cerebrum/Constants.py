@@ -1458,6 +1458,14 @@ class ConstantsBase(DatabaseAccessor):
             int(n)
         return order
 
+    def get_auth_crypt_methods(self):
+        """Get list of auth methods, humanized"""
+        auth = tuple(self.human2constant(value, _AuthenticationCode) for
+                      value in getattr(cereconf, 'AUTH_CRYPT_METHODS', ()))
+        for n in auth:
+            int(n)
+        return auth
+
 
 class CoreConstants(ConstantsBase):
 
