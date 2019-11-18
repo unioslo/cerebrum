@@ -1005,8 +1005,8 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
     else:
         # assume manual ticket
         employee_number = url.split('(')[-1].strip(')')
-        cerebrum_person = Factory.get('Person')(database)
         co = Factory.get('Constants')(database)
+        cerebrum_person = Factory.get('Person')(database)
         cerebrum_person.find_by_external_id(
             id_type=co.externalid_sap_ansattnr,
             external_id=employee_number,
@@ -1036,10 +1036,6 @@ def callback(database, source_system, routing_key, content_type, body,
     """Call appropriate handler functions."""
     try:
         url = get_resource_url(body)
-    except ValueError:
-        # Assume mock url, for example
-        # "http://127.0.0.1:5000/v2/employees(123456789)"
-        url = body
     except Exception as e:
         logger.warn('Received malformed message %r', body)
         return True
@@ -1095,12 +1091,16 @@ def main(args=None):
                         metavar='FILE',
                         default=None,
                         help='Load person object from JSON file')
-    parser.add_argument('-u', '--url',
-                        dest='url',
+    parser.add_argument(u'-u', u'--url',
+                        action=type(
+                            str(''), (argparse.Action,),
+                            {'__call__': lambda s, p, ns, v, o=None: setattr(
+                                ns, s.dest, json.dumps({'sub': v}))}),
+                        dest=u'url',
                         metavar='<url>',
-                        type=str,
+                        type=text_type,
                         default=None,
-                        help='Load url manually')
+                        help=u'Load url manually')
     parser.add_argument('--dryrun',
                         dest='dryrun',
                         action='store_true',
