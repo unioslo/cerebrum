@@ -37,6 +37,7 @@ import logging
 import os
 import re
 import sys
+import datetime
 
 from itertools import izip, repeat
 
@@ -47,6 +48,10 @@ from Cerebrum.Utils import Factory, NotSet
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.modules import Email
+from Cerebrum.modules.fs.fs_group import (FsGroupCategorizer,
+                                          set_default_expire_date,
+                                          should_postpone_expire_date,
+                                          get_grace)
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.modules.no.access_FS import roles_xml_parser
 from Cerebrum.modules.no.fronter_lib import (UE2KursID, key2fields,
@@ -1097,6 +1102,7 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
         AffiliatedGroups.setdefault(affil, {})[gname] = 1
     known_FS_groups[gname] = 1
 
+    today = datetime.date.today()
     try:
         group = get_group(gname)
     except Errors.NotFoundError:
@@ -1109,6 +1115,10 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
             description=descr,
             group_type=co.group_type_lms,
         )
+        set_default_expire_date(fs_group_categorizer,
+                                group,
+                                gname,
+                                today=today)
         group.write_db()
     else:
         # If group already exists, update its information...
@@ -1119,10 +1129,15 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
             group.description = descr
             group.write_db()
 
-        if group.is_expired():
-            # Extend the group's life by 6 months
-            from mx.DateTime import now, DateTimeDelta
-            group.expire_date = now() + DateTimeDelta(6 * 30)
+        grace = get_grace(fs_group_categorizer, gname)
+        if should_postpone_expire_date(group, grace, today=today):
+            group.expire_date = (
+                    today +
+                    datetime.timedelta(days=grace['high_limit'])
+            )
+            logger.debug('Postponing expire_date of group %s to %s',
+                         gname,
+                         group.expire_date)
             group.write_db()
 
         for row in group.search_members(group_id=group.entity_id,
@@ -1412,7 +1427,7 @@ def main(inargs=None):
     global fnr2account_id, fnr2stud_account_id, AffiliatedGroups
     global known_FS_groups, fs_supergroup
     global group_creator, UndervEnhet
-    global dryrun
+    global dryrun, fs_group_categorizer
 
     logger.debug("populating fronter groups")
 
@@ -1481,6 +1496,7 @@ def main(inargs=None):
     db = Factory.get('Database')()
     db.cl_init(change_program='CF_gen_groups')
     co = Factory.get('Constants')(db)
+    fs_group_categorizer = FsGroupCategorizer()
 
     dryrun = not args.commit
 

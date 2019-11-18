@@ -35,12 +35,14 @@ e.g. only new employees from the last 7 days? This is usable e.g. for UiO.
 
 import argparse
 from operator import itemgetter
+
 from mx import DateTime
 
 import cereconf
 from Cerebrum import Errors, Constants
 from Cerebrum.Utils import Factory
-
+from Cerebrum.modules.ou_disk_mapping import utils
+from Cerebrum.modules.ou_disk_mapping.dbal import OUDiskMapping
 
 logger = Factory.get_logger('cronjob')
 
@@ -108,7 +110,7 @@ def restore_account(db, pe, ac, remove_quars):
 
 
 def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
-                   remove_quars=(), posix=False, home=None):
+                   remove_quars=(), posix=False, home=None, home_auto=None):
     """Make sure that the given person has an active account. It the person has
     no accounts, a new one will be created. If the person already has an
     account it will be 'restored'.
@@ -183,13 +185,36 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
                     parent=ac)
         pu.write_db()
 
-    if home:
+    if home or home_auto:
+        # Deal with home argument
+        if home:
+            disk_id = home['disk_id']
+            home_spread = home['spread']
+        # Deal with home_auto
+        else:
+            disk_mapping = OUDiskMapping(db)
+            # Get highest precedent affiliation
+            _, ou_id, aff, _, status, _, _, _, _ = pe.list_affiliations(
+                pe.entity_id)[0]
+            # Find the right disk id for this person
+            if aff:
+                aff = co.PersonAffiliation(aff)
+            if status:
+                status = co.PersonAffStatus(status)
+            disk_id = utils.get_disk(
+                db,
+                disk_mapping,
+                ou_id,
+                aff,
+                status,
+                co.OUPerspective(cereconf.DEFAULT_OU_PERSPECTIVE))
+            home_spread = home.get('spread', cereconf.DEFAULT_HOME_SPREAD)
         logger.debug("Set homedir for account %s to disk_id=%s",
-                     ac.account_name, home['disk_id'])
+                     ac.account_name, disk_id)
         homedir_id = ac.set_homedir(
-                disk_id=home['disk_id'],
-                status=co.home_status_not_created)
-        ac.set_home(home['spread'], homedir_id)
+            disk_id=disk_id,
+            status=co.home_status_not_created)
+        ac.set_home(home_spread, homedir_id)
         ac.write_db()
 
 
@@ -220,7 +245,7 @@ def get_posixgroup(db, groupname):
 
 
 def process(db, affiliations, new_trait=None, spreads=(), ignore_affs=(),
-            remove_quars=(), posix=False, home=None):
+            remove_quars=(), posix=False, home=None, home_auto=None):
     """Go through the database for new persons and give them accounts."""
 
     creator = Factory.get('Account')(db)
@@ -256,7 +281,7 @@ def process(db, affiliations, new_trait=None, spreads=(), ignore_affs=(),
         pe.clear()
         pe.find(p_id)
         update_account(db, pe, creator, new_trait, spreads, ignore_affs,
-                       remove_quars, posix, home)
+                       remove_quars, posix, home, home_auto)
 
 
 class ExtendAction(argparse.Action):
@@ -336,10 +361,16 @@ def make_parser():
         default=cereconf.DEFAULT_HOME_SPREAD,
         help='The spread for the new home directory. Defaults to '
              'cereconf.DEFAULT_HOME_SPREAD')
-    parser.add_argument(
+    homedir = parser.add_mutually_exclusive_group()
+    homedir.add_argument(
         '--home-disk',
         metavar='PATH',
         help="Path to disk to put new accounts' home directory")
+    homedir.add_argument(
+        '--home-auto',
+        action='store_true',
+        help="Set homedir automatically using the OU Disk Mapping module"
+    )
     parser.add_argument(
         '--commit',
         action='store_true',
@@ -364,10 +395,12 @@ def main(inargs=None):
     spreads = [co.Spread(s) for s in args.spreads]
     ignore_affs = [str2aff(co, a) for a in args.ignore_affs]
     remove_quars = [co.Quarantine(q) for q in args.remove_quars]
-    home = {}
+    home = None
     if args.home_disk:
-        home['disk_id'] = get_disk(db, args.home_disk)
-        home['spread'] = int(co.Spread(args.home_spread))
+        home = {
+            'spread': int(co.Spread(args.home_spread)),
+            'disk_id': get_disk(db, args.home_disk),
+        }
     posix = {}
     if args.with_posix:
         posix['enabled'] = True
@@ -379,7 +412,7 @@ def main(inargs=None):
 
     db.cl_init(change_program="generate_accounts")
     process(db, affiliations, new_trait, spreads, ignore_affs, remove_quars,
-            posix, home)
+            posix, home, args.home_auto)
 
     if args.commit:
         db.commit()

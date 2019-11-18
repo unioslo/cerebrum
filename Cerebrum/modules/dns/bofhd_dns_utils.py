@@ -247,7 +247,7 @@ class DnsBofhdUtils(object):
         object."""
         def _get_reverse_order(lst):
             """Return index of sorted zones"""
-            # We must sort the zones to assert that trofast.uio.no
+            # We must sort the zones to assert that ifi.uio.no
             # does not end up in the uio.no zone.  This is acheived by
             # spelling the zone postfix backwards and sorting the
             # resulting list backwards

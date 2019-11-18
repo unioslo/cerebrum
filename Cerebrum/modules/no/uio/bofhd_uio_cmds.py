@@ -93,6 +93,7 @@ from Cerebrum.modules.no.uio import bofhd_pw_issues
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.uio.bofhd_auth import (
     BofhdApiKeyAuth,
+    BofhdOUDiskMappingAuth,
     UiOBofhdRequestsAuth,
     UioAccessAuth,
     UioAuth,
@@ -101,6 +102,7 @@ from Cerebrum.modules.no.uio.bofhd_auth import (
     UioPassWordAuth,
     UioUnpersonalAuth,
 )
+from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
@@ -6769,3 +6771,8 @@ class UioPassWordIssuesCommands(bofhd_pw_issues.BofhdExtension):
 class UioCreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
     """Uio specific create unpersonal * commands"""
     authz = UioUnpersonalAuth
+
+
+class BofhdOUDiskMappingCommands(bofhd_cmds.BofhdOUDiskMappingCommands):
+    """Uio specific OU Disk Mapping * commands"""
+    authz = BofhdOUDiskMappingAuth
