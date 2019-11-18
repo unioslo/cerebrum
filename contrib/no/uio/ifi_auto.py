@@ -239,10 +239,14 @@ def sync_filegroup(fgname, group, course, act):
         fgroup = get_group(fgname)
     except Errors.NotFoundError:
         logger.info("Created new file group %s", fgname)
-        posix_group.populate(group_creator, co.group_visibility_all, fgname,
-                             "Gruppelærere %s gruppe %s" %
-                             (course.upper(), act),
-                             expire_date=expdate)
+        posix_group.populate(
+            creator_id=group_creator,
+            visibility=co.group_visibility_all,
+            name=fgname,
+            description="Gruppelærere %s gruppe %s" % (course.upper(), act),
+            expire_date=expdate,
+            group_type=co.group_type_unknown,
+        )
         posix_group.write_db()
     else:
         posix_group.find(fgroup.entity_id)
@@ -291,10 +295,15 @@ def process_groups(super, fg_super):
     except Errors.NotFoundError:
         # first time we run this
         fg_super_gr = Factory.get('Group')(db)
-        fg_super_gr.populate(group_creator, co.group_visibility_internal,
-                             fg_super, "Ikke-eksporterbar gruppe.  Hvilke "
-                             "filgrupper som er automatisk opprettet som "
-                             "følge av Ifi-automatikk")
+        fg_super_gr.populate(
+            creator_id=group_creator,
+            visibility=co.group_visibility_internal,
+            name=fg_super,
+            description=("Ikke-eksporterbar gruppe.  Hvilke "
+                         "filgrupper som er automatisk opprettet som "
+                         "følge av Ifi-automatikk"),
+            group_type=co.group_type_unknown,
+        )
         fg_super_gr.write_db()
     else:
         for row in fg_super_gr.search_members(group_id=fg_super_gr.entity_id,

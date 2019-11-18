@@ -277,8 +277,13 @@ class DatabaseTools(object):
         """
         creator_id = self.get_initial_account_id()
         self._gr.clear()
-        self._gr.populate(creator_id, self._co.group_visibility_all,
-                          group_dict['group_name'], group_dict['description'])
+        self._gr.populate(
+            creator_id=creator_id,
+            visibility=self._co.group_visibility_all,
+            name=group_dict['group_name'],
+            description=group_dict['description'],
+            group_type=self._co.group_type_unknown,
+        )
         self._gr.expire_date = group_dict.get('expire_date')
         self._gr.write_db()
         entity_id = self._gr.entity_id

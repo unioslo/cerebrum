@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Generate OU groups based on config file.
+"""
+Generate OU groups based on config file.
 
 Example config (JSON with comments):
 {
@@ -71,12 +72,14 @@ from Cerebrum.config.loader import read, read_config
 class TypeConfig(Configuration):
     """Describes the types sent as argument"""
 
-    name = ConfigDescriptor(String,
-                            doc=u'This type name, given as parameter to script')
+    name = ConfigDescriptor(
+        String,
+        doc=u'This type name, given as parameter to script')
 
-    root = ConfigDescriptor(Iterable,
-                            template=String(),
-                            doc=u'The roots for insertion (stedkode)')
+    root = ConfigDescriptor(
+        Iterable,
+        template=String(),
+        doc=u'The roots for insertion (stedkode)')
 
     recursion = ConfigDescriptor(
         Choice,
@@ -172,14 +175,20 @@ def setup_types(db, root, recursion, aff, status, source, members, perspective,
         try:
             gr.find_by_name(name)
             logger.info("Group %s exists", name)
-        except:
+        except Exception:
             logger.info("Creating new group %s", name)
-            gr.populate(visibility=co.group_visibility_all, name=name,
-                        description=desc, group_type='ougroup',
-                        ou_id=ou.entity_id, affiliation=aff,
-                        affiliation_source=source, affiliation_status=status,
-                        recursion=recursion, ou_perspective=perspective,
-                        member_type=members, creator_id=ac.entity_id)
+            gr.populate(visibility=co.group_visibility_all,
+                        name=name,
+                        description=desc,
+                        virtual_group_type='ougroup',
+                        ou_id=ou.entity_id,
+                        affiliation=aff,
+                        affiliation_source=source,
+                        affiliation_status=status,
+                        recursion=recursion,
+                        ou_perspective=perspective,
+                        member_type=members,
+                        creator_id=ac.entity_id)
             gr.write_db()
         for spread in spreads:
             if not gr.has_spread(spread):
@@ -236,6 +245,7 @@ def main():
     else:
         logger.info('Doing rollback')
         db.rollback()
+
 
 if __name__ == '__main__':
     main()

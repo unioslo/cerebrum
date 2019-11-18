@@ -72,10 +72,13 @@ class VirtGroup(Group_class, EntityContactInfo, EntityTrait):
         assert not self.illegal_name(name), "Invalid group name %s" % (name,)
         assert description.strip()
 
-        self.__super.populate(creator_id,
-                              self.const.group_visibility_all,
-                              name,
-                              description)
+        self.__super.populate(
+            creator_id=creator_id,
+            visibility=self.const.group_visibility_all,
+            name=name,
+            description=description,
+            group_type=self.const.group_type_unknown,
+        )
         #self.expire_date = now() + self.DEFAULT_GROUP_LIFETIME
     # end populate
 

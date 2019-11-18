@@ -134,6 +134,9 @@ class OuGroupProcessor(object):
         gr = PosixGroup.PosixGroup(self._db)
         aux_gr = PosixGroup.PosixGroup(self._db)
 
+        # TODO: Should these groups have a custom uit group_type?
+        group_type = self._co.group_type_unknown
+
         if ou.entity_id not in self.group_dict:
             logger.info("Create PosixGroup and give spread")
             # create group and give spread
@@ -143,7 +146,9 @@ class OuGroupProcessor(object):
                 creator_id=self.default_creator,
                 visibility=self._co.group_visibility_all,
                 name=gr_name,
-                description='ou_group:' + self.stedkode_dict[ou.entity_id])
+                description='ou_group:' + self.stedkode_dict[ou.entity_id],
+                group_type=group_type,
+            )
             gr.write_db()
             # SPREAD DISABLED UNTIL AD IS READY. RMI000 - 20080207
             # gr.add_spread(self.default_spread)
@@ -248,7 +253,9 @@ class OuGroupProcessor(object):
                             creator_id=self.default_creator,
                             visibility=self._co.group_visibility_all,
                             name=gr_name,
-                            description=gr_desc)
+                            description=gr_desc,
+                            group_type=group_type,
+                        )
                         gr.write_db()
                         # SPREAD DISABLED UNTIL AD IS READY. RMI000 - 20080207
                         # gr.add_spread(self.default_spread)

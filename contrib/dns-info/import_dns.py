@@ -124,9 +124,16 @@ class Netgroups(object):
                 if groupname2id.has_key(n):
                     continue
                 group.clear()
-                group.populate(creator_id=creator_id,
-                               visibility=co.group_visibility_all,
-                               name=n, description='machine netgroup %s' % n)
+                group.populate(
+                    creator_id=creator_id,
+                    visibility=co.group_visibility_all,
+                    name=n,
+                    description='machine netgroup %s' % n,
+                    # TODO: This should *probably* be marked as an automatic
+                    # group, but members are not really *synced*, simply added
+                    # if they are missing
+                    group_type=co.group_type_unknown,
+                )
                 group.write_db()
                 group.add_spread(co.spread_uio_machine_netgroup)
                 groupname2id[n] = group.entity_id
