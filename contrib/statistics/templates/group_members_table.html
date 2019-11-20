@@ -11,7 +11,7 @@
 {% block title %}{{ title }}{% endblock %}
 {% block body %}
 <p>{{ translation['greeting'] }}</p>
-<p>{{ translation['message'] }}</p>
+<p>{{ translation['message'].format(account_name) }}</p>
 <p>{{ translation['info_link'] }}
     <a href="{{ info_link }}">{{ translation['here'] }}</a>
 </p>
