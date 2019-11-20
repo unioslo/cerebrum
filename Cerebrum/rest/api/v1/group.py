@@ -328,15 +328,22 @@ class GroupModeratorListResource(Resource):
     @api.response(404, "group not found")
     @api.marshal_with(GroupModerator, as_list=True, envelope='moderators')
     def get(self, name):
-        """ Get moderators for this group. """
+        """ Get admins for this group. """
         group = find_group(name)
-        moderators = group.search_moderators(group_id=group.entity_id)
-        for mod in moderators:
-            mod_name = utils.get_entity_name(mod['moderator_id'])
-            mod.update(
-                {'href': utils.href_from_entity_type(mod['moderator_type'],
-                                                     mod['moderator_id'],
-                                                     mod_name)})
+        moderators = []
+        for admin in group.search_admins(group_id=group.entity_id):
+            admin_name = utils.get_entity_name(admin['admin_id'])
+            moderators.append(
+                {
+                    'type': admin['admin_type'],
+                    'id': admin['admin_id'],
+                    'name': admin_name,
+                    'roles': 'Group-admin',
+                    'href': utils.href_from_entity_type(admin['moderator_type'],
+                                                        admin['moderator_id'],
+                                                        admin_name)
+                }
+            )
         return moderators
 
 
