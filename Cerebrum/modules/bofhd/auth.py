@@ -189,9 +189,6 @@ The operations are Cerebrum constants, but is also put in the table
 Configuration
 =============
 
-BOFHD_AUTH_GROUPMODERATOR
-    An opset that identifies group moderators. This is used to list out which
-    groups a given user has access to moderate.
 BOFHD_CHECK_DISK_SPREAD
     A spread to check for home directory. If set, then access to that disk will
     also give access to users on that disk (see
