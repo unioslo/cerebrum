@@ -6,13 +6,12 @@ Searching (members and groups) has to be thoroughly tested.
 from __future__ import unicode_literals
 
 import logging
-import unittest
+import pytest
+import sys
 
+# from Cerebrum.Account import Account
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
-from Cerebrum.Account import Account
 from datasource import BasicAccountSource, BasicPersonSource
-from dbtools import DatabaseTools
 from datasource import expired_filter, nonexpired_filter
 
 logger = logging.getLogger(__name__)
@@ -32,341 +31,475 @@ _set_of_ids = lambda accs: \
     set((int(a.get('entity_id', a.get('account_id'))) for a in accs))
 
 
-class BaseAccountTest(unittest.TestCase):
+class LegacyTestAccount(object):
+    def __init__(self, *args):
+        global DatabaseTools
+        from dbtools import DatabaseTools
+
+
+DatabaseTools = None
+
+
+@pytest.fixture
+def cereconf():
+    u""" 'cereconf' config.
+
+    This fixture allows test modules to change cereconf settings when certain
+    settings need to be tested, or when certain changes needs to be injected in
+    the config.
     """
-    This is a testcase for Cerebrum.Account class.
+    # from pprint import pprint
+    # pprint(sys.modules)
+    try:
+        import Cerebrum.default_config
+        CEREBRUM_DATABASE_NAME = 'cerebrum_uio_axl'
+        DB_AUTH_DIR = '/cerebrum/etc/passwords/axl'
+        CEREBRUM_DATABASE_CONNECT_DATA = {
+            u'client_encoding': u'UTF-8',
+            u'host': 'dbpg-cere-utv.uio.no',
+            u'table_owner': 'cerebrum',
+            u'user': 'cerebrum',
+        }
+        CLASS_ACCOUNT = (
+            # u'Cerebrum.modules.no.uio.voip.voipAuthAccountMixin/VoipAuthAccountMixin',
+            u'Cerebrum.modules.no.uio.Account/AccountUiOMixin',
+            u'Cerebrum.modules.apikeys.mixins/ApiMappingAccountMixin',
+            # u'Cerebrum.modules.pwcheck.history/PasswordHistoryMixin',
+            # u'Cerebrum.modules.AccountExtras/AutoPriorityAccountMixin',
+            # u'Cerebrum.modules.AuthPGP/AuthPGPAccountMixin',
+            # u'Cerebrum.modules.Email/AccountEmailMixin',
+            # u'Cerebrum.modules.Email/AccountEmailQuotaMixin',
+            # u'Cerebrum.modules.gpg.password/AccountPasswordEncrypterMixin',
+        )
+        CLASS_CL_CONSTANTS = (
+            u'Cerebrum.modules.apikeys.constants/CLConstants',
+            u'Cerebrum.modules.hostpolicy.HostPolicyConstants/CLConstants',
+            u'Cerebrum.modules.EntityTraitConstants/CLConstants',
+            u'Cerebrum.modules.exchange.CLConstants/CLConstants',
+            u'Cerebrum.Constants/CLConstants',
+        )
 
-    No subclass or mixin should cause this test to fail, so the test is valid
-    for other setups as well.
-    Mixins and subclasses can subclass this test in order to perform additional
-    setup and tests.
+        CLASS_CONSTANTS = (
+            u'Cerebrum.modules.no.Constants/ConstantsCommon',
+            u'Cerebrum.modules.no.uio.Constants/Constants',
+        )
+        CLASS_ENTITY = (
+            u'Cerebrum.modules.EntityTrait/EntityTrait',
+            u'Cerebrum.modules.bofhd.bofhd_mixins/BofhdAuthEntityMixin',
+        )
+        CLASS_POSIX_GROUP = (
+            u'Cerebrum.modules.no.uio.PosixGroup/PosixGroupUiOMixin',
+            u'Cerebrum.modules.PosixGroup/PosixGroup',
+        )
+        CLASS_POSIX_USER = (
+            u'Cerebrum.modules.no.uio.PosixUser/PosixUserUiOMixin',
+            u'Cerebrum.modules.PosixUser/PosixUser',
+        )
+        CLASS_GROUP = (
+            u'Cerebrum.modules.no.uio.Group/GroupUiOMixin',
+            u'Cerebrum.modules.posix.mixins/PosixGroupMixin',
+            u'Cerebrum.Group/Group',
+        )
+        Cerebrum.default_config.CEREBRUM_DATABASE_CONNECT_DATA = CEREBRUM_DATABASE_CONNECT_DATA
+        Cerebrum.default_config.CEREBRUM_DATABASE_NAME = CEREBRUM_DATABASE_NAME
+        Cerebrum.default_config.DB_AUTH_DIR = DB_AUTH_DIR
+        Cerebrum.default_config.CLASS_CONSTANTS = CLASS_CONSTANTS
+        Cerebrum.default_config.CLASS_ACCOUNT = CLASS_ACCOUNT
+        Cerebrum.default_config.CLASS_GROUP = CLASS_GROUP
+        Cerebrum.default_config.CLASS_POSIX_GROUP = CLASS_POSIX_GROUP
+        Cerebrum.default_config.CLASS_POSIX_USER = CLASS_POSIX_USER
+        Cerebrum.default_config.CLASS_CL_CONSTANTS = CLASS_CL_CONSTANTS
+        Cerebrum.default_config.CLASS_ENTITY = CLASS_ENTITY
+        sys.modules["cereconf"] = Cerebrum.default_config
+        return sys.modules["cereconf"]
+    except ImportError:
+        pytest.xfail(u"Unable to import 'cereconf'")
+
+
+@pytest.fixture
+def factory(cereconf):
+    u""" `Cerebrum.Utils.Factory`.
+
+    We list cereconf as a 'dependency' in order to have it processed before
+    importing and using the factory.
     """
-
-    @classmethod
-    def setUpClass(cls):
-        """
-        Set up this TestCase module.
-
-        This setup code sets up shared objects between each tests. This is done
-        *once* before running any of the tests within this class.
-        """
-
-        # TODO: We might want this basic class setup in other TestCases. Maybe
-        #       set up a generic TestCase class to inherit common stuff from?
-        cls._db = Factory.get('Database')()
-        cls._db.cl_init(change_program='nosetests')
-        cls._db.commit = cls._db.rollback  # Let's try not to screw up the db
-
-        cls._ac = Factory.get('Account')(cls._db)
-        cls._ac = Account(cls._db)
-        cls._co = Factory.get('Constants')(cls._db)
-
-        # Data sources
-        cls.account_ds = BasicAccountSource()
-        cls.person_ds = BasicPersonSource()
-
-        # Tools for creating and destroying temporary db items
-        cls.db_tools = DatabaseTools(cls._db)
-        cls.db_tools._ac = cls._ac
-
-    @classmethod
-    def tearDownClass(cls):
-        """ Clean up this TestCase class. """
-        cls.db_tools.clear_groups()
-        cls.db_tools.clear_accounts()
-        cls.db_tools.clear_persons()
-        cls.db_tools.clear_constants()
-        cls._db.rollback()
+    global Factory
+    logger.debug(cereconf)
+    from Cerebrum.Utils import Factory
+    return Factory
 
 
-class SimpleAccountsTest(BaseAccountTest):
-    """ This is a test case for simple scenarios. """
+@pytest.fixture()
+def database(factory):
 
-    def test_account_populate(self):
-        """ Account.populate() with basic info. """
-        creator_id = self.db_tools.get_initial_account_id()
-        owner_id = self.db_tools.get_initial_group_id()
-        account = self.account_ds.get_next_item()
+    legacy = LegacyTestAccount()
 
-        self._ac.clear()
-        self._ac.populate(account['account_name'], self._co.entity_group,
-                          owner_id, self._co.account_program, creator_id, None)
-        self._ac.write_db()
-        self.assertTrue(hasattr(self._ac, 'entity_id'))
+    legacy._db = factory.get('Database')()
+    legacy._db.cl_init(change_program='nosetests')
+    legacy._db.commit = legacy._db.rollback  # Let's try not to screw up the db
 
-        entity_id = self._ac.entity_id
-        self._ac.clear()
-        self._ac.find(entity_id)
-        self.assertEqual(self._ac.account_name, account['account_name'])
+    legacy._ac = factory.get('Account')(legacy._db)
+    # legacy._ac = Account(legacy._db)
+    legacy._co = factory.get('Constants')(legacy._db)
 
-        # If the test fails, there's nothing to clean up.
-        # If it succeeds, we can delete the account
-        self.db_tools.delete_account_id(entity_id)
+    # Data sources
+    legacy.account_ds = BasicAccountSource()
+    legacy.person_ds = BasicPersonSource()
 
-    def test_account_create(self):
-        """ Account.create() with a new person. """
-        creator_id = self.db_tools.get_initial_account_id()
-        owner_id = self.db_tools.create_person(self.person_ds.get_next_item())
-        self.addCleanup(self.db_tools.delete_person_id, owner_id)
+    # Tools for creating and destroying temporary db items
+    legacy.db_tools = DatabaseTools(legacy._db)
+    legacy.db_tools._ac = legacy._ac
 
-        account = self.account_ds.get_next_item()
-        self._ac.clear()
-        self._ac.populate(account['account_name'], self._co.entity_person,
-                          owner_id, None, creator_id, None)
-        self._ac.write_db()
-        self.assertTrue(hasattr(self._ac, 'entity_id'))
+    yield legacy
 
-        entity_id = self._ac.entity_id
-        self._ac.clear()
-        self._ac.find(entity_id)
-
-        self.assertEqual(self._ac.account_name, account['account_name'])
-        self.db_tools.delete_account_id(entity_id)
+    legacy.db_tools.clear_groups()
+    legacy.db_tools.clear_accounts()
+    legacy.db_tools.clear_persons()
+    legacy.db_tools.clear_constants()
+    legacy._db.rollback()
 
 
-class MultipleAccountsTest(BaseAccountTest):
-    """ This is a testcase where multiple accounts exists in the system.
+@pytest.fixture
+def accounts(database):
+    u""" `Cerebrum.Utils.Factory`.
 
-    Tests of search functions, list functions, and other tests that depend on
-    existing accounts should go here. Before every test, a set of accounts are
-    created, and those accounts are cleared after each test.
+    We list cereconf as a 'dependency' in order to have it processed before
+    importing and using the factory.
     """
+    database._accounts = []
+    for account in database.account_ds(limit=5):
+        entity_id = database.db_tools.create_account(account)
+        account['entity_id'] = entity_id
+        database._accounts.append(account)
+    return database
 
-    def setUp(self):
-        """ Prepare test.
 
-        Sets up a series of accounts for testing, and queues a cleanup function
-        to remove those accounts.
-        """
-        self._accounts = []
-        for account in self.account_ds(limit=5):
-            entity_id = self.db_tools.create_account(account)
-            account['entity_id'] = entity_id
-            self._accounts.append(account)
-            self.addCleanup(self.db_tools.delete_account_id, entity_id)
+def test_account_populate(database):
+    """ Account.populate() with basic info. """
+    logger.debug(database)
+    logger.debug(dir(database))
+    logger.debug(type(database))
+    creator_id = database.db_tools.get_initial_account_id()
+    owner_id = database.db_tools.get_initial_group_id()
+    account = database.account_ds.get_next_item()
 
-    # Tests start here
+    database._ac.clear()
+    database._ac.populate(account['account_name'], database._co.entity_group,
+                      owner_id, database._co.account_program, creator_id, None)
+    database._ac.write_db()
+    assert hasattr(database._ac, 'entity_id') is True
 
-    def test_simple_find(self):
-        """ Account.find() accounts. """
-        # Fails if we get a Cerebrum.NotFoundException
-        assert len(self._accounts) >= 1  # We need at least 1 account
-        count = 0
-        for account in self._accounts:
-            self._ac.clear()
-            self._ac.find(account['entity_id'])
-            count += 1
-        self.assertEqual(len(self._accounts), count)
+    entity_id = database._ac.entity_id
+    database._ac.clear()
+    database._ac.find(entity_id)
+    assert database._ac.account_name == account['account_name']
 
-    def test_simple_find_fail(self):
-        """ Account.find() non-existing account. """
-        self._ac.clear()
+    # If the test fails, there's nothing to clean up.
+    # If it succeeds, we can delete the account
+    database.db_tools.delete_account_id(entity_id)
 
-        # negative IDs are impossible in Cerebrum, should raise notfound-error
-        self.assertRaises(Errors.NotFoundError, self._ac.find, -10)
 
-    def test_find_by_name(self):
-        """ Account.find_by_name() accounts. """
-        assert len(self._accounts) >= 1  # We need at least 1 account
-        count = 0
-        for account in self._accounts:
-            self._ac.clear()
-            self._ac.find_by_name(account['account_name'])
-            count += 1
-        self.assertEqual(len(self._accounts), count)
+def test_account_create(database):
+    """ Account.create() with a new person. """
+    creator_id = database.db_tools.get_initial_account_id()
+    owner_id = database.db_tools.create_person(
+        database.person_ds.get_next_item())
 
-    def test_find_by_name_fail(self):
-        """ Account.find_by_name() non-existing account. """
-        self._ac.clear()
+    account = database.account_ds.get_next_item()
+    database._ac.clear()
+    database._ac.populate(account['account_name'], database._co.entity_person,
+                      owner_id, None, creator_id, None)
+    database._ac.write_db()
 
-        # entity_name is a varchar(256), no group with longer name should exist
-        self.assertRaises(Errors.NotFoundError, self._ac.find_by_name,
-                          'n' * (256+1))
+    assert hasattr(database._ac, 'entity_id') is True
 
-    def test_is_expired(self):
-        """ Account.is_expired() for expired and non-expired accounts. """
-        non_expired = _set_of_ids(filter(nonexpired_filter, self._accounts))
+    entity_id = database._ac.entity_id
+    database._ac.clear()
+    database._ac.find(entity_id)
 
-        # We must have at least one expired and one non-expired account
-        assert (len(non_expired) > 0 and
-                len(non_expired) < len(_set_of_ids(self._accounts)))
+    assert database._ac.account_name == account['account_name']
+    database.db_tools.delete_account_id(entity_id)
 
-        for account in self._accounts:
-            self._ac.clear()
-            self._ac.find(account['entity_id'])
-            if int(self._ac.entity_id) in non_expired:
-                self.assertFalse(self._ac.is_expired())
-            else:
-                self.assertTrue(self._ac.is_expired())
 
-    def test_search_owner(self):
-        """ Account.search() with owner_id argument. """
-        created_ids = _set_of_ids(self._accounts)
-        owner_id = self.db_tools.get_initial_group_id()
-        self.assertGreaterEqual(len(created_ids), 1)
+def test_simple_find(accounts):
+    """ Account.find() accounts. """
+    # Fails if we get a Cerebrum.NotFoundException
+    assert len(accounts._accounts) >= 1  # We need at least 1 account
+    count = 0
+    for account in accounts._accounts:
+        accounts._ac.clear()
+        accounts._ac.find(account['entity_id'])
+        count += 1
+    assert len(accounts._accounts) == count
 
-        results = self._ac.search(owner_id=owner_id, expire_start=None)
-        owned_by = _set_of_ids(map(lambda x: dict(x), results))
 
-        # INITIAL_GROUPNAME could own more than what we've created, but all our
-        # created groups should be returned by the search
-        self.assertGreaterEqual(len(owned_by), len(created_ids))
-        self.assertTrue(owned_by.issuperset(created_ids))
+def test_simple_find_fail(accounts):
+    """ Account.find() non-existing account. """
+    accounts._ac.clear()
 
-        # We should not get any results with another owner_id
+    # negative IDs are impossible in Cerebrum, should raise notfound-error
+    with pytest.raises(Errors.NotFoundError):
+        assert accounts._ac.find(-10)
+
+
+def test_find_by_name(accounts):
+    """ Account.find_by_name() accounts. """
+    assert len(accounts._accounts) >= 1  # We need at least 1 account
+    count = 0
+    for account in accounts._accounts:
+        accounts._ac.clear()
+        accounts._ac.find_by_name(account['account_name'])
+        count += 1
+    assert len(accounts._accounts) == count
+
+
+def test_find_by_name_fail(accounts):
+    """ Account.find_by_name() non-existing account. """
+    accounts._ac.clear()
+
+    # entity_name is a varchar(256), no group with longer name should exist
+    with pytest.raises(Errors.NotFoundError):
+        assert accounts._ac.find_by_name('n' * (256 + 1))
+
+
+def test_is_expired(accounts):
+    """ Account.is_expired() for expired and non-expired accounts. """
+    non_expired = _set_of_ids(filter(nonexpired_filter, accounts._accounts))
+
+    # We must have at least one expired and one non-expired account
+    assert (len(non_expired) > 0 and
+            len(non_expired) < len(_set_of_ids(accounts._accounts)))
+
+    for account in accounts._accounts:
+        accounts._ac.clear()
+        accounts._ac.find(account['entity_id'])
+        if int(accounts._ac.entity_id) in non_expired:
+            assert accounts._ac.is_expired() is False
+        else:
+            assert accounts._ac.is_expired() is True
+
+
+def test_search_owner(accounts):
+    """ Account.search() with owner_id argument. """
+    created_ids = _set_of_ids(accounts._accounts)
+    owner_id = accounts.db_tools.get_initial_group_id()
+
+    assert len(created_ids) >= 1
+
+    results = accounts._ac.search(owner_id=owner_id, expire_start=None)
+    owned_by = _set_of_ids(map(lambda x: dict(x), results))
+
+    # INITIAL_GROUPNAME could own more than what we've created, but all our
+    # created groups should be returned by the search
+    assert owned_by.issuperset(created_ids) is True
+    assert owned_by.issuperset(created_ids) is True
+
+    # We should not get any results with another owner_id
+    for result in results:
+        group_id = accounts.db_tools.get_initial_group_id()
+        assert int(result['owner_id']) == group_id
+
+
+def test_search_owner_sequence(accounts):
+    """ Account.search() with sequence owner_id argument. """
+    created_ids = _set_of_ids(accounts._accounts)
+    assert len(created_ids) == 5
+
+    # Creator of our default accounts
+    group_id = accounts.db_tools.get_initial_group_id()
+
+    # Create a person, so that we can create a personal acocunt
+    person_id = accounts.db_tools.create_person(
+        accounts.person_ds.get_next_item())
+
+    # Create a personal account, and add to our created_ids
+    account = accounts.account_ds.get_next_item()
+    account_id = accounts.db_tools.create_account(
+        account, person_owner_id=person_id)
+
+    created_ids.add(account_id)
+
+    for seq_type in (set, list, tuple):
+        sequence = seq_type((person_id, group_id))
+        results = list(accounts._ac.search(owner_id=sequence,
+                                       expire_start=None))
+        owned_by_seq = _set_of_ids(map(lambda x: dict(x), results))
+        assert len(results) >= len(created_ids) + 1
+        assert owned_by_seq.issuperset(created_ids) is True
         for result in results:
-            self.assertEqual(int(result['owner_id']),
-                             self.db_tools.get_initial_group_id())
+            assert int(result['owner_id']) in sequence
 
-    def test_search_owner_sequence(self):
-        """ Account.search() with sequence owner_id argument. """
-        created_ids = _set_of_ids(self._accounts)
-        self.assertGreaterEqual(len(created_ids), 1)
 
-        # Creator of our default accounts
-        group_id = self.db_tools.get_initial_group_id()
+def test_search_filter_expired(accounts):
+    """ Account.search() with expire_start, expire_stop args. """
+    all_accounts = _set_of_ids(accounts._accounts)
+    non_expired = _set_of_ids(filter(nonexpired_filter, accounts._accounts))
+    expired = _set_of_ids(filter(expired_filter, accounts._accounts))
 
-        # Create a person, so that we can create a personal acocunt
-        person_id = self.db_tools.create_person(
-            self.person_ds.get_next_item())
-        self.addCleanup(self.db_tools.delete_person_id, person_id)
+    # Test criterias
+    assert len(non_expired) >= 1
+    assert len(expired) >= 1
 
-        # Create a personal account, and add to our created_ids
-        account = self.account_ds.get_next_item()
-        account_id = self.db_tools.create_account(
-            account, person_owner_id=person_id)
-        self.addCleanup(self.db_tools.delete_account_id, account_id)
+    search_params = (({'expire_start': None, 'expire_stop': None,
+          'owner_id': accounts.db_tools.get_initial_group_id()},
+         all_accounts, set()),
+        ({'expire_start': '[:now]', 'expire_stop': None,
+          'owner_id': accounts.db_tools.get_initial_group_id()},
+         non_expired, expired),
+        ({'expire_start': None, 'expire_stop': '[:now]',
+          'owner_id': accounts.db_tools.get_initial_group_id()},
+         expired, non_expired),)
 
-        created_ids.add(account_id)
+    # Tests: search params, must match
+    for params, match_set, fail_set in search_params:
+        result = _set_of_ids(
+            map(lambda x: dict(x), accounts._ac.search(**params)))
+        assert len(result) >= len(match_set)
+        assert result.issuperset(match_set) is True
+        assert result.intersection(fail_set) == set()
 
-        for seq_type in (set, list, tuple):
-            sequence = seq_type((person_id, group_id))
-            results = list(self._ac.search(owner_id=sequence,
-                                           expire_start=None))
-            owned_by_seq = _set_of_ids(map(lambda x: dict(x), results))
-            self.assertGreaterEqual(len(results), len(created_ids) + 1)
-            self.assertTrue(owned_by_seq.issuperset(created_ids))
-            for result in results:
-                self.assertIn(int(result['owner_id']), sequence)
 
-    def test_search_filter_expired(self):
-        """ Account.search() with expire_start, expire_stop args. """
-        all_accounts = _set_of_ids(self._accounts)
-        non_expired = _set_of_ids(filter(nonexpired_filter, self._accounts))
-        expired = _set_of_ids(filter(expired_filter, self._accounts))
+def test_search_name(accounts):
+    """ Account.search() for name. """
+    tests = [({'expire_start': None, 'name': a['account_name']},
+              int(a['entity_id'])) for a in accounts._accounts]
 
-        # Test criterias
-        self.assertGreaterEqual(len(non_expired), 1)
-        self.assertGreaterEqual(len(expired), 1)
+    assert len(tests) >= 1  # We need at least 1 group for this test
+    for params, match_id in tests:
+        result = accounts._ac.search(**params)
+        assert len(result) == 1
+        assert int(result[0]['account_id']) == match_id
 
-        search_params = (({'expire_start': None, 'expire_stop': None,
-              'owner_id': self.db_tools.get_initial_group_id()},
-             all_accounts, set()),
-            ({'expire_start': '[:now]', 'expire_stop': None,
-              'owner_id': self.db_tools.get_initial_group_id()},
-             non_expired, expired),
-            ({'expire_start': None, 'expire_stop': '[:now]',
-              'owner_id': self.db_tools.get_initial_group_id()},
-             expired, non_expired),)
 
-        # Tests: search params, must match
-        for params, match_set, fail_set in search_params:
-            result = _set_of_ids(
-                map(lambda x: dict(x), self._ac.search(**params)))
-            self.assertGreaterEqual(len(result), len(match_set))
-            self.assertTrue(result.issuperset(match_set))
-            self.assertSetEqual(result.intersection(fail_set), set())
+def test_search_name_wildcard(accounts):
+    """ Account.search() for name with wildcards. """
+    search_expr = accounts.account_ds.name_prefix + '%'
+    result = list(map(lambda x: dict(x),
+            accounts._ac.search(name=search_expr, expire_start=None)))
+    assert len(result) == len(accounts._accounts)
 
-    def test_search_name(self):
-        """ Account.search() for name. """
-        tests = [({'expire_start': None, 'name': a['account_name']},
-                  int(a['entity_id'])) for a in self._accounts]
+    # The test group should contain names with unique prefixes, or this
+    # test will fail...
+    assert _set_of_ids(result) == _set_of_ids(accounts._accounts)
 
-        assert len(tests) >= 1  # We need at least 1 group for this test
-        for params, match_id in tests:
-            result = self._ac.search(**params)
-            self.assertEqual(len(result), 1)
-            self.assertEqual(int(result[0]['account_id']), match_id)
 
-    def test_search_name_wildcard(self):
-        """ Account.search() for name with wildcards. """
-        search_expr = self.account_ds.name_prefix + '%'
-        result = list(map(lambda x: dict(x),
-                self._ac.search(name=search_expr, expire_start=None)))
-        self.assertEqual(len(result), len(self._accounts))
+def test_equality(accounts):
+    """ Account __eq__ comparison. """
+    assert len(accounts._accounts) >= 2
+    ac1 = Factory.get('Account')(accounts._db)
+    ac1.find_by_name(accounts._accounts[0]['account_name'])
+    ac2 = Factory.get('Account')(accounts._db)
+    ac2.find_by_name(accounts._accounts[1]['account_name'])
+    ac3 = Factory.get('Account')(accounts._db)
+    ac3.find_by_name(accounts._accounts[0]['account_name'])
+    assert ac1 == ac3
+    assert ac1 != ac2
+    assert ac2 != ac3
 
-        # The test group should contain names with unique prefixes, or this
-        # test will fail...
-        self.assertSetEqual(_set_of_ids(result), _set_of_ids(self._accounts))
 
-    # TODO: Spread search, owner_type search
+def test_set_password(accounts):
+    """ Account.set_password(). """
+    assert len(accounts._accounts) >= 2
 
-    def test_equality(self):
-        """ Account __eq__ comparison. """
-        self.assertGreaterEqual(len(self._accounts), 2)
+    for account in accounts._accounts:
+        password = account.get('password', 'default_password')
+        accounts._ac.clear()
+        accounts._ac.find_by_name(account['account_name'])
+        accounts._ac.set_password(password)
+        accounts._ac.write_db()
+        accounts._ac.clear()
+        accounts._ac.find_by_name(account['account_name'])
+        assert accounts._ac.verify_auth(password) is True
 
-        ac1 = Factory.get('Account')(self._db)
-        ac1.find_by_name(self._accounts[0]['account_name'])
-        ac2 = Factory.get('Account')(self._db)
-        ac2.find_by_name(self._accounts[1]['account_name'])
-        ac3 = Factory.get('Account')(self._db)
-        ac3.find_by_name(self._accounts[0]['account_name'])
 
-        self.assertEqual(ac1, ac3)
-        self.assertNotEqual(ac1, ac2)
-        self.assertNotEqual(ac2, ac3)
+def test_verify_password(accounts):
+    has_passwd = [a for a in accounts._accounts if a.get('password')]
+    assert len(has_passwd) > 1
 
-    def test_set_password(self):
-        """ Account.set_password(). """
-        self.assertGreaterEqual(len(self._accounts), 2)
+    # Password should have been set when created
+    for account in has_passwd:
+        accounts._ac.clear()
+        accounts._ac.find_by_name(account['account_name'])
+        assert accounts._ac.verify_auth(account['password']) is True
+        assert accounts._ac.verify_auth(account['password'] + 'x') == []
 
-        for account in self._accounts:
-            password = account.get('password', 'default_password')
-            self._ac.clear()
-            self._ac.find_by_name(account['account_name'])
-            self._ac.set_password(password)
-            self._ac.write_db()
-            self._ac.clear()
-            self._ac.find_by_name(account['account_name'])
-            self.assertTrue(self._ac.verify_auth(password))
 
-    def test_verify_password(self):
-        has_passwd = [a for a in self._accounts if a.get('password')]
-        self.assertGreaterEqual(len(has_passwd), 1)
+def test_encrypt_verify_methods(accounts):
+    """ Account encrypt_password and verify_password methods. """
 
-        # Password should have been set when created
-        for account in has_passwd:
-            self._ac.clear()
-            self._ac.find_by_name(account['account_name'])
-            self.assertTrue(self._ac.verify_auth(account['password']))
-            self.assertFalse(self._ac.verify_auth(account['password'] + 'x'))
+    salt = u'somes4lt'
+    password = u'ex-mpLe-p4~~'
 
-    def test_encrypt_verify_methods(self):
-        """ Account encrypt_password and verify_password methods. """
+    must_encode = ['auth_type_md5_crypt',
+                   'auth_type_sha256_crypt', 'auth_type_sha512_crypt',
+                   'auth_type_ssha', 'auth_type_md4_nt',
+                   'auth_type_plaintext', 'auth_type_md5_unsalt']
 
-        salt = 'somes4lt'
-        password = 'ex-mpLe-p4~~'
+    # For some reason, md4_unsalt does not verify
+    must_verify = ['auth_type_md5_crypt',
+                   'auth_type_sha256_crypt', 'auth_type_sha512_crypt',
+                   'auth_type_ssha', 'auth_type_md4_nt',
+                   'auth_type_plaintext']
 
-        must_encode = ['auth_type_md5_crypt',
-                       'auth_type_sha256_crypt', 'auth_type_sha512_crypt',
-                       'auth_type_ssha', 'auth_type_md4_nt',
-                       'auth_type_plaintext', 'auth_type_md5_unsalt',
-                       'auth_type_ha1_md5', ]
+    auth_type_consts = [d for d in dir(accounts._co) if
+                        d.startswith('auth_type_')]
 
-        # For some reason, md4_unsalt does not verify
-        must_verify = ['auth_type_md5_crypt',
-                       'auth_type_sha256_crypt', 'auth_type_sha512_crypt',
-                       'auth_type_ssha', 'auth_type_md4_nt',
-                       'auth_type_plaintext', 'auth_type_ha1_md5', ]
+    assert set(must_encode).issubset(set(auth_type_consts)) is True
+    assert set(must_verify).issubset(set(auth_type_consts)) is True
 
-        auth_type_consts = [d for d in dir(self._co) if
-                            d.startswith('auth_type_')]
+    verify_password = accounts._ac.verify_password  # Alias long name
+    for m in auth_type_consts:
+        method = getattr(accounts._co, m)
+        try:
+            # We add the salt to the password, just to get a different
+            # password from the unsalted test
+            mix = salt + password
+            salted = accounts._ac.encrypt_password(method, mix, salt)
+            assert bool(salted) is True
+            unsalted = accounts._ac.encrypt_password(method, password)
+            assert bool(unsalted) is True
+        except Errors.NotImplementedAuthTypeError:
+            assert method not in must_encode
+            continue
+        try:
+            assert verify_password(method, salt + password, salted) is True
+            assert verify_password(method, password, salted) is False
+            assert verify_password(method, password, unsalted) is True
+            assert verify_password(method, salt + password, unsalted) is False
+        except ValueError:
+            assert method not in must_verify
 
-        self.assertTrue(set(must_encode).issubset(set(auth_type_consts)))
-        self.assertTrue(set(must_verify).issubset(set(auth_type_consts)))
 
-        for m in auth_type_consts:
-            method = getattr(self._co, m)
+def test_populate_affect_auth(accounts):
+    """ Account.populate_auth_type() and Account.affect_auth_types. """
+    # populate_auth_type and affect_auth_types will always be used in
+    # conjunction, and is not possible to test independently without
+    # digging into the Account class implementation.
+    #
+    assert len(accounts._accounts) >= 1
+
+    # Tuples of (auth_method, cryptstring, try_to_affect)
+    tests = [(accounts._co.auth_type_sha256_crypt, 'crypt-resgcsgq', False),
+             (accounts._co.auth_type_sha512_crypt, 'crypt-juoxpixs', True)]
+    # This should change the sha-512 crypt, but not the sha-256 crypt:
+
+    for account in accounts._accounts:
+        accounts._ac.clear()
+        accounts._ac.find_by_name(account['account_name'])
+
+        # Populate each of the auth methods given in tests
+        for method, crypt, _ in tests:
+            accounts._ac.populate_authentication_type(method, crypt)
+
+        # Only affect selected auth methods
+        accounts._ac.affect_auth_types(
+            *(method for method, _, affect in tests if affect))
+        accounts._ac.write_db()
+        accounts._ac.clear()
+        accounts._ac.find_by_name(account['account_name'])
+
+        # Check that only affected auth method crypts were altered
+        for method, new_crypt, affect in tests:
             try:
                 # We add the salt to the password, just to get a different
                 # password from the unsalted test
@@ -391,54 +524,3 @@ class MultipleAccountsTest(BaseAccountTest):
                 self.assertNotIn(method, must_verify)
             # except ValueError:
                 # self.assertNotIn(method, must_verify)
-
-    def test_populate_affect_auth(self):
-        """ Account.populate_auth_type() and Account.affect_auth_types. """
-        # populate_auth_type and affect_auth_types will always be used in
-        # conjunction, and is not possible to test independently without
-        # digging into the Account class implementation.
-        #
-        self.assertGreaterEqual(len(self._accounts), 1)
-
-        # Tuples of (auth_method, cryptstring, try_to_affect)
-        tests = [(self._co.auth_type_sha256_crypt, 'crypt-resgcsgq', False),
-                 (self._co.auth_type_sha512_crypt, 'crypt-juoxpixs', True)]
-        # This should change the sha-512 crypt, but not the sha-256 crypt:
-
-        for account in self._accounts:
-            self._ac.clear()
-            self._ac.find_by_name(account['account_name'])
-
-            # Populate each of the auth methods given in tests
-            for method, crypt, _ in tests:
-                self._ac.populate_authentication_type(method, crypt)
-
-            # Only affect selected auth methods
-            self._ac.affect_auth_types(
-                *(method for method, _, affect in tests if affect))
-            self._ac.write_db()
-            self._ac.clear()
-            self._ac.find_by_name(account['account_name'])
-
-            # Check that only affected auth method crypts were altered
-            for method, new_crypt, affect in tests:
-                try:
-                    crypt = self._ac.get_account_authentication(method)
-                except Errors.NotFoundError:
-                    # The non-affected methods may not exist in the db, but the
-                    # affected method MUST exist
-                    self.assertFalse(affect)
-                else:
-                    # The method exists in the database...
-                    if affect:
-                        # ...and is an affected method - the crypt must match
-                        # the one we set
-                        self.assertEqual(crypt, new_crypt)
-                    else:
-                        # ...and is not an affected method - the crypt SHOULD
-                        # NOT match the one we set.
-                        # NOTE: If you're reading this, it's probably because
-                        # the method is plaintext, and the old crypt is the
-                        # same as the one given in 'tests'...
-                        self.assertNotEqual(crypt, new_crypt,
-                                            msg="See test code comment...")
