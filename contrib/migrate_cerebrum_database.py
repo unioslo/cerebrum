@@ -45,7 +45,8 @@ targets = {
              'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9',
              'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
              'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',
-             'rel_0_9_18', 'rel_0_9_19', 'rel_0_9_20', 'rel_0_9_21', ),
+             'rel_0_9_18', 'rel_0_9_19', 'rel_0_9_20', 'rel_0_9_21',
+             'rel_0_9_22', ),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3', 'bofhd_1_4',),
     'bofhd_auth': ('bofhd_auth_1_1', 'bofhd_auth_1_2',),
     'changelog': ('changelog_1_2', 'changelog_1_3', 'changelog_1_4',
@@ -796,16 +797,54 @@ def migrate_to_rel_0_9_20():
     db.commit()
 
 
-def migrate_to_rel_0_9_21():
-    """Migrate from 0.9.20 database to the 0.9.21 database schema."""
-    assert_db_version("0.9.20")
-    makedb('0_9_21', 'pre')
+def migrate_to_rel_0_9_22():
+    """Migrate from 0.9.21 database to the 0.9.22 database schema."""
+    assert_db_version("0.9.21")
+    makedb('0_9_22', 'pre')
 
-    # Do some sql magic to get all group owners in the auth_role table into
-    # the new table we just generated above
-    print("Migrating moderator info to new table")
+    # Do some sql magic to get all group admins and moderators in the auth_role
+    # table into the new tables we just generated above
+    print("Migrating owner/admin info to new table")
     aos = BofhdAuthOpSet(db)
     aos.find_by_name("Group-owner")
+    binds = {
+        'opset_id': aos.op_set_id
+    }
+    admins = db.query(
+        """
+        SELECT ao.entity_id   AS group_id,
+               ar.entity_id   AS admin_id
+        FROM   [:table schema=cerebrum name=auth_role] ar
+               JOIN [:table schema=cerebrum name=auth_op_target] ao
+                 ON ar.op_target_id = ao.op_target_id
+               JOIN [:table schema=cerebrum name=entity_info] ei
+                 ON ar.entity_id = ei.entity_id
+        WHERE  ar.op_set_id = :opset_id
+               AND ao.target_type = 'group'
+        """,
+        binds
+    )
+
+    for row in admins:
+        binds = {
+            'group_id': row['group_id'],
+            'admin_id': row['admin_id'],
+        }
+        db.execute(
+            """
+            INSERT INTO [:table schema=cerebrum name=group_admin]
+                        (group_id,
+                         admin_id)
+            VALUES      (:group_id,
+                         :admin_id)
+            """,
+            binds
+        )
+    print("\nDone with admins.")
+
+    print("Migrating moderator info to new table")
+    aos.clear()
+    aos.find_by_name("Group-admin")
     binds = {
         'opset_id': aos.op_set_id
     }
@@ -823,6 +862,7 @@ def migrate_to_rel_0_9_21():
         """,
         binds
     )
+
     for row in moderators:
         binds = {
             'group_id': row['group_id'],
@@ -841,8 +881,8 @@ def migrate_to_rel_0_9_21():
 
     print("\ndone.")
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, "0.9.21")
-    print("Migration to 0.9.21 completed successfully")
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, "0.9.22")
+    print("Migration to 0.9.22 completed successfully")
     db.commit()
 
 
