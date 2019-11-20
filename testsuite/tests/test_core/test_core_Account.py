@@ -9,7 +9,6 @@ import logging
 import pytest
 import sys
 
-# from Cerebrum.Account import Account
 from Cerebrum import Errors
 from datasource import BasicAccountSource, BasicPersonSource
 from datasource import expired_filter, nonexpired_filter
@@ -61,15 +60,8 @@ def cereconf():
             u'user': 'cerebrum',
         }
         CLASS_ACCOUNT = (
-            # u'Cerebrum.modules.no.uio.voip.voipAuthAccountMixin/VoipAuthAccountMixin',
             u'Cerebrum.modules.no.uio.Account/AccountUiOMixin',
             u'Cerebrum.modules.apikeys.mixins/ApiMappingAccountMixin',
-            # u'Cerebrum.modules.pwcheck.history/PasswordHistoryMixin',
-            # u'Cerebrum.modules.AccountExtras/AutoPriorityAccountMixin',
-            # u'Cerebrum.modules.AuthPGP/AuthPGPAccountMixin',
-            # u'Cerebrum.modules.Email/AccountEmailMixin',
-            # u'Cerebrum.modules.Email/AccountEmailQuotaMixin',
-            # u'Cerebrum.modules.gpg.password/AccountPasswordEncrypterMixin',
         )
         CLASS_CL_CONSTANTS = (
             u'Cerebrum.modules.apikeys.constants/CLConstants',
@@ -139,7 +131,6 @@ def database(factory):
     legacy._db.commit = legacy._db.rollback  # Let's try not to screw up the db
 
     legacy._ac = factory.get('Account')(legacy._db)
-    # legacy._ac = Account(legacy._db)
     legacy._co = factory.get('Constants')(legacy._db)
 
     # Data sources
