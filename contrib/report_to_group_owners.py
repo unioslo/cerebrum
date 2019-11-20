@@ -212,12 +212,12 @@ def write_plain_text_report(codec, translation=None, sender=None,
         )
 
     return (
-            '\n' + translation['greeting'] + 
-            '\n\n' + translation['message'] + 
+            '\n' + translation['greeting'] +
+            '\n\n' + translation['message'] +
             '\n\n' + translation['info_link'] + translation['here'] + ': ' +
-            INFO_LINK + 
-            '\n\n' + get_table() + 
-            '\n' + translation['signature'] + 
+            INFO_LINK +
+            '\n\n' + get_table() +
+            '\n' + translation['signature'] +
             '\n' + sender
     ).encode(codec.name)
 

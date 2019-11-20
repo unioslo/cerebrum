@@ -39,8 +39,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdUtils
-from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
-                                         BofhdAuthRole)
+from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget)
 
 
 class BofhdCommandBase(object):
@@ -218,7 +217,7 @@ class BofhdCommandBase(object):
                         authz = getattr(self.ba, command.perm_filter)
                         if not authz(ident, query_run_any=True):
                             continue
-                    except:
+                    except Exception:
                         self.logger.error("perm_filter issue in %r (%r)",
                                           command.perm_filter,
                                           key,
@@ -812,7 +811,7 @@ class BofhdCommandBase(object):
             raise CerebrumError("Too long ago: %r" % date)
         try:
             return DateTime.Date(y, m, d, hour, min)
-        except:
+        except Exception:
             raise CerebrumError("Illegal date: %r" % date)
 
     def _parse_date_from_to(self, date):

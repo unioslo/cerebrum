@@ -26,8 +26,6 @@ import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
-     BofhdAuthOpTarget, BofhdAuthRole
 
 # Initialize logger
 logger = Factory.get_logger('cronjob')
@@ -37,9 +35,6 @@ db = Factory.get('Database')()
 ac = Factory.get('Account')(db)
 pe = Factory.get('Person')(db)
 gr = Factory.get('Group')(db)
-baos = BofhdAuthOpSet(db)
-bar = BofhdAuthRole(db)
-baot = BofhdAuthOpTarget(db)
 
 db.cl_init(change_program="update_affiliation_groups.py")
 
