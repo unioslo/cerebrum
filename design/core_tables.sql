@@ -2028,6 +2028,36 @@ CREATE TABLE group_moderator
 );
 
 
+/* group_admin
+*
+* Table connecting groups and their admins
+*
+* group_id
+*   The entity_id of the group
+* admin_id
+*   The entity_id of the admin
+* admin_type
+*   The entity_type of the admin
+*/
+
+category:main;
+CREATE TABLE group_admin
+(
+  group_id
+    NUMERIC(12, 0)
+      CONSTRAINT group_exists
+        REFERENCES group_info(group_id),
+
+  admin_id
+    NUMERIC(12, 0)
+      CONSTRAINT admin_exists
+        REFERENCES entity_info(entity_id),
+
+  CONSTRAINT group_admin_pkey
+    PRIMARY KEY (group_id, admin_id)
+);
+
+
 /*  change_type
  */
 category:code;
@@ -2062,6 +2092,8 @@ category:drop;
 DROP TABLE group_member;
 category:drop;
 DROP TABLE group_moderator;
+category:drop;
+DROP TABLE group_admin;
 category:drop;
 DROP TABLE group_membership_op_code;
 category:drop;
