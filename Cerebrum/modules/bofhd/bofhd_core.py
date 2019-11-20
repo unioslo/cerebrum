@@ -898,13 +898,13 @@ class BofhdCommonMethods(BofhdCommandBase):
         ("group", "create"),
         cmd.GroupName(help_ref="group_name_new"),
         cmd.SimpleString(help_ref="string_description"),
-        cmd.GroupName(optional=True, help_ref="group_name_moderator"),
+        cmd.GroupName(optional=True, help_ref="group_name_admin"),
         fs=cmd.FormatSuggestion(
             "Group created, internal id: %i", ("group_id",)
         ),
         perm_filter='can_create_group')
 
-    def group_create(self, operator, groupname, description, mod_group=None):
+    def group_create(self, operator, groupname, description, admin_group=None):
         """ Standard method for creating normal groups.
 
         BofhdAuth's L{can_create_group} is first checked. The group gets the
@@ -913,7 +913,7 @@ class BofhdCommonMethods(BofhdCommandBase):
         :param operator: operator's account object
         :param groupname: str name of new group
         :param description: str description of group
-        :param mod_group: str name of moderator group, optional
+        :param admin_group: str name of admin group, optional
         :return: Group id
         """
         self.ba.can_create_group(operator.get_entity_id(),
@@ -937,17 +937,17 @@ class BofhdCommonMethods(BofhdCommandBase):
             g.add_spread(self.const.Spread(spread))
             g.write_db()
 
-        # Set moderator group(s)
-        if mod_group:
-            for mod in mod_group.split(' '):
+        # Set admin group(s)
+        if admin_group:
+            for admin in admin_group.split(' '):
                 try:
-                    mod_gr = self._get_group(mod, idtype=None,
-                                             grtype='Group')
+                    admin_gr = self._get_group(admin, idtype=None,
+                                               grtype='Group')
                 except Errors.NotFoundError:
-                    raise CerebrumError('No moderator group with name: {}'
-                                        .format(mod_group))
+                    raise CerebrumError('No admin group with name: {}'
+                                        .format(admin_group))
                 else:
-                    g.add_moderator(mod_gr)
+                    g.add_admin(admin_gr)
         return {'group_id': int(g.entity_id)}
 
     #

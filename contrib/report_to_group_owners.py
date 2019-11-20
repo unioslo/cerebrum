@@ -329,8 +329,8 @@ class GroupOwnerCacher(object):
         self.account.clear()
         self.account.find_by_name(account_name)
 
-        for group in self.group.search(moderator_id=self.account.entity_id,
-                                       indirect_moderators=True):
+        for group in self.group.search(admin_id=self.account.entity_id,
+                                       indirect_admins=True):
             owner_id2groups[self.account.entity_id].append(
                 {
                     'group_id': group['group_id'],
@@ -352,14 +352,14 @@ class GroupOwnerCacher(object):
             }
         """
         owner_id2groups = collections.defaultdict(list)
-        moderators = self.group.search_moderators(
-            moderator_type=self.co.entity_group,
+        admins = self.group.search_admins(
+            admin_type=self.co.entity_group,
             include_group_name=True)
 
         if ten:
-            moderators = itertools.islice(moderators, 10)
-        for row in moderators:
-            owner_id2groups[row['moderator_id']].append(
+            admins = itertools.islice(admins, 10)
+        for row in admins:
+            owner_id2groups[row['admin_id']].append(
                 {
                     'group_id': row['group_id'],
                     'group_name': row['group_name'],
@@ -367,7 +367,7 @@ class GroupOwnerCacher(object):
                                     row['group_name'])
                 }
             )
-        logger.info('%s moderator(s) found, all of them are groups themselves',
+        logger.info('%s admin(s) found, all of them are groups themselves',
                     len(owner_id2groups))
         return owner_id2groups
 

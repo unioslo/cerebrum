@@ -201,7 +201,7 @@ class BofhdExtension(BofhdCommonMethods):
                "description",
                format_day("expire_date"),
                "entity_id")),
-             ("Moderator:    %s %s", ('owner_type', 'owner')),
+             ("Admin:        %s %s", ('admin_type', 'admin')),
              ("Gid:          %i", ('gid',)),
              ("Members:      %s", ("members",))]))
 
@@ -209,19 +209,19 @@ class BofhdExtension(BofhdCommonMethods):
         grp = self._get_group(groupname)
         co = self.const
         ret = [self._entity_info(grp), ]
-        # find owners
-        for row in grp.search_moderators(group_id=grp.entity_id):
-            id = int(row['moderator_id'])
+        # find admins
+        for row in grp.search_admins(group_id=grp.entity_id):
+            id = int(row['admin_id'])
             en = self._get_entity(ident=id)
             if en.entity_type == co.entity_account:
-                owner = en.account_name
+                admin = en.account_name
             elif en.entity_type == co.entity_group:
-                owner = en.group_name
+                admin = en.group_name
             else:
-                owner = '#%d' % id
+                admin = '#%d' % id
             ret.append({
-                'owner_type': text_type(co.EntityType(en.entity_type)),
-                'owner': owner,
+                'admin_type': text_type(co.EntityType(en.entity_type)),
+                'admin': admin,
             })
 
         # Count group members of different types

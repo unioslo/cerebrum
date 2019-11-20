@@ -304,7 +304,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     #                  request will end up as the owner. Is this the desired
     #                  outcome? Or should all other invitations be invalidated
     #                  when a request is confirmed?
-    def __process_owner_swap_request(self, issuer_id, event):
+    def __process_admin_swap_request(self, issuer_id, event):
         """Perform the necessary magic associated with letting another account
         take over group ownership.
 
@@ -315,30 +315,30 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         issuer_id MUST BE an FA.
         """
 
-        assert event["change_type_id"] == self.clconst.va_group_owner_swap
+        assert event["change_type_id"] == self.clconst.va_group_admin_swap
 
         params = event["change_params"]
-        new_owner = self._get_account(issuer_id)
-        old_owner = self._get_account(params["old"])
+        new_admin = self._get_account(issuer_id)
+        old_admin = self._get_account(params["old"])
         group = self._get_group(params["group_id"])
         assert group.entity_id == int(event["subject_entity"])
 
-        self.ba.can_own_group(new_owner.entity_id)
-        self.ba.can_change_owners(old_owner.entity_id, group.entity_id)
+        self.ba.can_own_group(new_admin.entity_id)
+        self.ba.can_change_admins(old_admin.entity_id, group.entity_id)
 
-        if new_owner.entity_id == old_owner.entity_id:
+        if new_admin.entity_id == old_admin.entity_id:
             return "OK, no changes necessary"
 
         # Let's swap them
-        group.add_moderator(new_owner.entity_id)
-        group.remove_moderator(old_owner.entity_id)
+        group.add_admin(new_admin.entity_id)
+        group.remove_admin(old_admin.entity_id)
 
-        # action e_group:pending_owner_change
-        # Ok, <group> owner changed, <old_owner> -> <new_owner>
+        # action e_group:pending_admin_change
+        # Ok, <group> admin changed, <old_admin> -> <new_admin>
         return {'action': event.get('change_type'),
                 'group': group.group_name,
-                'old_owner': old_owner.account_name,
-                'new_owner': new_owner.account_name, }
+                'old_admin': old_admin.account_name,
+                'new_admin': new_admin.account_name, }
 
     def __process_moderator_add_request(self, issuer_id, event):
         """Perform the necessary magic associated with letting another account
@@ -467,8 +467,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                 self.__process_email_change_request,
             self.clconst.va_group_invitation:
                 self.__process_group_invitation_request,
-            self.clconst.va_group_owner_swap:
-                self.__process_owner_swap_request,
+            self.clconst.va_group_admin_swap:
+                self.__process_admin_swap_request,
             self.clconst.va_group_moderator_add:
                 self.__process_moderator_add_request,
             self.clconst.va_password_recover:
@@ -1311,7 +1311,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         ret = {}
         ret['confirmation_key'] = self.vhutils.setup_event_request(
                                       group.entity_id,
-                                      self.clconst.va_group_owner_swap,
+                                      self.clconst.va_group_admin_swap,
                                       params={'old': owner,
                                               'group_id': group.entity_id,
                                               'new': email, })

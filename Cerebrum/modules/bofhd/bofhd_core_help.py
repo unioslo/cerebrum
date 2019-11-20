@@ -373,8 +373,8 @@ arg_help = {
         ['gname', 'Enter the new group name'],
     'group_name_src':
         ['src_gname', 'Enter the source group'],
-    'group_name_moderator':
-        ['gname', 'Enter the name(s) of the moderator group(s)'],
+    'group_name_admin':
+        ['gname', 'Enter the name(s) of the admin group(s)'],
     'group_operation':
         ['op', 'Enter group operation',
          """Three values are legal: union, intersection and difference.

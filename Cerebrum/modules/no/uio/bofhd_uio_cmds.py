@@ -741,7 +741,7 @@ class BofhdExtension(BofhdCommonMethods):
              "Expire:       %s\n"
              "Entity id:    %i", ("name", "spread", "description",
                                   format_day("expire_date"), "entity_id")),
-            ("Moderator:    %s %s", ('mod_type', 'mod')),
+            ("Admin:        %s %s", ('admin_type', 'admin')),
             ("Gid:          %i", ('gid',)),
             ("Members:      %s", ("members",)),
             ("DisplayName:  %s", ('displayname',)),
@@ -768,19 +768,19 @@ class BofhdExtension(BofhdCommonMethods):
         del gr_info['type']
         ret = [gr_info, ]
 
-        # find owners
-        for row in grp.search_moderators(group_id=grp.entity_id):
-            id = int(row['moderator_id'])
+        # find admins
+        for row in grp.search_admins(group_id=grp.entity_id):
+            id = int(row['admin_id'])
             en = self._get_entity(ident=id)
             if en.entity_type == co.entity_account:
-                moderator = en.account_name
+                admin = en.account_name
             elif en.entity_type == co.entity_group:
-                moderator = en.group_name
+                admin = en.group_name
             else:
-                moderator = '#%d' % id
+                admin = '#%d' % id
             ret.append({
-                'mod_type': text_type(co.EntityType(en.entity_type)),
-                'mod': moderator,
+                'admin_type': text_type(co.EntityType(en.entity_type)),
+                'admin': admin,
             })
 
         # Member stats are a bit complex, since any entity may be a
@@ -941,16 +941,16 @@ class BofhdExtension(BofhdCommonMethods):
                                disp_name_language)
         room_list.write_db()
 
-        # Try to set the default group moderator
+        # Try to set the default group admin
         try:
             grp.clear()
             grp.find_by_name(cereconf.EXCHANGE_ROOMLIST_OWNER)
         except (Errors.NotFoundError, AttributeError):
-            # If the group moderator group does not exist, or is not defined,
-            # we won't set a group owner.
+            # If the group admin group does not exist, or is not defined,
+            # we won't set a group admin.
             pass
         else:
-            room_list.add_moderator(grp.entity_id)
+            room_list.add_admin(grp.entity_id)
 
         return "Made roomlist %s" % groupname
 
@@ -959,7 +959,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     # (all_commands is updated from BofhdCommonMethods)
     #
-    def group_create(self, operator, groupname, description, mod_group=None):
+    def group_create(self, operator, groupname, description, admin_group=None):
         """Override group_create to double check that there doesn't exist an
         account with the same name.
         """
@@ -970,11 +970,11 @@ class BofhdExtension(BofhdCommonMethods):
             pass
         else:
             raise CerebrumError('An account exists with name: %s' % groupname)
-        return super(BofhdExtension, self).group_create(operator, groupname,
-                                                        description, mod_group)
+        return super(BofhdExtension, self).group_create(
+            operator, groupname, description, admin_group)
 
     #
-    # group request <name> <desc> <spread> <moderator-group>
+    # group request <name> <desc> <spread> <admin-group>
     #
     # like group create, but only send request to the ones with the access to
     # the 'group create' command Currently send email to brukerreg@usit.uio.no
@@ -984,7 +984,7 @@ class BofhdExtension(BofhdCommonMethods):
         GroupName(help_ref="group_name_new"),
         SimpleString(help_ref="string_description"),
         SimpleString(help_ref="string_spread"),
-        GroupName(help_ref="group_name_moderator"))
+        GroupName(help_ref="group_name_admin"))
 
     def _get_from_address(self, operator):
         fromaddr = None
@@ -1005,7 +1005,7 @@ class BofhdExtension(BofhdCommonMethods):
         return fromaddr
 
     def group_request(self, operator,
-                      groupname, description, spread, moderator):
+                      groupname, description, spread, admin):
         opr = operator.get_entity_id()
         acc = self.Account_class(self.db)
         acc.find(opr)
@@ -1017,12 +1017,12 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             raise CerebrumError("Group %s already exists" % (groupname))
 
-        # checking if moderator groups exist
-        for mod in moderator.split(' '):
+        # checking if admin groups exist
+        for admin in admin.split(' '):
             try:
-                self._get_group(mod)
+                self._get_group(admin)
             except CerebrumError:
-                raise CerebrumError("Moderator group %s not found" % (mod))
+                raise CerebrumError("Admin group %s not found" % (admin))
 
         fromaddr = self._get_from_address(operator)
 
@@ -1041,9 +1041,10 @@ class BofhdExtension(BofhdCommonMethods):
         body.append("Group-name: %s." % groupname)
         body.append("Description:  %s" % description)
         body.append("Requested by: %s" % fromaddr)
-        body.append("Moderator: %s" % moderator)
+        body.append("Admin: %s" % admin)
         body.append("")
-        body.append("group create %s \"%s\"" % (groupname, description))
+        body.append("group create %s \"%s\" %s" % (groupname, description,
+                                                   admin))
         for spr in spreads:
             if spr and self._get_constant(self.const.Spread, spr) in (
                     self.const.spread_uio_nis_fg,
@@ -1059,8 +1060,6 @@ class BofhdExtension(BofhdCommonMethods):
                 body.append("group promote_posix %s" % groupname)
         if spread:
             body.append("spread add group %s %s" % (groupname, spreadstring))
-        body.append("make (%s) moderator of group %s" %
-                    (moderator, groupname))
         body.append("group info %s" % groupname)
         body.append("")
         body.append("")
@@ -1322,7 +1321,7 @@ class BofhdExtension(BofhdCommonMethods):
              "Expire:       %s\n"
              "Entity id:    %i", ("name", "spread", "description",
                                   format_day("expire_date"), "entity_id")),
-            ("Moderator:    %s %s", ('mod_type', 'mod')),
+            ("Admin:        %s %s", ('admin_type', 'admin')),
             ("Gid:          %i", ('gid',)),
             ("Members:      %s", ("members",))
         ]))
@@ -1340,19 +1339,19 @@ class BofhdExtension(BofhdCommonMethods):
             grp = self._get_group(groupname)
         co = self.const
         ret = [self._entity_info(grp), ]
-        # find owners
-        for row in grp.search_moderators(group_id=grp.entity_id):
-            id = int(row['moderator_id'])
+        # find admins
+        for row in grp.search_admins(group_id=grp.entity_id):
+            id = int(row['admin_id'])
             en = self._get_entity(ident=id)
             if en.entity_type == co.entity_account:
-                moderator = en.account_name
+                admin = en.account_name
             elif en.entity_type == co.entity_group:
-                moderator = en.group_name
+                admin = en.group_name
             else:
-                moderator = '#%d' % id
+                admin = '#%d' % id
             ret.append({
-                'mod_type': text_type(co.EntityType(en.entity_type)),
-                'mod': moderator,
+                'admin_type': text_type(co.EntityType(en.entity_type)),
+                'admin': admin,
             })
 
         # Member stats are a bit complex, since any entity may be a
@@ -1540,8 +1539,8 @@ class BofhdExtension(BofhdCommonMethods):
             pg.write_db()
         except self.db.DatabaseError as m:
             raise CerebrumError("Database error: %s" % m)
-        # Make the user the moderator of the group so they can administer it
-        group.add_moderator(acc.entity_id)
+        # Make the user the admin of the group so they can administer it
+        group.add_admin(acc.entity_id)
         # Make user a member of his personal group
         self._group_add(None, uname, uname, member_type="account")
         # Add personal group-trait to group

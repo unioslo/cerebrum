@@ -229,7 +229,7 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
             with self._new_personal_group(creator_id) as personal_fg:
                 self.gid_id = personal_fg.entity_id
                 self.__super.write_db()
-                personal_fg.add_moderator(self.entity_id)
+                personal_fg.add_admin(self.entity_id)
                 self.pg = personal_fg
         finally:
             self.map_user_spreads_to_pg()

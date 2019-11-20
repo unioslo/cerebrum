@@ -245,14 +245,14 @@ class BofhdExtension(BofhdCommonMethods):
         # if not group.description.startswith('Personal file group for '):
         #     return
         #
-        # The alternative is to check if the account is the moderator of the
+        # The alternative is to check if the account is the admin of the
         # group, and this is implemented below
 
-        is_moderator = False
-        for mod in group.search_moderators(group_id=group.entity_id):
-            is_moderator = True
+        is_admin = False
+        for admin in group.search_admins(group_id=group.entity_id):
+            is_admin = True
             break
-        if not is_moderator:
+        if not is_admin:
             return
 
         mapping = {int(self.const.spread_nis_user):

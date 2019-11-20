@@ -124,7 +124,7 @@ class VirthomeBase:
         for spread in getattr(cereconf, "BOFHD_NEW_GROUP_SPREADS", ()):
             gr.add_spread(self.co.human2constant(spread, self.co.Spread))
 
-        gr.add_moderator(owner)
+        gr.add_admin(owner)
         gr.write_db()
         return gr
 
