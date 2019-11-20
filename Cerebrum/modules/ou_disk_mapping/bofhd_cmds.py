@@ -75,7 +75,7 @@ class BofhdOUDiskMappingAuth(BofhdAuth):
         raise NO_ACCESS_ERROR
 
     def can_list_ou_path(self, operator, ou=None, query_run_any=False):
-        return self.can_modify_ou_path(operator, ou, query_run_any)
+        return True
 
     def can_add_ou_path(self, operator, ou=None, query_run_any=False):
         return self.can_modify_ou_path(operator, ou, query_run_any)
