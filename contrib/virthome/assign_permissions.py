@@ -52,6 +52,7 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet
+from Cerebrum.modules.bofhd.auth import BofhdAuthRole
 from Cerebrum.Account import Account
 from Cerebrum.Group import Group
 
