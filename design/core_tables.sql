@@ -2006,8 +2006,6 @@ CREATE INDEX group_member_member_id_idx ON group_member(member_id);
 *   The entity_id of the group
 * moderator_id
 *   The entity_id of the moderator
-* moderator_type
-*   The entity_type of the moderator
 */
 
 category:main;
@@ -2036,8 +2034,6 @@ CREATE TABLE group_moderator
 *   The entity_id of the group
 * admin_id
 *   The entity_id of the admin
-* admin_type
-*   The entity_type of the admin
 */
 
 category:main;
