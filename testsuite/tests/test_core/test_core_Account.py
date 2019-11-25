@@ -6,6 +6,7 @@ Searching (members and groups) has to be thoroughly tested.
 from __future__ import unicode_literals
 
 import logging
+import os
 import pytest
 import sys
 
@@ -51,8 +52,10 @@ def cereconf():
     # pprint(sys.modules)
     try:
         import Cerebrum.default_config
-        CEREBRUM_DATABASE_NAME = 'cerebrum_uio_axl'
-        DB_AUTH_DIR = '/cerebrum/etc/passwords/axl'
+        CEREBRUM_DATABASE_NAME = os.environ.get('CEREBRUM_DATABASE_NAME', None)
+        DB_AUTH_DIR = os.environ.get('DB_AUTH_DIR', None)
+        if not CEREBRUM_DATABASE_NAME or not DB_AUTH_DIR:
+            raise KeyError("Missing environment variables")
         CEREBRUM_DATABASE_CONNECT_DATA = {
             u'client_encoding': u'UTF-8',
             u'host': 'dbpg-cere-utv.uio.no',
