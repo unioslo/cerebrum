@@ -119,7 +119,6 @@ def factory(cereconf):
     importing and using the factory.
     """
     global Factory
-    logger.debug(cereconf)
     from Cerebrum.Utils import Factory
     return Factory
 
@@ -170,9 +169,6 @@ def accounts(database):
 
 def test_account_populate(database):
     """ Account.populate() with basic info. """
-    logger.debug(database)
-    logger.debug(dir(database))
-    logger.debug(type(database))
     creator_id = database.db_tools.get_initial_account_id()
     owner_id = database.db_tools.get_initial_group_id()
     account = database.account_ds.get_next_item()
