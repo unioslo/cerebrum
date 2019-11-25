@@ -301,17 +301,19 @@ class AuditRecordBuilder(DatabaseAccessor):
     def account_create_mod(self, subject_entity, destination_entity,
                            change_params):
         if 'np_type' in change_params:
-            change_params.update(
-                {'np_type_str': six.text_type(
-                    self.const.Account(change_params['np_type'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'np_type_str': six.text_type(
+                        self.const.Account(change_params['np_type']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         if 'owner_type' in change_params:
-            change_params.update(
-                {'owner_type_str': six.text_type(self.const.EntityType(
-                    change_params['owner_type'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'owner_type_str': six.text_type(
+                        self.const.EntityType(change_params['owner_type']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('account_home', 'add')
@@ -324,11 +326,12 @@ class AuditRecordBuilder(DatabaseAccessor):
     def spread_int_to_str(self, subject_entity, destination_entity,
                           change_params):
         if 'spread' in change_params:
-            change_params.update(
-                {'spread_str': six.text_type(self.const.Spread(
-                    change_params['spread'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'spread_str': six.text_type(
+                        self.const.Spread(change_params['spread']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('homedir', 'add')
@@ -336,11 +339,13 @@ class AuditRecordBuilder(DatabaseAccessor):
     def status_str(self, subject_entity, destination_entity,
                    change_params):
         if 'status' in change_params:
-            change_params.update(
-                {'status_str': six.text_type(self.const.AccountHomeStatus(
-                    change_params['status'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'status_str': six.text_type(
+                        self.const.AccountHomeStatus(
+                            change_params['status']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('account_type', 'add')
@@ -348,11 +353,13 @@ class AuditRecordBuilder(DatabaseAccessor):
     def aff_to_affstr(self, subject_entity, destination_entity,
                       change_params):
         if 'affiliation' in change_params:
-            change_params.update(
-                {'aff_str': six.text_type(self.const.PersonAffiliation(
-                    change_params['affiliation'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'aff_str': six.text_type(
+                        self.const.PersonAffiliation(
+                            change_params['affiliation']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('disk', 'add')
@@ -375,11 +382,13 @@ class AuditRecordBuilder(DatabaseAccessor):
     def ou_unset_parent(self, subject_entity, destination_entity,
                         change_params):
         if 'perspective' in change_params:
-            change_params.update(
-                {'perspective_str': six.text_type(self.const.OUPerspective(
-                    change_params['perspective'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'perspective_str': six.text_type(
+                        self.const.OUPerspective(
+                            change_params['perspective']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('person_name', 'add')
@@ -388,17 +397,20 @@ class AuditRecordBuilder(DatabaseAccessor):
     def person_name_add_mod_del(self, subject_entity, destination_entity,
                                 change_params):
         if 'src' in change_params:
-            change_params.update(
-                {'src_str': six.text_type(self.const.AuthoritativeSystem(
-                    change_params['src'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'src_str': six.text_type(
+                        self.const.AuthoritativeSystem(
+                            change_params['src']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         if 'name_variant' in change_params:
-            change_params.update(
-                {'name_variant_str': six.text_type(self.const.PersonName(
-                    change_params['name_variant'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'name_variant_str': six.text_type(self.const.PersonName(
+                        change_params['name_variant']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('entity_name', 'add')
@@ -406,34 +418,40 @@ class AuditRecordBuilder(DatabaseAccessor):
     def entity_name_add_del(self, subject_entity, destination_entity,
                             change_params):
         if 'domain' in change_params:
-            change_params.update(
-                {'domain_str': six.text_type(self.const.ValueDomain(
-                    change_params['domain'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'domain_str': six.text_type(self.const.ValueDomain(
+                        change_params['domain']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         if 'name_variant' in change_params:
-            change_params.update(
-                {'name_variant_str': six.text_type(self.const.EntityNameCode(
-                    change_params['name_variant'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'name_variant_str': six.text_type(
+                        self.const.EntityNameCode(
+                            change_params['name_variant']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         if 'name_language' in change_params:
-            change_params.update(
-                {'name_language_str': six.text_type(self.const.LanguageCode(
-                    change_params['name_language'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'name_language_str': six.text_type(
+                        self.const.LanguageCode(
+                            change_params['name_language']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('entity_name', 'modify')
     def entity_name_mod(self, subject_entity, destination_entity,
                         change_params):
         if 'domain' in change_params:
-            change_params.update(
-                {'domain_str': six.text_type(self.const.ValueDomain(
-                    change_params['domain'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'domain_str': six.text_type(self.const.ValueDomain(
+                        change_params['domain']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('entity_cinfo', 'add')
@@ -441,17 +459,19 @@ class AuditRecordBuilder(DatabaseAccessor):
     def entity_cinfo_add_del(self, subject_entity, destination_entity,
                              change_params):
         if 'type' in change_params:
-            change_params.update(
-                {'type_str': six.text_type(self.const.ContactInfo(
-                    change_params['type'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'type_str': six.text_type(self.const.ContactInfo(
+                        change_params['type']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         if 'src' in change_params:
-            change_params.update(
-                {'src_str': six.text_type(self.const.AuthoritativeSystem(
-                    change_params['src'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'src_str': six.text_type(self.const.AuthoritativeSystem(
+                        change_params['src']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('entity_external_id', 'add')
@@ -460,17 +480,19 @@ class AuditRecordBuilder(DatabaseAccessor):
     def entity_ext_id_del(self, subject_entity, destination_entity,
                           change_params):
         if 'id_type' in change_params:
-            change_params.update(
-                {'id_type_str': six.text_type(self.const.EntityExternalId(
-                    change_params['id_type'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'id_type_str': six.text_type(self.const.EntityExternalId(
+                        change_params['id_type']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         if 'src' in change_params:
-            change_params.update(
-                {'src_str': six.text_type(self.const.AuthoritativeSystem(
-                    change_params['src'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'src_str': six.text_type(self.const.AuthoritativeSystem(
+                        change_params['src']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     # Quarantine changes
@@ -480,21 +502,23 @@ class AuditRecordBuilder(DatabaseAccessor):
     def quarantine_add_mod(self, subject_entity, destination_entity,
                            change_params):
         if 'q_type' in change_params:
-            change_params.update(
-                {'q_type_str': six.text_type(self.const.Quarantine(
-                    change_params['q_type'])),
-                 }
-             )
+            try:
+                change_params.update(
+                    {'q_type_str': six.text_type(self.const.Quarantine(
+                        change_params['q_type']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('posix_user', 'create')
     def posix_promote(self, subject_entity, destination_entity, change_params):
         if 'shell' in change_params:
-            change_params.update(
-                {'shell_str': six.text_type(self.const.PosixShell(
-                    change_params['shell'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'shell_str': six.text_type(self.const.PosixShell(
+                        change_params['shell']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('email_domain_category', 'add')
@@ -502,11 +526,13 @@ class AuditRecordBuilder(DatabaseAccessor):
     def email_dom_cat_add_rem(self, subject_entity, destination_entity,
                               change_params):
         if 'category' in change_params:
-            change_params.update(
-                {'category_str': six.text_type(self.const.EmailDomainCategory(
-                    change_params['category'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'category_str': six.text_type(
+                        self.const.EmailDomainCategory(
+                            change_params['category']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('email_target', 'add')
@@ -514,20 +540,24 @@ class AuditRecordBuilder(DatabaseAccessor):
     def email_target_add_rem(self, subject_entity, destination_entity,
                              change_params):
         if 'target_type' in change_params:
-            change_params.update(
-                {'target_type_str': six.text_type(self.const.EmailTarget(
-                    change_params['target_type'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'target_type_str': six.text_type(self.const.EmailTarget(
+                        change_params['target_type']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('email_target', 'modify')
     def email_target_mod(self, subject_entity, destination_entity,
                          change_params):
         if 'target_type' in change_params:
-            change_params.update(
-                {'target_type_str': six.text_type(self.const.EmailTarget(
-                    change_params['target_type']))})
+            try:
+                change_params.update(
+                    {'target_type_str': six.text_type(self.const.EmailTarget(
+                        change_params['target_type']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         if 'server_id' in change_params:
             self.host.clear()
             try:
@@ -558,11 +588,12 @@ class AuditRecordBuilder(DatabaseAccessor):
     def email_entity_dom_add_rem_mod(self, subject_entity, destination_entity,
                                      change_params):
         if 'aff' in change_params:
-            change_params.update(
-                {'aff_str': six.text_type(self.const.PersonAffiliation(
-                    change_params['aff'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'aff_str': six.text_type(self.const.PersonAffiliation(
+                        change_params['aff']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('email_tfilter', 'add')
@@ -570,11 +601,12 @@ class AuditRecordBuilder(DatabaseAccessor):
     def email_tfilter_add(self, subject_entity, destination_entity,
                           change_params):
         if 'filter' in change_params:
-            change_params.update(
-                {'filter_str': six.text_type(self.const.EmailTargetFilter(
-                    change_params['filter'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'filter_str': six.text_type(self.const.EmailTargetFilter(
+                        change_params['filter']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('email_sfilter', 'add')
@@ -582,15 +614,19 @@ class AuditRecordBuilder(DatabaseAccessor):
     def email_sfilter_add(self, subject_entity, destination_entity,
                           change_params):
         if 'level' in change_params:
-            change_params.update(
-                {'level_str': six.text_type(self.const.EmailSpamLevel(
-                    change_params['level'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'level_str': six.text_type(self.const.EmailSpamLevel(
+                        change_params['level']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         if 'action' in change_params:
-            change_params.update(
-                {'action_str': six.text_type(self.const.EmailSpamAction(
-                    change_params['action']))})
+            try:
+                change_params.update(
+                    {'action_str': six.text_type(self.const.EmailSpamAction(
+                        change_params['action']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('email_primary_address', 'add')
@@ -615,11 +651,13 @@ class AuditRecordBuilder(DatabaseAccessor):
     def email_server_add(self, subject_entity, destination_entity,
                          change_params):
         if 'server_type' in change_params:
-            change_params.update(
-                {'server_type_str': six.text_type(self.const.EmailServerType(
-                    change_params['server_type'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'server_type_str': six.text_type(
+                        self.const.EmailServerType(
+                            change_params['server_type']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('entity_trait', 'add')
@@ -628,15 +666,19 @@ class AuditRecordBuilder(DatabaseAccessor):
     def trait_mod(self, subject_entity, destination_entity,
                   change_params):
         if 'entity_type' in change_params:
-            change_params.update(
-                {'entity_type_str': six.text_type(self.const.EntityType(
-                    change_params['entity_type'])),
-                 }
-            )
+            try:
+                change_params.update(
+                    {'entity_type_str': six.text_type(self.const.EntityType(
+                        change_params['entity_type']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         if 'code' in change_params:
-            change_params.update(
-                {'code_str': six.text_type(self.const.EntityTrait(
-                    change_params['code']))})
+            try:
+                change_params.update(
+                    {'code_str': six.text_type(self.const.EntityTrait(
+                        change_params['code']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
 
     @translate_params.register('ephorte_role', 'add')
@@ -645,11 +687,17 @@ class AuditRecordBuilder(DatabaseAccessor):
     def ephorte_role_add(self, subject_entity, destination_entity,
                          change_params):
         if 'arkivdel' in change_params:
-            change_params.update(
-                {'arkivdel_str': six.text_type(self.const.EphorteArkivdel(
-                    change_params['arkivdel']))})
+            try:
+                change_params.update(
+                    {'arkivdel_str': six.text_type(self.const.EphorteArkivdel(
+                        change_params['arkivdel']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         if 'rolle_type' in change_params:
-            change_params.update(
-                {'rolle_type_str': six.text_type(self.const.EphorteRole(
-                    change_params['rolle_type']))})
+            try:
+                change_params.update(
+                    {'rolle_type_str': six.text_type(self.const.EphorteRole(
+                        change_params['rolle_type']))})
+            except Cerebrum.Errors.NotFoundError:
+                pass
         return change_params
