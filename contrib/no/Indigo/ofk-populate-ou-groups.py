@@ -163,7 +163,6 @@ def find_all_auto_groups():
 # end find_all_auto_groups
 
 
-
 def group_name2group_id(group_name, description, current_groups, trait=NotSet):
     """Look up (and create if necessary) a group by name and return its id.
 
@@ -178,7 +177,7 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
       In case a group needs creating, this will be the description registered
       in Cerebrum.
 
-    @type current_groups: dict 
+    @type current_groups: dict
     @param current_groups: Return value of L{find_all_auto_groups}.
 
     @type traits: a constant (int or basestring) or NotSet
@@ -193,10 +192,13 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
     """
     if group_name not in current_groups:
         group = Factory.get("Group")(database)
-        group.populate(get_create_account_id(),
-                       constants.group_visibility_internal,
-                       group_name,
-                       description)
+        group.populate(
+            creator_id=get_create_account_id(),
+            visibility=constants.group_visibility_internal,
+            name=group_name,
+            description=description,
+            group_type=constants.group_type_unknown,
+        )
         group.write_db()
         # before committing traits we need an existing group_id
         if trait != NotSet:
@@ -207,12 +209,12 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
         if not group.has_spread(constants.spread_ad_grp):
             group.add_spread(constants.spread_ad_grp)
             group.write_db()
-        logger.debug("Created a new auto group. Id=%s, name=%s, description=%s",
-                     group.entity_id, group_name, description)
+        logger.debug(
+            "Created a new auto group. Id=%s, name=%s, description=%s",
+            group.entity_id, group_name, description)
         current_groups[group_name] = group.entity_id
 
     return current_groups[group_name]
-# end group_name2group_id
 
 
 def employee2groups(row, current_groups, perspective):

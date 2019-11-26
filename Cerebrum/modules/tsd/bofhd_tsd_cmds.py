@@ -2224,10 +2224,13 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
             raise CerebrumError('An account exists with name: %s' % groupname)
 
         self.ba.can_create_group(operator.get_entity_id())
-        gr.populate(creator_id=operator.get_entity_id(),
-                    visibility=self.const.group_visibility_all,
-                    name=groupname,
-                    description=description)
+        gr.populate(
+            creator_id=operator.get_entity_id(),
+            visibility=self.const.group_visibility_all,
+            name=groupname,
+            description=description,
+            group_type=self.const.group_type_manual,
+        )
 
         gr.write_db()
 

@@ -291,10 +291,13 @@ class GroupResource(Resource):
             bad_name = group.illegal_name(name)
             if bad_name:
                 abort(400, message="Illegal group name: {!s}".format(bad_name))
-            group.new(auth.account.entity_id,
-                      args['visibility'],
-                      name,
-                      args['description'])
+            group.new(
+                creator_id=auth.account.entity_id,
+                visibility=args['visibility'],
+                name=name,
+                description=args['description'],
+                group_type=db.const.group_type_manual,
+            )
             result_code = 201
         return self.group_info(group), result_code
 
@@ -648,7 +651,7 @@ class GroupListResource(Resource):
         'context',
         type=validator.String(),
         dest='spread',
-        help='Filter by context. Accepts * and ? as wildcards.')
+        help='Filter by context.')
     group_search_filter.add_argument(
         'member_id',
         type=int,
@@ -682,6 +685,14 @@ class GroupListResource(Resource):
         args = self.group_search_filter.parse_args()
         filters = {key: value for (key, value) in args.items() if
                    value is not None}
+
+        if 'spread' in filters:
+            try:
+                group_spread = db.const.Spread(filters['spread'])
+                filters['spread'] = int(group_spread)
+            except Errors.NotFoundError:
+                abort(404, message='Unknown context={}'.format(
+                    filters['spread']))
 
         gr = Factory.get('Group')(db.connection)
 

@@ -98,8 +98,7 @@ class PersonLookup(object):
         self.account_id_to_auth = dict()
         for row in ac.list_account_authentication(
                 auth_type=(co.auth_type_md4_nt,
-                           co.auth_type_plaintext,
-                           co.auth_type_ssha)):
+                           co.auth_type_plaintext)):
             account_id = int(row['account_id'])
             if row['method'] is None:
                 continue

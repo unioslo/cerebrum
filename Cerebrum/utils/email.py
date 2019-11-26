@@ -208,7 +208,7 @@ def mail_template(recipient, template_file, sender=None, cc=None,
     for key, value in substitute.items():
         try:
             if not isinstance(value, six.text_type):
-                value = six.text_type(charset)
+                value = six.text_type(value)
             message = message.replace("${%s}" % key, value)
         except Exception:
             logger.error("unable to insert key %r into template %r",

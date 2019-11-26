@@ -380,6 +380,8 @@ class BofhdExtension(BofhdCommandBase):
 
         try:
             ev = self.db.get_event(event_id)
+        except ValueError:
+            raise CerebrumError("Error: Event id must be an integer")
         except Errors.NotFoundError:
             raise CerebrumError('Error: No such event exists!')
 

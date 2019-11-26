@@ -676,6 +676,3 @@ class Constants(Constants.Constants):
     ifi_zone = DnsConstants._DnsZoneCode(
         "ifi_uio",
         ".ifi.uio.no.")
-    trofast_zone = DnsConstants._DnsZoneCode(
-        "trofast_uio",
-        ".trofast.uio.no.")

@@ -48,7 +48,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
 
     __read_attr__ = ('__in_db', 'created_at')
     __write_attr__ = ('description', 'visibility', 'creator_id',
-                      'expire_date', 'group_name')
+                      'expire_date', 'group_name', 'group_type')
 
     def clear(self):
         super(Group, self).clear()
@@ -56,8 +56,40 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         self.__updated = []
 
     def populate(self, creator_id=None, visibility=None, name=None,
-                 description=None, expire_date=None, parent=None):
-        """Populate group instance's attributes without database access."""
+                 description=None, expire_date=None, group_type=None,
+                 parent=None):
+        """
+        Populate group instance's attributes without database access.
+
+        :param creator_id:
+            the entity_id of an existing account.  Required for new Group
+            objects.
+
+        :param visibility:
+            A valid _GroupVisibilityCode (or its int-value).  Required for new
+            Group objects.
+
+        :param name:
+            A group_name for this group.  Required for new Group objects.
+
+        :param description:
+            A description for this group.  Typically something that describes
+            its content or usecase.
+
+        :param expire_date:
+            Sets an expire_date for this group.
+
+        :param group_type:
+            A valid _GroupTypeCode (or its int-value).  Required for new Group
+            objects.
+
+        :param parent:
+            Set to an existing entity-object to promote it.
+
+            Normally, populate creates a new Entity and assigns group data to
+            it.  If a `parent` value is given, that Entity will be re-used and
+            *promoted* to a group.
+        """
         if parent is not None:
             self.__xerox__(parent)
         else:
@@ -73,6 +105,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         except AttributeError:
             self.__in_db = False
         self.creator_id = creator_id
+        self.group_type = int(group_type)
         self.visibility = int(visibility)
         self.description = description
         self.expire_date = expire_date
@@ -87,13 +120,14 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         self.write_db()
 
     def is_expired(self):
+        """Checks if group is expired"""
         now = mx.DateTime.now()
         if self.expire_date is None or self.expire_date >= now:
             return False
         return True
 
     def is_empty(self):
-        """Checks if a group is empty (no members)."""
+        """Checks if group is empty"""
         for row in self.search_members(group_id=self.entity_id):
             return False
         return True
@@ -103,7 +137,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
     # lengths and max length in database is 256 characters
     def illegal_name(self, name, max_length=256):
         """Return a string with error message if groupname is illegal"""
-        if len(name) == 0:
+        if not name:
             return "Must specify group name"
         if len(name) > max_length:
             return "Name %s too long (%d char allowed)" % (name, max_length)
@@ -128,55 +162,62 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             return
         if not self.__updated:
             return
+
         if 'group_name' in self.__updated:
             tmp = self.illegal_name(self.group_name)
             if tmp:
                 raise self._db.IntegrityError("Illegal groupname: %s" % tmp)
-
+        binds = {'description': self.description,
+                 'group_id': self.entity_id,
+                 'visibility': int(self.visibility),
+                 'creator_id': self.creator_id,
+                 'expire_date': self.expire_date,
+                 'group_type': int(self.group_type),
+                 }
         if is_new:
-            cols = [('entity_type', ':e_type'),
-                    ('group_id', ':g_id'),
-                    ('description', ':desc'),
-                    ('visibility', ':visib'),
-                    ('creator_id', ':creator_id')]
-            # Columns that have default values through DDL.
-            if self.expire_date is not None:
-                cols.append(('expire_date', ':exp_date'))
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=group_info] (%(tcols)s)
-            VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
-                                     'binds': ", ".join([x[1] for x in cols])},
-                         {'e_type': int(self.const.entity_group),
-                          'g_id': self.entity_id,
-                          'desc': self.description,
-                          'visib': int(self.visibility),
-                          'creator_id': self.creator_id,
-                          'exp_date': self.expire_date})
-            self._db.log_change(self.entity_id, self.clconst.group_create, None)
+            binds['entity_type'] = int(self.const.entity_group),
+            defs = {'tc': ", ".join(x for x in sorted(binds)),
+                    'tb': ", ".join(':{0}'.format(x) for x in sorted(binds))}
+            insert_stmt = """
+              INSERT INTO [:table schema=cerebrum name=group_info] (%(tc)s)
+              VALUES (%(tb)s)""" % defs
+            self.execute(insert_stmt, binds)
+            self._db.log_change(self.entity_id,
+                                self.clconst.group_create,
+                                None)
             self.add_entity_name(self.const.group_namespace, self.group_name)
         else:
-            cols = [('description', ':desc'),
-                    ('visibility', ':visib'),
-                    ('creator_id', ':creator_id'),
-                    ('expire_date', ':exp_date')]
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=group_info]
-            SET %(defs)s
-            WHERE group_id=:g_id""" % {'defs': ", ".join(
-                ["%s=%s" % x for x in cols if x[0] != 'group_id'])},
-                {'g_id': self.entity_id,
-                 'desc': self.description,
-                 'visib': int(self.visibility),
-                 'creator_id': self.creator_id,
-                 'exp_date': self.expire_date})
-            self._db.log_change(self.entity_id,
-                                self.clconst.group_mod,
-                                None,
-                                change_params=self.__updated)
+            exists_stmt = '''
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=group_info]
+                WHERE (description is NULL AND :description is NULL OR
+                         description=:description) AND
+                      (expire_date is NULL AND :expire_date is NULL OR
+                         expire_date=:expire_date) AND
+                      group_id=:group_id AND
+                      visibility=:visibility AND
+                      creator_id=:creator_id AND
+                      group_type=:group_type
+                )
+            '''
+            if not self.query_1(exists_stmt, binds):
+                # True positive
+                set_str = ', '.join(
+                    '{0}=:{0}'.format(x) for x in binds if x != 'group_id')
+                update_stmt = """
+                  UPDATE [:table schema=cerebrum name=group_info]
+                  SET {set_str}
+                  WHERE group_id=:group_id""".format(set_str=set_str)
+                self.execute(update_stmt, binds)
+                self._db.log_change(self.entity_id,
+                                    self.clconst.group_mod,
+                                    None,
+                                    change_params=self.__updated)
             if 'group_name' in self.__updated:
-                self.update_entity_name(
-                    self.const.group_namespace,
-                    self.group_name)
+                self.update_entity_name(self.const.group_namespace,
+                                        self.group_name)
+
         # EntityName.write_db(self, as_object)
         del self.__in_db
         self.__in_db = True
@@ -240,6 +281,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             self.visibility == other.visibility and
             self.group_name == other.group_name and
             self.description == other.description and
+            self.group_type == other.group_type and
             # The 'created_at' attributes should only be included in
             # the comparison of it is set in both objects.
             (self.created_at is None or
@@ -255,21 +297,30 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
     def find(self, group_id):
         """Connect object to group with ``group_id`` in database."""
         self.__super.find(group_id)
-        (self.description, self.visibility, self.creator_id,
-         self.expire_date, self.group_name) = \
-            self.query_1("""
-        SELECT gi.description, gi.visibility, gi.creator_id,
-               gi.expire_date, en.entity_name
-        FROM [:table schema=cerebrum name=group_info] gi
-        LEFT OUTER JOIN
-             [:table schema=cerebrum name=entity_name] en
-        ON
-          gi.group_id = en.entity_id AND
-          en.value_domain = :domain
-        WHERE
-          gi.group_id=:g_id""",
-                         {'g_id': group_id,
-                          'domain': int(self.const.group_namespace)})
+        (
+            self.description,
+            self.visibility,
+            self.creator_id,
+            self.expire_date,
+            self.group_name,
+            self.group_type,
+        ) = self.query_1(
+            """
+              SELECT gi.description, gi.visibility, gi.creator_id,
+                     gi.expire_date, en.entity_name, gi.group_type
+              FROM [:table schema=cerebrum name=group_info] gi
+              LEFT OUTER JOIN
+                   [:table schema=cerebrum name=entity_name] en
+              ON
+                gi.group_id = en.entity_id AND
+                en.value_domain = :value_domain
+              WHERE
+                gi.group_id=:group_id
+            """,
+            {
+                'group_id': group_id,
+                'value_domain': int(self.const.group_namespace),
+            })
         try:
             del self.__in_db
         except AttributeError:
@@ -379,12 +430,24 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             Group (id) to remove member from
         """
 
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=group_member]
-        WHERE
-          group_id=:g_id AND
-          member_id=:m_id""", {'g_id': group_id,
-                               'm_id': member_id})
+        binds = {'group_id': group_id,
+                 'member_id': member_id}
+        exists_stmt = """
+          SELECT EXISTS (
+            SELECT 1
+            FROM [:table schema=cerebrum name=group_member]
+            WHERE group_id=:group_id AND
+                  member_id=:member_id
+          )
+        """
+        if not self.query_1(exists_stmt, binds):
+            # False positive
+            return
+        delete_stmt = """
+          DELETE FROM [:table schema=cerebrum name=group_member]
+          WHERE group_id=:group_id AND
+                member_id=:member_id"""
+        self.execute(delete_stmt, binds)
         self._db.log_change(group_id, self.clconst.group_rem, member_id)
 
     def search(self,
@@ -394,9 +457,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                spread=None,
                name=None,
                description=None,
+               group_type=None,
                filter_expired=True,
                creator_id=None,
-               expired_only=False):
+               expired_only=False,
+               fetchall=True,
+               ):
         """Search for groups satisfying various filters.
 
         Search **for groups** where the results are filtered by a number of
@@ -452,6 +518,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           Filter the resulting group list by group description. The
           description may contain SQL wildcard characters.
 
+        :type group_type: int or GroupTypeCode or sequence thereof or None
+        :param description:
+          Filter the resulting group list by group type - i.e. only return
+          groups with one of the given group types.
+
         :type filter_expired: bool
         :param filter_expired:
           Filter the resulting group list by expiration date. If set, do NOT
@@ -504,7 +575,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             # workset contains ids of the entities that are members. in each
             # iteration we are looking for direct parents of whatever is in
             # workset.
-            workset = set([int(x) for x in member_id])
+            workset = set(int(x) for x in member_id)
             while workset:
                 tmp = workset
                 workset = set()
@@ -522,36 +593,44 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                         workset.add(group_id)
 
             return result
-        # end search_transitive_closure
 
-        select = """SELECT DISTINCT gi.group_id AS group_id,
-                                    en.entity_name AS name,
-                                    gi.description AS description,
-                                    gi.visibility AS visibility,
-                                    gi.creator_id AS creator_id,
-                                    ei.created_at AS created_at,
-                                    gi.expire_date AS expire_date
-                 """
-        tables = ["""[:table schema=cerebrum name=group_info] gi
-                     LEFT OUTER JOIN
-                         [:table schema=cerebrum name=entity_name] en
-                     ON
-                        en.entity_id = gi.group_id AND
-                        en.value_domain = :vdomain
-                     LEFT OUTER JOIN
-                         [:table schema=cerebrum name=entity_info] ei
-                     ON
-                        ei.entity_id = gi.group_id AND
-                        ei.entity_type = :entity_type
-                  """, ]
-        where = list()
-        binds = {"vdomain": int(self.const.group_namespace),
-                 "entity_type": int(self.const.entity_group)}
+        stmt = """
+          SELECT DISTINCT
+            gi.group_id AS group_id,
+            en.entity_name AS name,
+            gi.description AS description,
+            gi.visibility AS visibility,
+            gi.creator_id AS creator_id,
+            ei.created_at AS created_at,
+            gi.expire_date AS expire_date,
+            gi.group_type AS group_type
+          FROM
+            [:table schema=cerebrum name=group_info] gi
+          LEFT OUTER JOIN
+            [:table schema=cerebrum name=entity_name] en
+          ON
+            en.entity_id = gi.group_id AND
+            en.value_domain = :vdomain
+          LEFT OUTER JOIN
+            [:table schema=cerebrum name=entity_info] ei
+          ON
+            ei.entity_id = gi.group_id AND
+            ei.entity_type = :entity_type
+          {extra_tables}
+          {where}
+        """
+        extra_tables = []
+        where = []
+        binds = {
+            "vdomain": int(self.const.group_namespace),
+            "entity_type": int(self.const.entity_group),
+        }
 
         #
         # group_id filter
         if group_id is not None:
-            where.append(argument_to_sql(group_id, "gi.group_id", binds, int))
+            where.append(
+                argument_to_sql(group_id, "gi.group_id", binds, int))
 
         #
         # member_id filters (all of them)
@@ -562,10 +641,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 if not group_ids:
                     return []
 
-                where.append(argument_to_sql(group_ids, "gi.group_id", binds,
-                                             int))
+                where.append(
+                    argument_to_sql(group_ids, "gi.group_id", binds, int))
             else:
-                tables.append("[:table schema=cerebrum name=group_member] gm")
+                extra_tables.append(
+                    "[:table schema=cerebrum name=group_member] gm")
                 where.append("(gi.group_id = gm.group_id)")
                 where.append(argument_to_sql(member_id, "gm.member_id",
                                              binds, int))
@@ -573,7 +653,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         #
         # spread filter
         if spread is not None:
-            tables.append("[:table schema=cerebrum name=entity_spread] es")
+            extra_tables.append(
+                "[:table schema=cerebrum name=entity_spread] es")
             where.append("(gi.group_id = es.entity_id)")
             where.append(argument_to_sql(spread, "es.spread", binds, int))
 
@@ -591,6 +672,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             binds["description"] = description
 
         #
+        # group type filter
+        if group_type is not None:
+            where.append(
+                argument_to_sql(group_type, "gi.group_type", binds, int))
+
+        #
         # expired filter
         if filter_expired:
             where.append("(gi.expire_date IS NULL OR gi.expire_date > [:now])")
@@ -604,19 +691,15 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         #
         # expired_only filter
         if expired_only:
-            where.append("(gi.expire_date IS NOT NULL AND gi.expire_date < "
-                         "[:now])")
+            where.append(
+                "(gi.expire_date IS NOT NULL AND gi.expire_date < " "[:now])")
 
-        where_str = ""
-        if where:
-            where_str = "WHERE " + " AND ".join(where)
-
-        query_str = "%s FROM %s %s" % (select, ", ".join(tables), where_str)
-        # IVR 2008-07-09 Originally the idea was to use a generator to avoid
-        # caching all rows in memory. Unfortunately, setting fetchall=False
-        # causes an ungodly amount of sql statement reparsing, which leads to
-        # an abysmal perfomance penalty.
-        return self.query(query_str, binds, fetchall=True)
+        prepared = stmt.format(
+            extra_tables=(', ' + ', '.join(extra_tables)
+                          if extra_tables else ''),
+            where='WHERE ' + ' AND '.join(where) if where else '',
+        )
+        return self.query(prepared, binds, fetchall=fetchall)
 
     def search_members(self, group_id=None, spread=None,
                        member_id=None, member_type=None,

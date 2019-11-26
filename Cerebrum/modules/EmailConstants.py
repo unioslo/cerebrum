@@ -257,12 +257,18 @@ class CLConstants(Constants.CLConstants):
         'email_target', 'modify', 'modify email target %(subject)s',
         ('type=id:%(int:target_type)s',
          'server=id:%(int:server_id)s', ))
+
+    # email address
     email_address_add = Constants._ChangeTypeCode(
         'email_address', 'add', 'add email address %(subject)s',
         ('lp=%(string:lp)s',
          'domain=%(int:dom_id)s'))
     email_address_rem = Constants._ChangeTypeCode(
         'email_address', 'remove', 'remove email address %(subject)s',
+        ('lp=%(string:lp)s',
+         'domain=%(int:dom_id)s'))
+    email_address_mod = Constants._ChangeTypeCode(
+        'email_address', 'mod', 'modify email address %(subject)s',
         ('lp=%(string:lp)s',
          'domain=%(int:dom_id)s'))
 

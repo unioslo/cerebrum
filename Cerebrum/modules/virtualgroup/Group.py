@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016 University of Oslo, Norway
+#
+# Copyright 2016-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -33,20 +34,24 @@ def populator(*types):
     def fn(meth):
         def make_populator(cls):
             def populate(self, creator_id=None, visibility=None, name=None,
-                         description=None, expire_date=None, parent=None,
-                         group_type='normal_group', **kw):
+                         description=None, expire_date=None, group_type=None,
+                         parent=None,
+                         virtual_group_type='normal_group', **kw):
                 """Populate group instance's attributes without database access
                 """
-                super(cls, self).populate(creator_id=creator_id,
-                                          visibility=visibility,
-                                          name=name,
-                                          description=description,
-                                          expire_date=expire_date,
-                                          group_type=group_type,
-                                          parent=parent)
-                if group_type in types:
+                super(cls, self).populate(
+                    creator_id=creator_id,
+                    visibility=visibility,
+                    name=name,
+                    description=description,
+                    expire_date=expire_date,
+                    group_type=group_type,
+                    virtual_group_type=virtual_group_type,
+                    parent=parent)
+                # super() sets self.virtual_group_type to a co.VirtualGroup()
+                if str(self.virtual_group_type) in types:
                     return getattr(self, meth.__name__)(
-                        group_type=types[0],
+                        virtual_group_type=types[0],
                         **kw)
 
             return MethodType(populate, None, cls)
@@ -80,22 +85,48 @@ class VirtualGroup(Group):
         self.__updated = []
 
     def populate(self, creator_id=None, visibility=None, name=None,
-                 description=None, expire_date=None,
-                 parent=None, group_type='normal_group', **kw):
+                 description=None, expire_date=None, group_type=None,
+                 parent=None, virtual_group_type='normal_group', **kw):
         """Populate group instance's attributes without database access
         """
-        super(VirtualGroup, self).populate(creator_id=creator_id,
-                                           visibility=visibility,
-                                           name=name,
-                                           description=description,
-                                           expire_date=expire_date,
-                                           parent=parent, **kw)
-        if isinstance(group_type, self.const.VirtualGroup):
-            self.virtual_group_type = group_type
-        elif group_type is None or group_type == 'normal_group':
-            self.virtual_group_type = self.const.vg_normal_group
-        else:
-            self.virtual_group_type = self.const.VirtualGroup(group_type)
+        # Handle default virtual_group_type argument
+        if (virtual_group_type is None or
+                virtual_group_type == 'normal_group'):
+            virtual_group_type = self.const.vg_normal_group
+
+        # Ensure valid virtual_group_type and group_type
+        if not isinstance(virtual_group_type, self.const.VirtualGroup):
+            virtual_group_type = self.const.VirtualGroup(virtual_group_type)
+        int(virtual_group_type)
+
+        # ensure correct group_type
+        if (virtual_group_type != self.const.vg_normal_group and
+                group_type is None):
+            group_type = self.const.group_type_virtual
+        elif not isinstance(group_type, self.const.GroupType):
+            group_type = self.const.GroupType(group_type)
+
+        # Finally, assert that virtual_group_type is set to normal_group if
+        # group_type == const.group_type_virtual
+        if ((group_type == self.const.group_type_virtual and
+                virtual_group_type == self.const.vg_normal_group) or
+                (group_type != self.const.group_type_virtual and
+                 virtual_group_type != self.const.vg_normal_group)):
+            raise ValueError(
+                "Can't create Group with group_type=%r and vg_type=%r" %
+                (str(group_type), str(virtual_group_type)))
+
+        super(VirtualGroup, self).populate(
+            creator_id=creator_id,
+            visibility=visibility,
+            name=name,
+            description=description,
+            expire_date=expire_date,
+            group_type=group_type,
+            parent=parent,
+            **kw)
+
+        self.virtual_group_type = virtual_group_type
 
     def write_db(self):
         """Write group instance to database.
@@ -169,19 +200,27 @@ class VirtualGroup(Group):
         self.__in_db = True
         self.__updated = []
 
-    def convert(self, group_type):
+    def convert(self, virtual_group_type):
         """ Convert a standard group to virtual
         """
         assert self.__in_db
         assert self.virtual_group_type == self.const.vg_normal_group
         del self.virtual_group_type
-        if isinstance(group_type, self.const.VirtualGroup):
-            self.virtual_group_type = group_type
-        elif group_type is None or group_type == 'normal_group':
-            self.virtual_group_type = self.const.vg_normal_group
-        else:
-            self.virtual_group_type = self.const.VirtualGroup(group_type)
-                                                            
+
+        # Handle default virtual_group_type argument
+        if (virtual_group_type is None or
+                virtual_group_type == 'normal_group'):
+            virtual_group_type = self.const.vg_normal_group
+
+        # Ensure valid virtual_group_type and group_type
+        if not isinstance(virtual_group_type, self.const.VirtualGroup):
+            virtual_group_type = self.const.VirtualGroup(virtual_group_type)
+        int(virtual_group_type)
+
+        if virtual_group_type != self.const.vg_normal_group:
+            self.group_type = self.const.group_type_virtual
+        self.virtual_group_type = virtual_group_type
+
     def add_member(self, member_id):
         """Add L{member_id} to this group.
 

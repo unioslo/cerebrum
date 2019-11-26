@@ -187,7 +187,14 @@ class LMSImport(object):
         except Errors.NotFoundError:
             group = Factory.get('Group')(db)
             group.clear()
-            group.populate(self.group_creator, correct_visib, gname, description=descr)
+            group.populate(
+                creator_id=self.group_creator,
+                visibility=correct_visib,
+                name=gname,
+                description=descr,
+                # TODO: Should probably be group_type_lms
+                group_type=constants.group_type_unknown,
+            )
             group.write_db()
 
 

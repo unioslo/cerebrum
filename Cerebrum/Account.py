@@ -430,6 +430,7 @@ class AccountHome(object):
         do not end up with homedir rows without corresponding
         account_home entries.
         """
+
         if home and re.search('[:*"?<>|]', home):
             raise ValueError("Illegal character in disk path")
         binds = {'account_id': self.entity_id,
@@ -457,18 +458,42 @@ class AccountHome(object):
             change_type = self.clconst.homedir_add
         else:
             # Leave previous value alone if update
-            for key, value in binds.items():
+
+            # Status cannot be NULL, but it *can* be NotSet.
+            # The existence query therefore needs this mapping
+            exist_strings = {
+                'disk_id': """
+                    (disk_id is NULL AND :disk_id is NULL
+                        OR disk_id=:disk_id) AND""",
+                'home': """
+                    (home is NULL AND :home is NULL
+                        OR home=:home) AND""",
+                'status': """
+                    status=:status AND"""}
+            for key, value in dict(binds).items():
                 if value is NotSet:
                     del binds[key]
+                    del exist_strings[key]
+            variable_exists_str = ' '.join(v for v in exist_strings.values())
             binds['homedir_id'] = current_id
-            if _account_row_exists(self._db, 'homedir', binds):
+            exists_stmt = """
+            SELECT EXISTS (
+              SELECT 1
+              FROM [:table schema=cerebrum name=homedir]
+              WHERE %s
+                account_id=:account_id AND
+                homedir_id=:homedir_id
+            )
+            """ % variable_exists_str
+            if self.query_1(exists_stmt, binds):
                 # False positive; entry exists as is
                 return current_id
             sql = """
             UPDATE [:table schema=cerebrum name=homedir]
               SET %s
             WHERE homedir_id=:homedir_id""" % (
-                ", ".join(["%s=:%s" % (t, t) for t in binds]))
+                ", ".join(
+                    "{0}=:{0}".format(t) for t in binds if t != 'homedir_id'))
 
             change_type = self.clconst.homedir_update
         self.execute(sql, binds)
@@ -1020,7 +1045,23 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                      'description': self.description,
                      'expire_date': self.expire_date,
                      'account_id': self.entity_id}
-            if not _account_row_exists(self._db, 'account_info', binds):
+            exists_stmt = """
+            SELECT EXISTS (
+              SELECT 1
+              FROM [:table schema=cerebrum name=account_info]
+              WHERE
+               (np_type is NULL AND :np_type is NULL OR np_type=:np_type) AND
+               (expire_date is NULL AND :expire_date is NULL OR
+                  expire_date=:expire_date) AND
+               (description is NULL AND :description is NULL OR
+                  description=:description) AND
+                account_id=:account_id AND
+                owner_type=:owner_type AND
+                owner_id=:owner_id AND
+                creator_id=:creator_id
+            )
+            """
+            if not self.query_1(exists_stmt, binds):
                 set_str = ', '.join(
                     '{0}=:{0}'.format(x) for x in binds if x != 'account_id')
                 update_stmt = """

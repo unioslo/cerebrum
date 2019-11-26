@@ -79,10 +79,14 @@ def process_group(sp, name, gid, description=None, members=None):
         posixgroup.find_by_name(name)
         logger.debug4("Group |%s| exists.", name)
     except Errors.NotFoundError:
-        posixgroup.populate(default_creator_id, constants.group_visibility_all,
-                            name, description,
-                            time.strftime("%Y-%m-%d", time.localtime()), None,
-                            int(gid))
+        posixgroup.populate(
+            creator_id=default_creator_id,
+            visibility=constants.group_visibility_all,
+            name=name,
+            description=description,
+            expire_date=time.strftime("%Y-%m-%d", time.localtime()),
+            group_type=constants.group_type_unknown,
+            gid=int(gid))
         posixgroup.write_db()
         if not dryrun:
             db.commit()

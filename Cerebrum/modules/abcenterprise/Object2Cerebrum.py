@@ -255,9 +255,13 @@ class Object2Cerebrum(object):
             # No group found
             pass
 
-        self._group.populate(self.default_creator_id,
-                             self.co.group_visibility_all,
-                             group.name, description=group.desc)
+        self._group.populate(
+            creator_id=self.default_creator_id,
+            visibility=self.co.group_visibility_all,
+            name=group.name,
+            description=group.desc,
+            group_type=self.co.group_type_unknown,
+        )
         self._add_external_ids(self._group, group._ids)
         ret = self._group.write_db()
         self._process_tags(self._group, group._tags)

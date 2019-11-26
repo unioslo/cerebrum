@@ -156,18 +156,21 @@ def create_group(groupname, description, spread):
     """Create group based on given data if the group doesn't exist
     already. For all groups, add 'spread' if the groups doesn't have
     that spread already.
-
     """
-    logger.debug("Processing group: '%s' (desc: '%s')" % (groupname, description))
+    logger.debug("Processing group: name=%r (desc=%r)", groupname, description)
 
     try:
         group.clear()
         group.find_by_name(groupname)
         logger.debug("Group '%s' exists.", groupname)
-    except Errors.NotFoundError:	
-        group.populate(default_creator_id, constants.group_visibility_all,
-                       groupname, description,
-                       time.strftime("%Y-%m-%d", time.localtime()))
+    except Errors.NotFoundError:
+        group.populate(
+            creator_id=default_creator_id,
+            visibility=constants.group_visibility_all,
+            name=groupname,
+            description=description,
+            expire_date=time.strftime("%Y-%m-%d", time.localtime()),
+            group_type=constants.group_type_unknown)
         group.write_db()
         if not dryrun:
             db.commit()

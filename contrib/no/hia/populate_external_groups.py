@@ -26,6 +26,7 @@ import sys
 import os
 import locale
 import getopt
+import datetime
 
 import mx.DateTime
 import six
@@ -35,92 +36,13 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.no import access_FS
+from Cerebrum.modules.fs.fs_group import (FsGroupCategorizer,
+                                          set_default_expire_date,
+                                          get_grace,
+                                          should_postpone_expire_date)
 
 # Define all global variables, to avoid pychecker warnings.
-db = logger = fnr2account_id = const = None
-
-
-#
-# Struktur FS-grupper i Cerebrum
-#
-#
-# 0  Supergruppe for alle grupper automatisk avledet fra FS
-#      internal:DOMAIN:fs:{supergroup}
-#      Eks "internal:hia.no:fs:{supergroup}"
-#    1  Gruppering av alle undervisningsenhet-relaterte grupper ved en
-#       institusjon
-#         internal:DOMAIN:fs:INSTITUSJONSNR:undenh
-#         Eks "internal:hia.no:fs:201:undenh"
-#       2  Gruppering av alle undervisningsenhet-grupper i et semester
-#            internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:TERMINKODE
-#            Eks "internal:hia.no:fs:201:undenh:2004:vår"
-#          3  Gruppering av alle grupper knyttet til en bestemt und.enhet
-#               internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
-#                 TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR
-#               Eks "internal:hia.no:fs:201:undenh:2004:vår:be-102:g:1"
-#             4  Gruppe med studenter som tar und.enhet
-#                  Eks "internal:hia.no:fs:201:undenh:2004:vår:be-102:g:1:
-#                       student"
-#             4  Gruppe med forelesere som gir und.enhet
-#                  Eks "internal:hia.no:fs:201:undenh:2004:vår:be-102:g:1:
-#                       foreleser"
-#             4  Gruppe med studieledere knyttet til en und.enhet
-#                  Eks "internal:hia.no:fs:201:undenh:2004:vår:be-102:g:1:
-#                       studieleder"
-#    1  Gruppering av alle grupper relatert til studieprogram ved en
-#       institusjon
-#         internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram
-#         Eks "internal:hia.no:fs:201:studieprogram"
-#       2  Gruppering av alle grupper knyttet til et bestemt studieprogram
-#            internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:STUDIEPROGRAMKODE
-#            Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp"
-#          3  Gruppering av alle studiekull-grupper for et studieprogram
-#               internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:
-#                 STUDIEPROGRAMKODE:studiekull
-#               Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:studiekull"
-#             4  Gruppe med alle studenter i et kull
-#                  internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:
-#                    STUDIEPROGRAMKODE:studiekull:ARSTALL_KULL:
-#                    TERMINKODE_KULL:student
-#                  Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:
-#                       studiekull:2004:vår:student"
-#          3  Gruppering av alle personrolle-grupper for et studieprogram
-#               internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:
-#                 STUDIEPROGRAMKODE:rolle
-#               Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:rolle"
-#             4  Gruppe med alle studieledere knyttet til et studieprogram
-#                  internal:DOMAIN:fs:INSTITUSJONSNR:studieprogram:
-#                    STUDIEPROGRAMKODE:rolle:studieleder
-#                  Eks "internal:hia.no:fs:201:studieprogram:tekn.eksp:
-#                       rolle:studieleder"
-#    1  Gruppering av alle grupper relatert til EVU
-#         Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu"
-#       2  Gruppering av alle grupper knyttet til et bestemt EVU-kurs
-#            Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vår"
-#          3  Gruppe med kursdeltakere på et bestemt EVU-kurs
-#               Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vår:
-#                    kursdeltakere"
-#          3  Gruppe med forelesere på et bestemt EVU-kurs
-#               Eks "internal:DOMAIN:fs:INSTITUSJONSNR:evu:94035B:2005 vår:
-#                    forelesere"
-#
-
-#
-# Struktur SAP-grupper i Cerebrum
-#
-#
-# 0  Supergruppe for alle grupper automatisk avledet fra SAP
-#      internal:DOMAIN:sap:{supergroup}
-#      Eks "internal:hia.no:sap:{supergroup}"
-#    1  Gruppering av alle fakultets-baserte grupper
-#         internal:DOMAIN:sap:fakultet
-#         Eks "internal:hia.no:sap:fakultet"
-#       2  Gruppering av alle grupper knyttet til et bestemt fakultet
-#            internal:DOMAIN:sap:fakultet:INSTITUSJONSNR:STEDKODE
-#            Eks "internal:hia.no:sap:fakultet:201:010000"
-#          3  Gruppe med alle ansatte på fakultet
-#            internal:DOMAIN:sap:fakultet:INSTITUSJONSNR:STEDKODE:ansatt
-#            Eks "internal:hia.no:sap:fakultet:201:010000:ansatt"
+db = logger = fnr2account_id = const = fs_group_categorizer = None
 
 
 def safe_join(elements, sep=' '):
@@ -267,7 +189,10 @@ class group_tree(object):
 
     def sync(self):
         logger.debug("Start: group_tree.sync(), name = %s", self.name())
-        db_group = self.maybe_create()
+        db_group = self.create_or_get_group()
+        if db_group.is_expired():
+            return None
+
         sub_ids = {}
         if self.users:
             # Gruppa inneholder minst en person, og skal dermed
@@ -287,7 +212,9 @@ class group_tree(object):
             # for at alle subgrupper synkroniseres først (rekursivt),
             # og samler samtidig inn entity_id'ene deres i 'sub_ids'.
             for subg in self.subnodes:
-                sub_ids[int(subg.sync())] = const.entity_group
+                sub_group_id = subg.sync()
+                if sub_group_id:
+                    sub_ids[int(sub_group_id)] = const.entity_group
         # I 'sub_ids' har vi nå en oversikt over hvilke entity_id'er
         # som skal bli gruppens medlemmer.  Foreta nødvendige inn- og
         # utmeldinger.
@@ -319,18 +246,42 @@ class group_tree(object):
         logger.debug("Ferdig: group_tree.sync(), name = %s", self.name())
         return db_group.entity_id
 
-    def maybe_create(self):
+    def create_or_get_group(self):
+        """Create a group with group_name self.name() if it does not exist
+
+        If a group is created, set a default expire date on it. If a group
+        already exists, check whether its expire date should be postponed.
+
+        :returns: a (newly created) group
+        """
+        today = datetime.date.today()
         try:
-            return get_group(self.name())
+            gr = get_group(self.name())
         except Errors.NotFoundError:
             gr = Factory.get('Group')(db)
-            gr.populate(self.group_creator(),
-                        const.group_visibility_internal,
-                        self.name(),
-                        description=self.description())
+            gr.populate(
+                creator_id=self.group_creator(),
+                visibility=const.group_visibility_internal,
+                name=self.name(),
+                description=self.description(),
+                group_type=const.group_type_lms,
+            )
+            set_default_expire_date(fs_group_categorizer,
+                                    gr,
+                                    self.name(),
+                                    today=today)
             gr.write_db()
             logger.debug("Created group %s", self.name())
-            return gr
+        else:
+            grace = get_grace(fs_group_categorizer, self.name())
+            if should_postpone_expire_date(gr, grace):
+                gr.expire_date = (today +
+                                  datetime.timedelta(days=grace['high_limit']))
+                logger.debug('Postponing expire_date of group %s to %s',
+                             self.name(),
+                             gr.expire_date)
+                gr.write_db()
+        return gr
 
     def group_creator(self):
         acc = get_account(cereconf.INITIAL_ACCOUNTNAME)
@@ -897,6 +848,7 @@ def prefetch_primaryusers():
 def init_globals():
     global db, const, logger, fnr2account_id
     global dump_dir, dryrun, immediate_evu_expire
+    global fs_group_categorizer
 
     logger = Factory.get_logger("cronjob")
     # Håndter upper- og lowercasing av strenger som inneholder norske
@@ -925,6 +877,7 @@ def init_globals():
 
     fnr2account_id = {}
     prefetch_primaryusers()
+    fs_group_categorizer = FsGroupCategorizer()
 
 
 def main():

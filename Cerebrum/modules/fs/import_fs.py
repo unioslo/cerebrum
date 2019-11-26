@@ -91,13 +91,18 @@ class FsImporter(object):
         try:
             self.group.find_by_name(group_name)
         except Errors.NotFoundError:
+            # TODO: This should *really* be an opt_out consent (reservation)
             self.group.clear()
             ac = Factory.get('Account')(self.db)
             ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-            self.group.populate(ac.entity_id,
-                                self.co.group_visibility_internal,
-                                group_name,
-                                group_desc)
+            self.group.populate(
+                creator_id=ac.entity_id,
+                visibility=self.co.group_visibility_internal,
+                name=group_name,
+                description=group_desc,
+                # TODO: is this group_type_internal?
+                group_type=self.co.group_type_unknown,
+            )
             self.group.write_db()
 
     def _load_cere_aff(self):

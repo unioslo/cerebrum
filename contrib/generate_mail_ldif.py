@@ -377,9 +377,6 @@ def write_ldif(db, ldap, auth, f, verbose=False):
                     passwd = '{crypt}*invalid',
             f.write("userPassword: %s\n" % passwd)
 
-        misc = ldap.get_misc(row)
-        if misc:
-            f.write("%s\n" % misc)
         f.write("\n")
 
 

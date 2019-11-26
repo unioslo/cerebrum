@@ -121,7 +121,13 @@ def parse_paga_csv(pagafile):
             # these persons are 'honorar' persons. Skip them entirely
             logger.warning("skipping honorar: %r", ssn)
             continue
-
+        if detail[KEY_TJFORH] == 'I':
+            # These are persons which, for various reasons, are
+            # registered in PAGA, but they are not to be given an account.
+            # skipping these.
+            logger.info("Skipping ssn:%s. person is marked as " +
+                        "'uten ansettelse'", ssn)
+            continue
         if detail[KEY_PERMISJONKODE] not in cereconf.PAGA_PERMKODER_ALLOWED:
             logger.warn("Dropping detail for %r, P.Kode=%r",
                         ssn, detail[KEY_PERMISJONKODE])

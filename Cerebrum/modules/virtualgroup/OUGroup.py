@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018 University of Oslo, Norway
+#
+# Copyright 2016-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,8 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
 """
 Virtual groups based on the OU structure
 =========================================
@@ -254,7 +253,7 @@ class OUGroup(VirtualGroup):
         return super(OUGroup, self).has_member(member_id)
 
     def convert(self,
-                group_type='ougroup',
+                virtual_group_type='ougroup',
                 ou_id=None,
                 affiliation=None,
                 affiliation_source=None,
@@ -272,7 +271,7 @@ class OUGroup(VirtualGroup):
             RuntimeError("Group {} has members; can't convert"
                          .format(self.group_name))
 
-        super(OUGroup, self).convert(group_type)
+        super(OUGroup, self).convert(virtual_group_type)
         self.ou_id = ou_id
         self.affiliation = affiliation
         self.affiliation_source = affiliation_source
@@ -400,7 +399,7 @@ class OUGroup(VirtualGroup):
                 if ac.entity_id == pe.get_primary_account():
                     handle_person(ac.owner_id,
                                   self.const.virtual_group_ou_primary)
-            except:
+            except Exception:
                 pass
             pe.clear()
             ac.clear()
@@ -465,15 +464,16 @@ class OUGroup(VirtualGroup):
             binds["description"] = description
 
         if filter_expired:
-            wheres.append("(gi.expire_date IS NULL OR gi.expire_date > [:now])")
+            wheres.append(
+                "(gi.expire_date IS NULL OR gi.expire_date > [:now])")
 
         if creator_id is not None:
-            wheres.append(argument_to_sql(creator_id, "gi.creator_id", binds,
-                                          int))
+            wheres.append(
+                argument_to_sql(creator_id, "gi.creator_id", binds, int))
 
         if expired_only:
-            wheres.append("(gi.expire_date IS NOT NULL AND gi.expire_date < "
-                          "[:now])")
+            wheres.append(
+                "(gi.expire_date IS NOT NULL AND gi.expire_date < [:now])")
 
         where_str = ""
         if wheres:
@@ -967,7 +967,7 @@ class OUGroup(VirtualGroup):
                         if ac.entity_id == pe.get_primary_account():
                             handle_person(mid,
                                           self.const.virtual_group_ou_primary)
-                    except:
+                    except Exception:
                         pass
                     pe.clear()
                     ac.clear()
@@ -1034,13 +1034,16 @@ class OUGroup(VirtualGroup):
         else:
             return exts
 
+
 class PersonOuGroup(Person):
     """Update affiliation changes with group membership changes."""
     def add_affiliation(self, ou_id, affiliation, source, status,
                         deleted_date=None, precedence=None):
         """Add or update affiliation"""
-        c, s, p = super(PersonOuGroup, self).add_affiliation(ou_id, affiliation,
-                                                             source, status,
+        c, s, p = super(PersonOuGroup, self).add_affiliation(ou_id,
+                                                             affiliation,
+                                                             source,
+                                                             status,
                                                              deleted_date,
                                                              precedence)
         if c:
@@ -1058,7 +1061,7 @@ class PersonOuGroup(Person):
                     ou_id=ou_id, affiliation=affiliation, status=status,
                     source=source, member_types=acctyp, indirect=False)
                 anew = set((x['group_id'] for x in anew))
-            except:
+            except Exception:
                 ac = None
                 anew = set()
             if c == 'add':
@@ -1117,7 +1120,7 @@ class PersonOuGroup(Person):
                 self._db.log_change(row['group_id'],
                                     self.clconst.group_rem,
                                     myid)
-        except:
+        except Exception:
             pass
 
     def delete_affiliation(self, ou_id, affiliation, source):

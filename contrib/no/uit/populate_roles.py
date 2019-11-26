@@ -67,7 +67,7 @@ class RolesXmlParser(xml.sax.ContentHandler):
         self.call_back_function = call_back_function
         xml.sax.parse(filename, self)
 
-    def startElement(self, name, attrs):
+    def startElement(self, name, attrs):  # noqa: N802
         if name == 'roles':
             pass
         elif name == 'role':
@@ -87,7 +87,7 @@ class RolesXmlParser(xml.sax.ContentHandler):
             self.var = tmp
             self._elemdata.append(tmp)
 
-    def endElement(self, name):
+    def endElement(self, name):  # noqa: N802
         if name == 'role':
             self.call_back_function(self, name)
         elif name == 'member':
@@ -137,10 +137,20 @@ class ITRole(object):
         except Errors.NotFoundError:
             description = "IT role group (%s)" % group_name
             pg = PosixGroup.PosixGroup(db)
-            pg.populate(self.group_creator(),
-                        const.group_visibility_internal,
-                        self.group_name,
-                        description=description)
+            pg.populate(
+                creator_id=self.group_creator(),
+                visibility=const.group_visibility_internal,
+                name=self.group_name,
+                description=description,
+                # TODO:
+                # Are these groups:
+                # - internal? They have group_visibility_internal for some
+                #   reason - do they have some internal usage in Cerebrum as
+                #   well?
+                # - automatic? They seem to be maintained from this script, but
+                #   the script never removes members..
+                group_type=const.group_type_unknown,
+            )
             pg.write_db()
             logger.info("Created group: name=%s, id=%d, gid=%d, desc='%s'",
                         pg.group_name, pg.entity_id, pg.posix_gid,

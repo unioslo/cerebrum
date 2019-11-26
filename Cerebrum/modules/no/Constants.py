@@ -24,16 +24,17 @@ from __future__ import unicode_literals
 
 from Cerebrum import Constants
 from Cerebrum.Constants import (
-    _EntityExternalIdCode,
-    _AuthoritativeSystemCode,
-    _OUPerspectiveCode,
     _AccountCode,
-    _PersonNameCode,
+    _AuthoritativeSystemCode,
     _ContactInfoCode,
+    _EntityExternalIdCode,
+    _GroupTypeCode,
+    _OUPerspectiveCode,
+    _PersonAffStatusCode,
+    _PersonAffiliationCode,
+    _PersonNameCode,
     _QuarantineCode,
     _SpreadCode,
-    _PersonAffiliationCode,
-    _PersonAffStatusCode
 )
 from Cerebrum.modules.bofhd.bofhd_constants import _AuthRoleOpCode
 from Cerebrum.modules.EntityTraitConstants import _EntityTraitCode
@@ -248,6 +249,11 @@ class ConstantsHigherEdu(Constants.Constants):
         'rt_replace', 'Replace existing mailing list with Request Tracker')
     auth_rt_addr_add = _AuthRoleOpCode(
         'rt_addr_add', 'Add e-mail address to Request Tracker target')
+
+    # group type for <inst>/populate-fronter-groups.py
+    group_type_lms = _GroupTypeCode(
+        'lms-group',
+        'Automatic group - generated for LMS from FS student roles')
 
 
 class ConstantsUniversityColleges(Constants.Constants):

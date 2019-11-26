@@ -93,6 +93,7 @@ from Cerebrum.modules.no.uio import bofhd_pw_issues
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.uio.bofhd_auth import (
     BofhdApiKeyAuth,
+    BofhdOUDiskMappingAuth,
     UiOBofhdRequestsAuth,
     UioAccessAuth,
     UioAuth,
@@ -101,6 +102,7 @@ from Cerebrum.modules.no.uio.bofhd_auth import (
     UioPassWordAuth,
     UioUnpersonalAuth,
 )
+from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
@@ -390,6 +392,7 @@ class BofhdExtension(BofhdCommonMethods):
                                           for r in entity.get_spread()])
         if entity.entity_type == co.entity_group:
             result['name'] = entity.group_name
+            result['group_type'] = text_type(co.GroupType(entity.group_type))
             result['description'] = entity.description
             result['visibility'] = entity.visibility
             try:
@@ -472,24 +475,23 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_show_history')
 
     def entity_history(self, operator, entity, any_entity="yes",
-                       limit_number_of_results=None):
+                       limit_number_of_results=0):
         ent = self.util.get_target(entity, restrict_to=[])
         self.ba.can_show_history(operator.get_entity_id(), ent)
         ret = []
+
+        try:
+            N = int(limit_number_of_results)
+        except ValueError:
+            raise CerebrumError('Illegal range limit, must be an integer: '
+                                '{}'.format(limit_number_of_results))
+
         if self._get_boolean(any_entity):
             kw = {'any_entity': ent.entity_id}
         else:
             kw = {'subject_entity': ent.entity_id}
         rows = list(self.db.get_log_events(0, **kw))
-        give_all_results = ('all', 'All', 'ALL', 'a', 'A', '', None)
-        if limit_number_of_results in give_all_results:
-            N = 0
-        else:
-            try:
-                N = int(limit_number_of_results)
-            except ValueError:
-                raise CerebrumError('Illegal range limit: '
-                                    '{}'.format(limit_number_of_results))
+
         for r in rows[-N:]:
             ret.append(self._format_changelog_entry(r))
         return ret
@@ -709,11 +711,14 @@ class BofhdExtension(BofhdCommonMethods):
                 # one could imagine making a helper function in the future
                 # _make_dl_group_new, as the functionality is required
                 # both here and for the roomlist creation (Jazz, 2013-12)
-                dl_group.new(operator.get_entity_id(),
-                             group_vis,
-                             groupname, description=description,
-                             roomlist=std_values['roomlist'],
-                             hidden=std_values['hidden'])
+                dl_group.new(
+                    creator_id=operator.get_entity_id(),
+                    visibility=group_vis,
+                    name=groupname,
+                    description=description,
+                    group_type=self.const.group_type_manual,
+                    roomlist=std_values['roomlist'],
+                    hidden=std_values['hidden'])
             else:
                 dl_group.populate(roomlist=std_values['roomlist'],
                                   hidden=std_values['hidden'],
@@ -939,11 +944,15 @@ class BofhdExtension(BofhdCommonMethods):
         if not displayname:
             displayname = groupname
         # using DistributionGroup.new(...)
-        room_list.new(operator.get_entity_id(),
-                      group_vis,
-                      groupname, description=description,
-                      roomlist=std_values['roomlist'],
-                      hidden=std_values['hidden'])
+        room_list.new(
+            creator_id=operator.get_entity_id(),
+            visibility=group_vis,
+            name=groupname,
+            description=description,
+            group_type=self.const.group_type_manual,
+            roomlist=std_values['roomlist'],
+            hidden=std_values['hidden'],
+        )
         room_list.write_db()
         room_list.add_spread(self.const.Spread(cereconf.EXCHANGE_GROUP_SPREAD))
         self._set_display_name(groupname, displayname, disp_name_variant,
@@ -1333,10 +1342,11 @@ class BofhdExtension(BofhdCommonMethods):
         GroupName(help_ref="id:gid:name"),
         fs=FormatSuggestion([
             ("Name:         %s\n"
+             "Type:         %s\n"
              "Spreads:      %s\n"
              "Description:  %s\n"
              "Expire:       %s\n"
-             "Entity id:    %i", ("name", "spread", "description",
+             "Entity id:    %i", ("name", "group_type", "spread", "description",
                                   format_day("expire_date"), "entity_id")),
             ("Moderator:    %s %s (%s)", ('owner_type', 'owner', 'opset')),
             ("Gid:          %i", ('gid',)),
@@ -1553,10 +1563,13 @@ class BofhdExtension(BofhdCommonMethods):
             group.find_by_name(uname)
             raise CerebrumError("Group %r already exists" % uname)
         except Errors.NotFoundError:
-            group.populate(creator_id=op,
-                           visibility=self.const.group_visibility_all,
-                           name=uname,
-                           description=('Personal file group for %s' % uname))
+            group.populate(
+                creator_id=op,
+                visibility=self.const.group_visibility_all,
+                name=uname,
+                description=('Personal file group for %s' % uname),
+                group_type=self.const.group_type_personal,
+            )
             group.write_db()
         # Promote to PosixGroup
         pg = Utils.Factory.get('PosixGroup')(self.db)
@@ -1694,6 +1707,32 @@ class BofhdExtension(BofhdCommonMethods):
                 'desc': r['description'],
             })
         return ret
+
+    #
+    # group set_type <name> <type>
+    #
+    all_commands['group_set_type'] = Command(
+        ("group", "set_type"),
+        GroupName(),
+        SimpleString(help_ref='group_type'),
+        fs=FormatSuggestion(
+            "Ok, group_type='%s' for group='%s'",
+            ('group_type', 'group_name'),
+        ),
+        perm_filter='can_set_group_type')
+
+    def group_set_type(self, operator, group, group_type):
+        grp = self._get_group(group)
+        group_type = self._get_constant(self.const.GroupType, group_type)
+        self.ba.can_set_group_type(operator.get_entity_id(), grp, group_type)
+
+        grp.group_type = group_type
+        grp.write_db()
+        return {
+            'group_type': str(group_type),
+            'group_name': grp.group_name,
+            'group_id': grp.entity_id,
+        }
 
     #
     # group set_description <name> <desc>
@@ -6731,3 +6770,8 @@ class UioPassWordIssuesCommands(bofhd_pw_issues.BofhdExtension):
 class UioCreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
     """Uio specific create unpersonal * commands"""
     authz = UioUnpersonalAuth
+
+
+class BofhdOUDiskMappingCommands(bofhd_cmds.BofhdOUDiskMappingCommands):
+    """Uio specific OU Disk Mapping * commands"""
+    authz = BofhdOUDiskMappingAuth

@@ -417,6 +417,16 @@ class EntityName(Entity):
         WHERE en.entity_id=:e_id""",
                           {'e_id': self.entity_id})
 
+    def get_domain_name(self):
+        entity_type = str(self.const.EntityType(self.entity_type))
+        domain = self.const.ValueDomain(cereconf.ENTITY_TYPE_NAMESPACE[
+            entity_type])
+        return self.query_1("""
+        SELECT entity_name FROM [:table schema=cerebrum name=entity_name]
+        WHERE entity_id=:e_id AND value_domain=:domain""",
+                            {'e_id': self.entity_id,
+                             'domain': int(domain)})
+
     def add_entity_name(self, domain, name):
         self._db.log_change(self.entity_id, self.clconst.entity_name_add, None,
                             change_params={'domain': int(domain),
@@ -1576,8 +1586,8 @@ class EntityExternalId(Entity):
         if entity_id is not None:
             where.append(argument_to_sql(entity_id, "entity_id", binds, int))
         if external_id is not None:
-            external_id = prepare_string(external_id)
-            where.append("(LOWER(external_id) LIKE :external_id)")
+            external_id = prepare_string(external_id, transform=False)
+            where.append("(external_id LIKE :external_id)")
             binds['external_id'] = external_id
 
         where_str = ''

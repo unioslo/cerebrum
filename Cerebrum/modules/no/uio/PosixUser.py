@@ -185,10 +185,12 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         personal_dfg_name = get_available_dfg_name(self.account_name)
 
         group.populate(
-            creator_id,
-            self.const.group_visibility_all,
-            personal_dfg_name,
-            'Personal file group for {}'.format(self.account_name))
+            creator_id=creator_id,
+            visibility=self.const.group_visibility_all,
+            name=personal_dfg_name,
+            description='Personal file group for {}'.format(self.account_name),
+            group_type=self.const.group_type_personal,
+        )
 
         # Intermediate write, to get an entity_id
         group.write_db()

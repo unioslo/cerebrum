@@ -65,13 +65,19 @@ class PosixGroup(Group_class):
     # is not proper for PosixGroup, one might define a _new_
     # PosixGroup and add the Group as its only (union) member.
     def populate(self, creator_id=None, visibility=None, name=None,
-                 description=None, expire_date=None, gid=None, parent=None):
+                 description=None, expire_date=None, group_type=None,
+                 gid=None, parent=None):
         if parent is not None:
             self.__xerox__(parent)
         else:
             super(PosixGroup, self).populate(
-                creator_id=creator_id, visibility=visibility, name=name,
-                description=description, expire_date=expire_date)
+                creator_id=creator_id,
+                visibility=visibility,
+                name=name,
+                description=description,
+                expire_date=expire_date,
+                group_type=group_type,
+            )
         self.__in_db = False
         if gid is None:
             gid = self._get_gid()
@@ -81,23 +87,37 @@ class PosixGroup(Group_class):
         self.__super.write_db()
         if not self.__updated:
             return
+        binds = {'group_id': self.entity_id,
+                 'posix_gid': self.posix_gid}
         if not self.__in_db:
-            self.execute("""
+            insert_stmt = """
             INSERT INTO [:table schema=cerebrum name=posix_group]
               (group_id, posix_gid)
-            VALUES (:g_id, :posix_gid)""", {'g_id': self.entity_id,
-                                            'posix_gid': self.posix_gid})
+            VALUES (:group_id, :posix_gid)"""
+            self.execute(insert_stmt, binds)
+            self._db.log_change(self.entity_id,
+                                self.clconst.posix_group_promote,
+                                None,
+                                change_params={'gid': int(self.posix_gid)})
         else:
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=posix_group]
-            SET posix_gid=:posix_gid
-            WHERE group_id=:g_id""", {'g_id': self.entity_id,
-                                      'posix_gid': self.posix_gid})
-
-        self._db.log_change(self.entity_id,
-                            self.clconst.posix_group_promote,
-                            None,
-                            change_params={'gid': int(self.posix_gid), })
+            exists_stmt = """
+              SELECT EXISTS (
+                SELECT 1
+                FROM [:table schema=cerebrum name=posix_group]
+                WHERE group_id=:group_id AND posix_gid=:posix_gid
+              )
+            """
+            if not self.query_1(exists_stmt, binds):
+                # True positive
+                update_stmt = """
+                UPDATE [:table schema=cerebrum name=posix_group]
+                SET posix_gid=:posix_gid
+                WHERE group_id=:group_id"""
+                self.execute(update_stmt, binds)
+                self._db.log_change(self.entity_id,
+                                    self.clconst.posix_group_promote,
+                                    None,
+                                    change_params={'gid': int(self.posix_gid)})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -151,7 +171,7 @@ class PosixGroup(Group_class):
                 if x[1] < x[0]:
                     raise Errors.ProgrammingError(
                         'Wrong order in cereconf.GID_RESERVED_RANGE')
-                if gid >= x[0] and gid <= x[1]:
+                if x[0] <= gid <= x[1]:
                     self._db.setval('posix_gid_seq', x[1])
                     gid = self.nextval('posix_gid_seq')
             # We check if the GID is in use, if not, return, else start over.

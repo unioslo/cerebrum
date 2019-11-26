@@ -20,7 +20,7 @@
 
 """Constants for virtual group support"""
 
-from Cerebrum.Constants import CoreConstants, _CerebrumCode
+from Cerebrum.Constants import CoreConstants, _CerebrumCode, _GroupTypeCode
 
 
 class _VirtualGroupType(_CerebrumCode):
@@ -41,10 +41,15 @@ class _VirtualGroupOUMembershipType(_CerebrumCode):
 
 
 class Constants(CoreConstants):
+    VirtualGroup = _VirtualGroupType
+
     vg_normal_group = _VirtualGroupType(
         'normal_group',
         'Normal group - uses group_member table')
-    VirtualGroup = _VirtualGroupType
+
+    group_type_virtual = _GroupTypeCode(
+        'virtual-group',
+        'Automatic group - group memberships are generated on-demand')
 
 
 class OUGroupConstants(Constants):

@@ -532,8 +532,14 @@ class TsdDefaultEntityMixin(TsdProjectMixin, OUAffiliateMixin):
                 gr.description = description
                 gr.write_db()
         except Errors.NotFoundError:
-            gr.populate(creator_id, self.const.group_visibility_all,
-                        name, description)
+            gr.populate(
+                creator_id=creator_id,
+                visibility=self.const.group_visibility_all,
+                name=name,
+                description=description,
+                # TODO: Should there be a tsd project group type?
+                group_type=self.const.group_type_unknown,
+            )
             gr.write_db()
 
         if not self.is_affiliated_entity(gr):

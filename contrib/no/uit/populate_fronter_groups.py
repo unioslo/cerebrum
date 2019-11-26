@@ -27,106 +27,6 @@
 
 Disse gruppene blir bl.a. brukt ved eksport av data til ClassFronter, og ved
 populering av visse NIS (Ifi).
-
-Først litt terminologi:
-
-  - Studieprogram: et studium som normalt leder frem til en grad. Bygges opp
-                   ved emner.
-  - Emne: den enheten som er byggesteinen i alle studium. Har en omfang, og
-          normalt en eller annen form for avsluttende evaluering.
-  - Undervisningsenhet (undenh): en instansiering av et emne.
-  - Undervisningsaktivitet (undakt): en serie aktivitet knyttet til en
-                                     undenh. F.eks. en forelesningsrekke, et
-                                     labparti, en serie regneøvinger. Kan også
-                                     være en enkel aktivitet.
-  - Kurs (evu): Samsvarer med undenh, men er for etter- og videreutdanning
-  - Kursaktivitet: Samsvarer med undakt, men er for etter- og videreutdanning
-  - Kull: Årsklasse av et studieprogram.
-
-Gruppene er organisert i en tre-struktur.  Øverst finnes en supergruppe; denne
-brukes for å holde orden på hvilke grupper som er automatisk opprettet av
-dette scriptet, og dermed hvilke grupper som skal slettes i det dataene de
-bygger på ikke lenger finnes i FS.  Supergruppen har navnet::
-
-  internal:uit.no:fs:{supergroup}
-
-Denne supergruppen har så medlemmer som også er grupper.
-Medlemsgruppene har navn på følgende format::
-
-  internal:uit.no:kurs:<emnekode>
-  internal:uit.no:evu:<kurskode>
-  internal:uit.no:kull:<studieprogram>
-
-Hver av disse 'enhet-supergruppene' har medlemmer som er grupper med navn på
-følgende format::
-
-  internal:uit.no:fs:kurs:<institusjonsnr>:<emnekode>:<versjon>:<sem>:<år>
-  internal:uit.no:fs:evu:<kurskode>:<tidsangivelse>
-  internal:uit.no:fs:kull:<studieprogram>:<terminkode>:<aar>
-
-Merk at for undenh, så er ikke en tilsvarende 'enhet'-gruppe *helt* ekvivalent
-med begrepet undervisningsenhet slik det brukes i FS.  Gruppen representerer
-semesteret et gitt kurs startet i (terminnr == 1).  For kurs som strekker seg
-over mer enn ett semester vil det derfor i FS finnes multiple
-undervisningsenheter, mens gruppen som representerer kurset vil beholde navnet
-sitt i hele kurstiden.
-
-'enhet'-gruppene har igjen grupper som medlemmer; disse kan deles i to
-kategorier:
-
-  - Grupper (med primærbrukermedlemmer) som brukes ved eksport til
-    ClassFronter, har navn på følgende format::
-
-      Rolle ved undenh:     uit.no:fs:<enhetid>:<rolletype>
-      Rolle ved undakt:     uit.no:fs:<enhetid>:<rolletype>:<aktkode>
-      Ansvar und.enh:       uit.no:fs:<enhetid>:enhetsansvar
-      Ansvar und.akt:       uit.no:fs:<enhetid>:aktivitetsansvar:<aktkode>
-      Alle stud. v/enh:     uit.no:fs:<enhetid>:student
-      Alle stud. v/akt:     uit.no:fs:<enhetid>:student:<aktkode>
-
-  - Ytterligere grupper hvis medlemmer kun er ikke-primære ('sekundære')
-    konti. Genereres kun for informatikk-emner, og har navn på formen::
-
-      Ansvar und.enh:       uit.no:fs:<enhetid>:enhetsansvar-sek
-      Ansvar und.akt:       uit.no:fs:<enhetid>:aktivitetsansvar-sek:<aktkode>
-      Alle stud. v/enh:     uit.no:fs:<enhetid>:student-sek
-
-<rolletype> er en av 12 predefinerte roller (jfr. valid_roles). enhetsansvar
-og aktivitetsansvar-gruppene finnes kun for Ifi, som ønsker sine grupper (for
-NIS) bygget litt annerledes. Alle slike grupper hvor det er meningen det skal
-være accounts, får en passende fronterspread, basert på informasjonen fra
-FS. Det er kun slike grupper, hvis fronterspreads vil ha noe å si (dvs. andre
-grupper kan også få fronterspreads, men generate_fronter_full.py vil ignorere
-dem).
-
-Poenget med å ha dette nokså kompliserte hierarkiet var å tillate
-DML/Houston/andre å kunne enkelt si at de vil eksportere en bestemt entitet
-til fronter uten å bry seg om gruppene som måtte være generert for denne
-entiteten. Dette er ikke mer nødvendig for undenh/undakt/kurs/kursakt, siden
-de populeres automatisk, men det *er* nødvendig for kull.
-
-Kullgruppene har også grupper som medlemmer; det er en gruppe med studenter,
-samt en gruppe for hver rolle ved kullet::
-
-  Alle stud. på kull:   uit.no:fs:<enhetid>:student
-  Rolle ved kull:       uit.no:fs:<enhetid>:<rolletype>
-
-Siden <enhetid> inneholder gruppetypen (kurs, evu og kull), vil det ikke
-oppstå navnekollisjon forskjellige enhetgrupper imellom.
-
-I tillegg blir disse nettgruppene laget med spread til Ifi::
-
-  Ansvar und.enh:        g<enhetid>-0          (alle konti)
-  Ansvar und.akt:        g<enhetid>-<aktkode>  (alle konti)
-  Ansvar enh. og akt.:   g<enhetid>            (alle konti)
-  Alle stud. v/enh:      s<enhetid>            (alle konti)
-  Alle stud. v/akt:      s<enhetid>-<aktkode>  (primærkonti)
-  Alle stud. kun eks:    s<enhetid>-e          (primærkonti)
-  Alle akt-ansv:         ifi-g                 (alle konti)
-  Alle akt- og enh-ansv: lkurs                 (alle konti)
-
-Som sagt, populering av disse gruppene er litt annerledes. *Alle* med en eller
-annen rolle til Ifi-kursene havner i 'g'-ansvarlige-gruppene.
 """
 
 from __future__ import unicode_literals
@@ -137,6 +37,7 @@ import logging
 import os
 import re
 import sys
+import datetime
 
 from itertools import izip, repeat
 
@@ -147,6 +48,10 @@ from Cerebrum.Utils import Factory, NotSet
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.modules import Email
+from Cerebrum.modules.fs.fs_group import (FsGroupCategorizer,
+                                          set_default_expire_date,
+                                          should_postpone_expire_date,
+                                          get_grace)
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.modules.no.access_FS import roles_xml_parser
 from Cerebrum.modules.no.fronter_lib import (UE2KursID, key2fields,
@@ -1197,12 +1102,23 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
         AffiliatedGroups.setdefault(affil, {})[gname] = 1
     known_FS_groups[gname] = 1
 
+    today = datetime.date.today()
     try:
         group = get_group(gname)
     except Errors.NotFoundError:
         group = Factory.get('Group')(db)
         group.clear()
-        group.populate(group_creator, correct_visib, gname, description=descr)
+        group.populate(
+            creator_id=group_creator,
+            visibility=correct_visib,
+            name=gname,
+            description=descr,
+            group_type=co.group_type_lms,
+        )
+        set_default_expire_date(fs_group_categorizer,
+                                group,
+                                gname,
+                                today=today)
         group.write_db()
     else:
         # If group already exists, update its information...
@@ -1213,10 +1129,15 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True,
             group.description = descr
             group.write_db()
 
-        if group.is_expired():
-            # Extend the group's life by 6 months
-            from mx.DateTime import now, DateTimeDelta
-            group.expire_date = now() + DateTimeDelta(6 * 30)
+        grace = get_grace(fs_group_categorizer, gname)
+        if should_postpone_expire_date(group, grace, today=today):
+            group.expire_date = (
+                    today +
+                    datetime.timedelta(days=grace['high_limit'])
+            )
+            logger.debug('Postponing expire_date of group %s to %s',
+                         gname,
+                         group.expire_date)
             group.write_db()
 
         for row in group.search_members(group_id=group.entity_id,
@@ -1506,7 +1427,7 @@ def main(inargs=None):
     global fnr2account_id, fnr2stud_account_id, AffiliatedGroups
     global known_FS_groups, fs_supergroup
     global group_creator, UndervEnhet
-    global dryrun
+    global dryrun, fs_group_categorizer
 
     logger.debug("populating fronter groups")
 
@@ -1575,6 +1496,7 @@ def main(inargs=None):
     db = Factory.get('Database')()
     db.cl_init(change_program='CF_gen_groups')
     co = Factory.get('Constants')(db)
+    fs_group_categorizer = FsGroupCategorizer()
 
     dryrun = not args.commit
 
