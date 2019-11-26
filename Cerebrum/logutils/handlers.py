@@ -349,7 +349,7 @@ class CerebrumRotatingHandler(DelayedFileHandler):
             self.release()
 
 
-class CerebrumTimedRotatingHandler(CerebrumRotatingHandler):
+class CerebrumTimedRotatingHandler(DelayedFileHandler):
     """Timed rotating handler with Cerebrum
 
     This handler rotates based on time just as the TimedRotatingFileHandler
@@ -386,13 +386,9 @@ class CerebrumTimedRotatingHandler(CerebrumRotatingHandler):
 
     def __init__(self, filename, when='H', interval=1, backupCount=0,
                  utc=False, **kwargs):
-        super(CerebrumRotatingHandler, self).__init__(filename, **kwargs)
-        self.when = when.upper()
-        self.backupCount = backupCount
-        self.utc = utc
-        # Calculate the real rollover interval, which is just the number of
-        # seconds between rollovers.  Also set the filename suffix used when
-        # a rollover occurs.  Current 'when' events supported:
+        """Initialize and parse arguments specific for this handler
+
+        Current 'when' events supported:
         # S - Seconds
         # M - Minutes
         # H - Hours
@@ -402,7 +398,14 @@ class CerebrumTimedRotatingHandler(CerebrumRotatingHandler):
         #
         # Case of the 'when' specifier is not important; lower or upper case
         # will work.
-
+        """
+        super(DelayedFileHandler, self).__init__(filename, **kwargs)
+        self.when = when.upper()
+        self.backup_count = backupCount
+        self.utc = utc
+        # Calculate the real rollover interval, which is just the number of
+        # seconds between rollovers.  Also set the filename suffix used when
+        # a rollover occurs.
         # If 'MIDNIGHT' - use 'D' interval params
         if self.when == 'MIDNIGHT':
             interval_key = 'D'
@@ -413,7 +416,7 @@ class CerebrumTimedRotatingHandler(CerebrumRotatingHandler):
             params = self._intervals[interval_key]
             self.interval = params['interval'] * interval
             self.suffix = params['suffix']
-            self.extMatch = re.compile(params['match'])
+            self.ext_match = re.compile(params['match'])
         except KeyError:
             raise ValueError("Invalid rollover interval specified: %s" %
                              self.when)
@@ -427,19 +430,36 @@ class CerebrumTimedRotatingHandler(CerebrumRotatingHandler):
             if self.when[1] < '0' or self.when[1] > '6':
                 raise ValueError("Invalid day specified for weekly "
                                  "rollover: %s" % self.when)
-            self.dayOfWeek = int(self.when[1])
+            self.day_of_week = int(self.when[1])
 
-        if os.path.exists(filename):
-            t = os.stat(filename)[stat.ST_MTIME]
+        if os.path.exists(self.baseFilename):
+            t = os.stat(self.baseFilename)[stat.ST_MTIME]
         else:
             t = int(time.time())
-        self.rolloverAt = self.computeRollover(t)
+        self.rollover_at = self.compute_rollover(t)
 
-    def computeRollover(self, currentTime):
+    def emit(self, record):
+        """Emit a record.
+
+        Output the record to the file, catering for rollover as described
+        in doRollover().
+
+        This is a copy of CerebrumRotatingHandler.emit
+        """
+        try:
+            if self.should_rollover():
+                self.do_rollover()
+            super(CerebrumTimedRotatingHandler, self).emit(record)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.handleError(record)
+
+    def compute_rollover(self, current_time):
         """
         Work out the rollover time based on the specified time.
         """
-        result = currentTime + self.interval
+        result = current_time + self.interval
         # If we are rolling over at midnight or weekly, then the interval is
         # already known.  What we need to figure out is WHEN the next interval
         # is.  In other words, if you are rolling over at midnight, then your
@@ -451,9 +471,9 @@ class CerebrumTimedRotatingHandler(CerebrumRotatingHandler):
         if self.when == 'MIDNIGHT' or self.when.startswith('W'):
             # This could be done with less code, but I wanted it to be clear
             if self.utc:
-                t = time.gmtime(currentTime)
+                t = time.gmtime(current_time)
             else:
-                t = time.localtime(currentTime)
+                t = time.localtime(current_time)
             currenthour = t[3]
             currentminute = t[4]
             currentsecond = t[5]
@@ -461,7 +481,7 @@ class CerebrumTimedRotatingHandler(CerebrumRotatingHandler):
             r = _MIDNIGHT - to_seconds(hours=currenthour,
                                        minutes=currentminute,
                                        seconds=currentsecond)
-            result = currentTime + r
+            result = current_time + r
             # If we are rolling over on a certain day, add in the number of
             # days until the next rollover, but offset by 1 since we just
             # calculated the time until the next day starts.  There are three
@@ -482,11 +502,11 @@ class CerebrumTimedRotatingHandler(CerebrumRotatingHandler):
             # midnight on this day, i.e. the start of the next day.
             if self.when.startswith('W'):
                 day = t[6]  # 0 is Monday
-                if day != self.dayOfWeek:
-                    if day < self.dayOfWeek:
-                        daystowait = self.dayOfWeek - day
+                if day != self.day_of_week:
+                    if day < self.day_of_week:
+                        daystowait = self.day_of_week - day
                     else:
-                        daystowait = 6 - day + self.dayOfWeek + 1
+                        daystowait = 6 - day + self.day_of_week + 1
                     newrolloverat = result + to_seconds(days=daystowait)
                     if not self.utc:
                         dstnow = t[-1]
@@ -504,42 +524,39 @@ class CerebrumTimedRotatingHandler(CerebrumRotatingHandler):
                     result = newrolloverat
         return result
 
-    def shouldRollover(self, record):
+    def should_rollover(self):
         """
         Determine if rollover should occur.
-
-        record is not used, as we are just comparing times, but it is needed so
-        the method signatures are the same
         """
         t = int(time.time())
-        if t >= self.rolloverAt:
+        if t >= self.rollover_at:
             return True
         return False
 
-    def getFilesToDelete(self):
+    def get_files_to_delete(self):
         """
         Determine the files to delete when rolling over.
 
         More specific than the earlier method, which just used glob.glob().
         """
-        dirName, baseName = os.path.split(self.baseFilename)
-        fileNames = os.listdir(dirName)
+        dir_name, base_name = os.path.split(self.baseFilename)
+        file_names = os.listdir(dir_name)
         result = []
-        prefix = baseName + "."
+        prefix = base_name + "."
         plen = len(prefix)
-        for fileName in fileNames:
-            if fileName[:plen] == prefix:
-                suffix = fileName[plen:]
-                if self.extMatch.match(suffix):
-                    result.append(os.path.join(dirName, fileName))
+        for file_name in file_names:
+            if file_name[:plen] == prefix:
+                suffix = file_name[plen:]
+                if self.ext_match.match(suffix):
+                    result.append(os.path.join(dir_name, file_name))
         result.sort()
-        if len(result) < self.backupCount:
+        if len(result) < self.backup_count:
             result = []
         else:
-            result = result[:len(result) - self.backupCount]
+            result = result[:len(result) - self.backup_count]
         return result
 
-    def doRollover(self, record):
+    def do_rollover(self):
         """
         This is a slightly modified copy of CerebrumRotatingHandler and
         logging.handlers.TimedRotatingFileHandler
@@ -552,7 +569,7 @@ class CerebrumTimedRotatingHandler(CerebrumRotatingHandler):
 
             # Check one more time, if we *really* should roll over. Perhaps a
             # differnt thread has already done that.
-            if not self.shouldRollover(record):
+            if not self.should_rollover():
                 return
 
             if self.stream and self.stream.closed:
@@ -563,7 +580,7 @@ class CerebrumTimedRotatingHandler(CerebrumRotatingHandler):
                 # TimeTuple
                 currenttime = int(time.time())
                 dstnow = time.localtime(currenttime)[-1]
-                t = self.rolloverAt - self.interval
+                t = self.rollover_at - self.interval
                 if self.utc:
                     timetuple = time.gmtime(t)
                 else:
@@ -581,10 +598,10 @@ class CerebrumTimedRotatingHandler(CerebrumRotatingHandler):
                     os.remove(dfn)
                 if os.path.exists(self.baseFilename):
                     os.rename(self.baseFilename, dfn)
-                if self.backupCount > 0:
-                    for s in self.getFilesToDelete():
+                if self.backup_count > 0:
+                    for s in self.get_files_to_delete():
                         os.remove(s)
-                newrolloverat = self.computeRollover(currenttime)
+                newrolloverat = self.compute_rollover(currenttime)
                 while newrolloverat <= currenttime:
                     newrolloverat = newrolloverat + self.interval
                 # If DST changes and midnight or weekly rollover, adjust for
@@ -602,7 +619,7 @@ class CerebrumTimedRotatingHandler(CerebrumRotatingHandler):
                             # add an hour
                             addend = 3600
                         newrolloverat += addend
-                self.rolloverAt = newrolloverat
+                self.rollover_at = newrolloverat
 
                 # delayed opening. The superclass will take care of everything
                 self.stream = None
