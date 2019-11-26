@@ -89,7 +89,7 @@ HELP_GROUP = {}
 HELP_CMD = {
     "ou": {
         "ou_homedir_add": "Add the homedir for an OU/aff/status combination",
-        "ou_homedir_get": "Get the homedir for an OU/aff/status combination",
+        "ou_homedir_list": "List the homedir for an OU/aff/status combination",
         "ou_homedir_remove":
             "Remove the homedir for an OU/aff/status combination",
     },
