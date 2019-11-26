@@ -107,7 +107,7 @@ def remove_accounts(database, logger, posix_user2gid):
 
 
 def remove_persons(database, logger, posix_user2gid, grace_period):
-    """Remove accounts of unaffiliated persons
+    """Remove accounts of unaffiliated persons from specific groups
 
     :type database: Cerebrum.CLDatabase.CLDatabase
     :type logger: logging.Logger
@@ -119,6 +119,16 @@ def remove_persons(database, logger, posix_user2gid, grace_period):
     group = Factory.get('Group')(database)
     account = Factory.get('Account')(database)
     const = Factory.get('Constants')(database)
+
+    # Group types to remove members from
+    group_type_remove_members = (
+        int(const.group_type_manual),
+        int(const.group_type_unknown),
+    )
+
+    # Cache group type of all groups
+    logger.info("Caching group types of all groups")
+    group_type = cache_group_types(database)
 
     # Find all person affiliations and filter by deletion date
     logger.info("Finding unaffiliated persons outside grace period")
@@ -148,12 +158,31 @@ def remove_persons(database, logger, posix_user2gid, grace_period):
         # Skip default file group
         if mid in posix_user2gid and gid == posix_user2gid[mid]:
             continue
+        # Skip groups of the wrong type
+        if group_type[gid] not in group_type_remove_members:
+            continue
         logger.info("Remove account %i from group %i", mid, gid)
         persons_affected.add(mid)
         groups_affected.add(gid)
         group.remove_member_from_group(mid, gid)
-    logger.info("Removed {} persons from {} groups".format(
-        len(persons_affected), len(groups_affected)))
+    logger.info("Removed %i persons from %i groups",
+                len(persons_affected), len(groups_affected))
+
+
+def cache_group_types(database):
+    """Make a cache of group id to group type
+
+    We want to use this for filtering based on group types
+    """
+    group_dict = {}
+    for group_id, group_type in database.query(
+        """
+        SELECT group_id, group_type
+        FROM [:table schema=cerebrum name=group_info]
+        """
+    ):
+        group_dict[group_id] = group_type
+    return group_dict
 
 
 def cache_person_affs(database):
@@ -210,7 +239,8 @@ def main(inargs=None):
     person_args.add_argument(
         '-g', '--grace',
         type=int,
-        help="Grace period for person affiliations on format yyyy-mm-dd")
+        default=180,
+        help="Grace period for person affiliations in days (default: 180)")
     add_commit_args(parser)
 
     logutils.options.install_subparser(parser)
