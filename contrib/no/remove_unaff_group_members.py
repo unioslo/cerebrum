@@ -43,6 +43,8 @@ For persons, this is done in the following steps:
  2. If not, get all accounts owned by this person.
  3. Remove all those accounts from all groups except the account's
     default file group
+    - Leave memberships to groups with types other than manual or unknown
+      alone.
 
 Potential problems:
  1. If, for whatever reason, a person does not have any affiliations, but the
