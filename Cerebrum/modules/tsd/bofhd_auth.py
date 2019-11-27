@@ -31,6 +31,7 @@ In TSD, you have the user groups:
 """
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -347,7 +348,7 @@ class TsdBofhdAuth(BofhdAuth):
         return True
 
 
-class TsdContactAuth(TsdBofhdAuth, bofhd_contact_info.BofhdContactAuth):
+class ContactAuth(TsdBofhdAuth, bofhd_contact_info.BofhdContactAuth):
 
     def can_get_contact_info(self, operator,
                              entity=None,
@@ -389,11 +390,15 @@ class TsdContactAuth(TsdBofhdAuth, bofhd_contact_info.BofhdContactAuth):
                             query_run_any)
 
 
-class TsdAccessAuth(TsdBofhdAuth, bofhd_access.BofhdAccessAuth):
-    """Tsd specific bofhd access auth"""
+class AccessAuth(TsdBofhdAuth, bofhd_access.BofhdAccessAuth):
+
     def _can_any(self, operator, query_run_any=False):
         if self.is_superuser(operator):
             return True
         if query_run_any:
             return True
         raise PermissionDenied("Restricted to superusers")
+
+
+class HistoryAuth(TsdBofhdAuth, bofhd_history_cmds.BofhdHistoryAuth):
+    pass
