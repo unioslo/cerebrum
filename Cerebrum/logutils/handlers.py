@@ -572,7 +572,7 @@ class CerebrumTimedRotatingHandler(DelayedFileHandler):
             if not self.should_rollover():
                 return
 
-            if self.stream and self.stream.closed:
+            if self.stream and not self.stream.closed:
                 self.stream.close()
 
             try:
