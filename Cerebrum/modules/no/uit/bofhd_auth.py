@@ -23,6 +23,7 @@ import cereconf
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
+from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
@@ -46,7 +47,7 @@ class UitContactAuthMixin(BofhdContactAuth):
             return True
         if (hasattr(cereconf, 'BOFHD_VOIP_ADMINS') and
                 self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS)):
-                return True
+            return True
         return super(UitContactAuthMixin, self).can_get_contact_info(
             operator,
             entity=entity,
@@ -199,14 +200,14 @@ class UitAuth(UitContactAuthMixin, BofhdAuth):
         return query_run_any or self.is_superuser(operator)
 
 
-class UitContactAuth(UitAuth):
+class ContactAuth(UitAuth):
     # can_get_contact_info is included in UioAuth, because it is used by
     # person_info
     # TODO: verify this?
     pass
 
 
-class UitEmailAuth(UitAuth, BofhdEmailAuth):
+class EmailAuth(UitAuth, BofhdEmailAuth):
 
     def can_email_address_delete(self, operator_id,
                                  account=None,
@@ -291,22 +292,26 @@ class UitEmailAuth(UitAuth, BofhdEmailAuth):
         raise PermissionDenied("Currently limited to superusers")
 
 
-class UitBofhdRequestsAuth(UitAuth, RequestsAuth):
+class BofhdRequestsAuth(UitAuth, RequestsAuth):
     pass
 
 
-class UitAccessAuth(UitAuth, bofhd_access.BofhdAccessAuth):
+class AccessAuth(UitAuth, bofhd_access.BofhdAccessAuth):
     pass
 
 
-class UitBofhdJobRunnerAuth(UitAuth, BofhdJobRunnerAuth):
+class JobRunnerAuth(UitAuth, BofhdJobRunnerAuth):
     pass
 
 
-class BofhdApiKeyAuth(UitAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
+class ApiKeyAuth(UitAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
     pass
 
 
-class BofhdUnpersonalAuth(UitAuth,
-                          bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
+class CreateUnpersonalAuth(UitAuth,
+                           bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
+    pass
+
+
+class HistoryAuth(UitAuth, bofhd_history_cmds.BofhdHistoryAuth):
     pass
