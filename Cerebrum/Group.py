@@ -1122,6 +1122,28 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 entry["expire_date"] = entry["expire2"]
             yield entry
 
+    def get_admins(self, admin_type=None):
+        """ Search for admins of the populated group
+
+        :type admin_type:
+          int or an EntityType constant or a sequence thereof or None.
+        :param admin_type:
+          The resulting adminship list be filtered by admin type -
+          only the admin entities of the specified type will be returned.
+          This is useful for answering questions like 'give me a list of
+          *group* admins of group <bla>'.
+
+        :rtype: generator (yielding db-rows with adminsship information)
+        :return:
+          A generator that yields successive db-rows (from group_admin)
+          matching all of the specified filters. These keys are available in
+          each of the db_rows:
+            - group_id
+            - admin_id
+            - admin_type
+        """
+        return self.search_admins(group_id=self.entity_id)
+
     def search_admins(self, group_id=None, group_spread=None, admin_id=None,
                       admin_type=None, include_group_name=False):
         """Search for group *ADMINS* satisfying certain criteria.
@@ -1202,7 +1224,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if admin_type is not None:
             where.append(
                 argument_to_sql(
-                    owner_type, "ei.entity_type", binds, int))
+                    admin_type, "ei.entity_type", binds, int))
 
         if include_group_name:
             tables.append("[:table schema=cerebrum name=entity_name] en")
@@ -1222,8 +1244,32 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
 
         return self.query(query, binds)
 
-    def search_moderators(self, group_id=None, group_spread=None, moderator_id=None,
-                          moderator_type=None, include_group_name=False):
+    def get_moderators(self, moderator_type=None):
+        """ Search for moderators of the populated group
+
+        :type moderator_type:
+          int or an EntityType constant or a sequence thereof or None.
+        :param moderator_type:
+          The resulting moderatorship list be filtered by moderator type -
+          only the moderator entities of the specified type will be returned.
+          This is useful for answering questions like 'give me a list of
+          *group* moderators of group <bla>'.
+
+        :rtype: generator (yielding db-rows with moderatorship information)
+        :return:
+          A generator that yields successive db-rows (from group_moderator)
+          matching all of the specified filters. These keys are available in
+          each of the db_rows:
+            - group_id
+            - moderator_id
+            - moderator_type
+        """
+        return self.search_moderators(group_id=self.entity_id,
+                                      moderator_type=moderator_type)
+
+    def search_moderators(self, group_id=None, group_spread=None,
+                          moderator_id=None, moderator_type=None,
+                          include_group_name=False):
         """Search for group *MODERATORS* satisfying certain criteria.
 
         If a filter is None, it means that it will not be applied. Calling
@@ -1302,7 +1348,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if moderator_type is not None:
             where.append(
                 argument_to_sql(
-                    owner_type, "ei.entity_type", binds, int))
+                    moderator_type, "ei.entity_type", binds, int))
 
         if include_group_name:
             tables.append("[:table schema=cerebrum name=entity_name] en")
