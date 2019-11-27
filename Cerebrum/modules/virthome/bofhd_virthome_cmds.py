@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2009-2018 University of Oslo, Norway
+# Copyright 2009-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -2103,6 +2103,14 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         return entity.get_traits().values()
 
 
+class _HistoryAuth(BofhdVirtHomeAuth, bofhd_history_cmds.BofhdHistoryAuth):
+    pass
+
+
+class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
+    authz = _HistoryAuth
+
+
 # TODO: implement command groups
 HELP_VIRTHOME_GROUPS = {}
 
@@ -2135,11 +2143,3 @@ HELP_VIRTHOME_ARGS = {
         ['qtype', 'Enter quarantine type',
          "'quarantine list' lists defined quarantines"],
 }
-
-
-class BofhdHistoryAuth(BofhdVirtHomeAuth, bofhd_history_cmds.BofhdHistoryAuth):
-    pass
-
-
-class BofhdHistoryCmds(bofhd_history_cmds.BofhdHistoryCmds):
-    authz = BofhdHistoryAuth
