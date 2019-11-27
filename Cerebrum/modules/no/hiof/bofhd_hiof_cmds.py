@@ -26,6 +26,8 @@ from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
+from Cerebrum.modules.audit import bofhd_history_cmds
+from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -37,10 +39,8 @@ from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
 from Cerebrum.modules.bofhd_requests import bofhd_requests_auth
 from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
-
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cmd_base
-from Cerebrum.modules.bofhd import bofhd_access
+from Cerebrum.modules.no.uio import bofhd_uio_cmds
 
 
 # BofhdRequests are unfortunately very UiO specific. Let's try to keep
@@ -58,25 +58,6 @@ class HiofAuth(BofhdAuth):
     pass
 
 
-class HiofContactAuth(HiofAuth, bofhd_contact_info.BofhdContactAuth):
-    """ Indigo specific contact info auth. """
-    pass
-
-
-class HiofBofhdRequestsAuth(HiofAuth, bofhd_requests_auth.RequestsAuth):
-    """ Hiof specific Bofhd Requests auth. """
-    pass
-
-
-class HiofAccessAuth(HiofAuth, bofhd_access.BofhdAccessAuth):
-    """Hiof specific access auth"""
-    pass
-
-
-class BofhdApiKeyAuth(HiofAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
-    pass
-
-
 uio_commands = [
     'ou_info',
     'ou_search',
@@ -85,14 +66,14 @@ uio_commands = [
 
 
 @copy_command(
-    cmd_base,
+    bofhd_uio_cmds.BofhdExtension,
     'all_commands', 'all_commands',
     commands=uio_commands)
 @copy_func(
-    cmd_base,
+    bofhd_uio_cmds.BofhdExtension,
     methods=uio_commands)
 @copy_func(
-    cmd_base,
+    bofhd_uio_cmds.BofhdExtension,
     methods=['_user_create_set_account_type']
 )
 class BofhdExtension(BofhdCommonMethods):
@@ -395,21 +376,44 @@ class BofhdExtension(BofhdCommonMethods):
         return {'account_id': int(account.entity_id)}
 
 
+class _ContactAuth(HiofAuth, bofhd_contact_info.BofhdContactAuth):
+    pass
+
+
 class ContactCommands(bofhd_contact_info.BofhdContactCommands):
-    authz = HiofContactAuth
+    authz = _ContactAuth
 
 
-class RequestCommands(bofhd_requests_cmds.BofhdExtension):
-    authz = HiofBofhdRequestsAuth
+class _BofhdRequestsAuth(HiofAuth, bofhd_requests_auth.RequestsAuth):
+    pass
 
 
-class HiofAccessCommands(bofhd_access.BofhdAccessCommands):
-    """Hiof specific bofhd access * commands"""
-    authz = HiofAccessAuth
+class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
+    authz = _BofhdRequestsAuth
 
 
-class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
-    authz = BofhdApiKeyAuth
+class _AccessAuth(HiofAuth, bofhd_access.BofhdAccessAuth):
+    pass
+
+
+class AccessCommands(bofhd_access.BofhdAccessCommands):
+    authz = _AccessAuth
+
+
+class _ApiKeyAuth(HiofAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
+    pass
+
+
+class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
+    authz = _ApiKeyAuth
+
+
+class _HistoryAuth(HiofAuth, bofhd_history_cmds.BofhdHistoryAuth):
+    pass
+
+
+class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
+    authz = _HistoryAuth
 
 
 HELP_CMDS = {
