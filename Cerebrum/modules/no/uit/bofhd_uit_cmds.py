@@ -50,6 +50,7 @@ from Cerebrum import Utils
 from Cerebrum import database
 from Cerebrum.modules import Email
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
+from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd.cmd_param import (
     AccountName,
     Command,
@@ -692,7 +693,7 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
 
 class ContactCommands(BofhdContactCommands):
     """ entity_contactinfo_* commands with custom uio auth. """
-    authz = bofhd_auth.UitContactAuth
+    authz = bofhd_auth.ContactAuth
 
 
 class EmailCommands(bofhd_email.BofhdEmailCommands):
@@ -707,7 +708,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         'email_tripnote_remove',
     }
     parent_commands = True
-    authz = bofhd_auth.UitEmailAuth
+    authz = bofhd_auth.EmailAuth
 
     @classmethod
     def get_help_strings(cls):
@@ -859,7 +860,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                     used = 'DOWN'
                 except bofhd_uio_cmds.ConnectException as e:
                     used = exc_to_text(e)
-                except imaplib.IMAP4.error as e:
+                except imaplib.IMAP4.error:
                     used = 'DOWN'
                 info.append({'quota_hard': eq.email_quota_hard,
                              'quota_soft': eq.email_quota_soft,
@@ -1108,23 +1109,24 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
 
 
 class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
-    authz = bofhd_auth.UitBofhdRequestsAuth
+    authz = bofhd_auth.BofhdRequestsAuth
 
 
 class AccessCommands(bofhd_access.BofhdAccessCommands):
-    """UiT specific access * commands"""
-    authz = bofhd_auth.UitAccessAuth
+    authz = bofhd_auth.AccessAuth
 
 
 class JobRunnerCommands(BofhdJobRunnerCommands):
-    """UiT specific job_runner * commands."""
-    authz = bofhd_auth.UitBofhdJobRunnerAuth
+    authz = bofhd_auth.JobRunnerAuth
 
 
-class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
-    authz = bofhd_auth.BofhdApiKeyAuth
+class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
+    authz = bofhd_auth.ApiKeyAuth
 
 
 class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
-    """Uio specific create unpersonal * commands"""
-    authz = bofhd_auth.BofhdUnpersonalAuth
+    authz = bofhd_auth.CreateUnpersonalAuth
+
+
+class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
+    authz = bofhd_auth.HistoryAuth
