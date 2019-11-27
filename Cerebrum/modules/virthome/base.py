@@ -608,104 +608,111 @@ class VirthomeUtils:
                 aot.find(target['op_target_id'])
                 aot.delete()
 
-
-    def list_group_owners(self, group):
-        """ List owners of a group. See L{list_opset_accounts} for usage.
-        """
-        return self.list_opset_accounts(group, 'group-owner')
-
-
-    def list_group_moderators(self, group):
-        """ List moderators of a group. See L{list_opset_accounts} for usage.
-        """
-        return self.list_opset_accounts(group, 'group-moderator')
-
-
-    def list_groups_owned(self, account):
-        """ List groups owned by C{account}. See L{list_opset_groups} for
-        usage.
-        """
-        return self.list_opset_groups(account, 'group-owner')
-
-
-    def list_groups_moderated(self, account):
-        """ List groups moderated by C{account}. See L{list_opset_groups} for
-        usage.
-        """
-        return self.list_opset_groups(account, 'group-moderator')
-
-
-    def list_opset_accounts(self, group, opset_name):
-        """ Return accounts holding a specific permission L{opset_name} on
-        L{group}.
-
-        This method is meant for answering questions like 'which accounts
-        moderate this group?'.
+    def list_group_admins(self, group):
+        """ List admins of C{group}.
 
         @type group: Cerebrum.Group
-        @param group: A populated group object to list 'moderators' for.
+        @param group: A populated group object to list 'admins' for.
 
         @rtype: list
         @return: A list of dictionaries with keys:
                  ['account_id', 'account_name', 'owner_name', 'email_address',
                   'group_id', 'group_name', 'description']
-
-        See also L{list_opset_groups}.
         """
-        assert opset_name in GROUP_AUTH_OPSETS
-        assert hasattr(group, 'entity_id')
-
+        ret = []
         ac = self.account_class(self.db)
-        ba = BofhdVirtHomeAuth(self.db)
-        aos = BofhdAuthOpSet(self.db)
-        aos.find_by_name(opset_name)
-
-        tmp = list(ba.get_permission_holders_on_groups(
-            aos.op_set_id, group_id=group.entity_id))
-        for entry in tmp:
+        for admin in group.get_admins(admin_type=self.co.entity_account):
             ac.clear()
-            ac.find(entry['account_id'])
-            entry['owner_name'] = ac.get_owner_name(self.co.human_full_name)
-            entry['email_address'] = ac.get_email_address()
+            ac.find(admin['admin_id'])
+            ret.append({
+                'account_id': ac.entity_id,
+                'account_name': ac.get_account_name(),
+                'owner_name': ac.get_owner_name(self.co.human_full_name),
+                'email_address': ac.get_email_address(),
+                'group_id': group.entity_id,
+                'group_name': group.group_name,
+                'description': group.description,
+            })
+        return ret
 
-        return tmp
+    def list_group_moderators(self, group):
+        """ List moderators of C{group}.
 
+        @type group: Cerebrum.Group
+        @param group: A populated group object to list 'admins' for.
 
-    def list_opset_groups(self, account, opset_name):
-        """ Return groups where L{account} has the specific permission
-        L{opset_name}.
+        @rtype: list
+        @return: A list of dictionaries with keys:
+                 ['account_id', 'account_name', 'owner_name', 'email_address',
+                  'group_id', 'group_name', 'description']
+        """
+        ret = []
+        ac = self.account_class(self.db)
+        for mod in group.get_moderators(moderator_type=self.co.entity_account):
+            ac.clear()
+            ac.find(mod['moderator_id'])
+            ret.append({
+                'account_id': ac.entity_id,
+                'account_name': ac.get_account_name(),
+                'owner_name': ac.get_owner_name(self.co.human_full_name),
+                'email_address': ac.get_email_address(),
+                'group_id': group.entity_id,
+                'group_name': group.group_name,
+                'description': group.description,
+            })
+        return ret
 
-        This is a complement to the L{list_ownership_accounts). This method is
-        meant for answering questions like 'which groups am I moderating?'
+    def list_groups_admined(self, account):
+        """ List groups that C{account} is an admin for
 
-        @type group: Cerebrum.Account
-        @param group: The account to list 'moderated group' for.
-
-        @type opset_name: str
-        @param opset_name: The permission to list groups for.
+        @type account: Cerebrum.Account
+        @param account: A populated account object to list 'groups' for.
 
         @rtype: list
         @return: A list of dictionaries with keys:
                  ['group_id', 'group_name', 'url', 'description',
                   'account_id', 'account_name']
         """
-        assert opset_name in GROUP_AUTH_OPSETS
-        assert hasattr(account, 'entity_id')
-
+        ret = []
         gr = self.group_class(self.db)
-        ba = BofhdVirtHomeAuth(self.db)
-        aos = BofhdAuthOpSet(self.db)
-        aos.find_by_name(opset_name)
-
-        tmp = list(ba.get_permission_holders_on_groups(
-            aos.op_set_id, account_id=account.entity_id))
-        for entry in tmp:
+        for group in self.group_class.search(admin_id=account.entity_id):
             gr.clear()
-            gr.find(entry['group_id'])
-            entry['url'] = gr.get_contact_info(self.co.virthome_group_url)
+            gr.find(group['group_id'])
+            ret.append({
+                'group_id': gr.entity_id,
+                'group_name': gr.group_name,
+                'url': gr.get_contact_info(self.co.virthome_group_url),
+                'description': group.description,
+                'account_id': account.entity_id,
+                'account_name': account.get_account_name(),
+            })
+        return ret
 
-        return tmp
+    def list_groups_moderated(self, account):
+        """ List groups moderated by C{account}
 
+        @type account: Cerebrum.Account
+        @param account: A populated account object to list 'groups' for.
+
+        @rtype: list
+        @return: A list of dictionaries with keys:
+                 ['group_id', 'group_name', 'url', 'description',
+                  'account_id', 'account_name']
+        """
+        ret = []
+        gr = self.group_class(self.db)
+        for group in self.group_class.search(moderator_id=account.entity_id):
+            gr.clear()
+            gr.find(group['group_id'])
+            ret.append({
+                'group_id': gr.entity_id,
+                'group_name': gr.group_name,
+                'url': gr.get_contact_info(self.co.virthome_group_url),
+                'description': group.description,
+                'account_id': account.entity_id,
+                'account_name': account.get_account_name(),
+            })
+        return ret
 
     # Realm-related functions
 
