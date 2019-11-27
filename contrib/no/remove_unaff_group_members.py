@@ -241,7 +241,7 @@ def main(inargs=None):
     person_args.add_argument(
         '-g', '--grace',
         type=int,
-        default=180,
+        default=0,
         help="Grace period for person affiliations in days (default: 180)")
     add_commit_args(parser)
 
