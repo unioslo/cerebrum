@@ -87,6 +87,8 @@ class AuditLog(ChangeLog):
             return
 
         change_program = change_program or self.change_program
+        change_by = change_by or self.change_by
+
         if not change_by and change_program:
             change_by = self.initial_account_id
         elif not change_by:
