@@ -17,11 +17,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Bofhd *history* command group for interacting with the audit log.
+"""
 
 from Cerebrum.modules.audit.auditdb import AuditLogAccessor
 from Cerebrum.modules.audit.formatter import AuditRecordProcessor
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
+from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.cmd_param import (
     Command,
     FormatSuggestion,
@@ -30,6 +34,7 @@ from Cerebrum.modules.bofhd.cmd_param import (
     YesNo,
 )
 from Cerebrum.modules.bofhd.errors import (CerebrumError, PermissionDenied)
+from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.bofhd.utils import BofhdUtils
 
 
@@ -42,20 +47,23 @@ class BofhdHistoryAuth(BofhdAuth):
         :param int operator: entity_id of the authenticated user
         :param entity: A cerebrum entity object (e.g. person, account)
         """
-
         if self.is_superuser(operator):
             return True
+
         if query_run_any:
             return self._has_operation_perm_somewhere(
-                operator, self.const.auth_view_history)
+                operator,
+                self.const.auth_view_history)
 
         # Check if user has been granted an op-set that allows viewing the
         # entity's history in some specific fashion.
         for row in self._list_target_permissions(
-                operator, self.const.auth_view_history,
+                operator,
+                self.const.auth_view_history,
                 # TODO Should the auth target type be generalized?
                 self.const.auth_target_type_global_group,
-                None, get_all_op_attrs=True):
+                None,
+                get_all_op_attrs=True):
             attr = row.get('operation_attr')
 
             # Op-set allows viewing history for this entity type
@@ -84,14 +92,18 @@ class BofhdHistoryAuth(BofhdAuth):
             if self._no_account_home(operator, entity):
                 return True
             return self.has_privileged_access_to_account_or_person(
-                operator, self.const.auth_view_history, entity)
+                operator,
+                self.const.auth_view_history,
+                entity)
         if entity.entity_type == self.const.entity_group:
             return self.has_privileged_access_to_group(
-                operator, self.const.auth_view_history, entity)
+                operator,
+                self.const.auth_view_history,
+                entity)
         raise PermissionDenied("no access for that entity_type")
 
 
-class BofhdExtension(BofhdCommandBase):
+class BofhdHistoryCmds(BofhdCommandBase):
     """BofhdExtension for history related commands and functionality."""
 
     all_commands = {}
@@ -108,12 +120,13 @@ class BofhdExtension(BofhdCommandBase):
     @classmethod
     def get_help_strings(cls):
         """Get help strings."""
-
-        group_help = {'history': "History related commands.", }
+        group_help = {
+            'history': "History related commands",
+        }
 
         command_help = {
             'history': {
-                'history_show': 'List changes made to an entity'
+                'history_show': 'List changes made to an entity',
             }
         }
 
@@ -129,28 +142,40 @@ class BofhdExtension(BofhdCommandBase):
                  'only the ones where the entity itself is changed (no)'],
         }
 
-        return (group_help, command_help, argument_help)
+        return merge_help_strings(
+            get_help_strings(),
+            (group_help, command_help, argument_help),
+        )
 
     #
-    # history show
+    # history show <entity> [yes|no] [n]
     #
+    default_any_entity = 'yes'
+    default_num_changes = '0'  # 0 means no limit
+
     all_commands['history_show'] = Command(
         ('history', 'show'),
-        Id(help_ref='id:target:account'),
-        YesNo(help_ref='yes_no_all_changes', optional=True, default='yes'),
-        Integer(help_ref='limit_number_of_results', optional=True,
-                default='0'),
-        fs=FormatSuggestion(
-            '%s [%s]: %s', ('timestamp', 'change_by', 'message')),
-        perm_filter='can_show_history')
+        Id(help_ref='id:target:entity'),
+        YesNo(help_ref='yes_no_all_changes',
+              optional=True,
+              default=default_any_entity),
+        Integer(help_ref='limit_number_of_results',
+                optional=True,
+                default=default_num_changes),
+        fs=FormatSuggestion('%s [%s]: %s',
+                            ('timestamp', 'change_by', 'message')),
+        perm_filter='can_show_history',
+    )
 
-    def history_show(self, operator, entity, any_entity,
-                     limit_number_of_results):
+    def history_show(self, operator, entity,
+                     any_entity=default_any_entity,
+                     limit_number_of_results=default_num_changes):
+        """ show audit log for a given entity. """
         ent = self.util.get_target(entity, restrict_to=[])
         self.ba.can_show_history(operator.get_entity_id(), ent)
         ret = []
         try:
-            N = int(limit_number_of_results)
+            n = int(limit_number_of_results)
         except ValueError:
             raise CerebrumError('Illegal range limit, must be an integer: '
                                 '{}'.format(limit_number_of_results))
@@ -162,7 +187,7 @@ class BofhdExtension(BofhdCommandBase):
         rows = sorted(rows)
 
         _process = AuditRecordProcessor()
-        for r in rows[-N:]:
+        for r in rows[-n:]:
             processed_row = _process(r)
             ret.append({
                 'timestamp': processed_row.timestamp,

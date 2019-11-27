@@ -29,6 +29,7 @@ from __future__ import unicode_literals
 
 import re
 
+import six
 from mx.DateTime import now, DateTimeDelta
 from mx.DateTime import strptime
 
@@ -36,6 +37,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import Entity
+from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import AccountName
 from Cerebrum.modules.bofhd.cmd_param import Command
@@ -130,7 +132,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         @param name_type: which names to fetch
         """
-        if isinstance(account, (int, long)):
+        if isinstance(account, six.integer_types):
             try:
                 account = self._get_account(account)
             except Errors.NotFoundError:
@@ -150,7 +152,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         @param group: group proxy or group_id.
         """
-        if isinstance(group, (int, long)):
+        if isinstance(group, six.integer_types):
             try:
                 group = self._get_group(group)
             except Errors.NotFoundError:
@@ -169,7 +171,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         @param account: See _get_owner_name.
         """
-        if isinstance(account, (int, long)):
+        if isinstance(account, six.integer_types):
             try:
                 account = self._get_account(account)
             except Errors.NotFoundError:
@@ -606,7 +608,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             account, junk = self.vhutils.create_account(
                     self.virtaccount_class, account_name, email, expire_date,
                     human_first_name, human_last_name, False)
-        except Errors.CerebrumError, e:
+        except Errors.CerebrumError as e:
             raise CerebrumError(str(e))  # bofhd CerebrumError
         account.set_password(password)
         account.write_db()
@@ -921,8 +923,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_view_user(operator.get_entity_id(), account.entity_id)
 
         pending = "confirmed"
-        if list(self.db.get_log_events(subject_entity=account.entity_id,
-                                       types=(self.clconst.va_pending_create,))):
+        if any(self.db.get_log_events(subject_entity=account.entity_id,
+                                      types=self.clconst.va_pending_create)):
             pending = "pending confirmation"
 
         user_eula = account.get_trait(self.const.trait_user_eula)
@@ -1199,7 +1201,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         try:
             new = self.virthome.group_create(
                 group_name, description, operator_acc, owner_acc, url)
-        except Errors.CerebrumError, e:
+        except Errors.CerebrumError as e:
             raise CerebrumError(str(e))  # bofhd CerebrumError
 
         return {'group_id': new.entity_id}
@@ -1220,7 +1222,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """
 
         group = self._get_group(gname)
-        self.ba.can_force_delete_group(operator.get_entity_id(), group.entity_id)
+        self.ba.can_force_delete_group(operator.get_entity_id(),
+                                       group.entity_id)
 
         return {'group': self.virthome.group_disable(group)}
 
@@ -1465,7 +1468,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         try:
             return self.virthome.group_invite_user(operator_acc, group, email,
                                                    timeout)
-        except Errors.CerebrumError, e:
+        except Errors.CerebrumError as e:
             raise CerebrumError(str(e))  # bofhd CerebrumError
 
     #
@@ -1626,7 +1629,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             account, confirmation_key = self.vhutils.create_account(
                     self.virtaccount_class, account_name, email, expire_date,
                     human_first_name, human_last_name)
-        except Errors.CerebrumError, e:
+        except Errors.CerebrumError as e:
             raise CerebrumError(str(e))  # bofhd CerebrumError
         account.set_password(password)
         account.write_db()
@@ -1739,7 +1742,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         group = self._get_group(groupname)
         gname, gid = group.group_name, group.entity_id
-        self.ba.can_force_delete_group(operator.get_entity_id(), group.entity_id)
+        self.ba.can_force_delete_group(operator.get_entity_id(),
+                                       group.entity_id)
         self.group_disable(operator, groupname)
         group.delete()
         return "OK, deleted group '%s' (id=%s)" % (gname, gid)
@@ -2131,3 +2135,11 @@ HELP_VIRTHOME_ARGS = {
         ['qtype', 'Enter quarantine type',
          "'quarantine list' lists defined quarantines"],
 }
+
+
+class BofhdHistoryAuth(BofhdVirtHomeAuth, bofhd_history_cmds.BofhdHistoryAuth):
+    pass
+
+
+class BofhdHistoryCmds(bofhd_history_cmds.BofhdHistoryCmds):
+    authz = BofhdHistoryAuth
