@@ -225,22 +225,36 @@ def group_name_is_valid(group_name):
     return re.search("[a-zA-Z0-9_-]+-\d{6}$", group_name) is not None
 
 
-def find_all_auto_groups():
-    """Collect and return all groups that are administrered by this script.
+def find_auto_groups(select_criteria=None, all_groups=False):
+    """Collect and return groups that are administrered by this script.
 
-    We tag all auto groups with a number of traits. It is the only sane and
-    reliable way of gathering *all* of them later (using special name prefixes
-    is too cumbersome and error prone; organising them into a hierarchy (like
-    fronter groups) is a bit icky, since the tree has to be stored in a
-    relational db.
+    We tag all auto groups with a number of traits. Groups with one of the
+    required traits and a name starting with one of the prefixes given, are
+    collected and returned.
 
+    :param all_groups: return all auto groups regardless of select_criteria
+    :type select_criteria: dict or None
+    :param select_criteria: legal prefixes are values in this dict
     :rtype: dict
     :return:
       A mapping group_name -> group_id.
     """
-    def slurp_data(result, trait):
+    def get_meta_group_prefixes(prefixes):
+        return [get_meta_group_prefix(p) for p in prefixes if
+                p in cereconf.AUTOMATIC_GROUP_POPULATE_META_PREFIX]
+
+    def get_regex(allowed_prefixes):
+        if allowed_prefixes:
+            # {{6}} --> {6} when the string is formatted
+            return r'^({})-\d{{6}}$'.format(r'|'.join(allowed_prefixes))
+        else:
+            return None
+
+    def slurp_data(result, trait, regex):
+        if not all_groups and regex is None:
+            return
         group = Factory.get("Group")(database)
-        for row in entity.list_traits(code=trait):
+        for row in group.list_traits(code=trait):
             group_id = int(row["entity_id"])
             try:
                 group.clear()
@@ -248,14 +262,24 @@ def find_all_auto_groups():
             except Errors.NotFoundError:
                 continue
 
-            result[group.group_name] = group_attributes(group)
+            if all_groups or re.match(regex, group.group_name):
+                result[group.group_name] = group_attributes(group)
 
     result = dict()
-    entity = Factory.get("Group")(database)
-    logger.debug("Collecting all auto groups with humans")
-    slurp_data(result, constants.trait_auto_group)
-    logger.debug("Collecting all auto metagroups")
-    slurp_data(result, constants.trait_auto_meta_group)
+    auto_group_prefixes = []
+    auto_meta_group_prefixes = []
+    if select_criteria:
+        auto_group_prefixes = select_criteria.values()
+        auto_meta_group_prefixes = get_meta_group_prefixes(auto_group_prefixes)
+
+    logger.debug("Collecting existing auto groups with humans")
+    slurp_data(result,
+               constants.trait_auto_group,
+               get_regex(auto_group_prefixes))
+    logger.debug("Collecting existing auto metagroups")
+    slurp_data(result,
+               constants.trait_auto_meta_group,
+               get_regex(auto_meta_group_prefixes))
 
     logger.debug("Collected %d existing auto groups", len(result))
     return result
@@ -411,6 +435,10 @@ def load_registration_criteria(criteria):
     return result
 
 
+def get_meta_group_prefix(group_prefix):
+    return "meta-%s" % group_prefix
+
+
 def affiliation2groups(row, current_groups, select_criteria, perspective):
     """Return groups that arise from the affiliation/aff status in row.
 
@@ -494,7 +522,7 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
         # <sko>?". The answer is "meta-ansatt-<sko>" and it should obviously
         # include ansatt-<sko>)
         parent_info = ou_id2ou_info(tmp_ou_id)
-        prefix = "meta-%s" % group_prefix
+        prefix = get_meta_group_prefix(group_prefix)
         description = cereconf.AUTOMATIC_GROUP_LEGAL_PREFIXES[prefix]
         while parent_info:
             parent_name = prefix + "-" + parent_info["sko"]
@@ -886,11 +914,6 @@ def perform_sync(select_criteria, perspective, source_system, spreads,
 
     """
 
-    # Collect all existing auto groups. Whatever is left here after several
-    # processing passes are groups that no longer have any reason to exist.
-    current_groups = find_all_auto_groups()
-    new_groups = dict()
-
     person = Factory.get("Person")(database)
     selecting_affiliations = [x
                               for x in select_criteria
@@ -898,6 +921,12 @@ def perform_sync(select_criteria, perspective, source_system, spreads,
 
     if not selecting_affiliations:
         selecting_affiliations = None
+
+    # Collect existing auto groups matching the given select_criteria.
+    # These are collected so that groups which no longer have any reason to
+    # exist can be emptied and/or deleted towards the end of this method.
+    current_groups = find_auto_groups(select_criteria=select_criteria)
+    new_groups = dict()
 
     # Rules that decide which groups to build.
     # Each rule is a tuple. The first object is a callable that generates a
@@ -977,7 +1006,7 @@ def perform_delete():
     change_log with creation/update/removal information).
     """
     # Collect all existing auto groups ...
-    existing_groups = find_all_auto_groups()
+    existing_groups = find_auto_groups(all_groups=True)
 
     # ... empty all of them for members (otherwise deletion is not possible)
     empty_defunct_groups(existing_groups)
@@ -1226,7 +1255,7 @@ def build_complete_group_forest():
     #
     # map all groups to nodes.
     scratch = dict()
-    existing_groups = find_all_auto_groups()
+    existing_groups = find_auto_groups(all_groups=True)
     for gname in existing_groups:
         gid = existing_groups[gname].group_id
         node = gnode(gid, gname)
