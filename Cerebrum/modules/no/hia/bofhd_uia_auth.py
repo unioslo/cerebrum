@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003, 2018 University of Oslo, Norway
+# Copyright 2003-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,14 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 Site specific auth.py for UiA
-
 """
-
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
+from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd.bofhd_email import BofhdEmailAuth
@@ -104,7 +102,7 @@ class UiaAuth(EntityNoteBofhdAuth, BofhdAuth):
             query_run_any=query_run_any)
 
 
-class UiaContactAuth(UiaAuth, BofhdContactAuth):
+class ContactAuth(UiaAuth, BofhdContactAuth):
 
     def can_add_contact_info(self, operator,
                              entity=None,
@@ -151,7 +149,7 @@ class UiaContactAuth(UiaAuth, BofhdContactAuth):
         raise PermissionDenied("Not allowed to remove contact info")
 
 
-class UiaEmailAuth(UiaAuth, BofhdEmailAuth):
+class EmailAuth(UiaAuth, BofhdEmailAuth):
 
     def can_email_move(self, operator, account=None, query_run_any=False):
         if self.is_postmaster(operator, query_run_any):
@@ -161,25 +159,22 @@ class UiaEmailAuth(UiaAuth, BofhdEmailAuth):
         raise PermissionDenied("Currently limited to superusers")
 
 
-class UiaBofhdRequestsAuth(UiaAuth, RequestsAuth):
-    """ UiA specific Bofhd Requests auth. """
+class BofhdRequestsAuth(UiaAuth, RequestsAuth):
     pass
 
 
-class UiaAccessAuth(UiaAuth, BofhdAccessAuth):
-    """Nih specific authentication checks
-
-    Used for overriding default behavior
-
-    """
+class AccessAuth(UiaAuth, BofhdAccessAuth):
     pass
 
 
-class BofhdApiKeyAuth(UiaAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
+class ApiKeyAuth(UiaAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
     pass
 
 
-class UiaUnpersonalAuth(
-        UiaAuth, bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
-    """UiA specific user create unpersonal auth"""
+class CreateUnpersonalAuth(UiaAuth,
+                           bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
+    pass
+
+
+class HistoryAuth(UiaAuth, bofhd_history_cmds.BofhdHistoryAuth):
     pass
