@@ -94,6 +94,14 @@ def remove_expired_groups(db, days, pretend):
                 try:
                     gr.clear()
                     gr.find(group['group_id'])
+                    # Check if the group is the owner of any accounts. If it
+                    # is, it can't be deleted.
+                    if gr.is_account_owner():
+                        logger.warning(
+                            "Group %r is expired but owns one or more "
+                            "accounts. Please inspect.",
+                            group["name"])
+                        continue
                     exts = gr.get_extensions()
                     # 1     - If extensions exists, do not delete group.
                     # 1.1   - If the only extension is PosixGroup, then all
