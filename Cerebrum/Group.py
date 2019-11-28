@@ -132,6 +132,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             return False
         return True
 
+    def set_default_expire_date(self):
+        """Extends the expire date of an entity by one year"""
+        if cereconf.MANUAL_GROUP_DEFAULT_LIFETIME:
+            self.expire_date = mx.DateTime.now() + mx.DateTime.TimeDelta(
+                cereconf.MANUAL_GROUP_DEFAULT_LIFETIME)
+
     # exchange-relatert-jazz
     # we need to be able to check group names for different
     # lengths and max length in database is 256 characters
