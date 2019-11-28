@@ -281,7 +281,7 @@ def test_search_owner(accounts):
 
     # INITIAL_GROUPNAME could own more than what we've created, but all our
     # created groups should be returned by the search
-    assert owned_by.issuperset(created_ids) is True
+    assert len(owned_by) >= len(created_ids)
     assert owned_by.issuperset(created_ids) is True
 
     # We should not get any results with another owner_id
