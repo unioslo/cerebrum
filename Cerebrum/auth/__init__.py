@@ -222,9 +222,13 @@ class AuthTypeMD5Unsalt(AuthBaseClass):
 def encrypt_ha1_md5(account_name, realm, plaintext, salt=None, binary=False):
     if not isinstance(plaintext, six.text_type) and not binary:
         raise ValueError("plaintext cannot be bytestring and not binary")
-    plaintext = plaintext.encode('utf-8')
-    s = ":".join([account_name, realm, plaintext])
-    return hashlib.md5(s.encode('utf-8')).hexdigest().decode()
+    if binary:
+        s = b':'.join((account_name.encode('utf-8'),
+                       realm.encode('utf-8'),
+                       plaintext))
+    else:
+        s = ":".join([account_name, realm, plaintext]).encode('utf-8')
+    return hashlib.md5(s).hexdigest().decode()
 
 
 def verify_ha1_md5(account_name, realm, plaintext, cryptstring):
