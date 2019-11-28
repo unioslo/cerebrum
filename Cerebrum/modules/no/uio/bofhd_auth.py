@@ -23,6 +23,7 @@ import cereconf
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
+from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactAuth
 from Cerebrum.modules.bofhd_requests.bofhd_requests_auth import RequestsAuth
@@ -33,7 +34,7 @@ from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
 
 
-class UioContactAuthMixin(BofhdContactAuth):
+class ContactAuthMixin(BofhdContactAuth):
     """ uio specific contact auth. """
 
     def can_get_contact_info(self, operator,
@@ -48,14 +49,14 @@ class UioContactAuthMixin(BofhdContactAuth):
                 hasattr(cereconf, 'BOFHD_VOIP_ADMINS') and
                 self.is_group_member(operator, cereconf.BOFHD_VOIP_ADMINS)):
             return True
-        return super(UioContactAuthMixin, self).can_get_contact_info(
+        return super(ContactAuthMixin, self).can_get_contact_info(
             operator,
             entity=entity,
             contact_type=contact_type,
             query_run_any=query_run_any)
 
 
-class UioAuth(UioContactAuthMixin, BofhdAuth):
+class UioAuth(ContactAuthMixin, BofhdAuth):
     """Defines methods that are used by bofhd to determine wheter
     an operator is allowed to perform a given action.
 
@@ -180,13 +181,11 @@ class UioAuth(UioContactAuthMixin, BofhdAuth):
             query_run_any=query_run_any)
 
 
-class UioContactAuth(UioAuth):
-    """UIO specific contact auth"""
-    # can_get_contact_info is included in UioAuth, because it is used by
-    # person_info
+class ContactAuth(UioAuth):
+    pass
 
 
-class UioEmailAuth(UioAuth, BofhdEmailAuth):
+class EmailAuth(UioAuth, BofhdEmailAuth):
     """UiO specific auth for email * commands"""
 
     def can_email_address_delete(self, operator_id,
@@ -272,29 +271,30 @@ class UioEmailAuth(UioAuth, BofhdEmailAuth):
         raise PermissionDenied("Currently limited to superusers")
 
 
-class UiOBofhdRequestsAuth(UioAuth, RequestsAuth):
-    """UiO auth for request"""
+class BofhdRequestsAuth(UioAuth, RequestsAuth):
+    pass
 
 
-class UioAccessAuth(UioAuth, bofhd_access.BofhdAccessAuth):
-    """UiO specific access * command auth"""
+class AccessAuth(UioAuth, bofhd_access.BofhdAccessAuth):
+    pass
 
 
-class BofhdApiKeyAuth(UioAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
-    """UiO specific API keys auth"""
+class ApiKeyAuth(UioAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
+    pass
 
 
-class UioPassWordAuth(UioAuth):
-    """UiO specific password * command auth"""
+class PasswordIssuesAuth(UioAuth):
+    pass
 
 
-class UioUnpersonalAuth(UioAuth,
-                        bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
-    """UiO specific user create unpersonal auth"""
+class CreateUnpersonalAuth(UioAuth,
+                           bofhd_user_create_unpersonal.BofhdUnpersonalAuth):
+    pass
 
 
-class BofhdOUDiskMappingAuth(
-    UioAuth,
-    bofhd_cmds.BofhdOUDiskMappingAuth
-):
-    """UiO specific OU Settings commands"""
+class OUDiskMappingAuth(UioAuth, bofhd_cmds.BofhdOUDiskMappingAuth):
+    pass
+
+
+class HistoryAuth(UioAuth, bofhd_history_cmds.BofhdHistoryAuth):
+    pass

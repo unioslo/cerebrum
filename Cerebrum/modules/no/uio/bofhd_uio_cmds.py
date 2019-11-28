@@ -28,7 +28,7 @@ import ssl
 import warnings
 
 from mx import DateTime
-from six import text_type
+from six import string_types, text_type
 
 import cereconf
 from Cerebrum import Entity
@@ -39,6 +39,7 @@ from Cerebrum import database
 from Cerebrum.Constants import _LanguageCode
 from Cerebrum.modules import Email
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
+from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd.auth import (AuthConstants,
                                          BofhdAuthOpSet,
@@ -91,17 +92,7 @@ from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio import bofhd_pw_issues
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
-from Cerebrum.modules.no.uio.bofhd_auth import (
-    BofhdApiKeyAuth,
-    BofhdOUDiskMappingAuth,
-    UiOBofhdRequestsAuth,
-    UioAccessAuth,
-    UioAuth,
-    UioContactAuth,
-    UioEmailAuth,
-    UioPassWordAuth,
-    UioUnpersonalAuth,
-)
+from Cerebrum.modules.no.uio import bofhd_auth
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
@@ -168,7 +159,7 @@ class BofhdExtension(BofhdCommonMethods):
     omit_parent_commands = {'user_create'}
     parent_commands = True
 
-    authz = UioAuth
+    authz = bofhd_auth.UioAuth
     external_id_mappings = {}
 
     # This little class is used to store connections to the LDAP servers, and
@@ -481,7 +472,7 @@ class BofhdExtension(BofhdCommonMethods):
         ret = []
 
         try:
-            N = int(limit_number_of_results)
+            num = int(limit_number_of_results)
         except ValueError:
             raise CerebrumError('Illegal range limit, must be an integer: '
                                 '{}'.format(limit_number_of_results))
@@ -492,7 +483,7 @@ class BofhdExtension(BofhdCommonMethods):
             kw = {'subject_entity': ent.entity_id}
         rows = list(self.db.get_log_events(0, **kw))
 
-        for r in rows[-N:]:
+        for r in rows[-num:]:
             ret.append(self._format_changelog_entry(r))
         return ret
 
@@ -1077,7 +1068,7 @@ class BofhdExtension(BofhdCommonMethods):
                 pg = Utils.Factory.get('PosixGroup')(self.db)
                 err_str = pg.illegal_name(groupname)
                 if err_str:
-                    if not isinstance(err_str, basestring):  # paranoia
+                    if not isinstance(err_str, string_types):  # paranoia
                         err_str = u'Illegal groupname'
                     raise CerebrumError(u'Group-name error: {err_str}'.format(
                         err_str=err_str))
@@ -1346,7 +1337,8 @@ class BofhdExtension(BofhdCommonMethods):
              "Spreads:      %s\n"
              "Description:  %s\n"
              "Expire:       %s\n"
-             "Entity id:    %i", ("name", "group_type", "spread", "description",
+             "Entity id:    %i", ("name", "group_type", "spread",
+                                  "description",
                                   format_day("expire_date"), "entity_id")),
             ("Moderator:    %s %s (%s)", ('owner_type', 'owner', 'opset')),
             ("Gid:          %i", ('gid',)),
@@ -1420,9 +1412,6 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_list(self, operator, groupname):
         """List direct members of group"""
-        def compare(a, b):
-            return (cmp(a['type'], b['type']) or
-                    cmp(a['user_name'], b['user_name']))
         group = self._get_group(groupname)
         ret = []
         now = DateTime.now()
@@ -1462,7 +1451,7 @@ class BofhdExtension(BofhdCommonMethods):
                 tmp["expired"] = "expired"
             ret.append(tmp)
 
-        ret.sort(compare)
+        ret.sort(key=lambda d: (d['type'], d['user_name']))
         return ret
 
     def _fetch_member_names(self, iterable):
@@ -1859,7 +1848,7 @@ class BofhdExtension(BofhdCommonMethods):
                 'group': row["name"],
                 'description': row["description"],
             })
-        ret.sort(lambda a, b: cmp(a['group'], b['group']))
+        ret.sort(key=lambda d: d['group'])
         return ret
 
     #
@@ -1923,7 +1912,7 @@ class BofhdExtension(BofhdCommonMethods):
                 membership['sources_names'])
             membership['spreads'] = map(text_type, membership['spreads'])
 
-        ret.sort(lambda a, b: cmp(a['group'], b['group']))
+        ret.sort(key=lambda d: d['group'])
         return ret
 
     #
@@ -2149,10 +2138,8 @@ class BofhdExtension(BofhdCommonMethods):
                                      'def_quota': def_quota,
                                      'pretty_quota': pretty_quota,
                                      'path': row['path']}
-        disklist = disks.keys()
-        disklist.sort(lambda x, y: cmp(disks[x]['path'], disks[y]['path']))
         ret = []
-        for d in disklist:
+        for d in sorted(disks, key=lambda k: disks[k]['path']):
             ret.append(disks[d])
         return ret
 
@@ -2295,7 +2282,7 @@ class BofhdExtension(BofhdCommonMethods):
             self.mb_utils = DnsBofhdUtils(self.db, self.logger, zone)
             self.dns_parser = DnsUtils.DnsParser(self.db, zone)
             ret = host_info(self, operator, hostname, policy=policy)
-        except CerebrumError as dns_err:
+        except CerebrumError:
             # Even though the DNS module doesn't recognise the host, the
             # standard host_info could still have some info. We should
             # therefore continue and see if we could get more info.
@@ -3135,7 +3122,7 @@ class BofhdExtension(BofhdCommonMethods):
                 'name': account.account_name,
                 'expire': account.expire_date,
             })
-        ret.sort(lambda a, b: cmp(a['name'], b['name']))
+        ret.sort(key=lambda d: d['name'])
         return ret
 
     def _person_affiliation_add_helper(self, operator,
@@ -3579,8 +3566,7 @@ class BofhdExtension(BofhdCommonMethods):
                 'name': pname,
                 'lastname': pname.split(" ")[-1],
             })
-        ret.sort(lambda a, b: (cmp(a['lastname'], b['lastname']) or
-                               cmp(a['name'], b['name'])))
+        ret.sort(key=lambda d: (d['lastname'], d['name']))
         return ret
 
     #
@@ -4493,7 +4479,7 @@ class BofhdExtension(BofhdCommonMethods):
                 'type': text_type(ety_type),
                 'name': name,
             })
-        ret.sort(lambda x, y: cmp(x['name'], y['name']))
+        ret.sort(key=lambda d: d['name'])
         return ret
 
     #
@@ -4774,7 +4760,7 @@ class BofhdExtension(BofhdCommonMethods):
             disk_id, home = None, home[1:]
         if uname.endswith('-drift'):
             raise CerebrumError('Users ending with -drift should be created '
-                'with user create_sysadm')
+                                'with user create_sysadm')
         posix_user.clear()
         gecos = None
         expire_date = None
@@ -5301,7 +5287,7 @@ class BofhdExtension(BofhdCommonMethods):
                 'expire': acc.expire_date,
                 'username': acc.account_name,
             })
-        ret.sort(lambda x, y: cmp(x['username'], y['username']))
+        ret.sort(key=lambda d: d['username'])
         return ret
 
     #
@@ -5380,7 +5366,7 @@ class BofhdExtension(BofhdCommonMethods):
     def user_move(self, operator, move_type, accountname, *args):
         # now strip all str / unicode arguments in order to please CRB-2172
         def strip_arg(arg):
-            if isinstance(arg, basestring):
+            if isinstance(arg, string_types):
                 return arg.strip()
             return arg
         args = tuple(map(strip_arg, args))
@@ -6405,7 +6391,7 @@ class BofhdExtension(BofhdCommonMethods):
 
 class ContactCommands(BofhdContactCommands):
     """ entity_contactinfo_* commands with custom uio auth. """
-    authz = UioContactAuth
+    authz = bofhd_auth.ContactAuth
 
 
 class EmailCommands(bofhd_email.BofhdEmailCommands):
@@ -6415,7 +6401,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
     hidden_commands = {}
     omit_parent_commands = set()
     parent_commands = True
-    authz = UioEmailAuth
+    authz = bofhd_auth.EmailAuth
 
     @classmethod
     def get_help_strings(cls):
@@ -6559,7 +6545,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                     used = 'DOWN'
                 except ConnectException as e:
                     used = exc_to_text(e)
-                except imaplib.IMAP4.error as e:
+                except imaplib.IMAP4.error:
                     used = 'DOWN'
                 info.append({'quota_hard': eq.email_quota_hard,
                              'quota_soft': eq.email_quota_soft,
@@ -6750,28 +6736,28 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
 
 
 class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
-    authz = UiOBofhdRequestsAuth
+    authz = bofhd_auth.BofhdRequestsAuth
 
 
-class UioAccessCommands(bofhd_access.BofhdAccessCommands):
-    """Uio specific access * commands"""
-    authz = UioAccessAuth
+class AccessCommands(bofhd_access.BofhdAccessCommands):
+    authz = bofhd_auth.AccessAuth
 
 
-class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
-    authz = BofhdApiKeyAuth
+class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
+    authz = bofhd_auth.ApiKeyAuth
 
 
-class UioPassWordIssuesCommands(bofhd_pw_issues.BofhdExtension):
-    """Uio specific password * commands"""
-    authz = UioPassWordAuth
+class PasswordIssuesCommands(bofhd_pw_issues.BofhdExtension):
+    authz = bofhd_auth.PasswordIssuesAuth
 
 
-class UioCreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
-    """Uio specific create unpersonal * commands"""
-    authz = UioUnpersonalAuth
+class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
+    authz = bofhd_auth.CreateUnpersonalAuth
 
 
-class BofhdOUDiskMappingCommands(bofhd_cmds.BofhdOUDiskMappingCommands):
-    """Uio specific OU Disk Mapping * commands"""
-    authz = BofhdOUDiskMappingAuth
+class OUDiskMappingCommands(bofhd_cmds.BofhdOUDiskMappingCommands):
+    authz = bofhd_auth.OUDiskMappingAuth
+
+
+class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
+    authz = bofhd_auth.HistoryAuth
