@@ -1637,6 +1637,7 @@ class BofhdExtension(BofhdCommonMethods):
                 description=('Personal file group for %s' % uname),
                 group_type=self.const.group_type_personal,
             )
+            group.write_db()
         # Promote to PosixGroup
         pg = Utils.Factory.get('PosixGroup')(self.db)
         pg.populate(parent=group)
@@ -1900,7 +1901,8 @@ class BofhdExtension(BofhdCommonMethods):
             return "Could not set display name, invalid language code"
         group.add_name_with_language(name_var, name_lang,
                                      disp_name)
-        group.set_default_expire_date()
+        if self._is_perishable_manual_group(group):
+            group.set_default_expire_date()
         group.write_db()
 
     #
@@ -1929,13 +1931,15 @@ class BofhdExtension(BofhdCommonMethods):
                 group, expire)
         else:
             if grp.expire_date:
-                # grp.expire_date = None
-                grp.set_default_expire_date()
-                grp.write_db()
-                return 'OK, removed expire-date for {0}'.format(group)
+                if cereconf.MANUAL_GROUP_DEFAULT_LIFETIME:
+                    grp.set_default_expire_date()
+                    grp.write_db()
+                    return 'Expire date set to default for {0}'.format(group)
+                else:
+                    return 'OK, removed expire-date for {0}'.format(group)
             else:
-                raise CerebrumError('Expire date not set for {0}'.format(
-                    group))
+                raise CerebrumError(
+                    'Expire date not set for {0}'.format(group))
 
     #
     # group set_visibility

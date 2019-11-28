@@ -858,9 +858,6 @@ class BofhdCommandBase(object):
                    - group_type_unknown
                    - group_type_internal
                    - group_type_personal
-
-        NO_GROUP_TYPE_RESTRICTIONS_FOR_MAINTENANCE
-        is True, then all group types may be manually maintained.
         """
         manual_group_types = {self.const.group_type_manual,
                               self.const.group_type_unknown,
@@ -975,16 +972,15 @@ class BofhdCommonMethods(BofhdCommandBase):
             expire_date=expire_date,
             group_type=self.const.group_type_manual,
         )
-        g.write_db()
 
-        # Set expire_date one year from now if it is not set
+        # Set default expire_date if it is not set
         if expire_date is None:
             g.set_default_expire_date()
 
         # Add spread
         for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
             g.add_spread(self.const.Spread(spread))
-            g.write_db()
+        g.write_db()
 
         # Set moderator group(s)
         if mod_group:
