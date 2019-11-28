@@ -27,10 +27,31 @@ retention.
 """
 import json
 
+import mx.DateTime
+
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import argument_to_sql, Factory
+from Cerebrum.utils.date import apply_timezone
 
 from .record import DbAuditRecord
+
+
+def _serialize_mx_datetime(dt):
+    """ Convert mx.DateTime.DateTime object to string. """
+    if dt.hour == dt.minute == 0 and dt.second == 0.0:
+        return dt.pydate().isoformat()
+    else:
+        return apply_timezone(dt.pydatetime()).isoformat()
+
+
+def serialize_params(params):
+    new_params = {}
+    for k in params:
+        if isinstance(params[k], mx.DateTime):
+            new_params[k] = _serialize_mx_datetime(params[k])
+        else:
+            new_params[k] = params[k]
+    return new_params
 
 
 def sql_get_record(db, record_id):
