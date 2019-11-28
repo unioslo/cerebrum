@@ -499,6 +499,7 @@ class CerebrumUtils(object):
                            int(ct),
                            event['dest_entity'],
                            change_params=params,
+                           skip_audit=True,
                            skip_change=True,
                            skip_publish=True)
         self.db.commit()
