@@ -53,7 +53,7 @@ from Cerebrum.utils import transliterate
 logger = logging.getLogger(__name__)
 
 
-@all_auth_methods('MD5-crypt')
+@all_auth_methods('MD5-crypt2')
 class AuthTypeMD5Crypt2(AuthBaseClass):
     def encrypt(self, plaintext, salt=None, binary=None):
         """
