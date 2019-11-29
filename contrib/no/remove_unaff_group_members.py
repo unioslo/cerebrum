@@ -18,27 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""Remove group memberships for unaffiliated users or persons
+"""Remove group memberships for accounts of unaffiliated persons
 
-For users, this is done in the following steps:
- 1. Check if the account has affiliations
- 2. If not, check if it is member of any groups.
- 3. If it is member of a group, remove it unless the group is the account's
-    default file group.
-
-Potential problems:
- 1. If the person has an affiliation, but the account does not, the account
-    will still be removed from all its groups. This can be fixed by making a
-    clean up script that adds the affiliation of the person to the account, but
-    this only works for persons with a single affiliation.
- 2. If a person does not have any affiliations but no one has done the clean up
-    on the account we will still find affiliations on the account and not do
-    anything even if they technically should be removed from all groups.
-
- Both problems highlight the problem with setting affiliations for accounts
- manually.
-
-For persons, this is done in the following steps:
+This is done in the following steps:
  1. Check if the person has affiliations.
  2. If not, get all accounts owned by this person.
  3. Remove all those accounts from all groups except the account's
@@ -62,50 +44,6 @@ import mx.DateTime
 from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import add_commit_args
-
-
-def remove_accounts(database, logger, posix_user2gid):
-    """Remove all accounts without account type
-
-    :type database: Cerebrum.CLDatabase.CLDatabase
-    :type logger: logging.Logger
-    :param dict posix_user2gid: mapping account id to default file group
-    """
-
-    group = Factory.get('Group')(database)
-    const = Factory.get('Constants')(database)
-
-    # Select group_id and member_id of accounts with no affiliation where the
-    # owner_type of the account is a person (this rules out accounts owned by
-    # groups, such as guest- and system accounts.
-    logger.info('Fetching candidates for deletion')
-    group_rows_for_deletion = database.query(
-        """
-        SELECT group_id, member_id
-        FROM [:table schema=cerebrum name=group_member]
-        WHERE member_id IN (
-            SELECT account_id
-            FROM [:table schema=cerebrum name=account_info] ai
-            WHERE owner_type=:owner_type AND
-                  account_id NOT IN (
-                      SELECT account_id
-                      FROM [:table schema=cerebrum name=account_type] at
-                      )
-            )
-        """, {'owner_type': int(const.entity_person)}
-    )
-
-    logger.info('Beginning membership deletion')
-    if not group_rows_for_deletion:
-        logger.info('No memberships to delete')
-    for row in group_rows_for_deletion:
-        # Skip default file group
-        mid = row['member_id']
-        gid = row['group_id']
-        if mid in posix_user2gid and gid == posix_user2gid[mid]:
-            continue
-        logger.info("Removing account %i from group %i", mid, gid)
-        group.remove_member_from_group(mid, gid)
 
 
 def remove_persons(database, logger, posix_user2gid, grace_period):
@@ -226,19 +164,7 @@ def main(inargs=None):
     logger = logging.getLogger(__name__)
 
     parser = argparse.ArgumentParser(description=__doc__)
-    acc_pers = parser.add_mutually_exclusive_group()
-    acc_pers.add_argument(
-        '-a', '--accounts',
-        action='store_true',
-        help="Remove accounts from groups if accounts don't have affiliations")
-    acc_pers.add_argument(
-        '-p', '--persons',
-        action='store_true',
-        help="""Remove accounts from groups if owner of the account is a
-                person and that person does not have any affiliations""")
-
-    person_args = parser.add_argument_group("Person arguments")
-    person_args.add_argument(
+    parser.add_argument(
         '-g', '--grace',
         type=int,
         default=0,
@@ -255,15 +181,10 @@ def main(inargs=None):
     database = Factory.get('Database')()
     database.cl_init(change_program=parser.prog)
 
-    if args.accounts or args.persons:
-        # Cache default file group of users
-        logger.info('Caching default file groups of users')
-        posix_user2gid = cache_posix_dfgs(database)
-
-        if args.accounts:
-            remove_accounts(database, logger, posix_user2gid)
-        if args.persons:
-            remove_persons(database, logger, posix_user2gid, args.grace)
+    # Cache default file group of users
+    logger.info('Caching default file groups of users')
+    posix_user2gid = cache_posix_dfgs(database)
+    remove_persons(database, logger, posix_user2gid, args.grace)
 
     if args.commit:
         logger.info('Committing changes to database')
