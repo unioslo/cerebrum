@@ -28,13 +28,6 @@ This is done in the following steps:
     - Leave memberships to groups with types other than manual or unknown
       alone.
 
-Potential problems:
- 1. If, for whatever reason, a person does not have any affiliations, but the
-    account does, the account will be removed from all groups, even though it
-    may be the account that has the right affiliations. This should not be a
-    serious problem and should only affect a very small amount of persons, if
-    any.
-
 """
 
 import argparse
