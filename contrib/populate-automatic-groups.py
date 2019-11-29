@@ -472,6 +472,37 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
       reason for this complexity is that an 'employment' represented by a row
       may give rise to memberships where person_id does not participate.
     """
+    def append_meta_groups(employee_group_id, meta_group_prefix, result):
+        # Now it becomes difficult, since we have to create a chain of
+        # meta-ansatt group memberships.
+        tmp_ou_id = ou_id
+        # The first step is not really a parent -- it's the OU itself. I.e.
+        # ansatt-<sko> is a member of meta-ansatt-<sko>. It's like that by
+        # design (consider asking "who's an employee at <sko> or subordinate
+        # <sko>?". The answer is "meta-ansatt-<sko>" and it should obviously
+        # include ansatt-<sko>)
+        parent_info = ou_id2ou_info(tmp_ou_id)
+        meta_description = cereconf.AUTOMATIC_GROUP_LEGAL_PREFIXES[
+            meta_group_prefix]
+        while parent_info:
+            parent_name = meta_group_prefix + "-" + parent_info["sko"]
+            meta_parent_id = group_name2group_id(
+                parent_name,
+                meta_description % parent_info["name"],
+                current_groups,
+                constants.trait_auto_meta_group)
+
+            if meta_parent_id is not None:
+                result.append((employee_group_id, meta_parent_id))
+                logger.debug("Group name=%s (from person_id=%s) added to "
+                             "meta group id=%s, name=%s",
+                             group_prefix + suffix, person_id,
+                             meta_parent_id, parent_name)
+
+            parent_info = ou_id2parent_info(tmp_ou_id, perspective)
+            if parent_info:
+                tmp_ou_id = parent_info["ou_id"]
+
     person_id = row["person_id"]
     ou_id = row["ou_id"]
     ou_info = ou_id2ou_info(ou_id)
@@ -486,7 +517,6 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
     suffix = "-%s" % ou_info["sko"]
     result = list()
 
-    employee_group_id = None
     for key in (status, affiliation):
         if key not in select_criteria:
             continue
@@ -502,46 +532,14 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
         # Consult the configuration to see if we should try to populate
         # meta-groups with memberships.
         if group_prefix in cereconf.AUTOMATIC_GROUP_POPULATE_META_PREFIX:
-            employee_group_id = group_id
+            append_meta_groups(group_id,
+                               get_meta_group_prefix(group_prefix),
+                               result)
 
         if group_id is not None:
             result.append((person_id, group_id))
             logger.debug("Added person id=%s to group id=%s, name=%s",
                          person_id, group_id, group_name)
-
-    # Now the fun begins. All employees are members of certain groups.
-    #
-    # This affiliation (row) results in person_id being member of ansatt-<sko>.
-    if employee_group_id is not None:
-        # Now it becomes difficult, since we have to create a chain of
-        # meta-ansatt group memberships.
-        tmp_ou_id = ou_id
-        # The first step is not really a parent -- it's the OU itself. I.e.
-        # ansatt-<sko> is a member of meta-ansatt-<sko>. It's like that by
-        # design (consider asking "who's an employee at <sko> or subordinate
-        # <sko>?". The answer is "meta-ansatt-<sko>" and it should obviously
-        # include ansatt-<sko>)
-        parent_info = ou_id2ou_info(tmp_ou_id)
-        prefix = get_meta_group_prefix(group_prefix)
-        description = cereconf.AUTOMATIC_GROUP_LEGAL_PREFIXES[prefix]
-        while parent_info:
-            parent_name = prefix + "-" + parent_info["sko"]
-            meta_parent_id = group_name2group_id(
-                parent_name,
-                description % parent_info["name"],
-                current_groups,
-                constants.trait_auto_meta_group)
-
-            if meta_parent_id is not None:
-                result.append((employee_group_id, meta_parent_id))
-                logger.debug("Group name=%s (from person_id=%s) added to "
-                             "meta group id=%s, name=%s",
-                             group_prefix + suffix, person_id,
-                             meta_parent_id, parent_name)
-
-            parent_info = ou_id2parent_info(tmp_ou_id, perspective)
-            if parent_info:
-                tmp_ou_id = parent_info["ou_id"]
 
     return result
 
@@ -700,7 +698,7 @@ def synchronise_spreads(group, spreads, omit_spreads):
         group.delete_spread(spread)
 
 
-def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads,
+def synchronise_groups(current_groups, new_groups, spreads,
                        omit_spreads):
     """Synchronise current in-memory representation of groups with the db.
 
@@ -711,10 +709,10 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads,
 
     NB! L{groups_from_cerebrum} is modified by this function.
 
-    :type groups_from_cerebrum: dict
+    :type current_groups: dict
     :param: Cf. L{find_all_auto_groups}.
 
-    :type groups_from_data: dict
+    :type new_groups: dict
     :param: Cf. L{populate_groups_from_rule}.
 
     :type spreads: set of tuples
@@ -731,7 +729,7 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads,
     """
     group = Factory.get("Group")(database)
 
-    for group_id, members_from_data in groups_from_data.iteritems():
+    for group_id, new_members in new_groups.iteritems():
         try:
             group.clear()
             group.find(group_id)
@@ -743,24 +741,24 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads,
         synchronise_spreads(group, spreads, omit_spreads)
 
         # select just the entity_ids (we don't care about entity_type)
-        group_members = set(int(x["member_id"]) for x in
-                            group.search_members(group_id=group.entity_id))
-        # now, synch the union members. sync'ing means making sure that the
+        current_members = set(int(x["member_id"]) for x in
+                              group.search_members(group_id=group.entity_id))
+        # now, sync the union members. sync'ing means making sure that the
         # members of group are exactly the ones in memberset.
 
         # those that are not in 'group_members', should be added
-        to_add = members_from_data.difference(group_members)
+        to_add = new_members.difference(current_members)
         add_members(group, to_add)
 
         # those that are in 'group_members', but not in members_from_data,
         # should be removed.
-        to_remove = group_members.difference(members_from_data)
+        to_remove = current_members.difference(new_members)
         remove_members(group, to_remove)
 
-        if gname not in groups_from_cerebrum:
+        if gname not in current_groups:
             logger.debug("New group id=%s, name=%s", group_id, gname)
         else:
-            del groups_from_cerebrum[gname]
+            del current_groups[gname]
             logger.debug("Existing group id=%s, name=%s", group_id, gname)
 
         if to_remove or to_add:
@@ -773,7 +771,7 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads,
         # the code simpler.
         group.write_db()
 
-    return groups_from_cerebrum
+    return current_groups
 
 
 def empty_defunct_groups(groups_from_cerebrum):
@@ -884,6 +882,35 @@ def delete_defunct_groups(groups):
         logger.info("Deleted group id=%s, name=%s", group_id, group_name)
 
 
+def get_affiliation_rows(person, source_system, select_criteria,
+                         ret_primary_acc=False):
+    """Get the affiliation rows necessary for updating the groups"""
+
+    affiliations = {x for x in select_criteria if
+                    isinstance(x, constants.PersonAffiliation)}
+    affiliation_statuses = {x for x in select_criteria if
+                            isinstance(x, constants.PersonAffStatus)}
+    affiliation_rows = []
+    for affiliation in affiliations:
+        affiliation_rows.extend(
+            person.list_affiliations(affiliation=affiliation,
+                                     source_system=source_system,
+                                     ret_primary_acc=ret_primary_acc)
+        )
+    for status in affiliation_statuses:
+        affiliation, status = constants.get_affiliation(status)
+        if affiliation not in affiliations:
+            # If affiliation is not in affiliations, the previous loop did not
+            # add the necessary rows to the list, so it is done now.
+            affiliation_rows.extend(
+                person.list_affiliations(affiliation=affiliation,
+                                         status=status,
+                                         source_system=source_system,
+                                         ret_primary_acc=ret_primary_acc)
+            )
+    return affiliation_rows
+
+
 def perform_sync(select_criteria, perspective, source_system, spreads,
                  omit_spread, populate_with_primary_acc=False):
     """Set up the environment for synchronisation and sync all groups.
@@ -915,12 +942,6 @@ def perform_sync(select_criteria, perspective, source_system, spreads,
     """
 
     person = Factory.get("Person")(database)
-    selecting_affiliations = [x
-                              for x in select_criteria
-                              if isinstance(x, constants.PersonAffiliation)]
-
-    if not selecting_affiliations:
-        selecting_affiliations = None
 
     # Collect existing auto groups matching the given select_criteria.
     # These are collected so that groups which no longer have any reason to
@@ -936,17 +957,15 @@ def perform_sync(select_criteria, perspective, source_system, spreads,
     # inferred from the db-rows returned by the first callable.
     global_rules = [
         # Affiliation-based rule, e.g. rules that populate ansatt-<ou>
-        (lambda: person.list_affiliations(
-         affiliation=selecting_affiliations,
-         source_system=source_system),
+        (lambda: get_affiliation_rows(person, source_system, select_criteria),
          lambda row, current_groups: affiliation2groups(row,
                                                         current_groups,
                                                         select_criteria,
                                                         perspective),
-         lambda: person.list_affiliations(
-            affiliation=selecting_affiliations,
-            source_system=source_system,
-            ret_primary_acc=True)),
+         lambda: get_affiliation_rows(person,
+                                      source_system,
+                                      select_criteria,
+                                      ret_primary_acc=True)),
 
         # Trait-based rules: a person with a trait -> membership in a group
         # (lambda: person.list_traits(code=_locate_all_auto_traits()),
