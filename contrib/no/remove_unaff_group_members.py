@@ -68,7 +68,7 @@ def remove_persons(database, logger, posix_user2gid, grace_period):
 
     # Cache group type of all groups
     logger.info("Caching group types of all groups")
-    group_type = cache_group_types(database)
+    group_type = cache_group_types(group)
 
     # Find all person affiliations and filter by deletion date
     logger.info("Finding unaffiliated persons outside grace period")
@@ -109,19 +109,14 @@ def remove_persons(database, logger, posix_user2gid, grace_period):
                 len(persons_affected), len(groups_affected))
 
 
-def cache_group_types(database):
+def cache_group_types(gr):
     """Make a cache of group id to group type
 
     We want to use this for filtering based on group types
     """
     group_dict = {}
-    for group_id, group_type in database.query(
-        """
-        SELECT group_id, group_type
-        FROM [:table schema=cerebrum name=group_info]
-        """
-    ):
-        group_dict[group_id] = group_type
+    for row in gr.search(filter_expired=False):
+        group_dict[row["group_id"]] = row["group_type"]
     return group_dict
 
 
