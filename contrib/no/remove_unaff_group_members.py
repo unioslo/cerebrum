@@ -71,7 +71,7 @@ def remove_persons(database, logger, posix_user2gid, grace_period):
     for pid, aff_del_dates in person_cache.items():
         if None in aff_del_dates:
             continue
-        if not any(delete_date > datetime.date -
+        if not any(delete_date > datetime.date.today() -
                    datetime.timedelta(days=grace_period)
                    for delete_date in aff_del_dates):
             filtered_persons.add(pid)
