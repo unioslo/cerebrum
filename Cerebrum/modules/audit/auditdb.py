@@ -157,7 +157,7 @@ def sql_insert(
         binds['metadata'] = json.dumps(metadata)
 
     if params:
-        binds['params'] = json.dumps(params)
+        binds['params'] = json.dumps(serialize_params(params))
 
     insert = """
     INSERT INTO [:table schema=cerebrum name=audit_log]
