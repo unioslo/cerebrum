@@ -47,7 +47,7 @@ def _serialize_mx_datetime(dt):
 def serialize_params(params):
     new_params = {}
     for k in params:
-        if isinstance(params[k], mx.DateTime):
+        if isinstance(params[k], mx.DateTime.DateTimeType):
             new_params[k] = _serialize_mx_datetime(params[k])
         else:
             new_params[k] = params[k]
