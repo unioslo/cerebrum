@@ -242,7 +242,7 @@ def main(inargs=None):
         '-g', '--grace',
         type=int,
         default=0,
-        help="Grace period for person affiliations in days (default: 180)")
+        help="Grace period for person affiliations in days (default: 0)")
     add_commit_args(parser)
 
     logutils.options.install_subparser(parser)
