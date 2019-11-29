@@ -38,9 +38,9 @@ Potential problems:
 """
 
 import argparse
+import datetime
 import logging
 
-import mx.DateTime
 from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import add_commit_args
@@ -78,8 +78,8 @@ def remove_persons(database, logger, posix_user2gid, grace_period):
     for pid, aff_del_dates in person_cache.items():
         if None in aff_del_dates:
             continue
-        if not any(delete_date > mx.DateTime.now() -
-                   mx.DateTime.DateTimeDeltaFromDays(grace_period)
+        if not any(delete_date > datetime.date -
+                   datetime.timedelta(days=grace_period)
                    for delete_date in aff_del_dates):
             filtered_persons.add(pid)
 
@@ -133,6 +133,8 @@ def cache_person_affs(database):
         if pid not in person_affs:
             person_affs[pid] = set()
         delete_date = row['deleted_date']
+        if delete_date is not None:
+            delete_date = delete_date.pydate()
         person_affs[pid].add(delete_date)
     return person_affs
 
