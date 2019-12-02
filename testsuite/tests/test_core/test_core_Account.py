@@ -491,26 +491,21 @@ def test_populate_affect_auth(accounts):
         # Check that only affected auth method crypts were altered
         for method, new_crypt, affect in tests:
             try:
-                # We add the salt to the password, just to get a different
-                # password from the unsalted test
-                salted = self._ac.encrypt_password(
-                    method, salt + password, salt)
-                self.assertTrue(bool(salted))
-                unsalted = self._ac.encrypt_password(method, password)
-                self.assertTrue(bool(unsalted))
-            except Errors.NotImplementedAuthTypeError:
-                self.assertNotIn(method, must_encode)
-                continue
-            try:
-                self.assertTrue(self._ac.verify_password(
-                    method, salt + password, salted))
-                self.assertFalse(self._ac.verify_password(
-                    method, password, salted))
-                self.assertTrue(self._ac.verify_password(
-                    method, password, unsalted))
-                self.assertFalse(self._ac.verify_password(
-                    method, salt + password, unsalted))
-            except Errors.NotImplementedAuthTypeError:
-                self.assertNotIn(method, must_verify)
-            # except ValueError:
-                # self.assertNotIn(method, must_verify)
+                crypt = accounts._ac.get_account_authentication(method)
+            except Errors.NotFoundError:
+                # The non-affected methods may not exist in the db, but the
+                # affected method MUST exist
+                assert affect is False
+            else:
+                # The method exists in the database...
+                if affect:
+                    # ...and is an affected method - the crypt must match
+                    # the one we set
+                    assert crypt == new_crypt
+                else:
+                    # ...and is not an affected method - the crypt SHOULD
+                    # NOT match the one we set.
+                    # NOTE: If you're reading this, it's probably because
+                    # the method is plaintext, and the old crypt is the
+                    # same as the one given in 'tests'...
+                    assert crypt != new_crypt
