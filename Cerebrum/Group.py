@@ -210,10 +210,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                   SET {set_str}
                   WHERE group_id=:group_id""".format(set_str=set_str)
                 self.execute(update_stmt, binds)
+                change_params = {k: v for k, v in six.iteritems(binds) if
+                                 k in self.__updated}
                 self._db.log_change(self.entity_id,
                                     self.clconst.group_mod,
                                     None,
-                                    change_params=self.__updated)
+                                    change_params=change_params)
             if 'group_name' in self.__updated:
                 self.update_entity_name(self.const.group_namespace,
                                         self.group_name)
