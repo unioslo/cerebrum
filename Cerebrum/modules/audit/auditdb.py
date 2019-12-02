@@ -44,14 +44,17 @@ def _serialize_mx_datetime(dt):
         return apply_timezone(dt.pydatetime()).isoformat()
 
 
-def serialize_params(params):
-    new_params = {}
-    for k in params:
-        if isinstance(params[k], mx.DateTime.DateTimeType):
-            new_params[k] = _serialize_mx_datetime(params[k])
-        else:
-            new_params[k] = params[k]
-    return new_params
+def serialize_params(value):
+    # TODO: We should'd need to do this -- it would be better to ensure that
+    # all change_params are properly serialized when calling log_change()
+    if isinstance(value, mx.DateTime.DateTimeType):
+        return _serialize_mx_datetime(value)
+    elif isinstance(value, (list, tuple, set)):
+        return [serialize_params(p) for p in value]
+    elif isinstance(value, dict):
+        return {k: serialize_params(value[k]) for k in value}
+    else:
+        return value
 
 
 def sql_get_record(db, record_id):
