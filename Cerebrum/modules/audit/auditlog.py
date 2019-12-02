@@ -328,22 +328,23 @@ class AuditRecordBuilder(DatabaseAccessor):
     @translate_params.register('group', 'modify')
     def group_mod(self, subject_entity, destination_entity,
                   change_params):
-        if ('visibility' in change_params and
-                change_params['visibility'] is not None):
+        if ('old_visibility' in change_params and
+                change_params['old_visibility'] is not None):
             try:
                 change_params.update(
-                    {'visibility': six.text_type(
-                        self.const.GroupVisibility(change_params['visibility'])
+                    {'old_visibility': six.text_type(
+                        self.const.GroupVisibility(
+                            change_params['old_visibility'])
                     )}
                 )
             except Cerebrum.Errors.NotFoundError:
                 pass
-        if ('group_type' in change_params and
-                change_params['group_type'] is not None):
+        if ('old_group_type' in change_params and
+                change_params['old_group_type'] is not None):
             try:
                 change_params.update(
-                    {'group_type': six.text_type(
-                        self.const.GroupType(change_params['group_type'])
+                    {'old_group_type': six.text_type(
+                        self.const.GroupType(change_params['old_group_type'])
                     )}
                 )
             except Cerebrum.Errors.NotFoundError:
