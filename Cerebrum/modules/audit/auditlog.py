@@ -319,6 +319,11 @@ class AuditRecordBuilder(DatabaseAccessor):
                 pass
         return change_params
 
+    @translate_params.register('account_password', 'set')
+    def account_password_set(self, subject_entity, destination_entity,
+                             change_params):
+        return {}
+
     @translate_params.register('account_home', 'add')
     @translate_params.register('account_home', 'remove')
     @translate_params.register('account_home', 'modify')
