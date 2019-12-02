@@ -109,6 +109,7 @@ class AuditLog(ChangeLog):
         accessor = AuditLogAccessor(self)
         for record in self.records:
             accessor.append(record)
+        self.records = []
 
     def clear_log(self):
         super(AuditLog, self).clear_log()
