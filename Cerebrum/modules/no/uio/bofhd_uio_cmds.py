@@ -2282,11 +2282,11 @@ class BofhdExtension(BofhdCommonMethods):
             self.mb_utils = DnsBofhdUtils(self.db, self.logger, zone)
             self.dns_parser = DnsUtils.DnsParser(self.db, zone)
             ret = host_info(self, operator, hostname, policy=policy)
-        except CerebrumError:
+        except CerebrumError as e:
             # Even though the DNS module doesn't recognise the host, the
             # standard host_info could still have some info. We should
             # therefore continue and see if we could get more info.
-            pass
+            dns_err = e
         # Other exceptions are faults and should cause trouble
         # TODO: make it possible to check if the DNS module are in use by the
         # active instance.
