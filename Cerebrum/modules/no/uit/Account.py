@@ -180,9 +180,13 @@ class AccountUiTMixin(Account.Account):
         """
         Support UiT added encryption methods, for other methods call super()
         """
+        u_plaintext = plaintext
+        if binary is False:
+            assert(isinstance(plaintext, six.text_type))
+            u_plaintext = plaintext.encode('utf-8')
         try:
             method = all_auth_methods[str(method)]()
-            return method.encrypt(plaintext, salt, binary)
+            return method.encrypt(u_plaintext, salt, binary)
         except NotImplementedError as ne:
             if hasattr(self, 'logger'):
                 self.logger.warn(
