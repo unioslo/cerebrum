@@ -35,6 +35,7 @@ import jinja2
 
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from smtplib import SMTPException
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
@@ -479,6 +480,7 @@ def send_mails(db, args):
             entity_type
         )
         if not entity_email_address:
+            logger.warning('No primary email for %s', entity_id)
             continue
 
         owned_groups = []
@@ -510,8 +512,10 @@ def send_mails(db, args):
                                       subject=title,
                                       from_addr=FROM_ADDRESS,
                                       to_addrs=entity_email_address)
-        Cerebrum.utils.email.send_message(message,
-                                          debug=not args.commit)
+        try:
+            Cerebrum.utils.email.send_message(message, debug=not args.commit)
+        except SMTPException as e:
+            logger.warning(e)
 
 
 def check_date(dates, today=None):

@@ -151,6 +151,7 @@ def main(inargs=None):
 
     prog_name = parser.prog.rsplit('.', 1)
     database = Factory.get('Database')()
+    database.cl_init(change_program=parser.prog)
     config = load_config(filepath=args.configfile)
 
     if not args.commit:

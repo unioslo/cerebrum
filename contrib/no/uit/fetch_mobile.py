@@ -195,7 +195,7 @@ def update_bas(db, mobile_phones):
                                value=mobile_phone_e164)
 
         p.write_db()
-        return 1
+    return 1
 
 
 def main(inargs=None):

@@ -1011,3 +1011,23 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if hasattr(self, 'entity_id'):
             return self.group_name
         return '<unbound group>'
+
+    def get_owned_accounts(self, filter_expired=True):
+        """Get accounts owned by a group
+
+        :param filter_expired: see list_accounts_by_owner_id method
+        :return: list of db.rows with account ids
+        """
+        acc = Utils.Factory.get('Account')(self._db)
+        return acc.list_accounts_by_owner_id(
+            self.entity_id,
+            owner_type=self.const.entity_group,
+            filter_expired=filter_expired
+        )
+
+    def is_account_owner(self):
+        """Check if the group owns any accounts
+
+        :return: True if owner of at least one account, False if not
+        """
+        return bool(self.get_owned_accounts())

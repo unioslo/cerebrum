@@ -33,14 +33,13 @@ import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Constants import _SpreadCode as SpreadCode
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.argutils import add_commit_args
-from Cerebrum.utils.argutils import get_constant
-
+from Cerebrum.utils.argutils import add_commit_args, get_constant
+from Cerebrum.modules.spread_expire import SpreadExpire, SpreadExpireNotify
 
 logger = logging.getLogger(__name__)
 
 
-def process_spread(db, spread, cutoff_date):
+def delete_spread(db, spread_expire, spread, cutoff_date):
     try:
         int(spread)
     except Exception:
@@ -49,36 +48,15 @@ def process_spread(db, spread, cutoff_date):
     logger.info("Cleaning spread %r", spread)
     ac = Factory.get('Account')(db)
 
-    logger.info("Fetching spreads with expire date...")
-    spread_expire_table = ac.search_spread_expire(spread=spread)
-
-    keep_cache = {}
-    for sd in spread_expire_table:
-        expire_date = (sd['expire_date'].pydate()
-                       if sd['expire_date']
-                       else None)
-        if expire_date and expire_date < cutoff_date:
-            # spread to remove
-            continue
-        if expire_date:
-            ac.notify_spread_expire(**dict(sd))
-        else:
-            logger.debug("No expire date for entity_id=%d, spread=%s",
-                         sd['entity_id'], spread)
-
-        keep_cache[(sd['entity_id'], int(sd['spread']))] = expire_date
-
-    # TODO: It would probably be more efficient to process *all* spreads, i.e.
-    #       map {account_id: [matching spreads], ...} and iterate over each
-    #       account - so we'd only need to do ac.find() once per account!
     count = 0
-    for i in ac.search(spread=spread, expire_start=None):
-        # Don't clean if the spread has been seen within defined cutoff
-        if (i['account_id'], int(spread)) in keep_cache:
+    for row in spread_expire.search(spread=spread, before_date=cutoff_date):
+        ac.clear()
+        try:
+            ac.find(row['entity_id'])
+        except Errors.NotFoundError:
+            # We only delete spreads on accounts for the time being
             continue
 
-        ac.clear()
-        ac.find(i['account_id'])
         logger.info("Removing spread=%r on account_id=%r (%s)",
                     spread, ac.entity_id, ac.account_name)
         try:
@@ -88,7 +66,25 @@ def process_spread(db, spread, cutoff_date):
                            ac.entity_id, spread)
         ac.delete_spread(spread)
         count += 1
+
     logger.info("Removed %d spreads of type %s, ", count, spread)
+
+
+def send_notifications(db, spread_expire, spread_expire_notify, cutoff_date):
+    ac = Factory.get('Account')(db)
+
+    after_date = cutoff_date - datetime.timedelta(days=1)
+
+    for entity_id in {e['entity_id'] for e in spread_expire_notify.search()}:
+        for row in spread_expire.search(entity_id=entity_id,
+                                        after_date=after_date):
+            expire_date = (row['expire_date'].pydate()
+                           if row['expire_date']
+                           else None)
+            if expire_date:
+                ac.notify_spread_expire(row['spread'],
+                                        expire_date,
+                                        row['entity_id'])
 
 
 def main(inargs=None):
@@ -123,6 +119,8 @@ def main(inargs=None):
     db = Factory.get('Database')()
     db.cl_init(change_program=parser.prog)
     co = Factory.get('Constants')(db)
+    spread_expire = SpreadExpire(db)
+    spread_expire_notify = SpreadExpireNotify(db)
 
     if args.spreads:
         spreads = tuple(
@@ -147,7 +145,9 @@ def main(inargs=None):
             continue
         else:
             logger.info("Processing spread: %s", spread)
-        process_spread(db, spread, cutoff)
+        delete_spread(db, spread_expire, spread, cutoff)
+
+    send_notifications(db, spread_expire, spread_expire_notify, cutoff)
 
     if args.commit:
         logger.info('Commiting changes')

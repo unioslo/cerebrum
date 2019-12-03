@@ -154,7 +154,7 @@ def filter_employees(persons, employee_data):
 
     - has fnr in paga file and BAS
     - has stedkode in paga file that matches stedkode from BAS
-    - has stillingsprosent > 49%
+    - has tj.forh == 'VIT'
     - has employment type != F
     """
     for person in persons:
@@ -170,23 +170,18 @@ def filter_employees(persons, employee_data):
                 # Note: There may exist another person object whith the correct
                 #       stedkode?
                 continue
-
-            # TODO: Why don't we check for value < 50?
-            if employment['prosent'] <= 49:
-                logger.warning("Skipping person=%s with employment "
-                               "%r%% < 50%%",
-                               repr(person), employment['prosent'])
-                continue
             if not employment['ansatt_type']:
                 logger.error("Missing employment type for person=%s, skipping",
                              repr(person))
                 continue
+            if employment['category'] != 'VIT':
+                # skip if category is anything but 'VIT'
+                logger.debug("Skipping person=%s with category:%s",
+                             repr(person), employment['category'])
+                continue
             if employment['ansatt_type'] == 'F':
                 logger.debug("Skipping person=%s with employment type=%r",
                              repr(person), employment['ansatt_type'])
-                # TODO: This may be incorrect?
-                #       Should the person be exported if *any* of the
-                #       employments contains 'F'? They are now!
                 continue
 
             logger.info("Including employment for person=%s, type=%r",
@@ -306,6 +301,7 @@ def read_employee_data(filename, encoding='iso-8859-1', charsep=';'):
                 'fnr': paga_dict['Fødselsnummer'],
                 'ansatt_type': paga_dict['Tj.forh.'],
                 'prosent': pct,
+                'category': paga_dict['Univkat'],
                 'stedkode': paga_dict['Org.nr.'],
             }
             count += 1

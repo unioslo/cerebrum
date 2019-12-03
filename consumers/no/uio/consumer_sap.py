@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
 
 """Consumes events from SAP and updates Cerebrum."""
 
@@ -46,7 +47,7 @@ callback_filters = CallbackMap()
 
 def filter_meta(l):
     """Filter out the __metadata key of a dict."""
-    return dict(filter(lambda (k, _): k != u'__metadata', l.items()))
+    return dict(filter(lambda (k, _): k != '__metadata', l.items()))
 
 
 def translate_keys(d, m):
@@ -80,6 +81,14 @@ class RemoteSourceUnavailable(Exception):
 
 class RemoteSourceError(Exception):
     """An error occured in the source system."""
+
+
+class SourceSystemNotReachedError(Exception):
+    """Package not received from source system."""
+
+
+class EntityDoesNotExistInSourceSystemError(Exception):
+    """Entity does not exist in source system."""
 
 
 class ErroneousSourceData(Exception):
@@ -136,26 +145,33 @@ def parse_address(d):
          ('address_text', 'Postboks 1059 Blindern')))
     :return: A tuple with the fields that should be updated"""
     co = Factory.get('Constants')
-    address_types = (u'legalAddress',
-                     u'workMailingAddress',
-                     u'workVisitingAddress')
-    m = {u'legalAddress': co.address_post_private,
-         u'workMailingAddress': co.address_post,
-         u'workVisitingAddress': co.address_street,
-         u'city': u'city',
-         u'postalCode': u'postal_number',
-         u'streetAndHouseNumber': u'address_text'}
+    address_types = ('legalAddress',
+                     'workMailingAddress',
+                     'workVisitingAddress')
+    m = {'legalAddress': co.address_post_private,
+         'workMailingAddress': co.address_post,
+         'workVisitingAddress': co.address_street,
+         'city': 'city',
+         'postalCode': 'postal_number',
+         'streetAndHouseNumber': 'address_text'}
     r = {x: d.get(x, {}) for x in address_types}
     logger.info('parsing %i addresses', len(r))
     # Visiting address should be a concoction of real address and a
     # meta-location
-    if r.get(u'workVisitingAddress'):
-        r[u'workVisitingAddress'][u'streetAndHouseNumber'] = u'{}\n{}'.format(
-            r.get(u'workVisitingAddress').get(u'streetAndHouseNumber'),
-            r.get(u'workVisitingAddress').get(u'location'))
+    if r.get('workVisitingAddress'):
+        r['workVisitingAddress']['streetAndHouseNumber'] = '{}\n{}'.format(
+            r.get('workVisitingAddress').get('streetAndHouseNumber'),
+            r.get('workVisitingAddress').get('location'))
     return tuple([(k, tuple(sorted(filter_elements(translate_keys(v, m))))) for
                   (k, v) in filter_elements(
                       translate_keys(filter_meta(r), m))])
+
+
+def verify_sap_header(header):
+    """Verify that the headers originate from SAP"""
+    if 'sap-server' in header:
+        return header['sap-server'] == 'true'
+    return False
 
 
 def parse_names(d):
@@ -169,8 +185,8 @@ def parse_names(d):
     :return: A tuple with the fields that should be updated"""
     logger.info('parsing names')
     co = Factory.get('Constants')
-    return ((co.name_first, d.get(u'firstName')),
-              (co.name_last, d.get(u'lastName')))
+    return ((co.name_first, d.get('firstName')),
+            (co.name_last, d.get('lastName')))
 
 
 def parse_contacts(d):
@@ -186,10 +202,10 @@ def parse_contacts(d):
     logger.info('parsing contacts')
     co = Factory.get('Constants')
     # TODO: Validate/clean numbers with phonenumbers?
-    m = {u'workPhone': co.contact_phone,
-         u'workMobile': co.contact_mobile_phone,
-         u'privateMobile': co.contact_private_mobile,
-         u'publicMobile': co.contact_private_mobile_visible}
+    m = {'workPhone': co.contact_phone,
+         'workMobile': co.contact_mobile_phone,
+         'privateMobile': co.contact_private_mobile,
+         'publicMobile': co.contact_private_mobile_visible}
 
     def expand(l, pref=0):
         if not l:
@@ -220,44 +236,44 @@ def parse_titles(d):
     :return: A list of tuples with the fields that should be updated"""
 
     def make_tuple(variant, lang, name):
-        return ((u'name_variant', variant),
-                (u'name_language', lang),
-                (u'name', name))
+        return (('name_variant', variant),
+                ('name_language', lang),
+                ('name', name))
 
     co = Factory.get('Constants')
     logger.info('parsing titles')
     titles = []
-    if d.get(u'personalTitle'):
+    if d.get('personalTitle'):
         titles.extend(
             [make_tuple(co.personal_title,
                         co.language_en,
-                        d.get(u'personalTitle', {}).get(u'en'))] +
+                        d.get('personalTitle', {}).get('en'))] +
             map(lambda lang: make_tuple(
                     co.personal_title,
                     lang,
-                    d.get(u'personalTitle', {}).get(u'nb')),
+                    d.get('personalTitle', {}).get('nb')),
                 [co.language_nb, co.language_nn]))
     # Select appropriate work title.
     assignment = None
-    for e in d.get(u'assignments', {}).get(u'results', []):
-        if not e.get(u'jobTitle'):
+    for e in d.get('assignments', {}).get('results', []):
+        if not e.get('jobTitle'):
             continue
-        if e.get(u'primaryAssignmentFlag'):
+        if e.get('primaryAssignmentFlag'):
             assignment = e
             break
         if not assignment:
             assignment = e
-        elif (float(e.get(u'agreedFTEPercentage')) >
-                float(assignment.get(u'agreedFTEPercentage'))):
+        elif (float(e.get('agreedFTEPercentage')) >
+                float(assignment.get('agreedFTEPercentage'))):
             assignment = e
     if assignment:
         titles.extend(map(lambda (lang_code, lang_str): make_tuple(
             co.work_title,
             lang_code,
-            assignment.get(u'jobTitle').get(lang_str)),
-            [(co.language_nb, u'nb'),
-             (co.language_nn, u'nb'),
-             (co.language_en, u'en')]))
+            assignment.get('jobTitle').get(lang_str)),
+                          [(co.language_nb, 'nb'),
+                           (co.language_nn, 'nb'),
+                           (co.language_en, 'en')]))
     return filter(lambda ((vk, vn), (lk, lv), (nk, nv)): nv, titles)
 
 
@@ -271,16 +287,16 @@ def parse_external_ids(d):
                    '000001')]
     :return: A list of tuples with the external_ids"""
     co = Factory.get('Constants')
-    external_ids = [(co.externalid_sap_ansattnr, unicode(d.get(u'personId')))]
+    external_ids = [(co.externalid_sap_ansattnr, unicode(d.get('personId')))]
     logger.info('parsing %i external ids', len(external_ids))
-    if d.get(u'passportIssuingCountry') and d.get(u'passportNumber'):
+    if d.get('passportIssuingCountry') and d.get('passportNumber'):
         external_ids.append(
             (co.externalid_pass_number,
-             co.make_passport_number(d.get(u'passportIssuingCountry'),
-                                     d.get(u'passportNumber'))))
-    if d.get(u'norwegianIdentificationNumber'):
+             co.make_passport_number(d.get('passportIssuingCountry'),
+                                     d.get('passportNumber'))))
+    if d.get('norwegianIdentificationNumber'):
         external_ids.append(
-            (co.externalid_fodselsnr, d.get(u'norwegianIdentificationNumber')))
+            (co.externalid_fodselsnr, d.get('norwegianIdentificationNumber')))
 
     return filter_elements(external_ids)
 
@@ -294,7 +310,7 @@ def _get_ou(database, sap_id, placecode):
     ou.clear()
     try:
         ou.find_stedkode(
-            *map(u''.join,
+            *map(''.join,
                  zip(*[iter(str(
                      placecode))]*2)) +
             [cereconf.DEFAULT_INSTITUSJONSNR])
@@ -305,8 +321,8 @@ def _get_ou(database, sap_id, placecode):
 
 def _sap_assignments_to_affiliation_map():
     co = Factory.get('Constants')
-    return {u'administrative': co.affiliation_status_ansatt_tekadm,
-            u'academic': co.affiliation_status_ansatt_vitenskapelig}
+    return {'administrative': co.affiliation_status_ansatt_tekadm,
+            'academic': co.affiliation_status_ansatt_vitenskapelig}
 
 
 def parse_affiliations(database, d):
@@ -322,27 +338,27 @@ def parse_affiliations(database, d):
     :return: A list of tuples with the fields that should be updated"""
     co = Factory.get('Constants')
     r = []
-    for x in d.get(u'assignments', {}).get(u'results', []):
+    for x in d.get('assignments', {}).get('results', []):
         status = _sap_assignments_to_affiliation_map().get(
-                      x.get(u'jobCategory'))
+            x.get('jobCategory'))
         if not status:
             logger.warn('parse_affiliations: Unknown job category')
             # Unknown job category
             continue
         ou = _get_ou(database,
                      sap_id=x.get('organizationalUnitId'),
-                     placecode=x.get(u'locationId'))
+                     placecode=x.get('locationId'))
         if not ou:
             logger.warn(
                 'OU {} does not exist, '
                 'cannot parse affiliation {} for {}'.format(
-                    x.get(u'locationId'), status, x.get(u'personId')))
+                    x.get('locationId'), status, x.get('personId')))
             continue
-        main = x.get(u'primaryAssignmentFlag')
-        r.append({u'ou_id': ou.entity_id,
-                  u'affiliation': co.affiliation_ansatt,
-                  u'status': status,
-                  u'precedence': (50L, 50L) if main else None})
+        main = x.get('primaryAssignmentFlag')
+        r.append({'ou_id': ou.entity_id,
+                  'affiliation': co.affiliation_ansatt,
+                  'status': status,
+                  'precedence': (50L, 50L) if main else None})
     logger.info('parsed %i affiliations', len(r))
     return r
 
@@ -350,20 +366,20 @@ def parse_affiliations(database, d):
 def _sap_roles_to_affiliation_map():
     co = Factory.get('Constants')
     return OrderedDict(
-            [(u'INNKJØPER', co.affiliation_tilknyttet_innkjoper),
-             (u'EF-FORSKER', co.affiliation_tilknyttet_ekst_forsker),
-             (u'EMERITUS', co.affiliation_tilknyttet_emeritus),
-             (u'BILAGSLØNN', co.affiliation_tilknyttet_bilag),
-             (u'GJ-FORSKER', co.affiliation_tilknyttet_gjesteforsker),
-             (u'ASSOSIERT', co.affiliation_tilknyttet_assosiert_person),
-             (u'EF-STIP', co.affiliation_tilknyttet_ekst_stip),
-             (u'GRP-LÆRER', co.affiliation_tilknyttet_grlaerer),
-             (u'EKST-KONS', co.affiliation_tilknyttet_ekst_partner),
-             (u'PCVAKT', co.affiliation_tilknyttet_pcvakt),
-             (u'EKST-PART', co.affiliation_tilknyttet_ekst_partner),
-             (u'KOMITEMEDLEM', co.affiliation_tilknyttet_komitemedlem),
-             (u'STEDOPPLYS', None),
-             (u'POLS-ANSAT', None)])
+            [('INNKJØPER', co.affiliation_tilknyttet_innkjoper),
+             ('EF-FORSKER', co.affiliation_tilknyttet_ekst_forsker),
+             ('EMERITUS', co.affiliation_tilknyttet_emeritus),
+             ('BILAGSLØNN', co.affiliation_tilknyttet_bilag),
+             ('GJ-FORSKER', co.affiliation_tilknyttet_gjesteforsker),
+             ('ASSOSIERT', co.affiliation_tilknyttet_assosiert_person),
+             ('EF-STIP', co.affiliation_tilknyttet_ekst_stip),
+             ('GRP-LÆRER', co.affiliation_tilknyttet_grlaerer),
+             ('EKST-KONS', co.affiliation_tilknyttet_ekst_partner),
+             ('PCVAKT', co.affiliation_tilknyttet_pcvakt),
+             ('EKST-PART', co.affiliation_tilknyttet_ekst_partner),
+             ('KOMITEMEDLEM', co.affiliation_tilknyttet_komitemedlem),
+             ('STEDOPPLYS', None),
+             ('POLS-ANSAT', None)])
 
 
 def parse_roles(database, data):
@@ -379,20 +395,20 @@ def parse_roles(database, data):
     :return: A list of tuples representing them roles."""
     role2aff = _sap_roles_to_affiliation_map()
     r = []
-    for role in data.get(u'roles', {}).get(u'results', []):
-        ou = _get_ou(database, sap_id=None, placecode=role.get(u'locationId'))
+    for role in data.get('roles', {}).get('results', []):
+        ou = _get_ou(database, sap_id=None, placecode=role.get('locationId'))
         if not ou:
             logger.warn('OU %r does not exist, '
                         'cannot parse affiliation %r for %r',
-                        role.get(u'locationId'),
-                        role2aff.get(role.get(u'roleName')),
-                        data.get(u'personId'))
-        elif role2aff.get(role.get(u'roleName')):
-            r.append({u'ou_id': ou.entity_id,
-                      u'affiliation': role2aff.get(
-                          role.get(u'roleName')).affiliation,
-                      u'status': role2aff.get(role.get(u'roleName')),
-                      u'precedence': None})
+                        role.get('locationId'),
+                        role2aff.get(role.get('roleName')),
+                        data.get('personId'))
+        elif role2aff.get(role.get('roleName')):
+            r.append({'ou_id': ou.entity_id,
+                      'affiliation': role2aff.get(
+                          role.get('roleName')).affiliation,
+                      'status': role2aff.get(role.get('roleName')),
+                      'precedence': None})
     logger.info('parsed %i roles', len(r))
     return sorted(r,
                   key=(lambda x: role2aff.values().index(x.get('status')) if
@@ -405,25 +421,26 @@ def _parse_hr_person(database, source_system, data):
     from mx import DateTime
     co = Factory.get('Constants')
     return {
-        u'id': data.get(u'personId'),
-        u'addresses': parse_address(data),
-        u'names': parse_names(data),
-        u'birth_date': DateTime.DateFrom(
-            data.get(u'dateOfBirth')),
-        u'gender': {u'Kvinne': co.gender_female,
-                    u'Mann': co.gender_male}.get(
-                        data.get(u'gender'),
+        'id': data.get('personId'),
+        'addresses': parse_address(data),
+        'names': parse_names(data),
+        'birth_date': DateTime.DateFrom(
+            data.get('dateOfBirth')),
+        'gender': {'Kvinne': co.gender_female,
+                    'Mann': co.gender_male}.get(
+                        data.get('gender'),
                         co.gender_unknown),
-        u'external_ids': parse_external_ids(data),
-        u'contacts': parse_contacts(data),
-        u'affiliations': parse_affiliations(database, data),
-        u'roles': parse_roles(database, data),
-        u'titles': parse_titles(data),
-        u'reserved': not data.get(u'allowedPublicDirectoryFlag')
+        'external_ids': parse_external_ids(data),
+        'contacts': parse_contacts(data),
+        'affiliations': parse_affiliations(database, data),
+        'roles': parse_roles(database, data),
+        'titles': parse_titles(data),
+        'reserved': not data.get('allowedPublicDirectoryFlag')
     }
 
 
-def get_hr_person(config, database, source_system, url):
+def get_hr_person(config, database, source_system, url,
+                  ignore_read_password=False):
     """Collect a person entry from the remote source system and parse the data.
 
     :param config: Authentication data
@@ -439,11 +456,14 @@ def get_hr_person(config, database, source_system, url):
     def _get_data(config, url, params=None):
         if not params:
             params = {}
-
-        headers = {'Accept': 'application/json',
-                   'X-Gravitee-API-Key': read_password(
-                       user=config.auth_user,
-                       system=config.auth_system)}
+        if ignore_read_password:
+            headers = {'Accept': 'application/json',
+                       'X-Gravitee-API-Key': 'true'}
+        else:
+            headers = {'Accept': 'application/json',
+                       'X-Gravitee-API-Key': read_password(
+                           user=config.auth_user,
+                           system=config.auth_system)}
         try:
             logger.debug4('Fetching %r', url)
             r = requests.get(url, headers=headers, params=params)
@@ -454,8 +474,11 @@ def get_hr_person(config, database, source_system, url):
             import time
             time.sleep(1)
             raise RemoteSourceUnavailable(str(e))
+        if not verify_sap_header(r.headers):
+            logger.warn('Source system not reached')
+            raise SourceSystemNotReachedError
         if r.status_code == 200:
-            data = json.loads(r.text).get(u'd', None)
+            data = json.loads(r.text).get('d', None)
             for k in data:
                 if (isinstance(data.get(k), dict) and
                         '__deferred' in data.get(k) and
@@ -472,9 +495,11 @@ def get_hr_person(config, database, source_system, url):
                     r = _get_data(config, deferred_uri, filter_param)
                     data.update({k: r})
             return data
+        elif r.status_code == 404:
+            raise EntityDoesNotExistInSourceSystemError('404: Not Found')
         else:
             raise RemoteSourceError(
-                u'Could not fetch {} from remote source: {}: {}'.format(
+                'Could not fetch {} from remote source: {}: {}'.format(
                     url, r.status_code, r.reason))
     return _parse_hr_person(database, source_system, _get_data(config, url))
 
@@ -493,8 +518,8 @@ def get_cerebrum_person(database, ids):
         pe.clear()
     except Errors.TooManyRowsError as e:
         raise EntityNotResolvableError(
-            u'Person in source system maps to multiple persons in Cerebrum. '
-            u'Manual intervention required: {}'.format(e))
+            'Person in source system maps to multiple persons in Cerebrum. '
+            'Manual intervention required: {}'.format(e))
     return pe
 
 
@@ -577,15 +602,15 @@ def update_person(database, source_system, hr_person, cerebrum_person):
     """Update person with birth date and gender."""
     if not (cerebrum_person.gender and
             cerebrum_person.birth_date and
-            cerebrum_person.gender == hr_person.get(u'gender') and
-            cerebrum_person.birth_date == hr_person.get(u'birth_date')):
+            cerebrum_person.gender == hr_person.get('gender') and
+            cerebrum_person.birth_date == hr_person.get('birth_date')):
         cerebrum_person.populate(
-            hr_person.get(u'birth_date'),
-            hr_person.get(u'gender'))
+            hr_person.get('birth_date'),
+            hr_person.get('gender'))
         cerebrum_person.write_db()
         logger.info('Added birth date %r and gender %r for %i',
-                    hr_person.get(u'birth_date'),
-                    hr_person.get(u'gender'),
+                    hr_person.get('birth_date'),
+                    hr_person.get('gender'),
                     cerebrum_person.entity_id)
 
 
@@ -601,7 +626,7 @@ def _find_affiliations(cerebrum_person, hr_affs, affiliation_map,
         lambda d: tuple(
             sorted(
                 filter(
-                    lambda (k, v): k != u'precedence',
+                    lambda (k, v): k != 'precedence',
                     d.items()
                 )
             )
@@ -613,26 +638,26 @@ def _find_affiliations(cerebrum_person, hr_affs, affiliation_map,
                 filter_elements(
                     translate_keys(
                         x,
-                        {u'ou_id': u'ou_id',
-                         u'affiliation': u'affiliation',
-                         u'status': u'status'}
+                        {'ou_id': 'ou_id',
+                         'affiliation': 'affiliation',
+                         'status': 'status'}
                     )
                 )
             )
         ),
         cerebrum_affiliations)
-    if mode == u'remove':
+    if mode == 'remove':
         return [
-            dict(filter(lambda (k, v): k in (u'ou_id', u'affiliation'), x) +
-                 ((u'source', source_system),))
+            dict(filter(lambda (k, v): k in ('ou_id', 'affiliation'), x) +
+                 (('source', source_system),))
             for x in set(in_cerebrum) - set(in_hr)]
-    elif mode == u'add':
+    elif mode == 'add':
         to_add = set(in_hr) - set(in_cerebrum)
         to_ensure = set(in_hr) & set(in_cerebrum)
         return [dict(x) for x in to_add | to_ensure]
     else:
         raise Errors.ProgrammingError(
-            u'Invalid mode {} supplied to _find_affiliations'.format(
+            'Invalid mode {} supplied to _find_affiliations'.format(
                 repr(mode)))
 
 
@@ -646,10 +671,10 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
     """
     for affiliation in _find_affiliations(
             cerebrum_person,
-            hr_person.get(u'affiliations'),
+            hr_person.get('affiliations'),
             _sap_assignments_to_affiliation_map,
             source_system,
-            u'remove'):
+            'remove'):
         del_account_type(database,
                          cerebrum_person,
                          affiliation['ou_id'],
@@ -660,10 +685,10 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
                     cerebrum_person.entity_id)
     for affiliation in _find_affiliations(
             cerebrum_person,
-            hr_person.get(u'affiliations'),
+            hr_person.get('affiliations'),
             _sap_assignments_to_affiliation_map,
             source_system,
-            u'add'):
+            'add'):
         cerebrum_person.populate_affiliation(source_system, **affiliation)
         logger.info('Adding affiliation %r for id: %r',
                     _stringify_for_log(affiliation),
@@ -671,10 +696,10 @@ def update_affiliations(database, source_system, hr_person, cerebrum_person):
     cerebrum_person.write_db()
     for affiliation in _find_affiliations(
             cerebrum_person,
-            hr_person.get(u'affiliations'),
+            hr_person.get('affiliations'),
             _sap_assignments_to_affiliation_map,
             source_system,
-            u'add'):
+            'add'):
         set_account_type(database,
                          cerebrum_person,
                          affiliation['ou_id'],
@@ -693,20 +718,20 @@ def update_roles(database, source_system, hr_person, cerebrum_person):
     """
     for role in _find_affiliations(
             cerebrum_person,
-            hr_person.get(u'roles'),
+            hr_person.get('roles'),
             _sap_roles_to_affiliation_map,
             source_system,
-            u'remove'):
+            'remove'):
         cerebrum_person.delete_affiliation(**role)
         logger.info('Removing role %r for id: %r',
                     _stringify_for_log(role),
                     cerebrum_person.entity_id)
     for role in _find_affiliations(
             cerebrum_person,
-            hr_person.get(u'roles'),
+            hr_person.get('roles'),
             _sap_roles_to_affiliation_map,
             source_system,
-            u'add'):
+            'add'):
         cerebrum_person.populate_affiliation(source_system, **role)
         logger.info('Ensuring role %r for id: %r',
                     _stringify_for_log(role),
@@ -731,8 +756,8 @@ def update_names(database, source_system, hr_person, cerebrum_person):
                     [co.name_first, co.name_last]))
     except Errors.NotFoundError:
         names = set()
-    to_remove = names - set(hr_person.get(u'names'))
-    to_add = set(hr_person.get(u'names')) - names
+    to_remove = names - set(hr_person.get('names'))
+    to_add = set(hr_person.get('names')) - names
     if to_remove:
         logger.info('Purging names of types %r for id: %r',
                     map(lambda (k, _): _stringify_for_log(k), to_remove),
@@ -764,11 +789,11 @@ def update_external_ids(database, source_system, hr_person, cerebrum_person):
     :param cerebrum_person: The Person object to be updated.
     """
     co = Factory.get('Constants')(database)
-    external_ids = set(map(lambda e: (e[u'id_type'], e[u'external_id']),
+    external_ids = set(map(lambda e: (e['id_type'], e['external_id']),
                        cerebrum_person.get_external_id(
                            source_system=source_system)))
-    to_remove = external_ids - set(hr_person.get(u'external_ids'))
-    to_add = set(hr_person.get(u'external_ids')) - external_ids
+    to_remove = external_ids - set(hr_person.get('external_ids'))
+    to_add = set(hr_person.get('external_ids')) - external_ids
     cerebrum_person.affect_external_id(
         source_system,
         *map(lambda (k, _): k, to_remove | to_add))
@@ -796,18 +821,18 @@ def update_addresses(database, source_system, hr_person, cerebrum_person):
     """
     co = Factory.get('Constants')(database)
     addresses = row_transform(co.Address,
-                              u'address_type',
-                              (u'entity_id', u'source_system', u'address_type',
-                               u'p_o_box', u'country'),
+                              'address_type',
+                              ('entity_id', 'source_system', 'address_type',
+                               'p_o_box', 'country'),
                               cerebrum_person.get_entity_address(
                                   source=source_system))
 
-    for (k, v) in addresses - set(hr_person.get(u'addresses')):
+    for (k, v) in addresses - set(hr_person.get('addresses')):
         cerebrum_person.delete_entity_address(source_system, k)
         logger.info('Removing address %r for id: %r',
                     (_stringify_for_log(k), v),
                     cerebrum_person.entity_id)
-    for (k, v) in set(hr_person.get(u'addresses')) - addresses:
+    for (k, v) in set(hr_person.get('addresses')) - addresses:
         cerebrum_person.add_entity_address(source_system, k, **dict(v))
         logger.info('Adding address %r for id: %r',
                     (_stringify_for_log(k), v),
@@ -824,10 +849,10 @@ def update_contact_info(database, source_system, hr_person, cerebrum_person):
     """
     co = Factory.get('Constants')(database)
     contacts = row_transform(co.ContactInfo,
-                             u'contact_type',
-                             (u'entity_id', u'source_system',
-                              u'contact_type', u'contact_description',
-                              u'contact_alias', u'last_modified'),
+                             'contact_type',
+                             ('entity_id', 'source_system',
+                              'contact_type', 'contact_description',
+                              'contact_alias', 'last_modified'),
                              cerebrum_person.get_contact_info(
                                  source=source_system))
     for (k, v) in contacts - set(hr_person.get('contacts')):
@@ -839,7 +864,7 @@ def update_contact_info(database, source_system, hr_person, cerebrum_person):
                     _stringify_for_log(k),
                     p,
                     cerebrum_person.entity_id)
-    for (k, v) in set(hr_person.get(u'contacts')) - contacts:
+    for (k, v) in set(hr_person.get('contacts')) - contacts:
         (p, v, _d) = (value for (_, value) in v)
         cerebrum_person.add_contact_info(source_system, k, v, p)
         logger.info('Adding contact %r of type %r with preference %r for '
@@ -861,18 +886,18 @@ def update_titles(database, source_system, hr_person, cerebrum_person):
     co = Factory.get('Constants')(database)
     titles = set(map(lambda x:
                      tuple(filter(lambda (k, v):
-                                  k not in (u'entity_id', u'entity_type'),
+                                  k not in ('entity_id', 'entity_type'),
                                   x.items())),
                      cerebrum_person.search_name_with_language(
                          entity_id=cerebrum_person.entity_id,
                          name_variant=[co.work_title,
                                        co.personal_title])))
-    for e in set(hr_person.get(u'titles')) - titles:
+    for e in set(hr_person.get('titles')) - titles:
         cerebrum_person.add_name_with_language(**dict(e))
         logger.info('Adding title %r for id: %r',
                     _stringify_for_log(e),
                     cerebrum_person.entity_id)
-    for e in titles - set(hr_person.get(u'titles')):
+    for e in titles - set(hr_person.get('titles')):
         cerebrum_person.delete_name_with_language(**dict(e))
         logger.info('Removing title %r for id: %r',
                     _stringify_for_log(e),
@@ -889,13 +914,13 @@ def update_reservation(database, hr_person, cerebrum_person):
     """
     # TODO: Recode this function when we handle reservation on the fly
     gr = Factory.get('Group')(database)
-    gr.find_by_name(u'SAP-elektroniske-reservasjoner')
+    gr.find_by_name('SAP-elektroniske-reservasjoner')
     in_reserved_group = gr.has_member(cerebrum_person.entity_id)
-    if hr_person.get(u'reserved') and not in_reserved_group:
+    if hr_person.get('reserved') and not in_reserved_group:
         gr.add_member(cerebrum_person.entity_id)
         logger.info('Adding id: %r to reservation group',
                     cerebrum_person.entity_id)
-    elif not hr_person.get(u'reserved') and in_reserved_group:
+    elif not hr_person.get('reserved') and in_reserved_group:
         gr.remove_member(cerebrum_person.entity_id)
         logger.info('Removing id: %r from reservation group',
                     cerebrum_person.entity_id)
@@ -920,35 +945,37 @@ def perform_delete(database, source_system, hr_person, cerebrum_person):
     """Delete a person."""
     logger.info('Deleting: %r', cerebrum_person.entity_id)
     # Update person and external IDs
-    update_person(database, source_system, hr_person, cerebrum_person)
-    update_external_ids(database, source_system, hr_person, cerebrum_person)
+    if hr_person:
+        update_person(database, source_system, hr_person, cerebrum_person)
+        update_external_ids(
+            database, source_system, hr_person, cerebrum_person)
     # Delete everything else
     update_names(database,
                  source_system,
-                 {u'names': []},
+                 {'names': []},
                  cerebrum_person)
     update_addresses(database,
                      source_system,
-                     {u'addresses': []},
+                     {'addresses': []},
                      cerebrum_person)
     update_contact_info(database,
                         source_system,
-                        {u'contacts': []},
+                        {'contacts': []},
                         cerebrum_person)
     update_titles(database,
                   source_system,
-                  {u'titles': []},
+                  {'titles': []},
                   cerebrum_person)
     update_affiliations(database,
                         source_system,
-                        {u'affiliations': []},
+                        {'affiliations': []},
                         cerebrum_person)
     update_roles(database,
                  source_system,
-                 {u'roles': []},
+                 {'roles': []},
                  cerebrum_person)
     update_reservation(database,
-                       {u'reserved': False},
+                       {'reserved': False},
                        cerebrum_person)
     logger.info('%r deleted', cerebrum_person.entity_id)
 
@@ -960,14 +987,32 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
     :param source_system: The source system code
     :param url: The URL to the person object in the HR systems WS.
     :param datasource: The function used to fetch / parse the resource."""
-    hr_person = datasource(database, source_system, url)
-    logger.info('Handling person %r from source system %r',
-                _stringify_for_log(hr_person.get('names')),
-                source_system)
-    cerebrum_person = get_cerebrum_person(database,
-                                          map(lambda (k, v): (k, v),
-                                              hr_person.get(u'external_ids')))
-    if hr_person.get('affiliations') or hr_person.get('roles'):
+    try:
+        hr_person = datasource(database, source_system, url)
+        logger.info('Handling person %r from source system %r',
+                    _stringify_for_log(hr_person.get('names')),
+                    source_system)
+    except EntityDoesNotExistInSourceSystemError:
+        logger.warn('URL %s does not resolve in source system %r (404) - '
+                    'deleting from Cerebrum',
+                    url, source_system)
+        hr_person = None
+    if hr_person:
+        cerebrum_person = get_cerebrum_person(
+            database,
+            map(lambda (k, v): (k, v),
+                hr_person.get('external_ids')))
+    else:
+        # assume manual ticket
+        employee_number = url.split('(')[-1].strip(')')
+        co = Factory.get('Constants')(database)
+        cerebrum_person = Factory.get('Person')(database)
+        cerebrum_person.find_by_external_id(
+            id_type=co.externalid_sap_ansattnr,
+            external_id=employee_number,
+            source_system=co.system_sap,
+            entity_type=co.entity_person)
+    if hr_person and (hr_person.get('affiliations') or hr_person.get('roles')):
         perform_update(database, source_system, hr_person, cerebrum_person)
     elif cerebrum_person.entity_type:  # entity_type as indication of instance
         perform_delete(database, source_system, hr_person, cerebrum_person)
@@ -983,7 +1028,7 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
 def get_resource_url(body):
     """Excavate resource URL from message body."""
     d = json.loads(body)
-    return d.get(u'sub')
+    return d.get('sub')
 
 
 def callback(database, source_system, routing_key, content_type, body,
@@ -1004,26 +1049,24 @@ def callback(database, source_system, routing_key, content_type, body,
         logger.error('Failed processing %r:\n %r: %r',
                      body,
                      type(e).__name__, e)
-        message_processed = True
     except EntityNotResolvableError as e:
         logger.critical('Failed processing %r:\n %r: %r',
                         body,
                         type(e).__name__,
                         e)
-        message_processed = True
     except Exception as e:
-        message_processed = True
         logger.error('Failed processing %r:\n %r', body, e, exc_info=True)
-    # Always rollback, since we do an implicit begin and we want to discard
-    # possible outstanding changes.
-    database.rollback()
+    finally:
+        # Always rollback, since we do an implicit begin and we want to discard
+        # possible outstanding changes.
+        database.rollback()
     return message_processed
 
 
 def load_mock(mock_file):
     """Call appropriate handler functions."""
     with open(mock_file) as f:
-        data = json.load(f).get(u'd')
+        data = json.load(f).get('d')
         import pprint
         logger.debug1(
             'Using mock with data:\n%s', pprint.pformat(data, indent=4))
@@ -1034,6 +1077,7 @@ def main(args=None):
     """Start consuming messages."""
     import argparse
     import functools
+
     from Cerebrum.modules.event_consumer import get_consumer
 
     parser = argparse.ArgumentParser(description=__doc__)
@@ -1042,18 +1086,28 @@ def main(args=None):
                         metavar='FILE',
                         default=None,
                         help='Use a custom configuration file')
-    parser.add_argument(u'-m', u'--mock',
-                        dest=u'mock',
-                        metavar=u'FILE',
+    parser.add_argument('-m', '--mock',
+                        dest='mock',
+                        metavar='FILE',
                         default=None,
-                        help=u'Load person object from JSON file')
-    parser.add_argument(u'--dryrun',
-                        dest=u'dryrun',
-                        action=u'store_true',
+                        help='Load person object from JSON file')
+    parser.add_argument(u'-u', u'--url',
+                        action=type(
+                            str(''), (argparse.Action,),
+                            {'__call__': lambda s, p, ns, v, o=None: setattr(
+                                ns, s.dest, json.dumps({'sub': v}))}),
+                        dest=u'url',
+                        metavar='<url>',
+                        type=text_type,
+                        default=None,
+                        help=u'Load url manually')
+    parser.add_argument('--dryrun',
+                        dest='dryrun',
+                        action='store_true',
                         default=False,
-                        help=u'Do not commit changes')
+                        help='Do not commit changes')
     args = parser.parse_args(args)
-    prog_name = parser.prog.rsplit(u'.', 1)[0]
+    prog_name = parser.prog.rsplit('.', 1)[0]
     logger.info('Starting %r', prog_name)
     database = Factory.get('Database')()
     database.cl_init(change_program=prog_name)
@@ -1071,9 +1125,16 @@ def main(args=None):
                                             mock_data)
         logger.debug1('Parsed mock data as:\n%r',
                       pprint.pformat(parsed_mock_data))
-        body = json.dumps({u'sub': None})
-        callback(database, source_system, u'', u'', body,
+        body = json.dumps({'sub': None})
+        callback(database, source_system, '', '', body,
                  datasource=lambda *x: parsed_mock_data)
+    elif args.url:
+        datasource = functools.partial(get_hr_person, config.ws,
+                                       ignore_read_password=True)
+        callback(
+            database, source_system, '', '',
+            args.url,
+            datasource=datasource)
     else:
         logger.info('Starting %r', prog_name)
         consumer = get_consumer(functools.partial(callback,

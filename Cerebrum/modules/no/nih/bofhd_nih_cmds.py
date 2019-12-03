@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ NIH bofhd commands. """
-import mx
+import mx.DateTime
 
 from Cerebrum import Utils
 from Cerebrum import Errors
@@ -27,6 +27,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
+from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
@@ -38,12 +39,12 @@ from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as cmd_base
+from Cerebrum.modules.no.uio import bofhd_uio_cmds
 from Cerebrum.modules.bofhd import bofhd_access
 
 
 def format_day(field):
-    fmt = "yyyy-MM-dd"                  # 10 characters wide
+    fmt = "yyyy-MM-dd"  # 10 characters wide
     return ":".join((field, "date", fmt))
 
 
@@ -66,40 +67,6 @@ class NihAuth(bofhd_contact_info.BofhdContactAuth, BofhdAuth):
         return super(NihAuth, self).can_add_affiliation(
             operator, person=person, ou=ou, aff=aff, aff_status=aff_status,
             query_run_any=query_run_any)
-
-
-class NihContactAuth(NihAuth):
-    """ NIH specific contact info auth. """
-    pass
-
-
-class NihEmailAuth(NihAuth, bofhd_email.BofhdEmailAuth):
-    """ NIH specific email auth. """
-
-    def can_email_info_detail(self, operator, account=None,
-                              query_run_any=False):
-        """ Can get extended info from email_info. """
-        if query_run_any or (account and operator == account.entity_id):
-            return True
-        if self._is_local_postmaster(operator,
-                                     self.const.auth_email_info_detail,
-                                     account=account,
-                                     domain=None,
-                                     query_run_any=query_run_any):
-            return True
-        raise PermissionDenied("Currently limited to postmasters")
-
-
-class NihAccessAuth(NihAuth, bofhd_access.BofhdAccessAuth):
-    """Nih specific access * command auth
-
-    Used for overriding default behavior
-    """
-    pass
-
-
-class BofhdApiKeyAuth(NihAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
-    pass
 
 
 uio_helpers = [
@@ -187,11 +154,11 @@ uio_commands = [
 
 
 @copy_command(
-    cmd_base,
+    bofhd_uio_cmds.BofhdExtension,
     'all_commands', 'all_commands',
     commands=uio_commands)
 @copy_func(
-    cmd_base,
+    bofhd_uio_cmds.BofhdExtension,
     methods=uio_helpers + uio_commands)
 class BofhdExtension(BofhdCommonMethods):
 
@@ -334,8 +301,28 @@ class BofhdExtension(BofhdCommonMethods):
         return "User %s queued for deletion immediately" % account.account_name
 
 
+class _ContactAuth(NihAuth):
+    pass
+
+
 class ContactCommands(bofhd_contact_info.BofhdContactCommands):
-    authz = NihContactAuth
+    authz = _ContactAuth
+
+
+class _EmailAuth(NihAuth, bofhd_email.BofhdEmailAuth):
+
+    def can_email_info_detail(self, operator, account=None,
+                              query_run_any=False):
+        """ Can get extended info from email_info. """
+        if query_run_any or (account and operator == account.entity_id):
+            return True
+        if self._is_local_postmaster(operator,
+                                     self.const.auth_email_info_detail,
+                                     account=account,
+                                     domain=None,
+                                     query_run_any=query_run_any):
+            return True
+        raise PermissionDenied("Currently limited to postmasters")
 
 
 @copy_command(
@@ -358,7 +345,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
     hidden_commands = {}
     parent_commands = False  # copied with copy_command
     omit_parent_commands = set()
-    authz = NihEmailAuth
+    authz = _EmailAuth
 
     @classmethod
     def get_help_strings(cls):
@@ -406,15 +393,28 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         return ret
 
 
-class NihAccessCommands(bofhd_access.BofhdAccessCommands):
-    """This is the place for Nih specific bofhd access * commands
-
-    """
-    authz = NihAccessAuth
+class _AccessAuth(NihAuth, bofhd_access.BofhdAccessAuth):
+    pass
 
 
-class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
-    authz = BofhdApiKeyAuth
+class AccessCommands(bofhd_access.BofhdAccessCommands):
+    authz = _AccessAuth
+
+
+class _ApiKeyAuth(NihAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
+    pass
+
+
+class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
+    authz = _ApiKeyAuth
+
+
+class _HistoryAuth(NihAuth, bofhd_history_cmds.BofhdHistoryAuth):
+    pass
+
+
+class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
+    authz = _HistoryAuth
 
 
 HELP_CMDS = {

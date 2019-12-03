@@ -348,6 +348,7 @@ def check_schema_versions(db, strict=False):
         'ad': 'Cerebrum.modules.ADObject',
         'ad_email': 'Cerebrum.modules.no.uit.ad_email',
         'apikeys': 'Cerebrum.modules.apikeys',
+        'auditlog': 'Cerebrum.modules.audit',
         'bofhd_requests': 'Cerebrum.modules.bofhd_requests.request',
         'changelog': 'Cerebrum.modules.ChangeLog',
         'disk_quota': 'Cerebrum.modules.disk_quota',
@@ -639,6 +640,7 @@ def runfile(fname, db, debug, phase):
             ''.format(repr(fname)))
     if output_col is not None:
         print("")
+
 
 
 if __name__ == '__main__':

@@ -33,9 +33,9 @@ reachable from the web host.
 from __future__ import unicode_literals
 
 import json
-import six
-
 from functools import partial
+
+import six
 from mx import DateTime
 
 import cereconf
@@ -46,6 +46,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum.utils.username import suggest_usernames
 from Cerebrum.modules import EntityTrait
 from Cerebrum.modules import dns
+from Cerebrum.modules.audit import bofhd_history_cmds
+from Cerebrum.modules.bofhd import bofhd_access
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
@@ -55,16 +57,14 @@ from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.dns import IPv6Subnet
 from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns.bofhd_dns_cmds import HostId
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as uio_base
+from Cerebrum.modules.no.uio import bofhd_uio_cmds
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough,
                                               RigidPasswordNotGoodEnough,
                                               PhrasePasswordNotGoodEnough)
-from Cerebrum.modules.tsd.bofhd_auth import (TsdBofhdAuth, TsdContactAuth,
-                                             TsdAccessAuth)
-from Cerebrum.modules.bofhd import bofhd_access
-from Cerebrum.modules.tsd import bofhd_help
 from Cerebrum.modules.tsd import Gateway
+from Cerebrum.modules.tsd import bofhd_auth
+from Cerebrum.modules.tsd import bofhd_help
 
 
 def format_day(field):
@@ -195,7 +195,7 @@ class TSDBofhdExtension(BofhdCommonMethods):
     all_commands = {}
     hidden_commands = {}
     parent_commands = True
-    authz = TsdBofhdAuth
+    authz = bofhd_auth.TsdBofhdAuth
 
     def __init__(self, *args, **kwargs):
         super(TSDBofhdExtension, self).__init__(*args, **kwargs)
@@ -832,11 +832,11 @@ admin_copy_uio = [
 
 
 @copy_command(
-    uio_base,
+    bofhd_uio_cmds.BofhdExtension,
     'all_commands', 'all_commands',
     commands=admin_copy_uio)
 @copy_func(
-    uio_base,
+    bofhd_uio_cmds.BofhdExtension,
     methods=admin_uio_helpers + admin_copy_uio)
 @copy_func(
     BofhdUserCreateMethod,
@@ -2457,15 +2457,15 @@ copy_uio = filter(
 
 
 @copy_command(
-    uio_base,
+    bofhd_uio_cmds.BofhdExtension,
     'hidden_commands', 'hidden_commands',
     commands=copy_hidden)
 @copy_command(
-    uio_base,
+    bofhd_uio_cmds.BofhdExtension,
     'all_commands', 'all_commands',
     commands=copy_uio)
 @copy_func(
-    uio_base,
+    bofhd_uio_cmds.BofhdExtension,
     methods=uio_helpers + copy_uio + copy_hidden)
 class EnduserBofhdExtension(TSDBofhdExtension):
     """The bofhd commands for the end users of TSD.
@@ -2490,9 +2490,12 @@ class EnduserBofhdExtension(TSDBofhdExtension):
 
 
 class ContactCommands(bofhd_contact_info.BofhdContactCommands):
-    authz = TsdContactAuth
+    authz = bofhd_auth.ContactAuth
 
 
-class TsdAccessCommands(bofhd_access.BofhdAccessCommands):
-    """Tds specific access commands"""
-    authz = TsdAccessAuth
+class AccessCommands(bofhd_access.BofhdAccessCommands):
+    authz = bofhd_auth.AccessAuth
+
+
+class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
+    authz = bofhd_auth.HistoryAuth
