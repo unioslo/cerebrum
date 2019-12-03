@@ -1423,7 +1423,13 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
         logger.debug('Creating group with name %s', gname)
         group = Factory.get('Group')(db)
         group.clear()
-        group.populate(group_creator, correct_visib, gname, description=descr)
+        group.populate(
+            creator_id=group_creator,
+            visibility=correct_visib,
+            name=gname,
+            description=descr,
+            group_type=co.group_type_lms,
+        )
         set_default_expire_date(fs_group_categorizer,
                                 group,
                                 gname,

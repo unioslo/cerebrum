@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # encoding: utf-8
 #
-# Copyright 2006-2018 University of Oslo, Norway
+# Copyright 2006-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Bofhd for UiA. """
+"""
+Bofhd commands for UiA
+"""
 from mx import DateTime
 from six import text_type
 
@@ -30,6 +31,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import Note
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
+from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
@@ -47,16 +49,8 @@ from Cerebrum.modules.bofhd_requests import bofhd_requests_cmds
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.hia.access_FS import FS
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
-from Cerebrum.modules.no.hia.bofhd_uia_auth import (
-    BofhdApiKeyAuth,
-    UiaAccessAuth,
-    UiaAuth,
-    UiaBofhdRequestsAuth,
-    UiaContactAuth,
-    UiaEmailAuth,
-    UiaUnpersonalAuth,
-)
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as base
+from Cerebrum.modules.no.hia import bofhd_uia_auth
+from Cerebrum.modules.no.uio import bofhd_uio_cmds
 
 
 def format_day(field):
@@ -79,7 +73,7 @@ def date_to_string(date):
     return "%04i-%02i-%02i" % (date.year, date.month, date.day)
 
 
-# Helper methods from bofhd_uio_cmd
+# Helper methods from bofhd_uio_cmds
 uio_helpers = [
     '_assert_group_deletable',
     '_entity_info',
@@ -105,7 +99,7 @@ uio_helpers = [
     'user_set_owner_prompt_func',
 ]
 
-# Methods and commands from bofhd_uio_cmd
+# Methods and commands from bofhd_uio_cmds
 copy_uio = [
     'entity_history',
     'group_add',
@@ -184,15 +178,15 @@ copy_uio_hidden = [
 
 
 @copy_command(
-    base,
+    bofhd_uio_cmds.BofhdExtension,
     'hidden_commands', 'hidden_commands',
     commands=copy_uio_hidden)
 @copy_command(
-    base,
+    bofhd_uio_cmds.BofhdExtension,
     'all_commands', 'all_commands',
     commands=copy_uio)
 @copy_func(
-    base,
+    bofhd_uio_cmds.BofhdExtension,
     methods=uio_helpers + copy_uio + copy_uio_hidden)
 @copy_func(
     BofhdUserCreateMethod,
@@ -209,7 +203,7 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands = {}
     hidden_commands = {}
     parent_commands = True
-    authz = UiaAuth
+    authz = bofhd_uia_auth.UiaAuth
 
     def __init__(self, *args, **kwargs):
         super(BofhdExtension, self).__init__(*args, **kwargs)
@@ -1346,7 +1340,7 @@ class BofhdExtension(BofhdCommonMethods):
 
 
 class ContactCommands(BofhdContactCommands):
-    authz = UiaContactAuth
+    authz = bofhd_uia_auth.ContactAuth
 
 
 class EmailCommands(bofhd_email.BofhdEmailCommands):
@@ -1371,7 +1365,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         'email_pause',
         'email_pause_list',
     }
-    authz = UiaEmailAuth
+    authz = bofhd_uia_auth.EmailAuth
 
     @classmethod
     def get_help_strings(cls):
@@ -1467,22 +1461,25 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
         return "OK, updated e-mail server for %s (to %s)" % (uname, server)
 
 
-class RequestCommands(bofhd_requests_cmds.BofhdExtension):
-    authz = UiaBofhdRequestsAuth
+class BofhdRequestCommands(bofhd_requests_cmds.BofhdExtension):
+    authz = bofhd_uia_auth.BofhdRequestsAuth
 
 
-class UiaAccessCommands(BofhdAccessCommands):
+class AccessCommands(BofhdAccessCommands):
     """This is the place for UiA specific bofhd access * commands"""
-    authz = UiaAccessAuth
+    authz = bofhd_uia_auth.AccessAuth
 
 
-class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
-    authz = BofhdApiKeyAuth
+class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
+    authz = bofhd_uia_auth.ApiKeyAuth
 
 
-class UiaCreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
-    """Uia specific create unpersonal * commands"""
-    authz = UiaUnpersonalAuth
+class CreateUnpersonalCommands(bofhd_user_create_unpersonal.BofhdExtension):
+    authz = bofhd_uia_auth.CreateUnpersonalAuth
+
+
+class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
+    authz = bofhd_uia_auth.HistoryAuth
 
 
 HELP_GROUPS = {

@@ -1870,7 +1870,7 @@ class EmailForward(EmailTarget):
             SELECT 1
             FROM [:table schema=cerebrum name=email_forward]
             WHERE target_id = :t_id AND
-                  forward_to = :fwd
+                  forward_to = :fwd AND
                   enable=:enable
         )
         """

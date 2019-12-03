@@ -376,10 +376,13 @@ class ProcHandler(object):
                 # None found, so we make one. Populate it with
                 # trait_group_derived
                 shdw_grp.clear()
-                shdw_grp.populate(self.default_creator_id,
-                                  self._co.group_visibility_all,
-                                  shadow,
-                                  self._group.description)
+                shdw_grp.populate(
+                    creator_id=self.default_creator_id,
+                    visibility=self._co.group_visibility_all,
+                    name=shadow,
+                    description=self._group.description,
+                    group_type=self._co.group_type_unknown,
+                )
                 shdw_grp.write_db()
                 shdw_grp.populate_trait(self._co.trait_group_derived,
                                         date=DateTime.now())
@@ -477,10 +480,14 @@ class ProcHandler(object):
             self._group.find_by_name(grp_name)
             self.logger.debug("ac_type_add: Group '%s' found." % grp_name)
         except Errors.NotFoundError:
-            self._group.populate(self.default_creator_id,
-                                 self._co.group_visibility_all,
-                                 grp_name,
-                                 description=grp_name)
+            self._group.populate(
+                creator_id=self.default_creator_id,
+                visibility=self._co.group_visibility_all,
+                name=grp_name,
+                description=grp_name,
+                # TODO: Should probably have a custom type!
+                group_type=self._co.group_type_unknown,
+            )
             self._group.write_db()
             for spread in procconf.AC_TYPE_GROUP_SPREAD:
                 if not self._group.has_spread(int(self.str2const[spread])):

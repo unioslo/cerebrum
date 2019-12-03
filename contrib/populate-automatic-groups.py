@@ -322,10 +322,13 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
                 ignored_groups.append(group_name)
             return None
 
-        group.populate(get_create_account_id(),
-                       constants.group_visibility_internal,
-                       group_name,
-                       description)
+        group.populate(
+            creator_id=get_create_account_id(),
+            visibility=constants.group_visibility_internal,
+            name=group_name,
+            description=description,
+            group_type=constants.group_type_affiliation
+        )
         group.write_db()
         # before committing traits we need an existing group_id
         if trait != NotSet:

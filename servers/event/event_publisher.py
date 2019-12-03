@@ -33,7 +33,8 @@ SIGUSR1 (main process)
 """
 import argparse
 import logging
-from multiprocessing import Queue
+
+from six.moves.queue import Queue
 
 import Cerebrum.logutils
 from Cerebrum.modules.event import utils
@@ -49,7 +50,6 @@ class Manager(utils.Manager):
 
 
 # Inject our queue implementation:
-# TODO: This should probably be a Queue.Queue, since it's handled by a Manager!
 Manager.register('queue', Queue)
 
 
@@ -66,7 +66,12 @@ def serve(config, num_workers, enable_listener, enable_collector):
     # Generic event processing daemon
     daemon = utils.ProcessHandler(manager=Manager)
 
-    event_queue = daemon.mgr.queue()
+    # The event queue must have a maxsize. If it does not, the queue will grow
+    # infinitely until there is no more memory left on the machine. This
+    # happens if there are many events to be processed in the database, and the
+    # events are not published fast enough. Add more workers if the publishing
+    # is too slow
+    event_queue = daemon.mgr.queue(maxsize=1000)
 
     # The 'event handler'
     # Listens on the `event_queue` and processes events that are pushed onto it

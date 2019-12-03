@@ -37,6 +37,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import json
 from Cerebrum.modules import Email
+from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
@@ -46,9 +47,7 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.Indigo import bofhd_go_help
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as base
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import ConnectException
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import TimeoutException
+from Cerebrum.modules.no.uio import bofhd_uio_cmds
 
 
 def format_day(field):
@@ -73,16 +72,6 @@ def date_to_string(date):
 
 class IndigoAuth(BofhdAuth):
     """ Indigo specific auth. """
-    pass
-
-
-class IndigoContactAuth(IndigoAuth, bofhd_contact_info.BofhdContactAuth):
-    """ Indigo specific contact info auth. """
-    pass
-
-
-class IndigoEmailAuth(IndigoAuth, bofhd_email.BofhdEmailAuth):
-    """ Indigo specific email auth. """
     pass
 
 
@@ -118,18 +107,18 @@ copy_uio = [
 
 
 @copy_command(
-    base,
+    bofhd_uio_cmds.BofhdExtension,
     'all_commands', 'all_commands',
     commands=['person_find', ])
 @copy_command(
-    base,
+    bofhd_uio_cmds.BofhdExtension,
     'all_commands', 'all_commands',
     commands=copy_uio)
 @copy_func(
-    base,
+    bofhd_uio_cmds.BofhdExtension,
     methods=copy_uio)
 @copy_func(
-    base,
+    bofhd_uio_cmds.BofhdExtension,
     methods=copy_helpers)
 class BofhdExtension(BofhdCommonMethods):
 
@@ -143,7 +132,7 @@ class BofhdExtension(BofhdCommonMethods):
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
 
         # Quick fix to replace the `person_find_uio` hack
-        self.__uio_impl = base(*args, **kwargs)
+        self.__uio_impl = bofhd_uio_cmds.BofhdExtension(*args, **kwargs)
 
     @property
     def person(self):
@@ -476,7 +465,7 @@ class BofhdExtension(BofhdCommonMethods):
             ret.append({'account_id': r['account_id'],
                         'name': account.account_name,
                         'expire': account.expire_date})
-        ret.sort(lambda a, b: cmp(a['name'], b['name']))
+        ret.sort(key=lambda d: d['name'])
         return ret
 
     #
@@ -573,7 +562,7 @@ class BofhdExtension(BofhdCommonMethods):
         # school lita can see their own schools only!
         ret = self._filter_resultset_by_operator(operator, ret, "owner_id")
 
-        ret.sort(lambda a, b: cmp(a["name"], b["name"]))
+        ret.sort(key=lambda d: d['name'])
         return ret
 
     def _operator_sees_person(self, operator, person_id):
@@ -911,9 +900,9 @@ class BofhdExtension(BofhdCommonMethods):
                                     acc.account_name)
                                 used = "N/A"
                                 limit = None
-                except (TimeoutException, socket.error):
+                except (bofhd_uio_cmds.TimeoutException, socket.error):
                     used = 'DOWN'
-                except ConnectException as e:
+                except bofhd_uio_cmds.ConnectException as e:
                     used = text_type(e)
                 except imaplib.IMAP4.error:
                     used = 'DOWN'
@@ -984,8 +973,8 @@ class BofhdExtension(BofhdCommonMethods):
         return "OK, deleted trait for user %s" % uname
 
 
-class ContactCommands(bofhd_contact_info.BofhdContactCommands):
-    authz = IndigoContactAuth
+class _EmailAuth(IndigoAuth, bofhd_email.BofhdEmailAuth):
+    pass
 
 
 @copy_command(
@@ -1004,4 +993,20 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
     hidden_commands = {}
     parent_commands = False  # copied with copy_command
     omit_parent_commands = set()
-    authz = IndigoEmailAuth
+    authz = _EmailAuth
+
+
+class _ContactAuth(IndigoAuth, bofhd_contact_info.BofhdContactAuth):
+    pass
+
+
+class ContactCommands(bofhd_contact_info.BofhdContactCommands):
+    authz = _ContactAuth
+
+
+class _HistoryAuth(IndigoAuth, bofhd_history_cmds.BofhdHistoryAuth):
+    pass
+
+
+class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
+    authz = _HistoryAuth

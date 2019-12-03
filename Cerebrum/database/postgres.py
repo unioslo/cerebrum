@@ -162,7 +162,7 @@ def _format_pg_app_name(progname=None):
     """
     fmt = u'cerebrum (%s)'
     # application_name can be 64 chars total, ascii only
-    remaining = 64 - len(fmt) + 2
+    remaining = 63 - len(fmt) + 2
     progname = to_ascii(progname or u'no name')
     if len(progname) > remaining:
         progname = progname[:remaining-3] + u'...'

@@ -265,10 +265,13 @@ class GroupResource(Resource):
             bad_name = group.illegal_name(name)
             if bad_name:
                 abort(400, message="Illegal group name: {!s}".format(bad_name))
-            group.new(auth.account.entity_id,
-                      args['visibility'],
-                      name,
-                      args['description'])
+            group.new(
+                creator_id=auth.account.entity_id,
+                visibility=args['visibility'],
+                name=name,
+                description=args['description'],
+                group_type=db.const.group_type_manual,
+            )
             result_code = 201
         return self.group_info(group), result_code
 

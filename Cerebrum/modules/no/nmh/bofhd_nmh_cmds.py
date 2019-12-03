@@ -18,12 +18,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ NMH bofhd module. """
-import mx
+import mx.DateTime
 
 from Cerebrum import database
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
+from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_core_help
 from Cerebrum.modules.bofhd import bofhd_email
@@ -35,12 +36,12 @@ from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
-from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as UioCmds
+from Cerebrum.modules.no.uio import bofhd_uio_cmds
 from Cerebrum.modules.bofhd import bofhd_access
 
 
 def format_day(field):
-    fmt = "yyyy-MM-dd"                  # 10 characters wide
+    fmt = "yyyy-MM-dd"  # 10 characters wide
     return ":".join((field, "date", fmt))
 
 
@@ -63,29 +64,6 @@ class NmhAuth(bofhd_contact_info.BofhdContactAuth, BofhdAuth):
         return super(NmhAuth, self).can_add_affiliation(
             operator, person=person, ou=ou, aff=aff, aff_status=aff_status,
             query_run_any=query_run_any)
-
-
-class NmhContactAuth(NmhAuth):
-    """ NMH specific contact info auth. """
-    pass
-
-
-class NmhEmailAuth(NmhAuth, bofhd_email.BofhdEmailAuth):
-    """ NMH specific email auth. """
-    pass
-
-
-class NmhAccessAuth(NmhAuth, bofhd_access.BofhdAccessAuth):
-    """Nmh specific authentication checks
-
-    Used for overriding default behavior or Nmh specific behavior
-
-    """
-    pass
-
-
-class BofhdApiKeyAuth(NmhAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
-    pass
 
 
 uio_helpers = [
@@ -166,14 +144,14 @@ uio_commands = [
 
 
 @copy_command(
-    UioCmds,
+    bofhd_uio_cmds.BofhdExtension,
     'all_commands', 'all_commands',
     commands=uio_commands)
 @copy_func(
     BofhdUserCreateMethod,
     methods=['_user_create_set_account_type'])
 @copy_func(
-    UioCmds,
+    bofhd_uio_cmds.BofhdExtension,
     methods=uio_helpers + uio_commands)
 class BofhdExtension(BofhdCommonMethods):
 
@@ -235,7 +213,7 @@ class BofhdExtension(BofhdCommonMethods):
         ret = []
         try:
             fs_db = make_fs()
-        except database.DatabaseError, e:
+        except database.DatabaseError as e:
             self.logger.warn("Can't connect to FS (%s)" % e)
             raise CerebrumError("Can't connect to FS, try later")
 
@@ -312,8 +290,16 @@ class BofhdExtension(BofhdCommonMethods):
         return "User %s queued for deletion immediately" % account.account_name
 
 
+class _ContactAuth(NmhAuth):
+    pass
+
+
 class ContactCommands(bofhd_contact_info.BofhdContactCommands):
-    authz = NmhContactAuth
+    authz = _ContactAuth
+
+
+class _EmailAuth(NmhAuth, bofhd_email.BofhdEmailAuth):
+    pass
 
 
 @copy_command(
@@ -327,15 +313,28 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
     hidden_commands = {}
     parent_commands = False  # copied with copy_command
     omit_parent_commands = set()
-    authz = NmhEmailAuth
+    authz = _EmailAuth
 
 
-class NmhAccessCommands(bofhd_access.BofhdAccessCommands):
-    """This is the place for Nmh specific bofhd access * commands
-
-    """
-    authz = NmhAccessAuth
+class _AccessAuth(NmhAuth, bofhd_access.BofhdAccessAuth):
+    pass
 
 
-class BofhdApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
-    authz = BofhdApiKeyAuth
+class AccessCommands(bofhd_access.BofhdAccessCommands):
+    authz = _AccessAuth
+
+
+class _ApiKeyAuth(NmhAuth, bofhd_apikey_cmds.BofhdApiKeyAuth):
+    pass
+
+
+class ApiKeyCommands(bofhd_apikey_cmds.BofhdApiKeyCommands):
+    authz = _ApiKeyAuth
+
+
+class _HistoryAuth(NmhAuth, bofhd_history_cmds.BofhdHistoryAuth):
+    pass
+
+
+class HistoryCommands(bofhd_history_cmds.BofhdHistoryCmds):
+    authz = _HistoryAuth

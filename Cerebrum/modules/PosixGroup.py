@@ -65,13 +65,19 @@ class PosixGroup(Group_class):
     # is not proper for PosixGroup, one might define a _new_
     # PosixGroup and add the Group as its only (union) member.
     def populate(self, creator_id=None, visibility=None, name=None,
-                 description=None, expire_date=None, gid=None, parent=None):
+                 description=None, expire_date=None, group_type=None,
+                 gid=None, parent=None):
         if parent is not None:
             self.__xerox__(parent)
         else:
             super(PosixGroup, self).populate(
-                creator_id=creator_id, visibility=visibility, name=name,
-                description=description, expire_date=expire_date)
+                creator_id=creator_id,
+                visibility=visibility,
+                name=name,
+                description=description,
+                expire_date=expire_date,
+                group_type=group_type,
+            )
         self.__in_db = False
         if gid is None:
             gid = self._get_gid()

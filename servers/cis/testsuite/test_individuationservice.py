@@ -213,9 +213,13 @@ class IndividuationTestSetup:
                 continue
             except Errors.NotFoundError:
                 pass
-            gr.populate(creator_id=bootstrap_id,
-                        visibility=co.group_visibility_all, name=group,
-                        description='Group for individuation')
+            gr.populate(
+                creator_id=bootstrap_id,
+                visibility=co.group_visibility_all,
+                name=group,
+                description='Group for individuation',
+                group_type=co.group_type_unknown,
+            )
             gr.write_db()
             cls.db.commit()
 

@@ -310,10 +310,16 @@ def make_inital_users(db):
 
     a = Account.Account(db)
     a.illegal_name = false
-    a.populate(cereconf.INITIAL_ACCOUNTNAME, co.entity_group,
-               eg.entity_id, int(co.account_program), ea.entity_id, None,
-               description=None,
-               parent=ea)
+    a.populate(
+        name=cereconf.INITIAL_ACCOUNTNAME,
+        owner_type=co.entity_group,
+        owner_id=eg.entity_id,
+        np_type=int(co.account_program),
+        creator_id=ea.entity_id,
+        expire_date=None,
+        description=None,
+        parent=ea,
+    )
     # Get rid of errors because of missing prerequisites for password
     # mechanisms not needed for initial setup.
     #
@@ -326,8 +332,12 @@ def make_inital_users(db):
 
     g = Group.Group(db)
     g.illegal_name = false
-    g.populate(a.entity_id, co.group_visibility_all,
-               cereconf.INITIAL_GROUPNAME, parent=eg)
+    g.populate(
+        creator_id=a.entity_id,
+        visibility=co.group_visibility_all,
+        name=cereconf.INITIAL_GROUPNAME,
+        group_type=co.group_type_internal,
+        parent=eg)
     g.write_db()
     g.add_member(a.entity_id)
     db.commit()
@@ -338,6 +348,7 @@ def check_schema_versions(db, strict=False):
         'ad': 'Cerebrum.modules.ADObject',
         'ad_email': 'Cerebrum.modules.no.uit.ad_email',
         'apikeys': 'Cerebrum.modules.apikeys',
+        'auditlog': 'Cerebrum.modules.audit',
         'bofhd_requests': 'Cerebrum.modules.bofhd_requests.request',
         'changelog': 'Cerebrum.modules.ChangeLog',
         'disk_quota': 'Cerebrum.modules.disk_quota',
@@ -629,6 +640,7 @@ def runfile(fname, db, debug, phase):
             ''.format(repr(fname)))
     if output_col is not None:
         print("")
+
 
 
 if __name__ == '__main__':

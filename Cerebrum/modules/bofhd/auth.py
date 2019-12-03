@@ -1286,6 +1286,15 @@ class BofhdAuth(DatabaseAccessor):
                         return True
         raise PermissionDenied("Permission denied")
 
+    def can_set_group_type(self, operator, group=None, group_type=None,
+                           query_run_any=False):
+        """ Check if group_type can be set. """
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Only superuser can set group_type")
+
     def can_create_personal_group(self, operator, account=None,
                                   query_run_any=False):
         if query_run_any or self.is_superuser(operator):

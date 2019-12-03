@@ -25,12 +25,13 @@ a defined number of days past expiration-date
 
 from __future__ import unicode_literals
 
-from six import text_type
+import argparse
 
+import mx.DateTime
+from six import text_type
 
 from Cerebrum.Utils import Factory
 from Cerebrum.database import DatabaseError
-from mx.DateTime import now
 
 logger = Factory.get_logger('cronjob')
 
@@ -75,22 +76,32 @@ def remove_expired_groups(db, days, pretend):
     pu = Factory.get('PosixUser')(db)
     posix_user2gid = {}
     num_empty_posixgroup = 0
+    amount_to_be_removed_groups = 0
+    amount_removed_groups = 0
+    expired_groups = []
     for row in pu.list_posix_users():
         posix_user2gid[row['account_id']] = row['gid']
     try:
-        amount_to_be_removed_groups = 0
-        amount_removed_groups = 0
         if pretend:
             logger.info('DRYRUN: Rolling back all changes')
         gr = Factory.get('Group')(db)
         expired_groups = gr.search(filter_expired=False, expired_only=True)
         for group in expired_groups:
             removal_deadline = group['expire_date'] + days
-            if now() > removal_deadline:  # deadline passed. remove!
+            if mx.DateTime.now() > removal_deadline:
+                # deadline passed. remove!
                 amount_to_be_removed_groups += 1
                 try:
                     gr.clear()
                     gr.find(group['group_id'])
+                    # Check if the group is the owner of any accounts. If it
+                    # is, it can't be deleted.
+                    if gr.is_account_owner():
+                        logger.warning(
+                            "Group %r is expired but owns one or more "
+                            "accounts. Please inspect.",
+                            group["name"])
+                        continue
                     exts = gr.get_extensions()
                     # 1     - If extensions exists, do not delete group.
                     # 1.1   - If the only extension is PosixGroup, then all
@@ -143,7 +154,7 @@ def remove_expired_groups(db, days, pretend):
                     db.rollback()
                     continue
             else:
-                time_until_removal = removal_deadline - now()
+                time_until_removal = removal_deadline - mx.DateTime.now()
                 logger.debug(
                     'Expired group (%s - %s), will be removed in %d days' % (
                         group['name'],
@@ -167,10 +178,6 @@ def remove_expired_groups(db, days, pretend):
 def main(args=None):
     """
     """
-    try:
-        import argparse
-    except ImportError:
-        from Cerebrum.extlib import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '--days',

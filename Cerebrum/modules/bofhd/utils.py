@@ -173,13 +173,17 @@ class BofhdUtils(object):
             POSIX object.
 
             """
-            # FIXME: due to constants being defined in this file, we
-            # can't import these at the top level.
+            try:
+                posix_user_cls = Factory.get('PosixUser')
+                posix_group_cls = Factory.get('PosixGroup')
+            except Exception:
+                # No posix support
+                return obj
 
             if clstype == "account":
-                promoted = Factory.get('PosixUser')(self.db)
+                promoted = posix_user_cls(self.db)
             elif clstype == "group":
-                promoted = Factory.get('PosixGroup')(self.db)
+                promoted = posix_group_cls(self.db)
             try:
                 promoted.find(int(obj.entity_id))
                 return promoted
@@ -189,27 +193,19 @@ class BofhdUtils(object):
         def get_target_posix_by_name(name, clstype="account"):
             """Returns either a Posix or a Cerebrum core version of
             Account or Group.
-
             """
-            # We could use get_target_posix_by_object, but then the
-            # common case of a PosixUser would lead to a wasted
-            # instantiation of a plain Account object first.
             if clstype == "account":
                 plain_cls = Factory.get("Account")
-                posix_cls = Factory.get("PosixUser")
             elif clstype == "group":
                 plain_cls = Factory.get("Group")
-                posix_cls = Factory.get("PosixGroup")
+
             try:
-                obj = posix_cls(self.db)
+                obj = plain_cls(self.db)
                 obj.find_by_name(name)
             except Errors.NotFoundError:
-                try:
-                    obj = plain_cls(self.db)
-                    obj.find_by_name(name)
-                except Errors.NotFoundError:
-                    raise CerebrumError("Unknown %s %s" % (clstype, name))
-            return obj
+                raise CerebrumError("Unknown %s %s" % (clstype, name))
+
+            return get_target_posix_by_object(obj, clstype=clstype)
 
         def get_target_person_fnr(id):
             person = Factory.get("Person")(self.db)

@@ -259,10 +259,13 @@ class group_tree(object):
             gr = get_group(self.name())
         except Errors.NotFoundError:
             gr = Factory.get('Group')(db)
-            gr.populate(self.group_creator(),
-                        const.group_visibility_internal,
-                        self.name(),
-                        description=self.description())
+            gr.populate(
+                creator_id=self.group_creator(),
+                visibility=const.group_visibility_internal,
+                name=self.name(),
+                description=self.description(),
+                group_type=const.group_type_lms,
+            )
             set_default_expire_date(fs_group_categorizer,
                                     gr,
                                     self.name(),

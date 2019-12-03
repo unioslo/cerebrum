@@ -365,8 +365,13 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True):
     except Errors.NotFoundError:
         group = Factory.get('Group')(db)
         group.clear()
-        group.populate(group_creator, constants.group_visibility_all, gname,
-                       description=descr)
+        group.populate(
+            creator_id=group_creator,
+            visibility=constants.group_visibility_all,
+            name=gname,
+            description=descr,
+            group_type=constants.group_type_unknown,
+        )
         group.write_db()
     else:
         # Update description if it has changed

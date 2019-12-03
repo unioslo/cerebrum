@@ -164,9 +164,8 @@ class SpreadExpire(DatabaseAccessor):
         :type spread: Cerebrum.Constants._SpreadCode
         """
         if not self.exists(entity_id, spread):
-            raise Errors.NotFoundError(
-                "No spread expire date for entity_id=%r spread=%r" %
-                (entity_id, spread))
+            return
+
         binds = {
             'entity_id': int(entity_id),
             'spread': int(spread),

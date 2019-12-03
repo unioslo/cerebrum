@@ -237,7 +237,7 @@ class IPv6Number(Entity.Entity):
             'tc': ", ".join([x[0] for x in cols]),
             'tv': ", ".join([x[1] for x in cols])}
         insert_stmt = """
-        INSERT INTO (%(tb)s) (%(tc)s)
+        INSERT INTO %(tb)s (%(tc)s)
         VALUES (%(tv)s)""" % defs
         self.execute(insert_stmt, binds)
         self._db.log_change(ipv6_number_id,
