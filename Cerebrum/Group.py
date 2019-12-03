@@ -752,7 +752,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         # admin_id filter (all of them)
         if admin_id is not None:
             tables.append("[:table schema=cerebrum name=group_admin] ga")
-            where.append("(gi.group_id = ga.group_admin)")
+            where.append("(gi.group_id = ga.admin_id)")
 
             if indirect_admins:
                 admin_ids = [admin_id]
@@ -1198,7 +1198,9 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             - admin_type
            (- group_name)
         """
-        extra_select = []
+        select = ["ga.group_id AS group_id",
+                  "ga.admin_id AS admin_id",
+                  "ei.entity_type AS admin_type"]
         tables = ["[:table schema=cerebrum name=group_admin] ga",
                   "[:table schema=cerebrum name=entity_info] ei"]
         where = ["ga.admin_id = ei.entity_id"]
@@ -1229,16 +1231,13 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if include_group_name:
             tables.append("[:table schema=cerebrum name=entity_name] en")
             where.append("ga.group_id = en.entity_id")
-            extra_select.append("en.entity_name AS group_name")
+            select.append("en.entity_name AS group_name")
 
         query = """
-        SELECT ga.group_id AS group_id
-               ga.admin_id AS admin_id
-               ei.entity_type AS admin_type,
-               {extra_select}
+        SELECT {select}
         FROM {tables}
         WHERE {where}
-        """.format(extra_select=", ".join(extra_select),
+        """.format(select=", ".join(select),
                    tables=", ".join(tables),
                    where=" AND ".join(where))
 
@@ -1322,7 +1321,9 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             - moderator_type
            (- group_name)
         """
-        extra_select = []
+        select = ["gm.group_id AS group_id",
+                  "gm.moderator_id AS moderator_id",
+                  "ei.entity_type AS moderator_type"]
         tables = ["[:table schema=cerebrum name=group_moderator] gm",
                   "[:table schema=cerebrum name=entity_info] ei"]
         where = ["gm.moderator_id = ei.entity_id"]
@@ -1353,16 +1354,13 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if include_group_name:
             tables.append("[:table schema=cerebrum name=entity_name] en")
             where.append("gm.group_id = en.entity_id")
-            extra_select.append("en.entity_name AS group_name")
+            select.append("en.entity_name AS group_name")
 
         query = """
-        SELECT gm.group_id AS group_id
-               gm.moderator_id AS moderator_id
-               ei.entity_type AS moderator_type,
-               {extra_select}
+        SELECT {select}
         FROM {tables}
         WHERE {where}
-        """.format(extra_select=", ".join(extra_select),
+        """.format(select=", ".join(select),
                    tables=", ".join(tables),
                    where=" AND ".join(where))
 
