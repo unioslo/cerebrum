@@ -205,6 +205,9 @@ class AuthTypePlaintext(AuthBaseClass):
     def decrypt(self, cryptstring):
         return cryptstring
 
+    def verify(self, plaintext, cryptstring):
+        return plaintext == cryptstring
+
 
 @all_auth_methods('md5-unsalted')
 class AuthTypeMD5Unsalt(AuthBaseClass):
