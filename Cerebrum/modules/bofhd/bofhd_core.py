@@ -1025,8 +1025,8 @@ class BofhdCommonMethods(BofhdCommandBase):
             raise PermissionDenied(
                 "Only manual groups may be maintained in bofh. Group {0} has "
                 "group_type {1}".format(
-                    groupname, six.text_type(self.const.human2constant(
-                        gr.group_type))))
+                    groupname,
+                    six.text_type(self.const.GroupType(gr.group_type))))
         gr.group_name = newname
         if self._is_perishable_manual_group(gr):
             gr.set_default_expire_date()
@@ -1034,7 +1034,6 @@ class BofhdCommonMethods(BofhdCommandBase):
             gr.write_db()
         except gr._db.IntegrityError as e:
             raise CerebrumError("Couldn't rename group: %s" % e)
-        # renaming means group is actively used - prolong expire date
         return {
             'new_name': gr.group_name,
             'group_id': int(gr.entity_id),

@@ -336,8 +336,8 @@ class BofhdExtension(BofhdCommandBase):
             raise PermissionDenied(
                 "Only manual groups may be maintained in bofh. Destination "
                 "group {0} has group_type {1}".format(
-                    dest_group.group_name, text_type(self.const.human2constant(
-                        dest_group.group_type))))
+                    dest_group.group_name,
+                    text_type(self.const.GroupType(dest_group.group_type))))
         owner_id = self._find.find_target_by_parsing(src_name, dns.DNS_OWNER)
         self.ba.can_alter_group(operator.get_entity_id(), dest_group)
         # Check if member is in the group or not.
@@ -397,8 +397,8 @@ class BofhdExtension(BofhdCommandBase):
             raise PermissionDenied(
                 "Only manual groups may be maintained in bofh. Destination "
                 "group {0} has group_type {1}".format(
-                    dest_group.group_name, text_type(self.const.human2constant(
-                        dest_group.group_type))))
+                    dest_group.group_name,
+                    text_type(self.const.GroupType(dest_group.group_type))))
         owner_id = self._find.find_target_by_parsing(src_name, dns.DNS_OWNER)
         self.ba.can_alter_group(operator.get_entity_id(), dest_group)
         dest_group.remove_member(owner_id)

@@ -579,7 +579,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied(
                 "Only manual groups may be maintained in bofh. Destination "
                 "group {0} has group_type {1}".format(
-                    group_d.group_name, text_type(self.const.human2constant(
+                    group_d.group_name, text_type(self.const.GroupType(
                         group_d.group_type))))
 
         if operator:
@@ -729,7 +729,7 @@ class BofhdExtension(BofhdCommonMethods):
                         "Only manual groups may be maintained in bofh. "
                         "Destination group {0} has group_type {1}".format(
                             dl_group.group_name,
-                            text_type(self.const.human2constant(
+                            text_type(self.const.GroupType(
                                 dl_group.group_type))))
             if self._is_perishable_manual_group(dl_group):
                 dl_group.set_default_expire_date()
@@ -871,7 +871,7 @@ class BofhdExtension(BofhdCommonMethods):
                 "Only manual groups may be maintained in bofh. "
                 "Destination group {0} has group_type {1}".format(
                     dl_group.group_name,
-                    text_type(self.const.human2constant(
+                    text_type(self.const.GroupType(
                         dl_group.group_type))))
         try:
             dl_group.delete_spread(
@@ -906,7 +906,7 @@ class BofhdExtension(BofhdCommonMethods):
                 "Only manual groups may be maintained in bofh. "
                 "Destination group {0} has group_type {1}".format(
                     dl_group.group_name,
-                    text_type(self.const.human2constant(
+                    text_type(self.const.GroupType(
                         dl_group.group_type))))
         visible = self._get_boolean(visible)
         dl_group.set_hidden(hidden='F' if visible else 'T')
@@ -1134,7 +1134,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied(
                 "Only manual groups may be maintained in bofh. Destination "
                 "group {0} has group_type {1}".format(
-                    grp.group_name, text_type(self.const.human2constant(
+                    grp.group_name, text_type(self.const.GroupType(
                         grp.group_type))))
         if not self._is_perishable_manual_group(grp):
             grp.set_default_expire_date()
@@ -1162,7 +1162,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied(
                 "Only manual groups may be maintained in bofh. Destination "
                 "group {0} has group_type {1}".format(
-                    grp.group_name, text_type(self.const.human2constant(
+                    grp.group_name, text_type(self.const.GroupType(
                         grp.group_type))))
 
         if force:
@@ -1351,7 +1351,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied(
                 "Only manual groups may be maintained in bofh. Destination "
                 "group {0} has group_type {1}".format(
-                    group.group_name, text_type(self.const.human2constant(
+                    group.group_name, text_type(self.const.GroupType(
                         group.group_type))))
 
         if not group.has_member(member.entity_id):
@@ -1612,7 +1612,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied(
                 "Only manual groups may be maintained in bofh. Destination "
                 "group {0} has group_type {1}".format(
-                    group.group_name, text_type(self.const.human2constant(
+                    group.group_name, text_type(self.const.GroupType(
                         group.group_type))))
         try:
             group.find_by_name(uname)
@@ -1682,7 +1682,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied(
                 "Only manual groups may be maintained in bofh. Destination "
                 "group {0} has group_type {1}".format(
-                    group.group_name, text_type(self.const.human2constant(
+                    group.group_name, text_type(self.const.GroupType(
                         group.group_type))))
         if self._is_perishable_manual_group(group):
             group.set_default_expire_date()
@@ -1717,7 +1717,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied(
                 "Only manual groups may be maintained in bofh. Destination "
                 "group {0} has group_type {1}".format(
-                    grp.group_name, text_type(self.const.human2constant(
+                    grp.group_name, text_type(self.const.GroupType(
                         grp.group_type))))
         if self._is_perishable_manual_group(grp):
             grp.set_default_expire_date()
@@ -1835,7 +1835,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied(
                 "Only manual groups may be maintained in bofh. Destination "
                 "group {0} has group_type {1}".format(
-                    grp.group_name, text_type(self.const.human2constant(
+                    grp.group_name, text_type(self.const.GroupType(
                         grp.group_type))))
 
         self.ba.can_alter_group(operator.get_entity_id(), grp)
@@ -1879,7 +1879,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied(
                 "Only manual groups may be maintained in bofh. Destination "
                 "group {0} has group_type {1}".format(
-                    group.group_name, text_type(self.const.human2constant(
+                    group.group_name, text_type(self.const.GroupType(
                         group.group_type))))
         if not self._is_perishable_manual_group(group):
             group.set_default_expire_date()
@@ -1908,7 +1908,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied(
                 "Only manual groups may be maintained in bofh. Destination "
                 "group {0} has group_type {1}".format(
-                    grp.group_name, text_type(self.const.human2constant(
+                    grp.group_name, text_type(self.const.GroupType(
                         grp.group_type))))
         self.ba.can_delete_group(operator.get_entity_id(), grp)
         if expire:
@@ -1944,7 +1944,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied(
                 "Only manual groups may be maintained in bofh. Destination "
                 "group {0} has group_type {1}".format(
-                    grp.group_name, text_type(self.const.human2constant(
+                    grp.group_name, text_type(self.const.GroupType(
                         grp.group_type))))
         self.ba.can_delete_group(operator.get_entity_id(), grp)
         grp.visibility = self._get_constant(self.const.GroupVisibility,
