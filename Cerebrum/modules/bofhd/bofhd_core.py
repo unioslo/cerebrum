@@ -977,10 +977,14 @@ class BofhdCommonMethods(BofhdCommandBase):
         if expire_date is None:
             g.set_default_expire_date()
 
+        g.write_db()
+
         # Add spread
         for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
             g.add_spread(self.const.Spread(spread))
-        g.write_db()
+            # It is necessary to write changes to db before any calls to
+            # add_spread are made: add_spread may in some cases may call find.
+            g.write_db()
 
         # Set moderator group(s)
         if mod_group:
