@@ -66,7 +66,9 @@ TRANSLATION = {
     'en': {
         'greeting': 'Hi,',
         'message': 'The following is an overview of all the groups that you '
-                   'can manage with the account {}. '
+                   'can manage with the account {}. You are considered to be'
+                   'an administrator of these groups because you are member '
+                   'of administrator group(s) which gives you that role. '
                    'At UiO access to web pages and some '
                    'tools is defined by group memberships. Therefore it is '
                    'important that only the correct persons are members in '
@@ -78,7 +80,8 @@ TRANSLATION = {
         'signature': 'Best regards,',
         'manage': 'Manage group',
         'headers': collections.OrderedDict([
-            ('group_name', 'Group name'),
+            ('group_name', 'Managed group'),
+            ('owner_group_name', 'Administrator group'),
             ('members', 'Member count'),
             ('manage_link', 'Link to brukerinfo'),
         ]),
@@ -86,7 +89,9 @@ TRANSLATION = {
     'nb': {
         'greeting': 'Hei,',
         'message': 'Her følger en oversikt over alle grupper du kan '
-                   'administrerere med kontoen {}. '
+                   'administrerere med kontoen {}. Du blir '
+                   'regnet som administrator for disse gruppene fordi du er '
+                   'medlem av administrator-gruppe(r) som gir deg den rollen. '
                    'På UiO blir tilgang til nettsider og en '
                    'del verktøy definert av gruppemedlemskap. Det er derfor '
                    'viktig at kun riktige personer er medlemmer i hver gruppe.'
@@ -97,7 +102,8 @@ TRANSLATION = {
         'signature': 'Med vennlig hilsen,',
         'manage': 'Administrer gruppe',
         'headers': collections.OrderedDict([
-            ('group_name', 'Gruppenavn'),
+            ('group_name', 'Gruppe du administrerer'),
+            ('owner_group_name', 'Administrator-gruppe'),
             ('members', 'Antall medlemmer'),
             ('manage_link', 'Link til brukerinfo'),
         ]),
@@ -105,7 +111,9 @@ TRANSLATION = {
     'nn': {
         'greeting': 'Hei,',
         'message': 'Her følgjer ei oversikt over alle grupper du kan'
-                   'administrerere med brukaren {}. '
+                   'administrerere med brukaren {}. Du blir '
+                   'rekna som administrator for desse gruppene fordi du er '
+                   'medlem av administrator-gruppe(r) som gir deg den rolla. '
                    'På UiO blir tilgang til nettsider og ein '
                    'del verktøy definert av gruppemedlemskap. Det er derfor '
                    'viktig at kun riktige personer er medlemmar i kvar gruppe.'
@@ -116,7 +124,8 @@ TRANSLATION = {
         'signature': 'Med vennleg helsing,',
         'manage': 'Administrer gruppe',
         'headers': collections.OrderedDict([
-            ('group_name', 'Gruppenamn'),
+            ('group_name', 'Gruppe du administrerer'),
+            ('owner_group_name', 'Administrator-gruppe'),
             ('members', 'Antal medlemmar'),
             ('manage_link', 'Link til brukerinfo'),
         ]),
@@ -177,8 +186,9 @@ def write_plain_text_report(codec, translation=None, sender=None,
 
         for group in owned_groups:
             columns[0].append(group['group_name'])
-            columns[1].append(str(group_id2members[group['group_id']]))
-            columns[2].append(group['manage_link'])
+            columns[1].append(group['owner_group_name'])
+            columns[2].append(str(group_id2members[group['group_id']]))
+            columns[3].append(group['manage_link'])
 
         return map(get_longest_item_length, columns)
 
@@ -186,13 +196,16 @@ def write_plain_text_report(codec, translation=None, sender=None,
         rows = ''
         for group in owned_groups:
             group_name = group['group_name']
+            owner_group_name = group['owner_group_name']
             members_count = str(group_id2members[group['group_id']])
             manage_link = group['manage_link']
 
             row_content_line = assemble_line(
                 '|',
-                get_cell_contents([group_name, members_count, manage_link],
-                                  cell_widths)
+                get_cell_contents(
+                    [group_name, owner_group_name, members_count, manage_link],
+                    cell_widths
+                )
             )
 
             rows += (row_content_line + divider_line)
@@ -334,9 +347,10 @@ class GroupOwnerCacher(object):
                                           auth_op_set_name):
                 continue
 
-            for group in self.group.search(member_id=self.account.entity_id):
+            for owner_group in self.group.search(
+                    member_id=self.account.entity_id):
                 for role in self.bofhd_auth_role.list(
-                        entity_ids=group['group_id'],
+                        entity_ids=owner_group['group_id'],
                         op_set_id=self.bofhd_auth_op_set.op_set_id
                 ):
                     self.bofhd_auth_op_target.clear()
@@ -352,6 +366,8 @@ class GroupOwnerCacher(object):
                         {
                             'group_id': group_id,
                             'role': auth_op_set_name,
+                            'owner_group_name': self.get_group_name(
+                                owner_group['group_id']),
                             'group_name': group_name,
                             'manage_link': (BRUKERINFO_GROUP_MANAGE_LINK +
                                             group_name)
@@ -399,6 +415,7 @@ class GroupOwnerCacher(object):
                     {
                         'group_id': group_id,
                         'role': auth_op_set_name,
+                        'owner_group_name': self.group.group_name,
                         'group_name': group_name,
                         'manage_link': (BRUKERINFO_GROUP_MANAGE_LINK +
                                         group_name)
