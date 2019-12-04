@@ -154,6 +154,7 @@ ENABLE_BOFHD_CRYPTO = 0
 INITIAL_GROUPNAME = "bootstrap_group"
 INITIAL_ACCOUNTNAME = "bootstrap_account"
 INITIAL_ACCOUNTNAME_PASSWORD = 'change_on_install'
+INITIAL_ACCOUNT_ID = 2
 
 # Specify the class this installation should use when working with
 # various entities.

@@ -94,6 +94,10 @@ def usage(exitcode=0):
   --stage
         Only perform this stage in the files.
 
+   -f --force-bootstrap
+          Perform the bootstrap phase only, works only with a working database
+          scheme where all mandatory constants/codes have already been imported
+
   -d --debug
         Print out more debug information. If added twice, you will get even
         more information.
@@ -110,10 +114,10 @@ won't be included.
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'dc:h',
+        opts, args = getopt.getopt(sys.argv[1:], 'dc:fh',
                                    ['debug', 'help', 'drop', 'update-codes',
                                     'only-insert-codes', 'country-file=',
-                                    'clean-codes-from-cl',
+                                    'clean-codes-from-cl', 'force-bootstrap',
                                     'extra-file=', 'stage='])
     except getopt.GetoptError as e:
         print(e)
@@ -130,7 +134,7 @@ def main():
             print("'table_owner' not set in CEREBRUM_DATABASE_CONNECT_DATA.")
             print("Will use regular 'user' (%s) instead." % db_user)
     db = Factory.get('Database')(user=db_user)
-    db.cl_init(change_program="makedb")
+    db.cl_init(change_program="makedb", change_by=cereconf.INITIAL_ACCOUNT_ID)
 
     # Force all Constants-writing to use the same db-connection
     # as CREATE TABLE++
@@ -158,6 +162,10 @@ def main():
         elif opt == '--update-codes':
             insert_code_values(db, delete_extra_codes=True)
             check_schema_versions(db)
+        elif opt in ('-f', '--force-bootstrap'):
+            check_schema_versions(db)
+            make_inital_users(db)
+            db.commit()
             sys.exit()
         elif opt == '--stage':
             stage = val
