@@ -55,17 +55,23 @@ logger = logging.getLogger(__name__)
 
 @all_auth_methods('MD5-crypt2')
 class AuthTypeMD5Crypt2(AuthBaseClass):
-    def encrypt(self, plaintext, salt=None, binary=None):
+    def encrypt(self, plaintext, salt=None, binary=False):
         """
         Unsalted md5 hex-digest for UiT.
 
         Added by kennethj, 2005-08-03
         """
-        plaintext = plaintext.rstrip("\n")
+        if not isinstance(plaintext, six.text_type) and not binary:
+            raise ValueError("plaintext cannot be bytestring and not binary")
+
+        if isinstance(plaintext, six.text_type):
+            plaintext = plaintext.encode('utf-8')
+        plaintext = plaintext.rstrip(b"\n")
+
         m = hashlib.md5()
         m.update(plaintext)
         encrypted = m.hexdigest()
-        return encrypted
+        return six.text_type(encrypted)
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
@@ -74,18 +80,24 @@ class AuthTypeMD5Crypt2(AuthBaseClass):
 
 @all_auth_methods('MD5-crypt_base64')
 class AuthTypeMD5Base64(AuthBaseClass):
-    def encrypt(self, plaintext, salt=None, binary=None):
+    def encrypt(self, plaintext, salt=None, binary=False):
         """
         Unsalted md5 b64-digest for UiT.
 
         Added by kennethj, 2005-08-03
         """
+        if not isinstance(plaintext, six.text_type) and not binary:
+            raise ValueError("plaintext cannot be bytestring and not binary")
+
+        if isinstance(plaintext, six.text_type):
+            plaintext = plaintext.encode('utf-8')
+
         m = hashlib.md5()
         m.update(plaintext)
         foo = m.digest()
         encrypted = base64.encodestring(foo)
         encrypted = encrypted.rstrip()
-        return encrypted
+        return six.text_type(encrypted)
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
@@ -94,19 +106,27 @@ class AuthTypeMD5Base64(AuthBaseClass):
 
 @all_auth_methods('crypt3-DES')
 class AuthTypeCrypt3DES(AuthBaseClass):
-    def encrypt(self, plaintext, salt=None, binary=None):
+    def encrypt(self, plaintext, salt=None, binary=False):
         """
         Salted triple-DES.
 
         Added by fhl, 2019-05-15, copied from an older UiT copy of
         Cerebrum.Account, as triple-DES was removed from UiO code.
         """
+        if not isinstance(plaintext, six.text_type) and not binary:
+            raise ValueError("plaintext cannot be bytestring and not binary")
+
+        if isinstance(plaintext, six.text_type):
+            plaintext = plaintext.encode('utf-8')
+
         if salt is None:
             saltchars = string.ascii_letters + string.digits + "./"
-            salt = Utils.random_string(2, saltchars)
-        return crypt.crypt(
-            plaintext,
-            salt.encode('utf-8')).decode()
+            salt = bytes(Utils.random_string(2, saltchars))
+        elif isinstance(salt, six.text_type):
+            # should be ascii only
+            salt = bytes(salt)
+
+        return six.text_type(crypt.crypt(plaintext, salt))
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
@@ -180,23 +200,15 @@ class AccountUiTMixin(Account.Account):
         """
         Support UiT added encryption methods, for other methods call super()
         """
-        u_plaintext = plaintext
-        if binary is False:
-            assert(isinstance(plaintext, six.text_type))
-            u_plaintext = plaintext.encode('utf-8')
         try:
             method = all_auth_methods[str(method)]()
-            return method.encrypt(u_plaintext, salt, binary)
+            return method.encrypt(plaintext, salt, binary)
         except NotImplementedError as ne:
-            if hasattr(self, 'logger'):
-                self.logger.warn(
-                    "Encrypt Auth method (%s) not implemented: %s",
-                    str(method), str(ne))
+            logger.warn("Encrypt Auth method (%s) not implemented: %s",
+                        str(method), str(ne))
             raise Errors.NotImplementedAuthTypeError
         except Exception as e:
-            if hasattr(self, 'logger'):
-                self.logger.error(
-                    "Fatal exception in encrypt_password: %s", str(e))
+            logger.error("Fatal exception in encrypt_password: %s", str(e))
             raise
 
     def decrypt_password(self, method, cryptstring):
@@ -207,15 +219,11 @@ class AccountUiTMixin(Account.Account):
             method = all_auth_methods[str(method)]()
             return method.encrypt(cryptstring)
         except NotImplementedError as ne:
-            if hasattr(self, 'logger'):
-                self.logger.warn(
-                    "Decrypt Auth method (%s) not implemented: %s",
-                    str(method), str(ne))
+            logger.warn("Decrypt Auth method (%s) not implemented: %s",
+                        str(method), str(ne))
             raise Errors.NotImplementedAuthTypeError
         except Exception as e:
-            if hasattr(self, 'logger'):
-                self.logger.error(
-                    "Fatal exception in decrypt_password: %s", str(e))
+            logger.error("Fatal exception in decrypt_password: %s", str(e))
             raise
 
     def verify_password(self, method, plaintext, cryptstring):
@@ -228,15 +236,11 @@ class AccountUiTMixin(Account.Account):
             method = all_auth_methods[str(method)]()
             return method.verify(plaintext, cryptstring)
         except NotImplementedError as ne:
-            if hasattr(self, 'logger'):
-                self.logger.warn(
-                    "Verify Auth method (%s) not implemented: %s",
-                    str(method), str(ne))
+            logger.warn("Verify Auth method (%s) not implemented: %s",
+                        str(method), str(ne))
             raise Errors.NotImplementedAuthTypeError
         except Exception as e:
-            if hasattr(self, 'logger'):
-                self.logger.error(
-                    "Fatal exception in verify_password: %s", str(e))
+            logger.error("Fatal exception in verify_password: %s", str(e))
             raise
 
     def set_home_dir(self, spread):
