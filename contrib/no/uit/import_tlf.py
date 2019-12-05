@@ -121,7 +121,7 @@ def parse_csv(filename, encoding=default_encoding, charsep=default_charsep):
                 sum(stats.values()), stats, filename)
 
 
-def send_report(self, report):
+def send_report(report):
     """Send email with import errors."""
     recipient = cereconf.TELEFONIERRORS_RECEIVER
     sender = cereconf.SYSX_EMAIL_NOTFICATION_SENDER
