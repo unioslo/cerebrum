@@ -83,7 +83,7 @@ class PosixLDIF_UiTMixin(PosixLDIF):  # noqa: N801
             else:
                 entry['norEduPersonLegalName'] = entry['cn']
 
-            entry['objectClass'].extend(('norEduPerson',))
+            entry['objectClass'].extend(('norEduPerson', 'uitAccount',))
         return dn, entry
 
     def update_user_entry(self, account_id, entry, owner_id):
