@@ -39,8 +39,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdUtils
-from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
-                                         BofhdAuthRole)
+from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget)
 
 
 class BofhdCommandBase(object):
@@ -950,7 +949,7 @@ class BofhdCommonMethods(BofhdCommandBase):
                     raise CerebrumError('No admin group with name: {}'
                                         .format(admin_group))
                 else:
-                    g.add_admin(admin_gr)
+                    g.add_admin(admin_gr.entity_id)
         return {'group_id': int(g.entity_id)}
 
     #
