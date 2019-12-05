@@ -22,22 +22,7 @@ import time
 
 import six
 
-
-SECONDS_MIN = 60
-SECONDS_HOUR = SECONDS_MIN ** 2
-SECONDS_DAY = SECONDS_HOUR * 24
-SECONDS_WEEK = SECONDS_DAY * 7
-
-
-def to_seconds(weeks=0, days=0, hours=0, minutes=0, seconds=0):
-    """ Sum number of weeks, days, hours, etc.. to seconds. """
-    return sum((
-        weeks * SECONDS_WEEK,
-        days * SECONDS_DAY,
-        hours * SECONDS_HOUR,
-        minutes * SECONDS_MIN,
-        seconds,
-    ))
+from Cerebrum.utils.date import to_seconds
 
 
 def fmt_time(timestamp, local=True):
@@ -143,9 +128,9 @@ class Time(object):
 
         hour, min, sec, wday = (time.localtime(t))[3:7]
         if self.wday is not None and wday in self.wday:
-            return SECONDS_DAY - to_seconds(hours=hour,
-                                            minutes=min,
-                                            seconds=sec)
+            return to_seconds(days=1) - to_seconds(hours=hour,
+                                                   minutes=min,
+                                                   seconds=sec)
         if self.hour is not None and hour in self.hour:
             return to_seconds(minutes=60 - min)
         if self.min is not None and min in self.min:

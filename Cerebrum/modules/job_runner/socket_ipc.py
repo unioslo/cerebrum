@@ -33,7 +33,8 @@ from six import text_type
 
 import cereconf
 
-from .times import to_seconds, fmt_asc, fmt_time
+from Cerebrum.utils.date import to_seconds
+from .times import fmt_asc, fmt_time
 
 
 logger = logging.getLogger(__name__)

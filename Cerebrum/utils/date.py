@@ -84,6 +84,23 @@ TIMEZONE = pytz.timezone(cereconf.TIMEZONE)
 #     TIMEZONE = get_localzone()
 
 
+SECONDS_PER_MIN = 60
+SECONDS_PER_HOUR = SECONDS_PER_MIN * 60
+SECONDS_PER_DAY = SECONDS_PER_HOUR * 24
+SECONDS_PER_WEEK = SECONDS_PER_DAY * 7
+
+
+def to_seconds(weeks=0, days=0, hours=0, minutes=0, seconds=0):
+    """ Sum number of weeks, days, hours, etc.. to seconds. """
+    return sum((
+        weeks * SECONDS_PER_WEEK,
+        days * SECONDS_PER_DAY,
+        hours * SECONDS_PER_HOUR,
+        minutes * SECONDS_PER_MIN,
+        seconds,
+    ))
+
+
 def utcnow():
     """ `datetime.utcnow()` with tzinfo=UTC.
 
