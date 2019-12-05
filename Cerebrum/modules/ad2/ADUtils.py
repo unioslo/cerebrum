@@ -821,6 +821,14 @@ class ADclient(PowershellClient):
                 del attributes['SamAccountName']
             else:
                 parameters['SamAccountName'] = name
+        elif str(object_class).lower() == 'computer':
+            if 'PasswordNotRequired' not in attributes:
+                parameters["PasswordNotRequired"] = True
+            if 'SamAccountName' in attributes:
+                parameters['SamAccountName'] = attributes['SamAccountName']
+                del attributes['SamAccountName']
+            else:
+                parameters['SamAccountName'] = name
 
         # Add the attributes, but mapped to correctly name used in AD:
         if attributes:
@@ -841,7 +849,13 @@ class ADclient(PowershellClient):
             # For some reason, New-ADGroup does not accept -Type parameter
             cmd = self._generate_ad_command('New-ADGroup',
                                             parameters, 'PassThru')
+        elif str(object_class).lower() == 'computer':
+            # New-ADComputer does also not accept -Type parameter
+            cmd = self._generate_ad_command('New-ADGroup',
+            cmd = self._generate_ad_command('New-ADComputer',
+                                            parameters, 'PassThru')
         else:
+            # Keeping this like before just in case.
             parameters['Type'] = object_class
             cmd = self._generate_ad_command('New-ADObject',
                                             parameters, 'PassThru')
