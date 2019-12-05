@@ -851,7 +851,6 @@ class ADclient(PowershellClient):
                                             parameters, 'PassThru')
         elif str(object_class).lower() == 'computer':
             # New-ADComputer does also not accept -Type parameter
-            cmd = self._generate_ad_command('New-ADGroup',
             cmd = self._generate_ad_command('New-ADComputer',
                                             parameters, 'PassThru')
         else:
