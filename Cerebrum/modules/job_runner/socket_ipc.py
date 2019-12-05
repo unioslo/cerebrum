@@ -271,7 +271,7 @@ class SocketProtocol(object):
             (repr(x) for x in threading.enumerate()))
 
         def fmt_job_times(job):
-            fmt_last = fmt_dur = 'unknown'
+            fmt_last = fmt_dur = fmt_ago = 'unknown'
 
             last_run = queue._last_run[job]
 
