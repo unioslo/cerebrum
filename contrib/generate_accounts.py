@@ -136,11 +136,7 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
         break
     else:
         # no account found, create a new one
-        names = ac.suggest_unames(domain=co.account_namespace,
-                                  fname=pe.get_name(co.system_cached,
-                                                    co.name_first),
-                                  lname=pe.get_name(co.system_cached,
-                                                    co.name_last))
+        names = ac.suggest_unames(pe)
         if len(names) < 1:
             logger.warn('Person %d has no name, skipping', pe.entity_id)
             return

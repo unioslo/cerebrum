@@ -731,10 +731,7 @@ class Build(object):
 
         pe.find(existing_person.get_personid())
 
-        first_name = pe.get_name(const.system_cached, const.name_first)
-        last_name = pe.get_name(const.system_cached, const.name_last)
-
-        uname = ac.suggest_unames(id_value, first_name, last_name)[0]
+        uname = ac.suggest_unames(pe)[0]
         ac.populate(uname,
                     const.entity_person,
                     pe.entity_id,

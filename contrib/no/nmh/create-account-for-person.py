@@ -241,7 +241,7 @@ def create_new_account(db, person_id):
 
     account = Factory.get("Account")(db)
     # choose a user name
-    uname = account.suggest_unames(const.account_namespace, first, last)[0]
+    uname = account.suggest_unames(person)[0]
     logger.debug("Selected uname=%s for person id=%s", uname, person_id)
     # create an account
     account.populate(uname, const.entity_person,

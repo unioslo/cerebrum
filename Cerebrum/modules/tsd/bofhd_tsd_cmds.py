@@ -1893,7 +1893,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                     self.const.account_namespace,
                                     owner_id=owner_id)
                     sugg = suggest_usernames(
-                        self.const.account_namespace,
                         fname,
                         lname,
                         maxlen=cereconf.USERNAME_MAX_LENGTH,

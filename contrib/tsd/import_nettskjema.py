@@ -678,7 +678,6 @@ class Processing(object):
                                   co.account_namespace,
                                   owner_id=pe.entity_id)
         for name in suggest_usernames(
-                co.account_namespace,
                 fname,
                 lname,
                 maxlen=cereconf.USERNAME_MAX_LENGTH,

@@ -191,7 +191,7 @@ class ITRole(object):
             # FIXME: may bang if person only from sysX !??
             ssn = ext_id[0]['external_id']
             full_name = person.get_name(const.system_cached, const.name_full)
-            new_username = name_gen.get_uit_uname(ssn, full_name,
+            new_username = name_gen.get_uit_uname(person, full_name,
                                                   regime='ADMIN')
             logger.debug("GOT account_name=%r", new_username)
             creator = get_account(cereconf.INITIAL_ACCOUNTNAME)

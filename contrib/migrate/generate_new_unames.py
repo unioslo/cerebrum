@@ -97,8 +97,7 @@ def create_accounts(maxlen):
             logger.warn("Could not find name for %s, skipping.", p['entity_id'])
             continue
 
-        tmp = account.suggest_unames(constants.account_namespace,
-                                     fn, ln, maxlen=maxlen)
+        tmp = account.suggest_unames(person, maxlen=maxlen)
         
         account.clear()
         account.populate(tmp[0], constants.entity_person,
