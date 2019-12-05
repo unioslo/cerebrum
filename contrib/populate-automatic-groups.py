@@ -77,15 +77,16 @@ FIXME: Profile this baby.
 """
 
 import collections
-import getopt
 import re
 import sys
+import argparse
 
 import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.utils.argutils import add_commit_args, get_constant
 
 
 logger = Factory.get_logger("cronjob")
@@ -109,8 +110,6 @@ class group_attributes(object):
         self.group_id = group_proxy.entity_id
         self.group_name = group_proxy.group_name
         self.description = group_proxy.description
-    # end __init__
-# end group_attributes
 
 
 def format_sko(*rest):
@@ -120,9 +119,9 @@ def format_sko(*rest):
     """
     assert len(rest) == 3
     return "%02d%02d%02d" % rest
-# end format_sko
 
 
+@memoize
 def ou_id2ou_info(ou_id):
     """Locate information about the OU with the specied ou_id.
 
@@ -151,12 +150,8 @@ def ou_id2ou_info(ou_id):
     except Errors.NotFoundError:
         return None
 
-    # NOTREACHED
-    assert False
-# end ou_id2ou_info
-ou_id2ou_info = memoize(ou_id2ou_info)
 
-
+@memoize
 def ou_id2parent_info(ou_id, perspective):
     """Similar to L{ou_id2ou_info}, except return info for the parent.
 
@@ -183,12 +178,8 @@ def ou_id2parent_info(ou_id, perspective):
     except Errors.NotFoundError:
         return None
 
-    # NOTREACHED
-    assert False
-# end ou_id2parent_info
-ou_id2parent_info = memoize(ou_id2parent_info)
 
-
+@memoize
 def ou_get_children(ou_id, perspective):
     """Check if ou_id has any subordinate OUs in perspective.
 
@@ -213,12 +204,8 @@ def ou_get_children(ou_id, perspective):
         # If we can't find the OU, it does not have a parent :)
         return False
 
-    # NOTREACHED
-    assert False
-# end ou_get_children
-ou_get_children = memoize(ou_get_children)
 
-
+@memoize
 def get_create_account_id():
     """Fetch account_id for group creation.
 
@@ -228,8 +215,6 @@ def get_create_account_id():
     account = Factory.get("Account")(database)
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     return account.entity_id
-# end get_create_account_id
-get_create_account_id = memoize(get_create_account_id)
 
 
 def group_name_is_valid(group_name):
@@ -238,25 +223,38 @@ def group_name_is_valid(group_name):
     The format in question is <something>-<sko>, where <sko> is \d{6}.
     """
     return re.search("[a-zA-Z0-9_-]+-\d{6}$", group_name) is not None
-# end group_name_is_valid
 
 
-def find_all_auto_groups():
-    """Collect and return all groups that are administrered by this script.
+def find_auto_groups(select_criteria=None, all_groups=False):
+    """Collect and return groups that are administrered by this script.
 
-    We tag all auto groups with a number of traits. It is the only sane and
-    reliable way of gathering *all* of them later (using special name prefixes
-    is too cumbersome and error prone; organising them into a hierarchy (like
-    fronter groups) is a bit icky, since the tree has to be stored in a
-    relational db.
+    We tag all auto groups with a number of traits. Groups with one of the
+    required traits and a name starting with one of the prefixes given, are
+    collected and returned.
 
+    :param all_groups: return all auto groups regardless of select_criteria
+    :type select_criteria: dict or None
+    :param select_criteria: legal prefixes are values in this dict
     :rtype: dict
     :return:
       A mapping group_name -> group_id.
     """
-    def slurp_data(result, trait):
+    def get_meta_group_prefixes(prefixes):
+        return [get_meta_group_prefix(p) for p in prefixes if
+                p in cereconf.AUTOMATIC_GROUP_POPULATE_META_PREFIX]
+
+    def get_regex(allowed_prefixes):
+        if allowed_prefixes:
+            # {{6}} --> {6} when the string is formatted
+            return r'^({})-\d{{6}}$'.format(r'|'.join(allowed_prefixes))
+        else:
+            return None
+
+    def slurp_data(result, trait, regex):
+        if not all_groups and regex is None:
+            return
         group = Factory.get("Group")(database)
-        for row in entity.list_traits(code=trait):
+        for row in group.list_traits(code=trait):
             group_id = int(row["entity_id"])
             try:
                 group.clear()
@@ -264,19 +262,27 @@ def find_all_auto_groups():
             except Errors.NotFoundError:
                 continue
 
-            result[group.group_name] = group_attributes(group)
-    # end slurt_data
+            if all_groups or re.match(regex, group.group_name):
+                result[group.group_name] = group_attributes(group)
 
     result = dict()
-    entity = Factory.get("Group")(database)
-    logger.debug("Collecting all auto groups with humans")
-    slurp_data(result, constants.trait_auto_group)
-    logger.debug("Collecting all auto metagroups")
-    slurp_data(result, constants.trait_auto_meta_group)
+    auto_group_prefixes = []
+    auto_meta_group_prefixes = []
+    if select_criteria:
+        auto_group_prefixes = select_criteria.values()
+        auto_meta_group_prefixes = get_meta_group_prefixes(auto_group_prefixes)
+
+    logger.debug("Collecting existing auto groups with humans")
+    slurp_data(result,
+               constants.trait_auto_group,
+               get_regex(auto_group_prefixes))
+    logger.debug("Collecting existing auto metagroups")
+    slurp_data(result,
+               constants.trait_auto_meta_group,
+               get_regex(auto_meta_group_prefixes))
 
     logger.debug("Collected %d existing auto groups", len(result))
     return result
-# end find_all_auto_groups
 
 
 def group_name2group_id(group_name, description, current_groups, trait=NotSet):
@@ -364,7 +370,6 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
         current_groups[group_name].description = description
 
     return current_groups[group_name].group_id
-# end group_name2group_id
 
 
 def _load_selection_helper(iterable):
@@ -400,7 +405,6 @@ def _load_selection_helper(iterable):
             result[co_object] = prefix
 
     return result
-# end load_selection_helper
 
 
 def load_registration_criteria(criteria):
@@ -408,13 +412,9 @@ def load_registration_criteria(criteria):
 
     The script is driven by affiliations/statuses: a person with a certain
     affiliation (or affiliation status) becomes a member of a certain
-    group. Specifically which affiliation/status results in which group
-    membership is determined in two ways:
-
-      1) There may be settings in cereconf.AUTOMATIC_GROUPS.
-      2) There may be settings specified on the command line.
-
-    Command line settings supersedes cereconf's settings.
+    group. Specifically, which affiliation/status results in which group
+    membership is determined by the --collect settings specified on the
+    command line.
 
     The resulting data structure is a dict, mapping affiliation, or
     affiliation status to a group prefix for an automatically administered
@@ -422,10 +422,7 @@ def load_registration_criteria(criteria):
     'ansatt'-groups are special: they are ALSO members of the corresponding
     'meta-ansatt' groups.
     """
-    logger.debug("AUTO_GROUPS=%s", getattr(cereconf, "AUTOMATIC_GROUPS", {}))
-    result = _load_selection_helper(
-        getattr(cereconf, "AUTOMATIC_GROUPS", {}).items())
-    result.update(_load_selection_helper(criteria.items()))
+    result = _load_selection_helper(criteria.items())
     logger.debug("The following affs/statuses will result in memberships")
     logger.debug("Result is %s", result)
     for aff_or_status in result:
@@ -436,7 +433,10 @@ def load_registration_criteria(criteria):
                      str(aff_or_status),
                      prefix)
     return result
-# end load_registration_criteria
+
+
+def get_meta_group_prefix(group_prefix):
+    return "meta-%s" % group_prefix
 
 
 def affiliation2groups(row, current_groups, select_criteria, perspective):
@@ -464,7 +464,7 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
 
     :rtype: sequence
     :return:
-      A sequence of triples (x, y), where
+      A sequence of tuples (x, y), where
         - x is the member id (entity_id)
         - y is the group id where x is to be member.
 
@@ -472,6 +472,37 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
       reason for this complexity is that an 'employment' represented by a row
       may give rise to memberships where person_id does not participate.
     """
+    def append_meta_groups(employee_group_id, meta_group_prefix, result):
+        # Now it becomes difficult, since we have to create a chain of
+        # meta-ansatt group memberships.
+        tmp_ou_id = ou_id
+        # The first step is not really a parent -- it's the OU itself. I.e.
+        # ansatt-<sko> is a member of meta-ansatt-<sko>. It's like that by
+        # design (consider asking "who's an employee at <sko> or subordinate
+        # <sko>?". The answer is "meta-ansatt-<sko>" and it should obviously
+        # include ansatt-<sko>)
+        parent_info = ou_id2ou_info(tmp_ou_id)
+        meta_description = cereconf.AUTOMATIC_GROUP_LEGAL_PREFIXES[
+            meta_group_prefix]
+        while parent_info:
+            parent_name = meta_group_prefix + "-" + parent_info["sko"]
+            meta_parent_id = group_name2group_id(
+                parent_name,
+                meta_description % parent_info["name"],
+                current_groups,
+                constants.trait_auto_meta_group)
+
+            if meta_parent_id is not None:
+                result.append((employee_group_id, meta_parent_id))
+                logger.debug("Group name=%s (from person_id=%s) added to "
+                             "meta group id=%s, name=%s",
+                             group_prefix + suffix, person_id,
+                             meta_parent_id, parent_name)
+
+            parent_info = ou_id2parent_info(tmp_ou_id, perspective)
+            if parent_info:
+                tmp_ou_id = parent_info["ou_id"]
+
     person_id = row["person_id"]
     ou_id = row["ou_id"]
     ou_info = ou_id2ou_info(ou_id)
@@ -486,7 +517,6 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
     suffix = "-%s" % ou_info["sko"]
     result = list()
 
-    employee_group_id = None
     for key in (status, affiliation):
         if key not in select_criteria:
             continue
@@ -502,49 +532,16 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
         # Consult the configuration to see if we should try to populate
         # meta-groups with memberships.
         if group_prefix in cereconf.AUTOMATIC_GROUP_POPULATE_META_PREFIX:
-            employee_group_id = group_id
+            append_meta_groups(group_id,
+                               get_meta_group_prefix(group_prefix),
+                               result)
 
         if group_id is not None:
             result.append((person_id, group_id))
             logger.debug("Added person id=%s to group id=%s, name=%s",
                          person_id, group_id, group_name)
 
-    # Now the fun begins. All employees are members of certain groups.
-    #
-    # This affiliation (row) results in person_id being member of ansatt-<sko>.
-    if employee_group_id is not None:
-        # Now it becomes difficult, since we have to create a chain of
-        # meta-ansatt group memberships.
-        tmp_ou_id = ou_id
-        # The first step is not really a parent -- it's the OU itself. I.e.
-        # ansatt-<sko> is a member of meta-ansatt-<sko>. It's like that by
-        # design (consider asking "who's an employee at <sko> or subordinate
-        # <sko>?". The answer is "meta-ansatt-<sko>" and it should obviously
-        # include ansatt-<sko>)
-        parent_info = ou_id2ou_info(tmp_ou_id)
-        prefix = "meta-%s" % group_prefix
-        description = cereconf.AUTOMATIC_GROUP_LEGAL_PREFIXES[prefix]
-        while parent_info:
-            parent_name = prefix + "-" + parent_info["sko"]
-            meta_parent_id = group_name2group_id(
-                parent_name,
-                description % parent_info["name"],
-                current_groups,
-                constants.trait_auto_meta_group)
-
-            if meta_parent_id is not None:
-                result.append((employee_group_id, meta_parent_id))
-                logger.debug("Group name=%s (from person_id=%s) added to "
-                             "meta group id=%s, name=%s",
-                             group_prefix + suffix, person_id,
-                             meta_parent_id, parent_name)
-
-            parent_info = ou_id2parent_info(tmp_ou_id, perspective)
-            if parent_info:
-                tmp_ou_id = parent_info["ou_id"]
-
     return result
-# end affiliation2groups
 
 
 def populate_groups_from_rule(generator, row2groups, current_groups,
@@ -610,7 +607,6 @@ def populate_groups_from_rule(generator, row2groups, current_groups,
 
     logger.debug("After processing rule, we have %d groups", len(new_groups))
     logger.debug("... and <= %d members", count)
-# end populate_groups_from_rule
 
 
 def remove_members(group, member_sequence):
@@ -631,7 +627,6 @@ def remove_members(group, member_sequence):
 
     logger.debug("Removed %d members from group id=%s, name=%s",
                  len(member_sequence), group.entity_id, group.group_name)
-# end remove_members
 
 
 def add_members(group, member_sequence):
@@ -652,7 +647,6 @@ def add_members(group, member_sequence):
 
     logger.debug("Added %d members to group id=%s, name=%s",
                  len(member_sequence), group.entity_id, group.group_name)
-# end add_members
 
 
 def synchronise_spreads(group, spreads, omit_spreads):
@@ -702,10 +696,9 @@ def synchronise_spreads(group, spreads, omit_spreads):
         logger.debug("Removing spread %s to group %s (id=%s)",
                      str(spread), group_name, group.entity_id)
         group.delete_spread(spread)
-# end synchronise_spreads
 
 
-def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads,
+def synchronise_groups(current_groups, new_groups, spreads,
                        omit_spreads):
     """Synchronise current in-memory representation of groups with the db.
 
@@ -716,10 +709,10 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads,
 
     NB! L{groups_from_cerebrum} is modified by this function.
 
-    :type groups_from_cerebrum: dict
+    :type current_groups: dict
     :param: Cf. L{find_all_auto_groups}.
 
-    :type groups_from_data: dict
+    :type new_groups: dict
     :param: Cf. L{populate_groups_from_rule}.
 
     :type spreads: set of tuples
@@ -736,7 +729,7 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads,
     """
     group = Factory.get("Group")(database)
 
-    for group_id, members_from_data in groups_from_data.iteritems():
+    for group_id, new_members in new_groups.iteritems():
         try:
             group.clear()
             group.find(group_id)
@@ -748,24 +741,24 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads,
         synchronise_spreads(group, spreads, omit_spreads)
 
         # select just the entity_ids (we don't care about entity_type)
-        group_members = set(int(x["member_id"]) for x in
-                            group.search_members(group_id=group.entity_id))
-        # now, synch the union members. sync'ing means making sure that the
+        current_members = set(int(x["member_id"]) for x in
+                              group.search_members(group_id=group.entity_id))
+        # now, sync the union members. sync'ing means making sure that the
         # members of group are exactly the ones in memberset.
 
         # those that are not in 'group_members', should be added
-        to_add = members_from_data.difference(group_members)
+        to_add = new_members.difference(current_members)
         add_members(group, to_add)
 
         # those that are in 'group_members', but not in members_from_data,
         # should be removed.
-        to_remove = group_members.difference(members_from_data)
+        to_remove = current_members.difference(new_members)
         remove_members(group, to_remove)
 
-        if gname not in groups_from_cerebrum:
+        if gname not in current_groups:
             logger.debug("New group id=%s, name=%s", group_id, gname)
         else:
-            del groups_from_cerebrum[gname]
+            del current_groups[gname]
             logger.debug("Existing group id=%s, name=%s", group_id, gname)
 
         if to_remove or to_add:
@@ -778,8 +771,7 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads,
         # the code simpler.
         group.write_db()
 
-    return groups_from_cerebrum
-# end synchronise_groups
+    return current_groups
 
 
 def empty_defunct_groups(groups_from_cerebrum):
@@ -821,7 +813,6 @@ def empty_defunct_groups(groups_from_cerebrum):
         remove_members(group, members)
         logger.info("Removed %d members from defunct group id=%s, name=%s",
                     count, group_id, group_name)
-# end empty_defunct_groups
 
 
 def delete_defunct_groups(groups):
@@ -889,12 +880,40 @@ def delete_defunct_groups(groups):
         # If we get here, then the group has to be deleted.
         group.delete()
         logger.info("Deleted group id=%s, name=%s", group_id, group_name)
-# end delete_defunct_groups
+
+
+def get_affiliation_rows(person, source_system, select_criteria,
+                         ret_primary_acc=False):
+    """Get the affiliation rows necessary for updating the groups"""
+
+    affiliations = {x for x in select_criteria if
+                    isinstance(x, constants.PersonAffiliation)}
+    affiliation_statuses = {x for x in select_criteria if
+                            isinstance(x, constants.PersonAffStatus)}
+    affiliation_rows = []
+    for affiliation in affiliations:
+        affiliation_rows.extend(
+            person.list_affiliations(affiliation=affiliation,
+                                     source_system=source_system,
+                                     ret_primary_acc=ret_primary_acc)
+        )
+    for status in affiliation_statuses:
+        affiliation, status = constants.get_affiliation(status)
+        if affiliation not in affiliations:
+            # If affiliation is not in affiliations, the previous loop did not
+            # add the necessary rows to the list, so it is done now.
+            affiliation_rows.extend(
+                person.list_affiliations(affiliation=affiliation,
+                                         status=status,
+                                         source_system=source_system,
+                                         ret_primary_acc=ret_primary_acc)
+            )
+    return affiliation_rows
 
 
 def perform_sync(select_criteria, perspective, source_system, spreads,
                  omit_spread, populate_with_primary_acc=False):
-    """Set up the environment for synchronisation and synch all groups.
+    """Set up the environment for synchronisation and sync all groups.
 
     :type select_criteria: a dict (aff/status constant -> str)
     :param select_criteria:
@@ -921,21 +940,14 @@ def perform_sync(select_criteria, perspective, source_system, spreads,
       instead of the person, into the groups.
 
     """
-    assert perspective is not None, "Must have a perspective"
-
-    # Collect all existing auto groups. Whatever is left here after several
-    # processing passes are groups that no longer have any reason to exist.
-    current_groups = find_all_auto_groups()
-    new_groups = dict()
 
     person = Factory.get("Person")(database)
-    selecting_affiliations = [x
-                              for x in select_criteria
-                              if isinstance(x, constants.PersonAffiliation)]
-    # TBD: If the select list is empty, should the script abort, or just go for
-    # all affiliations?
-    if not selecting_affiliations:
-        selecting_affiliations = None
+
+    # Collect existing auto groups matching the given select_criteria.
+    # These are collected so that groups which no longer have any reason to
+    # exist can be emptied and/or deleted towards the end of this method.
+    current_groups = find_auto_groups(select_criteria=select_criteria)
+    new_groups = dict()
 
     # Rules that decide which groups to build.
     # Each rule is a tuple. The first object is a callable that generates a
@@ -945,17 +957,15 @@ def perform_sync(select_criteria, perspective, source_system, spreads,
     # inferred from the db-rows returned by the first callable.
     global_rules = [
         # Affiliation-based rule, e.g. rules that populate ansatt-<ou>
-        (lambda: person.list_affiliations(
-         affiliation=selecting_affiliations,
-         source_system=source_system),
+        (lambda: get_affiliation_rows(person, source_system, select_criteria),
          lambda row, current_groups: affiliation2groups(row,
                                                         current_groups,
                                                         select_criteria,
                                                         perspective),
-         lambda: person.list_affiliations(
-            affiliation=selecting_affiliations,
-            source_system=source_system,
-            ret_primary_acc=True)),
+         lambda: get_affiliation_rows(person,
+                                      source_system,
+                                      select_criteria,
+                                      ret_primary_acc=True)),
 
         # Trait-based rules: a person with a trait -> membership in a group
         # (lambda: person.list_traits(code=_locate_all_auto_traits()),
@@ -1001,7 +1011,6 @@ def perform_sync(select_criteria, perspective, source_system, spreads,
     # And finally, from these empty groups, delete the ones that should no
     # longer exist.
     delete_defunct_groups(current_groups)
-# end perform_sync
 
 
 def perform_delete():
@@ -1016,7 +1025,7 @@ def perform_delete():
     change_log with creation/update/removal information).
     """
     # Collect all existing auto groups ...
-    existing_groups = find_all_auto_groups()
+    existing_groups = find_auto_groups(all_groups=True)
 
     # ... empty all of them for members (otherwise deletion is not possible)
     empty_defunct_groups(existing_groups)
@@ -1054,7 +1063,6 @@ def perform_delete():
 
         group.delete()
         logger.info("Deleted group id=%s, name=%s", group_id, group_name)
-# end perform_delete
 
 
 class gnode(object):
@@ -1076,13 +1084,11 @@ class gnode(object):
         self._non_group_children = set()
         self._parent = None
         self._description = self._fetch_description()
-    # end __init__
 
     def _fetch_description(self):
         group = Factory.get("Group")(database)
         group.find(self._gid)
         return group.description
-    # end _fetch_description
 
     def __hash__(self):
         """Return a hash value for the object."""
@@ -1107,7 +1113,6 @@ class gnode(object):
                       humans]
 
         return "group %s" % ", ".join(components)
-    # end prepare_output
 
     def add_group_child(self, gnode_other):
         """Add child in group hierarchy."""
@@ -1115,22 +1120,18 @@ class gnode(object):
             return
 
         self._group_children[gnode_other._gid] = gnode_other
-    # end add_child
 
     def add_nongroup_child(self, key):
         """Add a child that is not a group."""
         self._non_group_children.add(key)
-    # end add_nongroup_child
 
     def add_parent(self, node):
         """Set the parent node."""
         self._parent = node
-    # end add_parent
 
     def get_parent(self):
         """Return the parent node."""
         return self._parent
-    # end get_parent
 
     def matches_filters(self, *filters):
         """Check if the group name matches the supplied filters."""
@@ -1143,7 +1144,6 @@ class gnode(object):
                 return True
 
         return False
-    # end matches_filters
 
     def output(self, stream, indent=0):
         """Write the group tree to the supplied stream."""
@@ -1152,8 +1152,6 @@ class gnode(object):
         stream.write("\n")
         for child in self._group_children.itervalues():
             child.output(stream, indent + INDENT_STEP)
-    # end output
-# end gnode
 
 
 def person_id2uname():
@@ -1167,7 +1165,6 @@ def person_id2uname():
 
     logger.debug("%d entries in the cache", len(pid2uname))
     return pid2uname
-# end person_id2uname
 
 
 def build_ou_roots(filters, perspective):
@@ -1205,7 +1202,6 @@ def build_ou_roots(filters, perspective):
             ou_roots[ou_id] = filtered_set[ou_id]
 
     return ou_roots
-# end build_ou_roots
 
 
 def output_group_forest(filters, perspective):
@@ -1253,7 +1249,6 @@ def output_group_forest(filters, perspective):
                           ou_get_children(current_ou["ou_id"],
                                           perspective)
                           if ou_id2ou_info(child_id))
-# end output_group_forest
 
 
 def output_ou(ou_info, indent, stream):
@@ -1265,7 +1260,6 @@ def output_ou(ou_info, indent, stream):
     stream.write(indent)
     stream.write("OU %s (id=%s)" % (ou_info["sko"], ou_info["ou_id"]))
     stream.write("\n")
-# end output_ou
 
 
 def build_complete_group_forest():
@@ -1280,7 +1274,7 @@ def build_complete_group_forest():
     #
     # map all groups to nodes.
     scratch = dict()
-    existing_groups = find_all_auto_groups()
+    existing_groups = find_auto_groups(all_groups=True)
     for gname in existing_groups:
         gid = existing_groups[gname].group_id
         node = gnode(gid, gname)
@@ -1324,159 +1318,157 @@ def build_complete_group_forest():
         result[node._gname] = node
 
     return result
-# end build_complete_forest
-
-
-def usage(exitcode):
-    """Help text for the commandline options."""
-    print """Usage: populate-automatic-groups.py -p SYSTEM [OPTIONS]
-
-    -p --perspective SYSTEM     Set the system perspective to fetch the OU
-                                structure from, e.g. SAP or FS. This sets what
-                                system that controls the OU hierarchy which
-                                should be used for the group hierarchy.
-
-    -s --source_system SYSTEM   Set the source system to fetch the person
-                                affiliations from. Could be a single system or
-                                a list of systems. Defaults to 'system_sap'.
-
-    -c --collect CRITERIA       Update the select criterias for what
-                                affiliations or statuses that shoul be
-                                collected and used for populating auto groups.
-                                Note that this comes in addition to what is set
-                                in the mapping in cereconf.AUTOMATIC_GROUPS.
-
-                                Format: The aff or status must be tailed with a
-                                colon and what group prefix to use. Example:
-
-                                    affilation_status_tilknyttet_eremitus:auto-eremitus
-
-    -a --accounts               Populate the groups with primary accounts
-                                instead of persons.
-
-    -r --spread PREFIX:SPREAD   Add a spread to the auto groups. Each given
-                                spread must have a prefix that must match the
-                                start of the group name for the spread to be
-                                given. Examples:
-
-                                   ansatt:group@ad # Each group starting with
-                                                   # "ansatt..." will get to
-                                                   # AD.
-
-                                   :group@ldap # All groups will get to LDAP,
-                                               # since the prefix is blank and
-                                               # will match all groups.
-
-    --omit-spread SPREAD        These spreads will be ommitted from
-                                syncronization.
-                                In other words, they won't be touched.  Should
-                                be specified in the same way as for --spread.
-
-    --remove-all-auto-groups    Delete all auto groups, which means all groups
-                                that has the autogroup trait.
-
-    -o --output-groups          Print out the group forest of auto groups and
-                                quit, without doing any changes.
-
-    -f --filters                Add an output filter that is used for finding
-                                the root OUs that are used when printing out
-                                the forest - see --output-groups.
-
-    -d --dryrun                 Do not commit the changes.
-
-    -h --help                   Show this and quit.
-
-    """
-    print __doc__
-    sys.exit(exitcode)
 
 
 def main():
     """Argument parsing and start of execution."""
-    options, junk = getopt.getopt(sys.argv[1:],
-                                  "p:ds:c:of:ar:h",
-                                  ("perspective=",
-                                   "dryrun",
-                                   "source_system=",
-                                   "remove-all-auto-groups",
-                                   "collect=",
-                                   "output-groups",
-                                   "filters=",
-                                   "spread=",
-                                   "omit-spread=",
-                                   "accounts",
-                                   "help"))
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument(
+        '-p', '--perspective',
+        type=str,
+        help='Set the system perspective to fetch the OU structure from, \n'
+             'e.g. SAP or FS. \n'
+             'This sets what system that controls the OU hierarchy \n'
+             'which should be used for the group hierarchy.',
+        required=True,
+    )
+    parser.add_argument(
+        '-s', '--source-system',
+        type=str,
+        help='Set the source system to fetch the personaffiliations from. \n'
+             'Could be a single system or a list of systems. \n '
+             'Defaults to \'system_sap\'.',
+        default='SAP',
+    )
+    parser.add_argument(
+        '--remove-all-auto-groups',
+        dest='wipe_all',
+        action='store_true',
+        help='Delete all auto groups, which means all groups that has the \n'
+             'autogroup trait.'
+    )
+    parser.add_argument(
+        '-c', '--collect',
+        type=str,
+        action='append',
+        default=[],
+        help='Update the select criterias for what affiliations or statuses \n'
+             'that should be collected and used for populating auto groups. \n'
+             '  Format: The aff or status must be tailed with a colon and \n'
+             '          what group prefix to use. \n'
+             '  Example: affilation_status_tilknyttet_eremitus:auto-eremitus'
+    )
+    parser.add_argument(
+        '-f', '--filters',
+        dest='output_filters',
+        action='append',
+        default=[],
+        help='Add an output filter that is used for finding the root OUs \n'
+             'that are used when printing out the forest \n'
+             ' - see --output-groups.'
+    )
+    parser.add_argument(
+        '-o', '--output-groups',
+        dest='output_groups',
+        action='store_true',
+        help='Print out the group forest of auto groups and quit, without \n'
+             'doing any changes.'
+    )
+    parser.add_argument(
+        '-a', '--accounts',
+        dest='populate_with_primary_acc',
+        action='store_true',
+        help='Populate the groups with primary accounts instead of persons.'
+    )
+    parser.add_argument(
+        '-r', '--spread',
+        type=str,
+        action='append',
+        default=[],
+        help='Add a spread to the auto groups. Each given spread must have \n'
+             'a prefix that must match the start of the group name for the \n'
+             'spread to be given. \n'
+             'Examples:\n'
+             '  ansatt:group@ad # Each group starting with\n'
+             '                  # "ansatt..." will get to\n'
+             '                  # AD.\n'
+             '  :group@ldap # All groups will get to LDAP,\n'
+             '              # since the prefix is blank and\n'
+             '              # will match all groups.'
+    )
+    parser.add_argument(
+        '--omit-spread',
+        type=str,
+        action='append',
+        default=[],
+        help='These spreads will be ommitted from syncronization. In other\n'
+             'words, they won\'t be touched. Should be specified in the same\n'
+             'way as for --spread.'
+    )
+    add_commit_args(parser, default=True)
 
-    dryrun = False
-    perspective = None
-    wipe_all = False
-    populate_with_primary_acc = False
-    source_system = constants.system_sap
+    args = parser.parse_args()
+
+    args.perspective = get_constant(database,
+                                    parser,
+                                    constants.OUPerspective,
+                                    args.perspective)
+
+    args.source_system = get_constant(database,
+                                      parser,
+                                      constants.AuthoritativeSystem,
+                                      args.source_system)
+
     select_criteria = dict()
-    output_groups = False
-    output_filters = list()
-    const = Factory.get("Constants")()
+    for value in args.collect:
+        aff_or_status, prefix = value.split(":")
+        select_criteria[aff_or_status] = prefix
+
     spreads = NotSet
     omit_spreads = set()
+    const = Factory.get("Constants")()
 
-    for option, value in options:
-        if option in ("-p", "--perspective"):
-            perspective = int(constants.OUPerspective(value))
-        elif option in ("-d", "--dryrun"):
-            dryrun = True
-        elif option in ("-s", "--source_system"):
-            source_system = getattr(constants, value)
-        elif option in ("--remove-all-auto-groups",):
-            wipe_all = True
-        elif option in ("-c", "--collect"):
-            aff_or_status, prefix = value.split(":")
-            select_criteria[aff_or_status] = prefix
-        elif option in ("-f", "--filters"):
-            output_filters.append(value)
-        elif option in ("-o", "--output-groups"):
-            output_groups = True
-        elif option in ("-h", "--help"):
-            usage(1)
-        elif option in ('-a', '--accounts'):
-            populate_with_primary_acc = True
-        elif option in ("-r", "--spread"):
-            try:
-                prefix, spread = value.split(":")
-            except ValueError:
-                print "Missing prefix in %s, e.g. ansatt:group@ldap" % option
-                sys.exit(1)
-            spread = const.human2constant(spread, const.Spread)
-            if spread is None:
-                logger.warn("Unknown spread value %s", value)
-                continue
-
-            if spreads is NotSet:
-                spreads = set()
-            spreads.add((prefix, spread))
-        elif option in ("--omit-spread"):
+    for value in args.spread:
+        try:
             prefix, spread = value.split(":")
-            spread = const.human2constant(spread, const.Spread)
-            if spread is None:
-                logger.warn("Unknown spread value %s", value)
-                continue
+        except ValueError:
+            print("Missing prefix in --spread, e.g. ansatt:group@ldap")
+            sys.exit(1)
+        spread = const.resolve_constant(database, spread, const.Spread)
+        if spread is None:
+            logger.warn("Unknown spread value %s", value)
+            continue
 
-            omit_spreads.add((prefix, spread))
-    if output_groups:
-        output_group_forest(output_filters, perspective)
+        if spreads is NotSet:
+            spreads = set()
+        spreads.add((prefix, spread))
+
+    for value in args.omit_spread:
+        prefix, spread = value.split(":")
+        spread = const.resolve_constant(database, spread, const.Spread)
+        if spread is None:
+            logger.warn("Unknown spread value %s", value)
+            continue
+
+        omit_spreads.add((prefix, spread))
+
+    if args.output_groups:
+        output_group_forest(args.output_filters, args.perspective)
         sys.exit(0)
-    elif wipe_all:
+    elif args.wipe_all:
         perform_delete()
     else:
         select_criteria = load_registration_criteria(select_criteria)
-        perform_sync(select_criteria, perspective, source_system, spreads,
-                     omit_spreads, populate_with_primary_acc)
+        perform_sync(select_criteria, args.perspective, args.source_system,
+                     spreads, omit_spreads, args.populate_with_primary_acc)
 
-    if dryrun:
-        database.rollback()
-        logger.debug("Rolled back all changes")
-    else:
+    if args.commit:
         database.commit()
         logger.debug("Committed all changes")
+    else:
+        database.rollback()
+        logger.debug("Rolled back all changes")
 
 
 if __name__ == "__main__":
