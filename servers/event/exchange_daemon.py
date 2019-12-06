@@ -36,7 +36,7 @@ from __future__ import unicode_literals
 
 import argparse
 
-from multiprocessing import Queue
+from six.moves.queue import Queue
 
 from Cerebrum import Utils
 from Cerebrum.modules.event import utils
@@ -52,7 +52,6 @@ class Manager(utils.Manager):
 
 
 # Inject our queue implementation:
-# TODO: This should probably be a Queue.Queue, since it's handled by a Manager!
 Manager.register(str('queue'), Queue)
 
 
@@ -60,7 +59,7 @@ def serve(config, num_workers, enable_listener, enable_collectors):
     channels = [TARGET_SYSTEM, ]
     exchanged = utils.ProcessHandler(manager=Manager)
 
-    event_queue = exchanged.mgr.queue()
+    event_queue = exchanged.mgr.queue(max_size=1000)
     queues = []
 
     Handler = getattr(Utils.dyn_import(config.handler.handler_mod),
