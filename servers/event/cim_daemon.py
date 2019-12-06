@@ -33,7 +33,7 @@ SIGUSR1 (main process)
 """
 import argparse
 
-from multiprocessing import Queue
+from six.moves.queue import Queue
 
 from Cerebrum import Utils
 from Cerebrum.modules.event import utils
@@ -50,7 +50,6 @@ class Manager(utils.Manager):
 
 
 # Inject our queue implementation:
-# TODO: This should probably be a Queue.Queue, since it's handled by a Manager!
 Manager.register('queue', Queue)
 
 
@@ -60,7 +59,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
     channels = [TARGET_SYSTEM, ]
     cimd = utils.ProcessHandler(manager=Manager)
 
-    event_queue = cimd.mgr.queue()
+    event_queue = cimd.mgr.queue(max_size=1000)
 
     for i in range(0, num_workers):
         cimd.add_process(
