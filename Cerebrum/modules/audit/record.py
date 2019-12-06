@@ -107,9 +107,19 @@ class DbAuditRecord(AuditRecord):
             self.timestamp.strftime('%Y-%m-%d %H:%M:%S %z'))
 
     def __lt__(self, other):
-        if not hasattr(other, 'timestamp'):
+        if not hasattr(other, 'record_id'):
             return NotImplemented
-        return self.timestamp < other.timestamp
+        return self.record_id < other.record_id
+
+    def __gt__(self, other):
+        if not hasattr(other, 'record_id'):
+            return NotImplemented
+        return self.record_id > other.record_id
+
+    def __eq__(self, other):
+        if not hasattr(other, 'record_id'):
+            return NotImplemented
+        return self.record_id == other.record_id
 
     @property
     def record_id(self):
