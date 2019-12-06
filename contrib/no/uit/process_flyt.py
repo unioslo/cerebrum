@@ -639,11 +639,8 @@ def create_flyt_account(fnr, expire_date):
     p_obj = Factory.get('Person')(db)
     p_obj.find(owner.get_personid())
 
-    first_name = p_obj.get_name(const.system_cached, const.name_first)
-    last_name = p_obj.get_name(const.system_cached, const.name_last)
-
     acc_obj = Factory.get('Account')(db)
-    uname = acc_obj.suggest_unames(fnr, first_name, last_name)
+    uname = acc_obj.suggest_unames(p_obj)
     acc_obj.populate(uname,
                      const.entity_person,
                      p_obj.entity_id,

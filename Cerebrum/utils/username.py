@@ -24,7 +24,7 @@ import re
 from Cerebrum.utils import transliterate
 
 
-def suggest_usernames(domain, fname, lname, maxlen=8,
+def suggest_usernames(fname, lname, maxlen=8,
                       suffix="", prefix="", validate_func=None):
     """
     Returns a tuple with 15 username suggestions based

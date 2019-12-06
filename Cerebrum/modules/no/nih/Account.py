@@ -34,6 +34,7 @@ from Cerebrum.modules import Email
 
 class AccountNIHMixin(Account.Account):
     """Account mixin class providing functionality specific to NIH."""
+
     def add_spread(self, spread):
         if spread == self.const.spread_exchange_account:
             if not self.has_spread(self.const.spread_ad_account):
@@ -103,10 +104,12 @@ class AccountNIHMixin(Account.Account):
                 return True
         return False
 
-    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
-        # Override Account.suggest_unames as HiHH allows up to 10 chars
+    def suggest_unames(self, person, maxlen=10, suffix=""):
+        # Override Account.suggest_unames as NiH allows up to 10 chars
         # in unames
-        return self.__super.suggest_unames(domain, fname, lname, maxlen=10)
+        return super(AccountNIHMixin, self).suggest_unames(person,
+                                                           maxlen=maxlen,
+                                                           suffix=suffix)
 
     def update_email_addresses(self):
         # Overriding default update_email_addresses as NIH does not require

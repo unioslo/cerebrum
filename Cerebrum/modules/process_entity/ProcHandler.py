@@ -105,8 +105,7 @@ class ProcHandler(object):
                 return None
             self.logger.debug("Trying to find a uname for %s %s", firstname,
                               lastname)
-            unames = self._ac.suggest_unames(self._co.account_namespace,
-                                             firstname, lastname)
+            unames = self._ac.suggest_unames(owner)
             self.logger.debug(
                 "Name: %s %s, owner ent_type: %s, owner ent_id:%s" %
                 (firstname, lastname, owner.entity_type, owner.entity_id))

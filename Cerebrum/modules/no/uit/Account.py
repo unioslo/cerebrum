@@ -192,9 +192,17 @@ class AccountUiTMixin(Account.Account):
     # Override username generator in core Account.py
     # Do it the UiT way!
     #
-    def suggest_unames(self, external_id, fname, lname):
-        full_name = "%s %s" % (fname, lname)
-        return [UsernamePolicy(self._db).get_uit_uname(external_id, full_name)]
+    def suggest_unames(self, person, maxlen=6, suffix=""):
+        """Generate user name suggestions for UiT persons
+
+        Note that the maxlen and suffix arguments are irrelevant for UiT. They
+        are only kept to keep the signature of the method the same as the
+        others.
+        """
+        full_name = person.get_name(source_system=self.const.system_cached,
+                                    variant=self.const.name_full)
+
+        return [UsernamePolicy(self._db).get_uit_uname(person, full_name)]
 
     def encrypt_password(self, method, plaintext, salt=None, binary=False):
         """
@@ -437,7 +445,7 @@ class UsernamePolicy(DatabaseAccessor):
         return self.get_serial(inits, cstart, step=step,
                                postfix=self.sito_postfix)
 
-    def get_uit_uname(self, external_id, name, regime=None):
+    def get_uit_uname(self, person, name, regime=None):
         """
         UiT function that generates a username.
 
@@ -448,13 +456,15 @@ class UsernamePolicy(DatabaseAccessor):
             NNN = unique numeric identifier
 
         This method will also check for pre-existing, available usernames for
-        the owner identified by *external_id*, as usernames from legacy systems
+        the owner identified by *person*, as usernames from legacy systems
         may be recorded in the *LegacyUsers* module.  If more than one legacy
         username exists, the first found will be used.  If no legacy usernames
         exists, a new one will be generated.
 
-        :param external_id:
-            Norwegian national id of the account owner, 11 digits
+        :type person:
+            Cerebrum.Utils._dynamic_Person
+        :param person:
+            Populated person object
         :param name:
             Name of the account owner
         :param: regime:
@@ -475,24 +485,19 @@ class UsernamePolicy(DatabaseAccessor):
 
         co = Factory.get('Constants')(self._db)
 
-        for id_type in (co.externalid_fodselsnr,
-                        co.externalid_pass_number,
-                        co.externalid_sys_x_id):
+        external_ids = [row['external_id'] for row in person.get_external_id(
+            id_type=(co.externalid_fodselsnr,
+                     co.externalid_pass_number,
+                     co.externalid_sys_x_id,
+                     ))]
+        if external_ids:
             try:
-                pe = self._get_person_by_extid(id_type, external_id)
-                break
+                return self._find_legacy_username(person, external_ids,
+                                                  legacy_type)
             except Errors.NotFoundError:
-                continue
-        else:
-            raise RuntimeError(
-                "Trying to create account for person:%s that "
-                "does not exist!" % external_id)
-
-        try:
-            return self._find_legacy_username(pe, external_id, legacy_type)
-        except Errors.NotFoundError:
-            inits = self.get_initials(name)
-            return self.get_serial(inits, cstart, step=step)
+                pass
+        inits = self.get_initials(name)
+        return self.get_serial(inits, cstart, step=step)
 
     def get_serial(self, inits, cstart, step=1, postfix=None):
         """

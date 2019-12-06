@@ -45,10 +45,7 @@ def build_account(person_id):
     acc_id = account.list_accounts_by_owner_id(person_id)
 
     if acc_id == []:
-        fname = person.get_name(constants.system_cached, constants.name_first)
-        lname = person.get_name(constants.system_cached, constants.name_last)
-        unames = account.suggest_unames(constants.account_namespace, fname,
-                                        lname)
+        unames = account.suggest_unames(person)
 
         if unames[0] is None:
             logger.error('Could not generate user name for %s.', person_id)
