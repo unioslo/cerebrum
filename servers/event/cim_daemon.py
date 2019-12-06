@@ -59,7 +59,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
     channels = [TARGET_SYSTEM, ]
     cimd = utils.ProcessHandler(manager=Manager)
 
-    event_queue = cimd.mgr.queue(max_size=1000)
+    event_queue = cimd.mgr.queue(maxsize=1000)
 
     for i in range(0, num_workers):
         cimd.add_process(

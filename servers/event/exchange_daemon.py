@@ -59,7 +59,7 @@ def serve(config, num_workers, enable_listener, enable_collectors):
     channels = [TARGET_SYSTEM, ]
     exchanged = utils.ProcessHandler(manager=Manager)
 
-    event_queue = exchanged.mgr.queue(max_size=1000)
+    event_queue = exchanged.mgr.queue(maxsize=1000)
     queues = []
 
     Handler = getattr(Utils.dyn_import(config.handler.handler_mod),
