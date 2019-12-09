@@ -1951,7 +1951,7 @@ class BofhdExtension(BofhdCommonMethods):
                                             visibility, "visibility")
         if self._is_perishable_manual_group(grp):
             grp.set_default_expire_date()
-            grp.write_db()
+        grp.write_db()
         return "OK, set visibility for '%s'" % group
 
     #
