@@ -1881,7 +1881,7 @@ class BofhdExtension(BofhdCommonMethods):
                 "group {0} has group_type {1}".format(
                     group.group_name, text_type(self.const.GroupType(
                         group.group_type))))
-        if not self._is_perishable_manual_group(group):
+        if self._is_perishable_manual_group(group):
             group.set_default_expire_date()
         if name_lang in self.language_codes:
             name_lang = int(_LanguageCode(name_lang))
