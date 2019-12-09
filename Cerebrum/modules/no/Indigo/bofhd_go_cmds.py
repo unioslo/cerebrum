@@ -192,6 +192,7 @@ class BofhdExtension(BofhdCommonMethods):
                format_day("expire_date"),
                "entity_id")),
              ("Admin:        %s %s", ('admin_type', 'admin')),
+             ("Moderator:    %s %s", ('mod_type', 'mod')),
              ("Gid:          %i", ('gid',)),
              ("Members:      %s", ("members",))]))
 
@@ -213,6 +214,20 @@ class BofhdExtension(BofhdCommonMethods):
             ret.append({
                 'admin_type': text_type(co.EntityType(en.entity_type)),
                 'admin': admin,
+            })
+        # find moderators
+        for row in roles.search_moderators(group_id=grp.entity_id):
+            id = int(row['moderator_id'])
+            en = self._get_entity(ident=id)
+            if en.entity_type == co.entity_account:
+                mod = en.account_name
+            elif en.entity_type == co.entity_group:
+                mod = en.group_name
+            else:
+                mod = '#%d' % id
+            ret.append({
+                'mod_type': text_type(co.EntityType(en.entity_type)),
+                'mod': mod,
             })
 
         # Count group members of different types
