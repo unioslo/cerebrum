@@ -117,6 +117,23 @@ def pformat(obj):
 pformat.pp = pprint.PrettyPrinter(indent=4)
 
 
+def get_valid_uname(person, account):
+    """Returns a valid user name based on a person object
+
+    :param person: populated Cerebrum Person object
+    :type account: Cerebrum.Utils._dynamic_Account
+    :return: valid user name or None
+
+    """
+    for uname in account.suggest_unames(person):
+        try:
+            group_obj.clear()
+            group_obj.find_by_name(uname)
+        except Errors.NotFoundError:
+            return uname
+    return None
+
+
 class AccountUtil(object):
     """Collection of methods that operate on a single account to make
     it conform to a profile """
@@ -165,20 +182,16 @@ class AccountUtil(object):
         # if cereconf.USE_STUDENTNR_AS_UNAME is not used or studentnr is not
         # found produce uname according to the usual algorithm
         account = Factory.get('Account')(db)
+
         if not uname:
-            suggestions = account.suggest_unames(person)
-            for sugg in suggestions:
-                try:
-                    group_obj.clear()
-                    group_obj.find_by_name(sugg)
-                except Errors.NotFoundError:
-                    uname = sugg
-                    break
-        if not uname:
-            logger.error("Failed to find an available username for {}".format(
-                fnr))
-            return None
+            uname = get_valid_uname(person, account)
+            if not uname:
+                logger.error(
+                    "Failed to find an available username for {}".format(fnr)
+                )
+                return None
         logger.info("uname %s will be used", uname)
+
         account.populate(uname,
                          const.entity_person,
                          person.entity_id,
