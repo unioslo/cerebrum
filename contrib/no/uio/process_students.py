@@ -196,7 +196,8 @@ class AccountUtil(object):
                          const.entity_person,
                          person.entity_id,
                          None,
-                         default_creator_id, default_expire_date)
+                         default_creator_id,
+                         default_expire_date)
         tmp = account.write_db()
         logger.debug("new Account, write_db=%s", tmp)
         account.populate_trait(code=const.trait_student_new, date=now())
@@ -210,7 +211,7 @@ class AccountUtil(object):
         return account.entity_id
 
     @staticmethod
-    def _populate_account_affiliations(account_id, fnr):
+    def _populate_account_affiliations(user, account_id, fnr):
         """Assert that the account has the same student affiliations as
         the person.  Will not remove the last student account affiliation
         even if the person has no such affiliation"""
@@ -221,10 +222,15 @@ class AccountUtil(object):
                        accounts[account_id].get_affiliations()
                        if aff == const.affiliation_student]
         for aff, ou, status in persons[fnr].get_affiliations():
+            # TODO: Using an assert for this is not really a good idea.
+            #   It means an error will be raised if, by chance, someone has
+            #   other affiliations than student. Why not just ignore other
+            #   affiliations instead of raising an error?
             assert aff == const.affiliation_student
             if ou not in account_ous:
                 changes.append(('set_ac_type',
                                 (ou, const.affiliation_student)))
+                user.set_account_type(ou, const.affiliation_student)
             else:
                 account_ous.remove(ou)
                 # The account has at least one valid affiliation, so
@@ -233,95 +239,8 @@ class AccountUtil(object):
 
         for ou in account_ous[remove_idx:]:
             changes.append(('del_ac_type', (ou, const.affiliation_student)))
+            user.del_account_type(ou, const.affiliation_student)
         return changes
-
-    @staticmethod
-    def _handle_user_changes(changes, account_id, as_posix):
-        if as_posix:
-            user = posix_user_obj
-        else:
-            user = account_obj
-        user.clear()
-        if changes[0][0] == 'dfg' and accounts[account_id].get_gid() is None:
-            uid = user.get_free_uid()
-            shell = default_shell
-            account_obj.clear()
-            account_obj.find(account_id)
-            user.populate(uid, changes[0][1], None, shell,
-                          parent=account_obj, expire_date=default_expire_date)
-            user.write_db()
-            user.map_user_spreads_to_pg()
-            logger.debug("Used dfg2: " + str(changes[0][1]))
-            accounts[account_id].append_group(changes[0][1])
-            del (changes[0])
-        else:
-            user.find(account_id)
-
-        for c_id, dta in changes:
-            if c_id == 'add_spread':
-                try:
-                    user.add_spread(dta)
-                except db.IntegrityError:
-                    logger.warn('Could not add %s to %s', dta, account_id)
-        for c_id, dta in changes:
-            if c_id == 'dfg':
-                user.gid_id = dta
-                logger.debug("Used dfg: %s", dta)
-                accounts[account_id].append_group(dta)
-            elif c_id == 'expire':
-                user.expire_date = dta
-            elif c_id == 'disk':
-                current_disk_id, disk_spread, new_disk = dta
-                if current_disk_id is None:
-                    logger.debug("Set home: %s", new_disk)
-                    homedir_id = user.set_homedir(
-                        disk_id=new_disk, status=const.home_status_not_created)
-                    user.set_home(disk_spread, homedir_id)
-                    accounts[account_id].set_home(disk_spread, new_disk,
-                                                  homedir_id)
-                else:
-                    br = BofhdRequests(db, const)
-                    # TBD: Is it correct to set requestee_id=None?
-                    try:
-                        br.add_request(None, br.batch_time,
-                                       const.bofh_move_user, account_id,
-                                       new_disk, state_data=int(disk_spread))
-                    except errors.CerebrumError as e:
-                        # Conflicting request or similiar
-                        logger.warn(e)
-            elif c_id == 'remove_autostud_quarantine':
-                user.delete_entity_quarantine(dta)
-            elif c_id == 'remove_quarantine_at_restore':
-                user.delete_entity_quarantine(dta)
-            elif c_id == 'add_spread':
-                pass  # already processed
-            elif c_id == 'add_person_spread':
-                if (not hasattr(person_obj, 'entity_id') or
-                        person_obj.entity_id != user.owner_id):
-                    person_obj.clear()
-                    person_obj.find(user.owner_id)
-                person_obj.add_spread(dta)
-            elif c_id == 'set_ac_type':
-                user.set_account_type(dta[0], dta[1])
-            elif c_id == 'del_ac_type':
-                user.del_account_type(dta[0], dta[1])
-            elif c_id == 'add_quarantine':
-                start_at = strftime('%Y-%m-%d', localtime(dta[1] + time()))
-                # Fix dette!
-                # sett --quarantine-exempt krever
-                # sjekk om opsjonen --quarantine-exempt er på
-                # sjekk om personen har en annen aff og hvis så skip
-                user.add_entity_quarantine(
-                    dta[0], default_creator_id, 'automatic', start_at)
-            elif c_id == 'disk_kvote':
-                disk_id, homedir_id, quota, spread = dta
-                if homedir_id is None:  # homedir was added in this run
-                    homedir_id = accounts[account_id].get_home(spread)[1]
-                disk_quota_obj.set_quota(homedir_id, quota=int(quota))
-            else:
-                raise ValueError("Unknown change: %s" % c_id)
-        tmp = user.write_db()
-        logger.debug("write_db=%s", tmp)
 
     @staticmethod
     def _update_group_memberships(account_id, profile):
@@ -372,12 +291,75 @@ class AccountUtil(object):
             year, month, mday = localtime()[0:3]
             return is_free_period(year, month, mday)
 
-        # First fill 'changes' with all needed modifications.  We will
-        # only lookup databaseobjects if changes is non-empty.
+        def _make_posix_user(user, gid):
+            uid = user.get_free_uid()
+            shell = default_shell
+            account_obj.clear()
+            account_obj.find(account_id)
+            user.populate(uid, gid, None, shell,
+                          parent=account_obj,
+                          expire_date=default_expire_date)
+            user.write_db()
+            user.map_user_spreads_to_pg()
+            logger.debug("Used dfg2: " + str(gid))
+            accounts[account_id].append_group(gid)
+
+        def _set_user_disk(user, current_disk_id, disk_spread, new_disk):
+            if current_disk_id is None:
+                logger.debug("Set home: %s", new_disk)
+                homedir_id = user.set_homedir(
+                    disk_id=new_disk, status=const.home_status_not_created)
+                user.set_home(disk_spread, homedir_id)
+                accounts[account_id].set_home(disk_spread, new_disk,
+                                              homedir_id)
+            else:
+                br = BofhdRequests(db, const)
+                # TBD: Is it correct to set requestee_id=None?
+                try:
+                    br.add_request(None, br.batch_time,
+                                   const.bofh_move_user, account_id,
+                                   new_disk, state_data=int(disk_spread))
+                except errors.CerebrumError as e:
+                    # Conflicting request or similiar
+                    logger.warn(e)
+
+        def _set_disk_quota(disk_id, homedir_id, quota, spread):
+            if homedir_id is None:  # homedir was added in this run
+                homedir_id = accounts[account_id].get_home(spread)[1]
+            disk_quota_obj.set_quota(homedir_id, quota=int(quota))
+
+        def _add_quarantine(user, quarantine, start_at):
+            start_at = strftime('%Y-%m-%d', localtime(start_at + time()))
+            # Fix dette!
+            # sett --quarantine-exempt krever
+            # sjekk om opsjonen --quarantine-exempt er på
+            # sjekk om personen har en annen aff og hvis så skip
+            user.add_entity_quarantine(
+                quarantine, default_creator_id, 'automatic', start_at)
+
+        def _add_account_spread(user, spread):
+            try:
+                user.add_spread(spread)
+            except db.IntegrityError:
+                logger.warn('Could not add %s to %s', spread, user.entity_id)
+
+        def _add_person_spread(user, spread):
+            if (not hasattr(person_obj, 'entity_id') or
+                    person_obj.entity_id != user.owner_id):
+                person_obj.clear()
+                person_obj.find(user.owner_id)
+            person_obj.add_spread(spread)
+
+        if as_posix:
+            user = posix_user_obj
+        else:
+            user = account_obj
+
+        # changes is now used only for logging purposes
+        changes = []
         logger.info(" UPDATE:%s", account_id)
         processed_accounts[account_id] = True
-        changes = []
-        ac = accounts[account_id]
+        existing_account = accounts[account_id]
         if as_posix:
             try:
                 gid = profile.get_dfg()
@@ -387,12 +369,16 @@ class AccountUtil(object):
                 # Other instances will get an exception later on, when trying
                 # to run write_db.
                 gid = None
-            # we no longer want to change the default-group if already set
-            if ac.get_gid() is None:  # or ac['gid'] != gid):
+            user.clear()
+            if existing_account.get_gid() is None:
                 changes.append(('dfg', gid))
+                _make_posix_user(user, gid)
+            else:
+                user.find(account_id)
 
-        if ac.get_expire_date() != default_expire_date:
+        if existing_account.get_expire_date() != default_expire_date:
             changes.append(('expire', default_expire_date))
+            user.expire_date = default_expire_date
 
         # Set/change homedir
         user_spreads = [int(s) for s in profile.get_spreads()]
@@ -400,20 +386,19 @@ class AccountUtil(object):
         # quarantine scope='student_disk' should affect all users with
         # home on a student-disk, or that doesn't have a home at all
         may_be_quarantined = False
-        if not ac.has_homes():
+        if not existing_account.has_homes():
             may_be_quarantined = True
         for s in autostud.disk_tool.get_known_spreads():
-            disk_id, homedir_id = ac.get_home(s)
+            disk_id, homedir_id = existing_account.get_home(s)
             if (disk_id and
                     autostud.disk_tool.get_diskdef_by_diskid(disk_id)):
                 may_be_quarantined = True
 
-        current_disk_id = None
         for disk_spread in profile.get_disk_spreads():
             if disk_spread not in user_spreads:
                 # The disk-spread in disk-defs was not one of the users spread
                 continue
-            current_disk_id, notused = ac.get_home(disk_spread)
+            current_disk_id, notused = existing_account.get_home(disk_spread)
             if keep_account_home[fnr] and (move_users or current_disk_id is
                                            None):
                 try:
@@ -424,10 +409,11 @@ class AccountUtil(object):
                     autostud.disk_tool.notify_used_disk(old=current_disk_id,
                                                         new=new_disk)
                     changes.append(('disk', (current_disk_id, disk_spread,
-                                             new_disk)))
-                    current_disk_id = new_disk
-                    ac.set_home(disk_spread, new_disk,
-                                ac.get_home(disk_spread)[1])
+                                            new_disk)))
+                    _set_user_disk(user,
+                                   current_disk_id,
+                                   disk_spread,
+                                   new_disk)
 
         if autostud.disk_tool.using_disk_kvote:
             for spread in accounts[account_id].get_home_spreads():
@@ -436,13 +422,14 @@ class AccountUtil(object):
                     # Setter kun kvote på student-disker
                     continue
                 quota = profile.get_disk_kvote(disk_id)
-                if (ac.get_disk_kvote(homedir_id) > quota and
+                if (existing_account.get_disk_kvote(homedir_id) > quota and
                         _dont_downgrade_account()):
                     continue
-                if ac.get_disk_kvote(homedir_id) != quota:
+                if existing_account.get_disk_kvote(homedir_id) != quota:
                     changes.append(('disk_kvote',
                                     (disk_id, homedir_id, quota, spread)))
-                    ac.set_disk_kvote(homedir_id, quota)
+                    _set_disk_quota(disk_id, homedir_id, quota, spread)
+                    existing_account.set_disk_kvote(homedir_id, quota)
 
         # TBD: Is it OK to ignore date on existing quarantines when
         # determining if it should be added?
@@ -452,50 +439,55 @@ class AccountUtil(object):
                 continue
             tmp.append(int(q['quarantine']))
             if (with_quarantines and not int(q['quarantine']) in
-                                         ac.get_quarantines()):
+                                         existing_account.get_quarantines()):
                 changes.append(('add_quarantine', (q['quarantine'],
                                                    q['start_at'])))
+                _add_quarantine(user, q['quarantine'], q['start_at'])
 
         # Remove auto quarantines
         for q in (const.quarantine_auto_inaktiv,
                   const.quarantine_auto_emailonly):
-            if (int(q) in ac.get_quarantines() and
+            if (int(q) in existing_account.get_quarantines() and
                     int(q) not in tmp):
                 changes.append(("remove_autostud_quarantine", q))
+                user.delete_entity_quarantine(q)
 
         # Populate spreads
-        has_account_spreads = ac.get_spreads()
+        has_account_spreads = existing_account.get_spreads()
         has_person_spreads = persons[fnr].get_spreads()
         for spread in profile.get_spreads():
             if spread.entity_type == const.entity_account:
                 if not int(spread) in has_account_spreads:
                     changes.append(('add_spread', spread))
+                    _add_account_spread(user, spread)
             elif spread.entity_type == const.entity_person:
                 if not int(spread) in has_person_spreads:
                     changes.append(('add_person_spread', spread))
+                    _add_person_spread(user, spread)
                     has_person_spreads.append(int(spread))
 
-        changes.extend(AccountUtil._populate_account_affiliations(account_id,
-                                                                  fnr))
-        # We have now collected all changes that would need fetching of
-        # the user object.
+        changes.extend(
+            AccountUtil._populate_account_affiliations(user, account_id, fnr)
+        )
+
         if changes:
-            if ac.is_deleted():
+            if existing_account.is_deleted():
                 AccountUtil.restore_uname(account_id, profile)
-                for q in ac.get_quarantines():
+                for q in existing_account.get_quarantines():
                     if q in [int(const.quarantine_generell),
                              int(const.quarantine_autopassord),
                              int(const.quarantine_slutta)]:
                         changes.append(('remove_quarantine_at_restore', q))
-
-        if changes:
-            AccountUtil._handle_user_changes(changes, account_id, as_posix)
+                        user.delete_entity_quarantine(q)
 
         changes.extend(AccountUtil._update_group_memberships(account_id,
                                                              profile))
 
         if changes:
             logger.debug("Changes [%i/%s]: %s", account_id, fnr, repr(changes))
+
+        tmp = user.write_db()
+        logger.debug("write_db=%s", tmp)
 
 
 class BuildAccounts(object):
