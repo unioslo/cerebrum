@@ -43,7 +43,7 @@ from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import (BofhdAuth, BofhdAuthRole,
-                                         BofhdAuthOpSet, BofhdAuthOpTarget)
+                                         BofhdAuthOpTarget)
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied

@@ -35,8 +35,6 @@ from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
-from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
-                                         BofhdAuthRole)
 from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessCommands
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods

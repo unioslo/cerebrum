@@ -20,14 +20,10 @@
 
 from contextlib import contextmanager
 
-import cereconf
 from Cerebrum import Errors
 from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
-from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
-                                         BofhdAuthOpTarget,
-                                         BofhdAuthRole)
 
 
 class PosixUserUiOMixin(PosixUser.PosixUser):
