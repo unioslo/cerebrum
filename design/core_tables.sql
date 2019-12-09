@@ -23,7 +23,7 @@
 category:metainfo;
 name=cerebrum_database_schema_version;
 category:metainfo;
-version=0.9.21;
+version=0.9.22;
 
 /* Konvensjoner
  *
