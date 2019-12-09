@@ -186,7 +186,6 @@ class AccountUtil(object):
                          default_creator_id, default_expire_date)
         tmp = account.write_db()
         logger.debug("new Account, write_db=%s", tmp)
-        account.write_db()
         account.populate_trait(code=const.trait_student_new, date=now())
         account.write_db()
         as_posix = False
