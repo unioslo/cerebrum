@@ -34,6 +34,7 @@ import six
 import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
+from Cerebrum.groups import GroupRoles
 from Cerebrum.Entity import (EntityName, EntityQuarantine, EntityExternalId,
                              EntitySpread, EntityNameWithLanguage)
 from Cerebrum.Utils import argument_to_sql, prepare_string
@@ -246,10 +247,9 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             DELETE FROM [:table schema=cerebrum name=group_member]
             WHERE group_id=:g_id""", {'g_id': self.entity_id})
 
-            # Empty this group's set of admins.
-            self.execute("""
-            DELETE FROM [:table schema=cerebrum name=group_admin]
-            WHERE group_id=:g_id""", {'g_id': self.entity_id})
+            # Empty this group's set of admins and moderators
+            group_roles = GroupRoles(self.db)
+            group_roles.remove_all(self.entity_id)
 
             # Empty this group's memberships.
             # IVR 2008-06-06 TBD: Is this really wise? I.e. should the caller
@@ -391,46 +391,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                       'm_id': member_id})
         self._db.log_change(self.entity_id, self.clconst.group_add, member_id)
 
-    def add_admin(self, admin_id):
-        """Add L{admin_id} as admin of this group.
-
-        :param int admin_id:
-          Admin (id) to add to this group. This must be an entity
-          (i.e. registered in entity_info).
-        """
-        stmt = """
-        INSERT INTO [:table schema=cerebrum name=group_admin]
-          (group_id, admin_id)
-        VALUES
-          (:group_id, :admin_id)
-        """
-        binds = {'group_id': self.entity_id,
-                 'admin_id': admin_id}
-        self.execute(stmt, binds)
-        self._db.log_change(self.entity_id,
-                            self.clconst.group_admin_add,
-                            admin_id)
-
-    def add_moderator(self, moderator_id):
-        """Add L{moderator_id} as moderator of this group.
-
-        :param int moderator_id:
-          Moderator (id) to add to this group. This must be an entity
-          (i.e. registered in entity_info).
-        """
-        stmt = """
-        INSERT INTO [:table schema=cerebrum name=group_moderator]
-          (group_id, moderator_id)
-        VALUES
-          (:group_id, :moderator_id)
-        """
-        binds = {'group_id': self.entity_id,
-                 'moderator_id': moderator_id}
-        self.execute(stmt, binds)
-        self._db.log_change(self.entity_id,
-                            self.clconst.group_moderator_add,
-                            moderator_id)
-
     def has_member(self, member_id):
         """Check whether L{member_id} is a member of this group.
 
@@ -494,88 +454,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 member_id=:member_id"""
         self.execute(delete_stmt, binds)
         self._db.log_change(group_id, self.clconst.group_rem, member_id)
-
-    def remove_admin(self, admin_id):
-        """Remove L{admin_id}'s adminship from this group.
-
-        @type admin_id: int
-        @param admin_id:
-          Admin (id) to remove from this group.
-        """
-        return self.remove_admin_from_group(admin_id, self.entity_id)
-
-    def remove_admin_from_group(self, admin_id, group_id):
-        """Remove L{admin_id}'s adminship from a group.
-
-        @type admin_id: int
-        @param admin_id:
-          Admin (id) to remove from group.
-
-        @type group_id: int
-        @param group_id:
-            Group (id) to remove admin from
-        """
-
-        binds = {'group_id': group_id,
-                 'admin_id': admin_id}
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name=group_admin]
-            WHERE group_id=:group_id AND
-                  admin_id=:admin_id
-          )
-        """
-        if self.query_1(exists_stmt, binds):
-            delete_stmt = """
-              DELETE FROM [:table schema=cerebrum name=group_admin]
-                WHERE group_id=:group_id AND
-                admin_id=:admin_id"""
-            self.execute(delete_stmt, binds)
-            self._db.log_change(group_id,
-                                self.clconst.group_admin_rem,
-                                admin_id)
-
-    def remove_moderator(self, moderator_id):
-        """Remove L{moderator_id}'s moderatorship from this group.
-
-        @type moderator_id: int
-        @param moderator_id:
-          Moderator (id) to remove from this group.
-        """
-        return self.remove_moderator_from_group(moderator_id, self.entity_id)
-
-    def remove_moderator_from_group(self, moderator_id, group_id):
-        """Remove L{moderator_id}'s moderatorship from a group.
-
-        @type moderator_id: int
-        @param moderator_id:
-          Moderator (id) to remove from group.
-
-        @type group_id: int
-        @param group_id:
-            Group (id) to remove moderator from
-        """
-
-        binds = {'group_id': group_id,
-                 'moderator_id': moderator_id}
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name=group_moderator]
-            WHERE group_id=:group_id AND
-                  moderator_id=:moderator_id
-          )
-        """
-        if self.query_1(exists_stmt, binds):
-            delete_stmt = """
-              DELETE FROM [:table schema=cerebrum name=group_moderator]
-                WHERE group_id=:group_id AND
-                moderator_id=:moderator_id"""
-            self.execute(delete_stmt, binds)
-            self._db.log_change(group_id,
-                                self.clconst.group_moderator_rem,
-                                moderator_id)
 
     def search(self,
                group_id=None,
@@ -816,7 +694,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         #
         # admin_id filter (all of them)
         if admin_id is not None:
-            tables.append("[:table schema=cerebrum name=group_admin] ga")
+            extra_tables.append("[:table schema=cerebrum name=group_admin] ga")
             where.append("(gi.group_id = ga.admin_id)")
 
             if indirect_admins:
@@ -833,7 +711,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         #
         # moderator_id filter
         if moderator_id is not None:
-            tables.append("[:table schema=cerebrum name=group_moderator] gmod")
+            extra_tables.append(
+                "[:table schema=cerebrum name=group_moderator] gmod")
             where.append("(gi.group_id = gmod.group_moderator)")
 
             where.append(argument_to_sql(moderator_id, "gmod.moderator_id",
@@ -1189,250 +1068,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             elif entry["expire2"] is not None:
                 entry["expire_date"] = entry["expire2"]
             yield entry
-
-    def get_admins(self, admin_type=None):
-        """ Search for admins of the populated group
-
-        :type admin_type:
-          int or an EntityType constant or a sequence thereof or None.
-        :param admin_type:
-          The resulting adminship list be filtered by admin type -
-          only the admin entities of the specified type will be returned.
-          This is useful for answering questions like 'give me a list of
-          *group* admins of group <bla>'.
-
-        :rtype: generator (yielding db-rows with adminsship information)
-        :return:
-          A generator that yields successive db-rows (from group_admin)
-          matching all of the specified filters. These keys are available in
-          each of the db_rows:
-            - group_id
-            - admin_id
-            - admin_type
-        """
-        return self.search_admins(group_id=self.entity_id)
-
-    def search_admins(self, group_id=None, group_spread=None, admin_id=None,
-                      admin_type=None, include_group_name=False):
-        """Search for group *ADMINS* satisfying certain criteria.
-
-        If a filter is None, it means that it will not be applied. Calling
-        this method without any argument will return all admins of groups
-
-        All filters except for L{group_id} and L{group_spread} are applied to
-        admins, rather than groups containing admins.
-
-        The db-rows eventually returned by this method contain these keys:
-        group_id, admin_type, admin_id, as well as group_name if wanted
-
-        :type group_id: int or a sequence thereof or None.
-        :param group_id:
-          Group ids to look for. Given a group_id, only adminships in the
-          specified groups will be returned. This is useful for answering
-          questions like 'give a list of all admins of group <foo>'.
-
-        :type spread: int or SpreadCode or sequence thereof or None.
-        :param spread:
-          Filter the resulting group list by spread. I.e. only groups with
-          specified spread(s) will be returned.
-
-        :type admin_id: int or a sequence thereof or None.
-        :param admin_id:
-          The result adminship list will be filtered by admin_ids -
-          only the specified admin_ids will be listed. This is useful for
-          answering questions like 'give a list of adminships held by
-          <entity_id>'.
-
-        :type admin_type:
-          int or an EntityType constant or a sequence thereof or None.
-        :param admin_type:
-          The resulting adminship list be filtered by admin type -
-          only the admin entities of the specified type will be returned.
-          This is useful for answering questions like 'give me a list of
-          *group* admins of group <bla>'.
-
-        :type include_group_name: boolean
-        :param include_group_name:
-          The resulting rows will include the name of the group in addition to
-          the id.
-
-        :rtype: generator (yielding db-rows with adminship information)
-        :return:
-          A generator that yields successive db-rows (from group_admin)
-          matching all of the specified filters. These keys are available in
-          each of the db_rows:
-            - group_id
-            - admin_id
-            - admin_type
-           (- group_name)
-        """
-        select = ["ga.group_id AS group_id",
-                  "ga.admin_id AS admin_id",
-                  "ei.entity_type AS admin_type"]
-        tables = ["[:table schema=cerebrum name=group_admin] ga",
-                  "[:table schema=cerebrum name=entity_info] ei"]
-        where = ["ga.admin_id = ei.entity_id"]
-        binds = {}
-
-        if group_id is not None:
-            where.append(
-                argument_to_sql(
-                    group_id, "ga.group_id", binds, int))
-
-        if group_spread is not None:
-            tables.append("[:table schema=cerebrum name=entity_spread] es")
-            where.append("ga.group_id = es.entity_id")
-            where.append(
-                argument_to_sql(
-                    group_spread, "es.spread", binds, int))
-
-        if admin_id is not None:
-            where.append(
-                argument_to_sql(
-                    admin_id, "ga.admin_id", binds, int))
-
-        if admin_type is not None:
-            where.append(
-                argument_to_sql(
-                    admin_type, "ei.entity_type", binds, int))
-
-        if include_group_name:
-            tables.append("[:table schema=cerebrum name=entity_name] en")
-            where.append("ga.group_id = en.entity_id")
-            select.append("en.entity_name AS group_name")
-
-        query = """
-        SELECT {select}
-        FROM {tables}
-        WHERE {where}
-        """.format(select=", ".join(select),
-                   tables=", ".join(tables),
-                   where=" AND ".join(where))
-
-        return self.query(query, binds)
-
-    def get_moderators(self, moderator_type=None):
-        """ Search for moderators of the populated group
-
-        :type moderator_type:
-          int or an EntityType constant or a sequence thereof or None.
-        :param moderator_type:
-          The resulting moderatorship list be filtered by moderator type -
-          only the moderator entities of the specified type will be returned.
-          This is useful for answering questions like 'give me a list of
-          *group* moderators of group <bla>'.
-
-        :rtype: generator (yielding db-rows with moderatorship information)
-        :return:
-          A generator that yields successive db-rows (from group_moderator)
-          matching all of the specified filters. These keys are available in
-          each of the db_rows:
-            - group_id
-            - moderator_id
-            - moderator_type
-        """
-        return self.search_moderators(group_id=self.entity_id,
-                                      moderator_type=moderator_type)
-
-    def search_moderators(self, group_id=None, group_spread=None,
-                          moderator_id=None, moderator_type=None,
-                          include_group_name=False):
-        """Search for group *MODERATORS* satisfying certain criteria.
-
-        If a filter is None, it means that it will not be applied. Calling
-        this method without any argument will return all moderators of groups
-
-        All filters except for L{group_id} and L{group_spread} are applied to
-        moderators, rather than groups containing moderators.
-
-        The db-rows eventually returned by this method contain these keys:
-        group_id, moderator_type, moderator_id, as well as group_name if wanted
-
-        :type group_id: int or a sequence thereof or None.
-        :param group_id:
-          Group ids to look for. Given a group_id, only moderatorships in the
-          specified groups will be returned. This is useful for answering
-          questions like 'give a list of all moderators of group <foo>'.
-
-        :type spread: int or SpreadCode or sequence thereof or None.
-        :param spread:
-          Filter the resulting group list by spread. I.e. only groups with
-          specified spread(s) will be returned.
-
-        :type moderator_id: int or a sequence thereof or None.
-        :param moderator_id:
-          The result moderatorship list will be filtered by moderator_ids -
-          only the specified moderator_ids will be listed. This is useful for
-          answering questions like 'give a list of moderatorships held by
-          <entity_id>'.
-
-        :type moderator_type:
-          int or an EntityType constant or a sequence thereof or None.
-        :param moderator_type:
-          The resulting moderatorship list be filtered by moderator type -
-          only the moderator entities of the specified type will be returned.
-          This is useful for answering questions like 'give me a list of
-          *group* moderators of group <bla>'.
-
-        :type include_group_name: boolean
-        :param include_group_name:
-          The resulting rows will include the name of the group in addition to
-          the id.
-
-        :rtype: generator (yielding db-rows with moderatorship information)
-        :return:
-          A generator that yields successive db-rows (from group_moderator)
-          matching all of the specified filters. These keys are available in
-          each of the db_rows:
-            - group_id
-            - moderator_id
-            - moderator_type
-           (- group_name)
-        """
-        select = ["gm.group_id AS group_id",
-                  "gm.moderator_id AS moderator_id",
-                  "ei.entity_type AS moderator_type"]
-        tables = ["[:table schema=cerebrum name=group_moderator] gm",
-                  "[:table schema=cerebrum name=entity_info] ei"]
-        where = ["gm.moderator_id = ei.entity_id"]
-        binds = {}
-
-        if group_id is not None:
-            where.append(
-                argument_to_sql(
-                    group_id, "gm.group_id", binds, int))
-
-        if group_spread is not None:
-            tables.append("[:table schema=cerebrum name=entity_spread] es")
-            where.append("gm.group_id = es.entity_id")
-            where.append(
-                argument_to_sql(
-                    group_spread, "es.spread", binds, int))
-
-        if moderator_id is not None:
-            where.append(
-                argument_to_sql(
-                    moderator_id, "gm.moderator_id", binds, int))
-
-        if moderator_type is not None:
-            where.append(
-                argument_to_sql(
-                    moderator_type, "ei.entity_type", binds, int))
-
-        if include_group_name:
-            tables.append("[:table schema=cerebrum name=entity_name] en")
-            where.append("gm.group_id = en.entity_id")
-            select.append("en.entity_name AS group_name")
-
-        query = """
-        SELECT {select}
-        FROM {tables}
-        WHERE {where}
-        """.format(select=", ".join(select),
-                   tables=", ".join(tables),
-                   where=" AND ".join(where))
-
-        return self.query(query, binds)
 
     def __str__(self):
         if hasattr(self, 'entity_id'):
