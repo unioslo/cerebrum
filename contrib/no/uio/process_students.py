@@ -166,22 +166,6 @@ class AccountUtil(object):
         # found produce uname according to the usual algorithm
         account = Factory.get('Account')(db)
         if not uname:
-            try:
-                first_name = person.get_name(const.system_cached,
-                                             const.name_first)
-            except Errors.NotFoundError:
-                # This can happen if the person has no first name and no
-                # authoritative system has set an explicit name_first variant.
-                first_name = ""
-            try:
-                last_name = person.get_name(const.system_cached,
-                                            const.name_last)
-            except Errors.NotFoundError:
-                # See above.  In such a case, name_last won't be set either,
-                # but name_full will exist.
-                last_name = person.get_name(const.system_cached,
-                                            const.name_full)
-                assert last_name.count(' ') == 0
             suggestions = account.suggest_unames(person)
             for sugg in suggestions:
                 try:
