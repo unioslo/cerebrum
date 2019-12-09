@@ -33,6 +33,7 @@ import cereconf
 
 from Cerebrum import Entity
 from Cerebrum import Errors
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
@@ -918,6 +919,7 @@ class BofhdCommonMethods(BofhdCommandBase):
         self.ba.can_create_group(operator.get_entity_id(),
                                  groupname=groupname)
         g = self.Group_class(self.db)
+        roles = GroupRoles(self.db)
 
         # Check if group name is already in use, raise error if so
         duplicate_test = g.search(name=groupname, filter_expired=False)
@@ -949,7 +951,7 @@ class BofhdCommonMethods(BofhdCommandBase):
                     raise CerebrumError('No admin group with name: {}'
                                         .format(admin_group))
                 else:
-                    g.add_admin(admin_gr.entity_id)
+                    roles.add_admin_to_group(admin_gr.entity_id, g.entity_id)
         return {'group_id': int(g.entity_id)}
 
     #

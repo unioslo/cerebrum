@@ -37,6 +37,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import Entity
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import AccountName
@@ -332,8 +333,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             return "OK, no changes necessary"
 
         # Let's swap them
-        group.add_admin(new_admin.entity_id)
-        group.remove_admin(old_admin.entity_id)
+        roles = GroupRoles(self.db)
+        roles.add_admin_to_group(new_admin.entity_id, group.entity_id)
+        roles.remove_admin_from_group(old_admin.entity_id, group.entity_id)
 
         # action e_group:pending_admin_change
         # Ok, <group> admin changed, <old_admin> -> <new_admin>
@@ -363,7 +365,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         self.ba.can_moderate_group(new_moderator.entity_id)
 
-        group.add_moderator(new_moderator)
+        roles = GroupRoles(self.db)
+        roles.add_moderator_to_group(new_moderator.entity_id, group.entity_id)
 
         # action e_group:pending_moderator_add
         # Ok, added moderator <invitee> for group <group> (at <inviter>s
@@ -1430,7 +1433,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_change_moderators(operator.get_entity_id(),
                                       group.entity_id)
 
-        group.remove_moderator(account.entity_id)
+        roles = GroupRoles(self.db)
+        roles.remove_moderator_from_group(account.entity_id, group.entity_id)
 
         return "OK, removed %s as moderator of %s" % (account.account_name,
                                                       group.group_name)

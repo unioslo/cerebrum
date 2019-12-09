@@ -36,6 +36,7 @@ from Cerebrum import Errors
 from Cerebrum import Metainfo
 from Cerebrum import Utils
 from Cerebrum import database
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Constants import _LanguageCode
 from Cerebrum.modules import Email
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
@@ -755,6 +756,7 @@ class BofhdExtension(BofhdCommonMethods):
         co = self.const
         grp = self._get_group(groupname, grtype="DistributionGroup")
         gr_info = self._entity_info(grp)
+        roles = GroupRoles(self.db)
 
         # Don't stop! Never give up!
         # We just delete stuff, thats faster to implement than fixing stuff.
@@ -765,7 +767,7 @@ class BofhdExtension(BofhdCommonMethods):
         ret = [gr_info, ]
 
         # find admins
-        for row in grp.search_admins(group_id=grp.entity_id):
+        for row in roles.search_admins(group_id=grp.entity_id):
             id = int(row['admin_id'])
             en = self._get_entity(ident=id)
             if en.entity_type == co.entity_account:
@@ -950,7 +952,8 @@ class BofhdExtension(BofhdCommonMethods):
             # we won't set a group admin.
             pass
         else:
-            room_list.add_admin(grp.entity_id)
+            roles = GroupRoles(self.db)
+            roles.add_admin_to_group(grp.entity_id, room_list.entity_id)
 
         return "Made roomlist %s" % groupname
 
@@ -1343,7 +1346,8 @@ class BofhdExtension(BofhdCommonMethods):
         co = self.const
         ret = [self._entity_info(grp), ]
         # find admins
-        for row in grp.get_admins():
+        roles = GroupRoles(self.db)
+        for row in roles.search_admins(group_id=grp.entity_id):
             id = int(row['admin_id'])
             en = self._get_entity(ident=id)
             if en.entity_type == co.entity_account:
@@ -1357,7 +1361,7 @@ class BofhdExtension(BofhdCommonMethods):
                 'admin': admin,
             })
         # find moderators
-        for row in grp.get_moderators():
+        for row in roles.search_moderators(group_id=grp.entity_id):
             id = int(row['moderator_id'])
             en = self._get_entity(ident=id)
             if en.entity_type == co.entity_account:
@@ -1557,7 +1561,8 @@ class BofhdExtension(BofhdCommonMethods):
         except self.db.DatabaseError as m:
             raise CerebrumError("Database error: %s" % m)
         # Make the user the admin of the group so they can administer it
-        group.add_admin(acc.entity_id)
+        roles = GroupRoles(self.db)
+        roles.add_admin_to_group(acc.entity_id, group.entity_id)
         # Make user a member of his personal group
         self._group_add(None, uname, uname, member_type="account")
         # Add personal group-trait to group

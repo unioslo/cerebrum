@@ -34,7 +34,7 @@ import six
 import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
-from Cerebrum.groups import GroupRoles
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Entity import (EntityName, EntityQuarantine, EntityExternalId,
                              EntitySpread, EntityNameWithLanguage)
 from Cerebrum.Utils import argument_to_sql, prepare_string

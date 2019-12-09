@@ -29,6 +29,7 @@ admin (if available).
 import getopt
 import sys
 import cereconf
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Utils import Factory
 from Cerebrum import Utils
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, \
@@ -55,9 +56,10 @@ def select_empty_groups(groups):
 def get_groups_admins(groups):
     co = Factory.get('Constants')(db)
     en = Factory.get('Entity')(db)
+    roles = GroupRoles(db)
 
     for group in groups:
-        for row in group.search_admins(group[0]):
+        for row in roles.search_admins(group[0]):
             id = int(row['admin_id'])
             en.clear()
             en.find(id)

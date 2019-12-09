@@ -31,6 +31,7 @@ from Cerebrum.rest.api import db, auth, utils
 from Cerebrum.rest.api import fields as crb_fields
 from Cerebrum.rest.api import validator
 from Cerebrum import Errors
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Utils import Factory
 
 api = Namespace('groups', description='Group operations')
@@ -333,8 +334,9 @@ class GroupModeratorListResource(Resource):
     def get(self, name):
         """ Get admins for this group. """
         group = find_group(name)
+        roles = GroupRoles(db.connection)
         moderators = []
-        for admin in group.search_admins(group_id=group.entity_id):
+        for admin in roles.search_admins(group_id=group.entity_id):
             admin_name = utils.get_entity_name(admin['admin_id'])
             moderators.append(
                 {
@@ -363,20 +365,22 @@ class GroupModeratorResource(Resource):
     @api.response(204, "moderator added")
     @api.response(400, 'invalid role')
     @api.response(404, 'group or moderator not found')
-    def put(self, name, role, moderator_id):
+    def put(self, name, role, admin_id):
         """ Add a group moderator. """
         group = find_group(name)
-        group.add_moderator(moderator_id)
+        roles = GroupRoles(db.connection)
+        roles.add_admin_to_group(admin_id, group.entity_id)
 
     @db.autocommit
     @auth.require()
     @api.response(204, "moderator removed")
     @api.response(400, 'invalid opset')
     @api.response(404, 'group or moderator not found')
-    def delete(self, name, role, moderator_id):
+    def delete(self, name, role, admin_id):
         """ Remove a group moderator. """
         group = find_group(name)
-        group.remove_moderator(moderator_id)
+        roles = GroupRoles(db.connection)
+        roles.remove_admin_from_group(admin_id, group.entity_id)
 
 
 @api.route('/<string:name>/contexts/<string:context>',

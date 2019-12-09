@@ -22,6 +22,7 @@ from contextlib import contextmanager
 
 import cereconf
 from Cerebrum import Errors
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
@@ -231,7 +232,8 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
             with self._new_personal_group(creator_id) as personal_fg:
                 self.gid_id = personal_fg.entity_id
                 self.__super.write_db()
-                personal_fg.add_admin(self.entity_id)
+                roles = GroupRoles(self.db)
+                roles.add_admin_to_group(self.entity_id, personal_fg.entity_id)
                 self.pg = personal_fg
         finally:
             self.map_user_spreads_to_pg()

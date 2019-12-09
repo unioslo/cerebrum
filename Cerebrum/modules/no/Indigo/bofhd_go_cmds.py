@@ -36,6 +36,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import json
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.modules import Email
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_contact_info
@@ -198,8 +199,9 @@ class BofhdExtension(BofhdCommonMethods):
         grp = self._get_group(groupname)
         co = self.const
         ret = [self._entity_info(grp), ]
+        roles = GroupRoles(self.db)
         # find admins
-        for row in grp.search_admins(group_id=grp.entity_id):
+        for row in roles.search_admins(group_id=grp.entity_id):
             id = int(row['admin_id'])
             en = self._get_entity(ident=id)
             if en.entity_type == co.entity_account:

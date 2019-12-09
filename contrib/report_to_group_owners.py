@@ -40,6 +40,7 @@ from smtplib import SMTPException
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 import Cerebrum.utils.email
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.modules.dns.DnsOwner import DnsOwner
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.funcwrap import memoize
@@ -353,7 +354,8 @@ class GroupOwnerCacher(object):
             }
         """
         owner_id2groups = collections.defaultdict(list)
-        admins = self.group.search_admins(
+        roles = GroupRoles(self.db)
+        admins = roles.search_admins(
             admin_type=self.co.entity_group,
             include_group_name=True)
 

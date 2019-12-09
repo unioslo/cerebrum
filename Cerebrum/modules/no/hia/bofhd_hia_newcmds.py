@@ -27,6 +27,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import database
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import Note
@@ -222,6 +223,7 @@ class BofhdExtension(BofhdCommonMethods):
         arguments may be passed as Entity objects.  If group is None,
         the group with the same name as account is modified, if it
         exists."""
+        roles = GroupRoles(self.db)
 
         if account.np_type or account.owner_type == self.const.entity_group:
             return
@@ -243,7 +245,7 @@ class BofhdExtension(BofhdCommonMethods):
         # group, and this is implemented below
 
         is_admin = False
-        for admin in group.search_admins(group_id=group.entity_id):
+        for admin in roles.search_admins(group_id=group.entity_id):
             is_admin = True
             break
         if not is_admin:

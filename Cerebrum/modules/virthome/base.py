@@ -35,6 +35,7 @@ import re
 import six
 
 import cereconf
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import CerebrumError, NotFoundError
 
@@ -124,8 +125,9 @@ class VirthomeBase:
         for spread in getattr(cereconf, "BOFHD_NEW_GROUP_SPREADS", ()):
             gr.add_spread(self.co.human2constant(spread, self.co.Spread))
 
-        gr.add_admin(owner)
         gr.write_db()
+        roles = GroupRoles(self.db)
+        roles.add_admin_to_group(owner.entity_id, gr.entity_id)
         return gr
 
 
@@ -621,7 +623,10 @@ class VirthomeUtils:
         """
         ret = []
         ac = self.account_class(self.db)
-        for admin in group.get_admins(admin_type=self.co.entity_account):
+        roles = GroupRoles(self.db)
+        for admin in roles.search_admins(
+                group_id=group.entity_id,
+                admin_type=self.co.entity_account):
             ac.clear()
             ac.find(admin['admin_id'])
             ret.append({
@@ -648,7 +653,10 @@ class VirthomeUtils:
         """
         ret = []
         ac = self.account_class(self.db)
-        for mod in group.get_moderators(moderator_type=self.co.entity_account):
+        roles = GroupRoles(self.db)
+        for mod in roles.search_moderators(
+                group_id=group.entity_id,
+                moderator_type=self.co.entity_account):
             ac.clear()
             ac.find(mod['moderator_id'])
             ret.append({
