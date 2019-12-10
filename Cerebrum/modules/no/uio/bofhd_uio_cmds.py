@@ -740,7 +740,6 @@ class BofhdExtension(BofhdCommonMethods):
                                disp_name_variant, disp_name_language)
         dl_group.create_distgroup_mailtarget()
         dl_group.add_spread(self.const.Spread(cereconf.EXCHANGE_GROUP_SPREAD))
-        dl_group.set_default_expire_date()
         dl_group.write_db()
         return "Created Exchange group %s" % groupname
 
@@ -910,7 +909,7 @@ class BofhdExtension(BofhdCommonMethods):
                         dl_group.group_type))))
         visible = self._get_boolean(visible)
         dl_group.set_hidden(hidden='F' if visible else 'T')
-        if not self._is_perishable_manual_group(dl_group):
+        if self._is_perishable_manual_group(dl_group):
             dl_group.set_default_expire_date()
         dl_group.write_db()
         return "OK, group {} is now {}".format(
@@ -1136,8 +1135,9 @@ class BofhdExtension(BofhdCommonMethods):
                 "group {0} has group_type {1}".format(
                     grp.group_name, text_type(self.const.GroupType(
                         grp.group_type))))
-        if not self._is_perishable_manual_group(grp):
+        if self._is_perishable_manual_group(grp):
             grp.set_default_expire_date()
+            grp.write_db()
         op = operator.get_entity_id()
         self.ba.can_set_default_group(op, account, grp)
         account.gid_id = grp.entity_id
@@ -1881,8 +1881,6 @@ class BofhdExtension(BofhdCommonMethods):
                 "group {0} has group_type {1}".format(
                     group.group_name, text_type(self.const.GroupType(
                         group.group_type))))
-        if self._is_perishable_manual_group(group):
-            group.set_default_expire_date()
         if name_lang in self.language_codes:
             name_lang = int(_LanguageCode(name_lang))
         else:
