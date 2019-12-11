@@ -272,6 +272,11 @@ class PosixUser(Account_class):
             pass
         return "Unknown"  # Raise error?
 
+    def get_validate_domains(self):
+        domains = [self.const.group_namespace]
+        domains.extend(super(PosixUser, self).get_validate_domains())
+        return domains
+
     def get_fullname(self):
         """The GECOS contains the full name the user wants to be
         associated with POSIX account. This method's return value will

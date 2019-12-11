@@ -1354,9 +1354,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         """Returns a tuple with 15 (unused) username suggestions based
         on the person's first and last name.
 
-        person: populated Cerebrum Person object
-        maxlen: maximum length of a username (incl. the suffix)
-        suffix: string to append to every generated username
+        :param person: populated Cerebrum Person object
+        :param maxlen: maximum length of a username (incl. the suffix)
+        :param suffix: string to append to every generated username
+        :param validate_domains: check if the suggested names are free in
+            these domains
         """
         fname = person.get_name(source_system=self.const.system_cached,
                                 variant=self.const.name_first)
@@ -1364,14 +1366,20 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         lname = person.get_name(source_system=self.const.system_cached,
                                 variant=self.const.name_last)
 
-        validate_func = functools.partial(self.validate_new_uname,
-                                          self.const.account_namespace)
         return suggest_usernames(fname, lname,
                                  maxlen=maxlen, suffix=suffix,
-                                 validate_func=validate_func)
+                                 validate_func=self.is_valid_new_uname)
+
+    def get_validate_domains(self):
+        return [self.const.account_namespace]
+
+    def is_valid_new_uname(self, uname):
+        """Check that the requested username is valid"""
+        return all(self.validate_new_uname(d, uname) for d in
+                   self.get_validate_domains())
 
     def validate_new_uname(self, domain, uname):
-        """Check that the requested username is legal and free"""
+        """Check that the requested username is free in a given domain"""
         try:
             # We instantiate EntityName directly because find_by_name
             # calls self.find() whose result may depend on the class
