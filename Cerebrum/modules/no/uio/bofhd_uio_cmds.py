@@ -4887,7 +4887,7 @@ class BofhdExtension(BofhdCommonMethods):
         # users
         if uname != uname.lower():
             sup_user_p = self.ba.is_superuser(operator.get_entity_id())
-            if (not sup_user_p and owner_type != self.const.entity_group):
+            if not sup_user_p:
                 raise CerebrumError('Personal account names cannot contain '
                                     'capital letters')
 
