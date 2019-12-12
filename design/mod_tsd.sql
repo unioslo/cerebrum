@@ -1,5 +1,6 @@
-/*
- * Copyright 2011 University of Oslo, Norway
+/* encoding: utf-8
+ *
+ * Copyright 2011-2019 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -16,16 +17,23 @@
  * You should have received a copy of the GNU General Public License
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ *
+ *
+ * Tables used by Cerebrum.modules.tsd
  */
-
 category:metainfo;
 name=tsd;
+
 category:metainfo;
 version=1.0;
 
-category:drop;
-drop SEQUENCE tsd_project_id_seq;
 
 category:code;
-CREATE SEQUENCE tsd_project_id_seq INCREMENT 1 MINVALUE 0 MAXVALUE 32767;
+CREATE SEQUENCE tsd_project_id_seq
+  INCREMENT 1
+  MINVALUE 0
+  MAXVALUE 32767;
 
+
+category:drop;
+drop SEQUENCE tsd_project_id_seq;

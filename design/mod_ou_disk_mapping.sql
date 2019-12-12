@@ -1,4 +1,5 @@
-/*
+/* encoding: utf-8
+ *
  * Copyright 2019 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
@@ -17,6 +18,7 @@
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  *
+ *
  * Tables used by Cerebrum.modules.ou_disk_mapping
  *
  * This module stores settings related to an organizational unit. Initially
@@ -28,6 +30,7 @@ name=ou_disk_mapping;
 
 category:metainfo;
 version=1.0;
+
 
 /**
  * Table to map disk paths to ou and affiliation.
@@ -42,14 +45,29 @@ version=1.0;
  *   Entity id of a Disk in the disk_info table
 **/
 category:main;
-CREATE TABLE ou_disk_mapping(
-   ou_id       NUMERIC(12, 0) NOT NULL REFERENCES ou_info (ou_id),
-   aff_code    NUMERIC(12, 0) REFERENCES person_affiliation_code (code),
-   status_code NUMERIC(12, 0) REFERENCES person_aff_status_code (status),
-   disk_id     NUMERIC(12, 0) NOT NULL REFERENCES disk_info (disk_id),
-   CONSTRAINT ou_disk_mapping_unique UNIQUE (ou_id, aff_code, status_code),
-   CONSTRAINT ou_disk_mapping_statuswoaff CHECK (NOT (aff_code IS NULL AND NOT
-   status_code IS NULL))
+CREATE TABLE ou_disk_mapping
+(
+  ou_id
+    NUMERIC(12, 0)
+    NOT NULL
+    REFERENCES ou_info (ou_id),
+
+  aff_code
+    NUMERIC(12, 0)
+    REFERENCES person_affiliation_code (code),
+
+  status_code
+    NUMERIC(12, 0)
+    REFERENCES person_aff_status_code (status),
+
+  disk_id
+    NUMERIC(12, 0)
+    NOT NULL
+    REFERENCES disk_info (disk_id),
+    CONSTRAINT ou_disk_mapping_unique
+      UNIQUE (ou_id, aff_code, status_code),
+    CONSTRAINT ou_disk_mapping_statuswoaff
+      CHECK (NOT (aff_code IS NULL AND NOT status_code IS NULL))
 );
 
 /**
@@ -57,13 +75,15 @@ CREATE TABLE ou_disk_mapping(
  * Note that we do not allow NULL for aff_code if status_code is set.
 **/
 category:main;
-CREATE UNIQUE INDEX ou_disk_mapping_statusnull_idx ON ou_disk_mapping (ou_id, aff_code)
-WHERE status_code IS NULL;
+CREATE UNIQUE INDEX ou_disk_mapping_statusnull_idx
+  ON ou_disk_mapping (ou_id, aff_code)
+  WHERE status_code IS NULL;
 
 category:main;
-CREATE UNIQUE INDEX ou_disk_mapping_bothnull_idx ON ou_disk_mapping (ou_id)
-WHERE aff_code IS NULL
-  AND status_code IS NULL;
+CREATE UNIQUE INDEX ou_disk_mapping_bothnull_idx
+  ON ou_disk_mapping (ou_id)
+  WHERE aff_code IS NULL AND status_code IS NULL;
+
 
 category:drop;
 DROP INDEX ou_disk_mapping_bothnull_idx;

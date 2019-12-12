@@ -1,5 +1,6 @@
-/*
- * Copyright 2003, 2004, 2014 University of Oslo, Norway
+/* encoding: utf-8
+ *
+ * Copyright 2003-2019 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -16,19 +17,20 @@
  * You should have received a copy of the GNU General Public License
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
- */
-
-/**
+ *
+ *
+ * Tables used by Cerebrum.modules.bofhd
+ *
  * This is the table definition for the Cerebrum module BofhdAuth.
  *
  * For more information about the modules, see Cerebrum/modules/bofhd/auth.py.
- *
  */
-
 category:metainfo;
 name=bofhd_auth;
+
 category:metainfo;
 version=1.2;
+
 
 category:drop;
 DROP TABLE auth_role;
@@ -43,6 +45,7 @@ DROP TABLE auth_operation_set;
 category:drop;
 DROP TABLE auth_op_code;
 
+
 /*
  * The single operation code (constants).
  *
@@ -56,15 +59,22 @@ DROP TABLE auth_op_code;
  *
  */
 category:code;
-CREATE TABLE auth_op_code (
-  code             NUMERIC(6,0)
-                     CONSTRAINT auth_op_code_pk PRIMARY KEY,
-  code_str         CHAR VARYING(64)
-                     NOT NULL
-                     CONSTRAINT auth_op_codestr_u UNIQUE,
-  description      CHAR VARYING(512)
-                   NOT NULL
+CREATE TABLE auth_op_code
+(
+  code
+    NUMERIC(6,0)
+    CONSTRAINT auth_op_code_pk PRIMARY KEY,
+
+  code_str
+    CHAR VARYING(64)
+    NOT NULL
+    CONSTRAINT auth_op_codestr_u UNIQUE,
+
+  description
+    CHAR VARYING(512)
+    NOT NULL
 );
+
 
 /*
  * The definition of an operation set (OpSet).
@@ -82,12 +92,19 @@ CREATE TABLE auth_op_code (
  *
  */
 category:main;
-CREATE TABLE auth_operation_set (
-  op_set_id        NUMERIC(12,0)
-                     CONSTRAINT auth_operation_set_pk PRIMARY KEY,
-  name             CHAR VARYING(30),
-  description      CHAR VARYING(512)
+CREATE TABLE auth_operation_set
+(
+  op_set_id
+    NUMERIC(12,0)
+    CONSTRAINT auth_operation_set_pk PRIMARY KEY,
+
+  name
+    CHAR VARYING(30),
+
+  description
+    CHAR VARYING(512)
 );
+
 
 /*
  * Defines an operation within an OpSet.
@@ -98,20 +115,28 @@ CREATE TABLE auth_operation_set (
  *
  */
 category:main;
-CREATE TABLE auth_operation (
-  op_id            NUMERIC(12,0)
-                     CONSTRAINT auth_operation_pk PRIMARY KEY,
-  op_code          NUMERIC(12,0)
-                     NOT NULL
-                     CONSTRAINT auth_operation_opcode_fk
-                       REFERENCES auth_op_code(code),
-  op_set_id        NUMERIC(12,0)
-                     NOT NULL
-                     CONSTRAINT auth_operation_op_set_fk
-                       REFERENCES auth_operation_set(op_set_id)
+CREATE TABLE auth_operation
+(
+  op_id
+    NUMERIC(12,0)
+    CONSTRAINT auth_operation_pk PRIMARY KEY,
+
+  op_code
+    NUMERIC(12,0)
+    NOT NULL
+    CONSTRAINT auth_operation_opcode_fk
+      REFERENCES auth_op_code(code),
+
+  op_set_id
+    NUMERIC(12,0)
+    NOT NULL
+    CONSTRAINT auth_operation_op_set_fk
+      REFERENCES auth_operation_set(op_set_id)
 );
+
 category:main;
 CREATE INDEX auth_operation_set_id ON auth_operation(op_set_id);
+
 
 /*
  * Defines attributes associated with an operation inside an OpSet.
@@ -130,13 +155,18 @@ CREATE INDEX auth_operation_set_id ON auth_operation(op_set_id);
  *
  */
 category:main;
-CREATE TABLE auth_op_attrs (
-  op_id            NUMERIC(12,0)
-                     NOT NULL
-                     CONSTRAINT auth_op_attrs_fk
-                       REFERENCES auth_operation(op_id),
-  attr             CHAR VARYING(50)
+CREATE TABLE auth_op_attrs
+(
+  op_id
+    NUMERIC(12,0)
+    NOT NULL
+    CONSTRAINT auth_op_attrs_fk
+      REFERENCES auth_operation(op_id),
+
+  attr
+    CHAR VARYING(50)
 );
+
 
 /*
  * Defines what an auth role is targeting.
@@ -170,16 +200,26 @@ CREATE TABLE auth_op_attrs (
  *
  */
 category:main;
-CREATE TABLE auth_op_target (
-  op_target_id     NUMERIC(12,0)
-                     CONSTRAINT auth_op_target_pk PRIMARY KEY,
-  entity_id        NUMERIC(12,0),
-  target_type      CHAR VARYING(16)
-                     NOT NULL,
-  attr             CHAR VARYING(50)
+CREATE TABLE auth_op_target
+(
+  op_target_id
+    NUMERIC(12,0)
+    CONSTRAINT auth_op_target_pk PRIMARY KEY,
+
+  entity_id
+    NUMERIC(12,0),
+
+  target_type
+    CHAR VARYING(16)
+    NOT NULL,
+
+  attr
+    CHAR VARYING(50)
 );
+
 category:main;
 CREATE INDEX auth_op_target_entity_id ON auth_op_target(entity_id);
+
 
 /*
  * Roles
@@ -190,25 +230,35 @@ CREATE INDEX auth_op_target_entity_id ON auth_op_target(entity_id);
  *
  */
 category:main;
-CREATE TABLE auth_role (
-  entity_id        NUMERIC(12,0)
-                     NOT NULL
-                     CONSTRAINT auth_role_entity_fk
-                       REFERENCES entity_info(entity_id),
-  op_set_id        NUMERIC(12,0)
-                     NOT NULL
-                     CONSTRAINT auth_role_op_set_fk
-                       REFERENCES auth_operation_set(op_set_id),
-  op_target_id     NUMERIC(12,0)
-                     NOT NULL
-                     CONSTRAINT auth_role_op_target_fk
-                       REFERENCES auth_op_target(op_target_id)
+CREATE TABLE auth_role
+(
+  entity_id
+    NUMERIC(12,0)
+    NOT NULL
+    CONSTRAINT auth_role_entity_fk
+      REFERENCES entity_info(entity_id),
+
+  op_set_id
+    NUMERIC(12,0)
+    NOT NULL
+    CONSTRAINT auth_role_op_set_fk
+      REFERENCES auth_operation_set(op_set_id),
+
+  op_target_id
+    NUMERIC(12,0)
+    NOT NULL
+    CONSTRAINT auth_role_op_target_fk
+      REFERENCES auth_op_target(op_target_id)
 );
+
 category:main;
 CREATE INDEX auth_role_uid ON auth_role(entity_id, op_set_id, op_target_id);
+
 category:main;
 CREATE INDEX auth_role_eid ON auth_role(entity_id);
+
 category:main;
 CREATE INDEX auth_role_osid ON auth_role(op_set_id);
+
 category:main;
 CREATE INDEX auth_role_tid ON auth_role(op_target_id);

@@ -1,4 +1,5 @@
-/*
+/* encoding: utf-8
+ *
  * Copyright 2019 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
@@ -16,6 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ *
  *
  * Tables used by Cerebrum.modules.stillingskoder
  *
@@ -36,8 +38,10 @@ name=stillingskoder;
 category:metainfo;
 version=1.0;
 
+
 category:drop;
 DROP TABLE person_stillingskoder;
+
 
 /**
  * person_stillingskoder
@@ -50,12 +54,19 @@ DROP TABLE person_stillingskoder;
  *   Employment category
 **/
 category:main;
-CREATE TABLE person_stillingskoder (
-  stillingskode     NUMERIC(6,0)
-                    NOT NULL,
-  stillingstittel   CHAR VARYING(256)
-                    NOT NULL,
-  stillingstype     CHAR VARYING(256)
-                    NOT NULL,
+CREATE TABLE person_stillingskoder
+(
+  stillingskode
+    NUMERIC(6,0)
+    NOT NULL,
+
+  stillingstittel
+    CHAR VARYING(256)
+    NOT NULL,
+
+  stillingstype
+    CHAR VARYING(256)
+    NOT NULL,
+
   CONSTRAINT person_stillingskode PRIMARY KEY (stillingskode)
 );

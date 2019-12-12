@@ -1,5 +1,6 @@
-/*
- * Copyright 2016 University of Oslo, Norway
+/* encoding: utf-8
+ *
+ * Copyright 2013-2019 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -16,9 +17,13 @@
  * You should have received a copy of the GNU General Public License
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ *
+ *
+ * Tables used by Cerebrum.modules.gpg
  */
 category:metainfo;
 name=gpg;
+
 category:metainfo;
 version=1.0;
 
@@ -34,19 +39,30 @@ CREATE SEQUENCE gpg_message_id_seq;
 category:main;
 CREATE TABLE entity_gpg_data
 (
-    message_id  NUMERIC(12,0)
-                CONSTRAINT entity_gpg_message_pk PRIMARY KEY,
-    entity_id   NUMERIC(12,0)
-                REFERENCES entity_info(entity_id),
-    recipient   CHAR VARYING(40)
-                NOT NULL,
-    tag         CHAR VARYING(60)
-                NOT NULL,
-    created     TIMESTAMP
-                DEFAULT [:now]
-                NOT NULL,
-    message     TEXT
-                NOT NULL
+  message_id
+    NUMERIC(12,0)
+    CONSTRAINT entity_gpg_message_pk PRIMARY KEY,
+
+  entity_id
+    NUMERIC(12,0)
+    REFERENCES entity_info(entity_id),
+
+  recipient
+    CHAR VARYING(40)
+    NOT NULL,
+
+  tag
+    CHAR VARYING(60)
+    NOT NULL,
+
+  created
+    TIMESTAMP
+    DEFAULT [:now]
+    NOT NULL,
+
+  message
+    TEXT
+    NOT NULL
 );
 
 category:main;
