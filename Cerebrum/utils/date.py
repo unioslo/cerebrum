@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2017-2018 University of Oslo, Norway
+# Copyright 2017-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,24 +18,19 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 # Copyright 2002-2015 University of Oslo, Norway
-""" This module contains utilities for dates, times and timezones in Cerebrum.
+"""
+This module contains utilities for dates, times and timezones in Cerebrum.
 
 Utilities include converting between datetime and mx.DateTime, parsing iso8601
-dates, as well as setting timezone, and converting between timezones.  This
-should be enough to:
-
-- parse iso8601 strings, with or without timezone data, into mx.DateTime
-  objects in localtime.
-- fetch mx.DateTime objects from the database, and output as iso8601 strings
-  in any timezone.
+dates, as well as applying timezone, and converting between timezones.
 
 
-Datetimes in Cererbum
----------------------
-We use mx.DateTime in Cerebrum mainly for database communication, and for
-legacy resons.  The mx.DateTime object *does* have basic timezone support, but
-it does not integrate well with iso8601 parsers (including its own
-mx.DateTime.Parser), or datetime objects.
+Datetime in Cerebrum
+--------------------
+We use py:mod:`mx.DateTime` in Cerebrum mainly for database communication, and
+for legacy resons.
+The py:class:`mx.DateTime.DateTypeType` objects doesn't integrate well with
+ISO-8601 parsers (including its own py:mod:`mx.DateTime.Parser`).
 
 The `Cerebrum.database.Database` object is set up to accept
 mx.DateTime objects, and convert back to mx.DateTime objects when using
@@ -44,7 +39,7 @@ aware timestamp fields.
 
 The bottom line is; For the time being, all db-communication happens with
 naive mx.DateTime objects, and we cannot use/trust the tz info in mx.DateTime
-object when communicating with the database.
+objects when communicating with the database.
 
 
 Rationale
@@ -67,8 +62,9 @@ TIMEZONE
     timezone for these functions.
 
 """
-import aniso8601
 import datetime
+
+import aniso8601
 import mx.DateTime
 import pytz
 
@@ -125,8 +121,9 @@ def now(tz=TIMEZONE):
     return datetime.datetime.now(tz=TIMEZONE)
 
 
-def localize(aware, tz=TIMEZONE):
-    """ Convert datetime to another timezone.
+def to_timezone(aware, tz=TIMEZONE):
+    """
+    Convert datetime to another timezone.
 
     :param datetime aware:
         A timezone-aware datetime object.
@@ -153,6 +150,8 @@ def apply_timezone(naive, tz=TIMEZONE):
         raise ValueError("datetime already has tzinfo")
     if not isinstance(tz, datetime.tzinfo):
         tz = pytz.timezone(tz)
+
+    # TODO: this isn't entirely right -- localize() is a pytz.tzinfo method
     return tz.localize(naive)
 
 
@@ -167,7 +166,7 @@ def datetime2mx(src, tz=TIMEZONE):
     """ Convert (localized) datetime to naive mx.DateTime. """
     if not src.tzinfo:
         src = apply_timezone(src, tz=tz)
-    src = localize(src, tz=tz)
+    src = to_timezone(src, tz=tz)
     return mx.DateTime.DateTimeFrom(strip_timezone(src))
 
 
@@ -227,7 +226,7 @@ def parse_datetime(dtstr, default_timezone=TIMEZONE):
         raise ValueError("invalid iso8601 date (%s)" % (e,))
 
     if not date.tzinfo:
-        # No timezone, assume UTC?
+        # No timezone given, assume default_timezone
         date = apply_timezone(date, tz=default_timezone)
     return date
 
@@ -241,7 +240,6 @@ def parse_date(dtstr):
     :rtype: datetime.date
     :return: A date object.
     """
-    # Allow use of space as separator
     return aniso8601.parse_date(dtstr)
 
 
@@ -280,8 +278,8 @@ def main(inargs=None):
         print("  parse_datetime: {0!s}".format(p))
         print("                  {0!r}".format(p))
 
-        l = localize(p, tz=args.timezone)
-        print("  localize:       {0!s}".format(l))
+        l = to_timezone(p, tz=args.timezone)
+        print("  to_timezone:    {0!s}".format(l))
         print("                  {0!r}".format(l))
 
         m = datetime2mx(p, tz=args.timezone)
