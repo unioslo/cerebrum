@@ -29,7 +29,6 @@ import inspect
 import io
 import os
 import random
-import re
 import socket
 import ssl
 import sys
@@ -39,7 +38,6 @@ import unicodedata
 from string import ascii_lowercase, digits
 from subprocess import Popen, PIPE
 
-import mx.DateTime
 import six
 
 import cereconf
@@ -566,48 +564,6 @@ class mark_update(auto_super):  # noqa: N801
             dict['__slots__'] = tuple(slots)
 
         return super(mark_update, cls).__new__(cls, name, bases, dict)
-
-
-class XMLHelper(object):
-
-    def __init__(self, encoding='utf-8'):
-        self.xml_hdr = '<?xml version="1.0" encoding="{}"?>\n'.format(encoding)
-
-    def conv_colnames(self, cols):
-        """Strip tablename prefix from column name."""
-        prefix = re.compile(r"[^.]*\.")
-        for i in range(len(cols)):
-            cols[i] = re.sub(prefix, "", cols[i]).lower()
-        return cols
-
-    def xmlify_dbrow(self, row, cols, tag, close_tag=1, extra_attr=None):
-        if close_tag:
-            close_tag = "/"
-        else:
-            close_tag = ""
-        assert(len(row) == len(cols))
-        if extra_attr is not None:
-            extra_attr = " " + " ".join(
-                ["%s=%s" % (k, self.escape_xml_attr(extra_attr[k]))
-                 for k in extra_attr.keys()])
-        else:
-            extra_attr = ''
-        return "<%s " % tag + (
-            " ".join(["%s=%s" % (x, self.escape_xml_attr(row[x]))
-                      for x in cols if row[x] is not None]) +
-            "%s%s>" % (extra_attr, close_tag))
-
-    def escape_xml_attr(self, a):
-        """Escapes XML attributes."""
-        if isinstance(a, int):
-            a = six.text_type(a)
-        elif isinstance(a, mx.DateTime.DateTimeType):
-            a = six.text_type(str(a))
-        a = a.replace('&', "&amp;")
-        a = a.replace('"', "&quot;")
-        a = a.replace('<', "&lt;")
-        a = a.replace('>', "&gt;")
-        return '"{}"'.format(a)
 
 
 class Factory(object):

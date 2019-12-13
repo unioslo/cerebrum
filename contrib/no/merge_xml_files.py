@@ -27,7 +27,7 @@ import sys
 import xml.sax
 
 import Cerebrum.logutils
-from Cerebrum.Utils import XMLHelper
+from Cerebrum.modules.xmlutils.xml_helper import XMLHelper
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
 logger = logging.getLogger(__name__)

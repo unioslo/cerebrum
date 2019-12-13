@@ -27,17 +27,17 @@ to their own specific differences.
 """
 from __future__ import unicode_literals
 
+import logging
+import os
 from functools import reduce
 
-import os
 import six
-import logging
 
-from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import XMLHelper
-from Cerebrum.utils.atomicfile import SimilarSizeWriter
+from Cerebrum.extlib import xmlprinter
+from Cerebrum.modules.xmlutils.xml_helper import XMLHelper
 from Cerebrum.utils.atomicfile import AtomicFileWriter
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
 XML_ENCODING = 'utf-8'
 

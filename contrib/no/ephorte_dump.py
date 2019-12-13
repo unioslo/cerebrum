@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2002-2017 University of Oslo, Norway
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,7 +30,7 @@ import argparse
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import Stedkode
-from Cerebrum.Utils import XMLHelper
+from Cerebrum.modules.xmlutils.xml_helper import XMLHelper
 from Cerebrum.utils.atomicfile import MinimumSizeWriter
 
 
@@ -78,7 +78,7 @@ def export_account(f, account_id):
         studentnr = rr['external_id']
     try:
         (mailuser, domain) = account.get_primary_mailaddress().split('@')
-    except:
+    except Exception:
         return
     # sted = get_person_oudisp(person)
     f.write(("<personid personidtype=\"feide\">%s@%s</personid>\n") %

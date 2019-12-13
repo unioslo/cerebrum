@@ -65,8 +65,8 @@ import cereconf
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
+from Cerebrum.modules.xmlutils.xml_helper import XMLHelper
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import XMLHelper
 from Cerebrum.utils.argutils import codec_type
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 
