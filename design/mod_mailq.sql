@@ -1,5 +1,6 @@
-/*
- * Copyright 2019 University of Oslo, Norway
+/* encoding: utf-8
+ *
+ * Copyright 2003-2019 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -16,6 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ *
  *
  * Tables used by Cerebrum.modules.mailq
  *
@@ -36,7 +38,7 @@
  *      "$1" FOREIGN KEY (entity_id) REFERENCES entity_info(entity_id)
  *
  * Yes, the constraint is literally named "$1". When migrating the UiT database,
- * we'll have to
+ * we'll have to manually
  *    ALTER TABLE mailq RENAME CONSTRAINT "$1" TO mailq_fkey;
  */
 category:metainfo;
@@ -45,8 +47,10 @@ name=mailq;
 category:metainfo;
 version=1.0;
 
+
 category:drop;
 DROP TABLE mailq;
+
 
 /**
  * mailq
@@ -68,19 +72,32 @@ DROP TABLE mailq;
  *   When the status was last altered
 **/
 category:main;
-CREATE TABLE mailq (
-  entity_id     NUMERIC(12,0)
-                NOT NULL,
-  template      CHAR VARYING(50)
-                NOT NULL,
-  parameters    TEXT
-                NOT NULL,
-  scheduled     TIMESTAMP WITHOUT TIME ZONE
-                NOT NULL,
-  status        NUMERIC(1,0)
-                NOT NULL,
-  status_time   TIMESTAMP WITHOUT TIME ZONE
-                NOT NULL,
+CREATE TABLE mailq
+(
+  entity_id
+    NUMERIC(12,0)
+    NOT NULL,
+
+  template
+    CHAR VARYING(50)
+    NOT NULL,
+
+  parameters
+    TEXT
+    NOT NULL,
+
+  scheduled
+    TIMESTAMP WITHOUT TIME ZONE
+    NOT NULL,
+
+  status
+    NUMERIC(1,0)
+    NOT NULL,
+
+  status_time
+    TIMESTAMP WITHOUT TIME ZONE
+    NOT NULL,
+
   CONSTRAINT mailq_pkey PRIMARY KEY (entity_id, template),
   CONSTRAINT mailq_fkey FOREIGN KEY (entity_id) REFERENCES entity_info(entity_id)
 );
