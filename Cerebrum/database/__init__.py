@@ -32,12 +32,10 @@ However, one might need to collect data from other databases, possibly using a
 different driver; how could this best be implemented? Currently, the function
 can be told what Database subclass to use in the DB_driver keyword argument.
 """
-
-from __future__ import with_statement
+from __future__ import with_statement, print_function
 
 import io
 import sys
-from types import DictType
 
 import six
 
@@ -228,17 +226,20 @@ class DatabaseErrorWrapper(object):
         """
         Initialize wrapper.
 
-        @type to_module: module
-        @param to_module: A PEP-249 compatible database module. It must contain
-            the DB-API 2.0 exception types as attributes.
+        :type to_module: types.ModuleType
+        :param to_module:
+            A PEP-249 compatible database module. It must contain the
+            DB-API 2.0 exception types as attributes.
 
-        @type from_module: module
-        @param from_module: A PEP-249 compatible database module. It must contain
-            the DB-API 2.0 exception types as attributes.
+        :type from_module: types.ModuleType
+        :param from_module:
+            A PEP-249 compatible database module. It must contain the
+            DB-API 2.0 exception types as attributes.
 
-        @type kwargs: **dict
-        @param kwargs: Each keyword style argument is added to the exception as
-            an attribute. This can be used to piggy-back extra information with
+        :type kwargs: **dict
+        :param kwargs:
+            Each keyword style argument is added to the exception as an
+            attribute. This can be used to piggy-back extra information with
             the exception.
         """
         self.to_module = to_module
@@ -291,9 +292,9 @@ class DatabaseErrorWrapper(object):
                 # PY3: Not python 3 compatible,
                 #      There are packages (e.g. six) that wraps calls like this
                 #      to be PY2 and PY3 compatible.
-                raise crb_exc_type, crb_exc_value, traceback
+                six.reraise(crb_exc_type, crb_exc_value, traceback)
         # Miss, some other exception type was raised.
-        raise exc_type, exc_value, traceback
+        six.reraise(exc_type, exc_value, traceback)
 
     def __call__(self, func):
         def inner(*args, **kwargs):
@@ -460,7 +461,7 @@ class Cursor(object):
             # parameters to the paramstyle required by the driver
             # module, we require `params' to be a mapping (even though
             # the DB-API allows both sequences and mappings).
-            assert type(params) == DictType
+            assert isinstance(params, dict)
 
             # None of the database engines understand _CerebrumCode,
             # so we convert them to plain integers to simplify usage.
@@ -1094,7 +1095,7 @@ if __name__ == '__main__':
           [:table schema=cerebrum name=entity_info] i,
           [:table schema=cerebrum name=entity_type_code] t
         WHERE t.code_str='p'""")
-    print "Description:", [x[0] for x in db.description]
+    print("Description:", [x[0] for x in db.description])
     for i in range(len(rows)):
-        print i, rows[i]
-    print "EOF"
+        print(i, rows[i])
+    print("EOF")

@@ -14,8 +14,9 @@ from __future__ import unicode_literals
 
 import os
 import re
-
 from collections import OrderedDict
+
+import six
 
 
 class NotSetType(object):
@@ -76,8 +77,8 @@ class ConfigDocumentation(OrderedDict):
         :return unicode:
             Returns a formatted documentation string.
         """
-        doc = [unicode(self._setting_type)]
-        for k, v in self.iteritems():
+        doc = [six.text_type(self._setting_type)]
+        for k, v in self.items():
             if isinstance(v, type(self)):
                 v = v.format(indent=indent, _count=_count + 1)
             doc += ['{}: {}'.format(k, v)]
@@ -205,7 +206,7 @@ class Setting(object):
 class Numeric(Setting):
     """Numerical setting."""
 
-    _valid_types = (int, long, float)
+    _valid_types = six.integer_types + (float,)
 
     def __init__(self, minval=None, maxval=None, **kw):
         """Configure a numeric setting.
@@ -254,13 +255,13 @@ class Numeric(Setting):
 class Integer(Numeric):
     """A whole number setting."""
 
-    _valid_types = (int, long)
+    _valid_types = six.integer_types
 
 
 class String(Setting):
     """A String setting."""
 
-    _valid_types = (basestring, )
+    _valid_types = six.string_types
 
     def __init__(self, regex=None, minlen=None, maxlen=None, **kw):
         """Configure a string setting.
@@ -323,7 +324,7 @@ class FilePath(String):
     """
     A file-path setting
     """
-    _valid_types = (basestring, NotSetType)
+    _valid_types = six.string_types + (NotSetType,)
     _lazy_validate_defaults = True
 
     def __init__(self,

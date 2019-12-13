@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2002-2018 University of Oslo, Norway
+#
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,25 +23,26 @@ This module contains a number of core utilities used everywhere in the tree.
 """
 from __future__ import unicode_literals
 
-import cereconf
-import inspect
-import os
-import re
-import mx.DateTime
-import six
-import ssl
+import collections
 import imaplib
+import inspect
+import io
+import os
+import random
+import re
+import socket
+import ssl
 import sys
 import time
 import traceback
-import socket
-import random
-import collections
 import unicodedata
-import io
-
 from string import ascii_lowercase, digits
 from subprocess import Popen, PIPE
+
+import mx.DateTime
+import six
+
+import cereconf
 
 
 class _NotSet(object):
@@ -99,19 +100,19 @@ def this_module():
 # TODO: Deprecate when switching over to Python 3.x
 def is_str(x):
     """Checks if a given variable is a string, but not a unicode string."""
-    return isinstance(x, str)
+    return isinstance(x, bytes)
 
 
 # TODO: Deprecate when switching over to Python 3.x
 def is_str_or_unicode(x):
     """Checks if a given variable is a string (str or unicode)."""
-    return isinstance(x, basestring)
+    return isinstance(x, six.string_types)
 
 
 # TODO: Deprecate when switching over to Python 3.x
 def is_unicode(x):
     """Checks if a given variable is a unicode string."""
-    return isinstance(x, unicode)
+    return isinstance(x, six.text_type)
 
 
 def remove_control_characters(s):
@@ -195,14 +196,14 @@ def spawn_and_log_output(
     """
     # select on pipes and Popen3 only works in Unix.
     from select import select
-    EXIT_SUCCESS = 0
+    exit_success = 0
     logger = Factory.get_logger()
     if cereconf.DEBUG_HOSTLIST is not None:
         for srv in connect_to:
             if srv not in cereconf.DEBUG_HOSTLIST:
                 logger.debug("Won't connect to %s, won't spawn %r",
                              srv, cmd)
-                return EXIT_SUCCESS
+                return exit_success
 
     proc = Popen(cmd, bufsize=10240, close_fds=True,
                  stdin=PIPE, stdout=PIPE, stderr=PIPE)
@@ -226,7 +227,7 @@ def spawn_and_log_output(
             else:
                 descriptor[fd]("[%d] %s", pid, line.rstrip())
     status = proc.wait()
-    if status == EXIT_SUCCESS and log_exit_status:
+    if status == exit_success and log_exit_status:
         logger.debug("[%d] Completed successfully", pid)
     elif os.WIFSIGNALED(status):
         # The process was killed by a signal.
@@ -313,7 +314,7 @@ def pgp_decrypt(message, keyid, passphrase):
 def to_unicode(obj, encoding='utf-8'):
     """ Decode obj to unicode if it is a str."""
     if is_str(obj):
-        return unicode(obj, encoding)
+        return obj.decode(encoding)
     return obj
 
 
@@ -481,7 +482,7 @@ class mark_update(auto_super):  # noqa: N801
 
         # Define the __setattr__ method that should be used in the
         # class we're creating.
-        def __setattr__(self, attr, val):
+        def __setattr__(self, attr, val):  # noqa: N802
             # print "%s.__setattr__:" % name, self, attr, val
             if attr in read:
                 # Only allow setting if attr has no previous
@@ -506,7 +507,7 @@ class mark_update(auto_super):  # noqa: N801
                 getattr(self, mupdated).append(attr)
         dict.setdefault('__setattr__', __setattr__)
 
-        def __new__(cls, *args, **kws):
+        def __new__(cls, *args, **kws):  # noqa: N802
             # Get a bound super object.
             sup = getattr(cls, msuper).__get__(cls)
             # Call base class's __new__() to perform initialization
@@ -530,7 +531,7 @@ class mark_update(auto_super):  # noqa: N801
             setattr(self, mupdated, [])
         dict.setdefault('clear', clear)
 
-        def __xerox__(self, from_obj, reached_common=False):
+        def __xerox__(self, from_obj, reached_common=False):  # noqa: N802
             """Copy attributes of ``from_obj`` to self (shallowly).
 
             If self's class is the same as or a subclass of
@@ -931,7 +932,7 @@ def argument_to_sql(argument,
     compare_set = 'NOT IN' if negate else 'IN'
     compare_scalar = '!=' if negate else '='
     if (isinstance(argument, (collections.Sized, collections.Iterable)) and
-            not isinstance(argument, basestring)):
+            not isinstance(argument, six.text_types)):
         assert len(argument) > 0, "List can not be empty."
         if len(argument) == 1 and isinstance(argument, collections.Sequence):
             # Sequence with only one scalar, let's unpack and treat as scalar.

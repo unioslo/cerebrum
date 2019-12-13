@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+#
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,8 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Cache - memory- and/or time-limited dictionary types.
+"""
+Cache - memory- and/or time-limited dictionary types.
 
 Cache instances work just like ordinary python dictionaries, with one
 exception: They can forget things without you explicitly asking them
@@ -30,7 +31,6 @@ first can be specified by passing a sequence of mix-in classes as the
 Some of the mix-in classes take additional keyword arguments.  These
 can also be given to the Cache ctor, or they can be passed to that
 mix-in class's setup() method:
-
 
   >>> c = Cache(mixins=[cache_slots], size=50)
   >>> for x in range(100):
@@ -48,7 +48,6 @@ cache holding data:
   51
 
 """
-
 import time
 from threading import Lock
 
@@ -67,8 +66,7 @@ class Cache(dict):
         return dict.__new__(cache_class)
 
 
-class cache_base(Cache):
-
+class cache_base(Cache):  # noqa: N801
     """Minimal base class of 'cache' types."""
 
     def __init__(self, mixins=(), **kwargs):
@@ -88,7 +86,7 @@ class cache_base(Cache):
     def __setitem__(self, key, value):
         self._lock.acquire()
         try:
-            if not dict.has_key(self, key):
+            if key not in self:
                 self.registry.insert(0, key)
             return super(cache_base, self).__setitem__(key, value)
         finally:
@@ -113,6 +111,7 @@ class cache_base(Cache):
         finally:
             self._lock.release()
 
+
 # Invariants:
 #  * self.registry must contain a single entry for `key` immediately
 #    before and immediately after executing the __setitem__ method of
@@ -123,8 +122,7 @@ class cache_base(Cache):
 #    in the cache.
 
 
-class cache_mru(Cache):
-
+class cache_mru(Cache):  # noqa: N801
     """Mixin class that gives a cache Most-Recently-Used behaviour."""
 
     def __getitem__(self, key):
@@ -142,8 +140,7 @@ class cache_mru(Cache):
         return ret
 
 
-class cache_slots(Cache):
-
+class cache_slots(Cache):  # noqa: N801
     """Mixin class that restricts the maximum number of slots in a cache."""
 
     def setup(self, **kwargs):
@@ -159,12 +156,10 @@ class cache_slots(Cache):
         return ret
 
 
-class cache_timeout(Cache):
-
+class cache_timeout(Cache):  # noqa: N801
     """Mixin class that implements a timeout on cached elements."""
 
     def setup(self, **kwargs):
-        import time
         self.timestamps = {}
         self.timeout = kwargs.get('timeout', 60 * 5)
 
@@ -186,7 +181,7 @@ class cache_timeout(Cache):
             self._dont_lock = True
             self.__delitem__(key)
             self._dont_lock = False
-            raise KeyError, "Timed out"
+            raise KeyError("Timed out")
         return val
 
 
@@ -207,4 +202,3 @@ def memoize_function(function, cache_type=Cache, **kwargs):
         return result
 
     return memoized
-

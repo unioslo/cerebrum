@@ -46,20 +46,22 @@ Namespace
     >>> class MyConfiguration(Configuration):
     >>>     my_namespace = ConfigDescriptor(Namespace, config=MyNamespace)
 """
-from __future__ import unicode_literals
+from __future__ import print_function, unicode_literals
 from collections import OrderedDict
+
+import six
 
 from . import settings
 from .errors import ConfigurationError
 
 
-class _odict(OrderedDict):
-    u""" OrderedDict with `dict` repr. """
+class _Odict(OrderedDict):
+    """ OrderedDict with `dict` repr. """
 
     def __repr__(self):
         # TODO: Repr output should probably be sorted, to avoid confusion.
         #       Consider re-implementing __repr__ from collections.OrderedDict
-        return super(_odict, self).__repr__()
+        return super(_Odict, self).__repr__()
 
 
 def flatten_dict(d, prefix=''):
@@ -95,10 +97,10 @@ def flatten_dict(d, prefix=''):
 
 
 class Configuration(object):
-    u""" An abstract configuration. """
+    """ An abstract configuration. """
 
     def __init__(self, init=dict()):
-        u""" Initialize a new configuration container.
+        """ Initialize a new configuration container.
 
         :param dict init:
             Initialize config with settings from dictionary.
@@ -107,7 +109,7 @@ class Configuration(object):
 
     @staticmethod
     def __split_path(item):
-        u""" Splits `item` by the path separator ('.').
+        """ Splits `item` by the path separator ('.').
 
         This is a helper function to help recusing when accessing a
         dot-separated setting (`config['foo.bar'] = 3`)
@@ -127,9 +129,9 @@ class Configuration(object):
         :raise TypeError:
             If `item` is not a string.
         """
-        if not isinstance(item, (str, unicode)):
+        if not isinstance(item, six.string_types):
             raise TypeError(
-                u'Config settings must be strings, not {}'.format(type(item)))
+                'Config settings must be strings, not {}'.format(type(item)))
         rest = None
         if '.' in item:
             item, rest = item.split('.', 1)
@@ -137,28 +139,28 @@ class Configuration(object):
 
     @classmethod
     def list_settings(cls):
-        u""" Lists all settings in this class. """
+        """ Lists all settings in this class. """
         return filter(
             lambda attr: isinstance(getattr(cls, attr), settings.Setting),
             dir(cls))
 
     @classmethod
     def get_setting(cls, item):
-        u""" Gets a setting instance. """
+        """ Gets a setting instance. """
         attr, rest = cls.__split_path(item)
         setting = getattr(cls, attr)
         if rest:
             value = setting.get_value()
             if not isinstance(value, Configuration):
                 raise AttributeError(
-                    u'{!r} object in {!r} has no setting'
-                    u' {!r}'.format(type(value).__name__, attr, rest))
+                    '{!r} object in {!r} has no setting'
+                    ' {!r}'.format(type(value).__name__, attr, rest))
             return value.get_setting(rest)
         return setting
 
     @classmethod
     def list_ns_settings(cls):
-        u""" Generate a list of all settings in all Namespaces. """
+        """ Generate a list of all settings in all Namespaces. """
         for attr in cls.list_settings():
             s = cls.get_setting(attr)
             if isinstance(s, Namespace):
@@ -168,7 +170,7 @@ class Configuration(object):
                 yield attr
 
     def __item(self, item):
-        u""" Helper method for fetching setting values.
+        """ Helper method for fetching setting values.
 
         :param str item:
             The setting to fetch.
@@ -183,7 +185,7 @@ class Configuration(object):
                 raise AttributeError()
             return value, rest
         except AttributeError:
-            raise KeyError(u'No setting {!r} in config'.format(item))
+            raise KeyError('No setting {!r} in config'.format(item))
 
     def __getitem__(self, item):
         value, rest = self.__item(item)
@@ -207,7 +209,7 @@ class Configuration(object):
 
     @classmethod
     def documentation(cls):
-        u""" Generate a formatted, multiline documentation string. """
+        """ Generate a formatted, multiline documentation string. """
         doc = settings.ConfigDocumentation(cls)
         for name in cls.list_settings():
             setting = cls.get_setting(name)
@@ -215,7 +217,7 @@ class Configuration(object):
         return doc.format()
 
     def validate(self):
-        u""" Validate the settings in this configuration.
+        """ Validate the settings in this configuration.
 
         :raises ConfigurationError:
             If validation of any settings fails.
@@ -231,7 +233,7 @@ class Configuration(object):
             raise errors
 
     def dump_dict(self, flatten=False):
-        u""" Convert the config to a dictionary.
+        """ Convert the config to a dictionary.
 
         :param bool flatten:
             If True, namespaces will be flattened out.
@@ -255,11 +257,11 @@ class Configuration(object):
             #       Setting recognizes?
             d[name] = setting.serialize(self[name])
         if flatten:
-            d = _odict(flatten_dict(d))
+            d = _Odict(flatten_dict(d))
         return d
 
     def load_dict(self, d):
-        u""" Read in config values from a dictionary structure.
+        """ Read in config values from a dictionary structure.
 
         :param dict d:
             A dictionary with serialized values.
@@ -282,7 +284,7 @@ class Configuration(object):
             if name in loaded_keys:
                 errors.set_error(
                     name,
-                    ValueError(u'Duplicate key {!r}'.format(name)))
+                    ValueError('Duplicate key {!r}'.format(name)))
                 continue
             else:
                 loaded_keys.add(name)
@@ -290,7 +292,7 @@ class Configuration(object):
             if name not in self:
                 errors.set_error(
                     name,
-                    Exception(u'No setting for key {!r}'.format(name)))
+                    Exception('No setting for key {!r}'.format(name)))
                 continue
 
             try:
@@ -337,31 +339,31 @@ class Configuration(object):
             ', '.join((key for key in self)))
 
     def __unicode__(self):
-        return u'{}({})'.format(
+        return '{}({})'.format(
             self.__class__.__name__,
-            u', '.join((key for key in self)))
+            ', '.join((key for key in self)))
 
 
 class Namespace(settings.Setting):
-    u""" A setting that contains another Configuration. """
+    """ A setting that contains another Configuration. """
 
     # TODO: Could not Namespace and Configuration be the same class?
 
     _valid_types = Configuration
 
     def __init__(self, config=Configuration, doc="Namespace"):
-        u""" Initialize the Setting. """
+        """ Initialize the Setting. """
         self._cls = config
         self._value = self.default
 
     @property
     def is_set(self):
-        u""" If the setting has been set. """
+        """ If the setting has been set. """
         return True
 
     @property
     def default(self):
-        u""" The default value of this Namespace (an empty Configuration). """
+        """ The default value of this Namespace (an empty Configuration). """
         return self._cls()
 
     @property
@@ -374,27 +376,27 @@ class Namespace(settings.Setting):
         return doc
 
     def get_value(self):
-        u""" Gets the Configuration object of this Namespace. """
+        """ Gets the Configuration object of this Namespace. """
         return self._value
 
     def set_value(self, value):
-        u""" Replaces all values in this Namespace. """
+        """ Replaces all values in this Namespace. """
         if isinstance(value, dict):
             value = self._cls(init=value)
         super(Namespace, self).set_value(value)
 
     def reset_value(self):
-        u""" Re-sets all values in this Namespace. """
+        """ Re-sets all values in this Namespace. """
         self._value = self.default
 
     def validate(self, value):
-        u""" Validate the value. """
+        """ Validate the value. """
         if isinstance(value, dict):
             value = self._cls(init=value)
         super(Namespace, self).validate(value)
 
         if not isinstance(value, self._cls):
-            raise TypeError(u'Setting must be subtype of %r, got %r' %
+            raise TypeError('Setting must be subtype of %r, got %r' %
                             (self._cls, type(value)))
 
         value.validate()
@@ -409,19 +411,19 @@ class Namespace(settings.Setting):
 
 
 class ConfigDescriptor(object):
-    u""" Wrap a Setting as a data descriptor. """
+    """ Wrap a Setting as a data descriptor. """
 
     def __init__(self, cls, **kwargs):
-        u""" Wraps a Setting as a data descriptor.
+        """ Wraps a Setting as a data descriptor.
 
         :param Setting cls:
             The setting class of this descriptor.
 
         :param **dict kwargs:
             Init-arguments for `cls`.
-        u"""
+        """
         if not issubclass(cls, settings.Setting):
-            raise TypeError(u'Expected {}, got {}'.format(
+            raise TypeError('Expected {}, got {}'.format(
                 settings.Setting, cls))
         self.factory = lambda: cls(**kwargs)
         # The following does two things:
@@ -431,11 +433,11 @@ class ConfigDescriptor(object):
 
     @property
     def attr(self):
-        u""" Name of the attribute that stores the actual setting. """
+        """ Name of the attribute that stores the actual setting. """
         return '__ConfigDescriptor_setting_{:x}'.format(id(self))
 
     def get_instance(self, parent):
-        u""" Get an instance of this setting from the `parent' object .
+        """ Get an instance of this setting from the `parent' object .
 
         A Descriptor (self) is a class attribute, and so it gets shared between
         instances of the same type.
@@ -472,13 +474,15 @@ class ConfigDescriptor(object):
 
     def __set__(self, parent, value):
         if parent is None:
-            raise RuntimeError(u'{} is read-only'.format(self.__class__.__name__))
+            raise RuntimeError(
+                '{} is read-only'.format(self.__class__.__name__))
         setting = self.get_instance(parent)
         setting.set_value(value)
 
     def __delete__(self, parent):
         if parent is None:
-            raise RuntimeError(u'{} is read-only'.format(self.__class__.__name__))
+            raise RuntimeError(
+                '{} is read-only'.format(self.__class__.__name__))
         setting = self.get_instance(parent)
         setting.reset_value()
 
@@ -525,5 +529,5 @@ if __name__ == '__main__':
             max_items=10,
             doc='A list of strings')
 
-    print u"Documentation for Configuration 'Example'\n"
-    print Example.documentation()
+    print("Documentation for Configuration 'Example'\n")
+    print(Example.documentation())
