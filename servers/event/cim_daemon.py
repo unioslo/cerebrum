@@ -94,7 +94,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
 
 
 def main(args=None):
-    logger = Utils.Factory.get_logger('cronjob')
+    logger = Utils.Factory.get_logger('daemons')
     parser = argparse.ArgumentParser(description=__doc__)
 
     parser.add_argument('-c', '--config',

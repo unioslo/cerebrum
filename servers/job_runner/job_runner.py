@@ -157,7 +157,7 @@ def main(inargs=None):
     install_subparser(parser)
     args = parser.parse_args(inargs)
 
-    autoconf('cronjob', args)
+    autoconf('daemons', args)
 
     jr_socket = args.socket
     logger.debug("job_runner args=%r", args)
