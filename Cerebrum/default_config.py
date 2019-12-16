@@ -1068,17 +1068,6 @@ EPHORTE_OLD2NEW_PERMISSIONS = {}
 # Oracle default DB driver
 DB_DRIVER_ORACLE = "cx_Oracle"
 
-
-#
-# Automatic group creation based on employment information
-# Syntax: 'affiliation-or-status': 'group-prefix
-# affiliation-or-status is a PersonAffiliation/PersonAffStatus
-# group-prefix is a string which will be the prefix of the auto-generated
-# groups.
-# E.g. {'affiliation_status_ansatt_tekadm': 'ansatt-tekadm'}
-#
-AUTOMATIC_GROUPS = {}
-
 # Prefixes that define which groups should be added as members of meta-groups.
 # E.g. ['ansatt', 'tilknyttet']
 AUTOMATIC_GROUP_POPULATE_META_PREFIX = []
