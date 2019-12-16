@@ -359,12 +359,12 @@ def make_parser():
         action='store_true',
         default=False,
         help='Add default POSIX data to new accounts.')
-    poxis_dfg = parser.add_mutually_exclusive_group()
-    poxis_dfg.add_argument(
+    posix_dfg = parser.add_mutually_exclusive_group()
+    posix_dfg.add_argument(
         '--posix-dfg',
         metavar='POSIXGROUP',
         help='POSIX GID - default file group')
-    poxis_dfg.add_argument(
+    posix_dfg.add_argument(
         '--posix-uio',
         action='store_true',
         default=False,
