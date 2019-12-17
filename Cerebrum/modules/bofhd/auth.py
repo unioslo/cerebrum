@@ -1297,6 +1297,32 @@ class BofhdAuth(DatabaseAccessor):
             return False
         raise PermissionDenied("Only superuser can set group_type")
 
+    def can_add_group_admin(self, operator, group=None, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return (self.is_moderator(operator)
+                    or self._has_operation_perm_somewhere(
+                        operator, self.const.auth_add_group_admin))
+            return self._has_operation_perm_somewhere(
+                                operator, self.const.auth_create_group)
+        if self.is_moderator(operator, group.entity_id):
+            return True
+        if self._has_target_permissions(operator,
+                                        self.const.auth_add_group_admin,
+                                        self.const.auth_target_type_group,
+                                        group.entity_id, group.entity_id):
+            return True
+        raise PermissionDenied("Not allowed to add admin to group")
+
+    def can_add_group_moderator(self, operator, group=None,
+                                query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Not allowed to add moderator to group")
+
     def can_create_personal_group(self, operator, account=None,
                                   query_run_any=False):
         if query_run_any or self.is_superuser(operator):
