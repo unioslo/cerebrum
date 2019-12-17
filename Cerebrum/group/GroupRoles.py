@@ -20,7 +20,7 @@
 from __future__ import unicode_literals
 
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
-from Cerebrum.Utils import argument_to_sql
+from Cerebrum.Utils import argument_to_sql, Factory
 
 
 class GroupRoles(DatabaseAccessor):
@@ -29,6 +29,10 @@ class GroupRoles(DatabaseAccessor):
     This is admins and moderators. Information about these exists in the
     group_admin and group_moderator tables.
     """
+
+    def __init__(self, database):
+        self.clconst = Factory.get('CLConstants')(database)
+        super(GroupRoles, self).__init__(database)
 
     def add_admin_to_group(self, admin_id, group_id):
         """Add L{admin_id} as admin of the group L{group_id}.
@@ -47,7 +51,7 @@ class GroupRoles(DatabaseAccessor):
         binds = {'group_id': int(group_id),
                  'admin_id': int(admin_id)}
         self.execute(stmt, binds)
-        self._db.log_change(self.entity_id,
+        self._db.log_change(group_id,
                             self.clconst.group_admin_add,
                             admin_id)
 
@@ -69,7 +73,7 @@ class GroupRoles(DatabaseAccessor):
         binds = {'group_id': int(group_id),
                  'admin_id': int(moderator_id)}
         self.execute(stmt, binds)
-        self._db.log_change(self.entity_id,
+        self._db.log_change(group_id,
                             self.clconst.group_moderator_add,
                             moderator_id)
 
