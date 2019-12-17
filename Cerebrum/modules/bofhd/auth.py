@@ -221,6 +221,7 @@ from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.Utils import argument_to_sql
 from Cerebrum.modules.bofhd.errors import PermissionDenied
@@ -663,6 +664,7 @@ class BofhdAuth(DatabaseAccessor):
                                            size=500,
                                            timeout=60*60)
         self._bofhd_auth_systems = tuple(_get_bofhd_auth_systems(self.const))
+        self._group_roles = GroupRoles(database)
 
     def _get_uname(self, entity_id):
         """Return a human-friendly representation of entity_id."""
@@ -2330,3 +2332,15 @@ class BofhdAuth(DatabaseAccessor):
         raise PermissionDenied("You don't have permission to view "
                                "external ids for person entity {}".format(
                                    person.entity_id))
+
+    def _is_admin(self, entity_id, group_id=None):
+        admin_ids = self._get_users_auth_entities(entity_id)
+        return self._group_roles.is_admin(admin_ids, group_id)
+
+    def _is_moderator(self, entity_id, group_id=None):
+        moderator_ids = self._get_users_auth_entities(entity_id)
+        return self._group_roles.is_moderator(moderator_ids, group_id)
+
+    def _is_admin_or_moderator(self, entity_id, group_id=None):
+        return (self._is_admin(entity_id, group_id)
+                or self.is_moderator(entity_id, group_id))
