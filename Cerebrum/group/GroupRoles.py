@@ -351,3 +351,69 @@ class GroupRoles(DatabaseAccessor):
                    where=" AND ".join(where))
 
         return self.query(query, binds)
+
+    def is_admin(self, admin_id, group_id=None):
+        """
+        Function to determine wheter an Entity is an admin of a group in
+        general, or of one particular group, if specified. Either directly or
+        through membership in an admin group
+
+        :param int admin_id:
+          Entity id to look after adminship for
+
+        :param int group_id:
+          If specified, the adminship needs to be for this particular group
+
+        :return bool:
+          Whether the entity is an admin (of the specified group)
+        """
+        binds = {}
+        where = []
+        where.append(argument_to_sql(admin_id, "admin_id", binds, int))
+        if group_id is not None:
+            where.append(argument_to_sql(group_id, "group_id", binds, int))
+
+        exists_stmt = """
+        SELECT EXISTS (
+          SELECT 1
+          FROM [:table schema=cerebrum name=group_admin]
+          WHERE {where}
+        )
+        """.format(where=" AND ".join(where))
+        print(where)
+        print(binds)
+        print(exists_stmt)
+        return self.query_1(exists_stmt, binds)
+
+    def is_moderator(self, moderator_id, group_id=None):
+        """
+        Function to determine wheter an Entity is an moderator of a group in
+        general, or of one particular group, if specified. Either directly or
+        through membership in a moderator group
+
+        :param int moderator_id:
+          Entity id to look after moderatorship for
+
+        :param int group_id:
+          If specified, the moderatorship needs to be for this particular group
+
+        :return bool:
+          Whether the entity is an moderator (of the specified group)
+        """
+        binds = {}
+        where = []
+        where.append(argument_to_sql(moderator_id, "moderator_id", binds, int))
+        if group_id is not None:
+            where.append(argument_to_sql(group_id, "group_id", binds, int))
+
+        exists_stmt = """
+        SELECT EXISTS (
+          SELECT 1
+          FROM [:table schema=cerebrum name=group_moderator]
+          WHERE {where}
+        )
+        """.format(where=" AND ".join(where))
+        print(where)
+        print(binds)
+        print(exists_stmt)
+        return self.query_1(exists_stmt, binds)
