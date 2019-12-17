@@ -45,6 +45,8 @@ class Constants(Constants.Constants):
         'grant_ou', 'Grant access to operate on OU')
     auth_add_disk = _AuthRoleOpCode(
         'add_disks', 'Add userdisks to hosts')
+    auth_add_group_admin = _AuthRoleOpCode(
+        'add_group_admin', 'Add new admin to group')
     auth_create_host = _AuthRoleOpCode(
         'create_host', 'Add hosts for userdisks')
     auth_create_group = _AuthRoleOpCode(
