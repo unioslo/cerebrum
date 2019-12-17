@@ -80,11 +80,6 @@ class BofhdConfig(Configuration):
         minval=0,
         doc="Client socket timeout (in seconds?).")
 
-    groupmod_opset = ConfigDescriptor(
-        String,
-        default='Group-owner',
-        doc="OpSet that gives group moderator rights.")
-
     request_lockdir = ConfigDescriptor(
         String,
         default=pj(sys.prefix, 'var', 'lock', 'bofhreq', 'lock-%d'),
