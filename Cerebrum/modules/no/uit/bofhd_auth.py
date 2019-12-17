@@ -156,6 +156,10 @@ class UitAuth(UitContactAuthMixin, BofhdAuth):
 
     def can_show_history(self, operator, entity=None, query_run_any=False):
         """UiT-specific history-specific authentication rules."""
+        if query_run_any and self._is_admin_or_moderator(operator):
+            return True
+        if entity and self._is_admin_or_moderator(operator, entity.entity_id):
+            return True
         if (entity and entity.entity_type == self.const.entity_email_target and
                 self.is_postmaster(operator)):
             return True
@@ -198,6 +202,87 @@ class UitAuth(UitContactAuthMixin, BofhdAuth):
         False unless the user is a superuser or query_run_any = True
         """
         return query_run_any or self.is_superuser(operator)
+
+    def can_create_group(self, operator, groupname=None, query_run_any=False):
+        """If an account should be allowed to create a group.
+
+        We allow accounts with the operation `create_group` access, if the
+        groupname matches the given operation's whitelist. Superusers are
+        always allowed access.
+
+        Access could be checked based on the groupname format, depending on how
+        the OpSet is defined.
+
+        :param int operator: The operator's `entity_id`.
+        :param str groupname:
+            The requested groupname of the group we want to create. Note that
+            this auth module does not check if this group already exists or
+            not. The access control only validates the group name in this case.
+        :param bool query_run_any:
+            If True, we only check if the account has access to the operation,
+            *somewhere*.
+        :rtype: bool
+        :returns:
+            `True` if the account is allowed access. If, *and only if*, the
+            parameter `query_run_any` is True, we return `False` if the
+            operator does not have access.
+        :raise PermissionDenied:
+            If the account is not allowed access for the operation. This will
+            not be raised if `query_run_any` is set to `True`.
+
+        """
+        if self._is_moderator(operator):
+            return True
+        return super(UitAuth, self).can_create_group(operator, groupname,
+                                                     query_run_any)
+
+    def can_alter_group(self, operator, group=None, query_run_any=False):
+        """Checks if the operator has permission to add/remove group members
+        for the given group.
+
+        @type operator: int
+        @param operator: The entity_id of the user performing the operation.
+
+        @type group: An entity of EntityType Group
+        @param group: The group to add/remove members to/from.
+
+        @type query_run_any: True or False
+        @param query_run_any: Check if the operator has permission *somewhere*
+
+        @return: True or False
+        """
+        if self.is_superuser(operator):
+            return True
+        if query_run_any and self._is_admin(operator):
+            return True
+        if self._is_admin(operator, group.entity_id):
+            return True
+        return super(UitAuth, self).can_alter_group(operator, group,
+                                                    query_run_any)
+
+    def can_search_group(self, operator, query_run_any=False):
+        if self._is_moderator(operator):
+            return True
+        return super(UitAuth, self).can_search_group(operator, query_run_any)
+
+    def can_add_spread(self, operator, entity=None, spread=None,
+                       query_run_any=False):
+        """Each spread that an operator may modify is stored in
+        auth_op_attrs as the code_str value."""
+        if query_run_any and self._is_moderator(operator):
+            return True
+        if entity and entity.entity_type == self.const.entity_group:
+            if spread is not None:
+                spread = (self.const.Spread(spread))
+                # spread = six.text_type(self.const.Spread(spread))
+            if self._is_moderator(operator, entity.entity_id):
+                if spread in (str(self.const.spread_uit_ad_account),
+                              str(self.const.spread_uit_ldap_people),
+                              str(self.const.spread_uit_evu),
+                              str(self.const.spread_uit_exchange)):
+                    return True
+        return super(UitAuth, self).can_add_spread(operator, entity,
+                                                   spread, query_run_any)
 
 
 class ContactAuth(UitAuth):
