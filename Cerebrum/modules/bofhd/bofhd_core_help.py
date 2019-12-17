@@ -68,6 +68,9 @@ command_help = {
     'group': {
         'group_multi_add': 'Let an account, person or group join a group',
         'group_add': 'Let an account join a group',
+        'group_add_admin': 'Set an account or group to be admin of a group',
+        'group_add_moderator':
+            'Set an account or group to be moderator of a group',
         'group_create': 'Create a new Cerebrum group',
         'group_rename': 'Rename a group. Don\'t use unless you\'re aware '
             'of the consequences! Stateless integrations would after a '
@@ -293,6 +296,11 @@ arg_help = {
     'address_type':
         ['address_type', 'Enter address type',
          'The name of the address type, e.g. POST/PRIVPOST/STREET'],
+    'admin_name':
+        ['uname', 'Enter name of the admin (account assumed)',
+         'Enter the type and name of the admin, like type:name. The possible '
+         'types are account and group, if no type is entered, it is assumed '
+         'to be an account'],
     'affiliation':
         ['affiliation', 'Enter affiliation',
          """A persons affiliation defines the current role of that person within
@@ -459,6 +467,11 @@ arg_help = {
     'mobile_phone':
         ['mobile', 'Enter the mobile number',
          "Enter the 8 digit mobile phone number of the receiver"],
+    'moderator_name':
+        ['uname', 'Enter name of the moderator (account assumed)',
+         'Enter the type and name of the moderator, like type:name. The '
+         'possible types are account and group, if no type is entered, it is '
+         'assumed to be an account'],
     'move_type':
         ['move_type', 'Enter move type',
          """Legal move types:
