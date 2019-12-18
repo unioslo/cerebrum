@@ -1084,7 +1084,7 @@ class BofhdExtension(BofhdCommonMethods):
                                     for v in (self.const.name_first,
                                               self.const.name_last)]
                     sugg = posix_user.suggest_unames(
-                        self.const.account_namespace, fname, lname)
+                        person)
                     if sugg:
                         ret['default'] = sugg[0]
                 except ValueError:

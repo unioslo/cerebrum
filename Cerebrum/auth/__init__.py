@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+#
 # Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -16,11 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""Auth module containers.
+"""
+Auth module containers.
 
 This module handles all auth implmentations by wrapping them in a dict-like
 object, which you can derive different implementations from.
+
 New implemtations should follow the same pattern as below.
 """
 import base64
@@ -37,6 +39,12 @@ from Cerebrum import Utils
 
 
 class AuthBaseClass(object):
+    """
+    Base class for auth methods.
+
+    Each auth method *must* implement an encrypt method and a verify method,
+    and *may* implement a decrypt method.
+    """
 
     def encrypt(self, plaintext, salt=None, binary=False):
         """ Returns the hashed plaintext of a specific method
@@ -70,14 +78,18 @@ class AuthBaseClass(object):
 
 
 class AuthMap(Mapping):
+    """
+    Container obejct for auth methods
+    """
+
     def __init__(self, *args, **kwargs):
         self._data = dict(*args, **kwargs)
 
     def __repr__(self):
-        def iter():
-            for key, val in self._data.iteritems():
-                yield ("Key:{}  Val:{}".format(key, val))
-        return "\n".join(iter()) or "Empty AuthMap"
+        return '<{cls.__name__} {methods}>'.format(
+            cls=type(self),
+            methods=', '.join(str(m) for m in sorted(self._data)),
+        )
 
     def __getitem__(self, key):
         if key not in self._data:
@@ -114,14 +126,20 @@ all_auth_methods = AuthMap()
 
 @all_auth_methods('SSHA')
 class AuthTypeSSHA(AuthBaseClass):
+
     def encrypt(self, plaintext, salt=None, binary=False):
         if not isinstance(plaintext, six.text_type) and not binary:
             raise ValueError("plaintext cannot be bytestring and not binary")
-        plaintext = plaintext.encode('utf-8')
+
+        if isinstance(plaintext, six.text_type):
+            plaintext = plaintext.encode('utf-8')
+
         if salt is None:
             saltchars = string.ascii_letters + string.digits + "./"
-            salt = "$6$" + Utils.random_string(16, saltchars)
-        salt = salt.encode('utf-8')
+            salt = bytes("$6$" + Utils.random_string(16, saltchars))
+        elif isinstance(salt, six.text_type):
+            salt = bytes(salt)
+
         return base64.b64encode(
             hashlib.sha1(plaintext + salt).digest() + salt).decode()
 
@@ -132,14 +150,21 @@ class AuthTypeSSHA(AuthBaseClass):
 
 @all_auth_methods('SHA-256-crypt')
 class AuthTypeSHA256(AuthBaseClass):
+
     def encrypt(self, plaintext, salt=None, binary=False):
         if not isinstance(plaintext, six.text_type) and not binary:
             raise ValueError("plaintext cannot be bytestring and not binary")
-        plaintext = plaintext.encode('utf-8')
+
+        if isinstance(plaintext, six.text_type):
+            plaintext = plaintext.encode('utf-8')
+
         if salt is None:
             saltchars = string.ascii_letters + string.digits + "./"
-            salt = "$5$" + Utils.random_string(16, saltchars)
-        return crypt.crypt(plaintext, salt.encode('utf-8')).decode()
+            salt = bytes("$5$" + Utils.random_string(16, saltchars))
+        elif isinstance(salt, six.text_type):
+            salt = bytes(salt)
+
+        return crypt.crypt(plaintext, salt).decode()
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
@@ -148,14 +173,21 @@ class AuthTypeSHA256(AuthBaseClass):
 
 @all_auth_methods('SHA-512-crypt')
 class AuthTypeSHA512(AuthBaseClass):
+
     def encrypt(self, plaintext, salt=None, binary=False):
         if not isinstance(plaintext, six.text_type) and not binary:
             raise ValueError("plaintext cannot be bytestring and not binary")
-        plaintext = plaintext.encode('utf-8')
+
+        if isinstance(plaintext, six.text_type):
+            plaintext = plaintext.encode('utf-8')
+
         if salt is None:
             saltchars = string.ascii_letters + string.digits + "./"
-            salt = "$6$" + Utils.random_string(16, saltchars)
-        return crypt.crypt(plaintext, salt.encode('utf-8')).decode()
+            salt = bytes("$6$" + Utils.random_string(16, saltchars))
+        elif isinstance(salt, six.text_type):
+            salt = bytes(salt)
+
+        return crypt.crypt(plaintext, salt).decode()
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
@@ -164,14 +196,21 @@ class AuthTypeSHA512(AuthBaseClass):
 
 @all_auth_methods('MD5-crypt')
 class AuthTypeMD5(AuthBaseClass):
+
     def encrypt(self, plaintext, salt=None, binary=False):
         if not isinstance(plaintext, six.text_type) and not binary:
             raise ValueError("plaintext cannot be bytestring and not binary")
-        plaintext = plaintext.encode('utf-8')
+
+        if isinstance(plaintext, six.text_type):
+            plaintext = plaintext.encode('utf-8')
+
         if salt is None:
             saltchars = string.ascii_letters + string.digits + "./"
-            salt = "$1$" + Utils.random_string(8, saltchars)
-        return crypt.crypt(plaintext, salt.encode('utf-8')).decode()
+            salt = bytes("$1$" + Utils.random_string(8, saltchars))
+        elif isinstance(salt, six.text_type):
+            salt = bytes(salt)
+
+        return crypt.crypt(plaintext, salt).decode()
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
@@ -180,10 +219,14 @@ class AuthTypeMD5(AuthBaseClass):
 
 @all_auth_methods('MD4-NT')
 class AuthTypeMD4NT(AuthBaseClass):
+
     def encrypt(self, plaintext, salt=None, binary=False):
         if not isinstance(plaintext, six.text_type) and not binary:
             raise ValueError("plaintext cannot be bytestring and not binary")
-        plaintext = plaintext.encode('utf-8')
+
+        if isinstance(plaintext, six.text_type):
+            plaintext = plaintext.encode('utf-8')
+
         # Previously the smbpasswd module was used to create nthash, and it
         # only produced uppercase hashes. The hash is case insensitive, but
         # be backwards compatible if some comsumers
@@ -196,25 +239,36 @@ class AuthTypeMD4NT(AuthBaseClass):
 
 @all_auth_methods('plaintext')
 class AuthTypePlaintext(AuthBaseClass):
+
     def encrypt(self, plaintext, salt=None, binary=False):
         if not isinstance(plaintext, six.text_type) and not binary:
             raise ValueError("plaintext cannot be bytestring and not binary")
-        plaintext = plaintext.encode('utf-8')
+
+        # This gets a bit odd -- the encrypt-method returns unicode objects,
+        # so if binary is set and we actually get a bytestring?  Let's just
+        # assume that we've gotten a utf-8 bytestring?
+        if not isinstance(plaintext, six.text_type):
+            plaintext = plaintext.decode('utf-8')
+
         return plaintext
 
     def decrypt(self, cryptstring):
         return cryptstring
 
     def verify(self, plaintext, cryptstring):
-        return plaintext == cryptstring
+        return self.encrypt(plaintext, salt=cryptstring) == cryptstring
 
 
 @all_auth_methods('md5-unsalted')
 class AuthTypeMD5Unsalt(AuthBaseClass):
+
     def encrypt(self, plaintext, salt=None, binary=False):
         if not isinstance(plaintext, six.text_type) and not binary:
             raise ValueError("plaintext cannot be bytestring and not binary")
-        plaintext = plaintext.encode('utf-8')
+
+        if isinstance(plaintext, six.text_type):
+            plaintext = plaintext.encode('utf-8')
+
         return hashlib.md5(plaintext).hexdigest().decode()
 
     def verify(self, plaintext, cryptstring):
@@ -225,13 +279,18 @@ class AuthTypeMD5Unsalt(AuthBaseClass):
 def encrypt_ha1_md5(account_name, realm, plaintext, salt=None, binary=False):
     if not isinstance(plaintext, six.text_type) and not binary:
         raise ValueError("plaintext cannot be bytestring and not binary")
-    if binary:
-        s = b':'.join((account_name.encode('utf-8'),
-                       realm.encode('utf-8'),
-                       plaintext))
-    else:
-        s = ":".join([account_name, realm, plaintext]).encode('utf-8')
-    return hashlib.md5(s).hexdigest().decode()
+
+    if isinstance(account_name, six.text_type):
+        account_name = account_name.encode('utf-8')
+
+    if isinstance(realm, six.text_type):
+        realm = realm.encode('utf-8')
+
+    if isinstance(plaintext, six.text_type):
+        plaintext = plaintext.encode('utf-8')
+
+    secret = b':'.join((account_name, realm, plaintext))
+    return hashlib.md5(secret).hexdigest().decode()
 
 
 def verify_ha1_md5(account_name, realm, plaintext, cryptstring):

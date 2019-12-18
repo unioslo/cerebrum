@@ -45,10 +45,12 @@ class AccountNMHMixin(Account.Account):
                                    type=self.const.contact_email,
                                    value=c_val, description=c_desc)
 
-    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
+    def suggest_unames(self, person, maxlen=10, suffix=""):
         # Override Account.suggest_unames as NMH allows up to 10 chars
         # in unames
-        return self.__super.suggest_unames(domain, fname, lname, maxlen=10)
+        return super(AccountNMHMixin, self).suggest_unames(person,
+                                                           maxlen=maxlen,
+                                                           suffix=suffix)
 
     def illegal_name(self, name):
         """NMH can only allow max 10 characters in usernames, due to

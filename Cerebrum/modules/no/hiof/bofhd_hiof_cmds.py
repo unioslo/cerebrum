@@ -306,13 +306,7 @@ class BofhdExtension(BofhdCommonMethods):
             if not group_owner:
                 try:
                     person = self._get_person("entity_id", owner_id)
-                    fname, lname = [person.get_name(self.const.system_cached,
-                                                    v)
-                                    for v in (self.const.name_first,
-                                              self.const.name_last)]
-                    sugg = account.suggest_unames(self.const.account_namespace,
-                                                  fname,
-                                                  lname)
+                    sugg = account.suggest_unames(person)
                     if sugg:
                         ret['default'] = sugg[0]
                 except ValueError:

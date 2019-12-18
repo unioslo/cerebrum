@@ -33,7 +33,7 @@ SIGUSR1 (main process)
 """
 import argparse
 
-from multiprocessing import Queue
+from six.moves.queue import Queue
 
 from Cerebrum import Utils
 from Cerebrum.modules.event import utils
@@ -50,7 +50,6 @@ class Manager(utils.Manager):
 
 
 # Inject our queue implementation:
-# TODO: This should probably be a Queue.Queue, since it's handled by a Manager!
 Manager.register('queue', Queue)
 
 
@@ -60,7 +59,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
     channels = [TARGET_SYSTEM, ]
     cimd = utils.ProcessHandler(manager=Manager)
 
-    event_queue = cimd.mgr.queue()
+    event_queue = cimd.mgr.queue(maxsize=1000)
 
     for i in range(0, num_workers):
         cimd.add_process(
@@ -95,7 +94,7 @@ def serve(logger, cim_config, num_workers, enable_listener, enable_collectors):
 
 
 def main(args=None):
-    logger = Utils.Factory.get_logger('cronjob')
+    logger = Utils.Factory.get_logger('daemons')
     parser = argparse.ArgumentParser(description=__doc__)
 
     parser.add_argument('-c', '--config',

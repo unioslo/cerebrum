@@ -1,4 +1,5 @@
-/*
+/* encoding: utf-8
+ *
  * Copyright 2019 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
@@ -16,6 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ *
  *
  * Tables used by Cerebrum.modules.spread_expire
  *
@@ -45,11 +47,13 @@ name=spread_expire;
 category:metainfo;
 version=1.0;
 
+
 category:drop;
 DROP TABLE spread_expire;
 
 category:drop;
 DROP TABLE spread_expire_notification;
+
 
 /**
  * spread_expire
@@ -64,14 +68,21 @@ DROP TABLE spread_expire_notification;
  *   Expire date for the (entity_id, spread) combo.
 **/
 category:main;
-CREATE TABLE spread_expire (
-  entity_id     NUMERIC(12,0)
-                NOT NULL,
-  spread        NUMERIC(6,0)
-                NOT NULL,
-  expire_date   DATE
-                NOT NULL
+CREATE TABLE spread_expire
+(
+  entity_id
+    NUMERIC(12,0)
+    NOT NULL,
+
+  spread
+    NUMERIC(6,0)
+    NOT NULL,
+
+  expire_date
+    DATE
+    NOT NULL
 );
+
 
 /**
  * spread_expire_notification
@@ -86,10 +97,16 @@ CREATE TABLE spread_expire (
  *   The date to send notification.
 **/
 category:main;
-CREATE TABLE spread_expire_notification (
-  entity_id         NUMERIC(12,0)
-                    NOT NULL,
-  notify_template   CHAR VARYING(50)
-                    NOT NULL,
-  notify_date       DATE
+CREATE TABLE spread_expire_notification
+(
+  entity_id
+    NUMERIC(12,0)
+    NOT NULL,
+
+  notify_template
+    CHAR VARYING(50)
+    NOT NULL,
+
+  notify_date
+    DATE
 );

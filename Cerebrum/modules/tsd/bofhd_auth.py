@@ -381,6 +381,34 @@ class TsdBofhdAuth(BofhdAuth):
         return super(TsdBofhdAuth, self).can_show_history(operator, entity,
                                                           query_run_any)
 
+    def can_get_person_external_id(self, operator, person, extid_type,
+                                   source_sys, query_run_any=False):
+        if query_run_any:
+            return True
+        if self.is_superuser(operator.get_entity_id()):
+            return True
+        account = Factory.get('Account')(self._db)
+        account_ids = [int(
+            r['account_id']) for r in
+            account.list_accounts_by_owner_id(person.entity_id)]
+        if operator.get_entity_id() in account_ids:
+            return True
+
+        operation_attr = str("{}:{}".format(
+            str(self.const.AuthoritativeSystem(source_sys)),
+            extid_type))
+
+        if self._has_target_permissions(
+                operator.get_entity_id(),
+                self.const.auth_view_external_id,
+                self.const.auth_target_type_global_person,
+                None, None,
+                operation_attr=operation_attr):
+            return True
+        raise PermissionDenied("You don't have permission to view "
+                               "external ids for person entity {}".format(
+                                   person.entity_id))
+
 
 class ContactAuth(TsdBofhdAuth, bofhd_contact_info.BofhdContactAuth):
 

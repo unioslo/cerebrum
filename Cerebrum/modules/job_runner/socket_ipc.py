@@ -33,7 +33,8 @@ from six import text_type
 
 import cereconf
 
-from .times import to_seconds, fmt_asc, fmt_time
+from Cerebrum.utils.date import to_seconds
+from .times import fmt_asc, fmt_time
 
 
 logger = logging.getLogger(__name__)
@@ -271,7 +272,7 @@ class SocketProtocol(object):
             (repr(x) for x in threading.enumerate()))
 
         def fmt_job_times(job):
-            fmt_last = fmt_dur = 'unknown'
+            fmt_last = fmt_dur = fmt_ago = 'unknown'
 
             last_run = queue._last_run[job]
 

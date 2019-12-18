@@ -1,5 +1,6 @@
-/*
- * Copyright 2003 University of Oslo, Norway
+/* encoding: utf-8
+ *
+ * Copyright 2003-2019 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -16,40 +17,61 @@
  * You should have received a copy of the GNU General Public License
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ *
+ *
+ * Tables used by Cerebrum.modules.MountHost
  */
-
 category:metainfo;
 name=mount_host;
+
 category:metainfo;
 version=1.0;
 
+
 category:code;
-CREATE TABLE mount_host_type_code(
-  code		NUMERIC(6,0)
-		CONSTRAINT mount_host_type_code_pk PRIMARY KEY,
-  code_str	CHAR VARYING(16)
-		NOT NULL
-		CONSTRAINT mount_host_type_code_u UNIQUE,
-  description	CHAR VARYING(512)
-		NOT NULL
+CREATE TABLE mount_host_type_code
+(
+  code
+    NUMERIC(6,0)
+    CONSTRAINT mount_host_type_code_pk PRIMARY KEY,
+
+  code_str
+    CHAR VARYING(16)
+    NOT NULL
+    CONSTRAINT mount_host_type_code_u UNIQUE,
+
+  description
+    CHAR VARYING(512)
+    NOT NULL
 );
+
 
 category:main;
 CREATE TABLE mount_host
 (
-  mount_host_id NUMERIC(12,0) CONSTRAINT mount_host_pk PRIMARY KEY,
-  mount_type    NUMERIC(6,0)
-		CONSTRAINT mount_host_type
-		  REFERENCES mount_host_type_code(code),
-  host_id	NUMERIC(12,0)
-		NOT NULL
-		CONSTRAINT mount_host_host_id
-		  REFERENCES host_info(host_id),
-  mount_name    CHAR VARYING(80)
-		NOT NULL
+  mount_host_id
+    NUMERIC(12,0)
+    CONSTRAINT mount_host_pk PRIMARY KEY,
+
+  mount_type
+    NUMERIC(6,0)
+    CONSTRAINT mount_host_type
+      REFERENCES mount_host_type_code(code),
+
+  host_id
+    NUMERIC(12,0)
+    NOT NULL
+    CONSTRAINT mount_host_host_id
+      REFERENCES host_info(host_id),
+
+  mount_name
+    CHAR VARYING(80)
+    NOT NULL
 );
-	
+
+
 category:drop;
 DROP TABLE mount_host;
+
 category:drop;
 DROP TABLE mount_host_type_code;

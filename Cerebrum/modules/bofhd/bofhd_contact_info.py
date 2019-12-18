@@ -351,6 +351,7 @@ class BofhdContactCommands(BofhdCommandBase):
              ('source_system', 'contact_type', 'entity_type', 'entity_id',)),
             ("Old value: '%s'",
              ('contact_value', )),
+            ('Warning: %s', ('warning',)),
         ]),
         perm_filter='can_remove_contact_info')
 
@@ -380,6 +381,7 @@ class BofhdContactCommands(BofhdCommandBase):
                                         contact_type=contact_type,
                                         source_system=source_system)
 
+        warning = None
         # if the entity is a person...
         if entity_type == co.entity_person:
             # check if person is still affiliated with the given source system
@@ -390,9 +392,10 @@ class BofhdContactCommands(BofhdCommandBase):
                     continue
                 if (co.AuthoritativeSystem(a['source_system']) is
                         source_system):
-                    raise CerebrumError(
-                        'Person has an affiliation from source system '
-                        '%r, cannot remove' % source_system)
+                    warning = (
+                        'person has affiliation from source_system %s' %
+                        (source_system,))
+                    break
 
         # check if given contact info type exists for this entity
         contact_info = entity.get_contact_info(source=source_system,
@@ -413,7 +416,7 @@ class BofhdContactCommands(BofhdCommandBase):
             entity.delete_contact_info(source=source_system,
                                        contact_type=contact_type)
             entity.write_db()
-        except:
+        except Exception:
             raise CerebrumError("Could not remove contact info %s:%s from %r" %
                                 (six.text_type(source_system),
                                  six.text_type(contact_type),
@@ -434,6 +437,9 @@ class BofhdContactCommands(BofhdCommandBase):
                 contact_info['contact_value'])
         except PermissionDenied:
             pass
+
+        if warning:
+            result['warning'] = warning
 
         return result
 

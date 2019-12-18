@@ -1,5 +1,6 @@
-/*
- * Copyright 2018 University of Oslo, Norway
+/* encoding: utf-8
+ *
+ * Copyright 2019 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -16,13 +17,16 @@
  * You should have received a copy of the GNU General Public License
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ *
+ *
+ * Tables used by Cerebrum.modules.audit
  */
-
 category:metainfo;
 name=auditlog;
 
 category:metainfo;
 version=1.0;
+
 
 category:drop;
 drop TABLE audit_log;
@@ -30,44 +34,53 @@ drop TABLE audit_log;
 category:drop;
 drop SEQUENCE audit_log_seq;
 
+
 category:code;
 CREATE SEQUENCE audit_log_seq;
+
 
 category:main;
 CREATE TABLE audit_log
 (
   /* A unique ID of this change record */
-  record_id       NUMERIC(12,0)
-                  NOT NULL
-                  CONSTRAINT audit_log_record_idx PRIMARY KEY,
+  record_id
+    NUMERIC(12,0)
+    NOT NULL
+    CONSTRAINT audit_log_record_idx PRIMARY KEY,
 
   /* Changelog constant for this change */
-  change_type     NUMERIC(6,0)
-                  NOT NULL
-                  REFERENCES change_type(change_type_id),
+  change_type
+    NUMERIC(6,0)
+    NOT NULL
+    REFERENCES change_type(change_type_id),
 
   /* Timestamp with timezone */
-  timestamp       TIMESTAMP
-                  WITH TIME ZONE
-                  NOT NULL
-                  DEFAULT [:now],
+  timestamp
+    TIMESTAMP WITH TIME ZONE
+    NOT NULL
+    DEFAULT [:now],
 
   /* entity_id of the account that caused this change */
-  operator        NUMERIC(12,0)
-                  NOT NULL,
+  operator
+    NUMERIC(12,0)
+    NOT NULL,
 
   /* entity_id of the changed entity */
-  entity          NUMERIC(12,0)
-                  NOT NULL,
+  entity
+    NUMERIC(12,0)
+    NOT NULL,
 
   /* entity_id of an affected entity */
-  target          NUMERIC(12,0),
+  target
+    NUMERIC(12,0),
 
   /* Additional information about the change */
-  params          JSONB,
+  params
+    JSONB,
 
   /* Additional metadata about the entities involved */
-  metadata        JSONB
+  metadata
+    JSONB
 );
 
 category:main;

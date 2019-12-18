@@ -53,7 +53,7 @@ from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_user_create import BofhdUserCreateMethod
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
-from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.dns import IPv6Subnet
 from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns.bofhd_dns_cmds import HostId
@@ -68,7 +68,7 @@ from Cerebrum.modules.tsd import bofhd_help
 
 
 def format_day(field):
-    return field + "date:yyyy-MM-dd"
+    return field + ":date:yyyy-MM-dd"
 
 
 def date_to_string(date):
@@ -1067,6 +1067,64 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
         return 'Project deleted: {projectid}'.format(projectid=projectid)
 
     #
+    # project set_startdate <project> <date>
+    #
+    all_commands['project_set_startdate'] = cmd.Command(
+        ('project', 'set_startdate'),
+        ProjectID(),
+        cmd.Date(),
+        fs=cmd.FormatSuggestion((
+            ('Project %s start date set to %s', ('project_id',
+                                                 format_day('new_start'))),
+            ('Old start date: %s', (format_day('old_start'),)),
+        )),
+        perm_filter='is_superuser',
+    )
+
+    def project_set_startdate(self, operator, projectid, startdate):
+        """Set the end date for a project."""
+        project = self._get_project(projectid)
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Only superusers can change start date")
+
+        qtype = self.const.quarantine_project_start
+        quarantine_end_date = self._parse_date(startdate)
+
+        # The quarantine needs to be removed before it could be added again
+        for row in project.get_entity_quarantine(qtype):
+            old_start_date = row['end_date']
+            project.delete_entity_quarantine(qtype)
+            project.write_db()
+            break
+        else:
+            old_start_date = None
+
+        # if start_date is in the future, we need to make sure that the
+        # quarantine applies from today
+        today = DateTime.today()
+        if quarantine_end_date > today:
+            quarantine_start_date = today
+        else:
+            quarantine_start_date = quarantine_end_date
+
+        project.add_entity_quarantine(
+            qtype=qtype,
+            creator=operator.get_entity_id(),
+            description='Update start date for project',
+            start=quarantine_start_date,
+            end=quarantine_end_date)
+        project.write_db()
+
+        result = {
+            'new_start': quarantine_end_date,
+            'project_id': projectid,
+        }
+        if old_start_date:
+            result.update({'old_start': old_start_date})
+
+        return result
+
+    #
     # project set_enddate
     #
     all_commands['project_set_enddate'] = cmd.Command(
@@ -1893,7 +1951,6 @@ class AdministrationBofhdExtension(TSDBofhdExtension):
                                     self.const.account_namespace,
                                     owner_id=owner_id)
                     sugg = suggest_usernames(
-                        self.const.account_namespace,
                         fname,
                         lname,
                         maxlen=cereconf.USERNAME_MAX_LENGTH,

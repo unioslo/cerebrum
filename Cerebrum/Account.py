@@ -609,7 +609,6 @@ Entity_class = Utils.Factory.get("Entity")
 @six.python_2_unicode_compatible
 class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
               EntityExternalId, EntityContactInfo, EntitySpread, Entity_class):
-
     __read_attr__ = ('__in_db', '__plaintext_password', 'created_at'
                      # TODO: Get rid of these.
                      )
@@ -1351,19 +1350,23 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             password = password_generator.generate_password()
         return password
 
-    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
+    def suggest_unames(self, person, maxlen=8, suffix=""):
         """Returns a tuple with 15 (unused) username suggestions based
         on the person's first and last name.
 
-        domain: value domain code
-        fname:  first name (and any middle names)
-        lname:  last name
+        person: populated Cerebrum Person object
         maxlen: maximum length of a username (incl. the suffix)
         suffix: string to append to every generated username
         """
+        fname = person.get_name(source_system=self.const.system_cached,
+                                variant=self.const.name_first)
+
+        lname = person.get_name(source_system=self.const.system_cached,
+                                variant=self.const.name_last)
+
         validate_func = functools.partial(self.validate_new_uname,
                                           self.const.account_namespace)
-        return suggest_usernames(domain, fname, lname,
+        return suggest_usernames(fname, lname,
                                  maxlen=maxlen, suffix=suffix,
                                  validate_func=validate_func)
 

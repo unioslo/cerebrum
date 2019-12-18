@@ -55,17 +55,23 @@ logger = logging.getLogger(__name__)
 
 @all_auth_methods('MD5-crypt2')
 class AuthTypeMD5Crypt2(AuthBaseClass):
-    def encrypt(self, plaintext, salt=None, binary=None):
+    def encrypt(self, plaintext, salt=None, binary=False):
         """
         Unsalted md5 hex-digest for UiT.
 
         Added by kennethj, 2005-08-03
         """
-        plaintext = plaintext.rstrip("\n")
+        if not isinstance(plaintext, six.text_type) and not binary:
+            raise ValueError("plaintext cannot be bytestring and not binary")
+
+        if isinstance(plaintext, six.text_type):
+            plaintext = plaintext.encode('utf-8')
+        plaintext = plaintext.rstrip(b"\n")
+
         m = hashlib.md5()
         m.update(plaintext)
         encrypted = m.hexdigest()
-        return encrypted
+        return six.text_type(encrypted)
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
@@ -74,18 +80,24 @@ class AuthTypeMD5Crypt2(AuthBaseClass):
 
 @all_auth_methods('MD5-crypt_base64')
 class AuthTypeMD5Base64(AuthBaseClass):
-    def encrypt(self, plaintext, salt=None, binary=None):
+    def encrypt(self, plaintext, salt=None, binary=False):
         """
         Unsalted md5 b64-digest for UiT.
 
         Added by kennethj, 2005-08-03
         """
+        if not isinstance(plaintext, six.text_type) and not binary:
+            raise ValueError("plaintext cannot be bytestring and not binary")
+
+        if isinstance(plaintext, six.text_type):
+            plaintext = plaintext.encode('utf-8')
+
         m = hashlib.md5()
         m.update(plaintext)
         foo = m.digest()
         encrypted = base64.encodestring(foo)
         encrypted = encrypted.rstrip()
-        return encrypted
+        return six.text_type(encrypted)
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
@@ -94,19 +106,27 @@ class AuthTypeMD5Base64(AuthBaseClass):
 
 @all_auth_methods('crypt3-DES')
 class AuthTypeCrypt3DES(AuthBaseClass):
-    def encrypt(self, plaintext, salt=None, binary=None):
+    def encrypt(self, plaintext, salt=None, binary=False):
         """
         Salted triple-DES.
 
         Added by fhl, 2019-05-15, copied from an older UiT copy of
         Cerebrum.Account, as triple-DES was removed from UiO code.
         """
+        if not isinstance(plaintext, six.text_type) and not binary:
+            raise ValueError("plaintext cannot be bytestring and not binary")
+
+        if isinstance(plaintext, six.text_type):
+            plaintext = plaintext.encode('utf-8')
+
         if salt is None:
             saltchars = string.ascii_letters + string.digits + "./"
-            salt = Utils.random_string(2, saltchars)
-        return crypt.crypt(
-            plaintext,
-            salt.encode('utf-8')).decode()
+            salt = bytes(Utils.random_string(2, saltchars))
+        elif isinstance(salt, six.text_type):
+            # should be ascii only
+            salt = bytes(salt)
+
+        return six.text_type(crypt.crypt(plaintext, salt))
 
     def verify(self, plaintext, cryptstring):
         salt = cryptstring
@@ -172,31 +192,31 @@ class AccountUiTMixin(Account.Account):
     # Override username generator in core Account.py
     # Do it the UiT way!
     #
-    def suggest_unames(self, external_id, fname, lname):
-        full_name = "%s %s" % (fname, lname)
-        return [UsernamePolicy(self._db).get_uit_uname(external_id, full_name)]
+    def suggest_unames(self, person, maxlen=6, suffix=""):
+        """Generate user name suggestions for UiT persons
+
+        Note that the maxlen and suffix arguments are irrelevant for UiT. They
+        are only kept to keep the signature of the method the same as the
+        others.
+        """
+        full_name = person.get_name(source_system=self.const.system_cached,
+                                    variant=self.const.name_full)
+
+        return [UsernamePolicy(self._db).get_uit_uname(person, full_name)]
 
     def encrypt_password(self, method, plaintext, salt=None, binary=False):
         """
         Support UiT added encryption methods, for other methods call super()
         """
-        u_plaintext = plaintext
-        if binary is False:
-            assert(isinstance(plaintext, six.text_type))
-            u_plaintext = plaintext.encode('utf-8')
         try:
             method = all_auth_methods[str(method)]()
-            return method.encrypt(u_plaintext, salt, binary)
+            return method.encrypt(plaintext, salt, binary)
         except NotImplementedError as ne:
-            if hasattr(self, 'logger'):
-                self.logger.warn(
-                    "Encrypt Auth method (%s) not implemented: %s",
-                    str(method), str(ne))
+            logger.warn("Encrypt Auth method (%s) not implemented: %s",
+                        str(method), str(ne))
             raise Errors.NotImplementedAuthTypeError
         except Exception as e:
-            if hasattr(self, 'logger'):
-                self.logger.error(
-                    "Fatal exception in encrypt_password: %s", str(e))
+            logger.error("Fatal exception in encrypt_password: %s", str(e))
             raise
 
     def decrypt_password(self, method, cryptstring):
@@ -207,15 +227,11 @@ class AccountUiTMixin(Account.Account):
             method = all_auth_methods[str(method)]()
             return method.encrypt(cryptstring)
         except NotImplementedError as ne:
-            if hasattr(self, 'logger'):
-                self.logger.warn(
-                    "Decrypt Auth method (%s) not implemented: %s",
-                    str(method), str(ne))
+            logger.warn("Decrypt Auth method (%s) not implemented: %s",
+                        str(method), str(ne))
             raise Errors.NotImplementedAuthTypeError
         except Exception as e:
-            if hasattr(self, 'logger'):
-                self.logger.error(
-                    "Fatal exception in decrypt_password: %s", str(e))
+            logger.error("Fatal exception in decrypt_password: %s", str(e))
             raise
 
     def verify_password(self, method, plaintext, cryptstring):
@@ -228,15 +244,11 @@ class AccountUiTMixin(Account.Account):
             method = all_auth_methods[str(method)]()
             return method.verify(plaintext, cryptstring)
         except NotImplementedError as ne:
-            if hasattr(self, 'logger'):
-                self.logger.warn(
-                    "Verify Auth method (%s) not implemented: %s",
-                    str(method), str(ne))
+            logger.warn("Verify Auth method (%s) not implemented: %s",
+                        str(method), str(ne))
             raise Errors.NotImplementedAuthTypeError
         except Exception as e:
-            if hasattr(self, 'logger'):
-                self.logger.error(
-                    "Fatal exception in verify_password: %s", str(e))
+            logger.error("Fatal exception in verify_password: %s", str(e))
             raise
 
     def set_home_dir(self, spread):
@@ -433,7 +445,7 @@ class UsernamePolicy(DatabaseAccessor):
         return self.get_serial(inits, cstart, step=step,
                                postfix=self.sito_postfix)
 
-    def get_uit_uname(self, external_id, name, regime=None):
+    def get_uit_uname(self, person, name, regime=None):
         """
         UiT function that generates a username.
 
@@ -444,13 +456,15 @@ class UsernamePolicy(DatabaseAccessor):
             NNN = unique numeric identifier
 
         This method will also check for pre-existing, available usernames for
-        the owner identified by *external_id*, as usernames from legacy systems
+        the owner identified by *person*, as usernames from legacy systems
         may be recorded in the *LegacyUsers* module.  If more than one legacy
         username exists, the first found will be used.  If no legacy usernames
         exists, a new one will be generated.
 
-        :param external_id:
-            Norwegian national id of the account owner, 11 digits
+        :type person:
+            Cerebrum.Utils._dynamic_Person
+        :param person:
+            Populated person object
         :param name:
             Name of the account owner
         :param: regime:
@@ -471,24 +485,19 @@ class UsernamePolicy(DatabaseAccessor):
 
         co = Factory.get('Constants')(self._db)
 
-        for id_type in (co.externalid_fodselsnr,
-                        co.externalid_pass_number,
-                        co.externalid_sys_x_id):
+        external_ids = [row['external_id'] for row in person.get_external_id(
+            id_type=(co.externalid_fodselsnr,
+                     co.externalid_pass_number,
+                     co.externalid_sys_x_id,
+                     ))]
+        if external_ids:
             try:
-                pe = self._get_person_by_extid(id_type, external_id)
-                break
+                return self._find_legacy_username(person, external_ids,
+                                                  legacy_type)
             except Errors.NotFoundError:
-                continue
-        else:
-            raise RuntimeError(
-                "Trying to create account for person:%s that "
-                "does not exist!" % external_id)
-
-        try:
-            return self._find_legacy_username(pe, external_id, legacy_type)
-        except Errors.NotFoundError:
-            inits = self.get_initials(name)
-            return self.get_serial(inits, cstart, step=step)
+                pass
+        inits = self.get_initials(name)
+        return self.get_serial(inits, cstart, step=step)
 
     def get_serial(self, inits, cstart, step=1, postfix=None):
         """

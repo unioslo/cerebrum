@@ -678,7 +678,6 @@ class Processing(object):
                                   co.account_namespace,
                                   owner_id=pe.entity_id)
         for name in suggest_usernames(
-                co.account_namespace,
                 fname,
                 lname,
                 maxlen=cereconf.USERNAME_MAX_LENGTH,
@@ -721,8 +720,12 @@ class Processing(object):
         if not other_acs:
             logger.debug("No other accounts for person %s", pe.entity_id)
             if requestedname:
-                rname = '%s-%s' % (pid, requestedname.lower())
-                if (not ac.illegal_name(rname) and not ac.search(name=rname)):
+                rname_lower = requestedname.lower()
+                rname = '%s-%s' % (pid, rname_lower)
+                if (
+                        not ac.illegal_name(rname) and
+                        not ac.search(name='p*-{}'.format(rname_lower))
+                ):
                     return rname
             return self._generate_username(pid, pe, ac)
         for row in other_acs:

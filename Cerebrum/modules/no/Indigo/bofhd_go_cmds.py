@@ -518,11 +518,8 @@ class BofhdExtension(BofhdCommonMethods):
 
     def user_suggest_uname(self, operator, owner_id):
         person = self._get_person("entity_id", owner_id)
-        fname, lname = [person.get_name(self.const.system_cached, v)
-                        for v in (self.const.name_first, self.const.name_last)]
         account = self.Account_class(self.db)
-        return account.suggest_unames(self.const.account_namespace,
-                                      fname, lname)
+        return account.suggest_unames(person)
 
     #
     # user_find

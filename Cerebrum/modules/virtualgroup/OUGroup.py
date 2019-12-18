@@ -712,7 +712,9 @@ class OUGroup(VirtualGroup):
         tables = ['ous',
                   '[:table schema=cerebrum name=virtual_group_ou] vg '
                   'LEFT JOIN [:table schema=cerebrum name=entity_name] vgn '
-                  'ON vg.group_id = vgn.entity_id']
+                  'ON vg.group_id = vgn.entity_id '
+                  'LEFT JOIN entity_quarantine eq '
+                  'ON vg.ou_id=eq.entity_id']
         fields = ['ous.group_id as group_id',
                   'vgn.entity_name as group_name',
                   ':description as description',
@@ -721,7 +723,10 @@ class OUGroup(VirtualGroup):
                   ':creator_id as creator_id',
                   ':expire_date as expire_date',
                   'ous.ou_id as ou_id']
-        wheres = ['ous.ou_id = vg.ou_id']
+        wheres = ['ous.ou_id = vg.ou_id',
+                  '(eq.entity_id IS NULL OR '
+                  'eq.start_date > [:now] OR '
+                  'eq.end_date <= [:now])']
 
         mt = grow['member_type']
         if mt in (self.const.virtual_group_ou_person,

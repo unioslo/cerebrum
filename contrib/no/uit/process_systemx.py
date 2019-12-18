@@ -462,8 +462,7 @@ class Build(object):
             fnr = sysx_id
 
         account = Factory.get('PosixUser')(self.db)
-        fnr = str(fnr)
-        uname = account.suggest_unames(fnr, first_name, last_name)[0]
+        uname = account.suggest_unames(p_obj)[0]
         account.populate(
             name=uname,
             owner_id=person_id,

@@ -209,16 +209,15 @@ class FsImporter(object):
         return person
 
     def _get_fnr(self, person_info):
+        unchecked_fnr = "%06d%05d" % (int(person_info['fodselsdato']),
+                                      int(person_info['personnr']))
         try:
-            fnr = fodselsnr.personnr_ok("%06d%05d" % (
-                int(person_info['fodselsdato']),
-                int(person_info['personnr'])))
-            fnr = fodselsnr.personnr_ok(fnr)
+            fnr = fodselsnr.personnr_ok(unchecked_fnr)
             logger.info("Processing %s", fnr)
+            return fnr
         except fodselsnr.InvalidFnrError:
-            logger.warn("Ugyldig fødselsnr: %s" % fnr)
+            logger.warn("Ugyldig fødselsnr: %s", unchecked_fnr)
             raise fodselsnr.InvalidFnrError
-        return fnr
 
     def _get_gender(self, fnr):
         gender = self.co.gender_male

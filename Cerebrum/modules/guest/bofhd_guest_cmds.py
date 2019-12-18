@@ -385,7 +385,6 @@ class BofhdExtension(BofhdCommonMethods):
         vfunc = functools.partial(ac.validate_new_uname,
                                   self.const.account_namespace)
         name = suggest_usernames(
-            self.const.account_namespace,
             fname,
             lname,
             maxlen=guestconfig.GUEST_MAX_LENGTH_USERNAME,

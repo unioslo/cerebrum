@@ -1,5 +1,6 @@
-/*
- * Copyright 2003, 2004 University of Oslo, Norway
+/* encoding: utf-8
+ *
+ * Copyright 2013-2019 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -16,25 +17,29 @@
  * You should have received a copy of the GNU General Public License
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ *
+ *
+ * Tables used by Cerebrum.modules.job_runner
  */
-
 category:metainfo;
 name=job_runner;
+
 category:metainfo;
 version=1.1;
+
 
 category:main;
 CREATE TABLE job_ran
 (
-  id           TEXT
-               CONSTRAINT job_ran_pk
-               PRIMARY KEY,
-  timestamp    TIMESTAMP
-               NOT NULL
+  id
+    TEXT
+    CONSTRAINT job_ran_pk PRIMARY KEY,
+
+  timestamp
+    TIMESTAMP
+    NOT NULL
 );
+
 
 category:drop;
 DROP TABLE job_ran;
-
-/* arch-tag: aa468296-bbb1-427f-aac9-cdeedeabf59a
-   (do not change this comment) */

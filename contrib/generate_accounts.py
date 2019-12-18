@@ -110,7 +110,8 @@ def restore_account(db, pe, ac, remove_quars):
 
 
 def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
-                   remove_quars=(), posix=False, home=None, home_auto=None):
+                   remove_quars=(), posix=False, home=None, home_auto=None,
+                   posix_uio=False):
     """Make sure that the given person has an active account. It the person has
     no accounts, a new one will be created. If the person already has an
     account it will be 'restored'.
@@ -136,11 +137,7 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
         break
     else:
         # no account found, create a new one
-        names = ac.suggest_unames(domain=co.account_namespace,
-                                  fname=pe.get_name(co.system_cached,
-                                                    co.name_first),
-                                  lname=pe.get_name(co.system_cached,
-                                                    co.name_last))
+        names = ac.suggest_unames(pe)
         if len(names) < 1:
             logger.warn('Person %d has no name, skipping', pe.entity_id)
             return
@@ -178,11 +175,21 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
     if posix:
         logger.debug("Add POSIX for account: %s", ac.account_name)
         pu = Factory.get('PosixUser')(db)
-        pu.populate(posix_uid=pu.get_free_uid(),
-                    gid_id=posix.get('dfg'),
-                    gecos=None,
-                    shell=co.posix_shell_bash,
-                    parent=ac)
+        if posix_uio:
+            # By setting gid_id=None the PosixUserUiOMixin will try to find any
+            # old posix group that belonged to the user. If none is found one
+            # will be created upon calling write_db.
+            pu.populate(posix_uid=pu.get_free_uid(),
+                        gid_id=None,
+                        gecos=None,
+                        shell=co.posix_shell_bash,
+                        parent=ac)
+        else:
+            pu.populate(posix_uid=pu.get_free_uid(),
+                        gid_id=posix.get('dfg'),
+                        gecos=None,
+                        shell=co.posix_shell_bash,
+                        parent=ac)
         pu.write_db()
 
     if home or home_auto:
@@ -208,7 +215,7 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
                 aff,
                 status,
                 co.OUPerspective(cereconf.DEFAULT_OU_PERSPECTIVE))
-            home_spread = home.get('spread', cereconf.DEFAULT_HOME_SPREAD)
+            home_spread = home.get('spread', int(co.Spread(cereconf.DEFAULT_HOME_SPREAD)))
         logger.debug("Set homedir for account %s to disk_id=%s",
                      ac.account_name, disk_id)
         homedir_id = ac.set_homedir(
@@ -245,7 +252,8 @@ def get_posixgroup(db, groupname):
 
 
 def process(db, affiliations, new_trait=None, spreads=(), ignore_affs=(),
-            remove_quars=(), posix=False, home=None, home_auto=None):
+            remove_quars=(), posix=False, home=None, home_auto=None,
+            posix_uio=None):
     """Go through the database for new persons and give them accounts."""
 
     creator = Factory.get('Account')(db)
@@ -281,7 +289,7 @@ def process(db, affiliations, new_trait=None, spreads=(), ignore_affs=(),
         pe.clear()
         pe.find(p_id)
         update_account(db, pe, creator, new_trait, spreads, ignore_affs,
-                       remove_quars, posix, home, home_auto)
+                       remove_quars, posix, home, home_auto, posix_uio)
 
 
 class ExtendAction(argparse.Action):
@@ -351,10 +359,17 @@ def make_parser():
         action='store_true',
         default=False,
         help='Add default POSIX data to new accounts.')
-    parser.add_argument(
+    posix_dfg = parser.add_mutually_exclusive_group()
+    posix_dfg.add_argument(
         '--posix-dfg',
         metavar='POSIXGROUP',
         help='POSIX GID - default file group')
+    posix_dfg.add_argument(
+        '--posix-uio',
+        action='store_true',
+        default=False,
+        help="Use the default setup for UiO to set dfg for posix users"
+    )
     parser.add_argument(
         '--home-spread',
         metavar='SPREAD',
@@ -395,7 +410,7 @@ def main(inargs=None):
     spreads = [co.Spread(s) for s in args.spreads]
     ignore_affs = [str2aff(co, a) for a in args.ignore_affs]
     remove_quars = [co.Quarantine(q) for q in args.remove_quars]
-    home = None
+    home = {}
     if args.home_disk:
         home = {
             'spread': int(co.Spread(args.home_spread)),
@@ -412,7 +427,7 @@ def main(inargs=None):
 
     db.cl_init(change_program="generate_accounts")
     process(db, affiliations, new_trait, spreads, ignore_affs, remove_quars,
-            posix, home, args.home_auto)
+            posix, home, args.home_auto, args.posix_uio)
 
     if args.commit:
         db.commit()
