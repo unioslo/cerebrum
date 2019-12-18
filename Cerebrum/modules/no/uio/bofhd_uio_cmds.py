@@ -1163,7 +1163,7 @@ class BofhdExtension(BofhdCommonMethods):
                 grp.expire_date = self._today()
                 grp.write_db()
                 return u'OK, set expire-date for {0} to {1}'.format(
-                    text_type(groupname),
+                    groupname,
                     self._today().strftime('%Y-%m-%d'))
 
     def _assert_group_deletable(self, grp):
