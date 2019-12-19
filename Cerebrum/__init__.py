@@ -21,7 +21,7 @@ from __future__ import print_function
 
 
 # Current Cerebrum version as a 'major.minor.micro' string.
-__version__ = '0.9.21'
+__version__ = '0.9.22'
 
 
 if __name__ == '__main__':
