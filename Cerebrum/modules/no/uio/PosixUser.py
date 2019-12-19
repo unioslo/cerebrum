@@ -228,7 +228,7 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
             with self._new_personal_group(creator_id) as personal_fg:
                 self.gid_id = personal_fg.entity_id
                 self.__super.write_db()
-                roles = GroupRoles(self.db)
+                roles = GroupRoles(self._db)
                 roles.add_admin_to_group(self.entity_id, personal_fg.entity_id)
                 self.pg = personal_fg
         finally:

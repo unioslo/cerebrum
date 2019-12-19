@@ -242,11 +242,7 @@ class BofhdExtension(BofhdCommonMethods):
         # The alternative is to check if the account is the admin of the
         # group, and this is implemented below
 
-        is_admin = False
-        for admin in roles.search_admins(group_id=group.entity_id):
-            is_admin = True
-            break
-        if not is_admin:
+        if not roles.is_admin(account.entity_id, group.entity_id):
             return
 
         mapping = {int(self.const.spread_nis_user):
