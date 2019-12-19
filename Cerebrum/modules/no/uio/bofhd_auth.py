@@ -18,6 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Site specific auth.py for UiO. """
+import six
+
 import cereconf
 
 from Cerebrum.Errors import NotFoundError
@@ -275,8 +277,7 @@ class UioAuth(ContactAuthMixin, BofhdAuth):
             return True
         if entity and entity.entity_type == self.const.entity_group:
             if spread is not None:
-                spread = (self.const.Spread(spread))
-                # spread = six.text_type(self.const.Spread(spread))
+                spread = six.text_type(self.const.Spread(spread))
             if self._is_admin(operator, entity.entity_id):
                 if spread in (str(self.const.spread_uio_nis_ng),
                               str(self.const.spread_uio_ad_group),

@@ -18,6 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Site specific auth.py for UiT. """
+import six
+
 import cereconf
 
 from Cerebrum.Errors import NotFoundError
@@ -273,8 +275,7 @@ class UitAuth(UitContactAuthMixin, BofhdAuth):
             return True
         if entity and entity.entity_type == self.const.entity_group:
             if spread is not None:
-                spread = (self.const.Spread(spread))
-                # spread = six.text_type(self.const.Spread(spread))
+                spread = six.text_type(self.const.Spread(spread))
             if self._is_moderator(operator, entity.entity_id):
                 if spread in (str(self.const.spread_uit_ad_account),
                               str(self.const.spread_uit_ldap_people),
