@@ -1307,12 +1307,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """Change gname's owner to FA associated with email.
         """
         group = self._get_group(gname)
-        if not self._is_manual_group(group):
-            raise PermissionDenied(
-                "Only manual groups may be maintained in bofh. Group {0} has "
-                "group_type {1}".format(
-                    gname,
-                    six.text_type(self.const.GroupType(group.group_type))))
+        self._raise_PermissionDenied_if_not_manual_group(group)
         self.ba.can_change_owners(operator.get_entity_id(), group.entity_id)
         owner = self.vhutils.list_group_owners(group),
         try:
@@ -1350,12 +1345,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """Change gname's description."""
 
         group = self._get_group(gname)
-        if not self._is_manual_group(group):
-            raise PermissionDenied(
-                "Only manual groups may be maintained in bofh. Group {0} has "
-                "group_type {1}".format(
-                    gname,
-                    six.text_type(self.const.GroupType(group.group_type))))
+        self._raise_PermissionDenied_if_not_manual_group(group)
         self.ba.can_change_description(
             operator.get_entity_id(), group.entity_id)
         old, new = group.description, description
@@ -1378,12 +1368,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """Change URL associated with group gname."""
 
         group = self._get_group(gname)
-        if not self._is_manual_group(group):
-            raise PermissionDenied(
-                "Only manual groups may be maintained in bofh. Group {0} has "
-                "group_type {1}".format(
-                    gname,
-                    six.text_type(self.const.GroupType(group.group_type))))
+        self._raise_PermissionDenied_if_not_manual_group(group)
         self.ba.can_change_resource(operator.get_entity_id(), group.entity_id)
         try:
             group.verify_group_url(url)
@@ -1414,13 +1399,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_moderate_group(operator.get_entity_id())
         self.ba.can_change_moderators(operator.get_entity_id(),
                                       group.entity_id)
-
-        if not self._is_manual_group(group):
-            raise PermissionDenied(
-                "Only manual groups may be maintained in bofh. Group {0} has "
-                "group_type {1}".format(
-                    gname,
-                    six.text_type(self.const.GroupType(group.group_type))))
+        self._raise_PermissionDenied_if_not_manual_group(group)
         if self._is_perishable_manual_group(group):
             group.set_default_expire_date()
             group.write_db()
@@ -1462,12 +1441,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         group = self._get_group(gname)
         account = self._get_account(moderator)
-        if not self._is_manual_group(group):
-            raise PermissionDenied(
-                "Only manual groups may be maintained in bofh. Group {0} has "
-                "group_type {1}".format(
-                    gname,
-                    six.text_type(self.const.GroupType(group.group_type))))
+        self._raise_PermissionDenied_if_not_manual_group(group)
         if self._is_perishable_manual_group(group):
             group.set_default_expire_date()
             group.write_db()
@@ -1505,12 +1479,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """
         group = self._get_group(gname)
         operator_acc = operator._fetch_account(operator.get_entity_id())
-        if not self._is_manual_group(group):
-            raise PermissionDenied(
-                "Only manual groups may be maintained in bofh. Group {0} has "
-                "group_type {1}".format(
-                    gname,
-                    six.text_type(self.const.GroupType(group.group_type))))
+        self._raise_PermissionDenied_if_not_manual_group(group)
         if self._is_perishable_manual_group(group):
             group.set_default_expire_date()
             group.write_db()
@@ -1814,12 +1783,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """
 
         group = self._get_group(gname)
-        if not self._is_manual_group(group):
-            raise PermissionDenied(
-                "Only manual groups may be maintained in bofh. Group {0} has "
-                "group_type {1}".format(
-                    gname,
-                    six.text_type(self.const.GroupType(group.group_type))))
+        self._raise_PermissionDenied_if_not_manual_group(group)
         if self._is_perishable_manual_group(group):
             group.set_default_expire_date()
             group.write_db()

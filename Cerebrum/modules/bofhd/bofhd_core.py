@@ -876,6 +876,14 @@ class BofhdCommandBase(object):
                                          self.const.group_type_unknown}
         return gr.group_type in perishable_manual_group_types
 
+    def _raise_PermissionDenied_if_not_manual_group(self, gr):
+        if not self._is_manual_group(gr):
+            raise PermissionDenied(
+                "Only manual groups may be maintained in bofh. Group {0} has "
+                "group_type {1}".format(
+                    gr.groupname,
+                    six.text_type(self.const.GroupType(gr.group_type))))
+
 
 class BofhdCommonMethods(BofhdCommandBase):
     """Class with common methods that is used by most, 'normal' instances.
@@ -1025,12 +1033,7 @@ class BofhdCommonMethods(BofhdCommandBase):
             raise PermissionDenied("Only superusers may rename groups, due "
                                    "to its consequences!")
         gr = self._get_group(groupname)
-        if not self._is_manual_group(gr):
-            raise PermissionDenied(
-                "Only manual groups may be maintained in bofh. Group {0} has "
-                "group_type {1}".format(
-                    groupname,
-                    six.text_type(self.const.GroupType(gr.group_type))))
+        self._raise_PermissionDenied_if_not_manual_group(gr)
         gr.group_name = newname
         if self._is_perishable_manual_group(gr):
             gr.set_default_expire_date()
