@@ -86,26 +86,20 @@ class GroupRoles(DatabaseAccessor):
         :param int group_id:
             Group (id) to remove admin from
         """
+        if not self.is_admin(admin_id, group_id):
+            return False
 
         binds = {'group_id': group_id,
                  'admin_id': admin_id}
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name=group_admin]
+        delete_stmt = """
+          DELETE FROM [:table schema=cerebrum name=group_admin]
             WHERE group_id=:group_id AND
-                  admin_id=:admin_id
-          )
-        """
-        if self.query_1(exists_stmt, binds):
-            delete_stmt = """
-              DELETE FROM [:table schema=cerebrum name=group_admin]
-                WHERE group_id=:group_id AND
-                admin_id=:admin_id"""
-            self.execute(delete_stmt, binds)
-            self._db.log_change(group_id,
-                                self.clconst.group_admin_rem,
-                                admin_id)
+            admin_id=:admin_id"""
+        self.execute(delete_stmt, binds)
+        self._db.log_change(group_id,
+                            self.clconst.group_admin_rem,
+                            admin_id)
+        return True
 
     def remove_moderator_from_group(self, moderator_id, group_id):
         """Remove L{moderator_id}'s moderatorship from a group.
@@ -116,26 +110,20 @@ class GroupRoles(DatabaseAccessor):
         :param int group_id:
             Group (id) to remove moderator from
         """
+        if not self.is_moderator(moderator_id, group_id):
+            return False
 
         binds = {'group_id': group_id,
                  'moderator_id': moderator_id}
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name=group_moderator]
+        delete_stmt = """
+          DELETE FROM [:table schema=cerebrum name=group_moderator]
             WHERE group_id=:group_id AND
-                  moderator_id=:moderator_id
-          )
-        """
-        if self.query_1(exists_stmt, binds):
-            delete_stmt = """
-              DELETE FROM [:table schema=cerebrum name=group_moderator]
-                WHERE group_id=:group_id AND
-                moderator_id=:moderator_id"""
-            self.execute(delete_stmt, binds)
-            self._db.log_change(group_id,
-                                self.clconst.group_moderator_rem,
-                                moderator_id)
+            moderator_id=:moderator_id"""
+        self.execute(delete_stmt, binds)
+        self._db.log_change(group_id,
+                            self.clconst.group_moderator_rem,
+                            moderator_id)
+        return True
 
     def remove_all(self, group_id):
         """Remove all admins and managers from to the group
@@ -380,9 +368,6 @@ class GroupRoles(DatabaseAccessor):
           WHERE {where}
         )
         """.format(where=" AND ".join(where))
-        print(where)
-        print(binds)
-        print(exists_stmt)
         return self.query_1(exists_stmt, binds)
 
     def is_moderator(self, moderator_id, group_id=None):
@@ -413,7 +398,4 @@ class GroupRoles(DatabaseAccessor):
           WHERE {where}
         )
         """.format(where=" AND ".join(where))
-        print(where)
-        print(binds)
-        print(exists_stmt)
         return self.query_1(exists_stmt, binds)
