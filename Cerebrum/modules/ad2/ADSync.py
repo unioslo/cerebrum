@@ -1448,7 +1448,7 @@ class BaseSync(object):
             # can fix attributes problem. So it's good to try to create an
             # object without attributes now and wait until the next round for
             # its attributes to be updated.
-            self.logger.error("""Failed creating %s. """
+            self.logger.warning("""Failed creating %s. """
                               """Trying to create it without attributes"""
                               % ent.ad_id)
             # SamAccountName is needed to be present upon object's creation.
