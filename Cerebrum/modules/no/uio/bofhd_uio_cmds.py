@@ -1162,7 +1162,7 @@ class BofhdExtension(BofhdCommonMethods):
             else:
                 grp.expire_date = self._today()
                 grp.write_db()
-                return 'OK, set expire-date for {0} to {1}'.format(
+                return u'OK, set expire-date for {0} to {1}'.format(
                     groupname,
                     self._today().strftime('%Y-%m-%d'))
 
