@@ -56,7 +56,7 @@ class GroupRoles(DatabaseAccessor):
                             admin_id)
 
     def add_moderator_to_group(self, moderator_id, group_id):
-        """Add L{moderator_id} as admin of the group L{group_id}.
+        """Add L{moderator_id} as moderator of the group L{group_id}.
 
         :param int moderator_id:
           Moderator (id) to add to the group. This should be an account or a
@@ -71,7 +71,7 @@ class GroupRoles(DatabaseAccessor):
           (:group_id, :moderator_id)
         """
         binds = {'group_id': int(group_id),
-                 'admin_id': int(moderator_id)}
+                 'moderator_id': int(moderator_id)}
         self.execute(stmt, binds)
         self._db.log_change(group_id,
                             self.clconst.group_moderator_add,

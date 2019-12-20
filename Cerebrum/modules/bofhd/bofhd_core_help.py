@@ -297,10 +297,10 @@ arg_help = {
         ['address_type', 'Enter address type',
          'The name of the address type, e.g. POST/PRIVPOST/STREET'],
     'admin_name':
-        ['uname', 'Enter name of the admin (account assumed)',
+        ['admin_name', 'Enter name of the admin (group assumed)',
          'Enter the type and name of the admin, like type:name. The possible '
          'types are account and group, if no type is entered, it is assumed '
-         'to be an account'],
+         'to be a group.'],
     'affiliation':
         ['affiliation', 'Enter affiliation',
          """A persons affiliation defines the current role of that person within
@@ -468,10 +468,10 @@ arg_help = {
         ['mobile', 'Enter the mobile number',
          "Enter the 8 digit mobile phone number of the receiver"],
     'moderator_name':
-        ['uname', 'Enter name of the moderator (account assumed)',
+        ['mod_name', 'Enter name of the moderator (group assumed)',
          'Enter the type and name of the moderator, like type:name. The '
          'possible types are account and group, if no type is entered, it is '
-         'assumed to be an account'],
+         'assumed to be a group.'],
     'move_type':
         ['move_type', 'Enter move type',
          """Legal move types:
