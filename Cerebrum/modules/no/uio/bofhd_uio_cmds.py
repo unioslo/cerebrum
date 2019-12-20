@@ -557,7 +557,7 @@ class BofhdExtension(BofhdCommonMethods):
         ("group", "remove_admin"),
         Id(help_ref="admin_name"),
         GroupName(help_ref="group_name"),
-        perm_filter='can_add_admin')
+        perm_filter='can_add_group_admin')
 
     def group_remove_admin(self, operator, admin, dest_group):
         group_id = self._get_group(dest_group).entity_id

@@ -2369,4 +2369,4 @@ class BofhdAuth(DatabaseAccessor):
 
     def _is_admin_or_moderator(self, entity_id, group_id=None):
         return (self._is_admin(entity_id, group_id)
-                or self.is_moderator(entity_id, group_id))
+                or self._is_moderator(entity_id, group_id))
