@@ -1307,7 +1307,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """Change gname's owner to FA associated with email.
         """
         group = self._get_group(gname)
-        self._raise_PermissionDenied_if_not_manual_group(group)
         self.ba.can_change_owners(operator.get_entity_id(), group.entity_id)
         owner = self.vhutils.list_group_owners(group),
         try:
@@ -1315,9 +1314,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         except IndexError:
             owner = None
         ret = {}
-        if self._is_perishable_manual_group(gr):
-            group.set_default_expire_date()
-            group.write_db()
         ret['confirmation_key'] = self.vhutils.setup_event_request(
                                       group.entity_id,
                                       self.clconst.va_group_owner_swap,
@@ -1345,13 +1341,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """Change gname's description."""
 
         group = self._get_group(gname)
-        self._raise_PermissionDenied_if_not_manual_group(group)
         self.ba.can_change_description(
             operator.get_entity_id(), group.entity_id)
         old, new = group.description, description
         group.description = description
-        if self._is_perishable_manual_group(group):
-            group.set_default_expire_date()
         group.write_db()
         return "OK, changed %s (id=%s) description '%s' -> '%s'" % (
             group.group_name, group.entity_id, old, new)
@@ -1368,16 +1361,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """Change URL associated with group gname."""
 
         group = self._get_group(gname)
-        self._raise_PermissionDenied_if_not_manual_group(group)
         self.ba.can_change_resource(operator.get_entity_id(), group.entity_id)
         try:
             group.verify_group_url(url)
         except ValueError:
             raise CerebrumError("Invalid URL for group <%s>: <%s>" %
                                 (group.group_name, url))
-        if self._is_perishable_manual_group(group):
-            group.set_default_expire_date()
-            group.write_db()
         group.set_group_resource(url)
         return "OK, changed resource for Group %s to %s" % (group.group_name,
                                                             url)
@@ -1399,10 +1388,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_moderate_group(operator.get_entity_id())
         self.ba.can_change_moderators(operator.get_entity_id(),
                                       group.entity_id)
-        self._raise_PermissionDenied_if_not_manual_group(group)
-        if self._is_perishable_manual_group(group):
-            group.set_default_expire_date()
-            group.write_db()
+
         timeout = int(timeout)
         if timeout < 1:
             raise CerebrumError('Timeout too short')
@@ -1441,10 +1427,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         group = self._get_group(gname)
         account = self._get_account(moderator)
-        self._raise_PermissionDenied_if_not_manual_group(group)
-        if self._is_perishable_manual_group(group):
-            group.set_default_expire_date()
-            group.write_db()
 
         # Check that operator has permission to manipulate moderator list
         self.ba.can_change_moderators(operator.get_entity_id(),
@@ -1479,10 +1461,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """
         group = self._get_group(gname)
         operator_acc = operator._fetch_account(operator.get_entity_id())
-        self._raise_PermissionDenied_if_not_manual_group(group)
-        if self._is_perishable_manual_group(group):
-            group.set_default_expire_date()
-            group.write_db()
 
         # If you can't add members, you can't invite...
         self.ba.can_add_to_group(operator.get_entity_id(), group.entity_id)
@@ -1783,10 +1761,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """
 
         group = self._get_group(gname)
-        self._raise_PermissionDenied_if_not_manual_group(group)
-        if self._is_perishable_manual_group(group):
-            group.set_default_expire_date()
-            group.write_db()
         account = self._get_account(uname)
         self.ba.can_add_to_group(operator.get_entity_id(), group.entity_id)
         if account.np_type not in (self.const.virtaccount_type,
