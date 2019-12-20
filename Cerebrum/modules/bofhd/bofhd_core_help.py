@@ -106,6 +106,8 @@ command_help = {
             'delete',
         'group_multi_remove': 'Remove member(s) from a given group',
         'group_remove': 'Remove member accounts from a given group',
+        'group_remove_admin': 'Remove an admin from a group',
+        'group_remove_moderator': 'Remove a moderator from a group',
         'group_request': 'Send in request for a new Cerebrum group',
         'group_search': 'Search for a group using various criteria',
         'group_set_description': 'Set description for a group',
