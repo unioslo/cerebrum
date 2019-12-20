@@ -332,11 +332,15 @@ class BofhdExtension(BofhdCommandBase):
 
     def group_hadd(self, operator, src_name, dest_group):
         dest_group = self._get_group(dest_group)
+        self._raise_PermissionDenied_if_not_manual_group(dest_group)
         owner_id = self._find.find_target_by_parsing(src_name, dns.DNS_OWNER)
         self.ba.can_alter_group(operator.get_entity_id(), dest_group)
         # Check if member is in the group or not.
         if not dest_group.has_member(owner_id):
             dest_group.add_member(owner_id)
+            if self._is_perishable_manual_group(dest_group):
+                dest_group.set_default_expire_date()
+            dest_group.write_db()
         else:
             raise CerebrumError("Member '%s' already in group '%s'" %
                                 (src_name, dest_group))
@@ -384,9 +388,13 @@ class BofhdExtension(BofhdCommandBase):
 
     def group_hrem(self, operator, src_name, dest_group):
         dest_group = self._get_group(dest_group)
+        self._raise_PermissionDenied_if_not_manual_group(dest_group)
         owner_id = self._find.find_target_by_parsing(src_name, dns.DNS_OWNER)
         self.ba.can_alter_group(operator.get_entity_id(), dest_group)
         dest_group.remove_member(owner_id)
+        if self._is_perishable_manual_group(dest_group):
+            dest_group.set_default_expire_date()
+        dest_group.write_db()
         return "OK, removed %s from %s" % (src_name, dest_group.group_name)
 
     #

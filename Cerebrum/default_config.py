@@ -452,6 +452,9 @@ INDIGO_AUTH_LEVEL = {'superuser': 50,
 # What spreads which should be tagged as 'auto' in bofhds spread_list
 GROUP_REQUESTS_AUTOSPREADS = ()
 
+# At some institutions, a default lifetime for manual groups is set
+MANUAL_GROUP_DEFAULT_LIFETIME = None
+
 # List of valid values for toplevel mountpoints for disks. Checked
 # when disks are added. None = no check performed
 VALID_DISK_TOPLEVELS = None
