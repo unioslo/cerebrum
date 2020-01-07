@@ -61,6 +61,8 @@ def personnr_ok(nr, _ret_date=0, accept_00x00=True):
     :returns:
         Returns an 11 digit national id string.
     """
+    SO_NUMBER = False
+
     re_strip = re.compile(r"[\s\-]", re.DOTALL)
     nr = re.sub(re_strip, "", str(nr))
     if len(nr) == 10:
@@ -86,7 +88,14 @@ def personnr_ok(nr, _ret_date=0, accept_00x00=True):
 
     # FS/SO hack for midlertidige nummer.  Urk.
     if month > 50:
+        SO_NUMBER = True
         month -= 50
+
+    # The rest of the hack for FS/SO numbers
+    if SO_NUMBER:
+        if not _ret_date:
+            return nr
+        return (year, month, day)
 
     # Så var det det å kjenne igjen hvilket hundreår som er det riktige.
     if 000 <= pnr <= 499:
