@@ -133,10 +133,28 @@ class GroupRoles(DatabaseAccessor):
         """
         binds = {'group_id': group_id}
 
+        # Find admins and log removals
+        admins = self.query("""
+        SELECT admin_id FROM [:table schema=cerebrum name=group_admin]
+        WHERE group_id=:group_id""", binds)
+        for admin in admins:
+            self._db.log_change(group_id,
+                                self.clconst.group_admin_rem,
+                                admin)
+        # Remove them
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=group_admin]
         WHERE group_id=:group_id""", binds)
 
+        # Find mods and log removals
+        mods = self.query("""
+        SELECT moderator_id FROM [:table schema=cerebrum name=group_moderator]
+        WHERE group_id=:group_id""", binds)
+        for mod in mods:
+            self._db.log_change(group_id,
+                                self.clconst.group_moderator_rem,
+                                mod)
+        # Remove them
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=group_moderator]
         WHERE group_id=:group_id""", binds)
