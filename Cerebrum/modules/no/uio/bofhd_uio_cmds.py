@@ -1828,20 +1828,37 @@ class BofhdExtension(BofhdCommonMethods):
         ('group', 'memberships'),
         EntityType(default="account"),
         Id(),
+        YesNo(optional=True, default='no', help_ref='include_fronter'),
         Spread(optional=True, help_ref='spread_filter'),
         fs=FormatSuggestion(
             "%-9s %-18s", ("memberop", "group"),
             hdr="%-9s %-18s" % ("Operation", "Group")
         ))
 
-    def group_memberships(self, operator, entity_type, id, spread=None):
+    def group_memberships(self, operator, entity_type,
+                          id, include_fronter="no", spread=None):
+        default_group_types = {
+            "affiliation-group": 1124,
+            "internal-group": 1125,
+            "personal-group": 1126,
+            "unknown-group": 1127,
+            "virtual-group": 1128,
+            "manual-group": 1129,
+            "lms-group": 1130
+        }
+
+        if not self._get_boolean(include_fronter):
+            default_group_types.pop("lms-group")  # Remove fronter-groups
         entity = self._get_entity(entity_type, id)
         group = self.Group_class(self.db)
         co = self.const
         if spread is not None:
             spread = self._get_constant(self.const.Spread, spread, "spread")
         ret = []
-        for row in group.search(member_id=entity.entity_id, spread=spread):
+        for row in group.search(
+                member_id=entity.entity_id, spread=spread,
+                group_type=default_group_types.values()
+        ):
             ret.append({
                 'memberop': text_type(co.group_memberop_union),
                 'entity_id': row["group_id"],
