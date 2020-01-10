@@ -36,7 +36,7 @@ from Cerebrum import Errors
 from Cerebrum import Metainfo
 from Cerebrum import Utils
 from Cerebrum import database
-from Cerebrum.Constants import _LanguageCode
+from Cerebrum.Constants import _LanguageCode, _GroupTypeCode
 from Cerebrum.modules import Email
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
@@ -1828,7 +1828,7 @@ class BofhdExtension(BofhdCommonMethods):
         ('group', 'memberships'),
         EntityType(default="account"),
         Id(),
-        YesNo(optional=True, default='no', help_ref='include_fronter'),
+        YesNo(optional=True, default='no', help_ref='include_lms'),
         Spread(optional=True, help_ref='spread_filter'),
         fs=FormatSuggestion(
             "%-9s %-18s", ("memberop", "group"),
@@ -1836,18 +1836,10 @@ class BofhdExtension(BofhdCommonMethods):
         ))
 
     def group_memberships(self, operator, entity_type,
-                          id, include_fronter="no", spread=None):
-        default_group_types = {
-            "affiliation-group": 1124,
-            "internal-group": 1125,
-            "personal-group": 1126,
-            "unknown-group": 1127,
-            "virtual-group": 1128,
-            "manual-group": 1129,
-            "lms-group": 1130
-        }
-
-        if not self._get_boolean(include_fronter):
+                          id, include_lms="no", spread=None):
+        group_types = self.const.fetch_constants(_GroupTypeCode)
+        default_group_types = {str(x): int(x) for x in group_types}
+        if not self._get_boolean(include_lms):
             default_group_types.pop("lms-group")  # Remove fronter-groups
         entity = self._get_entity(entity_type, id)
         group = self.Group_class(self.db)
