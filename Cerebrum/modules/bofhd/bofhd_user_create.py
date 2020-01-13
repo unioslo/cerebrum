@@ -38,6 +38,8 @@ from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
+from Cerebrum.modules.AccountPolicy import (AccountPolicy,
+                                            InvalidAccountCreationArgument)
 
 
 CMD_HELP = {
@@ -190,21 +192,16 @@ class BofhdUserCreateMethod(BofhdCommonMethods):
         account.set_account_type(ou_id, affiliation, priority=priority)
 
     def _user_create_basic(self, operator, owner, uname, np_type=None):
-        account = self.Account_class(self.db)
+        account_policy = AccountPolicy(self.db)
         try:
-            account.find_by_name(uname)
-        except Errors.NotFoundError:
-            account.clear()
-        else:
-            raise CerebrumError("Username already taken: %r" % uname)
-        account.populate(uname,
-                         owner.entity_type,
-                         owner.entity_id,
-                         np_type,
-                         operator.get_entity_id(),
-                         None)
-        account.write_db()
-        return account
+            return account_policy.create_basic_account(
+                operator.get_entity_id(),
+                owner,
+                uname,
+                np_type=np_type
+            )
+        except InvalidAccountCreationArgument as e:
+            raise CerebrumError(e)
 
     def _user_password(self, operator, account, passwd=None):
         """Set new (random) password for account and store in bofhd session"""
