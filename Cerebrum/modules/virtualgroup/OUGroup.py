@@ -290,9 +290,11 @@ class OUGroup(VirtualGroup):
                spread=None,
                name=None,
                description=None,
+               group_type=None,
                filter_expired=True,
                creator_id=None,
-               expired_only=False):
+               expired_only=False,
+               fetchall=True):
         """Search for ou groups.
         See Group.search for parameter definitions.
         """
