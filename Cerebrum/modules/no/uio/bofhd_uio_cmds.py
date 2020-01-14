@@ -1150,7 +1150,7 @@ class BofhdExtension(BofhdCommonMethods):
                          "Use 'entity accounts group %s'") % grp.group_name)
                 raise
 
-            return "OK, deleted group '{0}'".format(groupname)
+            return u'OK, deleted group "{0}"'.format(groupname)
         else:
             # Normal delete. Set the expire date to today.
             self.ba.can_delete_group(operator.get_entity_id(), grp)
