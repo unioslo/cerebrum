@@ -1357,8 +1357,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         :param person: populated Cerebrum Person object
         :param maxlen: maximum length of a username (incl. the suffix)
         :param suffix: string to append to every generated username
-        :param validate_domains: check if the suggested names are free in
-            these domains
         """
         fname = person.get_name(source_system=self.const.system_cached,
                                 variant=self.const.name_first)
