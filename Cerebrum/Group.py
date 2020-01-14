@@ -460,7 +460,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                member_id=None,
                indirect_members=False,
                admin_id=None,
-               indirect_admins=False,
+               admin_by_membership=True,
                moderator_id=None,
                spread=None,
                name=None,
@@ -518,8 +518,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           returned. If admin_id is a sequence, then a group g1 is returned
           if any of the ids in the sequence are a admin of g1.
 
-        :type indirect_admins: bool
-        :param indirect_admins:
+        :type admin_by_membership: bool
+        :param admin_by_membership:
           This parameter controls how the L{admin_id} filter is applied.
           When False, only groups where L{admin_id} is a/are direct
           admin(s) will be returned. When True, the adminship of
@@ -585,7 +585,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 'Cannot use indirect_members without member_id'
             )
 
-        if indirect_admins and not admin_id:
+        if admin_by_membership and not admin_id:
             raise Errors.ProgrammingError(
                 'Cannot use indirect_admins without admin_id'
             )
@@ -695,9 +695,9 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         # admin_id filter (all of them)
         if admin_id is not None:
             extra_tables.append("[:table schema=cerebrum name=group_admin] ga")
-            where.append("(gi.group_id = ga.admin_id)")
+            where.append("(gi.group_id = ga.group_id)")
 
-            if indirect_admins:
+            if admin_by_membership:
                 admin_ids = [admin_id]
                 for group in self.search(member_id=admin_id):
                     admin_ids.append(group['group_id'])
@@ -713,7 +713,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if moderator_id is not None:
             extra_tables.append(
                 "[:table schema=cerebrum name=group_moderator] gmod")
-            where.append("(gi.group_id = gmod.group_moderator)")
+            where.append("(gi.group_id = gmod.group_id)")
 
             where.append(argument_to_sql(moderator_id, "gmod.moderator_id",
                                          binds, int))
