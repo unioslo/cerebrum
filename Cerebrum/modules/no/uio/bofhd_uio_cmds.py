@@ -1840,7 +1840,7 @@ class BofhdExtension(BofhdCommonMethods):
         group_types = self.const.fetch_constants(_GroupTypeCode)
         default_group_types = {str(x): int(x) for x in group_types}
         if not self._get_boolean(include_lms):
-            default_group_types.pop("lms-group")  # Remove fronter-groups
+            default_group_types.pop("lms-group", None)  # Remove fronter-groups
         entity = self._get_entity(entity_type, id)
         group = self.Group_class(self.db)
         co = self.const
