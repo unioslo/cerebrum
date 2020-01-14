@@ -355,8 +355,8 @@ class OUGroup(VirtualGroup):
                 for gid in group_id:
                     if get_group_type(gid) == self.const.vg_ougroup:
                         filter_groups.append(gid)
-            elif get_group_type(gid) == self.const.vg_ougroup:
-                filter_groups.append(gid)
+            elif get_group_type(group_id) == self.const.vg_ougroup:
+                filter_groups.append(group_id)
             if not filter_groups:
                 return ret
             wheres.append(argument_to_sql(filter_groups, 'group_id', binds,
