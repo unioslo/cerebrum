@@ -285,7 +285,7 @@ class OUGroup(VirtualGroup):
                member_id=None,
                indirect_members=False,
                admin_id=None,
-               admin_by_membership=True,
+               admin_by_membership=False,
                moderator_id=None,
                spread=None,
                name=None,
