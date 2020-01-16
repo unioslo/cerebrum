@@ -575,6 +575,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     def _group_add_entity(self, operator, src_entity, dest_group):
         group_d = self._get_group(dest_group)
+        self._raise_PermissionDenied_if_not_manual_group(group_d)
         if operator:
             self.ba.can_alter_group(operator.get_entity_id(), group_d)
         src_name = self._get_name_from_object(src_entity)
@@ -597,6 +598,9 @@ class BofhdExtension(BofhdCommonMethods):
                                         (dest_group, src_name))
         # This can still fail, e.g., if the entity is a member with a
         # different operation.
+        if self._is_perishable_manual_group(group_d):
+            group_d.set_default_expire_date()
+            group_d.write_db()
         try:
             group_d.add_member(src_entity.entity_id)
         except self.db.DatabaseError as m:
@@ -714,6 +718,9 @@ class BofhdExtension(BofhdCommonMethods):
                 dl_group.populate(roomlist=std_values['roomlist'],
                                   hidden=std_values['hidden'],
                                   parent=grp)
+                self._raise_PermissionDenied_if_not_manual_group(dl_group)
+            if self._is_perishable_manual_group(dl_group):
+                dl_group.set_default_expire_date()
             dl_group.write_db()
         except self.db.DatabaseError as m:
             raise CerebrumError("Database error: %s" % exc_to_text(m))
@@ -846,6 +853,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied('No access to group')
         dl_group = self._get_group(groupname, idtype='name',
                                    grtype="DistributionGroup")
+        self._raise_PermissionDenied_if_not_manual_group(dl_group)
         try:
             dl_group.delete_spread(
                 self.const.Spread(cereconf.EXCHANGE_GROUP_SPREAD))
@@ -874,8 +882,11 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied('No access to group')
         dl_group = self._get_group(groupname, idtype='name',
                                    grtype="DistributionGroup")
+        self._raise_PermissionDenied_if_not_manual_group(dl_group)
         visible = self._get_boolean(visible)
         dl_group.set_hidden(hidden='F' if visible else 'T')
+        if self._is_perishable_manual_group(dl_group):
+            dl_group.set_default_expire_date()
         dl_group.write_db()
         return "OK, group {} is now {}".format(
             groupname, 'visible' if visible else 'hidden')
@@ -1094,10 +1105,15 @@ class BofhdExtension(BofhdCommonMethods):
     def group_def(self, operator, accountname, groupname):
         account = self._get_account(accountname, actype="PosixUser")
         grp = self._get_group(groupname, grtype="PosixGroup")
+        self._raise_PermissionDenied_if_not_manual_group(grp)
+        if self._is_perishable_manual_group(grp):
+            grp.set_default_expire_date()
+            grp.write_db()
         op = operator.get_entity_id()
         self.ba.can_set_default_group(op, account, grp)
         account.gid_id = grp.entity_id
         account.write_db()
+
         return "OK, set default-group for '%s' to '%s'" % (
             accountname, groupname)
 
@@ -1113,6 +1129,7 @@ class BofhdExtension(BofhdCommonMethods):
     def group_delete(self, operator, groupname, force=False):
 
         grp = self._get_group(groupname)
+        self._raise_PermissionDenied_if_not_manual_group(grp)
         if force:
             # Force deletes the group directly. Expire date etc is not used.
             self.ba.can_force_delete_group(operator.get_entity_id(), grp)
@@ -1294,6 +1311,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     def _group_remove_entity(self, operator, member, group):
         member_name = self._get_name_from_object(member)
+        self._raise_PermissionDenied_if_not_manual_group(group)
         if not group.has_member(member.entity_id):
             return ("%s isn't a member of %s" %
                     (member_name, group.group_name))
@@ -1548,6 +1566,7 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_create_personal_group(op, acc)
         # Create group
         group = self.Group_class(self.db)
+        self._raise_PermissionDenied_if_not_manual_group(group)
         try:
             group.find_by_name(uname)
             raise CerebrumError("Group %r already exists" % uname)
@@ -1612,6 +1631,10 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError("%s is already a PosixGroup" % group)
 
         group = self._get_group(group)
+        self._raise_PermissionDenied_if_not_manual_group(group)
+        if self._is_perishable_manual_group(group):
+            group.set_default_expire_date()
+            group.write_db()
         pg = Utils.Factory.get('PosixGroup')(self.db)
         pg.populate(parent=group)
         try:
@@ -1637,7 +1660,10 @@ class BofhdExtension(BofhdCommonMethods):
                     ("Assigned as primary group for posix user(s). "
                      "Use 'group list %s'") % grp.group_name)
             raise
-
+        self._raise_PermissionDenied_if_not_manual_group(grp)
+        if self._is_perishable_manual_group(grp):
+            grp.set_default_expire_date()
+            grp.write_db()
         if grp.is_user_group():
             raise CerebrumError(
                 "Can't demote group because it is assigned as primary group "
@@ -1712,9 +1738,15 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_set_type(self, operator, group, group_type):
         grp = self._get_group(group)
+        self._raise_PermissionDenied_if_not_manual_group(grp)
         group_type = self._get_constant(self.const.GroupType, group_type)
+        if str(group_type) not in cereconf.MANUAL_GROUP_TYPES:
+            raise PermissionDenied('Only manual groups may be maintained in '
+                                   'bofh. Destination group type is ',
+                                   group_type)
         self.ba.can_set_group_type(operator.get_entity_id(), grp, group_type)
-
+        if self._is_perishable_manual_group(grp):
+            grp.set_default_expire_date()
         grp.group_type = group_type
         grp.write_db()
         return {
@@ -1734,7 +1766,10 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_set_description(self, operator, group, description):
         grp = self._get_group(group)
+        self._raise_PermissionDenied_if_not_manual_group(grp)
         self.ba.can_alter_group(operator.get_entity_id(), grp)
+        if self._is_perishable_manual_group(grp):
+            grp.set_default_expire_date()
         grp.description = description
         grp.write_db()
         return "OK, description for group '%s' updated" % group
@@ -1769,12 +1804,15 @@ class BofhdExtension(BofhdCommonMethods):
         # dl_group_displ_name into a more generic group_display_name
         # value in the future
         group = self._get_group(gname, grtype="DistributionGroup")
+        self._raise_PermissionDenied_if_not_manual_group(group)
         if name_lang in self.language_codes:
             name_lang = int(_LanguageCode(name_lang))
         else:
             return "Could not set display name, invalid language code"
         group.add_name_with_language(name_var, name_lang,
                                      disp_name)
+        if self._is_perishable_manual_group(group):
+            group.set_default_expire_date()
         group.write_db()
 
     #
@@ -1789,6 +1827,7 @@ class BofhdExtension(BofhdCommonMethods):
     def group_set_expire(self, operator, group, expire=None):
         grp = self._get_group(group)
         self.ba.can_delete_group(operator.get_entity_id(), grp)
+        self._raise_PermissionDenied_if_not_manual_group(grp)
         if expire:
             self._assert_group_deletable(grp)
             grp.expire_date = self._parse_date(expire)
@@ -1796,6 +1835,12 @@ class BofhdExtension(BofhdCommonMethods):
             return 'OK, set expire-date for {0} set to {1}'.format(group,
                                                                    expire)
         else:
+            if (
+                    self._is_perishable_manual_group(grp) and
+                    cereconf.MANUAL_GROUP_DEFAULT_LIFETIME):
+                grp.set_default_expire_date()
+                grp.write_db()
+                return 'Expires {0} (default lifetime)'.format(grp.expire_date)
             if grp.expire_date:
                 grp.expire_date = None
                 grp.write_db()
@@ -1816,6 +1861,9 @@ class BofhdExtension(BofhdCommonMethods):
     def group_set_visibility(self, operator, group, visibility):
         grp = self._get_group(group)
         self.ba.can_delete_group(operator.get_entity_id(), grp)
+        self._raise_PermissionDenied_if_not_manual_group(grp)
+        if self._is_perishable_manual_group(grp):
+            grp.set_default_expire_date()
         grp.visibility = self._get_constant(self.const.GroupVisibility,
                                             visibility, "visibility")
         grp.write_db()
