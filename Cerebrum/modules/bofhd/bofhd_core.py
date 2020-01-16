@@ -841,6 +841,35 @@ class BofhdCommandBase(object):
             return None
         return DateTime.DateTimeFromTicks(ticks)
 
+    def _is_manual_group(self, gr):
+        """Checks if group_type corresponds to one of the manual group types
+
+        These are: - group_type_manual
+                   - group_type_unknown
+                   - group_type_internal
+                   - group_type_personal
+        """
+        return six.text_type(self.const.human2constant(
+            gr.group_type)) in cereconf.MANUAL_GROUP_TYPES
+
+    def _is_perishable_manual_group(self, gr):
+        """Checks if group_type corresponds to one of the manual group types
+        required to expire.
+
+        These are: - group_type_manual
+                   - group_type_unknown
+        """
+        return six.text_type(self.const.human2constant(
+            gr.group_type)) in cereconf.PERISHABLE_MANUAL_GROUP_TYPES
+
+    def _raise_PermissionDenied_if_not_manual_group(self, gr):
+        if not self._is_manual_group(gr):
+            raise PermissionDenied(
+                "Only manual groups may be maintained in bofh. Group {0} has "
+                "group_type {1}".format(
+                    gr.group_name,
+                    six.text_type(self.const.GroupType(gr.group_type))))
+
 
 class BofhdCommonMethods(BofhdCommandBase):
     """Class with common methods that is used by most, 'normal' instances.
@@ -899,12 +928,14 @@ class BofhdCommonMethods(BofhdCommandBase):
         cmd.GroupName(help_ref="group_name_new"),
         cmd.SimpleString(help_ref="string_description"),
         cmd.GroupName(optional=True, help_ref="group_name_admin"),
+        # cmd.GroupExpireDate(optional=True, help_ref="group_expire_date"),
         fs=cmd.FormatSuggestion(
             "Group created, internal id: %i", ("group_id",)
         ),
         perm_filter='can_create_group')
 
-    def group_create(self, operator, groupname, description, admin_group=None):
+    def group_create(self, operator, groupname, description, admin_group=None,
+                     expire_date=None):
         """ Standard method for creating normal groups.
 
         BofhdAuth's L{can_create_group} is first checked. The group gets the
@@ -914,6 +945,7 @@ class BofhdCommonMethods(BofhdCommandBase):
         :param groupname: str name of new group
         :param description: str description of group
         :param admin_group: str name of admin group, optional
+        :param expire_date: str expire date of group,
         :return: Group id
         """
         self.ba.can_create_group(operator.get_entity_id(),
@@ -932,13 +964,21 @@ class BofhdCommonMethods(BofhdCommandBase):
             visibility=self.const.group_visibility_all,
             name=groupname,
             description=description,
+            expire_date=expire_date,
             group_type=self.const.group_type_manual,
         )
+
+        # Set default expire_date if it is not set
+        if expire_date is None:
+            g.set_default_expire_date()
+
         g.write_db()
 
         # Add spread
         for spread in cereconf.BOFHD_NEW_GROUP_SPREADS:
             g.add_spread(self.const.Spread(spread))
+            # It is necessary to write changes to db before any calls to
+            # add_spread are made: add_spread may in some cases may call find.
             g.write_db()
 
         # Set admin group(s)
@@ -979,7 +1019,10 @@ class BofhdCommonMethods(BofhdCommandBase):
             raise PermissionDenied("Only superusers may rename groups, due "
                                    "to its consequences!")
         gr = self._get_group(groupname)
+        self._raise_PermissionDenied_if_not_manual_group(gr)
         gr.group_name = newname
+        if self._is_perishable_manual_group(gr):
+            gr.set_default_expire_date()
         try:
             gr.write_db()
         except gr._db.IntegrityError as e:
