@@ -1566,7 +1566,6 @@ class BofhdExtension(BofhdCommonMethods):
         self.ba.can_create_personal_group(op, acc)
         # Create group
         group = self.Group_class(self.db)
-        self._raise_PermissionDenied_if_not_manual_group(group)
         try:
             group.find_by_name(uname)
             raise CerebrumError("Group %r already exists" % uname)
@@ -1580,6 +1579,7 @@ class BofhdExtension(BofhdCommonMethods):
             )
             group.write_db()
         # Promote to PosixGroup
+        self._raise_PermissionDenied_if_not_manual_group(group)
         pg = Utils.Factory.get('PosixGroup')(self.db)
         pg.populate(parent=group)
         try:
