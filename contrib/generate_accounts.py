@@ -125,6 +125,7 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
     """
     ac = Factory.get('Account')(db)
     co = Factory.get('Constants')(db)
+    ou = Factory.get('OU')(db)
     # Restore the _last_ expired account, if any:
     old_accounts = ac.search(owner_id=pe.entity_id, expire_start=None,
                              expire_stop=None)
@@ -153,11 +154,13 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
 
     if new_trait:
         logger.debug("Add trait to account %s: %s", ac.account_name, new_trait)
-        ac.populate_trait(new_trait, date=DateTime.now())
+        ac.populate_trait(int(new_trait), date=DateTime.now())
 
-    for s in spreads:
-        logger.debug("Add spread to account %s: %s", ac.account_name, s)
-        ac.add_spread(s)
+    if spreads:
+        logger.debug("Add spreads to account %s: %s", ac.account_name,
+                     ", ".join(str(i) for i in spreads))
+        for s in spreads:
+            ac.add_spread(s)
 
     for row in set((row['affiliation'], row['ou_id']) for row in
                    pe.list_affiliations(person_id=pe.entity_id)
@@ -166,8 +169,16 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
         # This only iterates once per affiliation per OU, even if person has
         # several statuses for the same OU. Due to the account_type limit.
         affiliation, ou_id = row
-        logger.debug("Give %s aff %s to ou_id=%s", ac.account_name,
-                     co.PersonAffiliation(affiliation), ou_id)
+
+        # Log stedkode if ou has stedkode mixin
+        stedkode = "UNKNOWN"
+        if hasattr(ou, 'get_stedkode'):
+            ou.clear()
+            ou.find(ou_id)
+            stedkode = ou.get_stedkode()
+        logger.debug("Give %s aff %s@%s (ou_id=%s)", ac.account_name,
+                     co.PersonAffiliation(affiliation), stedkode, ou_id)
+
         ac.set_account_type(affiliation=affiliation, ou_id=ou_id)
 
     ac.write_db()
@@ -216,8 +227,8 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
                 status,
                 co.OUPerspective(cereconf.DEFAULT_OU_PERSPECTIVE))
             home_spread = home.get('spread', int(co.Spread(cereconf.DEFAULT_HOME_SPREAD)))
-        logger.debug("Set homedir for account %s to disk_id=%s",
-                     ac.account_name, disk_id)
+        logger.debug("Set homedir for account %s to %s",
+                     ac.account_name, ac.resolve_homedir(disk_id=disk_id))
         homedir_id = ac.set_homedir(
             disk_id=disk_id,
             status=co.home_status_not_created)
@@ -406,10 +417,18 @@ def main(inargs=None):
 
     # Lookup stuff
     affiliations = [str2aff(co, a) for a in args.affs]
-    new_trait = int(co.EntityTrait(args.trait)) if args.trait else None
+    new_trait = co.EntityTrait(args.trait) if args.trait else None
     spreads = [co.Spread(s) for s in args.spreads]
     ignore_affs = [str2aff(co, a) for a in args.ignore_affs]
     remove_quars = [co.Quarantine(q) for q in args.remove_quars]
+
+    # Verify as valid constants
+    int(new_trait)
+    for i in spreads:
+        int(i)
+    for i in remove_quars:
+        int(i)
+
     home = {}
     if args.home_disk:
         home = {
