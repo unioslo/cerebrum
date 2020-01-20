@@ -1301,12 +1301,10 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            return (self.is_moderator(operator)
+            return (self._is_moderator(operator)
                     or self._has_operation_perm_somewhere(
                         operator, self.const.auth_add_group_admin))
-            return self._has_operation_perm_somewhere(
-                                operator, self.const.auth_create_group)
-        if self.is_moderator(operator, group.entity_id):
+        if self._is_moderator(operator, group.entity_id):
             return True
         if self._has_target_permissions(operator,
                                         self.const.auth_add_group_admin,
