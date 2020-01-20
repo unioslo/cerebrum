@@ -280,13 +280,19 @@ class FsImporter(object):
                             affiliations,
                             self.studieprog2sko[row['studieprogramkode']])
             elif dta_type in ('evu',):
-                subtype = self.co.affiliation_status_student_evu
-                if self.studieprog2sko[row['studieprogramkode']] in aktiv_sted:
-                    subtype = self.co.affiliation_status_student_aktiv
-                self._process_affiliation(self.co.affiliation_student,
-                                          subtype, affiliations,
-                                          self.studieprog2sko[
-                                              row['studieprogramkode']])
+                for row in x:
+                    subtype = self.co.affiliation_status_student_evu
+                    stedkode = self._get_sko(p, 'faknr_adm_ansvar',
+                                             'instituttnr_adm_ansvar',
+                                             'gruppenr_adm_ansvar')
+                    if stedkode in aktiv_sted:
+                        subtype = self.co.affiliation_status_student_aktiv
+                    self._process_affiliation(
+                        self.co.affiliation_student,
+                        subtype,
+                        affiliations,
+                        stedkode)
+
         # end for-loop
         return (etternavn, fornavn, studentnr, birth_date, affiliations,
                 aktiv_sted)
