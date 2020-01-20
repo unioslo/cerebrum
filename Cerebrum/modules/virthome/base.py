@@ -683,7 +683,9 @@ class VirthomeUtils:
         """
         ret = []
         gr = self.group_class(self.db)
-        for group in self.group_class.search(admin_id=account.entity_id):
+        assert hasattr(account, 'entity_id')
+
+        for group in gr.search(admin_id=account.entity_id):
             gr.clear()
             gr.find(group['group_id'])
             ret.append({
@@ -709,7 +711,9 @@ class VirthomeUtils:
         """
         ret = []
         gr = self.group_class(self.db)
-        for group in self.group_class.search(moderator_id=account.entity_id):
+        assert hasattr(account, 'entity_id')
+
+        for group in gr.search(moderator_id=account.entity_id):
             gr.clear()
             gr.find(group['group_id'])
             ret.append({
