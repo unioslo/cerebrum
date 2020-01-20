@@ -87,9 +87,7 @@ CREATE TABLE auth_op_code
  *   do their work, e.g. creating accounts.
  * - "StudenIT" - operations needed by Student IT, e.g. setting new password for
  *   students, i.e. accounts on student home disks.
- * - "Group-owner" - have access to modify memberships of the group it is
- *   attached to.
- *
+     *
  */
 category:main;
 CREATE TABLE auth_operation_set

@@ -51,10 +51,10 @@ class VirtHomeCLConstants(CLConstants):
         'request',
         'issued invitation to join group')
 
-    va_group_owner_swap = _ChangeTypeCode(
-        'virthome_group_owner_change',
+    va_group_admin_swap = _ChangeTypeCode(
+        'virthome_group_admin_change',
         'request',
-        'waiting for a group owner change')
+        'waiting for a group admin change')
 
     va_group_moderator_add = _ChangeTypeCode(
         'virthome_group_moderator_add',

@@ -35,6 +35,7 @@ from Cerebrum import Utils
 from Cerebrum import Account
 from Cerebrum import Metainfo
 from Cerebrum.Constants import _SpreadCode
+from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet
 from Cerebrum.utils.funcwrap import memoize
 
 
@@ -46,6 +47,7 @@ targets = {
         'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
         'rel_0_9_14', 'rel_0_9_15', 'rel_0_9_16', 'rel_0_9_17',
         'rel_0_9_18', 'rel_0_9_19', 'rel_0_9_20', 'rel_0_9_21',
+        'rel_0_9_22',
     ),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3', 'bofhd_1_4',),
     'bofhd_auth': ('bofhd_auth_1_1', 'bofhd_auth_1_2',),
@@ -825,6 +827,117 @@ def migrate_to_rel_0_9_21():
     makedb('0_9_21', 'post')
 
     print("Migration to 0.9.21 completed successfully")
+    db.commit()
+
+
+def migrate_to_rel_0_9_22():
+    """Migrate from 0.9.21 database to the 0.9.22 database schema."""
+    assert_db_version("0.9.21")
+    makedb('0_9_22', 'pre')
+
+    # Do some sql magic to get all group admins and moderators in the auth_role
+    # table into the new tables we just generated above
+    print("Migrating owner/admin info to new table")
+    aos = BofhdAuthOpSet(db)
+    try:
+        try:
+            # uit and uio
+            aos.find_by_name('Group-owner')
+        except Errors.NotFoundError:
+            try:
+                # uia and hiof
+                aos.find_by_name('groupmod-priv')
+            except Errors.NotFoundError:
+                # webid
+                aos.find_by_name('group-admin')
+    except Errors.NotFoundError:
+        print("No admin or owner opset found, nothing to do")
+    else:
+        binds = {
+            'opset_id': aos.op_set_id
+        }
+        admins = db.query(
+            """
+            SELECT ao.entity_id   AS group_id,
+                ar.entity_id   AS admin_id
+            FROM   [:table schema=cerebrum name=auth_role] ar
+                JOIN [:table schema=cerebrum name=auth_op_target] ao
+                    ON ar.op_target_id = ao.op_target_id
+                JOIN [:table schema=cerebrum name=entity_info] ei
+                    ON ar.entity_id = ei.entity_id
+            WHERE  ar.op_set_id = :opset_id
+                AND ao.target_type = 'group'
+            """,
+            binds
+        )
+
+        for row in admins:
+            binds = {
+                'group_id': row['group_id'],
+                'admin_id': row['admin_id'],
+            }
+            db.execute(
+                """
+                INSERT INTO [:table schema=cerebrum name=group_admin]
+                            (group_id,
+                            admin_id)
+                VALUES      (:group_id,
+                            :admin_id)
+                """,
+                binds
+            )
+    print("\nDone with admins.")
+
+    print("Migrating moderator info to new table")
+    aos.clear()
+    try:
+        try:
+            # uit and uio
+            aos.find_by_name("Group-admin")
+        except Errors.NotFoundError:
+            # webid
+            aos.find_by_name("group-moderator")
+    except Errors.NotFoundError:
+        print("No moderator opset found, nothing to do")
+    else:
+        binds = {
+            'opset_id': aos.op_set_id
+        }
+        moderators = db.query(
+            """
+            SELECT ao.entity_id   AS group_id,
+                ar.entity_id   AS moderator_id
+            FROM   [:table schema=cerebrum name=auth_role] ar
+                JOIN [:table schema=cerebrum name=auth_op_target] ao
+                    ON ar.op_target_id = ao.op_target_id
+                JOIN [:table schema=cerebrum name=entity_info] ei
+                    ON ar.entity_id = ei.entity_id
+            WHERE  ar.op_set_id = :opset_id
+                AND ao.target_type = 'group'
+            """,
+            binds
+        )
+
+        for row in moderators:
+            binds = {
+                'group_id': row['group_id'],
+                'moderator_id': row['moderator_id'],
+            }
+            db.execute(
+                """
+                INSERT INTO [:table schema=cerebrum name=group_moderator]
+                            (group_id,
+                            moderator_id)
+                VALUES      (:group_id,
+                            :moderator_id)
+                """,
+                binds
+            )
+
+    print("\ndone.")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, "0.9.22")
+    print("Migration to 0.9.22 completed successfully")
     db.commit()
 
 

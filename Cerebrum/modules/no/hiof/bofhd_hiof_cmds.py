@@ -54,8 +54,31 @@ class HiofBofhdRequests(BofhdRequests):
 
 
 class HiofAuth(BofhdAuth):
-    """ Indigo specific auth. """
-    pass
+    """ hiof specific auth. """
+
+    def can_alter_group(self, operator, group=None, query_run_any=False):
+        """Checks if the operator has permission to add/remove group members
+        for the given group.
+
+        @type operator: int
+        @param operator: The entity_id of the user performing the operation.
+
+        @type group: An entity of EntityType Group
+        @param group: The group to add/remove members to/from.
+
+        @type query_run_any: True or False
+        @param query_run_any: Check if the operator has permission *somewhere*
+
+        @return: True or False
+        """
+        if self.is_superuser(operator):
+            return True
+        if query_run_any and self._is_admin(operator):
+            return True
+        if self._is_admin(operator, group.entity_id):
+            return True
+        return super(HiofAuth, self).can_alter_group(operator, group,
+                                                     query_run_any)
 
 
 uio_commands = [

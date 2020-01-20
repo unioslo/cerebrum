@@ -36,6 +36,7 @@ from Cerebrum import Errors
 from Cerebrum import Metainfo
 from Cerebrum import Utils
 from Cerebrum import database
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Constants import _LanguageCode, _GroupTypeCode
 from Cerebrum.modules import Email
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
@@ -525,6 +526,102 @@ class BofhdExtension(BofhdCommonMethods):
                                member_type="account")
 
     #
+    # group add_admin
+    #
+    all_commands['group_add_admin'] = Command(
+        ("group", "add_admin"),
+        Id(help_ref="admin_name"),
+        GroupName(help_ref="group_name"),
+        perm_filter='can_add_group_admin')
+
+    def group_add_admin(self, operator, admin, dest_group):
+        group_id = self._get_group(dest_group).entity_id
+        admin = admin.split(":", 1)
+        if len(admin) == 1 or admin[0] == "group":
+            admin_id = self._get_group(admin[-1]).entity_id
+        elif admin[0] == "account":
+            admin_id = self._get_account(admin[-1]).entity_id
+        roles = GroupRoles(self.db)
+        try:
+            roles.add_admin_to_group(admin_id, group_id)
+        except self.db.IntegrityError:
+            return "{admin} already set as admin for {group}".format(
+                admin=admin[-1], group=dest_group)
+        return "OK, added {admin} as admin for {group}".format(
+            admin=admin[-1], group=dest_group)
+
+    #
+    # group remove_admin
+    #
+    all_commands['group_remove_admin'] = Command(
+        ("group", "remove_admin"),
+        Id(help_ref="admin_name"),
+        GroupName(help_ref="group_name"),
+        perm_filter='can_add_group_admin')
+
+    def group_remove_admin(self, operator, admin, dest_group):
+        group_id = self._get_group(dest_group).entity_id
+        admin = admin.split(":", 1)
+        if len(admin) == 1 or admin[0] == "group":
+            admin_id = self._get_group(admin[-1]).entity_id
+        elif admin[0] == "account":
+            admin_id = self._get_account(admin[-1]).entity_id
+        roles = GroupRoles(self.db)
+        if roles.remove_admin_from_group(admin_id, group_id):
+            return "OK, removed {admin} as admin for {group}".format(
+                admin=admin[-1], group=dest_group)
+        return "{admin} was not moderator for {group}".format(
+            admin=admin[-1], group=dest_group)
+
+    #
+    # group add_moderator
+    #
+    all_commands['group_add_moderator'] = Command(
+        ("group", "add_moderator"),
+        Id(help_ref="moderator_name"),
+        GroupName(help_ref="group_name"),
+        perm_filter='can_add_group_moderator')
+
+    def group_add_moderator(self, operator, moderator, dest_group):
+        group_id = self._get_group(dest_group).entity_id
+        moderator = moderator.split(":", 1)
+        if len(moderator) == 1 or moderator[0] == "group":
+            moderator_id = self._get_group(moderator[-1]).entity_id
+        elif moderator[0] == "account":
+            moderator_id = self._get_account(moderator[-1]).entity_id
+        roles = GroupRoles(self.db)
+        try:
+            roles.add_moderator_to_group(moderator_id, group_id)
+        except self.db.IntegrityError:
+            return "{moderator} already set as moderator for {group}".format(
+                moderator=moderator[-1], group=dest_group)
+        return "OK, added {moderator} as moderator for {group}".format(
+            moderator=moderator[-1], group=dest_group)
+
+    #
+    # group remove_moderator
+    #
+    all_commands['group_remove_moderator'] = Command(
+        ("group", "remove_moderator"),
+        Id(help_ref="moderator_name"),
+        GroupName(help_ref="group_name"),
+        perm_filter='can_add_group_moderator')
+
+    def group_remove_moderator(self, operator, moderator, dest_group):
+        group_id = self._get_group(dest_group).entity_id
+        moderator = moderator.split(":", 1)
+        if len(moderator) == 1 or moderator[0] == "group":
+            moderator_id = self._get_group(moderator[-1]).entity_id
+        elif moderator[0] == "account":
+            moderator_id = self._get_account(moderator[-1]).entity_id
+        roles = GroupRoles(self.db)
+        if roles.remove_moderator_from_group(moderator_id, group_id):
+            return "OK, removed {moderator} as moderator for {group}".format(
+                moderator=moderator[-1], group=dest_group)
+        return "{moderator} was not moderator for {group}".format(
+            moderator=moderator[-1], group=dest_group)
+
+    #
     # group padd - add person to group
     #
     all_commands['group_padd'] = Command(
@@ -744,7 +841,7 @@ class BofhdExtension(BofhdCommonMethods):
              "Expire:       %s\n"
              "Entity id:    %i", ("name", "spread", "description",
                                   format_day("expire_date"), "entity_id")),
-            ("Moderator:    %s %s (%s)", ('owner_type', 'owner', 'opset')),
+            ("Admin:        %s %s", ('admin_type', 'admin')),
             ("Gid:          %i", ('gid',)),
             ("Members:      %s", ("members",)),
             ("DisplayName:  %s", ('displayname',)),
@@ -762,6 +859,7 @@ class BofhdExtension(BofhdCommonMethods):
         co = self.const
         grp = self._get_group(groupname, grtype="DistributionGroup")
         gr_info = self._entity_info(grp)
+        roles = GroupRoles(self.db)
 
         # Don't stop! Never give up!
         # We just delete stuff, thats faster to implement than fixing stuff.
@@ -771,28 +869,19 @@ class BofhdExtension(BofhdCommonMethods):
         del gr_info['type']
         ret = [gr_info, ]
 
-        # find owners
-        aot = BofhdAuthOpTarget(self.db)
-        targets = []
-        for row in aot.list(target_type='group', entity_id=grp.entity_id):
-            targets.append(int(row['op_target_id']))
-        ar = BofhdAuthRole(self.db)
-        aos = BofhdAuthOpSet(self.db)
-        for row in ar.list_owners(targets):
-            aos.clear()
-            aos.find(row['op_set_id'])
-            id = int(row['entity_id'])
+        # find admins
+        for row in roles.search_admins(group_id=grp.entity_id):
+            id = int(row['admin_id'])
             en = self._get_entity(ident=id)
             if en.entity_type == co.entity_account:
-                owner = en.account_name
+                admin = en.account_name
             elif en.entity_type == co.entity_group:
-                owner = en.group_name
+                admin = en.group_name
             else:
-                owner = '#%d' % id
+                admin = '#%d' % id
             ret.append({
-                'owner_type': text_type(co.EntityType(en.entity_type)),
-                'owner': owner,
-                'opset': aos.name,
+                'admin_type': text_type(co.EntityType(en.entity_type)),
+                'admin': admin,
             })
 
         # Member stats are a bit complex, since any entity may be a
@@ -961,23 +1050,17 @@ class BofhdExtension(BofhdCommonMethods):
                                disp_name_language)
         room_list.write_db()
 
-        # Try to set the default group moderator
+        # Try to set the default group admin
         try:
             grp.clear()
             grp.find_by_name(cereconf.EXCHANGE_ROOMLIST_OWNER)
         except (Errors.NotFoundError, AttributeError):
-            # If the group moderator group does not exist, or is not defined,
-            # we won't set a group owner.
+            # If the group admin group does not exist, or is not defined,
+            # we won't set a group admin.
             pass
         else:
-            op_set = BofhdAuthOpSet(self.db)
-            op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
-            op_target = BofhdAuthOpTarget(self.db)
-            op_target.populate(room_list.entity_id, 'group')
-            op_target.write_db()
-            role = BofhdAuthRole(self.db)
-            role.grant_auth(grp.entity_id, op_set.op_set_id,
-                            op_target.op_target_id)
+            roles = GroupRoles(self.db)
+            roles.add_admin_to_group(grp.entity_id, room_list.entity_id)
 
         return "Made roomlist %s" % groupname
 
@@ -986,7 +1069,7 @@ class BofhdExtension(BofhdCommonMethods):
     #
     # (all_commands is updated from BofhdCommonMethods)
     #
-    def group_create(self, operator, groupname, description, mod_group=None):
+    def group_create(self, operator, groupname, description, admin_group=None):
         """Override group_create to double check that there doesn't exist an
         account with the same name.
         """
@@ -997,11 +1080,11 @@ class BofhdExtension(BofhdCommonMethods):
             pass
         else:
             raise CerebrumError('An account exists with name: %s' % groupname)
-        return super(BofhdExtension, self).group_create(operator, groupname,
-                                                        description, mod_group)
+        return super(BofhdExtension, self).group_create(
+            operator, groupname, description, admin_group)
 
     #
-    # group request <name> <desc> <spread> <moderator-group>
+    # group request <name> <desc> <spread> <admin-group>
     #
     # like group create, but only send request to the ones with the access to
     # the 'group create' command Currently send email to brukerreg@usit.uio.no
@@ -1011,7 +1094,7 @@ class BofhdExtension(BofhdCommonMethods):
         GroupName(help_ref="group_name_new"),
         SimpleString(help_ref="string_description"),
         SimpleString(help_ref="string_spread"),
-        GroupName(help_ref="group_name_moderator"))
+        GroupName(help_ref="group_name_admin"))
 
     def _get_from_address(self, operator):
         fromaddr = None
@@ -1032,7 +1115,7 @@ class BofhdExtension(BofhdCommonMethods):
         return fromaddr
 
     def group_request(self, operator,
-                      groupname, description, spread, moderator):
+                      groupname, description, spread, admin):
         opr = operator.get_entity_id()
         acc = self.Account_class(self.db)
         acc.find(opr)
@@ -1044,12 +1127,12 @@ class BofhdExtension(BofhdCommonMethods):
         else:
             raise CerebrumError("Group %s already exists" % (groupname))
 
-        # checking if moderator groups exist
-        for mod in moderator.split(' '):
+        # checking if admin groups exist
+        for admin in admin.split(' '):
             try:
-                self._get_group(mod)
+                self._get_group(admin)
             except CerebrumError:
-                raise CerebrumError("Moderator group %s not found" % (mod))
+                raise CerebrumError("Admin group %s not found" % (admin))
 
         fromaddr = self._get_from_address(operator)
 
@@ -1068,9 +1151,10 @@ class BofhdExtension(BofhdCommonMethods):
         body.append("Group-name: %s." % groupname)
         body.append("Description:  %s" % description)
         body.append("Requested by: %s" % fromaddr)
-        body.append("Moderator: %s" % moderator)
+        body.append("Admin: %s" % admin)
         body.append("")
-        body.append("group create %s \"%s\"" % (groupname, description))
+        body.append("group create %s \"%s\" %s" % (groupname, description,
+                                                   admin))
         for spr in spreads:
             if spr and self._get_constant(self.const.Spread, spr) in (
                     self.const.spread_uio_nis_fg,
@@ -1086,8 +1170,6 @@ class BofhdExtension(BofhdCommonMethods):
                 body.append("group promote_posix %s" % groupname)
         if spread:
             body.append("spread add group %s %s" % (groupname, spreadstring))
-        body.append("access grant Group-owner (%s) group %s" %
-                    (moderator, groupname))
         body.append("group info %s" % groupname)
         body.append("")
         body.append("")
@@ -1358,7 +1440,8 @@ class BofhdExtension(BofhdCommonMethods):
              "Entity id:    %i", ("name", "group_type", "spread",
                                   "description",
                                   format_day("expire_date"), "entity_id")),
-            ("Moderator:    %s %s (%s)", ('owner_type', 'owner', 'opset')),
+            ("Admin:        %s %s", ('admin_type', 'admin')),
+            ("Moderator:    %s %s", ('mod_type', 'mod')),
             ("Gid:          %i", ('gid',)),
             ("Members:      %s", ("members",))
         ]))
@@ -1376,28 +1459,34 @@ class BofhdExtension(BofhdCommonMethods):
             grp = self._get_group(groupname)
         co = self.const
         ret = [self._entity_info(grp), ]
-        # find owners
-        aot = BofhdAuthOpTarget(self.db)
-        targets = []
-        for row in aot.list(target_type='group', entity_id=grp.entity_id):
-            targets.append(int(row['op_target_id']))
-        ar = BofhdAuthRole(self.db)
-        aos = BofhdAuthOpSet(self.db)
-        for row in ar.list_owners(targets):
-            aos.clear()
-            aos.find(row['op_set_id'])
-            id = int(row['entity_id'])
+        # find admins
+        roles = GroupRoles(self.db)
+        for row in roles.search_admins(group_id=grp.entity_id):
+            id = int(row['admin_id'])
             en = self._get_entity(ident=id)
             if en.entity_type == co.entity_account:
-                owner = en.account_name
+                admin = en.account_name
             elif en.entity_type == co.entity_group:
-                owner = en.group_name
+                admin = en.group_name
             else:
-                owner = '#%d' % id
+                admin = '#%d' % id
             ret.append({
-                'owner_type': text_type(co.EntityType(en.entity_type)),
-                'owner': owner,
-                'opset': aos.name,
+                'admin_type': text_type(co.EntityType(en.entity_type)),
+                'admin': admin,
+            })
+        # find moderators
+        for row in roles.search_moderators(group_id=grp.entity_id):
+            id = int(row['moderator_id'])
+            en = self._get_entity(ident=id)
+            if en.entity_type == co.entity_account:
+                mod = en.account_name
+            elif en.entity_type == co.entity_group:
+                mod = en.group_name
+            else:
+                mod = '#%d' % id
+            ret.append({
+                'mod_type': text_type(co.EntityType(en.entity_type)),
+                'mod': mod,
             })
 
         # Member stats are a bit complex, since any entity may be a
@@ -1586,15 +1675,9 @@ class BofhdExtension(BofhdCommonMethods):
             pg.write_db()
         except self.db.DatabaseError as m:
             raise CerebrumError("Database error: %s" % m)
-        # Make user the owner of the group so he/she can administer it
-        op_set = BofhdAuthOpSet(self.db)
-        op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
-        op_target = BofhdAuthOpTarget(self.db)
-        op_target.populate(group.entity_id, 'group')
-        op_target.write_db()
-        role = BofhdAuthRole(self.db)
-        role.grant_auth(acc.entity_id, op_set.op_set_id,
-                        op_target.op_target_id)
+        # Make the user the admin of the group so they can administer it
+        roles = GroupRoles(self.db)
+        roles.add_admin_to_group(acc.entity_id, group.entity_id)
         # Make user a member of his personal group
         self._group_add(None, uname, uname, member_type="account")
         # Add personal group-trait to group

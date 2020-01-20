@@ -359,6 +359,7 @@ setup(
         'Cerebrum/export',
         'Cerebrum/extlib',
         'Cerebrum/extlib/Plex',
+        'Cerebrum/group',
         'Cerebrum/logutils',
         'Cerebrum/logutils/mp',
         'Cerebrum/modules',

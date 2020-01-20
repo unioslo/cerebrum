@@ -31,6 +31,7 @@ from Cerebrum.rest.api import db, auth, utils
 from Cerebrum.rest.api import fields as crb_fields
 from Cerebrum.rest.api import validator
 from Cerebrum import Errors
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Utils import Factory
 
 api = Namespace('groups', description='Group operations')
@@ -77,32 +78,6 @@ class GroupVisibility(object):
     @classmethod
     def unserialize(cls, input_):
         return db.const.GroupVisibility(cls._rev_map[input_.lower()])
-
-
-class GroupAuthRoles(object):
-    """ Group auth roles translation. """
-
-    # ugh, opsets are ugly
-    # to prevent clients from granting superuser rights, we need to
-    # limit the valid opsets to a hard-coded list of names here.
-    _map = {
-        # 'Group-admin': 'admin',
-        'Group-owner': 'owner',
-    }
-
-    _rev_map = dict((v, k) for k, v in _map.iteritems())
-
-    @classmethod
-    def serialize(cls, strval):
-        return cls._map[strval]
-
-    @classmethod
-    def unserialize(cls, input_):
-        return cls._rev_map[input_.lower()]
-
-    @classmethod
-    def valid_roles(cls):
-        return cls._rev_map.keys()
 
 
 _group_fields = {
@@ -357,15 +332,23 @@ class GroupModeratorListResource(Resource):
     @api.response(404, "group not found")
     @api.marshal_with(GroupModerator, as_list=True, envelope='moderators')
     def get(self, name):
-        """ Get moderators for this group. """
+        """ Get admins for this group. """
         group = find_group(name)
-        moderators = utils.get_auth_roles(group, 'group',
-                                          role_map=GroupAuthRoles._map)
-        for entity in moderators:
-            entity.update(
-                {'href': utils.href_from_entity_type(entity['type'],
-                                                     entity['id'],
-                                                     entity['name'])})
+        roles = GroupRoles(db.connection)
+        moderators = []
+        for admin in roles.search_admins(group_id=group.entity_id):
+            admin_name = utils.get_entity_name(admin['admin_id'])
+            moderators.append(
+                {
+                    'type': admin['admin_type'],
+                    'id': admin['admin_id'],
+                    'name': admin_name,
+                    'roles': 'Group-admin',
+                    'href': utils.href_from_entity_type(admin['moderator_type'],
+                                                        admin['moderator_id'],
+                                                        admin_name)
+                }
+            )
         return moderators
 
 
@@ -373,42 +356,31 @@ class GroupModeratorListResource(Resource):
            endpoint='group-moderator')
 @api.doc(params={
     'name': 'group name',
-    'role': 'role to modify ({!s})'.format(
-        ','.join(GroupAuthRoles.valid_roles())),
     'moderator_id': 'id of the moderator'})
 class GroupModeratorResource(Resource):
     """ Alter group moderator. """
-
-    def get_opset(self, role):
-        try:
-            return utils.get_opset(GroupAuthRoles.unserialize(role))
-        except (Errors.NotFoundError, KeyError):
-            pass
-        abort(400, 'invalid role', roles=GroupAuthRoles.valid_roles())
 
     @db.autocommit
     @auth.require()
     @api.response(204, "moderator added")
     @api.response(400, 'invalid role')
     @api.response(404, 'group or moderator not found')
-    def put(self, name, role, moderator_id):
+    def put(self, name, role, admin_id):
         """ Add a group moderator. """
-        mod = find_entity(moderator_id)
-        opset = self.get_opset(role)
         group = find_group(name)
-        utils.grant_auth(mod, opset, group)
+        roles = GroupRoles(db.connection)
+        roles.add_admin_to_group(admin_id, group.entity_id)
 
     @db.autocommit
     @auth.require()
     @api.response(204, "moderator removed")
     @api.response(400, 'invalid opset')
     @api.response(404, 'group or moderator not found')
-    def delete(self, name, role, moderator_id):
+    def delete(self, name, role, admin_id):
         """ Remove a group moderator. """
-        mod = find_entity(moderator_id)
-        opset = self.get_opset(role)
         group = find_group(name)
-        utils.revoke_auth(mod, opset, group)
+        roles = GroupRoles(db.connection)
+        roles.remove_admin_from_group(admin_id, group.entity_id)
 
 
 @api.route('/<string:name>/contexts/<string:context>',

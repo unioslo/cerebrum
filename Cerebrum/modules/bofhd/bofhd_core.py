@@ -33,14 +33,14 @@ import cereconf
 
 from Cerebrum import Entity
 from Cerebrum import Errors
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd import cmd_param as cmd
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdUtils
-from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
-                                         BofhdAuthRole)
+from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget)
 
 
 class BofhdCommandBase(object):
@@ -841,16 +841,6 @@ class BofhdCommandBase(object):
             return None
         return DateTime.DateTimeFromTicks(ticks)
 
-    def _group_make_owner(self, owner, target):
-        op_set = BofhdAuthOpSet(self.db)
-        op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
-        op_target = BofhdAuthOpTarget(self.db)
-        op_target.populate(target.entity_id, 'group')
-        op_target.write_db()
-        role = BofhdAuthRole(self.db)
-        role.grant_auth(owner.entity_id, op_set.op_set_id,
-                        op_target.op_target_id)
-
     def _is_manual_group(self, gr):
         """Checks if group_type corresponds to one of the manual group types
 
@@ -937,14 +927,14 @@ class BofhdCommonMethods(BofhdCommandBase):
         ("group", "create"),
         cmd.GroupName(help_ref="group_name_new"),
         cmd.SimpleString(help_ref="string_description"),
-        cmd.GroupName(optional=True, help_ref="group_name_moderator"),
+        cmd.GroupName(optional=True, help_ref="group_name_admin"),
         # cmd.GroupExpireDate(optional=True, help_ref="group_expire_date"),
         fs=cmd.FormatSuggestion(
             "Group created, internal id: %i", ("group_id",)
         ),
         perm_filter='can_create_group')
 
-    def group_create(self, operator, groupname, description, mod_group=None,
+    def group_create(self, operator, groupname, description, admin_group=None,
                      expire_date=None):
         """ Standard method for creating normal groups.
 
@@ -954,13 +944,14 @@ class BofhdCommonMethods(BofhdCommandBase):
         :param operator: operator's account object
         :param groupname: str name of new group
         :param description: str description of group
-        :param mod_group: str name of moderator group, optional
+        :param admin_group: str name of admin group, optional
         :param expire_date: str expire date of group,
         :return: Group id
         """
         self.ba.can_create_group(operator.get_entity_id(),
                                  groupname=groupname)
         g = self.Group_class(self.db)
+        roles = GroupRoles(self.db)
 
         # Check if group name is already in use, raise error if so
         duplicate_test = g.search(name=groupname, filter_expired=False)
@@ -990,18 +981,17 @@ class BofhdCommonMethods(BofhdCommandBase):
             # add_spread are made: add_spread may in some cases may call find.
             g.write_db()
 
-        # Set moderator group(s)
-        if mod_group:
-            for mod in mod_group.split(' '):
+        # Set admin group(s)
+        if admin_group:
+            for admin in admin_group.split(' '):
                 try:
-                    mod_gr = self._get_group(mod, idtype=None,
-                                             grtype='Group')
+                    admin_gr = self._get_group(admin, idtype=None,
+                                               grtype='Group')
                 except Errors.NotFoundError:
-                    raise CerebrumError('No moderator group with name: {}'
-                                        .format(mod_group))
+                    raise CerebrumError('No admin group with name: {}'
+                                        .format(admin_group))
                 else:
-                    self._group_make_owner(mod_gr, g)
-
+                    roles.add_admin_to_group(admin_gr.entity_id, g.entity_id)
         return {'group_id': int(g.entity_id)}
 
     #

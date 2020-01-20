@@ -189,9 +189,6 @@ The operations are Cerebrum constants, but is also put in the table
 Configuration
 =============
 
-BOFHD_AUTH_GROUPMODERATOR
-    An opset that identifies group moderators. This is used to list out which
-    groups a given user has access to moderate.
 BOFHD_CHECK_DISK_SPREAD
     A spread to check for home directory. If set, then access to that disk will
     also give access to users on that disk (see
@@ -224,6 +221,7 @@ from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.Utils import argument_to_sql
 from Cerebrum.modules.bofhd.errors import PermissionDenied
@@ -666,6 +664,7 @@ class BofhdAuth(DatabaseAccessor):
                                            size=500,
                                            timeout=60*60)
         self._bofhd_auth_systems = tuple(_get_bofhd_auth_systems(self.const))
+        self._group_roles = GroupRoles(database)
 
     def _get_uname(self, entity_id):
         """Return a human-friendly representation of entity_id."""
@@ -1297,6 +1296,32 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return False
         raise PermissionDenied("Only superuser can set group_type")
+
+    def can_add_group_admin(self, operator, group=None, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return (self.is_moderator(operator)
+                    or self._has_operation_perm_somewhere(
+                        operator, self.const.auth_add_group_admin))
+            return self._has_operation_perm_somewhere(
+                                operator, self.const.auth_create_group)
+        if self.is_moderator(operator, group.entity_id):
+            return True
+        if self._has_target_permissions(operator,
+                                        self.const.auth_add_group_admin,
+                                        self.const.auth_target_type_group,
+                                        group.entity_id, group.entity_id):
+            return True
+        raise PermissionDenied("Not allowed to add admin to group")
+
+    def can_add_group_moderator(self, operator, group=None,
+                                query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return False
+        raise PermissionDenied("Not allowed to add moderator to group")
 
     def can_create_personal_group(self, operator, account=None,
                                   query_run_any=False):
@@ -2333,3 +2358,15 @@ class BofhdAuth(DatabaseAccessor):
         raise PermissionDenied("You don't have permission to view "
                                "external ids for person entity {}".format(
                                    person.entity_id))
+
+    def _is_admin(self, entity_id, group_id=None):
+        admin_ids = self._get_users_auth_entities(entity_id)
+        return self._group_roles.is_admin(admin_ids, group_id)
+
+    def _is_moderator(self, entity_id, group_id=None):
+        moderator_ids = self._get_users_auth_entities(entity_id)
+        return self._group_roles.is_moderator(moderator_ids, group_id)
+
+    def _is_admin_or_moderator(self, entity_id, group_id=None):
+        return (self._is_admin(entity_id, group_id)
+                or self._is_moderator(entity_id, group_id))

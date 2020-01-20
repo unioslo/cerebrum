@@ -1759,6 +1759,14 @@ class CLConstants(ConstantsBase):
         'group_member', 'add', 'added %(dest)s to %(subject)s')
     group_rem = _ChangeTypeCode(
         'group_member', 'remove', 'removed %(dest)s from %(subject)s')
+    group_moderator_add = _ChangeTypeCode(
+        'group_moderator', 'add', 'added %(dest)s to %(subject)s')
+    group_moderator_rem = _ChangeTypeCode(
+        'group_moderator', 'remove', 'removed %(dest)s from %(subject)s')
+    group_admin_add = _ChangeTypeCode(
+        'group_admin', 'add', 'added %(dest)s to %(subject)s')
+    group_admin_rem = _ChangeTypeCode(
+        'group_admin', 'remove', 'removed %(dest)s from %(subject)s')
     group_create = _ChangeTypeCode(
         'group', 'create', 'created %(subject)s')
     group_mod = _ChangeTypeCode(

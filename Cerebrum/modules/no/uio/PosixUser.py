@@ -20,13 +20,10 @@
 
 from contextlib import contextmanager
 
-import cereconf
 from Cerebrum import Errors
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
-from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet,
-                                         BofhdAuthOpTarget,
-                                         BofhdAuthRole)
 
 
 class PosixUserUiOMixin(PosixUser.PosixUser):
@@ -221,18 +218,6 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
             if gspr in group_spreads and uspr not in user_spreads:
                 group.delete_spread(gspr)
 
-    def _set_owner_of_group(self, group):
-        op_target = BofhdAuthOpTarget(self._db)
-        if not op_target.list(entity_id=group.entity_id, target_type='group'):
-            op_target.populate(group.entity_id, 'group')
-            op_target.write_db()
-            op_set = BofhdAuthOpSet(self._db)
-            op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
-            role = BofhdAuthRole(self._db)
-            role.grant_auth(self.entity_id,
-                            op_set.op_set_id,
-                            op_target.op_target_id)
-
     def write_db(self):
         try:
             creator_id = self.__create_dfg
@@ -243,7 +228,8 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
             with self._new_personal_group(creator_id) as personal_fg:
                 self.gid_id = personal_fg.entity_id
                 self.__super.write_db()
-                self._set_owner_of_group(personal_fg)
+                roles = GroupRoles(self._db)
+                roles.add_admin_to_group(self.entity_id, personal_fg.entity_id)
                 self.pg = personal_fg
         finally:
             self.map_user_spreads_to_pg()

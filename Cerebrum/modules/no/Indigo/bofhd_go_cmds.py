@@ -36,13 +36,14 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import json
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.modules import Email
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_contact_info
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
 from Cerebrum.modules.bofhd.auth import (BofhdAuth, BofhdAuthRole,
-                                         BofhdAuthOpSet, BofhdAuthOpTarget)
+                                         BofhdAuthOpTarget)
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.bofhd_utils import copy_func, copy_command
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -190,7 +191,8 @@ class BofhdExtension(BofhdCommonMethods):
                "description",
                format_day("expire_date"),
                "entity_id")),
-             ("Moderator:    %s %s (%s)", ('owner_type', 'owner', 'opset')),
+             ("Admin:        %s %s", ('admin_type', 'admin')),
+             ("Moderator:    %s %s", ('mod_type', 'mod')),
              ("Gid:          %i", ('gid',)),
              ("Members:      %s", ("members",))]))
 
@@ -198,28 +200,34 @@ class BofhdExtension(BofhdCommonMethods):
         grp = self._get_group(groupname)
         co = self.const
         ret = [self._entity_info(grp), ]
-        # find owners
-        aot = BofhdAuthOpTarget(self.db)
-        targets = []
-        for row in aot.list(target_type='group', entity_id=grp.entity_id):
-            targets.append(int(row['op_target_id']))
-        ar = BofhdAuthRole(self.db)
-        aos = BofhdAuthOpSet(self.db)
-        for row in ar.list_owners(targets):
-            aos.clear()
-            aos.find(row['op_set_id'])
-            id = int(row['entity_id'])
+        roles = GroupRoles(self.db)
+        # find admins
+        for row in roles.search_admins(group_id=grp.entity_id):
+            id = int(row['admin_id'])
             en = self._get_entity(ident=id)
             if en.entity_type == co.entity_account:
-                owner = en.account_name
+                admin = en.account_name
             elif en.entity_type == co.entity_group:
-                owner = en.group_name
+                admin = en.group_name
             else:
-                owner = '#%d' % id
+                admin = '#%d' % id
             ret.append({
-                'owner_type': text_type(co.EntityType(en.entity_type)),
-                'owner': owner,
-                'opset': aos.name,
+                'admin_type': text_type(co.EntityType(en.entity_type)),
+                'admin': admin,
+            })
+        # find moderators
+        for row in roles.search_moderators(group_id=grp.entity_id):
+            id = int(row['moderator_id'])
+            en = self._get_entity(ident=id)
+            if en.entity_type == co.entity_account:
+                mod = en.account_name
+            elif en.entity_type == co.entity_group:
+                mod = en.group_name
+            else:
+                mod = '#%d' % id
+            ret.append({
+                'mod_type': text_type(co.EntityType(en.entity_type)),
+                'mod': mod,
             })
 
         # Count group members of different types

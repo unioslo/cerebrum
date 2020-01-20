@@ -284,13 +284,18 @@ class OUGroup(VirtualGroup):
                group_id=None,
                member_id=None,
                indirect_members=False,
+               admin_id=None,
+               admin_by_membership=False,
+               moderator_id=None,
                spread=None,
                name=None,
                group_type=None,
                description=None,
+               group_type=None,
                filter_expired=True,
                creator_id=None,
-               expired_only=False):
+               expired_only=False,
+               fetchall=True):
         """Search for ou groups.
         See Group.search for parameter definitions.
         """
@@ -308,6 +313,9 @@ class OUGroup(VirtualGroup):
             group_id=group_id,
             member_id=member_id,
             indirect_members=indirect_members,
+            admin_id=admin_id,
+            admin_by_membership=admin_by_membership,
+            moderator_id=moderator_id,
             spread=spread,
             name=name,
             group_type=group_type,
@@ -351,8 +359,8 @@ class OUGroup(VirtualGroup):
                 for gid in group_id:
                     if get_group_type(gid) == self.const.vg_ougroup:
                         filter_groups.append(gid)
-            elif get_group_type(gid) == self.const.vg_ougroup:
-                filter_groups.append(gid)
+            elif get_group_type(group_id) == self.const.vg_ougroup:
+                filter_groups.append(group_id)
             if not filter_groups:
                 return ret
             wheres.append(argument_to_sql(filter_groups, 'group_id', binds,
@@ -442,6 +450,9 @@ class OUGroup(VirtualGroup):
                 group_id=group_id,
                 member_id=affected_groups,
                 indirect_members=indirect_members,
+                admin_id=admin_id,
+                admin_by_membership=admin_by_membership,
+                moderator_id=moderator_id,
                 spread=spread,
                 description=description,
                 filter_expired=filter_expired,

@@ -34,6 +34,7 @@ import six
 import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Entity import (EntityName, EntityQuarantine, EntityExternalId,
                              EntitySpread, EntityNameWithLanguage)
 from Cerebrum.Utils import argument_to_sql, prepare_string
@@ -252,6 +253,10 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             DELETE FROM [:table schema=cerebrum name=group_member]
             WHERE group_id=:g_id""", {'g_id': self.entity_id})
 
+            # Empty this group's set of admins and moderators
+            group_roles = GroupRoles(self.db)
+            group_roles.remove_all(self.entity_id)
+
             # Empty this group's memberships.
             # IVR 2008-06-06 TBD: Is this really wise? I.e. should the caller
             # of delete() make sure that all memberships have been removed?
@@ -425,7 +430,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         return self.remove_member_from_group(member_id, self.entity_id)
 
     def remove_member_from_group(self, member_id, group_id):
-        """Remove L{member_id}'s membership from this group.
+        """Remove L{member_id}'s membership from a group.
 
         @type member_id: int
         @param member_id:
@@ -460,6 +465,9 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                group_id=None,
                member_id=None,
                indirect_members=False,
+               admin_id=None,
+               admin_by_membership=False,
+               moderator_id=None,
                spread=None,
                name=None,
                description=None,
@@ -509,6 +517,31 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
 
           This filter makes sense only when L{member_id} is set.
 
+        :type admin_id: int or sequence thereof or None.
+        :param admin_id:
+          The resulting group list will be filtered by adminship - only
+          groups that have admins specified by admin_id will be
+          returned. If admin_id is a sequence, then a group g1 is returned
+          if any of the ids in the sequence are a admin of g1.
+
+        :type admin_by_membership: bool
+        :param admin_by_membership:
+          This parameter controls how the L{admin_id} filter is applied.
+          When False, only groups where L{admin_id} is a/are direct
+          admin(s) will be returned. When True, the adminship of
+          L{admin_id} does not have to be direct; if group g2 is a
+          admin of group g1, and admin_id m1 is a member of g2,
+          specifying indirect_admins=True will return g1.
+
+          This filter makes sense only when L{admin_id} is set.
+
+        :type moderator_id: int or sequence thereof or None.
+        :param moderator_id:
+          The resulting group list will be filtered by moderatorship - only
+          groups that have moderators specified by moderator_id will be
+          returned. If moderator_id is a sequence, then a group g1 is returned
+          if any of the ids in the sequence are a moderator of g1.
+
         :type spread: int or SpreadCode or sequence thereof or None.
         :param spread:
           Filter the resulting group list by spread. I.e. only groups with
@@ -553,13 +586,21 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         """
         # Sanity check: if indirect members is specified, then at least we
         # need one id to go on.
-        if indirect_members:
-            assert member_id is not None
-            if isinstance(member_id, (list, tuple, set)):
-                assert member_id
+        if indirect_members and not member_id:
+            raise Errors.ProgrammingError(
+                'Cannot use indirect_members without member_id'
+            )
+
+        if admin_by_membership and not admin_id:
+            raise Errors.ProgrammingError(
+                'Cannot use indirect_admins without admin_id'
+            )
 
         # Sanity check: it is probably a bad idea to allow specifying both.
-        assert not (member_id and group_id)
+        if member_id and group_id:
+            raise Errors.ProgrammingError(
+                'member_id and group_id cannot be used simultaneously'
+            )
 
         def search_transitive_closure(member_id):
             """Return all groups where member_id is/are indirect member(s).
@@ -655,6 +696,33 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 where.append("(gi.group_id = gm.group_id)")
                 where.append(argument_to_sql(member_id, "gm.member_id",
                                              binds, int))
+
+        #
+        # admin_id filter (all of them)
+        if admin_id is not None:
+            extra_tables.append("[:table schema=cerebrum name=group_admin] ga")
+            where.append("(gi.group_id = ga.group_id)")
+
+            if admin_by_membership:
+                admin_ids = [admin_id]
+                for group in self.search(member_id=admin_id):
+                    admin_ids.append(group['group_id'])
+
+                where.append(argument_to_sql(admin_ids, "ga.admin_id",
+                                             binds, int))
+            else:
+                where.append(argument_to_sql(admin_id, "ga.admin_id",
+                                             binds, int))
+
+        #
+        # moderator_id filter
+        if moderator_id is not None:
+            extra_tables.append(
+                "[:table schema=cerebrum name=group_moderator] gmod")
+            where.append("(gi.group_id = gmod.group_id)")
+
+            where.append(argument_to_sql(moderator_id, "gmod.moderator_id",
+                                         binds, int))
 
         #
         # spread filter

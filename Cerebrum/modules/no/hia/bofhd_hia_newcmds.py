@@ -27,6 +27,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import database
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import Note
@@ -34,8 +35,6 @@ from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_email
 from Cerebrum.modules.bofhd import cmd_param
-from Cerebrum.modules.bofhd.auth import (BofhdAuthOpSet, BofhdAuthOpTarget,
-                                         BofhdAuthRole)
 from Cerebrum.modules.bofhd.bofhd_access import BofhdAccessCommands
 from Cerebrum.modules.bofhd.bofhd_contact_info import BofhdContactCommands
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
@@ -222,6 +221,7 @@ class BofhdExtension(BofhdCommonMethods):
         arguments may be passed as Entity objects.  If group is None,
         the group with the same name as account is modified, if it
         exists."""
+        roles = GroupRoles(self.db)
 
         if account.np_type or account.owner_type == self.const.entity_group:
             return
@@ -239,24 +239,10 @@ class BofhdExtension(BofhdCommonMethods):
         # if not group.description.startswith('Personal file group for '):
         #     return
         #
-        # The alternative is to use the bofhd_auth tables to see if
-        # the account has the 'Group-owner' op_set for this group, and
-        # this is implemented below.
+        # The alternative is to check if the account is the admin of the
+        # group, and this is implemented below
 
-        op_set = BofhdAuthOpSet(self.db)
-        op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
-
-        baot = BofhdAuthOpTarget(self.db)
-        targets = baot.list(entity_id=group.entity_id)
-        if len(targets) == 0:
-            return
-        bar = BofhdAuthRole(self.db)
-        is_moderator = False
-        for auth in bar.list(op_target_id=targets[0]['op_target_id']):
-            if (auth['entity_id'] == account.entity_id and
-                    auth['op_set_id'] == op_set.op_set_id):
-                is_moderator = True
-        if not is_moderator:
+        if not roles.is_admin(account.entity_id, group.entity_id):
             return
 
         mapping = {int(self.const.spread_nis_user):

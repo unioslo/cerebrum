@@ -37,6 +37,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import Entity
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import AccountName
@@ -306,43 +307,42 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     #                  request will end up as the owner. Is this the desired
     #                  outcome? Or should all other invitations be invalidated
     #                  when a request is confirmed?
-    def __process_owner_swap_request(self, issuer_id, event):
+    def __process_admin_swap_request(self, issuer_id, event):
         """Perform the necessary magic associated with letting another account
-        take over group ownership.
+        take over group adminship.
 
-        issuer_id is the new owner.
+        issuer_id is the new admin.
 
         event describes the change.
 
         issuer_id MUST BE an FA.
         """
 
-        assert event["change_type_id"] == self.clconst.va_group_owner_swap
+        assert event["change_type_id"] == self.clconst.va_group_admin_swap
 
         params = event["change_params"]
-        new_owner = self._get_account(issuer_id)
-        old_owner = self._get_account(params["old"])
+        new_admin = self._get_account(issuer_id)
+        old_admin = self._get_account(params["old"])
         group = self._get_group(params["group_id"])
         assert group.entity_id == int(event["subject_entity"])
 
-        self.ba.can_own_group(new_owner.entity_id)
-        self.ba.can_change_owners(old_owner.entity_id, group.entity_id)
+        self.ba.can_own_group(new_admin.entity_id)
+        self.ba.can_change_admins(old_admin.entity_id, group.entity_id)
 
-        if new_owner.entity_id == old_owner.entity_id:
+        if new_admin.entity_id == old_admin.entity_id:
             return "OK, no changes necessary"
 
         # Let's swap them
-        # ... first add a new owner
-        self.vhutils.grant_group_auth(new_owner, 'group-owner', group)
-        # ... then remove an old one
-        self.vhutils.revoke_group_auth(old_owner, 'group-owner', group)
+        roles = GroupRoles(self.db)
+        roles.add_admin_to_group(new_admin.entity_id, group.entity_id)
+        roles.remove_admin_from_group(old_admin.entity_id, group.entity_id)
 
-        # action e_group:pending_owner_change
-        # Ok, <group> owner changed, <old_owner> -> <new_owner>
+        # action e_group:pending_admin_change
+        # Ok, <group> admin changed, <old_admin> -> <new_admin>
         return {'action': event.get('change_type'),
                 'group': group.group_name,
-                'old_owner': old_owner.account_name,
-                'new_owner': new_owner.account_name, }
+                'old_admin': old_admin.account_name,
+                'new_admin': new_admin.account_name, }
 
     def __process_moderator_add_request(self, issuer_id, event):
         """Perform the necessary magic associated with letting another account
@@ -365,7 +365,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         self.ba.can_moderate_group(new_moderator.entity_id)
 
-        self.vhutils.grant_group_auth(new_moderator, 'group-moderator', group)
+        roles = GroupRoles(self.db)
+        roles.add_moderator_to_group(new_moderator.entity_id, group.entity_id)
 
         # action e_group:pending_moderator_add
         # Ok, added moderator <invitee> for group <group> (at <inviter>s
@@ -471,8 +472,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                 self.__process_email_change_request,
             self.clconst.va_group_invitation:
                 self.__process_group_invitation_request,
-            self.clconst.va_group_owner_swap:
-                self.__process_owner_swap_request,
+            self.clconst.va_group_admin_swap:
+                self.__process_admin_swap_request,
             self.clconst.va_group_moderator_add:
                 self.__process_moderator_add_request,
             self.clconst.va_password_recover:
@@ -954,7 +955,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             "quarantine": self.__quarantine_to_string(account),
             "confirmation": pending,
             "moderator": self.vhutils.list_groups_moderated(account),
-            "owner": self.vhutils.list_groups_owned(account),
+            "owner": self.vhutils.list_groups_admined(account),
             "user_eula": user_eula,
             "group_eula": group_eula,
         }
@@ -1172,22 +1173,22 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         AccountName(),
         SimpleString())
 
-    def group_create(self, operator, group_name, description, owner, url):
+    def group_create(self, operator, group_name, description, admin, url):
         """Register a new VirtGroup in Cerebrum.
 
         @param group_name: Name of the group. It must have a realm suffix.
 
         @description: Human-friendly group description
 
-        @owner: An account that will be assigned 'owner'-style permission.
+        @admin: An account that will be assigned 'admin'-style permission.
 
         @url:
           A resource url associated with the group (i.e. some hint to a
           thingamabob justifying group's purpose).
         """
         self.ba.can_create_group(operator.get_entity_id())
-        owner_acc = self._get_account(owner)
-        self.ba.can_own_group(owner_acc.entity_id)
+        admin_acc = self._get_account(admin)
+        self.ba.can_own_group(admin_acc.entity_id)
         operator_acc = operator._fetch_account(operator.get_entity_id())
 
         # Check that the group name is not reserved
@@ -1200,9 +1201,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         try:
             new = self.virthome.group_create(
-                group_name, description, operator_acc, owner_acc, url)
+                group_name, description, operator_acc, admin_acc, url)
         except Errors.CerebrumError as e:
-            raise CerebrumError(str(e))  # bofhd CerebrumError
+            raise CerebrumError(str(e))
 
         return {'group_id': new.entity_id}
 
@@ -1262,7 +1263,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         FIXME: Do we want a cut-off for large groups?
         FIXME: Do we want a permission hook here? (i.e. listing only the
-        groups where one is a member/moderator/owner)
+        groups where one is a member/moderator/admin)
         """
         group = self._get_group(gname)
         return self.vhutils.list_group_members(group, indirect_members=False)
@@ -1294,29 +1295,29 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return result
 
     #
-    # group change_owner
+    # group change_admin
     #
-    all_commands["group_change_owner"] = Command(
-        ("group", "change_owner"),
+    all_commands["group_change_admin"] = Command(
+        ("group", "change_admin"),
         EmailAddress(),
         GroupName(),
         fs=FormatSuggestion("Confirm key:  %s",
                             ("confirmation_key",)))
 
-    def group_change_owner(self, operator, email, gname):
-        """Change gname's owner to FA associated with email.
+    def group_change_admin(self, operator, email, gname):
+        """Change gname's admin to FA associated with email.
         """
         group = self._get_group(gname)
         self.ba.can_change_owners(operator.get_entity_id(), group.entity_id)
-        owner = self.vhutils.list_group_owners(group),
+        admin = self.vhutils.list_group_admins(group),
         try:
-            owner = owner[0][0]['account_id']
+            admin = admin['admin_id']
         except IndexError:
-            owner = None
+            admin = None
         ret = {}
         ret['confirmation_key'] = self.vhutils.setup_event_request(
                                       group.entity_id,
-                                      self.clconst.va_group_owner_swap,
+                                      self.clconst.va_group_admin_swap,
                                       params={'old': owner,
                                               'group_id': group.entity_id,
                                               'new': email, })
@@ -1432,7 +1433,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_change_moderators(operator.get_entity_id(),
                                       group.entity_id)
 
-        self.vhutils.revoke_group_auth(account, 'group-moderator', group)
+        roles = GroupRoles(self.db)
+        roles.remove_moderator_from_group(account.entity_id, group.entity_id)
 
         return "OK, removed %s as moderator of %s" % (account.account_name,
                                                       group.group_name)
@@ -1518,7 +1520,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             "entity_id": group.entity_id,
             "creator": self._get_account(group.creator_id).account_name,
             "moderator": self.vhutils.list_group_moderators(group),
-            "owner": self.vhutils.list_group_owners(group),
+            "owner": self.vhutils.list_group_admins(group),
             "url": self._get_group_resource(group),
             "pending_moderator": self.__load_group_pending_events(
                                           group,
