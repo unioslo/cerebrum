@@ -31,6 +31,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum import Utils
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.modules import Email
 from Cerebrum.modules.dns.Subnet import Subnet, SubnetError
 from Cerebrum.modules.bofhd.help import merge_help_strings
@@ -433,14 +434,14 @@ class BofhdAccessCommands(BofhdCommonMethods):
         return ret
 
     #
-    # access list_alterable [group/maildom/host/disk] [username]
+    # access list_alterable [group] [username]
     #
     hidden_commands['access_list_alterable'] = Command(
         ('access', 'list_alterable'),
         SimpleString(optional=True),
         AccountName(optional=True),
         fs=FormatSuggestion(
-            "%10d %15s     %s", ("entity_id", "entity_type", "entity_name")
+            "%s %s", ("entity_name", "description")
         )
     )
 
@@ -460,7 +461,10 @@ class BofhdAccessCommands(BofhdCommonMethods):
                                    " operation")
 
         result = list()
-        matches = self.ba.list_alterable_entities(account_id, target_type)
+        roles = GroupRoles(self.db)
+        admins = roles.search_admins(admin_id=account_id)
+        moderators = roles.search_moderators(moderator_id=account_id)
+        matches = admins + moderators
         if len(matches) > cereconf.BOFHD_MAX_MATCHES_ACCESS:
             raise CerebrumError("More than {:d} ({:d}) matches. Refusing to "
                                 "return result".format(
@@ -468,20 +472,16 @@ class BofhdAccessCommands(BofhdCommonMethods):
                                     len(matches)))
         for row in matches:
             try:
-                entity = self._get_entity(ident=row["entity_id"])
+                group = self._get_group(row['group_id'])
             except Errors.NotFoundError:
                 self.logger.warn(
                     "Non-existent entity (%s) referenced from auth_op_target",
                     row["entity_id"])
                 continue
-            etype = self.const.EntityType(entity.entity_type)
-            ename = self._get_entity_name(entity.entity_id, entity.entity_type)
-            tmp = {"entity_id": row["entity_id"],
-                   "entity_type": six.text_type(etype),
-                   "entity_name": ename}
-            if entity.entity_type == self.const.entity_group:
-                tmp["description"] = entity.description
-
+            tmp = {
+                "entity_name": group.group_name,
+                "description": group.description,
+            }
             result.append(tmp)
         return result
 
