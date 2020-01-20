@@ -289,7 +289,6 @@ class OUGroup(VirtualGroup):
                moderator_id=None,
                spread=None,
                name=None,
-               group_type=None,
                description=None,
                group_type=None,
                filter_expired=True,
