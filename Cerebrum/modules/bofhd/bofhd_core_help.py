@@ -446,6 +446,9 @@ arg_help = {
     'id:request_id':
         ['request_id', 'Enter request_id',
          "'misc list_requests' returns legal values"],
+    'include_lms':
+        ['lms-group y/n', 'Include lms-groups',
+         'Include all the groups, including lms(fronter)-groups'],
     'limit_number_of_results':
         ['number', 'Number of results for query',
          "Gives upper limit for how many entries to include, counting " +

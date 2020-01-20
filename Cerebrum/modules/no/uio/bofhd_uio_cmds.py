@@ -36,7 +36,7 @@ from Cerebrum import Errors
 from Cerebrum import Metainfo
 from Cerebrum import Utils
 from Cerebrum import database
-from Cerebrum.Constants import _LanguageCode
+from Cerebrum.Constants import _LanguageCode, _GroupTypeCode
 from Cerebrum.modules import Email
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
@@ -1876,20 +1876,29 @@ class BofhdExtension(BofhdCommonMethods):
         ('group', 'memberships'),
         EntityType(default="account"),
         Id(),
+        YesNo(optional=True, default='no', help_ref='include_lms'),
         Spread(optional=True, help_ref='spread_filter'),
         fs=FormatSuggestion(
             "%-9s %-18s", ("memberop", "group"),
             hdr="%-9s %-18s" % ("Operation", "Group")
         ))
 
-    def group_memberships(self, operator, entity_type, id, spread=None):
+    def group_memberships(self, operator, entity_type,
+                          id, include_lms="no", spread=None):
+        group_types = self.const.fetch_constants(_GroupTypeCode)
+        default_group_types = {str(x): int(x) for x in group_types}
+        if not self._get_boolean(include_lms):
+            default_group_types.pop("lms-group", None)  # Remove fronter-groups
         entity = self._get_entity(entity_type, id)
         group = self.Group_class(self.db)
         co = self.const
         if spread is not None:
             spread = self._get_constant(self.const.Spread, spread, "spread")
         ret = []
-        for row in group.search(member_id=entity.entity_id, spread=spread):
+        for row in group.search(
+                member_id=entity.entity_id, spread=spread,
+                group_type=default_group_types.values()
+        ):
             ret.append({
                 'memberop': text_type(co.group_memberop_union),
                 'entity_id': row["group_id"],
