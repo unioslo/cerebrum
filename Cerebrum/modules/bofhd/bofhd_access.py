@@ -461,10 +461,10 @@ class BofhdAccessCommands(BofhdCommonMethods):
                                    " operation")
 
         result = list()
-        roles = GroupRoles(self.db)
-        admins = roles.search_admins(admin_id=account_id)
-        moderators = roles.search_moderators(moderator_id=account_id)
-        matches = admins + moderators
+        matches = self.Group_class(self.db).search(
+            admin_id=account_id,
+            admin_by_membership=True
+        )
         if len(matches) > cereconf.BOFHD_MAX_MATCHES_ACCESS:
             raise CerebrumError("More than {:d} ({:d}) matches. Refusing to "
                                 "return result".format(
