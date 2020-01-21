@@ -411,11 +411,22 @@ def main():
     #
     database = Factory.get('Database')()
     database.cl_init(change_program="join_persons")
+    clconst = Factory.get('CLConstants')(database)
 
     old_person = Factory.get('Person')(database)
     old_person.find(args.old)
     new_person = Factory.get('Person')(database)
     new_person.find(args.new)
+    database.log_change(
+        new_person.entity_id,
+        clconst.person_join,
+        None,
+        change_params={
+            "old": old_person.entity_id,
+            "new": new_person.entity_id
+        },
+    )
+
     person_join(old_person, new_person,
                 args.with_uio_ephorte, args.with_uio_voip, database)
     old_person.delete()
