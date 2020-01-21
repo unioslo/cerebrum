@@ -41,7 +41,6 @@ CLASS_CONSTANTS = [
     'Cerebrum.modules.consent.ConsentConstants/Constants',
     'Cerebrum.modules.cim.constants/ConstantsMixin',
     'Cerebrum.modules.disk_quota.constants/Constants',
-    'Cerebrum.modules.virtualgroup.Constants/OUGroupConstants',
     'Cerebrum.modules.feide.Constants/Constants',
     'Cerebrum.modules.no.uio.voip.Constants/VoipConstants',
     'Cerebrum.modules.no.uio.voip.Constants/VoipAuthConstants',

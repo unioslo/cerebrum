@@ -419,7 +419,6 @@ setup(
         'Cerebrum/modules/LMS',
         'Cerebrum/modules/virthome',
         'Cerebrum/modules/cis',
-        'Cerebrum/modules/virtualgroup',
         'Cerebrum/config',
         'Cerebrum/database',
         'Cerebrum/utils',
