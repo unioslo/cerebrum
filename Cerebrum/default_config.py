@@ -732,7 +732,7 @@ LDAP = {
 #    "objectClass":       ("dcObject", "labeledURIObject"),
 #    "o":                 ("Our fine Organization", "OfO"),
 #    "eduOrgLegalName":   ("Our fine Organization A/S",),
-#    "telephoneNumber":   ("+47-12345678",),
+#    "telephoneNumber":   ("+47 12345678",),
 #    "labeledURI":        ("http://www.ofo.no/",)}
 LDAP_ORG = {                            # Top object and common settings
     'file': "organization.ldif",
