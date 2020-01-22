@@ -31,28 +31,16 @@
  *   spread      | numeric(6,0)  | not null
  *   expire_date | date          | not null
  *
- *        Table "public.spread_expire_notification"
- *       Column      |         Type          | Modifiers
- *  -----------------+-----------------------+-----------
- *   entity_id       | numeric(12,0)         | not null
- *   notify_template | character varying(50) | not null
- *   notify_date     | date                  |
- *
- *
- * TODO: Add foreign key references, indexes, primary keys!
  */
 category:metainfo;
 name=spread_expire;
 
 category:metainfo;
-version=1.0;
+version=1.1;
 
 
 category:drop;
 DROP TABLE spread_expire;
-
-category:drop;
-DROP TABLE spread_expire_notification;
 
 
 /**
@@ -81,32 +69,4 @@ CREATE TABLE spread_expire
   expire_date
     DATE
     NOT NULL
-);
-
-
-/**
- * spread_expire_notification
- *
- * A list of notifications to send out.
- *
- * entity_id
- *   The entity with a spread expire date.
- * notify_template
- *   The template to use for notification.
- * notify_date
- *   The date to send notification.
-**/
-category:main;
-CREATE TABLE spread_expire_notification
-(
-  entity_id
-    NUMERIC(12,0)
-    NOT NULL,
-
-  notify_template
-    CHAR VARYING(50)
-    NOT NULL,
-
-  notify_date
-    DATE
 );
