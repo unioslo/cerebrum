@@ -30,7 +30,7 @@ from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import add_commit_args
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip,
@@ -47,7 +47,7 @@ def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip,
     const = Factory.get('Constants')(database)
     source_systems = const.fetch_constants(const.AuthoritativeSystem)
 
-    LOGGER.debug(('source_systems: %r', source_systems))
+    logger.debug(('source_systems: %r', source_systems))
 
     old_id = old_person.entity_id
     new_id = new_person.entity_id
@@ -63,7 +63,7 @@ def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip,
         types[int(row['id_type'])] = 1
     types = types.keys()
     for source_sys in source_systems:
-        LOGGER.debug("person_external_id: %s", source_sys)
+        logger.debug("person_external_id: %s", source_sys)
         new_person.clear()  # Avoid "Attribute '_extid_source' is read-only."
         new_person.find(new_id)
         new_person.affect_external_id(source_sys, *types)
@@ -90,7 +90,7 @@ def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip,
     for code in old_person.list_person_name_codes():
         variants.append(int(code['code']))
     for source_sys in source_systems:
-        LOGGER.debug("person_name: %s", source_sys)
+        logger.debug("person_name: %s", source_sys)
         new_person.clear()
         new_person.find(new_id)
         new_person.affect_names(source_sys, *variants)
@@ -109,7 +109,7 @@ def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip,
 
     # entity_contact_info
     for source_sys in source_systems:
-        LOGGER.debug("entity_contact_info: %s", source_sys)
+        logger.debug("entity_contact_info: %s", source_sys)
         new_person.clear()
         new_person.find(new_id)
         for row in old_person.get_contact_info(source_sys):
@@ -126,7 +126,7 @@ def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip,
 
     # entity_address
     for source_sys in source_systems:
-        LOGGER.debug("entity_address: %s", source_sys)
+        logger.debug("entity_address: %s", source_sys)
         new_person.clear()
         new_person.find(new_id)
         try:
@@ -149,20 +149,20 @@ def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip,
 
     # entity_quarantine
     for row in old_person.get_entity_quarantine():
-        LOGGER.debug("entity_quarantine: %s", row)
+        logger.debug("entity_quarantine: %s", row)
         new_person.add_entity_quarantine(
             row['quarantine_type'], row['creator_id'],
             row['description'], row['start_date'], row['end_date'])
 
     # entity_spread
     for row in old_person.get_spread():
-        LOGGER.debug("entity_spread: %s", row['spread'])
+        logger.debug("entity_spread: %s", row['spread'])
         if not new_person.has_spread(row['spread']):
             new_person.add_spread(row['spread'])
 
     # person_affiliation
     for source_sys in source_systems:
-        LOGGER.debug("person_affiliation: %s", source_sys)
+        logger.debug("person_affiliation: %s", source_sys)
         new_person.clear()
         new_person.find(new_id)
         do_del = []
@@ -200,14 +200,14 @@ def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip,
         account.find(row['account_id'])
         account.del_account_type(row['ou_id'], row['affiliation'])
         old_account_types.append(row)
-        LOGGER.debug("account_type: %s", account.account_name)
+        logger.debug("account_type: %s", account.account_name)
     for row in account.list_accounts_by_owner_id(old_person.entity_id,
                                                  filter_expired=False):
         account.clear()
         account.find(row['account_id'])
         account.owner_id = new_person.entity_id
         account.write_db()
-        LOGGER.debug("account owner: %s", account.account_name)
+        logger.debug("account owner: %s", account.account_name)
     for row in old_account_types:
         account.clear()
         account.find(row['account_id'])
@@ -220,7 +220,7 @@ def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip,
                             indirect_members=False):
         group.clear()
         group.find(row['group_id'])
-        LOGGER.debug("group_member: %s" % group.group_name)
+        logger.debug("group_member: %s" % group.group_name)
         if not group.has_member(new_person.entity_id):
             group.add_member(new_person.entity_id)
         group.remove_member(old_person.entity_id)
@@ -263,7 +263,7 @@ def join_consents(old_person, new_person):
                              new_consent['expiry'] and
                              (old_consent['expiry'] > new_consent['expiry']))
         keep = not new_consent or replace_expired or old_expires_later
-        LOGGER.info(
+        logger.info(
             'consent: old person has consent. '
             'joining with new? %s consent=%s', keep, dict(old_consent))
         if keep:
@@ -306,12 +306,12 @@ def join_ephorte_roles(old_id, new_id, database):
                                       row['arkivdel'],
                                       row['journalenhet'],
                                       auto_role='F')
-                LOGGER.debug("Transferring %s to %s", role_str, new_id)
+                logger.debug("Transferring %s to %s", role_str, new_id)
             except Exception as exc:
-                LOGGER.warning("Couldn't transfer %s to %s\n%s",
+                logger.warning("Couldn't transfer %s to %s\n%s",
                                role_str, new_id, exc)
         else:
-            LOGGER.debug("Removing %s", role_str)
+            logger.debug("Removing %s", role_str)
         # Remove role from old_person
         ephorte_role.remove_role(old_id, int(row['role_type']),
                                  int(row['adm_enhet']),
@@ -343,23 +343,23 @@ def join_uio_voip_objects(old_id, new_id, database):
         try:
             voip_addr.find_by_owner_id(old_id)
         except Errors.NotFoundError:
-            LOGGER.info("No voip address found for owner id %s", old_id)
+            logger.info("No voip address found for owner id %s", old_id)
             return
-        LOGGER.debug("Change owner of voip_address %s to %s",
+        logger.debug("Change owner of voip_address %s to %s",
                      voip_addr.entity_id,
                      new_id)
         voip_addr.populate(new_id)
         voip_addr.write_db()
     elif not old_person_voip_addr:
-        LOGGER.info("Nothing to transfer."
+        logger.info("Nothing to transfer."
                     " Person %s owns no voip addresses", old_id)
     else:
-        LOGGER.warning("Source person %s owns voip addresses: %s",
+        logger.warning("Source person %s owns voip addresses: %s",
                        old_id, old_person_voip_addr)
-        LOGGER.warning("Target person %s owns voip addresses:%s",
+        logger.warning("Target person %s owns voip addresses:%s",
                        new_id, new_person_voip_addr)
         database.rollback()
-        LOGGER.warning("Cannot transfer, rollback all changes."
+        logger.warning("Cannot transfer, rollback all changes."
                        "Manual intervention required to join voip objects.")
         sys.exit(1)
 
@@ -403,8 +403,8 @@ def main():
     args = parser.parse_args()
     logutils.autoconf('tee', args)
 
-    LOGGER.info('Start of script %s', parser.prog)
-    LOGGER.debug('args: %r', args)
+    logger.info('Start of script %s', parser.prog)
+    logger.debug('args: %r', args)
 
     #
     # Initialize globals
@@ -433,12 +433,12 @@ def main():
 
     if args.commit:
         database.commit()
-        LOGGER.info('Changes were committed to the database')
+        logger.info('Changes were committed to the database')
     else:
         database.rollback()
-        LOGGER.info('Dry run. Changes to the database were rolled back')
+        logger.info('Dry run. Changes to the database were rolled back')
 
-    LOGGER.info('Done with script %s', parser.prog)
+    logger.info('Done with script %s', parser.prog)
 
 
 if __name__ == '__main__':
