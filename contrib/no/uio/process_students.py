@@ -144,10 +144,9 @@ class AccountArgumentsGetter(object):
                     disk_id = self.profile.get_disk(disk_spread)
                 except AutoStud.ProfileHandler.NoAvailableDisk:
                     raise
-                yield (disk_id,
-                       disk_spread,
-                       None,
-                       self.get_new_disk_quota(disk_id))
+                yield {'disk_id': disk_id,
+                       'home_spread': disk_spread,
+                       'disk_quota': self.get_new_disk_quota(disk_id)}
 
     def get_account_spreads(self):
         return (s for s in self.profile.get_spreads() if
@@ -291,8 +290,8 @@ class AccountUtil(object):
             shell=default_shell
         )
 
-        for disk_id, _, _, _ in disks:
-            autostud.disk_tool.notify_used_disk(old=None, new=disk_id)
+        for disk in disks:
+            autostud.disk_tool.notify_used_disk(old=None, new=disk['disk_id'])
 
         logger.debug("new Account: %d", account.entity_id)
         accounts[int(account.entity_id)] = ExistingAccount(fnr, None)

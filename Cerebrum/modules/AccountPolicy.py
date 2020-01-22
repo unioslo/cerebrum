@@ -26,6 +26,8 @@ from Cerebrum.Errors import InvalidAccountCreationArgument
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.utils.email import is_email
+from Cerebrum.modules.ou_disk_mapping import utils
+from Cerebrum.modules.ou_disk_mapping.dbal import OUDiskMapping
 
 
 def _set_account_type(account, person, affiliation, ou_id):
@@ -60,6 +62,7 @@ class AccountPolicy(object):
         self.account = Factory.get('Account')(db)
         self.posix_user = Factory.get('PosixUser')(db)
         self.disk_quota = DiskQuota(db)
+        self.disk_mapping = OUDiskMapping(db)
 
     def create_basic_account(self, creator_id, owner, uname, np_type=None):
         self.account.clear()
@@ -73,7 +76,9 @@ class AccountPolicy(object):
                               creator_id,
                               None)
         self.account.write_db()
-        return Factory.get('Account')(self.db).find(self.account.entity_id)
+        new_account = Factory.get('Account')(self.db)
+        new_account.find(self.account.entity_id)
+        return new_account
 
     def create_group_account(self, creator_id, uname, owner_group,
                              contact_address, account_type):
@@ -133,31 +138,98 @@ class AccountPolicy(object):
         if disk_quota:
             self.disk_quota.set_quota(homedir_id, quota=int(disk_quota))
 
+    def _get_ou_disk(self, person):
+        # Get highest precedent affiliation
+        _, ou_id, aff, _, status, _, _, _, _ = person.list_affiliations(
+            person.entity_id)[0]
+        # Find the right disk id for this person
+        if aff:
+            aff = self.const.PersonAffiliation(aff)
+        if status:
+            status = self.const.PersonAffStatus(status)
+        disk_id = utils.get_disk(
+            self.db,
+            self.disk_mapping,
+            ou_id,
+            aff,
+            status,
+            self.const.OUPerspective(cereconf.DEFAULT_OU_PERSPECTIVE))
+        home_spread = int(self.const.Spread(cereconf.DEFAULT_HOME_SPREAD))
+        return disk_id, home_spread
+
+    def update_account(self, person, account_id, *args, **kwargs):
+        self.account.clear()
+        self.account.find(account_id)
+        return self._update_account(person, *args, **kwargs)
+
+    def _update_account(self, person, affiliations, disks,
+                        expire_date, traits=(), spreads=(),
+                        make_posix_user=True, gid=None, shell=None,
+                        ou_disk=False):
+        """Update an account
+
+        Adds traits, spreads and disks to an account, and also promotes posix.
+        Note self.account must already populated.
+        """
+        for trait in traits:
+            self.account.populate_trait(code=trait, date=datetime.date.today())
+        self.account.write_db()
+        if make_posix_user:
+            self._make_posix_user(gid, None, shell, expire_date)
+        user = self._get_user_obj(make_posix_user)
+        for spread in spreads:
+            user.add_spread(spread)
+        if ou_disk and not disks:
+            disk_id, home_spread = self._get_ou_disk(person)
+            disks = ({'disk_id': disk_id, 'home_spread': home_spread},)
+        for disk in disks:
+            self._set_user_disk(user,
+                                disk['disk_id'],
+                                disk['home_spread'],
+                                home=disk.get('home', None),
+                                disk_quota=disk.get('disk_quota', None))
+        _set_account_types(user, person, affiliations)
+        user.write_db()
+        return user
+
+    def _get_user_obj(self, posix):
+        if posix:
+            return self.posix_user
+        else:
+            return self.account
+
     def create_personal_account(self, person, affiliations, disks, expire_date,
                                 creator_id, uname=None, traits=(), spreads=(),
-                                make_posix_user=True,
-                                gid=None, shell=None):
+                                make_posix_user=True, gid=None, shell=None,
+                                ou_disk=False):
         """Create a personal account for the given person
 
         :type person: populated Cerebrum.Utils._dynamic_Person
         :type affiliations: dicts containing keys 'affiliation' and 'ou_id'
         :param affiliations: affiliations to set on the account
-        :type disks: Iterables containing values 'disk_id', 'home_spread',
-            'home' and 'disk_quota'
-        :param disks: disks to give the user
+        :type disks: Iterable
+        :param disks: disks to give the user. Each disk is a dict with
+            the required keys 'disk_id', 'home_spread' and optional keys
+            'home', 'disk_quota'.
         :param uname: the desired user name
         :param traits: traits to add to the newly created account
         :param spreads: spreads to add to the newly created account
         :param make_posix_user: should the account be a posix user?
-        :return: Account
+        :type ou_disk: bool
+        :param ou_disk: should a disk be selected using the OUDiskMapping
+            module if disks parameter is empty?
+        :return: Account or PosixUser
         """
-        if make_posix_user:
-            account = self.posix_user
-        else:
-            account = self.account
-
+        user = self._get_user_obj(make_posix_user)
         if uname is None:
-            uname = account.suggest_unames(person)[0]
+            user_names = user.suggest_unames(person)
+            try:
+                uname = user_names[0]
+            except IndexError:
+                raise InvalidAccountCreationArgument(
+                    'Could not generate user name for person %s',
+                    person.entity_id
+                )
 
         self.account.clear()
         self.account.populate(uname,
@@ -167,20 +239,17 @@ class AccountPolicy(object):
                               creator_id,
                               expire_date)
         self.account.write_db()
-        for trait in traits:
-            self.account.populate_trait(code=trait, date=datetime.date.today())
-        self.account.write_db()
+        user = self._update_account(person, affiliations,
+                                    disks, expire_date,
+                                    traits=traits, spreads=spreads,
+                                    make_posix_user=make_posix_user,
+                                    gid=gid,
+                                    shell=shell, ou_disk=ou_disk)
+        # Returning a new account object to avoid accidentally modifying the
+        # current one when creating another account.
         if make_posix_user:
-            self._make_posix_user(gid, None, shell, expire_date)
-        for spread in spreads:
-            account.add_spread(spread)
-        for disk_id, home_spread, home, disk_quota in disks:
-            self._set_user_disk(account,
-                                disk_id,
-                                home_spread,
-                                home=home,
-                                disk_quota=disk_quota)
-        _set_account_types(account, person, affiliations)
-        # Returning a new account object to avoid accidentally modifying it
-        # if creating another account.
-        return Factory.get('Account')(self.db).find(account.entity_id)
+            new_account = Factory.get('PosixUser')(self.db)
+        else:
+            new_account = Factory.get('Account')(self.db)
+        new_account.find(user.entity_id)
+        return new_account
