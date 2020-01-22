@@ -119,6 +119,10 @@ class ConstantsCommon(Constants.Constants):
         'entitlement', Constants.Constants.entity_group,
         "Trait listing entitlement that members of this group have")
 
+    trait_group_expire_notify = _EntityTraitCode(
+        'expire_notify', Constants.Constants.entity_group,
+        "If an admin has been notified that the group is expiring soon")
+
     # Traits for the password service (Individuation)
     trait_password_token = _EntityTraitCode(
         "password_token", Constants.Constants.entity_account,
