@@ -39,9 +39,8 @@ def dump_person_info(db, fname):
     person = Factory.get('Person')(db)
 
     src_sys_order = {
-        int(co.system_lt): 1,
-        int(co.system_fs): 2,
-        int(co.system_x): 3,
+        int(co.system_fs): 1,
+        int(co.system_x): 2,
     }
 
     def source_system_key(row):
