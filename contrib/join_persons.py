@@ -211,13 +211,6 @@ def person_join(old_person, new_person, with_uio_ephorte, with_uio_voip, db):
                           indirect_members=False):
         group.clear()
         group.find(g['group_id'])
-        # Skip virtual groups
-        if hasattr(group, 'virtual_group_type'):
-            if group.virtual_group_type != co.vg_normal_group:
-                logger.debug(
-                    "group_member: {} (virtual group, skipping)".format(
-                        group.group_name))
-                continue
         logger.debug("group_member: %s" % group.group_name)
         if not group.has_member(new_person.entity_id):
             group.add_member(new_person.entity_id)
