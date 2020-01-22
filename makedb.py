@@ -367,8 +367,6 @@ def check_schema_versions(db, strict=False):
         'stillingskoder': 'Cerebrum.modules.no.stillingskoder',
         'consent': 'Cerebrum.modules.consent.Consent',
         'employment': 'Cerebrum.modules.no.PersonEmployment',
-        'virtual_group': 'Cerebrum.modules.virtualgroup',
-        'virtual_group_ou': 'Cerebrum.modules.virtualgroup.OUGroup',
         'gpg': 'Cerebrum.modules.gpg',
     }
     meta = Metainfo.Metainfo(db)

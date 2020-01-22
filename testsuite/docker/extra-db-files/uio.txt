@@ -17,8 +17,6 @@
 --extra-file=mod_hostpolicy.sql
 --extra-file=mod_consent.sql
 --extra-file=mod_ephorte.sql
---extra-file=mod_virtualgroup.sql
---extra-file=mod_virtual_group_ou.sql
 --extra-file=mod_voip.sql
 --extra-file=mod_events.sql
 --extra-file=mod_gpg.sql
