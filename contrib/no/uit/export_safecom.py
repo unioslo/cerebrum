@@ -289,7 +289,7 @@ class SafecomExporter:
 
     def list_affiliations(self):
         person_affs = {}
-        skip_source = [co.system_lt]
+        skip_source = []
 
         for aff in person.list_affiliations():
             # simple filtering

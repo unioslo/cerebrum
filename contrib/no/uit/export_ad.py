@@ -194,8 +194,7 @@ class AdExport(object):
 
     def list_affiliations(self):
         person_affs = dict()
-        skip_source = [self.co.system_lt]
-        # skip_source.append(co.system_hitos)
+        skip_source = []
         for aff in self.person.list_affiliations():
             # simple filtering
             aff_status_filter = (self.co.affiliation_status_student_tilbud,)

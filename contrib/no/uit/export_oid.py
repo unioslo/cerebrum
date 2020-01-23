@@ -355,9 +355,7 @@ def get_affiliations(db, ou_cache, ou_mapping, aff_cache):
     person_affs = {}
 
     skip_source = (
-        co.system_lt,
         co.system_flyt,
-        # co.system_hitos,
     )
 
     for aff in pe.list_affiliations():
