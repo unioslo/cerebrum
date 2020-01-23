@@ -49,7 +49,7 @@ import Cerebrum.utils.email
 import cereconf
 from Cerebrum import logutils
 from Cerebrum.Errors import NotFoundError
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.argutils import codec_type
@@ -63,7 +63,6 @@ DEFAULT_TEMPLATE_FOLDER = os.path.join(os.path.dirname(__file__),
 TEMPLATE_NAME = 'group_expiring_table.html'
 FROM_ADDRESS = 'noreply@usit.uio.no'
 SENDER = 'USIT\nUiO'
-DEFAULT_AUTH_OPERATION_SET = ['Group-owner']
 DEFAULT_ENCODING = 'utf-8'
 DEFAULT_LANGUAGE = 'nb'
 BRUKERINFO_GROUP_MANAGE_LINK = 'https://brukerinfo.uio.no/groups/?group='
@@ -263,27 +262,28 @@ def create_html_message(html,
 
 
 def send_mails(args, group_info_dict, translation, title):
-    owner2group = group_info_dict['owner2group']
-    owner2email = group_info_dict['owner2mail']
+    owner2groupids = group_info_dict['owner2groupids']
+    owner2mail = group_info_dict['owner2mail']
+    groupid2name = group_info_dict['groupid2name']
+    groupid2expdate = group_info_dict['groupid2expdate']
 
-    for account_name, groups in owner2group.items():
-        email_address = owner2email.get(account_name, None)
+    for account_name, groups in owner2groupids.items():
+        email_address = owner2mail.get(account_name, None)
         if not email_address:
             logger.warning('No primary email for %s', account_name)
             continue
 
-        expiring_groups = [
-            {'group_name': group[0],
-             'expire_date': group[1],
-             'manage_link': BRUKERINFO_GROUP_MANAGE_LINK + group[0]} for
-            group in groups
-        ]
+        expiring_groups = [{
+            'group_name': groupid2name[gr_id],
+            'expire_date': groupid2expdate[gr_id],
+            'manage_link': BRUKERINFO_GROUP_MANAGE_LINK + groupid2name[gr_id]
+        } for gr_id in groups]
 
         html = write_html_report(
             args.template_folder,
             args.codec,
             title=title,
-            translation=translation[DEFAULT_LANGUAGE],
+            translation=translation,
             sender=SENDER,
             expiring_groups=expiring_groups,
             info_link=INFO_LINK,
@@ -291,7 +291,7 @@ def send_mails(args, group_info_dict, translation, title):
         )
         plain_text = write_plain_text_report(
             args.codec,
-            translation=translation[DEFAULT_LANGUAGE],
+            translation=translation,
             sender=SENDER,
             expiring_groups=expiring_groups,
             account_name=account_name,
@@ -309,8 +309,10 @@ def send_mails(args, group_info_dict, translation, title):
                                       to_addrs=email_address)
         try:
             Cerebrum.utils.email.send_message(message, debug=not args.commit)
-        except SMTPException as e:
-            logger.warning(e)
+        except SMTPException:
+            logger.warning("Failed to notify moderator with username %s",
+                           account_name,
+                           exc_info=True)
 
 
 def get_expiring_groups(db, co, today, timelimit1, timelimit2):
@@ -391,8 +393,10 @@ def get_admins_groups_emails(db, expiring_groups):
     pe = Factory.get('Person')(db)
 
     # Cache owner and group info
-    owner2group = {}
+    owner2groupids = {}
     owner2mail = {}
+    groupid2name = {}
+    groupid2expdate = {}
 
     def cache_owner_groups_and_email(account_id, group_id):
         ac.clear()
@@ -405,10 +409,13 @@ def get_admins_groups_emails(db, expiring_groups):
             # No way to contact this person, go to next group
             # member
             return
-        if account_name in owner2group:
-            owner2group[account_name].add(get_group_info(gr, group_id))
+        grname, exp_date = get_group_info(gr, group_id)
+        if account_name in owner2groupids:
+            owner2groupids[account_name].add(group_id)
         else:
-            owner2group[account_name] = {get_group_info(gr, group_id), }
+            owner2groupids[account_name] = {group_id, }
+        groupid2name[group_id] = grname
+        groupid2expdate[group_id] = exp_date
         return
 
     roles = GroupRoles(db)
@@ -445,7 +452,10 @@ def get_admins_groups_emails(db, expiring_groups):
         else:
             raise ValueError(
                 "Unknown admin type '{}'".format(admin['admin_type']))
-    return {'owner2group': owner2group, 'owner2mail': owner2mail}
+    return {'owner2groupids': owner2groupids,
+            'owner2mail': owner2mail,
+            'groupid2name': groupid2name,
+            'groupid2expdate': groupid2expdate}
 
 
 def main(inargs=None):
@@ -482,21 +492,25 @@ def main(inargs=None):
     # Filter out groups that have already been notified
     gr = Factory.get('Group')(db)
 
-    def filter_with_trait(groups):
-        to_remove = set()
-        for gr_id in groups:
-            gr.clear()
-            gr.find(gr_id)
-            if co.trait_group_expire_notify in gr.get_traits():
-                to_remove.add(gr_id)
-        for i in to_remove:
-            groups.remove(i)
+    def filter_with_trait(groups, numval=NotSet):
+        notified_groups = set(
+            row['entity_id'] for row in
+            gr.list_traits(code=co.trait_group_expire_notify,
+                           numval=numval) if
+            row['entity_type'] == co.entity_group
+        )
+        return groups - notified_groups
 
     logger.info("Filtering out groups that have been notified")
-    filter_with_trait(soon_expiring)
+    # Remove those that have gotten the second warning from the groups in the
+    # today < x < limit_1 period
+    soon_expiring = filter_with_trait(soon_expiring, 2)
     logger.info("Found %d groups expiring before %s",
                 len(soon_expiring), str(limit_1))
-    filter_with_trait(later_expiring)
+
+    # Remove those that have gotten any warning from the groups in the
+    # limit_1 < x < limit_2 period
+    later_expiring = filter_with_trait(later_expiring)
     logger.info("Found %d groups expiring between %s and %s",
                 len(later_expiring), str(limit_1), str(limit_2))
 
@@ -521,14 +535,20 @@ def main(inargs=None):
         soon = get_admins_groups_emails(db, soon_expiring)
         logger.info("Notifying admins of groups expiring before %s",
                     str(limit_1))
-        send_mails(args, soon, TRANSLATION, get_title(DEFAULT_LANGUAGE))
+        send_mails(args,
+                   soon,
+                   TRANSLATION[DEFAULT_LANGUAGE],
+                   get_title(DEFAULT_LANGUAGE))
 
     if later_expiring:
         logger.info("Finding emails to admins")
         later = get_admins_groups_emails(db, later_expiring)
         logger.info("Notifying admins of groups expiring between %s and %s",
                     str(limit_1), str(limit_2))
-        send_mails(args, later, TRANSLATION, get_title(DEFAULT_LANGUAGE))
+        send_mails(args,
+                   later,
+                   TRANSLATION[DEFAULT_LANGUAGE],
+                   get_title(DEFAULT_LANGUAGE))
 
     # Remove traits for notified groups where the expire date has been
     # extended, so that the group can be notified again in the future.
