@@ -82,10 +82,6 @@ class Constants(Constants.Constants):
         'HITOS',
         'Høgskolen i Tromsø')
 
-    system_lt = _AuthoritativeSystemCode(
-        'SLP4',
-        'SLP4')
-
     system_x = _AuthoritativeSystemCode(
         'SYS_X',
         'Manuelt personal system')
