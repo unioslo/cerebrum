@@ -83,23 +83,26 @@ def remove_persons(database, logger, posix_user2gid, grace_period):
         potential_accs.add(row['account_id'])
 
     # Find the group memberships of those accounts and remove them
-    logger.info("Removing accounts from groups")
-    for row in group.search_members(member_id=potential_accs,
-                                    member_type=const.entity_account):
-        mid = int(row['member_id'])
-        gid = int(row['group_id'])
-        # Skip default file group
-        if mid in posix_user2gid and gid == posix_user2gid[mid]:
-            continue
-        # Skip groups of the wrong type
-        if group_type[gid] not in group_type_remove_members:
-            continue
-        logger.info("Remove account %i from group %i", mid, gid)
-        persons_affected.add(mid)
-        groups_affected.add(gid)
-        group.remove_member_from_group(mid, gid)
-    logger.info("Removed %i persons from %i groups",
-                len(persons_affected), len(groups_affected))
+    if potential_accs:
+        logger.info("Removing accounts from groups")
+        for row in group.search_members(member_id=potential_accs,
+                                        member_type=const.entity_account):
+            mid = int(row['member_id'])
+            gid = int(row['group_id'])
+            # Skip default file group
+            if mid in posix_user2gid and gid == posix_user2gid[mid]:
+                continue
+            # Skip groups of the wrong type
+            if group_type[gid] not in group_type_remove_members:
+                continue
+            logger.info("Remove account %i from group %i", mid, gid)
+            persons_affected.add(mid)
+            groups_affected.add(gid)
+            group.remove_member_from_group(mid, gid)
+        logger.info("Removed %i persons from %i groups",
+                    len(persons_affected), len(groups_affected))
+    else:
+        logger.info("No accounts found. All is well.")
 
 
 def cache_group_types(gr):
