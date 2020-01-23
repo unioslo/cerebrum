@@ -34,7 +34,7 @@ import re
 import six
 
 import cereconf
-from Cerebrum.auth import all_auth_methods, encrypt_ha1_md5, verify_ha1_md5
+from Cerebrum.auth import all_auth_methods
 from Cerebrum import Utils, Disk
 from Cerebrum.Entity import (EntityName,
                              EntityQuarantine,
@@ -837,10 +837,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         :type binary: bool
         :param binary: Treat plaintext as binary data
         """
-        if method == self.const.auth_type_ha1_md5:
-            realm = cereconf.AUTH_HA1_REALM
-            return encrypt_ha1_md5(
-                self.account_name, realm, plaintext, salt, binary)
         try:
             auth_impl = all_auth_methods[str(method)]()
             return auth_impl.encrypt(plaintext, salt, binary)
@@ -876,10 +872,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         False if it doesn't.  If the method doesn't support
         verification, NotImplemented is returned.
         """
-        if method == self.const.auth_type_ha1_md5:
-            realm = cereconf.AUTH_HA1_REALM
-            return verify_ha1_md5(
-                self.account_name, realm, plaintext, cryptstring)
         try:
             auth_impl = all_auth_methods[str(method)]()
             return auth_impl.verify(plaintext, cryptstring)

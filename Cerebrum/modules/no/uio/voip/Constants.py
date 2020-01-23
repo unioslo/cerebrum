@@ -25,7 +25,8 @@
 
 from Cerebrum import Constants
 from Cerebrum.Constants import (_EntityTypeCode as EntityTypeCode,
-                                _CerebrumCode, _AuthoritativeSystemCode)
+                                _CerebrumCode, _AuthoritativeSystemCode,
+                                _AuthenticationCode)
 
 
 class _VoipServiceTypeCode(_CerebrumCode):
@@ -37,7 +38,7 @@ class _VoipServiceTypeCode(_CerebrumCode):
 
 class _VoipClientTypeCode(_CerebrumCode):
     """Different types of clients -- soft- and hardphones."""
-    
+
     _lookup_table = '[:table schema=cerebrum name=voip_client_type_code]'
 # end _VoipClientTypeCode
 
@@ -65,6 +66,12 @@ class VoipAuthConstants(Constants.Constants):
     voip_auth_sip_secret = _EntityAuthenticationCode(
         'voip-sipsecret',
         'sipSecret value for voip clients')
+
+    auth_type_ha1_md5 = _AuthenticationCode(
+        'HA1-MD5',
+        "Used in digest access authentication as specified in RFC 2617. "
+        "Is an unsalted MD5 digest hash over 'username:realm:password'. "
+        "See <http://tools.ietf.org/html/rfc2617#section-3.2.2.2>")
 # end VoipAuthConstants
 
 
@@ -168,7 +175,7 @@ class VoipConstants(Constants.Constants):
         "voip_service_autodial",
         "autodial",
     )
-    
+
     ########################################################################
     # voip-client
     entity_voip_client = EntityTypeCode(

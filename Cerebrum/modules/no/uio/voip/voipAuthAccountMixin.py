@@ -1,0 +1,36 @@
+import hashlib
+import six
+
+import cereconf
+from Cerebrum import Account
+
+
+def encrypt_ha1_md5(account_name, realm, plaintext, salt=None, binary=False):
+    if not isinstance(plaintext, six.text_type) and not binary:
+        raise ValueError("plaintext cannot be bytestring and not binary")
+    plaintext = plaintext.encode('utf-8')
+    s = ":".join([account_name, realm, plaintext])
+    return hashlib.md5(s.encode('utf-8')).hexdigest().decode()
+
+
+def verify_ha1_md5(account_name, realm, plaintext, cryptstring):
+    return (encrypt_ha1_md5(
+        account_name, realm, plaintext) == cryptstring)
+
+
+class VoipAuthAccountMixin(Account.Account):
+    def encrypt_password(self, method, plaintext, salt=None, binary=False):
+        if method == self.const.auth_type_ha1_md5:
+            realm = cereconf.AUTH_HA1_REALM
+            return encrypt_ha1_md5(
+                self.account_name, realm, plaintext, salt, binary)
+        super(VoipAuthAccountMixin, self).encrypt_password(
+            method, plaintext, salt=salt, binary=binary)
+
+    def verify_password(self, method, plaintext, cryptstring):
+        if method == self.const.auth_type_ha1_md5:
+            realm = cereconf.AUTH_HA1_REALM
+            return verify_ha1_md5(
+                self.account_name, realm, plaintext, cryptstring)
+        super(VoipAuthAccountMixin, self).verify_password(
+            method, plaintext, cryptstring)
