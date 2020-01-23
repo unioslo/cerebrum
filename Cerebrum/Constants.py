@@ -1874,6 +1874,8 @@ class CLConstants(ConstantsBase):
         'person', 'create', 'created %(subject)s')
     person_update = _ChangeTypeCode(
         'person', 'modify', 'update %(subject)s')
+    person_join = _ChangeTypeCode(
+        'person', 'join', 'join %(subject)s')
     person_name_del = _ChangeTypeCode(
         'person_name', 'remove', 'del name for %(subject)s',
         ('src=%(source_system:src)s, ' +
