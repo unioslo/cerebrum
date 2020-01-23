@@ -488,7 +488,7 @@ def proc_delete_user(r):
             op.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
             with pu._new_personal_group(op.entity_id) as new_group:
                 personal_fg = new_group
-                pu._set_owner_of_group(personal_fg)
+                personal_fg.add_admin(pu.entity_id)
                 pu.map_user_spreads_to_pg()
             logger.debug("Created group: '%s'. Group ID = %d",
                          personal_fg.group_name, personal_fg.entity_id)
