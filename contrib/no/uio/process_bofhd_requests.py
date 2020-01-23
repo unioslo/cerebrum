@@ -38,6 +38,7 @@ import cereconf
 from Cerebrum import Utils
 from Cerebrum import logutils
 from Cerebrum import Errors
+from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.utils import json
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
@@ -488,7 +489,8 @@ def proc_delete_user(r):
             op.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
             with pu._new_personal_group(op.entity_id) as new_group:
                 personal_fg = new_group
-                personal_fg.add_admin(pu.entity_id)
+                roles = GroupRoles(db)
+                roles.add_admin_to_group(pu.entity_id, personal_fg.entity_id)
                 pu.map_user_spreads_to_pg()
             logger.debug("Created group: '%s'. Group ID = %d",
                          personal_fg.group_name, personal_fg.entity_id)
