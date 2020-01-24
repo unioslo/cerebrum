@@ -535,7 +535,9 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_add_group_admin')
 
     def group_add_admin(self, operator, admin, dest_group):
-        group_id = self._get_group(dest_group).entity_id
+        group = self._get_group(dest_group)
+        self.ba.can_add_group_admin(operator, group)
+
         admin = admin.split(":", 1)
         if len(admin) == 1 or admin[0] == "group":
             admin_id = self._get_group(admin[-1]).entity_id
@@ -543,7 +545,7 @@ class BofhdExtension(BofhdCommonMethods):
             admin_id = self._get_account(admin[-1]).entity_id
         roles = GroupRoles(self.db)
         try:
-            roles.add_admin_to_group(admin_id, group_id)
+            roles.add_admin_to_group(admin_id, group.entity_id)
         except self.db.IntegrityError:
             return "{admin} already set as admin for {group}".format(
                 admin=admin[-1], group=dest_group)
@@ -560,14 +562,16 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_add_group_admin')
 
     def group_remove_admin(self, operator, admin, dest_group):
-        group_id = self._get_group(dest_group).entity_id
+        group = self._get_group(dest_group)
+        self.ba.can_add_group_admin(operator, group)
+
         admin = admin.split(":", 1)
         if len(admin) == 1 or admin[0] == "group":
             admin_id = self._get_group(admin[-1]).entity_id
         elif admin[0] == "account":
             admin_id = self._get_account(admin[-1]).entity_id
         roles = GroupRoles(self.db)
-        if roles.remove_admin_from_group(admin_id, group_id):
+        if roles.remove_admin_from_group(admin_id, group.entity_id):
             return "OK, removed {admin} as admin for {group}".format(
                 admin=admin[-1], group=dest_group)
         return "{admin} was not moderator for {group}".format(
@@ -583,7 +587,9 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_add_group_moderator')
 
     def group_add_moderator(self, operator, moderator, dest_group):
-        group_id = self._get_group(dest_group).entity_id
+        group = self._get_group(dest_group)
+        self.ba.can_add_group_moderator(operator, group)
+
         moderator = moderator.split(":", 1)
         if len(moderator) == 1 or moderator[0] == "group":
             moderator_id = self._get_group(moderator[-1]).entity_id
@@ -591,7 +597,7 @@ class BofhdExtension(BofhdCommonMethods):
             moderator_id = self._get_account(moderator[-1]).entity_id
         roles = GroupRoles(self.db)
         try:
-            roles.add_moderator_to_group(moderator_id, group_id)
+            roles.add_moderator_to_group(moderator_id, group.entity_id)
         except self.db.IntegrityError:
             return "{moderator} already set as moderator for {group}".format(
                 moderator=moderator[-1], group=dest_group)
@@ -608,14 +614,16 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='can_add_group_moderator')
 
     def group_remove_moderator(self, operator, moderator, dest_group):
-        group_id = self._get_group(dest_group).entity_id
+        group = self._get_group(dest_group)
+        self.ba.can_add_group_moderator(operator, group)
+
         moderator = moderator.split(":", 1)
         if len(moderator) == 1 or moderator[0] == "group":
             moderator_id = self._get_group(moderator[-1]).entity_id
         elif moderator[0] == "account":
             moderator_id = self._get_account(moderator[-1]).entity_id
         roles = GroupRoles(self.db)
-        if roles.remove_moderator_from_group(moderator_id, group_id):
+        if roles.remove_moderator_from_group(moderator_id, group.entity_id):
             return "OK, removed {moderator} as moderator for {group}".format(
                 moderator=moderator[-1], group=dest_group)
         return "{moderator} was not moderator for {group}".format(
