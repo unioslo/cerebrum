@@ -254,7 +254,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             WHERE group_id=:g_id""", {'g_id': self.entity_id})
 
             # Empty this group's set of admins and moderators
-            group_roles = GroupRoles(self.db)
+            group_roles = GroupRoles(self._db)
             group_roles.remove_all(self.entity_id)
 
             # Empty this group's memberships.
