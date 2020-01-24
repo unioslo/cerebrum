@@ -140,7 +140,7 @@ class GroupRoles(DatabaseAccessor):
         for admin in admins:
             self._db.log_change(group_id,
                                 self.clconst.group_admin_rem,
-                                admin)
+                                admin['admin_id'])
         # Remove them
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=group_admin]
@@ -153,7 +153,7 @@ class GroupRoles(DatabaseAccessor):
         for mod in mods:
             self._db.log_change(group_id,
                                 self.clconst.group_moderator_rem,
-                                mod)
+                                mod['moderator_id'])
         # Remove them
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=group_moderator]
