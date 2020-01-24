@@ -64,7 +64,7 @@ def get_table(table_rows):
 
      Example:
 
-     >>> table = assemble_plaintext_table([['This', 'is'], ['a', 'table']])
+     >>> table = get_table([['This', 'is'], ['a', 'table']])
      >>> print(table)
      +----+-----+
      |This|is   |
