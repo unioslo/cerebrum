@@ -4,16 +4,22 @@
 
 import pytest
 
+import Cerebrum.Account
+import Cerebrum.modules.gpg
+import Cerebrum.modules.gpg.data
+
 
 @pytest.fixture
-def entity(database, factory, cereconf):
-    ac = factory.get('Account')
+def entity(database, cereconf, gpg_key):
 
-    class ConfiguredAccount(ac):
+    class ConfiguredAccount(
+        Cerebrum.Account.Account,
+        Cerebrum.modules.gpg.data.EntityGPGData,
+    ):
         @property
         def _tag_to_recipients(self):
             return {
-                'foo': ['06B0A991A41F3955F1DFD524D04D25F75D4C1CC4'],
+                'foo': [gpg_key],
                 'bar': []
             }
     cac = ConfiguredAccount(database)
