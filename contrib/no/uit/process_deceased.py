@@ -34,6 +34,7 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.date import datetime2mx
 from Cerebrum.utils.argutils import add_commit_args
 
 logger = logging.getLogger(__name__)
@@ -49,8 +50,8 @@ KEY_DATE = "date"
 KEY_REASON = "reason"
 
 
-def parse_date(date_str, date_fmt='%d.%m.%y'):
-    parsed = datetime.datetime.strptime(date_str, date_fmt)
+def parse_date(date_str, date_fmt='%d.%m.%Y'):  # Default format e.g. 01.05.1985  (1. Mai 1985), ps: dots between.
+    parsed = datetime.datetime.strptime(date_str, date_fmt)         # ref. CRB-2912
     return parsed.date()
 
 
@@ -116,7 +117,7 @@ def process_deceased(db, source_data):
                          key, item['deceased_date'])
 
         # We use mx.DateTime when interacting with the database (for now)
-        deceased_date = mx.DateTime.DateFrom(item['deceased_date'])
+        deceased_date = datetime2mx(item['deceased_date'])
 
         if person.deceased_date == deceased_date:
             logger.debug("No change in deceased_date for employee_id=%r", key)
