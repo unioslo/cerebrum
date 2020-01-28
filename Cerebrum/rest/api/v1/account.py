@@ -36,6 +36,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import date
 from Cerebrum.QuarantineHandler import QuarantineHandler
+from Cerebrum.modules.gpg.data import GpgData
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough)
 
@@ -777,13 +778,14 @@ class AccountGPGResource(Resource):
     def get(self, name, tag, key_id):
         """Get latest GPG data for an account."""
         ac = find_account(name)
-        gpg_data = ac.search_gpg_data(entity_id=ac.entity_id,
-                                      tag=tag,
-                                      recipient=key_id,
-                                      latest=True)
+        gpg_db = GpgData(db.connection)
+        gpg_data = gpg_db.get_messages_for_recipient(entity_id=ac.entity_id,
+                                                     tag=tag,
+                                                     recipient=key_id,
+                                                     latest=True)
         if not gpg_data:
             abort(404, "No GPG messages found")
-        message = gpg_data[0].get('message')
+        message = gpg_data[0]['message']
         response = make_response(message)
         response.headers['Content-Type'] = 'text/plain'
         return response

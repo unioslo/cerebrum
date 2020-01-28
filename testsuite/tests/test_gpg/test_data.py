@@ -154,6 +154,32 @@ def test_search_order(database, gpg_message, gpg_data):
     assert dict(results[1]) == gpg_message
 
 
+def test_get_recipient(database, gpg_message, gpg_data):
+    duplicate = gpg_data.add_message(gpg_message['entity_id'],
+                                     gpg_message['tag'],
+                                     gpg_message['recipient'],
+                                     gpg_message['message_id'])
+    results = gpg_data.get_messages_for_recipient(gpg_message['entity_id'],
+                                                  gpg_message['tag'],
+                                                  gpg_message['recipient'])
+    assert len(results) == 2
+    assert dict(results[0]) == dict(duplicate)
+    assert dict(results[1]) == gpg_message
+
+
+def test_get_recipient_latest(database, gpg_message, gpg_data):
+    duplicate = gpg_data.add_message(gpg_message['entity_id'],
+                                     gpg_message['tag'],
+                                     gpg_message['recipient'],
+                                     gpg_message['message_id'])
+    results = gpg_data.get_messages_for_recipient(gpg_message['entity_id'],
+                                                  gpg_message['tag'],
+                                                  gpg_message['recipient'],
+                                                  latest=True)
+    assert len(results) == 1
+    assert dict(results[0]) == dict(duplicate)
+
+
 def test_add_gpg_data_valid_tags(entity):
     message_ids = entity.add_gpg_data("foo", "hello")
     assert len(message_ids) == 1

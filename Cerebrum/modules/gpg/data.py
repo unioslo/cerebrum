@@ -219,6 +219,22 @@ class GpgData(DatabaseAccessor.DatabaseAccessor):
                    columns=', '.join(self.columns))
         return self.query(stmt, binds)
 
+    def get_messages_for_recipient(self, entity_id, tag, recipient,
+                                   latest=False):
+        """
+        Get gpg messages for a given entity, tag and recipient.
+        """
+        gpg_data = GpgData(self._db)
+        result = list(
+            gpg_data.search(
+                entity_id=int(entity_id),
+                tag=six.text_type(tag),
+                recipient=six.text_type(recipient)))
+        if latest:
+            return result[:1]
+        else:
+            return result
+
 
 class EntityMixin(Entity.Entity):
     """
@@ -257,37 +273,3 @@ class EntityGPGData(EntityMixin):
                                        tag=t, recipient=r, encrypted=m)
             message_ids.append(row['message_id'])
         return message_ids
-
-    def search_gpg_data(self, message_id=None, entity_id=None, tag=None,
-                        recipient=None, latest=False):
-        """Search for GPG messages.
-
-        :param message_id: Message ID(s)
-        :type message_id: int or a seqence thereof
-
-        :param entity_id: Entity ID(s)
-        :type entity_id: int or a sequence thereof
-
-        :param tag: Tag
-        :type tag: str or a sequence thereof
-
-        :param recipient: Recipient key ID(s)
-        :type recipient: str or a sequence thereof
-
-        :returns: list of db rows
-        """
-        # TODO: We should replace use of this method with:
-        # - gpg_data.search()
-        # - a dedicated method that implements search for the latest entry for
-        #   a given (entity_id, tag, recipient) tuple
-        gpg_data = GpgData(self._db)
-        result = list(
-            gpg_data.search(
-                message_id=message_id,
-                entity_id=entity_id,
-                tag=tag,
-                recipient=recipient))
-        if latest:
-            return result[:1]
-        else:
-            return result

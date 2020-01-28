@@ -68,6 +68,7 @@ from Cerebrum.modules.ad2.CerebrumData import CerebrumEntity
 from Cerebrum.modules.ad2.ConfigUtils import ConfigError
 from Cerebrum.modules.ad2.winrm import CommandTooLongException
 from Cerebrum.modules.ad2.winrm import PowershellException
+from Cerebrum.modules.gpg.data import GpgData
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
 
@@ -579,7 +580,7 @@ class BaseSync(object):
                                      self.config['domain']),
                                  txt, charset='utf-8',
                                  debug=self.config['dryrun'])
-                    except Exception, e:
+                    except Exception as e:
                         self.logger.warn("Error sending AD-messages to %s: %s",
                                          address, e)
             elif opt[0] == 'file':
@@ -1078,7 +1079,7 @@ class BaseSync(object):
                                    ', '.join(sorted(ad_object.keys())))
             try:
                 self.process_ad_object(ad_object)
-            except ADUtils.NoAccessException, e:
+            except ADUtils.NoAccessException as e:
                 # Access errors could be given to the AD administrators, as
                 # Cerebrum are not allowed to fix such issues.
                 self.add_admin_message(
@@ -1086,7 +1087,7 @@ class BaseSync(object):
                         ad_object['DistinguishedName'], e))
                 # TODO: do we need to strip out data from the exceptions? Could
                 # it for instance contain passwords?
-            except PowershellException, e:
+            except PowershellException as e:
                 self.logger.warn("PowershellException for %s: %s" %
                                  (ad_object['DistinguishedName'], e))
             else:
@@ -1366,13 +1367,13 @@ class BaseSync(object):
                 continue
             try:
                 self.process_entity_not_in_ad(ent)
-            except ADUtils.NoAccessException, e:
+            except ADUtils.NoAccessException as e:
                 # Access errors should be sent to the AD administrators, as
                 # Cerebrum can not fix this.
                 self.add_admin_message('warning',
                                        'Missing access rights for %s: %s' % (
                                            ent.ad_id, e))
-            except PowershellException, e:
+            except PowershellException as e:
                 self.logger.warn("PowershellException for %s: %s" %
                                  (ent.entity_name, e))
             else:
@@ -1399,7 +1400,7 @@ class BaseSync(object):
                                   ent.entity_name)
         try:
             obj = self.create_object(ent)
-        except ADUtils.ObjectAlreadyExistsException, e:
+        except ADUtils.ObjectAlreadyExistsException as e:
             # It exists in AD, but is probably somewhere out of our
             # search_base. Will try to get it, so we could still update it, and
             # maybe even move it to the correct OU.
@@ -1440,7 +1441,7 @@ class BaseSync(object):
                                   "one is the right one.", ent.ad_id)
                 return False
         except (ADUtils.SetAttributeException,
-                CommandTooLongException), e:
+                CommandTooLongException) as e:
             # The creation of the object may have failed because of entity's
             # attributes. It may have been too many of them and the command
             # became too long, or they contained (yet) invalid paths in AD.
@@ -1723,7 +1724,7 @@ class BaseSync(object):
         try:
             return self.server.execute_script(self.config['script'][action],
                                               **params)
-        except PowershellException, e:
+        except PowershellException as e:
             self.logger.warn(
                 "Script failed for event %s (%s): %s",
                 action, params.get('UUID'), e)
@@ -2483,8 +2484,9 @@ class UserSync(BaseSync):
 
             # If a GPG recipient ID is set, we fetch the encrypted password
             if self.config.get('gpg_recipient_id', None):
+                gpg_db = GpgData(self.db)
                 for tag in ('password-base64', 'password'):
-                    gpg_data = self.ac.search_gpg_data(
+                    gpg_data = gpg_db.get_messages_for_recipient(
                         entity_id=ent.entity_id,
                         tag=tag,
                         recipient=self.config['gpg_recipient_id'],
@@ -2629,8 +2631,9 @@ class UserSync(BaseSync):
             # If a GPG recipient ID is set, we fetch the encrypted password
             tag = 'plaintext'
             if self.config.get('gpg_recipient_id', None):
+                gpg_db = GpgData(self.db)
                 for tag in ('password-base64', 'password'):
-                    gpg_data = self.ac.search_gpg_data(
+                    gpg_data = gpg_db.get_messages_for_recipient(
                         entity_id=self.ac.entity_id,
                         tag=tag,
                         recipient=self.config['gpg_recipient_id'],
