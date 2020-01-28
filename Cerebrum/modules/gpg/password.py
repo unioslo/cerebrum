@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016-2018 University of Oslo, Norway
+# Copyright 2016-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,19 +20,28 @@
 """Mixin for saving account passwords as GPG data."""
 
 import base64
+
 from six import text_type
 
 from Cerebrum.Account import Account
-from Cerebrum.modules.gpg.data import EntityGPGData
+from .data import GpgData, EntityGPGData
 
 
 class AccountPasswordEncrypterMixin(Account, EntityGPGData):
     """Mixin for saving passwords as GPG data."""
+
     def set_password(self, plaintext):
         super(AccountPasswordEncrypterMixin, self).set_password(plaintext)
+
         assert isinstance(plaintext, text_type)
+
         plaintext = plaintext.encode('utf-8')
-        self.remove_gpg_data_by_tag('password-base64')
+
+        # remove old values
+        gpg_data = GpgData(self._db)
+        gpg_data.delete(entity_id=self.entity_id,
+                        tag=['password', 'password-base64'])
+
+        # add new passwords
         self.add_gpg_data('password-base64', base64.b64encode(plaintext))
-        self.remove_gpg_data_by_tag('password')
         self.add_gpg_data('password', plaintext)

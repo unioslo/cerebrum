@@ -25,10 +25,12 @@ It does not modify the changelog in the process.
 """
 
 import pickle
-import base64
 from collections import defaultdict
 
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.gpg.config import GpgEncrypter, load_config
+from Cerebrum.modules.gpg.data import GpgData
+
 
 logger = Factory.get_logger('cronjob')
 
@@ -39,8 +41,11 @@ def migrate_passwords(db):
     clconst = Factory.get('CLConstants')(db)
     ac = Factory.get('Account')(db)
 
+    gpg_data = GpgData(db)
+    gpg_encrypter = GpgEncrypter(load_config())
+
     stats = defaultdict(int)
-    recipient = ac._tag_to_recipients['password'][0]
+    recipient = gpg_encrypter.get_recipients('password')[0]
     logger.info("GPG recipient ID: {}".format(recipient))
 
     logger.info("Fetching password events...")
@@ -67,13 +72,16 @@ def migrate_passwords(db):
         tstamp = e['tstamp']
         ac.clear()
         ac.find(subject)
-        message_id = ac.add_gpg_message(
+        message_id = gpg_data.add_message(
+            entity_id=ac.entity_id,
             tag='password',
             recipient=recipient,
-            message=gpg_message)
+            encrypted=gpg_message,
+        )['message_id']
         db.execute(
             "UPDATE [:table schema=cerebrum name=entity_gpg_data] "
-            "SET created=:created WHERE message_id=:message_id", {
+            "SET created=:created WHERE message_id=:message_id",
+            {
                 "created": tstamp,
                 "message_id": message_id
             })
