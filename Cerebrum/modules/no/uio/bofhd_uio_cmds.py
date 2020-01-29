@@ -536,7 +536,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_add_admin(self, operator, admin, dest_group):
         group = self._get_group(dest_group)
-        self.ba.can_add_group_admin(operator, group)
+        self.ba.can_add_group_admin(operator.get_entity_id(), group)
 
         admin = admin.split(":", 1)
         if len(admin) == 1 or admin[0] == "group":
@@ -563,7 +563,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_remove_admin(self, operator, admin, dest_group):
         group = self._get_group(dest_group)
-        self.ba.can_add_group_admin(operator, group)
+        self.ba.can_add_group_admin(operator.get_entity_id(), group)
 
         admin = admin.split(":", 1)
         if len(admin) == 1 or admin[0] == "group":
@@ -588,7 +588,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_add_moderator(self, operator, moderator, dest_group):
         group = self._get_group(dest_group)
-        self.ba.can_add_group_moderator(operator, group)
+        self.ba.can_add_group_moderator(operator.get_entity_id(), group)
 
         moderator = moderator.split(":", 1)
         if len(moderator) == 1 or moderator[0] == "group":
@@ -615,7 +615,7 @@ class BofhdExtension(BofhdCommonMethods):
 
     def group_remove_moderator(self, operator, moderator, dest_group):
         group = self._get_group(dest_group)
-        self.ba.can_add_group_moderator(operator, group)
+        self.ba.can_add_group_moderator(operator.get_entity_id(), group)
 
         moderator = moderator.split(":", 1)
         if len(moderator) == 1 or moderator[0] == "group":
