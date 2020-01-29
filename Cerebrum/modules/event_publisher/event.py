@@ -78,6 +78,7 @@ DEACTIVATE = EventType('deactivate', 'Quarantine is activated')
 DELETE = EventType('delete', 'Subject is deleted')
 REMOVE = EventType('remove', 'Remove an object from subject')
 PASSWORD = EventType('password', 'Subject has changed password')
+JOIN = EventType('join', 'Join two objects')
 
 
 class EntityRef(object):
@@ -302,7 +303,7 @@ def merge_events(events):
     #. remove
     """
     order = (CREATE, DELETE, ADD, ACTIVATE, MODIFY, PASSWORD, DEACTIVATE,
-             REMOVE)
+             REMOVE, JOIN)
     ps = [[] for x in order]
 
     for pl in events:
