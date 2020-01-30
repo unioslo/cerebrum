@@ -58,11 +58,6 @@ from .event import merge_events
 from .eventdb import EventsAccessor
 from .utils import get_entity_ref
 
-try:
-    from cereconf import ENTITY_TYPE_NAMESPACE
-except ImportError:
-    ENTITY_TYPE_NAMESPACE = dict()
-
 
 def get_entity_spreads(db, entity_id):
     """ Lookup any entity spreads on an entity.
