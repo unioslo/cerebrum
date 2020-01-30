@@ -160,21 +160,6 @@ class _FroupSync(GroupSync):
     # default_ad_object_class = 'group'
 
     @memoize
-    def pe2affs(self, person_id):
-        """ Get affiliations for a person.
-
-        :param int person_id: The entity ID of an *existing* person entity.
-
-        :return list:
-            Tuples of (source system, affiliation type) for a given person.
-
-        """
-        self.pe.clear()
-        self.pe.find(person_id)
-        return {(r['source_system'], r['affiliation']): r['deleted_date']
-                for r in self.pe.get_affiliations()}
-
-    @memoize
     def pe2accs(self, person_id):
         """ Fetch AD accounts for a person.
 
@@ -374,6 +359,22 @@ class AffGroupSync(_FroupSync):
         self.config['affiliation_groups'] = template
         self.logger.debug("config[affiliation_groups]: %r",
                           self.config['affiliation_groups'])
+
+    @memoize
+    def pe2affs(self, person_id):
+        """ Get affiliations for a person.
+
+        :param int person_id: The entity ID of an *existing* person entity.
+
+        :return list:
+            Dicts of {(source system, affiliation type)}: deleted_date for
+            a given person.
+
+        """
+        self.pe.clear()
+        self.pe.find(person_id)
+        return {(r['source_system'], r['affiliation']): r['deleted_date']
+                for r in self.pe.get_affiliations()}
 
     @property
     def ad_group_names(self):
