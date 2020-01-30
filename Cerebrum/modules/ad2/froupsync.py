@@ -161,7 +161,7 @@ class _FroupSync(GroupSync):
 
     @memoize
     def pe2accs(self, person_id):
-        """ Fetch AD accounts for a person.
+        """ Fetch the primary account for a person.
 
         :param int person_id: The entity ID of an *existing* person entity.
 
@@ -171,9 +171,8 @@ class _FroupSync(GroupSync):
         """
         accs = []
 
-        for acc in self.ac.search(owner_id=person_id,
-                                  expire_start=None,
-                                  expire_stop=None):
+        for acc in self.ac.list_accounts_by_type(person_id=person_id,
+                                                 primary_only=True):
             self.ac.clear()
             self.ac.find(acc['account_id'])
             accs.append(
