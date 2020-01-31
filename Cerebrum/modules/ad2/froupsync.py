@@ -365,9 +365,9 @@ class AffGroupSync(_FroupSync):
 
         :param int person_id: The entity ID of an *existing* person entity.
 
-        :return list:
-            Dicts of {(source system, affiliation type)}: deleted_date for
-            a given person.
+        :return dict:
+            keys are (source system, affiliation type) and value is
+            deleted_date for a given person.
 
         """
         self.pe.clear()
