@@ -281,7 +281,7 @@ class UioAuth(ContactAuthMixin, BofhdAuth):
             if self._is_admin(operator, entity.entity_id):
                 if spread in (str(self.const.spread_uio_nis_ng),
                               str(self.const.spread_uio_ad_group),
-                              str(self.spread_ldap_group)):
+                              str(self.const.spread_ldap_group)):
                     return True
             if self._is_moderator(operator, entity.entity_id):
                 if spread in (str(self.const.spread_uio_nis_ng),
