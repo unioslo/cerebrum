@@ -32,6 +32,7 @@ import six
 from collections import OrderedDict
 
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.event_publisher.utils import get_entity_ref
 from . import event
 
 
@@ -109,7 +110,7 @@ class EventFilter(object):
         ... def person_aff(msg, **kwargs):
         ...     return event.Event(event.MODIFY)
 
-        >>> @EventFilter.register('person_aff', 'add|remove')
+        >>> @EventFilter.register('person_aff', '(add|remove)')
         ... def person_other(msg):
         ...    return None
 
@@ -372,8 +373,19 @@ def person_create(msg, **kwargs):
                        **common)
 
 
-@EventFilter.register('person', 'update')
-def person_update(msg, **kwargs):
+@EventFilter.register('person', 'join')
+def person_join(msg, db=None, **kwargs):
+    args = {
+        'subject': get_entity_ref(db, msg['data']['new']),
+        'objects': [get_entity_ref(db, msg['data']['old'])]
+    }
+    return event.Event(event.JOIN,
+                       attributes=['id'],
+                       **args)
+
+
+@EventFilter.register('person', 'modify')
+def person_modify(msg, **kwargs):
     common = _make_common_args(msg)
     return event.Event(event.MODIFY,
                        attributes=_PERSON_ATTRIBUTES,

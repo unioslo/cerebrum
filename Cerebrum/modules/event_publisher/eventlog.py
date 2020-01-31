@@ -54,47 +54,9 @@ from Cerebrum.Entity import EntitySpread
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory
 from .converters import EventFilter
-from .event import merge_events, EntityRef
+from .event import merge_events
 from .eventdb import EventsAccessor
-
-try:
-    from cereconf import ENTITY_TYPE_NAMESPACE
-except ImportError:
-    ENTITY_TYPE_NAMESPACE = dict()
-
-
-def get_entity_ref(db, entity_id):
-    """ Make an EntityRef by looking up the entity_id in the database.
-
-    entity_id -> EntityRef(<entity_id>, <entity_type>, <entity_name>)
-    """
-    # TODO: Include entity names in change_params, so that we don't have to
-    #       look them up.
-    constants = Factory.get("Constants")(db)
-    entity = Factory.get("Entity")(db)
-    entity_ident = entity_type = None
-
-    # Lookup type
-    try:
-        ent = entity.get_subclassed_object(id=entity_id)
-        entity_type = six.text_type(constants.EntityType(ent.entity_type))
-        try:
-            namespace = constants.ValueDomain(
-                ENTITY_TYPE_NAMESPACE.get(entity_type, None))
-            entity_ident = ent.get_name(namespace)
-        except (AttributeError, TypeError, NotFoundError):
-            pass
-    # Handling ValueError here is a hack for handling entities that can't
-    # be accessed trough entity.get_subclassed_object()
-    except (NotFoundError, ValueError):
-        pass
-
-    # We *have* entity_id, might have entity_type, and if so, may also have
-    # an entity_ident.
-    return EntityRef(
-        entity_id,
-        entity_type,
-        entity_ident or six.text_type(entity_id))
+from .utils import get_entity_ref
 
 
 def get_entity_spreads(db, entity_id):
