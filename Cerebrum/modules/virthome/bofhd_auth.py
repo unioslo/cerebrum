@@ -296,6 +296,8 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
           Account id of the account that we want to check moderator
           permissions for.
         """
+        if self.is_superuser(account_id):
+            return True
 
         account = Factory.get("Account")(self._db)
         try:
@@ -426,7 +428,8 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
     def can_add_to_group(self, account_id, group_id):
         if self.is_superuser(account_id):
             return True
-
+        if self._is_admin_or_moderator(account_id, group_id):
+            return True
         if self._has_target_permissions(account_id,
                                         self.const.auth_alter_group_membership,
                                         self.const.auth_target_type_group,
@@ -447,11 +450,12 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
     def can_remove_from_group(self, operator_id, group_id, target_id):
         if self.is_superuser(operator_id):
             return True
-
+        if self._is_admin_or_moderator(operator_id, group_id):
+            return True
         # We allow a user to remove him/herself from a group.
         if operator_id == target_id:
             return True
-
+        # TODO: Decide if we want to keep special permissions through opsets
         if self._has_target_permissions(operator_id,
                                         self.const.auth_alter_group_membership,
                                         self.const.auth_target_type_group,
