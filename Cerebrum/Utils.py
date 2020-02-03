@@ -888,7 +888,7 @@ def argument_to_sql(argument,
     compare_set = 'NOT IN' if negate else 'IN'
     compare_scalar = '!=' if negate else '='
     if (isinstance(argument, (collections.Sized, collections.Iterable)) and
-            not isinstance(argument, six.text_types)):
+            not isinstance(argument, six.string_types)):
         assert len(argument) > 0, "List can not be empty."
         if len(argument) == 1 and isinstance(argument, collections.Sequence):
             # Sequence with only one scalar, let's unpack and treat as scalar.
