@@ -69,7 +69,7 @@ def make_table(manual_abandonees):
         txt += six.text_type(group_type) + ': {}'.format(len(abandonees))
         txt += '\n' + 80*'-' + '\n'
         txt += '\n'.join(
-            '{id:<10}{name:<20}{desc}'.format(**a) for a in abandonees)
+            '{id:<10} {name:<50} {desc}'.format(**a) for a in abandonees)
         txt += '\n\n'
     return txt
 
