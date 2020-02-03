@@ -1,6 +1,6 @@
 # coding: utf-8
 #
-# Copyright 2017-2018 University of Oslo, Norway
+# Copyright 2017-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,24 +18,19 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 # Copyright 2002-2015 University of Oslo, Norway
-""" This module contains utilities for dates, times and timezones in Cerebrum.
+"""
+This module contains utilities for dates, times and timezones in Cerebrum.
 
 Utilities include converting between datetime and mx.DateTime, parsing iso8601
-dates, as well as setting timezone, and converting between timezones.  This
-should be enough to:
-
-- parse iso8601 strings, with or without timezone data, into mx.DateTime
-  objects in localtime.
-- fetch mx.DateTime objects from the database, and output as iso8601 strings
-  in any timezone.
+dates, as well as applying timezone, and converting between timezones.
 
 
-Datetimes in Cererbum
----------------------
-We use mx.DateTime in Cerebrum mainly for database communication, and for
-legacy resons.  The mx.DateTime object *does* have basic timezone support, but
-it does not integrate well with iso8601 parsers (including its own
-mx.DateTime.Parser), or datetime objects.
+Datetime in Cerebrum
+--------------------
+We use py:mod:`mx.DateTime` in Cerebrum mainly for database communication, and
+for legacy resons.
+The py:class:`mx.DateTime.DateTypeType` objects doesn't integrate well with
+ISO-8601 parsers (including its own py:mod:`mx.DateTime.Parser`).
 
 The `Cerebrum.database.Database` object is set up to accept
 mx.DateTime objects, and convert back to mx.DateTime objects when using
@@ -44,7 +39,7 @@ aware timestamp fields.
 
 The bottom line is; For the time being, all db-communication happens with
 naive mx.DateTime objects, and we cannot use/trust the tz info in mx.DateTime
-object when communicating with the database.
+objects when communicating with the database.
 
 
 Rationale
@@ -67,12 +62,14 @@ TIMEZONE
     timezone for these functions.
 
 """
-import aniso8601
 import datetime
+
+import aniso8601
 import mx.DateTime
 import pytz
 
 import cereconf
+
 TIMEZONE = pytz.timezone(cereconf.TIMEZONE)
 
 # TODO: Use tzlocal for default TIMEZONE?
@@ -124,8 +121,9 @@ def now(tz=TIMEZONE):
     return datetime.datetime.now(tz=TIMEZONE)
 
 
-def localize(aware, tz=TIMEZONE):
-    """ Convert datetime to another timezone.
+def to_timezone(aware, tz=TIMEZONE):
+    """
+    Convert datetime to another timezone.
 
     :param datetime aware:
         A timezone-aware datetime object.
@@ -152,6 +150,8 @@ def apply_timezone(naive, tz=TIMEZONE):
         raise ValueError("datetime already has tzinfo")
     if not isinstance(tz, datetime.tzinfo):
         tz = pytz.timezone(tz)
+
+    # TODO: this isn't entirely right -- localize() is a pytz.tzinfo method
     return tz.localize(naive)
 
 
@@ -166,7 +166,7 @@ def datetime2mx(src, tz=TIMEZONE):
     """ Convert (localized) datetime to naive mx.DateTime. """
     if not src.tzinfo:
         src = apply_timezone(src, tz=tz)
-    src = localize(src, tz=tz)
+    src = to_timezone(src, tz=tz)
     return mx.DateTime.DateTimeFrom(strip_timezone(src))
 
 
@@ -176,22 +176,76 @@ def mx2datetime(src, tz=TIMEZONE):
     return apply_timezone(dt, tz=tz)
 
 
-def parse_date(dtstr):
+def parse_datetime_tz(dtstr):
+    """
+    Parse an ISO8601 datetime string, and require timezone.
+
+    The datetime may be delimited by ' ' or 'T'.
+
+    :param dtstr: An ISO8601 formatted datetime string with timezone.
+
+    :rtype: datetime.datetime
+    :return: A timezone-aware datetime objet.
+    """
     # Allow use of space as separator
-    if 'T' not in dtstr:
-        date = aniso8601.parse_datetime(dtstr, delimiter=' ')
-    else:
-        date = aniso8601.parse_datetime(dtstr)
+    try:
+        if 'T' not in dtstr:
+            date = aniso8601.parse_datetime(dtstr, delimiter=' ')
+        else:
+            date = aniso8601.parse_datetime(dtstr)
+    except ValueError as e:
+        # The aniso8601 errors are not always great
+        raise ValueError("invalid iso8601 datetime (%s)" % (e,))
 
     if not date.tzinfo:
-        # No timezone, assume UTC?
-        date = apply_timezone(date, tz=pytz.UTC)
+        raise ValueError("invalid iso8601 datetime (missing timezone)")
     return date
+
+
+def parse_datetime(dtstr, default_timezone=TIMEZONE):
+    """
+    Parse an ISO8601 datetime string.
+
+    The datetime may be delimited by ' ' or 'T'.
+    If no timezone is included, the ``default_timezone`` will be applied
+
+    :param dtstr: An ISO8601 formatted datetime string
+    :param default_timezone: A default timezone to apply if missing.
+
+    :rtype: datetime.datetime
+    :return: A timezone-aware datetime objet.
+    """
+    # Allow use of space as separator
+    try:
+        if 'T' not in dtstr:
+            date = aniso8601.parse_datetime(dtstr, delimiter=' ')
+        else:
+            date = aniso8601.parse_datetime(dtstr)
+    except ValueError as e:
+        # The aniso8601 errors are not always great
+        raise ValueError("invalid iso8601 date (%s)" % (e,))
+
+    if not date.tzinfo:
+        # No timezone given, assume default_timezone
+        date = apply_timezone(date, tz=default_timezone)
+    return date
+
+
+def parse_date(dtstr):
+    """
+    Parse an ISO8601 date string.
+
+    :param dtstr: An ISO8601 formatted date string
+
+    :rtype: datetime.date
+    :return: A date object.
+    """
+    return aniso8601.parse_date(dtstr)
 
 
 def parse(dtstr):
     """ Utility method, get a naive mx.DateTime. """
-    return datetime2mx(parse_date(dtstr))
+    return datetime2mx(parse_datetime(dtstr))
 
 
 # python -m Cerebrum.utils.date
@@ -207,7 +261,7 @@ def main(inargs=None):
         type=pytz.timezone,
         help="use custom timezone (default: cereconf.TIMEZONE=%(default)s)")
     parser.add_argument(
-        'date',
+        'datetime',
         nargs='*',
         default=[],
         help="iso8601 date to parse")
@@ -217,24 +271,24 @@ def main(inargs=None):
     print("now:         {0!s}".format(now(tz=args.timezone)))
     print("utcnow:      {0!s}".format(utcnow()))
 
-    for num, d in enumerate(args.date, 1):
+    for num, d in enumerate(args.datetime, 1):
         print("\ndate #{0:d}: {1!r}".format(num, d))
 
-        p = parse_date(d)
-        print("  parse_date:   {0!s}".format(p))
-        print("                {0!r}".format(p))
+        p = parse_datetime(d)
+        print("  parse_datetime: {0!s}".format(p))
+        print("                  {0!r}".format(p))
 
-        l = localize(p, tz=args.timezone)
-        print("  localize:     {0!s}".format(l))
-        print("                {0!r}".format(l))
+        l = to_timezone(p, tz=args.timezone)
+        print("  to_timezone:    {0!s}".format(l))
+        print("                  {0!r}".format(l))
 
         m = datetime2mx(p, tz=args.timezone)
-        print("  datetime2mx:  {0!s}".format(m))
-        print("                {0!r}".format(m))
+        print("  datetime2mx:    {0!s}".format(m))
+        print("                  {0!r}".format(m))
 
         n = mx2datetime(m, tz=args.timezone)
-        print("  mx2datetime:  {0!s}".format(n))
-        print("                {0!r}".format(n))
+        print("  mx2datetime:    {0!s}".format(n))
+        print("                  {0!r}".format(n))
 
 
 if __name__ == '__main__':
