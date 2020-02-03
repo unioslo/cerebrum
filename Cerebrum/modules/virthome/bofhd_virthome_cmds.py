@@ -1318,7 +1318,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         ret['confirmation_key'] = self.vhutils.setup_event_request(
                                       group.entity_id,
                                       self.clconst.va_group_admin_swap,
-                                      params={'old': owner,
+                                      params={'old': admin,
                                               'group_id': group.entity_id,
                                               'new': email, })
         # check if e-mail matches a valid username

@@ -1219,8 +1219,17 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            return self._has_operation_perm_somewhere(
-                operator, self.const.auth_alter_group_membership)
+            return (
+                    self._is_admin_or_moderator(operator) or
+                    self._has_operation_perm_somewhere(
+                        operator,
+                        self.const.auth_alter_group_membership
+                    )
+            )
+        if self._is_admin_or_moderator(operator, group.entity_id):
+            return True
+        # TODO: Decide if we want to keep special permissions for groups
+        #  through opsets
         if self._has_target_permissions(operator,
                                         self.const.auth_alter_group_membership,
                                         self.const.auth_target_type_group,
@@ -1298,14 +1307,19 @@ class BofhdAuth(DatabaseAccessor):
         raise PermissionDenied("Only superuser can set group_type")
 
     def can_add_group_admin(self, operator, group=None, query_run_any=False):
+        # You can do whatever you want if you are a superuser
         if self.is_superuser(operator):
             return True
+        # You can see the command if you are an admin
         if query_run_any:
-            return (self._is_moderator(operator)
-                    or self._has_operation_perm_somewhere(
+            return (self._is_admin(operator) or
+                    self._has_operation_perm_somewhere(
                         operator, self.const.auth_add_group_admin))
-        if self._is_moderator(operator, group.entity_id):
+        # You can add an admin if you are an admin of the group
+        if self._is_admin(operator, group.entity_id):
             return True
+        # TODO: Decide if we want to keep special permissions for groups
+        #  through opsets
         if self._has_target_permissions(operator,
                                         self.const.auth_add_group_admin,
                                         self.const.auth_target_type_group,
@@ -1315,10 +1329,15 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_add_group_moderator(self, operator, group=None,
                                 query_run_any=False):
+        # You can do whatever you want if you are a superuser
         if self.is_superuser(operator):
             return True
+        # You can see the command if you are an admin or mod of something
         if query_run_any:
-            return False
+            return self._is_admin_or_moderator(operator)
+        # You can add a mod if you are a mod or admin of the group
+        if self._is_admin_or_moderator(operator, group.entity_id):
+            return True
         raise PermissionDenied("Not allowed to add moderator to group")
 
     def can_create_personal_group(self, operator, account=None,
@@ -1358,10 +1377,15 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_superuser(operator):
             return True
         if query_run_any:
-            return (self._has_operation_perm_somewhere(
+            return (self._is_admin(operator) or
+                    self._has_operation_perm_somewhere(
                 operator, self.const.auth_expire_group) or
                     self._has_operation_perm_somewhere(
                 operator, self.const.auth_delete_group))
+        if self._is_admin(operator, group.entity_id):
+            return True
+        # TODO: Decide if we want to keep special permissions through opsets
+        #  for groups
         if self._has_target_permissions(operator,
                                         self.const.auth_expire_group,
                                         self.const.auth_target_type_group,
