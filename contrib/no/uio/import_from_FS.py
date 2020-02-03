@@ -18,28 +18,25 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 Script for gathering data from FS and put it into XML files for further
 processing by other scripts.
-
 """
-from __future__ import unicode_literals
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 
-import os
-import sys
 import getopt
 import logging
+import os
+import sys
 
 import cereconf
-
 import Cerebrum.logutils
-from Cerebrum.Utils import XMLHelper
-from Cerebrum.utils.atomicfile import SimilarSizeWriter
-from Cerebrum.utils.atomicfile import FileChangeTooBigError
-from Cerebrum.modules.no.access_FS import make_fs
+
 from Cerebrum.modules.fs.import_from_FS import ImportFromFs, set_filepath
+from Cerebrum.modules.no.access_FS import make_fs
+from Cerebrum.modules.xmlutils.xml_helper import XMLHelper
+from Cerebrum.utils.atomicfile import FileChangeTooBigError
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
 XML_ENCODING = 'utf-8'
 

@@ -26,7 +26,7 @@ import logging
 import Cerebrum.logutils
 
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import XMLHelper
+from Cerebrum.modules.xmlutils.xml_helper import XMLHelper
 
 
 logger = logging.getLogger(__name__)

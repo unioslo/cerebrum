@@ -23,6 +23,7 @@ This module is used for:
 - translating paramformat from 'named' to whatever the database driver uses.
 - TODO: more?
 """
+from __future__ import print_function
 
 from Cerebrum.extlib import Plex
 
@@ -175,13 +176,13 @@ if __name__ == '__main__':
             value = token
         else:
             value = "%s(%s)" % (token, repr(text))
-        print value
+        print(value)
         stmt.append(text)
         if token == SQL_END_OF_STATEMENT:
-            print " ".join(stmt)
+            print(" ".join(stmt))
             stmt = []
     # If we found any tokens after the last SQL_END_OF_STATEMENT, we
     # should print these, too.
     if stmt:
-        print "Tokens found after last SQL_END_OF_STATEMENT:\n\t", \
-              " ".join(stmt)
+        print("Tokens found after last SQL_END_OF_STATEMENT:\n\t",
+              " ".join(stmt))

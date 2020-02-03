@@ -26,18 +26,19 @@ processing by other scripts.
 from __future__ import unicode_literals
 from __future__ import print_function
 
-import os
-import sys
 import getopt
 import logging
+import os
+import sys
 
 import cereconf
 import Cerebrum.logutils
-from Cerebrum.Utils import XMLHelper
-from Cerebrum.utils.atomicfile import SimilarSizeWriter
-from Cerebrum.utils.atomicfile import FileChangeTooBigError
-from Cerebrum.modules.no.access_FS import make_fs
+
 from Cerebrum.modules.fs.import_from_FS import ImportFromFs, set_filepath
+from Cerebrum.modules.no.access_FS import make_fs
+from Cerebrum.modules.xmlutils.xml_helper import XMLHelper
+from Cerebrum.utils.atomicfile import FileChangeTooBigError
+from Cerebrum.utils.atomicfile import SimilarSizeWriter
 
 XML_ENCODING = 'utf-8'
 

@@ -40,6 +40,8 @@ import logging.config
 import os
 import sys
 
+import six
+
 from Cerebrum.config import loader
 from Cerebrum.config import parsers
 from Cerebrum.config.configuration import (ConfigDescriptor,
@@ -64,8 +66,11 @@ DEFAULT_LEVEL_EXC = 'ERROR'
 DEFAULT_LEVEL_WARN = 'WARNING'
 
 # Note: This will not include custom levels
-LOGLEVELS = {level for level in logging._levelNames
-             if not isinstance(level, int)}
+if six.PY2:
+    LOGLEVELS = {level for level in logging._levelNames
+                 if not isinstance(level, int)}
+else:
+    LOGLEVELS = set(logging._nameToLevel)
 
 logger = logging.getLogger(__name__)
 
@@ -260,15 +265,13 @@ def iter_presets(directory, rootnames, extensions):
     def get_weight(weights, item):
         return weights.get(item, weights.get('*', len(weights)))
 
-    def file_sorter(a, b):
-        base_a, ext_a = split(a)
-        base_b, ext_b = split(b)
+    def file_sort_key(filename):
+        base, ext = split(filename)
         return (
-            cmp(get_weight(ext_weights, ext_a),
-                get_weight(ext_weights, ext_b)) or
-            cmp(get_weight(base_weights, base_a),
-                get_weight(base_weights, base_b)) or
-            cmp(a, b))
+            get_weight(ext_weights, ext),
+            get_weight(base_weights, base),
+            filename,
+        )
 
     def valid_name(filename):
         base, ext = split(filename)
@@ -276,7 +279,8 @@ def iter_presets(directory, rootnames, extensions):
                 (ext in extensions or '*' in extensions))
 
     try:
-        for filename in sorted(os.listdir(directory), cmp=file_sorter):
+        # for filename in sorted(os.listdir(directory), cmp=file_sorter):
+        for filename in sorted(os.listdir(directory), key=file_sort_key):
             if valid_name(filename):
                 yield os.path.join(directory, filename)
     except OSError:

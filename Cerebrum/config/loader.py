@@ -130,23 +130,20 @@ def read(config, root_ns=default_root_ns, additional_dirs=[]):
     def _get_config_files(confdir):
         """ yield config files from confdir. """
 
-        def _file_sorter(a, b):
+        def _file_sort_key(filename):
             """ sort files in confdir. """
-            a, b = _f2key(a), _f2key(b)
+            key = _f2key(filename)
             # The root config should always be first
-            if a == root_ns:
-                return cmp(0, 1)  # a before b
-            elif b == root_ns:
-                return cmp(1, 0)  # b before a
+            if key == root_ns:
+                return 0
             # Otherwise, we use the string length to select read order.
-            return cmp(len(a), len(b))
+            return len(key)
 
         # Do we have config files that match a specific thing?
         files = map(lambda f: os.path.join(confdir, f),
                     filter(lambda f: not f.startswith(os.path.extsep),
                            os.listdir(confdir)))
-        files.sort(_file_sorter)
-        for f in files:
+        for f in sorted(files, key=_file_sort_key):
             yield f
 
     # TODO: Transactional update: Make a copy here, then update the copy
