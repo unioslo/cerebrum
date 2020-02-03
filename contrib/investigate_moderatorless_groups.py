@@ -38,7 +38,7 @@ def get_title():
 
 
 def get_abandoned_manual_groups():
-    """Extract all manual groupsd without an admin"""
+    """Extract all manual groups without an admin"""
     database = Factory.get('Database')()
     group = Factory.get('Group')(database)
     const = Factory.get('Constants')(database)
@@ -49,7 +49,9 @@ def get_abandoned_manual_groups():
         group.find(adminless_group[0])
         g_type = const.human2constant(group.group_type)
         if g_type in manual_abandonees:
-            manual_abandonees[g_type].append(group.entity_id)
+            manual_abandonees[g_type].append({'id': group.entity_id,
+                                              'name': group.group_name,
+                                              'desc': group.description})
         group.clear()
     return {k: v for k, v in manual_abandonees.items() if v}
 
@@ -65,20 +67,14 @@ def make_table(manual_abandonees):
     txt = 'These manual groups, sorted by type and id, lacks an admin:\n\n'
     for group_type, abandonees in manual_abandonees.items():
         txt += six.text_type(group_type) + ': {}'.format(len(abandonees))
-        txt += '\n' + 80*'-'
-        line = '\n'
-        for i, abandoned in enumerate(abandonees):
-            line += '{:>10}'.format(abandoned)
-            if i > 1 and not (i + 1) % 8:
-                txt += line
-                line = '\n'
-        if len(abandonees) % 8:
-            txt += line
+        txt += '\n' + 80*'-' + '\n'
+        txt += '\n'.join(
+            '{id:<10}{name:<20}{desc}'.format(**a) for a in abandonees)
         txt += '\n\n'
     return txt
 
 
-def main():
+def main(inargs=None):
     """Find moderatorless groups, make a nice table and send it to drift"""
     try:
         import argparse
@@ -86,14 +82,24 @@ def main():
         from Cerebrum.extlib import argparse
     logger = Factory.get_logger(__name__)
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '-r', '--recipient',
+        dest='recipient',
+        default=None,
+        help='Recipient of the report'
+    )
     logger.info('START %s', parser.prog)
     logger.info('Extracting adminless groups')
     abandoned_manual_groups = get_abandoned_manual_groups()
     logger.info('Creating table')
     table = make_table(abandoned_manual_groups)
-    recipients = 'cerebrum-uio-logs@usit.uio.no'
-    logger.info('Sending email to %s', recipients)
-    email.sendmail(recipients, 'noreply@usit.uio.no', get_title(), table)
+    args = parser.parse_args(inargs)
+    if args.recipient:
+        logger.info('Sending email to %s', args.recipient)
+        email.sendmail(
+            args.recipient, 'noreply@usit.uio.no', get_title(), table)
+    else:
+        logger.info('No email provided')
     logger.info('DONE %s', parser.prog)
 
 
