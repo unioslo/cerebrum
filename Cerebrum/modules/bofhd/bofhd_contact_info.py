@@ -272,8 +272,6 @@ class BofhdContactCommands(BofhdCommandBase):
 
         # validate email
         if contact_type == self.const.contact_email:
-            contact_value = contact_value.lower()
-
             # validate localpart and extract domain.
             if contact_value.count('@') != 1:
                 raise CerebrumError("Email address (%r) must be on form"
@@ -308,7 +306,7 @@ class BofhdContactCommands(BofhdCommandBase):
 
         for row in contacts:
             # if the same value already exists, don't add it
-            if contact_value == row["contact_value"]:
+            if contact_value.lower() == row["contact_value"].lower():
                 raise CerebrumError("Contact value already exists")
             # if the value is different, add it with a lower (=greater number)
             # preference for the new value

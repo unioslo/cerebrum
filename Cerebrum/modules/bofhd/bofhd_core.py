@@ -228,7 +228,7 @@ class BofhdCommandBase(object):
         return visible_commands
 
     def _get_constant(self, code_cls, code_str, code_type="value"):
-        c = code_cls(code_str)
+        c = code_cls(code_str.upper())
         try:
             int(c)
         except Errors.NotFoundError:
