@@ -115,6 +115,8 @@ class GuestUtils(object):
             raise GuestAccountException("%s is not a guest" % guest)
         elif trait['target_id'] is None:
             raise GuestAccountException("%s is already available" % guest)
+        # Clear the password so that the account can't be used
+        ac.delete_password()  # delete_password() writes its changes directly
         # Remove owner, i.e set owner_trait to None
         ac.populate_trait(self.co.trait_uio_guest_owner, target_id=None)
         self.logger.debug("Removed owner_id in owner_trait for %s" % guest)
@@ -125,7 +127,6 @@ class GuestUtils(object):
         ac.add_entity_quarantine(self.co.quarantine_guest_release, operator_id,
                                  "Guest user released", start=DateTime.today())
         self.logger.debug("%s is now in release_quarantine" % guest)
-        ac.set_password(ac.make_passwd(guest))
         ac.write_db()
         self.update_group_memberships(ac.entity_id)
         self.logger.debug("Updating group memberships for %s" % guest)
@@ -357,11 +358,11 @@ class GuestUtils(object):
             comment = None
         ac.populate_trait(self.co.trait_uio_guest_owner, target_id=owner_id,
                           strval=comment)
+        # Generate a new password
+        passwd = ac.make_passwd(guest)
+        ac.set_password(passwd)
         ac.write_db()
         # Password
-        pgpauth = self.co.Authentication("PGP-guest_acc")
-        cryptstring = ac.get_account_authentication(pgpauth)
-        passwd = ac.decrypt_password(pgpauth, cryptstring)
         return ac.entity_id, passwd
 
     def update_group_memberships(self, account_id):
