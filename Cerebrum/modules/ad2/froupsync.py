@@ -139,6 +139,7 @@ Example configuration
     }
 
 """
+import six
 import datetime
 
 from collections import defaultdict
@@ -373,7 +374,7 @@ class AffGroupSync(_FroupSync):
         self.pe.clear()
         self.pe.find(person_id)
         return {(r['source_system'], r['affiliation']): r['deleted_date']
-                for r in self.pe.get_affiliations()}
+                for r in self.pe.get_affiliations(include_deleted=True)}
 
     @property
     def ad_group_names(self):
@@ -405,7 +406,8 @@ class AffGroupSync(_FroupSync):
 
         # Decide which affiliations this user has
         memberships = defaultdict(lambda: False)
-        for group, criterias in self.config['affiliation_groups'].items():
+        for group, criterias in six.iteritems(
+                self.config['affiliation_groups']):
             if self.any_criteria_fulfilled(person_id, criterias):
                 memberships[group] = True
                 break  # Next group
