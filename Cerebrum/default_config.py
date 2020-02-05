@@ -620,23 +620,6 @@ EMAIL_NON_DELETABLE_DOMAINS = []
 # Base reference for URLs on webpages
 WEBROOT = "/"
 
-# Used when pgp-encrypting passwords:
-PGPPROG = '/usr/bin/gpg'
-PGPID = "enter your string here"
-PGP_DEC_OPTS = ['--batch', '--decrypt', '--quiet']
-PGP_DEC_OPTS_PASSPHRASE = ['--passphrase-fd', "0"]
-# ['--recipient', id, '--default-key', id] is appended to PGP_ENC_OPTS
-PGP_ENC_OPTS = ['--encrypt', '--armor', '--batch', '--quiet']
-
-# List of systems for Cerebrum.modules.AuthPGP
-# keys = systemname (max 12 chars [a-z_])
-# values = PGP key id string, "0x98f382f1"
-# Example: AUTH_PGP = {
-#    "offline": "0x8f382f1",
-#    "ad_ntnu_no": "0x82f1821d",
-# }
-AUTH_PGP = {}
-
 # Realm for HA1 md5 crypt, used by const.auth_type_ha1_md5
 AUTH_HA1_REALM = ""
 
@@ -645,14 +628,14 @@ PASSWORD_PLAINTEXT_IN_CHANGE_LOG = True
 
 # The path (str) to our GnuPG home directory.
 # Must be a valid path if overriden.
-GNUPGHOME = pj(prefix, 'var', 'gnupghome')
+GNUPGHOME = pj(prefix, 'var/gnupghome')
 
 # The path (str) where encrypted passwords are temporary stored on the
 # AD (Windows) server. 'C:\passwords' will be used if this attribute is not set
 # (or if it evaluates to False).
 # N.B. The Windows user responsible for setting the AD password(s) must have
 # the permissions to read, create and delete files in this directory.
-PASSWORD_TMP_STORE_DIR = """C:\passwords"""
+PASSWORD_TMP_STORE_DIR = r"C:\passwords"
 
 
 #
