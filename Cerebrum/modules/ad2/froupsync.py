@@ -139,6 +139,9 @@ Example configuration
     }
 
 """
+import six
+import datetime
+
 from collections import defaultdict
 from Cerebrum.utils.funcwrap import memoize
 from .ADSync import GroupSync
@@ -158,23 +161,8 @@ class _FroupSync(GroupSync):
     # default_ad_object_class = 'group'
 
     @memoize
-    def pe2affs(self, person_id):
-        """ Get affiliations for a person.
-
-        :param int person_id: The entity ID of an *existing* person entity.
-
-        :return list:
-            Tuples of (source system, affiliation type) for a given person.
-
-        """
-        self.pe.clear()
-        self.pe.find(person_id)
-        return [(r['source_system'], r['affiliation'])
-                for r in self.pe.get_affiliations()]
-
-    @memoize
     def pe2accs(self, person_id):
-        """ Fetch AD accounts for a person.
+        """ Fetch the primary account for a person.
 
         :param int person_id: The entity ID of an *existing* person entity.
 
@@ -184,9 +172,8 @@ class _FroupSync(GroupSync):
         """
         accs = []
 
-        for acc in self.ac.search(owner_id=person_id,
-                                  expire_start=None,
-                                  expire_stop=None):
+        for acc in self.ac.list_accounts_by_type(person_id=person_id,
+                                                 primary_only=True):
             self.ac.clear()
             self.ac.find(acc['account_id'])
             accs.append(
@@ -327,15 +314,15 @@ class _FroupSync(GroupSync):
 
         """
         group_id = self.group2dn(group_name)
-        result = True
+        server_transactions_ok = True
 
         if adds:
-            result &= self.server.add_group_members(
+            server_transactions_ok &= self.server.add_group_members(
                 group_id, self.accounts2dns(adds))
         if removes:
-            result &= self.server.remove_group_members(
+            server_transactions_ok &= self.server.remove_group_members(
                 group_id, self.accounts2dns(removes))
-        return result
+        return server_transactions_ok
 
     def group2dn(self, group_name):
         """ Gets DN for a group name. """
@@ -362,14 +349,32 @@ class AffGroupSync(_FroupSync):
     def configure(self, config_args):
         super(AffGroupSync, self).configure(config_args)
 
-        self.config['affiliation_groups'] = dict()
         template = config_args.get('affiliation_groups', dict())
-        for group, affs in template.iteritems():
-            self.config['affiliation_groups'][group] = [
-                (self.co.AuthoritativeSystem(sys),
-                 self.co.PersonAffiliation(aff)) for sys, aff in affs]
+        for group, criterias in template.iteritems():
+            for criteria in criterias:
+                criteria['affiliation'] = (
+                    self.co.AuthoritativeSystem(criteria['affiliation'][0]),
+                    self.co.PersonAffiliation(criteria['affiliation'][1])
+                )
+        self.config['affiliation_groups'] = template
         self.logger.debug("config[affiliation_groups]: %r",
                           self.config['affiliation_groups'])
+
+    @memoize
+    def pe2affs(self, person_id):
+        """ Get affiliations for a person.
+
+        :param int person_id: The entity ID of an *existing* person entity.
+
+        :return dict:
+            keys are (source system, affiliation type) and value is
+            deleted_date for a given person.
+
+        """
+        self.pe.clear()
+        self.pe.find(person_id)
+        return {(r['source_system'], r['affiliation']): r['deleted_date']
+                for r in self.pe.get_affiliations(include_deleted=True)}
 
     @property
     def ad_group_names(self):
@@ -377,6 +382,18 @@ class AffGroupSync(_FroupSync):
         groups = super(AffGroupSync, self).ad_group_names
         groups.extend(self.config['affiliation_groups'].keys())
         return groups
+
+    def any_criteria_fulfilled(self, person_id, criterias):
+        for criteria in criterias:
+            grace_limit = datetime.date.today() - datetime.timedelta(
+                days=criteria['grace_period'])
+            aff = criteria['affiliation']
+            if aff in self.pe2affs(person_id):
+                deleted_date = self.pe2affs(person_id)[aff]
+                if (not deleted_date or
+                        deleted_date.pydate() > grace_limit):
+                    return True
+        return False
 
     @memoize
     def _update_aff_group(self, person_id):
@@ -389,21 +406,21 @@ class AffGroupSync(_FroupSync):
 
         # Decide which affiliations this user has
         memberships = defaultdict(lambda: False)
-        for group, criterias in self.config['affiliation_groups'].items():
-            for aff in criterias:
-                if aff in self.pe2affs(person_id):
-                    memberships[group] = True
-                    break  # Next group
+        for group, criterias in six.iteritems(
+                self.config['affiliation_groups']):
+            if self.any_criteria_fulfilled(person_id, criterias):
+                memberships[group] = True
+                break  # Next group
 
         # Maintain membership for all accounts of that person
-        result = True
+        server_transactions_ok = True
         for gname in self.config['affiliation_groups']:
             adds = [uname for uname, enable in self.pe2accs(person_id)
                     if enable and memberships[gname]]
             removes = [uname for uname, enable in self.pe2accs(person_id)
                        if enable and not memberships[gname]]
-            result &= self._update_group(gname, adds, removes)
-        return result
+            server_transactions_ok &= self._update_group(gname, adds, removes)
+        return server_transactions_ok
 
     def process_cl_event(self, row):
         """ Process person affiliation changes fast. """
@@ -421,15 +438,21 @@ class AffGroupSync(_FroupSync):
         'affiliation_groups' config setting.
 
         """
-        for group, affs in self.config['affiliation_groups'].iteritems():
-            for sys, aff in affs:
-                for row in self.pe.list_affiliations(source_system=int(sys),
-                                                     affiliation=int(aff),
-                                                     include_deleted=False,
-                                                     fetchall=False):
-                    for name, enabled in self.pe2accs(row['person_id']):
-                        if enabled:
-                            self.add_group_member(group, name)
+        for group, criterias in self.config['affiliation_groups'].iteritems():
+            for criteria in criterias:
+                grace_limit = datetime.date.today() - datetime.timedelta(
+                    days=criteria['grace_period'])
+                for row in self.pe.list_affiliations(
+                        source_system=int(criteria['affiliation'][0]),
+                        affiliation=int(criteria['affiliation'][1]),
+                        include_deleted=True,
+                        fetchall=False):
+                    # Only add persons whose affs are within the grace period
+                    if (not row['deleted_date'] or
+                            row['deleted_date'].pydate() > grace_limit):
+                        for name, enabled in self.pe2accs(row['person_id']):
+                            if enabled:
+                                self.add_group_member(group, name)
         super(AffGroupSync, self).fetch_cerebrum_data()
 
 
