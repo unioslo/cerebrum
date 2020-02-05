@@ -969,14 +969,14 @@ class BofhdAuth(DatabaseAccessor):
                           query_run_any=False):
         if (self.is_superuser(operator) or
             self._has_target_permissions(operator,
-                                         self.const.auth_create_user,
+                                         self.const.auth_create_person,
                                          self.const.auth_target_type_host,
                                          None, None) or
             self._has_target_permissions(operator,
-                                         self.const.auth_create_user,
+                                         self.const.auth_create_person,
                                          self.const.auth_target_type_disk,
                                          None, None) or
-            self._query_ou_permissions(operator, self.const.auth_create_user,
+            self._query_ou_permissions(operator, self.const.auth_create_person,
                                        ou, affiliation, None)):
             return True
         if query_run_any:

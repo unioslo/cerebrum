@@ -79,6 +79,8 @@ class Constants(Constants.Constants):
         'alter_printerquo', 'Alter printer quota')
     auth_modify_spread = _AuthRoleOpCode(
         'modify_spread', 'Modify spread')
+    auth_create_person = _AuthRoleOpCode(
+        'create_person', "Create person")
     auth_create_user = _AuthRoleOpCode(
         'create_user', 'Create user')
     auth_create_user_unpersonal = _AuthRoleOpCode(
