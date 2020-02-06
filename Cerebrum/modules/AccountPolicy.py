@@ -22,7 +22,7 @@ import datetime
 
 import cereconf
 
-from Cerebrum.Errors import InvalidAccountCreationArgument
+from Cerebrum.Errors import InvalidAccountCreationArgument, NotFoundError
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.utils.email import is_email
@@ -228,6 +228,11 @@ class AccountPolicy(object):
             except IndexError:
                 raise InvalidAccountCreationArgument(
                     'Could not generate user name for person %s',
+                    person.entity_id
+                )
+            except NotFoundError:
+                raise InvalidAccountCreationArgument(
+                    'Person %s missing first- or lastname',
                     person.entity_id
                 )
 
