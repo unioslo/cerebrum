@@ -146,6 +146,7 @@ from collections import defaultdict
 from Cerebrum.utils.funcwrap import memoize
 from .ADSync import GroupSync
 from .CerebrumData import CerebrumGroup
+from Cerebrum.modules.ad2.ADUtils import OUUnknownException
 
 
 class _FroupSync(GroupSync):
@@ -316,12 +317,18 @@ class _FroupSync(GroupSync):
         group_id = self.group2dn(group_name)
         server_transactions_ok = True
 
-        if adds:
-            server_transactions_ok &= self.server.add_group_members(
-                group_id, self.accounts2dns(adds))
-        if removes:
-            server_transactions_ok &= self.server.remove_group_members(
-                group_id, self.accounts2dns(removes))
+        try:
+            if adds:
+                server_transactions_ok &= self.server.add_group_members(
+                    group_id, self.accounts2dns(adds))
+            if removes:
+                server_transactions_ok &= self.server.remove_group_members(
+                    group_id, self.accounts2dns(removes))
+        except OUUnknownException as e:
+            # This happens every time we try to update fake groups of an
+            # account which has not been synced to AD yet by the user sync.
+            self.logger.warning(e)
+            return False
         return server_transactions_ok
 
     def group2dn(self, group_name):
@@ -506,14 +513,14 @@ class ConsentGroupSync(_FroupSync):
                     break  # Next group
 
         # Maintain membership for all acocunts of that person
-        result = True
+        server_transactions_ok = True
         for gname in self.config['consent_groups']:
             adds = [uname for uname, enable in self.pe2accs(person_id)
                     if enable and memberships[gname]]
             removes = [uname for uname, enable in self.pe2accs(person_id)
                        if enable and not memberships[gname]]
-            result &= self._update_group(gname, adds, removes)
-        return result
+            server_transactions_ok &= self._update_group(gname, adds, removes)
+        return server_transactions_ok
 
     def process_cl_event(self, row):
         """ Process consent changes fast. """
