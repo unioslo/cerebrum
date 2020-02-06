@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,11 +19,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Utilities for encrypting and decrypting GPG messages via GPGME."""
-
-import cereconf
+import io
+import logging
+import subprocess
 
 import gpgme
-from io import BytesIO
+import six
+
+import cereconf
+from .funcwrap import deprecate
+
+logger = logging.getLogger(__name__)
 
 
 def _unicode2str(obj, encoding='utf-8'):
@@ -80,8 +86,8 @@ def gpgme_encrypt(message, recipient_key_id=None, context=None):
     """
     context = context or get_gpgme_context()
     recipient_key = context.get_key(recipient_key_id)
-    plaintext = BytesIO(_unicode2str(message))
-    ciphertext = BytesIO()
+    plaintext = io.BytesIO(_unicode2str(message))
+    ciphertext = io.BytesIO()
     context.encrypt([recipient_key], 0, plaintext, ciphertext)
     return ciphertext.getvalue()
 
@@ -106,7 +112,139 @@ def gpgme_decrypt(ciphertext, context=None):
     GnuPG key database situated in cereconf.GNUPGHOME or the provided context.
     """
     context = context or get_gpgme_context()
-    ciphertext = BytesIO(ciphertext)
-    plaintext = BytesIO()
+    ciphertext = io.BytesIO(ciphertext)
+    plaintext = io.BytesIO()
     context.decrypt(ciphertext, plaintext)
     return plaintext.getvalue()
+
+
+# _filtercmd, legacy_gpg_encrypt and legacy_gpg_decrypt was moved from
+# Cerebrum.Utils and modernized a bit. The only reason they are kept around is
+# that gpgme_decrypt() currently won't work with passphrase protected keys.
+#
+# Note that unlocking passphrase protected keys is very finicky, as newer
+# versions of gpg/gpgme (2.1/1.4) insists on involving pinentry and gpg-agent,
+# while older versions won't accept the config/arguments that allows unlocking
+# these keys using the loopback pinentry-mode.
+
+
+def _filtercmd(cmd, input_data):
+    """Send input on stdin to a command and collect the output from stdout.
+
+    :param cmd:
+        a sequence of arguments, where the first element is the full path to
+        the command
+
+    :param input_data:
+        data to be sent on stdin to the executable
+
+    :return:
+        stdout from command
+
+    :raises IOError:
+        throws an IOError if the command exits with an error code.
+
+    Example use:
+
+    >>> _filtercmd(["sed", "s/kak/ost/"], "kakekake")
+    'ostekake'
+
+    """
+
+    p = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        close_fds=False,
+    )
+    if isinstance(input_data, six.text_type):
+        input_data = input_data.encode('utf-8')
+
+    stdout, stderr = p.communicate(input_data)
+
+    if stderr.strip():
+        logger.warning('gpg stderr: %r', stderr)
+
+    if p.returncode:
+        raise IOError("%r exited with %i" % (cmd, p.returncode))
+
+    return stdout
+
+
+_GPG_BIN = '/usr/bin/gpg'
+
+
+def _get_gpg_cmd(keyid, gnupghome, *args):
+    return (
+        _GPG_BIN,
+        '--no-secmem-warning',
+        '--quiet',
+        '--batch',
+        '--homedir', gnupghome or cereconf.GNUPGHOME,
+        '--default-key', keyid,
+    ) + args
+
+
+@deprecate('use gpgme_encrypt()')
+def legacy_gpg_encrypt(message, keyid, gnupghome=None):
+    """
+    Encrypts a message using gpg in a subprocess.
+
+    :param message:
+        message to encrypt
+
+    :param keyid:
+        key to use for encryption
+
+    :param gnupghome:
+        gpg homedir - defaults to cereconf.GNUPGHOME
+
+    :return:
+        encrypted message (ascii armor)
+
+    :raises IOError:
+        May raise an IOError if encryption fails.
+    """
+    cmd = _get_gpg_cmd(keyid, gnupghome, '--encrypt', '--armor',
+                       '--recipient', keyid)
+    return _filtercmd(cmd, message)
+
+
+@deprecate('use gpgme_decrypt()')
+def legacy_gpg_decrypt(message, keyid, passphrase=None, gnupghome=None):
+    """
+    Decrypts a message using gpg in a subprocess.
+
+    ..warning::
+
+        Passphrase will not work with gpg 2.1/gpgme 1.4: gpg requires a
+        '--pinentry-mode loopback' option and 'allow-loopback-pinentry' in
+        gpg-agent.conf, which is not supported in 2.0
+
+    :param message:
+        gpg encrypted message to decrypt
+
+    :param keyid:
+        key to use for decryption
+
+    :param passphrase:
+        passphrase for unlocking private key
+
+    :param gnupghome:
+        gpg homedir - defaults to cereconf.GNUPGHOME
+
+    :return:
+        decrypted message
+
+    :raises IOError:
+        May raise an IOError if decryption fails.
+    """
+    if passphrase:
+        pass_opts = ('--passphrase-fd', '0')
+        message = passphrase + "\n" + message
+    else:
+        pass_opts = ()
+
+    cmd = _get_gpg_cmd(keyid, gnupghome, '--decrypt', *pass_opts)
+    return _filtercmd(cmd, message)
