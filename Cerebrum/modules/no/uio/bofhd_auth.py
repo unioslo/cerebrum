@@ -234,7 +234,7 @@ class UioAuth(ContactAuthMixin, BofhdAuth):
             return True
         if query_run_any and self._is_admin(operator):
             return True
-        if self._is_admin(operator, group.entity_id):
+        if group and self._is_admin(operator, group.entity_id):
             return True
         return super(UioAuth, self).can_alter_group(operator, group,
                                                     query_run_any)
@@ -249,7 +249,7 @@ class UioAuth(ContactAuthMixin, BofhdAuth):
             return True
         if query_run_any and self._is_admin_or_moderator(operator):
             return True
-        if self._is_admin_or_moderator(operator, group.entity_id):
+        if group and self._is_admin_or_moderator(operator, group.entity_id):
             return True
         return super(UioAuth, self).can_delete_group(operator, group,
                                                      query_run_any)
