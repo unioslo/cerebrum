@@ -29,7 +29,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules import EmailConstants
 from Cerebrum.modules.disk_quota import DiskQuota
 from Cerebrum.modules.bofhd_requests.request import BofhdRequests
-from Cerebrum.Utils import pgp_encrypt, Factory
+from Cerebrum.Utils import Factory
 
 
 class AccountUiOMixin(Account.Account):
