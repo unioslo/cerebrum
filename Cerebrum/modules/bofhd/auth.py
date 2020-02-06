@@ -1327,11 +1327,17 @@ class BofhdAuth(DatabaseAccessor):
             return True
         raise PermissionDenied("Not allowed to add admin to group")
 
-    def can_add_group_moderator(self, operator, group=None,
+    def can_add_group_moderator(self,
+                                operator,
+                                group=None,
                                 query_run_any=False):
         # You can do whatever you want if you are a superuser
         if self.is_superuser(operator):
             return True
+        try:
+            return self.can_add_group_admin(operator, group, query_run_any)
+        except PermissionDenied:
+            pass
         # You can see the command if you are an admin or mod of something
         if query_run_any:
             return self._is_admin_or_moderator(operator)
