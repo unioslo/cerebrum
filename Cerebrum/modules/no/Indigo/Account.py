@@ -29,7 +29,6 @@ from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.utils import json
 from Cerebrum.Utils import Factory
-from Cerebrum.Utils import pgp_encrypt
 
 
 class AccountIndigoMixin(Account.Account):
@@ -77,9 +76,6 @@ class AccountIndigoMixin(Account.Account):
             if r['affiliation'] == self.const.affiliation_ansatt:
                 return True
         return False
-
-    def enc_auth_type_pgp_crypt(self, plaintext, salt=None):
-        return pgp_encrypt(plaintext, cereconf.PGPID)
 
 
 class AccountOfkMixin(Account.Account):

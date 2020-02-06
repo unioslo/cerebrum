@@ -525,12 +525,6 @@ class AccountUiOMixin(Account.Account):
                 return True
         return False
 
-    def wants_auth_type(self, method):
-        if method == self.const.Authentication("PGP-guest_acc"):
-            # only store this type for guest accounts
-            return self.get_trait(self.const.trait_uio_guest_owner) is not None
-        return self.__super.wants_auth_type(method)
-
     def clear_home(self, spread):
         """Remove disk quota before clearing home."""
         try:

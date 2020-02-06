@@ -16,36 +16,52 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Mixin for PGP encrypted passwords.
 
+Supports several PGP recipients, storing each system as a seperate
+authentication code.
+
+To use, add something like this to the cereconf.py:
+::
+
+    AUTH_PGP = {
+       "offline": "0x8f382f1",
+       "ad_ntnu_no": "0x82f1821d",
+    }
+    CLASS_ACCOUNT = ['Cerebrum.Account/Account',
+                    (..)
+                    'Cerebrum.modules.AuthPGP/AuthPGPAccountMixin']
+
+    CLASS_CONSTANTS = [(..)
+                      'Cerebrum.modules.AuthPGP/Constants']
+
+Remember to run makedb --update-codes to add constants to the database
+"""
 import cereconf
-from Cerebrum.Constants import _AuthenticationCode
-from Cerebrum.Utils import pgp_encrypt, pgp_decrypt
-
-"""Mixin for PGP encrypted passwords. Supports several PGP recipients,
-storing each system as a seperate authentication code."""
-
-# To use, add something like this to the cereconf.py
-# AUTH_PGP = {
-#    "offline": "0x8f382f1",
-#    "ad_ntnu_no": "0x82f1821d",
-# }
-# CLASS_ACCOUNT = ['Cerebrum.Account/Account',
-#                 (..)
-#                 'Cerebrum.modules.AuthPGP/AuthPGPAccountMixin']
-#
-# CLASS_CONSTANTS = [(..)
-#                   'Cerebrum.modules.AuthPGP/Constants']
-
-# Remember to run makedb --update-codes to add constants to the database
 
 from Cerebrum import Account
+from Cerebrum.Constants import _AuthenticationCode
+from Cerebrum.Utils import pgp_encrypt, pgp_decrypt
 from Cerebrum.Utils import read_password
 
 
-# Mixin for encryption methods
+def _get_auth_code(system):
+    codename = 'PGP-' + system
+    auth_code = _AuthenticationCode(
+        codename,
+        "PGP encrypted password for the system %s" % system,
+    )
+    attr_name = "auth_type_pgp_%s" % system
+    return attr_name, auth_code
+
+
 class AuthPGPAccountMixin(Account.Account):
+    """ Mixin for encryption methods """
+
     def _pgp_auth(self, system):
-        return self.const.Authentication("PGP-" + system)
+        _, const = _get_auth_code(system)
+        return const
 
     def encrypt_password(self, method, plaintext, salt=None, binary=False):
         for system, pgpkey in cereconf.AUTH_PGP.items():
@@ -83,16 +99,20 @@ class Constants:
     pass
 
 
+_pgp_auth_codes = tuple(_get_auth_code(sys) for sys in cereconf.AUTH_PGP)
+
+
 # WARNING: Hackish code below =)
 
 # Generate authcode constants dynamically, one for each AUTH_PGP
 # system, and add them to AUTH_CRYPT_METHODS
 
-for (system, pgpkey) in cereconf.AUTH_PGP.items():
-    codename = 'PGP-' + system
-    if codename not in cereconf.AUTH_CRYPT_METHODS:
-        cereconf.AUTH_CRYPT_METHODS += (codename,)
-    auth_code = _AuthenticationCode(
-        codename, "PGP encrypted password for the system %s" % system)
-    name = "auth_type_pgp_%s" % system
-    setattr(Constants, name, auth_code)
+
+# Patch Constants mixin
+for attr, code in _pgp_auth_codes:
+    setattr(Constants, attr, code)
+
+
+# Patch AUTH_CRYPT_METHODS:
+# for _, code in _pgp_auth_codes:
+#     cereconf.AUTH_CRYPT_METHODS += (str(code),)
