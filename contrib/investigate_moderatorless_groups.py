@@ -47,7 +47,7 @@ def get_abandoned_manual_groups():
         const.GroupType(g_type): [] for g_type in cereconf.MANUAL_GROUP_TYPES}
     for adminless_group in adminless:
         group.find(adminless_group[0])
-        g_type = const.human2constant(group.group_type)
+        g_type = const.GroupType(group.group_type)
         if g_type in manual_abandonees:
             manual_abandonees[g_type].append({'id': group.entity_id,
                                               'name': group.group_name,
