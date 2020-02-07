@@ -1099,3 +1099,25 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         :return: True if owner of at least one account, False if not
         """
         return bool(self.get_owned_accounts())
+
+    def get_adminless_groups(self):
+        """Returns a list of all groups that lacks an admin"""
+        stmt = """
+        SELECT group_id FROM group_info
+        WHERE group_id NOT IN
+          (
+            SELECT group_id FROM group_admin
+          )
+        """
+        return self.query(stmt)
+
+    def get_moderatorless_groups(self):
+        """Returns a list of all groups that lacks a moderator"""
+        stmt = """
+        SELECT group_id FROM group_info
+        WHERE group_id NOT IN
+          (
+            SELECT group_id FROM group_moderator
+          )
+        """
+        return self.query(stmt)
