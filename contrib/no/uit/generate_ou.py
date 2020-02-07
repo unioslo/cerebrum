@@ -33,6 +33,8 @@ import logging
 import os
 
 import six
+import requests
+import json
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
@@ -41,6 +43,8 @@ from Cerebrum.modules.no.access_FS import make_fs
 from Cerebrum.utils.atomicfile import SimilarSizeStreamRecoder
 
 logger = logging.getLogger(__name__)
+
+URL = "https://stedkoder.uit.no/Api/basstedkoder"
 
 
 def format_int(value, fmt='02d'):
@@ -130,26 +134,36 @@ class OuGenerator(object):
 
         return fs_data
 
-    def _parse_line(self, line):
+    def _parse_line(self, line, is_csv=False):
         """
-        Parse a single line of csv data.
+        Parse a single line of ou data, either csv or a dict.
         """
         # TODO: Use the csv module to parse csv data...
 
-        # positions in file
-        field_sko = 0
-        field_acronym = 1
-        # field_location = 2
-        field_shortname = 3
-        field_fullname = 4
-        num_fields = 5
+        if is_csv:  # line is a list with contents of one line from a csv file
+                    # (one line = info about one ou)
+            # positions in file:
+            field_sko = 0
+            field_acronym = 1
+            # field_location = 2
+            field_shortname = 3
+            field_fullname = 4
+            num_fields = 5
 
-        items = line.split(";")
+            items = line.split(";")
 
-        if len(items) != num_fields:
-            raise ValueError(
-                'Incorrect number of fields, got %d, expected %d' %
-                (len(items), num_fields))
+            if len(items) != num_fields:
+                raise ValueError(
+                    'Incorrect number of fields, got %d, expected %d' %
+                    (len(items), num_fields))
+        else:  # line is info from stedkoder.uit.no, it is a dict.
+            # keys for accessing info in the dict:
+            field_sko = 'Stedkode'
+            field_acronym = 'Akronym'
+            field_shortname = 'Kortnavn'
+            field_fullname = 'NavnNob'
+
+            items = line
 
         def get_field(field):
             return items[field].strip('"').strip()
@@ -204,8 +218,40 @@ class OuGenerator(object):
 
         return sko, ou_dict
 
-    def get_authoritative_ou(self):
-        authoritative_ou = {}
+    def get_ou_info_from_ws(self):
+        """
+        Gets ou info from stedkoder.uit.no.
+        Returns an empty dict if no stedkode information was received.
+        """
+        ws_ou = {}
+        model_data = {}
+
+        # get stedkoder from webservice
+        logger.info("Requesting stedkoder from: %s", URL)
+        response = requests.get(URL)
+        response.encoding = "utf-8"
+        text = response.text
+
+        logger.info("Parsing response")
+        if "var model = " in text:
+            model_data = text.split('var model = ')[1]
+            model_data = model_data.split("txt = ")[0].strip().strip(",")
+            model_data = json.loads(model_data)  # convert to dict
+
+        # ou info is now in model_data (or model_data is empty)
+        # get it into dict with structure:
+        # {<stedkode> : {<key> : <val>, <key> : <val>, ...}, ...}
+        for ou_info in model_data:
+            sko, ou_dict = self._parse_line(ou_info, is_csv=False)
+            ws_ou[sko] = ou_dict
+
+        return ws_ou
+
+    def get_ou_info_from_files(self):
+        """
+        Gets ou info from the csv files listed in self.ou_files.
+        """
+        from_files_ou = {}
 
         for filename in self.ou_files:
             logger.info("Reading authoritative OU file %r", filename)
@@ -215,11 +261,36 @@ class OuGenerator(object):
                     if not line or any(line.startswith(char) for char in ';#'):
                         continue
                     try:
-                        sko, ou_dict = self._parse_line(line)
-                        authoritative_ou[sko] = ou_dict
+                        sko, ou_dict = self._parse_line(line, is_csv=True)
+                        from_files_ou[sko] = ou_dict
                     except Exception:
                         logger.error('Unable to parse %r line %d: %r',
                                      filename, lineno, line, exc_info=True)
+        return from_files_ou
+
+    def get_authoritative_ou(self):
+        # Ou info from webservice
+        ws_ou = self.get_ou_info_from_ws()
+        if not ws_ou:  # ou_info wasn't received from webservice
+            raise ValueError(
+                'Got no ou info from %s, unable to generate ou file', URL)
+
+        # Ou info from file(s)
+        from_files_ou = self.get_ou_info_from_files()
+
+        # Combine info from webservice and info from file(s)
+        # into authoritative_ou
+        authoritative_ou = ws_ou
+        for from_files_stedkode, from_files_ou_info in from_files_ou.items():
+            stedkode = authoritative_ou.get(from_files_stedkode, None)
+            if stedkode:
+                logger.warning(
+                    "Info for OU %s collected from both webservice and file.\
+                    Only keeping info from webservice."
+                    % from_files_stedkode)
+            else:
+                authoritative_ou[from_files_stedkode] = from_files_ou_info
+
         return authoritative_ou
 
     def generate_ou(self, fs_ou, auth_ou):
@@ -305,11 +376,6 @@ def main(inargs=None):
     ou_files = list(_parse_ou_files(args.sources or ()))
     logger.debug("sources: %r", ou_files)
 
-    if not ou_files:
-        logger.error('No valid ou-source files (args=%r, valid=%r)',
-                     args.sources, ou_files)
-        parser.error('No valid ou-source files')
-
     output = args.output
     logger.debug('output: %r', output)
 
@@ -320,9 +386,9 @@ def main(inargs=None):
     fs_ou = my_ou.get_fs_ou()
     logger.info('found %d ous in fs', len(fs_ou))
 
-    logger.info('parsing ous from files...')
+    logger.info('parsing ous from webservice and file(s)...')
     auth_ou = my_ou.get_authoritative_ou()
-    logger.info('found %d ous in files', len(auth_ou))
+    logger.info('found %d ous in webservice and file(s)', len(auth_ou))
 
     logger.info('merging ou data...')
     final_ou = my_ou.generate_ou(fs_ou, auth_ou)
