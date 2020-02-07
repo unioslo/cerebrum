@@ -823,7 +823,6 @@ class BofhdExtension(BofhdCommonMethods):
                 dl_group.populate(roomlist=std_values['roomlist'],
                                   hidden=std_values['hidden'],
                                   parent=grp)
-                self._raise_PermissionDenied_if_not_manual_group(dl_group)
             if self._is_perishable_manual_group(dl_group):
                 dl_group.set_default_expire_date()
             dl_group.write_db()
