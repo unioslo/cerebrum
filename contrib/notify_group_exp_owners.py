@@ -38,22 +38,25 @@ import collections
 import datetime
 import logging
 import os
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from smtplib import SMTPException
 
-import jinja2
 import six
 
 import Cerebrum.utils.email
 import cereconf
 from Cerebrum import logutils
-from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.argutils import codec_type
 from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.modules.email_report.utils import (
+    timestamp_title,
+    write_html_report,
+    create_html_message,
+    get_account_email
+)
+from Cerebrum.modules.email_report.plain_text_table import get_table
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +73,7 @@ INFO_LINK = 'https://www.uio.no/tjenester/it/brukernavn-passord/brukeradministra
 
 TRANSLATION = {
     'en': {
+        'title': 'Review of soon expiring groups you are administrating',
         'greeting': 'Hi,',
         'message': "The following groups will expire in the near future. If "
                    "you want the groups to remain, please extend their expire "
@@ -91,6 +95,7 @@ TRANSLATION = {
         ]),
     },
     'nb': {
+        'title': 'Oversikt over grupper med kort utløpsdato du administrerer',
         'greeting': 'Hei,',
         'message': "Her følger en oversikt over grupper med utløpsdato i "
                    "nærmeste fremtid. Vennligst forleng utløpsdato om du "
@@ -114,6 +119,7 @@ TRANSLATION = {
         ]),
     },
     'nn': {
+        'title': 'Oversikt over grupper med kort utløpsdato du administrerer',
         'greeting': 'Hei,',
         'message': 'Her følgjer ei oversikt over alle grupper du kan '
                    'administrerere med brukaren {}. Du blir '
@@ -137,128 +143,25 @@ TRANSLATION = {
 }
 
 
-def get_title(language):
-    iso_timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    if language == 'en':
-        return (
-            "Review of soon expiring groups you are administrating "
-            "({timestamp})".format(
-                timestamp=iso_timestamp)
-        )
-    elif language == 'nb':
-        return (
-            "Oversikt over grupper med kort utløpsdato du administrerer "
-            "({timestamp})".format(
-                timestamp=iso_timestamp
-            )
-        )
-    elif language == 'nn':
-        return (
-            "Oversikt over grupper med kort utløpsdato du administrerer "
-            "({timestamp})".format(
-                timestamp=iso_timestamp
-            )
-        )
-
-
-def write_html_report(template_path, codec, **kwargs):
-    env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(template_path)
-    )
-    template = env.get_template(TEMPLATE_NAME)
-
-    return template.render(encoding=codec.name, **kwargs).encode(codec.name)
-
-
 def write_plain_text_report(codec, translation=None, sender=None,
                             expiring_groups=None,
                             account_name=None):
-    def get_cell_content(text, cell_width):
-        return text + (cell_width - len(text)) * ' '
-
-    def get_cell_contents(texts, cell_widths):
-        return [get_cell_content(t, l) for t, l in zip(texts, cell_widths)]
-
-    def assemble_line(divider, cell_contents):
-        return divider + divider.join(cell_contents) + divider + '\n'
-
-    def get_longest_item_length(lst):
-        return max(*map(len, lst))
-
-    def get_cell_widths(headers, exp_groups):
-        columns = map(
-            lambda key: [headers[key]],
-            translation['headers'].keys()
-        )
-
-        for group in exp_groups:
-            columns[0].append(group['group_name'])
-            columns[1].append(group['expire_date'])
-            columns[2].append(group['manage_link'])
-
-        return map(get_longest_item_length, columns)
-
-    def get_table_rows(cell_widths, divider_line):
-        rows = ''
+    def get_table_rows():
+        keys = translation['headers'].keys()
+        rows = [translation['headers'].values()]
         for group in expiring_groups:
-            group_name = group['group_name']
-            expire_date = group['expire_date']
-            manage_link = group['manage_link']
-
-            row_content_line = assemble_line(
-                '|',
-                get_cell_contents(
-                    [group_name, expire_date, manage_link],
-                    cell_widths
-                )
-            )
-
-            rows += (row_content_line + divider_line)
+            rows.append([group[k] for k in keys])
         return rows
-
-    def get_table():
-        headers = collections.OrderedDict(translation['headers'])
-        cell_widths = get_cell_widths(headers, expiring_groups)
-
-        separators = map(lambda length: length * '-', cell_widths)
-
-        divider_line = assemble_line('+', separators)
-        header_line = assemble_line(
-            '|',
-            get_cell_contents(headers.values(), cell_widths)
-        )
-        return divider_line + header_line + divider_line + get_table_rows(
-            cell_widths, divider_line
-        )
 
     return (
             '\n' + translation['greeting'] +
             '\n\n' + translation['message'].format(account_name) +
             '\n\n' + translation['info_link'] + translation['here'] + ': ' +
             INFO_LINK +
-            '\n\n' + get_table() +
+            '\n\n' + get_table(get_table_rows()) +
             '\n' + translation['signature'] +
             '\n' + sender
     ).encode(codec.name)
-
-
-def create_html_message(html,
-                        plain_text,
-                        codec,
-                        subject=None,
-                        from_addr=None,
-                        to_addrs=None):
-    message = MIMEMultipart('alternative')
-    if subject:
-        message['Subject'] = subject
-    if from_addr:
-        message['From'] = from_addr
-    if to_addrs:
-        message['To'] = to_addrs
-
-    message.attach(MIMEText(plain_text, 'plain', codec.name))
-    message.attach(MIMEText(html, 'html', codec.name))
-    return message
 
 
 def send_mails(args, group_info_dict, translation, title):
@@ -368,17 +271,6 @@ def make_parser():
     return parser
 
 
-def get_account_email(co, account):
-    try:
-        return account.get_primary_mailaddress()
-    except NotFoundError:
-        contact_info = account.get_contact_info(
-            type=co.contact_email)
-        if contact_info:
-            return contact_info[0]['contact_value']
-    return None
-
-
 @memoize
 def get_group_info(gr, group_id):
     gr.clear()
@@ -399,9 +291,7 @@ def get_admins_groups_emails(db, expiring_groups):
     groupid2expdate = {}
 
     def cache_owner_groups_and_email(account_id, group_id):
-        ac.clear()
-        ac.find(account_id)
-        email = get_account_email(co, ac)
+        email = get_account_email(co, ac, account_id)
         account_name = ac.account_name
         if email:
             owner2mail[account_name] = email
@@ -538,7 +428,7 @@ def main(inargs=None):
         send_mails(args,
                    soon,
                    TRANSLATION[DEFAULT_LANGUAGE],
-                   get_title(DEFAULT_LANGUAGE))
+                   timestamp_title(TRANSLATION[DEFAULT_LANGUAGE]['title']))
 
     if later_expiring:
         logger.info("Finding emails to admins")
@@ -548,7 +438,7 @@ def main(inargs=None):
         send_mails(args,
                    later,
                    TRANSLATION[DEFAULT_LANGUAGE],
-                   get_title(DEFAULT_LANGUAGE))
+                   timestamp_title(TRANSLATION[DEFAULT_LANGUAGE]['title']))
 
     # Remove traits for notified groups where the expire date has been
     # extended, so that the group can be notified again in the future.

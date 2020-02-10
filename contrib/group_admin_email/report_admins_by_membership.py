@@ -26,33 +26,37 @@ each group.
 from __future__ import unicode_literals
 import argparse
 import datetime
-import itertools
 import logging
 import os
 import collections
 
-import jinja2
-
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from smtplib import SMTPException
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 import Cerebrum.utils.email
-from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.utils.argutils import add_commit_args
-from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.Utils import Factory
-from Cerebrum.Errors import NotFoundError
 from Cerebrum.utils.argutils import codec_type
+from Cerebrum.modules.email_report.GroupOwnerCacher import GroupOwnerCacher
+from Cerebrum.modules.email_report.utils import (
+    timestamp_title,
+    get_account_name,
+    get_account_email,
+    create_html_message,
+    write_html_report,
+    check_date
+)
+from Cerebrum.modules.email_report.plain_text_table import get_table
 
 logger = logging.getLogger(__name__)
 
 # TODO maybe use absolute path
-DEFAULT_TEMPLATE_FOLDER = os.path.join(os.path.dirname(__file__),
-                                       'statistics',
-                                       'templates')
+DEFAULT_TEMPLATE_FOLDER = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),
+    'statistics',
+    'templates'
+)
 TEMPLATE_NAME = 'group_members_table.html'
 FROM_ADDRESS = 'noreply@usit.uio.no'
 SENDER = 'USIT\nUiO'
@@ -62,6 +66,7 @@ BRUKERINFO_GROUP_MANAGE_LINK = 'https://brukerinfo.uio.no/groups/?group='
 INFO_LINK = 'https://www.uio.no/tjenester/it/brukernavn-passord/brukeradministrasjon/hjelp/grupper/rapportering/?'
 TRANSLATION = {
     'en': {
+        'title': 'Review of the groups you are administrating',
         'greeting': 'Hi,',
         'message': 'The following is an overview of all the groups that you '
                    'can manage with the account {}. You are considered to be'
@@ -85,6 +90,7 @@ TRANSLATION = {
         ]),
     },
     'nb': {
+        'title': 'Oversikt over gruppene du administrerer',
         'greeting': 'Hei,',
         'message': 'Her følger en oversikt over alle grupper du kan '
                    'administrerere med kontoen {}. Du blir '
@@ -107,6 +113,7 @@ TRANSLATION = {
         ]),
     },
     'nn': {
+        'title': 'Oversikt over gruppene du administrerer',
         'greeting': 'Hei,',
         'message': 'Her følgjer ei oversikt over alle grupper du kan'
                    'administrerere med brukaren {}. Du blir '
@@ -131,264 +138,67 @@ TRANSLATION = {
 }
 
 
-def get_title(language):
-    iso_timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    if language == 'en':
-        return (
-            'Review of the groups you are administrating ({timestamp})'.format(
-                timestamp=iso_timestamp)
-        )
-    elif language == 'nb':
-        return (
-            'Oversikt over gruppene du administrerer ({timestamp})'.format(
-                timestamp=iso_timestamp
-            )
-        )
-    elif language == 'nn':
-        return (
-            'Oversikt over gruppene du administrerer ({timestamp})'.format(
-                timestamp=iso_timestamp
-            )
-        )
-
-
-def write_html_report(template_path, codec, **kwargs):
-    env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(template_path)
-    )
-    template = env.get_template(TEMPLATE_NAME)
-
-    return template.render(encoding=codec.name, **kwargs).encode(codec.name)
-
-
 def write_plain_text_report(codec, translation=None, sender=None,
                             owned_groups=None, group_id2members=None,
-                            account_name=None):
-    def get_cell_content(text, cell_width):
-        return text + (cell_width - len(text)) * ' '
+                            account_name=None, info_link=None):
+    def get_table_rows():
+        def get_cell_value(key):
+            if key == 'members':
+                return str(group_id2members[group['group_id']])
+            return group[key]
 
-    def get_cell_contents(texts, cell_widths):
-        return [get_cell_content(t, l) for t, l in zip(texts, cell_widths)]
-
-    def assemble_line(divider, cell_contents):
-        return divider + divider.join(cell_contents) + divider + '\n'
-
-    def get_longest_item_length(lst):
-        return max(*map(len, lst))
-
-    def get_cell_widths(headers, owned_groups):
-        columns = map(
-            lambda key: [headers[key]],
-            translation['headers'].keys()
-        )
-
+        keys = translation['headers'].keys()
+        rows = [translation['headers'].values()]
         for group in owned_groups:
-            columns[0].append(group['group_name'])
-            columns[1].append(group['owner_group_name'])
-            columns[2].append(str(group_id2members[group['group_id']]))
-            columns[3].append(group['manage_link'])
-
-        return map(get_longest_item_length, columns)
-
-    def get_table_rows(cell_widths, divider_line):
-        rows = ''
-        for group in owned_groups:
-            group_name = group['group_name']
-            owner_group_name = group['owner_group_name']
-            members_count = str(group_id2members[group['group_id']])
-            manage_link = group['manage_link']
-
-            row_content_line = assemble_line(
-                '|',
-                get_cell_contents(
-                    [group_name, owner_group_name, members_count, manage_link],
-                    cell_widths
-                )
-            )
-
-            rows += (row_content_line + divider_line)
+            rows.append([get_cell_value(k) for k in keys])
         return rows
-
-    def get_table():
-        headers = collections.OrderedDict(translation['headers'])
-        cell_widths = get_cell_widths(headers, owned_groups)
-
-        separators = map(lambda length: length * '-', cell_widths)
-
-        divider_line = assemble_line('+', separators)
-        header_line = assemble_line(
-            '|',
-            get_cell_contents(headers.values(), cell_widths)
-        )
-        return divider_line + header_line + divider_line + get_table_rows(
-            cell_widths, divider_line
-        )
 
     return (
             '\n' + translation['greeting'] +
             '\n\n' + translation['message'].format(account_name) +
             '\n\n' + translation['info_link'] + translation['here'] + ': ' +
-            INFO_LINK + 
-            '\n\n' + get_table() + 
-            '\n' + translation['signature'] + 
+            info_link +
+            '\n\n' + get_table(get_table_rows()) +
+            '\n' + translation['signature'] +
             '\n' + sender
     ).encode(codec.name)
 
 
-def create_html_message(html,
-                        plain_text,
-                        codec,
-                        subject=None,
-                        from_addr=None,
-                        to_addrs=None):
-    message = MIMEMultipart('alternative')
-    if subject:
-        message['Subject'] = subject
-    if from_addr:
-        message['From'] = from_addr
-    if to_addrs:
-        message['To'] = to_addrs
+def cache_one_accounts_groups(ac, gr, account_name):
+    owner_id2groups = collections.defaultdict(list)
+    ac.clear()
+    ac.find_by_name(account_name)
 
-    message.attach(MIMEText(plain_text, 'plain', codec.name))
-    message.attach(MIMEText(html, 'html', codec.name))
-    return message
-
-
-def find_group(db, gr, entity_id):
-    gr.clear()
-    try:
-        gr.find(entity_id)
-    except NotFoundError:
-        db.rollback()
-        return False
-    return True
-
-
-def get_address(row):
-    return row['local_part'] + '@' + row['domain']
-
-
-class GroupOwnerCacher(object):
-    def __init__(self, db):
-        self.db = db
-        self.en = Factory.get('Entity')(db)
-        self.co = Factory.get('Constants')(db)
-        self.person = Factory.get('Person')(db)
-        self.group = Factory.get('Group')(db)
-        self.account = Factory.get('Account')(db)
-
-    def get_account_email(self, member_id):
-        self.account.clear()
-        self.account.find(member_id)
-        try:
-            return self.account.get_primary_mailaddress()
-        except NotFoundError:
-            contact_info = self.account.get_contact_info(
-                type=self.co.contact_email)
-            if contact_info:
-                return contact_info[0]['contact_value']
-        return None
-
-    def get_account_name(self, account_id):
-        self.account.clear()
-        self.account.find(account_id)
-        return self.account.account_name
-
-    @memoize
-    def get_group_name(self, group_id):
-        self.group.clear()
-        self.group.find(group_id)
-        return self.group.group_name
-
-    def cache_member_id2group_ids(self, group_ids):
-        """Maps an entity_id to the group_ids where it is a member
-
-        :type group_ids: list
-        :arg group_ids: the group_ids to search for membership
-        :returns: a mapping of entity_id to a list of group_ids
-        """
-        cache = collections.defaultdict(list)
-        for group_id in group_ids:
-            for member in self.group.search_members(
-                    group_id=group_id,
-                    member_type=self.co.entity_account):
-                cache[member['member_id']].append(group_id)
-        return cache
-
-    def cache_one_accounts_groups(self, account_name):
-        owner_id2groups = collections.defaultdict(list)
-        self.account.clear()
-        self.account.find_by_name(account_name)
-
-        for owner_group in self.group.search(member_id=self.account.entity_id):
-            for group in self.group.search(admin_id=owner_group['group_id']):
-                owner_id2groups[self.account.entity_id].append(
-                    {
-                        'group_id': group['group_id'],
-                        'owner_group_name': owner_group['name'],
-                        'group_name': group['name'],
-                        'manage_link': (BRUKERINFO_GROUP_MANAGE_LINK +
-                                        group['name'])
-                    }
-                )
-        return owner_id2groups
-
-    def cache_owner_id2groups(self, ten):
-        """Caches groups which have an auth_role for a group
-
-        :returns: a mapping from owner_id to a list of dicts on the form:
-            {
-                group_id: unicode,
-                group_name: unicode,
-                manage_link: unicode
-            }
-        """
-        owner_id2groups = collections.defaultdict(list)
-        roles = GroupRoles(self.db)
-        admins = roles.search_admins(
-            admin_type=self.co.entity_group,
-            include_group_name=True)
-
-        if ten:
-            admins = itertools.islice(admins, 10)
-        for row in admins:
-            owner_id2groups[row['admin_id']].append(
+    for owner_group in gr.search(member_id=ac.entity_id):
+        for group in gr.search(admin_id=owner_group['group_id']):
+            owner_id2groups[ac.entity_id].append(
                 {
-                    'group_id': row['group_id'],
-                    'owner_group_name': self.get_group_name(row['admin_id']),
-                    'group_name': row['group_name'],
+                    'group_id': group['group_id'],
+                    'owner_group_name': owner_group['name'],
+                    'group_name': group['name'],
                     'manage_link': (BRUKERINFO_GROUP_MANAGE_LINK +
-                                    row['group_name'])
+                                    group['name'])
                 }
             )
-        logger.info('%s admin(s) found, all of them are groups themselves',
-                    len(owner_id2groups))
-        return owner_id2groups
-
-    def cache_group_id2members(self, groups):
-        group_id2members = {}
-        for group in groups:
-            group_id = group['group_id']
-            members_count = len(
-                [m for m in self.group.search_members(group_id=group_id)]
-            )
-            group_id2members[group_id] = members_count
-        return group_id2members
+    return owner_id2groups
 
 
 def send_mails(db, args):
-    group_owner_cacher = GroupOwnerCacher(db)
+    group_owner_cacher = GroupOwnerCacher(db, BRUKERINFO_GROUP_MANAGE_LINK)
+    co = Factory.get('Constants')(db)
+    ac = Factory.get('Account')(db)
 
     if args.only_owner:
-        owner_id2groups = group_owner_cacher.cache_one_accounts_groups(
-            args.only_owner,
-        )
+        gr = Factory.get('Group')(db)
+        owner_id2groups = cache_one_accounts_groups(ac, gr, args.only_owner)
         account_id2owner_ids = {
-            group_owner_cacher.account.entity_id:  owner_id2groups.keys()
+            ac.entity_id: owner_id2groups.keys()
         }
     else:
         owner_id2groups = group_owner_cacher.cache_owner_id2groups(
-            args.ten,
+            co.entity_group,
+            ('group_id', 'group_name', 'owner_group_name', 'manage_link'),
+            nr_of_admins=10 if args.ten else None
         )
         account_id2owner_ids = group_owner_cacher.cache_member_id2group_ids(
             owner_id2groups.keys()
@@ -399,7 +209,7 @@ def send_mails(db, args):
         all_owned_groups)
 
     for account_id, owner_ids in account_id2owner_ids.items():
-        email_address = group_owner_cacher.get_account_email(account_id)
+        email_address = get_account_email(co, ac, account_id)
         if not email_address:
             logger.warning('No primary email for %s', account_id)
             continue
@@ -408,10 +218,11 @@ def send_mails(db, args):
         for owner_id in owner_ids:
             owned_groups.extend(owner_id2groups[owner_id])
 
-        account_name = group_owner_cacher.get_account_name(account_id)
-        title = get_title(DEFAULT_LANGUAGE)
+        account_name = get_account_name(ac, account_id)
+        title = timestamp_title(TRANSLATION[DEFAULT_LANGUAGE]['title'])
 
         html = write_html_report(
+            TEMPLATE_NAME,
             args.template_folder,
             args.codec,
             title=title,
@@ -419,8 +230,7 @@ def send_mails(db, args):
             sender=SENDER,
             owned_groups=owned_groups,
             group_id2members=group_id2members,
-            info_link=INFO_LINK,
-            account_name=account_name,
+            info_link=INFO_LINK,            account_name=account_name,
         )
         plain_text = write_plain_text_report(
             args.codec,
@@ -429,6 +239,7 @@ def send_mails(db, args):
             owned_groups=owned_groups,
             group_id2members=group_id2members,
             account_name=account_name,
+            info_link=INFO_LINK,
         )
 
         if args.print_messages:
@@ -445,14 +256,6 @@ def send_mails(db, args):
             Cerebrum.utils.email.send_message(message, debug=not args.commit)
         except SMTPException as e:
             logger.warning(e)
-
-
-def check_date(dates, today=None):
-    """Check if today is one of the given dates"""
-    if not dates:
-        return True
-    today = today or datetime.date.today()
-    return (today.month, today.day) in [(d.month, d.day) for d in dates]
 
 
 def main(inargs=None):

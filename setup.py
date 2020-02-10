@@ -374,6 +374,7 @@ setup(
         'Cerebrum/modules/cim',
         'Cerebrum/modules/disk_quota',
         'Cerebrum/modules/dns',
+        'Cerebrum/modules/email_report',
         'Cerebrum/modules/entity_expire',
         'Cerebrum/modules/event',
         'Cerebrum/modules/event/clients',

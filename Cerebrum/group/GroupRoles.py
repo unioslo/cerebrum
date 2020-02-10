@@ -159,8 +159,9 @@ class GroupRoles(DatabaseAccessor):
         DELETE FROM [:table schema=cerebrum name=group_moderator]
         WHERE group_id=:group_id""", binds)
 
-    def search_admins(self, group_id=None, group_spread=None, admin_id=None,
-                      admin_type=None, include_group_name=False):
+    def search_admins(self, group_id=None, group_spread=None, group_type=None,
+                      admin_id=None, admin_type=None,
+                      include_group_name=False):
         """Search for group *ADMINS* satisfying certain criteria.
 
         If a filter is None, it means that it will not be applied. Calling
@@ -242,6 +243,13 @@ class GroupRoles(DatabaseAccessor):
             where.append(
                 argument_to_sql(
                     admin_type, "ei.entity_type", binds, int))
+
+        if group_type is not None:
+            tables.append("[:table schema=cerebrum name=group_info] gi")
+            where.append("gi.group_id = ga.group_id")
+            where.append(
+                argument_to_sql(
+                    group_type, "gi.group_type", binds, int))
 
         if include_group_name:
             tables.append("[:table schema=cerebrum name=entity_name] en")
