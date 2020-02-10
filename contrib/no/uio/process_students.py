@@ -51,6 +51,7 @@ from Cerebrum.modules.bofhd import errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.uio import AutoStud
 from Cerebrum.modules.disk_quota import DiskQuota
+from Cerebrum.modules.no.uio.AutoStud.Util import AutostudError
 
 proffile = 'hotshot.prof'
 
@@ -132,7 +133,10 @@ class AccountArgumentsGetter(object):
 
     def get_new_disk_quota(self, disk_id):
         if autostud.disk_tool.get_diskdef_by_diskid(disk_id):
-            return self.profile.get_disk_kvote(disk_id)
+            try:
+                return self.profile.get_disk_kvote(disk_id)
+            except AutostudError as e:
+                logger.warning(e)
         return None
 
     def get_disks(self):
