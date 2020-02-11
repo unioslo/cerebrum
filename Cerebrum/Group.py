@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2016 University of Oslo, Norway
+#
+# Copyright 2002-2019 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,17 +17,16 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-from __future__ import unicode_literals
-
-"""API for accessing the core group structures in Cerebrum.
+"""
+API for accessing the core group structures in Cerebrum.
 
 Note that even though the database allows us to define groups in
 ``group_info`` without giving the group a name in ``entity_name``, it
 would probably turn out to be a bad idea if one tried to use groups in
 that fashion.  Hence, this module **requires** the caller to supply a
-name when constructing a Group object."""
-
+name when constructing a Group object.
+"""
+from __future__ import unicode_literals
 
 import mx
 import six
@@ -936,33 +936,31 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         # Once the EntityExpire module is merged in and in production, all
         # this junk can be simplified. Before modifying the expressions, make
         # sure that the the queries actually work on multiple backends.
-        select = ["tmp1.group_id AS group_id",
-                  "tmp1.entity_name AS group_name",
-                  "tmp1.member_type AS member_type",
-                  "tmp1.member_id AS member_id",
-                  "tmp1.expire1 as expire1",
-                  "gi.expire_date as expire2",
-                  "NULL as expire_date"]
+        select = [
+            "tmp1.group_id AS group_id",
+            "tmp1.entity_name AS group_name",
+            "tmp1.member_type AS member_type",
+            "tmp1.member_id AS member_id",
+        ]
 
         # We always grab the expiration dates, but we filter on them ONLY if
         # member_filter_expired is set.
-        tables = [""" ( SELECT gm.*,
-                           en.entity_name as entity_name,
-                           ai.expire_date as expire1
-                       FROM [:table schema=cerebrum name=group_member] gm
-                       LEFT OUTER JOIN
-                          [:table schema=cerebrum name=entity_name] en
-                       ON
-                          (en.entity_id = gm.group_id AND
-                           en.value_domain = :vdomain)
-                       LEFT OUTER JOIN
-                             [:table schema=cerebrum name=account_info] ai
-                       ON ai.account_id = gm.member_id
-                  ) AS tmp1
-                  LEFT OUTER JOIN
-                     [:table schema=cerebrum name=group_info] gi
-                  ON gi.group_id = tmp1.member_id
-                  """, ]
+        tables = [
+            """
+            ( SELECT
+                gm.*,
+                en.entity_name as entity_name,
+                ai.expire_date as expire1
+              FROM [:table schema=cerebrum name=group_member] gm
+              LEFT OUTER JOIN [:table schema=cerebrum name=entity_name] en
+              ON (en.entity_id = gm.group_id AND en.value_domain = :vdomain)
+              LEFT OUTER JOIN [:table schema=cerebrum name=account_info] ai
+              ON ai.account_id = gm.member_id
+            ) AS tmp1
+            LEFT OUTER JOIN [:table schema=cerebrum name=group_info] gi
+            ON gi.group_id = tmp1.member_id
+            """,
+        ]
 
         binds = {"vdomain": int(self.const.group_namespace)}
         where = list()
@@ -991,9 +989,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
 
         if spread is not None:
             tables.append(
-                """JOIN [:table schema=cerebrum name=entity_spread] es2
-                   ON (tmp1.group_id = es2.entity_id AND %s)
-                """ % argument_to_sql(spread, "es2.spread", binds, int))
+                """
+                  JOIN [:table schema=cerebrum name=entity_spread] es2
+                  ON (tmp1.group_id = es2.entity_id AND {spreads})
+                """.format(spreads=argument_to_sql(spread, "es2.spread", binds,
+                                                   int)))
 
         if member_id is not None:
             if indirect_members:
@@ -1017,63 +1017,66 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                     int))
 
         if member_type is not None:
-            where.append(argument_to_sql(member_type, "tmp1.member_type",
-                                         binds, int))
+            where.append(
+                argument_to_sql(member_type, "tmp1.member_type", binds, int))
 
         if member_spread is not None:
             tables.append(
-                """JOIN [:table schema=cerebrum name=entity_spread] es
-                   ON (tmp1.member_id = es.entity_id AND %s)
-                """ % argument_to_sql(member_spread, "es.spread", binds, int))
+                """
+                  JOIN [:table schema=cerebrum name=entity_spread] es
+                  ON (tmp1.member_id = es.entity_id AND {spreads})
+                """.format(spreads=argument_to_sql(member_spread, "es.spread",
+                                                   binds, int)))
 
         if member_filter_expired:
-            where.append("""(tmp1.expire1 IS NULL OR tmp1.expire1 > [:now]) AND
-                            (gi.expire_date IS NULL OR gi.expire_date > [:now])
-                         """)
+            where.append(
+                """
+                  (tmp1.expire1 IS NULL OR tmp1.expire1 > [:now]) AND
+                  (gi.expire_date IS NULL OR gi.expire_date > [:now])
+                """)
 
         if include_member_entity_name:
             if isinstance(include_member_entity_name, dict):
-                member_name_dict = include_member_entity_name
+                namespaces = include_member_entity_name
             else:
-                member_name_dict = {}
-                for k, v in cereconf.ENTITY_TYPE_NAMESPACE.items():
-                    member_name_dict[
-                        self.const.EntityType(
-                            k)] = self.const.ValueDomain(
-                        v)
+                namespaces = dict(
+                    (self.const.EntityType(k), self.const.ValueDomain(v))
+                    for k, v in cereconf.ENTITY_TYPE_NAMESPACE.items())
             case = []
-            i = 0
-            for e_type, vdomain in member_name_dict.items():
-                e_type_name = "e_type%d" % i
-                vdomain_name = "vdomain%d" % i
-                case.append("WHEN tmp1.member_type=:%s THEN :%s"
-                            % (e_type_name, vdomain_name))
-                binds[e_type_name] = e_type
-                binds[vdomain_name] = vdomain
-                i += 1
+            for i, (e_type, vdomain) in enumerate(namespaces.items()):
+                e_type_name = "e_type{:d}".format(i)
+                vdomain_name = "vdomain{:d}".format(i)
+                case.append(
+                    """
+                      WHEN tmp1.member_type=:{bind} THEN :{domain}
+                    """.format(
+                        bind=e_type_name,
+                        domain=vdomain_name))
+                binds.update({
+                    e_type_name: e_type,
+                    vdomain_name: vdomain,
+                })
             select.append("mn.entity_name AS member_name")
             tables.append(
-                """LEFT OUTER JOIN [:table schema=cerebrum name=entity_name] mn
-                     ON tmp1.member_id = mn.entity_id
-                        AND mn.value_domain = CASE %s
-                          END""" % "\n".join(case))
+                """
+                  LEFT OUTER JOIN [:table schema=cerebrum name=entity_name] mn
+                  ON tmp1.member_id = mn.entity_id
+                  AND mn.value_domain = CASE
+                  {cases}
+                  END
+                """.format(cases="\n".join(case)))
 
-        where_str = ""
-        if where:
-            where_str = "WHERE " + " AND ".join(where)
+        query_str = """
+          SELECT DISTINCT {columns}
+          FROM {tables}
+          {where}
+        """.format(
+            columns=', '.join(select),
+            tables=' '.join(tables),
+            where=('WHERE ' + ' AND '.join(where)) if where else '',
+        )
 
-        query_str = "SELECT DISTINCT %s FROM %s %s" % (", ".join(select),
-                                                       " ".join(tables),
-                                                       where_str)
-        for entry in self.query(query_str, binds):
-            # IVR 2008-07-01 FIXME: We do NOT want to expose expire ugliness
-            # to the clients. They can all assume that 'expire_date' exists
-            # and is set appropriately (None or a date)
-            if entry["expire1"] is not None:
-                entry["expire_date"] = entry["expire1"]
-            elif entry["expire2"] is not None:
-                entry["expire_date"] = entry["expire2"]
-            yield entry
+        return self.query(query_str, binds)
 
     def __str__(self):
         if hasattr(self, 'entity_id'):

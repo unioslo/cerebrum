@@ -1541,7 +1541,13 @@ class BofhdExtension(BofhdCommonMethods):
         ac = self.Account_class(self.db)
         pe = Utils.Factory.get('Person')(self.db)
         for x in self._fetch_member_names(members):
-            if x['member_type'] == int(self.const.entity_account):
+            member_type = self.const.EntityType(x['member_type'])
+            item = {
+                'id': x['member_id'],
+                'type': text_type(member_type),
+                'name': x['member_name'],  # Compability with brukerinfo
+            }
+            if member_type == self.const.entity_account:
                 ac.find(x['member_id'])
                 try:
                     pe.find(ac.owner_id)
@@ -1550,20 +1556,22 @@ class BofhdExtension(BofhdCommonMethods):
                 except Errors.NotFoundError:
                     full_name = ''
                 user_name = x['member_name']
+                expire_date = ac.expire_date
                 ac.clear()
                 pe.clear()
+
             else:
                 full_name = x['member_name']
                 user_name = '<non-account>'
-            tmp = {'id': x['member_id'],
-                   'type': text_type(self.const.EntityType(x['member_type'])),
-                   'name': x['member_name'],  # Compability with brukerinfo
-                   'user_name': user_name,
-                   'full_name': full_name,
-                   'expired': None}
-            if x["expire_date"] is not None and x["expire_date"] < now:
-                tmp["expired"] = "expired"
-            ret.append(tmp)
+                expire_date = None
+            item.update({
+                'full_name': full_name,
+                'user_name': user_name,
+                'expired': None,
+            })
+            if expire_date and expire_date < now:
+                item["expired"] = "expired"
+            ret.append(item)
 
         ret.sort(key=lambda d: (d['type'], d['user_name']))
         return ret
@@ -1590,14 +1598,13 @@ class BofhdExtension(BofhdCommonMethods):
           L{iterable} is preserved. The underlying db_row objects are modified.
         """
         # TODO: hack to omit bug when inserting new key/value pairs in db_row
-        ret = []
         for item in iterable:
-            member_type = int(item["member_type"])
-            member_id = int(item["member_id"])
-            tmp = item.dict()
-            tmp["member_name"] = self._get_entity_name(member_id, member_type)
-            ret.append(tmp)
-        return ret
+            d = dict(item)
+            d.update({
+                'member_name': self._get_entity_name(int(item['member_id']),
+                                                     int(item['member_type'])),
+            })
+            yield d
 
     #
     # group list_expanded <groupname>
