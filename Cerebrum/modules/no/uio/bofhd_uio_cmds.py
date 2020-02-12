@@ -770,15 +770,15 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['group_exchange_create'] = Command(
         ("group", "exchange_create"),
         GroupName(help_ref="group_name_new"),
-        SimpleString(help_ref="group_disp_name", optional='true'),
-        SimpleString(help_ref="string_dl_desc"),
         YesNo(help_ref='yes_no_from_existing', default='No'),
+        SimpleString(help_ref="string_dl_desc"),
+        SimpleString(help_ref="group_disp_name", optional=True, default=''),
         fs=FormatSuggestion("Group created, internal id: %i", ("group_id",)),
         perm_filter='is_postmaster')
 
     def group_exchange_create(self, operator,
-                              groupname, displayname, description,
-                              from_existing=False):
+                              groupname, from_existing,
+                              description, displayname=''):
         if not self.ba.is_postmaster(operator.get_entity_id()):
             raise PermissionDenied('No access to group')
         existing_group = False
@@ -1901,7 +1901,6 @@ class BofhdExtension(BofhdCommonMethods):
         # dl_group_displ_name into a more generic group_display_name
         # value in the future
         group = self._get_group(gname, grtype="DistributionGroup")
-        self._raise_PermissionDenied_if_not_manual_group(group)
         if name_lang in self.language_codes:
             name_lang = int(_LanguageCode(name_lang))
         else:

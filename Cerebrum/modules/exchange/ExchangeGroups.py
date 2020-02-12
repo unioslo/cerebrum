@@ -175,24 +175,12 @@ class DistributionGroup(Group_class):
             return self.__super.__eq__(other)
         return False
 
-    def new(self,
-            creator_id,
-            visibility,
-            name,
-            description=None,
-            expire_date=None,
-            roomlist=None,
-            hidden=None):
+    def new(self, *args, **kwargs):
         """
+        Creates a new DistributionGroup, populates it with the parameters
+        provided and then writes it to the db.
         """
-        DistributionGroup.populate(self,
-                                   creator_id=creator_id,
-                                   visibility=visibility,
-                                   name=name,
-                                   description=description,
-                                   expire_date=expire_date,
-                                   roomlist=roomlist,
-                                   hidden=hidden)
+        DistributionGroup.populate(self, *args, **kwargs)
         DistributionGroup.write_db(self)
 
     def find(self, group_id):
