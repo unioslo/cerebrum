@@ -75,6 +75,18 @@ def constant_module(database):
 
 
 @pytest.fixture
+def const(database, constant_module):
+    """ Cerebrum core constants. """
+    return constant_module.Constants(database)
+
+
+@pytest.fixture
+def clconst(database, constant_module):
+    """ Cerebrum core constants. """
+    return constant_module.CLConstants(database)
+
+
+@pytest.fixture
 def initial_account(database, factory, cereconf):
     ac = factory.get('Account')(database)
     ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
