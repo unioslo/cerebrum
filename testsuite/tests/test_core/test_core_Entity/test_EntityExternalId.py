@@ -78,7 +78,7 @@ def entities(
 
 
 def test_get_external_id(entity_obj, entities):
-    for e_id, ext_ids in entities.iteritems():
+    for e_id, ext_ids in entities.items():
         num_ids = len([id_type for sys in ext_ids for id_type in ext_ids[sys]])
 
         entity_obj.find(e_id)
@@ -157,9 +157,9 @@ def test_populate_update(entity, system_a, id_num, id_str):
 
 
 def test_find_by_id(entity_obj, entities):
-    for e_id, ext_id in entities.iteritems():
-        for sys, id_types in ext_id.iteritems():
-            for id_type, value in id_types.iteritems():
+    for e_id, ext_id in entities.items():
+        for sys, id_types in ext_id.items():
+            for id_type, value in id_types.items():
                 entity_obj.find_by_external_id(id_type, value,
                                                source_system=sys)
                 assert entity_obj.entity_id == e_id
@@ -177,11 +177,11 @@ def test_search_external_ids(entity_obj, entities):
     all_systems = set()
     all_id_types = set()
     all_id_pairs = []
-    for e_id, ext_id in entities.iteritems():
+    for e_id, ext_id in entities.items():
         id_pairs = []
-        for sys, id_types in ext_id.iteritems():
+        for sys, id_types in ext_id.items():
             all_systems.add(sys)
-            for id_type, value in id_types.iteritems():
+            for id_type, value in id_types.items():
                 all_id_types.add(id_type)
                 id_pairs.append((int(sys), int(id_type), value))
         all_id_pairs.extend(id_pairs)

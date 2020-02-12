@@ -10,7 +10,7 @@ from nose.plugins.skip import SkipTest
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.pwcheck.history import PasswordHistoryMixin
 from Cerebrum.modules.pwcheck.history import PasswordHistory
-from Cerebrum.modules.pwcheck.checker import PasswordNotGoodEnough
+# from Cerebrum.modules.pwcheck.checker import PasswordNotGoodEnough
 
 # Cerebrum-specific test modules
 from datasource import BasicAccountSource
@@ -142,7 +142,7 @@ def test_clear_password():
     for acc in get_next_account():
         acc.set_password(password)
         acc.clear()
-    for k, v in acc.__dict__.iteritems():
+    for k, v in acc.__dict__.items():
         assert password != v, "Got plaintext in attr %r" % k
 
 
@@ -151,7 +151,7 @@ def test_write_clear_password():
     for acc in get_next_account():
         acc.set_password(password)
         acc.write_db()
-    for k, v in acc.__dict__.iteritems():
+    for k, v in acc.__dict__.items():
         assert password != v, "Got plaintext in attr %r" % k
 
 
@@ -160,5 +160,5 @@ def test_delete_clear_password():
     for acc in get_next_account():
         acc.set_password(password)
         acc.delete()
-    for k, v in acc.__dict__.iteritems():
+    for k, v in acc.__dict__.items():
         assert password != v, "Got plaintext in attr %r" % k

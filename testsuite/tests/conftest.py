@@ -67,7 +67,7 @@ def constant_module(database):
     module._CerebrumCode.sql = property(lambda *args: database)
     # Clear the constants cache of each _CerebrumCode class, to avoid caching
     # intvals that doesn't exist in the database.
-    for item in vars(module).itervalues():
+    for item in vars(module).values():
         if (isinstance(item, (type, types.ClassType))
                 and issubclass(item, module._CerebrumCode)):
             item._cache = dict()

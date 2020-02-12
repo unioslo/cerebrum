@@ -136,7 +136,7 @@ def test_list_addr_info(
         data[entity_obj.entity_id] = addr
         entity_obj.clear()
 
-    for eid, addr in data.iteritems():
+    for eid, addr in data.items():
         found = entity_obj.list_entity_addresses(entity_id=eid)
         assert len(found) == 1
         for field in addr:
