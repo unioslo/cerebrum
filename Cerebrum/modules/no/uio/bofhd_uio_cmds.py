@@ -3622,10 +3622,10 @@ class BofhdExtension(BofhdCommonMethods):
         person = Utils.Factory.get('Person')(self.db)
         person.clear()
         extids = {
-            'fnr':    'externalid_fodselsnr',
             'passnr': 'externalid_pass_number',
             'studnr': 'externalid_studentnr',
             'sapnr':  'externalid_sap_ansattnr',
+            # fnr is excluded on purpose, to avoid exploitations
         }
         if search_type == 'name':
             if filter is not None:
