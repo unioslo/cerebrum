@@ -42,9 +42,17 @@ def logger(factory):
 
 @pytest.yield_fixture
 def database(factory):
-    u"""`Cerebrum.database.Database` with automatic rollback."""
+    """`Cerebrum.database.Database` with automatic rollback."""
     db = factory.get('Database')()
     db.commit = db.rollback
+
+    # TODO: This isn't ideal. We shouldn't use Factory to get our db driver,
+    # and *really* shouldn't use a bunch of CL implementations when we run our
+    # tests.  How *should* we build our db driver and ocnfigure the test db
+    # connection in unit tests?
+    if hasattr(db, 'cl_init'):
+        db.cl_init(change_program='testsuite')
+
     print 'database init', db, db._cursor
     yield db
     print 'database rollback', db, db._cursor
@@ -67,11 +75,23 @@ def constant_module(database):
     module._CerebrumCode.sql = property(lambda *args: database)
     # Clear the constants cache of each _CerebrumCode class, to avoid caching
     # intvals that doesn't exist in the database.
-    for item in vars(module).itervalues():
+    for item in vars(module).values():
         if (isinstance(item, (type, types.ClassType))
                 and issubclass(item, module._CerebrumCode)):
             item._cache = dict()
     return module
+
+
+@pytest.fixture
+def const(database, constant_module):
+    """ Cerebrum core constants. """
+    return constant_module.Constants(database)
+
+
+@pytest.fixture
+def clconst(database, constant_module):
+    """ Cerebrum core constants. """
+    return constant_module.CLConstants(database)
 
 
 @pytest.fixture

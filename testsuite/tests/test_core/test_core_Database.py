@@ -17,12 +17,12 @@
 - Testing 'our' sql-lexer extensions should be put in its own file
   (test_sql_lexer or somesuch)
 """
-from Cerebrum.Utils import Factory
-
-import Cerebrum.database
 from functools import wraps
 
 from nose.tools import raises, assert_raises
+
+import Cerebrum.database
+from Cerebrum.Utils import Factory
 
 
 # TODO: This could be done better...

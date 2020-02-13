@@ -73,7 +73,7 @@ class SimpleOUTests(TSDOUTest):
 
     def tearDown(self):
         # Add the old cereconf values back in:
-        for k, v in self._cereconfvalues.iteritems():
+        for k, v in self._cereconfvalues.items():
             setattr(cereconf, k, v)
 
     def test_create_project(self):

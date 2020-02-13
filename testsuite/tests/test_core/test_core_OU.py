@@ -173,15 +173,22 @@ def test_list_children(ou_object, ou_tree, perspective):
     if len(ou_tree) < 2:
         pytest.skip('Test needs at least two OUs')
 
-    ou_object.find(ou_tree[0].get('entity_id'))
-    assert ([ou_tree[1].get('entity_id')] ==
-            map(lambda x: x.get('ou_id'),
-                ou_object.list_children(perspective)))
-    assert (map(lambda x: x.get('entity_id'), ou_tree[1:]) ==
-            map(lambda x: x.get('ou_id'),
-                ou_object.list_children(perspective, recursive=True)))
-    assert ([] == ou_object.list_children(
-        perspective, entity_id=ou_tree[-1].get('entity_id')))
+    parent_id = ou_tree[0]['entity_id']  # should have one child
+    child_id = ou_tree[1]['entity_id']
+    leaf_id = ou_tree[-1]['entity_id']  # should not have any children
+
+    ou_object.find(parent_id)
+
+    direct_children = [r['ou_id']
+                       for r in ou_object.list_children(perspective)]
+    assert [child_id] == direct_children
+
+    all_children = [r['ou_id']
+                    for r in ou_object.list_children(perspective,
+                                                     recursive=True)]
+    assert [d['entity_id'] for d in ou_tree[1:]] == all_children
+
+    assert [] == ou_object.list_children(perspective, entity_id=leaf_id)
 
 
 def test_delete(ou_object, basic_ous):
@@ -197,35 +204,49 @@ def test_delete(ou_object, basic_ous):
         ou_object.clear()
 
 
-def test_search(ou_object, ous_with_spreads, ous_with_quarantines, basic_ous,
-                ou_spread):
-    if (len(basic_ous) < 1 or len(ous_with_quarantines) < 1 or
-            len(ous_with_spreads) < 1):
+def test_search_by_spread(ou_object, basic_ous, ous_with_spreads, ou_spread):
+    if any(len(l) < 1 for l in (basic_ous, ous_with_spreads)):
         pytest.skip('Test needs at least three OUs, one with a quarantine, '
-                    'one with a spread, and one pure.')
-    assert (
-        set(map(lambda x: x.get('ou_id'),
-                ou_object.search(spread=ou_spread)))
-        ==
-        set(map(lambda x: x.get('entity_id'), ous_with_spreads)))
-    assert (
-        (len(ou_object.search(filter_quarantined=True))
-         >=
-         len(ous_with_spreads + basic_ous))
-        and
-        set(map(lambda x: x.get('entity_id'),
-                ous_with_spreads + basic_ous)).issubset(
-                    set(map(lambda x: x.get('ou_id'),
-                            ou_object.search(filter_quarantined=True)))))
-    assert (
-        len(map(lambda x: x.get('ou_id'), ou_object.search()))
-        >=
-        len(map(lambda x: x.get('entity_id'),
-                ous_with_quarantines + ous_with_spreads + basic_ous)))
-    assert (
-        set(map(lambda x: x.get('entity_id'),
-                ous_with_quarantines + ous_with_spreads + basic_ous)).issubset(
-                    set(map(lambda x: x.get('ou_id'), ou_object.search()))))
+                    'one with a spread, and one without.')
+
+    # check that we can search for ous by spread
+    results = [r['ou_id'] for r in ou_object.search(spread=ou_spread)]
+    expect = [d['entity_id'] for d in ous_with_spreads]
+    assert set(results) == set(expect)
+
+
+def test_search_exclude_quar(ou_object, basic_ous, ous_with_quarantines):
+    if any(len(l) < 1 for l in (basic_ous, ous_with_quarantines)):
+        pytest.skip('Test needs at least three OUs, one with a quarantine, '
+                    'one with a quarantine, and one without.')
+
+    # check that we can search for ous without quarantines
+    results = [r['ou_id'] for r in ou_object.search(filter_quarantined=True)]
+    expect = [d['entity_id'] for d in basic_ous]
+    quarantined = [d['entity_id'] for d in ous_with_quarantines]
+
+    # All our basic ous should be included
+    assert len(results) >= len(expect)
+    assert set(expect).issubset(set(results))
+
+    # None of our quarantined ous should be included
+    assert not set(results).intersection(set(quarantined))
+
+
+def test_search_all(ou_object, basic_ous, ous_with_spreads,
+                    ous_with_quarantines):
+    if any(len(l) < 1 for l in (basic_ous, ous_with_quarantines,
+                                ous_with_spreads)):
+        pytest.skip('Test needs ous with and without spreads and quarantines')
+
+    # check that we can search for all ous
+    results = [r['ou_id'] for r in ou_object.search()]
+    expect = [d['entity_id'] for d in ous_with_quarantines + ous_with_spreads +
+              basic_ous]
+
+    # All of our created ous should be included in the result
+    assert len(results) >= len(expect)
+    assert set(expect).issubset(set(results))
 
 
 def test_unset_parent(ou_object, ou_tree, perspective):
