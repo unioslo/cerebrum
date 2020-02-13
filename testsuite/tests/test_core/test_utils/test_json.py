@@ -49,7 +49,7 @@ def test_entity(initial_account, factory):
         '{{"__cerebrum_object__": "entity", '
         '"entity_id": {}, '
         '"entity_type": {}, '
-        '"str": {}}}'
+        '"str": "{}"}}'
         .format(
             initial_account.entity_id,
             json.dumps(co.entity_account),
