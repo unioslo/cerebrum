@@ -97,12 +97,7 @@ class CIMDataSourceConfig(Configuration):
         default="CIM_person",
         doc='Person must have this spread to be exported to CIM.')
 
-    authoritative_system = ConfigDescriptor(
-        String,
-        default="SAP",
-        doc='Authoritative system to fetch contact information from.')
-
-    auth_system_lookup_order = ConfigDescriptor(
+    authoritative_systems = ConfigDescriptor(
         Iterable,
         default=["SAP"],
         doc='List of Authoritative systems to fetch contact information from, '
@@ -124,9 +119,10 @@ class CIMDataSourceConfig(Configuration):
         doc='Assume this phone region when otherwise unknown.')
 
     phone_authoritative_system = ConfigDescriptor(
-        String,
+        Iterable,
         default="SAP",
-        doc='Authoritative system to fetch phone numbers from.')
+        doc='List of Authoritative systems to fetch phone numbers from, '
+            'in decending order of priority.')
 
     phone_mappings = ConfigDescriptor(
         Namespace,

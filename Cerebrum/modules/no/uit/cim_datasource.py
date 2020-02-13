@@ -361,42 +361,8 @@ class CIMDataSourceUit(CIMDataSource):
                  CIM-WS-schema.
         :rtype: dict
         """
-        # TODO: Add lookup order to the super method so we don't have to do
-        #  this hack of storing auth system and putting it back after running
-        #  super() ?
-        orig_auth_system = self.authoritative_system
-        person = None
-
-        # get data about person using CIM_SYSTEM_LOOKUP_ORDER to determine
-        # source_system to use
-        for sys in self.auth_system_lookup_order:
-            self.authoritative_system = sys
-
-            try:
-                person = super(CIMDataSourceUit, self).get_person_data(
+        person = super(CIMDataSourceUit, self).get_person_data(
                     person_id)
-            except IndexError:
-                person = None
-
-            if person is not None:
-                # TODO later: ?? do I need to check result? e.g. ou stuff for
-                #  students and sysX persons...
-                break
-
-            # Doing things like this might be a problem when we add students:
-            # What if a person is a student, but has a (small) part-time job at
-            # UiT?
-            # person would get cim_spread because of the student-status, but
-            # PAGA would be used as source_system...
-            #
-            # example of special case to consider:
-            # krs025 (Kristin Solberg): student, but also has ansatt and
-            # tilknyttet affiliations (from FS and SysX) ansatt and tilknyttet
-            # at IKM, student at HSL
-
-        # set authoritative_system back to what it was at beginning of method
-        self.authoritative_system = orig_auth_system
-
         if person is not None:
             person['dist_list'] = self.create_dist_lists(person_id)
 
