@@ -36,30 +36,31 @@ def password_bytes(password_text):
     return password_text.encode('utf-8')
 
 
-def test_gnupg_encrypt_decrypt(gpg_key, password_bytes, password_text):
-    ciphertext_for_unicode = gpgme_encrypt(
-        message=password_text,
-        recipient_key_id=gpg_key)
+def test_gnupg_encrypt(gpg_key, password_text):
+    gpg_message = gpgme_encrypt(message=password_text,
+                                recipient_key_id=gpg_key)
+    assert '-BEGIN PGP MESSAGE-' in gpg_message
+    assert '-END PGP MESSAGE-' in gpg_message
 
-    ciphertext_for_unicode2 = gpgme_encrypt(
-        message=password_text,
-        recipient_key_id=gpg_key)
 
-    ciphertext_for_str = gpgme_encrypt(
-        message=password_bytes,
-        recipient_key_id=gpg_key)
+def test_gnupg_encrypt_diff(gpg_key, password_text):
+    a = gpgme_encrypt(message=password_text,
+                      recipient_key_id=gpg_key)
+    b = gpgme_encrypt(message=password_text,
+                      recipient_key_id=gpg_key)
+    assert a != b
 
-    # test for decrypt of unicode text
-    decode_text = gpgme_decrypt(ciphertext_for_unicode)
-    assert password_text == decode_text.decode('utf-8')
 
-    # test for decrypt of bytestring
-    decode_bytes = gpgme_decrypt(ciphertext_for_str)
-    assert password_bytes == decode_bytes
+def test_gnupg_encrypt_decrypt_bytes(gpg_key, password_bytes):
+    message = gpgme_encrypt(message=password_bytes,
+                            recipient_key_id=gpg_key)
+    plaintext = gpgme_decrypt(message)
+    assert plaintext == password_bytes
 
-    # same text should not result in the same gpg message
-    assert ciphertext_for_unicode != ciphertext_for_unicode2
 
-    # ... but both messages should be decrypted to the same content
-    decode_text2 = gpgme_decrypt(ciphertext_for_unicode2)
-    assert decode_text == decode_text2
+def test_gnupg_encrypt_decrypt_text(gpg_key, password_text):
+    expect = password_text.encode('utf-8')
+    message = gpgme_encrypt(message=password_text,
+                            recipient_key_id=gpg_key)
+    plaintext = gpgme_decrypt(message)
+    assert plaintext == expect
