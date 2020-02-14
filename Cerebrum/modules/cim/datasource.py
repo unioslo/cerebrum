@@ -46,9 +46,9 @@ class CIMDataSource(object):
             self.co.AuthoritativeSystem(i) for i in
             self.config.authoritative_systems
         ]
-        self.phone_authoritative_system = [
+        self.phone_authoritative_systems = [
             self.co.AuthoritativeSystem(i) for i in
-            self.config.phone_authoritative_system
+            self.config.phone_authoritative_systems
         ]
         self.ou_perspective = self.co.OUPerspective(
             self.config.ou_perspective)
@@ -102,11 +102,11 @@ class CIMDataSource(object):
         # FIXME: Store information about main employment when importing data
         #        from SAP. Use that here to choose the best affiliation.
         affs = None
-        for sys in reversed(self.authoritative_systems):
-            sys_affs = self._attr_filter('source_system', sys,
-                                         self.pe.get_affiliations())
-            if sys_affs:
-                affs = sys_affs
+        for sys in self.authoritative_systems:
+            affs = self._attr_filter('source_system', sys,
+                                     self.pe.get_affiliations())
+            if affs:
+                break
         if not affs:
             return None
         primary_aff_ou_id = affs[0]['ou_id']
@@ -181,7 +181,7 @@ class CIMDataSource(object):
         :rtype: dict
         """
         phones = {}
-        for phone_auth_sys in self.phone_authoritative_system:
+        for phone_auth_sys in self.phone_authoritative_systems:
             contact_info = self._attr_filter(
                 'source_system',
                 phone_auth_sys,

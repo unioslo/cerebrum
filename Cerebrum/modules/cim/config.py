@@ -118,9 +118,9 @@ class CIMDataSourceConfig(Configuration):
         default="NO",
         doc='Assume this phone region when otherwise unknown.')
 
-    phone_authoritative_system = ConfigDescriptor(
+    phone_authoritative_systems = ConfigDescriptor(
         Iterable,
-        default="SAP",
+        default=["SAP"],
         doc='List of Authoritative systems to fetch phone numbers from, '
             'in decending order of priority.')
 
