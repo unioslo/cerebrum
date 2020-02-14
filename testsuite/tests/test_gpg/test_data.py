@@ -5,10 +5,10 @@
 import datetime
 import pytest
 
-import Cerebrum.Account
-import Cerebrum.Errors
+import Cerebrum.Entity
 import Cerebrum.modules.gpg.config
 import Cerebrum.modules.gpg.data
+from Cerebrum.Errors import NotFoundError
 from Cerebrum.utils.gpg import gpgme_encrypt
 
 
@@ -37,19 +37,33 @@ def gpg_data(database):
 
 
 @pytest.fixture
-def entity(database, cereconf, gpg_config):
+def entity_type_code(constant_module):
+    return getattr(constant_module, '_EntityTypeCode')
+
+
+@pytest.fixture
+def entity_type(entity_type_code):
+    code = entity_type_code('ed644db80a1051e1',
+                            description='test type for gpg entity')
+    code.insert()
+    return code
+
+
+@pytest.fixture
+def entity(database, cereconf, gpg_config, entity_type):
 
     encrypter = Cerebrum.modules.gpg.config.GpgEncrypter(gpg_config)
 
-    class ConfiguredAccount(
-        Cerebrum.Account.Account,
+    class GpgEntity(
         Cerebrum.modules.gpg.data.EntityGPGData,
+        Cerebrum.Entity.Entity,
     ):
         _gpg_encrypter = encrypter
 
-    cac = ConfiguredAccount(database)
-    cac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-    return cac
+    obj = GpgEntity(database)
+    obj.populate(entity_type)
+    obj.write_db()
+    return obj
 
 
 def test_add_message(entity, gpg_key, gpg_data):
@@ -99,7 +113,7 @@ def gpg_message(database, entity, gpg_key, gpg_data):
 
 def test_get_missing_message_by_id(gpg_data):
     message_id = -1  # should never exist
-    with pytest.raises(Cerebrum.Errors.NotFoundError):
+    with pytest.raises(NotFoundError):
         gpg_data.get_message_by_id(message_id)
 
 
@@ -107,13 +121,13 @@ def test_delete_message_by_id(gpg_message, gpg_data):
     message_id = gpg_message['message_id']
     row = gpg_data.delete_message_by_id(message_id)
     assert dict(row) == gpg_message
-    with pytest.raises(Cerebrum.Errors.NotFoundError):
+    with pytest.raises(NotFoundError):
         gpg_data.get_message_by_id(message_id)
 
 
 def test_delete_missing_message_by_id(gpg_data):
     message_id = -1  # should never exist
-    with pytest.raises(Cerebrum.Errors.NotFoundError):
+    with pytest.raises(NotFoundError):
         gpg_data.delete_message_by_id(message_id)
 
 
@@ -192,27 +206,91 @@ def test_add_gpg_data_invalid_tag(entity):
         entity.add_gpg_data("nope", "disregard this")
 
 
-def test_search_gpg_data(gpg_data, entity):
-    message_id = gpg_data.add_message(
-        entity_id=entity.entity_id,
-        tag="foo",
-        recipient="me",
-        encrypted="hello",
-    )['message_id']
-    gpg_data.add_message(
-        entity_id=entity.entity_id,
-        tag="foo",
-        recipient="me",
-        encrypted="hi there",
-    )
-    gpg_data.add_message(
-        entity_id=entity.entity_id,
-        tag="foo",
-        recipient="other",
-        encrypted="hello",
-    )
+@pytest.fixture
+def gpg_messages(gpg_data, entity):
+    tags = ["TA-bb1c041fdfdac", "TB-640c7dff11c9b", "TB-640c7dff11c9b"]
+    recp = ["RA-31c47e8a8b098", "RA-31c47e8a8b098", "RB-a5dda0c020fcc"]
+    msgs = ["MA-0cea75b2ac88d", "MB-5d7dce5d5c3eb", "MC-fde294dffe2df"]
 
-    assert 3 == len(gpg_data.search(entity_id=entity.entity_id))
-    assert 3 == len(gpg_data.search(tag="foo"))
-    assert 2 == len(gpg_data.search(recipient="me"))
-    assert 1 == len(gpg_data.search(message_id=message_id))
+    messages = []
+    for tag, recipient, encrypted in zip(tags, recp, msgs):
+        messages.append(dict(gpg_data.add_message(
+            entity_id=entity.entity_id,
+            tag=tag,
+            recipient=recipient,
+            encrypted=encrypted,
+        )))
+    return messages
+
+
+def test_search_gpg_data_by_entity(gpg_data, entity, gpg_messages):
+    by_entity = list(gpg_data.search(entity_id=entity.entity_id))
+    assert len(by_entity) == len(gpg_messages)
+
+    message_ids = set(r['message_id'] for r in gpg_messages)
+    result_ids = set(r['message_id'] for r in by_entity)
+    assert result_ids == message_ids
+
+
+def test_search_gpg_data_by_tag(gpg_data, gpg_messages):
+    tag = gpg_messages[0]['tag']
+    expected = [m for m in gpg_messages if m['tag'] == tag]
+
+    by_tag = gpg_data.search(tag=tag)
+    assert len(by_tag) == len(expected)
+
+    result_ids = set(r['message_id'] for r in by_tag)
+    message_ids = set(r['message_id'] for r in expected)
+    assert result_ids == message_ids
+
+
+def test_search_gpg_data_by_tags(gpg_data, gpg_messages):
+    tags = set(r['tag'] for r in gpg_messages)
+
+    by_tag = gpg_data.search(tag=tags)
+    assert len(by_tag) == len(gpg_messages)
+
+    result_ids = set(r['message_id'] for r in by_tag)
+    message_ids = set(r['message_id'] for r in gpg_messages)
+    assert result_ids == message_ids
+
+
+def test_search_gpg_data_by_recipient(gpg_data, gpg_messages):
+    recipient = gpg_messages[0]["recipient"]
+    expected = [m for m in gpg_messages if m['recipient'] == recipient]
+
+    by_recipient = gpg_data.search(recipient=recipient)
+    assert len(by_recipient) == len(expected)
+
+    result_ids = set(r['message_id'] for r in by_recipient)
+    message_ids = set(r['message_id'] for r in expected)
+
+    assert result_ids == message_ids
+
+
+def test_search_gpg_data_by_recipients(gpg_data, gpg_messages):
+    recipients = set(r['recipient'] for r in gpg_messages)
+
+    by_recipient = gpg_data.search(recipient=recipients)
+    assert len(by_recipient) == len(gpg_messages)
+
+    result_ids = set(r['message_id'] for r in by_recipient)
+    message_ids = set(r['message_id'] for r in gpg_messages)
+    assert result_ids == message_ids
+
+
+def test_search_gpg_data_by_message_id(gpg_data, gpg_messages):
+    message_id = gpg_messages[0]['message_id']
+    by_id = list(gpg_data.search(message_id=message_id))
+    assert len(by_id) == 1
+    assert by_id[0]['message_id'] == message_id
+
+
+def test_search_gpg_data_by_message_ids(gpg_data, gpg_messages):
+    message_ids = set(r['message_id'] for r in gpg_messages)
+
+    by_id = list(gpg_data.search(message_id=message_ids))
+    assert len(by_id) == len(message_ids)
+
+    result_ids = set(r['message_id'] for r in by_id)
+    assert result_ids == message_ids
