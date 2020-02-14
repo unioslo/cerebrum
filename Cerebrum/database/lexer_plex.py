@@ -22,10 +22,26 @@ This module is used for:
 - counting/separating statements (can be used to prevent certain sql injection)
 - translating paramformat from 'named' to whatever the database driver uses.
 - TODO: more?
+
+History
+-------
+`_translate` was extracted from ``Cerebrum.database.Cursor._translate``.
+
+The refactor was done to accommodate other lexers than Cursor._translate, which
+used SqlScanner.  The original translate function can be seen in:
+
+    commit: f8d149dbb21cdbf10724b60b6d1c613ebc951b5f
+    Merge:  3e4c07061 be7c05022
+    Date:   Tue Feb 11 11:42:09 2020 +0100
 """
 from __future__ import print_function
 
+import io
+
 from Cerebrum.extlib import Plex
+
+from .errors import ProgrammingError
+from .macros import parse_macro_args
 
 
 # Define names of tokens returned by the scanner.
@@ -162,6 +178,80 @@ class SqlScanner(Plex.Scanner):
         if token is None:
             raise StopIteration
         return ret
+
+
+def _translate(stmt, param_cls, get_macro):
+    """
+    :param stmt: The original sql statement
+    :param param_cls:
+        a ``paramstyles.Base`` subclass to use for registering placeholder
+        names.
+    :param get_macro:
+        a ``macros.MacroTable`` like callable to translate macros.
+
+    :return:
+        Returns a tuple with a translated sql statement, and a callable that
+        translates a binds dict into the appropriate value (bind dict, bind
+        tuple)
+    """
+    out_sql = []
+    params = param_cls()
+
+    def parse_macro(parts):
+        op = parts[0]
+        args = parse_macro_args(' '.join(parts[1:]))
+        return get_macro(op, args)
+
+    done = False
+    macro_parts = None
+
+    for token, text in SqlScanner(io.StringIO(stmt)):
+        translation = []
+        if done:
+            # token found after end-of-statement indicator
+            raise ProgrammingError(
+                "Token '%s' found after end of SQL statement." % text)
+
+        if macro_parts:
+            # We're in the middle of parsing an SQL portability
+            # item; collect all of the item's arguments before
+            # trying to translate it into the SQL dialect of this
+            # Cursor's database backend.
+            if token == SQL_PORTABILITY_ARG:
+                macro_parts.append(text)
+                continue
+            else:
+                # We've got all the portability item's arguments;
+                # translate them into a set of SQL tokens.
+                translation.append(parse_macro(macro_parts))
+                # ... and indicate that we're no longer collecting
+                # arguments for a portability item.
+                macro_parts = None
+
+        if token == SQL_END_OF_STATEMENT:
+            done = True
+        elif token == SQL_PORTABILITY_FUNCTION:
+            # Set `macro_parts' to indicate that we should start
+            # collecting portability item arguments.
+            macro_parts = [text]
+        elif token == SQL_BIND_PARAMETER:
+            # The name of the bind variable is the token without
+            # any preceding ':'.
+            name = text[1:]
+            translation.append(params.register(name))
+        else:
+            translation.append(text)
+
+        if translation:
+            out_sql.extend(translation)
+
+    # If the input statement ended with a portability token, no
+    # non-portability tokens has triggered inclusion of the final macro_parts
+    if macro_parts:
+        out_sql.append(parse_macro(macro_parts))
+        macro_parts = None
+
+    return " ".join(out_sql), params
 
 
 if __name__ == '__main__':

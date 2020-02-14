@@ -24,12 +24,14 @@ import codecs
 import datetime
 import os
 
-import cx_Oracle as cx_oracle_module
+import cx_Oracle as cx_oracle_module  # noqa: N813
 import six
 from mx import DateTime
 
 from Cerebrum.database import Cursor, Database, OraPgLock, kickstart
 from Cerebrum.Utils import read_password
+
+from . import macros
 
 import cereconf
 
@@ -64,7 +66,7 @@ def mx2datetime(value):
                              value.hour, value.minute, int(value.second))
 
 
-def cx_InputTypeHandler(cursor, value, numElements):
+def cx_InputTypeHandler(cursor, value, numElements):  # noqa: N802, N803
     if isinstance(value, bytes):
         # inconverter vs outconverter
         return cursor.var(six.text_type,
@@ -82,7 +84,8 @@ def cx_InputTypeHandler(cursor, value, numElements):
                           inconverter=mx2datetime)
 
 
-def cx_OutputTypeHandler(cursor, name, defaultType, size, precision, scale):
+def cx_OutputTypeHandler(cursor, name, defaultType, size,  # noqa: N802, N803
+                         precision, scale):
     """ Type casting handler for the cx_Oracle database. """
 
     if defaultType == cx_oracle_module.DATETIME:
@@ -95,7 +98,7 @@ def cx_OutputTypeHandler(cursor, name, defaultType, size, precision, scale):
         return cursor.var(six.text_type, size, cursor.arraysize)
 
 
-class cx_OracleCursor(Cursor):
+class cx_OracleCursor(Cursor):  # noqa: N801
     """
     A special cursor subclass to handle cx_Oracle's quirks.
 
@@ -144,10 +147,44 @@ class cx_OracleCursor(Cursor):
         return OraPgLock(cursor=self, table=None, mode=mode)
 
 
+ora_macros = macros.MacroTable(macros.common_macros)
+
+
+@ora_macros.register('table')
+def ora_op_table(schema, name, context=None):
+    return '{}.{}'.format(six.text_type(schema), six.text_type(name))
+
+
+@ora_macros.register('now')
+def ora_op_now(context=None):
+    # TODO: Why SYSDATE over the standard CURRENT_TIMESTAMP?
+    return 'SYSDATE'
+
+
+@ora_macros.register('from_dual')
+def ora_op_from_dual(context=None):
+    return 'FROM DUAL'
+
+
+@ora_macros.register('sequence')
+def ora_op_sequence(schema, name, op, context=None):
+    schema = six.text_type(schema)
+    name = six.text_type(name)
+    op = six.text_type(op)
+
+    if op == 'next':
+        return '{}.{}.nextval'.format(schema, name)
+    elif op == 'curr':
+        return '{}.{}.currval'.format(schema, name)
+    else:
+        raise ValueError('Invalid sequnce operation: %r' % (op,))
+
+
 class OracleBase(Database):
     """Oracle database driver class."""
 
     rdbms_id = "Oracle"
+    macro_table = ora_macros
 
     def __init__(self, *args, **kws):
         for cls in self.__class__.__mro__:
@@ -156,29 +193,9 @@ class OracleBase(Database):
         raise NotImplementedError(
             "Can't instantiate abstract class <OracleBase>.")
 
-    def _sql_port_table(self, schema, name):
-        return ['%(schema)s.%(name)s' % locals()]
-
-    def _sql_port_sequence(self, schema, name, op):
-        if op == 'next':
-            return ['%(schema)s.%(name)s.nextval' % locals()]
-        elif op == 'current':
-            return ['%(schema)s.%(name)s.currval' % locals()]
-        else:
-            raise self.ProgrammingError, 'Invalid sequence operation: %s' % op
-
-    def _sql_port_sequence_start(self, value):
-        return ['START', 'WITH', value]
-
-    def _sql_port_from_dual(self):
-        return ["FROM", "DUAL"]
-
-    def _sql_port_now(self):
-        return ['SYSDATE']
-
 
 @kickstart(cx_oracle_module)
-class cx_Oracle(OracleBase):
+class cx_Oracle(OracleBase):  # noqa: N801
 
     def connect(self, user=None, password=None, service=None,
                 client_encoding=None):
@@ -209,7 +226,6 @@ class cx_Oracle(OracleBase):
         os.environ['NLS_LANG'] = encoding_names.get(codec_info.name,
                                                     client_encoding)
 
-
         # Call superclass .connect with appropriate CONNECTIONSTRING;
         # this will in turn invoke the connect() function in the
         # cx_Oracle module.
@@ -220,7 +236,3 @@ class cx_Oracle(OracleBase):
 
     def cursor(self):
         return cx_OracleCursor(self)
-
-    # IVR 2009-02-12 FIXME: We should override nextval() here to query the
-    # schema name directly from the underlying connection object. This
-    # should be possible from cx_Oracle 5.0
