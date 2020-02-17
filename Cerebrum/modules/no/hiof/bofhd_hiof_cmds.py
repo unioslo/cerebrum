@@ -85,6 +85,10 @@ uio_commands = [
     'ou_info',
     'ou_search',
     'ou_tree',
+    'group_add_admin',
+    'group_remove_admin',
+    'group_add_moderator',
+    'group_remove_moderator',
 ]
 
 
