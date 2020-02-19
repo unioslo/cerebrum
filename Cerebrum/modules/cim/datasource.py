@@ -62,6 +62,14 @@ class CIMDataSource(object):
         """
         return bool(self.pe.search(entity_id=person_id, spread=self.spread))
 
+    def create_dist_lists(self, *args, **kwargs):
+        """Create instance specific method
+
+        :return: string with name of distribution list
+        :rtype string
+        """
+        return
+
     def get_person_data(self, person_id):
         """
         Builds a dict according to the CIM-WS schema, using info stored in
@@ -109,8 +117,14 @@ class CIMDataSource(object):
                 break
         if not affs:
             return None
+        primary_aff = affs[0]
         primary_aff_ou_id = affs[0]['ou_id']
         person.update(self._get_org_structure(primary_aff_ou_id))
+
+        # Add distribution list:
+        dist_list = self.create_dist_lists(primary_aff=primary_aff)
+        if dist_list:
+            person['dist_list'] = dist_list
 
         # Get and add job title if present
         try:

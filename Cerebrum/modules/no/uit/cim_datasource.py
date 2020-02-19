@@ -315,14 +315,12 @@ class CIMDataSourceUit(CIMDataSource):
     # use contact_pref to decide which to use, or add to both dist groups?
     # => will add to both for now...
 
-    def create_dist_lists(self, person_id):
+    def create_dist_lists(self, *args, **kwargs):
         """
         TODO: describe this method
         """
         dist_lists = ""
 
-        self.pe.clear()
-        self.pe.find(person_id)
         rooms = self.pe.get_contact_info(type=550)
         buildings = self.pe.get_contact_info(type=558)
 
@@ -346,7 +344,7 @@ class CIMDataSourceUit(CIMDataSource):
                 "CIMDataSourceUit: Unrecognized or missing location "
                 "information for person_id %s: room_info: %s, "
                 "building_info: %s"
-                % (person_id, rooms, buildings))
+                % (self.pe.entity_idperson_id, rooms, buildings))
             dist_lists = self.IKKE_PLASSERT
 
         return dist_lists
@@ -364,8 +362,6 @@ class CIMDataSourceUit(CIMDataSource):
         person = super(CIMDataSourceUit, self).get_person_data(
                     person_id)
         if person is not None:
-            person['dist_list'] = self.create_dist_lists(person_id)
-
             ice_num = self.get_ice_number(person_id)
             if ice_num:
                 person['private_mobile'] = ice_num
