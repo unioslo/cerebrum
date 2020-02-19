@@ -969,15 +969,15 @@ class BofhdAuth(DatabaseAccessor):
                           query_run_any=False):
         if (self.is_superuser(operator) or
             self._has_target_permissions(operator,
-                                         self.const.auth_create_user,
+                                         self.const.auth_create_person,
                                          self.const.auth_target_type_host,
                                          None, None) or
             self._has_target_permissions(operator,
-                                         self.const.auth_create_user,
+                                         self.const.auth_create_person,
                                          self.const.auth_target_type_disk,
                                          None, None) or
-            self._query_ou_permissions(operator, self.const.auth_create_user,
-                                       ou, affiliation, None)):
+            self._query_ou_permissions(operator, self.const.auth_create_person,
+                                       ou, affiliation)):
             return True
         if query_run_any:
             return False
@@ -1909,8 +1909,7 @@ class BofhdAuth(DatabaseAccessor):
         raise PermissionDenied("No access to disk checking for '%s'" %
                                operation)
 
-    def _query_ou_permissions(self, operator, operation, ou, affiliation,
-                              victim_id):
+    def _query_ou_permissions(self, operator, operation, ou, affiliation):
         """Permissions on OUs are granted specifically."""
         ou_id = None
         if ou:
