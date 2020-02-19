@@ -263,7 +263,8 @@ class BofhdContactCommands(BofhdCommandBase):
                                 six.text_type(entity_type))
 
         # validate contact info type
-        contact_type = self._get_constant(self.const.ContactInfo, contact_type)
+        contact_type = self._get_constant(self.const.ContactInfo,
+                                          contact_type)
 
         # check permissions
         self.ba.can_add_contact_info(operator.get_entity_id(),
