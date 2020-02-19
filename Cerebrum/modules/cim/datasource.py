@@ -181,7 +181,7 @@ class CIMDataSource(object):
         :rtype: dict
         """
         phones = {}
-        for phone_auth_sys in self.phone_authoritative_systems:
+        for phone_auth_sys in reversed(self.phone_authoritative_systems):
             contact_info = self._attr_filter(
                 'source_system',
                 phone_auth_sys,
