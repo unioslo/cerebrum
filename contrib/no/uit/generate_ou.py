@@ -352,7 +352,7 @@ def main(inargs=None):
     )
     parser.add_argument(
         '--webservice',
-        dest='webserviceUrl',
+        dest='webservice_url',
         help='Read OUs from webservice url',
         metavar='<url>',
     )
@@ -368,7 +368,7 @@ def main(inargs=None):
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
 
-    if not (args.sources or args.webserviceUrl):
+    if not (args.sources or args.webservice_url):
         parser.error("out and/or webservice has to be set")
 
     logger.info('Start %r', parser.prog)
@@ -380,8 +380,8 @@ def main(inargs=None):
     output = args.output
     logger.debug('output: %r', output)
 
-    webserviceUrl = args.webserviceUrl
-    logger.debug("webserviceUrl: %r" , webserviceUrl)
+    webservice_url = args.webservice_url
+    logger.debug("webservice_url: %r" , webservice_url)
 
     fs = make_fs()
     my_ou = OuGenerator(fs, ou_files)
@@ -391,7 +391,7 @@ def main(inargs=None):
     logger.info('found %d ous in fs', len(fs_ou))
 
     logger.info('parsing ous from webservice and file(s)...')
-    auth_ou = my_ou.get_authoritative_ou(webserviceUrl)
+    auth_ou = my_ou.get_authoritative_ou(webservice_url)
     logger.info('found %d ous in webservice and file(s)', len(auth_ou))
 
     logger.info('merging ou data...')
