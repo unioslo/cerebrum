@@ -17,6 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+import six
+import collections
 
 from contextlib import contextmanager
 
@@ -41,6 +43,12 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
     def __init__(self, database):
         self.pg = Factory.get('PosixGroup')(database)
         self.__super.__init__(database)
+        self.user2group_spread = {
+            int(self.const.spread_uio_nis_user):
+                int(self.const.spread_uio_nis_fg),
+            int(self.const.spread_ifi_nis_user):
+                int(self.const.spread_ifi_nis_fg),
+        }
 
     def delete_posixuser(self):
         """Demotes this PosixUser to a normal Account. Overridden to also
@@ -199,20 +207,87 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
 
         group.write_db()
 
+    def promote_personal_group(self, pg, group_id):
+        gr = Factory.get('Group')(self._db)
+        gr.find(group_id)
+        pg.clear()
+        pg.populate(parent=gr)
+        pg.write_db()
+
+    def match_spreads(self, group_id, account=None):
+        """Compare the spreads of an account with the spreads of a group
+
+        :return: Spreads of the group which matches those of the user
+        """
+        user = account or self
+        gr = Factory.get('Group')(self._db)
+        gr.find(group_id)
+        group_spreads = {s[0] for s in gr.get_spread()}
+        return group_spreads.intersection(
+            {self.user2group_spread[s[0]] for s in user.get_spread()}
+        )
+
+    def choose_personal_group(self, group_ids):
+        """Choose the most suitable personal group of the candidates given"""
+        # 1. Check if one of the group is the PosixUser's default group
+        if self.gid_id is not None and self.gid_id in group_ids:
+            return self.gid_id
+        # 2. Check which group has the most spreads matching the user's spreads
+        matches = collections.defaultdict(list)
+        for group_id in group_ids:
+            matches[len(self.match_spreads(group_id))].append(
+                group_id
+            )
+        best_matching_groups = matches[max(matches)]
+        if len(best_matching_groups) == 1:
+            return best_matching_groups[0]
+        # 3. Check which group has the same name as the user
+        gr = Factory.get('Group')(self._db)
+        for group_id in best_matching_groups:
+            gr.clear()
+            gr.find(group_id)
+            if gr.group_name == self.account_name:
+                return gr.entity_id
+        # 4. Might as well pick the first one
+        return best_matching_groups[0]
+
+    def maybe_promote_group(self, group_id):
+        pg = Factory.get('PosixGroup')(self._db)
+        try:
+            pg.find(group_id)
+        except Errors.NotFoundError:
+            self.promote_personal_group(pg, group_id)
+        return pg
+
+    def new_find_personal_group(self):
+        """Retrieve the personal file group of an existing PosixUser"""
+        traits = list(self.list_traits(target_id=self.entity_id,
+                                       code=self.const.trait_personal_dfg))
+        if len(traits) == 0:
+            return None
+        if len(traits) == 1:
+            return self.maybe_promote_group(traits[0]['entity_id'])
+        group_id = self.choose_personal_group([t['entity_id'] for t in traits])
+        # TODO uncomment this
+        # # We should probably remove the trait from the unselected groups?
+        # for trait in traits:
+        #     gr = Factory.get('Group')(self._db)
+        #     if not trait['entity_id'] == group_id:
+        #         gr.clear()
+        #         gr.find(trait['entity_id'])
+        #         gr.delete_trait(trait['code'])
+        return self.maybe_promote_group(group_id)
+
     def map_user_spreads_to_pg(self, group=None):
         """ Maps user's spreads to personal group. """
         super(PosixUserUiOMixin, self).map_user_spreads_to_pg()
         if group is None:
-            group = self.find_personal_group()
-            if group is None or not group.has_extension('PosixGroup'):
-                return
-        mapping = [(int(self.const.spread_uio_nis_user),
-                    int(self.const.spread_uio_nis_fg)),
-                   (int(self.const.spread_ifi_nis_user),
-                    int(self.const.spread_ifi_nis_fg)), ]
+            group = self.new_find_personal_group()
+            if group is None:
+                return 
         user_spreads = [int(r['spread']) for r in self.get_spread()]
         group_spreads = [int(r['spread']) for r in group.get_spread()]
-        for uspr, gspr in mapping:
+        for uspr, gspr in six.iteritems(self.user2group_spread):
             if uspr in user_spreads and gspr not in group_spreads:
                 group.add_spread(gspr)
             if gspr in group_spreads and uspr not in user_spreads:
