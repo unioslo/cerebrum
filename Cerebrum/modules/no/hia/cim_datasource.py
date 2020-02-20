@@ -59,8 +59,8 @@ class CIMDataSourceUiA(CIMDataSource):
 
         Anyone with affiliation ANSATT or TILKNYTTET are regarded as
         ansatt, while STUDENT are students. If the stedkode of the
-        OU ends in 11 they belong to Campus Grimstad. If the
-        stedkode ends in 40 they belong to Campus Kristiansand.
+        OU ends in 11 they belong to Campus Kristiansand. If the
+        stedkode ends in 40 they belong to Campus Grimstad.
 
         If we can't match affiliation and stedkode we return None
 
@@ -81,17 +81,17 @@ class CIMDataSourceUiA(CIMDataSource):
         last_two = self.ou.get_stedkode()[-2:]
         affiliation = primary_aff['affiliation']
 
-        if affiliation == self.co.affiliation_student and last_two == '11':
+        if affiliation == self.co.affiliation_student and last_two == '40':
             dist_list = self.dist_list_names['student_grim']
         elif affiliation in (
                 self.co.affiliation_ansatt,
-                self.co.affiliation_tilknyttet) and last_two == '11':
+                self.co.affiliation_tilknyttet) and last_two == '40':
             dist_list = self.dist_list_names['ansatt_grim']
-        elif affiliation == self.co.affiliation_student and last_two == '40':
+        elif affiliation == self.co.affiliation_student and last_two == '11':
             dist_list = self.dist_list_names['student_kris']
         elif affiliation in (
                 self.co.affiliation_ansatt,
-                self.co.affiliation_tilknyttet) and last_two == '40':
+                self.co.affiliation_tilknyttet) and last_two == '11':
             dist_list = self.dist_list_names['ansatt_kris']
         else:
             dist_list = None
