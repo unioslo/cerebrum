@@ -36,7 +36,6 @@ import six
 import requests
 import json
 
-import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.extlib import xmlprinter
@@ -45,7 +44,6 @@ from Cerebrum.utils.atomicfile import SimilarSizeStreamRecoder
 
 logger = logging.getLogger(__name__)
 
-URL = cereconf.STEDKODER_UIT_NO_URL
 
 def format_int(value, fmt='02d'):
     return format(int(value), fmt)
@@ -218,7 +216,7 @@ class OuGenerator(object):
 
         return sko, ou_dict
 
-    def get_ou_info_from_ws(self):
+    def get_ou_info_from_ws(self,url):
         """
         Gets ou info from stedkoder.uit.no.
         Returns an empty dict if no stedkode information was received.
@@ -227,8 +225,8 @@ class OuGenerator(object):
         model_data = {}
 
         # get stedkoder from webservice
-        logger.info("Requesting stedkoder from: %s", URL)
-        response = requests.get(URL)
+        logger.info("Requesting stedkoder from: %s", url)
+        response = requests.get(url)
         response.encoding = "utf-8"
         model_data = response.json()
 
@@ -263,9 +261,9 @@ class OuGenerator(object):
                                      filename, lineno, line, exc_info=True)
         return from_files_ou
 
-    def get_authoritative_ou(self):
+    def get_authoritative_ou(self,url):
         # Ou info from webservice
-        ws_ou = self.get_ou_info_from_ws()
+        ws_ou = self.get_ou_info_from_ws(url)
         if not ws_ou:  # ou_info wasn't received from webservice
             raise ValueError(
                 'Got no ou info from %s, unable to generate ou file', URL)
@@ -353,6 +351,12 @@ def main(inargs=None):
         metavar='<file>',
     )
     parser.add_argument(
+        '--webservice',
+        dest='webserviceUrl',
+        help='Read OUs from webservice url',
+        metavar='<url>',
+    )
+    parser.add_argument(
         '--out-file',
         dest='output',
         required=True,
@@ -364,6 +368,9 @@ def main(inargs=None):
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
 
+    if not (args.sources or args.webserviceUrl):
+        parser.error("out and/or webservice has to be set")
+
     logger.info('Start %r', parser.prog)
     logger.debug("args: %r", args)
 
@@ -373,6 +380,9 @@ def main(inargs=None):
     output = args.output
     logger.debug('output: %r', output)
 
+    webserviceUrl = args.webserviceUrl
+    logger.debug("webserviceUrl: %r" , webserviceUrl)
+
     fs = make_fs()
     my_ou = OuGenerator(fs, ou_files)
 
@@ -381,7 +391,7 @@ def main(inargs=None):
     logger.info('found %d ous in fs', len(fs_ou))
 
     logger.info('parsing ous from webservice and file(s)...')
-    auth_ou = my_ou.get_authoritative_ou()
+    auth_ou = my_ou.get_authoritative_ou(webserviceUrl)
     logger.info('found %d ous in webservice and file(s)', len(auth_ou))
 
     logger.info('merging ou data...')
