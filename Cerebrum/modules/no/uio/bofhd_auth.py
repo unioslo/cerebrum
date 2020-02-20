@@ -210,7 +210,7 @@ class UioAuth(ContactAuthMixin, BofhdAuth):
             not be raised if `query_run_any` is set to `True`.
 
         """
-        if self._is_moderator(operator):
+        if query_run_any and self._is_admin_or_moderator(operator):
             return True
         return super(UioAuth, self).can_create_group(operator, groupname,
                                                      query_run_any)
@@ -265,7 +265,7 @@ class UioAuth(ContactAuthMixin, BofhdAuth):
                                                      query_run_any)
 
     def can_search_group(self, operator, query_run_any=False):
-        if self._is_moderator(operator):
+        if query_run_any and self._is_admin_or_moderator(operator):
             return True
         return super(UioAuth, self).can_search_group(operator, query_run_any)
 
@@ -283,7 +283,7 @@ class UioAuth(ContactAuthMixin, BofhdAuth):
                               str(self.const.spread_uio_ad_group),
                               str(self.const.spread_ldap_group)):
                     return True
-            if self._is_moderator(operator, entity.entity_id):
+            if self._is_admin_or_moderator(operator, entity.entity_id):
                 if spread in (str(self.const.spread_uio_nis_ng),
                               str(self.const.spread_uio_nis_fg),
                               str(self.const.spread_ifi_nis_fg),
