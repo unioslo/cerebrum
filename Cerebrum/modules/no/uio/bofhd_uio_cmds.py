@@ -36,6 +36,7 @@ from Cerebrum import Errors
 from Cerebrum import Metainfo
 from Cerebrum import Utils
 from Cerebrum import database
+from Cerebrum.group.memberships import GroupMemberships
 from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Constants import _LanguageCode, _GroupTypeCode
 from Cerebrum.modules import Email
@@ -1965,6 +1966,46 @@ class BofhdExtension(BofhdCommonMethods):
                                             visibility, "visibility")
         grp.write_db()
         return "OK, set visibility for '%s'" % group
+
+    #
+    # group all_account_memberships
+    #
+    hidden_commands['group_all_account_memberships'] = Command(
+        ('group', 'all_account_memberships'),
+        Id()
+    )
+
+    def group_all_account_memberships(self, operator, account_id):
+        """
+        Hidden command used by brukerinfo/WOFH.
+
+        Returns all groups associated with an account. If a account is the
+        primary we add
+
+        Does not return fronter groups. We filter these out here to to speed up
+        the display time for the group page.
+        """
+
+        account = self._get_entity('account', account_id)
+        account_name = account.get_account_name()
+        person = self._get_entity('person', account_name)
+
+        if account.entity_id == person.get_primary_account():
+            # Primary account, add person memberships.
+            member_id = [account.entity_id, person.entity_id]
+        else:
+            member_id = account.entity_id
+        group_memberships = GroupMemberships(self.db)
+
+        return [
+            {'entity_id': row['group_id'],
+             'group': row['name'],
+             'description': row['description'],
+             'expire_date': row['expire_date'],
+             'group_type': text_type(self.const.GroupType(row['group_type']))
+             }
+            for row in group_memberships.get_groups(
+                member_id)]
 
     #
     # group memberships
