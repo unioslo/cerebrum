@@ -36,6 +36,7 @@ import six
 import requests
 import json
 
+import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.extlib import xmlprinter
@@ -44,8 +45,7 @@ from Cerebrum.utils.atomicfile import SimilarSizeStreamRecoder
 
 logger = logging.getLogger(__name__)
 
-URL = "https://stedkoder.uit.no/Api/basstedkoder?format=json"
-
+URL = cereconf.STEDKODER_UIT_NO_URL
 
 def format_int(value, fmt='02d'):
     return format(int(value), fmt)
