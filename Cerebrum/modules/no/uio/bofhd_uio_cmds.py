@@ -1980,12 +1980,8 @@ class BofhdExtension(BofhdCommonMethods):
         Hidden command used by brukerinfo/WOFH.
 
         Returns all groups associated with an account. If a account is the
-        primary we add
-
-        Does not return fronter groups. We filter these out here to to speed up
-        the display time for the group page.
+        primary we add any person groups as if primary account was a member.
         """
-
         account = self._get_entity('account', account_id)
         account_name = account.get_account_name()
         person = self._get_entity('person', account_name)
