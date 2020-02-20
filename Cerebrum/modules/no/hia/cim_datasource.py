@@ -96,3 +96,14 @@ class CIMDataSourceUiA(CIMDataSource):
         else:
             dist_list = None
         return dist_list
+
+    def get_person_data(self, person_id):
+        person = super(CIMDataSourceUiA, self).get_person_data(person_id)
+
+        # We do not have the data to decide if a person should be a user or
+        # a contact. For now we give everyone 'user'. There is a default value
+        # in the CIM installation but we choose to not trust that setting. If
+        # we decide to use the default we can stop sending the 'person_type'
+        # attribute.
+        person['person_type'] = 'user'
+        return person
