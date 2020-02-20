@@ -76,44 +76,6 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
             pass
         return self.__super.clear()
 
-    def _find_personal_group(self, account_id):
-        """Find a group (either a PosixGroup or a regular Group) with the
-        personal_dfg trait. If a regular Group is found, promote it to
-        a PosixGroup. Auto-promoting is necessary due to the fact that
-        a previously demoted user that is promoted back to a PosixUser,
-        probably already has a personal group that was also demoted at
-        the same time as the user, and we want to reuse this group.
-        Since this function will only be called under the creation (populate)
-        of a PosixUser, or while updating an existing PosixUser, it is safe
-        to assume that we would like to automatically re-promote the user's
-        personal group as well if it hasn't been done yet.
-        """
-        pg = Factory.get('PosixGroup')(self._db)
-        trait = list(pg.list_traits(target_id=account_id,
-                                    code=self.const.trait_personal_dfg))
-        if trait:
-            group_id = trait[0]['entity_id']
-            try:
-                pg.find(group_id)
-                return pg
-            except Errors.NotFoundError:
-                gr = Factory.get('Group')(self._db)
-                gr.find(group_id)
-                pg.clear()
-                pg.populate(parent=gr)
-                pg.write_db()
-                return pg
-        return None
-
-    def find_personal_group(self):
-        """ Find a posix group marked by the trait_personal_dfg trait.
-
-        @return PosixGroup or None.
-        """
-        if not hasattr(self, 'entity_id'):
-            return None
-        return self._find_personal_group(self.entity_id)
-
     def add_spread(self, *args, **kwargs):
         """Override with UiO specific behaviour."""
         ret = self.__super.add_spread(*args, **kwargs)
@@ -145,20 +107,22 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         if not creator_id:
             creator_id = parent.entity_id
 
-        if gid_id is None:
+        ret = self.__super.populate(posix_uid, gid_id, gecos,
+                                    shell, name, owner_type, owner_id,
+                                    np_type, creator_id, expire_date, parent)
+
+        if self.gid_id is None:
             personal_dfg = None
             if parent:
-                personal_dfg = self._find_personal_group(parent.entity_id)
+                personal_dfg = self.find_personal_group()
             if personal_dfg is None:
                 # No dfg, we need to create it
                 self.__create_dfg = creator_id
             else:
                 self.pg = personal_dfg
-                gid_id = self.pg.entity_id
+                self.gid_id = self.pg.entity_id
 
-        return self.__super.populate(posix_uid, gid_id, gecos,
-                                     shell, name, owner_type, owner_id,
-                                     np_type, creator_id, expire_date, parent)
+        return ret
 
     @contextmanager
     def _new_personal_group(self, creator_id):
@@ -224,12 +188,13 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         gr.find(group_id)
         group_spreads = {s[0] for s in gr.get_spread()}
         return group_spreads.intersection(
-            {self.user2group_spread[s[0]] for s in user.get_spread()}
+            {self.user2group_spread[s[0]] for s in user.get_spread() if
+             s[0] in self.user2group_spread}
         )
 
     def choose_personal_group(self, group_ids):
         """Choose the most suitable personal group of the candidates given"""
-        # 1. Check if one of the group is the PosixUser's default group
+        # 1. Check if one of the groups is the PosixUser's default group
         if self.gid_id is not None and self.gid_id in group_ids:
             return self.gid_id
         # 2. Check which group has the most spreads matching the user's spreads
@@ -252,6 +217,7 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         return best_matching_groups[0]
 
     def maybe_promote_group(self, group_id):
+        """Promote the group to a posix group if it isn't one already"""
         pg = Factory.get('PosixGroup')(self._db)
         try:
             pg.find(group_id)
@@ -259,7 +225,7 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
             self.promote_personal_group(pg, group_id)
         return pg
 
-    def new_find_personal_group(self):
+    def find_personal_group(self):
         """Retrieve the personal file group of an existing PosixUser"""
         traits = list(self.list_traits(target_id=self.entity_id,
                                        code=self.const.trait_personal_dfg))
@@ -268,21 +234,13 @@ class PosixUserUiOMixin(PosixUser.PosixUser):
         if len(traits) == 1:
             return self.maybe_promote_group(traits[0]['entity_id'])
         group_id = self.choose_personal_group([t['entity_id'] for t in traits])
-        # TODO uncomment this
-        # # We should probably remove the trait from the unselected groups?
-        # for trait in traits:
-        #     gr = Factory.get('Group')(self._db)
-        #     if not trait['entity_id'] == group_id:
-        #         gr.clear()
-        #         gr.find(trait['entity_id'])
-        #         gr.delete_trait(trait['code'])
         return self.maybe_promote_group(group_id)
 
     def map_user_spreads_to_pg(self, group=None):
         """ Maps user's spreads to personal group. """
         super(PosixUserUiOMixin, self).map_user_spreads_to_pg()
         if group is None:
-            group = self.new_find_personal_group()
+            group = self.find_personal_group()
             if group is None:
                 return 
         user_spreads = [int(r['spread']) for r in self.get_spread()]
