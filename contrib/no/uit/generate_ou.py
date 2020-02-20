@@ -44,7 +44,7 @@ from Cerebrum.utils.atomicfile import SimilarSizeStreamRecoder
 
 logger = logging.getLogger(__name__)
 
-URL = "https://stedkoder.uit.no/Api/basstedkoder"
+URL = "https://stedkoder.uit.no/Api/basstedkoder?format=json"
 
 
 def format_int(value, fmt='02d'):
@@ -230,14 +230,9 @@ class OuGenerator(object):
         logger.info("Requesting stedkoder from: %s", URL)
         response = requests.get(URL)
         response.encoding = "utf-8"
-        text = response.text
+        model_data = response.json()
 
         logger.info("Parsing response")
-        if "var model = " in text:
-            model_data = text.split('var model = ')[1]
-            model_data = model_data.split("txt = ")[0].strip().strip(",")
-            model_data = json.loads(model_data)  # convert to dict
-
         # ou info is now in model_data (or model_data is empty)
         # get it into dict with structure:
         # {<stedkode> : {<key> : <val>, <key> : <val>, ...}, ...}
@@ -354,7 +349,6 @@ def main(inargs=None):
         '--ou-source',
         dest='sources',
         action='append',
-        required=True,
         help='Read OUs from source file %(metavar)s',
         metavar='<file>',
     )
