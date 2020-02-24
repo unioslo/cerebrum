@@ -150,7 +150,7 @@ class EventLog(ChangeLog):
     # of log_change compatible. Also, make better docstrings!
     def log_change(self,
                    subject_entity,
-                   change_type,
+                   change_type_id,
                    destination_entity,
                    change_params=None,
                    skip_publish=False,
@@ -158,7 +158,7 @@ class EventLog(ChangeLog):
         """Register events that should be stored into the database. """
         super(EventLog, self).log_change(
             subject_entity,
-            change_type,
+            change_type_id,
             destination_entity,
             change_params=change_params,
             **kw)
@@ -170,7 +170,7 @@ class EventLog(ChangeLog):
         # TODO: Ugh, we don't inherit from the database but expect to behave
         # like it by passing self as a database object...
         message = change_type_to_event(self,
-                                       change_type,
+                                       change_type_id,
                                        subject_entity,
                                        destination_entity,
                                        change_params)

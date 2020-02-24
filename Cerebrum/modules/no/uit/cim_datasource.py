@@ -315,14 +315,12 @@ class CIMDataSourceUit(CIMDataSource):
     # use contact_pref to decide which to use, or add to both dist groups?
     # => will add to both for now...
 
-    def create_dist_lists(self, person_id):
+    def create_dist_lists(self, *args, **kwargs):
         """
         TODO: describe this method
         """
         dist_lists = ""
 
-        self.pe.clear()
-        self.pe.find(person_id)
         rooms = self.pe.get_contact_info(type=550)
         buildings = self.pe.get_contact_info(type=558)
 
@@ -346,7 +344,7 @@ class CIMDataSourceUit(CIMDataSource):
                 "CIMDataSourceUit: Unrecognized or missing location "
                 "information for person_id %s: room_info: %s, "
                 "building_info: %s"
-                % (person_id, rooms, buildings))
+                % (self.pe.entity_idperson_id, rooms, buildings))
             dist_lists = self.IKKE_PLASSERT
 
         return dist_lists
@@ -361,45 +359,9 @@ class CIMDataSourceUit(CIMDataSource):
                  CIM-WS-schema.
         :rtype: dict
         """
-        # TODO: Add lookup order to the super method so we don't have to do
-        #  this hack of storing auth system and putting it back after running
-        #  super() ?
-        orig_auth_system = self.authoritative_system
-        person = None
-
-        # get data about person using CIM_SYSTEM_LOOKUP_ORDER to determine
-        # source_system to use
-        for sys in self.auth_system_lookup_order:
-            self.authoritative_system = sys
-
-            try:
-                person = super(CIMDataSourceUit, self).get_person_data(
+        person = super(CIMDataSourceUit, self).get_person_data(
                     person_id)
-            except IndexError:
-                person = None
-
-            if person is not None:
-                # TODO later: ?? do I need to check result? e.g. ou stuff for
-                #  students and sysX persons...
-                break
-
-            # Doing things like this might be a problem when we add students:
-            # What if a person is a student, but has a (small) part-time job at
-            # UiT?
-            # person would get cim_spread because of the student-status, but
-            # PAGA would be used as source_system...
-            #
-            # example of special case to consider:
-            # krs025 (Kristin Solberg): student, but also has ansatt and
-            # tilknyttet affiliations (from FS and SysX) ansatt and tilknyttet
-            # at IKM, student at HSL
-
-        # set authoritative_system back to what it was at beginning of method
-        self.authoritative_system = orig_auth_system
-
         if person is not None:
-            person['dist_list'] = self.create_dist_lists(person_id)
-
             ice_num = self.get_ice_number(person_id)
             if ice_num:
                 person['private_mobile'] = ice_num

@@ -33,6 +33,7 @@ from Cerebrum.Errors import NotFoundError
 
 class CIMDataSource(object):
     """Fetches data and formats it for CIM."""
+
     def __init__(self, db, config, logger):
         self.logger = logger
         self.db = db
@@ -41,16 +42,17 @@ class CIMDataSource(object):
         self.pe = Factory.get('Person')(self.db)
         self.ac = Factory.get('Account')(self.db)
         self.ou = Factory.get('OU')(self.db)
-        self.authoritative_system = self.co.AuthoritativeSystem(
-            self.config.authoritative_system)
-        self.phone_authoritative_system = self.co.AuthoritativeSystem(
-            self.config.phone_authoritative_system)
+        self.authoritative_systems = [
+            self.co.AuthoritativeSystem(i) for i in
+            self.config.authoritative_systems
+        ]
+        self.phone_authoritative_systems = [
+            self.co.AuthoritativeSystem(i) for i in
+            self.config.phone_authoritative_systems
+        ]
         self.ou_perspective = self.co.OUPerspective(
             self.config.ou_perspective)
         self.spread = self.co.Spread(self.config.spread)
-        self.auth_system_lookup_order = [self.co.AuthoritativeSystem(sys) for
-                                         sys in
-                                         self.config.auth_system_lookup_order]
 
     def is_eligible(self, person_id):
         """Decide whether a person should be exported to CIM.
@@ -59,6 +61,14 @@ class CIMDataSource(object):
         :rtype: bool
         """
         return bool(self.pe.search(entity_id=person_id, spread=self.spread))
+
+    def create_dist_lists(self, *args, **kwargs):
+        """Create instance specific method
+
+        :return: string with name of distribution list
+        :rtype string
+        """
+        return
 
     def get_person_data(self, person_id):
         """
@@ -78,19 +88,14 @@ class CIMDataSource(object):
             return None
         self.ac.find(primary_account)
 
-        person = {}
-        person['username'] = self.ac.get_account_name()
-
-        # Get and add first and last names from authoritative system
-        pe_names = self.pe.get_names()
-        names = self._attr_filter(
-            'source_system', self.authoritative_system, pe_names)
-        first_name_list = self._attr_filter(
-            'name_variant', self.co.name_first, names)
-        last_name_list = self._attr_filter(
-            'name_variant', self.co.name_last, names)
-        person['firstname'] = first_name_list[0]['name']
-        person['lastname'] = last_name_list[0]['name']
+        # Get username and cached first and last names
+        person = {
+            'username': self.ac.get_account_name(),
+            'firstname': self.pe.get_name(self.co.system_cached,
+                                          self.co.name_first),
+            'lastname': self.pe.get_name(self.co.system_cached,
+                                         self.co.name_last)
+        }
 
         # Get and add phone entries
         person.update(self._get_phone_entries())
@@ -104,14 +109,22 @@ class CIMDataSource(object):
         # Get and add company info
         # FIXME: Store information about main employment when importing data
         #        from SAP. Use that here to choose the best affiliation.
-        affs = self._attr_filter(
-            'source_system',
-            self.authoritative_system,
-            self.pe.get_affiliations())
+        affs = None
+        for sys in self.authoritative_systems:
+            affs = self._attr_filter('source_system', sys,
+                                     self.pe.get_affiliations())
+            if affs:
+                break
         if not affs:
             return None
+        primary_aff = affs[0]
         primary_aff_ou_id = affs[0]['ou_id']
         person.update(self._get_org_structure(primary_aff_ou_id))
+
+        # Add distribution list:
+        dist_list = self.create_dist_lists(primary_aff=primary_aff)
+        if dist_list:
+            person['dist_list'] = dist_list
 
         # Get and add job title if present
         try:
@@ -128,7 +141,7 @@ class CIMDataSource(object):
         Takes a list of tuples, and returns a list of only the tuples where the
         attr with attr_name is equal to the input parameter constant.
 
-        :param str attr_name: An attribute name.
+        :param six.string_types attr_name: An attribute name.
         :param _CerebrumCode constant: A Cerebrum constant
         :param list unfiltered: An unfiltered list of tuples
         :return: A filtered list, containing only tuples with valid matches. If
@@ -143,10 +156,11 @@ class CIMDataSource(object):
         missing. It is assumed that phone numbers lacking a prefix, is from
         the default region defined in the configuration.
 
-        :param unicode : A phone number
+        :param entry: A phone number
         :return: A phone number with a country prefix, or None
         :rtype: unicode
         """
+
         def warn():
             self.logger.warning(
                 "CIMDataSource: Invalid phone number for person_id:{}, "
@@ -180,22 +194,23 @@ class CIMDataSource(object):
             The phone numbers to include in the person data.
         :rtype: dict
         """
-        contact_info = self._attr_filter(
-            'source_system',
-            self.phone_authoritative_system,
-            self.pe.get_contact_info())
         phones = {}
-        for contact_entry in self.config.phone_mappings:
-            entries = self._attr_filter(
-                'contact_type',
-                self.co.ContactInfo(
-                    self.config.phone_mappings[contact_entry]),
-                contact_info)
-            for entry in entries:
-                parsed_number = self._format_phone_number_entry(entry)
-                if parsed_number:
-                    phones[contact_entry] = parsed_number
-                    break
+        for phone_auth_sys in reversed(self.phone_authoritative_systems):
+            contact_info = self._attr_filter(
+                'source_system',
+                phone_auth_sys,
+                self.pe.get_contact_info())
+            for contact_entry in self.config.phone_mappings:
+                entries = self._attr_filter(
+                    'contact_type',
+                    self.co.ContactInfo(
+                        self.config.phone_mappings[contact_entry]),
+                    contact_info)
+                for entry in entries:
+                    parsed_number = self._format_phone_number_entry(entry)
+                    if parsed_number:
+                        phones[contact_entry] = parsed_number
+                        break
         return phones
 
     def _get_org_structure(self, from_ou_id):
@@ -216,7 +231,6 @@ class CIMDataSource(object):
         ous = []
         structure = {}
         current_ou_id = self.ou.entity_id
-        current_ou_name = None
 
         while current_ou_id:
             self.ou.clear()
