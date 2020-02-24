@@ -105,5 +105,6 @@ class CIMDataSourceUiA(CIMDataSource):
         # in the CIM installation but we choose to not trust that setting. If
         # we decide to use the default we can stop sending the 'person_type'
         # attribute.
-        person['person_type'] = 'user'
+        if person:
+            person['person_type'] = 'user'
         return person
