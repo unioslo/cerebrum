@@ -43,7 +43,7 @@ def gpg_home():
     shutil.rmtree(tempdir)
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def cereconf(cereconf, gpg_home):
     old_home = cereconf.GNUPGHOME
     cereconf.GNUPGHOME = gpg_home

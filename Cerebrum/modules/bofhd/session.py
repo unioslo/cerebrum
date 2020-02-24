@@ -269,21 +269,34 @@ class BofhdSession(object):
                            ('auth', 'seen')))
 
         # Clear any session_state data tied to the sessions
-        self._db.execute("""
-        DELETE FROM [:table schema=cerebrum name=bofhd_session_state]
-        WHERE exists (SELECT 'foo'
-                      FROM[:table schema=cerebrum name=bofhd_session]
-                      WHERE bofhd_session.session_id =
-                            bofhd_session_state.session_id
-                      AND (bofhd_session.auth_time < :auth
-                           OR bofhd_session.last_seen < :seen))""",
-                         thresholds)
+        self._db.execute(
+            """
+            DELETE FROM
+              [:table schema=cerebrum name=bofhd_session_state]
+            WHERE exists (
+              SELECT 'foo'
+              FROM
+                [:table schema=cerebrum name=bofhd_session]
+              WHERE
+                bofhd_session.session_id = bofhd_session_state.session_id AND
+                (
+                  bofhd_session.auth_time < :auth OR
+                  bofhd_session.last_seen < :seen
+                )
+            )
+            """,
+            thresholds)
 
         # Clear the actual sessions.
-        self._db.execute("""
-        DELETE FROM [:table schema=cerebrum name=bofhd_session]
-        WHERE auth_time < :auth OR last_seen < :seen""",
-                         thresholds)
+        self._db.execute(
+            """
+            DELETE FROM
+              [:table schema=cerebrum name=bofhd_session]
+            WHERE
+              auth_time < :auth OR
+              last_seen < :seen
+            """,
+            thresholds)
 
         # Clear sessions for _short_timeout_hosts.
         self.remove_short_timeout_sessions()

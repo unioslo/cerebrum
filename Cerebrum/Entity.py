@@ -340,7 +340,7 @@ class EntitySpread(Entity):
             where.append(argument_to_sql(entity_types, 'entity_type',
                                          binds, int))
         if where:
-            sel = 'WHERE ' + ' AND '.join(where)
+            sel = ' WHERE ' + ' AND '.join(where)
         return self.query("""
         SELECT entity_id, spread
         FROM [:table schema=cerebrum name=entity_spread]""" + sel, binds)
