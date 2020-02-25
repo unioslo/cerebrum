@@ -87,11 +87,12 @@ class CIMDataSourceUiA(CIMDataSource):
                 self.co.affiliation_ansatt,
                 self.co.affiliation_tilknyttet) and last_two == '40':
             dist_list = self.dist_list_names['ansatt_grim']
-        elif affiliation == self.co.affiliation_student and last_two == '11':
+        # Place anyone not in Grimstad in Kristiansand
+        elif affiliation == self.co.affiliation_student:
             dist_list = self.dist_list_names['student_kris']
         elif affiliation in (
                 self.co.affiliation_ansatt,
-                self.co.affiliation_tilknyttet) and last_two == '11':
+                self.co.affiliation_tilknyttet):
             dist_list = self.dist_list_names['ansatt_kris']
         else:
             dist_list = None
