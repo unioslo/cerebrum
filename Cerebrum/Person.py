@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2019 University of Oslo, Norway
+#
+# Copyright 2002-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
+Base class for Cerebrum person objects.
 """
 from __future__ import unicode_literals
 
@@ -535,27 +537,35 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 self._set_cached_name(name_type, name)
 
     def list_person_name_codes(self):
-        return self.query("""
-        SELECT code, description
-        FROM [:table schema=cerebrum name=person_name_code]""")
+        return self.query(
+            """
+              SELECT code, description
+              FROM [:table schema=cerebrum name=person_name_code]
+            """)
 
     def list_person_affiliation_codes(self):
-        return self.query("""
-        SELECT code, code_str, description
-        FROM [:table schema=cerebrum name=person_affiliation_code]""")
+        return self.query(
+            """
+              SELECT code, code_str, description
+              FROM [:table schema=cerebrum name=person_affiliation_code]
+            """)
 
     def get_name(self, source_system, variant):
         """Return the name with the given variant"""
-        return self.query_1("""
-        SELECT name
-        FROM [:table schema=cerebrum name=person_name]
-        WHERE
-          person_id=:p_id AND
-          name_variant=:n_variant AND
-          source_system=:src""",
-                            {'p_id': self.entity_id,
-                             'n_variant': int(variant),
-                             'src': int(source_system)})
+        return self.query_1(
+            """
+              SELECT name
+              FROM [:table schema=cerebrum name=person_name]
+              WHERE
+                person_id=:p_id AND
+                name_variant=:n_variant AND
+                source_system=:src
+            """,
+            {
+                'p_id': self.entity_id,
+                'n_variant': int(variant),
+                'src': int(source_system),
+            })
 
     def get_names(self, source_system=None, variant=None):
         """Return all names connected to this person,
@@ -571,10 +581,12 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             where += ' AND ' + argument_to_sql(variant, 'name_variant',
                                                binds, int)
 
-        return self.query("""
-        SELECT *
-        FROM [:table schema=cerebrum name=person_name]
-        """ + where, binds)
+        return self.query(
+            """
+              SELECT *
+              FROM [:table schema=cerebrum name=person_name]
+            """ + where,
+            binds)
 
     def affect_names(self, source, *variants):
         self._pn_affect_source = source
