@@ -71,9 +71,10 @@ class GroupMemberships(DatabaseAccessor):
         }
         select = [
             'ms.group_id as group_id',
+            'ms.depth as depth',
+            'ms.member_id as member_id',
             'en.entity_name AS name',
             'gi.description AS description',
-            'gi.visibility AS visibility',
             'gi.creator_id AS creator_id',
             'ei.created_at AS created_at',
             'gi.expire_date AS expire_date',
@@ -101,11 +102,11 @@ class GroupMemberships(DatabaseAccessor):
                 argument_to_sql(group_type, "gi.group_type", binds, int))
 
         query_str = """
-        WITH RECURSIVE member_search(group_id, member_id, level) AS (
+        WITH RECURSIVE member_search(group_id, member_id, depth) AS (
           SELECT
             gm.group_id,
             gm.member_id,
-            1 as level
+            0 as depth
           FROM [:table schema=cerebrum name=group_member] gm
           WHERE
             {member_where}
@@ -113,11 +114,11 @@ class GroupMemberships(DatabaseAccessor):
           SELECT
             gm.group_id,
             member_search.member_id,
-            level + 1
+            depth + 1
           FROM [:table schema=cerebrum name=group_member] gm
           JOIN member_search
           ON gm.member_id = member_search.group_id
-          where level < :max_level
+          WHERE depth < :max_level
         )
         SELECT DISTINCT
           {select}
