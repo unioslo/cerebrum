@@ -25,10 +25,11 @@ from six import text_type
 from Cerebrum.group.memberships import GroupMemberships
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
-from Cerebrum.modules.bofhd.cmd_param import (Command, Id)
+from Cerebrum.modules.bofhd.cmd_param import (Command, AccountName)
+from Cerebrum.modules.bofhd.errors import CerebrumError
 
 
-class BofhdWOFHExtension(BofhdCommonMethods):
+class BofhdWofhCommands(BofhdCommonMethods):
 
     all_commands = {}
     hidden_commands = {}
@@ -37,29 +38,32 @@ class BofhdWOFHExtension(BofhdCommonMethods):
     #
     # group all_account_memberships
     #
-    hidden_commands['group_all_account_memberships'] = Command(
-        ('group', 'all_account_memberships'),
-        Id()
+    hidden_commands['wofh_all_group_memberships'] = Command(
+        ('wofh', 'all_group_memberships'),
+        AccountName()
     )
 
-    def group_all_account_memberships(self, operator, account_id):
+    def wofh_all_group_memberships(self, operator, account_name):
         """
         Hidden command used by brukerinfo/WOFH.
 
         Returns all groups associated with an account. If a account is the
         primary we add any person groups as if primary account was a member.
         """
-        account = self._get_entity('account', account_id)
-        account_name = account.get_account_name()
-        person = self._get_entity('person', account_name)
+        account = self._get_entity('account', account_name)
+        member_id = [account.entity_id]
 
-        if account.entity_id == person.get_primary_account():
-            # Primary account, add person memberships.
-            member_id = [account.entity_id, person.entity_id]
-        else:
-            member_id = account.entity_id
+        try:
+            person = self._get_entity('person', account.get_account_name())
+            if account.entity_id == person.get_primary_account():
+                # Found primary account, add person memberships.
+                member_id.append(person.entity_id)
+        except CerebrumError:
+            # Account not owned by a person. Only return the account
+            # memberships
+            member_id = [account.entity_id]
+
         group_memberships = GroupMemberships(self.db)
-
         return [
             {'entity_id': row['group_id'],
              'group': row['name'],
