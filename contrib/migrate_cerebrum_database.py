@@ -1136,9 +1136,13 @@ def migrate_to_changelog_1_4():
         workers = 4
 
     print('Distributing work...')
-    ids = db.query('SELECT change_id FROM '
-                   '[:table schema=cerebrum name=change_log]'
-                   'WHERE change_params IS NOT NULL')
+    ids = db.query(
+        """
+          SELECT change_id FROM
+          [:table schema=cerebrum name=change_log]
+          WHERE change_params IS NOT NULL
+        """
+    )
     ids = map(lambda x: int(x[0]), ids)
     ids.sort()
 
