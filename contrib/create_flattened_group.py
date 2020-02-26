@@ -33,15 +33,12 @@ from Cerebrum.Account import Account
 
 
 def prepare_empty(db, gr, args):
-    """
-    This function either empties an existing destination group
-    or, failing at that,  constructs a new one."""
+    """This function constructs a destination group
+    if it doesn't exist."""
     co = Factory.get('Constants')(db)
     gr.clear()
     try:
         gr.find_by_name(args.destination_group)
-        for member in gr.search_members(group_id=gr.entity_id):
-            gr.remove_member(member['member_id'])
     except Errors.NotFoundError:
         bootstrap_ac = Account(db)
         bootstrap_ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
@@ -55,13 +52,20 @@ def prepare_empty(db, gr, args):
     gr.write_db()
 
 
-def add_members_to_flattened_derivative(gr, flattened, flattened_groupname):
-    """This function adds all members found to the destination group."""
+def update_flattened_derivative(co, gr, flattened, flattened_groupname):
+    """This function updates the memberships in the destination group."""
     gr.clear()
     gr.find_by_name(flattened_groupname)
-    ids = set(member['member_id'] for member in flattened)
-    for member in ids:
+    present_ids = set(member['member_id'] for member in gr.search_members(
+        group_id=gr.entity_id, member_type=co.entity_account))
+    future_ids = set(member['member_id'] for member in flattened)
+    # Rather than chucking everyone out and adding all (new) members back in,
+    # we just update the (possibly pre-existing) list in order to minimize
+    # redundant change_log abuse.
+    for member in future_ids - present_ids:
         gr.add_member(member)
+    for member in present_ids - future_ids:
+        gr.remove_member(member)
     gr.write_db()
 
 
@@ -112,10 +116,9 @@ def main(inargs=None):
                                   member_type=co.entity_account)
     logger.info('Preparing flattened group %s', args.destination_group)
     prepare_empty(db, gr, args)
-    logger.info('Adding %i members to %s',
-                len(flattened), args.destination_group)
-    add_members_to_flattened_derivative(
-        gr, flattened, args.destination_group)
+    logger.info('Updating: Group %s to contain %i members',
+                args.destination_group, len(flattened))
+    update_flattened_derivative(co, gr, flattened, args.destination_group)
 
     if args.commit:
         logger.info("Committing changes")
