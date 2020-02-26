@@ -27,7 +27,7 @@ from Cerebrum.group.memberships import GroupMemberships
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import (Command, AccountName)
-from Cerebrum.modules.bofhd.errors import CerebrumError
+
 
 class BofhdWofhCommands(BofhdCommonMethods):
 
