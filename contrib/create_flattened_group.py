@@ -22,21 +22,22 @@
 This script extracts all direct and indirect members of a group and produces a
 flattened version thereof.
 """
-
-import sys
-
+import logging
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
 from Cerebrum.Account import Account
+from Cerebrum.Utils import Factory
+from Cerebrum.utils import argutils
 
+logger = logging.getLogger(__name__)
+ 
 
-def prepare_empty(db, gr, args):
+def prepare_empty(db, args):
     """This function constructs a destination group
     if it doesn't exist."""
     co = Factory.get('Constants')(db)
-    gr.clear()
+    gr = Factory.get('Group')(db)
     try:
         gr.find_by_name(args.destination_group)
     except Errors.NotFoundError:
@@ -52,9 +53,10 @@ def prepare_empty(db, gr, args):
     gr.write_db()
 
 
-def update_flattened_derivative(co, gr, flattened, flattened_groupname):
+def update_flattened_derivative(db, flattened, flattened_groupname):
     """This function updates the memberships in the destination group."""
-    gr.clear()
+    co = Factory.get('Constants')(db)
+    gr = Factory.get('Group')(db)
     gr.find_by_name(flattened_groupname)
     present_ids = set(member['member_id'] for member in gr.search_members(
         group_id=gr.entity_id, member_type=co.entity_account))
@@ -78,29 +80,23 @@ def main(inargs=None):
         import argparse
     except ImportError:
         from Cerebrum.extlib import argparse
-    logger = Factory.get_logger(__name__)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '-t', '--target-group',
         dest='target_group',
+        required=True,
         default=None,
         help='Group to be flattened'
     )
     parser.add_argument(
         '-d', '--destination-group',
         dest='destination_group',
+        required=True,
         default=None,
         help='Flattened group'
     )
-    parser.add_argument(
-        '-c', '--commit',
-        default=False,
-        action='store_true',
-        help='Commit changes')
+    argutils.add_commit_args(parser, default=False)
     args = parser.parse_args(inargs)
-    if not args.target_group or not args.destination_group:
-        logger.error('Both target and destination group must be provided')
-        sys.exit()
     logger.info('START %s', parser.prog)
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
@@ -108,17 +104,17 @@ def main(inargs=None):
     try:
         gr.find_by_name(args.target_group)
     except Errors.NotFoundError:
-        logger.error('Target group %s does not exist.', args.target_group)
-        sys.exit()
+        parser.error(
+            'Target group {} does not exist.'.format(args.target_group))
     logger.info('Searching group %s for direct and indirect members')
     flattened = gr.search_members(group_id=gr.entity_id,
                                   indirect_members=True,
                                   member_type=co.entity_account)
     logger.info('Preparing flattened group %s', args.destination_group)
-    prepare_empty(db, gr, args)
+    prepare_empty(db, args)
     logger.info('Updating: Group %s to contain %i members',
                 args.destination_group, len(flattened))
-    update_flattened_derivative(co, gr, flattened, args.destination_group)
+    update_flattened_derivative(db, flattened, args.destination_group)
 
     if args.commit:
         logger.info("Committing changes")
