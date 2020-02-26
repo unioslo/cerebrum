@@ -344,7 +344,7 @@ class CIMDataSourceUit(CIMDataSource):
                 "CIMDataSourceUit: Unrecognized or missing location "
                 "information for person_id %s: room_info: %s, "
                 "building_info: %s"
-                % (self.pe.entity_idperson_id, rooms, buildings))
+                % (self.pe.entity_id, rooms, buildings))
             dist_lists = self.IKKE_PLASSERT
 
         return dist_lists
