@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2005-2020 University of Oslo, Norway
+# Copyright 2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-This script extracts all direct and indirect members of a group and producves a
+This script extracts all direct and indirect members of a group and produces a
 flattened version thereof.
 """
 
