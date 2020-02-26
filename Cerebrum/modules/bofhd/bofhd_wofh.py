@@ -22,12 +22,12 @@
 
 from six import text_type
 
+from Cerebrum import Utils
 from Cerebrum.group.memberships import GroupMemberships
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommonMethods
 from Cerebrum.modules.bofhd.cmd_param import (Command, AccountName)
 from Cerebrum.modules.bofhd.errors import CerebrumError
-
 
 class BofhdWofhCommands(BofhdCommonMethods):
 
@@ -53,15 +53,13 @@ class BofhdWofhCommands(BofhdCommonMethods):
         account = self._get_entity('account', account_name)
         member_id = [account.entity_id]
 
-        try:
-            person = self._get_entity('person', account.get_account_name())
+        if account.owner_type == self.const.entity_person:
+            person = Utils.Factory.get('Person')(self.db)
+            person.clear()
+            person.find(account.owner_id)
             if account.entity_id == person.get_primary_account():
                 # Found primary account, add person memberships.
                 member_id.append(person.entity_id)
-        except CerebrumError:
-            # Account not owned by a person. Only return the account
-            # memberships
-            member_id = [account.entity_id]
 
         group_memberships = GroupMemberships(self.db)
         return [
