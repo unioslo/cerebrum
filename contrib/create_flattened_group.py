@@ -48,7 +48,7 @@ def prepare_empty(db, args):
             visibility=co.group_visibility_all,
             name=args.destination_group,
             description=('Flattened variant of %s' % args.target_group),
-            group_type=co.group_type_manual,
+            group_type=co.group_type_internal,
         )
     gr.write_db()
 
