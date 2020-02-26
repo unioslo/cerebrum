@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2018 University of Oslo, Norway
+#
+# Copyright 2002-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,9 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+The PosixUser module implements a specialisation of the `Account' core class.
 
-"""The PosixUser module implements a specialisation of the `Account'
-core class.  The specialisation supports the additional parameters
+The specialisation supports the additional parameters
 that are needed for building password maps usable on Unix systems.
 These parameters include UID, GID, shell, gecos and home directory.
 
@@ -38,10 +40,9 @@ POSIX_GECOS_SOURCE_ORDER.
 Note that PosixUser.PosixUser itself is not a transparent Account
 mixin class, as its populate() method requires other arguments than
 the populate() method of Account.
-
 """
-
 import cereconf
+
 from Cerebrum.Utils import Factory, argument_to_sql
 from Cerebrum.utils import transliterate
 from Cerebrum import Errors
@@ -296,6 +297,8 @@ class PosixUser(Account_class):
 
     def list_shells(self):
         """Returns all shells"""
-        return self.query("""
-        SELECT code, shell
-        FROM [:table schema=cerebrum name=posix_shell_code]""")
+        return self.query(
+            """
+              SELECT code, shell
+              FROM [:table schema=cerebrum name=posix_shell_code]
+            """)
