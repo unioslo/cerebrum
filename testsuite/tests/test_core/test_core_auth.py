@@ -6,6 +6,8 @@ from __future__ import unicode_literals
 import logging
 import unittest
 
+import Cerebrum.auth
+
 from Cerebrum.auth import all_auth_methods
 from Cerebrum.Utils import Factory
 from Cerebrum.Account import Account
@@ -122,3 +124,21 @@ class SimpleAuthImplementationTest(BaseAccountTest):
         _hash = auth_impl.encrypt("hesterbest", salt="ABC")
         self.assertEqual(
             _hash, "5DDE3A6B19D3DEB6B63E304A5574A193")
+
+    def test_ha1md5_encrypt():
+        name = 'olanordmann'
+        realm = 'myorg'
+        passwd = 'hesterbest'
+
+        _hash = Cerebrum.auth.encrypt_ha1_md5(name, realm, passwd)
+        assert _hash == "05f96542dbba4d8c53dc83635985df97"
+
+    def test_ha1md5_verify():
+        name = 'olanordmann'
+        realm = 'myorg'
+        right_passwd = 'hesterbest'
+        wrong_passwd = 'hesterverst'
+        _hash = Cerebrum.auth.encrypt_ha1_md5(name, realm, right_passwd)
+
+        assert Cerebrum.auth.verify_ha1_md5(name, realm, right_passwd, _hash)
+        assert not Cerebrum.auth.verify_ha1_md5(name, realm, wrong_passwd, _hash)
