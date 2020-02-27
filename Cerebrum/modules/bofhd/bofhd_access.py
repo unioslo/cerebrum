@@ -481,6 +481,7 @@ class BofhdAccessCommands(BofhdCommonMethods):
             tmp = {
                 "entity_name": group.group_name,
                 "description": group.description,
+                "expire_date": group.expire_date,
             }
             result.append(tmp)
         return result
