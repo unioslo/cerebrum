@@ -24,7 +24,7 @@ class VoipAuthAccountMixin(Account.Account):
             realm = cereconf.AUTH_HA1_REALM
             return encrypt_ha1_md5(
                 self.account_name, realm, plaintext, salt, binary)
-        super(VoipAuthAccountMixin, self).encrypt_password(
+        return super(VoipAuthAccountMixin, self).encrypt_password(
             method, plaintext, salt=salt, binary=binary)
 
     def verify_password(self, method, plaintext, cryptstring):
