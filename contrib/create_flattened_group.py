@@ -26,6 +26,7 @@ import logging
 import cereconf
 
 from Cerebrum import Errors
+from Cerebrum import logutils
 from Cerebrum.Account import Account
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import argutils
@@ -95,8 +96,12 @@ def main(inargs=None):
         default=None,
         help='Flattened group'
     )
+    logutils.options.install_subparser(parser)
+
     argutils.add_commit_args(parser, default=False)
     args = parser.parse_args(inargs)
+    logutils.autoconf('cronjob', args)
+
     logger.info('START %s', parser.prog)
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
