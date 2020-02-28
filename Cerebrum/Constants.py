@@ -1636,6 +1636,12 @@ class CommonConstants(ConstantsBase):
         'affiliation-group',
         'Automatic group - periodically generated from person affiliations')
 
+    # Groups that are built from other groups, e.g. create_flattened_group.py
+    group_type_derived = _GroupTypeCode(
+        'derived-group',
+        'Automatic group - periodically maintained to mirror another group'
+        ' or group hierarchy')
+
     #
     # _GroupVisibilityCode - Group.visibility values
     #
