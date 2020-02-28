@@ -32,5 +32,5 @@ class VoipAuthAccountMixin(Account.Account):
             realm = cereconf.AUTH_HA1_REALM
             return verify_ha1_md5(
                 self.account_name, realm, plaintext, cryptstring)
-        super(VoipAuthAccountMixin, self).verify_password(
+        return super(VoipAuthAccountMixin, self).verify_password(
             method, plaintext, cryptstring)
