@@ -104,6 +104,7 @@ def main(inargs=None):
 
     logger.info('START %s', parser.prog)
     db = Factory.get('Database')()
+    db.cl_init(change_program=parser.prog)
     co = Factory.get('Constants')(db)
     gr = Factory.get('Group')(db)
     try:
