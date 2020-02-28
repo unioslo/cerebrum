@@ -3,18 +3,9 @@
 """Tests for Cerebrum.auth """
 from __future__ import unicode_literals
 
-import logging
 import pytest
 
 import Cerebrum.auth
-
-logger = logging.getLogger(__name__)
-
-# TODO:
-#
-# Not imploemented tests for
-#  - Account/AccountType
-#  - Account/AccountHome
 
 ALL_METHODS = (
     ('MD4-NT', Cerebrum.auth.AuthTypeMD4NT),
