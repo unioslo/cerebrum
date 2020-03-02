@@ -35,6 +35,7 @@ can be told what Database subclass to use in the DB_driver keyword argument.
 from __future__ import with_statement, print_function
 
 import logging
+import os
 import sys
 
 from Cerebrum import Cache
@@ -64,6 +65,15 @@ from . import translate
 import cereconf
 
 logger = logging.getLogger(__name__)
+
+# Enable debug logging.
+#
+# This will cause excessive debug logging, which may not be suitable for
+# production.
+if os.environ.get('CEREBRUM_SQL_DEBUG', '').lower() in ('yes', 'true', '1'):
+    debug_log = True
+else:
+    debug_log = False
 
 
 # Tuple holding the names of the standard types defined by the DB-API.
@@ -231,7 +241,8 @@ class Cursor(object):
             err.parameters = parameters
             raise err
 
-        # logger.debug('cursor execute: %r', _pretty_sql(sql, 400))
+        if debug_log:
+            logger.debug('cursor execute: %r', _pretty_sql(sql, 400))
 
         # The Python DB-API 2.0 says that the return value of
         # .execute() is 'unspecified'; however, for maximum
