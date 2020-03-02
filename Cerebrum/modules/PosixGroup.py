@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2016 University of Oslo, Norway
+#
+# Copyright 2002-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,9 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""The PosixGroup module implements a specialisation of the `Group'
-core class.
+"""
+The PosixGroup module implements a specialisation of the `Group' core class.
 
 The specialided subclass, called PosixGroup.PosixGroup, supports the additional
 group parameters that are needed for building Unix-style file groups.
@@ -28,7 +28,6 @@ GID.
 When this module is used, the PosixGroupBase should be mixed into the base
 group class. The PosixGroup class should be used when you're working with known
 posix groups.
-
 """
 import cereconf
 
@@ -147,9 +146,11 @@ class PosixGroup(Group_class):
 
     def list_posix_groups(self):
         """Return group_id and posix_gid of all PosixGroups in database"""
-        return self.query("""
-        SELECT group_id, posix_gid
-        FROM [:table schema=cerebrum name=posix_group]""")
+        return self.query(
+            """
+              SELECT group_id, posix_gid
+              FROM [:table schema=cerebrum name=posix_group]
+            """)
 
     def find_by_gid(self, gid):
         group_id = self.query_1("""

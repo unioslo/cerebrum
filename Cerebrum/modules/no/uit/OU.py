@@ -1,5 +1,6 @@
-# -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# -*- coding: utf-8 -*-
+#
+# Copyright 2002-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,7 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 UiT implementation of OU
 """
@@ -25,19 +25,28 @@ from Cerebrum.OU import OU
 
 
 class OUMixin(OU):
+    """UiT override of OU.
+
+    ``expired_before`` is added as an extra parameter to the overriden methods
+    in this file.  The default behaviour is to exclude all entitites that are
+    expired at the time of the query.
     """
-    UiT override of OU. expired_before is added as an extra
-    parameter to the overriden methods in this file. The default
-    behaviour is to exclude all entitites that are expired at the
-    time of the query."""
 
     def find(self, ou_id):
         try:
-            (self.landkode, self.institusjon, self.fakultet, self.institutt,
-             self.avdeling,) = self.query_1("""
-             SELECT landkode, institusjon, fakultet, institutt, avdeling
-             FROM [:table schema=cerebrum name=stedkode]
-             WHERE ou_id = :ou_id""", locals())
+            (
+                self.landkode,
+                self.institusjon,
+                self.fakultet,
+                self.institutt,
+                self.avdeling,
+            ) = self.query_1(
+                """
+                  SELECT landkode, institusjon, fakultet, institutt, avdeling
+                  FROM [:table schema=cerebrum name=stedkode]
+                  WHERE ou_id = :ou_id
+                """,
+                {'ou_id': ou_id})
         except Errors.NotFoundError:
             OU.find(self, ou_id)
         else:
@@ -51,25 +60,32 @@ class OUMixin(OU):
         self.__updated = []
 
     def list_all_with_perspective(self, perspective):
-        return self.query("""
-        SELECT os.ou_id, eln.name
-        FROM [:table schema=cerebrum name=ou_structure] os,
-             [:table schema=cerebrum name=entity_language_name] eln
-        WHERE os.perspective=:perspective
-        AND os.ou_id = eln.entity_id""",
-                          {'perspective': int(perspective)})
+        return self.query(
+            """
+              SELECT os.ou_id, eln.name
+              FROM
+                [:table schema=cerebrum name=ou_structure] os,
+                [:table schema=cerebrum name=entity_language_name] eln
+              WHERE
+                os.perspective=:perspective AND
+                os.ou_id = eln.entity_id
+            """,
+            {'perspective': int(perspective)})
 
     def get_structure_mappings(self, perspective, filter_expired=False):
         """
         Return list of ou_id -> parent_id connections in ``perspective``
-        optionally filtering the results on expiry."""
+        optionally filtering the results on expiry.
+        """
         ou_list = super(OUMixin, self).get_structure_mappings(perspective)
 
         if filter_expired:
             # get list of expired ou_ids
-            res = self.query("""
-                   SELECT entity_id
-                   FROM [:table schema=cerebrum name=entity_expire]""")
+            res = self.query(
+                """
+                  SELECT entity_id
+                  FROM [:table schema=cerebrum name=entity_expire]
+                """)
             expired_ous = []
             for entry in res:
                 expired_ous.append(entry['entity_id'])
@@ -85,4 +101,3 @@ class OUMixin(OU):
             return ou_list_filtered
         else:
             return ou_list
-    # end get_structure_mappings

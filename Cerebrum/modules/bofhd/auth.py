@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2003-2019 University of Oslo, Norway
+# Copyright 2003-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -285,10 +285,13 @@ class BofhdAuthOpSet(DatabaseAccessor):
         self.__updated = []
 
     def find(self, id):
-        self.name, self.op_set_id = self.query_1("""
-        SELECT name, op_set_id
-        FROM [:table schema=cerebrum name=auth_operation_set]
-        WHERE op_set_id=:id""", {'id': id})
+        self.name, self.op_set_id = self.query_1(
+            """
+              SELECT name, op_set_id
+              FROM [:table schema=cerebrum name=auth_operation_set]
+              WHERE op_set_id=:id
+            """,
+            {'id': id})
         try:
             del self.__in_db
         except AttributeError:
@@ -297,10 +300,13 @@ class BofhdAuthOpSet(DatabaseAccessor):
         self.__updated = []
 
     def find_by_name(self, name):
-        id = self.query_1("""
-        SELECT op_set_id
-        FROM [:table schema=cerebrum name=auth_operation_set]
-        WHERE name=:name""", {'name': name})
+        id = self.query_1(
+            """
+              SELECT op_set_id
+              FROM [:table schema=cerebrum name=auth_operation_set]
+              WHERE name=:name
+            """,
+            {'name': name})
         self.find(id)
 
     def populate(self, name):
@@ -317,34 +323,51 @@ class BofhdAuthOpSet(DatabaseAccessor):
         is_new = not self.__in_db
         if is_new:
             self.op_set_id = int(self.nextval('entity_id_seq'))
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=auth_operation_set]
-            (op_set_id, name) VALUES (:os_id, :name)""", {
-                'os_id': self.op_set_id, 'name': self.name})
+            stmt = """
+              INSERT INTO [:table schema=cerebrum name=auth_operation_set]
+                (op_set_id, name)
+              VALUES
+                (:os_id, :name)
+            """
         else:
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=auth_operation_set]
-            SET name=:name
-            WHERE op_set_id=:os_id""", {
-                'os_id': self.op_set_id, 'name': self.name})
+            stmt = """
+              UPDATE [:table schema=cerebrum name=auth_operation_set]
+              SET name=:name
+              WHERE op_set_id=:os_id
+            """
+        binds = {
+            'os_id': self.op_set_id,
+            'name': self.name,
+        }
+        self.execute(stmt, binds)
         del self.__in_db
         self.__in_db = True
         self.__updated = []
         return is_new
 
     def delete(self):
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=auth_operation_set]
-        WHERE op_set_id=:os_id""", {'os_id': self.op_set_id})
+        self.execute(
+            """
+              DELETE FROM [:table schema=cerebrum name=auth_operation_set]
+              WHERE op_set_id=:os_id
+            """,
+            {'os_id': self.op_set_id})
         self.clear()
 
     def add_operation(self, op_code):
         op_id = int(self.nextval('entity_id_seq'))
-        self.execute("""
-        INSERT INTO [:table schema=cerebrum name=auth_operation]
-        (op_code, op_id, op_set_id)
-        VALUES (:code, :op_id, :op_set_id)""", {
-            'code': int(op_code), 'op_id': op_id, 'op_set_id': self.op_set_id})
+        self.execute(
+            """
+              INSERT INTO [:table schema=cerebrum name=auth_operation]
+                (op_code, op_id, op_set_id)
+              VALUES
+                (:code, :op_id, :op_set_id)
+            """,
+            {
+                'code': int(op_code),
+                'op_id': op_id,
+                'op_set_id': self.op_set_id,
+            })
         return op_id
 
     def del_operation(self, op_code, op_id=None):
@@ -352,43 +375,63 @@ class BofhdAuthOpSet(DatabaseAccessor):
         if op_id is not None:
             self.del_all_op_attrs(op_id)
 
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=auth_operation]
-        WHERE op_code=%s AND op_set_id=%s""" % (int(op_code), self.op_set_id))
+        self.execute(
+            """
+              DELETE FROM [:table schema=cerebrum name=auth_operation]
+              WHERE op_code=:op_code AND op_set_id=:op_set_id
+            """,
+            {'op_code': int(op_code), 'op_set_id': self.op_set_id})
 
     def add_op_attrs(self, op_id, attr):
-        self.execute("""
-        INSERT INTO [:table schema=cerebrum name=auth_op_attrs] (op_id, attr)
-        VALUES (:op_id, :attr)""", {
-            'op_id': op_id, 'attr': attr})
+        self.execute(
+            """
+              INSERT INTO [:table schema=cerebrum name=auth_op_attrs]
+                (op_id, attr)
+              VALUES
+                (:op_id, :attr)
+            """,
+            {'op_id': op_id, 'attr': attr})
 
     def del_op_attrs(self, op_id, attr):
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=auth_op_attrs]
-        WHERE op_id=:op_id AND attr=:attr""", {
-            'op_id': int(op_id), 'attr': attr})
+        self.execute(
+            """
+              DELETE FROM [:table schema=cerebrum name=auth_op_attrs]
+              WHERE op_id=:op_id AND attr=:attr
+            """,
+            {'op_id': int(op_id), 'attr': attr})
 
     def del_all_op_attrs(self, op_id):
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=auth_op_attrs]
-        WHERE op_id=%s""" % int(op_id))
+        self.execute(
+            """
+              DELETE FROM [:table schema=cerebrum name=auth_op_attrs]
+              WHERE op_id=:op_id
+            """,
+            {'op_id': int(op_id)})
 
     def list(self):
-        return self.query("""
-        SELECT op_set_id, name
-        FROM [:table schema=cerebrum name=auth_operation_set]""")
+        return self.query(
+            """
+              SELECT op_set_id, name
+              FROM [:table schema=cerebrum name=auth_operation_set]
+            """)
 
     def list_operations(self):
-        return self.query("""
-        SELECT op_code, op_id, op_set_id
-        FROM [:table schema=cerebrum name=auth_operation]
-        WHERE op_set_id=:op_set_id""", {'op_set_id': self.op_set_id})
+        return self.query(
+            """
+              SELECT op_code, op_id, op_set_id
+              FROM [:table schema=cerebrum name=auth_operation]
+              WHERE op_set_id=:op_set_id
+            """,
+            {'op_set_id': self.op_set_id})
 
     def list_operation_attrs(self, op_id):
-        return self.query("""
-        SELECT attr
-        FROM [:table schema=cerebrum name=auth_op_attrs]
-        WHERE op_id=:op_id""", {'op_id': op_id})
+        return self.query(
+            """
+              SELECT attr
+              FROM [:table schema=cerebrum name=auth_op_attrs]
+              WHERE op_id=:op_id
+            """,
+            {'op_id': op_id})
 
 
 class BofhdAuthOpTarget(DatabaseAccessor):
@@ -420,17 +463,27 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         self.__updated = []
 
     def delete(self):
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=auth_op_target]
-        WHERE op_target_id=:id""", {'id': self.op_target_id})
+        self.execute(
+            """
+              DELETE FROM [:table schema=cerebrum name=auth_op_target]
+              WHERE op_target_id=:id
+            """,
+            {'id': self.op_target_id})
         self.clear()
 
     def find(self, id):
-        self.op_target_id, self.entity_id, self.target_type, self.attr = \
-            self.query_1("""
-                SELECT op_target_id, entity_id, target_type, attr
-                FROM [:table schema=cerebrum name=auth_op_target]
-                WHERE op_target_id=:id""", {'id': id})
+        (
+            self.op_target_id,
+            self.entity_id,
+            self.target_type,
+            self.attr,
+        ) = self.query_1(
+            """
+              SELECT op_target_id, entity_id, target_type, attr
+              FROM [:table schema=cerebrum name=auth_op_target]
+              WHERE op_target_id=:id
+            """,
+            {'id': id})
         try:
             del self.__in_db
         except AttributeError:
@@ -450,19 +503,29 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         is_new = not self.__in_db
         if is_new:
             self.op_target_id = int(self.nextval('entity_id_seq'))
-            self.execute("""
-            INSERT INTO [:table schema=cerebrum name=auth_op_target]
-            (op_target_id, entity_id, target_type, attr) VALUES
-            (:t_id, :e_id, :t_type, :attr)""", {
-                't_id': self.op_target_id, 'e_id': self.entity_id,
-                't_type': self.target_type, 'attr': self.attr})
+            stmt = """
+              INSERT INTO [:table schema=cerebrum name=auth_op_target]
+                (op_target_id, entity_id, target_type, attr)
+              VALUES
+                (:t_id, :e_id, :t_type, :attr)
+            """
         else:
-            self.execute("""
-            UPDATE [:table schema=cerebrum name=auth_op_target]
-            SET target_type=:t_type, attr=:attr, entity_id=:e_id
-            WHERE op_target_id=:t_id""", {
-                't_id': self.op_target_id, 'e_id': self.entity_id,
-                't_type': self.target_type, 'attr': self.attr})
+            stmt = """
+              UPDATE [:table schema=cerebrum name=auth_op_target]
+              SET
+                target_type=:t_type,
+                attr=:attr,
+                entity_id=:e_id
+              WHERE
+                op_target_id=:t_id
+            """
+        binds = {
+            't_id': self.op_target_id,
+            'e_id': self.entity_id,
+            't_type': self.target_type,
+            'attr': self.attr,
+        }
+        self.execute(stmt, binds)
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -470,43 +533,46 @@ class BofhdAuthOpTarget(DatabaseAccessor):
 
     def list(self, target_id=None, target_type=None, entity_id=None,
              attr=None):
-        ewhere = []
+        binds = {}
+        conds = []
         if entity_id is not None:
-            ewhere.append("entity_id=:entity_id")
-        if target_id not in (None, [], (),):
-            if isinstance(target_id, (list, tuple)):
-                tmp = " IN (%s)" % ", ".join([str(int(x)) for x in target_id])
-            else:
-                tmp = " = %d" % target_id
-            ewhere.append("op_target_id %s" % tmp)
+            conds.append("entity_id=:entity_id")
+            binds['entity_id'] = entity_id
+        if target_id or target_id == 0:
+            conds.append(
+                argument_to_sql(target_id, 'op_target_id', binds, int))
         if target_type is not None:
-            ewhere.append("target_type=:target_type")
+            conds.append("target_type=:target_type")
+            binds['target_type'] = target_type
         if attr is not None:
-            ewhere.append("attr=:attr")
-        if ewhere:
-            ewhere = "WHERE %s" % " AND ".join(ewhere)
+            conds.append("attr=:attr")
+            binds['attr'] = attr
+        if conds:
+            where = "WHERE " + " AND ".join(conds)
         else:
-            ewhere = ""
-        return self.query("""
-        SELECT op_target_id, entity_id, target_type, attr
-        FROM [:table schema=cerebrum name=auth_op_target]
-        %s
-        ORDER BY entity_id""" % ewhere, {
-            'entity_id': entity_id,
-            'target_id': target_id,
-            'target_type': target_type,
-            'attr': attr})
+            where = ""
+        return self.query(
+            """
+              SELECT op_target_id, entity_id, target_type, attr
+              FROM [:table schema=cerebrum name=auth_op_target]
+              {where}
+              ORDER BY entity_id
+            """.format(where=where),
+            binds)
 
     def count_invalid(self):
         """Return the count of invalid auth_roles in the database."""
-        return self.query_1("""
-            SELECT count(*)
-            FROM [:table schema=cerebrum name=auth_op_target] ot
-            WHERE NOT EXISTS (
-                SELECT entity_id
-                FROM [:table schema=cerebrum name=entity_info] ei
-                WHERE ei.entity_id = ot.entity_id)
-            AND ot.entity_id IS NOT NULL;
+        return self.query_1(
+            """
+              SELECT count(*)
+              FROM [:table schema=cerebrum name=auth_op_target] ot
+              WHERE
+                NOT EXISTS (
+                  SELECT entity_id
+                  FROM [:table schema=cerebrum name=entity_info] ei
+                  WHERE ei.entity_id = ot.entity_id
+                ) AND
+                ot.entity_id IS NOT NULL;
             """)
 
     def remove_invalid(self):
@@ -517,13 +583,17 @@ class BofhdAuthOpTarget(DatabaseAccessor):
         entity_id target.
         :return: None
         """
-        self.execute("""
-            DELETE FROM [:table schema=cerebrum name=auth_op_target] ot
-            WHERE NOT EXISTS (
-                SELECT entity_id
-                FROM [:table schema=cerebrum name=entity_info] ei
-                WHERE ei.entity_id = ot.entity_id)
-            AND ot.entity_id IS NOT NULL""")
+        self.execute(
+            """
+              DELETE FROM [:table schema=cerebrum name=auth_op_target] ot
+              WHERE
+                NOT EXISTS (
+                  SELECT entity_id
+                  FROM [:table schema=cerebrum name=entity_info] ei
+                  WHERE ei.entity_id = ot.entity_id
+                ) AND
+                ot.entity_id IS NOT NULL
+            """)
 
 
 class BofhdAuthRole(DatabaseAccessor):
@@ -543,67 +613,95 @@ class BofhdAuthRole(DatabaseAccessor):
         super(BofhdAuthRole, self).__init__(database)
 
     def grant_auth(self, entity_id, op_set_id, op_target_id):
-        self.execute("""
-        INSERT INTO [:table schema=cerebrum name=auth_role]
-        (entity_id, op_set_id, op_target_id)
-        VALUES (:e_id, :os_id, :t_id)""", {
-            'e_id': entity_id, 'os_id': op_set_id, 't_id': op_target_id})
+        self.execute(
+            """
+              INSERT INTO [:table schema=cerebrum name=auth_role]
+                (entity_id, op_set_id, op_target_id)
+              VALUES
+                (:e_id, :os_id, :t_id)
+            """,
+            {
+                'e_id': entity_id,
+                'os_id': op_set_id,
+                't_id': op_target_id,
+            })
 
     def revoke_auth(self, entity_id, op_set_id, op_target_id):
-        self.execute("""
-        DELETE FROM [:table schema=cerebrum name=auth_role]
-        WHERE entity_id=:e_id AND op_set_id=:os_id AND op_target_id=:t_id""", {
-            'e_id': entity_id, 'os_id': op_set_id, 't_id': op_target_id})
+        self.execute(
+            """
+              DELETE FROM [:table schema=cerebrum name=auth_role]
+              WHERE
+                entity_id=:e_id AND
+                op_set_id=:os_id AND
+                op_target_id=:t_id
+            """,
+            {
+                'e_id': entity_id,
+                'os_id': op_set_id,
+                't_id': op_target_id,
+            })
 
     def list(self, entity_ids=None, op_set_id=None, op_target_id=None):
         """Return info about where entity_id has permissions.
 
         entity_id may be a list of entities.
         """
-        ewhere = []
-        if entity_ids is not None:
-            if not isinstance(entity_ids, (list, tuple)):
-                entity_ids = [entity_ids]
-            ewhere.append("entity_id IN (%s)" %
-                          ", ".join(["%i" % int(i) for i in entity_ids]))
+        binds = {}
+        conds = []
+        if entity_ids or entity_ids == 0:
+            conds.append(
+                argument_to_sql(entity_ids, 'entity_id', binds, int))
         if op_set_id is not None:
-            ewhere.append("op_set_id=:op_set_id")
+            conds.append("op_set_id=:op_set_id")
+            binds['op_set_id'] = op_set_id
         if op_target_id is not None:
-            ewhere.append("op_target_id=:op_target_id")
-        sql = """
-        SELECT DISTINCT entity_id, op_set_id, op_target_id
-        FROM [:table schema=cerebrum name=auth_role]"""
-        if ewhere:
-            sql += " WHERE (%s) " % " AND ".join(ewhere)
-
-        return self.query(sql, {'op_set_id': op_set_id,
-                                'op_target_id': op_target_id, })
+            conds.append("op_target_id=:op_target_id")
+            binds['op_target_id'] = op_target_id
+        if conds:
+            where = "WHERE " + " AND ".join(conds)
+        else:
+            where = ""
+        stmt = """
+          SELECT DISTINCT entity_id, op_set_id, op_target_id
+          FROM [:table schema=cerebrum name=auth_role]
+          {where}
+        """.format(where=where)
+        return self.query(stmt, binds)
 
     def list_owners(self, target_ids):
         """Return info about who owns the given target_ids."""
-        if not isinstance(target_ids, (list, tuple)):
-            target_ids = [target_ids]
         if not target_ids:
             return ()
-        return self.query("""
-        SELECT DISTINCT entity_id, op_set_id, op_target_id
-        FROM [:table schema=cerebrum name=auth_role]
-        WHERE op_target_id IN (%s)""" % ", ".join(["%i" % i for i in
-                                                   target_ids]))
+
+        binds = {}
+        cond = argument_to_sql(target_ids, 'op_target_id', binds, int)
+        return self.query(
+            """
+              SELECT DISTINCT entity_id, op_set_id, op_target_id
+              FROM [:table schema=cerebrum name=auth_role]
+              WHERE {}
+            """.format(cond),
+            binds)
 
     def count_invalid(self):
         """Return the count of invalid auth_roles in the database."""
-        return self.query_1("""
-        SELECT count(*) FROM [:table schema=cerebrum name=auth_role]
-        WHERE op_target_id IN (
-            SELECT op_target_id
-            FROM [:table schema=cerebrum name=auth_op_target] ot
-            WHERE NOT EXISTS (
-                SELECT entity_id
-                FROM [:table schema=cerebrum name=entity_info] ei
-                WHERE ei.entity_id = ot.entity_id)
-                AND ot.entity_id IS NOT NULL
-        )""")
+        return self.query_1(
+            """
+              SELECT count(*)
+              FROM [:table schema=cerebrum name=auth_role]
+              WHERE
+                op_target_id IN (
+                  SELECT op_target_id
+                  FROM [:table schema=cerebrum name=auth_op_target] ot
+                  WHERE
+                    NOT EXISTS (
+                      SELECT entity_id
+                      FROM [:table schema=cerebrum name=entity_info] ei
+                      WHERE ei.entity_id = ot.entity_id
+                    ) AND
+                    ot.entity_id IS NOT NULL
+                )
+            """)
 
     def remove_invalid(self):
         """Remove all invalid auth_roles in the database.
@@ -613,17 +711,22 @@ class BofhdAuthRole(DatabaseAccessor):
         entity_id target.
         :return: None
         """
-        self.execute("""
-            DELETE FROM [:table schema=cerebrum name=auth_role]
-            WHERE op_target_id IN (
-                SELECT op_target_id
-                FROM [:table schema=cerebrum name=auth_op_target] ot
-                WHERE NOT EXISTS (
-                    SELECT entity_id
-                    FROM [:table schema=cerebrum name=entity_info] ei
-                    WHERE ei.entity_id = ot.entity_id)
-                AND ot.entity_id IS NOT NULL
-            )""")
+        self.execute(
+            """
+              DELETE FROM [:table schema=cerebrum name=auth_role]
+              WHERE
+                op_target_id IN (
+                  SELECT op_target_id
+                  FROM [:table schema=cerebrum name=auth_op_target] ot
+                  WHERE
+                    NOT EXISTS (
+                      SELECT entity_id
+                      FROM [:table schema=cerebrum name=entity_info] ei
+                      WHERE ei.entity_id = ot.entity_id
+                    ) AND
+                    ot.entity_id IS NOT NULL
+                )
+            """)
 
 
 def _get_bofhd_auth_systems(const):

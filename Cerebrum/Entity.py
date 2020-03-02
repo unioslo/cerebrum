@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2019 University of Oslo, Norway
+#
+# Copyright 2002-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,6 +18,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
+Base class for Cerebrum database objects and common database object mixins.
+
+This module contains the base class for all database objects in Cerebrum, along
+with mixins for this base class that provides common functionality, like the
+ability to assign quarantines and spreads.
 """
 from __future__ import unicode_literals
 
@@ -327,41 +333,52 @@ class EntitySpread(Entity):
         WHERE entity_id=:entity_id AND spread=:spread"""
         self.execute(delete_stmt, binds)
         self._db.log_change(self.entity_id, self.clconst.spread_del,
-                                None, change_params={'spread': int(spread)})
+                            None, change_params={'spread': int(spread)})
 
     def list_all_with_spread(self, spreads=None, entity_types=None):
         """Return sequence of all 'entity_id's that has ``spread``."""
-        binds = dict()
-        where = []
-        sel = ""
+        binds = {}
+        conds = []
         if spreads:
-            where.append(argument_to_sql(spreads, 'spread', binds, int))
+            conds.append(
+                argument_to_sql(spreads, 'spread', binds, int))
         if entity_types:
-            where.append(argument_to_sql(entity_types, 'entity_type',
-                                         binds, int))
-        if where:
-            sel = ' WHERE ' + ' AND '.join(where)
-        return self.query("""
-        SELECT entity_id, spread
-        FROM [:table schema=cerebrum name=entity_spread]""" + sel, binds)
+            conds.append(
+                argument_to_sql(entity_types, 'entity_type', binds, int))
+
+        where = (' WHERE ' + ' AND '.join(conds)) if conds else ''
+        stmt = """
+          SELECT entity_id, spread
+          FROM [:table schema=cerebrum name=entity_spread]
+          {where}
+        """.format(where=where)
+        return self.query(stmt, binds)
 
     def list_entity_spreads(self, entity_types=None):
-        """Return entities and their spreads, optionally filtered by entity
-        type. If entity type is None, all entities with all spreads will be
-        returned.
+        """Return entities and their spreads.
 
-        See also list_spreads."""
-        binds = dict()
-        sel = ""
+        The result is optionally filtered by entity type.  If entity type is
+        None (not given), all entities with all spreads will be returned.
+
+        See also list_spreads.
+        """
+        binds = {}
+        join_filter = ""
         if entity_types:
-            sel = """
-            JOIN [:table schema=cerebrum name=entity_info] ei
-              ON ei.entity_id = es.entity_id AND """
-            sel += argument_to_sql(entity_types, 'ei.entity_type', binds, int)
+            et_cond = argument_to_sql(entity_types, 'ei.entity_type',
+                                      binds, int)
+            join_filter = """
+              JOIN [:table schema=cerebrum name=entity_info] ei
+              ON ei.entity_id = es.entity_id AND {}
+            """.format(et_cond)
 
-        return self.query("""
-        SELECT es.entity_id, es.spread
-          FROM [:table schema=cerebrum name=entity_spread] es""" + sel, binds)
+        return self.query(
+            """
+              SELECT es.entity_id, es.spread
+              FROM [:table schema=cerebrum name=entity_spread] es
+              {join_filter}
+            """.format(join_filter=join_filter),
+            binds)
 
     def list_spreads(self, entity_types=None):
         """Return a sequence of spreads, optionally limited by the entity types
@@ -393,6 +410,7 @@ class EntitySpread(Entity):
             if spread in row:
                 return 1
         return 0
+
 
 class EntityName(Entity):
     "Mixin class, usable alongside Entity for entities having names."

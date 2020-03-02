@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2003-2018 University of Oslo, Norway
+#
+# Copyright 2003-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -226,7 +227,7 @@ class EmailDomain(Entity_class):
               SELECT EXISTS (
                 SELECT 1
                 FROM [:table schema=cerebrum name=email_domain]
-                WHERE domain_id=:d_id  AND
+                WHERE domain_id=:d_id AND
                       domain=:name AND
                       description=:descr
               )
@@ -341,10 +342,12 @@ class EmailDomain(Entity_class):
         WHERE edc.category = :cat""", {'cat': int(category)})
 
     def list_email_domains(self):
-        # NA
-        return self.query("""
-        SELECT domain_id, domain
-        FROM [:table schema=cerebrum name=email_domain]""")
+        """ list all email domains (domain_id, domain) """
+        return self.query(
+            """
+              SELECT domain_id, domain
+              FROM [:table schema=cerebrum name=email_domain]
+            """)
 
     def search(self, name=None, description=None, category=None):
         """
@@ -666,11 +669,14 @@ class EmailTarget(Entity_class):
         return ret
 
     def list_email_targets(self):
+        """ list all email targets (target_id). """
         # NA
-        """Return target_id of all EmailTarget in database"""
-        return self.query("""
-        SELECT target_id
-        FROM [:table schema=cerebrum name=email_target]""", fetchall=False)
+        return self.query(
+            """
+              SELECT target_id
+              FROM [:table schema=cerebrum name=email_target]
+            """,
+            fetchall=False)
 
     def list_email_server_targets(self):
         # NA
@@ -702,17 +708,26 @@ class EmailTarget(Entity_class):
             raise Errors.ProgrammingError(
                 "Cannot use both entity_id and target_type!")
         if target_entity_id is not None:
-            where_str = " WHERE %s" % argument_to_sql(
+            where_str = "WHERE " + argument_to_sql(
                 target_entity_id, "target_entity_id", binds, int)
         if target_type is not None:
-            where_str = " WHERE %s" % argument_to_sql(
+            where_str = "WHERE " + argument_to_sql(
                 target_type, "target_type", binds, int)
-        return self.query("""
-        SELECT target_id, target_type, target_entity_type,
-               target_entity_id, alias_value, using_uid,
-               server_id
-        FROM [:table schema=cerebrum name=email_target]%s
-        """ % where_str, binds, fetchall=False)
+        return self.query(
+            """
+              SELECT
+                target_id,
+                target_type,
+                target_entity_type,
+                target_entity_id,
+                alias_value,
+                using_uid,
+                server_id
+              FROM [:table schema=cerebrum name=email_target]
+              %s
+            """ % where_str,
+            binds,
+            fetchall=False)
 
     def list_email_target_primary_addresses(self, target_type=None,
                                             target_entity_id=None):
@@ -1036,11 +1051,14 @@ class EmailAddress(Entity_class):
 
     # FIXME: Can anyone explain what this can be used for?
     def list_email_addresses(self):
+        """ list all email addresses (address_id). """
         # NA
-        """Return address_id of all EmailAddress in database"""
-        return self.query("""
-        SELECT address_id
-        FROM [:table schema=cerebrum name=email_address]""", fetchall=False)
+        return self.query(
+            """
+              SELECT address_id
+              FROM [:table schema=cerebrum name=email_address]
+            """,
+            fetchall=False)
 
     # FIXME: Should probably be replaced by search().
     def list_email_addresses_ext(self, domain=None):
@@ -1245,14 +1263,22 @@ class EntityEmailDomain(Entity):
 
     def find(self, entity_id, affiliation=None):
         self.__super.find(entity_id)
-        (self.entity_email_domain_id,
-         self.entity_email_affiliation) = self.query_1("""
-        SELECT domain_id, affiliation
-        FROM [:table schema=cerebrum name=email_entity_domain]
-        WHERE entity_id=:e_id AND
-          ((:aff IS NULL AND affiliation IS NULL) OR
-           affiliation=:aff)""", {'e_id': entity_id,
-                                  'aff': affiliation})
+        (
+            self.entity_email_domain_id,
+            self.entity_email_affiliation,
+        ) = self.query_1(
+            """
+              SELECT domain_id, affiliation
+              FROM [:table schema=cerebrum name=email_entity_domain]
+              WHERE
+                entity_id=:e_id AND
+                ((:aff IS NULL AND affiliation IS NULL) OR
+                 affiliation=:aff)
+            """,
+            {
+                'e_id': entity_id,
+                'aff': affiliation,
+            })
         try:
             del self.__in_db
         except AttributeError:
@@ -1265,13 +1291,19 @@ class EntityEmailDomain(Entity):
         associated with the e-mail domain domain_id, OR this entity
         and any affilation."""
         sql = """
-        SELECT entity_id, affiliation, domain_id
-        FROM [:table schema=cerebrum name=email_entity_domain]"""
+          SELECT
+            entity_id, affiliation, domain_id
+          FROM
+            [:table schema=cerebrum name=email_entity_domain]
+          WHERE {}
+        """
         if domain_id:
-            return self.query(sql + "WHERE domain_id=:d_id",
-                              {'d_id': domain_id})
-        return self.query(sql + "WHERE entity_id=:e_id",
-                          {'e_id': self.entity_id})
+            cond = 'domain_id=:domain_id'
+            binds = {'domain_id': int(domain_id)}
+        else:
+            cond = 'entity_id=:entity_id'
+            binds = {'entity_id': int(self.entity_id)}
+        return self.query(sql.format(cond), binds)
 
     def delete(self):
         if self.entity_email_affiliation:
@@ -1402,8 +1434,9 @@ class EmailQuota(EmailTarget):
             # False positive
             return
         delete_stmt = """
-        DELETE FROM [:table schema=cerebrum name=email_quota]
-        WHERE target_id=:e_id"""
+          DELETE FROM [:table schema=cerebrum name=email_quota]
+          WHERE target_id=:e_id
+        """
         self.execute(delete_stmt, binds)
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
@@ -1949,8 +1982,11 @@ class EmailForward(EmailTarget):
 
         :rtype: list
         :return: [(target_id, local_delivery)]."""
-        return self.query("""SELECT * FROM
-        [:table schema=cerebrum name=email_local_delivery]""")
+        return self.query(
+            """
+              SELECT *
+              FROM [:table schema=cerebrum name=email_local_delivery]
+            """)
 
     def search(self, forward_to=None, enable=None, target_id=None,
                fetchall=False):
@@ -2188,8 +2224,9 @@ class EmailPrimaryAddressTarget(EmailTarget):
             # False positive
             return
         delete_stmt = """
-        DELETE FROM [:table schema=cerebrum name=email_primary_address]
-        WHERE target_id=:e_id"""
+          DELETE FROM [:table schema=cerebrum name=email_primary_address]
+          WHERE target_id=:e_id
+        """
         self.execute(delete_stmt, binds)
         # exchange-relevant-jazz
         self._db.log_change(self.entity_id,
@@ -2199,10 +2236,13 @@ class EmailPrimaryAddressTarget(EmailTarget):
 
     def find(self, target_id):
         self.__super.find(target_id)
-        self.email_primaddr_id = self.query_1("""
-        SELECT address_id
-        FROM [:table schema=cerebrum name=email_primary_address]
-        WHERE target_id=:t_id""", {'t_id': self.entity_id})
+        self.email_primaddr_id = self.query_1(
+            """
+              SELECT address_id
+              FROM [:table schema=cerebrum name=email_primary_address]
+              WHERE target_id=:t_id
+            """,
+            {'t_id': self.entity_id})
         try:
             del self.__in_db
         except AttributeError:
@@ -2211,10 +2251,12 @@ class EmailPrimaryAddressTarget(EmailTarget):
         self.__updated = []
 
     def list_email_primary_address_targets(self):
-        return self.query("""
-        SELECT target_id, address_id
-        FROM [:table schema=cerebrum name=email_primary_address]""",
-                          fetchall=False)
+        return self.query(
+            """
+              SELECT target_id, address_id
+              FROM [:table schema=cerebrum name=email_primary_address]
+            """,
+            fetchall=False)
 
     def get_address_id(self):
         return self.email_primaddr_id
