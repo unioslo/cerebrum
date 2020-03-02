@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -16,33 +16,34 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """Provide objects with database access methods."""
+import logging
 
-from Cerebrum import database as Database
-from Cerebrum.Utils import Factory
+import Cerebrum.database
+import Cerebrum.database.errors
+
+_db_api_names = (Cerebrum.database.API_TYPE_CTOR_NAMES +
+                 Cerebrum.database.errors.API_EXCEPTION_NAMES)
+
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseAccessor(object):
 
-    __slots__ = Database.API_TYPE_CTOR_NAMES + \
-        Database.API_EXCEPTION_NAMES + ('_db',
-                                        '_DatabaseAccessor__logger')
+    __slots__ = _db_api_names + ('_db', 'logger')
 
     def __init__(self, database):
-        assert isinstance(database, Database.Database)
+        assert isinstance(database, Cerebrum.database.Database)
         self._db = database
-        self.__logger = None
+        self.logger = logger.getChild('DatabaseAccessor')
+
         # Copy driver-specific type constructors and exceptions.
         # We need this since the standard only defines their
         # names, and don't define any driver-independent way
         # to retrieve them.
-        # These are type constructors as defined in DB-API 2.0
-        for ctor in Database.API_TYPE_CTOR_NAMES:
-            setattr(self, ctor, getattr(database, ctor))
-        # These are exception constructors as defined in DB-API 2.0
-        for exc in Database.API_EXCEPTION_NAMES:
-            setattr(self, exc, getattr(database, exc))
+        for name in _db_api_names:
+            setattr(self, name, getattr(database, name))
 
     def execute(self, operation, *params, **kws):
         return self._db.execute(operation, *params, **kws)
@@ -64,10 +65,3 @@ class DatabaseAccessor(object):
 
     def commit(self):
         return self._db.commit()
-
-    def _get_logger(self):
-        if self.__logger is None:
-            self.__logger = Factory.get_logger()
-        return self.__logger
-    logger = property(_get_logger, None, None,
-                      "Cerebrum logger object for use from library methods.")

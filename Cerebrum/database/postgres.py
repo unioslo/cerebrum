@@ -25,11 +25,15 @@ import uuid
 
 import psycopg2
 import psycopg2.extensions
+import six
 from mx import DateTime
 
 from Cerebrum.database import Cursor, Database, OraPgLock, kickstart
 from Cerebrum.Utils import read_password
+from Cerebrum.utils.funcwrap import deprecate
 from Cerebrum.utils.transliterate import to_ascii
+
+from . import macros
 
 import cereconf
 
@@ -191,10 +195,47 @@ class PsycoPG2Cursor(Cursor):
         return OraPgLock(cursor=self, table=table, mode='exclusive')
 
 
+pg_macros = macros.MacroTable(macros.common_macros)
+
+
+@pg_macros.register('now')
+def pg_op_now(context=None):
+    # TODO: Why NOW() over the standard CURRENT_TIMESTAMP?
+    return 'NOW()'
+
+
+@pg_macros.register('sequence')
+def pg_op_sequence(schema, name, op, val=None, context=None):
+    """
+    Postgres sequence manipulation
+
+    Note that postgres adds an additional 'set' op.
+    """
+    name = six.text_type(name)
+    op = six.text_type(op)
+
+    if op == 'next':
+        return "nextval('{}')".format(name)
+    elif op == 'curr':
+        return "currval('{}')".format(name)
+    elif op == 'set':
+        return "setval('{}', {})".format(name, int(val))
+    else:
+        raise ValueError('Invalid sequnce operation: %r' % (op,))
+
+
+@pg_macros.register('sequence_start')
+@deprecate('Please avoid using the [:sequence_start] macro')
+def pg_op_sequence_start(value, context=None):
+    # TODO: Why not 'START WITH'?
+    return 'START {}'.format(int(value))
+
+
 class PostgreSQLBase(Database):
     """PostgreSQL driver base class."""
 
     rdbms_id = "PostgreSQL"
+    macro_table = pg_macros
 
     def __init__(self, *args, **kws):
         for cls in self.__class__.__mro__:
@@ -202,28 +243,6 @@ class PostgreSQLBase(Database):
                 return super(PostgreSQLBase, self).__init__(*args, **kws)
         raise NotImplementedError(
             "Can't instantiate abstract class <PostgreSQLBase>.")
-
-    def _sql_port_table(self, schema, name):
-        return [name]
-
-    def _sql_port_sequence(self, schema, name, op, val=None):
-        if op == 'next':
-            return ["nextval('%s')" % name]
-        elif op == 'curr':
-            return ["currval('%s')" % name]
-        elif op == 'set' and val is not None:
-            return ["setval('%s', %s)" % (name, val)]
-        else:
-            raise ValueError('Invalid sequnce operation: %s' % op)
-
-    def _sql_port_sequence_start(self, value):
-        return ['START', value]
-
-    def _sql_port_from_dual(self):
-        return []
-
-    def _sql_port_now(self):
-        return ['NOW()']
 
 
 @kickstart(psycopg2)

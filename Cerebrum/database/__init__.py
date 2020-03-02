@@ -34,174 +34,42 @@ can be told what Database subclass to use in the DB_driver keyword argument.
 """
 from __future__ import with_statement, print_function
 
-import io
+import logging
 import sys
-
-import six
 
 from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Utils import NotSet, read_password
-from Cerebrum.database import sql_lexer
-from Cerebrum.database.convert_param import get_converter
 from Cerebrum.extlib import db_row
+
+from . import errors
+from .errors import (  # noqa: F401
+    # the DB-API errors should be available as Cerebrum.database.<name>
+    Warning,
+    Error,
+    InterfaceError,
+    DatabaseError,
+    DataError,
+    OperationalError,
+    IntegrityError,
+    InternalError,
+    ProgrammingError,
+    NotSupportedError,
+)
+from . import macros
+from . import paramstyles
+from . import translate
 
 import cereconf
 
-
-class CommonExceptionBase(Exception):
-    """
-    DB-API 2.0 base exception.
-
-    This base exception and the exception classes below will inherit from the
-    exception classes in dynamically imported driver modules. This way we can
-    catch any kind of db-specific error exceptions by catching
-    Cerebrum.database.Error.
-    """
-
-    def __str__(self):
-        # Call superclass' method to get the error message
-        main_message = super(CommonExceptionBase, self).__str__()
-
-        # Occasionally, we need to know what the offending sql is. This is
-        # particularily practical in that case.
-        body = [main_message, ]
-        for attr in ("operation", "sql", "parameters", "binds",):
-            if hasattr(self, attr):
-                body.append("%s=%s" % (attr, getattr(self, attr)))
-        return "\n".join(body)
+logger = logging.getLogger(__name__)
 
 
-class Warning(CommonExceptionBase):
-    """
-    Driver-independent DB-API 2.0 Warning exception.
-
-    Exception raised for important warnings like data truncations while
-    inserting, etc.
-    """
-    pass
-
-
-class Error(CommonExceptionBase):
-    """
-    Driver-independent DB-API 2.0 Error exception.
-
-    Exception that is the base class of all other error exceptions. You can use
-    this to catch all errors with one single 'except' statement.
-    Warnings are not considered errors and thus should not use this class as
-    base.
-    """
-    pass
-
-
-class InterfaceError(Error):
-    """
-    Driver-independent DB-API 2.0 InterfaceError exception.
-
-    Exception raised for errors that are related to the database interface
-    rather than the database itself.
-    """
-    pass
-
-
-class DatabaseError(Error):
-    """
-    Driver-independent DB-API 2.0 DatabaseError exception.
-
-    Exception raised for errors that are related to the database
-    """
-    pass
-
-
-class DataError(DatabaseError):
-    """
-    Driver-independent DB-API 2.0 DataError exception.
-
-    Exception raised for errors that are due to problems with the processed
-    data like division by zero, numeric value out of range, etc.
-    """
-    pass
-
-
-class OperationalError(DatabaseError):
-    """
-    Driver-independent DB-API 2.0 OperationalError exception.
-
-    Exception raised for errors that are related to the database's operation
-    and not necessarily under the control of the programmer, e.g.:
-      - an unexpected disconnect occurs
-      - the data source name is not found
-      - a transaction could not be processed
-      - a memory allocation error occurred during processing
-    etc...
-    """
-    pass
-
-
-class IntegrityError(DatabaseError):
-    """
-    Driver-independent DB-API 2.0 IntegrityError exception.
-
-    Exception raised when the relational integrity of the database is affected,
-    e.g. a foreign key check fails.
-    """
-    pass
-
-
-class InternalError(DatabaseError):
-    """
-    Driver-independent DB-API 2.0 InternalError exception.
-
-    Exception raised when the database encounters an internal error, e.g. the
-    cursor is not valid anymore, the transaction is out of sync, etc.
-    """
-    pass
-
-
-class ProgrammingError(DatabaseError):
-    """
-    Driver-independent DB-API 2.0 ProgrammingError exception.
-
-    Exception raised for programming errors, e.g.:
-      - table not found or already exists
-      - syntax error in the SQL statement
-      - wrong number of parameters specified
-    ... etc.
-    """
-    pass
-
-
-class NotSupportedError(DatabaseError):
-    """
-    Driver-independent DB-API 2.0 NotSupportedError exception.
-
-    Exception raised in case a method or database API was used which is not
-    supported by the database, e.g. requesting a .rollback() on a connection
-    that does not support transaction or has transactions turned off.
-    """
-    pass
-
-
-# Note the naming order. No exception name should be a subclass of latter
-# exceptions in this list. If this is not true, the DatabaseErrorWrapper will
-# re-raise the wrong exception type.
-API_EXCEPTION_NAMES = (
-    'NotSupportedError',
-    'ProgrammingError',
-    'InternalError',
-    'IntegrityError',
-    'OperationalError',
-    'DataError',
-    'DatabaseError',
-    'InterfaceError',
-    'Error',
-    'Warning')
-# Tuple holding the names of the standard DB-API exceptions.
-
-API_TYPE_NAMES = ("STRING", "BINARY", "NUMBER", "DATETIME")
 # Tuple holding the names of the standard types defined by the DB-API.
+API_TYPE_NAMES = ("STRING", "BINARY", "NUMBER", "DATETIME")
 
+# Tuple holding the names of the standard DB-API type constructors.
 API_TYPE_CTOR_NAMES = (
     "Date",
     "Time",
@@ -210,97 +78,6 @@ API_TYPE_CTOR_NAMES = (
     "TimeFromTicks",
     "TimestampFromTicks",
     "Binary")
-# Tuple holding the names of the standard DB-API type constructors.
-
-
-class DatabaseErrorWrapper(object):
-    """
-    Exception context wrapper for calls to objects that implements the DB-API.
-
-    The idea is based on the django.db.utils.DatabaseExceptionWrapper. Calls
-    performed in this context will handle PEP-249 exceptions, and reraise as
-    Cerebrum-specific exceptions.
-    """
-
-    def __init__(self, to_module, from_module, **kwargs):
-        """
-        Initialize wrapper.
-
-        :type to_module: types.ModuleType
-        :param to_module:
-            A PEP-249 compatible database module. It must contain the
-            DB-API 2.0 exception types as attributes.
-
-        :type from_module: types.ModuleType
-        :param from_module:
-            A PEP-249 compatible database module. It must contain the
-            DB-API 2.0 exception types as attributes.
-
-        :type kwargs: **dict
-        :param kwargs:
-            Each keyword style argument is added to the exception as an
-            attribute. This can be used to piggy-back extra information with
-            the exception.
-        """
-        self.to_module = to_module
-        self.from_module = from_module
-
-        # Extra attributes for the exception
-        self.extra_attrs = dict((n, repr(v)) for n, v in kwargs.iteritems())
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        """
-        Convert exception types of type API_EXCEPTION_NAMES.
-
-        @type exc_type: type or NoneType
-        @param exc_type: The raised exception type, or None if no exception was
-            raised in the context
-
-        @type exc_value: Exception or NoneType
-        @param exc_value: The raised exception, if an exception was raised in
-            the context.
-
-        @type traceback: traceback or NoneType
-        @param traceback: The exception traceback, if an exception was raised
-            in the context.
-        """
-        if exc_type is None:
-            return
-
-        # Identify the exception
-        for api_exc_name in API_EXCEPTION_NAMES:
-            crb_exc_type = getattr(self.to_module, api_exc_name)
-            mod_exc_type = getattr(self.from_module, api_exc_name)
-            if issubclass(exc_type, mod_exc_type):
-                # Copy arguments and cause
-                try:
-                    # PY27
-                    args = tuple(exc_value.args)
-                except AttributeError:
-                    # Pre-2.7 value
-                    args = (exc_value,)
-                crb_exc_value = crb_exc_type(*args)
-                crb_exc_value.__cause__ = exc_value
-
-                # Piggy-back extra attributes
-                for attr, value in self.extra_attrs.iteritems():
-                    setattr(crb_exc_value, attr, value)
-
-                # PY3: Not python 3 compatible,
-                #      There are packages (e.g. six) that wraps calls like this
-                #      to be PY2 and PY3 compatible.
-                six.reraise(crb_exc_type, crb_exc_value, traceback)
-        # Miss, some other exception type was raised.
-        six.reraise(exc_type, exc_value, traceback)
-
-    def __call__(self, func):
-        def inner(*args, **kwargs):
-            with self:
-                return func(*args, **kwargs)
-        return inner
 
 
 class Lock(object):
@@ -374,6 +151,14 @@ class RowIterator(object):
         return self._csr.wrap_row(row)
 
 
+def _pretty_sql(sql, maxlen=None):
+    pretty_sql = ' '.join(l.strip() for l in sql.split('\n')).strip()
+    if maxlen:
+        pretty_sql = pretty_sql[:maxlen] + ('...' if pretty_sql[maxlen:]
+                                            else '')
+    return pretty_sql
+
+
 class Cursor(object):
     """
     Driver-independent cursor wrapper class.
@@ -395,8 +180,14 @@ class Cursor(object):
         # Database._register_driver_types().
         for ctor in API_TYPE_CTOR_NAMES:
             setattr(self, ctor, getattr(db, ctor))
-        for exc_name in API_EXCEPTION_NAMES:
+        for exc_name in errors.API_EXCEPTION_NAMES:
             setattr(self, exc_name, getattr(db, exc_name))
+
+    @property
+    def _translate(self):
+        if not hasattr(self, '_translate_func'):
+            self._translate_func = translate.Translator(self._db, cereconf)
+        return self._translate_func
 
     #
     #   Methods corresponding to DB-API 2.0 cursor object methods.
@@ -431,15 +222,28 @@ class Cursor(object):
 
     def execute(self, operation, parameters=()):
         """Do DB-API 2.0 execute."""
-        sql, binds = self._translate(operation, parameters)
-        #
+        try:
+            sql, binds = self._translate(operation, parameters)
+        except Exception as e:
+            err = errors.ProgrammingError("Unable to translate: reason=%r" %
+                                          repr(e))
+            err.operation = operation
+            err.parameters = parameters
+            raise err
+
+        # logger.debug('cursor execute: %r', _pretty_sql(sql, 400))
+
         # The Python DB-API 2.0 says that the return value of
         # .execute() is 'unspecified'; however, for maximum
         # compatibility with the underlying database module, we return
         # this 'unspecified' value anyway.
-        with DatabaseErrorWrapper(self._db, self._db._db_mod,
-                                  operation=operation, sql=sql,
-                                  parameters=parameters, binds=binds):
+        with errors.DatabaseErrorWrapper(
+                self._db,
+                self._db._db_mod,
+                operation=operation,
+                sql=sql,
+                parameters=parameters,
+                binds=binds):
             try:
                 return self._cursor.execute(sql, binds)
             finally:
@@ -452,91 +256,6 @@ class Cursor(object):
                 else:
                     # Not a row-returning query; clear self._row_class.
                     self._row_class = None
-
-    def _translate(self, statement, params):
-        """Translate SQL and bind params to the driver's dialect."""
-        if params:
-            #
-            # To ease this wrapper's job in converting the bind
-            # parameters to the paramstyle required by the driver
-            # module, we require `params' to be a mapping (even though
-            # the DB-API allows both sequences and mappings).
-            assert isinstance(params, dict)
-
-            # None of the database engines understand _CerebrumCode,
-            # so we convert them to plain integers to simplify usage.
-            from Cerebrum.Constants import _CerebrumCode
-            for k in params:
-                if isinstance(params[k], _CerebrumCode):
-                    params[k] = int(params[k])
-        try:
-            driver_sql, pconv = self._sql_cache[statement]
-            return (driver_sql, pconv(params))
-        except KeyError:
-            pass
-        if not isinstance(statement, six.text_type):
-            statement = statement.decode('ascii')
-
-        out_sql = []
-        pconv = self._db.param_converter()
-        sql_done = False
-        p_item = None
-        for token, text in sql_lexer.SqlScanner(io.StringIO(statement)):
-            translation = []
-            if sql_done:
-                #
-                # Token found after end-of-statement indicator; raise
-                # an error.  It's the caller's responsibility to feed
-                # us one statement at a time.
-                raise self.ProgrammingError(
-                    "Token '%s' found after end of SQL statement." % text)
-            elif p_item:
-                #
-                # We're in the middle of parsing an SQL portability
-                # item; collect all of the item's arguments before
-                # trying to translate it into the SQL dialect of this
-                # Cursor's database backend.
-                if token == sql_lexer.SQL_PORTABILITY_ARG:
-                    p_item.append(text)
-                    continue
-                else:
-                    #
-                    # We've got all the portability item's arguments;
-                    # translate them into a set of SQL tokens.
-                    translation.extend(self._db.sql_repr(*p_item))
-                    # ... and indicate that we're no longer collecting
-                    # arguments for a portability item.
-                    p_item = None
-            if token == sql_lexer.SQL_END_OF_STATEMENT:
-                sql_done = True
-            elif token == sql_lexer.SQL_PORTABILITY_FUNCTION:
-                #
-                # Set `p_item' to indicate that we should start
-                # collecting portability item arguments.
-                p_item = [text]
-            elif token == sql_lexer.SQL_BIND_PARAMETER:
-                # The name of the bind variable is the token without
-                # any preceding ':'.
-                name = text[1:]
-                if name not in params:
-                    raise self.ProgrammingError(
-                        "Bind parameter %s has no value." % text)
-                translation.append(pconv.register(name))
-            else:
-                translation.append(text)
-            if translation:
-                out_sql.extend(translation)
-        #
-        # If the input statement ended with a portability item, no
-        # non-SQL_PORTABILITY_ARG token has triggered inclusion of the
-        # final p_item into out_sql.
-        if p_item:
-            out_sql.extend(self._db.sql_repr(*p_item))
-            p_item = None
-        driver_sql = " ".join(out_sql)
-        # Cache for later use.
-        self._sql_cache[statement] = (driver_sql, pconv)
-        return (driver_sql, pconv(params))
 
     def executemany(self, operation, seq_of_parameters):
         """Do DB-API 2.0 executemany."""
@@ -701,7 +420,7 @@ def kickstart(module):
     def wrapper(cls):
 
         # Make the API exceptions available
-        for name in API_EXCEPTION_NAMES:
+        for name in errors.API_EXCEPTION_NAMES:
             base = getattr(Utils.this_module(), name)
             setattr(cls, name, base)
 
@@ -727,11 +446,6 @@ def kickstart(module):
             type_obj = getattr(module, type_name)
             setattr(cls, type_name, type_obj)
 
-        # Set up a "bind parameter converter" suitable for the driver
-        # module's `paramstyle' constant.
-        if getattr(cls, 'param_converter', None) is None:
-            cls.param_converter = get_converter(module.paramstyle)
-
         # make the real db module available as db-mod
         cls._db_mod = module
 
@@ -742,19 +456,19 @@ def kickstart(module):
 class Database(object):
     """Abstract superclass for database driver classes."""
 
-    _db_mod = None
     # The name of the DB-API module to use, or a module object.
-
+    #
     # Prior to first instantiation, this class attribute can be a string
     # specifying the full name of the database module that should be
     # imported.
-
+    #
     # During the first instantiation of a Database subclass, that
     # subclass's _db_mod attribute is set to the module object of the
     # dynamically imported database driver module.
+    _db_mod = None
 
-    param_converter = None
-    # The bind parameter converter class used by this driver class.
+    # A table of macros to use by the database dialect
+    macro_table = macros.common_macros
 
     encoding = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get(
         'client_encoding') or 'UTF-8'
@@ -774,6 +488,17 @@ class Database(object):
             # Start a connection
             self.connect(*db_params, **db_kws)
 
+    @property
+    def paramstyle(self):
+        return self._db_mod.paramstyle
+
+    @property
+    def dialect(self):
+        if not hasattr(self, '_dialect'):
+            param_cls = paramstyles.get_converter(self.paramstyle)
+            self._dialect = translate.Dialect(self.macro_table, param_cls)
+        return self._dialect
+
     #
     #   Methods corresponding to DB-API 2.0 module-level interface.
     #
@@ -781,7 +506,7 @@ class Database(object):
         """Connect to a database; args are driver-dependent."""
 
         if self._db is None:
-            with DatabaseErrorWrapper(type(self), self._db_mod):
+            with errors.DatabaseErrorWrapper(type(self), self._db_mod):
                 self._db = self._db_mod.connect(*params, **kws)
                 #
                 # Open a cursor; this can be used by most methods, so that
@@ -995,36 +720,6 @@ class Database(object):
         c = self.cursor()
         c.ping()
         c.close()
-
-    def sql_repr(self, op, *args):
-        """Translate SQL portability item to SQL dialect of this driver."""
-        method = getattr(self, '_sql_port_%s' % op, None)
-        if not method:
-            raise self.ProgrammingError("Unknown portability op '%s'" % op)
-        kw_args = {}
-        for k, v in [x.split("=", 1) for x in args]:
-            if k in kw_args:
-                raise self.ProgrammingError(
-                    "Keyword argument '%s' use multiple times in '%s' op." % (
-                        k,
-                        op))
-            kw_args[k] = v
-        return method(**kw_args)
-
-    def _sql_port_get_config(self, var):
-        if not hasattr(cereconf, var):
-            raise ValueError
-        val = getattr(cereconf, var)
-        if type(val) == str:
-            return ["'%s'" % val]
-        raise ValueError
-
-    def _sql_port_get_constant(self, name):
-        Constants = Utils.Factory.get('Constants')(self)
-        return ["%d" % int(getattr(Constants, name))]
-
-    def _sql_port_boolean(self, default=None):
-        pass
 
     # FIXME: deprecated, moved to Utils
     def _read_password(self, database, user):
