@@ -32,7 +32,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.utils import argutils
 
 logger = logging.getLogger(__name__)
- 
+
 
 def prepare_empty(db, args):
     """This function constructs a destination group
