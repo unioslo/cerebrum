@@ -26,9 +26,14 @@ to drift.
 from __future__ import unicode_literals
 import datetime
 import six
+import logging
 import cereconf
+from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import email
+from Cerebrum.utils import argutils
+
+logger = logging.getLogger(__name__)
 
 
 def get_title():
@@ -68,7 +73,8 @@ def make_table(manual_abandonees):
     for group_type, abandonees in manual_abandonees.items():
         txt += six.text_type(group_type) + ': {}'.format(len(abandonees))
         txt += '\n' + 80*'-' + '\n'
-        txt += '\n'.join('{id}, {name}, {desc}'.format(**a) for a in abandonees)
+        txt += '\n'.join(
+            '{id}, {name}, {desc}'.format(**a) for a in abandonees)
         txt += '\n\n'
     return txt
 
@@ -79,7 +85,6 @@ def main(inargs=None):
         import argparse
     except ImportError:
         from Cerebrum.extlib import argparse
-    logger = Factory.get_logger(__name__)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '-r', '--recipient',
@@ -87,6 +92,12 @@ def main(inargs=None):
         default=None,
         help='Recipient of the report'
     )
+    logutils.options.install_subparser(parser)
+
+    argutils.add_commit_args(parser, default=False)
+    args = parser.parse_args(inargs)
+    logutils.autoconf('cronjob', args)
+
     logger.info('START %s', parser.prog)
     logger.info('Extracting adminless groups')
     abandoned_manual_groups = get_abandoned_manual_groups()
