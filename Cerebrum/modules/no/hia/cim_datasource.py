@@ -30,6 +30,7 @@ CIM
 """
 from __future__ import unicode_literals
 
+from Cerebrum import Errors
 from Cerebrum.modules.cim.datasource import CIMDataSource
 
 
@@ -97,6 +98,15 @@ class CIMDataSourceUiA(CIMDataSource):
         else:
             dist_list = None
         return dist_list
+
+    def _get_ou_name(self):
+        try:
+            name = self.ou.get_name_with_language(
+                name_variant=self.co.ou_name,
+                name_language=self.co.language_nb)
+        except Errors.NotFoundError:
+            name = super(CIMDataSourceUiA, self)._get_ou_name()
+        return name
 
     def get_person_data(self, person_id):
         person = super(CIMDataSourceUiA, self).get_person_data(person_id)
