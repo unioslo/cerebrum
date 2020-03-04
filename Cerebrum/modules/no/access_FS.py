@@ -409,8 +409,136 @@ class FSObject(object):
         return next
 
 
-@fsobject('person', '<7.8')
-class Person(FSObject):
+@fsobject('person', '>=7.8')
+class Person78(FSObject):
+    """Update person class with new structure in FS 7.8.
+
+    What is new?
+    ============
+
+    To us, the important change is how telephone numbers are stored.
+    FS now has a new table ``fs.persontelefon``, replacing various instances
+    of fields named ``telefonX``. In more detail, various tables would
+    have fields named
+
+    * ``telefonlandnr_X``
+    * ``telefonretnnr_X``
+    * ``telefonnr_X``
+
+    coupling the data for a telephone number. Each of these instances is
+    replaced with a row in fs.persontelefon, and with an additional
+    ``telefonnrtypekode`` signifying the X.
+
+    The following have been converted from FS 7.7:
+
+    +-----------+------------+---------+
+    | table     | X          | kode    |
+    +-----------+------------+---------+
+    | person    | hjemsted   | HJEM    |
+    | person    | mobil      | MOBIL   |
+    | fagperson | fax_arb    | FAKS    |
+    | student   | semtelefon | SEM     |
+    | fagperson | arbeide    | ARB     |
+    | soknad    | kontakt    | KONTAKT |
+    | soknad    | kontakt2   | KONTAKT |
+    | student   | arbeid     | ARB     |
+    +-----------+------------+---------+
+
+    The field ``telefonretnnr`` is gone, and if the value is set, it
+    is baked into ``telefonnr``: telefonnr = telefonretnnr SPACE telefonnr.
+
+    The field ``telefonlandnr`` have gotten leading regex(\\+?0*) stripped
+    (i.e. +47, +0047, and 0047 → 47). If telefonlandnr was unset, the new
+    value assumes Norway, i.e. NULL → 47.
+
+    The table indicates priority (most important at top). I.e. if a person has
+    ``ARB`` both from ``fagperson`` and ``student``, the value from
+    ``fagperson`` will win, but the value from ``student`` is not discarded,
+    rather it is inserted to the ``merknad`` field of ``persontelefon``
+    as (yes, there is a typing error in FS upgrade script)::
+
+        'Alterativt nr: {telefonlandnr} {telefonretnnr} {telefonnr}'.format(…)
+    """
+    def add_telephone(self, fodselsdato, personnr, kind, phone, country=None):
+        """Insert telephone number for person.
+
+        :param fodselsdato, personnr: Identifies person.
+        :param phone: The telephone number
+        """
+        if not isinstance(kind, basestring):
+            kind = kind[0]
+        qry = """
+        INSERT INTO fs.persontelefon (institusjonsnr_eier,
+                                      fodselsdato,
+                                      personnr,
+                                      telefonnrtypekode,
+                                      telefonlandnr,
+                                      telefonnr)
+        VALUES (:instno, :fodselsdato, :personnr, :kind, :country, :phone)"""
+        country, phone = self._phone_to_country(country, phone)
+        return self.db.execute(qry, {'fodselsdato': fodselsdato,
+                                     'personnr': personnr,
+                                     'country': country,
+                                     'phone': phone,
+                                     'kind': kind,
+                                     'instno': cereconf.DEFAULT_INSTITUSJONSNR
+                                     })
+
+    def update_telephone(self, fodselsdato, personnr, kind, phone,
+                         country=None):
+        """Insert telephone number for person.
+
+        :param fodselsdato, personnr: Identifies person.
+        :param phone: The telephone number
+        """
+        if not isinstance(kind, basestring):
+            kind = kind[0]
+        binds = {'fodselsdato': fodselsdato,
+                 'personnr': personnr,
+                 'kind': kind}
+
+        if phone is None:
+            self.db.execute("""DELETE FROM fs.persontelefon
+                            WHERE fodselsdato = :fodselsdato AND
+                                  personnr = :personnr AND
+                                  telefonnrtypekode = :kind""",
+                            binds)
+        qry = """
+        UPDATE fs.persontelefon
+        SET
+            telefonlandnr = :country,
+            telefonnr = :phone
+        WHERE fodselsdato = :fodselsdato AND
+              personnr = :personnr AND
+              telefonnrtypekode = :kind"""
+        binds['country'], binds['phone'] = self._phone_to_country(country,
+                                                                  phone)
+        return self.db.execute(qry, binds)
+
+    def get_telephone(self, fodselsdato, personnr, institusjonsnr, kind=None,
+                      fetchall=False):
+        """List persons telephone number.
+
+        :param fodselsdato, personnr: Keys for person.
+        :param str kind: Type of telephone (HJEM, MOBIL, FAKS or ARB) None=all.
+        :param fetchall: Fetch all?
+        :returns: DB rows
+        """
+        qry = """
+        SELECT telefonlandnr, telefonnr, telefonnrtypekode
+        FROM fs.persontelefon
+        WHERE fodselsdato = :fodselsdato AND personnr = :personnr {kind}
+        """
+        binds = {'fodselsdato': fodselsdato,
+                 'personnr': personnr}
+        if kind:
+            where_kind = 'AND telefonnrtypekode = :kind'
+            binds['kind'] = kind
+        else:
+            where_kind = ''
+        return self.db.query(qry.format(kind=where_kind), binds,
+                             fetchall=fetchall)
+
     def get_person(self, fnr, pnr):
         return self.db.query("""
         SELECT fornavn, etternavn, fornavn_uppercase, etternavn_uppercase,
@@ -623,35 +751,6 @@ class Person(FSObject):
         # 'KONTAKT': [('soknad', 'kontakt')] ,
     }
 
-    def get_telephone(self, fodselsdato, personnr, institusjonsnr, kind=None,
-                      fetchall=False):
-        """List persons telephone number.
-
-        :param fodselsdato, personnr: Keys for person.
-        :param str kind: Type of telephone (HJEM, MOBIL, FAKS or ARB) None=all.
-        :param fetchall: Fetch all?
-        :returns: DB rows
-        """
-        mapping = self._telephone_mapping
-        qry = """
-        SELECT
-            nvl(trim(leading '0' from
-                trim(leading '+' from telefonlandnr_{kind})), '47')
-                telefonlandnr,
-            trim(telefonretnnr_{kind} || ' ' || telefonnr_{kind}) telefonnr,
-            '{code}' telefonnrtypekode
-        FROM fs.{table}
-        WHERE fodselsdato = :fodselsdato AND personnr = :personnr
-        """
-        queries = []
-        for code in [kind] if kind else mapping:
-            for table, field in mapping[code]:
-                queries.append(qry.format(kind=field, table=table, code=code))
-        return self.db.query(" UNION ".join(queries),
-                             {'fodselsdato': fodselsdato,
-                              'personnr': personnr},
-                             fetchall=fetchall)
-
     def _phone_to_country(self, country, phone):
         if phone is None:
             return None, None
@@ -683,185 +782,13 @@ class Person(FSObject):
                                    region_code_for_country_code(int(country)))
             return str(p.country_code), str(p.national_number)
 
-    def add_telephone(self, fodselsdato, personnr, kind, phone, country=None):
-        """Insert telephone number for person.
 
-        :param fodselsdato, personnr: Identifies person.
-        :param phone: The telephone number
-        """
-        if isinstance(kind, basestring):
-            mapping = self._telephone_mapping[kind][0]
-        else:
-            mapping = self._telephone_mapping[kind[0]][kind[1] == 'student']
-        qry = """
-        UPDATE fs.{table}
-        SET telefonnr_{kind} = :phone, telefonretnnr_{kind} = NULL,
-            telefonlandnr_{kind} = :country
-        WHERE fodselsdato = :fodselsdato AND personnr = :personnr"""
-        country, phone = self._phone_to_country(country, phone)
-        return self.db.execute(qry.format(table=mapping[0], kind=mapping[1]),
-                               {'fodselsdato': fodselsdato,
-                                'personnr': personnr,
-                                'country': country,
-                                'phone': phone})
-
-    def update_telephone(self, fodselsdato, personnr, kind, phone,
-                         country=None):
-        """Insert telephone number for person.
-
-        :param fodselsdato, personnr: Identifies person.
-        :param phone: The telephone number
-        """
-        if isinstance(kind, basestring):
-            mapping = self._telephone_mapping[kind][0]
-        else:
-            mapping = self._telephone_mapping[kind[0]][kind[1] == 'student']
-        qry = """
-        UPDATE fs.{table}
-        SET telefonnr_{kind} = :phone, telefonretnnr_{kind} = NULL,
-            telefonlandnr_{kind} = :country
-        WHERE fodselsdato = :fodselsdato AND personnr = :personnr"""
-        country, phone = self._phone_to_country(country, phone)
-        return self.db.execute(qry.format(table=mapping[0], kind=mapping[1]),
-                               {'fodselsdato': fodselsdato,
-                                'personnr': personnr,
-                                'country': country,
-                                'phone': phone})
-
-
-@fsobject('person', '>=7.8')
-class Person78(Person):
-    """Update person class with new structure in FS 7.8.
-
-    What is new?
-    ============
-
-    To us, the important change is how telephone numbers are stored.
-    FS now has a new table ``fs.persontelefon``, replacing various instances
-    of fields named ``telefonX``. In more detail, various tables would
-    have fields named
-
-    * ``telefonlandnr_X``
-    * ``telefonretnnr_X``
-    * ``telefonnr_X``
-
-    coupling the data for a telephone number. Each of these instances is
-    replaced with a row in fs.persontelefon, and with an additional
-    ``telefonnrtypekode`` signifying the X.
-
-    The following have been converted from FS 7.7:
-
-    +-----------+------------+---------+
-    | table     | X          | kode    |
-    +-----------+------------+---------+
-    | person    | hjemsted   | HJEM    |
-    | person    | mobil      | MOBIL   |
-    | fagperson | fax_arb    | FAKS    |
-    | student   | semtelefon | SEM     |
-    | fagperson | arbeide    | ARB     |
-    | soknad    | kontakt    | KONTAKT |
-    | soknad    | kontakt2   | KONTAKT |
-    | student   | arbeid     | ARB     |
-    +-----------+------------+---------+
-
-    The field ``telefonretnnr`` is gone, and if the value is set, it
-    is baked into ``telefonnr``: telefonnr = telefonretnnr SPACE telefonnr.
-
-    The field ``telefonlandnr`` have gotten leading regex(\\+?0*) stripped
-    (i.e. +47, +0047, and 0047 → 47). If telefonlandnr was unset, the new
-    value assumes Norway, i.e. NULL → 47.
-
-    The table indicates priority (most important at top). I.e. if a person has
-    ``ARB`` both from ``fagperson`` and ``student``, the value from
-    ``fagperson`` will win, but the value from ``student`` is not discarded,
-    rather it is inserted to the ``merknad`` field of ``persontelefon``
-    as (yes, there is a typing error in FS upgrade script)::
-
-        'Alterativt nr: {telefonlandnr} {telefonretnnr} {telefonnr}'.format(…)
+@fsobject('student', '>=7.8')
+class Student78(FSObject):
+    """Student in FS 7.8 and up.
+    See class Person78.
     """
-    def add_telephone(self, fodselsdato, personnr, kind, phone, country=None):
-        """Insert telephone number for person.
 
-        :param fodselsdato, personnr: Identifies person.
-        :param phone: The telephone number
-        """
-        if not isinstance(kind, basestring):
-            kind = kind[0]
-        qry = """
-        INSERT INTO fs.persontelefon (institusjonsnr_eier,
-                                      fodselsdato,
-                                      personnr,
-                                      telefonnrtypekode,
-                                      telefonlandnr,
-                                      telefonnr)
-        VALUES (:instno, :fodselsdato, :personnr, :kind, :country, :phone)"""
-        country, phone = self._phone_to_country(country, phone)
-        return self.db.execute(qry, {'fodselsdato': fodselsdato,
-                                     'personnr': personnr,
-                                     'country': country,
-                                     'phone': phone,
-                                     'kind': kind,
-                                     'instno': cereconf.DEFAULT_INSTITUSJONSNR
-                                     })
-
-    def update_telephone(self, fodselsdato, personnr, kind, phone,
-                         country=None):
-        """Insert telephone number for person.
-
-        :param fodselsdato, personnr: Identifies person.
-        :param phone: The telephone number
-        """
-        if not isinstance(kind, basestring):
-            kind = kind[0]
-        binds = {'fodselsdato': fodselsdato,
-                 'personnr': personnr,
-                 'kind': kind}
-
-        if phone is None:
-            self.db.execute("""DELETE FROM fs.persontelefon
-                            WHERE fodselsdato = :fodselsdato AND
-                                  personnr = :personnr AND
-                                  telefonnrtypekode = :kind""",
-                            binds)
-        qry = """
-        UPDATE fs.persontelefon
-        SET
-            telefonlandnr = :country,
-            telefonnr = :phone
-        WHERE fodselsdato = :fodselsdato AND
-              personnr = :personnr AND
-              telefonnrtypekode = :kind"""
-        binds['country'], binds['phone'] = self._phone_to_country(country,
-                                                                  phone)
-        return self.db.execute(qry, binds)
-
-    def get_telephone(self, fodselsdato, personnr, institusjonsnr, kind=None,
-                      fetchall=False):
-        """List persons telephone number.
-
-        :param fodselsdato, personnr: Keys for person.
-        :param str kind: Type of telephone (HJEM, MOBIL, FAKS or ARB) None=all.
-        :param fetchall: Fetch all?
-        :returns: DB rows
-        """
-        qry = """
-        SELECT telefonlandnr, telefonnr, telefonnrtypekode
-        FROM fs.persontelefon
-        WHERE fodselsdato = :fodselsdato AND personnr = :personnr {kind}
-        """
-        binds = {'fodselsdato': fodselsdato,
-                 'personnr': personnr}
-        if kind:
-            where_kind = 'AND telefonnrtypekode = :kind'
-            binds['kind'] = kind
-        else:
-            where_kind = ''
-        return self.db.query(qry.format(kind=where_kind), binds,
-                             fetchall=fetchall)
-
-
-@fsobject('student', '<7.8')
-class Student(FSObject):
     def get_student(self, fnr, pnr):
         """Hent generell studentinfo for en person. Kan brukes for å
            registrere eksterne id'er (studentnr, bibsysnr) i Cerebrum
@@ -1230,80 +1157,6 @@ class Student(FSObject):
                p.adrlin1_hjemsted, p.adrlin2_hjemsted,
                p.adrlin3_hjemsted, p.postnr_hjemsted,
                p.adresseland_hjemsted,
-               nvl(trim(leading '0' from
-                        trim(leading '+' from p.telefonlandnr_mobil)), '47')
-                    telefonlandnr_mobil,
-               p.telefonretnnr_mobil, p.telefonnr_mobil
-        FROM fs.studieprogramstudent sps, fs.studieprogram sp,
-             fs.person p, fs.student s
-        WHERE p.fodselsdato = sps.fodselsdato AND
-              p.personnr = sps.personnr AND
-              p.fodselsdato = s.fodselsdato AND
-              p.personnr = s.personnr AND
-              NVL(sps.dato_studierett_gyldig_til, sysdate) >= SYSDATE AND
-              sps.status_privatist='N' AND
-              sps.studieprogramkode = sp.studieprogramkode AND
-              %s AND
-              sp.studienivakode in (900,980)""" % self._is_alive()
-        return self.db.query(qry)
-
-    def list_privatist(self):
-        """Her henter vi informasjon om privatister.
-        Som privatist regnes alle studenter med en forekomst i
-        FS.STUDIEPROGRAMSTUDENT der dato_studierett_gyldig_til
-        er større eller lik dagens dato og studierettstatuskode
-        er PRIVATIST eller status_privatist er satt til 'J'"""
-        qry = """
-        SELECT DISTINCT
-          p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn,
-          p.fornavn, p.kjonn, s.adrlin1_semadr,
-          s.adrlin2_semadr, s.postnr_semadr, s.adrlin3_semadr,
-          s.adresseland_semadr, p.adrlin1_hjemsted,
-          p.sprakkode_malform,sps.studieprogramkode,
-          sps.studieretningkode, sps.status_privatist,
-          s.studentnr_tildelt,
-          nvl(trim(leading '0' from
-                   trim(leading '+' from p.telefonlandnr_mobil)), '47')
-            telefonlandnr_mobil,
-          p.telefonretnnr_mobil, p.telefonnr_mobil
-        FROM fs.student s, fs.person p, fs.studieprogramstudent sps
-        WHERE p.fodselsdato = s.fodselsdato AND
-          p.personnr = s.personnr AND
-          p.fodselsdato = sps.fodselsdato AND
-          p.personnr = sps.personnr AND
-          (sps.studierettstatkode = 'PRIVATIST' OR
-          sps.status_privatist = 'J') AND
-          sps.dato_studierett_gyldig_til >= sysdate """
-        return self.db.query(qry)
-
-
-@fsobject('student', '>=7.8')
-class Student78(Student):
-    """Student in FS 7.8 and up.
-    See class Person78.
-    """
-    def list_drgrad(self):  # GetStudinfDrgrad
-        """Henter info om aktive doktorgradsstudenter.  Aktive er
-        definert til å være de som har en studierett til et program
-        som har nivåkode større eller lik 900, og der datoen for
-        tildelt studierett er passert og datoen for fratatt studierett
-        enten ikke er satt eller ikke passert."""
-
-        qry = """
-        SELECT DISTINCT
-               sps.fodselsdato, sps.personnr, p.dato_fodt,
-               sp.institusjonsnr_studieansv AS institusjonsnr,
-               sp.faknr_studieansv AS faknr,
-               sp.instituttnr_studieansv AS instituttnr,
-               sp.gruppenr_studieansv AS gruppenr,
-               sps.dato_studierett_tildelt,
-               sps.dato_studierett_gyldig_til,
-               sps.studieprogramkode,
-               s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
-               s.adrlin3_semadr, s.adresseland_semadr,
-               p.adrlin1_hjemsted, p.adrlin2_hjemsted,
-               p.adrlin3_hjemsted, p.postnr_hjemsted,
-               p.adresseland_hjemsted,
                pt.telefonlandnr telefonlandnr_mobil,
                '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
@@ -1358,8 +1211,8 @@ class Student78(Student):
         return self.db.query(qry)
 
 
-@fsobject('undervisning', '<7.8')
-class Undervisning(FSObject):
+@fsobject('undervisning', '>=7.8')
+class Undervisning78(FSObject):
     def list_aktivitet(self, Instnr, emnekode, versjon, termk,
                        aar, termnr, aktkode):  # GetStudUndAktivitet
         qry = """
@@ -1598,17 +1451,30 @@ class Undervisning(FSObject):
               fp.fodselsdato, fp.personnr, p.dato_fodt, p.etternavn, p.fornavn,
               fp.adrlin1_arbeide, fp.adrlin2_arbeide, fp.postnr_arbeide,
               fp.adrlin3_arbeide, fp.adresseland_arbeide,
-              fp.telefonnr_arbeide, fp.telefonnr_fax_arb,
+              ptw.telefonnr telefonnr_arbeide,
+              ptf.telefonnr telefonnr_fax_arb,
               p.adrlin1_hjemsted, p.adrlin2_hjemsted, p.postnr_hjemsted,
               p.adrlin3_hjemsted, p.adresseland_hjemsted,
-              p.telefonnr_hjemsted, fp.stillingstittel_engelsk,
+              pth.telefonnr telefonnr_hjemsted, fp.stillingstittel_engelsk,
               fp.institusjonsnr_ansatt AS institusjonsnr,
               fp.faknr_ansatt AS faknr,
               fp.instituttnr_ansatt AS instituttnr,
               fp.gruppenr_ansatt AS gruppenr,
               fp.status_aktiv, p.status_reserv_lms AS status_publiseres,
               p.kjonn, p.status_dod
-        FROM fs.person p, fs.fagperson fp
+        FROM fs.fagperson fp, fs.person p
+             LEFT JOIN fs.persontelefon ptw ON
+              (ptw.fodselsdato = p.fodselsdato AND
+               ptw.personnr = p.personnr AND
+               ptw.telefonnrtypekode = 'ARB')
+             LEFT JOIN fs.persontelefon ptf ON
+              (ptf.fodselsdato = p.fodselsdato AND
+               ptf.personnr = p.personnr AND
+               ptf.telefonnrtypekode = 'FAKS')
+             LEFT JOIN fs.persontelefon pth ON
+              (pth.fodselsdato = p.fodselsdato AND
+               pth.personnr = p.personnr AND
+               pth.telefonnrtypekode = 'HJEM')
         WHERE fp.fodselsdato = p.fodselsdato AND
               fp.personnr = p.personnr AND
               fp.status_aktiv = 'J' AND
@@ -1726,57 +1592,8 @@ class Undervisning(FSObject):
         return self.db.query(query)
 
 
-@fsobject('undervisning', '>=7.8')
-class Undervisning78(Undervisning):
-    def list_fagperson_semester(self):  # GetFagperson_50
-        # (GetKursFagpersonundsemester var duplikat)
-        """Disse skal gis affiliation tilknyttet med kode fagperson
-        til stedskoden faknr+instituttnr+gruppenr
-        Hent ut fagpersoner som har undervisning i inneværende
-        eller forrige kalenderår"""
-
-        qry = """
-        SELECT DISTINCT
-              fp.fodselsdato, fp.personnr, p.dato_fodt, p.etternavn, p.fornavn,
-              fp.adrlin1_arbeide, fp.adrlin2_arbeide, fp.postnr_arbeide,
-              fp.adrlin3_arbeide, fp.adresseland_arbeide,
-              ptw.telefonnr telefonnr_arbeide,
-              ptf.telefonnr telefonnr_fax_arb,
-              p.adrlin1_hjemsted, p.adrlin2_hjemsted, p.postnr_hjemsted,
-              p.adrlin3_hjemsted, p.adresseland_hjemsted,
-              pth.telefonnr telefonnr_hjemsted, fp.stillingstittel_engelsk,
-              fp.institusjonsnr_ansatt AS institusjonsnr,
-              fp.faknr_ansatt AS faknr,
-              fp.instituttnr_ansatt AS instituttnr,
-              fp.gruppenr_ansatt AS gruppenr,
-              fp.status_aktiv, p.status_reserv_lms AS status_publiseres,
-              p.kjonn, p.status_dod
-        FROM fs.fagperson fp, fs.person p
-             LEFT JOIN fs.persontelefon ptw ON
-              (ptw.fodselsdato = p.fodselsdato AND
-               ptw.personnr = p.personnr AND
-               ptw.telefonnrtypekode = 'ARB')
-             LEFT JOIN fs.persontelefon ptf ON
-              (ptf.fodselsdato = p.fodselsdato AND
-               ptf.personnr = p.personnr AND
-               ptf.telefonnrtypekode = 'FAKS')
-             LEFT JOIN fs.persontelefon pth ON
-              (pth.fodselsdato = p.fodselsdato AND
-               pth.personnr = p.personnr AND
-               pth.telefonnrtypekode = 'HJEM')
-        WHERE fp.fodselsdato = p.fodselsdato AND
-              fp.personnr = p.personnr AND
-              fp.status_aktiv = 'J' AND
-              fp.institusjonsnr_ansatt IS NOT NULL AND
-              fp.faknr_ansatt IS NOT NULL AND
-              fp.instituttnr_ansatt IS NOT NULL AND
-              fp.gruppenr_ansatt IS NOT NULL
-        """
-        return self.db.query(qry)
-
-
-@fsobject('evu', '<7.8')
-class EVU(FSObject):
+@fsobject('evu', '>=7.8')
+class EVU78(FSObject):
     def list(self):  # GetDeltaker_50
         """Hent info om personer som er ekte EVU-studenter ved
         dvs. er registrert i EVU-modulen i tabellen
@@ -1793,16 +1610,19 @@ class EVU(FSObject):
                p.adrlin2_hjemsted,
                p.postnr_hjemsted, p.adrlin3_hjemsted,
                p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
-               nvl(trim(leading '0' from
-                        trim(leading '+' from p.telefonlandnr_mobil)), '47')
-                    telefonlandnr_mobil,
-               p.telefonretnnr_mobil, p.telefonnr_mobil,
+               pt.telefonlandnr telefonlandnr_mobil,
+               '' telefonretnnr_mobil,
+               pt.telefonnr telefonnr_mobil,
                k.etterutdkurskode, k.kurstidsangivelsekode,
                e.studieprogramkode, e.faknr_adm_ansvar,
                e.instituttnr_adm_ansvar, e.gruppenr_adm_ansvar,
                p.kjonn, p.status_dod
-        FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
-             fs.etterutdkurs e
+        FROM fs.deltaker d, fs.kursdeltakelse k,
+             fs.etterutdkurs e, fs.person p
+             LEFT JOIN fs.persontelefon pt ON
+              pt.fodselsdato = p.fodselsdato AND
+              pt.personnr = p.personnr AND
+              pt.telefonnrtypekode = 'MOBIL'
         WHERE p.fodselsdato=d.fodselsdato AND
               p.personnr=d.personnr AND
               d.deltakernr=k.deltakernr AND
@@ -1896,47 +1716,6 @@ class EVU(FSObject):
             'kurs': kurs,
             'tid': tid,
             'aktkode': aktkode})
-
-
-@fsobject('evu', '>=7.8')
-class EVU78(EVU):
-    def list(self):  # GetDeltaker_50
-        """Hent info om personer som er ekte EVU-studenter ved
-        dvs. er registrert i EVU-modulen i tabellen
-        fs.deltaker,  Henter alle som er knyttet til kurs som
-        tidligst ble avsluttet for 30 dager siden."""
-
-        qry = """
-        SELECT DISTINCT
-               p.fodselsdato, p.personnr, p.dato_fodt, p.etternavn, p.fornavn,
-               d.adrlin1_job, d.adrlin2_job, d.postnr_job,
-               d.adrlin3_job, d.adresseland_job, d.adrlin1_hjem,
-               d.adrlin2_hjem, d.postnr_hjem, d.adrlin3_hjem,
-               d.adresseland_hjem, p.adrlin1_hjemsted,
-               p.adrlin2_hjemsted,
-               p.postnr_hjemsted, p.adrlin3_hjemsted,
-               p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
-               pt.telefonlandnr telefonlandnr_mobil,
-               '' telefonretnnr_mobil,
-               pt.telefonnr telefonnr_mobil,
-               k.etterutdkurskode, k.kurstidsangivelsekode,
-               e.studieprogramkode, e.faknr_adm_ansvar,
-               e.instituttnr_adm_ansvar, e.gruppenr_adm_ansvar,
-               p.kjonn, p.status_dod
-        FROM fs.deltaker d, fs.kursdeltakelse k,
-             fs.etterutdkurs e, fs.person p
-             LEFT JOIN fs.persontelefon pt ON
-              pt.fodselsdato = p.fodselsdato AND
-              pt.personnr = p.personnr AND
-              pt.telefonnrtypekode = 'MOBIL'
-        WHERE p.fodselsdato=d.fodselsdato AND
-              p.personnr=d.personnr AND
-              d.deltakernr=k.deltakernr AND
-              e.etterutdkurskode=k.etterutdkurskode AND
-              NVL(e.status_nettbasert_und, 'J') = 'J' AND
-              k.kurstidsangivelsekode = e.kurstidsangivelsekode AND
-              NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
-        return self.db.query(qry)
 
 
 @fsobject('forkurs')
