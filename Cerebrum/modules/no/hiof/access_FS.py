@@ -26,8 +26,8 @@ from Cerebrum.modules.no import access_FS
 fsobject = access_FS.fsobject
 
 
-@fsobject('student', '>=7.8')
-class HiOfStudent78(access_FS.Student78):
+@fsobject('student')
+class HiOfStudent(access_FS.Student):
     # Vi bruker list_privatist, og list_tilbud fra no/access_FS
 
     def list_aktiv(self, fodselsdato=None, personnr=None):
@@ -108,8 +108,8 @@ class HiOfStudent78(access_FS.Student78):
         return self.db.query(qry)
 
 
-@fsobject('undervisning', '>=7.8')
-class HiOfUndervisning78(access_FS.Undervisning78):
+@fsobject('undervisning')
+class HiOfUndervisning(access_FS.Undervisning):
     # TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
     #      og list_studenter_underv_enhet.
     #      Prøve å lage generell list_studenter_kull.

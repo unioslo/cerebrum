@@ -409,8 +409,8 @@ class FSObject(object):
         return next
 
 
-@fsobject('person', '>=7.8')
-class Person78(FSObject):
+@fsobject('person')
+class Person(FSObject):
     """Update person class with new structure in FS 7.8.
 
     What is new?
@@ -783,8 +783,8 @@ class Person78(FSObject):
             return str(p.country_code), str(p.national_number)
 
 
-@fsobject('student', '>=7.8')
-class Student78(FSObject):
+@fsobject('student')
+class Student(FSObject):
     """Student in FS 7.8 and up.
     See class Person78.
     """
@@ -1211,8 +1211,8 @@ class Student78(FSObject):
         return self.db.query(qry)
 
 
-@fsobject('undervisning', '>=7.8')
-class Undervisning78(FSObject):
+@fsobject('undervisning')
+class Undervisning(FSObject):
     def list_aktivitet(self, Instnr, emnekode, versjon, termk,
                        aar, termnr, aktkode):  # GetStudUndAktivitet
         qry = """
@@ -1592,8 +1592,8 @@ class Undervisning78(FSObject):
         return self.db.query(query)
 
 
-@fsobject('evu', '>=7.8')
-class EVU78(FSObject):
+@fsobject('evu')
+class EVU(FSObject):
     def list(self):  # GetDeltaker_50
         """Hent info om personer som er ekte EVU-studenter ved
         dvs. er registrert i EVU-modulen i tabellen

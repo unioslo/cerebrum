@@ -26,8 +26,8 @@ from Cerebrum.modules.no import access_FS
 fsobject = access_FS.fsobject
 
 
-@fsobject('student', '>=7.8')
-class HiAStudent78(access_FS.Student78):
+@fsobject('student')
+class HiAStudent(access_FS.Student):
 
     def list_aktiv(self, fodselsdato=None, personnr=None):
         """ Hent opplysninger om studenter definert som aktive
@@ -187,8 +187,8 @@ class HiAStudent78(access_FS.Student78):
         return self.db.query(qry, params)
 
 
-@fsobject('undervisning', '>=7.8')
-class HiAUndervisning78(access_FS.Undervisning78):
+@fsobject('undervisning')
+class HiAUndervisning(access_FS.Undervisning):
 
     def list_undervisningenheter(self, sem="current"):
         """Metoden som henter data om undervisningsenheter
@@ -258,8 +258,8 @@ class HiAUndervisning78(access_FS.Undervisning78):
                                      "arstall_kull": arstall})
 
 
-@fsobject('evu', '>=7.8')
-class HiAEVU78(access_FS.EVU78):
+@fsobject('evu')
+class HiAEVU(access_FS.EVU):
 
     def list_kurs(self, date=time.localtime()):  # GetEvuKurs
         d = time.strftime("%Y-%m-%d", date)

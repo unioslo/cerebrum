@@ -24,8 +24,8 @@ from Cerebrum.modules.no import access_FS
 fsobject = access_FS.fsobject
 
 
-@fsobject('student', '>=7.8')
-class UiOStudent78(access_FS.Student78):
+@fsobject('student')
+class UiOStudent(access_FS.Student):
 
     def list(self, **kwargs):  # GetStudent_50
         """Hent personer med opptak til et studieprogram ved
@@ -882,8 +882,8 @@ class UiOBetaling(access_FS.FSObject):
                                    'year2': self.year})
 
 
-@fsobject('undervisning', '>=7.8')
-class UiOUndervisning78(access_FS.Undervisning78):
+@fsobject('undervisning')
+class UiOUndervisning(access_FS.Undervisning):
 
     def list_undervisningenheter(self, year=None, sem=None):
         # GetUndervEnhetAll
@@ -1048,8 +1048,8 @@ class UiOUndervisning78(access_FS.Undervisning78):
                              fetchall=False)
 
 
-@fsobject('evu', '>=7.8')
-class UiOEVU78(access_FS.EVU78):
+@fsobject('evu')
+class UiOEVU(access_FS.EVU):
 
     def list(self):  # GetDeltaker_50
         """Hent info om personer som er ekte EVU-studenter ved
@@ -1239,8 +1239,8 @@ class FS(access_FS.FS):
         self.info = self._component('studieinfo')(self.db)
 
 
-@fsobject('person', '>=7.8')
-class UiOPerson78(access_FS.Person78):
+@fsobject('person')
+class UiOPerson(access_FS.Person):
 
     def set_ansattnr(self, fnr, pnr, asn):
         """Sets the ansattnr for a person"""
