@@ -363,12 +363,11 @@ class BofhdContactCommands(BofhdCommandBase):
         he no longer is exported from, i.e. no affiliations."""
 
         co = self.const
-        contact_type = contact_type.lower()
+        contact_type = contact_type.upper()
 
         # get entity object
         entity = self.util.get_target(entity_target, restrict_to=[])
-        entity_type = self._get_constant(self.const.ContactInfo, contact_type)
-        # entity_type = self.const.EntityType(int(entity.entity_type))
+        entity_type = self.const.EntityType(int(entity.entity_type))
 
         if not hasattr(entity, 'get_contact_info'):
             raise CerebrumError("No support for contact info in %s entity" %
