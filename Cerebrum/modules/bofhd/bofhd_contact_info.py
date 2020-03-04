@@ -249,11 +249,10 @@ class BofhdContactCommands(BofhdCommandBase):
     def entity_contactinfo_add(self, operator,
                                entity_target, contact_type, contact_value):
         """Manually add contact info to an entity."""
-
         # default values
         contact_pref = 50
         source_system = self.const.system_manual
-
+        contact_type = contact_type.upper()
         # get entity object
         entity = self.util.get_target(entity_target, restrict_to=[])
         entity_type = self.const.EntityType(int(entity.entity_type))
@@ -278,12 +277,14 @@ class BofhdContactCommands(BofhdCommandBase):
                 raise CerebrumError("Email address (%r) must be on form"
                                     "<localpart>@<domain>" % contact_value)
             localpart, domain = contact_value.split('@')
+            domain = domain.lower()    # normalize domain-part
             ea = Email.EmailAddress(self.db)
             ed = Email.EmailDomain(self.db)
             try:
                 if not ea.validate_localpart(localpart):
                     raise AttributeError('Invalid local part')
                 ed._validate_domain_name(domain)
+                contact_value += localpart + "@" + domain
             except AttributeError as e:
                 raise CerebrumError(e)
 
@@ -307,6 +308,7 @@ class BofhdContactCommands(BofhdCommandBase):
 
         for row in contacts:
             # if the same value already exists, don't add it
+            # case-insensitive check for existing email address
             if contact_value.lower() == row["contact_value"].lower():
                 raise CerebrumError("Contact value already exists")
             # if the value is different, add it with a lower (=greater number)
@@ -361,10 +363,12 @@ class BofhdContactCommands(BofhdCommandBase):
         he no longer is exported from, i.e. no affiliations."""
 
         co = self.const
+        contact_type = contact_type.lower()
 
         # get entity object
         entity = self.util.get_target(entity_target, restrict_to=[])
-        entity_type = self.const.EntityType(int(entity.entity_type))
+        entity_type = self._get_constant(self.const.ContactInfo, contact_type)
+        # entity_type = self.const.EntityType(int(entity.entity_type))
 
         if not hasattr(entity, 'get_contact_info'):
             raise CerebrumError("No support for contact info in %s entity" %

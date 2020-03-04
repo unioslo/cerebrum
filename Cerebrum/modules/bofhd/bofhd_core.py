@@ -228,20 +228,11 @@ class BofhdCommandBase(object):
         return visible_commands
 
     def _get_constant(self, code_cls, code_str, code_type="value"):
+        c = code_cls(code_str)
         try:
-            c = code_cls(code_str)
             int(c)
         except Errors.NotFoundError:
-            try:
-                c = code_cls(code_str.upper())
-                int(c)
-            except Errors.NotFoundError:
-                try:
-                    c = code_cls(code_str.lower())
-                    int(c)
-                except Errors.NotFoundError:
-                    raise CerebrumError("Constant \'" + code_str +
-                                        "\' not recognised.")
+            raise CerebrumError("Unknown %s: %r" % (code_type, code_str))
         return c
 
     @staticmethod
