@@ -213,6 +213,11 @@ class CIMDataSource(object):
                         break
         return phones
 
+    def _get_ou_name(self):
+        return self.ou.get_name_with_language(
+            name_variant=self.co.ou_name_acronym,
+            name_language=self.co.language_nb)
+
     def _get_org_structure(self, from_ou_id):
         """
         Makes an organization structure (company/department/sub-department)
@@ -236,9 +241,7 @@ class CIMDataSource(object):
             self.ou.clear()
             self.ou.find(current_ou_id)
             try:
-                current_ou_name = self.ou.get_name_with_language(
-                    name_variant=self.co.ou_name_acronym,
-                    name_language=self.co.language_nb)
+                current_ou_name = self._get_ou_name()
             except NotFoundError as e:
                 self.logger.warning(
                     "CIMDataSource: Missing OU name: {!r}".format(e))
