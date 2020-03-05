@@ -184,7 +184,7 @@ class BofhdHistoryCmds(BofhdCommandBase):
         rows = list(record_db.search(entities=ent.entity_id))
         if self._get_boolean(any_entity):
             rows.extend(list(record_db.search(targets=ent.entity_id)))
-        rows = sorted(rows)
+        rows = sorted(rows, key=lambda r: (r.timestamp, r.record_id))
 
         _process = AuditRecordProcessor()
         for r in rows[-n:]:
