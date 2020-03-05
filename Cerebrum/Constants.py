@@ -1548,11 +1548,6 @@ class CommonConstants(ConstantsBase):
     auth_type_md4_nt = _AuthenticationCode(
         'MD4-NT',
         "MD4-derived password hash with Microsoft-added security.  ")
-    auth_type_ha1_md5 = _AuthenticationCode(
-        'HA1-MD5',
-        "Used in digest access authentication as specified in RFC 2617. "
-        "Is an unsalted MD5 digest hash over 'username:realm:password'. "
-        "See <http://tools.ietf.org/html/rfc2617#section-3.2.2.2>")
     auth_type_plaintext = _AuthenticationCode(
         'plaintext',
         "Plaintext passwords. Usefull for installations where non-encrypted "

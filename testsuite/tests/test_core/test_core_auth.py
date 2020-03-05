@@ -6,6 +6,8 @@ from __future__ import unicode_literals
 import pytest
 
 import Cerebrum.auth
+from Cerebrum.modules.no.uio.voip.voipAuthAccountMixin import (
+    encrypt_ha1_md5, verify_ha1_md5)
 
 ALL_METHODS = (
     ('MD4-NT', Cerebrum.auth.AuthTypeMD4NT),
@@ -92,7 +94,7 @@ def test_ha1md5_encrypt():
     realm = 'myorg'
     passwd = 'hesterbest'
 
-    _hash = Cerebrum.auth.encrypt_ha1_md5(name, realm, passwd)
+    _hash = encrypt_ha1_md5(name, realm, passwd)
     assert _hash == "05f96542dbba4d8c53dc83635985df97"
 
 
@@ -101,7 +103,7 @@ def test_ha1md5_verify():
     realm = 'myorg'
     right_passwd = 'hesterbest'
     wrong_passwd = 'hesterverst'
-    _hash = Cerebrum.auth.encrypt_ha1_md5(name, realm, right_passwd)
+    _hash = encrypt_ha1_md5(name, realm, right_passwd)
 
-    assert Cerebrum.auth.verify_ha1_md5(name, realm, right_passwd, _hash)
-    assert not Cerebrum.auth.verify_ha1_md5(name, realm, wrong_passwd, _hash)
+    assert verify_ha1_md5(name, realm, right_passwd, _hash)
+    assert not verify_ha1_md5(name, realm, wrong_passwd, _hash)
