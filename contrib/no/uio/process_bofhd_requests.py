@@ -704,11 +704,12 @@ def main():
 
     DEBUG = args.debug
 
-    logger.info('Start of script %s', parser.prog)
+    logger.info('Start %s', parser.prog)
     logger.debug('args: %r', args)
 
     if args.process:
         if has_move_arg:
+            logger.info('Processing move requests')
             # Asserting that a legal value is assigned to args.ou_perspective
             args.ou_perspective = get_constant(db, parser, const.OUPerspective,
                                                args.ou_perspective)
@@ -724,9 +725,11 @@ def main():
             # Convert move_student requests into move_user requests
             msp.process_requests(args.student_info_file)
 
+        logger.info('Processing regular requests')
         rp = process_requests.RequestProcessor(db, const)
         rp.process_requests(operations_map, args.types, args.max_requests)
 
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':
