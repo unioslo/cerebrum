@@ -25,10 +25,20 @@ translating macros and paramstyle.
 """
 from __future__ import print_function
 
+import logging
+import os
 import six
 
 from Cerebrum import Cache
-from .lexer_plex import _translate
+
+# FIXME: Temporary feature toggle for the translate() implementation that uses
+#        'sqlparse'.
+if os.environ.get('CEREBRUM_SQL_LEXER', '').lower() == 'sqlparse':
+    from .lexer_sqlparse import _translate
+else:
+    from .lexer_plex import _translate
+
+logger = logging.getLogger(__name__)
 
 
 def make_statement_cache(size=100):
@@ -56,6 +66,8 @@ class Dialect(object):
     def __init__(self, macro_table, param_cls):
         self.macro_table = macro_table
         self.param_cls = param_cls
+        # TODO: Remove me if we reduce to *one* _translate implementation
+        logger.info('Using translate() from %r', _translate.__module__)
 
 
 # TODO: Optimize caching
