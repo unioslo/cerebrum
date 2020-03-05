@@ -405,11 +405,10 @@ class EntitySpread(Entity):
 
     def has_spread(self, spread):
         """Return true if entity has spread."""
-        ent_spread = self.get_spread()
-        for row in ent_spread:
-            if spread in row:
-                return 1
-        return 0
+        for row in self.get_spread():
+            if spread == row['spread']:
+                return True
+        return False
 
 
 class EntityName(Entity):
