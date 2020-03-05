@@ -26,7 +26,7 @@ from __future__ import absolute_import, unicode_literals
 import time
 
 from flask import Flask, g, request
-from werkzeug.contrib.fixers import ProxyFix
+from werkzeug.middleware.proxy_fix import ProxyFix
 from six import text_type
 
 from . import database as _database
@@ -49,7 +49,7 @@ def create_app(config=None):
         trusted_hosts = app.config.get('TRUSTED_HOSTS', [])
 
     app.config['RESTFUL_JSON'] = {'ensure_ascii': False, 'encoding': 'utf-8'}
-    app.wsgi_app = ProxyFix(app.wsgi_app)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_host=1)
 
     # Replace builtin URL rule converters. Must be done before rules are added.
     app.url_map.converters.update({
