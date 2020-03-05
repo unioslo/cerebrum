@@ -6,7 +6,8 @@ from __future__ import unicode_literals
 import pytest
 
 import Cerebrum.auth
-import Cerebrum.modules.no.uio.voip.voipAuthAccountMixin
+from Cerebrum.modules.no.uio.voip.voipAuthAccountMixin import (
+    encrypt_ha1_md5, verify_ha1_md5)
 
 ALL_METHODS = (
     ('MD4-NT', Cerebrum.auth.AuthTypeMD4NT),
@@ -18,11 +19,6 @@ ALL_METHODS = (
     ('plaintext', Cerebrum.auth.AuthTypePlaintext),
 )
 ALL_METHOD_NAMES = tuple(t[0] for t in ALL_METHODS)
-
-
-@pytest.fixture
-def voipAuthAccount():
-    return Cerebrum.modules.no.uio.voip.voipAuthAccountMixin
 
 
 @pytest.fixture
@@ -93,21 +89,21 @@ def test_md5unsalt_encrypt():
     assert _hash == "2b403476f80bc3c1b295fe0459a36f26"
 
 
-def test_ha1md5_encrypt(voipAuthAccount):
+def test_ha1md5_encrypt():
     name = 'olanordmann'
     realm = 'myorg'
     passwd = 'hesterbest'
 
-    _hash = voipAuthAccount.encrypt_ha1_md5(name, realm, passwd)
+    _hash = encrypt_ha1_md5(name, realm, passwd)
     assert _hash == "05f96542dbba4d8c53dc83635985df97"
 
 
-def test_ha1md5_verify(voipAuthAccount):
+def test_ha1md5_verify():
     name = 'olanordmann'
     realm = 'myorg'
     right_passwd = 'hesterbest'
     wrong_passwd = 'hesterverst'
-    _hash = voipAuthAccount.encrypt_ha1_md5(name, realm, right_passwd)
+    _hash = encrypt_ha1_md5(name, realm, right_passwd)
 
-    assert voipAuthAccount.verify_ha1_md5(name, realm, right_passwd, _hash)
-    assert not voipAuthAccount.verify_ha1_md5(name, realm, wrong_passwd, _hash)
+    assert verify_ha1_md5(name, realm, right_passwd, _hash)
+    assert not verify_ha1_md5(name, realm, wrong_passwd, _hash)
