@@ -130,7 +130,7 @@ template = u"""
       <tr>
         <td>{{ p['person_id'] }}</td>
         <td>{{ p['firstname'] }}</td>
-        <td>{{ p['lastname']['type'] }}</td>
+        <td>{{ p['lastname'] }}</td>
         <td>{{ p['sapid'] }}</td>
         <td>{{ p['accounts'] | join(', ') }}</td>
       </tr>
