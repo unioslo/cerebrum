@@ -3,7 +3,7 @@ backports.ssl-match-hostname
 celery
 cffi
 cx-Oracle>=5
-egenix-mx-base
+egenix-mx-base  # If it fails: pip install --force-reinstall --ignore-installed --no-binary :all: egenix-mx-base
 Flask==1.1.1
 flask-restplus==0.13.0
 gunicorn==19.9.0
