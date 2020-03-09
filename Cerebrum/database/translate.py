@@ -66,8 +66,6 @@ class Dialect(object):
     def __init__(self, macro_table, param_cls):
         self.macro_table = macro_table
         self.param_cls = param_cls
-        # TODO: Remove me if we reduce to *one* _translate implementation
-        logger.info('Using translate() from %r', _translate.__module__)
 
 
 # TODO: Optimize caching
