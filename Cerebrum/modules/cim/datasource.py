@@ -70,6 +70,14 @@ class CIMDataSource(object):
         """
         return
 
+    def _get_job_title(self, *args, **kwargs):
+        try:
+            return {'job_title': self.pe.get_name_with_language(
+                name_variant=self.co.work_title,
+                name_language=self.co.language_nb)}
+        except NotFoundError:
+            return {}
+
     def get_person_data(self, person_id):
         """
         Builds a dict according to the CIM-WS schema, using info stored in
@@ -127,12 +135,7 @@ class CIMDataSource(object):
             person['dist_list'] = dist_list
 
         # Get and add job title if present
-        try:
-            person['job_title'] = self.pe.get_name_with_language(
-                name_variant=self.co.work_title,
-                name_language=self.co.language_nb)
-        except NotFoundError:
-            pass
+        person.update(self._get_job_title(primary_aff))
 
         return person
 

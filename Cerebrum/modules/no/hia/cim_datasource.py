@@ -108,6 +108,12 @@ class CIMDataSourceUiA(CIMDataSource):
             name = super(CIMDataSourceUiA, self)._get_ou_name()
         return name
 
+    def _get_job_title(self, primary_aff):
+        if primary_aff == self.co.affiliation_student:
+            return {'job_title': 'Student'}
+        else:
+            return super(CIMDataSourceUiA, self)._get_job_title()
+
     def get_person_data(self, person_id):
         person = super(CIMDataSourceUiA, self).get_person_data(person_id)
 
