@@ -262,10 +262,11 @@ class UitAuth(UitContactAuthMixin, BofhdAuth):
         return super(UitAuth, self).can_alter_group(operator, group,
                                                     query_run_any)
 
-    def can_search_group(self, operator, query_run_any=False):
+    def can_search_group(self, operator, filter="", query_run_any=False):
         if self._is_moderator(operator):
             return True
-        return super(UitAuth, self).can_search_group(operator, query_run_any)
+        return super(UitAuth, self).can_search_group(operator, filter,
+                                                     query_run_any)
 
     def can_add_spread(self, operator, entity=None, spread=None,
                        query_run_any=False):
