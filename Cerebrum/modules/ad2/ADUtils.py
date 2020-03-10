@@ -415,8 +415,9 @@ class ADclient(PowershellClient):
                 raise ObjectAlreadyExistsException(code, stderr, output)
             if re.search(r': The specified \w+ already exists', stderr):
                 raise ObjectAlreadyExistsException(code, stderr, output)
-            if re.search('New-AD.+ : The operation failed because UPN value '
-                         'provided for add.+\n+.+not unique forest', stderr):
+            if re.search(r'New-AD[^:]+: The operation failed because UPN value'
+                         r' provided for addition\/modification is not unique '
+                         r'forest-wide', stderr):
                 # User Principal Names (UPN) must be globally unique, and is
                 # therefore considered an identity
                 raise ObjectAlreadyExistsException(code, stderr, output)
