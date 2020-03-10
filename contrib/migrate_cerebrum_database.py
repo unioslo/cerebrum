@@ -1863,6 +1863,7 @@ def migrate_to_spread_expire_1_1():
     assert_db_version("1.0", component="spread_expire")
     makedb("spread_expire_1_1", "pre")
     meta = Metainfo.Metainfo(db)
+    meta.del_metainfo('sqlmodule_mailq')
     meta.set_metainfo("sqlmodule_spread_expire", "1.1")
     db.commit()
     print("Migration to spread_expire 1.1 completed successfully")
