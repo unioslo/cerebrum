@@ -109,7 +109,7 @@ class CIMDataSourceUiA(CIMDataSource):
         return name
 
     def _get_job_title(self, primary_aff):
-        if primary_aff == self.co.affiliation_student:
+        if primary_aff['affiliation'] == self.co.affiliation_student:
             return {'job_title': 'Student'}
         else:
             return super(CIMDataSourceUiA, self)._get_job_title()
