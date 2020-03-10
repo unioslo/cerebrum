@@ -284,7 +284,8 @@ class BofhdContactCommands(BofhdCommandBase):
                 if not ea.validate_localpart(localpart):
                     raise AttributeError('Invalid local part')
                 ed._validate_domain_name(domain)
-                contact_value += localpart + "@" + domain
+                #  If checks are okay, reassemble email with normalised domain
+                contact_value = localpart + "@" + domain
             except AttributeError as e:
                 raise CerebrumError(e)
 
