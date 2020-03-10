@@ -85,7 +85,6 @@ def delete(db, ac):
 
     # Clean up mail tables
     delete_mail_tables = [
-        ('mailq', 'entity_id'),
         ('email_forward', 'target_id'),
         ('email_primary_address', 'target_id'),
         ('email_address', 'target_id'),
@@ -118,7 +117,6 @@ def delete(db, ac):
         ('entity_quarantine', 'entity_id'),
         ('entity_trait', 'entity_id'),
         ('entity_contact_info', 'entity_id'),
-        ('mailq', 'entity_id'),
         ('email_target', 'target_entity_id'),
         ('entity_info', 'entity_id'),
         ('entity_contact_info', 'entity_id'),
