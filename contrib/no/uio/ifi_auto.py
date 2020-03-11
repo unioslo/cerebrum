@@ -39,7 +39,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules import PosixGroup
 
-
 db = co = logger = group_creator = dryrun = None
 
 
@@ -133,6 +132,8 @@ def find_leaf(group):
         return target_group
     else:
         return find_leaf(target_group)
+
+
 # end find_leaf
 
 
@@ -141,6 +142,7 @@ def sync_email_address(address, group):
         delete_email_address(address)
     else:
         update_email_address(address, group)
+
 
 # the horrors, the horrors.
 # http://www.uio.no/for-ansatte/arbeidsstotte/sta/enheter/mn/institutter/ifi/epostlister/
@@ -170,12 +172,12 @@ def convert_activitynumber(act):
     # support for TVI has not been added, it will probably not return
 
     if act == 'grl':
-        return 'g'      # the filegroup for all the teachers
+        return 'g'  # the filegroup for all the teachers
     elif act in range(200, 300):
-        delim = 'p'     # activity for profession students
+        delim = 'p'  # activity for profession students
         act = act % 100
     elif act in range(300, 400):
-        delim = 'm'     # activity MOD students
+        delim = 'm'  # activity MOD students
         act = act % 100
     else:
         delim = '-'
@@ -183,7 +185,7 @@ def convert_activitynumber(act):
     if act < 26:
         return delim + "%c" % (ord('a') + act)
     else:
-        return "%c%c" % (ord('a') + act/26, ord('a') + act % 26)
+        return "%c%c" % (ord('a') + act / 26, ord('a') + act % 26)
 
 
 def make_filegroup_name(course, act, names):
@@ -225,6 +227,8 @@ def add_members(gname, new_members):
         if not group.has_member(memb):
             group.add_member(memb)
     group.write_db()
+
+
 # end add_members
 
 
@@ -233,8 +237,10 @@ def sync_filegroup(fgname, group, course, act):
     # Make the group last a year or so.  To avoid changing the database
     # every night, we only change expire date if it has less than three
     # month to live.
-    expdate = DateTime.TimestampFromTicks(int(time.time() + 12*31*24*3600))
-    refreshdate = DateTime.TimestampFromTicks(int(time.time() + 3*31*24*3600))
+    expdate = DateTime.TimestampFromTicks(
+        int(time.time() + 12 * 31 * 24 * 3600))
+    refreshdate = DateTime.TimestampFromTicks(
+        int(time.time() + 3 * 31 * 24 * 3600))
     try:
         fgroup = get_group(fgname)
     except Errors.NotFoundError:
@@ -287,6 +293,13 @@ def sync_filegroup(fgname, group, course, act):
     return posix_group
 
 
+def set_group_type(group, group_type):
+    logger.debug("Changing grouptype for " + str(group.entity_id) + ":"
+                 + group.group_name)
+    group.group_type = int(group_type)
+    group.write_db()
+
+
 def process_groups(super, fg_super):
     # make a note of what filegroups are automatically maintained
     auto_fg = {}
@@ -321,8 +334,8 @@ def process_groups(super, fg_super):
                                           member_type=co.entity_group,
                                           member_filter_expired=False):
         member_id = int(row["member_id"])
-
         group = get_group(member_id)
+        set_group_type_recursive(member_id, co.group_type_automatic)
         if group.group_name.startswith(('sinf', 'sin')):
             continue
         course = act = None
@@ -406,6 +419,26 @@ def get_account(name):
     return ac
 
 
+def set_group_type_recursive(group_id, group_type):
+    start_group = get_group(group_id)
+    members = start_group.search_members(group_id=start_group.entity_id,
+                                         member_type=co.entity_group,
+                                         member_filter_expired=False)
+    if 0 < len(members):
+        for row in members:
+            member_id = int(row["member_id"])
+            try:
+                group = get_group(member_id)
+            except Exception:
+                pass
+            if group:
+                set_group_type_recursive(member_id, group_type)
+            set_group_type(start_group, group_type)
+    else:
+        set_group_type(start_group, group_type)
+        return
+
+
 def main():
     global db, co, logger, group_creator, dryrun
 
@@ -447,6 +480,7 @@ def usage(exitcode=64):
         --logger-level={debug|info|warning|error}
     """
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()
