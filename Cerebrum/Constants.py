@@ -1763,23 +1763,35 @@ class CLConstants(ConstantsBase):
     # Group changes
 
     group_add = _ChangeTypeCode(
-        'group_member', 'add', 'added %(dest)s to %(subject)s')
+        'group_member', 'add',
+        'added member %(dest)s to %(subject)s')
     group_rem = _ChangeTypeCode(
-        'group_member', 'remove', 'removed %(dest)s from %(subject)s')
+        'group_member', 'remove',
+        'removed member %(dest)s from %(subject)s')
+
     group_moderator_add = _ChangeTypeCode(
-        'group_moderator', 'add', 'added %(dest)s to %(subject)s')
+        'group_moderator', 'add',
+        'added moderator %(dest)s to %(subject)s')
     group_moderator_rem = _ChangeTypeCode(
-        'group_moderator', 'remove', 'removed %(dest)s from %(subject)s')
+        'group_moderator', 'remove',
+        'removed moderator %(dest)s from %(subject)s')
+
     group_admin_add = _ChangeTypeCode(
-        'group_admin', 'add', 'added %(dest)s to %(subject)s')
+        'group_admin', 'add',
+        'added admin %(dest)s to %(subject)s')
     group_admin_rem = _ChangeTypeCode(
-        'group_admin', 'remove', 'removed %(dest)s from %(subject)s')
+        'group_admin', 'remove',
+        'removed admin %(dest)s from %(subject)s')
+
     group_create = _ChangeTypeCode(
-        'group', 'create', 'created %(subject)s')
+        'group', 'create',
+        'created %(subject)s')
     group_mod = _ChangeTypeCode(
-        'group', 'modify', 'modified %(subject)s')
+        'group', 'modify',
+        'modified %(subject)s')
     group_destroy = _ChangeTypeCode(
-        'group', 'delete', 'destroyed %(subject)s')
+        'group', 'delete',
+        'destroyed %(subject)s')
 
     # Account changes
 

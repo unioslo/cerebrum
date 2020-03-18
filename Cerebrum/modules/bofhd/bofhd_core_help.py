@@ -115,6 +115,7 @@ command_help = {
             'Set displayname with nb as varian for an Exchange-group/room '
             'list',
         'group_set_expire': 'Set expire date for a group',
+        'group_set_type': 'Set category/type for a group',
         'group_set_visibility': 'Set visibility for a group',
     },
     'host': {
@@ -556,7 +557,6 @@ arg_help = {
     'person_search_type':
         ['search_type', 'Enter person search type',
          """Possible values:
-         - 'fnr'
          - 'name'
          - 'date' of birth, on format YYYY-MM-DD
          - 'stedkode'
