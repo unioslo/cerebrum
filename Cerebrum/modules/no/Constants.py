@@ -259,6 +259,11 @@ class ConstantsHigherEdu(Constants.Constants):
         'lms-group',
         'Automatic group - generated for LMS from FS student roles')
 
+    # group types for fs edu groups
+    group_type_edu_meta = _GroupTypeCode(
+        'edu-meta-group',
+        'Automatic group - collection of FS edu groups')
+
 
 class ConstantsUniversityColleges(Constants.Constants):
 
