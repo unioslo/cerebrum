@@ -258,7 +258,9 @@ command_help = {
         'user_migrate_exchange': 'Migrate echange user',
         'user_migrate_exchange_finished':
             'Mark that migration of user is finished',
-        'user_move': 'Move a users home directory to another disk',
+        'user_move':
+            'Move a users home directory to another disk. '
+            '(<<help basics>> for details)',
         'user_password': 'Set a new password for an account',
         'user_promote_posix':
             'Make a Cerebrum account into a POSIX user account',
@@ -480,17 +482,18 @@ arg_help = {
          'assumed to be a group.'],
     'move_type':
         ['move_type', 'Enter move type',
-         """Legal move types:
-         - immediate
-         - batch
-         - nofile
-         - hard_nofile
-         - student
-         - student_immediate
-         - give
-         - request
-         - confirm
-         - cancel"""],
+         """Enter desired move type. Example: 'immediate'
+         Legal move types   : Arguments
+         - immediate        : <account-name> <destination-disk>
+         - batch            : <account-name> <destination-disk>
+         - nofile           : <account-name> <destination-disk>
+         - hard_nofile      : <account-name> <destination-disk>
+         - student          : <account-name>
+         - student_immediate: <account-name>
+         - give             : <account-name> <group-name> <reason>
+         - request          : <account-name> <disk-id> <reason>
+         - confirm          : <account-name>
+         - cancel           : <account-name>"""],
     'number_size_mib':
         ['size', 'Enter size (in MiB)',
          'Enter the size of storage, in mebibytes (1024*1024 bytes)'],

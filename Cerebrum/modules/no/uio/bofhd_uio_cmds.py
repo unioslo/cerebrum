@@ -5439,14 +5439,14 @@ class BofhdExtension(BofhdCommonMethods):
         Base command:
           user move <move-type> <account-name>
         Variants
-          user move immediate           <account-name> <disk-id> <reason>
-          user move batch               <account-name> <disk-id> <reason>
-          user move nofile              <account-name> <disk-id> <reason>
-          user move hard_nofile         <account-name> <disk-id> <reason>
-          user move request             <account-name> <disk-id> <reason>
-          user move give                <account-name> <group-name> <reason>
+          user move immediate           <account-name> <disk-id>
+          user move batch               <account-name> <disk-id>
+          user move nofile              <account-name> <disk-id>
+          user move hard_nofile         <account-name> <disk-id>
           user move student             <account-name>
           user move student_immediate   <account-name>
+          user move give                <account-name> <group-name> <reason>
+          user move request             <account-name> <disk-id> <reason>
           user move confirm             <account-name>
           user move cancel              <account-name>
         """

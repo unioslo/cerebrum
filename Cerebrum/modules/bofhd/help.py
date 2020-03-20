@@ -152,7 +152,7 @@ return no id. Use
 Any cryptic error messages mean that you have typed something wrong. In case of
 Pernilla the error message is
 Error: Cerebrum.modules.no.fodselsnr.InvalidFnrError:Unknown error (a server
-error has been logged) which means that the fødselsnummer was wrong :).
+error has been logged) which means that the fÃ¸dselsnummer was wrong :).
 
 4. Create an account:
  - jbofh >user create
@@ -194,18 +194,31 @@ Directory have to be given the spread AD_group.
 6. Move a user
 One of the most common tasks is moving a users home directory to another disk.
 This is usually done when a person gets an affiliation to a different OU. The
-basic command for this is user move. user move accepts following options:
-   1. immediate (immediately move users home directory to another disk)
-   2. batch (enqueue the moving request)
-   3. nofile (do not move the home directory)
-   4. hard_nofile (move user to a non registered disk)
-   5. student (find appropriate disk for this user and enquey the request)
-   6. student_immediate (find appropriate student disk for this user and
+basic command for this is <<user move>>. 
+ - jbofh >user move <move-type> <account-name> [<opts>]
+ 
+   It accepts the following variants:
+   1. immediate <account-name> <destination-disk> 
+      - (immediately move users home directory to another disk)
+   2. batch <account-name> <destination-disk> 
+      - (enqueue the moving request)
+   3. nofile <account-name> <destination-disk> 
+      - (do not move the home directory)
+   4. hard_nofile <account-name> <destination-disk> 
+      - (move user to a non registered disk)
+   5. student <account-name>
+      - (find appropriate disk for this user and enqueue the request)
+   6. student_immediate <account-name>
+      - (find appropriate student disk for this user and 
       move home directory)
-   7. give (user has lost affiliation to your OU, let someone else take them)
-   8. request (ask others for a spesific users)
-   9. confirm (take a user given away)
-  10. cancel (cancel the move request)
+   7. give <account-name> <group-name> <reason>
+      - (user has lost affiliation to your OU, let someone else take them)
+   8. request <account-name> <disk-id> <reason>
+      - (ask others for a specific users)
+   9. confirm <account-name>
+      - (take a user given away)
+  10. cancel <account-name>
+      - (cancel the move request)
 
  - jbofh >user move
    Enter move type >give
