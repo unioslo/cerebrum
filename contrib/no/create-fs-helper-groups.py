@@ -41,7 +41,6 @@ import argparse
 import collections
 import datetime
 import logging
-import os
 import random
 import re
 import six
@@ -387,7 +386,7 @@ def sample(iterable, n=5, text='iterable'):
         print(' -', s)
 
 
-DEFAULT_LOG_PRESET = 'console'
+DEFAULT_LOG_PRESET = 'cronjob'
 DEFAULT_LOG_LEVEL = logging.DEBUG
 
 
