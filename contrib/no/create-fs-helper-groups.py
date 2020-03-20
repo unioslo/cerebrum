@@ -41,7 +41,6 @@ import argparse
 import collections
 import datetime
 import logging
-import random
 import re
 import six
 
@@ -179,6 +178,7 @@ def get_edu_units(filename, date=None):
         if unit_id in seen:
             raise ValueError("Duplicate edu unit: <%s>" % unit_id)
         yield unit_id, unit
+        seen.add(unit_id)
     logger.info("found %(ok)d units (skipped %(skip)d)", stats)
 
 
@@ -349,14 +349,12 @@ class GroupUtil(object):
         return gr
 
     def _update_group(self, group, description):
-        # TODO: Create new type
         group.group_type = group.const.group_type_edu_meta
         group.visibility = group.const.group_visibility_all
         group.description = description
         group.write_db()
 
     def _create_group(self, name, description):
-        # TODO: Create new type
         group = Factory.get('Group')(self._db)
         group_type = group.const.group_type_edu_meta
         group.populate(
@@ -378,12 +376,6 @@ def sync_unit_groups(db, units):
     for basename, unit in group_names.items():
         util.sync_edu_group_students(basename, unit)
         util.sync_edu_group_educators(basename, unit)
-
-
-def sample(iterable, n=5, text='iterable'):
-    print('%s of len=%d:' % (text, len(iterable)))
-    for s in random.sample(iterable, min(n, len(iterable))):
-        print(' -', s)
 
 
 DEFAULT_LOG_PRESET = 'cronjob'
@@ -429,7 +421,6 @@ def main(inargs=None):
     db.cl_init(change_program=parser.prog)
 
     logger.info('Syncing groups for %d units', len(units))
-
     sync_unit_groups(db, units)
 
     if args.commit:
