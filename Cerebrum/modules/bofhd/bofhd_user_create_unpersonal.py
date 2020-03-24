@@ -29,9 +29,10 @@ import six
 
 import cereconf
 
+from Cerebrum.Errors import InvalidAccountCreationArgument
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-from Cerebrum.modules.bofhd import bofhd_email
+from Cerebrum.modules.AccountPolicy import AccountPolicy
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.bofhd_core_help import get_help_strings
@@ -146,30 +147,20 @@ class BofhdExtension(BofhdCommandBase):
 
         account_type = self._get_constant(self.const.Account, account_type,
                                           "account type")
-        account = self._user_create_basic(operator,
-                                          self._get_group(group_name),
-                                          account_name, account_type)
-        self._user_password(operator, account)
 
-        # Validate the contact address
-        # TBD: Check if address is instance-internal?
-        local_part, domain = bofhd_email.split_address(contact_address)
-        ed = Email.EmailDomain(self.db)
+        account_policy = AccountPolicy(self.db)
         try:
-            if not Email.EmailAddress(self.db).validate_localpart(local_part):
-                raise AttributeError('Invalid local part')
-            ed._validate_domain_name(domain)
-        except AttributeError as error:
-            raise CerebrumError('Invalid contact address:'
-                                '%s' % exc_to_text(error))
+            account = account_policy.create_group_account(
+                operator.get_entity_id(),
+                account_name,
+                self._get_group(group_name),
+                contact_address,
+                account_type
+            )
+        except InvalidAccountCreationArgument as e:
+            raise CerebrumError(e)
 
-        # Unpersonal accounts shouldn't normally have a mail inbox, but they
-        # get a forward target for the account, to be sent to those responsible
-        # for the account, preferrably a sysadm mail list.
-        if hasattr(account, 'add_contact_info'):
-            account.add_contact_info(self.const.system_manual,
-                                     self.const.contact_email,
-                                     contact_address)
+        self._user_password(operator, account)
 
         # TBD: Better way of checking if email forwards are in use, by
         # checking if bofhd command is available?
@@ -179,13 +170,4 @@ class BofhdExtension(BofhdCommandBase):
                 Email.get_primary_default_email_domain())
             self._email_create_forward_target(localaddr, contact_address)
 
-        if cereconf.BOFHD_CREATE_UNPERSONAL_QUARANTINE:
-            qconst = self._get_constant(
-                self.const.Quarantine,
-                cereconf.BOFHD_CREATE_UNPERSONAL_QUARANTINE,
-                "quarantine")
-            account.add_entity_quarantine(qconst, operator.get_entity_id(),
-                                          "Not granted for global password "
-                                          "auth (ask IT-sikkerhet)",
-                                          self._today())
         return {'account_id': int(account.entity_id)}

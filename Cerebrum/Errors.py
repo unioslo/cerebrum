@@ -126,6 +126,10 @@ class PolicyException(CerebrumError):
     what policy is broken."""
 
 
+class InvalidAccountCreationArgument(CerebrumError):
+    """An invalid argument was passed to account creation method"""
+
+
 class CerebrumRPCException(CerebrumError):
     # The message should be a text code, to be used by a Message object.
     pass

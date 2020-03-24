@@ -39,6 +39,7 @@ from Cerebrum import database
 from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.Constants import _LanguageCode, _GroupTypeCode
 from Cerebrum.modules import Email
+from Cerebrum.modules.AccountPolicy import AccountPolicy
 from Cerebrum.modules.apikeys import bofhd_apikey_cmds
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd import bofhd_core_help
@@ -4843,7 +4844,7 @@ class BofhdExtension(BofhdCommonMethods):
                     self._format_ou_name(ou))
                 aff_map.append((('%s', name),
                                 {'ou_id': int(aff['ou_id']),
-                                 'aff': int(aff['affiliation'])}))
+                                 'affiliation': int(aff['affiliation'])}))
             if not len(aff_map) > 1:
                 raise CerebrumError('Person has no affiliations.')
             return {'prompt': 'Choose affiliation from list', 'map': aff_map}
@@ -4884,22 +4885,18 @@ class BofhdExtension(BofhdCommonMethods):
             idtype, person_id, affiliation, shell, home, uname = args
         else:
             idtype, person_id, yes_no, affiliation, shell, home, uname = args
-        owner_type = self.const.entity_person
-        owner_id = self._get_person('entity_id', person_id).entity_id
-        np_type = None
+
+        owner = self._get_person('entity_id', person_id)
 
         # Only superusers should be allowed to create users with
         # capital letters in their ids, and even then, just for system
         # users
         if uname != uname.lower():
             sup_user_p = self.ba.is_superuser(operator.get_entity_id())
-            if (not sup_user_p and owner_type != self.const.entity_group):
+            if not sup_user_p:
                 raise CerebrumError('Personal account names cannot contain '
                                     'capital letters')
 
-        posix_user = Utils.Factory.get('PosixUser')(self.db)
-        uid = posix_user.get_free_uid()
-        shell = self._get_shell(shell)
         if home[0] != ':':  # Hardcoded path
             disk_id, home = self._get_disk(home)[1:3]
         else:
@@ -4910,46 +4907,39 @@ class BofhdExtension(BofhdCommonMethods):
         if uname.endswith('-drift'):
             raise CerebrumError('Users ending with -drift should be created '
                                 'with user create_sysadm')
-        posix_user.clear()
-        gecos = None
-        expire_date = None
-        self.ba.can_create_user(operator.get_entity_id(), owner_id, disk_id)
-        try:
-            posix_user.populate(uid, None, gecos, shell, name=uname,
-                                owner_type=owner_type,
-                                owner_id=owner_id, np_type=np_type,
-                                creator_id=operator.get_entity_id(),
-                                expire_date=expire_date)
-        except self.db.IntegrityError as e:
-            raise CerebrumError('Integrity error: {}'.format(e))
+        self.ba.can_create_user(operator.get_entity_id(),
+                                owner.entity_id,
+                                disk_id)
 
+        account_policy = AccountPolicy(self.db)
+        spreads = (int(self.const.Spread(s)) for s in
+                   cereconf.BOFHD_NEW_USER_SPREADS)
+        disk = {'disk_id': disk_id,
+                'home_spread': self.const.spread_uio_nis_user,
+                'home': home}
         try:
-            posix_user.write_db()
-            for spread in cereconf.BOFHD_NEW_USER_SPREADS:
-                posix_user.add_spread(self.const.Spread(spread))
-            homedir_id = posix_user.set_homedir(
-                disk_id=disk_id, home=home,
-                status=self.const.home_status_not_created)
-            posix_user.set_home(self.const.spread_uio_nis_user, homedir_id)
-            # For correct ordering of ChangeLog events, new users
-            # should be signalled as "exported to" a certain system
-            # before the new user's password is set.  Such systems are
-            # flawed, and should be fixed.
-            passwd = posix_user.make_passwd(uname)
-            posix_user.set_password(passwd)
-            # And, to write the new password to the database, we have
-            # to .write_db() one more time...
-            posix_user.write_db()
-            if len(args) != 5:
-                ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
-                self._user_create_set_account_type(posix_user, owner_id,
-                                                   ou_id, affiliation)
-        except self.db.DatabaseError as m:
-            raise CerebrumError('Database error: {}'.format(m))
+            account = account_policy.create_personal_account(
+                owner,
+                [affiliation],
+                [disk],
+                None,
+                operator.get_entity_id(),
+                uname=uname,
+                spreads=spreads,
+                make_posix_user=True,
+                gid=None,
+                shell=self._get_shell(shell),
+            )
+        except Errors.InvalidAccountCreationArgument as e:
+            raise CerebrumError(e)
+
+        passwd = account.make_passwd(uname)
+        account.set_password(passwd)
+        account.write_db()
         operator.store_state('new_account_passwd',
-                             {'account_id': int(posix_user.entity_id),
+                             {'account_id': int(account.entity_id),
                               'password': passwd})
-        return {'uid': uid}
+        return {'uid': account.posix_uid}
 
     #
     # user reserve_personal

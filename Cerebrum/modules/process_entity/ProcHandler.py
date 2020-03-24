@@ -28,6 +28,7 @@ from mx import DateTime
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, auto_super
 from Cerebrum.Constants import _SpreadCode, _PersonAffiliationCode
+from Cerebrum.modules.AccountPolicy import AccountPolicy
 
 
 class ProcHandler(object):
@@ -39,6 +40,7 @@ class ProcHandler(object):
 
     def __init__(self, db, logger):
         self.db = db
+        self.account_policy = AccountPolicy(db)
         self.logger = logger
         self._co = Factory.get('Constants')(self.db)
         self._ac = None
@@ -75,8 +77,8 @@ class ProcHandler(object):
                 self.str2const[acc_spread_str]
             )
 
-    def _create_account(self, owner):
-        """Create a standard account."""
+    def _maybe_create_account(self, owner):
+        """Create an account if the owner does not already have one"""
 
         # str2const is something we need if we create new accounts.
         self._make_str2const()
@@ -91,37 +93,24 @@ class ProcHandler(object):
             self.default_creator_id = self._ac.entity_id
 
         self._ac.clear()
-        ac = owner.get_primary_account()
-        if not ac:
+        account_id = owner.get_primary_account()
+        if not account_id:
             try:
-                firstname = owner.get_name(self._co.system_cached,
-                                           self._co.name_first)
-                lastname = owner.get_name(self._co.system_cached,
-                                          self._co.name_last)
-            except Errors.NotFoundError:
-                self.logger.warning(
-                    "Person '%d' missing first- or lastname. User not built."
-                    % owner.entity_id)
+                return self.account_policy.create_personal_account(
+                    owner,
+                    (),
+                    (),
+                    None,
+                    self.default_creator_id,
+                    traits=getattr(procconf, 'NEW_ACCOUNT_TRAITS', ()),
+                    make_posix_user=False
+                )
+            except Errors.InvalidAccountCreationArgument as e:
+                self.logger.warning(e)
+                self.logger.warning('Account not built!')
                 return None
-            self.logger.debug("Trying to find a uname for %s %s", firstname,
-                              lastname)
-            unames = self._ac.suggest_unames(owner)
-            self.logger.debug(
-                "Name: %s %s, owner ent_type: %s, owner ent_id:%s" %
-                (firstname, lastname, owner.entity_type, owner.entity_id))
-            if not unames:
-                self.logger.debug("No uname for %s %s" % (firstname, lastname))
-            self._ac.populate(unames[0], owner.entity_type, owner.entity_id,
-                              None, self.default_creator_id, None)
-            # Write to db before adding traits
-            self._ac.write_db()
 
-            # Set new-account-traits
-            self._ac_add_new_traits(self._ac)
-            self._ac.write_db()
-        else:
-            self._ac.find(ac)
-
+        self._ac.find(account_id)
         return self._ac
 
     def process_person(self, person):
@@ -156,7 +145,7 @@ class ProcHandler(object):
         accounts = person.get_accounts(filter_expired=False)
         if len(accounts) == 0:
             if person_affiliations:
-                ac = self._create_account(person)
+                ac = self._maybe_create_account(person)
                 if ac:
                     self.logger.info("Person '%d' got new account '%s'." %
                                      (person.entity_id, ac.account_name))
