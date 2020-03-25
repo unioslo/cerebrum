@@ -16,19 +16,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-""""""
-
-import cereconf
-
+"""HiOf specific mixin functionality for the Account class"""
 import re
 import time
 import cPickle
+
+import cereconf
 
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
+
 
 class AccountHiOfMixin(Account.Account):
     """Account mixin class providing functionality specific to HiOf.
@@ -47,11 +46,10 @@ class AccountHiOfMixin(Account.Account):
         self.__super.__init__(db)
         # Setup AD spread constants
         if not hasattr(cereconf, 'AD_ACCOUNT_SPREADS'):
-            raise Errors.CerebrumError("Missing AD_ACCOUNT_SPREADS in cereconf")
-        self.ad_account_spreads = {}
-        for spread_str in cereconf.AD_ACCOUNT_SPREADS:
-            c = self.const.Spread(spread_str)
-            self.ad_account_spreads[int(c)] = c
+            raise Errors.CerebrumError(
+                "Missing AD_ACCOUNT_SPREADS in cereconf")
+        self.ad_account_spreads = [self.const.Spread(
+            spread) for spread in cereconf.AD_ACCOUNT_SPREADS]
         # Setup defined ad traits
         if not hasattr(cereconf, 'AD_TRAIT_TYPES'):
             raise Errors.CerebrumError("Missing AD_TRAIT_TYPES in cereconf")
@@ -60,27 +58,29 @@ class AccountHiOfMixin(Account.Account):
             self.ad_trait_types.append(self.const.EntityTrait(trait_str))
 
     def illegal_name(self, name):
+        """HiOf specific illegal names."""
         # Avoid circular import dependency
         from Cerebrum.modules.PosixUser import PosixUser
 
         if isinstance(self, PosixUser):
-            # TODO: Kill the ARsystem user to limit range og legal characters
+            # TODO: Kill the ARsystem user to limit range and legal characters
             if len(name) > 8:
                 return "too long (%s)" % name
             if re.search("^[^A-Za-z]", name):
                 return "must start with a character (%s)" % name
-            if re.search("[^A-Za-z0-9\-_]", name):
+            if re.search(r"[^A-Za-z0-9\-_]", name):
                 return "contains illegal characters (%s)" % name
         return super(AccountHiOfMixin, self).illegal_name(name)
 
     def update_email_addresses(self):
+        """Update email addresses"""
         # Find, create or update a proper EmailTarget for this
         # account.
         et = Email.EmailTarget(self._db)
-        old_server = None
-        target_type = self.const.email_target_account
         if self.is_deleted() or self.is_reserved():
             target_type = self.const.email_target_deleted
+        else:
+            target_type = self.const.email_target_account
         try:
             et.find_by_email_target_attrs(target_entity_id=self.entity_id)
             et.email_target_type = target_type
@@ -107,7 +107,6 @@ class AccountHiOfMixin(Account.Account):
             return
         # if an account without email_server_target is found assign
         # the appropriate server
-        old_server = et.email_server_id
         acc_types = self.get_account_types()
         entity = Factory.get("Entity")(self._db)
         try:
@@ -116,12 +115,7 @@ class AccountHiOfMixin(Account.Account):
         except Errors.NotFoundError:
             pass
 
-        if not old_server:
-            # if self.is_fag_employee():
-            #    self._update_email_server('mail.fag.hiof.no')
-            # elif self.is_adm_employee():
-            #    self._update_email_server('mail.adm.hiof.no')
-            #
+        if not et.email_server_id:
             # This updates email servers for employees and students
             if entity.entity_type != self.const.entity_group:
                 self._update_email_server('epost.hiof.no')
@@ -214,42 +208,8 @@ class AccountHiOfMixin(Account.Account):
         et.write_db()
         return et
 
-    def is_employee(self):
-        for r in self.get_account_types():
-            if r['affiliation'] == self.const.affiliation_ansatt:
-                return True
-        return False
-
-    def is_fag_employee(self):
-        person = Factory.get("Person")(self._db)
-        person.clear()
-        person.find(self.owner_id)
-        for a in person.get_affiliations():
-            if (a['status'] ==
-                    self.const.affiliation_status_ansatt_vitenskapelig):
-                return True
-        return False
-
-    def is_adm_employee(self):
-        person = Factory.get("Person")(self._db)
-        person.clear()
-        person.find(self.owner_id)
-        for a in person.get_affiliations():
-            if a['status'] == self.const.affiliation_status_ansatt_tekadm:
-                return True
-        return False
-
-    def is_student(self):
-        person = Factory.get("Person")(self._db)
-        person.clear()
-        person.find(self.owner_id)
-        for a in person.get_affiliations():
-            if a['affiliation'] == self.const.affiliation_student:
-                return True
-        return False
-
     def _calculate_homedir(self):
-        """Calculate what a user should get as its HomeDirectory in AD,
+        r"""Calculate what a user should get as its HomeDirectory in AD,
         according to the specifications. Note that this only returns what
         _would_ be set, but the specification also says that it should not be
         changed after first set.
@@ -259,18 +219,18 @@ class AccountHiOfMixin(Account.Account):
         - Employees and affiliated should get \\LS01.hiof.no\HomeA\USERNAME
         - Students should get \\LS02.hiof.no\HomeS\USERNAME
         - The rest should not get anything.
-
         """
         is_student = False
-        for r in self.get_account_types():
-            if r['affiliation'] in (self.const.affiliation_ansatt,
-                                    self.const.affiliation_tilknyttet):
+        for row in self.get_account_types():
+            affiliation = row['affiliation']
+            if affiliation in (self.const.affiliation_ansatt,
+                               self.const.affiliation_tilknyttet):
                 # Highest priority, could be returned at once
-                return r'\\LS01.hiof.no\HomeA\%s' % self.account_name
-            elif r['affiliation'] == self.const.affiliation_student:
+                return r'\\LS01.hiof.no\HomeA\{}'.format(self.account_name)
+            if affiliation == self.const.affiliation_student:
                 is_student = True
-        if is_student:
-            return r'\\LS02.hiof.no\HomeS\%s' % self.account_name
+        return r'\\LS02.hiof.no\HomeS\{}'.format(
+            self.account_name) if is_student else r''
 
     def _calculate_scriptpath(self):
         """Calculate what a user should get as its ScriptPath in AD, according
@@ -286,15 +246,16 @@ class AccountHiOfMixin(Account.Account):
 
         """
         is_student = False
-        for r in self.get_account_types():
-            if r['affiliation'] in (self.const.affiliation_ansatt,
-                                    self.const.affiliation_tilknyttet):
+        for row in self.get_account_types():
+            affiliation = row['affiliation']
+            if affiliation in (
+                    self.const.affiliation_ansatt,
+                    self.const.affiliation_tilknyttet):
                 # Highest priority, could be returned at once
                 return 'ansatt-LS01.bat'
-            elif r['affiliation'] == self.const.affiliation_student:
+            if affiliation == self.const.affiliation_student:
                 is_student = True
-        if is_student:
-            return 'student-LS02.bat'
+        return 'student-LS02.bat' if is_student else ''
 
     def update_ad_attributes(self):
         """Check and update the AD attributes for the account."""
@@ -306,7 +267,7 @@ class AccountHiOfMixin(Account.Account):
         for atr, func in ((self.const.ad_attribute_homedir,
                            self._calculate_homedir),
                           (self.const.ad_attribute_scriptpath,
-                              self._calculate_scriptpath)):
+                           self._calculate_scriptpath)):
             val = func()
             if val is None:
                 continue
@@ -327,7 +288,7 @@ class AccountHiOfMixin(Account.Account):
         attributes in Cerebrum belonging to that spread should also be
         removed.
         """
-        if spread in self.ad_account_spreads.values():
+        if spread in self.ad_account_spreads:
             self.delete_ad_attrs(spread=spread)
         ret = self.__super.delete_spread(spread)
         return ret
@@ -363,7 +324,7 @@ class AccountHiOfMixin(Account.Account):
         # one at the time
         traits = self.get_traits()
         # We only want the relevant ad traits
-        for trait_type, entity_trait in traits.iteritems():
+        for trait_type, entity_trait in traits.items():
             if trait_type in self.ad_trait_types:
                 attr_type = str(trait_type)
                 unpickle_val = cPickle.loads(str(entity_trait['strval']))
@@ -375,7 +336,6 @@ class AccountHiOfMixin(Account.Account):
                     ret[spread][attr_type] = attr_val
         return ret
 
-    # TBD: assert int(spread) in self.ad_account_spreads.keys()?
     def get_ad_attrs_by_spread(self, spread):
         """
         Return account's AD attributes given by spread.
@@ -385,6 +345,7 @@ class AccountHiOfMixin(Account.Account):
         @rtype: dict
         @return: {attr_type : attr_value, ...}
         """
+        assert spread in self.ad_account_spreads
         tmp = self.get_ad_attrs()
         return tmp.get(int(spread), {})
 
@@ -398,10 +359,9 @@ class AccountHiOfMixin(Account.Account):
         @return: {spread : attr_value, ...}
         """
         tmp = self.get_trait(trait_type)
-        if not tmp:
-            return {}
-        else:
+        if tmp:
             return cPickle.loads(str(tmp['strval']))
+        return None
 
     def populate_ad_attrs(self, trait_type, ad_attr_map):
         """
@@ -413,14 +373,13 @@ class AccountHiOfMixin(Account.Account):
         @param ad_attr_map: spread -> attr value mapping
         @type  ad_attr_map: dict
         """
-        # Do strict checking of ad_attr_map before populating trait.
-        # If we populate something wrong, all kinds of weird errors
-        # will follow.
-        assert type(ad_attr_map) is dict
-        for k, v in ad_attr_map.items():
-            assert (type(k) is int and k in self.ad_account_spreads.keys())
-            assert isinstance(v, basestring)
-        self.populate_trait(trait_type, strval=cPickle.dumps(ad_attr_map))
+        doit = False
+        for k in ad_attr_map:
+            for spread in self.ad_account_spreads:
+                if k == int(spread):
+                    doit = True
+        if doit:
+            self.populate_trait(trait_type, strval=cPickle.dumps(ad_attr_map))
 
     def delete_ad_attrs(self, spread=None):
         """
@@ -439,7 +398,7 @@ class AccountHiOfMixin(Account.Account):
             tmp = self.get_ad_attrs_by_type(trait_type)
             if tmp and int(spread) in tmp:
                 # If this spread is the only one, delete the trait
-                if len(tmp) <= 1:
+                if len(tmp) == 1:
                     self.delete_trait(trait_type)
                 else:
                     del tmp[spread]
