@@ -944,7 +944,7 @@ class BofhdCommonMethods(BofhdCommandBase):
         :param operator: operator's account object
         :param groupname: str name of new group
         :param description: str description of group
-        :param admin_group: str name of admin group, optional
+        :param admin_group: str name of admin group, optional for superuser
         :param expire_date: str expire date of group,
         :return: Group id
         """
@@ -957,6 +957,10 @@ class BofhdCommonMethods(BofhdCommandBase):
         duplicate_test = g.search(name=groupname, filter_expired=False)
         if len(duplicate_test) > 0:
             raise CerebrumError("Group name is already in use")
+
+        # Only superuser is allowed to create new group without specifying group admin
+        if not self.ba.is_superuser(operator.get_entity_id()) and not admin_group:
+            raise PermissionDenied("Must specify admin group(s)")
 
         # Populate group
         g.populate(
