@@ -26,8 +26,9 @@ from Cerebrum.modules.no import access_FS
 fsobject = access_FS.fsobject
 
 
-@fsobject('student', '<7.8')
+@fsobject('student')
 class NIHStudent(access_FS.Student):
+
     def list_aktiv(self):
         """ Hent opplysninger om studenter definert som aktive
         ved NIH. En aktiv student er en student som har et gyldig
@@ -44,14 +45,15 @@ class NIHStudent(access_FS.Student):
           p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
           sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
           sps.arstall_kull, p.kjonn, p.status_dod,
-          nvl(trim(leading '0' from
-               trim(leading '+' from p.telefonlandnr_mobil)), '47')
-          telefonlandnr_mobil,
-          p.telefonretnnr_mobil,
-          p.telefonnr_mobil,
+          pt.telefonlandnr telefonlandnr_mobil,
+          pt.telefonnr telefonnr_mobil,
           s.studentnr_tildelt
-        FROM fs.studieprogramstudent sps, fs.person p,
-             fs.student s
+        FROM fs.studieprogramstudent sps,
+             fs.student s, fs.person p
+             LEFT JOIN fs.persontelefon pt ON
+             pt.fodselsdato = p.fodselsdato AND
+             pt.personnr = p.personnr AND
+             pt.telefonnrtypekode = 'MOBIL'
         WHERE p.fodselsdato = sps.fodselsdato AND
           p.personnr = sps.personnr AND
           p.fodselsdato = s.fodselsdato AND
@@ -94,47 +96,7 @@ class NIHStudent(access_FS.Student):
         return self.db.query(qry)
 
 
-@fsobject('student', '>=7.8')
-class NIHStudent78(NIHStudent, access_FS.Student78):
-
-    def list_aktiv(self):
-        """ Hent opplysninger om studenter definert som aktive
-        ved NIH. En aktiv student er en student som har et gyldig
-        opptak til et studieprogram der studentstatuskode er 'AKTIV'
-        eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
-        ikke satt."""
-        qry = """
-        SELECT DISTINCT
-          s.fodselsdato, s.personnr, p.dato_fodt, p.etternavn, p.fornavn,
-          s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
-          s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
-          p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
-          p.adresseland_hjemsted,
-          p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
-          sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
-          sps.arstall_kull, p.kjonn, p.status_dod,
-          pt.telefonlandnr telefonlandnr_mobil,
-          pt.telefonnr telefonnr_mobil,
-          s.studentnr_tildelt
-        FROM fs.studieprogramstudent sps,
-             fs.student s, fs.person p
-             LEFT JOIN fs.persontelefon pt ON
-             pt.fodselsdato = p.fodselsdato AND
-             pt.personnr = p.personnr AND
-             pt.telefonnrtypekode = 'MOBIL'
-        WHERE p.fodselsdato = sps.fodselsdato AND
-          p.personnr = sps.personnr AND
-          p.fodselsdato = s.fodselsdato AND
-          p.personnr = s.personnr AND
-          %s AND
-          sps.status_privatist = 'N' AND
-          sps.studentstatkode IN ('AKTIV', 'PERMISJON') AND
-          NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
-          """ % (self._is_alive())
-        return self.db.query(qry)
-
-
-@fsobject('undervisning', '<7.8')
+@fsobject('undervisning')
 class NIHUndervisning(access_FS.Undervisning):
     # TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
     # og list_studenter_underv_enhet.
@@ -291,11 +253,6 @@ class NIHUndervisning(access_FS.Undervisning):
 
         return self.db.query(query)
     # end list_studenter_alle_kull
-
-
-@fsobject('undervisning', '>=7.8')
-class NIHUndervisning78(NIHUndervisning, access_FS.Undervisning78):
-    pass
 
 
 @fsobject('studieinfo')

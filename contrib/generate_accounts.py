@@ -36,13 +36,11 @@ e.g. only new employees from the last 7 days? This is usable e.g. for UiO.
 import argparse
 from operator import itemgetter
 
-from mx import DateTime
-
 import cereconf
+
 from Cerebrum import Errors, Constants
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.ou_disk_mapping import utils
-from Cerebrum.modules.ou_disk_mapping.dbal import OUDiskMapping
+from Cerebrum.modules.AccountPolicy import AccountPolicy
 
 logger = Factory.get_logger('cronjob')
 
@@ -109,9 +107,28 @@ def restore_account(db, pe, ac, remove_quars):
     # TODO: remove old passwords
 
 
-def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
-                   remove_quars=(), posix=False, home=None, home_auto=None,
-                   posix_uio=False):
+def get_account_types(pe, ignore_affs):
+    affiliations = []
+    for row in set((row['affiliation'], row['ou_id']) for row in
+                   pe.list_affiliations(person_id=pe.entity_id)
+                   if (row['affiliation'] not in ignore_affs and row['status']
+                       not in ignore_affs)):
+        # This only iterates once per affiliation per OU, even if person has
+        # several statuses for the same OU. Due to the account_type limit.
+        affiliation, ou_id = row
+        affiliations.append({'affiliation': affiliation, 'ou_id': ou_id})
+    return affiliations
+
+
+def get_gid(posix, posix_uio):
+    if posix and not posix_uio:
+        return posix.get('dfg')
+    return None
+
+
+def update_account(db, pe, account_policy, creator, new_trait=None, spreads=(),
+                   ignore_affs=(), remove_quars=(), posix=False, home=None,
+                   home_auto=None, posix_uio=False):
     """Make sure that the given person has an active account. It the person has
     no accounts, a new one will be created. If the person already has an
     account it will be 'restored'.
@@ -125,115 +142,78 @@ def update_account(db, pe, creator, new_trait=None, spreads=(), ignore_affs=(),
     """
     ac = Factory.get('Account')(db)
     co = Factory.get('Constants')(db)
+    affiliations = get_account_types(pe, ignore_affs)
+    disks = (home,) if home else ()
+    # Some logging
+    logger.debug("Will add trait: %s to account", new_trait)
+    logger.debug("Will add spreads: %s to account",
+                 ", ".join(str(i) for i in spreads))
+    # Log stedkode if ou has stedkode mixin
     ou = Factory.get('OU')(db)
+    for affiliation in affiliations:
+        stedkode = "UNKNOWN"
+        if hasattr(ou, 'get_stedkode'):
+            ou.clear()
+            ou.find(affiliation['ou_id'])
+            stedkode = ou.get_stedkode()
+        logger.debug("Will give account aff %s@%s (ou_id=%s)",
+                     co.PersonAffiliation(affiliation['affiliation']),
+                     stedkode,
+                     affiliation['ou_id'])
+    if posix:
+        logger.debug("Will add POSIX for account")
+    if home or home_auto:
+        logger.debug("Will add homedir for account")
+
     # Restore the _last_ expired account, if any:
     old_accounts = ac.search(owner_id=pe.entity_id, expire_start=None,
                              expire_stop=None)
     for row in sorted(old_accounts, key=itemgetter('expire_date'),
                       reverse=True):
-        logger.info("Restore account %s for person %d", row['name'],
-                    pe.entity_id)
         ac.find(row['account_id'])
         restore_account(db, pe, ac, remove_quars)
-        break
+        try:
+            account_policy.update_account(
+                pe,
+                ac.entity_id,
+                affiliations,
+                disks,
+                None,
+                traits=(new_trait, ) if new_trait else (),
+                spreads=spreads,
+                make_posix_user=posix,
+                gid=get_gid(posix, posix_uio),
+                shell=co.posix_shell_bash,
+                ou_disk=home_auto
+            )
+        except Errors.InvalidAccountCreationArgument as e:
+            logger.warning(e)
+        else:
+            logger.info("Restored account %s for person %d",
+                        row['name'],
+                        pe.entity_id)
+        return
+    # no account found, create a new one
+    try:
+        account = account_policy.create_personal_account(
+            pe,
+            affiliations,
+            disks,
+            None,
+            creator.entity_id,
+            traits=(new_trait,) if new_trait else (),
+            spreads=spreads,
+            make_posix_user=posix,
+            gid=get_gid(posix, posix_uio),
+            shell=co.posix_shell_bash,
+            ou_disk=home_auto
+        )
+    except Errors.InvalidAccountCreationArgument as e:
+        logger.warning(e)
     else:
-        # no account found, create a new one
-        names = ac.suggest_unames(pe)
-        if len(names) < 1:
-            logger.warn('Person %d has no name, skipping', pe.entity_id)
-            return
-
-        logger.info("Create account for person %d: %s", pe.entity_id, names[0])
-        ac.populate(names[0],
-                    co.entity_person,
-                    pe.entity_id,
-                    None,
-                    creator.entity_id,
-                    None)
-        ac.write_db()
-
-    if new_trait:
-        logger.debug("Add trait to account %s: %s", ac.account_name, new_trait)
-        ac.populate_trait(int(new_trait), date=DateTime.now())
-
-    if spreads:
-        logger.debug("Add spreads to account %s: %s", ac.account_name,
-                     ", ".join(str(i) for i in spreads))
-        for s in spreads:
-            ac.add_spread(s)
-
-    for row in set((row['affiliation'], row['ou_id']) for row in
-                   pe.list_affiliations(person_id=pe.entity_id)
-                   if (row['affiliation'] not in ignore_affs and row['status']
-                       not in ignore_affs)):
-        # This only iterates once per affiliation per OU, even if person has
-        # several statuses for the same OU. Due to the account_type limit.
-        affiliation, ou_id = row
-
-        # Log stedkode if ou has stedkode mixin
-        stedkode = "UNKNOWN"
-        if hasattr(ou, 'get_stedkode'):
-            ou.clear()
-            ou.find(ou_id)
-            stedkode = ou.get_stedkode()
-        logger.debug("Give %s aff %s@%s (ou_id=%s)", ac.account_name,
-                     co.PersonAffiliation(affiliation), stedkode, ou_id)
-
-        ac.set_account_type(affiliation=affiliation, ou_id=ou_id)
-
-    ac.write_db()
-
-    if posix:
-        logger.debug("Add POSIX for account: %s", ac.account_name)
-        pu = Factory.get('PosixUser')(db)
-        if posix_uio:
-            # By setting gid_id=None the PosixUserUiOMixin will try to find any
-            # old posix group that belonged to the user. If none is found one
-            # will be created upon calling write_db.
-            pu.populate(posix_uid=pu.get_free_uid(),
-                        gid_id=None,
-                        gecos=None,
-                        shell=co.posix_shell_bash,
-                        parent=ac)
-        else:
-            pu.populate(posix_uid=pu.get_free_uid(),
-                        gid_id=posix.get('dfg'),
-                        gecos=None,
-                        shell=co.posix_shell_bash,
-                        parent=ac)
-        pu.write_db()
-
-    if home or home_auto:
-        # Deal with home argument
-        if home:
-            disk_id = home['disk_id']
-            home_spread = home['spread']
-        # Deal with home_auto
-        else:
-            disk_mapping = OUDiskMapping(db)
-            # Get highest precedent affiliation
-            _, ou_id, aff, _, status, _, _, _, _ = pe.list_affiliations(
-                pe.entity_id)[0]
-            # Find the right disk id for this person
-            if aff:
-                aff = co.PersonAffiliation(aff)
-            if status:
-                status = co.PersonAffStatus(status)
-            disk_id = utils.get_disk(
-                db,
-                disk_mapping,
-                ou_id,
-                aff,
-                status,
-                co.OUPerspective(cereconf.DEFAULT_OU_PERSPECTIVE))
-            home_spread = home.get('spread', int(co.Spread(cereconf.DEFAULT_HOME_SPREAD)))
-        logger.debug("Set homedir for account %s to %s",
-                     ac.account_name, ac.resolve_homedir(disk_id=disk_id))
-        homedir_id = ac.set_homedir(
-            disk_id=disk_id,
-            status=co.home_status_not_created)
-        ac.set_home(home_spread, homedir_id)
-        ac.write_db()
+        logger.info("Created account %s for person %d",
+                    account.account_name,
+                    pe.entity_id)
 
 
 def personal_accounts(db):
@@ -295,12 +275,14 @@ def process(db, affiliations, new_trait=None, spreads=(), ignore_affs=(),
                        if row['person_id'] not in has_account)
     logger.debug("Found %d persons without an account", len(persons))
 
+    account_policy = AccountPolicy(db)
     for p_id in persons:
         logger.debug("Processing person_id=%d", p_id)
         pe.clear()
         pe.find(p_id)
-        update_account(db, pe, creator, new_trait, spreads, ignore_affs,
-                       remove_quars, posix, home, home_auto, posix_uio)
+        update_account(db, pe, account_policy, creator, new_trait, spreads,
+                       ignore_affs, remove_quars, posix, home, home_auto,
+                       posix_uio)
 
 
 class ExtendAction(argparse.Action):
@@ -432,7 +414,7 @@ def main(inargs=None):
     home = {}
     if args.home_disk:
         home = {
-            'spread': int(co.Spread(args.home_spread)),
+            'home_spread': int(co.Spread(args.home_spread)),
             'disk_id': get_disk(db, args.home_disk),
         }
     posix = {}
