@@ -1264,7 +1264,8 @@ class BofhdExtension(BofhdCommonMethods):
             self._assert_group_deletable(grp)
             # Set the groups expire date to today.
 
-            if grp.expire_date:
+            # If expire date exists and today is same or past expire date
+            if grp.expire_date and grp.expire_date <= self._today():
                 raise CerebrumError('Group already expired')
             else:
                 grp.expire_date = self._today()
