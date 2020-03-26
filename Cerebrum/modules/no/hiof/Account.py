@@ -63,7 +63,7 @@ class AccountHiOfMixin(Account.Account):
         from Cerebrum.modules.PosixUser import PosixUser
 
         if isinstance(self, PosixUser):
-            # TODO: Kill the ARsystem user to limit range and legal characters
+            # TODO: Kill the ARsystem user to limit range of legal characters
             if len(name) > 8:
                 return "too long (%s)" % name
             if re.search("^[^A-Za-z]", name):
@@ -378,6 +378,7 @@ class AccountHiOfMixin(Account.Account):
             for spread in self.ad_account_spreads:
                 if k == int(spread):
                     doit = True
+                    break
         if doit:
             self.populate_trait(trait_type, strval=cPickle.dumps(ad_attr_map))
 
