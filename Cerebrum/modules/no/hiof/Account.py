@@ -377,10 +377,9 @@ class AccountHiOfMixin(Account.Account):
         for k in ad_attr_map:
             for spread in self.ad_account_spreads:
                 if k == int(spread):
-                    doit = True
-                    break
-        if doit:
-            self.populate_trait(trait_type, strval=cPickle.dumps(ad_attr_map))
+                    self.populate_trait(
+                        trait_type, strval=cPickle.dumps(ad_attr_map))
+                    return
 
     def delete_ad_attrs(self, spread=None):
         """
