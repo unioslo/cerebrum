@@ -317,6 +317,11 @@ def filter_groups(results, roles, sub=True):
     :param results:
         gr.search() results with fronter groups.
 
+    :param sub:
+        Include *sub groups* (edu activities) in the output
+        (i.e. <edu-unit>:<role>:<edu-activity>, as opposed to only
+        <edu-unit>:<role>).
+
     :return:
         Returns results that matches the given roles.
     """
@@ -675,12 +680,15 @@ def main(inargs=None):
         db.cl_init(change_program=parser.prog)
         builder = EduGroupBuilder(db, nested)
 
+    total = len(edu_groups)
     with timer('updating groups', logging.INFO):
-        for ident in sorted(edu_groups):
-            logger.debug('processing groups for ident=%r', ident)
+        for n, ident in enumerate(sorted(edu_groups), 1):
             unit = edu_groups[ident]
+            logger.debug('processing groups for %s %r', ident, unit)
             builder.sync_edu_group_students(ident, unit)
             builder.sync_edu_group_educators(ident, unit)
+            if n % 100 == 0:
+                logger.debug('processed %d/%d units', n, total)
 
     if args.commit:
         logger.info('Commiting changes')
