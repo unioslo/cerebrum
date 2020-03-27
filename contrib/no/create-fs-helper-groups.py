@@ -477,7 +477,7 @@ class GroupCache(object):
             for member_id in to_add:
                 group.add_member(member_id)
             self.members[group.entity_id] = needs_members
-            logger.info('group=%r, added=%d, removed=%d',
+            logger.info('group %r, added=%d, removed=%d',
                         group.group_name, len(to_add), len(to_remove))
 
     def update_expire_date(self, group, expire_date):
@@ -485,7 +485,7 @@ class GroupCache(object):
             group.expire_date = expire_date
             group.write_db()
             self.groups[group.entity_id]['expire_date'] = expire_date
-            logger.info('group=%r, new expire_date=%r',
+            logger.info('group %r, new expire_date=%r',
                         group.group_name, group.expire_date)
 
     def assert_group(self, name, description, expire_date):
