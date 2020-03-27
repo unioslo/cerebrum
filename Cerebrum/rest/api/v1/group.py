@@ -511,6 +511,43 @@ class GroupMemberListResource(Resource):
             members.append(member)
         return members
 
+    # PUT /<group>/members
+    #
+    group_members_parser = api.parser()
+    group_members_parser.add_argument(
+        'members',
+        type=validator.Integer(min_val=0),
+        location=['form', 'json'],
+        nullable=False,
+        required=False,
+        default=[],
+        action='append',
+        help='{error_msg}',
+    )
+
+    @db.autocommit
+    @auth.require()
+    @api.expect(group_members_parser)
+    @api.response(200, 'members added')
+    @api.response(404, 'group or member not found')
+    def put(self, name):
+        """ Ensure that the supplied member list are the only members of the group. """
+        args = self.group_members_parser.parse_args()
+
+        group = find_group(name)
+        members = set(row['member_id'] for row in
+                      group.search_members(group_id=group.entity_id,
+                                           member_filter_expired=False))
+        to_remove = members - set(args['members'])
+        to_add = set(args['members']) - members
+
+        for entity_id in to_remove:
+            member = find_entity(entity_id)
+            group.remove_member(member.entity_id)
+        for entity_id in to_add:
+            member = find_entity(entity_id)
+            group.add_member(member.entity_id)
+
 
 @api.route('/<string:name>/members/<int:member_id>',
            endpoint='group-members')
