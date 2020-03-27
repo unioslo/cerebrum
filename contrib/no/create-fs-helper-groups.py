@@ -676,8 +676,9 @@ def main(inargs=None):
         builder = EduGroupBuilder(db, nested)
 
     with timer('updating groups', logging.INFO):
-        for ident, unit in edu_groups.items():
+        for ident in sorted(edu_groups):
             logger.debug('processing groups for ident=%r', ident)
+            unit = edu_groups[ident]
             builder.sync_edu_group_students(ident, unit)
             builder.sync_edu_group_educators(ident, unit)
 
