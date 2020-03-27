@@ -39,10 +39,12 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 import argparse
 import collections
+import contextlib
 import datetime
 import logging
 import re
 import six
+import time
 
 import cereconf
 
@@ -51,32 +53,34 @@ import Cerebrum.logutils.options
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.transliterate import to_ascii
 from Cerebrum.Utils import Factory
-from Cerebrum.Errors import NotFoundError
 from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 
 
 logger = logging.getLogger(__name__)
 
 
-class UndervisningsEnhet(collections.Mapping):
-    """ Educational unit. """
+@contextlib.contextmanager
+def timer(msg, level=logging.DEBUG):
+    logger.log(level, 'start %s ...', msg)
+    start = time.time()
+    try:
+        yield
+    except Exception:
+        logger.log(level, 'failed %s after %.1f s', msg, time.time() - start)
+        raise
+    else:
+        logger.log(level, 'done %s after %.1f s', msg, time.time() - start)
+
+
+class FsObject(collections.Mapping):
+
     __slots__ = ('raw',)
-
-    __require__ = ('emnenavn_bokmal',)
-
-    __key__ = (
-        'emnekode',
-        'versjonskode',
-        'terminkode',
-        'arstall',
-        'terminnr',
-    )
+    __key__ = ()
 
     def __init__(self, data):
-        missing = set(f for f in self.__key__ + self.__require__
-                      if f not in data)
+        missing = set(f for f in self.__key__ if f not in data)
         if missing:
-            raise ValueError('Missing required field(s) %r' % (missing,))
+            raise ValueError('Missing required field(s): %r' % (missing,))
         self.raw = data
 
     def __len__(self):
@@ -94,12 +98,18 @@ class UndervisningsEnhet(collections.Mapping):
                         for f in self.__key__)
 
     def __repr__(self):
-        key = self.key
+        key = repr(self.key)
         name = type(self).__name__
         if key:
             return '<{} {}>'.format(name, key)
         else:
             return '<{}>'.format(name)
+
+
+class FsObjectDateMixin(FsObject):
+    """
+    Year (arstall) and term (terminkode, terminno) related methods.
+    """
 
     def is_relevant(self, date):
         start, end = self.get_date_range()
@@ -143,14 +153,59 @@ class UndervisningsEnhet(collections.Mapping):
         else:
             return to_ascii(term.lower())
 
+
+class UndervisningsEnhet(FsObjectDateMixin):
+    """ Educational unit. """
+
+    __slots__ = ('activities',)
+
+    __key__ = (
+        'emnekode',
+        'versjonskode',
+        'terminkode',
+        'arstall',
+        'terminnr',
+    )
+
+    def __init__(self, data):
+        super(UndervisningsEnhet, self).__init__(data)
+        self.activities = {}
+
     @property
     def description(self):
         return '{}: {} ({} {})'.format(
-            self['emnekode'], self['emnenavn_bokmal'],
+            self['emnekode'], self.get('emnenavn_bokmal', ''),
             self['terminkode'].lower(), self['arstall'])
 
 
-def get_edu_units(filename, date=None):
+class UndervisningsAktivitet(UndervisningsEnhet):
+
+    __key__ = (
+        'emnekode',
+        'versjonskode',
+        'terminkode',
+        'arstall',
+        'terminnr',
+        'aktivitetkode',
+    )
+
+    @property
+    def unit(self):
+        return UndervisningsEnhet(self.raw)
+
+    @property
+    def activity_id(self):
+        return self['aktivitetkode'].lower()
+
+    @property
+    def description(self):
+        return '{} ({}): {} ({} {})'.format(
+            self['emnekode'], self['aktivitetkode'],
+            self.get('aktivitetsnavn', ''),
+            self['terminkode'].lower(), self['arstall'])
+
+
+def read_edu_units(filename, date=None):
     """
     undervisningenheter.xml
 
@@ -165,7 +220,7 @@ def get_edu_units(filename, date=None):
         ...>
     """
     logger.debug('reading edu units from %r', filename)
-    getter = EduDataGetter(filename, logger.getChild('get_edu_units'))
+    getter = EduDataGetter(filename, logger.getChild('read_edu_units'))
     stats = collections.Counter({'ok': 0, 'skip': 0})
     seen = set()
     for entry in getter.iter_undenh():
@@ -179,7 +234,42 @@ def get_edu_units(filename, date=None):
             raise ValueError("Duplicate edu unit: <%s>" % unit_id)
         yield unit_id, unit
         seen.add(unit_id)
-    logger.info("found %(ok)d units (skipped %(skip)d)", stats)
+    logger.debug("found %(ok)d units (skipped %(skip)d)", stats)
+
+
+def read_edu_activities(filename, date=None):
+    """
+    undervisningsaktiviteter.xml
+
+      <aktivitet
+        emnekode="PSYC4401"
+        versjonskode="1"
+        terminkode="VÅR"
+        arstall="2020"
+        terminnr="1"
+        aktivitetkode="2-1-9"
+        undpartilopenr="9"
+        disiplinkode="PRA"
+        undformkode="PRAKSIS"
+        aktivitetsnavn="Bydel Søndre Nordstrand Rask Psykisk Helsehjelp"
+        ...>
+    """
+    logger.debug('reading edu activities from %r', filename)
+    getter = EduDataGetter(filename, logger.getChild('read_edu_activities'))
+    stats = collections.Counter({'ok': 0, 'skip': 0})
+    seen = set()
+    for entry in getter.iter_undakt():
+        act = UndervisningsAktivitet(entry)
+        if date and not act.is_relevant(date):
+            stats['skip'] += 1
+            continue
+        stats['ok'] += 1
+        act_id = act.key
+        if act_id in seen:
+            raise ValueError("Duplicate edu activity: <%s>" % (act_id, ))
+        yield act_id, act
+        seen.add(act_id)
+    logger.debug("found %(ok)d activities (skipped %(skip)d)", stats)
 
 
 def create_group_ident(unit, use_version, use_termno):
@@ -192,7 +282,7 @@ def create_group_ident(unit, use_version, use_termno):
     return name
 
 
-def build_group_names(units):
+def build_group_idents(units):
     """ Create group names for a collection of units. """
     seen = set()
     groups = {}
@@ -220,12 +310,17 @@ def build_group_names(units):
     return groups
 
 
-def filter_groups(results, roles):
+def filter_groups(results, roles, sub=True):
     """
     get candidate group member names for edu unit student group
 
     :param results:
         gr.search() results with fronter groups.
+
+    :param sub:
+        Include *sub groups* (edu activities) in the output
+        (i.e. <edu-unit>:<role>:<edu-activity>, as opposed to only
+        <edu-unit>:<role>).
 
     :return:
         Returns results that matches the given roles.
@@ -235,9 +330,9 @@ def filter_groups(results, roles):
             if any(result['name'].endswith(suffix)
                    for suffix in (':' + role, ':' + role + '-sek')):
                 yield result
-            elif any(role_part in result['name']
-                     for role_part in (':' + role + ':',
-                                       ':' + role + '-sek:')):
+            elif sub and any(role_part in result['name']
+                             for role_part in (':' + role + ':',
+                                               ':' + role + '-sek:')):
                 yield result
 
 
@@ -253,7 +348,158 @@ def get_account_by_name(db, account_name):
     return ac
 
 
-class GroupUtil(object):
+def _pydate(obj):
+    if obj is None:
+        return obj
+    # otherwise assume mx.DateTime
+    return obj.pydate()
+
+
+def get_groups(db):
+    gr = Factory.get('Group')(db)
+    g_vis = {int(c): c
+             for c in gr.const.fetch_constants(gr.const.GroupVisibility)}
+    g_typ = {int(c): c
+             for c in gr.const.fetch_constants(gr.const.GroupType)}
+    for row in gr.search():
+        yield {
+            'id': row['group_id'],
+            'name': row['name'],
+            'group_type': g_typ[row['group_type']],
+            'visibility': g_vis[row['visibility']],
+            'expire_date': _pydate(row['expire_date']),
+            'description': row['description'],
+        }
+
+
+def get_memberships(db):
+    """ Fetch group-in-group memberships. """
+    # Note: Since we only ever consider groups-in-groups, we end up ignoring
+    #       all other members. I.e. if a person or account is added to a edu
+    #       group, it will remain there until manually removed.
+    gr = Factory.get('Group')(db)
+    for row in gr.search_members(member_type=gr.const.entity_group):
+        yield row['group_id'], row['member_id']
+
+
+class GroupCache(object):
+
+    def __init__(self, db):
+        self._db = db
+        self.groups = {}
+        self.names = {}
+        self.members = collections.defaultdict(set)
+
+        const = Factory.get('Constants')(db)
+        self.group_type = const.group_type_edu_meta
+        self.group_visibility = const.group_visibility_all
+
+    def cache(self):
+        """ Cache (relevant) groups and group memberhips. """
+        with timer('caching groups'):
+            for group in get_groups(self._db):
+                self.groups[group['id']] = group
+                self.names[group['name']] = group['id']
+            logger.info('cached %d groups', len(self.groups))
+
+        with timer('caching group memberships'):
+            for group_id, member_id in get_memberships(self._db):
+                self.members[group_id].add(member_id)
+            logger.info('cached %d memberships in %d groups',
+                        sum(len(m) for m in self.members.values()),
+                        len(self.members))
+
+    @property
+    def creator(self):
+        """ Creator account for new groups. """
+        try:
+            self._creator
+        except AttributeError:
+            self._creator = get_account_by_name(
+                self._db,
+                cereconf.INITIAL_ACCOUNTNAME).entity_id
+        return self._creator
+
+    def create_group(self, name, description):
+        """
+        Create a new group
+        """
+        group = Factory.get('Group')(self._db)
+        g_type = self.group_type
+        g_vis = self.group_visibility
+        group.populate(
+            creator_id=self.creator,
+            visibility=g_vis,
+            name=name,
+            description=description,
+            group_type=g_type,
+        )
+        group.write_db()
+        self.groups[group.entity_id] = {
+            'id': group.entity_id,
+            'name': group.group_name,
+            'group_type': g_type,
+            'visibility': g_vis,
+            'expire_date': None,
+            'description': group.description,
+        }
+        self.names[group.group_name] = group.entity_id
+        self.members[group.entity_id] = set()
+        logger.info('group %r created', group.group_name)
+        return group
+
+    def update_group(self, group, description):
+        wants = {
+            'group_type': self.group_type,
+            'visibility': self.group_visibility,
+            'description': description,
+        }
+
+        update = False
+        for k, v in wants.items():
+            if getattr(group, k) != v:
+                setattr(group, k, v)
+                update = True
+
+        if update:
+            self.groups[group.entity_id].update(wants)
+            group.write_db()
+            logger.info('group %r updated', group.group_name)
+
+    def sync_members(self, group, needs_members):
+        current_members = self.members.get(group.entity_id, set())
+        to_remove = current_members - needs_members
+        to_add = needs_members - current_members
+
+        if to_add or to_remove:
+            for member_id in to_remove:
+                group.remove_member(member_id)
+            for member_id in to_add:
+                group.add_member(member_id)
+            self.members[group.entity_id] = needs_members
+            logger.info('group %r, added=%d, removed=%d',
+                        group.group_name, len(to_add), len(to_remove))
+
+    def update_expire_date(self, group, expire_date):
+        if not group.expire_date or group.expire_date < expire_date:
+            group.expire_date = expire_date
+            group.write_db()
+            self.groups[group.entity_id]['expire_date'] = expire_date
+            logger.info('group %r, new expire_date=%r',
+                        group.group_name, group.expire_date)
+
+    def assert_group(self, name, description, expire_date):
+        if name in self.names:
+            gr = get_group_by_name(self._db, name)
+            self.update_group(gr, description)
+        else:
+            gr = self.create_group(name, description)
+
+        self.update_expire_date(gr, expire_date)
+        return gr
+
+
+class EduGroupBuilder(object):
 
     # Expire N days after the unit is no longer "relevant"
     expire = datetime.timedelta(days=15)
@@ -271,111 +517,121 @@ class GroupUtil(object):
         "studiekons", "tolk", "tilsyn"
     )
 
-    def __init__(self, db):
-        self._db = db
+    # TODO: This would be a lot more effective if we tried a bit harder to use
+    #       the cache before actually looking up the group.
+    #       If everything is already in sync, we shouldn't have to ever have to
+    #       get_group_by_name
 
-    @property
-    def creator(self):
-        """ Creator account for new groups. """
-        try:
-            self._creator
-        except AttributeError:
-            self._creator = get_account_by_name(
-                self._db,
-                cereconf.INITIAL_ACCOUNTNAME).entity_id
-        return self._creator
+    def __init__(self, db, nested=False):
+        self._db = db
+        self._gr = Factory.get('Group')(db)
+        self.cache = GroupCache(db)
+        self.cache.cache()
+        self.nested = nested
+
+    def get_expire_date(self, fsobj):
+        return fsobj.get_date_range()[1] + self.expire
+
+    def get_unit_members(self, unit, roles):
+        name_pattern = self.fs_prefix + ':' + unit.key + ':*'
+        return set(
+            r['group_id']
+            for r in filter_groups(self._gr.search(name=name_pattern),
+                                   roles, sub=not self.nested))
+
+    def get_act_members(self, activity, roles):
+        unit_key = activity.unit.key
+        act_id = activity.activity_id
+        name_pattern = self.fs_prefix + ':' + unit_key + ':*:' + act_id
+        return set(
+            r['group_id']
+            for r in filter_groups(self._gr.search(name=name_pattern),
+                                   roles, sub=True))
+
+    def _sync_activity_group(self, activity, roles, group_name, group_desc):
+        expire_date = self.get_expire_date(activity)
+        gr = self.cache.assert_group(group_name, group_desc, expire_date)
+        needs_members = self.get_act_members(activity, roles)
+        self.cache.sync_members(gr, needs_members)
+        return gr
+
+    def sync_edu_group_student_act(self, name, activity):
+        group_name = '-'.join(('student', 'emne', name, activity.activity_id))
+        group_desc = 'Deltakere i ' + activity.description
+        gr = self._sync_activity_group(activity, self.student_roles,
+                                       group_name, group_desc)
+        return gr.entity_id
+
+    def sync_edu_group_educators_act(self, name, activity):
+        group_name = '-'.join(('fagansvar', 'emne', name,
+                               activity.activity_id))
+        group_desc = 'Fagansvarlige i ' + activity.description
+        gr = self._sync_activity_group(activity, self.educator_roles,
+                                       group_name, group_desc)
+        return gr.entity_id
 
     def sync_edu_group_students(self, name, unit):
         group_name = '-'.join(('student', 'emne', name))
         group_desc = 'Studenter ved ' + unit.description
-        expire_date = unit.get_date_range()[1] + self.expire
-        gr = self._assert_group(group_name, group_desc, expire_date)
+        expire_date = self.get_expire_date(unit)
+        gr = self.cache.assert_group(group_name, group_desc, expire_date)
 
-        # Sync group members
-        candidates_pattern = self.fs_prefix + ':' + unit.key + ':*'
-        needs_members = set(
-            r['group_id']
-            for r in filter_groups(gr.search(name=candidates_pattern),
-                                   self.student_roles))
-        self._sync_members(gr, needs_members)
-        logger.info('group: %s, members: %s', name, len(needs_members))
+        needs_members = self.get_unit_members(unit, self.student_roles)
+        if self.nested:
+            for act_id, act in unit.activities.items():
+                needs_members.add(
+                    self.sync_edu_group_student_act(name, act))
+
+        self.cache.sync_members(gr, needs_members)
+        return gr.entity_id
 
     def sync_edu_group_educators(self, name, unit):
         group_name = '-'.join(('fagansvar', 'emne', name))
         group_desc = 'Fagansvarlige for ' + unit.description
-        expire_date = unit.get_date_range()[1] + self.expire
-        gr = self._assert_group(group_name, group_desc, expire_date)
+        expire_date = self.get_expire_date(unit)
+        gr = self.cache.assert_group(group_name, group_desc, expire_date)
 
-        # Sync group members
-        candidates_pattern = self.fs_prefix + ':' + unit.key + ':*'
-        needs_members = set(
-            r['group_id']
-            for r in filter_groups(gr.search(name=candidates_pattern),
-                                   self.educator_roles))
+        needs_members = self.get_unit_members(unit, self.educator_roles)
+        if self.nested:
+            for act_id, act in unit.activities.items():
+                needs_members.add(
+                    self.sync_edu_group_educators_act(name, act))
 
-        self._sync_members(gr, needs_members)
-        logger.info('group: %s, members: %s', name, len(needs_members))
-
-    def _sync_members(self, group, needs_members):
-        current_members = set(
-            r['member_id']
-            for r in group.search_members(group_id=group.entity_id))
-        to_remove = current_members - needs_members
-        to_add = needs_members - current_members
-
-        for member_id in to_remove:
-            group.remove_member(member_id)
-        for member_id in to_add:
-            group.add_member(member_id)
-
-        if to_add or to_remove:
-            logger.info('group=%r, added=%d, removed=%d',
-                        group.group_name, len(to_add), len(to_remove))
-
-    def _assert_group(self, name, description, expire_date):
-        try:
-            gr = get_group_by_name(self._db, name)
-            logger.debug('updating %r', name)
-            self._update_group(gr, description)
-        except NotFoundError:
-            logger.info('creating %r', name)
-            gr = self._create_group(name, description)
-
-        if not gr.expire_date or gr.expire_date < expire_date:
-            gr.expire_date = expire_date
-            logger.info('group=%r, new expire_date=%r',
-                        gr.group_name, gr.expire_date)
-            gr.write_db()
-        return gr
-
-    def _update_group(self, group, description):
-        group.group_type = group.const.group_type_edu_meta
-        group.visibility = group.const.group_visibility_all
-        group.description = description
-        group.write_db()
-
-    def _create_group(self, name, description):
-        group = Factory.get('Group')(self._db)
-        group_type = group.const.group_type_edu_meta
-        group.populate(
-            creator_id=self.creator,
-            visibility=group.const.group_visibility_all,
-            name=name,
-            description=description,
-            group_type=group_type,
-        )
-        group.write_db()
-        return group
+        self.cache.sync_members(gr, needs_members)
+        return gr.entity_id
 
 
-def sync_unit_groups(db, units):
-    group_names = build_group_names(units)
+def get_units(unit_file, activity_file=None, filter_units=None, date=None):
+    """ Fetch all edu units required to build groups. """
+    date = date or datetime.date.today()
+    filter_units = filter_units or ()
 
-    util = GroupUtil(db)
+    all_units = dict(read_edu_units(unit_file, date=date))
 
-    for basename, unit in group_names.items():
-        util.sync_edu_group_students(basename, unit)
-        util.sync_edu_group_educators(basename, unit)
+    if filter_units:
+        units = {}
+        for k in all_units:
+            if any(regex.match(k) for regex in filter_units):
+                units[k] = all_units[k]
+    else:
+        units = all_units
+
+    if activity_file:
+        all_acts = dict(read_edu_activities(activity_file, date=date))
+    else:
+        all_acts = {}
+
+    # update edu units with edu activities
+    for act in all_acts.values():
+        if act.unit.key not in units:
+            continue
+        units[act.unit.key].activities[act.activity_id] = act
+
+    n_activities = sum(len(u.activities) for u in units.values())
+    logger.info('Found %d units and %d activities',
+                len(units), n_activities)
+
+    return units
 
 
 DEFAULT_LOG_PRESET = 'cronjob'
@@ -393,6 +649,12 @@ def main(inargs=None):
         help='only create groups for edu units that match the given regex',
     )
     parser.add_argument(
+        '--activity-groups',
+        dest='act_file',
+        help='build activity sub-groups from a '
+             'undervisningsaktiviteter.xml file',
+    )
+    parser.add_argument(
         'unit_file',
         help='a undervisningenheter.xml file',
     )
@@ -406,22 +668,27 @@ def main(inargs=None):
     logger.info('Start of script %s', parser.prog)
     logger.debug('args: %r', args)
 
-    today = datetime.date.today()
-    all_units = dict(get_edu_units(args.unit_file, date=today))
+    with timer('reading FS data', logging.INFO):
+        units = get_units(args.unit_file,
+                          activity_file=args.act_file,
+                          filter_units=args.include)
+        nested = bool(args.act_file)
+        edu_groups = build_group_idents(units)
 
-    if args.include:
-        units = {}
-        for k in all_units:
-            if any(regex.match(k) for regex in args.include):
-                units[k] = all_units[k]
-    else:
-        units = all_units
+    with timer('preparing Cerebrum data', logging.INFO):
+        db = Factory.get("Database")()
+        db.cl_init(change_program=parser.prog)
+        builder = EduGroupBuilder(db, nested)
 
-    db = Factory.get("Database")()
-    db.cl_init(change_program=parser.prog)
-
-    logger.info('Syncing groups for %d units', len(units))
-    sync_unit_groups(db, units)
+    total = len(edu_groups)
+    with timer('updating groups', logging.INFO):
+        for n, ident in enumerate(sorted(edu_groups), 1):
+            unit = edu_groups[ident]
+            logger.debug('processing groups for %s %r', ident, unit)
+            builder.sync_edu_group_students(ident, unit)
+            builder.sync_edu_group_educators(ident, unit)
+            if n % 100 == 0:
+                logger.debug('processed %d/%d units', n, total)
 
     if args.commit:
         logger.info('Commiting changes')
