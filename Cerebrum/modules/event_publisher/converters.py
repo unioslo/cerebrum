@@ -27,6 +27,7 @@ can be formatted and published.
 """
 from __future__ import absolute_import, print_function
 
+import datetime
 import re
 import six
 from collections import OrderedDict
@@ -436,6 +437,8 @@ def quarantine_add(msg, **kwargs):
             raise TypeError('Invalid date/datetime {0} ({1})'.format(
                 type(start), repr(start)
             ))
+    elif isinstance(start, datetime.date):
+        start = date_to_datetime(start)
     # co = Factory.get('Constants')(args[-1])
     # tp = msg['data']['q_type']
     # TODO: Quarantine handler

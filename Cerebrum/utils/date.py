@@ -263,6 +263,11 @@ def parse_to_datetime(dtstr):
         return datetime.datetime.strptime(dtstr, '%Y-%m-%d')
 
 
+def date_to_datetime(date, time=None):
+    if time is None:
+        time = datetime.time(hour=0)
+    return datetime.datetime.combine(date, time)
+
 # python -m Cerebrum.utils.date
 
 
