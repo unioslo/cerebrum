@@ -132,9 +132,9 @@ class IPv6Subnet(Entity):
         self.vlan = vlan
 
         # TODO: Fix this
-        max_res = max(cereconf.DEFAULT_RESERVED_BY_IPv6_NET_SIZE.values())
-        self.no_of_reserved_adr = cereconf.DEFAULT_RESERVED_BY_IPv6_NET_SIZE.get(
-            self.subnet_mask, max_res)
+        res_net_size = cereconf.DEFAULT_RESERVED_BY_IPv6_NET_SIZE
+        max_res = max(res_net_size.values())
+        self.no_of_reserved_adr = res_net_size.get(self.subnet_mask, max_res)
         self.calculate_reserved_addresses()
 
     def check_for_overlaps(self):
@@ -295,7 +295,7 @@ class IPv6Subnet(Entity):
                      'description': self.description,
                      'vlan_number': self.vlan_number,
                      'dns_delegated': self.dns_delegated,
-                     'name_pre': self.name_prefix,
+                     'name_prefix': self.name_prefix,
                      'no_of_reserved_adr': self.no_of_reserved_adr
                      }
             defs = {'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
