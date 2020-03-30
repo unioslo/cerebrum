@@ -33,6 +33,7 @@ from collections import OrderedDict
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.event_publisher.utils import get_entity_ref
+from Cerebrum.utils.date import parse_to_datetime, date_to_datetime
 from . import event
 
 
@@ -428,6 +429,13 @@ def person(*args, **kwargs):
 def quarantine_add(msg, **kwargs):
     common = _make_common_args(msg)
     start = msg['data'].get('start')
+    if isinstance(start, (str, unicode, )):
+        try:
+            start = parse_to_datetime(start)
+        except ValueError:
+            raise TypeError('Invalid date/datetime {0} ({1})'.format(
+                type(start), repr(start)
+            ))
     # co = Factory.get('Constants')(args[-1])
     # tp = msg['data']['q_type']
     # TODO: Quarantine handler

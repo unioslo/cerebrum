@@ -248,7 +248,23 @@ def parse(dtstr):
     return datetime2mx(parse_datetime(dtstr))
 
 
+def parse_to_datetime(dtstr):
+    """Converts a value from str to datetime if it matches a pattern
+
+    The string must be on the formatted as a date or datetime. Does not
+    localize the resulting datetime object.
+    """
+    try:
+        if 'T' not in dtstr:
+            return aniso8601.parse_datetime(dtstr, delimiter=' ')
+        else:
+            return aniso8601.parse_datetime(dtstr)
+    except ValueError:
+        return datetime.datetime.strptime(dtstr, '%Y-%m-%d')
+
+
 # python -m Cerebrum.utils.date
+
 
 def main(inargs=None):
     import argparse
