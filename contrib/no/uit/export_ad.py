@@ -68,6 +68,7 @@ class AdExport(object):
         self.aff_to_stilling_map = dict()
         self.num2const = dict()
         self.userexport = []
+        self.is_sito_account = []
 
     def load_cbdata(self, empfile):
 
@@ -92,13 +93,11 @@ class AdExport(object):
                 id_type=self.co.externalid_sito_ansattnr,
                 source_system=self.co.system_sito):
             self.pid2sitoid[row['entity_id']] = row['external_id']
-        logger.info("Start get constants")
         for c in dir(self.co):
             tmp = getattr(self.co, c)
             if isinstance(tmp, _CerebrumCode):
                 self.num2const[int(tmp)] = tmp
         self.person_affs = self.list_affiliations()
-        logger.info("#####")
         logger.info("Cache person names")
         self.cached_names = self.person.getdict_persons_names(
             source_system=self.co.system_cached,
@@ -128,8 +127,11 @@ class AdExport(object):
                                                       fetchall=False):
             self.account_affs.setdefault(row['account_id'], list()).append(
                 (row['affiliation'], row['ou_id']))
+            if row['affiliation'] == int(self.co.affiliation_ansatt_sito):
+                # add sito account to sito list
+                self.is_sito_account.append(row['account_id'])
             aff_cached += 1
-        logger.debug("Cached %d affiliations", aff_cached)
+        logger.info("Cached %d affiliations", aff_cached)
 
         # quarantines
         logger.info("Loading account quarantines...")
@@ -226,7 +228,7 @@ class AdExport(object):
                 sko = ou_info['sko']
                 company = ou_info['company']
             except EntityExpiredError:
-                logger.error(
+                logger.warning(
                     "person id:%s affiliated to expired ou:%s. Do not export",
                     p_id, ou_id)
                 continue
@@ -276,7 +278,6 @@ class AdExport(object):
                 affinfo['company'] = sitosted['company']
                 affinfo['sted'] = sitosted['sted']
                 affinfo['parents'] = ",".join(sitosted['parents'])
-                logger.debug("processing sito person:%s", sito_id)
 
             tmp = person_affs.get(p_id, list())
             if affinfo not in tmp:
@@ -291,7 +292,7 @@ class AdExport(object):
         userexport = list()
         for item in self.ad_accounts:
             count += 1
-            if count % 500 == 0:
+            if count % 1000 == 0:
                 logger.info("Processed %d accounts", count)
             acc_id = item['account_id']
             name = item['name']
@@ -307,10 +308,10 @@ class AdExport(object):
                 last_name = namelist.get(int(self.co.name_last))
             except AttributeError:
                 if owner_type == self.co.entity_person:
-                    logger.error("Failed to get name for a_id/o_id=%s/%s",
-                                 acc_id, owner_id)
+                    logger.warning("Failed to get name for a_id/o_id=%s/%s",
+                                   acc_id, owner_id)
                 else:
-                    logger.warn(
+                    logger.warning(
                         "No name found for a_id/o_id=%s/%s, ownertype was %s",
                         acc_id, owner_id, owner_type)
 
@@ -362,7 +363,7 @@ class AdExport(object):
                        for valid in (UsernamePolicy.is_valid_uit_name,
                                      UsernamePolicy.is_valid_sito_name,
                                      UsernamePolicy.is_valid_guest_name)):
-                logger.error("Username not valid for AD: %s", item['name'])
+                logger.warning("Username not valid for AD: %s", item['name'])
                 continue
             xml.startElement('user')
             xml.dataElement('samaccountname', item['name'])
@@ -386,7 +387,6 @@ class AdExport(object):
             accid = self.accname2accid[item['name']]
             contact = self.person2contact.get(self.accid2ownerid[accid])
 
-            #
             # In some cases the person object AND the account object will
             # have different contact information.
             # If an account object contains contact data of the same type as
@@ -433,6 +433,7 @@ class AdExport(object):
             if item['forward'] != '':
                 xml.dataElement('targetAddress', str(item['forward']))
             if contact:
+                contact = self.filter_contact(contact, accid)
                 xml.startElement('contactinfo')
                 for c in contact:
                     source = str(
@@ -495,6 +496,20 @@ class AdExport(object):
         xml.endDocument()
         stream.close()
 
+    def filter_contact(self, contact, accid):
+        filtered_contact_list = []
+        if accid in self.is_sito_account:
+            # sito account. filter out all uit contact info
+            for c in contact:
+                if c['source_system'] == self.co.system_sito:
+                    filtered_contact_list.append(c)
+        else:
+            # uit account. filter out all sito contact info
+            for c in contact:
+                if c['source_system'] != self.co.system_sito:
+                    filtered_contact_list.append(c)
+        return filtered_contact_list
+
     def scan_person_affs(self, person):
 
         pagaid = person['ansattnr']
@@ -520,7 +535,7 @@ class AdExport(object):
             elif t['hovedkategori'] == 'VIT':
                 tilknytning = self.co.affiliation_status_ansatt_vitenskapelig
             else:
-                logger.warning("Unknown hovedkat: %s", t['hovedkategori'])
+                logger.debug("Unknown hovedkat: %s", t['hovedkategori'])
                 continue
 
             pros = "%2.2f" % float(t['stillingsandel'])
@@ -675,7 +690,6 @@ class AdExport(object):
                 break
             self.ou.clear()
             self.ou.find(parent_id)
-            logger.debug("Lookup returned: id=%s", self.ou.entity_id)
             # Detect infinite loops
             if self.ou.entity_id in visited:
                 raise RuntimeError("DEBUG: Loop detected: %r" % visited)
