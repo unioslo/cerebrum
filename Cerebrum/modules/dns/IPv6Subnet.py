@@ -130,11 +130,12 @@ class IPv6Subnet(Entity):
             self.subnet_ip, self.subnet_mask)
         self.description = description
         self.vlan = vlan
+        self.name_prefix = ''
 
         # TODO: Fix this
-        max_res = max(cereconf.DEFAULT_RESERVED_BY_IPv6_NET_SIZE.values())
-        self.no_of_reserved_adr = cereconf.DEFAULT_RESERVED_BY_IPv6_NET_SIZE.get(
-            self.subnet_mask, max_res)
+        res_net_size = cereconf.DEFAULT_RESERVED_BY_IPv6_NET_SIZE
+        max_res = max(res_net_size.values())
+        self.no_of_reserved_adr = res_net_size.get(self.subnet_mask, max_res)
         self.calculate_reserved_addresses()
 
     def check_for_overlaps(self):
@@ -270,20 +271,27 @@ class IPv6Subnet(Entity):
             self.check_for_overlaps()
             if perform_checks:
                 self.check_reserved_addresses_in_use()
-            binds = {'no_of_reserved_adr': self.no_of_reserved_adr,
-                     'description': self.description,
-                     'entity_type': int(self.const.entity_dns_ipv6_subnet),
-                     'entity_id': self.entity_id,
-                     'subnet_ip': self.subnet_ip,
-                     'ip_min': self.ip_min,
-                     'ip_max': self.ip_max}
+            binds = {
+                'no_of_reserved_adr': self.no_of_reserved_adr,
+                'description': self.description,
+                'entity_type': int(self.const.entity_dns_ipv6_subnet),
+                'entity_id': self.entity_id,
+                'subnet_ip': self.subnet_ip,
+                'ip_min': self.ip_min,
+                'ip_max': self.ip_max,
+                'name_prefix': self.name_prefix,
+            }
             if self.vlan is not None:
                 binds['vlan_number'] = self.vlan
-            defs = {'tc': ', '.join(x for x in sorted(binds)),
-                    'tb': ', '.join(':{0}'.format(x) for x in sorted(binds))}
             insert_stmt = """
-            INSERT INTO [:table schema=cerebrum name=dns_ipv6_subnet] (%(tc)s)
-            VALUES (%(tb)s)""" % defs
+              INSERT INTO [:table schema=cerebrum name=dns_ipv6_subnet]
+                ({cols})
+              VALUES
+                ({binds})
+            """.format(
+                cols=', '.join(sorted(binds)),
+                binds=', '.join(':{0}'.format(x) for x in sorted(binds)),
+            )
             self.execute(insert_stmt, binds)
             self._db.log_change(self.entity_id,
                                 self.clconst.subnet6_create,
@@ -291,31 +299,37 @@ class IPv6Subnet(Entity):
         else:
             if perform_checks:
                 self.check_reserved_addresses_in_use()
-            binds = {'entity_id': self.entity_id,
-                     'description': self.description,
-                     'vlan_number': self.vlan_number,
-                     'dns_delegated': self.dns_delegated,
-                     'name_pre': self.name_prefix,
-                     'no_of_reserved_adr': self.no_of_reserved_adr
-                     }
-            defs = {'ts': ', '.join('{0}=:{0}'.format(x) for x in binds
-                                    if x != 'entity_id'),
-                    'tw': ' AND '.join('{0}=:{0}'.format(x) for x in binds)}
+            binds = {
+                'entity_id': self.entity_id,
+                'description': self.description,
+                'vlan_number': self.vlan_number,
+                'dns_delegated': self.dns_delegated,
+                'name_prefix': self.name_prefix,
+                'no_of_reserved_adr': self.no_of_reserved_adr,
+            }
             exists_stmt = """
               SELECT EXISTS (
                 SELECT 1
                 FROM [:table schema=cerebrum name=dns_ipv6_subnet]
-                WHERE (vlan_number is NULL AND :vlan_number is NULL OR
-                         vlan_number=:vlan_number) AND
-                     %(tw)s
+                WHERE
+                  (vlan_number is NULL AND :vlan_number is NULL OR
+                   vlan_number=:vlan_number) AND
+                  {where}
               )
-            """ % defs
+            """.format(
+                where=' AND '.join('{0}=:{0}'.format(x)
+                                   for x in binds if x != 'vlan_number')
+            )
             if not self.query_1(exists_stmt, binds):
                 # True positive
                 update_stmt = """
-                UPDATE [:table schema=cerebrum name=dns_ipv6_subnet]
-                SET %(ts)s
-                WHERE entity_id=:entity_id""" % defs
+                  UPDATE [:table schema=cerebrum name=dns_ipv6_subnet]
+                  SET {updates}
+                  WHERE entity_id=:entity_id
+                """.format(
+                    updates=', '.join('{0}=:{0}'.format(x)
+                                      for x in binds if x != 'entity_id'),
+                )
                 self.execute(update_stmt, binds)
                 self._db.log_change(self.entity_id,
                                     self.clconst.subnet6_mod,

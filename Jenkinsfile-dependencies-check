@@ -1,0 +1,37 @@
+#!/usr/bin/env groovy
+
+/* Ignore IDs changelog.
+ *
+ * 35433 - Suds. Used by the SOAP-api. Does not affect the parts of suds that we use.
+ */
+
+pipeline {
+  agent any
+  triggers {
+    cron('@weekly')
+  }
+  stages {
+    stage('Run check') {
+      steps {
+        build(
+          job: 'jenkins-common-jobs/dependencies-checking/python-dependency-checker',
+          parameters: [
+            string(
+              name: 'gitUrl',
+              value: "https://bitbucket.usit.uio.no/scm/crb/cerebrum.git"),
+            string(
+              name: 'notificationMail',
+              value: 'bnt-int@usit.uio.no'),
+            string(
+              name: 'pythonVersion',
+              value: 'python2'),
+            string(
+              name: 'ignoreIds',
+              value: '35433',
+            )
+          ]
+        )
+      }
+    }
+  }
+}
