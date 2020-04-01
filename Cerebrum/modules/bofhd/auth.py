@@ -1270,7 +1270,7 @@ class BofhdAuth(DatabaseAccessor):
         if self.is_owner_of_account(operator, entity):
             return True
         return self.has_privileged_access_to_account_or_person(
-                    operator, self.const.auth_set_password, entity)
+                    operator, self.const.auth_quarantine_show, entity)
 
     def can_create_disk(self, operator, host=None, query_run_any=False):
         if self.is_superuser(operator):
@@ -1819,6 +1819,20 @@ class BofhdAuth(DatabaseAccessor):
             raise PermissionDenied(
                 "Not allowed to set password for '{}'".format(
                     account.account_name))
+
+    def can_verify_password(self, operator, account=None,
+                            query_run_any=False):
+        """Check if operator has permission to verify password of account"""
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return True
+        if operator == account.entity_id:
+            return True
+        if self._no_account_home(operator, account):
+            return True
+        return self.has_privileged_access_to_account_or_person(
+            operator, self.const.auth_verify_password, account)
 
     def can_set_shell(self, operator, account=None, shell=None,
                       query_run_any=False):
