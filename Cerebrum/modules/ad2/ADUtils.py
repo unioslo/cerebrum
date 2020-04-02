@@ -828,9 +828,12 @@ class ADclient(PowershellClient):
         elif str(object_class).lower() == 'computer':
             if 'PasswordNotRequired' not in attributes:
                 parameters["PasswordNotRequired"] = True
+            if 'Enabled' not in attributes:
+                parameters['Enabled'] = False
             if 'SamAccountName' in attributes:
                 parameters['SamAccountName'] = attributes['SamAccountName']
                 del attributes['SamAccountName']
+
             else:
                 parameters['SamAccountName'] = name
 
