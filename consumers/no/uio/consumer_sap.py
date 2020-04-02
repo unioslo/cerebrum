@@ -164,7 +164,7 @@ def parse_address(d):
             r.get('workVisitingAddress').get('location'))
     return tuple([(k, tuple(sorted(filter_elements(translate_keys(v, m))))) for
                   (k, v) in filter_elements(
-                      translate_keys(filter_meta(r), m))])
+            translate_keys(filter_meta(r), m))])
 
 
 def verify_sap_header(header):
@@ -216,9 +216,10 @@ def parse_contacts(d):
             n = None
         (k, v) = l[0]
         return ((k,
-                (('contact_pref', pref),
-                 ('contact_value', v),
-                 ('description', None)),),) + expand(n, pref + 1)
+                 (('contact_pref', pref),
+                  ('contact_value', v),
+                  ('description', None)),),) + expand(n, pref + 1)
+
     return expand(
         filter_elements(
             translate_keys({c: d.get(c) for c in m.keys()}, m)))
@@ -249,9 +250,9 @@ def parse_titles(d):
                         co.language_en,
                         d.get('personalTitle', {}).get('en'))] +
             map(lambda lang: make_tuple(
-                    co.personal_title,
-                    lang,
-                    d.get('personalTitle', {}).get('nb')),
+                co.personal_title,
+                lang,
+                d.get('personalTitle', {}).get('nb')),
                 [co.language_nb, co.language_nn]))
     # Select appropriate work title.
     assignment = None
@@ -264,7 +265,7 @@ def parse_titles(d):
         if not assignment:
             assignment = e
         elif (float(e.get('agreedFTEPercentage')) >
-                float(assignment.get('agreedFTEPercentage'))):
+              float(assignment.get('agreedFTEPercentage'))):
             assignment = e
     if assignment:
         titles.extend(map(lambda (lang_code, lang_str): make_tuple(
@@ -312,8 +313,8 @@ def _get_ou(database, sap_id, placecode):
         ou.find_stedkode(
             *map(''.join,
                  zip(*[iter(str(
-                     placecode))]*2)) +
-            [cereconf.DEFAULT_INSTITUSJONSNR])
+                     placecode))] * 2)) +
+             [cereconf.DEFAULT_INSTITUSJONSNR])
         return ou
     except Errors.NotFoundError:
         return None
@@ -366,20 +367,20 @@ def parse_affiliations(database, d):
 def _sap_roles_to_affiliation_map():
     co = Factory.get('Constants')
     return OrderedDict(
-            [('INNKJØPER', co.affiliation_tilknyttet_innkjoper),
-             ('EF-FORSKER', co.affiliation_tilknyttet_ekst_forsker),
-             ('EMERITUS', co.affiliation_tilknyttet_emeritus),
-             ('BILAGSLØNN', co.affiliation_tilknyttet_bilag),
-             ('GJ-FORSKER', co.affiliation_tilknyttet_gjesteforsker),
-             ('ASSOSIERT', co.affiliation_tilknyttet_assosiert_person),
-             ('EF-STIP', co.affiliation_tilknyttet_ekst_stip),
-             ('GRP-LÆRER', co.affiliation_tilknyttet_grlaerer),
-             ('EKST-KONS', co.affiliation_tilknyttet_ekst_partner),
-             ('PCVAKT', co.affiliation_tilknyttet_pcvakt),
-             ('EKST-PART', co.affiliation_tilknyttet_ekst_partner),
-             ('KOMITEMEDLEM', co.affiliation_tilknyttet_komitemedlem),
-             ('STEDOPPLYS', None),
-             ('POLS-ANSAT', None)])
+        [('INNKJØPER', co.affiliation_tilknyttet_innkjoper),
+         ('EF-FORSKER', co.affiliation_tilknyttet_ekst_forsker),
+         ('EMERITUS', co.affiliation_tilknyttet_emeritus),
+         ('BILAGSLØNN', co.affiliation_tilknyttet_bilag),
+         ('GJ-FORSKER', co.affiliation_tilknyttet_gjesteforsker),
+         ('ASSOSIERT', co.affiliation_tilknyttet_assosiert_person),
+         ('EF-STIP', co.affiliation_tilknyttet_ekst_stip),
+         ('GRP-LÆRER', co.affiliation_tilknyttet_grlaerer),
+         ('EKST-KONS', co.affiliation_tilknyttet_ekst_partner),
+         ('PCVAKT', co.affiliation_tilknyttet_pcvakt),
+         ('EKST-PART', co.affiliation_tilknyttet_ekst_partner),
+         ('KOMITEMEDLEM', co.affiliation_tilknyttet_komitemedlem),
+         ('STEDOPPLYS', None),
+         ('POLS-ANSAT', None)])
 
 
 def parse_roles(database, data):
@@ -412,7 +413,7 @@ def parse_roles(database, data):
     logger.info('parsed %i roles', len(r))
     return sorted(r,
                   key=(lambda x: role2aff.values().index(x.get('status')) if
-                       x.get('status') in role2aff.values() else len(r)),
+                  x.get('status') in role2aff.values() else len(r)),
                   reverse=True)
 
 
@@ -427,9 +428,9 @@ def _parse_hr_person(database, source_system, data):
         'birth_date': DateTime.DateFrom(
             data.get('dateOfBirth')),
         'gender': {'Kvinne': co.gender_female,
-                    'Mann': co.gender_male}.get(
-                        data.get('gender'),
-                        co.gender_unknown),
+                   'Mann': co.gender_male}.get(
+            data.get('gender'),
+            co.gender_unknown),
         'external_ids': parse_external_ids(data),
         'contacts': parse_contacts(data),
         'affiliations': parse_affiliations(database, data),
@@ -501,6 +502,7 @@ def get_hr_person(config, database, source_system, url,
             raise RemoteSourceError(
                 'Could not fetch {} from remote source: {}: {}'.format(
                     url, r.status_code, r.reason))
+
     return _parse_hr_person(database, source_system, _get_data(config, url))
 
 
@@ -575,6 +577,7 @@ def update_account_affs(method):
                     return
         logger.info('%r for account: %r', method.__name__, ac.entity_id)
         method(ac, ou_id, affiliation)
+
     return wrapper
 
 
@@ -749,11 +752,11 @@ def update_names(database, source_system, hr_person, cerebrum_person):
     co = Factory.get('Constants')(database)
     try:
         names = set(map(lambda name_type:
-                    (name_type,
-                     cerebrum_person.get_name(
-                         source_system,
-                         name_type)),
-                    [co.name_first, co.name_last]))
+                        (name_type,
+                         cerebrum_person.get_name(
+                             source_system,
+                             name_type)),
+                        [co.name_first, co.name_last]))
     except Errors.NotFoundError:
         names = set()
     to_remove = names - set(hr_person.get('names'))
@@ -790,8 +793,8 @@ def update_external_ids(database, source_system, hr_person, cerebrum_person):
     """
     co = Factory.get('Constants')(database)
     external_ids = set(map(lambda e: (e['id_type'], e['external_id']),
-                       cerebrum_person.get_external_id(
-                           source_system=source_system)))
+                           cerebrum_person.get_external_id(
+                               source_system=source_system)))
     to_remove = external_ids - set(hr_person.get('external_ids'))
     to_add = set(hr_person.get('external_ids')) - external_ids
     cerebrum_person.affect_external_id(
@@ -1137,12 +1140,15 @@ def main(args=None):
             datasource=datasource)
     else:
         logger.info('Starting %r', prog_name)
-        consumer = get_consumer(functools.partial(callback,
-                                                  database, source_system,
-                                                  datasource=functools.partial(
-                                                      get_hr_person,
-                                                      config.ws)),
-                                config=config.consumer)
+        consumer = get_consumer(
+            functools.partial(
+                callback,
+                database,
+                source_system,
+                datasource=functools.partial(
+                    get_hr_person,
+                    config.ws)),
+            config=config.consumer)
         with consumer:
             try:
                 consumer.start()
