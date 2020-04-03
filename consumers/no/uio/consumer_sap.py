@@ -26,6 +26,9 @@ import requests
 import json
 from collections import OrderedDict
 from six import text_type
+from mx import DateTime
+
+import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, read_password
@@ -306,7 +309,6 @@ def _get_ou(database, sap_id, placecode):
     """Populate a Cerebrum-OU-object from the DB."""
     if not placecode:
         return None
-    import cereconf
     ou = Factory.get('OU')(database)
     ou.clear()
     try:
@@ -419,7 +421,6 @@ def parse_roles(database, data):
 
 def _parse_hr_person(database, source_system, data):
     """Collects parsed information from SAP."""
-    from mx import DateTime
     co = Factory.get('Constants')
     return {
         'id': data.get('personId'),
@@ -483,17 +484,17 @@ def get_hr_person(config, database, source_system, url,
             for k in data:
                 if (isinstance(data.get(k), dict) and
                         '__deferred' in data.get(k) and
-                        'uri' in data.get(k).get('__deferred')):
-                    # Fetch, unpack and store data
+                        'uri' in data.get(k).get('__deferred') and
+                        k in ('assignments', 'roles')):
+                    # Fetch, unpack and store role/assignment data
                     deferred_uri = data.get(k).get('__deferred').get('uri')
                     # We filter by effectiveEndDate >= today to also get
                     # future assignments and roles
-                    if k in ('assignments', 'roles'):
-                        filter_param = {
-                            '$filter': "effectiveEndDate ge '{today}'".format(
-                                today=datetime.date.today())
-                        }
-                    r = _get_data(config, deferred_uri, filter_param)
+                    filter_param = {
+                        '$filter': "effectiveEndDate ge '{today}'".format(
+                            today=datetime.date.today())
+                    }
+                    r = _get_data(config, deferred_uri, params=filter_param)
                     data.update({k: r})
             return data
         elif r.status_code == 404:
