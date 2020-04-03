@@ -365,12 +365,20 @@ class AdExport(object):
         for item in self.userexport:
             if (acctlist is not None) and (item['name'] not in acctlist):
                 continue
-            if not any(valid(item['name'])
-                       for valid in (UsernamePolicy.is_valid_uit_name,
-                                     UsernamePolicy.is_valid_sito_name,
-                                     UsernamePolicy.is_valid_guest_name)):
-                logger.error("Username not valid for AD: %s", item['name'])
-                continue
+
+            if export_destination == 'AD':
+                if not any(valid(item['name'])
+                           for valid in (UsernamePolicy.is_valid_uit_name,
+                                         UsernamePolicy.is_valid_sito_name,
+                                         UsernamePolicy.is_valid_guest_name)):
+                    logger.error("Username not valid for AD: %s", item['name'])
+                    continue
+            elif export_destination == 'sito_AD':
+                if not UsernamePolicy.is_valid_sito_name(item['name']):
+                    # continue to next user if current username
+                    # is not valid for sito
+                    continue
+
             xml.startElement('user')
             xml.dataElement('samaccountname', item['name'])
             xml.dataElement('userPrincipalName', item['userPrincipalName'])
@@ -771,7 +779,6 @@ def main(inargs=None):
     export.build_xml('AD', acctlist)
     if args.export_sito:
         # generate separate sito export file
-        logger.debug("export sito data to:%s" % args.export_sito)
         export.build_xml('sito_AD', acctlist)
 
     stop = datetime.datetime.now()
@@ -779,6 +786,8 @@ def main(inargs=None):
                  start.isoformat(), stop.isoformat())
     logger.debug('Script used %f seconds', (stop - start).total_seconds())
     logger.info('Wrote ad data to filename=%r', args.outfile)
+    if args.export_sito:
+        logger.info('Wrote ad data for sito to filename=%r', args.export_sito)
     logger.info('Done %s', parser.prog)
 
 
