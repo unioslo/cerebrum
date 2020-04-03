@@ -56,8 +56,9 @@ def wash_sitosted(name):
 
 class AdExport(object):
 
-    def __init__(self, userfile, db):
+    def __init__(self, userfile, sito_userfile, db):
         self.userfile = userfile
+        self.sito_userfile = sito_userfile
         self.db = db
         self.co = Factory.get('Constants')(self.db)
         self.person = Factory.get('Person')(self.db)
@@ -330,15 +331,21 @@ class AdExport(object):
             userexport.append(entry)
         self.userexport = userexport
 
-    def build_xml(self, acctlist=None):
+    def build_xml(self, export_destination='AD', acctlist=None):
 
         incrmax = 20
+        # write to correct outfile
+        if export_destination == 'AD':
+            userfile = self.userfile
+        elif export_destination == 'sito_AD':
+            userfile = self.sito_userfile
+
         if acctlist is not None and len(acctlist) > incrmax:
             logger.error("Too many changes in incremental mode")
             return
 
-        logger.info("Start building export, writing to %s" % self.userfile)
-        stream = AtomicStreamRecoder(self.userfile,
+        logger.info("Start building export, writing to %s" % userfile)
+        stream = AtomicStreamRecoder(userfile,
                                      mode=str('w'),
                                      encoding='utf-8')
         xml = xmlprinter(stream, indent_level=2, data_mode=True,
@@ -698,6 +705,9 @@ def load_stillingstable(db):
     return stillingskode_map
 
 
+default_sito_user_file = os.path.join(
+    sys.prefix, 'var/cache/AD',
+    'sito_ad_export_{}.xml'.format(datetime.date.today().strftime('%Y-%m-%d')))
 default_user_file = os.path.join(
     sys.prefix, 'var/cache/AD',
     'ad_export_{}.xml'.format(datetime.date.today().strftime('%Y-%m-%d')))
@@ -730,6 +740,15 @@ def main(inargs=None):
     parser.add_argument('-t', '--type',
                         default='fullsync',
                         help='fullsync or incr (use only fullsync)')
+    parser.add_argument('-s', '--export-sito',
+                        metavar='<filename>',
+                        nargs='?',
+                        action='store',
+                        dest='export_sito',
+                        const=default_sito_user_file,
+                        default='',
+                        help='optional export filename',
+                        )
 
     logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
@@ -746,10 +765,14 @@ def main(inargs=None):
     start = datetime.datetime.now()
     db = Factory.get('Database')()
 
-    export = AdExport(args.outfile, db)
+    export = AdExport(args.outfile, args.export_sito, db)
     export.load_cbdata(args.infile)
     export.build_cbdata()
-    export.build_xml(acctlist)
+    export.build_xml('AD', acctlist)
+    if args.export_sito:
+        # generate separate sito export file
+        logger.debug("export sito data to:%s" % args.export_sito)
+        export.build_xml('sito_AD', acctlist)
 
     stop = datetime.datetime.now()
     logger.debug("Started at=%s, ended at=%s",
