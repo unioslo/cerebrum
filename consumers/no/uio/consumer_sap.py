@@ -441,6 +441,73 @@ def _parse_hr_person(database, source_system, data):
     }
 
 
+def _request_sap_data(config, url, params=None, ignore_read_password=False):
+    if not params:
+        params = {}
+    if ignore_read_password:
+        headers = {'Accept': 'application/json',
+                   'X-Gravitee-API-Key': 'true'}
+    else:
+        headers = {'Accept': 'application/json',
+                   'X-Gravitee-API-Key': read_password(
+                       user=config.auth_user,
+                       system=config.auth_system)}
+    try:
+        logger.debug4('Fetching %r', url)
+        response = requests.get(url, headers=headers, params=params)
+        logger.debug4('Fetch completed')
+    except Exception as e:
+        # Be polite on connection errors. Connection errors seldom fix
+        # themselves quickly.
+        import time
+        time.sleep(1)
+        raise RemoteSourceUnavailable(str(e))
+    if not verify_sap_header(response.headers):
+        logger.warn('Source system not reached')
+        raise SourceSystemNotReachedError
+    return response
+
+
+def _parse_sap_data(response, url=None):
+    if response.status_code == 200:
+        return json.loads(response.text).get('d', None)
+    elif response.status_code == 404:
+        raise EntityDoesNotExistInSourceSystemError('404: Not Found')
+    else:
+        raise RemoteSourceError(
+            'Could not fetch {} from remote source: {}: {}'.format(
+                url, response.status_code, response.reason))
+
+
+def _add_roles_and_assignments(person_data, config, ignore_read_password):
+    """Add roles and assignments to person_data received from SAP
+
+    The person_data does not include roles and assignments, but rather the
+    uri to get it from. This method fetches it and adds it to person_data.
+    """
+    for key in person_data:
+        if (isinstance(person_data.get(key), dict) and
+                '__deferred' in person_data.get(key) and
+                'uri' in person_data.get(key).get('__deferred') and
+                key in ('assignments', 'roles')):
+            # Fetch, unpack and store role/assignment data
+            deferred_uri = person_data.get(key).get('__deferred').get(
+                'uri')
+            # We filter by effectiveEndDate >= today to also get
+            # future assignments and roles
+            filter_param = {
+                '$filter': "effectiveEndDate ge '{today}'".format(
+                    today=datetime.date.today())
+            }
+            response = _request_sap_data(
+                config,
+                deferred_uri,
+                params=filter_param,
+                ignore_read_password=ignore_read_password)
+            data = _parse_sap_data(response, url=deferred_uri)
+            person_data.update({key: data})
+
+
 def get_hr_person(config, database, source_system, url,
                   ignore_read_password=False):
     """Collect a person entry from the remote source system and parse the data.
@@ -455,56 +522,15 @@ def get_hr_person(config, database, source_system, url,
 
     :raises: RemoteSourceUnavailable if the remote system can't be contacted"""
 
-    def _get_data(config, url, params=None):
-        if not params:
-            params = {}
-        if ignore_read_password:
-            headers = {'Accept': 'application/json',
-                       'X-Gravitee-API-Key': 'true'}
-        else:
-            headers = {'Accept': 'application/json',
-                       'X-Gravitee-API-Key': read_password(
-                           user=config.auth_user,
-                           system=config.auth_system)}
-        try:
-            logger.debug4('Fetching %r', url)
-            r = requests.get(url, headers=headers, params=params)
-            logger.debug4('Fetch completed')
-        except Exception as e:
-            # Be polite on connection errors. Connection errors seldom fix
-            # themselves quickly.
-            import time
-            time.sleep(1)
-            raise RemoteSourceUnavailable(str(e))
-        if not verify_sap_header(r.headers):
-            logger.warn('Source system not reached')
-            raise SourceSystemNotReachedError
-        if r.status_code == 200:
-            data = json.loads(r.text).get('d', None)
-            for k in data:
-                if (isinstance(data.get(k), dict) and
-                        '__deferred' in data.get(k) and
-                        'uri' in data.get(k).get('__deferred') and
-                        k in ('assignments', 'roles')):
-                    # Fetch, unpack and store role/assignment data
-                    deferred_uri = data.get(k).get('__deferred').get('uri')
-                    # We filter by effectiveEndDate >= today to also get
-                    # future assignments and roles
-                    filter_param = {
-                        '$filter': "effectiveEndDate ge '{today}'".format(
-                            today=datetime.date.today())
-                    }
-                    r = _get_data(config, deferred_uri, params=filter_param)
-                    data.update({k: r})
-            return data
-        elif r.status_code == 404:
-            raise EntityDoesNotExistInSourceSystemError('404: Not Found')
-        else:
-            raise RemoteSourceError(
-                'Could not fetch {} from remote source: {}: {}'.format(
-                    url, r.status_code, r.reason))
+    def _get_person_data():
+        response = _request_sap_data(config,
+                                     url,
+                                     ignore_read_password=ignore_read_password)
+        person_data = _parse_sap_data(response, url=url)
+        _add_roles_and_assignments(person_data, config, ignore_read_password)
+        return person_data
 
-    return _parse_hr_person(database, source_system, _get_data(config, url))
+    return _parse_hr_person(database, source_system, _get_person_data())
 
 
 def get_cerebrum_person(database, ids):
