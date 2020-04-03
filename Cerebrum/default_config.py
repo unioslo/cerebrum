@@ -264,6 +264,10 @@ PERSON_AFFILIATION_PRECEDENCE_RULE = {
     'alumni': (290, 300),
 }
 
+# How many days before "originalHireDate" (from SAP) of a role or
+# affiliation, should it be imported to Cerebrum?
+ORIGINAL_HIRE_DATE_OFFSET = 3
+
 # Cerebrum.utils.atomicfile.SimilarSizeWriter default values
 
 # Checks should be not be globally disabled.
