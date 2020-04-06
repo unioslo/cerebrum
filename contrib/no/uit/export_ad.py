@@ -56,8 +56,9 @@ def wash_sitosted(name):
 
 class AdExport(object):
 
-    def __init__(self, userfile, db):
+    def __init__(self, userfile, sito_userfile, db):
         self.userfile = userfile
+        self.sito_userfile = sito_userfile
         self.db = db
         self.co = Factory.get('Constants')(self.db)
         self.person = Factory.get('Person')(self.db)
@@ -68,7 +69,6 @@ class AdExport(object):
         self.aff_to_stilling_map = dict()
         self.num2const = dict()
         self.userexport = []
-        self.is_sito_account = []
 
     def load_cbdata(self, empfile):
 
@@ -93,11 +93,13 @@ class AdExport(object):
                 id_type=self.co.externalid_sito_ansattnr,
                 source_system=self.co.system_sito):
             self.pid2sitoid[row['entity_id']] = row['external_id']
+        logger.info("Start get constants")
         for c in dir(self.co):
             tmp = getattr(self.co, c)
             if isinstance(tmp, _CerebrumCode):
                 self.num2const[int(tmp)] = tmp
         self.person_affs = self.list_affiliations()
+        logger.info("#####")
         logger.info("Cache person names")
         self.cached_names = self.person.getdict_persons_names(
             source_system=self.co.system_cached,
@@ -127,11 +129,8 @@ class AdExport(object):
                                                       fetchall=False):
             self.account_affs.setdefault(row['account_id'], list()).append(
                 (row['affiliation'], row['ou_id']))
-            if row['affiliation'] == int(self.co.affiliation_ansatt_sito):
-                # add sito account to sito list
-                self.is_sito_account.append(row['account_id'])
             aff_cached += 1
-        logger.info("Cached %d affiliations", aff_cached)
+        logger.debug("Cached %d affiliations", aff_cached)
 
         # quarantines
         logger.info("Loading account quarantines...")
@@ -228,7 +227,7 @@ class AdExport(object):
                 sko = ou_info['sko']
                 company = ou_info['company']
             except EntityExpiredError:
-                logger.warning(
+                logger.error(
                     "person id:%s affiliated to expired ou:%s. Do not export",
                     p_id, ou_id)
                 continue
@@ -278,6 +277,7 @@ class AdExport(object):
                 affinfo['company'] = sitosted['company']
                 affinfo['sted'] = sitosted['sted']
                 affinfo['parents'] = ",".join(sitosted['parents'])
+                logger.debug("processing sito person:%s", sito_id)
 
             tmp = person_affs.get(p_id, list())
             if affinfo not in tmp:
@@ -292,7 +292,7 @@ class AdExport(object):
         userexport = list()
         for item in self.ad_accounts:
             count += 1
-            if count % 1000 == 0:
+            if count % 500 == 0:
                 logger.info("Processed %d accounts", count)
             acc_id = item['account_id']
             name = item['name']
@@ -308,10 +308,10 @@ class AdExport(object):
                 last_name = namelist.get(int(self.co.name_last))
             except AttributeError:
                 if owner_type == self.co.entity_person:
-                    logger.warning("Failed to get name for a_id/o_id=%s/%s",
-                                   acc_id, owner_id)
+                    logger.error("Failed to get name for a_id/o_id=%s/%s",
+                                 acc_id, owner_id)
                 else:
-                    logger.warning(
+                    logger.warn(
                         "No name found for a_id/o_id=%s/%s, ownertype was %s",
                         acc_id, owner_id, owner_type)
 
@@ -331,15 +331,21 @@ class AdExport(object):
             userexport.append(entry)
         self.userexport = userexport
 
-    def build_xml(self, acctlist=None):
+    def build_xml(self, export_destination='AD', acctlist=None):
 
         incrmax = 20
+        # write to correct outfile
+        if export_destination == 'AD':
+            userfile = self.userfile
+        elif export_destination == 'sito_AD':
+            userfile = self.sito_userfile
+
         if acctlist is not None and len(acctlist) > incrmax:
             logger.error("Too many changes in incremental mode")
             return
 
-        logger.info("Start building export, writing to %s" % self.userfile)
-        stream = AtomicStreamRecoder(self.userfile,
+        logger.info("Start building export, writing to %s" % userfile)
+        stream = AtomicStreamRecoder(userfile,
                                      mode=str('w'),
                                      encoding='utf-8')
         xml = xmlprinter(stream, indent_level=2, data_mode=True,
@@ -359,12 +365,20 @@ class AdExport(object):
         for item in self.userexport:
             if (acctlist is not None) and (item['name'] not in acctlist):
                 continue
-            if not any(valid(item['name'])
-                       for valid in (UsernamePolicy.is_valid_uit_name,
-                                     UsernamePolicy.is_valid_sito_name,
-                                     UsernamePolicy.is_valid_guest_name)):
-                logger.warning("Username not valid for AD: %s", item['name'])
-                continue
+
+            if export_destination == 'AD':
+                if not any(valid(item['name'])
+                           for valid in (UsernamePolicy.is_valid_uit_name,
+                                         UsernamePolicy.is_valid_sito_name,
+                                         UsernamePolicy.is_valid_guest_name)):
+                    logger.error("Username not valid for AD: %s", item['name'])
+                    continue
+            elif export_destination == 'sito_AD':
+                if not UsernamePolicy.is_valid_sito_name(item['name']):
+                    # continue to next user if current username
+                    # is not valid for sito
+                    continue
+
             xml.startElement('user')
             xml.dataElement('samaccountname', item['name'])
             xml.dataElement('userPrincipalName', item['userPrincipalName'])
@@ -387,6 +401,7 @@ class AdExport(object):
             accid = self.accname2accid[item['name']]
             contact = self.person2contact.get(self.accid2ownerid[accid])
 
+            #
             # In some cases the person object AND the account object will
             # have different contact information.
             # If an account object contains contact data of the same type as
@@ -433,7 +448,6 @@ class AdExport(object):
             if item['forward'] != '':
                 xml.dataElement('targetAddress', str(item['forward']))
             if contact:
-                contact = self.filter_contact(contact, accid)
                 xml.startElement('contactinfo')
                 for c in contact:
                     source = str(
@@ -496,20 +510,6 @@ class AdExport(object):
         xml.endDocument()
         stream.close()
 
-    def filter_contact(self, contact, accid):
-        filtered_contact_list = []
-        if accid in self.is_sito_account:
-            # sito account. filter out all uit contact info
-            for c in contact:
-                if c['source_system'] == self.co.system_sito:
-                    filtered_contact_list.append(c)
-        else:
-            # uit account. filter out all sito contact info
-            for c in contact:
-                if c['source_system'] != self.co.system_sito:
-                    filtered_contact_list.append(c)
-        return filtered_contact_list
-
     def scan_person_affs(self, person):
 
         pagaid = person['ansattnr']
@@ -535,7 +535,7 @@ class AdExport(object):
             elif t['hovedkategori'] == 'VIT':
                 tilknytning = self.co.affiliation_status_ansatt_vitenskapelig
             else:
-                logger.debug("Unknown hovedkat: %s", t['hovedkategori'])
+                logger.warning("Unknown hovedkat: %s", t['hovedkategori'])
                 continue
 
             pros = "%2.2f" % float(t['stillingsandel'])
@@ -690,6 +690,7 @@ class AdExport(object):
                 break
             self.ou.clear()
             self.ou.find(parent_id)
+            logger.debug("Lookup returned: id=%s", self.ou.entity_id)
             # Detect infinite loops
             if self.ou.entity_id in visited:
                 raise RuntimeError("DEBUG: Loop detected: %r" % visited)
@@ -712,6 +713,9 @@ def load_stillingstable(db):
     return stillingskode_map
 
 
+default_sito_user_file = os.path.join(
+    sys.prefix, 'var/cache/AD',
+    'sito_ad_export_{}.xml'.format(datetime.date.today().strftime('%Y-%m-%d')))
 default_user_file = os.path.join(
     sys.prefix, 'var/cache/AD',
     'ad_export_{}.xml'.format(datetime.date.today().strftime('%Y-%m-%d')))
@@ -744,6 +748,15 @@ def main(inargs=None):
     parser.add_argument('-t', '--type',
                         default='fullsync',
                         help='fullsync or incr (use only fullsync)')
+    parser.add_argument('-s', '--export-sito',
+                        metavar='<filename>',
+                        nargs='?',
+                        action='store',
+                        dest='export_sito',
+                        const=default_sito_user_file,
+                        default='',
+                        help='optional export filename',
+                        )
 
     logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
@@ -760,16 +773,21 @@ def main(inargs=None):
     start = datetime.datetime.now()
     db = Factory.get('Database')()
 
-    export = AdExport(args.outfile, db)
+    export = AdExport(args.outfile, args.export_sito, db)
     export.load_cbdata(args.infile)
     export.build_cbdata()
-    export.build_xml(acctlist)
+    export.build_xml('AD', acctlist)
+    if args.export_sito:
+        # generate separate sito export file
+        export.build_xml('sito_AD', acctlist)
 
     stop = datetime.datetime.now()
     logger.debug("Started at=%s, ended at=%s",
                  start.isoformat(), stop.isoformat())
     logger.debug('Script used %f seconds', (stop - start).total_seconds())
     logger.info('Wrote ad data to filename=%r', args.outfile)
+    if args.export_sito:
+        logger.info('Wrote ad data for sito to filename=%r', args.export_sito)
     logger.info('Done %s', parser.prog)
 
 
