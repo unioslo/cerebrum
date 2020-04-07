@@ -1095,11 +1095,11 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
 
 
 def _reschedule_message(publisher, routing_key, message, reschedule_date):
+    logger.debug('Message %s reschedule for %s', message, reschedule_date)
     reschedule_time = apply_timezone(date_to_datetime(reschedule_date))
     # Convert to timestamp and add to message
     message['nbf'] = int(time.mktime(reschedule_time.timetuple()))
     publisher.publish(routing_key, message)
-    logger.debug('Message %s rescheduled %s', message, reschedule_date)
 
 
 def callback(database, source_system, routing_key, content_type, body,
@@ -1133,10 +1133,13 @@ def callback(database, source_system, routing_key, content_type, body,
         logger.error('Failed processing %r:\n %r', body, e, exc_info=True)
     else:
         if reschedule_date is not None:
-            _reschedule_message(publisher,
-                                routing_key,
-                                message,
-                                reschedule_date)
+            try:
+                _reschedule_message(publisher,
+                                    routing_key,
+                                    message,
+                                    reschedule_date)
+            except Exception as e:
+                logger.error('Failed to reschedule message \n %r', e)
     finally:
         # Always rollback, since we do an implicit begin and we want to discard
         # possible outstanding changes.
@@ -1257,7 +1260,7 @@ def main(args=None):
                     consumer.stop()
                 consumer.close()
             publisher.close()
-        logger.info('Stopping %r', prog_name)
+    logger.info('Stopping %r', prog_name)
 
 
 if __name__ == "__main__":
