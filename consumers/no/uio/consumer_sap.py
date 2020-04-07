@@ -26,8 +26,10 @@ import datetime
 import requests
 import json
 from collections import OrderedDict
+
 from six import text_type
 from mx import DateTime
+from aniso8601.exceptions import ISOFormatError
 
 import cereconf
 
@@ -495,7 +497,7 @@ def _add_roles_and_assignments(person_data, config, ignore_read_password):
     :rtype: datetime.date or None
     """
     hire_date_offset = datetime.timedelta(
-        days=cereconf.ORIGINAL_HIRE_DATE_OFFSET)
+        days=cereconf.SAP_START_DATE_OFFSET)
     reschedule_date = None
     for key in person_data:
         if (isinstance(person_data.get(key), dict) and
@@ -518,19 +520,23 @@ def _add_roles_and_assignments(person_data, config, ignore_read_password):
                 ignore_read_password=ignore_read_password)
             data = _parse_sap_data(response, url=deferred_uri)
             results_to_add = []
-            # TODO: should we look at "originalHireDate" or
-            #  "effectiveStartDate" ? Probably "originalHireDate".
-            #  does roles have that attribute?
             for result in data.get('results'):
-                effective_start_date = (
-                        parse_date(result.get('originalHireDate')) -
-                        hire_date_offset
-                )
-                if datetime.date.today() >= effective_start_date:
+                start_key = ('originalHireDate' if key == 'assignments' else
+                             'effectiveStartDate')
+                try:
+                    effective_start_date = (
+                            parse_date(result.get(start_key)) -
+                            hire_date_offset
+                    )
+                except (ValueError, AttributeError, ISOFormatError):
+                    logger.warning('Invalid date %s', result.get(start_key))
                     results_to_add.append(result)
-                elif (reschedule_date is None or
-                      effective_start_date < reschedule_date):
-                    reschedule_date = effective_start_date
+                else:
+                    if datetime.date.today() >= effective_start_date:
+                        results_to_add.append(result)
+                    elif (reschedule_date is None or
+                          effective_start_date < reschedule_date):
+                        reschedule_date = effective_start_date
             person_data.update({key: {'results': results_to_add}})
     return reschedule_date
 
