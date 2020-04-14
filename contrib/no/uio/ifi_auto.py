@@ -251,7 +251,7 @@ def sync_filegroup(fgname, group, course, act):
             name=fgname,
             description="Gruppelærere %s gruppe %s" % (course.upper(), act),
             expire_date=expdate,
-            group_type=co.group_type_unknown,
+            group_type=co.group_type_ifi_auto,
         )
         posix_group.write_db()
     else:
@@ -295,10 +295,9 @@ def sync_filegroup(fgname, group, course, act):
 
 def set_group_type(group, group_type):
     logger.debug("Changing grouptype for " + str(group.entity_id) + ":"
-                 + group.group_name)
+                 + group.group_name + " to ifi-auto group type.")
     group.group_type = int(group_type)
     group.write_db()
-
 
 def process_groups(super, fg_super):
     # make a note of what filegroups are automatically maintained
@@ -315,7 +314,7 @@ def process_groups(super, fg_super):
             description=("Ikke-eksporterbar gruppe.  Hvilke "
                          "filgrupper som er automatisk opprettet som "
                          "følge av Ifi-automatikk"),
-            group_type=co.group_type_unknown,
+            group_type=co.group_type_ifi_auto,
         )
         fg_super_gr.write_db()
     else:
@@ -335,7 +334,8 @@ def process_groups(super, fg_super):
                                           member_filter_expired=False):
         member_id = int(row["member_id"])
         group = get_group(member_id)
-        set_group_type_recursive(member_id, co.group_type_automatic)
+        if group.group_type != co.group_type_ifi_auto:
+            set_group_type(group, co.group_type_ifi_auto)
         if group.group_name.startswith(('sinf', 'sin')):
             continue
         course = act = None
@@ -423,8 +423,10 @@ def set_group_type_recursive(group_id, group_type):
     start_group = get_group(group_id)
     members = start_group.search_members(group_id=start_group.entity_id,
                                          member_type=co.entity_group,
-                                         member_filter_expired=False)
+                                         member_filter_expired=False,
+                                         indirect_members=True)
     if 0 < len(members):
+        count = 0
         for row in members:
             member_id = int(row["member_id"])
             try:
@@ -432,11 +434,11 @@ def set_group_type_recursive(group_id, group_type):
             except Exception:
                 pass
             if group:
-                set_group_type_recursive(member_id, group_type)
-            set_group_type(start_group, group_type)
+                count += set_group_type_recursive(member_id, group_type)
+            count += set_group_type(start_group, group_type)
+            return count
     else:
-        set_group_type(start_group, group_type)
-        return
+        return set_group_type(start_group, group_type)
 
 
 def main():
