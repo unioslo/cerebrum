@@ -1784,8 +1784,8 @@ class BofhdExtension(BofhdCommonMethods):
         ),
         perm_filter='can_search_group')
 
-    def group_search(self, operator, filter=""):
-        self.ba.can_search_group(operator.get_entity_id())
+    def group_search(self, operator, filter):
+        self.ba.can_search_group(operator.get_entity_id(), filter=filter)
         group = self.Group_class(self.db)
         if filter == "":
             raise CerebrumError("No filter specified")

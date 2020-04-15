@@ -1509,15 +1509,33 @@ class BofhdAuth(DatabaseAccessor):
 
         raise PermissionDenied("Not allowed to delete group")
 
-    def can_search_group(self, operator, query_run_any=False):
+    def can_search_group(self, operator, filter="", query_run_any=False):
         if self.is_superuser(operator):
             return True
-        # auth_search_group is not tied to a target
-        if self._has_operation_perm_somewhere(operator,
-                                              self.const.auth_search_group):
-            return True
         if query_run_any:
-            return False
+            return self._has_operation_perm_somewhere(
+                                operator, self.const.auth_search_group)
+        for row in self._list_target_permissions(
+                operator, self.const.auth_search_group,
+                self.const.auth_target_type_global_group,
+                None, get_all_op_attrs=True):
+            attr = row.get('operation_attr')
+            # No operation attribute means that all groupnames are allowed:
+            if not attr:
+                return True
+            if filter != "":
+                # Check if the groupnames matche the pattern defined in the
+                # operation
+                checktype, pattern = attr.split(':', 1)
+                p = re.compile(pattern)
+                if checktype == 'pre' and p.match(filter) is not None:
+                    # Prefix definitions
+                    return True
+                elif checktype == 're':
+                    # Regular regex definitions
+                    m = p.match(filter)
+                    if m and m.end() == len(filter):
+                        return True
         raise PermissionDenied("Permission denied")
 
     def can_add_spread(self, operator, entity=None, spread=None,

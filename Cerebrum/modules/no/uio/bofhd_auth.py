@@ -264,10 +264,11 @@ class UioAuth(ContactAuthMixin, BofhdAuth):
         return super(UioAuth, self).can_show_history(operator, entity,
                                                      query_run_any)
 
-    def can_search_group(self, operator, query_run_any=False):
+    def can_search_group(self, operator, filter="", query_run_any=False):
         if query_run_any and self._is_admin_or_moderator(operator):
             return True
-        return super(UioAuth, self).can_search_group(operator, query_run_any)
+        return super(UioAuth, self).can_search_group(operator, filter,
+                                                     query_run_any)
 
     def can_add_spread(self, operator, entity=None, spread=None,
                        query_run_any=False):
