@@ -779,6 +779,10 @@ admin_uio_helpers = [
 
 admin_copy_uio = [
     'entity_history',
+    'group_add_admin',
+    'group_add_moderator',
+    'group_remove_admin',
+    'group_remove_moderator',
     'group_delete',
     'group_demote_posix',
     'group_info',
