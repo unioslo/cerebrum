@@ -263,7 +263,7 @@ class ConstantsHigherEdu(Constants.Constants):
     # group type for ifi-auto groups
     group_type_ifi_auto = _GroupTypeCode(
         'ifi-auto-group',
-        'Automatic group - collection of groups handled by ifi-auto.py'
+        'Automatic group - collection of groups processed by ifi-auto.py'
     )
 
     # group types for fs edu groups
