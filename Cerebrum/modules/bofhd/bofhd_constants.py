@@ -95,6 +95,8 @@ class Constants(Constants.Constants):
         'set_password', 'Set password')
     auth_set_password_important = _AuthRoleOpCode(
         'set_password_imp', 'Set password for important accounts')
+    auth_verify_password = _AuthRoleOpCode(
+        'verify_password', 'Verify password')
     auth_send_sms_welcome = _AuthRoleOpCode(
         'send_welcome_sms', 'Send welcome SMS to account')
     auth_set_gecos = _AuthRoleOpCode(
@@ -136,6 +138,8 @@ class Constants(Constants.Constants):
         'qua_disable', "Temporarily disable quarantine on entity")
     auth_quarantine_remove = _AuthRoleOpCode(
         'qua_remove', "Remove quarantine on entity")
+    auth_quarantine_show = _AuthRoleOpCode(
+        'qua_show', "Show quarantines of entity")
     auth_guest_request = _AuthRoleOpCode(
         'guest_request', "Request guests")
     auth_add_affiliation = _AuthRoleOpCode(

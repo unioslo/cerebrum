@@ -2949,12 +2949,12 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['misc_verify_password'] = Command(
         ("misc", "verify_password"),
         AccountName(),
-        AccountPassword())
+        AccountPassword(),
+        perm_filter='can_verify_password')
 
     def misc_verify_password(self, operator, accountname, password):
         ac = self._get_account(accountname)
-        # Only people who can set the password are allowed to check it
-        self.ba.can_set_password(operator.get_entity_id(), ac)
+        self.ba.can_verify_password(operator.get_entity_id(), ac)
         if ac.verify_auth(password):
             return 'Password is correct'
         ph = PasswordHistory(self.db)
