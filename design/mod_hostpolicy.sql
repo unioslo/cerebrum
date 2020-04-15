@@ -123,3 +123,16 @@ CREATE TABLE hostpolicy_host_policy
   CONSTRAINT hostpolicy_host_policy_pk
     PRIMARY KEY (dns_owner_id, policy_id)
 );
+
+
+category:drop;
+DROP TABLE IF EXISTS hostpolicy_host_policy;
+
+category:drop;
+DROP TABLE IF EXISTS hostpolicy_relationship;
+
+category:drop;
+DROP TABLE IF EXISTS hostpolicy_relationship_code;
+
+category:drop;
+DROP TABLE IF EXISTS hostpolicy_component;
