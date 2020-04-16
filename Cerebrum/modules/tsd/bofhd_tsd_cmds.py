@@ -770,8 +770,6 @@ admin_uio_helpers = [
     '_get_cached_passwords',
     '_get_posix_account',
     '_get_shell',
-    '_get_account',
-    '_get_group',
     '_person_create_externalid_helper',
     '_remove_auth_role',
     '_remove_auth_target',
