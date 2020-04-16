@@ -770,6 +770,8 @@ admin_uio_helpers = [
     '_get_cached_passwords',
     '_get_posix_account',
     '_get_shell',
+    '_get_account',
+    '_get_group',
     '_person_create_externalid_helper',
     '_remove_auth_role',
     '_remove_auth_target',
@@ -779,6 +781,10 @@ admin_uio_helpers = [
 
 admin_copy_uio = [
     'entity_history',
+    'group_add_admin',
+    'group_add_moderator',
+    'group_remove_admin',
+    'group_remove_moderator',
     'group_delete',
     'group_demote_posix',
     'group_info',
