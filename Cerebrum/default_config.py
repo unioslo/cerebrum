@@ -264,6 +264,13 @@ PERSON_AFFILIATION_PRECEDENCE_RULE = {
     'alumni': (290, 300),
 }
 
+# The start date of a role or assignment can be collected from SAP via the
+# SAP-api. The start date of an assignment is its "originalHireDate", and the
+# start date of a role is its "effectiveStartDate".
+# This variable tells us how many days before the 'start date' of a role or
+# affiliation, it should be imported to Cerebrum.
+SAP_START_DATE_OFFSET = 3
+
 # Cerebrum.utils.atomicfile.SimilarSizeWriter default values
 
 # Checks should be not be globally disabled.

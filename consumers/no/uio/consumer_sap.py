@@ -21,13 +21,20 @@ from __future__ import unicode_literals
 
 """Consumes events from SAP and updates Cerebrum."""
 
+import time
 import datetime
 import requests
 import json
 from collections import OrderedDict
+
 from six import text_type
+from mx import DateTime
+from aniso8601.exceptions import ISOFormatError
+
+import cereconf
 
 from Cerebrum import Errors
+from Cerebrum.utils.date import parse_date, date_to_datetime, apply_timezone
 from Cerebrum.Utils import Factory, read_password
 from Cerebrum.modules.event.mapping import CallbackMap
 
@@ -37,7 +44,11 @@ from Cerebrum.config.configuration import (ConfigDescriptor,
 from Cerebrum.config.settings import String
 from Cerebrum.config.loader import read, read_config
 
+from Cerebrum.modules.event_consumer import get_consumer
 from Cerebrum.modules.event_consumer.config import AMQPClientConsumerConfig
+from Cerebrum.modules.event_publisher.mock_client import MockClient
+from Cerebrum.modules.event_publisher.amqp_publisher import (PublisherConfig,
+                                                             AMQP091Publisher)
 
 logger = Factory.get_logger('cronjob')
 AccountClass = Factory.get('Account')
@@ -118,14 +129,14 @@ class SAPConsumerConfig(Configuration):
     consumer = ConfigDescriptor(Namespace, config=AMQPClientConsumerConfig)
 
 
-def load_config(filepath=None):
-    """Load config for this consumer."""
-    config_cls = SAPConsumerConfig()
+def load_config(cls, name, filepath=None):
+    """Load config for consumer or publisher"""
+    config_cls = cls()
     if filepath:
         logger.info('Loading config file: %r', filepath)
         config_cls.load_dict(read_config(filepath))
     else:
-        read(config_cls, 'consumer_sap')
+        read(config_cls, name)
         logger.info('no filepath, using defaults')
     logger.info('validating config_cls')
     config_cls.validate()
@@ -164,7 +175,7 @@ def parse_address(d):
             r.get('workVisitingAddress').get('location'))
     return tuple([(k, tuple(sorted(filter_elements(translate_keys(v, m))))) for
                   (k, v) in filter_elements(
-                      translate_keys(filter_meta(r), m))])
+            translate_keys(filter_meta(r), m))])
 
 
 def verify_sap_header(header):
@@ -216,9 +227,10 @@ def parse_contacts(d):
             n = None
         (k, v) = l[0]
         return ((k,
-                (('contact_pref', pref),
-                 ('contact_value', v),
-                 ('description', None)),),) + expand(n, pref + 1)
+                 (('contact_pref', pref),
+                  ('contact_value', v),
+                  ('description', None)),),) + expand(n, pref + 1)
+
     return expand(
         filter_elements(
             translate_keys({c: d.get(c) for c in m.keys()}, m)))
@@ -249,9 +261,9 @@ def parse_titles(d):
                         co.language_en,
                         d.get('personalTitle', {}).get('en'))] +
             map(lambda lang: make_tuple(
-                    co.personal_title,
-                    lang,
-                    d.get('personalTitle', {}).get('nb')),
+                co.personal_title,
+                lang,
+                d.get('personalTitle', {}).get('nb')),
                 [co.language_nb, co.language_nn]))
     # Select appropriate work title.
     assignment = None
@@ -264,7 +276,7 @@ def parse_titles(d):
         if not assignment:
             assignment = e
         elif (float(e.get('agreedFTEPercentage')) >
-                float(assignment.get('agreedFTEPercentage'))):
+              float(assignment.get('agreedFTEPercentage'))):
             assignment = e
     if assignment:
         titles.extend(map(lambda (lang_code, lang_str): make_tuple(
@@ -305,15 +317,14 @@ def _get_ou(database, sap_id, placecode):
     """Populate a Cerebrum-OU-object from the DB."""
     if not placecode:
         return None
-    import cereconf
     ou = Factory.get('OU')(database)
     ou.clear()
     try:
         ou.find_stedkode(
             *map(''.join,
                  zip(*[iter(str(
-                     placecode))]*2)) +
-            [cereconf.DEFAULT_INSTITUSJONSNR])
+                     placecode))] * 2)) +
+             [cereconf.DEFAULT_INSTITUSJONSNR])
         return ou
     except Errors.NotFoundError:
         return None
@@ -366,20 +377,20 @@ def parse_affiliations(database, d):
 def _sap_roles_to_affiliation_map():
     co = Factory.get('Constants')
     return OrderedDict(
-            [('INNKJØPER', co.affiliation_tilknyttet_innkjoper),
-             ('EF-FORSKER', co.affiliation_tilknyttet_ekst_forsker),
-             ('EMERITUS', co.affiliation_tilknyttet_emeritus),
-             ('BILAGSLØNN', co.affiliation_tilknyttet_bilag),
-             ('GJ-FORSKER', co.affiliation_tilknyttet_gjesteforsker),
-             ('ASSOSIERT', co.affiliation_tilknyttet_assosiert_person),
-             ('EF-STIP', co.affiliation_tilknyttet_ekst_stip),
-             ('GRP-LÆRER', co.affiliation_tilknyttet_grlaerer),
-             ('EKST-KONS', co.affiliation_tilknyttet_ekst_partner),
-             ('PCVAKT', co.affiliation_tilknyttet_pcvakt),
-             ('EKST-PART', co.affiliation_tilknyttet_ekst_partner),
-             ('KOMITEMEDLEM', co.affiliation_tilknyttet_komitemedlem),
-             ('STEDOPPLYS', None),
-             ('POLS-ANSAT', None)])
+        [('INNKJØPER', co.affiliation_tilknyttet_innkjoper),
+         ('EF-FORSKER', co.affiliation_tilknyttet_ekst_forsker),
+         ('EMERITUS', co.affiliation_tilknyttet_emeritus),
+         ('BILAGSLØNN', co.affiliation_tilknyttet_bilag),
+         ('GJ-FORSKER', co.affiliation_tilknyttet_gjesteforsker),
+         ('ASSOSIERT', co.affiliation_tilknyttet_assosiert_person),
+         ('EF-STIP', co.affiliation_tilknyttet_ekst_stip),
+         ('GRP-LÆRER', co.affiliation_tilknyttet_grlaerer),
+         ('EKST-KONS', co.affiliation_tilknyttet_ekst_partner),
+         ('PCVAKT', co.affiliation_tilknyttet_pcvakt),
+         ('EKST-PART', co.affiliation_tilknyttet_ekst_partner),
+         ('KOMITEMEDLEM', co.affiliation_tilknyttet_komitemedlem),
+         ('STEDOPPLYS', None),
+         ('POLS-ANSAT', None)])
 
 
 def parse_roles(database, data):
@@ -412,13 +423,12 @@ def parse_roles(database, data):
     logger.info('parsed %i roles', len(r))
     return sorted(r,
                   key=(lambda x: role2aff.values().index(x.get('status')) if
-                       x.get('status') in role2aff.values() else len(r)),
+                  x.get('status') in role2aff.values() else len(r)),
                   reverse=True)
 
 
 def _parse_hr_person(database, source_system, data):
     """Collects parsed information from SAP."""
-    from mx import DateTime
     co = Factory.get('Constants')
     return {
         'id': data.get('personId'),
@@ -427,9 +437,9 @@ def _parse_hr_person(database, source_system, data):
         'birth_date': DateTime.DateFrom(
             data.get('dateOfBirth')),
         'gender': {'Kvinne': co.gender_female,
-                    'Mann': co.gender_male}.get(
-                        data.get('gender'),
-                        co.gender_unknown),
+                   'Mann': co.gender_male}.get(
+            data.get('gender'),
+            co.gender_unknown),
         'external_ids': parse_external_ids(data),
         'contacts': parse_contacts(data),
         'affiliations': parse_affiliations(database, data),
@@ -439,69 +449,129 @@ def _parse_hr_person(database, source_system, data):
     }
 
 
+def _request_sap_data(config, url, params=None, ignore_read_password=False):
+    if not params:
+        params = {}
+    if ignore_read_password:
+        headers = {'Accept': 'application/json',
+                   'X-Gravitee-API-Key': 'true'}
+    else:
+        headers = {'Accept': 'application/json',
+                   'X-Gravitee-API-Key': read_password(
+                       user=config.auth_user,
+                       system=config.auth_system)}
+    try:
+        logger.debug4('Fetching %r', url)
+        response = requests.get(url, headers=headers, params=params)
+        logger.debug4('Fetch completed')
+    except Exception as e:
+        # Be polite on connection errors. Connection errors seldom fix
+        # themselves quickly.
+        import time
+        time.sleep(1)
+        raise RemoteSourceUnavailable(str(e))
+    if not verify_sap_header(response.headers):
+        logger.warn('Source system not reached')
+        raise SourceSystemNotReachedError
+    return response
+
+
+def _parse_sap_data(response, url=None):
+    if response.status_code == 200:
+        return json.loads(response.text).get('d', None)
+    elif response.status_code == 404:
+        raise EntityDoesNotExistInSourceSystemError('404: Not Found')
+    else:
+        raise RemoteSourceError(
+            'Could not fetch {} from remote source: {}: {}'.format(
+                url, response.status_code, response.reason))
+
+
+def _add_roles_and_assignments(person_data, config, ignore_read_password):
+    """Add roles and assignments to person_data received from SAP
+
+    The person_data does not include roles and assignments, but rather the
+    uri to get it from. This method fetches it and adds it to person_data.
+
+    :return reschedule_date: Date when the person should be reprocessed
+    :rtype: datetime.date or None
+    """
+    hire_date_offset = datetime.timedelta(
+        days=cereconf.SAP_START_DATE_OFFSET)
+    reschedule_date = None
+    for key in person_data:
+        if (isinstance(person_data.get(key), dict) and
+                '__deferred' in person_data.get(key) and
+                'uri' in person_data.get(key).get('__deferred') and
+                key in ('assignments', 'roles')):
+            # Fetch, unpack and store role/assignment data
+            deferred_uri = person_data.get(key).get('__deferred').get(
+                'uri')
+            # We filter by effectiveEndDate >= today to also get
+            # future assignments and roles
+            filter_param = {
+                '$filter': "effectiveEndDate ge '{today}'".format(
+                    today=datetime.date.today())
+            }
+            response = _request_sap_data(
+                config,
+                deferred_uri,
+                params=filter_param,
+                ignore_read_password=ignore_read_password)
+            data = _parse_sap_data(response, url=deferred_uri)
+            results_to_add = []
+            for result in data.get('results'):
+                start_key = ('originalHireDate' if key == 'assignments' else
+                             'effectiveStartDate')
+                try:
+                    effective_start_date = (
+                            parse_date(result.get(start_key)) -
+                            hire_date_offset
+                    )
+                except (ValueError, AttributeError, ISOFormatError):
+                    logger.warning('Invalid date %s', result.get(start_key))
+                    results_to_add.append(result)
+                else:
+                    if datetime.date.today() >= effective_start_date:
+                        results_to_add.append(result)
+                    elif (reschedule_date is None or
+                          effective_start_date < reschedule_date):
+                        reschedule_date = effective_start_date
+            person_data.update({key: {'results': results_to_add}})
+    return reschedule_date
+
+
 def get_hr_person(config, database, source_system, url,
                   ignore_read_password=False):
     """Collect a person entry from the remote source system and parse the data.
+
+    If a person has assignments or roles which are not yet in effect,
+    they will not be added to the hr_person. Instead the message will be
+    rescheduled so that it can be reprocessed at a later time.
 
     :param config: Authentication data
     :param database: Database object
     :param source_system: The source system code
     :param url: The URL to contact for collection
-
-    :rtype: dict
-    :return The parsed data from the remote source system
+    :param ignore_read_password: Do not include a valid api-key in header
+    :rtype: tuple
+    :return The parsed data from the remote source system and reschedule_date
 
     :raises: RemoteSourceUnavailable if the remote system can't be contacted"""
 
-    def _get_data(config, url, params=None):
-        if not params:
-            params = {}
-        if ignore_read_password:
-            headers = {'Accept': 'application/json',
-                       'X-Gravitee-API-Key': 'true'}
-        else:
-            headers = {'Accept': 'application/json',
-                       'X-Gravitee-API-Key': read_password(
-                           user=config.auth_user,
-                           system=config.auth_system)}
-        try:
-            logger.debug4('Fetching %r', url)
-            r = requests.get(url, headers=headers, params=params)
-            logger.debug4('Fetch completed')
-        except Exception as e:
-            # Be polite on connection errors. Connection errors seldom fix
-            # themselves quickly.
-            import time
-            time.sleep(1)
-            raise RemoteSourceUnavailable(str(e))
-        if not verify_sap_header(r.headers):
-            logger.warn('Source system not reached')
-            raise SourceSystemNotReachedError
-        if r.status_code == 200:
-            data = json.loads(r.text).get('d', None)
-            for k in data:
-                if (isinstance(data.get(k), dict) and
-                        '__deferred' in data.get(k) and
-                        'uri' in data.get(k).get('__deferred')):
-                    # Fetch, unpack and store data
-                    deferred_uri = data.get(k).get('__deferred').get('uri')
-                    # We filter by effectiveEndDate >= today to also get
-                    # future assignments and roles
-                    if k in ('assignments', 'roles'):
-                        filter_param = {
-                            '$filter': "effectiveEndDate ge '{today}'".format(
-                                today=datetime.date.today())
-                        }
-                    r = _get_data(config, deferred_uri, filter_param)
-                    data.update({k: r})
-            return data
-        elif r.status_code == 404:
-            raise EntityDoesNotExistInSourceSystemError('404: Not Found')
-        else:
-            raise RemoteSourceError(
-                'Could not fetch {} from remote source: {}: {}'.format(
-                    url, r.status_code, r.reason))
-    return _parse_hr_person(database, source_system, _get_data(config, url))
+    def _get_person_data():
+        response = _request_sap_data(config,
+                                     url,
+                                     ignore_read_password=ignore_read_password)
+        person_data = _parse_sap_data(response, url=url)
+        reschedule_date = _add_roles_and_assignments(person_data,
+                                                     config,
+                                                     ignore_read_password)
+        return person_data, reschedule_date
+
+    person_data, reschedule_date = _get_person_data()
+    return (_parse_hr_person(database, source_system, person_data),
+            reschedule_date)
 
 
 def get_cerebrum_person(database, ids):
@@ -575,6 +645,7 @@ def update_account_affs(method):
                     return
         logger.info('%r for account: %r', method.__name__, ac.entity_id)
         method(ac, ou_id, affiliation)
+
     return wrapper
 
 
@@ -749,11 +820,11 @@ def update_names(database, source_system, hr_person, cerebrum_person):
     co = Factory.get('Constants')(database)
     try:
         names = set(map(lambda name_type:
-                    (name_type,
-                     cerebrum_person.get_name(
-                         source_system,
-                         name_type)),
-                    [co.name_first, co.name_last]))
+                        (name_type,
+                         cerebrum_person.get_name(
+                             source_system,
+                             name_type)),
+                        [co.name_first, co.name_last]))
     except Errors.NotFoundError:
         names = set()
     to_remove = names - set(hr_person.get('names'))
@@ -790,8 +861,8 @@ def update_external_ids(database, source_system, hr_person, cerebrum_person):
     """
     co = Factory.get('Constants')(database)
     external_ids = set(map(lambda e: (e['id_type'], e['external_id']),
-                       cerebrum_person.get_external_id(
-                           source_system=source_system)))
+                           cerebrum_person.get_external_id(
+                               source_system=source_system)))
     to_remove = external_ids - set(hr_person.get('external_ids'))
     to_add = set(hr_person.get('external_ids')) - external_ids
     cerebrum_person.affect_external_id(
@@ -986,9 +1057,12 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
     :param database: A database object
     :param source_system: The source system code
     :param url: The URL to the person object in the HR systems WS.
-    :param datasource: The function used to fetch / parse the resource."""
+    :param datasource: The function used to fetch / parse the resource.
+
+    :return reschedule_date: Date when the person should be reprocessed
+    :rtype: datetime.date or None"""
     try:
-        hr_person = datasource(database, source_system, url)
+        hr_person, reschedule_date = datasource(database, source_system, url)
         logger.info('Handling person %r from source system %r',
                     _stringify_for_log(hr_person.get('names')),
                     source_system)
@@ -996,7 +1070,7 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
         logger.warn('URL %s does not resolve in source system %r (404) - '
                     'deleting from Cerebrum',
                     url, source_system)
-        hr_person = None
+        hr_person = reschedule_date = None
     if hr_person:
         cerebrum_person = get_cerebrum_person(
             database,
@@ -1018,30 +1092,37 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
         perform_delete(database, source_system, hr_person, cerebrum_person)
     else:
         logger.info('handle_person: no action performed')
-        return
+        return reschedule_date
     logger.info('handle_person: commiting changes')
     cerebrum_person.write_db()
     database.commit()
     logger.info('handle_person: changes committed')
+    return reschedule_date
 
 
-def get_resource_url(body):
-    """Excavate resource URL from message body."""
-    d = json.loads(body)
-    return d.get('sub')
+def _reschedule_message(publisher, routing_key, message, reschedule_date):
+    logger.debug('Message %s reschedule for %s', message, reschedule_date)
+    reschedule_time = apply_timezone(date_to_datetime(reschedule_date))
+    # Convert to timestamp and add to message
+    message['nbf'] = int(time.mktime(reschedule_time.timetuple()))
+    publisher.publish(routing_key, message)
 
 
 def callback(database, source_system, routing_key, content_type, body,
-             datasource=get_hr_person):
+             datasource=get_hr_person, publisher=None):
     """Call appropriate handler functions."""
     try:
-        url = get_resource_url(body)
+        message = json.loads(body)
+        url = message.get('sub')
     except Exception as e:
         logger.warn('Received malformed message %r', body)
         return True
     message_processed = True
     try:
-        handle_person(database, source_system, url, datasource=datasource)
+        reschedule_date = handle_person(database,
+                                        source_system,
+                                        url,
+                                        datasource=datasource)
         logger.info('Successfully processed %r', body)
     except RemoteSourceUnavailable:
         message_processed = False
@@ -1056,6 +1137,15 @@ def callback(database, source_system, routing_key, content_type, body,
                         e)
     except Exception as e:
         logger.error('Failed processing %r:\n %r', body, e, exc_info=True)
+    else:
+        if reschedule_date is not None:
+            try:
+                _reschedule_message(publisher,
+                                    routing_key,
+                                    message,
+                                    reschedule_date)
+            except Exception as e:
+                logger.error('Failed to reschedule message \n %r', e)
     finally:
         # Always rollback, since we do an implicit begin and we want to discard
         # possible outstanding changes.
@@ -1078,14 +1168,19 @@ def main(args=None):
     import argparse
     import functools
 
-    from Cerebrum.modules.event_consumer import get_consumer
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-c', '--config',
                         dest='configfile',
                         metavar='FILE',
                         default=None,
-                        help='Use a custom configuration file')
+                        help='Use a custom configuration file for AMPQ '
+                             'consumer')
+    parser.add_argument('-p', '--publisher-config',
+                        dest='publisher_configfile',
+                        metavar='FILE',
+                        default=None,
+                        help='Use custom configuration for AMPQ publisher '
+                             'used to reschedule messages')
     parser.add_argument('-m', '--mock',
                         dest='mock',
                         metavar='FILE',
@@ -1112,7 +1207,12 @@ def main(args=None):
     database = Factory.get('Database')()
     database.cl_init(change_program=prog_name)
     source_system = Factory.get('Constants')(database).system_sap
-    config = load_config(filepath=args.configfile)
+    config = load_config(SAPConsumerConfig,
+                         'consumer_sap',
+                         filepath=args.configfile)
+    publisher_config = load_config(PublisherConfig,
+                                   'sap_publisher',
+                                   filepath=args.publisher_configfile)
 
     if args.dryrun:
         database.commit = database.rollback
@@ -1127,29 +1227,46 @@ def main(args=None):
                       pprint.pformat(parsed_mock_data))
         body = json.dumps({'sub': None})
         callback(database, source_system, '', '', body,
-                 datasource=lambda *x: parsed_mock_data)
+                 datasource=lambda *x: (parsed_mock_data, None))
     elif args.url:
         datasource = functools.partial(get_hr_person, config.ws,
                                        ignore_read_password=True)
+        publisher = MockClient(publisher_config)
         callback(
-            database, source_system, '', '',
+            database,
+            source_system,
+            # An example of a routing key which will land in the queue
+            # q_cerebrum_sap_consumer:
+            'no.uio.sap.scim.employees.modify',
+            '',
             args.url,
-            datasource=datasource)
+            datasource=datasource,
+            publisher=publisher,
+        )
     else:
         logger.info('Starting %r', prog_name)
-        consumer = get_consumer(functools.partial(callback,
-                                                  database, source_system,
-                                                  datasource=functools.partial(
-                                                      get_hr_person,
-                                                      config.ws)),
-                                config=config.consumer)
-        with consumer:
-            try:
-                consumer.start()
-            except KeyboardInterrupt:
-                consumer.stop()
-            consumer.close()
-        logger.info('Stopping %r', prog_name)
+        datasource = functools.partial(
+            get_hr_person,
+            config.ws)
+        publisher = AMQP091Publisher(publisher_config)
+        with publisher:
+            consumer = get_consumer(
+                functools.partial(
+                    callback,
+                    database,
+                    source_system,
+                    datasource=datasource,
+                    publisher=publisher,
+                ),
+                config=config.consumer)
+            with consumer:
+                try:
+                    consumer.start()
+                except KeyboardInterrupt:
+                    consumer.stop()
+                consumer.close()
+            publisher.close()
+    logger.info('Stopping %r', prog_name)
 
 
 if __name__ == "__main__":
