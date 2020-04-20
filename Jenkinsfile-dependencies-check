@@ -18,10 +18,7 @@ pipeline {
           parameters: [
             string(
               name: 'gitUrl',
-              value: "https://bitbucket.usit.uio.no/scm/crb/cerebrum.git"),
-            string(
-              name: 'notificationMail',
-              value: 'bnt-int@usit.uio.no'),
+              value: "${GIT_URL}"),
             string(
               name: 'pythonVersion',
               value: 'python2'),
