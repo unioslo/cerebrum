@@ -325,6 +325,32 @@ class AuditRecordBuilder(DatabaseAccessor):
                              change_params):
         return {}
 
+    @translate_params.register('group', 'modify')
+    def group_mod(self, subject_entity, destination_entity,
+                  change_params):
+        if ('old_visibility' in change_params and
+                change_params['old_visibility'] is not None):
+            try:
+                change_params.update(
+                    {'old_visibility': six.text_type(
+                        self.const.GroupVisibility(
+                            change_params['old_visibility'])
+                    )}
+                )
+            except Cerebrum.Errors.NotFoundError:
+                pass
+        if ('old_group_type' in change_params and
+                change_params['old_group_type'] is not None):
+            try:
+                change_params.update(
+                    {'old_group_type': six.text_type(
+                        self.const.GroupType(change_params['old_group_type'])
+                    )}
+                )
+            except Cerebrum.Errors.NotFoundError:
+                pass
+        return change_params
+
     @translate_params.register('account_home', 'add')
     @translate_params.register('account_home', 'remove')
     @translate_params.register('account_home', 'modify')

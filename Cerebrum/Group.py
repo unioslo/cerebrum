@@ -194,21 +194,19 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                                 None)
             self.add_entity_name(self.const.group_namespace, self.group_name)
         else:
-            exists_stmt = '''
-              SELECT EXISTS (
-                SELECT 1
-                FROM [:table schema=cerebrum name=group_info]
-                WHERE (description is NULL AND :description is NULL OR
-                         description=:description) AND
-                      (expire_date is NULL AND :expire_date is NULL OR
-                         expire_date=:expire_date) AND
-                      group_id=:group_id AND
-                      visibility=:visibility AND
-                      creator_id=:creator_id AND
-                      group_type=:group_type
-                )
-            '''
-            if not self.query_1(exists_stmt, binds):
+            original_state = self.query_1("""
+              SELECT gi.description, gi.visibility, gi.creator_id,
+                     gi.expire_date, gi.group_type
+              FROM [:table schema=cerebrum name=group_info] gi
+              WHERE gi.group_id=:group_id
+            """, {
+                'group_id': self.entity_id
+            })
+
+            change_params = {'old_' + k: v for k, v in
+                             original_state.items() if not v == binds[k]}
+
+            if change_params:
                 # True positive
                 set_str = ', '.join(
                     '{0}=:{0}'.format(x) for x in binds if x != 'group_id')
@@ -220,7 +218,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 self._db.log_change(self.entity_id,
                                     self.clconst.group_mod,
                                     None,
-                                    change_params=self.__updated)
+                                    change_params=change_params)
             if 'group_name' in self.__updated:
                 self.update_entity_name(self.const.group_namespace,
                                         self.group_name)
