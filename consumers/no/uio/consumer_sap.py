@@ -529,7 +529,7 @@ def _add_roles_and_assignments(person_data, config, ignore_read_password):
                             hire_date_offset
                     )
                 except (ValueError, AttributeError, ISOFormatError):
-                    logger.warning('Invalid date %s', result.get(start_key))
+                    logger.error('Invalid date %s', result.get(start_key))
                     results_to_add.append(result)
                 else:
                     if datetime.date.today() >= effective_start_date:
@@ -1101,11 +1101,12 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
 
 
 def _reschedule_message(publisher, routing_key, message, reschedule_date):
-    logger.debug('Message %s reschedule for %s', message, reschedule_date)
+    logger.info('Message %s reschedule for %s', message, reschedule_date)
     reschedule_time = apply_timezone(date_to_datetime(reschedule_date))
     # Convert to timestamp and add to message
     message['nbf'] = int(time.mktime(reschedule_time.timetuple()))
-    publisher.publish(routing_key, message)
+    with publisher:
+        publisher.publish(routing_key, message)
 
 
 def callback(database, source_system, routing_key, content_type, body,
@@ -1249,23 +1250,21 @@ def main(args=None):
             get_hr_person,
             config.ws)
         publisher = AMQP091Publisher(publisher_config)
-        with publisher:
-            consumer = get_consumer(
-                functools.partial(
-                    callback,
-                    database,
-                    source_system,
-                    datasource=datasource,
-                    publisher=publisher,
-                ),
-                config=config.consumer)
-            with consumer:
-                try:
-                    consumer.start()
-                except KeyboardInterrupt:
-                    consumer.stop()
-                consumer.close()
-            publisher.close()
+        consumer = get_consumer(
+            functools.partial(
+                callback,
+                database,
+                source_system,
+                datasource=datasource,
+                publisher=publisher,
+            ),
+            config=config.consumer)
+        with consumer:
+            try:
+                consumer.start()
+            except KeyboardInterrupt:
+                consumer.stop()
+            consumer.close()
     logger.info('Stopping %r', prog_name)
 
 
