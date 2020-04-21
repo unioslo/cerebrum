@@ -1637,12 +1637,6 @@ class CommonConstants(ConstantsBase):
         'Automatic group - periodically maintained to mirror another group'
         ' or group hierarchy')
 
-    # Groups that are automatic with no group type set, generic automatic type
-    group_type_automatic = _GroupTypeCode(
-        'automatic-group',
-        'Automatic group - generic automatic group for automatic groups '
-        'with no group type set.')
-
     #
     # _GroupVisibilityCode - Group.visibility values
     #

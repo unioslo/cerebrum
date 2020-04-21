@@ -287,13 +287,6 @@ def sync_filegroup(fgname, group, course, act):
     return posix_group
 
 
-def set_group_type(group, group_type):
-    logger.debug("Changing grouptype for " + str(group.entity_id) + ":"
-                 + group.group_name + " to ifi-auto group type.")
-    group.group_type = int(group_type)
-    group.write_db()
-
-
 def process_groups(super, fg_super):
     # make a note of what filegroups are automatically maintained
     auto_fg = {}
@@ -316,11 +309,6 @@ def process_groups(super, fg_super):
         for row in fg_super_gr.search_members(group_id=fg_super_gr.entity_id,
                                               member_type=co.entity_group,
                                               member_filter_expired=False):
-            member_id = row["member_id"]
-            group = get_group(member_id)
-            # Check if the file group has an incorrect group_type set
-            if group.group_type != co.group_type_ifi_auto:
-                set_group_type(group, co.group_type_ifi_auto)
             auto_fg[int(row["member_id"])] = True
 
     # fetch super group's members and update accordingly
@@ -333,12 +321,7 @@ def process_groups(super, fg_super):
                                           member_type=co.entity_group,
                                           member_filter_expired=False):
         member_id = int(row["member_id"])
-
         group = get_group(member_id)
-        # Check if the group has an incorrect group_type set
-        if group.group_type != co.group_type_ifi_auto:
-            set_group_type(group, co.group_type_ifi_auto)
-
         if group.group_name.startswith(('sinf', 'sin')):
             continue
         course = act = None
