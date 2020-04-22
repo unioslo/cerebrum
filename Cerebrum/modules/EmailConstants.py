@@ -348,19 +348,6 @@ class CLConstants(Constants.CLConstants):
         'modify local delivery for subject %(subject)s',
         ('enabled=%(string:enabled)s', ))
 
-    # email vacation (subject here is an email_target)
-    # TBD: should we bother to log this? I don't think so, vacation
-    # msg will be moved to exchange
-    email_vacation_add = Constants._ChangeTypeCode(
-        'email_vacation', 'add', 'add vacation for %(subject)s')
-    email_vacation_rem = Constants._ChangeTypeCode(
-        'email_vacation', 'remove', 'remove vacation for %(subject)s')
-    email_vacation_enable = Constants._ChangeTypeCode(
-        'email_vacation', 'enable', 'enable vacation msg for %(subject)s')
-    email_vacation_disable = Constants._ChangeTypeCode(
-        'email_vacation', 'disable',
-        'disable vacation msg for %(subject)s')
-
     # email primary address target (subject here is an email_target)
     email_primary_address_add = Constants._ChangeTypeCode(
         'email_primary_address', 'add',

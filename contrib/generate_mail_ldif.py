@@ -182,13 +182,6 @@ def write_ldif(db, ldap, auth, f, verbose=False):
                 rest += "softQuota: %s\n" % soft
                 rest += "hardQuota: %s\n" % hard
 
-            # Find vacations-settings:
-            if t in ldap.targ2vacation:
-                txt, start, end = ldap.targ2vacation[t]
-                note = (txt or '<No message>').encode('utf-8')
-                rest += "tripnote:: {}\n".format(base64.b64encode(note))
-                rest += "tripnoteActive: TRUE\n"
-
             # See if e-mail delivery should be suspended.
             # We do try/raise/except to support what might be implemented
             # at other institutions.
@@ -398,9 +391,6 @@ def get_data(db, ldap, auth_cache, spread):
 
     with log_time('read_server()'):
         ldap.read_server(spread)
-
-    with log_time('read_vacation()'):
-        ldap.read_vacation()
 
     with log_time('read_forward()'):
         ldap.read_forward()

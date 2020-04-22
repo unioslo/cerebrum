@@ -117,8 +117,6 @@ class Constants(Constants.Constants):
         'alter_group_memb', 'Alter group memberships')
     auth_email_forward_off = _AuthRoleOpCode(
         'email_forw_off', "Disable user's forwards")
-    auth_email_vacation_off = _AuthRoleOpCode(
-        'email_vac_off', "Disable user's vacation message")
     auth_email_quota_set = _AuthRoleOpCode(
         'email_quota_set', "Set quota on user's mailbox")
     auth_email_create = _AuthRoleOpCode(

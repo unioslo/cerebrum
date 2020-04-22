@@ -688,10 +688,6 @@ arg_help = {
          The key name may be abbreviated.  If value is left empty, the value
          associated with key will be cleared.  Updating an existing trait will
          blank all unnamed keys."""],
-    'tripnote_text':
-        ['text', 'Tripnote',
-         'Enter message to be sent.  You may use \\n to separate lines of '
-         'text.'],
     'user_create_person_id':
         ['owner', 'Enter account owner',
          u"""Identify account owner (person or group) by entering:

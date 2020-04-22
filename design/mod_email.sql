@@ -1,6 +1,6 @@
 /* encoding: utf-8
  *
- * Copyright 2005-2019 University of Oslo, Norway
+ * Copyright 2005-2020 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -25,7 +25,7 @@ category:metainfo;
 name=email;
 
 category:metainfo;
-version=1.5;
+version=1.6;
 
 category:code/Oracle;
 CREATE ROLE read_mod_email NOT IDENTIFIED;
@@ -704,42 +704,6 @@ CREATE TABLE email_local_delivery
 );
 
 
-/*  email_vacation
- */
-category:main;
-CREATE TABLE email_vacation
-(
-  target_id
-    NUMERIC(12,0)
-    CONSTRAINT email_vacation_target_id
-      REFERENCES email_target(target_id),
-
-  start_date
-    DATE,
-
-  vacation_text
-    CHAR VARYING(4000)
-    NOT NULL,
-
-  end_date
-    DATE,
-
-  enable
-    CHAR(1)
-    DEFAULT 'F'
-    NOT NULL
-    CONSTRAINT email_vacation_enable_bool
-      CHECK (enable IN ('T', 'F')),
-
-  CONSTRAINT email_vacation_pk PRIMARY KEY (target_id, start_date)
-);
-
-category:main/Oracle;
-GRANT SELECT ON email_vacation TO read_mod_email;
-category:main/Oracle;
-GRANT INSERT, UPDATE, DELETE ON email_vacation TO read_mod_email;
-
-
 /*  email_primary_address
  */
 category:main;
@@ -772,8 +736,6 @@ category:drop;
 DROP TABLE email_target_filter_code;
 category:drop;
 DROP TABLE email_primary_address;
-category:drop;
-DROP TABLE email_vacation;
 category:drop;
 DROP TABLE email_forward;
 category:drop;
