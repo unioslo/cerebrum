@@ -487,6 +487,14 @@ def _parse_sap_data(response, url=None):
                 url, response.status_code, response.reason))
 
 
+SAP_ATTRIBUTE_NAMES = {
+    'assignments': {'start': 'originalHireDate',
+                    'id': 'assignmentId'},
+    'roles': {'start': 'effectiveStartDate',
+              'id': 'roleId'}
+}
+
+
 def _add_roles_and_assignments(person_data, config, ignore_read_password):
     """Add roles and assignments to person_data received from SAP
 
@@ -503,7 +511,7 @@ def _add_roles_and_assignments(person_data, config, ignore_read_password):
         if (isinstance(person_data.get(key), dict) and
                 '__deferred' in person_data.get(key) and
                 'uri' in person_data.get(key).get('__deferred') and
-                key in ('assignments', 'roles')):
+                key in SAP_ATTRIBUTE_NAMES.keys()):
             # Fetch, unpack and store role/assignment data
             deferred_uri = person_data.get(key).get('__deferred').get(
                 'uri')
@@ -521,8 +529,7 @@ def _add_roles_and_assignments(person_data, config, ignore_read_password):
             data = _parse_sap_data(response, url=deferred_uri)
             results_to_add = []
             for result in data.get('results'):
-                start_key = ('originalHireDate' if key == 'assignments' else
-                             'effectiveStartDate')
+                start_key = SAP_ATTRIBUTE_NAMES[key]['start']
                 try:
                     effective_start_date = (
                             parse_date(result.get(start_key)) -
@@ -537,6 +544,12 @@ def _add_roles_and_assignments(person_data, config, ignore_read_password):
                     elif (reschedule_date is None or
                           effective_start_date < reschedule_date):
                         reschedule_date = effective_start_date
+                        logger.info('%s: %s, %s: %s --> reschedule_date: %s',
+                                    SAP_ATTRIBUTE_NAMES[key]['id'],
+                                    result.get(SAP_ATTRIBUTE_NAMES[key]['id']),
+                                    start_key,
+                                    result.get(start_key),
+                                    reschedule_date)
             person_data.update({key: {'results': results_to_add}})
     return reschedule_date
 
@@ -1101,7 +1114,7 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
 
 
 def _reschedule_message(publisher, routing_key, message, reschedule_date):
-    logger.info('Message %s reschedule for %s', message, reschedule_date)
+    logger.info('Reschedule the message for %s', reschedule_date)
     reschedule_time = apply_timezone(date_to_datetime(reschedule_date))
     # Convert to timestamp and add to message
     message['nbf'] = int(time.mktime(reschedule_time.timetuple()))
