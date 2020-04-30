@@ -50,16 +50,13 @@ def get_abandoned_manual_groups():
     adminless = sorted(group.get_adminless_groups())
     manual_abandonees = {
         const.GroupType(g_type): [] for g_type in cereconf.MANUAL_GROUP_TYPES}
-    today = datetime.datetime.now()
     for adminless_group in adminless:
         group.find(adminless_group[0])
         g_type = const.GroupType(group.group_type)
-        if g_type in manual_abandonees:
-            expire_date = group.expire_date
-            if expire_date and expire_date > today:
-                manual_abandonees[g_type].append({'id': group.entity_id,
-                                                  'name': group.group_name,
-                                                  'desc': group.description})
+        if g_type in manual_abandonees and not group.is_expired():
+            manual_abandonees[g_type].append({'id': group.entity_id,
+                                              'name': group.group_name,
+                                              'desc': group.description})
         group.clear()
     return {k: v for k, v in manual_abandonees.items() if v}
 
