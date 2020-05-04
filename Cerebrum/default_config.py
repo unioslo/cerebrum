@@ -377,10 +377,6 @@ EXCHANGE_HOMEMDB_VALID = {}
 #                     'MANUELL': (homeMDB03, homeMDB04...)}
 EXCHANGE_HOMEMDB_PER_AFFILIATION = {}
 
-# UA spesific variables
-UA_FTP_HOST = 'uaftp.uio.no'
-UA_FTP_UNAME = 'uname'
-
 # General location for lockfiles
 LOCKFILE_DIR = pj(prefix, 'var', 'lock')
 
