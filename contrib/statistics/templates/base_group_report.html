@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block additional_headers%}
+<meta charset="{{ encoding | default('utf-8') }}">
+<style>
+  table {border-spacing: 0; border-top: solid; border-left: solid}
+  th  {background-color: lightgray; border-bottom: solid; border-right: solid;}
+  td {border-right: solid; border-bottom: solid;}
+</style>
+{% endblock %}
+{% block title %}{{ title }}{% endblock %}
+{% block body %}
+<p>{{ translation['greeting'] }}</p>
+<p>{{ translation['message'].format(account_name) }}</p>
+<p>{{ translation['info_link'] }}
+    <a href="{{ info_link }}">{{ translation['here'] }}</a>
+</p>
+{% block table %}
+{% endblock %}
+<p>{{ translation['signature'] }}
+    <br>{{ sender }}<br>
+</p>
+{% endblock %}

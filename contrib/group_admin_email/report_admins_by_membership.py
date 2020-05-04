@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019 University of Oslo, Norway
+# Copyright 2019 - 2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,6 +30,8 @@ import logging
 import os
 import collections
 
+import six
+
 from smtplib import SMTPException
 
 import Cerebrum.logutils
@@ -38,14 +40,15 @@ import Cerebrum.utils.email
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import codec_type
-from Cerebrum.modules.email_report.GroupOwnerCacher import GroupOwnerCacher
+from Cerebrum.modules.email_report.GroupAdminCacher import GroupAdminCacher
 from Cerebrum.modules.email_report.utils import (
     timestamp_title,
     get_account_name,
     get_account_email,
     create_html_message,
     write_html_report,
-    check_date
+    check_date,
+    count_members
 )
 from Cerebrum.modules.email_report.plain_text_table import get_table
 
@@ -57,7 +60,7 @@ DEFAULT_TEMPLATE_FOLDER = os.path.join(
     'statistics',
     'templates'
 )
-TEMPLATE_NAME = 'group_members_table.html'
+TEMPLATE_NAME = 'report_group_members.html'
 FROM_ADDRESS = 'noreply@usit.uio.no'
 SENDER = 'USIT\nUiO'
 DEFAULT_ENCODING = 'utf-8'
@@ -68,7 +71,7 @@ TRANSLATION = {
     'en': {
         'title': 'Review of the groups you are administrating',
         'greeting': 'Hi,',
-        'message': 'The following is an overview of all the groups that you '
+        'message': 'The following is an overview of groups that you '
                    'can manage with the account {}. You are considered to be'
                    'an administrator of these groups because you are member '
                    'of administrator group(s) which gives you that role. '
@@ -92,7 +95,7 @@ TRANSLATION = {
     'nb': {
         'title': 'Oversikt over gruppene du administrerer',
         'greeting': 'Hei,',
-        'message': 'Her følger en oversikt over alle grupper du kan '
+        'message': 'Her følger en oversikt over grupper du kan '
                    'administrerere med kontoen {}. Du blir '
                    'regnet som administrator for disse gruppene fordi du er '
                    'medlem av administrator-gruppe(r) som gir deg den rollen. '
@@ -115,7 +118,7 @@ TRANSLATION = {
     'nn': {
         'title': 'Oversikt over gruppene du administrerer',
         'greeting': 'Hei,',
-        'message': 'Her følgjer ei oversikt over alle grupper du kan'
+        'message': 'Her følgjer ei oversikt over grupper du kan'
                    'administrerere med brukaren {}. Du blir '
                    'rekna som administrator for desse gruppene fordi du er '
                    'medlem av administrator-gruppe(r) som gir deg den rolla. '
@@ -139,12 +142,10 @@ TRANSLATION = {
 
 
 def write_plain_text_report(codec, translation=None, sender=None,
-                            owned_groups=None, group_id2members=None,
+                            owned_groups=None,
                             account_name=None, info_link=None):
     def get_table_rows():
         def get_cell_value(key):
-            if key == 'members':
-                return str(group_id2members[group['group_id']])
             return group[key]
 
         keys = translation['headers'].keys()
@@ -164,59 +165,54 @@ def write_plain_text_report(codec, translation=None, sender=None,
     ).encode(codec.name)
 
 
-def cache_one_accounts_groups(ac, gr, account_name):
-    owner_id2groups = collections.defaultdict(list)
+def cache_one_accounts_groups(db, ac, account_name):
+    account_id2groups = collections.defaultdict(list)
     ac.clear()
     ac.find_by_name(account_name)
-
+    gr = Factory.get('Group')(db)
     for owner_group in gr.search(member_id=ac.entity_id):
         for group in gr.search(admin_id=owner_group['group_id']):
-            owner_id2groups[ac.entity_id].append(
+            account_id2groups[ac.entity_id].append(
                 {
-                    'group_id': group['group_id'],
-                    'owner_group_name': owner_group['name'],
                     'group_name': group['name'],
+                    'owner_group_name': owner_group['name'],
+                    'members': six.text_type(
+                        count_members(gr, group['group_id'])),
                     'manage_link': (BRUKERINFO_GROUP_MANAGE_LINK +
                                     group['name'])
                 }
             )
-    return owner_id2groups
+    return account_id2groups
+
+
+def cache_info(db, fields, nr_of_admins=None):
+    cacher = GroupAdminCacher(db, BRUKERINFO_GROUP_MANAGE_LINK)
+    return cacher.cache_admins_by_membership(
+        fields,
+        nr_of_admins=nr_of_admins
+    )
 
 
 def send_mails(db, args):
-    group_owner_cacher = GroupOwnerCacher(db, BRUKERINFO_GROUP_MANAGE_LINK)
     co = Factory.get('Constants')(db)
     ac = Factory.get('Account')(db)
 
     if args.only_owner:
-        gr = Factory.get('Group')(db)
-        owner_id2groups = cache_one_accounts_groups(ac, gr, args.only_owner)
-        account_id2owner_ids = {
-            ac.entity_id: owner_id2groups.keys()
-        }
+        account_id2managed_groups = cache_one_accounts_groups(db,
+                                                              ac,
+                                                              args.only_owner)
     else:
-        owner_id2groups = group_owner_cacher.cache_owner_id2groups(
-            co.entity_group,
-            ('group_id', 'group_name', 'owner_group_name', 'manage_link'),
+        account_id2managed_groups = cache_info(
+            db,
+            TRANSLATION[DEFAULT_LANGUAGE]['headers'].keys(),
             nr_of_admins=10 if args.ten else None
         )
-        account_id2owner_ids = group_owner_cacher.cache_member_id2group_ids(
-            owner_id2groups.keys()
-        )
-    all_owned_groups = []
-    map(all_owned_groups.extend, owner_id2groups.values())
-    group_id2members = group_owner_cacher.cache_group_id2members(
-        all_owned_groups)
 
-    for account_id, owner_ids in account_id2owner_ids.items():
+    for account_id, groups in six.iteritems(account_id2managed_groups):
         email_address = get_account_email(co, ac, account_id)
         if not email_address:
             logger.warning('No primary email for %s', account_id)
             continue
-
-        owned_groups = []
-        for owner_id in owner_ids:
-            owned_groups.extend(owner_id2groups[owner_id])
 
         account_name = get_account_name(ac, account_id)
         title = timestamp_title(TRANSLATION[DEFAULT_LANGUAGE]['title'])
@@ -228,16 +224,14 @@ def send_mails(db, args):
             title=title,
             translation=TRANSLATION[DEFAULT_LANGUAGE],
             sender=SENDER,
-            owned_groups=owned_groups,
-            group_id2members=group_id2members,
-            info_link=INFO_LINK,            account_name=account_name,
+            owned_groups=groups,
+            info_link=INFO_LINK, account_name=account_name,
         )
         plain_text = write_plain_text_report(
             args.codec,
             translation=TRANSLATION[DEFAULT_LANGUAGE],
             sender=SENDER,
-            owned_groups=owned_groups,
-            group_id2members=group_id2members,
+            owned_groups=groups,
             account_name=account_name,
             info_link=INFO_LINK,
         )
@@ -294,7 +288,7 @@ def main(inargs=None):
         help='Only search for groups owned by the given account'
     )
     test_mutex.add_argument(
-        '-ten',
+        '--ten',
         action='store_true',
         help='Only process 10 group owners'
     )
