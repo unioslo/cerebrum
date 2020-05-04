@@ -37,12 +37,55 @@ def assemble_line(divider, cell_contents):
     return divider + divider.join(cell_contents) + divider
 
 
-def get_longest_item_length(lst):
-    return max(*map(len, lst))
+def get_padded_contents(content, cell_height):
+    if isinstance(content, unicode):
+        content = [content]
+    content.extend(['' for x in range(len(content), cell_height)])
+    return content
 
 
-def get_cell_widths(columns):
-    return map(get_longest_item_length, columns)
+def assemble_row(divider, row, widths):
+    row_height = get_row_height(row)
+    content = [get_padded_contents(content, row_height) for content in row]
+    lines = [assemble_line(divider, get_cell_contents(c, widths)) for c in
+             transpose(content)]
+    return '\n'.join(lines)
+
+
+def get_column_width(argument):
+    """Get the widest width of the columns given
+
+    :type argument: list or unicode
+    """
+    if isinstance(argument, unicode):
+        return len(argument)
+    if isinstance(argument, list):
+        return max(*map(get_column_width, argument))
+    raise TypeError('Argument %s type: %s', argument, type(argument))
+
+
+def get_column_widths(columns):
+    """Get the width of each column
+
+    :type columns: list
+    Example:
+
+    >>> get_column_widths(['c1,r1', 'c1,r2', ['c1,r3,l1', 'c1,r3,l2']])
+    8
+    """
+    return map(get_column_width, columns)
+
+
+def get_cell_height(cell_content):
+    if isinstance(cell_content, list):
+        return len(cell_content)
+    elif isinstance(cell_content, unicode):
+        return 1
+    raise TypeError('Cell content type: %s', type(cell_content))
+
+
+def get_row_height(row):
+    return max(*map(get_cell_height, row))
 
 
 def transpose(table):
@@ -73,15 +116,12 @@ def get_table(table_rows):
      +----+-----+
     """
     columns = transpose(table_rows)
-    cell_widths = get_cell_widths(columns)
-    separators = map(lambda length: length * '-', cell_widths)
+    column_widths = get_column_widths(columns)
+    separators = map(lambda length: length * '-', column_widths)
     divider_line = assemble_line('+', separators)
 
     output_rows = '\n' + divider_line + '\n'
     for row in table_rows:
-        row_content_line = assemble_line(
-            '|',
-            get_cell_contents(row, cell_widths)
-        )
-        output_rows += row_content_line + '\n' + divider_line + '\n'
+        row_content_lines = assemble_row('|', row, column_widths)
+        output_rows += row_content_lines + '\n' + divider_line + '\n'
     return output_rows
