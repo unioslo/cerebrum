@@ -203,7 +203,7 @@ def cache_info(db, nr_of_admins=None):
                     cl_const.group_mod,
                     cl_const.spread_add,
                     cl_const.spread_del)
-    fields = TRANSLATION['headers'].keys(),
+    fields = TRANSLATION[DEFAULT_LANGUAGE]['headers'].keys()
     direct_admins = cacher.cache_direct_admins(
         fields,
         change_types=change_types,

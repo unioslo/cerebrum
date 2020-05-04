@@ -95,7 +95,7 @@ TRANSLATION = {
         'greeting': 'Hei,',
         'message': 'Her følger en oversikt over grupper du kan '
                    'administrerere med brukerkontoen {}. Du blir '
-                   'regnet som administrator for disse gruppene fordi du '
+                   'regnet som administrator for disse gruppene fordi '
                    'kontoen din er satt til å være administrator for dem. '
                    'På UiO blir tilgang til nettsider og en '
                    'del verktøy definert av gruppemedlemskap. Det er derfor '
