@@ -459,11 +459,14 @@ class BofhdAccessCommands(BofhdCommonMethods):
                 self.ba.is_superuser(operator.get_entity_id())):
             raise PermissionDenied("You do not have permission for this"
                                    " operation")
-
-        result = list()
+        result = []
         matches = self.Group_class(self.db).search(
             admin_id=account_id,
             admin_by_membership=True
+        )
+        matches += self.Group_class(self.db).search(
+            moderator_id=account_id,
+            moderator_by_membership=True
         )
         if len(matches) > cereconf.BOFHD_MAX_MATCHES_ACCESS:
             raise CerebrumError("More than {:d} ({:d}) matches. Refusing to "
@@ -483,7 +486,8 @@ class BofhdAccessCommands(BofhdCommonMethods):
                 "description": group.description,
                 "expire_date": group.expire_date,
             }
-            result.append(tmp)
+            if tmp not in result:
+                result.append(tmp)
         return result
 
     #
