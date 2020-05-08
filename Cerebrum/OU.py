@@ -257,20 +257,26 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                             parent_id,
                             change_params={'perspective': int(perspective)})
 
-    def list_children(self, perspective, entity_id=None, recursive=False):
+    def list_children(self, perspective, entity_id=None, recursive=False,
+                      as_rows=True):
         if not entity_id:
             entity_id = self.entity_id
-        ret = []
         tmp = self.query("""
         SELECT ou_id FROM [:table schema=cerebrum name=ou_structure]
         WHERE parent_id=:e_id AND perspective=:perspective""",
                          {'e_id': entity_id,
                           'perspective': int(perspective)})
-        ret.extend(tmp)
+        if as_rows:
+            ret = []
+            ret.extend(tmp)
+        else:
+            ret = [r['ou_id'] for r in tmp]
         if recursive:
             for r in tmp:
-                ret.extend(self.list_children(perspective, r['ou_id'],
-                                              recursive))
+                ret.extend(self.list_children(perspective,
+                                              r['ou_id'],
+                                              True,
+                                              as_rows=as_rows))
         return ret
 
     def get_structure_mappings(self, perspective):
