@@ -371,6 +371,7 @@ setup(
         'Cerebrum/modules/ad2',
         'Cerebrum/modules/apikeys',
         'Cerebrum/modules/audit',
+        'Cerebrum/modules/automatic_group',
         'Cerebrum/modules/statsd',
         'Cerebrum/modules/celery_tasks',
         'Cerebrum/modules/celery_tasks/apps',
