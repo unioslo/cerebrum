@@ -156,7 +156,9 @@ def expire_redundant_groups(gr, meta_groups, initial_meta_groups):
 
 
 def main(inargs=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description='Update automatic groups so that they reflect the '
+                    'OU-structure of an organization')
     parser.add_argument(
         '--perspective',
         type=six.text_type,
