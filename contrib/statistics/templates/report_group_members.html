@@ -1,0 +1,26 @@
+{% extends "base_group_report.html" %}
+{% block table %}
+<table>
+    <tr>
+        {% for header in translation['headers'] %}
+        <th>{{ translation['headers'][header] }}</th>
+        {% endfor %}
+    </tr>
+    {% for group in owned_groups %}
+    <tr>
+        {% for header in translation['headers'] %}
+        {% if header == 'manage_link' %}
+        <td>
+            <a href="{{ group['manage_link'] }}">
+                {{ translation['manage'] }}
+            </a>
+        </td>
+        {% else %}
+        <td>{{ group[header] }}</td>
+
+        {% endif %}
+        {% endfor %}
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

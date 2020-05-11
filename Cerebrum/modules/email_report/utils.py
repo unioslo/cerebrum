@@ -81,6 +81,10 @@ def get_account_email(const, account, account_id):
     return None
 
 
+def count_members(gr, group_id):
+    return len([m['member_id'] for m in gr.search_members(group_id=group_id)])
+
+
 def get_account_name(account, account_id):
     account.clear()
     account.find(account_id)

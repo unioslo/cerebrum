@@ -1,0 +1,27 @@
+{% extends "base_group_report.html" %}
+{% block table %}
+<table>
+    <tr>
+        <th>{{ translation['headers']['group_name'] }}</th>
+        <th>{{ translation['headers']['changes'] }}</th>
+        <th>{{ translation['headers']['manage_link'] }}</th>
+    </tr>
+    {% for group in owned_groups %}
+    <tr>
+        <td>{{ group['group_name'] }}</td>
+        <td>
+            {% for change_type in group['changes'] %}
+            <p>
+                {{ translation['changes'][change_type].format(group['changes'][change_type]) }}
+            </p>
+            {% endfor %}
+        </td>
+        <td>
+            <a href="{{ group['manage_link'] }}">
+                {{ translation['manage'] }}
+            </a>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

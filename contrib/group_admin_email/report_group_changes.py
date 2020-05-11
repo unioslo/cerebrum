@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2019 - 2020 University of Oslo, Norway
+# Copyright 2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -47,8 +47,7 @@ from Cerebrum.modules.email_report.utils import (
     get_account_email,
     create_html_message,
     write_html_report,
-    check_date,
-    count_members
+    check_date
 )
 from Cerebrum.modules.email_report.plain_text_table import get_table
 
@@ -59,78 +58,102 @@ DEFAULT_TEMPLATE_FOLDER = os.path.join(
     'statistics',
     'templates'
 )
-TEMPLATE_NAME = 'report_group_members.html'
+FIELDS = ('group_id',
+          'group_name',
+          'changes',
+          'manage_link')
+TEMPLATE_NAME = 'report_group_changes.html'
 FROM_ADDRESS = 'noreply@usit.uio.no'
 SENDER = 'USIT\nUiO'
 DEFAULT_ENCODING = 'utf-8'
 DEFAULT_LANGUAGE = 'nb'
 BRUKERINFO_GROUP_MANAGE_LINK = 'https://brukerinfo.uio.no/groups/?group='
 INFO_LINK = 'https://www.uio.no/tjenester/it/brukernavn-passord/brukeradministrasjon/hjelp/grupper/rapportering/?'
+
+# TODO change report templates html, and this one:
+# TODO change other scripts use of GroupAdminCacher
 TRANSLATION = {
     'en': {
-        'title': 'Review of the groups you are administrating',
+        'title': 'Changes to the groups you are managing',
         'greeting': 'Hi,',
-        'message': 'The following is an overview of groups that you '
-                   'can manage with the account {}. You are considered to be'
-                   'an administrator of these groups because your account '
-                   'is set as admin for them. '
-                   'At UiO access to web pages and some '
-                   'tools is defined by group memberships. Therefore it is '
-                   'important that only the correct persons are members in '
-                   'each group. Please make sure that the member list '
-                   'is correct and remove members which do not belong in the '
-                   'group.',
+        'message': 'The following is a report of changes to the groups you'
+                   'are managing. Please make sure that the changes are in '
+                   'line with what you expect. To see more information about '
+                   'a group, or to delete it once it is no longer needed, you '
+                   'can click on "Manage group". If you want to investigate '
+                   'the changes more closely, you can also use bofh with the '
+                   'command "entity history group:<name>".',
+        'changes': {
+            'group:modify': 'group attributes modified {} times',
+            'group_member:add': '{} members added',
+            'group_member:remove': '{} members removed',
+            'spread:add': '{} spreads added',
+            'spread:delete': '{} spreads removed'
+        },
         'info_link': 'For more information go to the page ',
         'here': 'Automatisk rapportering av grupper.',
         'signature': 'Best regards,',
         'manage': 'Manage group',
         'headers': collections.OrderedDict([
             ('group_name', 'Managed group'),
-            ('members', 'Member count'),
+            ('changes', 'Changes last 30 days'),
             ('manage_link', 'Link to brukerinfo'),
         ]),
     },
     'nb': {
-        'title': 'Oversikt over gruppene du administrerer',
+        'title': 'Endringer på gruppene du administrerer',
         'greeting': 'Hei,',
-        'message': 'Her følger en oversikt over grupper du kan '
-                   'administrerere med brukerkontoen {}. Du blir '
-                   'regnet som administrator for disse gruppene fordi '
-                   'kontoen din er satt til å være administrator for dem. '
-                   'På UiO blir tilgang til nettsider og en '
-                   'del verktøy definert av gruppemedlemskap. Det er derfor '
-                   'viktig at kun riktige personer er medlemmer i hver gruppe.'
-                   ' Se over at medlemmene er riktige, og '
-                   'fjern medlemmer som ikke lenger skal være med.',
+        'message': 'Her følger en oversikt over endringer som har skjedd med '
+                   'gruppene du er administrator for. Vi ber om at du går '
+                   'gjennom disse endringene for å se at de er riktige. For å '
+                   'se mer informasjon om en gruppe, eller slette den om den '
+                   'ikke er i bruk, kan du klikke på "Administrer gruppe". Om '
+                   'du vil undersøke endringene grundigere kan du bruke '
+                   'kommandoen "entity history group:<navn>" som er '
+                   'tilgjengelig kommandolinje-verktøyet bofh.',
+        'changes': {
+            'group:modify': '{} endringer på gruppen',
+            'group_member:add': '{} medlemmer lagt til',
+            'group_member:remove': '{} medlemmer fjernet',
+            'spread:add': '{} spreads lagt til',
+            'spread:delete': '{} spreads fjernet'
+        },
         'info_link': 'For mer informasjon gå til siden ',
         'here': 'Automatisk rapportering av grupper.',
         'signature': 'Med vennlig hilsen,',
         'manage': 'Administrer gruppe',
         'headers': collections.OrderedDict([
             ('group_name', 'Gruppe du administrerer'),
-            ('members', 'Antall medlemmer'),
+            ('changes', 'Hendelser siste 30 dager'),
             ('manage_link', 'Link til brukerinfo'),
         ]),
     },
     'nn': {
-        'title': 'Oversikt over gruppene du administrerer',
+        'title': 'Endringar på gruppene du administrerer',
         'greeting': 'Hei,',
-        'message': 'Her følgjer ei oversikt over grupper du kan'
-                   'administrerere med brukarkontoen {}. Du blir '
-                   'rekna som administrator for desse gruppene fordi kontoen '
-                   'din er sett til å vere administrator for dei. '
-                   'På UiO blir tilgang til nettsider og ein '
-                   'del verktøy definert av gruppemedlemskap. Det er derfor '
-                   'viktig at kun riktige personer er medlemmar i kvar gruppe.'
-                   'Sjå over at medlemma er riktige, og '
-                   'fjern medlemmar som ikkje lenger skal vere med.',
+        'message': 'Her følgjer ei oversikt over endringar som har skjedd med '
+                   'gruppene du er administrator for. Vi ber om at du går '
+                   'gjennom desse endringane for å sjå til at dei er riktige. '
+                   'For å sjå meir informasjon om ei gruppe, eller slette '
+                   'henne om den ikkje lenger er i bruk, kan du klikke på '
+                   '"Administrer gruppe". Om du vil undersøke endringane '
+                   'grundigare kan du bruke kommandoen '
+                   '"entity history group:<navn>" som er tilgjengeleg i '
+                   'kommandolinje-verktøyet bofh.',
+        'changes': {
+            'group:modify': '{} endringer på gruppen',
+            'group_member:add': '{} medlemer lagt til',
+            'group_member:remove': '{} medlemer fjernet',
+            'spread:add': '{} spreads lagt til',
+            'spread:delete': '{} spreads fjernet'
+        },
         'info_link': 'For meir informasjon gå til sida ',
         'here': 'Automatisk rapportering av grupper.',
         'signature': 'Med vennleg helsing,',
         'manage': 'Administrer gruppe',
         'headers': collections.OrderedDict([
             ('group_name', 'Gruppe du administrerer'),
-            ('members', 'Antal medlemmar'),
+            ('changes', 'Hendingar siste 30 dager'),
             ('manage_link', 'Link til brukerinfo'),
         ]),
     }
@@ -142,6 +165,11 @@ def write_plain_text_report(codec, translation=None, sender=None,
                             account_name=None, info_link=None):
     def get_table_rows():
         def get_cell_value(key):
+            if key == 'changes':
+                return [
+                    translation['changes'][k].format(v) for k, v in
+                    six.iteritems(group[key])
+                ]
             return group[key]
 
         keys = translation['headers'].keys()
@@ -161,43 +189,44 @@ def write_plain_text_report(codec, translation=None, sender=None,
     ).encode(codec.name)
 
 
-def cache_one_accounts_groups(db, ac, admin_name):
-    ac.clear()
-    ac.find_by_name(admin_name)
-    gr = Factory.get('Group')(db)
-    return {
-        ac.entity_id: {
-            'group_name': row['group_name'],
-            'members': six.text_type(count_members(gr, row['group_id'])),
-            'manage_link': (BRUKERINFO_GROUP_MANAGE_LINK +
-                            row['group_name'])
-        } for row in gr.search(admin_id=ac.entity_id)
-    }
+def merge_admin_types(admins1, admins2):
+    for admin_id, group_info in six.iteritems(admins2):
+        admins1[admin_id].extend(group_info)
+    return admins1
 
 
-def cache_info(db, fields, nr_of_admins=None):
+def cache_info(db, nr_of_admins=None):
     cacher = GroupAdminCacher(db, BRUKERINFO_GROUP_MANAGE_LINK)
-    return cacher.cache_direct_admins(
+    cl_const = Factory.get('CLConstants')(db)
+    change_types = (cl_const.group_add,
+                    cl_const.group_rem,
+                    cl_const.group_mod,
+                    cl_const.spread_add,
+                    cl_const.spread_del)
+    fields = TRANSLATION[DEFAULT_LANGUAGE]['headers'].keys()
+    direct_admins = cacher.cache_direct_admins(
         fields,
+        change_types=change_types,
         nr_of_admins=nr_of_admins
+    )
+    admins_by_membership = cacher.cache_admins_by_membership(
+        fields,
+        change_types=change_types,
+        nr_of_admins=nr_of_admins
+    )
+    return merge_admin_types(
+        direct_admins,
+        admins_by_membership
     )
 
 
 def send_mails(db, args):
     co = Factory.get('Constants')(db)
     ac = Factory.get('Account')(db)
-
-    if args.only_owner:
-        account_id2managed_groups = cache_one_accounts_groups(db,
-                                                              ac,
-                                                              args.only_owner)
-    else:
-        account_id2managed_groups = cache_info(
-            db,
-            TRANSLATION[DEFAULT_LANGUAGE]['headers'].keys(),
-            nr_of_admins=10 if args.ten else None
-        )
-
+    account_id2managed_groups = cache_info(
+        db,
+        nr_of_admins=10 if args.ten else None
+    )
     for account_id, groups in six.iteritems(account_id2managed_groups):
         email_address = get_account_email(co, ac, account_id)
         if not email_address:
@@ -215,7 +244,8 @@ def send_mails(db, args):
             translation=TRANSLATION[DEFAULT_LANGUAGE],
             sender=SENDER,
             owned_groups=groups,
-            info_link=INFO_LINK, account_name=account_name,
+            account_name=account_name,
+            info_link=INFO_LINK,
         )
         plain_text = write_plain_text_report(
             args.codec,
@@ -223,7 +253,7 @@ def send_mails(db, args):
             sender=SENDER,
             owned_groups=groups,
             account_name=account_name,
-            info_link=INFO_LINK
+            info_link=INFO_LINK,
         )
 
         if args.print_messages:
@@ -271,16 +301,10 @@ def main(inargs=None):
         action='store_true',
         help='Print messages to console'
     )
-    test_mutex = test_group.add_mutually_exclusive_group()
-    test_mutex.add_argument(
-        '-o', '--only-owner',
-        default=None,
-        help='Only search for groups owned by the given account'
-    )
-    test_mutex.add_argument(
+    test_group.add_argument(
         '--ten',
         action='store_true',
-        help='Only process 10 group owners'
+        help='Only process 10 group admins of each type'
     )
     add_commit_args(parser, commit_desc='Send emails to group owners')
 
