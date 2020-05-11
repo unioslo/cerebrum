@@ -81,16 +81,6 @@ class UitEntitySpreadMixin(spread_expire.EntitySpreadMixin):
     def __init__(self, database):
         super(UitEntitySpreadMixin, self).__init__(database)
 
-    def delete_spread(self, spread):
-        # Delete spread expire notification entries
-        templates = [t for _, t in get_expire_policy(spread)]
-        if templates:
-            self._spread_notify_db.delete(
-                entity_id=self.entity_id,
-                notify_template=templates)
-
-        super(UitEntitySpreadMixin, self).delete_spread(spread)
-
     def set_spread_expire(self, spread, expire_date=None, entity_id=None):
         """
         Set expire date for a given spread.
