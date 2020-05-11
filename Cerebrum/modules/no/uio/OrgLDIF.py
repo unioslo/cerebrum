@@ -41,31 +41,14 @@ ou_rdn2space_re = re.compile('[#\"+,;<>\\\\=\0\\s]+')
 class OrgLDIFUiOMixin(norEduLDIFMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
 
-    from cereconf import LDAP_PERSON
-    if not LDAP_PERSON['dn'].startswith('ou='):
-        def __init__(self, db, logger):
+    def __init__(self, db, logger):
             self.__super.__init__(db, logger)
             self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
             self.attr2syntax['uioVisiblePrivateMobile'] = \
                 self.attr2syntax['mobile']
             self.attr2syntax['uioPrimaryMail'] = (None, verify_IA5String,
                                                   normalize_IA5String),
-    else:
-        # Hacks for old LDAP structure
-        def __init__(self, db, logger):
-            self.__super.__init__(db, logger)
-            self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
-            self.attr2syntax['uioVisiblePrivateMobile'] = \
-                self.attr2syntax['mobile']
-            # Used by make_ou_dn() for for migration to ny-ldap.uio.no:
-            self.used_new_DNs = {}
             self.ou_quarantined = {}
-            self.dn2new_structure = {'ou=organization,dc=uio,dc=no':
-                                     'cn=organization,dc=uio,dc=no',
-                                     'ou=--,ou=organization,dc=uio,dc=no':
-                                     'cn=organization,dc=uio,dc=no'}
-            self.attr2syntax['uioPrimaryMail'] = (None, verify_IA5String,
-                                                  normalize_IA5String),
 
     def init_ou_dump(self):
         self.__super.init_ou_dump()
@@ -93,34 +76,6 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 quarantine_types=self.const.quarantine_ou_notvalid,
                 only_active=True):
             self.ou_quarantined[int(row['entity_id'])] = True
-
-    def make_ou_dn(self, entry, parent_dn):
-        # Change from superclass:
-        # Replace special characters with spaces instead of escaping them.
-        # Replace multiple whitespace with a single space.  strip() the result.
-        # Add fake attributes as info to migration scripts at ny-ldap.uio.no,
-        # which needs to undo the above hacks: '#dn' with the new DN, and
-        # '#remove: ou' for OU values that are added by this method.
-        new_structure_dn = self.__super.make_ou_dn(
-            entry, self.dn2new_structure[parent_dn])
-        norm_new_dn = normalize_string(new_structure_dn)
-        if norm_new_dn in self.used_new_DNs:
-            new_structure_dn = "%s=%s+%s" % (
-                'norEduOrgUnitUniqueIdentifier',
-                entry['norEduOrgUnitUniqueIdentifier'][0],
-                new_structure_dn)
-        self.used_new_DNs[norm_new_dn] = True
-        entry['#dn'] = (new_structure_dn,)
-        rdn_ou = ou_rdn2space_re.sub(' ', entry['ou'][0]).strip()
-        entry['ou'] = self.attr_unique(entry['ou'], normalize_string)
-        ou_count = len(entry['ou'])
-        entry['ou'].insert(0, rdn_ou)
-        entry['ou'] = self.attr_unique(entry['ou'], normalize_string)
-        if len(self.attr_unique(entry['ou'], normalize_string)) > ou_count:
-            entry['#remove: ou'] = (rdn_ou,)
-        dn = self.__super.make_ou_dn(entry, parent_dn)
-        self.dn2new_structure.setdefault(dn, new_structure_dn)
-        return dn
 
     def init_attr2id2contacts(self):
         # Change from superclass: Include 'mobile' as well.
