@@ -124,7 +124,7 @@ class PosixLDIF_UiOMixin(PosixLDIF):
         # We can simply reuse pid2primary_aid dictionary, that contains
         # all persons with primary accounts
         if owner_id in self.pid2primary_aid:
-            entry['uioPersonID'] = str(owner_id)
+            entry['uioPersonId'] = str(owner_id)
             added = True
 
         # Handle exempt users and people with printer quotas. #

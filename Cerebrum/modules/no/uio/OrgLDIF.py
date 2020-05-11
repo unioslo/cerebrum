@@ -227,7 +227,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 entry['eduPersonEntitlement'] = set(urnlist)
 
         # Add person ID
-        entry['uioPersonID'] = str(person_id)
+        entry['uioPersonId'] = str(person_id)
 
         # Add group memberships
         if person_id in self.person2group:
