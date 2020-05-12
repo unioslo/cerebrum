@@ -57,3 +57,7 @@ def assert_spreads(gr, group_id, needed_spreads):
     current_spreads = set(s['spread'] for s in gr.get_spread())
     for spread in needed_spreads.difference(current_spreads):
         gr.add_spread(spread)
+
+
+def select_group_ids(gr, filters):
+    return (r['group_id'] for r in gr.search(fetchall=False, **filters))

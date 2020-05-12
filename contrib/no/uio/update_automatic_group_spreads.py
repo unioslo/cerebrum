@@ -31,22 +31,22 @@ import six
 from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.automatic_group.spreads import (load_rules,
-                                                      assert_spreads)
+                                                      assert_spreads,
+                                                      select_group_ids)
 from Cerebrum.utils.argutils import add_commit_args
 
 logger = logging.getLogger(__name__)
 
 
 def process_spreads(gr, rules):
-    for name, rule in six.iteritems(rules):
-        spreads, filters = rule
+    for name, (spreads, filters) in six.iteritems(rules):
         logger.info('Processing rule: %s', name)
         log_spreads = [six.text_type(s) for s in spreads]
-        for row in gr.search(**filters):
+        for group_id in select_group_ids(gr, filters):
             logger.info('Group: %s should have spreads: %s',
-                        row['group_id'],
+                        group_id,
                         log_spreads)
-            assert_spreads(gr, row['group_id'], spreads)
+            assert_spreads(gr, group_id, spreads)
 
 
 def main(inargs=None):
