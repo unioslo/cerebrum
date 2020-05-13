@@ -466,6 +466,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                admin_id=None,
                admin_by_membership=False,
                moderator_id=None,
+               moderator_by_membership=False,
                spread=None,
                name=None,
                description=None,
@@ -540,6 +541,17 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           returned. If moderator_id is a sequence, then a group g1 is returned
           if any of the ids in the sequence are a moderator of g1.
 
+        :type moderator_by_membership: bool
+        :param moderator_by_membership:
+          This parameter controls how the L{moderator_id} filter is applied.
+          When False, only groups where L{moderator_id} is a/are direct
+          moderator(s) will be returned. When True, the moderatorship of
+          L{moderator_id} does not have to be direct; if group g2 is a
+          moderator of group g1, and moderator_id m1 is a member of g2,
+          specifying indirect_moderators=True will return g1.
+
+          This filter makes sense only when L{moderator_id} is set.
+
         :type spread: int or SpreadCode or sequence thereof or None.
         :param spread:
           Filter the resulting group list by spread. I.e. only groups with
@@ -592,6 +604,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if admin_by_membership and not admin_id:
             raise Errors.ProgrammingError(
                 'Cannot use indirect_admins without admin_id'
+            )
+
+        if moderator_by_membership and not moderator_id:
+            raise Errors.ProgrammingError(
+                'Cannot use indirect_moderators without moderator_id'
             )
 
         # Sanity check: it is probably a bad idea to allow specifying both.
@@ -713,14 +730,21 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                                              binds, int))
 
         #
-        # moderator_id filter
+        # moderator_id filter (all of them)
         if moderator_id is not None:
             extra_tables.append(
                 "[:table schema=cerebrum name=group_moderator] gmod")
             where.append("(gi.group_id = gmod.group_id)")
+            if moderator_by_membership:
+                moderator_ids = [moderator_id]
+                for group in self.search(member_id=moderator_id):
+                    moderator_ids.append(group['group_id'])
 
-            where.append(argument_to_sql(moderator_id, "gmod.moderator_id",
-                                         binds, int))
+                where.append(argument_to_sql(moderator_ids, "gmod.moderator_id",
+                                             binds, int))
+            else:
+                where.append(argument_to_sql(moderator_id, "gmod.moderator_id",
+                                             binds, int))
 
         #
         # spread filter
