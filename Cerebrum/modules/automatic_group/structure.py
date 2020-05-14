@@ -49,7 +49,7 @@ def cache_stedkoder(ou):
     for row in ou.get_stedkoder():
         ou.clear()
         ou.find(row['ou_id'])
-        if not ou.is_quarantined():
+        if not ou.get_entity_quarantine(only_active=True):
             ou_id2sko[ou.entity_id] = ou.get_stedkode()
     return ou_id2sko
 

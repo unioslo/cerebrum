@@ -1308,9 +1308,6 @@ class EntityQuarantine(Entity):
                           {'e_id': self.entity_id,
                            'qtype': qtype})
 
-    def is_quarantined(self):
-        return bool(self.get_entity_quarantine(only_active=True))
-
     def disable_entity_quarantine(self, qtype, until):
         """Disable a quarantine for the current entity until a specified time.
 
