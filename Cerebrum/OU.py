@@ -267,7 +267,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                           'perspective': int(perspective)})
         ou_ids = [r['ou_id'] for r in tmp]
         if recursive:
-            for ou_id in tmp:
+            for ou_id in ou_ids:
                 ou_ids.extend(self.list_children(perspective, ou_id, True))
         return ou_ids
 
