@@ -264,7 +264,8 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         SELECT ou_id FROM [:table schema=cerebrum name=ou_structure]
         WHERE parent_id=:e_id AND perspective=:perspective""",
                          {'e_id': entity_id,
-                          'perspective': int(perspective)})
+                          'perspective': int(perspective)},
+                         fetchall=False)
         ou_ids = [r['ou_id'] for r in tmp]
         if recursive:
             for ou_id in ou_ids:
