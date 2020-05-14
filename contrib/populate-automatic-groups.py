@@ -198,8 +198,7 @@ def ou_get_children(ou_id, perspective):
     ou = Factory.get("OU")(database)
     try:
         ou.find(ou_id)
-        return [x["ou_id"]
-                for x in ou.list_children(perspective, entity_id=ou_id)]
+        return ou.list_children(perspective, entity_id=ou_id)
     except Errors.NotFoundError:
         # If we can't find the OU, it does not have a parent :)
         return False

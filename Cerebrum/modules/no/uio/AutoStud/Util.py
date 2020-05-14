@@ -97,9 +97,9 @@ class LookupHelper(object):
         ou.find(sko)
         ret.append("{:02d}{:02d}{:02d}".format(
             ou.fakultet, ou.institutt, ou.avdeling))
-        for row in ou.list_children(self._ou_perspective, recursive=True):
+        for ou_id in ou.list_children(self._ou_perspective, recursive=True):
             ou.clear()
-            ou.find(row['ou_id'])
+            ou.find(ou_id)
             ret.append("{:02d}{:02d}{:02d}".format(
                 ou.fakultet, ou.institutt, ou.avdeling))
         return ret

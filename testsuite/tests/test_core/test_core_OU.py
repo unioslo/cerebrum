@@ -179,13 +179,10 @@ def test_list_children(ou_object, ou_tree, perspective):
 
     ou_object.find(parent_id)
 
-    direct_children = [r['ou_id']
-                       for r in ou_object.list_children(perspective)]
+    direct_children = ou_object.list_children(perspective)
     assert [child_id] == direct_children
 
-    all_children = [r['ou_id']
-                    for r in ou_object.list_children(perspective,
-                                                     recursive=True)]
+    all_children = ou_object.list_children(perspective, recursive=True)
     assert [d['entity_id'] for d in ou_tree[1:]] == all_children
 
     assert [] == ou_object.list_children(perspective, entity_id=leaf_id)

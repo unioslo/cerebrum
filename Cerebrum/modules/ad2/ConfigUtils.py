@@ -882,9 +882,8 @@ class AccountCriterias(AttrCriterias):
                 """
                 # TODO: Make child-search configurable
                 # TODO: Avoid piggybacking perspective on ou_criteria
-                children = [e['ou_id'] for e in
-                            ou_criteria.list_children(ou_criteria.perspective,
-                                                      recursive=True)]
+                children = ou_criteria.list_children(ou_criteria.perspective,
+                                                     recursive=True)
                 children.append(ou_criteria.entity_id)
                 return True if int(candidate_ou) in children else False
 

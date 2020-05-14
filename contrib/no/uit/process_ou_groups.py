@@ -283,9 +283,9 @@ class OuGroupProcessor(object):
 
         # for each child of loaded ou, run recursive function
         children = ou.list_children(perspective)
-        for child in children:
+        for ou_id in children:
             ou.clear()
-            ou.find(int(child['ou_id']))
+            ou.find(ou_id)
             self.process_ou_groups(ou, perspective)
 
         return

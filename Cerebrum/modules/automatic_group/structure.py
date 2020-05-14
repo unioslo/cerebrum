@@ -101,8 +101,7 @@ def meta_group_members(db, ou, ou_id, perspective, prefix, ou_id2sko):
     yield get_automatic_group(db, ou_id2sko[ou_id], prefix).entity_id
     for child_id in ou.list_children(perspective,
                                      entity_id=ou_id,
-                                     recursive=True,
-                                     as_rows=False):
+                                     recursive=True):
         # It is worth mentioning that OU.list_children() includes child OUs
         # whether they are quarantined or not. We do not want to generate
         # groups at OUs which are quarantined, and the following if-check
