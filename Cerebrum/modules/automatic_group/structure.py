@@ -25,9 +25,8 @@ import logging
 
 import cereconf
 
-from functools32 import lru_cache
-
 from Cerebrum import Errors
+from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.Utils import Factory
 
 logger = logging.getLogger(__name__)
@@ -38,7 +37,7 @@ PREFIX_2_DESCRIPTION = {
 }
 
 
-@lru_cache(maxsize=1)
+@memoize
 def get_initial_account_id(database):
     ac = Factory.get('Account')(database)
     ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
