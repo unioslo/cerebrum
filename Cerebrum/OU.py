@@ -266,11 +266,15 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                          {'e_id': entity_id,
                           'perspective': int(perspective)},
                          fetchall=False)
-        ou_ids = [r['ou_id'] for r in tmp]
         if recursive:
-            for ou_id in ou_ids:
-                ou_ids.extend(self.list_children(perspective, ou_id, True))
-        return ou_ids
+            ou_ids = []
+            for row in tmp:
+                ou_ids.append(row['ou_id'])
+                ou_ids.extend(self.list_children(perspective,
+                                                 row['ou_id'],
+                                                 True))
+            return ou_ids
+        return [r['ou_id'] for r in tmp]
 
     def get_structure_mappings(self, perspective):
         """Return list of ou_id -> parent_id connections in ``perspective``."""
