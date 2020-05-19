@@ -311,7 +311,7 @@ class PosixLDIF(object):
         self.init_filegroup()
         timer2 = make_timer(self.logger, 'Caching filegroups...')
         for row in self.grp.search(spread=self.spread_d['filegroup'],
-                                   filter_expired=False):
+                                   filter_expired=True):
             group_id = row['group_id']
             if group_id not in self.group2gid:
                 self.logger.warn(
@@ -379,7 +379,7 @@ class PosixLDIF(object):
         self.init_netgroup()
         timer2 = make_timer(self.logger, 'Caching netgroups...')
         for row in self.grp.search(spread=self.spread_d['netgroup'],
-                                   filter_expired=False):
+                                   filter_expired=True):
             group_id = row['group_id']
             self.create_group_object(group_id, row['name'],
                                      row['description'])
