@@ -110,7 +110,7 @@ class PosixLDIF(object):
         pass
 
     @clock_time
-    def user_ldif(self, filename=None):
+    def user_ldif(self, filename=None, filter_expired=True):
         """Generate posix-user."""
         self.init_user()
         f = LDIFutils.ldif_outfile('USER', filename, self.fd)
@@ -122,7 +122,7 @@ class PosixLDIF(object):
         def generate_users():
             for row in self.posuser.list_posix_users(
                     spread=self.spread_d['user'],
-                    filter_expired=True):
+                    filter_expired=filter_expired):
                 account_id = row['account_id']
                 dn, entry = self.user_object(row)
                 if not dn:
@@ -297,7 +297,7 @@ class PosixLDIF(object):
         pass
 
     @clock_time
-    def filegroup_ldif(self, filename=None):
+    def filegroup_ldif(self, filename=None, filter_expired=False):
         """ Generate filegroup.
 
         Groups without group and expanded members from both external and
@@ -311,7 +311,7 @@ class PosixLDIF(object):
         self.init_filegroup()
         timer2 = make_timer(self.logger, 'Caching filegroups...')
         for row in self.grp.search(spread=self.spread_d['filegroup'],
-                                   filter_expired=False):
+                                   filter_expired=filter_expired):
             group_id = row['group_id']
             if group_id not in self.group2gid:
                 self.logger.warn(
@@ -369,7 +369,7 @@ class PosixLDIF(object):
         pass
 
     @clock_time
-    def netgroup_ldif(self, filename=None):
+    def netgroup_ldif(self, filename=None, filter_expired=False):
         """Generate netgroup with only users."""
 
         if 'netgroup' not in self.spread_d:
@@ -379,7 +379,7 @@ class PosixLDIF(object):
         self.init_netgroup()
         timer2 = make_timer(self.logger, 'Caching netgroups...')
         for row in self.grp.search(spread=self.spread_d['netgroup'],
-                                   filter_expired=False):
+                                   filter_expired=filter_expired):
             group_id = row['group_id']
             self.create_group_object(group_id, row['name'],
                                      row['description'])

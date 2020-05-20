@@ -81,6 +81,21 @@ def main(inargs=None):
         metavar='NAME',
         help='selection spread(s) for net groups')
     parser.add_argument(
+        '--expired-users',
+        action='store_false',
+        dest='filter_exp_usr',
+        help='export expired users')
+    parser.add_argument(
+        '--expired-filegroups',
+        action='store_true',
+        dest='expired_filegroups',
+        help='export expired filegroups')
+    parser.add_argument(
+        '--expired-netgroups',
+        action='store_true',
+        dest='expired_netgroups',
+        help='export expired netgroups')
+    parser.add_argument(
         '--all',
         action='store_true',
         dest='all',
@@ -115,12 +130,12 @@ def main(inargs=None):
         n_sprd=args.netgroup_spread,
         fd=fd)
 
-    for var, func, filepath in (
-            ('LDAP_USER', posixldif.user_ldif, args.user_file),
-            ('LDAP_FILEGROUP', posixldif.filegroup_ldif, args.filegroup_file),
-            ('LDAP_NETGROUP', posixldif.netgroup_ldif, args.netgroup_file)):
+    for var, func, filepath, filter_expired in (
+            ('LDAP_USER', posixldif.user_ldif, args.user_file, args.filter_exp_usr),
+            ('LDAP_FILEGROUP', posixldif.filegroup_ldif, args.filegroup_file, not args.expired_filegroups),
+            ('LDAP_NETGROUP', posixldif.netgroup_ldif, args.netgroup_file, not args.expired_netgroups)):
         if (args.all or filepath) and getattr(cereconf, var).get('dn'):
-            func(filepath)
+            func(filepath, filter_expired)
         elif filepath:
             parser.error("Missing 'dn' in cereconf.{}".format(var))
 
