@@ -300,7 +300,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         student = int(self.const.affiliation_student)
         self.fs_aff_statuses = (
             (student, int(self.const.affiliation_status_student_aktiv)),
-            (student, int(self.const.affiliation_status_student_drgrad)))
+            (student, int(self.const.affiliation_status_student_drgrad)),
+            (student, int(self.const.affiliation_status_student_emnestud)))
         self.sap_res = self.init_person_group("SAP-elektroniske-reservasjoner")
         self.fs_samtykke = self.init_person_group("FS-aktivt-samtykke")
 
@@ -339,7 +340,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 return person_id not in self.sap_res
             if (aff, status) in self.visible_sap_statuses:
                 return person_id not in self.sap_res
-        # Otherwise, if there is an affiliaton STUDENT/<aktiv or drgrad>,
+        # Otherwise, if there is an affiliaton STUDENT/<aktiv, emnestud or drgrad>,
         # check for permission from FS to make the person visible.
         for (aff, status, ou) in p_affs:
             if (aff, status) in self.fs_aff_statuses:
