@@ -274,8 +274,8 @@ class PosixUser(Account_class):
         return "Unknown"  # Raise error?
 
     def get_validate_domains(self):
-        domains = [self.const.group_namespace]
-        domains.extend(super(PosixUser, self).get_validate_domains())
+        domains = super(PosixUser, self).get_validate_domains()
+        domains.append(self.const.group_namespace)
         return domains
 
     def get_fullname(self):

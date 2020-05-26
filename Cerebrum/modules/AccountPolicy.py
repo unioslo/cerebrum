@@ -222,17 +222,18 @@ class AccountPolicy(object):
         """
         user = self._get_user_obj(make_posix_user)
         if uname is None:
-            user_names = user.suggest_unames(person)
+            try:
+                user_names = user.suggest_unames(person)
+            except NotFoundError:
+                raise InvalidAccountCreationArgument(
+                    'Person %s missing first- or lastname',
+                    person.entity_id
+                )
             try:
                 uname = user_names[0]
             except IndexError:
                 raise InvalidAccountCreationArgument(
                     'Could not generate user name for person %s',
-                    person.entity_id
-                )
-            except NotFoundError:
-                raise InvalidAccountCreationArgument(
-                    'Person %s missing first- or lastname',
                     person.entity_id
                 )
 

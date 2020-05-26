@@ -749,6 +749,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 raise RuntimeError("populate() called multiple times.")
         except AttributeError:
             self.__in_db = False
+
+        validate_domains = self.get_validate_domains()[1:]
+        if not self.is_valid_new_uname(name, domains=validate_domains):
+            raise self._db.IntegrityError('Account name not available: %s' %
+                                          name)
+
         self.owner_type = int(owner_type)
         self.owner_id = owner_id
         self.np_type = np_type
@@ -1363,10 +1369,10 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def get_validate_domains(self):
         return [self.const.account_namespace]
 
-    def is_valid_new_uname(self, uname):
+    def is_valid_new_uname(self, uname, domains=None):
         """Check that the requested username is valid"""
-        return all(self.validate_new_uname(d, uname) for d in
-                   self.get_validate_domains())
+        domains = domains or self.get_validate_domains()
+        return all(self.validate_new_uname(d, uname) for d in domains)
 
     def validate_new_uname(self, domain, uname):
         """Check that the requested username is free in a given domain"""

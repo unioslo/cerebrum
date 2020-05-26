@@ -317,23 +317,6 @@ class AccountUiOMixin(Account.Account):
             return False
         return person.has_e_reservation()
 
-    def populate(self, name, owner_type, owner_id, np_type, creator_id,
-                 expire_date, description=None, parent=None):
-        """Override to check that the account name is not already taken by a
-        group.
-        """
-        gr = Factory.get('Group')(self._db)
-        try:
-            gr.find_by_name(name)
-        except Errors.NotFoundError:
-            pass
-        else:
-            raise self._db.IntegrityError('Account name taken by group: %s' %
-                                          name)
-        return self.__super.populate(name, owner_type, owner_id, np_type,
-                                     creator_id, expire_date,
-                                     description=description, parent=parent)
-
     # exchange-relatert-jazz
     # after Exchange roll-out this method should be removed as it will
     # no longer be necessary due to the server-data not being kept in

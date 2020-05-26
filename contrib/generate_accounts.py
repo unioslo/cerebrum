@@ -187,7 +187,7 @@ def update_account(db, pe, account_policy, creator, new_trait=None, spreads=(),
                 ou_disk=home_auto
             )
         except Errors.InvalidAccountCreationArgument as e:
-            logger.warning(e)
+            logger.error(e)
         else:
             logger.info("Restored account %s for person %d",
                         row['name'],
@@ -209,7 +209,7 @@ def update_account(db, pe, account_policy, creator, new_trait=None, spreads=(),
             ou_disk=home_auto
         )
     except Errors.InvalidAccountCreationArgument as e:
-        logger.warning(e)
+        logger.error(e)
     else:
         logger.info("Created account %s for person %d",
                     account.account_name,
