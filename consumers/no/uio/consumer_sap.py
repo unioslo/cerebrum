@@ -17,9 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import unicode_literals
-
 """Consumes events from SAP and updates Cerebrum."""
+from __future__ import unicode_literals
 
 import time
 import datetime
@@ -27,7 +26,7 @@ import requests
 import json
 from collections import OrderedDict
 
-from six import text_type
+from six import text_type, integer_types
 from mx import DateTime
 from aniso8601.exceptions import ISOFormatError
 
@@ -37,6 +36,8 @@ from Cerebrum import Errors
 from Cerebrum.utils.date import parse_date, date_to_datetime, apply_timezone
 from Cerebrum.Utils import Factory, read_password
 from Cerebrum.modules.event.mapping import CallbackMap
+from Cerebrum.modules.automatic_group.structure import (get_automatic_group,
+                                                        update_memberships)
 
 from Cerebrum.config.configuration import (ConfigDescriptor,
                                            Namespace,
@@ -54,6 +55,10 @@ logger = Factory.get_logger('cronjob')
 AccountClass = Factory.get('Account')
 callback_functions = CallbackMap()
 callback_filters = CallbackMap()
+
+# INTEGER_TYPE is long in in python2 and will be int in python3
+INTEGER_TYPE = integer_types[-1]
+LEADER_GROUP_PREFIX = 'adm-leder-'
 
 
 def filter_meta(l):
@@ -313,7 +318,7 @@ def parse_external_ids(d):
     return filter_elements(external_ids)
 
 
-def _get_ou(database, sap_id, placecode):
+def _get_ou(database, placecode=None):
     """Populate a Cerebrum-OU-object from the DB."""
     if not placecode:
         return None
@@ -323,8 +328,8 @@ def _get_ou(database, sap_id, placecode):
         ou.find_stedkode(
             *map(''.join,
                  zip(*[iter(str(
-                     placecode))] * 2)) +
-             [cereconf.DEFAULT_INSTITUSJONSNR])
+                     placecode))] * 2)) + [cereconf.DEFAULT_INSTITUSJONSNR]
+        )
         return ou
     except Errors.NotFoundError:
         return None
@@ -337,7 +342,7 @@ def _sap_assignments_to_affiliation_map():
 
 
 def parse_affiliations(database, d):
-    """Parse data from SAP and return affiliations.
+    """Parse data from SAP. Return affiliations and leader group ids.
 
     :type d: dict
     :param d: Data from SAP
@@ -346,9 +351,11 @@ def parse_affiliations(database, d):
                    ('affiliation', PersonAffiliation('ANSATT')),
                    ('status', PersonAffStatus('ANSATT', 'tekadm')),
                    (precedence', (50, 50)))]
-    :return: A list of tuples with the fields that should be updated"""
+    :return: A list of dicts with the fields that should be updated AND
+        a list of leader group ids where the person should be a member"""
     co = Factory.get('Constants')
-    r = []
+    affiliations = []
+    leader_group_ids = []
     for x in d.get('assignments', {}).get('results', []):
         status = _sap_assignments_to_affiliation_map().get(
             x.get('jobCategory'))
@@ -356,9 +363,7 @@ def parse_affiliations(database, d):
             logger.warn('parse_affiliations: Unknown job category')
             # Unknown job category
             continue
-        ou = _get_ou(database,
-                     sap_id=x.get('organizationalUnitId'),
-                     placecode=x.get('locationId'))
+        ou = _get_ou(database, placecode=x.get('locationId'))
         if not ou:
             logger.warn(
                 'OU {} does not exist, '
@@ -366,12 +371,20 @@ def parse_affiliations(database, d):
                     x.get('locationId'), status, x.get('personId')))
             continue
         main = x.get('primaryAssignmentFlag')
-        r.append({'ou_id': ou.entity_id,
-                  'affiliation': co.affiliation_ansatt,
-                  'status': status,
-                  'precedence': (50L, 50L) if main else None})
-    logger.info('parsed %i affiliations', len(r))
-    return r
+        if x.get('managerFlag'):
+            leader_group_ids.append(get_automatic_group(
+                database, text_type(x.get('locationId')), LEADER_GROUP_PREFIX
+            ).entity_id)
+        affiliations.append({
+            'ou_id': ou.entity_id,
+            'affiliation': co.affiliation_ansatt,
+            'status': status,
+            'precedence': (
+                (INTEGER_TYPE(50), INTEGER_TYPE(50)) if main else None)
+        })
+    logger.info('parsed %i affiliations', len(affiliations))
+    logger.info('parsed %i leader groups', len(leader_group_ids))
+    return affiliations, leader_group_ids
 
 
 def _sap_roles_to_affiliation_map():
@@ -407,7 +420,7 @@ def parse_roles(database, data):
     role2aff = _sap_roles_to_affiliation_map()
     r = []
     for role in data.get('roles', {}).get('results', []):
-        ou = _get_ou(database, sap_id=None, placecode=role.get('locationId'))
+        ou = _get_ou(database, placecode=role.get('locationId'))
         if not ou:
             logger.warn('OU %r does not exist, '
                         'cannot parse affiliation %r for %r',
@@ -430,6 +443,7 @@ def parse_roles(database, data):
 def _parse_hr_person(database, source_system, data):
     """Collects parsed information from SAP."""
     co = Factory.get('Constants')
+    affiliations, leader_group_ids = parse_affiliations(database, data)
     return {
         'id': data.get('personId'),
         'addresses': parse_address(data),
@@ -442,7 +456,8 @@ def _parse_hr_person(database, source_system, data):
             co.gender_unknown),
         'external_ids': parse_external_ids(data),
         'contacts': parse_contacts(data),
-        'affiliations': parse_affiliations(database, data),
+        'leader_group_ids': leader_group_ids,
+        'affiliations': affiliations,
         'roles': parse_roles(database, data),
         'titles': parse_titles(data),
         'reserved': not data.get('allowedPublicDirectoryFlag')
@@ -544,7 +559,7 @@ def _add_roles_and_assignments(person_data, config, ignore_read_password):
                     elif (reschedule_date is None or
                           effective_start_date < reschedule_date):
                         reschedule_date = effective_start_date
-                        logger.info('%s: %s, %s: %s --> reschedule_date: %s',
+                        logger.info('%s: %s, %s: %s → reschedule_date: %s',
                                     SAP_ATTRIBUTE_NAMES[key]['id'],
                                     result.get(SAP_ATTRIBUTE_NAMES[key]['id']),
                                     start_key,
@@ -1010,6 +1025,31 @@ def update_reservation(database, hr_person, cerebrum_person):
                     cerebrum_person.entity_id)
 
 
+def cerebrum_leader_group_memberships(gr, co, cerebrum_person):
+    return (r['group_id'] for r in
+            gr.search(member_id=cerebrum_person.entity_id,
+                      name=LEADER_GROUP_PREFIX + '*',
+                      group_type=co.group_type_affiliation,
+                      filter_expired=True,
+                      fetchall=False))
+
+
+def update_leader_group_memberships(database, hr_person, cerebrum_person):
+    gr = Factory.get('Group')(database)
+    co = Factory.get('Constants')(database)
+    hr_memberships = set(hr_person.get('leader_group_ids'))
+    cerebrum_memberships = set(
+        cerebrum_leader_group_memberships(gr, co, cerebrum_person)
+    )
+    logger.info('Assert (person: %s) is member of (leader_groups: %s)',
+                cerebrum_person.entity_id,
+                hr_memberships)
+    update_memberships(gr,
+                       cerebrum_person.entity_id,
+                       cerebrum_memberships,
+                       hr_memberships)
+
+
 def perform_update(database, source_system, hr_person, cerebrum_person):
     """Update or create a person."""
     logger.info('Starting perform_update for %r', hr_person.get('id'))
@@ -1021,6 +1061,7 @@ def perform_update(database, source_system, hr_person, cerebrum_person):
     update_titles(database, source_system, hr_person, cerebrum_person)
     update_roles(database, source_system, hr_person, cerebrum_person)
     update_affiliations(database, source_system, hr_person, cerebrum_person)
+    update_leader_group_memberships(database, hr_person, cerebrum_person)
     update_reservation(database, hr_person, cerebrum_person)
     logger.info('Perform_update for %r done', cerebrum_person.entity_id)
 

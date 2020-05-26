@@ -2914,7 +2914,7 @@ class BofhdExtension(BofhdCommonMethods):
                                 "Is the OU valid?" % target)
 
         for c in target_ou.list_children(perspective):
-            data['children'].append(c[0])
+            data['children'].append(c)
 
         for d in data:
             if d == 'target':
