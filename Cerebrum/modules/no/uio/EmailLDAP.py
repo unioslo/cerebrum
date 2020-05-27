@@ -38,8 +38,8 @@ class EmailLDAPUiOMixin(EmailLDAP):
         # required for account email_targets at postmasters' request.
         self.targ2ulrik_addr = {}
         # exchange-relatert-jazz
-        # will use this list to exclude forwards and vacation messages for
-        # accounts with Exchange-mailbox
+        # will use this list to exclude forwards for accounts
+        # with Exchange-mailbox
         self.targ2spread = self.target2spread_populate()
 
         # Host cache for get_target_info
@@ -232,30 +232,6 @@ class EmailLDAPUiOMixin(EmailLDAP):
             t_id = int(row['target_id'])
             if t_id not in self.targ2spread:
                 self.targ2forward[t_id].append(row['forward_to'])
-
-    # exchange-relatert-jazz
-    # overriding read_vacation locally in order to be able to
-    # exclude vacation messages for accounts with exchange_spread
-    def read_vacation(self):
-        mail_vaca = Email.EmailVacation(self._db)
-        for row in mail_vaca.list_email_active_vacations():
-            t_id = int(row['target_id'])
-            # exchange-relatert-jazz
-            # if the target is recorded as having spread_exchange_acc
-            # the whole row is skipped because we don't want to
-            # export vacation messages for such targets to LDAP
-            if t_id in self.targ2spread:
-                continue
-            insert = False
-            if t_id in self.targ2vacation:
-                if row['start_date'] > self.targ2vacation[t_id][1]:
-                    insert = True
-            else:
-                insert = True
-            if insert:
-                self.targ2vacation[t_id] = (row['vacation_text'],
-                                            row['start_date'],
-                                            row['end_date'])
 
     def read_pending_primary_email(self):
         """Fetches the subject ids (email target ids) that have unprocessed

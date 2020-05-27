@@ -701,12 +701,7 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
 
     all_commands = {}
     hidden_commands = {}
-    omit_parent_commands = {
-        'email_tripnote',
-        'email_tripnote_list',
-        'email_tripnote_add',
-        'email_tripnote_remove',
-    }
+    omit_parent_commands = {}
     parent_commands = True
     authz = bofhd_auth.EmailAuth
 

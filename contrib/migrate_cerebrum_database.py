@@ -54,7 +54,7 @@ targets = {
     'changelog': ('changelog_1_2', 'changelog_1_3', 'changelog_1_4',
                   'changelog_1_5'),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3', 'email_1_4',
-              'email_1_5',),
+              'email_1_5', 'email_1_6'),
     'entity_expire': ('entity_expire_1_0',),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     'eventlog': ('eventlog_1_1', ),
@@ -1610,6 +1610,16 @@ def migrate_to_email_1_5():
     meta.set_metainfo("sqlmodule_email", "1.5")
     print("Migration to email 1.5 completed successfully")
     db.commit()
+
+
+def migrate_to_email_1_6():
+    assert_db_version("1.5", component="email")
+    print("Dropping table email_vacation")
+    makedb("email_1_6", "pre")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_email", "1.6")
+    db.commit()
+    print("Migration to email 1.6 completed successfully")
 
 
 def migrate_to_ephorte_1_1():

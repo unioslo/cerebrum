@@ -41,7 +41,7 @@ class EmailLDAP(DatabaseAccessor):
 
     __write_attr__ = ('aid2addr', 'targ2addr', 'targ2prim', 'targ2spam',
                       'targ2quota', 'serv_id2server', 'targ2server_id',
-                      'targ2forward', 'targ2vacation', 'acc2name', 'pending',
+                      'targ2forward', 'acc2name', 'pending',
                       'e_id2passwd')
 
     def __init__(self, db):
@@ -61,7 +61,6 @@ class EmailLDAP(DatabaseAccessor):
         self.targ2server_id = {}
         self.targ2forward = defaultdict(list)
         self.targ2localdelivery = set()
-        self.targ2vacation = {}
         self.acc2name = {}
         self.pending = {}
         self.e_id2passwd = {}
@@ -207,21 +206,6 @@ class EmailLDAP(DatabaseAccessor):
         mail_forw = Email.EmailForward(self._db)
         self.targ2localdelivery = set(
             [x['target_id'] for x in mail_forw.list_local_delivery()])
-
-    def read_vacation(self):
-        mail_vaca = Email.EmailVacation(self._db)
-        for row in mail_vaca.list_email_active_vacations():
-            t_id = int(row['target_id'])
-            insert = False
-            if t_id in self.targ2vacation:
-                if row['start_date'] > self.targ2vacation[t_id][1]:
-                    insert = True
-            else:
-                insert = True
-            if insert:
-                self.targ2vacation[t_id] = (row['vacation_text'],
-                                            row['start_date'],
-                                            row['end_date'])
 
     def read_accounts(self, spread):
         # Since get_target() can be called for target type "deleted",

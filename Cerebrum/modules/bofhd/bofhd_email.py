@@ -799,8 +799,7 @@ class BofhdEmailAuth(BofhdAuth):
             return True
         raise PermissionDenied("Currently limited to superusers")
 
-    # the user and local sysadmin is allowed to turn forwarding and
-    # tripnote on/off
+    # the user and local sysadmin is allowed to turn forwarding on/off
     def can_email_forward_toggle(self, operator, account=None,
                                  query_run_any=False):
         if query_run_any or (account and operator == account.entity_id):
@@ -937,25 +936,6 @@ class BofhdEmailAuth(BofhdAuth):
         if self.is_postmaster(operator):
             return True
         raise PermissionDenied("Currently limited to superusers")
-
-    def can_email_tripnote_toggle(self, operator,
-                                  account=None, query_run_any=False):
-        if query_run_any or (account and operator == account.entity_id):
-            return True
-        if self._is_local_postmaster(operator,
-                                     self.const.auth_email_vacation_off,
-                                     account=account,
-                                     domain=None,
-                                     query_run_any=query_run_any):
-            return True
-        raise PermissionDenied("Currently limited to superusers")
-
-    # or edit the tripnote messages or add new ones.
-    def can_email_tripnote_edit(self, operator,
-                                account=None, query_run_any=False):
-        return self.can_email_forward_edit(operator,
-                                           account=account,
-                                           query_run_any=query_run_any)
 
 
 class RTQueue(Parameter):
@@ -2899,219 +2879,6 @@ class BofhdEmailCommands(BofhdEmailBase):
         return "OK, set spam-action for '%s'" % uname
 
     #
-    # email tripnote on|off <uname> [<begin-date>]
-    #
-    all_commands['email_tripnote'] = Command(
-        ('email', 'tripnote'),
-        SimpleString(help_ref='email_tripnote_action'),
-        AccountName(help_ref='account_name'),
-        SimpleString(help_ref='date', optional=True),
-        perm_filter='can_email_tripnote_toggle')
-
-    def email_tripnote(self, operator, action, uname, when=None):
-        """ Turn on/off tripnote. """
-        acc = self._get_account(uname)
-        self.ba.can_email_tripnote_toggle(operator.get_entity_id(),
-                                          account=acc)
-
-        if action == 'on':
-            enable = True
-        elif action == 'off':
-            enable = False
-        else:
-            raise CerebrumError("Unknown tripnote action %r, choose one of"
-                                " 'on' or 'off'" % action)
-
-        ev = Email.EmailVacation(self.db)
-        ev.find_by_target_entity(acc.entity_id)
-        # TODO: If 'enable' at this point actually is None (which, by
-        # the looks of the if-else clause at the top seems
-        # impossible), opposite_status won't be defined, and hence the
-        # ._find_tripnote() call below will fail.
-        if enable is not None:
-            opposite_status = not enable
-        date = self._find_tripnote(uname, ev, when, opposite_status)
-        ev.enable_vacation(date, enable)
-        ev.write_db()
-        return "OK, set tripnote to '%s' for '%s'" % (action, uname)
-
-    #
-    # email tripnote_list <uname>
-    #
-    all_commands['email_tripnote_list'] = Command(
-        ('email', 'tripnote_list'),
-        AccountName(help_ref='account_name'),
-        fs=FormatSuggestion([
-            ("%s%s -- %s: %s\n"
-             "%s\n",
-             ("dummy", format_day('start_date'), format_day('end_date'),
-              "enable", "text"))
-        ]),
-        perm_filter='can_email_tripnote_toggle'
-    )
-
-    def email_tripnote_list(self, operator, uname):
-        """ List tripnotes for a user. """
-        acc = self._get_account(uname)
-        self.ba.can_email_tripnote_toggle(operator.get_entity_id(),
-                                          account=acc)
-
-        try:
-            self.ba.can_email_tripnote_edit(operator.get_entity_id(),
-                                            account=acc)
-            hide = False
-        except PermissionDenied:
-            hide = True
-
-        ev = Email.EmailVacation(self.db)
-        try:
-            ev.find_by_target_entity(acc.entity_id)
-        except Errors.NotFoundError:
-            raise CerebrumError("No tripnotes for %s" % uname)
-
-        now = self._today()
-        act_date = None
-        for r in ev.get_vacation():
-            if r['end_date'] is not None and r['start_date'] > r['end_date']:
-                self.logger.info(
-                    "bogus tripnote for %s, start at %s, end at %s"
-                    % (uname, r['start_date'], r['end_date']))
-                ev.delete_vacation(r['start_date'])
-                ev.write_db()
-                continue
-            if r['enable'] == 'F':
-                continue
-            if r['end_date'] is not None and r['end_date'] < now:
-                continue
-            if r['start_date'] > now:
-                break
-            # get_vacation() returns a list ordered by start_date, so
-            # we know this one is newer.
-            act_date = r['start_date']
-
-        result = []
-        for r in ev.get_vacation():
-            text = r['vacation_text']
-            if r['enable'] == 'F':
-                enable = "OFF"
-            elif r['end_date'] is not None and r['end_date'] < now:
-                enable = "OLD"
-            elif r['start_date'] > now:
-                enable = "PENDING"
-            else:
-                enable = "ON"
-            if act_date is not None and r['start_date'] == act_date:
-                enable = "ACTIVE"
-            elif hide:
-                text = "<text is hidden>"
-            # TODO: FormatSuggestion won't work with a format_day()
-            # coming first, so we use an empty dummy string as a
-            # workaround.
-            result.append({
-                'dummy': "",
-                'start_date': r['start_date'],
-                'end_date': r['end_date'],
-                'enable': enable,
-                'text': text,
-            })
-        if result:
-            return result
-        raise CerebrumError("No tripnotes for %s" % uname)
-
-    #
-    # email tripnote_add <uname> <text> <begin-date>[-<end-date>]
-    #
-    all_commands['email_tripnote_add'] = Command(
-        ('email', 'tripnote_add'),
-        AccountName(help_ref='account_name'),
-        SimpleString(help_ref='tripnote_text'),
-        SimpleString(help_ref='string_from_to'),
-        perm_filter='can_email_tripnote_edit')
-
-    def email_tripnote_add(self, operator, uname, text, when=None):
-        """ Add a tripnote. """
-        acc = self._get_account(uname)
-        self.ba.can_email_tripnote_edit(operator.get_entity_id(), account=acc)
-        date_start, date_end = self._parse_date_from_to(when)
-        now = self._today()
-        if date_end is not None and date_end < now:
-            raise CerebrumError("Won't add already obsolete tripnotes")
-        ev = Email.EmailVacation(self.db)
-        ev.find_by_target_entity(acc.entity_id)
-        for v in ev.get_vacation():
-            if date_start is not None and v['start_date'] == date_start:
-                raise CerebrumError("There's a tripnote starting on %s"
-                                    " already" % str(date_start)[:10])
-
-        # FIXME: The SquirrelMail plugin sends CR LF which xmlrpclib
-        # (AFAICT) converts into LF LF.  Remove the double line
-        # distance.  jbofh users have to send backslash n anyway, so
-        # this won't affect common usage.
-        text = text.replace('\n\n', '\n')
-        text = text.replace('\\n', '\n')
-        ev.add_vacation(date_start, text, date_end, enable=True)
-        ev.write_db()
-        return "OK, added tripnote for '%s'" % uname
-
-    #
-    # email tripnote_remove <uname> [<when>]
-    #
-    all_commands['email_tripnote_remove'] = Command(
-        ('email', 'tripnote_remove'),
-        AccountName(help_ref='account_name'),
-        SimpleString(help_ref='date', optional=True),
-        perm_filter='can_email_tripnote_edit')
-
-    def email_tripnote_remove(self, operator, uname, when=None):
-        """ Remove tripnote. """
-        acc = self._get_account(uname)
-        self.ba.can_email_tripnote_edit(operator.get_entity_id(), account=acc)
-        self._parse_date(when)  # TBD: Validation or code rot?
-        ev = Email.EmailVacation(self.db)
-        ev.find_by_target_entity(acc.entity_id)
-        date = self._find_tripnote(uname, ev, when)
-        ev.delete_vacation(date)
-        ev.write_db()
-        return "OK, removed tripnote for '%s'" % uname
-
-    def _find_tripnote(self, uname, ev, when=None, enabled=None):
-        vacs = ev.get_vacation()
-        if enabled is not None:
-            nv = []
-            for v in vacs:
-                if (v['enable'] == 'T') == enabled:
-                    nv.append(v)
-            vacs = nv
-        if len(vacs) == 0:
-            if enabled is None:
-                raise CerebrumError("User %s has no stored tripnotes" % uname)
-            elif enabled:
-                raise CerebrumError("User %s has no enabled tripnotes" % uname)
-            else:
-                raise CerebrumError("User %s has no disabled tripnotes" %
-                                    uname)
-        elif len(vacs) == 1:
-            return vacs[0]['start_date']
-        elif when is None:
-            raise CerebrumError("User %r has more than one tripnote, specify"
-                                " which one by adding the start date to"
-                                " command" % uname)
-        start = self._parse_date(when)
-        best = None
-        best_delta = None
-        for r in vacs:
-            delta = abs(r['start_date'] - start)
-            if best is None or delta < best_delta:
-                best = r['start_date']
-                best_delta = delta
-        # TODO: in PgSQL, date arithmetic is in days, but casting
-        # it to int returns seconds.  The behaviour is undefined
-        # in the DB-API.
-        if abs(int(best_delta)) > 1.5 * 86400:
-            raise CerebrumError("There are no tripnotes starting at %s" % when)
-        return best
-
-    #
     # email update <uname>
     # Anyone can run this command.  Ideally, it should be a no-op,
     # and we should remove it when that is true.
@@ -4250,14 +4017,6 @@ HELP_EMAIL_CMDS = {
             "How to handle target's spam",
         "email_spam_level":
             "Change target's tolerance for spam",
-        "email_tripnote":
-            "Turn vacation messages on/off",
-        "email_tripnote_add":
-            "Add vacation message",
-        "email_tripnote_list":
-            "List user's vacation messages",
-        "email_tripnote_remove":
-            "Remove vacation message",
         "email_pause":
             "Turn delivery pause on or off",
         "email_pause_list":
@@ -4285,9 +4044,6 @@ HELP_EMAIL_ARGS = {
     'email_forward_action':
         ['action', 'Enter forward action',
          "Legal forward actions:\n - on\n - off\n - local"],
-    'email_tripnote_action':
-        ['action', 'Enter tripnote action',
-         "Legal tripnote actions:\n - on\n - off"],
     'spam_action':
         ['spam action', 'Enter spam action',
          "Choose one of\n"

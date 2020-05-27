@@ -85,7 +85,7 @@ from EmailConstants import (_EmailTargetCode, _EmailSpamActionCode,
                             _EmailVirusRemovedCode)
 import cereconf
 
-__version__ = "1.5"
+__version__ = "1.6"
 
 
 Entity_class = Utils.Factory.get("Entity")
@@ -565,9 +565,8 @@ class EmailTarget(Entity_class):
         # exchange-relatert-jazz
         # TODO: this is definitely not a very good idea. delete should be
         # done in each class. (Jazz, 2013-11)
-        for table in ('email_forward', 'email_vacation', 'email_quota',
-                      'email_spam_filter', 'email_virus_scan',
-                      'email_target_filter'):
+        for table in ('email_forward', 'email_quota', 'email_spam_filter',
+                      'email_virus_scan', 'email_target_filter'):
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=%s]
             WHERE target_id=:e_id""" % table, {'e_id': self.entity_id})
@@ -2027,116 +2026,6 @@ class EmailForward(EmailTarget):
             """SELECT *
             FROM [:table schema=cerebrum name=email_forward] ef""" + where,
             binds, fetchall=fetchall)
-
-
-class EmailVacation(EmailTarget):
-
-    def add_vacation(self, start, text, end=None, enable=False):
-        # TODO: Should use DDL-imposed default values if not
-        # instructed otherwise.
-        if enable:
-            enable = 'T'
-        else:
-            enable = 'F'
-        ret = self.execute("""
-        INSERT INTO [:table schema=cerebrum name=email_vacation]
-          (target_id, start_date, vacation_text, end_date, enable)
-        VALUES (:t_id, :start, :text, :end, :enable)""",
-                           {'t_id': self.entity_id,
-                            'start': start,
-                            'text': text,
-                            'end': end,
-                            'enable': enable})
-        # exchange-relevant-jazz
-        self._db.log_change(self.entity_id,
-                            self.clconst.email_vacation_add, None,
-                            change_params={'start': start,
-                                           'end': end,
-                                           'enable': enable})
-        return ret
-
-    def enable_vacation(self, start, enable=True):
-        if enable:
-            enable = 'T'
-            cat = self.clconst.email_vacation_enable
-        else:
-            enable = 'F'
-            cat = self.clconst.email_vacation_disable
-        binds = {'t_id': self.entity_id,
-                 'start': start,
-                 'enable': enable}
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name=email_vacation]
-            WHERE
-              target_id=:t_id AND
-              start_date=:start AND
-              enable=:enable
-          )
-        """
-        if self.query_1(exists_stmt, binds):
-            # False positive
-            return
-        update_stmt = """
-        UPDATE [:table schema=cerebrum name=email_vacation]
-        SET enable=:enable
-        WHERE target_id=:t_id AND start_date=:start"""
-        self.execute(update_stmt, binds)
-        # exchange-relevant-jazz
-        self._db.log_change(self.entity_id,
-                            cat, None,
-                            change_params={'start': start})
-
-    def disable_vacation(self, start):
-        return self.enable_vacation(start, False)
-
-    def get_vacation(self):
-        return self.query("""
-        SELECT vacation_text, start_date, end_date, enable
-        FROM [:table schema=cerebrum name=email_vacation]
-        WHERE target_id=:t_id
-        ORDER BY start_date""", {'t_id': self.entity_id})
-
-    def delete_vacation(self, start):
-        # exchange-relevant-jazz
-        binds = {'t_id': self.entity_id,
-                 'start': start}
-        exists_stmt = """
-          SELECT EXISTS (
-            SELECT 1
-            FROM [:table schema=cerebrum name=email_vacation]
-            WHERE target_id=:t_id AND start_date=:start
-          )
-        """
-        if not self.query_1(exists_stmt, binds):
-            # False positive
-            return
-        delete_stmt = """
-        DELETE FROM [:table schema=cerebrum name=email_vacation]
-        WHERE target_id=:t_id AND start_date=:start"""
-        self.execute(delete_stmt, binds)
-        # exchange-relevant-jazz
-        self._db.log_change(self.entity_id,
-                            self.clconst.email_vacation_rem,
-                            None,
-                            change_params={'start': start})
-
-    def list_email_vacations(self):
-        return self.query("""
-        SELECT target_id, vacation_text, start_date, end_date, enable
-        FROM [:table schema=cerebrum name=email_vacation]
-        """, fetchall=False)
-
-    def list_email_active_vacations(self):
-        import mx
-        return self.query("""
-        SELECT target_id, vacation_text, start_date, end_date, enable
-        FROM [:table schema=cerebrum name=email_vacation]
-        WHERE enable = 'T' AND
-              start_date<=:cur AND
-              end_date>=:cur OR end_date IS NULL
-        """, {'cur': mx.DateTime.today()}, fetchall=False)
 
 
 class EmailPrimaryAddressTarget(EmailTarget):
