@@ -245,7 +245,7 @@ def sync_filegroup(fgname, group, course, act):
             name=fgname,
             description="Gruppelærere %s gruppe %s" % (course.upper(), act),
             expire_date=expdate,
-            group_type=co.group_type_unknown,
+            group_type=co.group_type_ifi_auto,
         )
         posix_group.write_db()
     else:
@@ -302,7 +302,7 @@ def process_groups(super, fg_super):
             description=("Ikke-eksporterbar gruppe.  Hvilke "
                          "filgrupper som er automatisk opprettet som "
                          "følge av Ifi-automatikk"),
-            group_type=co.group_type_unknown,
+            group_type=co.group_type_ifi_auto,
         )
         fg_super_gr.write_db()
     else:
@@ -321,7 +321,6 @@ def process_groups(super, fg_super):
                                           member_type=co.entity_group,
                                           member_filter_expired=False):
         member_id = int(row["member_id"])
-
         group = get_group(member_id)
         if group.group_name.startswith(('sinf', 'sin')):
             continue

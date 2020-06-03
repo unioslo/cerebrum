@@ -257,7 +257,14 @@ class ConstantsHigherEdu(Constants.Constants):
     # group type for <inst>/populate-fronter-groups.py
     group_type_lms = _GroupTypeCode(
         'lms-group',
-        'Automatic group - generated for LMS from FS student roles')
+        'Automatic group - generated for LMS from FS student roles'
+    )
+
+    # group type for ifi-auto groups
+    group_type_ifi_auto = _GroupTypeCode(
+        'ifi-auto-group',
+        'Automatic group - collection of groups processed by ifi-auto.py'
+    )
 
     # group types for fs edu groups
     group_type_edu_meta = _GroupTypeCode(
