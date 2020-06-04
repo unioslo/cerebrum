@@ -230,7 +230,7 @@ class AccountHiOfMixin(Account.Account):
             if affiliation == self.const.affiliation_student:
                 is_student = True
         return r'\\LS02.hiof.no\HomeS\{}'.format(
-            self.account_name) if is_student else r''
+            self.account_name) if is_student else None
 
     def _calculate_scriptpath(self):
         """Calculate what a user should get as its ScriptPath in AD, according
