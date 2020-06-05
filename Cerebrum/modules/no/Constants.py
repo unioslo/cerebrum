@@ -161,6 +161,11 @@ class ConstantsCommon(Constants.Constants):
         'new_account', Constants.Constants.entity_account,
         "The account is newly created or restored")
 
+    trait_account_new_automatic = _EntityTraitCode(
+        'new_auto_account', Constants.Constants.entity_account,
+        "Newly create automatic account"
+    )
+
     # Trait for tagging important accounts.
     # Special permission is needed to change password for these accounts.
     trait_important_account = _EntityTraitCode(

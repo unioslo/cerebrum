@@ -126,7 +126,7 @@ def get_gid(posix, posix_uio):
     return None
 
 
-def update_account(db, pe, account_policy, creator, new_trait=None, spreads=(),
+def update_account(db, pe, account_policy, creator, new_traits=None, spreads=(),
                    ignore_affs=(), remove_quars=(), posix=False, home=None,
                    home_auto=None, posix_uio=False):
     """Make sure that the given person has an active account. It the person has
@@ -145,9 +145,10 @@ def update_account(db, pe, account_policy, creator, new_trait=None, spreads=(),
     affiliations = get_account_types(pe, ignore_affs)
     disks = (home,) if home else ()
     # Some logging
-    logger.debug("Will add trait: %s to account", new_trait)
+    logger.debug("Will add traits: %s to account",
+        ', '.join(str(trait) for trait in new_traits))
     logger.debug("Will add spreads: %s to account",
-                 ", ".join(str(i) for i in spreads))
+                 ', '.join(str(i) for i in spreads))
     # Log stedkode if ou has stedkode mixin
     ou = Factory.get('OU')(db)
     for affiliation in affiliations:
@@ -179,7 +180,7 @@ def update_account(db, pe, account_policy, creator, new_trait=None, spreads=(),
                 affiliations,
                 disks,
                 None,
-                traits=(new_trait, ) if new_trait else (),
+                traits=tuple(new_traits) if new_traits else (),
                 spreads=spreads,
                 make_posix_user=posix,
                 gid=get_gid(posix, posix_uio),
@@ -201,7 +202,7 @@ def update_account(db, pe, account_policy, creator, new_trait=None, spreads=(),
             disks,
             None,
             creator.entity_id,
-            traits=(new_trait,) if new_trait else (),
+            traits=tuple(new_traits) if new_traits else (),
             spreads=spreads,
             make_posix_user=posix,
             gid=get_gid(posix, posix_uio),
@@ -242,7 +243,7 @@ def get_posixgroup(db, groupname):
     return pg.entity_id
 
 
-def process(db, affiliations, new_trait=None, spreads=(), ignore_affs=(),
+def process(db, affiliations, new_traits=None, spreads=(), ignore_affs=(),
             remove_quars=(), posix=False, home=None, home_auto=None,
             posix_uio=None):
     """Go through the database for new persons and give them accounts."""
@@ -280,7 +281,7 @@ def process(db, affiliations, new_trait=None, spreads=(), ignore_affs=(),
         logger.debug("Processing person_id=%d", p_id)
         pe.clear()
         pe.find(p_id)
-        update_account(db, pe, account_policy, creator, new_trait, spreads,
+        update_account(db, pe, account_policy, creator, new_traits  , spreads,
                        ignore_affs, remove_quars, posix, home, home_auto,
                        posix_uio)
 
@@ -321,9 +322,11 @@ def make_parser():
              'Example: "ANSATT,TILKNYTTET/ekstern,STUDENT/fagperson"')
     parser.add_argument(
         '--new-trait',
-        dest='trait',
-        metavar='TRAITNAME',
-        help='If set, gives every new account the given trait. '
+        dest='traits',
+        action=ExtendAction,
+        type=lambda arg: arg.split(','),
+        metavar='TRAITNAMES',
+        help='If set, gives every new account the given trait(s). '
              'Usable e.g. for sending a welcome SMS for every new account.')
     parser.add_argument(
         '--spread',
@@ -399,13 +402,15 @@ def main(inargs=None):
 
     # Lookup stuff
     affiliations = [str2aff(co, a) for a in args.affs]
-    new_trait = co.EntityTrait(args.trait) if args.trait else None
+    new_traits=[co.EntityTrait(t)
+                  for t in args.traits] if args.traits else None
     spreads = [co.Spread(s) for s in args.spreads]
     ignore_affs = [str2aff(co, a) for a in args.ignore_affs]
     remove_quars = [co.Quarantine(q) for q in args.remove_quars]
 
     # Verify as valid constants
-    int(new_trait)
+    for i in new_traits:
+        int(i)
     for i in spreads:
         int(i)
     for i in remove_quars:
@@ -427,7 +432,7 @@ def main(inargs=None):
         raise RuntimeError("No affiliations given")
 
     db.cl_init(change_program="generate_accounts")
-    process(db, affiliations, new_trait, spreads, ignore_affs, remove_quars,
+    process(db, affiliations, new_traits, spreads, ignore_affs, remove_quars,
             posix, home, args.home_auto, args.posix_uio)
 
     if args.commit:
