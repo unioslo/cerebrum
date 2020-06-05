@@ -243,7 +243,7 @@ class AccountCreationNotifier(object):
         return ou_notify
 
 
-DEFAULT_TRAIT = 'trait_account_new_automatic'
+DEFAULT_TRAIT = 'trait_new_account_notification_pending'
 DEFAULT_TOO_OLD = 30
 
 
