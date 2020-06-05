@@ -84,13 +84,13 @@ class AccountCreationNotifier(object):
         # emails sent.
         email_content = {}
         for ou_id, users in ou_notify.items():
-            logger.info(ou_id)
-            logger.info(users)
 
             contact_emails = self.get_ou_contact_emails(ou_id)
             self.ou.find(ou_id)
             stedkode = self.ou.get_stedkode()
             self.ou.clear()
+
+            logger.info('Found user %s with trait, on ou %s', user, stedkode)
 
             if not contact_emails:
                 logger.info('No contact email for ou %s, skipping', stedkode)
@@ -305,7 +305,6 @@ def main(inargs=None):
     logger.debug("affiliations: %r", affiliations)
     logger.debug("commit:       %r", args.commit)
 
-    logger.info('send_welcome_sms started')
     notifier = AccountCreationNotifier(
         db=db,
         trait=trait,
