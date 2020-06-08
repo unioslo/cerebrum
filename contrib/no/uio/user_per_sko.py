@@ -49,8 +49,6 @@ import types
 import locale
 from six import text_type
 
-
-from Cerebrum.extlib.sets import Set
 from Cerebrum.Utils import Factory
 
 logger = None
@@ -408,7 +406,7 @@ def generate_people_statistics(perspective, empty_statistics, level, db,
     statistics = copy.deepcopy(empty_statistics)
 
     # Cache processed entities
-    processed = Set()
+    processed = set()
     # Sort order for affiliations/stati
     order = make_affiliation_priorities(const)
 
@@ -477,7 +475,7 @@ def generate_account_statistics(perspective, empty_statistics, level, db,
     order = make_affiliation_priorities(const)
 
     # Keep track of accounts that had been processed
-    processed = Set()
+    processed = set()
 
     for row in account.list_accounts_by_type(fetchall=False):
 

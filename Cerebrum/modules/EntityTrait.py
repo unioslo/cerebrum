@@ -24,10 +24,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
 from EntityTraitConstants import _EntityTraitCode
 
-try:
-    set()
-except:
-    from Cerebrum.extlib.sets import Set as set
 
 __version__ = "1.1"
 
