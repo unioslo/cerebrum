@@ -161,6 +161,12 @@ class ConstantsCommon(Constants.Constants):
         'new_account', Constants.Constants.entity_account,
         "The account is newly created or restored")
 
+    trait_new_account_notification_pending = _EntityTraitCode(
+        'new_acc_notify',
+        Constants.Constants.entity_account,
+        "New account that we should notify support about."
+    )
+
     # Trait for tagging important accounts.
     # Special permission is needed to change password for these accounts.
     trait_important_account = _EntityTraitCode(
