@@ -66,7 +66,7 @@ class AccountHiOfMixin(Account.Account):
             # TODO: Kill the ARsystem user to limit range of legal characters
             if len(name) > 8:
                 return "too long (%s)" % name
-            if re.search("^[^A-Za-z]", name):
+            if re.search(r"^[^A-Za-z]", name):
                 return "must start with a character (%s)" % name
             if re.search(r"[^A-Za-z0-9\-_]", name):
                 return "contains illegal characters (%s)" % name
@@ -230,7 +230,7 @@ class AccountHiOfMixin(Account.Account):
             if affiliation == self.const.affiliation_student:
                 is_student = True
         return r'\\LS02.hiof.no\HomeS\{}'.format(
-            self.account_name) if is_student else r''
+            self.account_name) if is_student else None
 
     def _calculate_scriptpath(self):
         """Calculate what a user should get as its ScriptPath in AD, according
@@ -255,7 +255,7 @@ class AccountHiOfMixin(Account.Account):
                 return 'ansatt-LS01.bat'
             if affiliation == self.const.affiliation_student:
                 is_student = True
-        return 'student-LS02.bat' if is_student else ''
+        return 'student-LS02.bat' if is_student else None
 
     def update_ad_attributes(self):
         """Check and update the AD attributes for the account."""
@@ -269,7 +269,7 @@ class AccountHiOfMixin(Account.Account):
                           (self.const.ad_attribute_scriptpath,
                            self._calculate_scriptpath)):
             val = func()
-            if val is None:
+            if not val:
                 continue
             # Not change if already set:
             if not self.list_ad_attributes(self.entity_id, spread, atr):
