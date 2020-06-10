@@ -50,10 +50,6 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet
 from Cerebrum.utils.funcwrap import memoize
-try:
-    set()
-except NameError:
-    from Cerebrum.extlib.sets import Set as set
 
 
 logger = Factory.get_logger("cronjob")
@@ -62,6 +58,7 @@ database.cl_init(change_program="pop-auto-groups")
 constants = Factory.get("Constants")(database)
 account = Factory.get("Account")(database)
 person = Factory.get("Person")(database)
+
 
 def format_sko(*rest):
     """Format stedkode in a suitable fashion.
