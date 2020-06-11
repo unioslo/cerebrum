@@ -43,7 +43,7 @@ CREATE TABLE feide_service_info
     CONSTRAINT feide_service_info_pk PRIMARY KEY,
 
   feide_id
-    NUMERIC(12,0)
+    VARCHAR(128,0)
     NOT NULL
     CONSTRAINT feide_service_info_feide_id_unique UNIQUE,
 

@@ -18,6 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import uuid
+
 import cereconf
 
 from Cerebrum.Utils import Factory
@@ -321,3 +323,32 @@ class BofhdUtils(object):
         if found is None:
             raise CerebrumError("Unknown value '%s'" % type_name)
         return found
+
+    def is_uuid(self, x):
+        """Checks if x is a UUID"""
+        if type(x) == uuid.UUID:
+            return True
+        try:
+            uuid_x = uuid.UUID(x)
+            return True
+        except (TypeError, ValueError, AttributeError) as e:
+            return False
+
+    def is_valid_feide_id_type(self, x):
+        """Checks what kind of format a proposed feide-ID has.
+
+        Valid values are: int, uuid or a string representation of either."""
+        if not x:
+            return False
+        type_x = type(x)
+        if type_x == int or type_x == uuid.UUID:
+            return True
+        else:
+            if self.is_uuid(x):
+                return True
+            try:
+                val_x = int(x)
+                return True
+            except (TypeError, ValueError, AttributeError) as e:
+                return False
+        return False

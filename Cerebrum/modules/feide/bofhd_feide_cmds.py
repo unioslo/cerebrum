@@ -36,6 +36,7 @@ from Cerebrum.modules.bofhd.cmd_param import (Command,
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.feide.service import (FeideService,
                                             FeideServiceAuthnLevelMixin)
+from Cerebrum.modules.bofhd.utils import BofhdUtils
 
 
 class BofhdFeideAuth(BofhdAuth):
@@ -58,6 +59,7 @@ class BofhdExtension(BofhdCommonMethods):
             raise CerebrumError('No such Feide service')
         return fse
 
+
     @classmethod
     def get_help_strings(cls):
         """ Help strings for Feide commands. """
@@ -73,18 +75,23 @@ class BofhdExtension(BofhdCommonMethods):
         perm_filter='is_superuser')
 
     def feide_service_add(self, operator, feide_id, service_name):
-        """ Add a Feide service """
+        """ Add a Feide service
+
+        The Feide service must have an ID, which will either be an integer
+        or an UUID.
+        """
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied('Only superusers may add Feide services')
-        if not feide_id.isdigit():
-            raise CerebrumError('Feide ID can only contain digits.')
+        __util = BofhdUtils(self.db)
+        if not __util.is_valid_feide_id_type(feide_id):
+            raise CerebrumError('Feide ID must either be a UUID an integer.')
         fse = FeideService(self.db)
         service_name = service_name.strip()
         name_error = fse.illegal_name(service_name)
         if name_error:
             raise CerebrumError(name_error)
         for service in fse.search():
-            if int(feide_id) == int(service['feide_id']):
+            if feide_id == service['feide_id']:
                 raise CerebrumError(
                     'A Feide service with that ID already exists')
             if service_name == service['name']:
