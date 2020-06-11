@@ -317,6 +317,19 @@ class AccountUiOMixin(Account.Account):
             return False
         return person.has_e_reservation()
 
+    def populate(self, name, owner_type, owner_id, np_type, creator_id,
+            expire_date, description=None, parent=None):
+        """Override to check that the account name is not already taken by a
+        group.
+        """
+        validate_domains = self.get_validate_domains()[1:]
+        if not self.is_valid_new_uname(name, domains=validate_domains):
+            raise self._db.IntegrityError('Account name not available: %s' %
+                                          name)
+        return self.__super.populate(name, owner_type, owner_id, np_type,
+                                     creator_id, expire_date,
+                                     description=description, parent=parent)
+
     # exchange-relatert-jazz
     # after Exchange roll-out this method should be removed as it will
     # no longer be necessary due to the server-data not being kept in

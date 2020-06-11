@@ -750,11 +750,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         except AttributeError:
             self.__in_db = False
 
-        validate_domains = self.get_validate_domains()[1:]
-        if not self.is_valid_new_uname(name, domains=validate_domains):
-            raise self._db.IntegrityError('Account name not available: %s' %
-                                          name)
-
         self.owner_type = int(owner_type)
         self.owner_id = owner_id
         self.np_type = np_type
