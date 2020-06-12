@@ -330,6 +330,11 @@ class AccountUiOMixin(Account.Account):
                                      creator_id, expire_date,
                                      description=description, parent=parent)
 
+    def get_validate_domains(self):
+        domains = super(AccountUiOMixin, self).get_validate_domains()
+        domains.append(self.const.group_namespace)
+        return domains
+
     # exchange-relatert-jazz
     # after Exchange roll-out this method should be removed as it will
     # no longer be necessary due to the server-data not being kept in
