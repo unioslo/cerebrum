@@ -326,12 +326,12 @@ class BofhdUtils(object):
 
     def is_uuid(self, x):
         """Checks if x is a UUID"""
-        if type(x) == uuid.UUID:
+        if isinstance(x, uuid.UUID):
             return True
         try:
             uuid_x = uuid.UUID(x)
             return True
-        except (TypeError, ValueError, AttributeError) as e:
+        except (TypeError, ValueError, AttributeError):
             return False
 
     def is_valid_feide_id_type(self, x):
@@ -341,7 +341,7 @@ class BofhdUtils(object):
         if not x:
             return False
         type_x = type(x)
-        if type_x == int or type_x == uuid.UUID:
+        if isinstance(x, (uuid.UUID, int)):
             return True
         else:
             if self.is_uuid(x):
