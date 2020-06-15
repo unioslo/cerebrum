@@ -503,10 +503,8 @@ def _parse_sap_data(response, url=None):
 
 
 SAP_ATTRIBUTE_NAMES = {
-    'assignments': {'start': 'originalHireDate',
-                    'id': 'assignmentId'},
-    'roles': {'start': 'effectiveStartDate',
-              'id': 'roleId'}
+    'assignments': {'id': 'assignmentId'},
+    'roles': {'id': 'roleId'}
 }
 
 
@@ -528,8 +526,7 @@ def _add_roles_and_assignments(person_data, config, ignore_read_password):
                 'uri' in person_data.get(key).get('__deferred') and
                 key in SAP_ATTRIBUTE_NAMES.keys()):
             # Fetch, unpack and store role/assignment data
-            deferred_uri = person_data.get(key).get('__deferred').get(
-                'uri')
+            deferred_uri = person_data.get(key).get('__deferred').get('uri')
             # We filter by effectiveEndDate >= today to also get
             # future assignments and roles
             filter_param = {
@@ -544,26 +541,26 @@ def _add_roles_and_assignments(person_data, config, ignore_read_password):
             data = _parse_sap_data(response, url=deferred_uri)
             results_to_add = []
             for result in data.get('results'):
-                start_key = SAP_ATTRIBUTE_NAMES[key]['start']
                 try:
-                    effective_start_date = (
-                            parse_date(result.get(start_key)) -
+                    start_date = (
+                            parse_date(result.get('effectiveStartDate')) -
                             hire_date_offset
                     )
                 except (ValueError, AttributeError, ISOFormatError):
-                    logger.error('Invalid date %s', result.get(start_key))
+                    logger.error('Invalid date %s', result.get(
+                        'effectiveStartDate'))
                     results_to_add.append(result)
                 else:
-                    if datetime.date.today() >= effective_start_date:
+                    if datetime.date.today() >= start_date:
                         results_to_add.append(result)
                     elif (reschedule_date is None or
-                          effective_start_date < reschedule_date):
-                        reschedule_date = effective_start_date
-                        logger.info('%s: %s, %s: %s → reschedule_date: %s',
+                          start_date < reschedule_date):
+                        reschedule_date = start_date
+                        logger.info(('%s: %s, effectiveStartDate: %s '
+                                     '→ reschedule_date: %s'),
                                     SAP_ATTRIBUTE_NAMES[key]['id'],
                                     result.get(SAP_ATTRIBUTE_NAMES[key]['id']),
-                                    start_key,
-                                    result.get(start_key),
+                                    result.get('effectiveStartDate'),
                                     reschedule_date)
             person_data.update({key: {'results': results_to_add}})
     return reschedule_date
