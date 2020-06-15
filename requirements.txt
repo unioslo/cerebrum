@@ -1,6 +1,6 @@
 aniso8601
 backports.ssl-match-hostname
-celery
+celery==4.1.0
 cffi
 cx-Oracle>=5
 egenix-mx-base  # If it fails: pip install --force-reinstall --ignore-installed --no-binary :all: egenix-mx-base
