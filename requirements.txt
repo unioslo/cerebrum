@@ -9,7 +9,7 @@ flask-restplus==0.13.0
 gunicorn==19.9.0
 Jinja2
 jsonschema
-lxml
+lxml==4.2.1
 nose
 passlib
 phonenumbers
