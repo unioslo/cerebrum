@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2002-2018 University of Oslo, Norway
+# Copyright 2002-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,8 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-import uuid
 
 import cereconf
 
@@ -323,32 +321,3 @@ class BofhdUtils(object):
         if found is None:
             raise CerebrumError("Unknown value '%s'" % type_name)
         return found
-
-    def is_uuid(self, x):
-        """Checks if x is a UUID"""
-        if isinstance(x, uuid.UUID):
-            return True
-        try:
-            uuid_x = uuid.UUID(x)
-            return True
-        except (TypeError, ValueError, AttributeError):
-            return False
-
-    def is_valid_feide_id_type(self, x):
-        """Checks what kind of format a proposed feide-ID has.
-
-        Valid values are: int, uuid or a string representation of either."""
-        if not x:
-            return False
-        type_x = type(x)
-        if isinstance(x, (uuid.UUID, int)):
-            return True
-        else:
-            if self.is_uuid(x):
-                return True
-            try:
-                val_x = int(x)
-                return True
-            except (TypeError, ValueError, AttributeError) as e:
-                return False
-        return False

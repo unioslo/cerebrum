@@ -36,7 +36,7 @@ from Cerebrum.modules.bofhd.cmd_param import (Command,
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.feide.service import (FeideService,
                                             FeideServiceAuthnLevelMixin)
-from Cerebrum.modules.bofhd.utils import BofhdUtils
+from Cerebrum.modules.feide.feide_utils import is_valid_feide_id_type
 
 
 class BofhdFeideAuth(BofhdAuth):
@@ -78,13 +78,14 @@ class BofhdExtension(BofhdCommonMethods):
         """ Add a Feide service
 
         The Feide service must have an ID, which will either be an integer
-        or an UUID.
-        """
+        or an UUID. The keyword 'all' is also accepted (capitalization is
+        arbitrary). """
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied('Only superusers may add Feide services')
-        __util = BofhdUtils(self.db)
-        if not __util.is_valid_feide_id_type(feide_id):
-            raise CerebrumError('Feide ID must either be a UUID an integer.')
+        if not is_valid_feide_id_type(feide_id):
+            raise CerebrumError('Feide ID must either be a UUID, an integer, '
+                                'a string representation thereof, or the word '
+                                '"all" (arbitrary capitalization).')
         fse = FeideService(self.db)
         service_name = service_name.strip()
         name_error = fse.illegal_name(service_name)
