@@ -91,13 +91,14 @@ class BofhdExtension(BofhdCommonMethods):
         name_error = fse.illegal_name(service_name)
         if name_error:
             raise CerebrumError(name_error)
-        for service in fse.search():
-            if feide_id == service['feide_id']:
-                raise CerebrumError(
-                    'A Feide service with that ID already exists')
-            if service_name == service['name']:
-                raise CerebrumError(
-                    'A Feide service with that name already exists')
+        if not is_keyword_all(feide_id):
+            for service in fse.search():
+                if feide_id == service['feide_id']:
+                    raise CerebrumError(
+                        'A Feide service with that ID already exists')
+                if service_name == service['name']:
+                    raise CerebrumError(
+                        'A Feide service with that name already exists')
         fse.populate(feide_id, service_name)
         fse.write_db()
         return "Added Feide service '{}'".format(service_name)

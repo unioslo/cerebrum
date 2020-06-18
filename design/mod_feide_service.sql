@@ -45,7 +45,6 @@ CREATE TABLE feide_service_info
   feide_id
     VARCHAR(128,0)
     NOT NULL
-    CONSTRAINT feide_service_info_feide_id_unique UNIQUE,
 
   name
     VARCHAR(128)

@@ -33,6 +33,12 @@ def is_uuid(x):
         return False
     return False
 
+
+def is_keyword_all(x):
+    if six.text_type(x).lower() == six.text_type('all'):
+        return True
+    return False
+
 def is_valid_feide_id_type(x):
     """Checks what kind of format a proposed feide-ID has.
 
@@ -46,8 +52,7 @@ def is_valid_feide_id_type(x):
         _ = int(x)
         return True
     except ValueError:
-        if six.text_type(x).lower() == six.text_type('all'):
-            return True
+        return is_keyword_all(x)
     except Exception:
         return False
     return False
