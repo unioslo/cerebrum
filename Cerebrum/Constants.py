@@ -1540,11 +1540,6 @@ class CommonConstants(ConstantsBase):
         'SHA-512-crypt',
         'SHA-512 derived password as implemented by crypt(3) in '
         'the GNU C library http://www.akkadia.org/drepper/SHA-crypt.txt')
-    auth_type_crypt3_des = _AuthenticationCode(
-        'crypt3-DES',
-        "Password hash generated with the 'traditional' Unix crypt(3)"
-        " algorithm, based on DES.  See <URL:http://www.users.zetnet.co.uk"
-        "/hopwood/crypto/scan/ph.html#Traditional-crypt3>.")
     auth_type_md4_nt = _AuthenticationCode(
         'MD4-NT',
         "MD4-derived password hash with Microsoft-added security.  ")
