@@ -1626,11 +1626,11 @@ def migrate_to_email_1_6():
 def migrate_to_feide_service_1_1():
     assert_db_version("1.0", component="feide_service")
     print("Removing UNIQUE constraint and changing to char(128)")
-    makedb("email_1_1", "pre")
+    makedb("feide_service_1_1", "pre")
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sqlmodule_email", "1.6")
+    meta.set_metainfo("sqlmodule_feide_service", "1.1")
     db.commit()
-    print("Migration to email 1.6 completed successfully")
+    print("Migration to feide_service 1.1 completed successfully")
 
 
 def migrate_to_ephorte_1_1():
