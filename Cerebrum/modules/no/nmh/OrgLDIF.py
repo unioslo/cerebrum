@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2019 University of Oslo, Norway
+# Copyright 2006-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,7 +31,9 @@ from Cerebrum.modules.LDIFutils import normalize_string
 from Cerebrum.modules.no.nmh import StudentStudyProgramCache
 
 
-class nmhOrgLDIFMixin(OrgLDIF):
+# TODO: NmhOrgLDIFMixin
+
+class nmhOrgLDIFMixin(OrgLDIF):  # noqa: N801
 
     # Fetch mail addresses from entity_contact_info of accounts, not persons.
     person_contact_mail = False

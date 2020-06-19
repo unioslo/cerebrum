@@ -47,7 +47,7 @@ class PosixLDIF_UiTMixin(PosixLDIF):  # noqa: N801
     def init_user(self, *args, **kwargs):
         # Prepare to include eduPersonAffiliation, taken from OrgLDIF.
         self.org_ldif = Factory.get('OrgLDIF')(self.db, self.logger)
-        self.org_ldif.init_eduPersonAffiliation_lookup()
+        self.org_ldif.init_edu_person_aff_lookup()
 
         super(PosixLDIF_UiTMixin, self).init_user(*args, **kwargs)
 

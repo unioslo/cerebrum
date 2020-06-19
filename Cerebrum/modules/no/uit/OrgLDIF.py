@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2013-2019 University of Oslo, Norway
+#
+# Copyright 2013-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,10 +21,11 @@
 # kbj005 2015.02.16: copied from
 # /cerebrum/lib/python2.7/site-packages/Cerebrum/modules/no/hih
 """Mixin for OrgLDIF for UiT."""
+
 from __future__ import unicode_literals
 
+import os
 import pickle
-from os.path import join as join_paths
 
 import cereconf
 from Cerebrum.Utils import make_timer
@@ -36,21 +38,22 @@ from .Account import UsernamePolicy
 class OrgLDIFUiTMixin(norEduLDIFMixin):
 
     def __init__(self, db, logger):
-        self.__super.__init__(db, logger)
+        super(OrgLDIFUiTMixin, self).__init__(db, logger)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
 
     def init_person_course(self):
         """Populate dicts with a person's course information."""
         timer = make_timer(self.logger, "Processing person courses...")
         self.ownerid2urnlist = pickle.load(file(
-            join_paths(ldapconf(None, 'dump_dir'), "ownerid2urnlist.pickle")))
+            os.path.join(ldapconf(None, 'dump_dir'),
+                         "ownerid2urnlist.pickle")))
         timer("...person courses done.")
 
     def init_person_groups(self):
         """Populate dicts with a person's group information."""
         timer = make_timer(self.logger, "Processing person groups...")
         self.person2group = pickle.load(file(
-            join_paths(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
+            os.path.join(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
         timer("...person groups done.")
 
     def init_person_dump(self, use_mail_module):

@@ -68,7 +68,7 @@ class PosixLDIF_UiOMixin(PosixLDIF):
         timer = make_timer(self.logger, 'Starting UiO init_user...')
         # Prepare to include eduPersonAffiliation, taken from OrgLDIF.
         self.org_ldif = Factory.get('OrgLDIF')(self.db, self.logger)
-        self.org_ldif.init_eduPersonAffiliation_lookup()
+        self.org_ldif.init_edu_person_aff_lookup()
         self.cache_id2stedkode()
 
         self.account_aff = account_aff = {}

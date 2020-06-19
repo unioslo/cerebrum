@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2007-2019 University of Oslo, Norway
+# Copyright 2007-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,15 +19,17 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import unicode_literals
 
+import os
 import pickle
-from os.path import join as join_paths
 
 from Cerebrum.modules.OrgLDIF import OrgLDIF
 from Cerebrum.modules.LDIFutils import ldapconf
 from Cerebrum.Utils import make_timer
 
 
-class hiofLDIFMixin(OrgLDIF):
+# TODO: HiofLdifMixin
+
+class hiofLDIFMixin(OrgLDIF):  # noqa: N801
 
     def init_person_addresses(self):
         # No snail mail addresses for persons.
@@ -37,7 +39,7 @@ class hiofLDIFMixin(OrgLDIF):
         """Populate dicts with a person's group information."""
         timer = make_timer(self.logger, 'Processing person groups...')
         self.person2group = pickle.load(file(
-            join_paths(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
+            os.path.join(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
         timer("...person groups done.")
 
     def init_person_dump(self, use_mail_module):

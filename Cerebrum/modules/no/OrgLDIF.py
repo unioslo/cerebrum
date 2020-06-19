@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2004-2019 University of Oslo, Norway
+# Copyright 2004-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,7 +21,7 @@ from __future__ import unicode_literals
 
 import io
 import json
-import os.path
+import os
 import re
 import string
 
@@ -40,8 +40,10 @@ from Cerebrum.modules.LDIFutils import (ldapconf,
                                         dn_escape_re)
 from Cerebrum.Utils import make_timer
 
+# TODO: NorEdu...
 
-class norEduLDIFMixin(OrgLDIF):
+
+class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
     """Mixin class for OrgLDIF, adding FEIDE attributes to the LDIF output.
 
     Adds object classes norEdu<Org,OrgUnit,Person> from the FEIDE schema:
@@ -52,21 +54,13 @@ class norEduLDIFMixin(OrgLDIF):
     Add 'Cerebrum.modules.no.Person/PersonFnrMixin' to cereconf.CLASS_PERSON.
 
     Either add 'Cerebrum.modules.no.Stedkode/Stedkode' to cereconf.CLASS_OU
-    or override get_orgUnitUniqueID() in a cereconf.CLASS_ORGLDIF mixin.
+    or override get_unique_ou_id() in a cereconf.CLASS_ORGLDIF mixin.
 
     cereconf.LDAP['FEIDE_schema_version']: '1.5' (current default) to '1.5.1'.
     If it is a sequence of two versions, use the high version but
     include obsolete attributes from the low version.  This may be
     useful in a transition stage between schema versions.
-
-    Note that object class extensibleObject, which if the server
-    supports it allows any attribute, is used instead of norEduObsolete
-    and federationFeideSchema.  This avoids a FEIDE schema bug.
-    cereconf.LDAP['use_extensibleObject'] = False disables this.
     """
-
-    extensibleObject = (cereconf.LDAP.get('use_extensibleObject', True) and
-                        'extensibleObject') or None
 
     FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.6')
     FEIDE_obsolete_version = cereconf.LDAP.get('FEIDE_obsolete_schema_version')
@@ -131,7 +125,7 @@ class norEduLDIFMixin(OrgLDIF):
         """'Available' OUs have the proper spread."""
         return not self.ou.has_spread(self.const.spread_ou_publishable)
 
-    def get_orgUnitUniqueID(self):
+    def get_unique_ou_id(self):
         # Make norEduOrgUnitUniqueIdentifier attribute from the current OU.
         # Requires 'Cerebrum.modules.no.Stedkode/Stedkode' in CLASS_OU.
         return "%02d%02d%02d" % (self.ou.fakultet,
@@ -146,7 +140,7 @@ class norEduLDIFMixin(OrgLDIF):
             return
         self.ou.clear()
         self.ou.find(self.root_ou_id)
-        ldap_ou_id = self.get_orgUnitUniqueID()
+        ldap_ou_id = self.get_unique_ou_id()
         entry.update({
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
             'cn':                  (ldapconf('OU', 'dummy_name'),),
@@ -213,7 +207,7 @@ class norEduLDIFMixin(OrgLDIF):
             self.logger.warn("No names could be located for ou_id=%s", ou_id)
             return parent_dn, None
 
-        ldap_ou_id = self.get_orgUnitUniqueID()
+        ldap_ou_id = self.get_unique_ou_id()
         self.ou_uniq_id2ou_id[ldap_ou_id] = ou_id
         self.ou_id2ou_uniq_id[ou_id] = ldap_ou_id
         entry = {
@@ -247,7 +241,7 @@ class norEduLDIFMixin(OrgLDIF):
         dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
         if not dn:
             return dn, entry, alias_info
-        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(
+        pri_edu_aff, pri_ou, pri_aff = self.make_edu_person_primary_aff(
             person_id)
         if pri_edu_aff:
             entry['eduPersonPrimaryAffiliation'] = pri_edu_aff
@@ -277,7 +271,7 @@ class norEduLDIFMixin(OrgLDIF):
                 dn)
         return dn
 
-    def make_eduPersonPrimaryAffiliation(self, p_id):
+    def make_edu_person_primary_aff(self, p_id):
         """Ad hoc solution for eduPersonPrimaryAffiliation.
 
         This function needs an element in cereconf.LDAP_PERSON that looks like:

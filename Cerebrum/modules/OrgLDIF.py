@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2004-2018 University of Oslo, Norway
+#
+# Copyright 2004-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -21,12 +22,13 @@ from __future__ import unicode_literals
 from __future__ import print_function
 
 import sys
-
 from collections import defaultdict
-from six import text_type
+
+import six
 
 import cereconf
 from Cerebrum import Entity, Errors
+from Cerebrum.Constants import _AuthoritativeSystemCode
 from Cerebrum.export.auth import AuthExporter
 from Cerebrum.Utils import Factory, auto_super, make_timer
 from Cerebrum.QuarantineHandler import QuarantineHandler
@@ -44,6 +46,22 @@ from Cerebrum.modules.LDIFutils import (ldapconf,
                                         postal_escape_re,
                                         dn_escape_re,
                                         hex_escape_match)
+
+
+def get_source_system(const, value):
+    """ Look up a single _AuthoritativeSystemCode value. """
+    if isinstance(value, _AuthoritativeSystemCode):
+        const = value
+    else:
+        const = const.human2constant(value, _AuthoritativeSystemCode)
+    if const is None:
+        raise LookupError("AuthenticationCode %r not defined" % (value, ))
+    try:
+        int(const)
+    except Errors.NotFoundError:
+        raise LookupError("AuthenticationCode %r (%r) not in db" %
+                          (value, const))
+    return const
 
 
 class OrgLDIF(object):
@@ -69,7 +87,7 @@ class OrgLDIF(object):
     org_ldif.generate_ou(file object)
     org_ldif.generate_person(person file obj, alias file, use_mail_module)
     # Preparing to look up eduPersonAffiliation for another program:
-    org_ldif.init_eduPersonAffiliation_lookup()"""
+    org_ldif.init_edu_person_aff_lookup()"""
 
     __metaclass__ = auto_super
 
@@ -179,16 +197,19 @@ class OrgLDIF(object):
         # Set contact information variables:
         # self.attr2id2contacts = {attr.type: {entity id: [attr.value, ...]}}
         # self.id2labeledURI    = self.attr2id2contacts['labeledURI'].
-        s = getattr(self.const, cereconf.LDAP['contact_source_system'])
+        source_system = get_source_system(
+            self.const, cereconf.LDAP['contact_source_system'])
         c = [(a, self.get_contacts(contact_type=t,
                                    source_system=s,
                                    convert=self.attr2syntax[a][0],
                                    verify=self.attr2syntax[a][1],
                                    normalize=self.attr2syntax[a][2]))
-             for a, s, t in (('telephoneNumber', s, self.const.contact_phone),
-                             ('facsimileTelephoneNumber',
-                              s, self.const.contact_fax),
-                             ('labeledURI', None, self.const.contact_url))]
+             for a, s, t in (
+                    ('telephoneNumber', source_system,
+                     self.const.contact_phone),
+                    ('facsimileTelephoneNumber', source_system,
+                     self.const.contact_fax),
+                    ('labeledURI', None, self.const.contact_url))]
         self.id2labeledURI = c[-1][1]
         self.attr2id2contacts = [v for v in c if v[1]]
 
@@ -212,7 +233,7 @@ class OrgLDIF(object):
             entry['objectClass'].append('dcObject')
         self.update_org_object_entry(entry)
         entry['objectClass'] = self.attr_unique(
-            entry['objectClass'], text_type.lower)
+            entry['objectClass'], six.text_type.lower)
         outfile.write(entry_string(self.org_dn, entry))
 
     def update_org_object_entry(self, entry):
@@ -320,7 +341,7 @@ class OrgLDIF(object):
         entry.update(self.ou_attrs)
         if 0 in ou_names:
             self.add_lang_names(entry, 'norEduOrgAcronym', ou_names[0])
-        ou_names = [names for pref, names in sorted(ou_names.items())]
+        ou_names = [names for _, names in sorted(ou_names.items())]
         for names in ou_names:
             self.add_lang_names(entry, 'ou', names)
         self.add_lang_names(entry, 'cn', ou_names[-1])
@@ -365,7 +386,7 @@ class OrgLDIF(object):
         if entry.get('labeledURI'):
             oc = entry['objectClass']
             oc.append('labeledURIObject')
-            entry['objectClass'] = self.attr_unique(oc, text_type.lower)
+            entry['objectClass'] = self.attr_unique(oc, six.text_type.lower)
         post_string, street_string = self.make_entity_addresses(
             self.ou, self.system_lookup_order)
         if post_string:
@@ -388,7 +409,7 @@ class OrgLDIF(object):
         if not hasattr(self, 'attr2id2contacts'):
             self.init_attr2id2contacts()
 
-    def init_eduPersonAffiliation_lookup(self):
+    def init_edu_person_aff_lookup(self):
         # Used to look up eduPersonAffiliation for another program
         self.init_person_basic()
         self.init_person_selections(affiliation_only=True)
@@ -655,7 +676,7 @@ from None and LDAP_PERSON['dn'].""")
             primary_only=True,
             person_spread=self.person_spread)
 
-    def _calculate_edu_OUs(self, p_ou, s_ous):
+    def _calculate_edu_ous(self, p_ou, s_ous):
         # FIXME
         return [p_ou] + s_ous
 
@@ -665,7 +686,7 @@ from None and LDAP_PERSON['dn'].""")
         # bool(alias_info) == False means no alias will be output.
         # Receives a row from list_persons() as a parameter.
         # The row must have key 'account_id',
-        # and if person_dn_primaryOU() is not overridden: 'ou_id'.
+        # and if person_dn_primary_ou() is not overridden: 'ou_id'.
         account_id = int(row['account_id'])
 
         p_affiliations = self.affiliations.get(person_id)
@@ -726,7 +747,7 @@ from None and LDAP_PERSON['dn'].""")
         elif passwd != 0 and entry.get('uid'):
             self.logger.debug("User %s got no password-hash.", entry['uid'][0])
 
-        dn, primary_ou_dn = self.person_dn_primaryOU(entry, row, person_id)
+        dn, primary_ou_dn = self.person_dn_primary_ou(entry, row, person_id)
         if not dn:
             self.logger.debug3("Omitting person id=%d, no DN", person_id)
             return None, None, None
@@ -736,10 +757,10 @@ from None and LDAP_PERSON['dn'].""")
         if primary_ou_dn:
             entry['eduPersonPrimaryOrgUnitDN'] = (primary_ou_dn,)
 
-        edu_OUs = self._calculate_edu_OUs(
+        edu_ous = self._calculate_edu_ous(
             primary_ou_dn,
             [self.ou2DN.get(aff[2]) for aff in p_affiliations])
-        entry['eduPersonOrgUnitDN'] = self.attr_unique(filter(None, edu_OUs))
+        entry['eduPersonOrgUnitDN'] = self.attr_unique(filter(None, edu_ous))
         entry['eduPersonAffiliation'] = self.attr_unique(self.select_list(
             self.eduPersonAff_selector, person_id, p_affiliations))
 
@@ -785,10 +806,10 @@ from None and LDAP_PERSON['dn'].""")
                 if street:
                     entry['street'] = (street,)
         else:
-            URIs = self.id2labeledURI.get(person_id)
-            if URIs:
+            uris = self.id2labeledURI.get(person_id)
+            if uris:
                 entry['labeledURI'] = self.attr_unique(
-                    URIs, normalize_caseExactString)
+                    uris, normalize_caseExactString)
 
         if self.account_mail:
             mail = self.account_mail.get(account_id)
@@ -827,7 +848,7 @@ from None and LDAP_PERSON['dn'].""")
         return self.select_bool(self.visible_person_selector, person_id,
                                 self.affiliations[person_id])
 
-    def person_dn_primaryOU(self, entry, row, person_id):
+    def person_dn_primary_ou(self, entry, row, person_id):
         # Return (the person entry's DN,
         #         the DN of the person's primary org.unit or None),
         #     or (None, anything) to omit the person entry.
@@ -932,11 +953,11 @@ from None and LDAP_PERSON['dn'].""")
         entity = Entity.EntityContactInfo(self.db)
         cont_tab = {}
         if not convert:
-            convert = text_type
+            convert = six.text_type
         for row in entity.list_contact_info(entity_id=entity_id,
                                             source_system=source_system,
                                             contact_type=contact_type):
-            c_list = [convert(text_type(row['contact_value']))]
+            c_list = [convert(six.text_type(row['contact_value']))]
             if '$' in c_list[0]:
                 c_list = c_list[0].split('$')
             elif normalize == normalize_phone and '/' in c_list[0]:

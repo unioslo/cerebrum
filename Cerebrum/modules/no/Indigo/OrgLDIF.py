@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2006-2019 University of Oslo, Norway
+# Copyright 2006-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,7 +22,7 @@ from Cerebrum.modules.OrgLDIF import OrgLDIF
 
 class IndigoLDIFMixin(OrgLDIF):
 
-    def get_orgUnitUniqueID(self):
+    def get_unique_ou_id(self):
         rows = self.ou.get_external_id(id_type=self.const.externalid_orgnr)
         if len(rows) == 1:
             # FEIDE wants "NO" + org.number from <http://www.wis.no/nsr/>

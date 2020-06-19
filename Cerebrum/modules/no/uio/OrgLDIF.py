@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2004-2014 University of Oslo, Norway
+#
+# Copyright 2004-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,9 +20,9 @@
 
 from __future__ import unicode_literals
 
-import re
+import os
 import pickle
-from os.path import join as join_paths
+import re
 from collections import defaultdict
 
 import cereconf
@@ -29,8 +30,10 @@ import cereconf
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 from Cerebrum.modules.OrgLDIF import postal_escape_re
 from Cerebrum.modules.LDIFutils import (
-    ldapconf, normalize_string, hex_escape_match,
-    normalize_IA5String, verify_IA5String,
+    hex_escape_match,
+    ldapconf,
+    normalize_IA5String,
+    verify_IA5String,
 )
 from Cerebrum.Utils import make_timer
 
@@ -42,13 +45,13 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
 
     def __init__(self, db, logger):
-            self.__super.__init__(db, logger)
-            self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
-            self.attr2syntax['uioVisiblePrivateMobile'] = \
-                self.attr2syntax['mobile']
-            self.attr2syntax['uioPrimaryMail'] = (None, verify_IA5String,
-                                                  normalize_IA5String),
-            self.ou_quarantined = {}
+        super(OrgLDIFUiOMixin, self).__init__(db, logger)
+        self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
+        self.attr2syntax['uioVisiblePrivateMobile'] = \
+            self.attr2syntax['mobile']
+        self.attr2syntax['uioPrimaryMail'] = (None, verify_IA5String,
+                                              normalize_IA5String),
+        self.ou_quarantined = {}
 
     def init_ou_dump(self):
         self.__super.init_ou_dump()
@@ -123,14 +126,14 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         """Populate dicts with a person's course information."""
         timer = make_timer(self.logger, 'Processing person courses...')
         self.ownerid2urnlist = pickle.load(file(
-            join_paths(ldapconf(None, 'dump_dir'), "ownerid2urnlist.pickle")))
+            os.path.join(ldapconf(None, 'dump_dir'), "ownerid2urnlist.pickle")))
         timer("...person courses done.")
 
     def init_person_groups(self):
         """Populate dicts with a person's group information."""
         timer = make_timer(self.logger, 'Processing person groups...')
         self.person2group = pickle.load(file(
-            join_paths(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
+            os.path.join(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
         timer("...person groups done.")
 
     def init_person_dump(self, use_mail_module):
@@ -235,7 +238,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             entry['objectClass'].append('uioMembership')
 
         # Add scoped affiliations
-        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(
+        pri_edu_aff, pri_ou, pri_aff = self.make_edu_person_primary_aff(
             person_id)
         entry['uioPersonScopedAffiliation'] = \
             self.make_uioPersonScopedAffiliation(person_id, pri_aff, pri_ou)
@@ -266,7 +269,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
         return dn, entry, alias_info
 
-    def _calculate_edu_OUs(self, p_ou, s_ous):
+    def _calculate_edu_ous(self, p_ou, s_ous):
         return s_ous
 
     def init_person_selections(self, *args, **kwargs):
