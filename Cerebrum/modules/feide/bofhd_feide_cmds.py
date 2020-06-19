@@ -36,7 +36,8 @@ from Cerebrum.modules.bofhd.cmd_param import (Command,
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.feide.service import (FeideService,
                                             FeideServiceAuthnLevelMixin)
-from Cerebrum.modules.feide.feide_utils import is_valid_feide_id_type
+from Cerebrum.modules.feide.feide_utils import (is_valid_feide_id_type,
+                                                is_keyword_all)
 
 
 class BofhdFeideAuth(BofhdAuth):
