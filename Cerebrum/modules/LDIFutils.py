@@ -29,8 +29,9 @@ import binascii
 import re
 import string
 import os.path
-from six import text_type
 from base64 import b64encode
+
+import six
 
 import cereconf
 from Cerebrum import Errors as _Errors
@@ -96,7 +97,10 @@ def hex_escape_match(match):
     """Return the '\\hex' representation of a match object for a character.
 
     Used e.g. with dn_escape_re.sub(hex_escape_match, <attr value>)."""
-    return '\\' + binascii.b2a_hex([x.encode('utf-8') for x in match.group()])
+    text = match.group()
+    if isinstance(text, six.text_type):
+        text = text.encode('utf-8')
+    return '\\' + binascii.b2a_hex(text)
 
 
 def entry_string(dn, attrs, add_rdn=True):
@@ -303,7 +307,7 @@ postal_escape_re = re.compile(r'[$\\]')
 
 # Uppercase -> lowercase, whitespace -> space
 _normalize_trans = {
-    ord(s): text_type(d) for s, d in zip(
+    ord(s): six.text_type(d) for s, d in zip(
         string.ascii_uppercase + string.whitespace.replace(" ", ""),
         string.ascii_lowercase + " " * (len(string.whitespace) - 1))
 }
