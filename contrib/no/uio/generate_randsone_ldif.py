@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 
 
 def generate_dump(db, filename, use_mail_module):
-    ldif = Factory.get('OrgLDIF')(db, logger.getChild('OrgLDIF'))
+    ldif = Factory.get('OrgLDIF')(db)
 
     timer = make_timer(logger, 'Starting dump')
     outfile = ldif_outfile('ORG', filename)
@@ -93,7 +93,7 @@ def main(inargs=None):
         dest='unit',
         type=str,
         required=True,
-        help='Fetch settings from %(metavar)_ldap_conf',
+        help='Fetch settings from %(metavar)s_ldap_conf',
         metavar='<unit>',
     )
     parser.add_argument(

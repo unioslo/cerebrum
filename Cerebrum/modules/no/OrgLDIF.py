@@ -21,6 +21,7 @@ from __future__ import unicode_literals
 
 import io
 import json
+import logging
 import os
 import re
 import string
@@ -40,11 +41,14 @@ from Cerebrum.modules.LDIFutils import (ldapconf,
                                         dn_escape_re)
 from Cerebrum.Utils import make_timer
 
+logger = logging.getLogger(__name__)
+
+
 # TODO: NorEdu...
 
-
 class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
-    """Mixin class for OrgLDIF, adding FEIDE attributes to the LDIF output.
+    """
+    Mixin class for OrgLDIF, adding FEIDE attributes to the LDIF output.
 
     Adds object classes norEdu<Org,OrgUnit,Person> from the FEIDE schema:
     <http://www.feide.no/ldap-schema-feide>.
@@ -73,8 +77,8 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
     if FEIDE_obsolete_version:
         FEIDE_class_obsolete = 'norEduObsolete'
 
-    def __init__(self, db, logger):
-        self.__super.__init__(db, logger)
+    def __init__(self, db):
+        super(norEduLDIFMixin, self).__init__(db)
         try:
             orgnum = int(cereconf.DEFAULT_INSTITUSJONSNR)
             self.norEduOrgUniqueID = ("000%05d" % orgnum,)
@@ -238,7 +242,8 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
 
     def make_person_entry(self, row, person_id):
         """Override to add Feide specific functionality."""
-        dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
+        dn, entry, alias_info = super(norEduLDIFMixin,
+                                      self).make_person_entry(row, person_id)
         if not dn:
             return dn, entry, alias_info
         pri_edu_aff, pri_ou, pri_aff = self.make_edu_person_primary_aff(
@@ -272,7 +277,8 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
         return dn
 
     def make_edu_person_primary_aff(self, p_id):
-        """Ad hoc solution for eduPersonPrimaryAffiliation.
+        """
+        Ad hoc solution for eduPersonPrimaryAffiliation.
 
         This function needs an element in cereconf.LDAP_PERSON that looks like:
 
@@ -295,7 +301,6 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
             Example:
 
                 ('employee', 1234, ('ANSATT', 'bilag'))
-
         """
         def lookup_cereconf(aff, status):
             selector = cereconf.LDAP_PERSON.get(
@@ -342,7 +347,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
         return pri_edu_aff, pri_ou, pri_aff
 
     def init_person_basic(self):
-        self.__super.init_person_basic()
+        super(norEduLDIFMixin, self).init_person_basic()
         self._get_primary_aff_traits()
 
     def _get_primary_aff_traits(self):
@@ -365,7 +370,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
         timer("...primary aff traits done.")
 
     def init_person_dump(self, use_mail_module):
-        self.__super.init_person_dump(use_mail_module)
+        super(norEduLDIFMixin, self).init_person_dump(use_mail_module)
         if ldapconf('PERSON', 'entitlements_file'):
             self.init_person_entitlements()
         self.init_person_fodselsnrs()
@@ -403,7 +408,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
         # Changes from superclass:
         # If possible, add object class norEduPerson and its attributes
         # norEduPersonNIN, norEduPersonBirthDate, eduPersonPrincipalName.
-        self.__super.update_person_entry(entry, row, person_id)
+        super(norEduLDIFMixin, self).update_person_entry(entry, row, person_id)
         uname = entry.get('uid')
         fnr = self.fodselsnrs.get(person_id)
         birth_date = self.birth_dates.get(person_id)

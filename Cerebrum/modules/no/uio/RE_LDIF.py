@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright 2017-2019 University of Oslo, Norway
+# Copyright 2017-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,18 +18,21 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Mixin for contrib/no/uio/generate_randsone_ldif.py."""
+
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 
 
-class RE_LDIF(norEduLDIFMixin):
+# TODO: Rename to RandsoneLdif or something?
+
+class RE_LDIF(norEduLDIFMixin):  # noqa: N801
 
     def init_ou_structure(self):
         # Change from original: Drop OUs outside self.root_ou_id subtree.
-        self.__super.init_ou_structure()
-        OUs, tree = [self.root_ou_id], self.ou_tree
-        for ou in OUs:
-            OUs.extend(tree.get(ou, ()))
-        self.ou_tree = dict((ou, tree[ou]) for ou in OUs if ou in tree)
+        super(RE_LDIF, self).init_ou_structure()
+        ous, tree = [self.root_ou_id], self.ou_tree
+        for ou in ous:
+            ous.extend(tree.get(ou, ()))
+        self.ou_tree = dict((ou, tree[ou]) for ou in ous if ou in tree)
 
     def init_attr2id2contacts(self):
         self.attr2id2contacts = {}

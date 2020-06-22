@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+import logging
 from collections import defaultdict
 
 from six import text_type
@@ -26,12 +27,14 @@ from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 from Cerebrum.modules.LDIFutils import normalize_string
 from Cerebrum.Utils import make_timer
 
+logger = logging.getLogger(__name__)
+
 
 class OrgLDIFHiAMixin(norEduLDIFMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with HiA modifications."""
 
-    def __init__(self, db, logger):
-        self.__super.__init__(db, logger)
+    def __init__(self, db):
+        super(OrgLDIFHiAMixin, self).__init__(db)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
         self.attr2syntax['roomNumber'] = (None, None, normalize_string)
 
@@ -92,9 +95,9 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
     def init_person_titles(self):
         """Extends the person_titles dict with employment titles available via
         the PersonEmployment module."""
-        self.__super.init_person_titles()
+        super(OrgLDIFHiAMixin, self).init_person_titles()
 
-        timer = make_timer(self.logger,
+        timer = make_timer(logger,
                            'Fetching personal employment titles...')
         employments = self.person.search_employment(main_employment=True)
         for emp in employments:

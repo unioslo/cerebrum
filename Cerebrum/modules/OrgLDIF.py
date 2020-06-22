@@ -21,6 +21,7 @@
 from __future__ import unicode_literals
 from __future__ import print_function
 
+import logging
 import sys
 from collections import defaultdict
 
@@ -30,7 +31,7 @@ import cereconf
 from Cerebrum import Entity, Errors
 from Cerebrum.Constants import _AuthoritativeSystemCode
 from Cerebrum.export.auth import AuthExporter
-from Cerebrum.Utils import Factory, auto_super, make_timer
+from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.LDIFutils import (ldapconf,
                                         container_entry_string,
@@ -46,6 +47,8 @@ from Cerebrum.modules.LDIFutils import (ldapconf,
                                         postal_escape_re,
                                         dn_escape_re,
                                         hex_escape_match)
+
+logger = logging.getLogger(__name__)
 
 
 def get_source_system(const, value):
@@ -65,7 +68,8 @@ def get_source_system(const, value):
 
 
 class OrgLDIF(object):
-    """Factory-class to generate the organization and person trees for LDAP.
+    """
+    Factory-class to generate the organization and person trees for LDAP.
 
     A number of cereconf.LDAP* variables control the output.
     Subclasses can also override its methods as necessary.
@@ -81,20 +85,19 @@ class OrgLDIF(object):
     In addition, 'labeledURIObject' is added when necessary.
 
     Interface:
-    org_ldif = Factory.get('OrgLDIF')(Factory.get('Database')(),
-                                      Factory.get_logger(...))
-    org_ldif.generate_org_object(file object)
-    org_ldif.generate_ou(file object)
-    org_ldif.generate_person(person file obj, alias file, use_mail_module)
-    # Preparing to look up eduPersonAffiliation for another program:
-    org_ldif.init_edu_person_aff_lookup()"""
+        org_ldif = Factory.get('OrgLDIF')(Factory.get('Database')())
+        org_ldif.generate_org_object(file object)
+        org_ldif.generate_ou(file object)
+        org_ldif.generate_person(person file obj, alias file, use_mail_module)
+        # Preparing to look up eduPersonAffiliation for another program:
+        org_ldif.init_edu_person_aff_lookup()
+    """
 
-    __metaclass__ = auto_super
-
-    def __init__(self, db, logger):
+    def __init__(self, db):
         cereconf.make_timer = make_timer
         self.db = db
-        self.logger = logger
+        # keep a self.logger as long as we use self.logger.debugN
+        self.logger = logger.getChild('OrgLDIF')
         self.const = Factory.get('Constants')(db)
         self.ou = Factory.get('OU')(db)
         self.org_dn = ldapconf('ORG', 'dn', None)
@@ -554,7 +557,8 @@ class OrgLDIF(object):
     person_contact_mail = True
 
     def init_account_mail(self, use_mail_module):
-        u""" Cache account mail addresses.
+        """
+        Cache account mail addresses.
 
         This method builds a dict cache that maps account_id -> primary email
         address, and saves this to `self.account_mail`.
@@ -566,7 +570,6 @@ class OrgLDIF(object):
             If True, Cerebrum.modules.Email will be used to populate this
             cache; otherwise the `self.account_mail` dict will be None (not
             implemented).
-
         """
         # Set self.account_mail = None if not use_mail_module, otherwise
         #                         dict: account_id -> ('address' or None).
@@ -629,19 +632,21 @@ class OrgLDIF(object):
         # Set variables for aliases: self.alias_default_parent_dn.
         if self.aliases:
             if self.ou_dn in (None, self.person_dn):
-                raise ValueError("""\
-cereconf.LDAP_PERSON['aliases'] requires LDAP_OU['dn'] to be different
-from None and LDAP_PERSON['dn'].""")
+                raise ValueError(
+                    "cereconf.LDAP_PERSON['aliases'] requires LDAP_OU['dn'] "
+                    "to be different from None and LDAP_PERSON['dn']")
             self.alias_default_parent_dn = self.dummy_ou_dn or self.ou_dn
 
     def generate_person(self, outfile, alias_outfile, use_mail_module):
-        """Output person tree and aliases if cereconf.LDAP_PERSON['dn'] is set.
+        """
+        Output person tree and aliases if cereconf.LDAP_PERSON['dn'] is set.
 
         Aliases are only output if cereconf.LDAP_PERSON['aliases'] is true.
 
         If use_mail_module is set, persons' e-mail addresses are set to
         their primary users' e-mail addresses.  Otherwise, the addresses
-        are taken from contact info registered for the individual persons."""
+        are taken from contact info registered for the individual persons.
+        """
         if not self.person_dn:
             return
         self.init_person_dump(use_mail_module)
@@ -703,7 +708,7 @@ from None and LDAP_PERSON['dn'].""")
         givenname = names.get(int(self.const.name_first), '').strip()
         lastname = names.get(int(self.const.name_last), '').strip()
         if not (lastname and givenname):
-            givenname, lastname = self.split_name(name, givenname, lastname)
+            givenname, lastname = _split_name(name, givenname, lastname)
             if not lastname:
                 self.logger.warn("Person %s got no lastname. Skipping.",
                                  person_id)
@@ -1086,9 +1091,11 @@ from None and LDAP_PERSON['dn'].""")
 
     @staticmethod
     def select_list(selector, person_id, p_affiliations):
-        """Return a list of values selected for the person and affiliations.
+        """
+        Return a list of values selected for the person and affiliations.
 
-        Like select_bool(), except returning a list of values."""
+        Like select_bool(), except returning a list of values.
+        """
         if type(selector) is dict:
             result = []
             for p_affiliation in p_affiliations:
@@ -1152,10 +1159,12 @@ from None and LDAP_PERSON['dn'].""")
 
     @staticmethod
     def attr_unique(values, normalize=None):
-        """Return the input list of values with duplicates removed.
+        """
+        Return the input list of values with duplicates removed.
 
         Pass values through optional function 'normalize' before comparing.
-        Preserve the order of values.  Use the first value of any duplicate."""
+        Preserve the order of values.  Use the first value of any duplicate.
+        """
         if len(values) < 2:
             return values
         result = []
@@ -1170,44 +1179,46 @@ from None and LDAP_PERSON['dn'].""")
                 result.append(val)
         return result
 
-    def split_name(self, fullname=None, givenname=None, lastname=None):
-        """Return (UTF-8 given name, UTF-8 last name)."""
-        full, given, last = [(n or '').split(' ')
-                             for n in (fullname, givenname, lastname)]
-        if full and not (given and last):
-            if last:
-                rest_l = last
-                while full and rest_l and (
-                        rest_l[-1].lower() == full[-1].lower()):
-                    rest_l.pop()
-                    full.pop()
-                if full and rest_l:
-                    given = [full.pop(0)]
-                    if not [True for n in rest_l if not n.islower()]:
-                        while full and not full[0].islower():
-                            given.append(full.pop(0))
-                else:
-                    given = full
+
+def _split_name(fullname=None, givenname=None, lastname=None):
+    """Return (UTF-8 given name, UTF-8 last name)."""
+
+    full, given, last = [(n or '').split(' ')
+                         for n in (fullname, givenname, lastname)]
+    if full and not (given and last):
+        if last:
+            rest_l = last
+            while full and rest_l and (
+                    rest_l[-1].lower() == full[-1].lower()):
+                rest_l.pop()
+                full.pop()
+            if full and rest_l:
+                given = [full.pop(0)]
+                if not [True for n in rest_l if not n.islower()]:
+                    while full and not full[0].islower():
+                        given.append(full.pop(0))
             else:
-                last = [full.pop()]
-                got_given = rest_g = given
-                if got_given:
-                    while full and rest_g:
-                        if rest_g[0].lower() != full[0].lower():
+                given = full
+        else:
+            last = [full.pop()]
+            got_given = rest_g = given
+            if got_given:
+                while full and rest_g:
+                    if rest_g[0].lower() != full[0].lower():
+                        try:
+                            rest_g = rest_g[rest_g.index(full[0]):]
+                        except ValueError:
                             try:
-                                rest_g = rest_g[rest_g.index(full[0]):]
+                                full = full[full.index(rest_g[0]):]
                             except ValueError:
-                                try:
-                                    full = full[full.index(rest_g[0]):]
-                                except ValueError:
-                                    pass
-                        rest_g.pop(0)
-                        full.pop(0)
-                elif full:
-                    given = [full.pop(0)]
-                if full and not (given[0].islower() or last[0].islower()):
-                    while full and full[-1].islower():
-                        last.insert(0, full.pop())
-                if not got_given:
-                    given.extend(full)
-        return [' '.join(n) for n in given, last]
+                                pass
+                    rest_g.pop(0)
+                    full.pop(0)
+            elif full:
+                given = [full.pop(0)]
+            if full and not (given[0].islower() or last[0].islower()):
+                while full and full[-1].islower():
+                    last.insert(0, full.pop())
+            if not got_given:
+                given.extend(full)
+    return [' '.join(n) for n in given, last]

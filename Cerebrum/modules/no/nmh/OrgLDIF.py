@@ -20,6 +20,7 @@
 from __future__ import unicode_literals
 
 import json
+import logging
 from collections import defaultdict
 
 from six import text_type
@@ -30,6 +31,8 @@ from Cerebrum.modules.no.OrgLDIF import OrgLDIF
 from Cerebrum.modules.LDIFutils import normalize_string
 from Cerebrum.modules.no.nmh import StudentStudyProgramCache
 
+logger = logging.getLogger(__name__)
+
 
 # TODO: NmhOrgLDIFMixin
 
@@ -38,8 +41,8 @@ class nmhOrgLDIFMixin(OrgLDIF):  # noqa: N801
     # Fetch mail addresses from entity_contact_info of accounts, not persons.
     person_contact_mail = False
 
-    def __init__(self, db, logger):
-        self.__super.__init__(db, logger)
+    def __init__(self, db):
+        super(nmhOrgLDIFMixin, self).__init__(db)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
         self.attr2syntax['roomNumber'] = (None, None, normalize_string)
         self.person = Factory.get('Person')(self.db)
@@ -66,7 +69,7 @@ class nmhOrgLDIFMixin(OrgLDIF):  # noqa: N801
             try:
                 fagfelt = json.loads(row['strval'])
             except Exception, exc:
-                self.logger.warn(
+                logger.warn(
                     "Could not JSON-deserialize trait_fagomrade_fagfelt "
                     "for person:%s, %s",
                     row['entity_id'], exc)
@@ -92,7 +95,9 @@ class nmhOrgLDIFMixin(OrgLDIF):  # noqa: N801
         """Returns a dict mapping from person_id to 'studienivakode'
         and 'arstall_kull'."""
         sspc = StudentStudyProgramCache.StudentStudyProgramCache(
-            db=self.db, logger=self.logger, max_age={'hours': 12})
+            db=self.db,
+            logger=logger.getChild('StudentStudyProgramCache'),
+            max_age={'hours': 12})
         if sspc.data is None:
             raise Exception('Unable to load student study program cache')
         return sspc.data
@@ -151,7 +156,8 @@ class nmhOrgLDIFMixin(OrgLDIF):  # noqa: N801
 
         NMH needs more data for their own use, e.g. to be used by their web
         pages."""
-        dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
+        dn, entry, alias_info = super(nmhOrgLDIFMixin,
+                                      self).make_person_entry(row, person_id)
         if dn:
             urns = entry.setdefault('eduPersonEntitlement', set())
             # Add fagomrade/fagfelt, if registered for the person:
