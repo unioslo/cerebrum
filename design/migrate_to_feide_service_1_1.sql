@@ -22,5 +22,8 @@
 
 /*  */
 category:pre;
-ALTER TABLE feide_service_info ALTER COLUMN feide_id VARCHAR(128)
-DROP [CONSTRAINT|feide_id] "feide_service_info_feide_id_unique";
+ALTER TABLE feide_service_info
+ALTER COLUMN feide_id TYPE VARCHAR(128);
+category:pre;
+ALTER TABLE feide_service_info
+DROP CONSTRAINT feide_service_info_feide_id_unique;
