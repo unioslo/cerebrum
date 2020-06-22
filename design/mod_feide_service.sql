@@ -25,7 +25,7 @@ category:metainfo;
 name=feide_service;
 
 category:metainfo;
-version=1.0;
+version=1.1;
 
 
 category:drop;
@@ -43,9 +43,8 @@ CREATE TABLE feide_service_info
     CONSTRAINT feide_service_info_pk PRIMARY KEY,
 
   feide_id
-    NUMERIC(12,0)
+    VARCHAR(128,0)
     NOT NULL
-    CONSTRAINT feide_service_info_feide_id_unique UNIQUE,
 
   name
     VARCHAR(128)
