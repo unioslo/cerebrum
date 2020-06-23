@@ -33,8 +33,10 @@ from aniso8601.exceptions import ISOFormatError
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.utils.date import parse_date, date_to_datetime, apply_timezone
 from Cerebrum.Utils import Factory, read_password
+from Cerebrum.utils.date import parse_date, date_to_datetime, apply_timezone
+from Cerebrum.utils.email import mail_template
+from Cerebrum.utils.stringmatch import name_diff
 from Cerebrum.modules.event.mapping import CallbackMap
 from Cerebrum.modules.automatic_group.structure import (get_automatic_group,
                                                         update_memberships)
@@ -606,7 +608,11 @@ def get_cerebrum_person(database, ids):
     """Get a person object from Cerebrum.
 
     If the person does not exist in Cerebrum, the returned object is
-    clear()'ed"""
+    clear()'ed
+
+    If the person isn't found from external_id, check if another person has
+    (almost) the same name and the same birth date. If found, send an email
+    about a possible duplicate"""
     pe = Factory.get('Person')(database)
     try:
         pe.find_by_external_ids(*ids)
@@ -1140,6 +1146,23 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
             external_id=employee_number,
             source_system=co.system_sap,
             entity_type=co.entity_person)
+    if not cerebrum_person.entity_type: # entity_type as indication of instance
+        co = Factory.get('Constants')(database)
+        hr_name = ' '.join(name for _, name in hr_person.get('names'))
+        possible_people = cerebrum_person.search(
+            birth_date=str(hr_person.get('birth_date')),
+            name_variants=[co.name_full])
+        for person in possible_people:
+            full_name = person['full_name']
+            if name_diff(hr_name.lower(), full_name.lower()) <= 2:
+                recipient = 'houston@usit.uio.no'
+                template = 'no_NO/email/possible_duplicate_person.txt'
+                substitute = {
+                    'NEW_PERSON': hr_name,
+                    'OLD_PERSON': full_name,
+                }
+                mail_template(recipient, template, substitute=substitute, sender=recipient)
+                break
     if hr_person and (hr_person.get('affiliations') or hr_person.get('roles')):
         perform_update(database, source_system, hr_person, cerebrum_person)
     elif cerebrum_person.entity_type:  # entity_type as indication of instance

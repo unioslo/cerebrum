@@ -54,7 +54,8 @@ def restricted_damarau_levenshtein(first, second):
 
 
 def name_diff(full_name1, full_name2, threshold=2):
-    """ Calculate the difference between two names, allowing one name to be
+    """
+    Calculate the difference between two names, allowing one name to be
     longer than the other by only checking whether all names in the shortest
     seem to be included in the longest.
     e.g. name_diff('foo bar', 'foo test bar') = 0
