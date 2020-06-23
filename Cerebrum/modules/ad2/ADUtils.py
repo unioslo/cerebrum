@@ -421,7 +421,7 @@ class ADclient(PowershellClient):
                     re.search('New-AD.+ : The operation failed because UPN '
                               'value provided for add.+\n+.+not unique forest',
                               stderr) or
-                    re.search('New-AD[^:]+: Unknown error (0x21c8)', stderr)):
+                    re.search('New-AD[^:]+: Unknown error \(0x21c8\)', stderr)):
                 # User Principal Names (UPN) must be globally unique, and is
                 # therefore considered an identity
                 raise ObjectAlreadyExistsException(code, stderr, output)
