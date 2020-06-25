@@ -1289,20 +1289,25 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     all_commands["group_disable"] = Command(
         ("group", "disable"),
         GroupName(),
-        fs=FormatSuggestion("Ok, group '%s' has been disabled", ('group', )))
+        fs=FormatSuggestion("OK, disabled group %s (id=%i)", ("group", "group_id")))
 
     def group_disable(self, operator, gname):
-        """Disable group in VH.
+        """
+        Disable VirtHome group.
 
         This is an effective deletion, although the group entity actually
-        remains there as a placeholder for the group name.
-        """
+        remains as a placeholder for the group name.
 
+        @rtype: dict
+        @return:
+            "group_id": <int>
+            "group": <str>
+        """
         group = self._get_group(gname)
         self.ba.can_force_delete_group(operator.get_entity_id(),
                                        group.entity_id)
-
-        return {'group': self.virthome.group_disable(group)}
+        return {"group_id": group.entity_id,
+                "group": self.virthome.group_disable(group)}
 
     #
     # group remove_members
