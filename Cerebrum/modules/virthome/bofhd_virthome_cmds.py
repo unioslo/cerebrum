@@ -2148,23 +2148,27 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
     # trait list
     #
     all_commands["trait_list"] = Command(
-        ("trait", "list"))
+        ("trait", "list"),
+        fs=FormatSuggestion(
+            "%-6i %-14s %-8s %s",
+            ("code", "code_str", "entity_type", "description"),
+            hdr="%-6s %-14s %-8s %s" % ("Code", "Name", "Type", "Description"),
+        ))
 
     def trait_list(self, operator):
-        """Display all traits available.
-
-        This may come in handy when presenting a user with a list of choices
-        for a trait, should this functionality be exposed to users at all.
         """
+        Display all available traits.
 
-        # This command is available to everybody
-        ret = list()
+        This is useful if presenting a user with a list of choices
+        for a trait.
+        """
+        ret = []
         for c in self.const.fetch_constants(self.const.EntityTrait):
             ret.append({
                 "code": int(c),
                 "code_str": str(c),
                 "entity_type": str(self.const.EntityType(c.entity_type)),
-                "description": c.description
+                "description": c.description,
             })
         return ret
 
