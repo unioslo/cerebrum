@@ -1808,7 +1808,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     all_commands["user_fedaccount_create"] = Command(
         ("user", "fedaccount_create"),
         AccountName(),
-        SimpleString())
+        SimpleString(),
+        fs=FormatSuggestion("OK, FEDAccount with ID %i created", ("entity_id",)))
 
     def user_fedaccount_create(self, operator, account_name, email,
                                expire_date=None,
@@ -1843,6 +1844,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         @param password:
           (Optional) clear text password for this user to be used on login to
           VirtHome/Cerebrum.
+
+        @rtype: dict
+        @return:
+          "entity_id": <int> ID of the new account.
+          "confirmation_key": <str> Empty string.
         """
         self.ba.can_create_fedaccount(operator.get_entity_id())
         account_id = self.vhutils.create_fedaccount(
