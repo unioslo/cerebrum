@@ -543,16 +543,33 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     #
     all_commands["user_confirm_request"] = Command(
         ("user", "confirm_request"),
-        SimpleString())
+        SimpleString(),
+        fs=FormatSuggestion("OK, %s confirmed", ("action",)))
 
     def user_confirm_request(self, operator, confirmation_key, *rest):
-        """Confirm a pending operation.
+        """
+        Confirm a pending operation.
 
-        @type confirmation_key: basestring
+        The response body returned from confirming a request is
+        specific to the operation that was performed.  For example,
+        ``user virtaccount_create`` will return the username of the
+        created account.  Common for all operations is an ``action``
+        field indicating what operation was performed as a result of
+        confirming the request.
+
+        @type confirmation_key: str
         @param confirmation_key:
-          A confirmation key that has been issued when the operation was
-          created. There is a pending_change_log event associated with that
-          key.
+            Confirmation key that was issued when the operation was
+            created.  There is a ``pending_change_log`` event associated
+            with the key.
+
+        @rtype: dict
+        @return:
+            "action": <str> Indicating the operation performed as result
+            of confirming the pending request.
+
+        @raises: CerebrumError
+            If no pending action is associated with L{confirmation_key}.
         """
         self.ba.can_confirm(operator.get_entity_id())
         return self.__process_request_confirmation(operator.get_entity_id(),
