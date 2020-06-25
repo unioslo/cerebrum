@@ -589,8 +589,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         PersonName(),
         PersonName(),
         fs=FormatSuggestion(
-            "%12s %36s", ("entity_id", "session_key"),
-            hdr="%12s %36s" % ("Account id", "Session key")
+            "%-12s %s", ("entity_id", "session_key"),
+            hdr="%-12s %s" % ("Account ID", "Session key")
         ))
 
     def user_virtaccount_join_group(self, operator, magic_key,
@@ -598,12 +598,16 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                     expire_date=None,
                                     human_first_name=None,
                                     human_last_name=None):
-        """Perform the necessary magic to let a new user join a group.
+        """
+        Perform the necessary magic to let a new user join a group.
 
         This is very much akin to user_virtaccount_create +
         user_confirm_request.
 
-        FIMXE: What's the permission mask for this?
+        TODO: What's the permission mask for this?
+
+        @raises: CerebrumError
+            If L{magic_key} is not a valid.
         """
 
         # If there is no request, this will throw an error back -- we need to
