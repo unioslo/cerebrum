@@ -1130,14 +1130,24 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     all_commands["user_recover_password"] = Command(
         ("user", "recover_password"),
         AccountName(),
-        EmailAddress())
+        EmailAddress(),
+        fs=FormatSuggestion(
+            "OK, password change pending confirmation\n"
+            "Use bofh command 'user confirm_request %s' to apply change",
+            ("confirmation_key",)
+        ))
 
     def user_recover_password(self, operator, uname, email):
-        """Start the magic for auto-issuing a new password.
+        """
+        Start the magic for auto-issuing a new password.
 
         This method creates an auto-password changing request.
+
+        @rtype: dict
+        @return:
+            "confirmation_key": <str>
         """
-        # FIXME: Do we need a permission trap here?
+        # TODO: Do we need a permission trap here?
         missing = "Unable to recover password, unknown username and/or e-mail"
         try:
             account = self._get_account(uname)
@@ -1145,10 +1155,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError(missing)
 
         if account.np_type != self.const.virtaccount_type:
-            raise CerebrumError("Account %s (id=%s) is NOT a VA."
-                                "Cannot recover password" %
-                                (account.account_name, account.entity_id))
-
+            raise CerebrumError(
+                "Cannot recover password "
+                "because account %s (id=%i) is not a VirtAccount"
+                % (account.account_name, account.entity_id)
+            )
         if account.get_email_address() != email:
             raise CerebrumError(missing)
 
