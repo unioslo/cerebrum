@@ -1581,7 +1581,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         ("group", "invite_user"),
         EmailAddress(),
         GroupName(),
-        Integer(help_ref='invite_timeout'))
+        Integer(help_ref="invite_timeout"),
+        fs=FormatSuggestion(
+            "OK, user invitation pending confirmation\n"
+            "Use bofh command 'user confirm_request %s' to apply change",
+            ("confirmation_key",)
+        ))
 
     def group_invite_user(self, operator, email, gname, timeout):
         """Invite e-mail (or user) to join gname.
