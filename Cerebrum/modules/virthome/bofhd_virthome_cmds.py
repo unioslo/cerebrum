@@ -1228,20 +1228,39 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         GroupName(),
         SimpleString(),
         AccountName(),
-        SimpleString())
+        SimpleString(),
+        fs=FormatSuggestion(
+            "OK, group %s (id=%i) created", ("group_name", "group_id")))
 
     def group_create(self, operator, group_name, description, admin, url):
-        """Register a new VirtGroup in Cerebrum.
+        """
+        Create a new VirtGroup.
 
-        @param group_name: Name of the group. It must have a realm suffix.
+        @type group_name: str
+        @param group_name:
+            Name of the group, which must have a realm suffix.
 
-        @description: Human-friendly group description
+        @type description: str
+        @param description:
+            Human-friendly group description.
 
-        @admin: An account that will be assigned 'admin'-style permission.
+        @type admin: str
+        @param admin:
+            The account that will be assigned admin-like permissions.
 
-        @url:
-          A resource url associated with the group (i.e. some hint to a
-          thingamabob justifying group's purpose).
+        @type url: str
+        @param url:
+            Resource URL associated with the group, i.e. some hint to
+            justify groups' purpose.
+
+        @rtype: dict
+        @return:
+            "group_id": <int>
+            "group_name": <str>
+
+        @raises: CerebrumError
+            If the group name does not contain the realm.
+            If the group name contains reserved characters.
         """
         self.ba.can_create_group(operator.get_entity_id())
         admin_acc = self._get_account(admin)
@@ -1254,7 +1273,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         reserved = [re.compile(expr) for expr in cereconf.RESERVED_GROUPS]
         for regex in reserved:
             if regex.match(group_name):
-                raise CerebrumError("Illegal group name %s", group_name)
+                raise CerebrumError("Illegal group name '%s'" % group_name)
 
         try:
             new = self.virthome.group_create(
@@ -1262,7 +1281,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         except Errors.CerebrumError as e:
             raise CerebrumError(str(e))
 
-        return {'group_id': new.entity_id}
+        return {"group_id": new.entity_id, "group_name": new.group_name}
 
     #
     # group disable
