@@ -1468,40 +1468,75 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         ("group", "invite_moderator"),
         EmailAddress(),
         GroupName(),
-        Integer(help_ref='invite_timeout'))
+        Integer(help_ref="invite_timeout"),
+        fs=FormatSuggestion(
+            "OK, moderator invitation pending confirmation\n"
+            "Use bofh command 'user confirm_request %s' to apply change",
+            ("confirmation_key",)
+        ))
 
     def group_invite_moderator(self, operator, email, gname, timeout):
-        """Invite somebody to join the moderator squad for group gname.
         """
+        Invite L{email} to moderate group L{gname}.
 
+        The presence of ``match_user`` and ``match_user_email`` in the
+        response body indicates L{email} matches an existing account.
+
+        @type email: str
+        @param email:
+            Email to send invitation to.  If the email does not match
+            an existing account, ``match_user`` and ``match_user_email``
+            are omitted from the response.
+
+        @type gname: str
+        @param gname:
+            Name of group to invite L{email} to.
+
+        @type timeout: str
+        @param timeout:
+            Number of days until the invitation elapses.
+
+        @rtype: dict
+        @return:
+            "confirmation_key": <str>
+            "match_user": <Optional[str]>
+            "match_user_email": <Optional[str]>
+
+        @raises: CerebrumError
+            If timeout is shorter than one day, or exceeds
+            the maximum configured invite period defined by
+            ``cereconf.MAX_INVITE_PERIOD``.
+        """
         group = self._get_group(gname)
         self.ba.can_moderate_group(operator.get_entity_id())
         self.ba.can_change_moderators(operator.get_entity_id(),
                                       group.entity_id)
 
-        timeout = int(timeout)
-        if timeout < 1:
-            raise CerebrumError('Timeout too short')
-        if (timeout is not None and
-                DateTimeDelta(timeout) > cereconf.MAX_INVITE_PERIOD):
-            raise CerebrumError("Timeout too long")
+        if timeout is not None:
+            days = int(timeout)
+            if days < 1:
+                raise CerebrumError("Timeout too short")
+            elif DateTimeDelta(days) > cereconf.MAX_INVITE_PERIOD:
+                raise CerebrumError("Timeout too long")
 
-        ret = {}
-        ret['confirmation_key'] = self.vhutils.setup_event_request(
+        uuid = self.vhutils.setup_event_request(
             group.entity_id,
             self.clconst.va_group_moderator_add,
-            params={'inviter_id': operator.get_entity_id(),
-                    'group_id': group.entity_id,
-                    'invitee_mail': email,
-                    'timeout': timeout, })
-        # check if e-mail matches a valid username
+            params={"inviter_id": operator.get_entity_id(),
+                    "group_id": group.entity_id,
+                    "invitee_mail": email,
+                    "timeout": timeout})
+
+        # does email match an existing account?
         try:
             ac = self._get_account(email)
-            ret['match_user'] = ac.account_name
-            ret['match_user_email'] = self._get_email_address(ac)
+            match_user = ac.account_name
+            match_user_email = self._get_email_address(ac)
+            return {"confirmation_key": uuid,
+                    "match_user": ac.account_name,
+                    "match_user_email": self._get_email_address(ac)}
         except CerebrumError:
-            pass
-        return ret
+            return {"confirmation_key": uuid}
 
     #
     # group remove_moderator
