@@ -17,9 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""VirtHome bofhd extensions.
 
-This module contains implementation of bofhd commands used in VirtHome.
+"""
+WebID (aka "VirtHome") bofhd extensions.
+
+This module contains implementation of bofhd commands used in WebID
+Cerebrum instance.
 
 It should be possible to use the jbofh client with this bofhd command set,
 although the help strings won't be particularily useful.
