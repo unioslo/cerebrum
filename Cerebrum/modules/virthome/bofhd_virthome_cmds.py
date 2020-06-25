@@ -1067,7 +1067,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     #
     all_commands["user_change_email"] = Command(
         ("user", "change_email"),
-        SimpleString())
+        SimpleString(),
+        fs=FormatSuggestion(
+            "OK, email change pending confirmation\n"
+            "Use bofh command 'user confirm_request %s' to apply change",
+            ("confirmation_key",)
+        ))
 
     def user_change_email(self, operator, new_email):
         """Set a new e-mail address for operator.
