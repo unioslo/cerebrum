@@ -1547,9 +1547,17 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         GroupName())
 
     def group_remove_moderator(self, operator, moderator, gname):
-        """L{group_invite_moderator}'s counterpart.
         """
+        Remove account as administrator of group.
 
+        @type moderator: <str>
+        @param moderator:
+            Account name of L{gname}'s moderator.
+
+        @type gname: <str>
+        @param gname:
+            Group name to remove L{moderator} from.
+        """
         group = self._get_group(gname)
         account = self._get_account(moderator)
 
@@ -1560,8 +1568,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         roles = GroupRoles(self.db)
         roles.remove_moderator_from_group(account.entity_id, group.entity_id)
 
-        return "OK, removed %s as moderator of %s" % (account.account_name,
-                                                      group.group_name)
+        return "OK, removed '%s' (id=%i) as moderator of '%s' (id=%i)" % (
+            account.account_name,
+            account.entity_id,
+            group.group_name,
+            group.entity_id)
 
     #
     # group invitee_user
