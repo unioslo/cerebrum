@@ -1337,7 +1337,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     #
     all_commands["group_list"] = Command(
         ("group", "list"),
-        GroupName())
+        GroupName(),
+        fs=FormatSuggestion(
+            "%-6i %-34s %-8s %-31s %s",
+            ("member_id", "member_name", "member_type", "owner_name", "email_address"),
+            hdr="%-6s %-34s %-8s %-31s %s" % ("ID", "Name", "Type", "Owner", "Email"),
+        ))
 
     def group_list(self, operator, gname):
         """List the content of group L{gname}.
