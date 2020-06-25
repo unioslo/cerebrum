@@ -855,24 +855,41 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     #
     # user request_info
     #
-    # FIXME: Maybe this should be with the misc commands?
+    # TODO: Maybe this should be with the misc commands?
     #
     all_commands["user_request_info"] = Command(
         ("user", "request_info"),
-        SimpleString())
+        SimpleString(),
+        fs=FormatSuggestion([
+            ("Change type:     %s (#%i)\n"
+             "Change by:       %i\n"
+             "Timestamp:       %s",
+             ("change_type",
+              "change_type_id",
+              "change_by",
+              "tstamp")),
+            ("Subject entity:  %i", ("subject_entity",)),
+        ]))
 
-    def user_request_info(self, operator, magic_key):
-        """Look up confirmation request by its id.
-
-        It may be useful for the web interface to look up some request's
-        parameters to provide a better feedback to the user.
-
-        @return:
-          A dict rescribing the request.
+    def user_request_info(self, operator, confirmation_key):
         """
+        Look up confirmation request by its confirmation key.
 
+        @rtype: dict
+        @return:
+            "change_type": <str>
+            "change_by": <int>
+            "change_program": <Optional[int]>
+            "change_id": <int>
+            "change_params": <Optional[str]>
+            "tstamp": <datetime.datetime>
+            "subject_entity": <Optional[int]>
+            "change_type_id": <int>
+            "dest_entity": <Optional[int]>
+            "confirmation_key": <str>
+        """
         self.ba.can_view_requests(operator.get_entity_id())
-        return self.__get_request(magic_key)
+        return self.__get_request(confirmation_key)
 
     def __quarantine_to_string(self, eq):
         """Return a human-readable representation of eq's quarantines.
