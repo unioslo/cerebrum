@@ -1718,19 +1718,25 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             Date(),
             PersonName(),
             PersonName(),
-            fs=FormatSuggestion("%12d %36s",
-                                ("entity_id",
-                                 "confirmation_key"),
-                                hdr="%12s %36s"
-                                % ("Account id", "Session key")))
+            fs=FormatSuggestion(
+                "OK, VirtAccount #%i creation pending confirmation\n"
+                "Use bofh command 'user confirm_request %s' to create",
+                ("entity_id", "confirmation_key"),
+            ),
+    )
 
-    def user_virtaccount_create(self, operator, account_name, email, password,
-                                expire_date=None,
-                                human_first_name=None, human_last_name=None):
-        """Create a VirtAccount in Cerebrum.
-
-        Create a new virtaccount instance in Cerebrum. Tag it with
-        VACCOUNT_UNCONFIRMED trait.
+    def user_virtaccount_create(
+        self,
+        operator,
+        account_name,
+        email,
+        password,
+        expire_date=None,
+        human_first_name=None,
+        human_last_name=None,
+    ):
+        """
+        Create a VirtAccount in Cerebrum and tag it with ``VACCOUNT_UNCONFIRMED``.
 
         @type email: basestring
         @param email:
@@ -1755,8 +1761,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
           (Optional) clear text password for this user to be used on login to
           VirtHome/Cerebrum. FIXME: Does it make sense to have the password
           *optional* ?
-        """
 
+        @rtype: dict
+        @return:
+            "entity_id": <int> ID of the new account.
+            "confirmation_key": <str> UUID to use for confirming the action.
+        """
         if password:
             self.__check_password(None, password, account_name)
         else:
