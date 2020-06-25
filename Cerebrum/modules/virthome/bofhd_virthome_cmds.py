@@ -616,8 +616,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         request = self.__get_request(magic_key)
         if request["change_type_id"] != self.clconst.va_group_invitation:
             raise CerebrumError(
-                "Illegal command for request type %s",
-                str(self.clconst.ChangeType(request["change_type_id"])))
+                "Illegal command for request type %s" %
+                self.clconst.ChangeType(request["change_type_id"]))
 
         # ... check that the group is still there...
         params = request["change_params"]
