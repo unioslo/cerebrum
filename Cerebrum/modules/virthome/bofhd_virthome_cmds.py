@@ -1358,26 +1358,29 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # user list_memberships
     #
     all_commands["user_list_memberships"] = Command(
-        ("user", "list_memberships"))
+        ("user", "list_memberships"),
+        fs=FormatSuggestion(
+            "%-9i %-36s %s", ("group_id", "name", "description"),
+            hdr="%-9s %-36s %s" % ("Group ID", "Name", "Description"),
+        ))
 
     def user_list_memberships(self, operator):
-        """List all groups where operator is a member.
-        """
+        """List all groups where operator is a member."""
         account = self.Account_class(self.db)
         account.find(operator.get_entity_id())
 
-        # TODO/TBD: Should we use ONLY realms to filter groups?
-        result = list()
+        # TODO: should we use ONLY realms to filter groups?
+        result = []
         reserved = [re.compile(expr) for expr in cereconf.RESERVED_GROUPS]
 
         for group in self.vhutils.list_group_memberships(
                 account, realm=cereconf.VIRTHOME_REALM):
             for regex in reserved:
-                if not regex.match(group['name']):
+                if not regex.match(group["name"]):
                     result.append(group)
                 else:
                     self.logger.debug(
-                        "Group '%s' reserved, not listed" % group['name'])
+                        "Group '%s' reserved, not listed" % group["name"])
         return result
 
     #
