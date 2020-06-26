@@ -29,7 +29,7 @@ import six
 
 import cereconf
 from Cerebrum import Entity, Errors
-from Cerebrum.Constants import _AuthoritativeSystemCode
+from Cerebrum.Constants import _AuthoritativeSystemCode, _LanguageCode
 from Cerebrum.export.auth import AuthExporter
 from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.QuarantineHandler import QuarantineHandler
@@ -58,13 +58,81 @@ def get_source_system(const, value):
     else:
         const = const.human2constant(value, _AuthoritativeSystemCode)
     if const is None:
-        raise LookupError("AuthenticationCode %r not defined" % (value, ))
+        raise LookupError("AuthoritativeSystem %r not defined" % (value, ))
     try:
         int(const)
     except Errors.NotFoundError:
-        raise LookupError("AuthenticationCode %r (%r) not in db" %
+        raise LookupError("AuthoritativeSystem %r (%r) not in db" %
                           (value, const))
     return const
+
+
+def get_language_code(const, value):
+    """ Look up a single _LanguageCode value. """
+    if isinstance(value, _LanguageCode):
+        const = value
+    else:
+        const = const.human2constant(value, _LanguageCode)
+    if const is None:
+        raise LookupError("Language %r not defined" % (value, ))
+    try:
+        int(const)
+    except Errors.NotFoundError:
+        raise LookupError("Language %r (%r) not in db" %
+                          (value, const))
+    return const
+
+
+def get_language_codes(const, values, unique=True, allow_empty=False):
+    """ Check a sequence of _QuarantineCode values """
+    languages = tuple(get_language_code(const, v) for v in values)
+    if not (allow_empty or languages):
+        raise ValueError("No languages given")
+    if unique and len(languages) != len(set(languages)):
+        raise ValueError("Duplicate languages given: %s" % repr(languages))
+    return languages
+
+
+class LanguageSettings(object):
+
+    def __init__(self, languages, do_output):
+        self.output_languages = bool(do_output)
+
+        self.lang2opt = {int(c): ';lang-{}'.format(c)
+                         for c in languages}
+        self.lang2pref = {int(c): v
+                          for v, c in enumerate(languages, -1)}
+        self.languages = tuple(languages)
+
+    def get_pref(self, language):
+        default = len(self.lang2pref)
+        return self.lang2pref.get(int(language), default)
+
+    def get_opt(self, language):
+        return self.lang2opt[int(language)]
+
+    def localize_attr(self, entry, attr, l2values):
+        """
+        Add localized attribute `attr`.
+
+        :param list l2values:
+            A list of (language, localized_value) tuples.
+        """
+        if not l2values:
+            logger.warning('No values to localize for attr=%r', attr)
+            return
+
+        sorted_values = sorted(l2values, key=lambda t: self.get_pref(t[0]))
+
+        # attr: value in preferred language
+        entry.setdefault(attr, []).append(sorted_values[0][1])
+
+        opts = [(self.get_opt(lang), val) for lang, val in sorted_values]
+
+        # add `attr;lang-<code>: value` for each language
+        if self.output_languages:
+            for opt, val in opts:
+                entry.setdefault(attr + opt, []).append(val)
 
 
 class OrgLDIF(object):
@@ -94,16 +162,27 @@ class OrgLDIF(object):
     """
 
     def __init__(self, db):
+        # TODO: WTH?
         cereconf.make_timer = make_timer
+        self.logger = logger.getChild('OrgLDIF')
+
+        # DB-stuff
         self.db = db
         # keep a self.logger as long as we use self.logger.debugN
-        self.logger = logger.getChild('OrgLDIF')
         self.const = Factory.get('Constants')(db)
         self.ou = Factory.get('OU')(db)
+
+        # Config-stuff
         self.org_dn = ldapconf('ORG', 'dn', None)
         self.ou_dn = ldapconf('OU', 'dn', None)
         self.person_dn = ldapconf('PERSON', 'dn', None)
-        self.init_languages()
+
+        # Languages
+        self.lang_opts = LanguageSettings(
+            get_language_codes(self.const, ldapconf(None, 'pref_languages',
+                                                    None) or ()),
+            ldapconf(None, 'output_languages'))
+
         self.dummy_ou_dn = None  # Set if generate_dummy_ou() made a dummy OU
         self.aliases = bool(cereconf.LDAP_PERSON['aliases'])
         self.ou2DN = {None: None}  # {ou_id:      DN or None(root)}
@@ -111,6 +190,8 @@ class OrgLDIF(object):
         self.person_groups = {}            # {group name: {member ID: True}}
         self.system_lookup_order = [int(getattr(self.const, s))
                                     for s in cereconf.SYSTEM_LOOKUP_ORDER]
+
+        # Attribute mappings: attr -> (convert, verify, normalize)
         self.attr2syntax = {
             'telephoneNumber': (None, verify_printableString, normalize_phone),
             'facsimileTelephoneNumber': (None, verify_printableString,
@@ -119,23 +200,20 @@ class OrgLDIF(object):
             'labeledURI': (None, None, normalize_caseExactString),
             'mail': (None, verify_IA5String, normalize_IA5String),
         }
+
         # userPassword config
         auth_attr = ldapconf('PERSON', 'auth_attr', None)
         self.user_password = AuthExporter.make_exporter(
             self.db, auth_attr['userPassword'])
 
-    def init_languages(self):
-        self.languages, self.lang2opt, self.lang2pref, pref = [], {}, {}, -1
-        for lang in ldapconf(None, 'pref_languages', None) or ():
-            code = getattr(self.const, "language_" + lang, None)
-            if code is not None:
-                code = int(code)
-                assert code not in self.lang2opt, (lang, code)
-                self.lang2opt[code] = ';lang-' + lang
-                self.lang2pref[code] = pref = pref + 1
-                self.languages.append(code)
-        assert self.languages
-        self.output_languages = ldapconf(None, 'output_languages')
+    @property
+    def languages(self):
+        """ compatibility attr. """
+        return self.lang_opts.languages
+
+    def add_lang_names(self, entry, attr, l2values):
+        """ compatibility method. """
+        self.lang_opts.localize_attr(entry, attr, l2values)
 
     def init_org_object_dump(self):
         """Set variables for the organization object dump."""
@@ -897,18 +975,6 @@ class OrgLDIF(object):
              'aliasedObjectName': (dn,),
              'cn': entry['cn'],
              'sn': entry['sn']}))
-
-    def add_lang_names(self, entry, attr, l2values):
-        if l2values:
-            l2v = sorted(l2values, key=self.sortkey_lang_val)
-            l2v = [(self.lang2opt[lang], val) for lang, val in l2v]
-            entry.setdefault(attr, []).append(l2v[0][1])
-            if self.output_languages:
-                for opt, val in l2v:
-                    entry.setdefault(attr + opt, []).append(val)
-
-    def sortkey_lang_val(self, lang_val):
-        return self.lang2pref[lang_val[0]]
 
     def make_address(self, sep,
                      p_o_box, address_text, postal_number, city, country):
