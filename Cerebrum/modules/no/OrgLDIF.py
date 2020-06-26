@@ -23,6 +23,7 @@ import io
 import json
 import logging
 import os
+import pickle
 import re
 import string
 
@@ -588,3 +589,48 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
                 }))
         entry['norEduPersonServiceAuthnLevel'] = self.attr_unique(
             authn_level_entries, normalize=normalize_string)
+
+
+class OrgLdifCourseMixin(norEduLDIFMixin):
+    """
+    Mixin to provide eduPersonEntitlement from a pickle-file of URNs.
+
+    The pickle file typically contains references to Course-objects in
+    kurs.ldif (see generate_kurs_ldif.py).
+    """
+
+    # TODO: Implement enable/disable
+    # TODO: Implement kwargs for providing filename
+    # TODO: This mixin probably belongs alongside the code that generates the
+    #       pickle data
+
+    def __init__(self, *args, **kwargs):
+        super(OrgLdifCourseMixin, self).__init__(*args, **kwargs)
+        self.person_course_filename = os.path.join(ldapconf(None, 'dump_dir'),
+                                                   "ownerid2urnlist.pickle")
+
+    def _init_person_course(self):
+        """Populate dicts with a person's course information."""
+        timer = make_timer(logger, 'Processing person courses...')
+        self._person2urnlist = pickle.load(file(self.person_course_filename))
+        timer("...person courses done.")
+
+    def init_person_dump(self, *args, **kwargs):
+        # API-method, init person data
+        super(OrgLdifCourseMixin, self).init_person_dump(*args, **kwargs)
+        self._init_person_course()
+
+    def make_person_entry(self, row, person_id):
+        # API-method, generate person object
+        dn, entry, alias_info = super(OrgLdifCourseMixin,
+                                      self).make_person_entry(row, person_id)
+
+        # Add or extend entitlements
+        if dn and person_id in self._person2urnlist:
+            urnlist = self._person2urnlist[person_id]
+            if 'eduPersonEntitlement' in entry:
+                entry['eduPersonEntitlement'].update(urnlist)
+            else:
+                entry['eduPersonEntitlement'] = set(urnlist)
+
+        return dn, entry, alias_info

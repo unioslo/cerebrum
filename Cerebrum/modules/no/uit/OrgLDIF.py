@@ -25,12 +25,10 @@
 from __future__ import unicode_literals
 
 import logging
-import os
-import pickle
 
 import cereconf
 from Cerebrum.Utils import make_timer
-from Cerebrum.modules.LDIFutils import ldapconf
+from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 
 from .Account import UsernamePolicy
@@ -38,24 +36,17 @@ from .Account import UsernamePolicy
 logger = logging.getLogger(__name__)
 
 
-class OrgLDIFUiTMixin(norEduLDIFMixin):
+class UitOrgLdifGroupMixin(OrgLdifGroupMixin):
+
+    person_memberof_attr = 'member'
+    person_memberof_class = 'uitMembership'
+
+
+class OrgLDIFUiTMixin(UitOrgLdifGroupMixin, norEduLDIFMixin):
 
     def __init__(self, db):
         super(OrgLDIFUiTMixin, self).__init__(db)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
-
-    def init_person_groups(self):
-        """Populate dicts with a person's group information."""
-        timer = make_timer(logger, "Processing person groups...")
-        self.person2group = pickle.load(file(
-            os.path.join(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
-        timer("...person groups done.")
-
-    def init_person_dump(self, use_mail_module):
-        """Suplement the list of things to run before printing the
-        list of people."""
-        super(OrgLDIFUiTMixin, self).init_person_dump(use_mail_module)
-        self.init_person_groups()
 
     def init_attr2id2contacts(self):
         """Override to include more, local data from contact info."""
@@ -104,21 +95,14 @@ class OrgLDIFUiTMixin(norEduLDIFMixin):
         """ Extend with UiO functionality. """
         dn, entry, alias_info = super(OrgLDIFUiTMixin,
                                       self).make_person_entry(row, person_id)
-        if not dn:
-            return dn, entry, alias_info
 
-        # Add group memberships
-        logger.debug("get group memberships")
-        if person_id in self.person2group:
-            logger.debug("appending uioMemberOf:%s",
-                         repr(self.person2group[person_id]))
-            entry['member'] = self.person2group[person_id]
-            entry['objectClass'].extend((['uitMembership']))
-
-        #
         # UiT does not wish to populate the postalAddress field with either
         # home or work address. Remove it if set by super.
         #
-        entry.pop('postalAddress', None)
+        # TODO: Couldn't we fix this and also save some time by removing
+        #       `LDAP_PERSON['address_types']: ['POST']` from the config?
+        #
+        if dn and entry:
+            entry.pop('postalAddress', None)
 
         return dn, entry, alias_info

@@ -22,6 +22,8 @@ from __future__ import unicode_literals
 from __future__ import print_function
 
 import logging
+import os
+import pickle
 import sys
 from collections import defaultdict
 
@@ -1288,3 +1290,49 @@ def _split_name(fullname=None, givenname=None, lastname=None):
             if not got_given:
                 given.extend(full)
     return [' '.join(n) for n in given, last]
+
+
+class OrgLdifGroupMixin(OrgLDIF):
+    """
+    Mixin to provide memberOf values from a pickle-file of group memberships.
+
+    The picklefile typically contains references to groups in groups.ldif (see
+    generate_groups_ldif.py).
+    """
+    # TODO: Implement enable/disable
+    # TODO: Implement kwargs for providing filename
+    # TODO: Implement config/kwargs for providing attr, objectclass
+    # TODO: This mixin probably belongs alongside the code that generates the
+    #       pickle data
+
+    person_memberof_attr = 'memberOf'
+    person_memberof_class = None
+
+    def __init__(self, *args, **kwargs):
+        super(OrgLdifGroupMixin, self).__init__(*args, **kwargs)
+        self.person_group_filename = os.path.join(ldapconf(None, 'dump_dir'),
+                                                  "personid2group.pickle")
+
+    def _init_person_groups(self):
+        """Populate dict with a persons group information."""
+        timer = make_timer(logger, 'Processing person groups...')
+        self._person2group = pickle.load(file(self.person_group_filename))
+        timer("...person groups done.")
+
+    def init_person_dump(self, *args, **kwargs):
+        # API-method: Cache/select person data
+        super(OrgLdifGroupMixin, self).init_person_dump(*args, **kwargs)
+        self._init_person_groups()
+
+    def make_person_entry(self, row, person_id):
+        # API-method: Generate person object
+        dn, entry, alias_info = super(OrgLdifGroupMixin,
+                                      self).make_person_entry(row, person_id)
+
+        # Add group memberships
+        if dn and person_id in self._person2group:
+            entry[self.person_memberof_attr] = self._person2group[person_id]
+            if self.person_memberof_class:
+                entry['objectClass'].append(self.person_memberof_class)
+
+        return dn, entry, alias_info
