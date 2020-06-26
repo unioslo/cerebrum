@@ -44,14 +44,6 @@ class OrgLDIFUiTMixin(norEduLDIFMixin):
         super(OrgLDIFUiTMixin, self).__init__(db)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
 
-    def init_person_course(self):
-        """Populate dicts with a person's course information."""
-        timer = make_timer(logger, "Processing person courses...")
-        self.ownerid2urnlist = pickle.load(file(
-            os.path.join(ldapconf(None, 'dump_dir'),
-                         "ownerid2urnlist.pickle")))
-        timer("...person courses done.")
-
     def init_person_groups(self):
         """Populate dicts with a person's group information."""
         timer = make_timer(logger, "Processing person groups...")
@@ -63,7 +55,6 @@ class OrgLDIFUiTMixin(norEduLDIFMixin):
         """Suplement the list of things to run before printing the
         list of people."""
         super(OrgLDIFUiTMixin, self).init_person_dump(use_mail_module)
-        self.init_person_course()
         self.init_person_groups()
 
     def init_attr2id2contacts(self):
