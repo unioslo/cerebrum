@@ -164,11 +164,12 @@ class OrgLDIF(object):
     def __init__(self, db):
         # TODO: WTH?
         cereconf.make_timer = make_timer
-        self.logger = logger.getChild('OrgLDIF')
+
+        # keep a self.logger as long as we use self.logger.debugN
+        self.logger = logger.getChild('debug')
 
         # DB-stuff
         self.db = db
-        # keep a self.logger as long as we use self.logger.debugN
         self.const = Factory.get('Constants')(db)
         self.ou = Factory.get('OU')(db)
 
@@ -237,11 +238,11 @@ class OrgLDIF(object):
     def init_ou_structure(self):
         # Set self.ou_tree = dict {parent ou_id: [child ou_id, ...]}
         # where the root OUs have parent id None.
-        timer = make_timer(self.logger, "Fetching OU tree...")
+        timer = make_timer(logger, "Fetching OU tree...")
         self.ou.clear()
         ou_list = self.ou.get_structure_mappings(
             self.const.OUPerspective(cereconf.LDAP_OU['perspective']))
-        self.logger.debug("Number of OUs: %d", len(ou_list))
+        logger.debug("Number of OUs: %d", len(ou_list))
         self.ou_tree = {None: []}  # {parent ou_id or None: [child ou_id...]}
         for ou_id, parent_id in ou_list:
             if parent_id is not None:
@@ -324,10 +325,10 @@ class OrgLDIF(object):
     def generate_ou(self, outfile):
         """Output the org. unit (OU) tree if cereconf.LDAP_OU['dn'] is set."""
         if not self.ou_dn:
-            self.logger.info("Skipping OUs, no DN has been set.")
+            logger.info("Skipping OUs, no DN has been set.")
             return
         self.init_ou_dump()
-        timer = make_timer(self.logger, "Processing OUs...")
+        timer = make_timer(logger, "Processing OUs...")
         if self.ou_dn != self.org_dn:
             outfile.write(container_entry_string('OU'))
         self.generate_dummy_ou(outfile)
@@ -336,7 +337,7 @@ class OrgLDIF(object):
             self.traverse_ou_children(outfile, None, None)
         loops = [i for i in self.ou_tree.iteritems() if i[0] not in self.ou2DN]
         if loops:
-            self.logger.warn(
+            logger.warn(
                 "Loops in org.unit tree; ignored {parent:[children]} = %s",
                 dict(loops))
         timer("...OUs done.")
@@ -382,8 +383,8 @@ class OrgLDIF(object):
         if entry:
             norm_dn = normalize_string(dn)
             if norm_dn in self.used_DNs:
-                self.logger.warn("Omitting ou_id %d: duplicate DN '%s'",
-                                 ou_id, dn)
+                logger.warn("Omitting ou_id=%d, duplicate dn=%s",
+                            ou_id, repr(dn))
                 dn = parent_dn
             else:
                 self.used_DNs[norm_dn] = True
@@ -416,7 +417,7 @@ class OrgLDIF(object):
                 lnames = ou_names.setdefault(pref, [])
                 lnames.append((int(row['name_language']), name))
         if not ou_names:
-            self.logger.warn("No names could be located for ou_id=%s", ou_id)
+            logger.warn("No names could be located for ou_id=%s", ou_id)
             return parent_dn, None
         entry = {'objectClass': ['top', 'organizationalUnit']}
         entry.update(self.ou_attrs)
@@ -503,7 +504,7 @@ class OrgLDIF(object):
         self.accounts = accounts = []
         self.person_cache = person_cache = {}
         self.persons = []
-        timer = make_timer(self.logger, "Caching persons and accounts...")
+        timer = make_timer(logger, "Caching persons and accounts...")
         for row in self.list_persons():
             accounts.append(row['account_id'])
             person_cache[row['person_id']] = {'account_id': row['account_id'],
@@ -540,7 +541,7 @@ class OrgLDIF(object):
 
     def init_person_affiliations(self):
         # Set self.affiliations = dict {person_id: [(aff, status, ou_id), ...]}
-        timer = make_timer(self.logger, "Fetching personal affiliations...")
+        timer = make_timer(logger, "Fetching personal affiliations...")
         self.affiliations = affiliations = defaultdict(list)
         source = cereconf.LDAP_PERSON['affiliation_source_system']
         if source is not None:
@@ -561,7 +562,7 @@ class OrgLDIF(object):
 
     def init_person_names(self):
         # Set self.person_names = dict {person_id: {name_variant: name}}
-        timer = make_timer(self.logger, "Fetching personal names...")
+        timer = make_timer(logger, "Fetching personal names...")
         self.person_names = person_names = defaultdict(dict)
         for row in self.person.search_person_names(
                 name_variant=[self.const.name_full,
@@ -575,7 +576,7 @@ class OrgLDIF(object):
 
     def init_person_titles(self):
         # Set self.person_titles = dict {person_id: [(language,title),...]}
-        timer = make_timer(self.logger, "Fetching personal titles...")
+        timer = make_timer(logger, "Fetching personal titles...")
         titles = {}
         fill = {
             int(self.const.personal_title): dict.__setitem__,
@@ -596,9 +597,9 @@ class OrgLDIF(object):
         # Set self.acc_passwd      = dict {account_id: password hash}.
         # Set self.acc_quarantines = dict {account_id: [quarantine list]}.
         # Set acc_locked_quarantines = acc_quarantines or separate dict
-        timer_all = make_timer(self.logger, "Fetching account information...")
-        timer_auth = make_timer(self.logger)
-        timer_quar = make_timer(self.logger)
+        timer_all = make_timer(logger, "Fetching account information...")
+        timer_auth = make_timer(logger)
+        timer_quar = make_timer(logger)
         self.acc_name = {}
         # self.account_auth = {}
         self.acc_locked_quarantines = self.acc_quarantines = defaultdict(list)
@@ -607,8 +608,8 @@ class OrgLDIF(object):
             self.acc_name[row['account_id']] = row['name']
 
         timer_auth('...account authentication...')
-        self.logger.info('Getting userPassword from auth_types: %r',
-                         self.user_password.cache.auth_types)
+        logger.info('Getting userPassword from auth_types: %r',
+                    self.user_password.cache.auth_types)
         self.user_password.cache.update_all()
 
         timer_quar("...account quarantines...")
@@ -652,7 +653,7 @@ class OrgLDIF(object):
         # Set self.account_mail = None if not use_mail_module, otherwise
         #                         dict: account_id -> ('address' or None).
         if use_mail_module:
-            timer = make_timer(self.logger,
+            timer = make_timer(logger,
                                "Fetching account e-mail addresses...")
 
             # Get target types from config
@@ -660,8 +661,8 @@ class OrgLDIF(object):
             for value in ldapconf('PERSON', 'mail_target_types', []):
                 code = self.const.human2constant(value, self.const.EmailTarget)
                 if code is None:
-                    self.logger.warn("Unknown EmailTarget %r in setting %s",
-                                     value, "LDAP_PERSON['mail_target_types']")
+                    logger.warn("Unknown EmailTarget %r in setting %s",
+                                value, "LDAP_PERSON['mail_target_types']")
                 else:
                     mail_target_types.append(code)
 
@@ -675,7 +676,7 @@ class OrgLDIF(object):
             # higher priority.
             mail = {}
             for code in reversed(mail_target_types):
-                target_timer = make_timer(self.logger)
+                target_timer = make_timer(logger)
                 for row in targets(target_type=code):
                     try:
                         mail[int(row['target_entity_id'])] = "@".join(
@@ -690,7 +691,7 @@ class OrgLDIF(object):
 
     def init_person_addresses(self):
         # Set self.addr_info = dict {person_id: {address_type: (addr. data)}}.
-        timer = make_timer(self.logger, "Fetching personal addresses...")
+        timer = make_timer(logger, "Fetching personal addresses...")
         self.addr_info = addr_info = {}
         addr_types = cereconf.LDAP_PERSON['address_types']
         for row in self.person.list_entity_addresses(
@@ -730,8 +731,8 @@ class OrgLDIF(object):
         self.init_person_dump(use_mail_module)
         if self.person_parent_dn not in (None, self.org_dn):
             outfile.write(container_entry_string('PERSON'))
-        timer = make_timer(self.logger, "Processing persons...")
-        round_timer = make_timer(self.logger)
+        timer = make_timer(logger, "Processing persons...")
+        round_timer = make_timer(logger)
         rounds = 0
         exported = 0
         for person_id, row in self.person_cache.iteritems():
@@ -741,8 +742,8 @@ class OrgLDIF(object):
             dn, entry, alias_info = self.make_person_entry(row, person_id)
             if dn:
                 if dn in self.used_DNs:
-                    self.logger.warn("Omitting person_id %d: duplicate DN '%s'"
-                                     % (person_id, dn))
+                    logger.warn("Omitting person_id=%d, duplicate DN %s",
+                                person_id, repr(dn))
                 else:
                     self.used_DNs[dn] = True
                     outfile.write(entry_string(dn, entry, False))
@@ -780,7 +781,7 @@ class OrgLDIF(object):
 
         names = self.person_names.get(person_id)
         if not names:
-            self.logger.warn("Person %s got no names. Skipping.", person_id)
+            logger.warn("Person %s got no names. Skipping.", person_id)
             return None, None, None
         name = names.get(int(self.const.name_full), '').strip()
         givenname = names.get(int(self.const.name_first), '').strip()
@@ -788,8 +789,7 @@ class OrgLDIF(object):
         if not (lastname and givenname):
             givenname, lastname = _split_name(name, givenname, lastname)
             if not lastname:
-                self.logger.warn("Person %s got no lastname. Skipping.",
-                                 person_id)
+                logger.warn("Omitting person_id=%d, no lastname", person_id)
                 return None, None, None
         if not name:
             name = " ".join(filter(None, (givenname, lastname)))
@@ -807,8 +807,8 @@ class OrgLDIF(object):
         try:
             passwd = self.user_password.get(account_id)
         except LookupError:
-            self.logger.warning('No authentication data for account_id=%r',
-                                account_id)
+            logger.warning('No authentication data for account_id=%r',
+                           account_id)
             passwd = False
 
         qt = self.acc_quarantines.get(account_id)
@@ -828,7 +828,7 @@ class OrgLDIF(object):
         if passwd:
             entry['userPassword'] = passwd
         elif passwd != 0 and entry.get('uid'):
-            self.logger.debug("User %s got no password-hash.", entry['uid'][0])
+            logger.debug("User %s got no password-hash.", entry['uid'][0])
 
         dn, primary_ou_dn = self.person_dn_primary_ou(entry, row, person_id)
         if not dn:
@@ -947,7 +947,7 @@ class OrgLDIF(object):
         if 'uid' in entry and len(entry['uid']):
             rdn = "uid=" + entry['uid'][0]
         else:
-            self.logger.warn("Person %d got no account. Skipping.", person_id)
+            logger.warn("Person %d got no account. Skipping.", person_id)
             return None, None
         # If the dummy DN is set, make it the default primary org.unit DN so
         # that if a person has an alias there, his eduPersonPrimaryOrgUnitDN
