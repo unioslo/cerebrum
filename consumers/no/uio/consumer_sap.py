@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2016 University of Oslo, Norway
+# Copyright 2016-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -61,6 +61,10 @@ callback_filters = CallbackMap()
 # INTEGER_TYPE is long in in python2 and will be int in python3
 INTEGER_TYPE = integer_types[-1]
 LEADER_GROUP_PREFIX = 'adm-leder-'
+
+MAIL_TO = 'cerebrum-drift@usit.uio.no'
+MAIL_SENDER = 'noreply@usit.uio.no'
+TEMPLATE = 'no_NO/email/possible_duplicate_person.txt'
 
 
 def filter_meta(l):
@@ -1111,7 +1115,30 @@ def perform_delete(database, source_system, hr_person, cerebrum_person):
     logger.info('%r deleted', cerebrum_person.entity_id)
 
 
-def handle_person(database, source_system, url, datasource=get_hr_person):
+def _check_possible_duplicate(hr_person, dryrun):
+    """
+    Look for possible duplicate of hr_person already existing.
+    If found, and not in dryrun, send email.
+    """
+    co = Factory.get('Constants')(database)
+    hr_name = ' '.join(name for _, name in hr_person.get('names'))
+    possible_people = cerebrum_person.search(
+        birth_date=str(hr_person.get('birth_date')),
+        name_variants=[co.name_full])
+    for person in possible_people:
+        full_name = person['full_name']
+        if name_diff(hr_name.lower(), full_name.lower()) <= 2:
+            substitute = {
+                'NEW_PERSON': hr_name,
+                'OLD_PERSON': full_name,
+            }
+            mail_template(MAIL_TO, TEMPLATE, substitute=substitute,
+                          sender=MAIL_SENDER, debug=dryrun)
+            return
+
+
+def handle_person(database, source_system, url, datasource=get_hr_person,
+                  dryrun=False):
     """Fetch info from the remote system, and perform changes.
 
     :param database: A database object
@@ -1147,22 +1174,7 @@ def handle_person(database, source_system, url, datasource=get_hr_person):
             source_system=co.system_sap,
             entity_type=co.entity_person)
     if not cerebrum_person.entity_type: # entity_type as indication of instance
-        co = Factory.get('Constants')(database)
-        hr_name = ' '.join(name for _, name in hr_person.get('names'))
-        possible_people = cerebrum_person.search(
-            birth_date=str(hr_person.get('birth_date')),
-            name_variants=[co.name_full])
-        for person in possible_people:
-            full_name = person['full_name']
-            if name_diff(hr_name.lower(), full_name.lower()) <= 2:
-                recipient = 'houston@usit.uio.no'
-                template = 'no_NO/email/possible_duplicate_person.txt'
-                substitute = {
-                    'NEW_PERSON': hr_name,
-                    'OLD_PERSON': full_name,
-                }
-                mail_template(recipient, template, substitute=substitute, sender=recipient)
-                break
+        _check_possible_duplicate(hr_person, dryrun)
     if hr_person and (hr_person.get('affiliations') or hr_person.get('roles')):
         perform_update(database, source_system, hr_person, cerebrum_person)
     elif cerebrum_person.entity_type:  # entity_type as indication of instance
@@ -1187,7 +1199,7 @@ def _reschedule_message(publisher, routing_key, message, reschedule_date):
 
 
 def callback(database, source_system, routing_key, content_type, body,
-             datasource=get_hr_person, publisher=None):
+             datasource=get_hr_person, publisher=None, dryrun=False):
     """Call appropriate handler functions."""
     try:
         message = json.loads(body)
@@ -1200,7 +1212,8 @@ def callback(database, source_system, routing_key, content_type, body,
         reschedule_date = handle_person(database,
                                         source_system,
                                         url,
-                                        datasource=datasource)
+                                        datasource=datasource,
+                                        dryrun=dryrun)
         logger.info('Successfully processed %r', body)
     except RemoteSourceUnavailable:
         message_processed = False
@@ -1278,7 +1291,7 @@ def main(args=None):
                         dest='dryrun',
                         action='store_true',
                         default=False,
-                        help='Do not commit changes')
+                        help='Do not commit changes or send mail')
     args = parser.parse_args(args)
     prog_name = parser.prog.rsplit('.', 1)[0]
     logger.info('Starting %r', prog_name)
@@ -1305,7 +1318,8 @@ def main(args=None):
                       pprint.pformat(parsed_mock_data))
         body = json.dumps({'sub': None})
         callback(database, source_system, '', '', body,
-                 datasource=lambda *x: (parsed_mock_data, None))
+                 datasource=lambda *x: (parsed_mock_data, None),
+                 dryrun=args.dryrun)
     elif args.url:
         datasource = functools.partial(get_hr_person, config.ws,
                                        ignore_read_password=True)
@@ -1320,6 +1334,7 @@ def main(args=None):
             args.url,
             datasource=datasource,
             publisher=publisher,
+            dryrun=args.dryrun
         )
     else:
         logger.info('Starting %r', prog_name)
@@ -1334,6 +1349,7 @@ def main(args=None):
                 source_system,
                 datasource=datasource,
                 publisher=publisher,
+                dryrun=args.dryrun
             ),
             config=config.consumer)
         with consumer:
