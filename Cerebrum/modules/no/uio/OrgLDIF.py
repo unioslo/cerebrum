@@ -29,6 +29,7 @@ import cereconf
 from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
 from Cerebrum.modules.OrgLDIF import postal_escape_re
 from Cerebrum.modules.no.OrgLDIF import OrgLdifCourseMixin
+from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 from Cerebrum.modules.LDIFutils import (
     hex_escape_match,
@@ -55,7 +56,9 @@ class UioOrgLdifGroupMixin(OrgLdifGroupMixin, norEduLDIFMixin):
     person_memberof_class = 'uioMembership'
 
 
-class OrgLDIFUiOMixin(OrgLdifCourseMixin, UioOrgLdifGroupMixin):
+class OrgLDIFUiOMixin(OrgLdifCourseMixin,
+                      UioOrgLdifGroupMixin,
+                      OrgLdifEntitlementsMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
 
     def __init__(self, db):

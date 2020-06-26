@@ -23,14 +23,14 @@ from collections import defaultdict
 from six import text_type
 
 from Cerebrum import Entity
-from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
+from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
 from Cerebrum.modules.LDIFutils import normalize_string
 from Cerebrum.Utils import make_timer
 
 logger = logging.getLogger(__name__)
 
 
-class OrgLDIFHiAMixin(norEduLDIFMixin):
+class OrgLDIFHiAMixin(OrgLdifEntitlementsMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with HiA modifications."""
 
     def __init__(self, db):
