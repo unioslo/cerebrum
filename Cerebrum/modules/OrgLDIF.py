@@ -86,7 +86,7 @@ def get_language_code(const, value):
 
 
 def get_language_codes(const, values, unique=True, allow_empty=False):
-    """ Check a sequence of _QuarantineCode values """
+    """ Fetch and verify a sequence of _LanguageCode values """
     languages = tuple(get_language_code(const, v) for v in values)
     if not (allow_empty or languages):
         raise ValueError("No languages given")
@@ -96,10 +96,10 @@ def get_language_codes(const, values, unique=True, allow_empty=False):
 
 
 class LanguageSettings(object):
+    """ Language and localization settings. """
 
-    def __init__(self, languages, do_output):
-        self.output_languages = bool(do_output)
-
+    def __init__(self, languages, output_languages):
+        self.output_languages = bool(output_languages)
         self.lang2opt = {int(c): ';lang-{}'.format(c)
                          for c in languages}
         self.lang2pref = {int(c): v
@@ -113,27 +113,28 @@ class LanguageSettings(object):
     def get_opt(self, language):
         return self.lang2opt[int(language)]
 
-    def localize_attr(self, entry, attr, l2values):
+    def localize_attr(self, entry, attr, localized_values):
         """
         Add localized attribute `attr`.
 
-        :param list l2values:
+        :param list localized_values:
             A list of (language, localized_value) tuples.
         """
-        if not l2values:
-            logger.warning('No values to localize for attr=%r', attr)
+        if not localized_values:
             return
 
-        sorted_values = sorted(l2values, key=lambda t: self.get_pref(t[0]))
+        sorted_values = sorted(localized_values,
+                               key=lambda t: self.get_pref(t[0]))
 
-        # attr: value in preferred language
+        # Output regular attribute in preferred language.
+        # E.g.: `Foo: bar in Norwegian`
         entry.setdefault(attr, []).append(sorted_values[0][1])
 
-        opts = [(self.get_opt(lang), val) for lang, val in sorted_values]
-
-        # add `attr;lang-<code>: value` for each language
+        # Output localized attribtues in preferred order:
+        # E.g. `Foo;lang-nb: Bar in Norwegian`, `Foo;lang-en: Bar in English`
         if self.output_languages:
-            for opt, val in opts:
+            for lang, val in sorted_values:
+                opt = self.get_opt(lang)
                 entry.setdefault(attr + opt, []).append(val)
 
 
