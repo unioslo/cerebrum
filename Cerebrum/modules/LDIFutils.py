@@ -167,12 +167,20 @@ _attrval2iter = {
     type(None): (lambda arg: ())}
 
 
-def container_entry_string(tree_name, attrs={}, module=cereconf):
-    """Return a string with an LDIF entry for the specified container entry."""
+def container_entry(tree_name, attrs=None, module=cereconf):
+    """Return an LDIF entry dict for the specified container entry."""
     entry = dict(ldapconf(None, 'container_attrs', {}, module=module))
-    entry.update(attrs)
+    if attrs:
+        entry.update(attrs)
     entry.update(ldapconf(tree_name, 'attrs', {}, module=module))
-    return entry_string(ldapconf(tree_name, 'dn', module=module), entry)
+    return entry
+
+
+def container_entry_string(tree_name, attrs=None, module=cereconf):
+    """Return a string with an LDIF entry for the specified container entry."""
+    entry = container_entry(tree_name, attrs, module=cereconf)
+    dn = ldapconf(tree_name, 'dn', module=module)
+    return entry_string(dn, entry)
 
 
 class LDIFWriter(object):
