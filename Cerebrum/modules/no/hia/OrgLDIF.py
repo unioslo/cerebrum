@@ -24,7 +24,10 @@ from six import text_type
 
 from Cerebrum import Entity
 from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
-from Cerebrum.modules.LDIFutils import normalize_string
+from Cerebrum.modules.LDIFutils import (
+    attr_unique,
+    normalize_string,
+)
 from Cerebrum.Utils import make_timer
 
 logger = logging.getLogger(__name__)
@@ -89,7 +92,7 @@ class OrgLDIFHiAMixin(OrgLdifEntitlementsMixin):
             if alias and verify(alias):
                 cont_tab[int(row['entity_id'])].append(alias)
 
-        return dict((key, self.attr_unique(values, normalize=normalize))
+        return dict((key, attr_unique(values, normalize=normalize))
                     for key, values in cont_tab.iteritems())
 
     def init_person_titles(self):

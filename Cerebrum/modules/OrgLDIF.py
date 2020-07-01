@@ -35,7 +35,8 @@ from Cerebrum.Constants import _AuthoritativeSystemCode, _LanguageCode
 from Cerebrum.export.auth import AuthExporter
 from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.modules.LDIFutils import (ldapconf,
+from Cerebrum.modules.LDIFutils import (attr_unique,
+                                        ldapconf,
                                         container_entry_string,
                                         entry_string,
                                         map_spreads,
@@ -317,7 +318,7 @@ class OrgLDIF(object):
         if self.org_dn.lower().startswith('dc='):
             entry['objectClass'].append('dcObject')
         self.update_org_object_entry(entry)
-        entry['objectClass'] = self.attr_unique(
+        entry['objectClass'] = attr_unique(
             entry['objectClass'], six.text_type.lower)
         outfile.write(entry_string(self.org_dn, entry))
 
@@ -436,7 +437,7 @@ class OrgLDIF(object):
 
         for attr in entry.keys():
             if attr == 'ou' or attr.startswith('ou;'):
-                entry[attr] = self.attr_unique(entry[attr], normalize_string)
+                entry[attr] = attr_unique(entry[attr], normalize_string)
         self.fill_ou_entry_contacts(entry)
         self.update_ou_entry(entry)
         return dn, entry
@@ -471,7 +472,7 @@ class OrgLDIF(object):
         if entry.get('labeledURI'):
             oc = entry['objectClass']
             oc.append('labeledURIObject')
-            entry['objectClass'] = self.attr_unique(oc, six.text_type.lower)
+            entry['objectClass'] = attr_unique(oc, six.text_type.lower)
         post_string, street_string = self.make_entity_addresses(
             self.ou, self.system_lookup_order)
         if post_string:
@@ -846,8 +847,8 @@ class OrgLDIF(object):
         edu_ous = self._calculate_edu_ous(
             primary_ou_dn,
             [self.ou2DN.get(aff[2]) for aff in p_affiliations])
-        entry['eduPersonOrgUnitDN'] = self.attr_unique(filter(None, edu_ous))
-        entry['eduPersonAffiliation'] = self.attr_unique(self.select_list(
+        entry['eduPersonOrgUnitDN'] = attr_unique(filter(None, edu_ous))
+        entry['eduPersonAffiliation'] = attr_unique(self.select_list(
             self.eduPersonAff_selector, person_id, p_affiliations))
 
         # For now, the scoped affiliations are just a mirror of the above
@@ -894,7 +895,7 @@ class OrgLDIF(object):
         else:
             uris = self.id2labeledURI.get(person_id)
             if uris:
-                entry['labeledURI'] = self.attr_unique(
+                entry['labeledURI'] = attr_unique(
                     uris, normalize_caseExactString)
 
         if self.account_mail:
@@ -1042,7 +1043,7 @@ class OrgLDIF(object):
             else:
                 cont_tab[key] = c_list
         for key, c_list in cont_tab.iteritems():
-            cont_tab[key] = self.attr_unique(
+            cont_tab[key] = attr_unique(
                 filter(verify, [c for c in c_list if c not in ('', '0')]),
                 normalize=normalize)
         if entity_id is None:
@@ -1225,28 +1226,6 @@ class OrgLDIF(object):
                     return True
             return False
         return selector[selector[2](person_id)]
-
-    @staticmethod
-    def attr_unique(values, normalize=None):
-        """
-        Return the input list of values with duplicates removed.
-
-        Pass values through optional function 'normalize' before comparing.
-        Preserve the order of values.  Use the first value of any duplicate.
-        """
-        if len(values) < 2:
-            return values
-        result = []
-        done = set()
-        for val in values:
-            if normalize:
-                norm = normalize(val)
-            else:
-                norm = val
-            if norm not in done:
-                done.add(norm)
-                result.append(val)
-        return result
 
 
 def _split_name(fullname=None, givenname=None, lastname=None):

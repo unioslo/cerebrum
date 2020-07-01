@@ -33,7 +33,8 @@ import cereconf
 from Cerebrum import Entity
 from Cerebrum.modules.feide.service import FeideService
 from Cerebrum.modules.OrgLDIF import OrgLDIF
-from Cerebrum.modules.LDIFutils import (ldapconf,
+from Cerebrum.modules.LDIFutils import (attr_unique,
+                                        ldapconf,
                                         normalize_string,
                                         verify_IA5String,
                                         verify_emailish,
@@ -209,7 +210,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
                 lnames = ou_names.setdefault(pref, [])
                 lnames.append((int(row['name_language']), name))
         if not ou_names:
-            self.logger.warn("No names could be located for ou_id=%s", ou_id)
+            logger.warn("No names could be located for ou_id=%s", ou_id)
             return parent_dn, None
 
         ldap_ou_id = self.get_unique_ou_id()
@@ -236,7 +237,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
 
         for attr in entry.keys():
             if attr == 'ou' or attr.startswith('ou;'):
-                entry[attr] = self.attr_unique(entry[attr], normalize_string)
+                entry[attr] = attr_unique(entry[attr], normalize_string)
         self.fill_ou_entry_contacts(entry)
         self.update_ou_entry(entry)
         return dn, entry
@@ -337,7 +338,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
                 pri_ou = ou
                 pri_edu_aff = a
         if pri_aff is None:
-            self.logger.warn(
+            logger.warn(
                 "Person '%s' did not get eduPersonPrimaryAffiliation. "
                 "Check his/her affiliations "
                 "and eduPersonPrimaryAffiliation_selector in cereconf.", p_id)
@@ -356,7 +357,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
         """
         if not hasattr(self.const, 'trait_primary_aff'):
             return
-        timer = make_timer(self.logger, 'Fetching primary aff traits...')
+        timer = make_timer(logger, 'Fetching primary aff traits...')
         for row in self.person.list_traits(code=self.const.trait_primary_aff):
             p_id = row['entity_id']
             val = row['strval']
@@ -374,13 +375,13 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
     def init_person_fodselsnrs(self):
         # Set self.fodselsnrs = dict {person_id: str or instance with fnr}
         # str(fnr) will return the person's "best" fodselsnr, or ''.
-        timer = make_timer(self.logger, 'Fetching fodselsnrs...')
+        timer = make_timer(logger, 'Fetching fodselsnrs...')
         self.fodselsnrs = self.person.getdict_fodselsnr()
         timer("...fodselsnrs done.")
 
     def init_person_birth_dates(self):
         # Set self.birth_dates = dict {person_id: birth date}
-        timer = make_timer(self.logger, 'Fetching birth dates...')
+        timer = make_timer(logger, 'Fetching birth dates...')
         self.birth_dates = birth_dates = {}
         for row in self.person.list_persons(person_id=self.persons):
             birth_date = row['birth_date']
@@ -433,7 +434,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
             def get_const(name, cls):
                 constant = self.const.human2constant(name, cls)
                 if not constant:
-                    self.logger.warn(
+                    logger.warn(
                         "LDAP_PERSON[norEduPersonAuthnMethod_selector]: "
                         "Unknown %s %r", cls.__name__, name)
                 return constant
@@ -468,7 +469,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
 
         """
         if not hasattr(self, '_person_authn_methods'):
-            timer = make_timer(self.logger,
+            timer = make_timer(logger,
                                'Fetching authentication methods...')
             entity = Entity.EntityContactInfo(self.db)
             self._person_authn_methods = dict()
@@ -521,7 +522,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
             if not supported:
                 self._person_authn_levels = {}
                 return self._person_authn_levels
-            timer = make_timer(self.logger,
+            timer = make_timer(logger,
                                'Fetching authentication levels...')
             fse = FeideService(self.db)
             self._person_authn_levels = fse.get_person_to_authn_level_map()
@@ -553,7 +554,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
                          authn_entry['contact_type']) in selection):
                     authn_methods.append(
                         template.substitute(authn_entry))
-        entry['norEduPersonAuthnMethod'] = self.attr_unique(
+        entry['norEduPersonAuthnMethod'] = attr_unique(
             authn_methods, normalize=normalize_string)
 
         # Add norEduPersonServiceAuthnLevel entries
@@ -570,7 +571,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
                     'feide_id': feide_id,
                     'level': level
                 }))
-        entry['norEduPersonServiceAuthnLevel'] = self.attr_unique(
+        entry['norEduPersonServiceAuthnLevel'] = attr_unique(
             authn_level_entries, normalize=normalize_string)
 
 
