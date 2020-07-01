@@ -90,6 +90,11 @@ class BofhdContactAuth(BofhdAuth):
                                          self.const.auth_view_contactinfo,
                                          self.const.auth_target_type_disk,
                                          entity.entity_id, entity.entity_id,
+                                         six.text_type(contact_type)) or
+            self._has_target_permissions(operator,
+                                         self.const.auth_view_contactinfo,
+                                         self.const.auth_target_type_ou,
+                                         entity.entity_id, entity.entity_id,
                                          six.text_type(contact_type))):
             return True
         # The person itself should be able to see it:
@@ -125,6 +130,11 @@ class BofhdContactAuth(BofhdAuth):
                                          self.const.auth_add_contactinfo,
                                          self.const.auth_target_type_disk,
                                          entity.entity_id, entity.entity_id,
+                                         six.text_type(contact_type)) or
+            self._has_target_permissions(operator,
+                                         self.const.auth_add_contactinfo,
+                                         self.const.auth_target_type_ou,
+                                         entity.entity_id, entity.entity_id,
                                          six.text_type(contact_type))):
             return True
         raise PermissionDenied("Not allowed to add contact info")
@@ -156,6 +166,11 @@ class BofhdContactAuth(BofhdAuth):
             self._has_target_permissions(operator,
                                          self.const.auth_remove_contactinfo,
                                          self.const.auth_target_type_disk,
+                                         entity.entity_id, entity.entity_id,
+                                         six.text_type(contact_type)) or
+            self._has_target_permissions(operator,
+                                         self.const.auth_remove_contactinfo,
+                                         self.const.auth_target_type_ou,
                                          entity.entity_id, entity.entity_id,
                                          six.text_type(contact_type))):
             return True

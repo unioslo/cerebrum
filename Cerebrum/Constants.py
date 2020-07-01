@@ -1569,6 +1569,9 @@ class CommonConstants(ConstantsBase):
     contact_url = _ContactInfoCode(
         'URL',
         'URL')
+    contact_lit = _ContactInfoCode(
+        'LOCAL-IT',
+        'Local IT-Support')
     contact_mobile_phone = _ContactInfoCode(
         'MOBILE',
         'Mobile phone')

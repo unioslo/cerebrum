@@ -170,7 +170,7 @@ class AccountCreationNotifier(object):
                          ou_id)
             return None
 
-        contact_emails = self.ou.get_contact_info(type=self.co.contact_email)
+        contact_emails = self.ou.get_contact_info(type=self.co.contact_lit)
         contact_emails = [a['contact_value'] for a in contact_emails]
         self.ou.clear()
         return contact_emails
