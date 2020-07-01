@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# Copyright 2004-2014 University of Oslo, Norway
+#
+# Copyright 2004-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,9 +20,10 @@
 
 from __future__ import unicode_literals
 
-import re
+import logging
+import os
 import pickle
-from os.path import join as join_paths
+import re
 from collections import defaultdict
 
 import cereconf
@@ -29,10 +31,14 @@ import cereconf
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 from Cerebrum.modules.OrgLDIF import postal_escape_re
 from Cerebrum.modules.LDIFutils import (
-    ldapconf, normalize_string, hex_escape_match,
-    normalize_IA5String, verify_IA5String,
+    hex_escape_match,
+    ldapconf,
+    normalize_IA5String,
+    verify_IA5String,
 )
 from Cerebrum.Utils import make_timer
+
+logger = logging.getLogger(__name__)
 
 # Replace these characters with spaces in OU RDNs.
 ou_rdn2space_re = re.compile('[#\"+,;<>\\\\=\0\\s]+')
@@ -41,17 +47,17 @@ ou_rdn2space_re = re.compile('[#\"+,;<>\\\\=\0\\s]+')
 class OrgLDIFUiOMixin(norEduLDIFMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
 
-    def __init__(self, db, logger):
-            self.__super.__init__(db, logger)
-            self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
-            self.attr2syntax['uioVisiblePrivateMobile'] = \
-                self.attr2syntax['mobile']
-            self.attr2syntax['uioPrimaryMail'] = (None, verify_IA5String,
-                                                  normalize_IA5String),
-            self.ou_quarantined = {}
+    def __init__(self, db):
+        super(OrgLDIFUiOMixin, self).__init__(db)
+        self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
+        self.attr2syntax['uioVisiblePrivateMobile'] = \
+            self.attr2syntax['mobile']
+        self.attr2syntax['uioPrimaryMail'] = (None, verify_IA5String,
+                                              normalize_IA5String),
+        self.ou_quarantined = {}
 
     def init_ou_dump(self):
-        self.__super.init_ou_dump()
+        super(OrgLDIFUiOMixin, self).init_ou_dump()
         self.get_ou_quarantines()
         ou2parent = dict((c, p)
                          for p, ous in self.ou_tree.items()
@@ -121,29 +127,30 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
     def init_person_course(self):
         """Populate dicts with a person's course information."""
-        timer = make_timer(self.logger, 'Processing person courses...')
+        timer = make_timer(logger, 'Processing person courses...')
         self.ownerid2urnlist = pickle.load(file(
-            join_paths(ldapconf(None, 'dump_dir'), "ownerid2urnlist.pickle")))
+            os.path.join(ldapconf(None, 'dump_dir'),
+                         "ownerid2urnlist.pickle")))
         timer("...person courses done.")
 
     def init_person_groups(self):
         """Populate dicts with a person's group information."""
-        timer = make_timer(self.logger, 'Processing person groups...')
+        timer = make_timer(logger, 'Processing person groups...')
         self.person2group = pickle.load(file(
-            join_paths(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
+            os.path.join(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
         timer("...person groups done.")
 
     def init_person_dump(self, use_mail_module):
         """Supplement the list of things to run before printing the
         list of people."""
-        self.__super.init_person_dump(use_mail_module)
+        super(OrgLDIFUiOMixin, self).init_person_dump(use_mail_module)
         self.init_person_course()
         self.init_person_groups()
 
     def init_person_titles(self):
         # Change from original: Search titles first by system_lookup_order,
         # then within each system let personal title override work title.
-        timer = make_timer(self.logger, 'Fetching personal titles...')
+        timer = make_timer(logger, 'Fetching personal titles...')
         titles = defaultdict(dict)
         for name_type in (self.const.personal_title, self.const.work_title):
             for row in self.person.search_name_with_language(
@@ -169,7 +176,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         super(OrgLDIFUiOMixin, self).init_account_mail(use_mail_module)
         if use_mail_module:
             timer = make_timer(
-                self.logger,
+                logger,
                 "Doing UiO specific changes to account e-mail addresses...")
             self.account_primary_mail = self.account_mail.copy()
             # We don't want to import this if mod_email isn't present.
@@ -212,7 +219,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
     def make_person_entry(self, row, person_id):
         """ Extend with UiO functionality. """
-        dn, entry, alias_info = self.__super.make_person_entry(row, person_id)
+        dn, entry, alias_info = super(OrgLDIFUiOMixin,
+                                      self).make_person_entry(row, person_id)
         account_id = int(row['account_id'])
 
         if not dn:
@@ -235,7 +243,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             entry['objectClass'].append('uioMembership')
 
         # Add scoped affiliations
-        pri_edu_aff, pri_ou, pri_aff = self.make_eduPersonPrimaryAffiliation(
+        pri_edu_aff, pri_ou, pri_aff = self.make_edu_person_primary_aff(
             person_id)
         entry['uioPersonScopedAffiliation'] = \
             self.make_uioPersonScopedAffiliation(person_id, pri_aff, pri_ou)
@@ -266,7 +274,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
 
         return dn, entry, alias_info
 
-    def _calculate_edu_OUs(self, p_ou, s_ous):
+    def _calculate_edu_ous(self, p_ou, s_ous):
         return s_ous
 
     def init_person_selections(self, *args, **kwargs):
@@ -278,7 +286,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         SAPUiO and FS.
 
         """
-        self.__super.init_person_selections(*args, **kwargs)
+        super(OrgLDIFUiOMixin, self).init_person_selections(*args, **kwargs)
         # Set what affiliations that should be checked for visibility from SAP
         # and FS. The default is to set the person to NOT visible, which
         # happens for all persons that doesn't have _any_ of the affiliations
@@ -340,7 +348,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                 return person_id not in self.sap_res
             if (aff, status) in self.visible_sap_statuses:
                 return person_id not in self.sap_res
-        # Otherwise, if there is an affiliaton STUDENT/<aktiv, emnestud or drgrad>,
+        # Otherwise, if there is an affiliaton STUDENT/<aktiv, emnestud or
+        # drgrad>,
         # check for permission from FS to make the person visible.
         for (aff, status, ou) in p_affs:
             if (aff, status) in self.fs_aff_statuses:

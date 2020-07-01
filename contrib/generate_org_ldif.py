@@ -30,19 +30,23 @@ installations without the mod_email module.
 from __future__ import unicode_literals
 
 import argparse
-from six import text_type
+import logging
 
+import six
+
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.modules.LDIFutils import ldif_outfile, end_ldif_outfile
 
+logger = logging.getLogger(__name__)
 
-def main():
-    logger = Factory.get_logger("cronjob")
 
+def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '-o', '--output',
-        type=text_type,
+        type=six.text_type,
         dest='output',
         help='output file')
     parser.add_argument(
@@ -50,9 +54,12 @@ def main():
         action='store_true',
         dest='omit_mail_module',
         help='omit the email module')
-    args = parser.parse_args()
+    Cerebrum.logutils.options.install_subparser(parser)
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
-    ldif = Factory.get('OrgLDIF')(Factory.get('Database')(), logger)
+    db = Factory.get('Database')()
+    ldif = Factory.get('OrgLDIF')(db)
     timer = make_timer(logger, 'Starting dump.')
 
     default_output = ldif_outfile('ORG', args.output)
@@ -81,4 +88,4 @@ def main():
 
 
 if __name__ == '__main__':
-        main()
+    main()
