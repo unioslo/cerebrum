@@ -844,12 +844,6 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                              'dis_quota_soft': eq.email_quota_soft})
         except Errors.NotFoundError:
             pass
-        # exchange-relatert-jazz
-        # delivery for exchange-mailboxes is not regulated through
-        # LDAP, and LDAP should not be checked there my be some need
-        # to implement support for checking if delivery is paused in
-        # Exchange, but at this point only very vague explanation has
-        # been given and priority is therefore low
         return info
 
     def _email_info_dlgroup(self, groupname):
