@@ -38,6 +38,7 @@ from Cerebrum import Errors as _Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import AtomicFileWriter
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
+from Cerebrum.utils.funcwrap import deprecate
 
 # Attributes whose values should always be base64-encoded.
 # May be modified by the applications.
@@ -412,3 +413,215 @@ def attr_unique(values, normalize=None):
             done.add(norm)
             result.append(val)
     return result
+
+
+# A singleton default value - used to indicate that LdapConfig.get()
+# LookupErrors should not be handled.
+_default_error = object()
+
+
+class LdapConfig(object):
+    """
+    An object that wraps a cereconf.LDAP[_*] dict value.
+    """
+
+    default = _default_error
+
+    def __init__(self, name, config, parent=None):
+        self.name = str(name)
+        self._d = dict(config)
+        self.parent = parent
+
+    @property
+    def parent(self):
+        """ parent config """
+        return getattr(self, '_parent', None)
+
+    @parent.setter
+    def parent(self, new_parent):
+        # Check for cycles: `self` must not be present in any parent.
+        if new_parent is not None:
+            parents = new_parent.get_lookup_order()
+            if self in parents:
+                raise AttributeError(
+                    "Can't add %s as parents to %s (cycle)" %
+                    (', '.join(repr(c) for c in parents), repr(self)))
+        self._parent = new_parent
+
+    def get_lookup_order(self):
+        """ Get all configs (self + parents) as a tuple. """
+        def _iterator():
+            current = self
+            while current:
+                yield current
+                current = current.parent
+        return tuple(_iterator())
+
+    def __repr__(self):
+        return '<{cls.__name__} {obj.name} at 0x{addr:02x}>'.format(
+            cls=type(self),
+            obj=self,
+            addr=id(self),
+        )
+
+    def _get_key(self, key, inherit, _seen=None):
+        _seen = tuple(_seen or ()) + (self,)
+        if key in self._d:
+            return self._d[key]
+        if inherit and self.parent is not None:
+            return self.parent._get_key(key, inherit, _seen=_seen)
+        raise LookupError('No key %s in %s' %
+                          (repr(key), ','.join(c.name for c in _seen)))
+
+    def get(self, key, default=default, inherit=False):
+        """
+        Get a setting (key) from this config.
+
+        :param key:
+            Name of the setting to get.
+
+        :param default:
+            A default value - if not given an error will be raised if the
+            setting is not set.
+
+        :param inherit:
+            If true, try to fetch missing setting from parent configs.
+
+        :raises LookupError:
+            If the setting cannot be found, and no default is given.
+        """
+        try:
+            return self._get_key(key, inherit)
+        except LookupError:
+            if default is _default_error:
+                raise
+            else:
+                return default
+
+    def get_filename(self, key='file', default=default):
+        """
+        Get a filename setting.
+
+        Like :py:meth:`.get`, but no inheritance is allowed.  If the filename
+        given in config is not an absolute path, it is assumed to be relative
+        to ``get('dump_dir', inherit=True)``.
+        """
+        dump_dir = self.get('dump_dir', inherit=True)
+        filename = self.get(key, default=default, inherit=False)
+
+        if filename is default:
+            return default
+
+        if os.path.isabs(filename):
+            return filename
+
+        return os.path.join(dump_dir, filename)
+
+    def get_dn(self, default=default):
+        """
+        Get a DN setting.
+
+        Like :py:meth:`.get`, but no inheritance is allowed.
+        """
+        return self.get('dn', default=default, inherit=False)
+
+    def get_container_entry(self):
+        """
+        Get a container ldap object.
+
+        Fetch and join all 'container_attrs' in the *lookup order* with any
+        'attrs' from this config.
+
+        Typically used in conjunction with :py:meth:`.get_dn`, e.g.:
+        ``entry_string(config.get_dn(), config.get_container_entry())``.
+
+        """
+        entry = {}
+        for config in reversed(self.get_lookup_order()):
+            entry.update(
+                config.get('container_attrs', default={}, inherit=False))
+        entry.update(self.get('attrs', default={}, inherit=False))
+        return entry
+
+    @deprecate("start_outfile is deprecated, please use cli-arguments")
+    def start_outfile(self, filename=None, default=None,
+                      explicit_default=False, max_change=None):
+        """
+        Open and return file descriptor according to config.
+
+        See :py:func:`.ldif_outfile`
+        """
+        if not (filename or explicit_default):
+            filename = self.get_filename(key='file', default=None)
+        if filename:
+            if max_change is None:
+                max_change = self.get('max_change', default=100, inherit=True)
+            if max_change < 100:
+                f = SimilarSizeWriter(filename, 'w')
+                f.max_pct_change = max_change
+            else:
+                f = AtomicFileWriter(filename, 'w')
+            return f
+        if default:
+            return default
+        # Hacky: re-do the file lookup without a default to cause an error
+        self.get_filename('file')
+        raise RuntimeError('should never be reached!')
+
+    @deprecate("end_outfile and the 'append_file' setting is deprecated")
+    def end_outfile(self, outfile, default_file=None):
+        """
+        Finalize LDAP file according to config.
+
+        See :py:func:`.end_ldif_outfile`
+        """
+        append_file = self.get_filename('append_file', default=None)
+        if append_file:
+            with open(append_file, 'r') as fd:
+                outfile.write(fd.read().strip("\n"))
+            outfile.write("\n\n")
+        if outfile is not default_file:
+            outfile.close()
+
+
+def expand_ldap_attrs(attr):
+    """
+    Expand LDAP config attributes.
+
+    This function defines the cereconf LDAP attribute 'inheritance':
+
+    >>> get_ldap_attrs('LDAP_FOO_BAR')
+    ('LDAP', 'LDAP_FOO', 'LDAP_FOO_BAR')
+
+    """
+    parts = attr.split('_')
+    return tuple('_'.join(parts[:i]) for i in range(1, len(parts) + 1))
+
+
+def get_ldap_config(attrs, parent=None, module=cereconf):
+    """
+    Get the LdapConfig for a given config attribute.
+
+    This function fetches a given LdapConfig() for a given attribute, and also
+    fetches and sets the correct parent:
+
+    ::
+
+        get_ldap_config(['LDAP', 'LDAP_FOO', 'LDAP_FOO_BAR'], module=cereconf)
+
+    is equivalent to:
+
+    ::
+
+        LdapConfig('LDAP_FOO_BAR', cereconf.LDAP_FOO_BAR,
+                   parent=LdapConfig('LDAP_FOO', cereconf.LDAP_FOO,
+                                     parent=LdapConfig('LDAP', cereconf.LDAP)))
+
+    """
+    prev = parent
+    for attr in attrs:
+        logger.debug('fetching %s (%s)', attr, repr(module))
+        conf_dict = getattr(module, attr)
+        config = LdapConfig(attr, conf_dict, parent=prev)
+        prev = config
+    return prev
