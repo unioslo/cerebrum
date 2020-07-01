@@ -1115,14 +1115,15 @@ def perform_delete(database, source_system, hr_person, cerebrum_person):
     logger.info('%r deleted', cerebrum_person.entity_id)
 
 
-def _check_possible_duplicate(hr_person, dryrun):
+def _check_possible_duplicate(hr_person, database, dryrun):
     """
     Look for possible duplicate of hr_person already existing.
     If found, and not in dryrun, send email.
     """
     co = Factory.get('Constants')(database)
+    pe = Factory.get('Person')(database)
     hr_name = ' '.join(name for _, name in hr_person.get('names'))
-    possible_people = cerebrum_person.search(
+    possible_people = pe.search(
         birth_date=str(hr_person.get('birth_date')),
         name_variants=[co.name_full])
     for person in possible_people:
@@ -1174,7 +1175,7 @@ def handle_person(database, source_system, url, datasource=get_hr_person,
             source_system=co.system_sap,
             entity_type=co.entity_person)
     if not cerebrum_person.entity_type: # entity_type as indication of instance
-        _check_possible_duplicate(hr_person, dryrun)
+        _check_possible_duplicate(hr_person, database, dryrun)
     if hr_person and (hr_person.get('affiliations') or hr_person.get('roles')):
         perform_update(database, source_system, hr_person, cerebrum_person)
     elif cerebrum_person.entity_type:  # entity_type as indication of instance
