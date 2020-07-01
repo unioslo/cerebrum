@@ -781,29 +781,6 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                                   grtype="DistributionGroup")
         return et, grp
 
-    def _is_email_delivery_stopped(self, ldap_target):
-        """ Test if email delivery is turned off in LDAP for a user. """
-        import ldap
-        import ldap.filter
-        import ldap.ldapobject
-        ldapconns = [ldap.ldapobject.ReconnectLDAPObject("ldap://%s/" % server)
-                     for server in cereconf.LDAP_SERVERS]
-        target_filter = ("(&(target=%s)(mailPause=TRUE))" %
-                         ldap.filter.escape_filter_chars(ldap_target))
-        for conn in ldapconns:
-            try:
-                # FIXME: cereconf.LDAP_MAIL['dn'] has a bogus value, so we
-                # must hardcode the DN.
-                res = conn.search_s("cn=targets,cn=mail,dc=uio,dc=no",
-                                    ldap.SCOPE_ONELEVEL, target_filter,
-                                    ["1.1"])
-                if len(res) != 1:
-                    return False
-            except ldap.LDAPError:
-                self.logger.error("LDAP search failed", exc_info=True)
-                return False
-        return True
-
     def _email_info_detail(self, acc):
         info = []
         eq = Email.EmailQuota(self.db)
@@ -867,18 +844,6 @@ class EmailCommands(bofhd_email.BofhdEmailCommands):
                              'dis_quota_soft': eq.email_quota_soft})
         except Errors.NotFoundError:
             pass
-        # exchange-relatert-jazz
-        # delivery for exchange-mailboxes is not regulated through
-        # LDAP, and LDAP should not be checked there my be some need
-        # to implement support for checking if delivery is paused in
-        # Exchange, but at this point only very vague explanation has
-        # been given and priority is therefore low
-        if acc.has_spread(self.const.spread_uit_exchange):
-            return info
-        # Check if the ldapservers have set mailPaused
-        if self._is_email_delivery_stopped(acc.account_name):
-            info.append({'status': 'Paused (migrating to new server)'})
-
         return info
 
     def _email_info_dlgroup(self, groupname):
