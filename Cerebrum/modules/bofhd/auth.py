@@ -572,7 +572,7 @@ class BofhdAuthOpTarget(DatabaseAccessor):
                   FROM [:table schema=cerebrum name=entity_info] ei
                   WHERE ei.entity_id = ot.entity_id
                 ) AND
-                ot.entity_id IS NOT NULL;
+                ot.entity_id IS NOT NULL
             """)
 
     def remove_invalid(self):
