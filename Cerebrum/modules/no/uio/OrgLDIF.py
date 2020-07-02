@@ -24,8 +24,6 @@ import logging
 import re
 from collections import defaultdict
 
-import cereconf
-
 from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
 from Cerebrum.modules.OrgLDIF import postal_escape_re
 from Cerebrum.modules.no.OrgLDIF import OrgLdifCourseMixin
@@ -61,8 +59,9 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
                       OrgLdifEntitlementsMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
 
-    def __init__(self, db):
-        super(OrgLDIFUiOMixin, self).__init__(db)
+    def __init__(self, *args, **kwargs):
+        super(OrgLDIFUiOMixin, self).__init__(*args, **kwargs)
+
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
         self.attr2syntax['uioVisiblePrivateMobile'] = \
             self.attr2syntax['mobile']
@@ -99,8 +98,9 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
 
     def init_attr2id2contacts(self):
         # Change from superclass: Include 'mobile' as well.
-        contact_source = getattr(self.const,
-                                 cereconf.LDAP['contact_source_system'])
+        contact_source = getattr(
+            self.const,
+            self.config.org.parent.get('contact_source_system'))
         contacts = [(attr, self.get_contacts(
             contact_type=contact_type,
             source_system=source_system,

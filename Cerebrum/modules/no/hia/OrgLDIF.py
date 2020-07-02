@@ -36,8 +36,8 @@ logger = logging.getLogger(__name__)
 class OrgLDIFHiAMixin(OrgLdifEntitlementsMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with HiA modifications."""
 
-    def __init__(self, db):
-        super(OrgLDIFHiAMixin, self).__init__(db)
+    def __init__(self, *args, **kwargs):
+        super(OrgLDIFHiAMixin, self).__init__(*args, **kwargs)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
         self.attr2syntax['roomNumber'] = (None, None, normalize_string)
 

@@ -44,37 +44,42 @@ del _c, _d, _save
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory, make_timer
-from Cerebrum.modules.LDIFutils import ldif_outfile, end_ldif_outfile
+from Cerebrum.modules.OrgLDIF import OrgLdifConfig
 
 
 logger = logging.getLogger(__name__)
 
 
-def generate_dump(db, filename, use_mail_module):
-    ldif = Factory.get('OrgLDIF')(db)
+def generate_dump(db, filename, max_change, use_mail_module):
+    config = OrgLdifConfig.get_default()
+    ldif = Factory.get('OrgLDIF')(db, config=config)
 
     timer = make_timer(logger, 'Starting dump')
-    outfile = ldif_outfile('ORG', filename)
-    logger.debug('writing org data to %r', outfile)
 
+    outfile = config.org.start_outfile(filename=filename,
+                                       max_change=max_change)
+    logger.debug('writing org data to %r', outfile)
     timer('Generating org data...')
     ldif.generate_org_object(outfile)
 
-    ou_outfile = ldif_outfile('OU', default=outfile, explicit_default=filename)
-    logger.debug('Writing ou data to %r', outfile)
+    ou_outfile = config.ou.start_outfile(default=outfile,
+                                         explicit_default=filename)
+    logger.debug('Writing ou data to %r', ou_outfile)
     timer('Generating ou data...')
     ldif.generate_ou(ou_outfile)
 
-    pers_outfile = ldif_outfile('PERSON',
-                                default=outfile,
-                                explicit_default=filename)
-    logger.debug('Writing person data to %r', outfile)
+    pers_outfile = config.person.start_outfile(default=outfile,
+                                               explicit_default=filename)
+    logger.debug('Writing person data to %r', pers_outfile)
     timer('Generating person data...')
     ldif.generate_person(pers_outfile, ou_outfile, use_mail_module)
 
-    end_ldif_outfile('PERSON', pers_outfile, outfile)
-    end_ldif_outfile('OU', ou_outfile, outfile)
-    end_ldif_outfile('ORG', outfile)
+    logger.info('OrgLDIF written to %s', repr(outfile))
+
+    config.person.end_outfile(pers_outfile, outfile)
+    config.ou.end_outfile(ou_outfile, outfile)
+    config.org.end_outfile(outfile)
+
     timer("Dump done")
 
 
@@ -85,8 +90,17 @@ def main(inargs=None):
     parser.add_argument(
         '-o', '--org',
         dest='filename',
-        help='Write dump to %(metavar)s',
+        help="Write to %(metavar)s (default: LDAP_ORG['file'])",
         metavar='<filename>',
+    )
+    parser.add_argument(
+        '--max-change',
+        dest='max_change',
+        type=int,
+        default=None,
+        help=("Require changes < %(metavar)s%%"
+              " (default: LDAP_ORG['max_change'])"),
+        metavar='<percent>',
     )
     parser.add_argument(
         '-i', '--inst',
@@ -101,6 +115,7 @@ def main(inargs=None):
         dest='use_mail_module',
         action='store_false',
         default=True,
+        help='Do not use the email module for email addrs',
     )
     Cerebrum.logutils.options.install_subparser(parser)
 
@@ -122,7 +137,8 @@ def main(inargs=None):
         raise SystemExit("Invalid configuration module %r" % (module_name, ))
 
     db = Factory.get('Database')()
-    generate_dump(db, args.filename, args.use_mail_module)
+    generate_dump(db, args.filename, args.max_change, args.use_mail_module)
+
     logger.info("Done %s", parser.prog)
 
 

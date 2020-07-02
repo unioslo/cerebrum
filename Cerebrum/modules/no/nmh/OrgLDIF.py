@@ -44,8 +44,9 @@ class nmhOrgLDIFMixin(OrgLDIF):  # noqa: N801
     # Fetch mail addresses from entity_contact_info of accounts, not persons.
     person_contact_mail = False
 
-    def __init__(self, db):
-        super(nmhOrgLDIFMixin, self).__init__(db)
+    def __init__(self, *args, **kwargs):
+        super(nmhOrgLDIFMixin, self).__init__(*args, **kwargs)
+
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
         self.attr2syntax['roomNumber'] = (None, None, normalize_string)
         self.person = Factory.get('Person')(self.db)
