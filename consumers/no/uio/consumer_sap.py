@@ -1131,7 +1131,9 @@ def _check_possible_duplicate(hr_person, database, dryrun):
         if name_diff(hr_name.lower(), full_name.lower()) <= 2:
             substitute = {
                 'NEW_PERSON': hr_name,
+                'NEW_ID': hr_person.get('id'),
                 'OLD_PERSON': full_name,
+                'OLD_ID': person['person_id']
             }
             mail_template(MAIL_TO, TEMPLATE, substitute=substitute,
                           sender=MAIL_SENDER, debug=dryrun)
@@ -1174,9 +1176,9 @@ def handle_person(database, source_system, url, datasource=get_hr_person,
             external_id=employee_number,
             source_system=co.system_sap,
             entity_type=co.entity_person)
-    if not cerebrum_person.entity_type: # entity_type as indication of instance
-        _check_possible_duplicate(hr_person, database, dryrun)
     if hr_person and (hr_person.get('affiliations') or hr_person.get('roles')):
+        if not cerebrum_person.entity_type: # entity_type indicates instance
+            _check_possible_duplicate(hr_person, database, dryrun)
         perform_update(database, source_system, hr_person, cerebrum_person)
     elif cerebrum_person.entity_type:  # entity_type as indication of instance
         perform_delete(database, source_system, hr_person, cerebrum_person)
