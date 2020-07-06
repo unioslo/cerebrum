@@ -170,3 +170,61 @@ def load_source(name, path):
         return _load_source(name, path)
     except IOError as e:
         raise ImportError(e)
+
+
+def make_class(import_spec, name=None, hint=None):
+    """
+    Assemble a class from a sequence of base class import strings.
+
+    :type import_spec: list, tuple
+    :param import_spec:
+        A sequence of classes to import/fetch (see :py:func:`resolve`).
+
+    :type name: str
+    :param name:
+        Class name suffix.  The constructed class will be named
+        "_dynamic_<name>".  If no name is given, the name of the first base
+        class will be used.
+
+    :type hint: str
+    :param hint:
+        Variable hint (i.e. where does the import_spec come from?) for error
+        messages.
+
+    :rtype: type
+    """
+    if not isinstance(import_spec, (tuple, list)):
+        raise ValueError("Invalid import spec %r - expected list or tuple "
+                         "(name=%r, hint=%r)" %
+                         (import_spec, name, hint))
+
+    bases = []
+    for import_string in import_spec:
+        cls = resolve(import_string)
+
+        # The import_spec sequence controls which classes are used to construct
+        # a class.  The order inside such a sequence is significant for the
+        # MRO in the constructed class.
+        #
+        # A likely misconfiguration is to list a class A as class_tuple[N], and
+        # a subclass of A as class_tuple[N+x], as that would mean the subclass
+        # won't override any of A's methods.
+        #
+        # The following code should ensure that this form of misconfiguration
+        # won't be used.
+        #
+        # Note: a similar check is done by 'type' for new-style classes.
+        for override in bases:
+            if issubclass(cls, override):
+                raise TypeError("Class %r should appear earlier than "
+                                "its subclass %r (name=%r, hint=%r)" %
+                                (cls, override, name, hint))
+        bases.append(cls)
+
+    # Requirement for constructing a class with 'type'
+    bases.append(object)
+
+    # Construct class
+    cls_name = '_dynamic_' + (name or bases[0].__name__)
+    bases = tuple(bases)
+    return type(cls_name, bases, {})
