@@ -119,28 +119,10 @@ def fetch_all_relevant_accounts(qua_type, since, ignore_affs,
         return targets
 
     # Ignore those with person affiliations:
-    person_affiliation_list = person.list_affiliations(include_deleted=False)
-
-    persons = set()
-
-    for r in person_affiliation_list:
-        person_id = r['person_id']
-        person_affiliation = r['affiliation']
-        person_affiliation_status = r['status']  # None, if no status
-        aff_status = (person_affiliation, person_affiliation_status)
-        if (person_affiliation, None) not in ignore_affs and aff_status not in ignore_affs:
-            """
-            Check if affiliation without status is specified, 
-            then ignore all persons with affiliation no matter what status they've got.
-            Also check if the combo of affiliation and status is in ignore_affs
-            If this persons affiliation or affiliation+status combo isn't specified to be ignored,
-            then add the person to the list of persons.
-            """
-            persons.add(person_id)
-
-    #persons = set(r['person_id'] for r in person_affiliation_list
-    #                       if r['affiliation'] not in ignore_affs)
-
+    persons = set(r['person_id'] for r in
+                  person.list_affiliations(include_deleted=False)
+                  if (int(r['affiliation']), None) not in ignore_affs and
+                  (int(r['affiliation']), int(r['status'])) not in ignore_affs)
     logger.debug2("Found %d persons with affiliations", len(persons))
     accounts_to_ignore = set(int(r['account_id']) for r in
                              account.search(owner_type=constants.entity_person)
@@ -278,9 +260,6 @@ def main():
     system_accounts = False
     affiliations = set()
 
-    import pydevd_pycharm
-    pydevd_pycharm.settrace('localhost', port=35789, stdoutToServer=True, stderrToServer=True)
-
     for option, value in options:
         if option in ("-q", "--quarantines"):
             quarantines = []
@@ -307,7 +286,7 @@ def main():
                     aff = constants.get_affiliation(af)
                 except Errors.NotFoundError:
                     print("Unknown affiliation: %s" % af)
-                    sys.exit(2)
+                    raise Errors.CerebrumError("Affiliation (%s) not found" % af)
                 aff_status = ((int(aff[0]), None)  # to prevent int(None)
                                     if aff[1] is None   # if status=None
                                     else (int(aff[0]), int(aff[1])))  # (aff, status)
@@ -322,7 +301,7 @@ def main():
                 "bofhdreq=%s, limit=%s",
                 [str(constants.human2constant(q)) for q in quarantines],
                 since, delete, bofhdreq, limit)
-    logger.debug("Ignoring those with person-affilations: %s",
+    logger.debug("Ignoring person-affilations: %s",
                  ', '.join(
                      "\naffiliation:"+str(a[0])+" - status:"+str(a[1])
                            for a in affiliations))
@@ -351,6 +330,7 @@ def main():
         except Exception:
             logger.exception("Failed deactivating account: %s (%s)" %
                              (account.account_name, account.entity_id))
+            continue
 
     if dryrun:
         database.rollback()
