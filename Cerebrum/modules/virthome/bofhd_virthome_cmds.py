@@ -1175,17 +1175,19 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     #
     all_commands["user_recover_uname"] = Command(
         ("user", "recover_uname"),
-        EmailAddress())
+        EmailAddress(),
+        fs=FormatSuggestion("%s"))
 
     def user_recover_uname(self, operator, email):
-        """Return active user names associated with an e-mail.
-
-        This command is useful is a user forgot his/her username in VH. We
-        collect all active VAs associated with the e-mail and return them.
         """
+        Return active usernames associated with an email.
 
-        #
-        # FIXME: Do we need a permission trap here?
+        This command is useful is a user forgot his/her username in VH.
+        We collect all active VAs associated with the email and return them.
+
+        @rtype: List<str>
+        """
+        # TODO: Do we need a permission trap here?
         account = self.virtaccount_class(self.db)
         unames = set()
         for row in account.list_contact_info(
