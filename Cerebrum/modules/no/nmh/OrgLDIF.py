@@ -28,7 +28,10 @@ from six import text_type
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.OrgLDIF import OrgLDIF
-from Cerebrum.modules.LDIFutils import normalize_string
+from Cerebrum.modules.LDIFutils import (
+    attr_unique,
+    normalize_string,
+)
 from Cerebrum.modules.no.nmh import StudentStudyProgramCache
 
 logger = logging.getLogger(__name__)
@@ -148,7 +151,7 @@ class nmhOrgLDIFMixin(OrgLDIF):  # noqa: N801
             if alias and verify(alias):
                 cont_tab[int(row['entity_id'])].append(alias)
 
-        return dict((key, self.attr_unique(values, normalize=normalize))
+        return dict((key, attr_unique(values, normalize=normalize))
                     for key, values in cont_tab.iteritems())
 
     def make_person_entry(self, row, person_id):

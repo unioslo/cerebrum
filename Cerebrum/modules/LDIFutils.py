@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-# Copyright 2004-2012 University of Oslo, Norway
+#
+# Copyright 2004-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,15 +17,15 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Various utilities for building LDIF files from Cerebrum data.
 
-
-"""Various utilities for building LDIF files from Cerebrum data.
-
-Modify base64_attrs and needs_base64 to tune the output."""
-
+Modify base64_attrs and needs_base64 to tune the output.
+"""
 from __future__ import unicode_literals
 
 import binascii
+import logging
 import re
 import string
 import os.path
@@ -52,6 +52,8 @@ needs_base64_safe = re.compile('\\A[ :<]|[\0-\37\177-\377]| \\Z').search
 #   values human-readable when possible (expects 8-bit data to be UTF-8).
 # - needs_base64_safe: Encode all 8-bit data as well.
 needs_base64 = needs_base64_readable
+
+logger = logging.getLogger(__name__)
 
 
 _dummy = object()
@@ -104,7 +106,7 @@ def hex_escape_match(match):
 
 
 def entry_string(dn, attrs, add_rdn=True):
-    """Return a string with an LDIF entry with the specified DN and ATTRS.
+    r"""Return a string with an LDIF entry with the specified DN and ATTRS.
 
     DN is the entry name: A string 'rdn (i.e. relative DN),parent DN'.
     ATTRS is a dict {attribute name: value or sequence of values}.
@@ -380,3 +382,25 @@ class ldif_parser(object):
     def parse(self):
         self._ldif.parse()
         return(self.res_dict)
+
+
+def attr_unique(values, normalize=None):
+    """
+    Return the input list of values with duplicates removed.
+
+    Pass values through optional function 'normalize' before comparing.
+    Preserve the order of values.  Use the first value of any duplicate.
+    """
+    if len(values) < 2:
+        return values
+    result = []
+    done = set()
+    for val in values:
+        if normalize:
+            norm = normalize(val)
+        else:
+            norm = val
+        if norm not in done:
+            done.add(norm)
+            result.append(val)
+    return result

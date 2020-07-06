@@ -90,7 +90,7 @@ class PosixLDIF_UiTMixin(PosixLDIF):  # noqa: N801
         # eduPersonAffiliation (taken from OrgLDIF)
         added = self.org_ldif.affiliations.get(owner_id)
         if added:
-            added = self.org_ldif.attr_unique(self.org_ldif.select_list(
+            added = LDIFutils.attr_unique(self.org_ldif.select_list(
                 self.org_ldif.eduPersonAff_selector, owner_id, added))
             if added:
                 entry['eduPersonAffiliation'] = added

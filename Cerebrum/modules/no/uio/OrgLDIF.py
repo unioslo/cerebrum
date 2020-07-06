@@ -21,18 +21,18 @@
 from __future__ import unicode_literals
 
 import logging
-import os
-import pickle
 import re
 from collections import defaultdict
 
 import cereconf
 
-from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
+from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
 from Cerebrum.modules.OrgLDIF import postal_escape_re
+from Cerebrum.modules.no.OrgLDIF import OrgLdifCourseMixin
+from Cerebrum.modules.no.OrgLDIF import OrgLdifEntitlementsMixin
+from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 from Cerebrum.modules.LDIFutils import (
     hex_escape_match,
-    ldapconf,
     normalize_IA5String,
     verify_IA5String,
 )
@@ -44,7 +44,21 @@ logger = logging.getLogger(__name__)
 ou_rdn2space_re = re.compile('[#\"+,;<>\\\\=\0\\s]+')
 
 
-class OrgLDIFUiOMixin(norEduLDIFMixin):
+class UioOrgLdifGroupMixin(OrgLdifGroupMixin, norEduLDIFMixin):
+
+    # TODO: We only inherit from norEduLDIFMixin here in order to get the
+    #       objectClass entries in the same order as before (i.e. uioMembership
+    #       after norEdu objectClass entries).
+    #       This is done to reduce the change in the output file - the entries
+    #       could be swapped around in order without consequence.
+
+    person_memberof_attr = 'uioMemberOf'
+    person_memberof_class = 'uioMembership'
+
+
+class OrgLDIFUiOMixin(OrgLdifCourseMixin,
+                      UioOrgLdifGroupMixin,
+                      OrgLdifEntitlementsMixin):
     """Mixin class for norEduLDIFMixin(OrgLDIF) with UiO modifications."""
 
     def __init__(self, db):
@@ -125,28 +139,6 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             val = postal_escape_re.sub(hex_escape_match, val)
         return val.replace("\n", sep)
 
-    def init_person_course(self):
-        """Populate dicts with a person's course information."""
-        timer = make_timer(logger, 'Processing person courses...')
-        self.ownerid2urnlist = pickle.load(file(
-            os.path.join(ldapconf(None, 'dump_dir'),
-                         "ownerid2urnlist.pickle")))
-        timer("...person courses done.")
-
-    def init_person_groups(self):
-        """Populate dicts with a person's group information."""
-        timer = make_timer(logger, 'Processing person groups...')
-        self.person2group = pickle.load(file(
-            os.path.join(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
-        timer("...person groups done.")
-
-    def init_person_dump(self, use_mail_module):
-        """Supplement the list of things to run before printing the
-        list of people."""
-        super(OrgLDIFUiOMixin, self).init_person_dump(use_mail_module)
-        self.init_person_course()
-        self.init_person_groups()
-
     def init_person_titles(self):
         # Change from original: Search titles first by system_lookup_order,
         # then within each system let personal title override work title.
@@ -226,21 +218,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         if not dn:
             return dn, entry, alias_info
 
-        # Add or extend entitlements
-        if person_id in self.ownerid2urnlist:
-            urnlist = self.ownerid2urnlist[person_id]
-            if 'eduPersonEntitlement' in entry:
-                entry['eduPersonEntitlement'].update(urnlist)
-            else:
-                entry['eduPersonEntitlement'] = set(urnlist)
-
         # Add person ID
         entry['uioPersonId'] = str(person_id)
-
-        # Add group memberships
-        if person_id in self.person2group:
-            entry['uioMemberOf'] = self.person2group[person_id]
-            entry['objectClass'].append('uioMembership')
 
         # Add scoped affiliations
         pri_edu_aff, pri_ou, pri_aff = self.make_edu_person_primary_aff(

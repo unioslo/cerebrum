@@ -20,47 +20,24 @@
 from __future__ import unicode_literals
 
 import logging
-import os
-import pickle
 
-from Cerebrum.modules.OrgLDIF import OrgLDIF
-from Cerebrum.modules.LDIFutils import ldapconf
-from Cerebrum.Utils import make_timer
+from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
 
 logger = logging.getLogger(__name__)
 
 
-# TODO: HiofLdifMixin
+class HiofOrgLdifGroupMixin(OrgLdifGroupMixin):
 
-class hiofLDIFMixin(OrgLDIF):  # noqa: N801
+    person_memberof_attr = 'hiofMemberOf'
+    person_memberof_class = 'hiofMembership'
+
+
+# TODO: Rename to HiofOrgLdif or something that *doesn't* cause N801
+# TODO: Why doesn't hiof use norEduOrgLdif?
+
+
+class hiofLDIFMixin(HiofOrgLdifGroupMixin):  # noqa: N801
 
     def init_person_addresses(self):
         # No snail mail addresses for persons.
         self.addr_info = {}
-
-    def init_person_groups(self):
-        """Populate dicts with a person's group information."""
-        timer = make_timer(logger, 'Processing person groups...')
-        self.person2group = pickle.load(file(
-            os.path.join(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
-        timer("...person groups done.")
-
-    def init_person_dump(self, use_mail_module):
-        """Supplement the list of things to run before printing the
-        list of people."""
-        super(hiofLDIFMixin, self).init_person_dump(use_mail_module)
-        self.init_person_groups()
-
-    def make_person_entry(self, row, person_id):
-        """ Extend person entry. """
-        dn, entry, alias_info = super(hiofLDIFMixin,
-                                      self).make_person_entry(row, person_id)
-        if not dn:
-            return dn, entry, alias_info
-
-        # Add group memberships
-        if person_id in self.person2group:
-            entry['hiofMemberOf'] = self.person2group[person_id]
-            entry['objectClass'].extend(('hiofMembership', ))
-
-        return dn, entry, alias_info

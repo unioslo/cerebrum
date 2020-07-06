@@ -23,6 +23,7 @@ import io
 import json
 import logging
 import os
+import pickle
 import re
 import string
 
@@ -32,7 +33,8 @@ import cereconf
 from Cerebrum import Entity
 from Cerebrum.modules.feide.service import FeideService
 from Cerebrum.modules.OrgLDIF import OrgLDIF
-from Cerebrum.modules.LDIFutils import (ldapconf,
+from Cerebrum.modules.LDIFutils import (attr_unique,
+                                        ldapconf,
                                         normalize_string,
                                         verify_IA5String,
                                         verify_emailish,
@@ -208,7 +210,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
                 lnames = ou_names.setdefault(pref, [])
                 lnames.append((int(row['name_language']), name))
         if not ou_names:
-            self.logger.warn("No names could be located for ou_id=%s", ou_id)
+            logger.warn("No names could be located for ou_id=%s", ou_id)
             return parent_dn, None
 
         ldap_ou_id = self.get_unique_ou_id()
@@ -235,7 +237,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
 
         for attr in entry.keys():
             if attr == 'ou' or attr.startswith('ou;'):
-                entry[attr] = self.attr_unique(entry[attr], normalize_string)
+                entry[attr] = attr_unique(entry[attr], normalize_string)
         self.fill_ou_entry_contacts(entry)
         self.update_ou_entry(entry)
         return dn, entry
@@ -252,10 +254,6 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
             entry['eduPersonPrimaryAffiliation'] = pri_edu_aff
             entry['eduPersonPrimaryOrgUnitDN'] = (
                 self.ou2DN.get(int(pri_ou)) or self.dummy_ou_dn)
-        if (ldapconf('PERSON', 'entitlements_file') and
-                person_id in self.person2entitlements):
-            entry['eduPersonEntitlement'] = set(
-                self.person2entitlements[person_id])
 
         entry['objectClass'].append('schacContactLocation')
         entry['schacHomeOrganization'] = self.homeOrg
@@ -340,7 +338,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
                 pri_ou = ou
                 pri_edu_aff = a
         if pri_aff is None:
-            self.logger.warn(
+            logger.warn(
                 "Person '%s' did not get eduPersonPrimaryAffiliation. "
                 "Check his/her affiliations "
                 "and eduPersonPrimaryAffiliation_selector in cereconf.", p_id)
@@ -359,7 +357,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
         """
         if not hasattr(self.const, 'trait_primary_aff'):
             return
-        timer = make_timer(self.logger, 'Fetching primary aff traits...')
+        timer = make_timer(logger, 'Fetching primary aff traits...')
         for row in self.person.list_traits(code=self.const.trait_primary_aff):
             p_id = row['entity_id']
             val = row['strval']
@@ -371,32 +369,19 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
 
     def init_person_dump(self, use_mail_module):
         super(norEduLDIFMixin, self).init_person_dump(use_mail_module)
-        if ldapconf('PERSON', 'entitlements_file'):
-            self.init_person_entitlements()
         self.init_person_fodselsnrs()
         self.init_person_birth_dates()
-
-    def init_person_entitlements(self):
-        """Populate dicts with a person's entitlement information."""
-        timer = make_timer(self.logger, 'Processing person entitlements...')
-        path = os.path.join(ldapconf(None, 'dump_dir'),
-                            ldapconf('PERSON', 'entitlements_file'))
-        with io.open(path, encoding='utf-8') as stream:
-            data = json.loads(stream.read())
-        # convert string keys to int
-        self.person2entitlements = {int(k): v for k, v in data.items()}
-        timer("...person entitlements done.")
 
     def init_person_fodselsnrs(self):
         # Set self.fodselsnrs = dict {person_id: str or instance with fnr}
         # str(fnr) will return the person's "best" fodselsnr, or ''.
-        timer = make_timer(self.logger, 'Fetching fodselsnrs...')
+        timer = make_timer(logger, 'Fetching fodselsnrs...')
         self.fodselsnrs = self.person.getdict_fodselsnr()
         timer("...fodselsnrs done.")
 
     def init_person_birth_dates(self):
         # Set self.birth_dates = dict {person_id: birth date}
-        timer = make_timer(self.logger, 'Fetching birth dates...')
+        timer = make_timer(logger, 'Fetching birth dates...')
         self.birth_dates = birth_dates = {}
         for row in self.person.list_persons(person_id=self.persons):
             birth_date = row['birth_date']
@@ -449,7 +434,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
             def get_const(name, cls):
                 constant = self.const.human2constant(name, cls)
                 if not constant:
-                    self.logger.warn(
+                    logger.warn(
                         "LDAP_PERSON[norEduPersonAuthnMethod_selector]: "
                         "Unknown %s %r", cls.__name__, name)
                 return constant
@@ -484,7 +469,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
 
         """
         if not hasattr(self, '_person_authn_methods'):
-            timer = make_timer(self.logger,
+            timer = make_timer(logger,
                                'Fetching authentication methods...')
             entity = Entity.EntityContactInfo(self.db)
             self._person_authn_methods = dict()
@@ -537,7 +522,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
             if not supported:
                 self._person_authn_levels = {}
                 return self._person_authn_levels
-            timer = make_timer(self.logger,
+            timer = make_timer(logger,
                                'Fetching authentication levels...')
             fse = FeideService(self.db)
             self._person_authn_levels = fse.get_person_to_authn_level_map()
@@ -569,7 +554,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
                          authn_entry['contact_type']) in selection):
                     authn_methods.append(
                         template.substitute(authn_entry))
-        entry['norEduPersonAuthnMethod'] = self.attr_unique(
+        entry['norEduPersonAuthnMethod'] = attr_unique(
             authn_methods, normalize=normalize_string)
 
         # Add norEduPersonServiceAuthnLevel entries
@@ -586,5 +571,105 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
                     'feide_id': feide_id,
                     'level': level
                 }))
-        entry['norEduPersonServiceAuthnLevel'] = self.attr_unique(
+        entry['norEduPersonServiceAuthnLevel'] = attr_unique(
             authn_level_entries, normalize=normalize_string)
+
+
+class OrgLdifCourseMixin(norEduLDIFMixin):
+    """
+    Mixin to provide eduPersonEntitlement from a pickle-file of URNs.
+
+    The pickle file typically contains references to Course-objects in
+    kurs.ldif (see generate_kurs_ldif.py).
+    """
+
+    # TODO: Implement enable/disable
+    # TODO: Implement kwargs for providing filename
+    # TODO: This mixin probably belongs alongside the code that generates the
+    #       pickle data
+
+    def __init__(self, *args, **kwargs):
+        super(OrgLdifCourseMixin, self).__init__(*args, **kwargs)
+        self.person_course_filename = os.path.join(ldapconf(None, 'dump_dir'),
+                                                   "ownerid2urnlist.pickle")
+
+    def _init_person_course(self):
+        """Populate dicts with a person's course information."""
+        timer = make_timer(logger, 'Processing person courses...')
+        self._person2urnlist = pickle.load(file(self.person_course_filename))
+        timer("...person courses done.")
+
+    def init_person_dump(self, *args, **kwargs):
+        # API-method, init person data
+        super(OrgLdifCourseMixin, self).init_person_dump(*args, **kwargs)
+        self._init_person_course()
+
+    def make_person_entry(self, row, person_id):
+        # API-method, generate person object
+        dn, entry, alias_info = super(OrgLdifCourseMixin,
+                                      self).make_person_entry(row, person_id)
+
+        # Add or extend entitlements
+        if dn and person_id in self._person2urnlist:
+            urnlist = self._person2urnlist[person_id]
+            if 'eduPersonEntitlement' in entry:
+                entry['eduPersonEntitlement'].update(urnlist)
+            else:
+                entry['eduPersonEntitlement'] = set(urnlist)
+
+        return dn, entry, alias_info
+
+
+class OrgLdifEntitlementsMixin(norEduLDIFMixin):
+    """
+    Mixin to provide eduPersonEntitlement from a file.
+
+    This class populates a eduPersonEntitlement for persons from a json file.
+    The file is typically generated by
+    ``contrib/no/generate_person_entitlements.py``.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super(OrgLdifEntitlementsMixin, self).__init__(*args, **kwargs)
+
+        dump_dir = ldapconf(None, 'dump_dir')
+        entitlements_file = ldapconf('PERSON', 'entitlements_file')
+        if entitlements_file:
+            self.entitlements_file = os.path.join(dump_dir, entitlements_file)
+        else:
+            self.entitlements_file = None
+
+    def _init_person_entitlements(self):
+        """ Load person entitlements file. """
+        if hasattr(self, '_person_entitlements'):
+            logger.warning('Person entitlements already loaded!')
+            return
+
+        timer = make_timer(logger, 'Loading person entitlements...')
+        with io.open(self.entitlements_file, encoding='utf-8') as stream:
+            e_dict = json.loads(stream.read())
+        self._person_entitlements = {int(p_id): e_list
+                                     for p_id, e_list in e_dict.items()}
+        timer("...person entitlements done.")
+
+    def init_person_dump(self, *args, **kwargs):
+        # API-method: Init person data
+        super(OrgLdifEntitlementsMixin, self).init_person_dump(*args, **kwargs)
+        if self.entitlements_file:
+            self._init_person_entitlements()
+
+    def make_person_entry(self, row, person_id):
+        # API-method: Generate person object
+        dn, entry, alias_info = super(OrgLdifEntitlementsMixin,
+                                      self).make_person_entry(row, person_id)
+
+        # Add or extend entitlements
+        if (self.entitlements_file and dn and
+                person_id in self._person_entitlements):
+            entitlements = self._person_entitlements[person_id]
+            if 'eduPersonEntitlement' in entry:
+                entry['eduPersonEntitlement'].update(entitlements)
+            else:
+                entry['eduPersonEntitlement'] = set(entitlements)
+
+        return dn, entry, alias_info

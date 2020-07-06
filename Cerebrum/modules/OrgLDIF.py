@@ -22,6 +22,8 @@ from __future__ import unicode_literals
 from __future__ import print_function
 
 import logging
+import os
+import pickle
 import sys
 from collections import defaultdict
 
@@ -29,11 +31,12 @@ import six
 
 import cereconf
 from Cerebrum import Entity, Errors
-from Cerebrum.Constants import _AuthoritativeSystemCode
+from Cerebrum.Constants import _AuthoritativeSystemCode, _LanguageCode
 from Cerebrum.export.auth import AuthExporter
 from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.modules.LDIFutils import (ldapconf,
+from Cerebrum.modules.LDIFutils import (attr_unique,
+                                        ldapconf,
                                         container_entry_string,
                                         entry_string,
                                         map_spreads,
@@ -58,13 +61,82 @@ def get_source_system(const, value):
     else:
         const = const.human2constant(value, _AuthoritativeSystemCode)
     if const is None:
-        raise LookupError("AuthenticationCode %r not defined" % (value, ))
+        raise LookupError("AuthoritativeSystem %r not defined" % (value, ))
     try:
         int(const)
     except Errors.NotFoundError:
-        raise LookupError("AuthenticationCode %r (%r) not in db" %
+        raise LookupError("AuthoritativeSystem %r (%r) not in db" %
                           (value, const))
     return const
+
+
+def get_language_code(const, value):
+    """ Look up a single _LanguageCode value. """
+    if isinstance(value, _LanguageCode):
+        const = value
+    else:
+        const = const.human2constant(value, _LanguageCode)
+    if const is None:
+        raise LookupError("Language %r not defined" % (value, ))
+    try:
+        int(const)
+    except Errors.NotFoundError:
+        raise LookupError("Language %r (%r) not in db" %
+                          (value, const))
+    return const
+
+
+def get_language_codes(const, values, unique=True, allow_empty=False):
+    """ Fetch and verify a sequence of _LanguageCode values """
+    languages = tuple(get_language_code(const, v) for v in values)
+    if not (allow_empty or languages):
+        raise ValueError("No languages given")
+    if unique and len(languages) != len(set(languages)):
+        raise ValueError("Duplicate languages given: %s" % repr(languages))
+    return languages
+
+
+class LanguageSettings(object):
+    """ Language and localization settings. """
+
+    def __init__(self, languages, output_languages):
+        self.output_languages = bool(output_languages)
+        self.lang2opt = {int(c): ';lang-{}'.format(c)
+                         for c in languages}
+        self.lang2pref = {int(c): v
+                          for v, c in enumerate(languages, -1)}
+        self.languages = tuple(languages)
+
+    def get_pref(self, language):
+        default = len(self.lang2pref)
+        return self.lang2pref.get(int(language), default)
+
+    def get_opt(self, language):
+        return self.lang2opt[int(language)]
+
+    def localize_attr(self, entry, attr, localized_values):
+        """
+        Add localized attribute `attr`.
+
+        :param list localized_values:
+            A list of (language, localized_value) tuples.
+        """
+        if not localized_values:
+            return
+
+        sorted_values = sorted(localized_values,
+                               key=lambda t: self.get_pref(t[0]))
+
+        # Output regular attribute in preferred language.
+        # E.g.: `Foo: bar in Norwegian`
+        entry.setdefault(attr, []).append(sorted_values[0][1])
+
+        # Output localized attribtues in preferred order:
+        # E.g. `Foo;lang-nb: Bar in Norwegian`, `Foo;lang-en: Bar in English`
+        if self.output_languages:
+            for lang, val in sorted_values:
+                opt = self.get_opt(lang)
+                entry.setdefault(attr + opt, []).append(val)
 
 
 class OrgLDIF(object):
@@ -94,16 +166,28 @@ class OrgLDIF(object):
     """
 
     def __init__(self, db):
+        # TODO: WTH?
         cereconf.make_timer = make_timer
-        self.db = db
+
         # keep a self.logger as long as we use self.logger.debugN
-        self.logger = logger.getChild('OrgLDIF')
+        self.logger = logger.getChild('debug')
+
+        # DB-stuff
+        self.db = db
         self.const = Factory.get('Constants')(db)
         self.ou = Factory.get('OU')(db)
+
+        # Config-stuff
         self.org_dn = ldapconf('ORG', 'dn', None)
         self.ou_dn = ldapconf('OU', 'dn', None)
         self.person_dn = ldapconf('PERSON', 'dn', None)
-        self.init_languages()
+
+        # Languages
+        self.lang_opts = LanguageSettings(
+            get_language_codes(self.const, ldapconf(None, 'pref_languages',
+                                                    None) or ()),
+            ldapconf(None, 'output_languages'))
+
         self.dummy_ou_dn = None  # Set if generate_dummy_ou() made a dummy OU
         self.aliases = bool(cereconf.LDAP_PERSON['aliases'])
         self.ou2DN = {None: None}  # {ou_id:      DN or None(root)}
@@ -111,6 +195,8 @@ class OrgLDIF(object):
         self.person_groups = {}            # {group name: {member ID: True}}
         self.system_lookup_order = [int(getattr(self.const, s))
                                     for s in cereconf.SYSTEM_LOOKUP_ORDER]
+
+        # Attribute mappings: attr -> (convert, verify, normalize)
         self.attr2syntax = {
             'telephoneNumber': (None, verify_printableString, normalize_phone),
             'facsimileTelephoneNumber': (None, verify_printableString,
@@ -119,23 +205,20 @@ class OrgLDIF(object):
             'labeledURI': (None, None, normalize_caseExactString),
             'mail': (None, verify_IA5String, normalize_IA5String),
         }
+
         # userPassword config
         auth_attr = ldapconf('PERSON', 'auth_attr', None)
         self.user_password = AuthExporter.make_exporter(
             self.db, auth_attr['userPassword'])
 
-    def init_languages(self):
-        self.languages, self.lang2opt, self.lang2pref, pref = [], {}, {}, -1
-        for lang in ldapconf(None, 'pref_languages', None) or ():
-            code = getattr(self.const, "language_" + lang, None)
-            if code is not None:
-                code = int(code)
-                assert code not in self.lang2opt, (lang, code)
-                self.lang2opt[code] = ';lang-' + lang
-                self.lang2pref[code] = pref = pref + 1
-                self.languages.append(code)
-        assert self.languages
-        self.output_languages = ldapconf(None, 'output_languages')
+    @property
+    def languages(self):
+        """ compatibility attr. """
+        return self.lang_opts.languages
+
+    def add_lang_names(self, entry, attr, l2values):
+        """ compatibility method. """
+        self.lang_opts.localize_attr(entry, attr, l2values)
 
     def init_org_object_dump(self):
         """Set variables for the organization object dump."""
@@ -159,11 +242,11 @@ class OrgLDIF(object):
     def init_ou_structure(self):
         # Set self.ou_tree = dict {parent ou_id: [child ou_id, ...]}
         # where the root OUs have parent id None.
-        timer = make_timer(self.logger, "Fetching OU tree...")
+        timer = make_timer(logger, "Fetching OU tree...")
         self.ou.clear()
         ou_list = self.ou.get_structure_mappings(
             self.const.OUPerspective(cereconf.LDAP_OU['perspective']))
-        self.logger.debug("Number of OUs: %d", len(ou_list))
+        logger.debug("Number of OUs: %d", len(ou_list))
         self.ou_tree = {None: []}  # {parent ou_id or None: [child ou_id...]}
         for ou_id, parent_id in ou_list:
             if parent_id is not None:
@@ -235,7 +318,7 @@ class OrgLDIF(object):
         if self.org_dn.lower().startswith('dc='):
             entry['objectClass'].append('dcObject')
         self.update_org_object_entry(entry)
-        entry['objectClass'] = self.attr_unique(
+        entry['objectClass'] = attr_unique(
             entry['objectClass'], six.text_type.lower)
         outfile.write(entry_string(self.org_dn, entry))
 
@@ -246,10 +329,10 @@ class OrgLDIF(object):
     def generate_ou(self, outfile):
         """Output the org. unit (OU) tree if cereconf.LDAP_OU['dn'] is set."""
         if not self.ou_dn:
-            self.logger.info("Skipping OUs, no DN has been set.")
+            logger.info("Skipping OUs, no DN has been set.")
             return
         self.init_ou_dump()
-        timer = make_timer(self.logger, "Processing OUs...")
+        timer = make_timer(logger, "Processing OUs...")
         if self.ou_dn != self.org_dn:
             outfile.write(container_entry_string('OU'))
         self.generate_dummy_ou(outfile)
@@ -258,7 +341,7 @@ class OrgLDIF(object):
             self.traverse_ou_children(outfile, None, None)
         loops = [i for i in self.ou_tree.iteritems() if i[0] not in self.ou2DN]
         if loops:
-            self.logger.warn(
+            logger.warn(
                 "Loops in org.unit tree; ignored {parent:[children]} = %s",
                 dict(loops))
         timer("...OUs done.")
@@ -304,8 +387,8 @@ class OrgLDIF(object):
         if entry:
             norm_dn = normalize_string(dn)
             if norm_dn in self.used_DNs:
-                self.logger.warn("Omitting ou_id %d: duplicate DN '%s'",
-                                 ou_id, dn)
+                logger.warn("Omitting ou_id=%d, duplicate dn=%s",
+                            ou_id, repr(dn))
                 dn = parent_dn
             else:
                 self.used_DNs[norm_dn] = True
@@ -338,7 +421,7 @@ class OrgLDIF(object):
                 lnames = ou_names.setdefault(pref, [])
                 lnames.append((int(row['name_language']), name))
         if not ou_names:
-            self.logger.warn("No names could be located for ou_id=%s", ou_id)
+            logger.warn("No names could be located for ou_id=%s", ou_id)
             return parent_dn, None
         entry = {'objectClass': ['top', 'organizationalUnit']}
         entry.update(self.ou_attrs)
@@ -354,7 +437,7 @@ class OrgLDIF(object):
 
         for attr in entry.keys():
             if attr == 'ou' or attr.startswith('ou;'):
-                entry[attr] = self.attr_unique(entry[attr], normalize_string)
+                entry[attr] = attr_unique(entry[attr], normalize_string)
         self.fill_ou_entry_contacts(entry)
         self.update_ou_entry(entry)
         return dn, entry
@@ -389,7 +472,7 @@ class OrgLDIF(object):
         if entry.get('labeledURI'):
             oc = entry['objectClass']
             oc.append('labeledURIObject')
-            entry['objectClass'] = self.attr_unique(oc, six.text_type.lower)
+            entry['objectClass'] = attr_unique(oc, six.text_type.lower)
         post_string, street_string = self.make_entity_addresses(
             self.ou, self.system_lookup_order)
         if post_string:
@@ -425,7 +508,7 @@ class OrgLDIF(object):
         self.accounts = accounts = []
         self.person_cache = person_cache = {}
         self.persons = []
-        timer = make_timer(self.logger, "Caching persons and accounts...")
+        timer = make_timer(logger, "Caching persons and accounts...")
         for row in self.list_persons():
             accounts.append(row['account_id'])
             person_cache[row['person_id']] = {'account_id': row['account_id'],
@@ -462,7 +545,7 @@ class OrgLDIF(object):
 
     def init_person_affiliations(self):
         # Set self.affiliations = dict {person_id: [(aff, status, ou_id), ...]}
-        timer = make_timer(self.logger, "Fetching personal affiliations...")
+        timer = make_timer(logger, "Fetching personal affiliations...")
         self.affiliations = affiliations = defaultdict(list)
         source = cereconf.LDAP_PERSON['affiliation_source_system']
         if source is not None:
@@ -483,7 +566,7 @@ class OrgLDIF(object):
 
     def init_person_names(self):
         # Set self.person_names = dict {person_id: {name_variant: name}}
-        timer = make_timer(self.logger, "Fetching personal names...")
+        timer = make_timer(logger, "Fetching personal names...")
         self.person_names = person_names = defaultdict(dict)
         for row in self.person.search_person_names(
                 name_variant=[self.const.name_full,
@@ -497,7 +580,7 @@ class OrgLDIF(object):
 
     def init_person_titles(self):
         # Set self.person_titles = dict {person_id: [(language,title),...]}
-        timer = make_timer(self.logger, "Fetching personal titles...")
+        timer = make_timer(logger, "Fetching personal titles...")
         titles = {}
         fill = {
             int(self.const.personal_title): dict.__setitem__,
@@ -518,9 +601,9 @@ class OrgLDIF(object):
         # Set self.acc_passwd      = dict {account_id: password hash}.
         # Set self.acc_quarantines = dict {account_id: [quarantine list]}.
         # Set acc_locked_quarantines = acc_quarantines or separate dict
-        timer_all = make_timer(self.logger, "Fetching account information...")
-        timer_auth = make_timer(self.logger)
-        timer_quar = make_timer(self.logger)
+        timer_all = make_timer(logger, "Fetching account information...")
+        timer_auth = make_timer(logger)
+        timer_quar = make_timer(logger)
         self.acc_name = {}
         # self.account_auth = {}
         self.acc_locked_quarantines = self.acc_quarantines = defaultdict(list)
@@ -529,8 +612,8 @@ class OrgLDIF(object):
             self.acc_name[row['account_id']] = row['name']
 
         timer_auth('...account authentication...')
-        self.logger.info('Getting userPassword from auth_types: %r',
-                         self.user_password.cache.auth_types)
+        logger.info('Getting userPassword from auth_types: %r',
+                    self.user_password.cache.auth_types)
         self.user_password.cache.update_all()
 
         timer_quar("...account quarantines...")
@@ -574,7 +657,7 @@ class OrgLDIF(object):
         # Set self.account_mail = None if not use_mail_module, otherwise
         #                         dict: account_id -> ('address' or None).
         if use_mail_module:
-            timer = make_timer(self.logger,
+            timer = make_timer(logger,
                                "Fetching account e-mail addresses...")
 
             # Get target types from config
@@ -582,8 +665,8 @@ class OrgLDIF(object):
             for value in ldapconf('PERSON', 'mail_target_types', []):
                 code = self.const.human2constant(value, self.const.EmailTarget)
                 if code is None:
-                    self.logger.warn("Unknown EmailTarget %r in setting %s",
-                                     value, "LDAP_PERSON['mail_target_types']")
+                    logger.warn("Unknown EmailTarget %r in setting %s",
+                                value, "LDAP_PERSON['mail_target_types']")
                 else:
                     mail_target_types.append(code)
 
@@ -597,7 +680,7 @@ class OrgLDIF(object):
             # higher priority.
             mail = {}
             for code in reversed(mail_target_types):
-                target_timer = make_timer(self.logger)
+                target_timer = make_timer(logger)
                 for row in targets(target_type=code):
                     try:
                         mail[int(row['target_entity_id'])] = "@".join(
@@ -612,7 +695,7 @@ class OrgLDIF(object):
 
     def init_person_addresses(self):
         # Set self.addr_info = dict {person_id: {address_type: (addr. data)}}.
-        timer = make_timer(self.logger, "Fetching personal addresses...")
+        timer = make_timer(logger, "Fetching personal addresses...")
         self.addr_info = addr_info = {}
         addr_types = cereconf.LDAP_PERSON['address_types']
         for row in self.person.list_entity_addresses(
@@ -652,8 +735,8 @@ class OrgLDIF(object):
         self.init_person_dump(use_mail_module)
         if self.person_parent_dn not in (None, self.org_dn):
             outfile.write(container_entry_string('PERSON'))
-        timer = make_timer(self.logger, "Processing persons...")
-        round_timer = make_timer(self.logger)
+        timer = make_timer(logger, "Processing persons...")
+        round_timer = make_timer(logger)
         rounds = 0
         exported = 0
         for person_id, row in self.person_cache.iteritems():
@@ -663,8 +746,8 @@ class OrgLDIF(object):
             dn, entry, alias_info = self.make_person_entry(row, person_id)
             if dn:
                 if dn in self.used_DNs:
-                    self.logger.warn("Omitting person_id %d: duplicate DN '%s'"
-                                     % (person_id, dn))
+                    logger.warn("Omitting person_id=%d, duplicate DN %s",
+                                person_id, repr(dn))
                 else:
                     self.used_DNs[dn] = True
                     outfile.write(entry_string(dn, entry, False))
@@ -702,7 +785,7 @@ class OrgLDIF(object):
 
         names = self.person_names.get(person_id)
         if not names:
-            self.logger.warn("Person %s got no names. Skipping.", person_id)
+            logger.warn("Person %s got no names. Skipping.", person_id)
             return None, None, None
         name = names.get(int(self.const.name_full), '').strip()
         givenname = names.get(int(self.const.name_first), '').strip()
@@ -710,8 +793,7 @@ class OrgLDIF(object):
         if not (lastname and givenname):
             givenname, lastname = _split_name(name, givenname, lastname)
             if not lastname:
-                self.logger.warn("Person %s got no lastname. Skipping.",
-                                 person_id)
+                logger.warn("Omitting person_id=%d, no lastname", person_id)
                 return None, None, None
         if not name:
             name = " ".join(filter(None, (givenname, lastname)))
@@ -729,8 +811,8 @@ class OrgLDIF(object):
         try:
             passwd = self.user_password.get(account_id)
         except LookupError:
-            self.logger.warning('No authentication data for account_id=%r',
-                                account_id)
+            logger.warning('No authentication data for account_id=%r',
+                           account_id)
             passwd = False
 
         qt = self.acc_quarantines.get(account_id)
@@ -750,7 +832,7 @@ class OrgLDIF(object):
         if passwd:
             entry['userPassword'] = passwd
         elif passwd != 0 and entry.get('uid'):
-            self.logger.debug("User %s got no password-hash.", entry['uid'][0])
+            logger.debug("User %s got no password-hash.", entry['uid'][0])
 
         dn, primary_ou_dn = self.person_dn_primary_ou(entry, row, person_id)
         if not dn:
@@ -765,8 +847,8 @@ class OrgLDIF(object):
         edu_ous = self._calculate_edu_ous(
             primary_ou_dn,
             [self.ou2DN.get(aff[2]) for aff in p_affiliations])
-        entry['eduPersonOrgUnitDN'] = self.attr_unique(filter(None, edu_ous))
-        entry['eduPersonAffiliation'] = self.attr_unique(self.select_list(
+        entry['eduPersonOrgUnitDN'] = attr_unique(filter(None, edu_ous))
+        entry['eduPersonAffiliation'] = attr_unique(self.select_list(
             self.eduPersonAff_selector, person_id, p_affiliations))
 
         # For now, the scoped affiliations are just a mirror of the above
@@ -813,7 +895,7 @@ class OrgLDIF(object):
         else:
             uris = self.id2labeledURI.get(person_id)
             if uris:
-                entry['labeledURI'] = self.attr_unique(
+                entry['labeledURI'] = attr_unique(
                     uris, normalize_caseExactString)
 
         if self.account_mail:
@@ -869,7 +951,7 @@ class OrgLDIF(object):
         if 'uid' in entry and len(entry['uid']):
             rdn = "uid=" + entry['uid'][0]
         else:
-            self.logger.warn("Person %d got no account. Skipping.", person_id)
+            logger.warn("Person %d got no account. Skipping.", person_id)
             return None, None
         # If the dummy DN is set, make it the default primary org.unit DN so
         # that if a person has an alias there, his eduPersonPrimaryOrgUnitDN
@@ -897,18 +979,6 @@ class OrgLDIF(object):
              'aliasedObjectName': (dn,),
              'cn': entry['cn'],
              'sn': entry['sn']}))
-
-    def add_lang_names(self, entry, attr, l2values):
-        if l2values:
-            l2v = sorted(l2values, key=self.sortkey_lang_val)
-            l2v = [(self.lang2opt[lang], val) for lang, val in l2v]
-            entry.setdefault(attr, []).append(l2v[0][1])
-            if self.output_languages:
-                for opt, val in l2v:
-                    entry.setdefault(attr + opt, []).append(val)
-
-    def sortkey_lang_val(self, lang_val):
-        return self.lang2pref[lang_val[0]]
 
     def make_address(self, sep,
                      p_o_box, address_text, postal_number, city, country):
@@ -973,7 +1043,7 @@ class OrgLDIF(object):
             else:
                 cont_tab[key] = c_list
         for key, c_list in cont_tab.iteritems():
-            cont_tab[key] = self.attr_unique(
+            cont_tab[key] = attr_unique(
                 filter(verify, [c for c in c_list if c not in ('', '0')]),
                 normalize=normalize)
         if entity_id is None:
@@ -1157,28 +1227,6 @@ class OrgLDIF(object):
             return False
         return selector[selector[2](person_id)]
 
-    @staticmethod
-    def attr_unique(values, normalize=None):
-        """
-        Return the input list of values with duplicates removed.
-
-        Pass values through optional function 'normalize' before comparing.
-        Preserve the order of values.  Use the first value of any duplicate.
-        """
-        if len(values) < 2:
-            return values
-        result = []
-        done = set()
-        for val in values:
-            if normalize:
-                norm = normalize(val)
-            else:
-                norm = val
-            if norm not in done:
-                done.add(norm)
-                result.append(val)
-        return result
-
 
 def _split_name(fullname=None, givenname=None, lastname=None):
     """Return (UTF-8 given name, UTF-8 last name)."""
@@ -1222,3 +1270,49 @@ def _split_name(fullname=None, givenname=None, lastname=None):
             if not got_given:
                 given.extend(full)
     return [' '.join(n) for n in given, last]
+
+
+class OrgLdifGroupMixin(OrgLDIF):
+    """
+    Mixin to provide memberOf values from a pickle-file of group memberships.
+
+    The picklefile typically contains references to groups in groups.ldif (see
+    generate_groups_ldif.py).
+    """
+    # TODO: Implement enable/disable
+    # TODO: Implement kwargs for providing filename
+    # TODO: Implement config/kwargs for providing attr, objectclass
+    # TODO: This mixin probably belongs alongside the code that generates the
+    #       pickle data
+
+    person_memberof_attr = 'memberOf'
+    person_memberof_class = None
+
+    def __init__(self, *args, **kwargs):
+        super(OrgLdifGroupMixin, self).__init__(*args, **kwargs)
+        self.person_group_filename = os.path.join(ldapconf(None, 'dump_dir'),
+                                                  "personid2group.pickle")
+
+    def _init_person_groups(self):
+        """Populate dict with a persons group information."""
+        timer = make_timer(logger, 'Processing person groups...')
+        self._person2group = pickle.load(file(self.person_group_filename))
+        timer("...person groups done.")
+
+    def init_person_dump(self, *args, **kwargs):
+        # API-method: Cache/select person data
+        super(OrgLdifGroupMixin, self).init_person_dump(*args, **kwargs)
+        self._init_person_groups()
+
+    def make_person_entry(self, row, person_id):
+        # API-method: Generate person object
+        dn, entry, alias_info = super(OrgLdifGroupMixin,
+                                      self).make_person_entry(row, person_id)
+
+        # Add group memberships
+        if dn and person_id in self._person2group:
+            entry[self.person_memberof_attr] = self._person2group[person_id]
+            if self.person_memberof_class:
+                entry['objectClass'].append(self.person_memberof_class)
+
+        return dn, entry, alias_info

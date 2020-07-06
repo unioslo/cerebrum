@@ -20,10 +20,12 @@
 from __future__ import unicode_literals
 
 import cereconf
-from Cerebrum.modules.PosixLDIF import PosixLDIF
-from Cerebrum.modules.no.uio.pq_exemption import pq_exemption
+
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Utils import Factory, make_timer
+from Cerebrum.modules.LDIFutils import attr_unique
+from Cerebrum.modules.PosixLDIF import PosixLDIF
+from Cerebrum.modules.no.uio.pq_exemption import pq_exemption
 
 
 class PosixLDIF_UiOMixin(PosixLDIF):
@@ -106,7 +108,7 @@ class PosixLDIF_UiOMixin(PosixLDIF):
         # eduPersonAffiliation (taken from OrgLDIF)
         added = self.org_ldif.affiliations.get(owner_id)
         if added:
-            added = self.org_ldif.attr_unique(self.org_ldif.select_list(
+            added = attr_unique(self.org_ldif.select_list(
                 self.org_ldif.eduPersonAff_selector, owner_id, added))
         if added:
             entry['eduPersonAffiliation'] = added
