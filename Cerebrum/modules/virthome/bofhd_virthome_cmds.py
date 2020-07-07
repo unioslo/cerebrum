@@ -2021,18 +2021,19 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
     all_commands["spread_entity_list"] = Command(
         ("spread", "entity_list"),
         EntityType(default="account"),
-        Id())
+        Id(),
+        fs=FormatSuggestion("%s"))
 
     def spread_entity_list(self, operator, entity_type, entity_id):
-        """List all spreads FOR A SPECIFIC ENTITY
-
-        (See also L{spread_list})
         """
+        List all spreads for a specific entity, such as an account or group.
+        Available spreads can be viewed with L{spread_list}.
 
+        @rtype: List[str]
+        """
         entity = self._get_entity(entity_type, entity_id)
         self.ba.can_view_spreads(operator.get_entity_id(), entity.entity_id)
-        return [str(self.const.Spread(x["spread"]))
-                for x in entity.get_spread()]
+        return [str(self.const.Spread(x["spread"])) for x in entity.get_spread()]
 
     #
     # quarantine_add
