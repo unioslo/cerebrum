@@ -2254,17 +2254,31 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
     all_commands["trait_show"] = Command(
         ("trait", "show"),
         EntityType(default="account"),
-        Id())
+        Id(),
+        fs=FormatSuggestion(
+            "%-5i %s", ("code", "date"),
+            hdr="%-5s %s" % ("Code", "Date"),
+        ))
 
     def trait_show(self, operator, entity_type, entity_id):
-        """Display traits set on the specified entity.
         """
-        # FIXME: We may want to process traits' strval here -- if it's a
-        # pickled value, it makes no sense sending the pickled value to the
-        # client (quite pointless, really).
+        Display traits set on the specified entity, e.g. an account or group.
+
+        @rtype: dict
+        @return:
+            "entity_id": int
+            "code": int
+            "strval": Optional[str]
+            "entity_type": int
+            "target_id": Optional[int]
+            "numval": Optional[int]
+            "date": datetime.datetime
+        """
+        # TODO: We may want to process traits' strval here:
+        # If it's a pickled value, it makes no sense sending the pickled value
+        # to the client (quite pointless, really).
         entity = self._get_entity(entity_type, entity_id)
-        self.ba.can_show_traits(operator.get_entity_id(),
-                                entity.entity_id)
+        self.ba.can_show_traits(operator.get_entity_id(), entity.entity_id)
         return entity.get_traits().values()
 
 
