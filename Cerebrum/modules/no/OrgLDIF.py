@@ -29,12 +29,10 @@ import string
 
 import six
 
-import cereconf
 from Cerebrum import Entity
 from Cerebrum.modules.feide.service import FeideService
 from Cerebrum.modules.OrgLDIF import OrgLDIF
 from Cerebrum.modules.LDIFutils import (attr_unique,
-                                        ldapconf,
                                         normalize_string,
                                         verify_IA5String,
                                         verify_emailish,
@@ -68,27 +66,39 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
     useful in a transition stage between schema versions.
     """
 
-    FEIDE_schema_version = cereconf.LDAP.get('FEIDE_schema_version', '1.6')
-    FEIDE_obsolete_version = cereconf.LDAP.get('FEIDE_obsolete_schema_version')
-
-    if isinstance(FEIDE_schema_version, (tuple, list)):
-        FEIDE_obsolete_version = min(*FEIDE_schema_version)
-        FEIDE_schema_version = max(*FEIDE_schema_version)
-
+    FEIDE_schema_version = '1.6'
+    FEIDE_obsolete_version = None
     FEIDE_class_obsolete = None
-    if FEIDE_obsolete_version:
-        FEIDE_class_obsolete = 'norEduObsolete'
 
-    def __init__(self, db):
-        super(norEduLDIFMixin, self).__init__(db)
-        try:
-            orgnum = int(cereconf.DEFAULT_INSTITUSJONSNR)
-            self.norEduOrgUniqueID = ("000%05d" % orgnum,)
-        except (AttributeError, TypeError):
+    def __init__(self, *args, **kwargs):
+        super(norEduLDIFMixin, self).__init__(*args, **kwargs)
+
+        root = self.config.org.parent
+        schema_v = root.get('FEIDE_schema_version', default=None)
+        obsolete_v = root.get('FEIDE_obsolete_schema_version', default=None)
+        if isinstance(schema_v, (tuple, list)):
+            schema_v, obsolete_v = max(*schema_v), min(*schema_v)
+
+        if schema_v:
+            self.FEIDE_schema_version = schema_v
+
+        if obsolete_v:
+            self.FEIDE_obsolete_version = obsolete_v
+            self.FEIDE_class_obsolete = 'norEduObsolete'
+        logger.debug("FEIDE schema version: %s", self.FEIDE_schema_version)
+        logger.debug("FEIDE obsolete version: %s", self.FEIDE_obsolete_version)
+
+        if self.config.org_id is None:
             self.norEduOrgUniqueID = None
-        self.FEIDE_ou_common_attrs = {}
+        else:
+            self.norEduOrgUniqueID = ("000%05d" % self.config.org_id,)
+        logger.debug("norEduOrgUniqueIdentifier: %s", self.norEduOrgUniqueID)
+
         # '@<security domain>' for the eduPersonPrincipalName attribute.
-        self.homeOrg = cereconf.INSTITUTION_DOMAIN_NAME
+        self.homeOrg = self.config.domain_name
+        logger.debug("schacHomeOrganization: %s", self.homeOrg)
+
+        self.FEIDE_ou_common_attrs = {}
         self.ou_uniq_id2ou_id = {}
         self.ou_id2ou_uniq_id = {}
         self.primary_aff_traits = {}
@@ -96,14 +106,6 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
         self.aff_cache = {}
         # For caching strings of statuses, int(st) -> str(st).
         self.status_cache = {}
-        logger.debug("OrgLDIF norEduOrgUniqueIdentifier: %s",
-                     self.norEduOrgUniqueID)
-        logger.debug("OrgLDIF schacHomeOrganization: %s",
-                     self.homeOrg)
-        logger.debug("OrgLDIF FEIDE schema version: %s",
-                     self.FEIDE_schema_version)
-        logger.debug("OrgLDIF FEIDE obsolete version: %s",
-                     self.FEIDE_obsolete_version)
         if not self.homeOrg and self.FEIDE_schema_version >= '1.6':
             # Is this neccessary? We should have this for everyone anyway.
             raise ValueError("HomeOrg is mandatory in schema ver 1.6")
@@ -149,8 +151,9 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
         ldap_ou_id = self.get_unique_ou_id()
         entry.update({
             'objectClass': ['top', 'organizationalUnit', 'norEduOrgUnit'],
-            'cn':                  (ldapconf('OU', 'dummy_name'),),
-            'norEduOrgUnitUniqueIdentifier': (ldap_ou_id,)})
+            'cn': (self.config.ou.get('dummy_name'),),
+            'norEduOrgUnitUniqueIdentifier': (ldap_ou_id,),
+        })
         entry.update(self.FEIDE_ou_common_attrs)
         if self.FEIDE_class_obsolete:
             entry['objectClass'].append(self.FEIDE_class_obsolete)
@@ -300,9 +303,9 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
 
                 ('employee', 1234, ('ANSATT', 'bilag'))
         """
-        def lookup_cereconf(aff, status):
-            selector = cereconf.LDAP_PERSON.get(
-                'eduPersonPrimaryAffiliation_selector')
+        def lookup_selector(aff, status):
+            selector = self.config.person.get(
+                'eduPersonPrimaryAffiliation_selector', default=None)
             if selector and aff in selector and status in selector[aff]:
                 return selector[aff][status]
             return (None, None)
@@ -328,10 +331,10 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
             # if a trait is set to override the general rule, we return that.
             if p_id in self.primary_aff_traits:
                 if (aff_str, status_str, ou) == self.primary_aff_traits[p_id]:
-                    p, a = lookup_cereconf(aff_str, status_str)
+                    p, a = lookup_selector(aff_str, status_str)
                     if p:
                         return a, ou, (aff_str, status_str)
-            p, a = lookup_cereconf(aff_str, status_str)
+            p, a = lookup_selector(aff_str, status_str)
             if p and (pri is None or p < pri):
                 pri = p
                 pri_aff = (aff_str, status_str)
@@ -341,7 +344,7 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
             logger.warn(
                 "Person '%s' did not get eduPersonPrimaryAffiliation. "
                 "Check his/her affiliations "
-                "and eduPersonPrimaryAffiliation_selector in cereconf.", p_id)
+                "and eduPersonPrimaryAffiliation_selector.", p_id)
         return pri_edu_aff, pri_ou, pri_aff
 
     def init_person_basic(self):
@@ -439,9 +442,9 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
                         "Unknown %s %r", cls.__name__, name)
                 return constant
 
-            for aff, selections in ldapconf('PERSON',
-                                            'norEduPersonAuthnMethod_selector',
-                                            {}).iteritems():
+            for aff, selections in self.config.person.get(
+                    'norEduPersonAuthnMethod_selector',
+                    default={}).items():
                 aff = get_const(aff, self.const.PersonAffiliation)
                 if not aff:
                     continue
@@ -517,8 +520,9 @@ class norEduLDIFMixin(OrgLDIF):  # NOQA: N801
 
         """
         if not hasattr(self, '_person_authn_levels'):
-            supported = ldapconf('PERSON', 'norEduPersonAuthnMethod_selector',
-                                 {})
+            supported = self.config.person.get(
+                'norEduPersonAuthnMethod_selector',
+                default={})
             if not supported:
                 self._person_authn_levels = {}
                 return self._person_authn_levels
@@ -590,8 +594,11 @@ class OrgLdifCourseMixin(norEduLDIFMixin):
 
     def __init__(self, *args, **kwargs):
         super(OrgLdifCourseMixin, self).__init__(*args, **kwargs)
-        self.person_course_filename = os.path.join(ldapconf(None, 'dump_dir'),
-                                                   "ownerid2urnlist.pickle")
+        # TODO: add LDAP_PERSON entry/default and fetch using
+        #       config.person.get_filename()
+        self.person_course_filename = os.path.join(
+            self.config.person.get('dump_dir', inherit=True),
+            "ownerid2urnlist.pickle")
 
     def _init_person_course(self):
         """Populate dicts with a person's course information."""
@@ -632,10 +639,11 @@ class OrgLdifEntitlementsMixin(norEduLDIFMixin):
     def __init__(self, *args, **kwargs):
         super(OrgLdifEntitlementsMixin, self).__init__(*args, **kwargs)
 
-        dump_dir = ldapconf(None, 'dump_dir')
-        entitlements_file = ldapconf('PERSON', 'entitlements_file')
+        entitlements_file = self.config.person.get_filename(
+            'entitlements_file', default=None)
+
         if entitlements_file:
-            self.entitlements_file = os.path.join(dump_dir, entitlements_file)
+            self.entitlements_file = entitlements_file
         else:
             self.entitlements_file = None
 

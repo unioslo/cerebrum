@@ -26,7 +26,6 @@ from __future__ import unicode_literals
 
 import logging
 
-import cereconf
 from Cerebrum.Utils import make_timer
 from Cerebrum.modules.OrgLDIF import OrgLdifGroupMixin
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
@@ -44,8 +43,8 @@ class UitOrgLdifGroupMixin(OrgLdifGroupMixin):
 
 class OrgLDIFUiTMixin(UitOrgLdifGroupMixin, norEduLDIFMixin):
 
-    def __init__(self, db):
-        super(OrgLDIFUiTMixin, self).__init__(db)
+    def __init__(self, *args, **kwargs):
+        super(OrgLDIFUiTMixin, self).__init__(*args, **kwargs)
         self.attr2syntax['mobile'] = self.attr2syntax['telephoneNumber']
 
     def init_attr2id2contacts(self):
@@ -69,7 +68,7 @@ class OrgLDIFUiTMixin(UitOrgLdifGroupMixin, norEduLDIFMixin):
         timer = make_timer(logger, "Fetching OU tree...")
         self.ou.clear()
         ou_list = self.ou.get_structure_mappings(
-            self.const.OUPerspective(cereconf.LDAP_OU['perspective']),
+            self.const.OUPerspective(self.config.ou.get('perspective')),
             filter_expired=True)
         logger.debug("OU-list length: %d", len(ou_list))
         self.ou_tree = {None: []}  # {parent ou_id or None: [child ou_id...]}
