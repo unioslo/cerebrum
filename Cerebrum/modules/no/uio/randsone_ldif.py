@@ -22,13 +22,11 @@
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 
 
-# TODO: Rename to RandsoneLdif or something?
-
-class RE_LDIF(norEduLDIFMixin):  # noqa: N801
+class RandsoneOrgLdif(norEduLDIFMixin):  # noqa: N801
 
     def init_ou_structure(self):
         # Change from original: Drop OUs outside self.root_ou_id subtree.
-        super(RE_LDIF, self).init_ou_structure()
+        super(RandsoneOrgLdif, self).init_ou_structure()
         ous, tree = [self.root_ou_id], self.ou_tree
         for ou in ous:
             ous.extend(tree.get(ou, ()))
