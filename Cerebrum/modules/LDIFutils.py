@@ -179,7 +179,7 @@ def container_entry(tree_name, attrs=None, module=cereconf):
 
 def container_entry_string(tree_name, attrs=None, module=cereconf):
     """Return a string with an LDIF entry for the specified container entry."""
-    entry = container_entry(tree_name, attrs, module=cereconf)
+    entry = container_entry(tree_name, attrs, module=module)
     dn = ldapconf(tree_name, 'dn', module=module)
     return entry_string(dn, entry)
 
@@ -481,8 +481,8 @@ class LdapConfig(object):
             Name of the setting to get.
 
         :param default:
-            A default value - if not given an error will be raised if the
-            setting is not set.
+            Returned when no value exists for ``key``. If no default value is
+            given, an exception is raised.
 
         :param inherit:
             If true, try to fetch missing setting from parent configs.
