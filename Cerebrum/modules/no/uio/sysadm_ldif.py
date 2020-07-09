@@ -48,7 +48,6 @@ Missing mandatory attrs
 """
 from __future__ import print_function, unicode_literals
 
-import datetime
 import logging
 
 from Cerebrum.Utils import Factory, make_timer
@@ -59,21 +58,12 @@ from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 logger = logging.getLogger(__name__)
 
 
-def _get_sysadm_accounts(db, filter_expired_before):
+def _get_sysadm_accounts(db):
     """
     Fetch sysadm accounts.
 
     :param db:
         Cerebrum.database object/db connection
-
-    :param filter_expired_before:
-        A datetime.date object to use when filtering accounts with an
-        expire_date.
-
-    .. note::
-        We *must* consider all accounts, regardless of expire_date - if anyone
-        want's a *different, non-expired* account to be included, the priority
-        (account_type) must be changed.
     """
     co = Factory.get('Constants')(db)
     ac = Factory.get('Account')(db)
@@ -88,16 +78,19 @@ def _get_sysadm_accounts(db, filter_expired_before):
     sysadm_accounts = {
         r['account_id']: r
         for r in ac.search(name='*-drift',
-                           owner_type=co.entity_person,
-                           expire_start=None)
+                           owner_type=co.entity_person)
         if r['account_id'] in sysadm_filter
     }
     logger.debug('found %d sysadm (*-drift) accounts', len(sysadm_accounts))
 
     # identify highest prioritized account/person
+    # NOTE: We *really* need to figure out how to use account priority
+    #       correctly.  This will pick the highest prioritized *non-expired*
+    #       account - which means that the primary account value *will* change
+    #       without any user interaction.
     primary_account = {}
     primary_sysadm = {}
-    for row in ac.list_accounts_by_type(filter_expired=False,
+    for row in ac.list_accounts_by_type(filter_expired=True,
                                         primary_only=False):
         person_id = row['person_id']
         priority = row['priority']
@@ -121,12 +114,6 @@ def _get_sysadm_accounts(db, filter_expired_before):
     for person_id in primary_sysadm:
         account_id = primary_sysadm[person_id]['account_id']
         account = sysadm_accounts[account_id]
-
-        if filter_expired_before:
-            account_expire = account['expire_date']
-            if account_expire and account_expire < filter_expired_before:
-                # skip person - highest pri sysadm-drift is expired
-                continue
 
         yield {
             # required by OrgLDIF.list_persons()
@@ -154,9 +141,8 @@ class SysAdmOrgLdif(norEduLDIFMixin):
 
         We override it with one that returns sysadm users.
         """
-        today = datetime.date.today()
         self._account_to_primary = pri = {}
-        for account in _get_sysadm_accounts(self.db, today):
+        for account in _get_sysadm_accounts(self.db):
             pri[account['account_id']] = account.pop('primary_account_id')
             yield account
 
