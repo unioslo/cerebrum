@@ -17,9 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-"""VirtHome bofhd extensions.
 
-This module contains implementation of bofhd commands used in VirtHome.
+"""
+WebID (aka "VirtHome") bofhd extensions.
+
+This module contains implementation of bofhd commands used in WebID
+Cerebrum instance.
 
 It should be possible to use the jbofh client with this bofhd command set,
 although the help strings won't be particularily useful.
@@ -540,16 +543,33 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     #
     all_commands["user_confirm_request"] = Command(
         ("user", "confirm_request"),
-        SimpleString())
+        SimpleString(),
+        fs=FormatSuggestion("OK, %s confirmed", ("action",)))
 
     def user_confirm_request(self, operator, confirmation_key, *rest):
-        """Confirm a pending operation.
+        """
+        Confirm a pending operation.
 
-        @type confirmation_key: basestring
+        The response body returned from confirming a request is
+        specific to the operation that was performed.  For example,
+        ``user virtaccount_create`` will return the username of the
+        created account.  Common for all operations is an ``action``
+        field indicating what operation was performed as a result of
+        confirming the request.
+
+        @type confirmation_key: str
         @param confirmation_key:
-          A confirmation key that has been issued when the operation was
-          created. There is a pending_change_log event associated with that
-          key.
+            Confirmation key that was issued when the operation was
+            created.  There is a ``pending_change_log`` event associated
+            with the key.
+
+        @rtype: dict
+        @return:
+            "action": <str> Indicating the operation performed as result
+            of confirming the pending request.
+
+        @raises: CerebrumError
+            If no pending action is associated with L{confirmation_key}.
         """
         self.ba.can_confirm(operator.get_entity_id())
         return self.__process_request_confirmation(operator.get_entity_id(),
@@ -569,8 +589,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         PersonName(),
         PersonName(),
         fs=FormatSuggestion(
-            "%12s %36s", ("entity_id", "session_key"),
-            hdr="%12s %36s" % ("Account id", "Session key")
+            "%-12s %s", ("entity_id", "session_key"),
+            hdr="%-12s %s" % ("Account ID", "Session key")
         ))
 
     def user_virtaccount_join_group(self, operator, magic_key,
@@ -578,12 +598,16 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                     expire_date=None,
                                     human_first_name=None,
                                     human_last_name=None):
-        """Perform the necessary magic to let a new user join a group.
+        """
+        Perform the necessary magic to let a new user join a group.
 
         This is very much akin to user_virtaccount_create +
         user_confirm_request.
 
-        FIMXE: What's the permission mask for this?
+        TODO: What's the permission mask for this?
+
+        @raises: CerebrumError
+            If L{magic_key} is not a valid.
         """
 
         # If there is no request, this will throw an error back -- we need to
@@ -592,8 +616,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         request = self.__get_request(magic_key)
         if request["change_type_id"] != self.clconst.va_group_invitation:
             raise CerebrumError(
-                "Illegal command for request type %s",
-                str(self.clconst.ChangeType(request["change_type_id"])))
+                "Illegal command for request type %s" %
+                self.clconst.ChangeType(request["change_type_id"]))
 
         # ... check that the group is still there...
         params = request["change_params"]
@@ -831,24 +855,41 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     #
     # user request_info
     #
-    # FIXME: Maybe this should be with the misc commands?
+    # TODO: Maybe this should be with the misc commands?
     #
     all_commands["user_request_info"] = Command(
         ("user", "request_info"),
-        SimpleString())
+        SimpleString(),
+        fs=FormatSuggestion([
+            ("Change type:     %s (#%i)\n"
+             "Change by:       %i\n"
+             "Timestamp:       %s",
+             ("change_type",
+              "change_type_id",
+              "change_by",
+              "tstamp")),
+            ("Subject entity:  %i", ("subject_entity",)),
+        ]))
 
-    def user_request_info(self, operator, magic_key):
-        """Look up confirmation request by its id.
-
-        It may be useful for the web interface to look up some request's
-        parameters to provide a better feedback to the user.
-
-        @return:
-          A dict rescribing the request.
+    def user_request_info(self, operator, confirmation_key):
         """
+        Look up confirmation request by its confirmation key.
 
+        @rtype: dict
+        @return:
+            "change_type": <str>
+            "change_by": <int>
+            "change_program": <Optional[int]>
+            "change_id": <int>
+            "change_params": <Optional[str]>
+            "tstamp": <datetime.datetime>
+            "subject_entity": <Optional[int]>
+            "change_type_id": <int>
+            "dest_entity": <Optional[int]>
+            "confirmation_key": <str>
+        """
         self.ba.can_view_requests(operator.get_entity_id())
-        return self.__get_request(magic_key)
+        return self.__get_request(confirmation_key)
 
     def __quarantine_to_string(self, eq):
         """Return a human-readable representation of eq's quarantines.
@@ -1026,7 +1067,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     #
     all_commands["user_change_email"] = Command(
         ("user", "change_email"),
-        SimpleString())
+        SimpleString(),
+        fs=FormatSuggestion(
+            "OK, email change pending confirmation\n"
+            "Use bofh command 'user confirm_request %s' to apply change",
+            ("confirmation_key",)
+        ))
 
     def user_change_email(self, operator, new_email):
         """Set a new e-mail address for operator.
@@ -1084,14 +1130,24 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     all_commands["user_recover_password"] = Command(
         ("user", "recover_password"),
         AccountName(),
-        EmailAddress())
+        EmailAddress(),
+        fs=FormatSuggestion(
+            "OK, password change pending confirmation\n"
+            "Use bofh command 'user confirm_request %s' to apply change",
+            ("confirmation_key",)
+        ))
 
     def user_recover_password(self, operator, uname, email):
-        """Start the magic for auto-issuing a new password.
+        """
+        Start the magic for auto-issuing a new password.
 
         This method creates an auto-password changing request.
+
+        @rtype: dict
+        @return:
+            "confirmation_key": <str>
         """
-        # FIXME: Do we need a permission trap here?
+        # TODO: Do we need a permission trap here?
         missing = "Unable to recover password, unknown username and/or e-mail"
         try:
             account = self._get_account(uname)
@@ -1099,10 +1155,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError(missing)
 
         if account.np_type != self.const.virtaccount_type:
-            raise CerebrumError("Account %s (id=%s) is NOT a VA."
-                                "Cannot recover password" %
-                                (account.account_name, account.entity_id))
-
+            raise CerebrumError(
+                "Cannot recover password "
+                "because account %s (id=%i) is not a VirtAccount"
+                % (account.account_name, account.entity_id)
+            )
         if account.get_email_address() != email:
             raise CerebrumError(missing)
 
@@ -1118,17 +1175,19 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     #
     all_commands["user_recover_uname"] = Command(
         ("user", "recover_uname"),
-        EmailAddress())
+        EmailAddress(),
+        fs=FormatSuggestion("%s"))
 
     def user_recover_uname(self, operator, email):
-        """Return active user names associated with an e-mail.
-
-        This command is useful is a user forgot his/her username in VH. We
-        collect all active VAs associated with the e-mail and return them.
         """
+        Return active usernames associated with an email.
 
-        #
-        # FIXME: Do we need a permission trap here?
+        This command is useful is a user forgot his/her username in VH.
+        We collect all active VAs associated with the email and return them.
+
+        @rtype: List<str>
+        """
+        # TODO: Do we need a permission trap here?
         account = self.virtaccount_class(self.db)
         unames = set()
         for row in account.list_contact_info(
@@ -1171,20 +1230,39 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         GroupName(),
         SimpleString(),
         AccountName(),
-        SimpleString())
+        SimpleString(),
+        fs=FormatSuggestion(
+            "OK, group %s (id=%i) created", ("group_name", "group_id")))
 
     def group_create(self, operator, group_name, description, admin, url):
-        """Register a new VirtGroup in Cerebrum.
+        """
+        Create a new VirtGroup.
 
-        @param group_name: Name of the group. It must have a realm suffix.
+        @type group_name: str
+        @param group_name:
+            Name of the group, which must have a realm suffix.
 
-        @description: Human-friendly group description
+        @type description: str
+        @param description:
+            Human-friendly group description.
 
-        @admin: An account that will be assigned 'admin'-style permission.
+        @type admin: str
+        @param admin:
+            The account that will be assigned admin-like permissions.
 
-        @url:
-          A resource url associated with the group (i.e. some hint to a
-          thingamabob justifying group's purpose).
+        @type url: str
+        @param url:
+            Resource URL associated with the group, i.e. some hint to
+            justify groups' purpose.
+
+        @rtype: dict
+        @return:
+            "group_id": <int>
+            "group_name": <str>
+
+        @raises: CerebrumError
+            If the group name does not contain the realm.
+            If the group name contains reserved characters.
         """
         self.ba.can_create_group(operator.get_entity_id())
         admin_acc = self._get_account(admin)
@@ -1197,7 +1275,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         reserved = [re.compile(expr) for expr in cereconf.RESERVED_GROUPS]
         for regex in reserved:
             if regex.match(group_name):
-                raise CerebrumError("Illegal group name %s", group_name)
+                raise CerebrumError("Illegal group name '%s'" % group_name)
 
         try:
             new = self.virthome.group_create(
@@ -1205,7 +1283,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         except Errors.CerebrumError as e:
             raise CerebrumError(str(e))
 
-        return {'group_id': new.entity_id}
+        return {"group_id": new.entity_id, "group_name": new.group_name}
 
     #
     # group disable
@@ -1213,20 +1291,25 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     all_commands["group_disable"] = Command(
         ("group", "disable"),
         GroupName(),
-        fs=FormatSuggestion("Ok, group '%s' has been disabled", ('group', )))
+        fs=FormatSuggestion("OK, disabled group %s (id=%i)", ("group", "group_id")))
 
     def group_disable(self, operator, gname):
-        """Disable group in VH.
+        """
+        Disable VirtHome group.
 
         This is an effective deletion, although the group entity actually
-        remains there as a placeholder for the group name.
-        """
+        remains as a placeholder for the group name.
 
+        @rtype: dict
+        @return:
+            "group_id": <int>
+            "group": <str>
+        """
         group = self._get_group(gname)
         self.ba.can_force_delete_group(operator.get_entity_id(),
                                        group.entity_id)
-
-        return {'group': self.virthome.group_disable(group)}
+        return {"group_id": group.entity_id,
+                "group": self.virthome.group_disable(group)}
 
     #
     # group remove_members
@@ -1256,7 +1339,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     #
     all_commands["group_list"] = Command(
         ("group", "list"),
-        GroupName())
+        GroupName(),
+        fs=FormatSuggestion(
+            "%-6i %-34s %-8s %-31s %s",
+            ("member_id", "member_name", "member_type", "owner_name", "email_address"),
+            hdr="%-6s %-34s %-8s %-31s %s" % ("ID", "Name", "Type", "Owner", "Email"),
+        ))
 
     def group_list(self, operator, gname):
         """List the content of group L{gname}.
@@ -1272,26 +1360,29 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # user list_memberships
     #
     all_commands["user_list_memberships"] = Command(
-        ("user", "list_memberships"))
+        ("user", "list_memberships"),
+        fs=FormatSuggestion(
+            "%-9i %-36s %s", ("group_id", "name", "description"),
+            hdr="%-9s %-36s %s" % ("Group ID", "Name", "Description"),
+        ))
 
     def user_list_memberships(self, operator):
-        """List all groups where operator is a member.
-        """
+        """List all groups where operator is a member."""
         account = self.Account_class(self.db)
         account.find(operator.get_entity_id())
 
-        # TODO/TBD: Should we use ONLY realms to filter groups?
-        result = list()
+        # TODO: should we use ONLY realms to filter groups?
+        result = []
         reserved = [re.compile(expr) for expr in cereconf.RESERVED_GROUPS]
 
         for group in self.vhutils.list_group_memberships(
                 account, realm=cereconf.VIRTHOME_REALM):
             for regex in reserved:
-                if not regex.match(group['name']):
+                if not regex.match(group["name"]):
                     result.append(group)
                 else:
                     self.logger.debug(
-                        "Group '%s' reserved, not listed" % group['name'])
+                        "Group '%s' reserved, not listed" % group["name"])
         return result
 
     #
@@ -1379,40 +1470,75 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         ("group", "invite_moderator"),
         EmailAddress(),
         GroupName(),
-        Integer(help_ref='invite_timeout'))
+        Integer(help_ref="invite_timeout"),
+        fs=FormatSuggestion(
+            "OK, moderator invitation pending confirmation\n"
+            "Use bofh command 'user confirm_request %s' to apply change",
+            ("confirmation_key",)
+        ))
 
     def group_invite_moderator(self, operator, email, gname, timeout):
-        """Invite somebody to join the moderator squad for group gname.
         """
+        Invite L{email} to moderate group L{gname}.
 
+        The presence of ``match_user`` and ``match_user_email`` in the
+        response body indicates L{email} matches an existing account.
+
+        @type email: str
+        @param email:
+            Email to send invitation to.  If the email does not match
+            an existing account, ``match_user`` and ``match_user_email``
+            are omitted from the response.
+
+        @type gname: str
+        @param gname:
+            Name of group to invite L{email} to.
+
+        @type timeout: str
+        @param timeout:
+            Number of days until the invitation elapses.
+
+        @rtype: dict
+        @return:
+            "confirmation_key": <str>
+            "match_user": <Optional[str]>
+            "match_user_email": <Optional[str]>
+
+        @raises: CerebrumError
+            If timeout is shorter than one day, or exceeds
+            the maximum configured invite period defined by
+            ``cereconf.MAX_INVITE_PERIOD``.
+        """
         group = self._get_group(gname)
         self.ba.can_moderate_group(operator.get_entity_id())
         self.ba.can_change_moderators(operator.get_entity_id(),
                                       group.entity_id)
 
-        timeout = int(timeout)
-        if timeout < 1:
-            raise CerebrumError('Timeout too short')
-        if (timeout is not None and
-                DateTimeDelta(timeout) > cereconf.MAX_INVITE_PERIOD):
-            raise CerebrumError("Timeout too long")
+        if timeout is not None:
+            days = int(timeout)
+            if days < 1:
+                raise CerebrumError("Timeout too short")
+            elif DateTimeDelta(days) > cereconf.MAX_INVITE_PERIOD:
+                raise CerebrumError("Timeout too long")
 
-        ret = {}
-        ret['confirmation_key'] = self.vhutils.setup_event_request(
+        uuid = self.vhutils.setup_event_request(
             group.entity_id,
             self.clconst.va_group_moderator_add,
-            params={'inviter_id': operator.get_entity_id(),
-                    'group_id': group.entity_id,
-                    'invitee_mail': email,
-                    'timeout': timeout, })
-        # check if e-mail matches a valid username
+            params={"inviter_id": operator.get_entity_id(),
+                    "group_id": group.entity_id,
+                    "invitee_mail": email,
+                    "timeout": timeout})
+
+        # does email match an existing account?
         try:
             ac = self._get_account(email)
-            ret['match_user'] = ac.account_name
-            ret['match_user_email'] = self._get_email_address(ac)
+            match_user = ac.account_name
+            match_user_email = self._get_email_address(ac)
+            return {"confirmation_key": uuid,
+                    "match_user": ac.account_name,
+                    "match_user_email": self._get_email_address(ac)}
         except CerebrumError:
-            pass
-        return ret
+            return {"confirmation_key": uuid}
 
     #
     # group remove_moderator
@@ -1423,9 +1549,17 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         GroupName())
 
     def group_remove_moderator(self, operator, moderator, gname):
-        """L{group_invite_moderator}'s counterpart.
         """
+        Remove account as administrator of group.
 
+        @type moderator: <str>
+        @param moderator:
+            Account name of L{gname}'s moderator.
+
+        @type gname: <str>
+        @param gname:
+            Group name to remove L{moderator} from.
+        """
         group = self._get_group(gname)
         account = self._get_account(moderator)
 
@@ -1436,8 +1570,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         roles = GroupRoles(self.db)
         roles.remove_moderator_from_group(account.entity_id, group.entity_id)
 
-        return "OK, removed %s as moderator of %s" % (account.account_name,
-                                                      group.group_name)
+        return "OK, removed '%s' (id=%i) as moderator of '%s' (id=%i)" % (
+            account.account_name,
+            account.entity_id,
+            group.group_name,
+            group.entity_id)
 
     #
     # group invitee_user
@@ -1446,7 +1583,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         ("group", "invite_user"),
         EmailAddress(),
         GroupName(),
-        Integer(help_ref='invite_timeout'))
+        Integer(help_ref="invite_timeout"),
+        fs=FormatSuggestion(
+            "OK, user invitation pending confirmation\n"
+            "Use bofh command 'user confirm_request %s' to apply change",
+            ("confirmation_key",)
+        ))
 
     def group_invite_user(self, operator, email, gname, timeout):
         """Invite e-mail (or user) to join gname.
@@ -1578,19 +1720,25 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             Date(),
             PersonName(),
             PersonName(),
-            fs=FormatSuggestion("%12d %36s",
-                                ("entity_id",
-                                 "confirmation_key"),
-                                hdr="%12s %36s"
-                                % ("Account id", "Session key")))
+            fs=FormatSuggestion(
+                "OK, VirtAccount #%i creation pending confirmation\n"
+                "Use bofh command 'user confirm_request %s' to create",
+                ("entity_id", "confirmation_key"),
+            ),
+    )
 
-    def user_virtaccount_create(self, operator, account_name, email, password,
-                                expire_date=None,
-                                human_first_name=None, human_last_name=None):
-        """Create a VirtAccount in Cerebrum.
-
-        Create a new virtaccount instance in Cerebrum. Tag it with
-        VACCOUNT_UNCONFIRMED trait.
+    def user_virtaccount_create(
+        self,
+        operator,
+        account_name,
+        email,
+        password,
+        expire_date=None,
+        human_first_name=None,
+        human_last_name=None,
+    ):
+        """
+        Create a VirtAccount in Cerebrum and tag it with ``VACCOUNT_UNCONFIRMED``.
 
         @type email: basestring
         @param email:
@@ -1615,8 +1763,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
           (Optional) clear text password for this user to be used on login to
           VirtHome/Cerebrum. FIXME: Does it make sense to have the password
           *optional* ?
-        """
 
+        @rtype: dict
+        @return:
+            "entity_id": <int> ID of the new account.
+            "confirmation_key": <str> UUID to use for confirming the action.
+        """
         if password:
             self.__check_password(None, password, account_name)
         else:
@@ -1658,7 +1810,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     all_commands["user_fedaccount_create"] = Command(
         ("user", "fedaccount_create"),
         AccountName(),
-        SimpleString())
+        SimpleString(),
+        fs=FormatSuggestion("OK, FEDAccount with ID %i created", ("entity_id",)))
 
     def user_fedaccount_create(self, operator, account_name, email,
                                expire_date=None,
@@ -1693,6 +1846,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         @param password:
           (Optional) clear text password for this user to be used on login to
           VirtHome/Cerebrum.
+
+        @rtype: dict
+        @return:
+          "entity_id": <int> ID of the new account.
+          "confirmation_key": <str> Empty string.
         """
         self.ba.can_create_fedaccount(operator.get_entity_id())
         account_id = self.vhutils.create_fedaccount(
@@ -1863,18 +2021,19 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
     all_commands["spread_entity_list"] = Command(
         ("spread", "entity_list"),
         EntityType(default="account"),
-        Id())
+        Id(),
+        fs=FormatSuggestion("%s"))
 
     def spread_entity_list(self, operator, entity_type, entity_id):
-        """List all spreads FOR A SPECIFIC ENTITY
-
-        (See also L{spread_list})
         """
+        List all spreads for a specific entity, such as an account or group.
+        Available spreads can be viewed with L{spread_list}.
 
+        @rtype: List[str]
+        """
         entity = self._get_entity(entity_type, entity_id)
         self.ba.can_view_spreads(operator.get_entity_id(), entity.entity_id)
-        return [str(self.const.Spread(x["spread"]))
-                for x in entity.get_spread()]
+        return [str(self.const.Spread(x["spread"])) for x in entity.get_spread()]
 
     #
     # quarantine_add
@@ -1992,23 +2151,27 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
     # trait list
     #
     all_commands["trait_list"] = Command(
-        ("trait", "list"))
+        ("trait", "list"),
+        fs=FormatSuggestion(
+            "%-6i %-14s %-8s %s",
+            ("code", "code_str", "entity_type", "description"),
+            hdr="%-6s %-14s %-8s %s" % ("Code", "Name", "Type", "Description"),
+        ))
 
     def trait_list(self, operator):
-        """Display all traits available.
-
-        This may come in handy when presenting a user with a list of choices
-        for a trait, should this functionality be exposed to users at all.
         """
+        Display all available traits.
 
-        # This command is available to everybody
-        ret = list()
+        This is useful if presenting a user with a list of choices
+        for a trait.
+        """
+        ret = []
         for c in self.const.fetch_constants(self.const.EntityTrait):
             ret.append({
                 "code": int(c),
                 "code_str": str(c),
                 "entity_type": str(self.const.EntityType(c.entity_type)),
-                "description": c.description
+                "description": c.description,
             })
         return ret
 
@@ -2091,17 +2254,31 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
     all_commands["trait_show"] = Command(
         ("trait", "show"),
         EntityType(default="account"),
-        Id())
+        Id(),
+        fs=FormatSuggestion(
+            "%-5i %s", ("code", "date"),
+            hdr="%-5s %s" % ("Code", "Date"),
+        ))
 
     def trait_show(self, operator, entity_type, entity_id):
-        """Display traits set on the specified entity.
         """
-        # FIXME: We may want to process traits' strval here -- if it's a
-        # pickled value, it makes no sense sending the pickled value to the
-        # client (quite pointless, really).
+        Display traits set on the specified entity, e.g. an account or group.
+
+        @rtype: dict
+        @return:
+            "entity_id": int
+            "code": int
+            "strval": Optional[str]
+            "entity_type": int
+            "target_id": Optional[int]
+            "numval": Optional[int]
+            "date": datetime.datetime
+        """
+        # TODO: We may want to process traits' strval here:
+        # If it's a pickled value, it makes no sense sending the pickled value
+        # to the client (quite pointless, really).
         entity = self._get_entity(entity_type, entity_id)
-        self.ba.can_show_traits(operator.get_entity_id(),
-                                entity.entity_id)
+        self.ba.can_show_traits(operator.get_entity_id(), entity.entity_id)
         return entity.get_traits().values()
 
 
