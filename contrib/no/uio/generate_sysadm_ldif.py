@@ -96,9 +96,9 @@ def main(inargs=None):
               " (default: LDAP_ORG['max_change'])"),
         metavar='<percent>',
     )
-    parser.set_defaults({
-        'config_module': 'sysadm_ldap_conf',
-    })
+    parser.set_defaults(
+        config_module='sysadm_ldap_conf',
+    )
     Cerebrum.logutils.options.install_subparser(parser)
 
     args = parser.parse_args(inargs)
