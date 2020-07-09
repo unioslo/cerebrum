@@ -51,7 +51,8 @@ from __future__ import print_function, unicode_literals
 import datetime
 import logging
 
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, make_timer
+from Cerebrum.modules.Email import EmailTarget
 from Cerebrum.modules.no.OrgLDIF import norEduLDIFMixin
 
 
@@ -160,19 +161,32 @@ class SysAdmOrgLdif(norEduLDIFMixin):
             yield account
 
     def init_account_mail(self, use_mail_module):
-        super(SysAdmOrgLdif, self).init_account_mail(use_mail_module)
-
         if use_mail_module:
-            # use primary account email address as default email addr for
-            # sysadm account
+            timer = make_timer(logger,
+                               "Fetching primary account e-mail addresses...")
+            # cache all <uname>@uio.no email addresses
+            targets = EmailTarget(self.db).list_email_target_addresses
+            mail = {}
+            for row in targets(target_type=self.const.email_target_account,
+                               domain='uio.no', uname_local=True):
+                # Can only return username@uio.no so no need for any checks
+                mail[int(row['target_entity_id'])] = "@".join(
+                    (row['local_part'], row['domain']))
+
+            # Pick an appropriate email address for each account
+            self.account_mail = {}
             for account_id, pri_id in self._account_to_primary.items():
-                if account_id in self.account_mail:
-                    # we already have an email address for this sysadm account
-                    continue
-                if pri_id not in self.account_mail:
-                    # we don't have an email address for the primary account
-                    continue
-                self.account_mail[account_id] = self.account_mail[pri_id]
+                if pri_id in mail:
+                    self.account_mail[account_id] = mail[pri_id]
+                else:
+                    logger.warning('No email address for account_id=%d, '
+                                   'primary_account_id=%d', account_id, pri_id)
+            logger.info('found e-mail address for %d accounts',
+                        len(self.account_mail))
+
+            timer("...primary account e-mail addresses done.")
+        else:
+            self.account_mail = None
 
     @property
     def person_authn_levels(self):
