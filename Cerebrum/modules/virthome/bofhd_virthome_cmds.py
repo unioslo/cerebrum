@@ -307,11 +307,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                 'group': group.group_name,
                 'forward': forward, }
 
-    # 19.04.2013 TODO: What happens if multiple invitations are sent out for
-    #                  the same group? Apparently, the last one to confirm the
-    #                  request will end up as the owner. Is this the desired
-    #                  outcome? Or should all other invitations be invalidated
-    #                  when a request is confirmed?
+    # TODO(2013-04-19):
+    # What happens if multiple invitations are sent out for the same group?
+    # Apparently, the last one to confirm the request will end up as the owner.
+    # Is this the desired outcome?  Or should all other invitations be invalidated
+    # when a request is confirmed?
     def __process_admin_swap_request(self, issuer_id, event):
         """Perform the necessary magic associated with letting another account
         take over group adminship.
@@ -391,7 +391,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         assert event["change_type_id"] == self.clconst.va_password_recover
         assert len(rest) == 1
-        # FIXME: have a permission trap here for issuer_id?
+        # TODO: have a permission trap here for issuer_id?
         params = event["change_params"]
         assert params["account_id"] == event["subject_entity"]
         target = self._get_account(params["account_id"])
@@ -465,11 +465,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             pcl.remove_pending_log_event(magic_key)
 
         # A map of confirmation event types to actions.
+        # None means "simply delete the event".
         #
-        # None means "simply delete the event"
-        # FIXME: we should probably use callable as value, so that event
+        # TODO: we should probably use callable as value, so that event
         # processing can be delegated in a suitable fashion.
-        #
         all_events = {
             self.clconst.va_pending_create:
                 self.__process_new_account_request,
@@ -505,7 +504,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         feedback = all_events[event_type](issuer_id, event, *rest)
 
         # Delete the pending marker
-        # FIXME: Should this be request specific?
+        # TODO: Should this be request specific?
         delete_event(self.db, magic_key)
 
         return feedback
@@ -606,11 +605,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         This is very much akin to user_virtaccount_create +
         user_confirm_request.
 
-        TODO: What's the permission mask for this?
-
         @raises: CerebrumError
             If L{magic_key} is not a valid.
         """
+        # TODO: What's the permission mask for this?
 
         # If there is no request, this will throw an error back -- we need to
         # check that there actually *is* a request for joining a group behind
@@ -803,7 +801,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                         human_first_name, human_last_name)
         else:
 
-            # FIXME: If we allow None names here, should the names be updated
+            # TODO: If we allow None names here, should the names be updated
             # then?  We can't store NULL for None in the db schema, since it
             # does not allow it (non null constraint). What to do?
             account = self._get_account(account_name)
@@ -1061,7 +1059,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         account.extend_expire_date()
         account.write_db()
 
-        # FIXME: drop quarantines? If so, which ones?
+        # TODO: drop quarantines? If so, which ones?
         return "OK, password changed for user %s" % account.account_name
 
     #
@@ -1349,12 +1347,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         ))
 
     def group_list(self, operator, gname):
-        """List the content of group L{gname}.
-
-        FIXME: Do we want a cut-off for large groups?
-        FIXME: Do we want a permission hook here? (i.e. listing only the
-        groups where one is a member/moderator/admin)
-        """
+        """List the content of group L{gname}."""
+        # TODO: Do we want a cut-off for large groups?
+        # TODO: Do we want a permission hook here?
+        # (i.e. listing only the groups where one is a member/moderator/admin)
         group = self._get_group(gname)
         return self.vhutils.list_group_members(group, indirect_members=False)
 
@@ -1651,10 +1647,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                              "forward",)))
 
     def group_info(self, operator, gname):
-        """Fetch basic info about a specific group.
-
-        FIXME: No permission restrictions?
-        """
+        """Fetch basic info about a specific group."""
+        # TODO: No permission restrictions?
         group = self._get_group(gname)
         answer = {
             "group_name": group.group_name,
@@ -1763,7 +1757,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         @type password: basestring
         @param password:
           (Optional) clear text password for this user to be used on login to
-          VirtHome/Cerebrum. FIXME: Does it make sense to have the password
+          VirtHome/Cerebrum. TODO: Does it make sense to have the password
           *optional* ?
 
         @rtype: dict
@@ -1869,15 +1863,15 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         AccountName())
 
     def user_virtaccount_nuke(self, operator, uname):
-        """Nuke (completely) a VirtAccount from Cerebrum.
+        """
+        Nuke (completely) a VirtAccount from Cerebrum.
 
         Completely remove a VirtAccount from Cerebrum. This includes
         membershipts, traits, etc.
-
-        TBD: Coalesce into one command with user_fedaccount_nuke?
-        FIXME: if operator == uname, this fails, because there is a FK from
-        bofhd_session to account_info. This should be addressed.
         """
+        # TBD: Coalesce into one command with user_fedaccount_nuke?
+        # TODO: if operator == uname, this fails, because there is a FK from
+        # bofhd_session to account_info. This should be addressed.
         try:
             account = self.virtaccount_class(self.db)
             account.find_by_name(uname)
@@ -2051,7 +2045,7 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
     def quarantine_add(self, operator, entity_type, ident, qtype, why,
                        date_end):
         """Set a quarantine on an entity."""
-        # FIXME: factor out _parse*date*-methods from bofhd_uio_cmds.py
+        # TODO: factor out _parse*date*-methods from bofhd_uio_cmds.py
         date_end = strptime(date_end, "%Y-%m-%d")
         entity = self._get_entity(entity_type, ident)
         qconst = self.const.human2constant(qtype, self.const.Quarantine)
