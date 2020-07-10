@@ -31,30 +31,19 @@ import argparse
 import importlib
 import logging
 
-# Save default values of LDAP vars which cereconf will modify.
-# Must be done before anything imports cereconf.
-from Cerebrum import default_config as _d
-_save = map(dict.copy, (_d.LDAP, _d.LDAP_ORG, _d.LDAP_OU, _d.LDAP_PERSON))
-# Restore the default values to cereconf and default_config.
-import cereconf as _c
-(_c.LDAP, _c.LDAP_ORG, _c.LDAP_OU, _c.LDAP_PERSON) = \
-    (_d.LDAP, _d.LDAP_ORG, _d.LDAP_OU, _d.LDAP_PERSON) = _save
-del _c, _d, _save
-
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory, make_timer
 from Cerebrum.modules.OrgLDIF import OrgLdifConfig
+from Cerebrum.utils.module import make_class
 
 
 logger = logging.getLogger(__name__)
 
 
-def generate_dump(db, filename, max_change, use_mail_module):
-    config = OrgLdifConfig.get_default()
-    ldif = Factory.get('OrgLDIF')(db, config=config)
-
+def generate_dump(ldif, filename, max_change, use_mail_module):
     timer = make_timer(logger, 'Starting dump')
+    config = ldif.config
 
     outfile = config.org.start_outfile(filename=filename,
                                        max_change=max_change)
@@ -130,14 +119,19 @@ def main(inargs=None):
     # The following overrides some imported values from cereconf.
     logger.info('Importing module_name=%r', module_name)
     try:
-        importlib.import_module(module_name)
+        ldif_conf = importlib.import_module(module_name)
     except ImportError:
         logger.error("Unable to import module_name=%r", module_name,
                      exc_info=True)
         raise SystemExit("Invalid configuration module %r" % (module_name, ))
 
+    org_ldif_cls = make_class(ldif_conf.CLASS_ORGLDIF)
+    config = OrgLdifConfig.get_default(module=ldif_conf)
+
     db = Factory.get('Database')()
-    generate_dump(db, args.filename, args.max_change, args.use_mail_module)
+    ldif = org_ldif_cls(db, config=config)
+
+    generate_dump(ldif, args.filename, args.max_change, args.use_mail_module)
 
     logger.info("Done %s", parser.prog)
 
