@@ -1944,7 +1944,7 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         try:
             int(spread)
         except Errors.NotFoundError:
-            raise CerebrumError("No such spread %s")
+            raise CerebrumError("No such spread: %s" % spread)
         return spread
 
     #
