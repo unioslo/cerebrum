@@ -38,31 +38,33 @@ from mx.DateTime import strptime
 
 import cereconf
 
-from Cerebrum import Errors
-from Cerebrum import Entity
+from Cerebrum import Entity, Errors
 from Cerebrum.group.GroupRoles import GroupRoles
 from Cerebrum.modules.audit import bofhd_history_cmds
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
-from Cerebrum.modules.bofhd.cmd_param import AccountName
-from Cerebrum.modules.bofhd.cmd_param import Command
-from Cerebrum.modules.bofhd.cmd_param import Date
-from Cerebrum.modules.bofhd.cmd_param import EmailAddress
-from Cerebrum.modules.bofhd.cmd_param import EntityType
-from Cerebrum.modules.bofhd.cmd_param import FormatSuggestion
-from Cerebrum.modules.bofhd.cmd_param import GroupName
-from Cerebrum.modules.bofhd.cmd_param import Id
-from Cerebrum.modules.bofhd.cmd_param import Integer
-from Cerebrum.modules.bofhd.cmd_param import PersonName
-from Cerebrum.modules.bofhd.cmd_param import QuarantineType
-from Cerebrum.modules.bofhd.cmd_param import SimpleString
-from Cerebrum.modules.bofhd.cmd_param import Spread
+from Cerebrum.modules.bofhd.cmd_param import (
+    AccountName,
+    Command,
+    Date,
+    EmailAddress,
+    EntityType,
+    FormatSuggestion,
+    GroupName,
+    Id,
+    Integer,
+    PersonName,
+    QuarantineType,
+    SimpleString,
+    Spread,
+)
 from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum.modules.pwcheck.checker import (check_password,
-                                              PasswordNotGoodEnough,
-                                              RigidPasswordNotGoodEnough,
-                                              PhrasePasswordNotGoodEnough)
-from Cerebrum.modules.virthome.VirtAccount import FEDAccount
-from Cerebrum.modules.virthome.VirtAccount import VirtAccount
+from Cerebrum.modules.pwcheck.checker import (
+    check_password,
+    PasswordNotGoodEnough,
+    RigidPasswordNotGoodEnough,
+    PhrasePasswordNotGoodEnough,
+)
+from Cerebrum.modules.virthome.VirtAccount import FEDAccount, VirtAccount
 from Cerebrum.modules.virthome.base import VirthomeBase, VirthomeUtils
 from Cerebrum.modules.virthome.bofhd_auth import BofhdVirtHomeAuth
 from Cerebrum.utils import json
