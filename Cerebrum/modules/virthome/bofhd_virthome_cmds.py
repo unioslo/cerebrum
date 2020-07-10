@@ -101,22 +101,26 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
     @classmethod
     def get_help_strings(cls):
-        """Return a tuple of help strings for virthome bofhd.
+        """
+        Return a tuple of help strings for virthome bofhd.
 
-        The help strings drive dumb clients' (such as jbofh) interface. The
-        tuple values are dictionaries for (respectively) groups of commands,
-        commands and arguments.
+        The help strings drive the interface of dumb clients, such as jbofh.
+
+        The tuple values are dictionaries for (respectively)
+        groups of commands, commands, and arguments.
         """
         return ({}, {}, HELP_VIRTHOME_ARGS)
 
     def _get_account(self, identification, idtype=None):
-        """Return the most specific account type for 'identification'.
-
-        It could be either a generic Account, or a VirtAccount or a
-        FEDAccount.
         """
-        generic = super(BofhdVirthomeCommands,
-                        self)._get_account(identification, idtype)
+        Return the most specific account type for ``identification``.
+
+        It could be either a generic Account, a VirtAccount,
+        or a FEDAccount.
+        """
+        generic = super(BofhdVirthomeCommands, self)._get_account(
+            identification, idtype
+        )
         if generic.np_type == self.const.fedaccount_type:
             result = self.fedaccount_class(self.db)
             result.find(generic.entity_id)
@@ -125,18 +129,17 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             result.find(generic.entity_id)
         else:
             result = generic
-
         return result
 
     def _get_owner_name(self, account, name_type):
-        """Fetch human owner's name, if account is of the proper type.
+        """
+        Fetch human owner's name, if account is of the proper type.
 
-        For FA/VA return the human owner's name. For everything else return
-        None.
+        For FA/VA return the human owner's name,
+        for everything else return None.
 
-        @param account: account proxy or account_id.
-
-        @param name_type: which names to fetch
+        :param account: Account proxy or `account_id`.
+        :param name_type: Names of accounts to fetch.
         """
         if isinstance(account, six.integer_types):
             try:
@@ -145,18 +148,15 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                 return None
 
         owner_name = None
-        if account.np_type in (self.const.fedaccount_type,
-                               self.const.virtaccount_type):
+        if account.np_type in (self.const.fedaccount_type, self.const.virtaccount_type):
             owner_name = account.get_owner_name(name_type)
-
         return owner_name
 
     def _get_group_resource(self, group):
-        """Fetch a resource associated with group.
+        """
+        Fetch a resource associated with group.  This is typically a URL.
 
-        This is typically a URL.
-
-        @param group: group proxy or group_id.
+        :param group: Group proxy or `group_id`.
         """
         if isinstance(group, six.integer_types):
             try:
@@ -173,9 +173,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return resource
 
     def _get_email_address(self, account):
-        """Fetch account's e-mail address, if it exists.
+        """
+        Fetch account's e-mail address, if it exists.
 
-        @param account: See _get_owner_name.
+        :param account: See :func:`_get_owner_name`.
         """
         if isinstance(account, six.integer_types):
             try:
@@ -191,13 +192,13 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return email
 
     def __get_request(self, magic_key):
-        """Return decoded info about a request associated with L{magic_key}.
+        """Return decoded info about a request associated with `magic_key`.
         Raises an error if the request does not exist.
 
-        @type magic_key: str
-        @param magic_key: The confirmation key, or ID, of the event.
+        :type magic_key: str
+        :param magic_key: The confirmation key, or ID, of the event.
 
-        @rtype: dict
+        :rtype: dict
         """
         pcl = self.db
         try:
@@ -435,9 +436,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                 'date': target.expire_date.strftime('%Y-%m-%d'), }
 
     def __process_request_confirmation(self, issuer_id, magic_key, *rest):
-        """Perform the necessary magic when confirming a pending event.
-
-        Also, see __setup_request.
+        """
+        Perform the necessary magic when confirming a pending event.
 
         Naturally, processing each kind of confirmation is a function of the
         pending event. Events require no action other than deleting the
@@ -448,19 +448,20 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         types and be verbose about the failure, should we encounter an event
         that is unknown.
 
-        @type request_owner: int
-        @param request_owner:
-          entity_id of the account issuing the confirmation request. Yes, on
-          occasion this value is important.
+        See also :func:`__setup_request`.
 
-        @param magic_key:
-          request_id previously issued by vh bofhd that points to a request
-          with all the necessary information.
+        :type request_owner: int
+        :param request_owner:
+            `entity_id` of the account issuing the confirmation request.
+            Yes, on occasion this value is important.
 
-        @param *rest:
-          Whichever extra arguments a specific command requires.
+        :param magic_key:
+            `request_id` previously issued by vh bofhd that points to
+            a request with all the necessary information.
+
+        :param rest:
+            Whatever extra arguments a specific command requires.
         """
-
         def delete_event(pcl, magic_key):
             pcl.remove_pending_log_event(magic_key)
 
@@ -510,22 +511,23 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         return feedback
 
     def __check_password(self, account, password, uname=None):
-        """Assert that the password is of proper quality.
-
-        Throws a CerebrumError, if the password is too weak.
+        """
+        Assert that the password is of proper quality.
 
         This is a convenience function.
 
-        @param account:
-          Account proxy associated with the proper account or None. The latter
-          means that no password history will be checked.
+        :param account:
+            Account proxy associated with the proper account or None.
+            The latter means that no password history will be checked.
+        :param password:
+            Plaintext password to verify.
+        :param account_name:
+            Username to use for password checks.  This is useful
+            when creating a new account (``account`` does not exist,
+            but we need the username for password checks).
 
-        @param password: Plaintext password to verify.
-
-        @param account_name:
-          Username to use for password checks. This is useful when creating a
-          new account (L{account} does not exist, but we need the username for
-          password checks)
+        :raises CerebrumError:
+            If the password is too weak.
         """
         try:
             check_password(password, account, structured=False)
