@@ -63,6 +63,7 @@ INTEGER_TYPE = integer_types[-1]
 LEADER_GROUP_PREFIX = 'adm-leder-'
 
 MAIL_TO = 'cerebrum-drift@usit.uio.no'
+MAIL_CC = ['bnt-int@usit.uio.no']
 MAIL_SENDER = 'noreply@usit.uio.no'
 TEMPLATE = 'no_NO/email/possible_duplicate_person.txt'
 
@@ -1115,28 +1116,34 @@ def perform_delete(database, source_system, hr_person, cerebrum_person):
     logger.info('%r deleted', cerebrum_person.entity_id)
 
 
-def _check_possible_duplicate(hr_person, database, dryrun):
+def _mail_possible_duplicate(new_person, database, source_system, dryrun):
     """
     Look for possible duplicate of hr_person already existing.
     If found, and not in dryrun, send email.
     """
     co = Factory.get('Constants')(database)
     pe = Factory.get('Person')(database)
-    hr_name = ' '.join(name for _, name in hr_person.get('names'))
+    new_name = ' '.join(
+        new_person.get_name(source_system=source_system, variant=variant)
+        for variant in (co.name_first, co.name_last)
+    )
     possible_people = pe.search(
-        birth_date=str(hr_person.get('birth_date')),
+        birth_date=str(new_person.birth_date),
         name_variants=[co.name_full])
     for person in possible_people:
+        if person['entity_id'] == new_person.entity_id:
+            continue
         full_name = person['full_name']
-        if name_diff(hr_name.lower(), full_name.lower()) <= 2:
+        if name_diff(new_name.lower(), full_name.lower()) <= 2:
             substitute = {
-                'NEW_PERSON': hr_name,
-                'NEW_ID': hr_person.get('id'),
+                'NEW_PERSON': new_name,
+                'NEW_ID': new_person.entity_id,
                 'OLD_PERSON': full_name,
                 'OLD_ID': person['person_id']
             }
             mail_template(MAIL_TO, TEMPLATE, substitute=substitute,
-                          sender=MAIL_SENDER, debug=dryrun)
+                          sender=MAIL_SENDER, cc=MAIL_CC,
+                          debug=dryrun)
             return
 
 
@@ -1177,9 +1184,11 @@ def handle_person(database, source_system, url, datasource=get_hr_person,
             source_system=co.system_sap,
             entity_type=co.entity_person)
     if hr_person and (hr_person.get('affiliations') or hr_person.get('roles')):
-        if not cerebrum_person.entity_type: # entity_type indicates instance
-            _check_possible_duplicate(hr_person, database, dryrun)
+        new_person = not cerebrum_person.entity_type  # entity_type = instance
         perform_update(database, source_system, hr_person, cerebrum_person)
+        if new_person:
+            _mail_possible_duplicate(cerebrum_person, database,
+                                     source_system, dryrun)
     elif cerebrum_person.entity_type:  # entity_type as indication of instance
         perform_delete(database, source_system, hr_person, cerebrum_person)
     else:
