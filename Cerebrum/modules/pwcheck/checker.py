@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This module contains common tools for password checks. """
+
+"""This module contains common tools for password checks."""
 
 import cereconf
 
@@ -27,6 +28,8 @@ import gettext
 import os
 import string
 import sys
+
+import six
 
 
 locale_dir = getattr(cereconf,
@@ -38,7 +41,19 @@ gettext.install(gettext_domain, locale_dir, unicode=1)
 
 class PasswordNotGoodEnough(Exception):
     """Exception raised for insufficiently strong passwords."""
-    pass
+
+    def __init__(self, message):
+        # encode potential (Python 2) unicode types as byte strings
+        # to ensure str(T) does not raise UnicodeEncodeError
+        if six.PY2 and isinstance(message, six.text_type):
+            message = message.encode("utf-8")
+        super(PasswordNotGoodEnough, self).__init__(message)
+
+    def __unicode__(self):
+        # override BaseException.__unicode__() because:
+        # (1) BaseException.__str__() cannot be overridden
+        # (2) avoid double-decoding of unicode(T), which calls str(T)
+        return str(self).decode("utf-8")
 
 
 # Style specific exceptions

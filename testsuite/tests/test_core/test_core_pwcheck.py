@@ -9,9 +9,11 @@ import gettext
 import os
 
 import pytest
+import six
 
 from Cerebrum.modules.pwcheck import checker
 from Cerebrum.modules.pwcheck.checker import (
+    PasswordNotGoodEnough,
     PhrasePasswordNotGoodEnough,
     RigidPasswordNotGoodEnough,
 )
@@ -109,3 +111,10 @@ def bad_phrase_password_strings(request):
 def test_all_default_phrase_checks(cereconf_phrase, bad_phrase_password_strings):
     with pytest.raises(PhrasePasswordNotGoodEnough):
         checker.check_password(bad_phrase_password_strings)
+
+
+def test_exception_unicode():
+    message = six.text_type("æøå")
+    exc = PasswordNotGoodEnough(message)
+    assert six.text_type(exc) == message
+    assert str(exc) == message.encode("utf-8")
