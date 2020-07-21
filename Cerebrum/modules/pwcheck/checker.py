@@ -36,7 +36,7 @@ locale_dir = getattr(cereconf,
                      'GETTEXT_LOCALEDIR',
                      os.path.join(sys.prefix, 'share', 'locale'))
 gettext_domain = getattr(cereconf, 'GETTEXT_DOMAIN', 'cerebrum')
-gettext.install(gettext_domain, locale_dir, unicode=1)
+gettext.install(gettext_domain, locale_dir, unicode=True)
 
 
 class PasswordNotGoodEnough(Exception):
