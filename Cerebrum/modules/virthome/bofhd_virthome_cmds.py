@@ -529,14 +529,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         try:
             check_password(password, account, structured=False)
         except RigidPasswordNotGoodEnough as e:
-            raise CerebrumError('Password too weak: {err_msg}'.format(
-                err_msg=e))
+            raise CerebrumError("Password too weak: {}".format(e))
         except PhrasePasswordNotGoodEnough as e:
-            raise CerebrumError('Passphrase too weak: {err_msg}'.format(
-                err_msg=e))
+            raise CerebrumError("Passphrase too weak: {}".format(e))
         except PasswordNotGoodEnough as e:
-            raise CerebrumError('Password too weak: {err_msg}'.format(
-                err_msg=e))
+            raise CerebrumError("Password too weak: {}".format(e))
 
     #
     # user confirm_request
