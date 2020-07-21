@@ -132,29 +132,27 @@ def check_password(password, account=None, structured=False, checkers=None):
     errors = tree()
     requirements = tree()
 
+    fallback_lang = "en"
     for style, checks in checkers_dict.items():
         for check_name, check_args in checks:
-            for language in getattr(
-                    cereconf, 'GETTEXT_LANGUAGE_IDS', ('en',)):
+            for lang in getattr(cereconf, 'GETTEXT_LANGUAGE_IDS', (fallback_lang,)):
                 # load the language
                 gettext.translation(gettext_domain,
                                     localedir=locale_dir,
-                                    languages=[language, 'en']).install()
+                                    languages=[lang, fallback_lang]).install()
                 # instantiate password checker
                 check = _checkers[check_name](**check_args)
                 err = check.check_password(password, account=account)
                 # bail fast if we're not returning a structure
                 if not structured and err and pwstyle == style:
-                    ex_class = exception_classes.get(style,
-                                                     PasswordNotGoodEnough)
-                    # only the first error message it sent when exceptions
-                    # are raised
-                    raise ex_class(err[0])
+                    cls = exception_classes.get(style, PasswordNotGoodEnough)
+                    # use only the first message we received when raising exceptions
+                    raise cls(err[0])
                 if err:
-                    errors[(style, check_name)][language] = err
+                    errors[(style, check_name)][lang] = err
                 else:
                     errors[(style, check_name)] = None
-                requirements[(style, check_name)][language] = check.requirement
+                requirements[(style, check_name)][lang] = check.requirement
 
     if not structured:
         return True
