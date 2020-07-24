@@ -18,11 +18,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 """
 This program collects mobile_numbers from Difi's 'Kontakt- og
 reservasjonssregister' for all persons in the given Paga file and
 populates entity_contact_info table in Cerebrum.
 """
+
 from __future__ import print_function
 
 import argparse
@@ -33,40 +35,31 @@ import sys
 import urllib2
 
 import Cerebrum.logutils
-import phonenumbers
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, read_password
+from Cerebrum.utils import phone
 from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.Utils import Factory, read_password
+
 
 national_identity_column = 0
 
 logger = logging.getLogger(__name__)
 
 
-def format_e164(number, country_code="NO"):
+def format_e164(number, region="NO"):
     """
-    Takes a phone number as input and returns it in E.164 format.
-
-    - Returns valid phone numbers on the E.164 format
-    ("+<Country code><phone number>").
-    - Returns None if there is a problem when parsing the number.
-
-    :param string number:
-        Phone number to convert.
-    :param string country_code:
-        Country code to use as default. Default value is 'NO'
+    Takes a putative phone number and returns it in E.164 format.
+    Returns `None` if it is not a parsable or valid phone number.
     """
     try:
-        res = phonenumbers.parse(number, country_code)
-    except phonenumbers.phonenumberutil.NumberParseException as e:
-        logger.warning("Problem when parsing %r: %s", number, e)
+        numobj = phone.parse(number, region=region)
+    except phone.NumberParseException as e:
+        logger.warning("Not a phone number: %r: %s", number, e)
         return None
-
-    if phonenumbers.is_possible_number(res):
-        return phonenumbers.format_number(
-            res, phonenumbers.PhoneNumberFormat.E164)
+    if phone.is_valid(numobj):
+        return phone.format(numobj)
     else:
-        logger.warning("'%s' is not an accepted number", number)
+        logger.warning("Invalid phone number: %r", number)
         return None
 
 
