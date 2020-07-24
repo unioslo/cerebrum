@@ -23,8 +23,11 @@ dersom man skal ha kode for en spesifik FS-versjon.
 
 Disse klassene er ment brukt ved å instansiere klassen FS
 """
+
 from __future__ import unicode_literals
+
 import cereconf
+
 import time
 import xml.sax
 import collections
@@ -32,9 +35,8 @@ import operator
 
 from Cerebrum import database as Database
 from Cerebrum import Errors
+from Cerebrum.utils import phone
 from Cerebrum.Utils import Factory, dyn_import
-
-import phonenumbers
 
 
 # A tuple to hold the version number
@@ -751,35 +753,43 @@ class Person(FSObject):
         # 'KONTAKT': [('soknad', 'kontakt')] ,
     }
 
-    def _phone_to_country(self, country, phone):
-        if phone is None:
+    # TODO(andretol): CRB-3230
+    def _phone_to_country(self, country, number):
+        if number is None:
             return None, None
-        if phone.startswith('+'):
-            p = phonenumbers.parse(phone)
+        if number.startswith("+"):
+            p = phone.parse(number)
             num = str(p.national_number)
             if p.country_code == 47 and len(num) > 8:
-                raise ValueError("FS doesn't allow more than 8 digits in "
-                                 "Norwegian phone numbers")
+                raise ValueError(
+                    "FS doesn't allow more than 8 digits in "
+                    "Norwegian phone numbers"
+                )
             return str(p.country_code), num
-        elif phone.startswith('00'):
+        elif number.startswith("00"):
             # TODO: Should we do this?
-            p = phonenumbers.parse('+' + phone[2:])
+            p = phone.parse("+" + number[2:])
             num = str(p.national_number)
             if p.country_code == 47 and len(num) > 8:
-                raise ValueError("FS doesn't allow more than 8 digits in "
-                                 "Norwegian phone numbers")
+                raise ValueError(
+                    "FS doesn't allow more than 8 digits in "
+                    "Norwegian phone numbers"
+                )
             return str(p.country_code), num
-        elif country is None or country == '47':
-            p = phonenumbers.parse(phone, region='NO')
+        elif country is None or country == "47":
+            p = phone.parse(number, region="NO")
             num = str(p.national_number)
             if len(num) > 8:
-                raise ValueError("FS doesn't allow more than 8 digits in "
-                                 "Norwegian phone numbers")
+                raise ValueError(
+                    "FS doesn't allow more than 8 digits in "
+                    "Norwegian phone numbers"
+                )
             return str(p.country_code), num
         else:
-            p = phonenumbers.parse(phone,
-                                   region=phonenumbers.
-                                   region_code_for_country_code(int(country)))
+            p = phone.parse(
+                number,
+                region=phone.country2region(int(country)),
+            )
             return str(p.country_code), str(p.national_number)
 
 

@@ -46,7 +46,6 @@ import argparse
 import logging
 import sys
 import traceback
-from phonenumbers import NumberParseException
 import six
 
 import Cerebrum.logutils.options
@@ -54,6 +53,7 @@ import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.access_FS import make_fs
+from Cerebrum.utils import phone
 from Cerebrum.utils.argutils import get_constant
 from Cerebrum.utils.funcwrap import memoize
 from Cerebrum.Utils import Factory
@@ -806,7 +806,7 @@ class HR2FSSyncer(object):
                 self.fs.person.update_telephone(person_data.fnr6,
                                                 person_data.pnr, phone_type,
                                                 nr)
-        except (ValueError, NumberParseException) as e:
+        except (ValueError, phone.NumberParseException) as e:
             logger.warn("Could not set phone (%r) for person_id=%r to %r: %r",
                         phone_type, person_id, nr, e)
 
