@@ -272,10 +272,15 @@ class ConstantsHigherEdu(Constants.Constants):
         'Automatic group - collection of groups processed by ifi-auto.py'
     )
 
-    # group types for fs edu groups
+    # group type for fs edu groups
     group_type_edu_meta = _GroupTypeCode(
         'edu-meta-group',
         'Automatic group - collection of FS edu groups')
+
+    # group type for study program groups
+    group_type_study_program = _GroupTypeCode(
+        'study-program-group',
+        'Automatic group - groups mirroring study programs from FS')
 
 
 class ConstantsUniversityColleges(Constants.Constants):
