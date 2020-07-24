@@ -224,7 +224,7 @@ def parse_contacts(d):
     :return: A tuple with the fields that should be updated"""
     logger.info('parsing contacts')
     co = Factory.get('Constants')
-    # TODO: Validate/clean numbers with phonenumbers?
+    # TODO: Validate/clean numbers with Cerebrum.utils.phone?
     m = {'workPhone': co.contact_phone,
          'workMobile': co.contact_mobile_phone,
          'privateMobile': co.contact_private_mobile,
