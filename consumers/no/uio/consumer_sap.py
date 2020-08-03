@@ -1116,17 +1116,14 @@ def perform_delete(database, source_system, hr_person, cerebrum_person):
     logger.info('%r deleted', cerebrum_person.entity_id)
 
 
-def _mail_possible_duplicate(new_person, database, source_system, dryrun):
+def _mail_possible_duplicate(hr_person, new_person, database, source_system, dryrun):
     """
     Look for possible duplicate of hr_person already existing.
     If found, and not in dryrun, send email.
     """
     co = Factory.get('Constants')(database)
     pe = Factory.get('Person')(database)
-    new_name = ' '.join(
-        new_person.get_name(source_system=source_system, variant=variant)
-        for variant in (co.name_first, co.name_last)
-    )
+    new_name = ' '.join(name for _, name in hr_person.get('names'))
     possible_people = pe.search(
         birth_date=str(new_person.birth_date),
         name_variants=[co.name_full])
