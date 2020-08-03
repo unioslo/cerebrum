@@ -802,7 +802,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                        indirect_members=False,
                        member_spread=None,
                        member_filter_expired=True,
-                       include_member_entity_name=False):
+                       include_member_entity_name=False,
+                       group_type=None):
         """Search for group *MEMBERS* satisfying certain criteria.
 
         This method is a complement of L{search}. While L{search} returns
@@ -1087,6 +1088,16 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                   {cases}
                   END
                 """.format(cases="\n".join(case)))
+
+        if group_type is not None:
+            tables.append(
+                """
+                  LEFT OUTER JOIN [:table schema=cerebrum name=group_info] grp
+                  ON tmp1.group_id = grp.group_id
+                """
+            )
+            where.append(
+                argument_to_sql(group_type, "grp.group_type", binds, int))
 
         query_str = """
           SELECT DISTINCT {columns}
