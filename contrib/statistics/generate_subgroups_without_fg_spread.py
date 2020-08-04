@@ -25,7 +25,6 @@ without filegroup-spread
 
 import argparse
 import logging
-import sys
 from time import time as now
 
 from jinja2 import Environment
@@ -43,8 +42,7 @@ template = u"""
 <!DOCTYPE html>
 <html>
   <head>
-    <meta http-equiv="Content-Type"
-          content="text/html; charset={{ encoding | default('utf-8') }}">
+    <meta charset={{ encoding | default('utf-8') }}">
     <title>Filegroups containing subgroups without fg-spread</title>
     <style type="text/css">
       /* <![CDATA[ */
@@ -65,7 +63,7 @@ template = u"""
         text-align: left;
       }
       table thead {
-        border-bottom: solid gray 1px;
+        border-bottom: 1px solid gray;
       }
       table th, table td {
         padding: .5em 1em;
@@ -96,7 +94,7 @@ template = u"""
         </tr>
       </thead>
 
-    {% for item in group.list | sort(attribute='filegroup') %}
+    {% for item in group.list %}
       <tr>
         <td>
         {% if loop.changed(group) %}
@@ -208,6 +206,8 @@ def generate_html_report(file, codec, groups, num_fgroups):
 
 
 DEFAULT_ENCODING = 'utf-8'
+DEFAULT_FORMAT = 'html'
+FORMATS = {'html', 'csv'}
 
 
 def main(inargs=None):
@@ -217,48 +217,43 @@ def main(inargs=None):
         metavar='FILE',
         type=argparse.FileType('w'),
         default='-',
-        help='output file for html report, defaults to stdout')
+        help='output file for the report, defaults to stdout')
     parser.add_argument(
         '-e', '--encoding',
         dest='codec',
         default=DEFAULT_ENCODING,
         type=codec_type,
-        help="output file encoding, defaults to %(default)s")
+        help='output file encoding (default: %(default)s)')
     parser.add_argument(
-        '--csv',
-        metavar='FILE',
-        type=argparse.FileType('w'),
-        default=None,
-        help='output file for csv report, if wanted')
+        '--format',
+        choices=FORMATS,
+        default=DEFAULT_FORMAT,
+        help='format of the report (default: %(default)s)')
     parser.add_argument(
         '--filter-expired',
         action='store_true',
         dest='filter',
-        help='do not include expired groups in report'
-    )
+        help='do not include expired groups in report')
+
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf('cronjob', args)
 
     logger.info('Reporting filegroups containing subgroups without fg-spread')
+    logger.debug('args: %r', args)
 
     start = now()
     db = Factory.get('Database')()
     groups = list(find_subgroups_without_mail_spread(db, args.filter))
     num_fgroups = len(set(g['filegroup'] for g in groups))
-    generate_html_report(args.file, args.codec, groups, num_fgroups)
 
-    args.file.flush()
-    if args.file is not sys.stdout:
-        args.file.close()
-    logger.info('HTML report written to %s', args.file.name)
-
-    if args.csv:
-        generate_csv_report(args.csv, args.codec, sorted(groups), num_fgroups)
-        args.csv.flush()
-        if args.csv is not sys.stdout:
-            args.csv.close()
-        logger.info('CSV report written to %s', args.csv.name)
+    with args.file as file:
+        if args.format == 'html':
+            generate_html_report(file, args.codec, sorted(groups), num_fgroups)
+            logger.info('HTML report written to %s', file.name)
+        if args.format == 'csv':
+            generate_csv_report(file, args.codec, sorted(groups), num_fgroups)
+            logger.info('CSV report written to %s', file.name)
 
     logger.info('Report generated in %.2fs', now() - start)
     logger.info('Done with script %s', parser.prog)
