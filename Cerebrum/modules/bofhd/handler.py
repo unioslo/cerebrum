@@ -18,7 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Request handler for bofhd.
+
+"""
+Request handler for bofhd.
 
 Configuration
 -------------
@@ -70,8 +72,10 @@ moved to a separate module after:
     Date:  Fri Mar 18 10:34:58 2016 +0100
 
 """
+
 import cereconf
 
+import collections
 import io
 import socket
 import warnings
@@ -81,15 +85,19 @@ from xml.parsers.expat import ExpatError
 
 import six
 
-from Cerebrum import Errors
-from Cerebrum import QuarantineHandler
-from Cerebrum import https
+from Cerebrum import (
+    Errors,
+    QuarantineHandler,
+    https,
+)
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import statsd
-from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum.modules.bofhd.errors import ServerRestartedError
-from Cerebrum.modules.bofhd.errors import SessionExpiredError
-from Cerebrum.modules.bofhd.errors import UnknownError
+from Cerebrum.modules.bofhd.errors import (
+    CerebrumError,
+    ServerRestartedError,
+    SessionExpiredError,
+    UnknownError,
+)
 from Cerebrum.modules.bofhd.session import BofhdSession
 from Cerebrum.modules.bofhd.xmlutils import xmlrpc_to_native, native_to_xmlrpc
 
@@ -230,24 +238,23 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                              exc_to_text(e), format_addr(self.client_address))
             self.close_connection = 1
 
-    def _send_response(self, http_code, response):
-        """ write xml headers and response. """
-        if response:
+    def _send_response(self, http_code, body):
+        """Encode and transmit response body across wire."""
+        payload = None
+        if body is not None:
             try:
-                response = xmlrpclib.dumps(response, methodresponse=True)
+                payload = xmlrpclib.dumps((body,), methodresponse=True)
             except:
-                self.logger.error('Unable to generate XML response',
-                                  exc_info=True)
+                self.logger.error('Unable to generate XML response', exc_info=True)
                 http_code = 500
-                response = None
 
         self.send_response(http_code)
-        if response:
+        if payload is not None:
             self.send_header('Content-Type', 'text/xml')
-            self.send_header('Content-Length', str(len(response)))
+            self.send_header('Content-Length', str(len(payload)))
         self.end_headers()
-        if response:
-            self.wfile.write(response)
+        if payload is not None:
+            self.wfile.write(payload)
         self.wfile.flush()
 
     @staticmethod
@@ -314,7 +321,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             try:
                 # wrap response in a singleton tuple
                 self.logger.debug('dispatch, method=%r', method)
-                response = (self._dispatch(method, params), )
+                response = self._dispatch(method, params)
             except CerebrumError as e:
                 response = xmlrpclib.Fault(1, self._format_xmlrpc_fault(e))
             except Exception as e:
