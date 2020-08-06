@@ -90,6 +90,7 @@ from Cerebrum import (
     QuarantineHandler,
     https,
 )
+from Cerebrum.utils import unicodestring
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import statsd
 from Cerebrum.modules.bofhd.errors import (
@@ -239,10 +240,12 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             self.close_connection = 1
 
     def _send_response(self, http_code, body):
-        """Encode and transmit response body across wire."""
+        """Serialize, encode, and transmit response body across wire."""
         payload = None
         if body is not None:
             try:
+                body = self._serialize(body)
+                # responses are identified by single-value tuple
                 payload = xmlrpclib.dumps((body,), methodresponse=True)
             except:
                 self.logger.error('Unable to generate XML response', exc_info=True)
@@ -256,6 +259,33 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         if payload is not None:
             self.wfile.write(payload)
         self.wfile.flush()
+
+    @staticmethod
+    def _serialize(obj):
+        """
+        Sanitize response for display in terminal emulators.
+
+        Not all database values have been sanitised prior to insertion
+        and may therefore contain code points that are harmful to
+        display in a terminal emulator.
+
+        One example is "abc\x08" (backspace) which effectively
+        causes data corruption because its rendered value is "ab".
+        Further, certain control sequence characters causes the
+        XML-RPC encoding to break.
+
+        This will remove all control sequence characters in all
+        string values that are not used for purposes of layout such
+        as tabular, carriage return, and line feed.
+        """
+        if isinstance(obj, six.string_types):
+            s = six.text_type(obj)
+            return unicodestring.strip_control_characters(s, exclude="\t\r\n")
+        elif isinstance(obj, dict):
+            return {k: BofhdRequestHandler._serialize(v) for k, v in obj.items()}
+        elif isinstance(obj, collections.Iterable):
+            return [BofhdRequestHandler._serialize(x) for x in obj]
+        return obj
 
     @staticmethod
     def _format_xmlrpc_fault(exc):
@@ -319,7 +349,6 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         # XML-RPC structure is decoded and valid, try to dispatch
         try:
             try:
-                # wrap response in a singleton tuple
                 self.logger.debug('dispatch, method=%r', method)
                 response = self._dispatch(method, params)
             except CerebrumError as e:
