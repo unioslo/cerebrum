@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2007-2019 University of Oslo, Norway
+#
+# Copyright 2007-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -34,10 +35,11 @@ History
 kbj005 2015.02.11: copied from /home/cerebrum/cerebrum/contrib/no/uio
 """
 from __future__ import unicode_literals
+
 import argparse
 import logging
 import os
-import cPickle as pickle
+import cPickle as pickle  # noqa: N813
 
 from collections import defaultdict
 
@@ -56,10 +58,14 @@ logger = logging.getLogger(__name__)
 
 
 def dump_ldif(db, root_dn, file_handle):
+    """
+    Generate LDIF and return a dict of group memberships (person -> groups)
+    """
     co = Factory.get('Constants')(db)
     group = Factory.get('Group')(db)
     ac = Factory.get('Account')(db)
 
+    # Generate the LDIF
     logger.debug('Processing groups...')
     group_to_dn = {}
     for row in group.search(spread=co.spread_ldap_group):
@@ -74,18 +80,25 @@ def dump_ldif(db, root_dn, file_handle):
 
     logger.debug('Caching account ownership...')
     account_to_owner = {}
-    for row in ac.search(expire_start=None, expire_stop=None):
-        # TODO: Should prpbably filter out accounts without owner_type=person?
+    for row in ac.search(expire_start=None,
+                         expire_stop=None,
+                         owner_type=co.entity_person):
         account_to_owner[row['account_id']] = row['owner_id']
 
     logger.debug('Processing group memberships...')
     member_to_group = defaultdict(list)
     for row in group.search_members(spread=co.spread_ldap_group,
                                     member_type=co.entity_account):
+
         if row['member_id'] not in account_to_owner:
             continue
-        owner_id = account_to_owner[int(row['member_id'])]
-        member_to_group[owner_id].append(group_to_dn[row['group_id']])
+        owner_id = account_to_owner[row['member_id']]
+
+        if row['group_id'] not in group_to_dn:
+            continue
+        dn = group_to_dn[row['group_id']]
+
+        member_to_group[owner_id].append(dn)
 
     return dict(member_to_group)
 
