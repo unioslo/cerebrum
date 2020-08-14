@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2007-2018 University of Oslo, Norway
+#
+# Copyright 2007-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,94 +18,126 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-""" Generate a group tree for LDAP.
-
-This script takes the following arguments:
-
--h, --help : this message
---picklefile fname : pickle file with group memberships
---ldiffile fname : LDIF file with the group tree
 """
+Generate a group tree for LDAP.
 
+This is a 'helper' script to add groups to an org-ldif script.  The idea is to:
+
+1. Export groups with a given ldap spread to its own dn (typically
+   "cn=groups,dc=<org>,dc=no") with basic information.
+2. Export a group membership dict to a pickle-file.  This dict maps <person-id>
+   to a list of group dn strings.
+3. A separate org-ldif mixin (if present) reads the pickle file and adds group
+   memberships to each exported person.
+"""
 from __future__ import unicode_literals
 
-import getopt
+import argparse
+import logging
 import os
-import sys
-import cPickle as pickle
+import cPickle as pickle  # noqa: N813
 
 from collections import defaultdict
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.LDIFutils import (ldapconf,
-                                        entry_string,
-                                        ldif_outfile,
-                                        end_ldif_outfile,
-                                        container_entry_string)
+from Cerebrum.modules.LDIFutils import (
+    container_entry_string,
+    end_ldif_outfile,
+    entry_string,
+    ldapconf,
+    ldif_outfile,
+)
 
-logger = Factory.get_logger("cronjob")
-db = Factory.get('Database')()
-ac = Factory.get('Account')(db)
-co = Factory.get('Constants')(db)
-group = Factory.get('Group')(db)
-
-mbr2grp = defaultdict(set)
-top_dn = ldapconf('GROUP', 'dn')
+logger = logging.getLogger(__name__)
 
 
-def dump_ldif(file_handle):
-    group2dn = {}
+def dump_ldif(db, root_dn, file_handle):
+    """
+    Generate LDIF and return a dict of group memberships (person -> groups)
+    """
+    co = Factory.get('Constants')(db)
+    group = Factory.get('Group')(db)
+    ac = Factory.get('Account')(db)
+
+    # Generate the LDIF
+    logger.debug('Processing groups...')
+    group_to_dn = {}
     for row in group.search(spread=co.spread_ldap_group):
-        dn = ("cn={},{}".format(row['name'], top_dn))
-        group2dn[row['group_id']] = dn
-        file_handle.write(entry_string(dn, {
-            'objectClass': ("top", "hiofGroup"),
-            'description': (row['description'],),
-        }))
-    for group_id, group_dn in group2dn.items():
+        dn = "cn={},{}".format(row['name'], root_dn)
+        group_to_dn[row['group_id']] = dn
+        file_handle.write(entry_string(
+            dn,
+            {
+                'objectClass': ("top", "hiofGroup"),
+                'description': (row['description'],),
+            }))
+
+    logger.debug('Processing group memberships...')
+    member_to_group = defaultdict(set)
+    for group_id, group_dn in group_to_dn.items():
         for mbr in group.search_members(group_id=group_id,
                                         indirect_members=True,
                                         member_type=(co.entity_person,
                                                      co.entity_account)):
             if mbr['member_type'] == co.entity_person:
-                mbr2grp[int(mbr["member_id"])].add(group_dn)
+                member_to_group[int(mbr["member_id"])].add(group_dn)
             elif mbr['member_type'] == co.entity_account:
                 ac.clear()
                 ac.find(mbr['member_id'])
                 if ac.owner_type != co.entity_person:
                     continue
-                mbr2grp[int(ac.owner_id)].add(group_dn)
+                member_to_group[int(ac.owner_id)].add(group_dn)
+
+    return dict(member_to_group)
 
 
-def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'h', [
-            'help', 'ldiffile=', 'picklefile='])
-    except getopt.GetoptError:
-        usage(1)
-    for opt, val in opts:
-        if opt in ('--help',):
-            usage()
-        elif opt in ('--picklefile',):
-            picklefile = val
-        elif opt in ('--ldiffile',):
-            ldiffile = val
-    if not (picklefile and ldiffile) or args:
-        usage(1)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description="Generate a group tree for LDAP",
+    )
+    parser.add_argument(
+        '--ldiffile',
+        help='Write groups to the ldif-file %(metavar)',
+        metavar='file',
+    )
+    parser.add_argument(
+        '--picklefile',
+        help='Write group memberships to the pickle-file %(metavar)s',
+        metavar='file',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
 
+    args = parser.parse_args(inargs)
+    if not any((args.ldiffile, args.picklefile)):
+        parser.error('Must use --ldiffile or --picklefile')
+
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info('Start %s', parser.prog)
+    logger.debug('args: %r', args)
+
+    ldiffile = args.ldiffile
+    picklefile = args.picklefile
+
+    db = Factory.get('Database')()
+    dn = ldapconf('GROUP', 'dn')
+
+    logger.info('Generating LDIF...')
     destfile = ldif_outfile('GROUP', ldiffile)
     destfile.write(container_entry_string('GROUP'))
-    dump_ldif(destfile)
+    mbr2grp = dump_ldif(db, dn, destfile)
     end_ldif_outfile('GROUP', destfile)
+    logger.info('Wrote LDIF to %r', ldiffile)
+
+    logger.info('Generating pickle dump...')
     tmpfname = picklefile + '.tmp'
     pickle.dump(mbr2grp, open(tmpfname, 'wb'), pickle.HIGHEST_PROTOCOL)
     os.rename(tmpfname, picklefile)
+    logger.info('Wrote pickle file to %r', picklefile)
 
-
-def usage(exitcode=0):
-    print __doc__
-    sys.exit(exitcode)
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == '__main__':

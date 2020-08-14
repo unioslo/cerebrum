@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 2007-2019 University of Oslo, Norway
+#
+# Copyright 2007-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,10 +31,11 @@ This is a 'helper' script to add groups to an org-ldif script.  The idea is to:
    memberships to each exported person.
 """
 from __future__ import unicode_literals
+
 import argparse
 import logging
 import os
-import cPickle as pickle
+import cPickle as pickle  # noqa: N813
 
 from collections import defaultdict
 
@@ -52,9 +54,13 @@ logger = logging.getLogger(__name__)
 
 
 def dump_ldif(db, root_dn, file_handle):
+    """
+    Generate LDIF and return a dict of group memberships (person -> groups)
+    """
     co = Factory.get('Constants')(db)
     group = Factory.get('Group')(db)
 
+    # Generate the LDIF
     logger.debug('Processing groups...')
     group_to_dn = {}
     for row in group.search(spread=co.spread_ldap_group):
