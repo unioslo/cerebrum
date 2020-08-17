@@ -21,7 +21,12 @@ This module contains classes for holding information about a person from
 an HR system.
 """
 
-class HRPerson:
+
+class HRPerson(object):
+    """
+    Main class for holding all information that Cerebrum should need
+    about a person from an HR system
+    """
 
     def __init__(self, hr_id, first_name, last_name, date_of_birth,
                  gender, reserved, source_system):
@@ -50,7 +55,8 @@ class HRPerson:
         self.affiliations = []   # list of HRAffiliation
 
 
-class HRContactInfo:
+class HRContactInfo(object):
+    """Class with contact info matching entity_contact_info"""
 
     def __init__(self, contact_type, contact_pref,
                  contact_value):
@@ -64,7 +70,8 @@ class HRContactInfo:
         self.contact_value = contact_value
 
 
-class HRAddress:
+class HRAddress(object):
+    """Class with info about an address matching, entity_address"""
 
     def __init__(self, address_type, city, postal_code, address_text):
         """
@@ -80,7 +87,8 @@ class HRAddress:
         self.address_text = address_text
 
 
-class HRExternalID:
+class HRExternalID(object):
+    """Class with info about an external_id, matching entity_external_id"""
 
     def __init__(self, id_type, external_id):
         """
@@ -91,7 +99,8 @@ class HRExternalID:
         self.external_id = external_id
 
 
-class HRTitle:
+class HRTitle(object):
+    """Class with info about a title, matching entity_language_name"""
 
     def __init__(self, name_variant, name_language, name):
         """
@@ -104,7 +113,11 @@ class HRTitle:
         self.name = name
 
 
-class HRAffiliation:
+class HRAffiliation(object):
+    """
+    Class with info about an affiliation, matching person_affiliation_source
+    (and person_affiliation)
+    """
 
     def __init__(self, ou_id, affiliation, status, precedence):
         """
