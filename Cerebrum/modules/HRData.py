@@ -46,7 +46,6 @@ class HRPerson:
         self.external_ids = []   # list of HRExternalID
         self.contact_infos = []  # list of HRContactInfo
         self.adddresses = []     # list of HRAddress
-        self.roles = []          # list of HRRole
         self.titles = []         # list of HRTitle
         self.affiliations = []   # list of HRAffiliation
 
@@ -118,14 +117,3 @@ class HRAffiliation:
         self.affiliation = affiliation
         self.status = status
         self.precedence = precedence
-
-
-class HRRole(HRAffiliation):
-
-    def __init__(self, ou_id, affiliation, status):
-        """
-        :param ou_id: ID of the ou where the role belongs
-        :param affiliation: Person affiliation code constant
-        :param status: Status code constant
-        """
-        super(HRRole, self).__init__(ou_id, affiliation, status, None)
