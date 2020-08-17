@@ -94,7 +94,7 @@ class BofhdWofhCommands(BofhdCommonMethods):
 
         try:
             person.find(operator.get_owner_id())
-        except Errors.NotFoundError as e:
+        except Errors.NotFoundError:
             # Operator is not a person.
             return None
 
@@ -132,13 +132,13 @@ class BofhdWofhCommands(BofhdCommonMethods):
                 account.clear()
                 try:
                     person.find(aff['person_id'])
-                except Errors.NotFoundError as e:
+                except Errors.NotFoundError:
                     # Person missing, db inconsistency.. Skipping.
                     continue
                 try:
                     account.find(person.get_primary_account())
                     guest['uname'] = account.account_name
-                except Errors.NotFoundError as e:
+                except Errors.NotFoundError:
                     guest['uname'] = ''
 
                 if aff['deleted_date']:
