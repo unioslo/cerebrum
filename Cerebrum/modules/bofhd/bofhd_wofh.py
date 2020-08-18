@@ -20,8 +20,10 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """This is a bofhd module for commands required by WOFH/brukerinfo."""
 
+import mx.DateTime
 from six import text_type
 
+from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.group.memberships import GroupMemberships
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -36,7 +38,7 @@ class BofhdWofhCommands(BofhdCommonMethods):
     authz = BofhdAuth
 
     #
-    # group all_account_memberships
+    # wofh all_account_memberships
     #
     hidden_commands['wofh_all_group_memberships'] = Command(
         ('wofh', 'all_group_memberships'),
@@ -71,3 +73,80 @@ class BofhdWofhCommands(BofhdCommonMethods):
              }
             for row in group_memberships.get_groups(
                 member_id)]
+
+    #
+    # wofh guests
+    #
+    hidden_commands['wofh_get_guests'] = Command(
+        ('wofh', 'get_guests')
+    )
+
+    def wofh_get_guests(self, operator):
+        """
+        Hidden command used by brukerinfo/WOFH.
+
+        Returns a list of "guests" at the operators departments.
+        """
+        person = Utils.Factory.get('Person')(self.db)
+        account = Utils.Factory.get('Account')(self.db)
+        ou = Utils.Factory.get('OU')(self.db)
+
+        try:
+            person.find(operator.get_owner_id())
+        except Errors.NotFoundError:
+            # Operator is not a person.
+            return None
+
+        # Get all OUs where the operator is employed.
+        ou_ids = []
+        for aff in person.get_affiliations():
+            if (self.const.AuthoritativeSystem(aff['source_system']) ==
+                    self.const.system_sap and
+                    self.const.PersonAffiliation(aff['affiliation']) ==
+                    self.const.affiliation_ansatt):
+                ou_ids.append(aff['ou_id'])
+
+        guests = []
+        for ou_id in ou_ids:
+            affs = person.list_affiliations(
+                affiliation=self.const.affiliation_tilknyttet,
+                ou_id=ou_id,
+                include_deleted=True)
+
+            ou.clear()
+            ou.find(ou_id)
+            stedkode = ou.get_stedkode()
+            for aff in affs:
+                guest = {}
+                guest['unit'] = stedkode
+                # Check if deleted_date is
+                if (aff['deleted_date'] and
+                        aff['deleted_date'] < mx.DateTime.today() - 30):
+                    # Skip old deleted affiliations
+                    continue
+
+                person.clear()
+                account.clear()
+                try:
+                    person.find(aff['person_id'])
+                except Errors.NotFoundError:
+                    # Person missing, db inconsistency.. Skipping.
+                    continue
+                try:
+                    account.find(person.get_primary_account())
+                    guest['uname'] = account.account_name
+                except Errors.NotFoundError:
+                    guest['uname'] = ''
+
+                if aff['deleted_date']:
+                    guest['deleted_date'] = aff['deleted_date'].date
+                else:
+                    guest['deleted_date'] = ''
+                guest['create_date'] = aff['create_date'].date
+                names = person.get_names(variant=self.const.name_full)
+                if names and len(names) > 0:
+                    guest['name'] = names[0]['name']
+                else:
+                    guest['name'] = affs['person_id']
+                guests.append(guest)
+        return guests
