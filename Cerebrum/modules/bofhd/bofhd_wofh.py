@@ -88,7 +88,6 @@ class BofhdWofhCommands(BofhdCommonMethods):
         Returns a list of "guests" at the operators departments.
         """
         person = Utils.Factory.get('Person')(self.db)
-        person.clear()
         account = Utils.Factory.get('Account')(self.db)
         ou = Utils.Factory.get('OU')(self.db)
 
@@ -107,10 +106,8 @@ class BofhdWofhCommands(BofhdCommonMethods):
                     self.const.affiliation_ansatt):
                 ou_ids.append(aff['ou_id'])
 
-        person.clear()
         guests = []
         for ou_id in ou_ids:
-            person.clear()
             affs = person.list_affiliations(
                 affiliation=self.const.affiliation_tilknyttet,
                 ou_id=ou_id,
