@@ -283,6 +283,13 @@ def delete_unconfirmed_accounts(account_np_type, db):
         if account.np_type != account_np_type:
             continue
 
+        change_log_res = db.get_log_events(
+            subject_entity=account_id, change_by=account_id)
+
+        if change_log_res:
+            for entry in change_log_res:
+                db.remove_log_event(entry["change_id"])
+
         logger.debug(
             "Account %s (id=%s) has event %s @ %s and will be deleted",
             account.account_name,
