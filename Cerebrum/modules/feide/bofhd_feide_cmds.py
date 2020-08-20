@@ -132,12 +132,20 @@ class BofhdExtension(BofhdCommonMethods):
     all_commands['feide_service_list'] = Command(
         ('feide', 'service_list'),
         fs=FormatSuggestion(
-            '%-12d %-12d %s', ('service_id', 'feide_id', 'name'),
-            hdr='%-12s %-12s %s' % ('Entity ID', 'Feide ID', 'Name')),
+            '%-10i %-37s %s', ('service_id', 'feide_id', 'name'),
+            hdr='%-10s %-37s %s' % ('Entity ID', 'Feide ID', 'Name')),
         perm_filter='is_superuser')
 
     def feide_service_list(self, operator):
-        """ List Feide services. """
+        """
+        List Feide services.
+
+        :rtype: dict
+        :return:
+            service_id: <int>
+            feide_id: <str>
+            name: <str>
+        """
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied('Only superusers may list Feide services')
         fse = FeideService(self.db)
