@@ -35,7 +35,7 @@ A minimal example to connect to a RabbitMQ server running default config:
             queues=conf.queues,
             bindings=conf.bindings,
             flags=ChannelSetup.Flags.ALL,
-            consumer_tag_prefix=config.consumer_tag,
+            consumer_tag_prefix=conf.consumer_tag,
         ),
     )
     consume.run()

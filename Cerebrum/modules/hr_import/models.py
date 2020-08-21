@@ -31,7 +31,7 @@ class HRPerson(object):
     def __init__(self, hr_id, first_name, last_name, birth_date,
                  gender, reserved, source_system):
         """
-        :param str hr_id: The persos's ID in the source system
+        :param str hr_id: The person's ID in the source system
         :param str first_name: First name of the person
         :param str last_name: Last name of the person
         :param date birth_date: Date the person was born
@@ -157,7 +157,7 @@ class HRAffiliation(ComparableObject):
         :param int ou_id: ID of the ou where the affiliation belongs
         :param _PersonAffiliationCode affiliation: Affiliation code
         :param _PersonAffStatusCode status: Status code
-        :param int precedence: Precedence for the affiliation
+        :param int or None precedence: Precedence for the affiliation
         """
         self.ou_id = ou_id
         self.affiliation = affiliation
@@ -178,4 +178,4 @@ class HRAccountType(HRAffiliation):
         :param int ou_id: ID of the ou where the affiliation belongs
         :param _PersonAffiliationCode affiliation: Affiliation code
         """
-        super(self, HRAccountType).__init__(ou_id, affiliation, None, None)
+        super(HRAccountType, self).__init__(ou_id, affiliation, None, None)
