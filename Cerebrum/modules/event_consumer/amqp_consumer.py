@@ -68,17 +68,23 @@ class ConsumingAMQP091Client(BaseAMQP091Client):
         super(ConsumingAMQP091Client, self).open()
         self.channel.basic_qos(
             **{'prefetch_count': self.config.prefetch_count,
-               'all_channels': self.config.qos_per_channel})
+               'global_qos': self.config.qos_per_channel})
 
     def start(self):
         """Start consuming messages."""
         self.channel.add_on_cancel_callback(_cancel_callback)
-        self.channel.basic_consume(functools.partial(_wrap_callback,
-                                                     self.callback_func,
-                                                     self.requeue),
-                                   queue=self.config.queue,
-                                   no_ack=self.config.no_ack,
-                                   consumer_tag=self.config.consumer_tag)
+
+        on_message = functools.partial(
+            _wrap_callback,
+            self.callback_func,
+            self.requeue,
+        )
+        self.channel.basic_consume(
+            on_message_callback=on_message,
+            queue=self.config.queue,
+            auto_ack=self.config.no_ack,
+            consumer_tag=self.config.consumer_tag,
+        )
 
         self.channel.start_consuming()
 

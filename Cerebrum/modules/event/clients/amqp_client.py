@@ -27,6 +27,7 @@
 >>> c = BaseAMQP091Client(load_config())
 >>> c.close()
 """
+import ssl
 
 import pika
 import pika.exceptions
@@ -53,10 +54,16 @@ class BaseAMQP091Client(object):
         # Define potential credentials
         if config.username:
             cred = make_credentials(config.username, config.hostname)
-            ssl_opts = None
         else:
             raise ClientErrors.ConfigurationFormatError(
                 "Configuration contains neither 'username' or 'cert' value")
+
+        if config.tls_on:
+            ssl_context = ssl.create_default_context()
+            ssl_opts = pika.SSLOptions(ssl_context, config.hostname)
+        else:
+            ssl_opts = None
+
         # Create connection-object
         try:
             self.conn_params = pika.ConnectionParameters(
@@ -64,7 +71,6 @@ class BaseAMQP091Client(object):
                 port=config.port,
                 virtual_host=config.virtual_host,
                 credentials=cred,
-                ssl=config.tls_on,
                 ssl_options=ssl_opts)
         except Exception as e:
             raise ClientErrors.ConnectionError(

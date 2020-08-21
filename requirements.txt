@@ -14,7 +14,7 @@ nose
 passlib
 phonenumbers
 pid
-pika==0.13.1
+pika==1.1.0
 psycopg2-binary
 pygpgme
 pyOpenSSL
