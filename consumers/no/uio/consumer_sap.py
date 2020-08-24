@@ -1181,7 +1181,7 @@ def handle_person(database, source_system, url, datasource=get_hr_person,
         new_person = not cerebrum_person.entity_type  # entity_type = instance
         perform_update(database, source_system, hr_person, cerebrum_person)
         if new_person:
-            _mail_possible_duplicate(cerebrum_person, database,
+            _mail_possible_duplicate(hr_person, cerebrum_person, database,
                                      source_system, dryrun)
     elif cerebrum_person.entity_type:  # entity_type as indication of instance
         perform_delete(database, source_system, hr_person, cerebrum_person)
