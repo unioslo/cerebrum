@@ -1113,7 +1113,8 @@ def perform_delete(database, source_system, hr_person, cerebrum_person):
     logger.info('%r deleted', cerebrum_person.entity_id)
 
 
-def _mail_possible_duplicate(hr_person, new_person, database, source_system, dryrun):
+def _mail_possible_duplicate(hr_person, new_person, database,
+                             source_system, dryrun):
     """
     Look for possible duplicate of hr_person already existing.
     If found, and not in dryrun, send email.
@@ -1125,7 +1126,7 @@ def _mail_possible_duplicate(hr_person, new_person, database, source_system, dry
         birth_date=str(new_person.birth_date),
         name_variants=[co.name_full])
     for person in possible_people:
-        if person['entity_id'] == new_person.entity_id:
+        if person['person_id'] == new_person.entity_id:
             continue
         full_name = person['full_name']
         if name_diff(new_name.lower(), full_name.lower()) <= 2:
