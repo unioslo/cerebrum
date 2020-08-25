@@ -118,7 +118,7 @@ def generate_csv_report(file, codec, groups, num_fgroups):
     writer.writerows(groups)
 
 
-def generate_html_report(file, codec, groups, num_fgroups):
+def generate_html_report(file, codec, groups, fgroups):
     output = codec.streamwriter(file)
     env = Environment(
         loader=FileSystemLoader(os.path.join(os.path.dirname(__file__),
@@ -135,7 +135,7 @@ def generate_html_report(file, codec, groups, num_fgroups):
                 ('members_in_sub', 'Members in subgroup')),
             title=title,
             prelist='<h3>{}</h3>'
-                    '<p>Number of filegroups: {}</p>'.format(title, num_fgroups),
+                    '<p>Number of filegroups: {}</p>'.format(title, fgroups),
             items=groups,
             ))
     output.write('\n')
@@ -180,7 +180,7 @@ def main(inargs=None):
 
     start = now()
     db = Factory.get('Database')()
-    groups = list(find_subgroups_without_mail_spread(db, args.filter))
+    groups = list(find_subgroups_without_fg_spread(db, args.filter))
     num_fgroups = len(set(g['filegroup'] for g in groups))
 
     with args.file as file:
