@@ -573,7 +573,7 @@ class GroupMemberResource(Resource):
             # id for the href builder, won't be shown in output
             'id': utils.get_entity_name(member) or member.entity_id,
             'member_id': member.entity_id,
-            'member_name': name,
+            'name': name,
             'href': utils.href_from_entity_type(entity_type=member.entity_type,
                                                 entity_id=member.entity_id,
                                                 entity_name=name),
@@ -598,7 +598,7 @@ class GroupMemberResource(Resource):
             # id for the href builder, won't be shown in output
             'id': utils.get_entity_name(member) or member.entity_id,
             'member_id': member.entity_id,
-            'member_name': name,
+            'name': name,
             'href': utils.href_from_entity_type(entity_type=member.entity_type,
                                                 entity_id=member.entity_id,
                                                 entity_name=name),
