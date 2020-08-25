@@ -32,3 +32,4 @@ sqlparse==0.3.0
 suds
 unidecode
 Twisted==10.2.0
+werkzeug==0.16.1
