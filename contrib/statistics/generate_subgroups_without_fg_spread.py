@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 Generate HTML or CSV report of filegroups containing subgroups
-without filegroup-spread
+without filegroup-spread or with different filegroup-spread
 """
 
 import argparse
@@ -40,7 +40,7 @@ from Cerebrum.utils.argutils import codec_type
 logger = logging.getLogger(__name__)
 
 
-def find_subgroups_without_mail_spread(db, filter_expired_groups=False):
+def find_subgroups_without_fg_spread(db, filter_expired_groups=False):
     """Extract filegroups containing subgroups without fg-spread.
 
     :type db: Cerebrum.CLDatabase.CLDatabase
@@ -54,58 +54,56 @@ def find_subgroups_without_mail_spread(db, filter_expired_groups=False):
         Generator yielding dicts with filegroup, subgroup and
         number of members in subgroup
     """
-    gr = Factory.get('Group')(db)
+
     co = Factory.get('Constants')(db)
+    gr = Factory.get('Group')(db)
 
-    result = db.query(
-        """
-        SELECT group_id, member_id
-        FROM [:table schema=cerebrum name=group_member] filegroup
-        WHERE
-            filegroup.member_type= :group_type
-            AND
-            filegroup.group_id IN
-                (SELECT entity_spread.entity_id
-                FROM [:table schema=cerebrum name=entity_spread] entity_spread
-                WHERE
-                    entity_spread.spread= :ifi_fg_spread OR
-                    entity_spread.spread= :uio_fg_spread OR
-                    entity_spread.spread= :hpc_fg_spread)
-            AND
-            NOT filegroup.member_id IN
-                (SELECT entity_spread.entity_id
-                FROM [:table schema=cerebrum name=entity_spread] entity_spread
-                WHERE
-                    entity_spread.spread= :ifi_fg_spread OR
-                    entity_spread.spread= :uio_fg_spread OR
-                    entity_spread.spread= :hpc_fg_spread)
-        """,
-        {
-            'ifi_fg_spread': co.spread_ifi_nis_fg,
-            'uio_fg_spread': co.spread_uio_nis_fg,
-            'hpc_fg_spread': co.spread_hpc_nis_fg,
-            'group_type': co.entity_group,
-        })
+    fg_spreads = (co.spread_ifi_nis_fg,
+                  co.spread_uio_nis_fg,
+                  co.spread_hpc_nis_fg)
 
-    for row in result:
-        filegroup = gr.search(group_id=row['group_id'],
-                              filter_expired=filter_expired_groups)
-        subgroup = gr.search(group_id=row['member_id'],
-                             filter_expired=filter_expired_groups)
-        members_in_sub = len(gr.search_members(
-                              group_id=row['member_id'],
-                              member_filter_expired=filter_expired_groups))
+    filegroups = gr.search(spread=fg_spreads,
+                           filter_expired=filter_expired_groups)
 
-        # When filtering expired groups, gr.search returns empty list
-        if len(filegroup) == 0 or len(subgroup) == 0:
-            continue
+    for filegroup in filegroups:
+        gr.clear()
+        gr.find(filegroup['group_id'])
+        filegroup_spreads = set(s['spread'] for s in gr.get_spread())
+        # Extracting the specific fg-spreads of this filegroup
+        filegroup_fg_spreads = set(fg_spreads).intersection(filegroup_spreads)
 
-        groups = {
-            'filegroup': text_type(filegroup[0][1]),
-            'subgroup': text_type(subgroup[0][1]),
-            'members_in_sub': text_type(members_in_sub),
-        }
-        yield groups
+        subgroups_all = gr.search_members(
+            group_id=filegroup['group_id'],
+            member_type=co.entity_group,
+            indirect_members=True,
+            member_filter_expired=filter_expired_groups,
+            include_member_entity_name=True)
+
+        subgroups_without_fg_spread = []
+        for sub in subgroups_all:
+            gr.clear()
+            gr.find(sub['member_id'])
+            sub_spreads = set(s['spread'] for s in gr.get_spread())
+            # Extracting fg-spreads of this subgroup, if any
+            subgroup_fg_spreads = set(fg_spreads).intersection(sub_spreads)
+            # If subgroup does not share fg-spread with filegroup
+            # we add it to our list
+            if not subgroup_fg_spreads.intersection(filegroup_fg_spreads):
+                subgroups_without_fg_spread.append(sub)
+
+        for subgroup in subgroups_without_fg_spread:
+            num_members_sub = len(gr.search_members(
+                group_id=subgroup['member_id'],
+                member_type=co.entity_account,
+                indirect_members=True,
+                member_filter_expired=filter_expired_groups))
+
+            groups = {
+                'filegroup': text_type(filegroup['name']),
+                'subgroup': text_type(subgroup['member_name']),
+                'members_in_sub': num_members_sub,
+            }
+            yield groups
 
 
 def generate_csv_report(file, codec, groups, num_fgroups):
