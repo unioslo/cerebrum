@@ -99,20 +99,15 @@ class AMQP091Publisher(amqp_client.BaseAMQP091Client):
             raise ClientErrors.MessageFormatError(
                 'Unable to format message: {0!r}'.format(e))
         try:
-            if self.channel.basic_publish(
-                    exchange=self.exchange_name,
-                    routing_key=routing_key,
-                    body=msg_body,
-                    properties=pika.BasicProperties(
-                        delivery_mode=DELIVERY_PERSISTENT,
-                        content_type=CONTENT_TYPE),
-                    # Makes publish return false if
-                    # the message is not routed / published
-                    mandatory=False):
-                return True
-            else:
-                raise Exception('Broker did not confirm message delivery')
-        except Exception as e:
+            self.channel.basic_publish(
+                exchange=self.exchange_name,
+                routing_key=routing_key,
+                body=msg_body,
+                properties=pika.BasicProperties(
+                    delivery_mode=DELIVERY_PERSISTENT,
+                    content_type=CONTENT_TYPE),
+                mandatory=False)
+        except pika.exceptions.NackError as e:
             raise ClientErrors.MessagePublishingError(
                 'Unable to publish message: {0!r}'.format(e))
 
