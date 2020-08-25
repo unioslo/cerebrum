@@ -25,9 +25,10 @@ without filegroup-spread
 
 import argparse
 import logging
+import os
 from time import time as now
 
-from jinja2 import Environment
+from jinja2 import Environment, FileSystemLoader
 from six import text_type
 
 import Cerebrum.logutils
@@ -37,79 +38,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import codec_type
 
 logger = logging.getLogger(__name__)
-
-template = u"""
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset={{ encoding | default('utf-8') }}">
-    <title>Filegroups containing subgroups without fg-spread</title>
-    <style type="text/css">
-      /* <![CDATA[ */
-      h1 {
-        margin: 1em .8em 1em .8em;
-        font-size: 1.4em;
-      }
-      h2 {
-        margin: 1.5em 1em 1em 1em;
-        font-size: 1em;
-      }
-      table, h1 {
-        margin-top: 2em;
-      }
-      table {
-        border-collapse: collapse;
-        width: 100%;
-        text-align: left;
-      }
-      table thead {
-        border-bottom: 1px solid gray;
-      }
-      table th, table td {
-        padding: .5em 1em;
-        width: 10%;
-      }
-      .meta {
-        color: gray;
-        text-align: right;
-      }
-      /* ]] >*/
-    </style>
-  </head>
-  <body>
-    <h1>Filegroups containing subgroups without fg-spread</h1>
-    <p class="meta">
-      {{ num_fgroups }} filegroups containing subgroups without fg-spread
-    </p>
-
-    {% for group in groups | groupby('filegroup') |
-    sort(attribute='grouper') %}
-
-    <table>
-      <thead>
-        <tr>
-          <th>Filegroup</th>
-          <th>Subgroups without fg-spread</th>
-          <th>Members in subgroup</th>
-        </tr>
-      </thead>
-
-    {% for item in group.list %}
-      <tr>
-        <td>
-        {% if loop.changed(group) %}
-          {{ group.list[0].filegroup }}
-        {% endif %}
-        </td>
-        <td>{{ item.subgroup }}</td>
-        <td>{{ item.members_in_sub }}</td>
-      </tr>
-    {% endfor %}
-    </table>
-    {% endfor %}
-  </body>
-</html>
-""".strip()
 
 
 def find_subgroups_without_mail_spread(db, filter_expired_groups=False):
@@ -194,14 +122,24 @@ def generate_csv_report(file, codec, groups, num_fgroups):
 
 def generate_html_report(file, codec, groups, num_fgroups):
     output = codec.streamwriter(file)
-    env = Environment(trim_blocks=True, lstrip_blocks=True)
-    report = env.from_string(template)
+    env = Environment(
+        loader=FileSystemLoader(os.path.join(os.path.dirname(__file__),
+                                             'templates')))
+    template = env.get_template('simple_list_overview.html')
+    title = 'Filegroups containing subgroups without fg-spread'
+
     output.write(
-        report.render({
-            'encoding': codec.name,
-            'groups': groups,
-            'num_fgroups': text_type(num_fgroups),
-        }))
+        template.render(
+            encoding=codec.name,
+            headers=(
+                ('filegroup', 'Filegroup'),
+                ('subgroup', 'Subgroups without fg-spread'),
+                ('members_in_sub', 'Members in subgroup')),
+            title=title,
+            prelist='<h3>{}</h3>'
+                    '<p>Number of filegroups: {}</p>'.format(title, num_fgroups),
+            items=groups,
+            ))
     output.write('\n')
 
 
