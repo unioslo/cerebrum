@@ -46,7 +46,6 @@ class HRDataImport(object):
         self.update_leader_groups()
         self.update_contact_info()
         self.update_reservation()
-        self.cerebrum_person.write_db()
 
     def update_person(self):
         """Update person with birth date and gender"""
@@ -57,6 +56,7 @@ class HRDataImport(object):
             self.cerebrum_person.populate(
                 self.hr_person.birth_date,
                 self.hr_person.gender)
+            self.cerebrum_person.write_db()
 
     def update_external_ids(self):
         """Update person in Cerebrum with appropriate external ids"""
@@ -76,6 +76,7 @@ class HRDataImport(object):
         for (id_type, ext_id) in to_add:
             self.cerebrum_person.populate_external_id(
                 self.source_system, id_type, ext_id)
+        self.cerebrum_person.write_db()
 
     def update_names(self):
         """Update person in Cerebrum with fresh names"""
@@ -103,6 +104,7 @@ class HRDataImport(object):
                 self.source_system, co.name_last)
             self.cerebrum_person.populate_name(
                 co.name_last, self.hr_person.last_name)
+        self.cerebrum_person.write_db()
 
     def update_affiliations(self):
         """Update person in Cerebrum with the latest affiliations"""
@@ -130,6 +132,7 @@ class HRDataImport(object):
                 status=aff['status'],
                 precedence=aff['precedence']
             )
+        self.cerebrum_person.write_db()
 
     def update_addresses(self):
         """Update a person in Cerebrum with addresses"""
