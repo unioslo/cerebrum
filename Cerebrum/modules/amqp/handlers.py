@@ -162,10 +162,12 @@ class AbstractConsumerHandler(collections.Callable):
             If this method returns a truthy value, the error is considered
             *handled*.
         """
-        ct = event.method.consumer_tag
-        dt = event.method.delivery_tag
-        logger.debug('requeue %s/%s', ct, dt)
-        event.channel.basic_nack(delivery_tag=dt)
+        # Note: You generally don't want to nack - as the message will be
+        # immediately re-queued and re-processed (if queue is empty)
+        # ct = event.method.consumer_tag
+        # dt = event.method.delivery_tag
+        # logger.debug('requeue %s/%s', ct, dt)
+        # event.channel.basic_nack(delivery_tag=dt)
 
     def on_ok(self, event):
         """
@@ -178,3 +180,15 @@ class AbstractConsumerHandler(collections.Callable):
         dt = event.method.delivery_tag
         logger.debug('confirm %s/%s', ct, dt)
         event.channel.basic_ack(delivery_tag=dt)
+
+
+class _Demo(AbstractConsumerHandler):
+    """ Demo handler. """
+
+    def handle(self, event):
+        logger.info('got event: %r on channel %r', event, event.channel)
+        if 'fail' in event.body.decode(event.content_encoding):
+            raise RuntimeError('intentional, body contains "fail"')
+
+
+demo_handler = _Demo()

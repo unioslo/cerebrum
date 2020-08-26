@@ -80,7 +80,7 @@ def main(inargs=None):
     )
     parser.add_argument(
         '--callback',
-        default='Cerebrum.modules.consumer/demo_callback',
+        default='Cerebrum.modules.amqp.handlers/demo_handler',
         help='callback to process messages with',
     )
     Cerebrum.logutils.options.install_subparser(parser)
