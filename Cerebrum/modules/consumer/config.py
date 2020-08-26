@@ -1,5 +1,25 @@
-
-""" basic consumer settings. """
+# -*- coding: utf-8 -*-
+#
+# Copyright 2020 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Basic settings for message broker communication.
+"""
 import ssl
 
 import pika
@@ -182,6 +202,22 @@ class ConsumerConfig(Configuration):
     )
 
 
+class PublisherConfig(Configuration):
+    """MQ publisher config."""
+
+    connection = ConfigDescriptor(
+        Namespace,
+        config=Connection,
+        doc=Connection.__doc__.strip(),
+    )
+
+    exchange = ConfigDescriptor(
+        Namespace,
+        config=Exchange,
+        doc='An exchange to publish messages to',
+    )
+
+
 def get_credentials(config):
     """ Get credentials from Connection object. """
     if config.username or config.password:
@@ -205,7 +241,18 @@ def get_ssl_options(config):
 
 
 def get_connection_params(config, credentials=_notset, ssl_options=_notset):
-    """ Get pika connection from Connection object. """
+    """
+    Get pika connection from Connection object.
+
+    :type config: Connection
+    :param config: Connection configuration.
+
+    :type credentials: NoneType, pika.PlainCredentials
+    :param credentials: Override credentials from config
+
+    :type ssl_options: NoneType, pika.SSLOptions
+    :param ssl_options: Override SSL settings from config
+    """
     if credentials is _notset:
         credentials = get_credentials(config)
 
@@ -223,3 +270,4 @@ def get_connection_params(config, credentials=_notset, ssl_options=_notset):
 
 if __name__ == '__main__':
     print(ConsumerConfig.documentation())
+    print(PublisherConfig.documentation())

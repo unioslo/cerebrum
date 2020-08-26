@@ -1,9 +1,29 @@
 #!/usr/bin/env python
-# encoding: utf-8
+# -*- coding: utf-8 -*-
+#
+# Copyright 2020 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Main consumer object.
+Example message broker consumer.
 
-This is an example consumer, which can be used to handle MQ messages.
+This is a simple, generic example consumer.  It can be used directly (by
+providing a config file and callback), or it can be used as an example on how
+to implement consumers.
 """
 import argparse
 import getpass
@@ -14,8 +34,8 @@ import Cerebrum.logutils.options
 from Cerebrum.config.loader import read_config as read_config_file
 from Cerebrum.utils.module import resolve
 
-from . import Manager, ChannelSetup
 from .config import ConsumerConfig, get_connection_params
+from .consumer import ChannelSetup, Manager
 
 
 logger = logging.getLogger(__name__)
@@ -32,10 +52,17 @@ def get_config(config_file):
     """
     config = ConsumerConfig()
     config.load_dict(read_config_file(config_file))
+    config.validate()
     return config
 
 
 def set_pika_loglevel(level=logging.INFO, force=False):
+    """
+    Apply a (default) log level for the 'pika' logger.
+
+    :param int level: log level to set
+    :param bool force: force the new log level
+    """
     log = logging.getLogger('pika')
 
     if force or log.level == logging.NOTSET:
@@ -44,14 +71,13 @@ def set_pika_loglevel(level=logging.INFO, force=False):
 
 def main(inargs=None):
     parser = argparse.ArgumentParser(
-        description='Run a basic AMQP message consumer',
+        description='Run a basic AMQP 0.9.1 message consumer',
     )
     parser.add_argument(
         '-c', '--config',
         required=True,
         help='config to use (see Cerebrum.modules.consumer.config)',
     )
-
     parser.add_argument(
         '--callback',
         default='Cerebrum.modules.consumer/demo_callback',
@@ -61,17 +87,16 @@ def main(inargs=None):
     args = parser.parse_args(inargs)
 
     Cerebrum.logutils.autoconf('console', args)
-
     # pika is very verbose in its logging
     set_pika_loglevel(logging.INFO)
 
     logger.info("Starting %s", parser.prog)
     logger.debug("args: %r", args)
 
-    # TODO: Load from file using tofh.config
     config = get_config(args.config)
     callback = resolve(args.callback)
 
+    # Prompt for password if only a username is given
     if config.connection.username and not config.connection.password:
         try:
             config.connection.password = getpass.getpass(

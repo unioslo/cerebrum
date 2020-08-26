@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Simple message broker consumer.
+Simple callback/async message broker consumer.
 
 Example
 -------
@@ -27,7 +27,7 @@ A minimal example to connect to a RabbitMQ server running default config:
 ::
 
     conf = config.ConsumerConfig()
-    consumer = Manager(
+    consume = Manager(
         config.get_connection_params(conf.connection),
         demo_callback,
         ChannelSetup(
@@ -38,7 +38,7 @@ A minimal example to connect to a RabbitMQ server running default config:
             consumer_tag_prefix=config.consumer_tag,
         ),
     )
-    consumer.run()
+    consume.run()
 
 """
 import functools
@@ -53,6 +53,9 @@ logger = logging.getLogger(__name__)
 def declare_exchange(channel, exchange):
     """
     Assert that a given exchange exists.
+
+    :type channel: pika.channel.Channel
+    :type exchange: Cerebrum.modules.amqp.config.Exchange
     """
 
     def on_ok(result):
@@ -69,6 +72,9 @@ def declare_exchange(channel, exchange):
 def declare_queue(channel, queue):
     """
     Assert that a given queue exists.
+
+    :type channel: pika.channel.Channel
+    :type queue: Cerebrum.modules.amqp.config.Queue
     """
 
     def on_ok(result):
@@ -87,6 +93,9 @@ def declare_queue(channel, queue):
 def bind_queue(channel, binding):
     """
     Assert that a given set of bindings exists.
+
+    :type channel: pika.channel.Channel
+    :type queue: Cerebrum.modules.amqp.config.Binding
     """
 
     def on_ok(key, result):
@@ -249,7 +258,7 @@ class ChannelSetup(object):
 
 class Manager(object):
     """
-    Pika consumer/manager.
+    Pika consumer/async manager.
     """
 
     # TODO: Replace exchanges/queue/bindings with a single setup callable
@@ -270,7 +279,6 @@ class Manager(object):
             Callback to perform on channel open.
 
             Signature ``setup(channel, on_message)``
-
         """
 
         self.connection_params = connection_params
