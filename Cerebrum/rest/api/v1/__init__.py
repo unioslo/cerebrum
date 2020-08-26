@@ -22,7 +22,7 @@
 from __future__ import unicode_literals
 
 from flask import Blueprint
-from flask_restplus import Api
+from flask_restx import Api
 
 __version__ = '1.0'
 

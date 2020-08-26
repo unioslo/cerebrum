@@ -22,8 +22,8 @@
 
 from __future__ import unicode_literals
 
-from flask_restplus import Namespace, Resource, abort
-from flask_restplus import fields as base_fields
+from flask_restx import Namespace, Resource, abort
+from flask_restx import fields as base_fields
 
 from Cerebrum.Entity import EntityExternalId
 from Cerebrum import Errors

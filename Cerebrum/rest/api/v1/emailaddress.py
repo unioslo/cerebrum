@@ -22,7 +22,7 @@
 
 from __future__ import unicode_literals
 
-from flask_restplus import Namespace, Resource, abort
+from flask_restx import Namespace, Resource, abort
 from Cerebrum.rest.api import db, auth, fields
 
 from Cerebrum import Errors

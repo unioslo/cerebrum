@@ -22,7 +22,7 @@
 from __future__ import unicode_literals
 
 from flask import make_response
-from flask_restplus import Namespace, Resource, abort
+from flask_restx import Namespace, Resource, abort
 from six import text_type
 
 import mx.DateTime
