@@ -16,8 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-# from Cerebrum.DatabaseAccessor import DatabaseAccessor
+from __future__ import unicode_literals
 
 from Cerebrum import Errors
 from Cerebrum.modules.hr_import import models
@@ -29,11 +28,12 @@ LEADER_GROUP_PREFIX = 'adm-leder-'
 
 class HRDataImport(object):
 
-    def __init__(self, database, hr_person, cerebrum_person):
+    def __init__(self, database, hr_person, cerebrum_person, logger):
         self.hr_person = hr_person
         self.cerebrum_person = cerebrum_person
         self.database = database
         self.source_system = hr_person.source_system
+        self.logger = logger
 
     def import_to_cerebrum(self):
         """Call all the update functions, creating or updating a person"""
@@ -41,6 +41,7 @@ class HRDataImport(object):
         self.update_external_ids()
         self.update_names()
         self.update_affiliations()
+        self.update_account_types()
         self.update_addresses()
         self.update_titles()
         self.update_leader_groups()
@@ -119,12 +120,12 @@ class HRDataImport(object):
                     aff['status'],
                     precedence=aff['precedence'])
             )
-        for aff in cerebrum_affiliations - self.hr_person('affiliations'):
+        for aff in cerebrum_affiliations - self.hr_person.affiliations:
             self.cerebrum_person.delete_affiliation(
                 ou_id=aff['ou_id'],
                 affiliation=aff['affiliation'],
                 source=self.source_system)
-        for aff in self.hr_person('affiliations'):
+        for aff in self.hr_person.affilations:
             self.cerebrum_person.populate_affiliation(
                 source_system=self.source_system,
                 ou_id=aff['ou_id'],
@@ -133,6 +134,63 @@ class HRDataImport(object):
                 precedence=aff['precedence']
             )
         self.cerebrum_person.write_db()
+
+    def update_account_types(self):
+        """
+        Update the persons account with correct affiliations.
+
+        This only happens if the person only as one account, and that account
+        only has affiliations from sap, e.g. no student affiliation as well.
+        """
+        accounts = self.cerebrum_person.get_accounts()
+        if len(accounts) != 1:
+            self.logger.info(
+                'Person id %r does not have exactly one account',
+                self.cerebrum_person.entity_id)
+            return
+
+        crb_account_types = set()
+        ac = Factory.get('Account')(self.database)
+        ac.find(accounts[0]['account_id'])
+        account_types = ac.get_account_types()
+        for account_type in account_types:
+            if not self._check_account_type(account_type):
+                return
+            crb_account_types.add(
+                models.HRAccountTypes(
+                    account_types['ou_id'],
+                    account_types['affiliation'])
+            )
+
+        for acc_type in crb_account_types - self.hr_person.account_types:
+            self.logger.info('deleting account_type for account %r with ou_id:'
+                             ' %r, and affiliation: %r', ac.entity_id,
+                             acc_type.ou_id, acc_type.affiliation)
+            ac.del_account_type(ac, acc_type.ou_id, acc_type.affiliation)
+
+        for acc_type in self.hr_person.account_types - crb_account_types:
+            self.logger.info('adding account_type for account %r with ou_id:'
+                             ' %r, and affiliation: %r', ac.entity_id,
+                             acc_type.ou_id, acc_type.affiliation)
+            ac.set_account_type(ac, acc_type.ou_id, acc_type.affiliation)
+
+    def _check_account_type(self, account_type):
+        co = Factory.get('Constants')(self.database)
+        if not int(co.affiliation_ansatt) == account_type['affiliation']:
+            self.logger.info('account has affiliation(s) besides '
+                             '%r', co.affiliation_ansatt)
+            return False
+        aff_info = self.cerebrum_person.list_affiliations(
+            person_id=account_type['person_id'],
+            ou_id=account_type['ou_id'],
+            affiliation=account_type['affiliation'],
+        )
+        if aff_info:
+            if not int(co.system_sap) == aff_info[0]['source_system']:
+                self.logger.info('Account has affiliation from source(s) '
+                                 'other than %r', co.system_sap)
+                return False
+        return True
 
     def update_addresses(self):
         """Update a person in Cerebrum with addresses"""
@@ -239,5 +297,5 @@ class HRDataImport(object):
         in_reserved_group = gr.has_member(self.cerebrum_person.entity_id)
         if self.hr_person.reserved and not in_reserved_group:
             gr.add_member(self.cerebrum_person.entity_id)
-        elif not self.hr_person.get('reserved') and in_reserved_group:
+        elif not self.hr_person.reserved and in_reserved_group:
             gr.remove_member(self.cerebrum_person.entity_id)
