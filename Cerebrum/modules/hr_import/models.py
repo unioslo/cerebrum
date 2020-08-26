@@ -53,6 +53,19 @@ class HRPerson(object):
         self.adddresses = set()     # set of HRAddress
         self.titles = set()         # set of HRTitle
         self.affiliations = set()   # set of HRAffiliation
+        self.account_types = set()  # set of HRAccountType
+
+
+class ComparableObject(object):
+    """General class that implements __eq__ and __ne__"""
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 class HRContactInfo(object):
@@ -69,21 +82,13 @@ class HRContactInfo(object):
         self.contact_pref = contact_pref
         self.contact_value = contact_value
 
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.__dict__ == other.__dict__
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
     def __hash__(self):
         return hash(
             (self.contact_type, self.contact_pref, self.contact_value)
         )
 
 
-class HRAddress(object):
+class HRAddress(ComparableObject):
     """Class with info about an address matching, entity_address"""
 
     def __init__(self, address_type, city, postal_code, address_text):
@@ -99,21 +104,13 @@ class HRAddress(object):
         self.postal_code = postal_code
         self.address_text = address_text
 
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.__dict__ == other.__dict__
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
     def __hash__(self):
         return hash(
             (self.address_type, self.city, self.postal_code, self.address_text)
         )
 
 
-class HRExternalID(object):
+class HRExternalID(ComparableObject):
     """Class with info about an external_id, matching entity_external_id"""
 
     def __init__(self, id_type, external_id):
@@ -124,21 +121,13 @@ class HRExternalID(object):
         self.id_type = id_type
         self.external_id = external_id
 
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.__dict__ == other.__dict__
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
     def __hash__(self):
         return hash(
             (self.id_type, self.external_id)
         )
 
 
-class HRTitle(object):
+class HRTitle(ComparableObject):
     """Class with info about a title, matching entity_language_name"""
 
     def __init__(self, name_variant, name_language, name):
@@ -151,21 +140,13 @@ class HRTitle(object):
         self.name_language = name_language
         self.name = name
 
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.__dict__ == other.__dict__
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
     def __hash__(self):
         return hash(
             (self.name_variant, self.name_language, self.name)
         )
 
 
-class HRAffiliation(object):
+class HRAffiliation(ComparableObject):
     """
     Class with info about an affiliation, matching person_affiliation_source
     (and person_affiliation)
@@ -183,15 +164,18 @@ class HRAffiliation(object):
         self.status = status
         self.precedence = precedence
 
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return self.__dict__ == other.__dict__
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
     def __hash__(self):
         return hash(
             (self.ou_id, self.affiliation, self.status, self.precedence)
         )
+
+
+ class HRAccountType(HRAffiliation):
+    """Class with info about an account type, matching account_type"""
+
+    def __init__(self, ou_id, affiliation):
+        """
+        :param ou_id: ID of the ou where the affiliation belongs
+        :param affiliation: Person affiliation code constant
+        """
+        super(self, HRAccountType).__init__(ou_id, affiliation, None, None)
