@@ -47,12 +47,12 @@ class HRPerson(object):
         self.reserved = reserved
         self.source_system = source_system
 
-        self.leader_groups = []  # list of int (group ids)
-        self.external_ids = []   # list of HRExternalID
-        self.contact_infos = []  # list of HRContactInfo
-        self.adddresses = []     # list of HRAddress
-        self.titles = []         # list of HRTitle
-        self.affiliations = []   # list of HRAffiliation
+        self.leader_groups = set()  # set of int (group ids)
+        self.external_ids = set()   # set of HRExternalID
+        self.contact_infos = set()  # set of HRContactInfo
+        self.adddresses = set()     # set of HRAddress
+        self.titles = set()         # set of HRTitle
+        self.affiliations = set()   # set of HRAffiliation
 
 
 class HRContactInfo(object):
@@ -68,6 +68,19 @@ class HRContactInfo(object):
         self.contact_type = contact_type
         self.contact_pref = contact_pref
         self.contact_value = contact_value
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(
+            (self.contact_type, self.contact_pref, self.contact_value)
+        )
 
 
 class HRAddress(object):
@@ -86,6 +99,19 @@ class HRAddress(object):
         self.postal_code = postal_code
         self.address_text = address_text
 
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(
+            (self.address_type, self.city, self.postal_code, self.address_text)
+        )
+
 
 class HRExternalID(object):
     """Class with info about an external_id, matching entity_external_id"""
@@ -97,6 +123,19 @@ class HRExternalID(object):
         """
         self.id_type = id_type
         self.external_id = external_id
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(
+            (self.id_type, self.external_id)
+        )
 
 
 class HRTitle(object):
@@ -111,6 +150,19 @@ class HRTitle(object):
         self.name_variant = name_variant
         self.name_language = name_language
         self.name = name
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(
+            (self.name_variant, self.name_language, self.name)
+        )
 
 
 class HRAffiliation(object):
@@ -130,3 +182,16 @@ class HRAffiliation(object):
         self.affiliation = affiliation
         self.status = status
         self.precedence = precedence
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(
+            (self.ou_id, self.affiliation, self.status, self.precedence)
+        )
