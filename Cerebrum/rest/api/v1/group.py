@@ -468,7 +468,7 @@ class GroupMemberListResource(Resource):
 
     @auth.require()
     @api.marshal_with(GroupMember, as_list=True, envelope='members')
-    @api.doc(parser=group_member_filter)
+    @api.doc(expect=[group_member_filter])
     @api.doc(params={'name': 'group name'})
     def get(self, name):
         """List members of a group."""
@@ -688,7 +688,7 @@ class GroupListResource(Resource):
 
     @auth.require()
     @api.marshal_with(GroupListItem, as_list=True, envelope='groups')
-    @api.doc(parser=group_search_filter)
+    @api.doc(expect=[group_search_filter])
     def get(self):
         """List groups."""
         args = self.group_search_filter.parse_args()

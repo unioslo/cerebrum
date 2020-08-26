@@ -220,7 +220,7 @@ class PersonAffiliationListResource(Resource):
 
     @auth.require()
     @api.marshal_with(PersonAffiliationList)
-    @api.doc(parser=person_affiliations_filter)
+    @api.doc(expect=[person_affiliations_filter])
     def get(self, id):
         """List person affiliations."""
         args = self.person_affiliations_filter.parse_args()

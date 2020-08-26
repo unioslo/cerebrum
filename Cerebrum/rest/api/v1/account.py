@@ -308,7 +308,7 @@ class AccountQuarantineListResource(Resource):
         help='Consider locked status based on context.')
 
     @api.marshal_with(AccountQuarantineList)
-    @api.doc(parser=account_quarantines_filter)
+    @api.doc(expect=[account_quarantines_filter])
     @auth.require()
     def get(self, name):
         """Get account quarantines."""
@@ -551,7 +551,7 @@ class AccountListResource(Resource):
         help='Filter by expiration end date.')
 
     @api.marshal_with(AccountList)
-    @api.doc(parser=account_search_filter)
+    @api.doc(expect=[account_search_filter])
     @auth.require()
     def get(self):
         """List accounts."""
@@ -605,7 +605,7 @@ class AccountGroupListResource(Resource):
         help='If true, only include expired groups.')
 
     @api.marshal_with(group.GroupListItem, as_list=True, envelope='groups')
-    @api.doc(parser=account_groups_filter)
+    @api.doc(expect=[account_groups_filter])
     @auth.require()
     def get(self, name):
         """List groups an account is a member of."""
