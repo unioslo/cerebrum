@@ -172,34 +172,34 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                             {'ou_id': self.entity_id,
                              'perspective': int(perspective)})
 
-    def structure_path(self, perspective):
-        """Return a string indicating OU's structural placement.
+    def local_it_contact(self, perspective):
+        parents = self.list_ou_path(perspective)
+        ou = self.__class__(self._db)
+        for parent in parents:
+            ou.clear()
+            ou.find(parent)
+            contact_info = ou.get_contact_info(type=self.const.contact_lit)
+            if contact_info:
+                return contact_info
+        return []
 
-        Recursively collect 'acronym' of OU and its parents (as they
-        are modeled in 'perspective'); return a string with a
-        '/'-delimited list of these acronyms, most specific OU first.
+    def list_ou_path(self, perspective):
+        """Return a list indicating OU's structural placement.
+
+        Recursively collect 'entity_id' of OU and its parents (as they
+        are modeled in 'perspective'); return a list with most specific OU
+        first.
 
         """
         temp = self.__class__(self._db)
         temp.find(self.entity_id)
 
-        components = []
-        visited = set()
+        visited = list()
         while True:
             # Detect infinite loops
             if temp.entity_id in visited:
                 raise RuntimeError("DEBUG: Loop detected: %r" % visited)
-            visited.add(temp.entity_id)
-
-            # Append this node's acronym (if it is non-NULL) to
-            # 'components'.
-            acronyms = self.search_name_with_language(
-                entity_id=temp.entity_id,
-                name_variant=self.const.ou_name_acronym,
-                name_language=self.const.language_nb)
-            if acronyms:
-                components.append(acronyms[0]["name"])
-
+            visited.append(temp.entity_id)
             # Find parent, end search if parent is either NULL or the
             # same node we're currently at.
             parent_id = temp.get_parent(perspective)
@@ -207,7 +207,7 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                 break
             temp.clear()
             temp.find(parent_id)
-        return "/".join(components)
+        return visited
 
     def unset_parent(self, perspective):
         binds = {'ou_id': self.entity_id,
