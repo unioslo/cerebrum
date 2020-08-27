@@ -28,13 +28,13 @@ class HRPerson(object):
     about a person from an HR system
     """
 
-    def __init__(self, hr_id, first_name, last_name, date_of_birth,
+    def __init__(self, hr_id, first_name, last_name, birth_date,
                  gender, reserved, source_system):
         """
         :param str hr_id: The persos's ID in the source system
         :param str first_name: First name of the person
         :param str last_name: Last name of the person
-        :param date date_of_birth: Date the person was born
+        :param date birth_date: Date the person was born
         :param str gender: Gender of the person ('M'/'F'/None)
         :param bool reserved: If the person is reserved from public display
         :param _AuthorativeSystemCode source_system: Authorative system code
@@ -42,7 +42,7 @@ class HRPerson(object):
         self.hr_id = hr_id
         self.first_name = first_name
         self.last_name = last_name
-        self.date_of_birth = date_of_birth
+        self.birth_date = birth_date
         self.gender = gender
         self.reserved = reserved
         self.source_system = source_system
