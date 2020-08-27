@@ -31,13 +31,13 @@ class HRPerson(object):
     def __init__(self, hr_id, first_name, last_name, date_of_birth,
                  gender, reserved, source_system):
         """
-        :param hr_id: The persos's ID in the source system
-        :param first_name: First name of the person
-        :param last_name: Last name of the person
-        :param date_of_birth: Date the person was born
-        :param gender: Gender of the person (M/F/None)
-        :param reserved: If the person is reserved from public display
-        :param source_system: Authorative system code constant
+        :param str hr_id: The persos's ID in the source system
+        :param str first_name: First name of the person
+        :param str last_name: Last name of the person
+        :param date date_of_birth: Date the person was born
+        :param str gender: Gender of the person ('M'/'F'/None)
+        :param bool reserved: If the person is reserved from public display
+        :param _AuthorativeSystemCode source_system: Authorative system code
         """
         self.hr_id = hr_id
         self.first_name = first_name
@@ -74,9 +74,9 @@ class HRContactInfo(object):
     def __init__(self, contact_type, contact_pref,
                  contact_value):
         """
-        :param contact_type: Contact type constant code.
-        :param contact_pref: Contact preference
-        :param contact_value: The actual contact info. e.g. a phonenumber
+        :param _ContactInfoCode contact_type: Contact type code.
+        :param int contact_pref: Contact preference (default 50)
+        :param str contact_value: The actual contact info. e.g. a phonenumber
         """
         self.contact_type = contact_type
         self.contact_pref = contact_pref
@@ -93,11 +93,11 @@ class HRAddress(ComparableObject):
 
     def __init__(self, address_type, city, postal_code, address_text):
         """
-        :param address_type: Address type constant code.
-        :param city: City name.
-        :param postal_code: Postal code of address.
-        :param address_text: The rest of the address. Typically street
-                             name and house number.
+        :param _AddressCode address_type: Address code
+        :param str city: City name.
+        :param str postal_code: Postal code of address.
+        :param str address_text: The rest of the address. Typically street
+                                 name and house number.
         """
         self.address_type = address_type
         self.city = city
@@ -115,8 +115,8 @@ class HRExternalID(ComparableObject):
 
     def __init__(self, id_type, external_id):
         """
-        :param id_type: External_id type constant code.
-        :param external_id: The ID. e.g. passport number or birth number
+        :param _EntityExternalIdCode id_type: External_id type constant code.
+        :param str external_id: The ID. e.g. passport number or birth number
         """
         self.id_type = id_type
         self.external_id = external_id
@@ -132,9 +132,9 @@ class HRTitle(ComparableObject):
 
     def __init__(self, name_variant, name_language, name):
         """
-        :param name_variant: Entity name code constant value
-        :param name_language: Language code constant value
-        :param name: The name of the title
+        :param _EntityNameCode name_variant: Entity name code
+        :param _LanguageCode name_language: Language code
+        :param str name: The name of the title
         """
         self.name_variant = name_variant
         self.name_language = name_language
@@ -154,10 +154,10 @@ class HRAffiliation(ComparableObject):
 
     def __init__(self, ou_id, affiliation, status, precedence):
         """
-        :param ou_id: ID of the ou where the affiliation belongs
-        :param affiliation: Person affiliation code constant
-        :param status: Status code constant
-        :param precedence: Precedence for the affiliation
+        :param int ou_id: ID of the ou where the affiliation belongs
+        :param _PersonAffiliationCode affiliation: Affiliation code
+        :param _PersonAffStatusCode status: Status code
+        :param int precedence: Precedence for the affiliation
         """
         self.ou_id = ou_id
         self.affiliation = affiliation
@@ -175,7 +175,7 @@ class HRAccountType(HRAffiliation):
 
     def __init__(self, ou_id, affiliation):
         """
-        :param ou_id: ID of the ou where the affiliation belongs
-        :param affiliation: Person affiliation code constant
+        :param int ou_id: ID of the ou where the affiliation belongs
+        :param _PersonAffiliationCode affiliation: Affiliation code
         """
         super(self, HRAccountType).__init__(ou_id, affiliation, None, None)
