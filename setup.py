@@ -392,6 +392,7 @@ setup(
         'Cerebrum/modules/bofhd',
         'Cerebrum/modules/bofhd_requests',
         'Cerebrum/modules/guest',
+        'Cerebrum/modules/hr_import',
         'Cerebrum/modules/job_runner',
         'Cerebrum/modules/no',
         'Cerebrum/modules/no/Indigo',

@@ -170,7 +170,7 @@ class HRAffiliation(ComparableObject):
         )
 
 
- class HRAccountType(HRAffiliation):
+class HRAccountType(HRAffiliation):
     """Class with info about an account type, matching account_type"""
 
     def __init__(self, ou_id, affiliation):
