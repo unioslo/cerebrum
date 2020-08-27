@@ -368,6 +368,7 @@ setup(
         'Cerebrum/modules',
         'Cerebrum/modules/ad',
         'Cerebrum/modules/ad2',
+        'Cerebrum/modules/amqp',
         'Cerebrum/modules/apikeys',
         'Cerebrum/modules/audit',
         'Cerebrum/modules/automatic_group',
