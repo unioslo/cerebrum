@@ -18,7 +18,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" This module contains common tools for password checks. """
+
+"""This module contains common tools for password checks."""
 
 import cereconf
 
@@ -28,17 +29,31 @@ import os
 import string
 import sys
 
+import six
+
 
 locale_dir = getattr(cereconf,
                      'GETTEXT_LOCALEDIR',
                      os.path.join(sys.prefix, 'share', 'locale'))
 gettext_domain = getattr(cereconf, 'GETTEXT_DOMAIN', 'cerebrum')
-gettext.install(gettext_domain, locale_dir, unicode=1)
+gettext.install(gettext_domain, locale_dir, unicode=True)
 
 
 class PasswordNotGoodEnough(Exception):
     """Exception raised for insufficiently strong passwords."""
-    pass
+
+    def __init__(self, message):
+        # encode potential (Python 2) unicode types as byte strings
+        # to ensure str(T) does not raise UnicodeEncodeError
+        if six.PY2 and isinstance(message, six.text_type):
+            message = message.encode("utf-8")
+        super(PasswordNotGoodEnough, self).__init__(message)
+
+    def __unicode__(self):
+        # override BaseException.__unicode__() because:
+        # (1) BaseException.__str__() cannot be overridden
+        # (2) avoid double-decoding of unicode(T), which calls str(T)
+        return str(self).decode("utf-8")
 
 
 # Style specific exceptions
@@ -117,29 +132,27 @@ def check_password(password, account=None, structured=False, checkers=None):
     errors = tree()
     requirements = tree()
 
+    fallback_lang = "en"
     for style, checks in checkers_dict.items():
         for check_name, check_args in checks:
-            for language in getattr(
-                    cereconf, 'GETTEXT_LANGUAGE_IDS', ('en',)):
+            for lang in getattr(cereconf, 'GETTEXT_LANGUAGE_IDS', (fallback_lang,)):
                 # load the language
                 gettext.translation(gettext_domain,
                                     localedir=locale_dir,
-                                    languages=[language, 'en']).install()
+                                    languages=[lang, fallback_lang]).install()
                 # instantiate password checker
                 check = _checkers[check_name](**check_args)
                 err = check.check_password(password, account=account)
                 # bail fast if we're not returning a structure
                 if not structured and err and pwstyle == style:
-                    ex_class = exception_classes.get(style,
-                                                     PasswordNotGoodEnough)
-                    # only the first error message it sent when exceptions
-                    # are raised
-                    raise ex_class(err[0])
+                    cls = exception_classes.get(style, PasswordNotGoodEnough)
+                    # use only the first message we received when raising exceptions
+                    raise cls(err[0])
                 if err:
-                    errors[(style, check_name)][language] = err
+                    errors[(style, check_name)][lang] = err
                 else:
                     errors[(style, check_name)] = None
-                requirements[(style, check_name)][language] = check.requirement
+                requirements[(style, check_name)][lang] = check.requirement
 
     if not structured:
         return True

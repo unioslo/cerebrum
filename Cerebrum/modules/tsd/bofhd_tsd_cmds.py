@@ -58,10 +58,12 @@ from Cerebrum.modules.dns import IPv6Subnet
 from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns.bofhd_dns_cmds import HostId
 from Cerebrum.modules.no.uio import bofhd_uio_cmds
-from Cerebrum.modules.pwcheck.checker import (check_password,
-                                              PasswordNotGoodEnough,
-                                              RigidPasswordNotGoodEnough,
-                                              PhrasePasswordNotGoodEnough)
+from Cerebrum.modules.pwcheck.checker import (
+    PasswordNotGoodEnough,
+    PhrasePasswordNotGoodEnough,
+    RigidPasswordNotGoodEnough,
+    check_password,
+)
 from Cerebrum.modules.tsd import Gateway
 from Cerebrum.modules.tsd import bofhd_auth
 from Cerebrum.modules.tsd import bofhd_help
@@ -369,13 +371,11 @@ class TSDBofhdExtension(BofhdCommonMethods):
         try:
             check_password(password, account, structured=False)
         except RigidPasswordNotGoodEnough as e:
-            raise CerebrumError('Bad password: {err_msg}'.format(
-                err_msg=six.text_type(e)))
+            raise CerebrumError("Bad password: {}".format(e))
         except PhrasePasswordNotGoodEnough as e:
-            raise CerebrumError('Bad passphrase: {err_msg}'.format(
-                err_msg=six.text_type(e)))
+            raise CerebrumError("Bad passphrase: {}".format(e))
         except PasswordNotGoodEnough as e:
-            raise CerebrumError('Bad password: {err_msg}'.format(err_msg=e))
+            raise CerebrumError("Bad password: {}".format(e))
 
         ret_msgs = ['Password altered']
         # Set password for all person's accounts:

@@ -96,10 +96,12 @@ from Cerebrum.modules.no.uio import bofhd_pw_issues
 from Cerebrum.modules.bofhd import bofhd_user_create_unpersonal
 from Cerebrum.modules.no.uio import bofhd_auth
 from Cerebrum.modules.ou_disk_mapping import bofhd_cmds
-from Cerebrum.modules.pwcheck.checker import (check_password,
-                                              PasswordNotGoodEnough,
-                                              RigidPasswordNotGoodEnough,
-                                              PhrasePasswordNotGoodEnough)
+from Cerebrum.modules.pwcheck.checker import (
+    check_password,
+    PasswordNotGoodEnough,
+    PhrasePasswordNotGoodEnough,
+    RigidPasswordNotGoodEnough,
+)
 from Cerebrum.modules.pwcheck.history import (
     PasswordHistory,
     check_password_history,
@@ -2127,14 +2129,12 @@ class BofhdExtension(BofhdCommonMethods):
         try:
             check_password(password, ac, structured=False)
         except RigidPasswordNotGoodEnough as e:
-            raise CerebrumError('Bad password: %s' % exc_to_text(e))
+            raise CerebrumError("Bad password: {}".format(e))
         except PhrasePasswordNotGoodEnough as e:
-            raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
+            raise CerebrumError("Bad passphrase: {}".format(e))
         except PasswordNotGoodEnough as e:
-            raise CerebrumError('Bad password: %s' % exc_to_text(e))
-        return {
-            'password_ok': 'Good password',
-        }
+            raise CerebrumError("Bad password: {}".format(e))
+        return {"password_ok": "Good password"}
 
     #
     # misc clear_passwords [uname]
@@ -5716,11 +5716,11 @@ class BofhdExtension(BofhdCommonMethods):
             try:
                 check_password(password, account, structured=False)
             except RigidPasswordNotGoodEnough as e:
-                raise CerebrumError('Bad password: %s' % exc_to_text(e))
+                raise CerebrumError("Bad password: {}".format(e))
             except PhrasePasswordNotGoodEnough as e:
-                raise CerebrumError('Bad passphrase: %s' % exc_to_text(e))
+                raise CerebrumError("Bad passphrase: {}".format(e))
             except PasswordNotGoodEnough as e:
-                raise CerebrumError('Bad password: %s' % exc_to_text(e))
+                raise CerebrumError("Bad password: {}".format(e))
         account.set_password(password)
         account.write_db()
         operator.store_state("user_passwd",
