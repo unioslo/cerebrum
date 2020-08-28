@@ -5,7 +5,7 @@ cffi
 cx-Oracle~=7.3.0
 egenix-mx-base  # If it fails: pip install --force-reinstall --ignore-installed --no-binary :all: egenix-mx-base
 Flask==1.1.1
-flask-restplus==0.13.0
+flask-restx~=0.2.0
 gunicorn==19.9.0
 Jinja2
 jsonschema

@@ -22,8 +22,8 @@
 
 from __future__ import unicode_literals
 
-from flask_restplus import Namespace, Resource, abort
-from flask_restplus import fields as base_fields
+from flask_restx import Namespace, Resource, abort
+from flask_restx import fields as base_fields
 
 from Cerebrum.Entity import EntityExternalId
 from Cerebrum import Errors
@@ -77,7 +77,7 @@ class ExternalIdResource(Resource):
         help='Filter by external ID.')
 
     @auth.require()
-    @api.doc(parser=extid_search_filter)
+    @api.doc(expect=[extid_search_filter])
     @api.marshal_with(ExternalIdItem, as_list=True, envelope='external_ids')
     def get(self):
         """Get external IDs"""

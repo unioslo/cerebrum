@@ -23,7 +23,7 @@
 from __future__ import unicode_literals
 
 from flask import url_for
-from flask_restplus import Namespace, Resource, abort
+from flask_restx import Namespace, Resource, abort
 from six import text_type
 
 from Cerebrum.Utils import Factory
@@ -220,7 +220,7 @@ class PersonAffiliationListResource(Resource):
 
     @auth.require()
     @api.marshal_with(PersonAffiliationList)
-    @api.doc(parser=person_affiliations_filter)
+    @api.doc(expect=[person_affiliations_filter])
     def get(self, id):
         """List person affiliations."""
         args = self.person_affiliations_filter.parse_args()

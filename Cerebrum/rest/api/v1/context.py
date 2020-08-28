@@ -21,7 +21,7 @@
 
 from __future__ import unicode_literals
 
-from flask_restplus import Namespace, Resource, abort
+from flask_restx import Namespace, Resource, abort
 
 from Cerebrum.rest.api import db, auth, fields, validator
 
@@ -57,7 +57,7 @@ class ContextListResource(Resource):
         help='Filter by entity type(s)')
 
     @api.marshal_list_with(Context)
-    @api.doc(parser=context_search_filter)
+    @api.doc(expect=[context_search_filter])
     @auth.require()
     def get(self):
         """List contexts"""

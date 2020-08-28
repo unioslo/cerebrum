@@ -22,8 +22,8 @@
 
 from __future__ import unicode_literals
 
-from flask_restplus import Namespace, Resource, abort
-from flask_restplus import fields as base_fields
+from flask_restx import Namespace, Resource, abort
+from flask_restx import fields as base_fields
 from werkzeug.exceptions import NotFound
 from six import text_type
 
@@ -468,7 +468,7 @@ class GroupMemberListResource(Resource):
 
     @auth.require()
     @api.marshal_with(GroupMember, as_list=True, envelope='members')
-    @api.doc(parser=group_member_filter)
+    @api.doc(expect=[group_member_filter])
     @api.doc(params={'name': 'group name'})
     def get(self, name):
         """List members of a group."""
@@ -573,7 +573,7 @@ class GroupMemberResource(Resource):
             # id for the href builder, won't be shown in output
             'id': utils.get_entity_name(member) or member.entity_id,
             'member_id': member.entity_id,
-            'member_name': name,
+            'name': name,
             'href': utils.href_from_entity_type(entity_type=member.entity_type,
                                                 entity_id=member.entity_id,
                                                 entity_name=name),
@@ -598,7 +598,7 @@ class GroupMemberResource(Resource):
             # id for the href builder, won't be shown in output
             'id': utils.get_entity_name(member) or member.entity_id,
             'member_id': member.entity_id,
-            'member_name': name,
+            'name': name,
             'href': utils.href_from_entity_type(entity_type=member.entity_type,
                                                 entity_id=member.entity_id,
                                                 entity_name=name),
@@ -688,7 +688,7 @@ class GroupListResource(Resource):
 
     @auth.require()
     @api.marshal_with(GroupListItem, as_list=True, envelope='groups')
-    @api.doc(parser=group_search_filter)
+    @api.doc(expect=[group_search_filter])
     def get(self):
         """List groups."""
         args = self.group_search_filter.parse_args()
