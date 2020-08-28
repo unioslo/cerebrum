@@ -1113,6 +1113,26 @@ def perform_delete(database, source_system, hr_person, cerebrum_person):
     logger.info('%r deleted', cerebrum_person.entity_id)
 
 
+def get_local_it_contact(cerebrum_person, source_system, affiliation,
+                         database):
+    ou = Factory.get('OU')(database)
+    co = Factory.get('Constants')(database)
+    for row in cerebrum_person.list_affiliations(
+            person_id=cerebrum_person.entity_id,
+            source_system=source_system,
+            affiliation=affiliation,
+            include_deleted=False
+    ):
+        ou.clear()
+        ou.find(row['ou_id'])
+        local_it_contact = ou.local_it_contact(co.perspective_sap)
+        # We will get the contact of the affiliation with lower precedence if
+        # no `local_it_contact` is found on the first iteration.
+        if local_it_contact:
+            return local_it_contact[0]['contact_value']
+    return MAIL_TO
+
+
 def _mail_possible_duplicate(hr_person, new_person, database,
                              source_system, dryrun):
     """
@@ -1136,7 +1156,11 @@ def _mail_possible_duplicate(hr_person, new_person, database,
                 'OLD_PERSON': full_name,
                 'OLD_ID': person['person_id']
             }
-            mail_template(MAIL_TO, TEMPLATE, substitute=substitute,
+            mail_to = get_local_it_contact(new_person,
+                                           co.system_sap,
+                                           co.affiliation_ansatt,
+                                           database)
+            mail_template(mail_to, TEMPLATE, substitute=substitute,
                           sender=MAIL_SENDER, cc=MAIL_CC,
                           debug=dryrun)
             return
