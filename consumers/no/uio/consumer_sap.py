@@ -1156,10 +1156,12 @@ def _mail_possible_duplicate(hr_person, new_person, database,
                 'OLD_PERSON': full_name,
                 'OLD_ID': person['person_id']
             }
-            mail_to = get_local_it_contact(new_person,
-                                           co.system_sap,
-                                           co.affiliation_ansatt,
-                                           database)
+            mail_to = get_local_it_contact(
+                new_person,
+                co.system_sap,
+                [co.affiliation_ansatt, co.affiliation_tilknyttet],
+                database
+            )
             mail_template(mail_to, TEMPLATE, substitute=substitute,
                           sender=MAIL_SENDER, cc=MAIL_CC,
                           debug=dryrun)
