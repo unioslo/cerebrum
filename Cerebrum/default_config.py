@@ -269,7 +269,7 @@ PERSON_AFFILIATION_PRECEDENCE_RULE = {
 # start date of a role is its "effectiveStartDate".
 # This variable tells us how many days before the 'start date' of a role or
 # affiliation, it should be imported to Cerebrum.
-SAP_START_DATE_OFFSET = 3
+SAP_START_DATE_OFFSET = 6
 
 # Cerebrum.utils.atomicfile.SimilarSizeWriter default values
 
