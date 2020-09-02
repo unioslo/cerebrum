@@ -215,8 +215,6 @@ def parse_roles(role_data, database):
                     'precedence': None})
             )
         logger.info('parsed %i roles', len(roles))
-        # TODO: These used to be sorted, but that did not seem to affect
-        #   anything!
         return roles
 
 
@@ -277,7 +275,6 @@ def parse_titles(person_data, assignment_data):
     co = Factory.get('Constants')
     logger.info('parsing titles')
     titles = []
-    # TODO: find person with title for testing
     if person_data.get('personalTitle'):
         titles.extend(
             [HRTitle(name_variant=co.personal_title,

@@ -50,7 +50,7 @@ def extract_hr_id(body):
     :type body: dict"""
     sub = body.get('sub')
     if sub:
-        match = SUB_2_HR_ID.match(sub)
+        match = SUB_2_HR_ID.search(sub)
         if match:
             return match.group(1)
     return None
