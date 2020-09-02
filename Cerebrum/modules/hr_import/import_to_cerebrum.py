@@ -28,6 +28,7 @@ from Cerebrum.Utils import Factory
 logger = logging.getLogger(__name__)
 
 LEADER_GROUP_PREFIX = 'adm-leder-'
+RESERVATION_GROUP = 'SAP-elektroniske-reservasjoner'
 
 
 class HRDataImport(object):
@@ -346,7 +347,7 @@ class HRDataImport(object):
     def update_reservation(self):
         """Manage reservation from public display for person in Cerebrum"""
         gr = Factory.get('Group')(self.database)
-        gr.find_by_name('SAP-elektroniske-reservasjoner')
+        gr.find_by_name(RESERVATION_GROUP)
         in_reserved_group = gr.has_member(self.cerebrum_person.entity_id)
         if self.hr_person.reserved and not in_reserved_group:
             gr.add_member(self.cerebrum_person.entity_id)
