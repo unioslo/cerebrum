@@ -18,9 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-"""
-Request handler for bofhd.
+""" Request handler for bofhd.
 
 Configuration
 -------------
@@ -72,10 +70,8 @@ moved to a separate module after:
     Date:  Fri Mar 18 10:34:58 2016 +0100
 
 """
-
 import cereconf
 
-import collections
 import io
 import socket
 import warnings
@@ -85,20 +81,15 @@ from xml.parsers.expat import ExpatError
 
 import six
 
-from Cerebrum import (
-    Errors,
-    QuarantineHandler,
-    https,
-)
-from Cerebrum.utils import unicodestring
+from Cerebrum import Errors
+from Cerebrum import QuarantineHandler
+from Cerebrum import https
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import statsd
-from Cerebrum.modules.bofhd.errors import (
-    CerebrumError,
-    ServerRestartedError,
-    SessionExpiredError,
-    UnknownError,
-)
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import ServerRestartedError
+from Cerebrum.modules.bofhd.errors import SessionExpiredError
+from Cerebrum.modules.bofhd.errors import UnknownError
 from Cerebrum.modules.bofhd.session import BofhdSession
 from Cerebrum.modules.bofhd.xmlutils import xmlrpc_to_native, native_to_xmlrpc
 
@@ -239,53 +230,25 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                              exc_to_text(e), format_addr(self.client_address))
             self.close_connection = 1
 
-    def _send_response(self, http_code, body):
-        """Serialize, encode, and transmit response body across wire."""
-        payload = None
-        if body is not None:
+    def _send_response(self, http_code, response):
+        """ write xml headers and response. """
+        if response:
             try:
-                body = self._serialize(body)
-                # responses are identified by single-value tuple
-                payload = xmlrpclib.dumps((body,), methodresponse=True)
+                response = xmlrpclib.dumps(response, methodresponse=True)
             except:
-                self.logger.error('Unable to generate XML response', exc_info=True)
+                self.logger.error('Unable to generate XML response',
+                                  exc_info=True)
                 http_code = 500
+                response = None
 
         self.send_response(http_code)
-        if payload is not None:
+        if response:
             self.send_header('Content-Type', 'text/xml')
-            self.send_header('Content-Length', str(len(payload)))
+            self.send_header('Content-Length', str(len(response)))
         self.end_headers()
-        if payload is not None:
-            self.wfile.write(payload)
+        if response:
+            self.wfile.write(response)
         self.wfile.flush()
-
-    @staticmethod
-    def _serialize(obj):
-        """
-        Sanitize response for display in terminal emulators.
-
-        Not all database values have been sanitised prior to insertion
-        and may therefore contain code points that are harmful to
-        display in a terminal emulator.
-
-        One example is "abc\x08" (backspace) which effectively
-        causes data corruption because its rendered value is "ab".
-        Further, certain control sequence characters causes the
-        XML-RPC encoding to break.
-
-        This will remove all control sequence characters in all
-        string values that are not used for purposes of layout such
-        as tabular, carriage return, and line feed.
-        """
-        if isinstance(obj, six.string_types):
-            s = six.text_type(obj)
-            return unicodestring.strip_control_characters(s, exclude="\t\r\n")
-        elif isinstance(obj, dict):
-            return {k: BofhdRequestHandler._serialize(v) for k, v in obj.items()}
-        elif isinstance(obj, collections.Iterable):
-            return [BofhdRequestHandler._serialize(x) for x in obj]
-        return obj
 
     @staticmethod
     def _format_xmlrpc_fault(exc):
@@ -349,8 +312,9 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         # XML-RPC structure is decoded and valid, try to dispatch
         try:
             try:
+                # wrap response in a singleton tuple
                 self.logger.debug('dispatch, method=%r', method)
-                response = self._dispatch(method, params)
+                response = (self._dispatch(method, params), )
             except CerebrumError as e:
                 response = xmlrpclib.Fault(1, self._format_xmlrpc_fault(e))
             except Exception as e:
