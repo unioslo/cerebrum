@@ -289,7 +289,7 @@ class BofhdExtension(bofhd_uio_cmds.BofhdExtension):
                          'last_date': last_dates[i]})
 
         try:
-            self.ba.can_get_person_external_id(operator, person, None, None)
+            self.ba.can_get_external_id(operator, person, None, None)
             # Include fnr. Note that this is not displayed by the main
             # bofh-client, but some other clients (Brukerinfo, cweb) rely
             # on this data.

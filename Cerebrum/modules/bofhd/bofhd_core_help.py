@@ -163,6 +163,12 @@ command_help = {
         'ou_search': 'Search for OUs by name or a partial stedkode',
         'ou_info': 'View information about an OU',
         'ou_tree': 'Show parents/children of an OU',
+        'ou_set_id':
+            'Add an external id for an OU (can only set IDs with source '
+            'Manual)',
+        'ou_clear_id':
+            'Remove an external id from an OU (can only clear IDs with source '
+            'Manual)'
     },
     'perm': {
         'perm_opset_list': 'List defined opsets',
@@ -364,6 +370,9 @@ arg_help = {
     'external_id_type':
         ['external_id_type', 'Enter external id type',
          'The external id type, i.e. NO_BIRTHNO/NO_STUDNO etc'],
+    'external_id_value':
+        ['external_id_value', 'Enter external id value',
+         'The external id value, i.e 123456/abcd-abcd-abcd etc'],
     'group_disp_name':
         ['disp_name', 'Enter display name (optional, may differ from name)'],
     'group_exchange_attr':

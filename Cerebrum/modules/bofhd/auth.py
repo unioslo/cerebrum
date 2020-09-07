@@ -2477,6 +2477,26 @@ class BofhdAuth(DatabaseAccessor):
                 pass
         return None
 
+    def can_get_external_id(self, operator, entity, extid_type, source_sys,
+                            query_run_any=False):
+        if query_run_any:
+            return True
+        if self.is_superuser(operator.get_entity_id()):
+            return True
+
+        if entity.entity_type == self.const.entity_ou:
+            return True
+
+        if entity.entity_type == self.const.entity_person:
+            return self.can_get_person_external_id(operator,
+                                                   entity,
+                                                   extid_type,
+                                                   source_sys,
+                                                   query_run_any=query_run_any)
+
+        raise PermissionDenied("You don't have permission to view external "
+                               "ids for entity {}".format(entity.entity_id))
+
     def can_get_person_external_id(self, operator, person, extid_type,
                                    source_sys, query_run_any=False):
         """Check if operator can see external ids. Lets everyone see
@@ -2489,10 +2509,6 @@ class BofhdAuth(DatabaseAccessor):
         :param query_run_any
         :return bool True or False
         """
-        if query_run_any:
-            return True
-        if self.is_superuser(operator.get_entity_id()):
-            return True
         account = Factory.get('Account')(self._db)
         account_ids = [int(
             r['account_id']) for r in

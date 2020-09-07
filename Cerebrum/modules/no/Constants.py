@@ -204,7 +204,7 @@ class ConstantsHigherEdu(Constants.Constants):
     system_fs = _AuthoritativeSystemCode('FS', 'FS')
     system_sap = _AuthoritativeSystemCode('SAP', 'SAP')
 
-    # external id definitions (student and employee id)
+    # external id definitions (student, employee and OU id)
     externalid_studentnr = _EntityExternalIdCode(
         'NO_STUDNO', Constants.Constants.entity_person,
         'Student ID number')
@@ -216,6 +216,16 @@ class ConstantsHigherEdu(Constants.Constants):
     externalid_sap_ou = _EntityExternalIdCode(
         "SAP_OU_ID", Constants.Constants.entity_ou,
         'SAP OU identification')
+
+    externalid_dfo_ou = _EntityExternalIdCode(
+        'DFO_OU_ID', Constants.Constants.entity_ou,
+        'DFO OU identification'
+    )
+
+    externalid_dfo_acronym = _EntityExternalIdCode(
+        'DFO_ACRONYM', Constants.Constants.entity_ou,
+        'DFO OU acronym'
+    )
 
     externalid_uname = _EntityExternalIdCode(
         'UNAME', Constants.Constants.entity_person,
