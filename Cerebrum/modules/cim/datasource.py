@@ -18,15 +18,17 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 """
 This module contains the functionality for building a dict consistent
 with the CIM-WS schema, based on data from a Cerebrum person object.
 """
+
 from __future__ import unicode_literals
 
-import phonenumbers
-from six import text_type
+import six
 
+from Cerebrum.utils import phone
 from Cerebrum.Utils import Factory
 from Cerebrum.Errors import NotFoundError
 
@@ -160,31 +162,29 @@ class CIMDataSource(object):
         the default region defined in the configuration.
 
         :param entry: A phone number
-        :return: A phone number with a country prefix, or None
-        :rtype: unicode
-        """
 
+        :rtype: Optional[str]
+        :return: A phone number with a country prefix, or None
+        """
         def warn():
             self.logger.warning(
                 "CIMDataSource: Invalid phone number for person_id:{}, "
                 "account_name:{}: {} {!r}".format(
                     self.pe.entity_id,
                     self.ac.account_name,
-                    text_type(self.co.ContactInfo(entry['contact_type'])),
+                    six.text_type(self.co.ContactInfo(entry['contact_type'])),
                     phone_number))
 
-        phone_number = entry['contact_value']
         try:
-            parsed_nr = phonenumbers.parse(
-                number=phone_number,
-                region=self.config.phone_country_default)
-            if phonenumbers.is_valid_number(parsed_nr):
-                return phonenumbers.format_number(
-                    numobj=parsed_nr,
-                    num_format=phonenumbers.PhoneNumberFormat.E164)
-            else:
-                warn()
-        except (phonenumbers.NumberParseException, UnicodeDecodeError):
+            num = phone.parse(
+                entry["contact_value"],
+                region=self.config.phone_country_default,
+            )
+        except phone.NumberParseException:
+            warn()
+        if phone.is_valid(num):
+            return phone.format(num)
+        else:
             warn()
         return None
 
