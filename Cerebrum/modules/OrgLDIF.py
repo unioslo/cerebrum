@@ -742,22 +742,84 @@ class OrgLDIF(object):
         else:
             self.account_mail = None
 
+    def init_person_addresses_from_ou(self, addr_info, addr_types,
+                                      addr_source):
+        """Maps person_id to the address of the OU it is affiliated to
+
+        If a person has multiple affiliations, the most prioritized one is
+        selected
+        """
+        if not addr_types:
+            return
+
+        ou_id2address = defaultdict(dict)
+        for row in self.ou.list_entity_addresses(
+                entity_type=self.const.entity_ou,
+                address_type=addr_types,
+                source_system=addr_source):
+            ou_id2address[row['entity_id']].update({
+                int(row['address_type']): (row['address_text'],
+                                           row['p_o_box'],
+                                           row['postal_number'],
+                                           row['city'],
+                                           row['country'])
+            })
+        ou_id2address = dict(ou_id2address)
+
+        # TODO:
+        #  Also list affiliations from source systems other than
+        #  'contact_source_system' (where addresses are fetched from)?
+        # Note:
+        #  We could technically use self.affiliations instead of creating a
+        #  new cache here. Then runtime would be decreased, but it would
+        #  not work for every possible combination of the configuration
+        #  variables 'contact_source_system' and 'affiliation_source_system'.
+        primary_affiliations = {}
+        for row in self.person.list_affiliations(source_system=addr_source,
+                                                 fetchall=False):
+            aff = primary_affiliations.get(row['person_id'], None)
+            if aff is None or row['precedence'] < aff[1]:
+                primary_affiliations[row['person_id']] = (row['ou_id'],
+                                                          row['precedence'])
+
+        for person_id, (ou_id, _) in six.iteritems(primary_affiliations):
+            address = ou_id2address.get(ou_id)
+            if address:
+                addr_info[person_id].update(address)
+
     def init_person_addresses(self):
         # Set self.addr_info = dict {person_id: {address_type: (addr. data)}}.
         timer = make_timer(logger, "Fetching personal addresses...")
-        self.addr_info = addr_info = {}
-        addr_types = self.config.person.get('address_types')
-        src_sys = self.config.org.parent.get('contact_source_system')
-        for row in self.person.list_entity_addresses(
-                entity_type=self.const.entity_person,
-                source_system=getattr(self.const, src_sys),
-                address_type=map_constants('_AddressCode', addr_types)):
-            entity_id = int(row['entity_id'])
-            if entity_id not in addr_info:
-                addr_info[entity_id] = {}
-            addr_info[entity_id][int(row['address_type'])] = (
-                row['address_text'], row['p_o_box'], row['postal_number'],
-                row['city'], row['country'])
+        addr_src = getattr(self.const,
+                           self.config.org.parent.get('contact_source_system'))
+        addr_types = set(
+            map_constants('_AddressCode',
+                          self.config.person.get('address_types'),
+                          return_type=list)
+        )
+        ou_addr_types = set(
+            map_constants('_AddressCode',
+                          self.config.person.get('address_from_affiliated_ou'),
+                          return_type=list)
+        )
+        addr_types = addr_types - ou_addr_types
+
+        addr_info = defaultdict(dict)
+        self.init_person_addresses_from_ou(addr_info, ou_addr_types, addr_src)
+        if addr_types:
+            for row in self.person.list_entity_addresses(
+                    entity_type=self.const.entity_person,
+                    source_system=addr_src,
+                    address_type=addr_types):
+                entity_id = int(row['entity_id'])
+                addr_info[entity_id][int(row['address_type'])] = (
+                    row['address_text'],
+                    row['p_o_box'],
+                    row['postal_number'],
+                    row['city'],
+                    row['country']
+                )
+        self.addr_info = dict(addr_info)
         timer("...personal addresses done.")
 
     def init_person_aliases(self):
