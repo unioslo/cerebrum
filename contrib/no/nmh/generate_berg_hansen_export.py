@@ -159,8 +159,7 @@ def get_person_info(db, person, ssn_type, source_system,
         'title': 'Mr' if pe.gender == co.gender_male else 'Ms',
         'feide_id': _construct_feide_id(db, pe),
         'email_address': _get_primary_emailaddress(db, pe),
-        'phone': _get_phone(db, pe, source_system, telephone_types),
-        'ssn': _get_ssn(db, pe, ssn_type, source_system)
+        'phone': _get_phone(db, pe, source_system, telephone_types)
     }
 
 
@@ -173,7 +172,7 @@ def write_file(filename, codec, persons, skip_incomplete, skip_header=False):
     :param basestring filename: The name of the file to write.
     """
     fields = ['title', 'firstname', 'lastname', 'feide_id', 'email_address',
-              'phone', 'ssn']
+              'phone']
     i = 0
     with AtomicFileWriter(filename,
                           mode='w',
