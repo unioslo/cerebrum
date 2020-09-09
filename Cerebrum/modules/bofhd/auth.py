@@ -2488,17 +2488,17 @@ class BofhdAuth(DatabaseAccessor):
             return True
 
         if entity.entity_type == self.const.entity_person:
-            return self.can_get_person_external_id(operator,
-                                                   entity,
-                                                   extid_type,
-                                                   source_sys,
-                                                   query_run_any=query_run_any)
+            return self._can_get_person_external_id(operator,
+                                                    entity,
+                                                    extid_type,
+                                                    source_sys,
+                                                    query_run_any=query_run_any)
 
         raise PermissionDenied("You don't have permission to view external "
                                "ids for entity {}".format(entity.entity_id))
 
-    def can_get_person_external_id(self, operator, person, extid_type,
-                                   source_sys, query_run_any=False):
+    def _can_get_person_external_id(self, operator, person, extid_type,
+                                    source_sys, query_run_any=False):
         """Check if operator can see external ids. Lets everyone see
          NO_STUDNO and NO_SAPNO. But restricts access to NO_BIRTHNO.
 

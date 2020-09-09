@@ -181,8 +181,8 @@ class UitAuth(UitContactAuthMixin, BofhdAuth):
             return False
         raise PermissionDenied('Restricted access')
 
-    def can_get_person_external_id(self, operator, person, extid_type,
-                                   source_sys, query_run_any=False):
+    def _can_get_person_external_id(self, operator, person, extid_type,
+                                    source_sys, query_run_any=False):
         account = Factory.get('Account')(self._db)
         account_ids = [int(r['account_id']) for r in
                        account.list_accounts_by_owner_id(person.entity_id)]
