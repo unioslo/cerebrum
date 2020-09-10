@@ -23,7 +23,7 @@
 from __future__ import unicode_literals
 
 from flask_restx import Namespace, Resource, abort
-from Cerebrum.rest.api import db, auth, fields
+from Cerebrum.rest.api import db, auth, fields, utils
 
 from Cerebrum import Errors
 from Cerebrum.modules import Email
@@ -49,23 +49,52 @@ def find_email_address(address):
     return ea
 
 
-def list_email_addresses(ea):
+def format_email_address(addr, et):
+    target_entity_type = et.get_target_entity_type()
+    if target_entity_type:
+        target_entity_type = db.const.EntityType(target_entity_type)
+    target_entity_name = None
+    if target_entity_type == db.const.entity_account:
+        target_entity_name = utils.get_entity_name(et.get_target_entity_id())
+    return {
+        'address': addr,
+        'type': db.const.EmailTarget(et.get_target_type()),
+        'target_entity_name': target_entity_name,
+        'target_entity_type': target_entity_type,
+    }
+
+
+def find_email_target_by_address(ea):
     if not isinstance(ea, Email.EmailAddress):
         ea = find_email_address(ea)
     et = Email.EmailTarget(db.connection)
     et.find(ea.email_addr_target_id)
+    return ea, et
 
-    return map(lambda (lp, dom, _a_id): {'value': '{}@{}'.format(lp, dom),
-                                         'type': et.get_target_type()},
+
+def get_email_address(ea):
+    ea, et = find_email_target_by_address(ea)
+    return format_email_address(
+        addr=ea.get_address(),
+        et=et,
+    )
+
+
+def list_email_addresses(ea):
+    ea, et = find_email_target_by_address(ea)
+    return map(lambda (lp, dom, _a_id): format_email_address('{}@{}'.format(lp, dom), et),
                et.get_addresses())
 
 
 EmailAddress = api.model('EmailAddress', {
-    'value': fields.base.String(
+    'address': fields.base.String(
         description='The email address'),
-    'type': fields.Constant(
-        ctype='EmailTarget',
-        description="Email address type, i.e. 'forward', 'target'")
+    'type': fields.base.String(
+        description="Email address target type, i.e. 'forward', 'account"),
+    'target_entity_type': fields.base.String(
+        description="Email address target entity type"),
+    'target_entity_name': fields.base.String(
+        description="Email address target entity name"),
 })
 
 EmailAddresses = api.model('EmailAddresses', {
@@ -83,4 +112,4 @@ class EmailAddressesResource(Resource):
     @auth.require()
     def get(self, address):
         """Get email address information."""
-        return {'addresses': list_email_addresses(address)}
+        return get_email_address(address)
