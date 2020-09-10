@@ -74,8 +74,7 @@ class AbstractMapper(object):
         Find a Cerebrum object/entity.
 
         :type hr_object: models.HRPerson
-        :param obj:
-            An object, as provided by :meth:`AbstractDatasource.get_object`
+        :param obj: An object, as provided by :meth:`.translate`.
 
         :rtype: Cerebrum.Person.Person
 

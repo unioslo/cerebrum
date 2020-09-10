@@ -77,6 +77,9 @@ class AbstractDatasource(object):
             An object reference, as returned by :meth:`.get_reference`.
 
         :rtype: object
+        :returns:
+            All relevant object data.  The type and format of the returned
+            object depends on the source system.
 
         :raises DatasourceUnavailable:
             If the reference cannot be fetched from the source system (e.g.
