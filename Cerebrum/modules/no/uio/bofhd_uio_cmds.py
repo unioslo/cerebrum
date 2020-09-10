@@ -431,6 +431,25 @@ class BofhdExtension(BofhdCommonMethods):
                 result[attr] = getattr(entity, attr)
         return result
 
+    def _viewable_external_ids(self, operator, entity):
+        """Get external ids of entity that operator has permission to view"""
+        data = []
+        try:
+            for row in entity.get_external_id():
+                try:
+                    extid_type = str(self.const.EntityExternalId(row[0]))
+                    self.ba.can_get_external_id(
+                        operator, entity,
+                        extid_type=extid_type,
+                        source_sys=row['source_system'])
+                except PermissionDenied:
+                    pass
+                else:
+                    data.append(dict(row))
+        except PermissionDenied:
+            pass
+        return data
+
     #
     # entity accounts ...
     #
@@ -2714,7 +2733,9 @@ class BofhdExtension(BofhdCommonMethods):
               'address_po_box', 'address_postal_number', 'address_city',
               'address_country')),
             ("Email domain:  affiliation %-7s @%s",
-             ('email_affiliation', 'email_domain'))
+             ('email_affiliation', 'email_domain')),
+            ("External id:   %s: %s [from %s]",
+             ("extid", "value", "extid_src"))
         ]))
 
     def ou_info(self, operator, target):
@@ -2833,7 +2854,57 @@ class BofhdExtension(BofhdCommonMethods):
                 output.append({'email_affiliation': affname,
                                'email_domain': ed.email_domain_name})
 
+        # Add external ids
+        viewable_external_ids = self._viewable_external_ids(operator, ou)
+        for ext_id in viewable_external_ids:
+            output.append(
+                {
+                    'extid': text_type(self.const.EntityExternalId(
+                        ext_id['id_type'])),
+                    'value': text_type(ext_id['external_id']),
+                    'extid_src': text_type(self.const.AuthoritativeSystem(
+                        ext_id['source_system']))
+                }
+            )
+
         return output
+
+    all_commands['ou_set_id'] = Command(
+        ("ou", "set_id"),
+        OU(),
+        ExternalIdType(),
+        SimpleString(help_ref='external_id_value'),
+        perm_filter='is_superuser'
+    )
+
+    def ou_set_id(self, operator, stedkode, id_type, id_value):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        ou = self._get_ou(stedkode=stedkode)
+        source_system = self.const.system_manual
+        id_type = self.const.EntityExternalId(id_type)
+        ou.affect_external_id(source_system, id_type)
+        ou.populate_external_id(source_system, id_type, id_value)
+        ou.write_db()
+        return "OK, set external_id: '%s' for ou: '%s'" % (id_value, stedkode)
+
+    all_commands['ou_clear_id'] = Command(
+        ("ou", "clear_id"),
+        OU(),
+        ExternalIdType(),
+        perm_filter='is_superuser'
+    )
+
+    def ou_clear_id(self, operator, stedkode, id_type):
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
+        ou = self._get_ou(stedkode=stedkode)
+        source_system = self.const.system_manual
+        id_type = self.const.EntityExternalId(id_type)
+        ou.affect_external_id(source_system, id_type)
+        ou.write_db()
+        return "OK, deleted external_id: '%s' for ou: '%s'" % (id_type,
+                                                               stedkode)
 
     #
     # ou tree <stedkode/entity_id> <perspective> <language>
@@ -3797,27 +3868,18 @@ class BofhdExtension(BofhdCommonMethods):
         for i in range(1, len(affiliations)):
             data.append({'affiliation': affiliations[i],
                          'source_system': sources[i]})
-        try:
-            # Show external ids
-            for row in person.get_external_id():
-                try:
-                    extid_type = str(self.const.EntityExternalId(
-                        row[0]))
-                    self.ba.can_get_person_external_id(
-                        operator, person,
-                        extid_type=extid_type,
-                        source_sys=row['source_system'])
-                except PermissionDenied:
-                    pass
-                else:
-                    data.append({
-                        'extid': text_type(extid_type),
-                        'extid_src': text_type(
-                            self.const.AuthoritativeSystem(
-                                row['source_system'])),
-                    })
-        except PermissionDenied:
-            pass
+
+        # Add external ids
+        viewable_external_ids = self._viewable_external_ids(operator, person)
+        for ext_id in viewable_external_ids:
+            data.append(
+                {
+                    'extid': text_type(self.const.EntityExternalId(
+                        ext_id['id_type'])),
+                    'extid_src': text_type(self.const.AuthoritativeSystem(
+                        ext_id['source_system']))
+                }
+            )
 
         # Show contact info, if permission checks are implemented
         if hasattr(self.ba, 'can_get_contact_info'):
@@ -3871,7 +3933,7 @@ class BofhdExtension(BofhdCommonMethods):
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
-        self.ba.can_get_person_external_id(
+        self.ba.can_get_external_id(
             operator, person, ext_id_type, source_system)
         external_id_list = person.get_external_id(
             id_type=ext_id_const,

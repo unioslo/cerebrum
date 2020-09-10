@@ -381,12 +381,8 @@ class TsdBofhdAuth(BofhdAuth):
         return super(TsdBofhdAuth, self).can_show_history(operator, entity,
                                                           query_run_any)
 
-    def can_get_person_external_id(self, operator, person, extid_type,
-                                   source_sys, query_run_any=False):
-        if query_run_any:
-            return True
-        if self.is_superuser(operator.get_entity_id()):
-            return True
+    def _can_get_person_external_id(self, operator, person, extid_type,
+                                    source_sys, query_run_any=False):
         account = Factory.get('Account')(self._db)
         account_ids = [int(
             r['account_id']) for r in
