@@ -37,6 +37,9 @@ from six.moves.urllib.parse import (
     urljoin as _urljoin,
 )
 
+from Cerebrum.config.configuration import Configuration, ConfigDescriptor
+from Cerebrum.config.settings import String
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,7 +71,7 @@ def urljoin(base_url, *paths):
     'https://localhost/foo/bar/baz'
     """
     for path in paths:
-        base_url = _urljoin(base_url + '/', path)
+        base_url = _urljoin(base_url.rstrip('/') + '/', path)
     return base_url
 
 
@@ -187,6 +190,9 @@ class SapClient(object):
         # rejected at any reverse-proxy.
         if ('sap-server' not in r.headers or
                 r.headers['sap-server'] != 'true'):
+            logger.warning('missing sap header: %r', r.headers)
+            logger.debug('response: %r', r)
+            logger.debug('body: %r', r.text)
             raise RuntimeError('Invalid response from server')
         return r
 
@@ -278,13 +284,23 @@ class SapClient(object):
         response.raise_for_status()
 
 
-def get_client(config_dict, **args):
-    """
-    Get a SapClient from configuration.
-    """
-    init = {
-        'url': config_dict['url'],
-        'headers': config_dict.get('headers'),
+class SapClientConfig(Configuration):
+
+    url = ConfigDescriptor(
+        String,
+        default='http://localhost',
+    )
+    # TODO: Read auth token from file!
+    auth = ConfigDescriptor(
+        String,
+    )
+
+
+def get_client(config):
+    kwargs = {
+        'url': config.url,
+        'headers': {
+            'X-Gravitee-Api-Key': config.auth,
+        }
     }
-    init.update(args)
-    return SapClient(**init)
+    return SapClient(**kwargs)

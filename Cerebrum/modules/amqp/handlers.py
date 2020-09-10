@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2020 University of Oslo, Norway
@@ -141,9 +140,9 @@ class AbstractConsumerHandler(collections.Callable):
         try:
             self.handle(event)
         except Exception as error:
-            logger.warning(
+            logger.debug(
                 "Unhandled error on channel=%r, method=%r",
-                channel, method, exc_info=True)
+                channel, method)
             if not self.on_error(event, error):
                 raise
         else:
