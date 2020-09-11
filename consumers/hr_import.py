@@ -20,6 +20,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 HR import consumer.
+
+Starts an amqp consumer/listener that acts on hr system messages and updates
+Cerebrum accordingly.
+
+See :mod:`Cerebrum.modules.hr_import.config` for configuration instructions.
 """
 import argparse
 import logging

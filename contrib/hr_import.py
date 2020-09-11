@@ -20,6 +20,10 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
 HR import person.
+
+Runs an HR sync for a single object to update a Cerebrum object.
+
+See :mod:`Cerebrum.modules.hr_import.config` for configuration instructions.
 """
 import argparse
 import logging
