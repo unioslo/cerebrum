@@ -22,6 +22,39 @@ Settings for the hr import routine.
 
 Configuration options of datasource and importer depends on implementation, so
 the configuration of these modules are split into separate configuration files.
+
+See :mod:`Cerebrum.modules.amqp.config` for more info on how to configure the
+consumer.
+
+Example config
+==============
+
+A basic sample config for use with :mod:`Cerebrum.modules.no.uio.sap`
+
+::
+
+    consumer:
+      connection:
+        host: example.org
+        host: 5671
+        ssl_enable: true
+      consumer_tag: crb-hr-import
+      exchanges:
+        - name: ex_messages
+          durable: true
+          exchange_type: topic
+      queues:
+        - name: q_hr_import
+          durable: true
+      bindings:
+        - exchange: ex_messages
+          queue: q_hr_import
+          routing_keys:
+            - "no.uio.sap.scim.employees.#"
+
+    importer:
+      module: Cerebrum.modules.no.uio.sap.importer:autoload_employee_import
+      config_file: hr-import-logic.yml
 """
 from Cerebrum.config.configuration import (
     Configuration,
@@ -84,3 +117,7 @@ class HrImportConfig(Configuration):
         config=ConfigurableModule,
         doc='Import module to use',
     )
+
+
+if __name__ == '__main__':
+    print(HrImportConfig.documentation())

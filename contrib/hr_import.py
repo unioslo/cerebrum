@@ -19,10 +19,9 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-HR import consumer.
+HR import person.
 
-Starts an amqp consumer/listener that acts on hr system messages and updates
-Cerebrum accordingly.
+Runs an HR sync for a single object to update a Cerebrum object.
 
 See :mod:`Cerebrum.modules.hr_import.config` for configuration instructions.
 """
@@ -32,10 +31,8 @@ import logging
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.config.loader import read_config as read_config_file
-from Cerebrum.modules.amqp.config import get_connection_params
-from Cerebrum.modules.amqp.consumer import ChannelSetup, Manager
 from Cerebrum.modules.hr_import.config import HrImportConfig
-from Cerebrum.modules.hr_import.handler import EmployeeHandler
+from Cerebrum.modules.hr_import.handler import db_context
 from Cerebrum.utils.module import resolve
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.Utils import Factory
@@ -58,38 +55,23 @@ def get_config(config_file):
     return config
 
 
-def set_pika_loglevel(level=logging.INFO, force=False):
-    log = logging.getLogger('pika')
-
-    if force or log.level == logging.NOTSET:
-        log.setLevel(level)
-
-
-def get_consumer(consumer_config, callback):
-    connection_params = get_connection_params(consumer_config.connection)
-    setup = ChannelSetup(
-        exchanges=consumer_config.exchanges,
-        queues=consumer_config.queues,
-        bindings=consumer_config.bindings,
-        flags=ChannelSetup.Flags.ALL,
-        consumer_tag_prefix=consumer_config.consumer_tag,
-    )
-    return Manager(connection_params, callback, setup)
-
-
 def get_importer(importer_config):
-    im_init = resolve(importer_config.module)
-    return im_init(importer_config.config_file)
+    init = resolve(importer_config.module)
+    return init(importer_config.config_file)
 
 
 def main(inargs=None):
     parser = argparse.ArgumentParser(
-        description='Run a basic AMQP message consumer',
+        description='Run import for a single hr-system object',
     )
     parser.add_argument(
         '-c', '--config',
         required=False,
         help='config to use (see Cerebrum.modules.consumer.config)',
+    )
+    parser.add_argument(
+        'reference',
+        help='A source system reference to import (e.g. employee id)',
     )
 
     add_commit_args(parser)
@@ -97,33 +79,21 @@ def main(inargs=None):
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
 
-    Cerebrum.logutils.autoconf('cronjob', args)
-    # pika is very verbose in its logging
-    set_pika_loglevel(logging.INFO)
+    Cerebrum.logutils.autoconf('tee', args)
 
     logger.info("Starting %s", parser.prog)
     logger.debug("args: %r", args)
 
     config = get_config(args.config)
 
-    importer = get_importer(config.importer)
-    logger.info('employee importer: %r', importer)
+    import_init = get_importer(config.importer)
+    logger.info('employee importer: %r', import_init)
 
-    callback = EmployeeHandler(
-        import_init=importer,
-        db_init=Factory.get('Database'),
-        dryrun=not args.commit)
+    with db_context(Factory.get('Database'), not args.commit) as db:
+        importer = import_init(db)
 
-    consume = get_consumer(config.consumer, callback)
-    try:
-        consume.run()
-    except KeyboardInterrupt:
-        logger.info('Stopping (KeyboardInterrupt)')
-    except Exception:
-        logger.error('Stopping (unhandled exception)')
-        raise
-    finally:
-        consume.stop()
+        logger.info('handle reference=%r', args.reference)
+        importer.handle_reference(args.reference)
 
 
 if __name__ == '__main__':
