@@ -43,6 +43,7 @@ A minimal example to connect to a RabbitMQ server running default config:
 """
 import functools
 import logging
+import time
 import uuid
 
 import pika
@@ -261,6 +262,8 @@ class Manager(object):
     Pika consumer/async manager.
     """
 
+    reconnect_timeout = 5
+
     # TODO: Replace exchanges/queue/bindings with a single setup callable
     def __init__(self, connection_params, handler, setup):
         """
@@ -337,6 +340,11 @@ class Manager(object):
         :type connection: pika.SelectConnection
         """
         logger.error('unable to connect', exc_info=exception)
+
+        wait_secs = self.reconnect_timeout
+        logger.info('reconnecting in %d s', wait_secs)
+        time.sleep(wait_secs)
+
         self.reconnect()
 
     def on_connection_closed(self, connection, exception):
