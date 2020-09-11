@@ -81,6 +81,8 @@ class HiofAuth(BofhdAuth):
                                                      query_run_any)
 
 
+uio_helpers = ['_viewable_external_ids']
+
 uio_commands = [
     'ou_info',
     'ou_search',
@@ -98,7 +100,7 @@ uio_commands = [
     commands=uio_commands)
 @copy_func(
     bofhd_uio_cmds.BofhdExtension,
-    methods=uio_commands)
+    methods=uio_helpers + uio_commands)
 @copy_func(
     bofhd_uio_cmds.BofhdExtension,
     methods=['_user_create_set_account_type']
