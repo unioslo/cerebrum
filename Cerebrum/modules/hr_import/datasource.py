@@ -89,6 +89,10 @@ class AbstractDatasource(object):
             If the source data is available, but a valid object cannot be built
             from the provided data.
         """
+        # TODO: If we remove all db-interaction from `.mapper`, we may want to
+        #       apply the mapper and return a `.models` object here!
+        #       Note also that the is_active() and needs_delay() checks would
+        #       have to be updated to look at an object from `.models`.
         pass
 
     @abc.abstractmethod
