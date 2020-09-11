@@ -173,6 +173,10 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                              'perspective': int(perspective)})
 
     def local_it_contact(self, perspective):
+        """Return the 'LOCAL-IT' contact of the nearest OU which has one
+
+        :rtype: list[Cerebrum.extlib.db_row.row]
+        """
         parents = self.list_ou_path(perspective)
         ou = self.__class__(self._db)
         for parent in parents:
