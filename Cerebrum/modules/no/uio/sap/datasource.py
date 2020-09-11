@@ -42,6 +42,19 @@ def in_date_range(value, start=None, end=None):
     return True
 
 
+def parse_date(value, format='%Y-%m-%d', ignore_error=False):
+    if value:
+        try:
+            return datetime.datetime.strptime(value, format).date
+        except ValueError:
+            if ignore_error:
+                return None
+            else:
+                raise
+    else:
+        return None
+
+
 def extract_reference(text):
     """ Extract employee reference from a json encoded message body. """
     message = json.loads(text)
@@ -54,7 +67,8 @@ def extract_reference(text):
 
 class EmployeeDatasource(_base.AbstractDatasource):
 
-    start_grace = datetime.timedelta(days=3)
+    start_grace = datetime.timedelta(days=-6)
+    end_grace = datetime.timedelta(days=0)
 
     def __init__(self, client):
         self.client = client
@@ -90,21 +104,29 @@ class EmployeeDatasource(_base.AbstractDatasource):
         return (employee, assignments, roles)
 
     def is_active(self, obj):
-        # TODO: Examine affs, start/end
+        # TODO: Examine affs?
         employee = obj[0]
         return employee.get('employmentStatus') == 'active'
 
     def needs_delay(self, obj):
-        start_cutoff = datetime.date.today() - self.start_grace
-        employee = obj[0]
+        t = datetime.date.today()
+        start_cutoff = t + self.start_grace
+        end_cutoff = t + self.end_grace
 
-        hiredate = employee.get('hireDate')
-        if not hiredate:
-            return []
+        _, assigns, roles = obj
 
-        start = datetime.datetime.strptime(hiredate, '%Y-%m-%d').date
-        if in_date_range(start_cutoff, start=start):
-            return []
-        else:
-            # Should retry at the actual cutoff
-            return [start_cutoff, start]
+        active_date_ranges = []
+
+        for a in assigns + roles:
+            active_date_ranges.append(
+                (parse_date(a.get('effectiveStartDate'), ignore_error=True),
+                 parse_date(a.get('effectiveEndDate'), ignore_error=True))
+            )
+
+        retry_dates = []
+
+        for start, end in active_date_ranges:
+            if (not in_date_range(start_cutoff, start=start)
+                    and in_date_range(end_cutoff, end=end)):
+                retry_dates.append(start_cutoff)
+        return retry_dates
