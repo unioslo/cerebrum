@@ -57,7 +57,7 @@ def format_email_address(addr, et):
     if target_entity_type == db.const.entity_account:
         target_entity_name = utils.get_entity_name(et.get_target_entity_id())
     return {
-        'address': addr,
+        'value': addr,
         'type': db.const.EmailTarget(et.get_target_type()),
         'target_entity_name': target_entity_name,
         'target_entity_type': target_entity_type,
@@ -87,7 +87,7 @@ def list_email_addresses(ea):
 
 
 EmailAddress = api.model('EmailAddress', {
-    'address': fields.base.String(
+    'value': fields.base.String(
         description='The email address'),
     'type': fields.base.String(
         description="Email address target type, i.e. 'forward', 'account"),
