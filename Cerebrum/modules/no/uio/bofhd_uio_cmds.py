@@ -2092,6 +2092,39 @@ class BofhdExtension(BofhdCommonMethods):
         return ret
 
     #
+    # group list_roles
+    #
+    all_commands['group_list_roles'] = Command(
+        ('group', 'list_roles'),
+        EntityType(default="account"),
+        Id(),
+        fs=FormatSuggestion(
+            "%-10s %s", ("role", "group_name"),
+            hdr="%-10s %s" %
+            ("Role", "Group")
+        )
+    )
+
+    def group_list_roles(self, operator, entity_type, entity_id):
+        entity = self._get_entity(entity_type, entity_id)
+        group = self.Group_class(self.db)
+        indirect = entity_type != 'group'
+        admins = group.search(
+            admin_id=entity.entity_id,
+            admin_by_membership=indirect
+        )
+        moderators = group.search(
+            moderator_id=entity.entity_id,
+            moderator_by_membership=indirect
+        )
+
+        result = [{'role': 'admin', 'group_name': r['name']}
+                  for r in admins]
+        result += [{'role': 'moderator', 'group_name': r['name']}
+                   for r in moderators]
+        return result
+
+    #
     # misc affiliations
     #
     all_commands['misc_affiliations'] = Command(
