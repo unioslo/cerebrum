@@ -409,12 +409,12 @@ class BofhdAccessCommands(BofhdCommonMethods):
         OpSet(),
         GroupName(help_ref="id:target:group"),
         EntityType(default='group', help_ref="auth_entity_type"),
-        SimpleString(help_ref="auth_target_entity"),
+        SimpleString(optional=True, help_ref="auth_target_entity"),
         SimpleString(optional=True, help_ref="auth_attribute"),
         perm_filter='can_grant_access')
 
-    def access_revoke(self, operator, opset, group, entity_type, target_name,
-                      attr=None):
+    def access_revoke(self, operator, opset, group, entity_type,
+                      target_name=None, attr=None):
         return self._manipulate_access(self._revoke_auth, operator, opset,
                                        group, entity_type, target_name, attr)
 
