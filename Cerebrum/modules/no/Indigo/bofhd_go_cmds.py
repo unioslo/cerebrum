@@ -84,6 +84,7 @@ copy_helpers = [
     '_get_group_opcode',
     '_group_add_entity',
     '_group_count_memberships'
+    '_viewable_external_ids',
 ]
 
 # Methods and command definitions from uio
