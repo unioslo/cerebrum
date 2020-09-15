@@ -2761,6 +2761,8 @@ class BofhdExtension(BofhdCommonMethods):
               'spreads')),
             ("Contact:       (%s) %s: %s",
              ('contact_source', 'contact_type', 'contact_value')),
+            ("Local it:      %s %s",
+             ('contact_value', 'from_ou')),
             ("Address:       (%s) %s: %s%s%s %s %s",
              ('address_source', 'address_type', 'address_text',
               'address_po_box', 'address_postal_number', 'address_city',
@@ -2837,6 +2839,18 @@ class BofhdExtension(BofhdCommonMethods):
                     self.const.ContactInfo(c['contact_type'])),
                 'contact_value': c['contact_value']
             })
+
+        ou_perspective = cereconf.LDAP_OU.get('perspective', None)
+        if ou_perspective:
+            ou_perspective = self.const.OUPerspective(ou_perspective)
+            for it_contact in ou.local_it_contact(ou_perspective):
+                if it_contact['from_ou_id'] == ou.entity_id:
+                    from_ou = ''
+                else:
+                    from_ou_str = '(from parent OU, entity_id:{})'
+                    from_ou = from_ou_str.format(it_contact['from_ou_id'])
+                output.append({'contact_value': it_contact['contact_value'],
+                               'from_ou': from_ou})
 
         for a in ou.get_entity_address():
             if a['country'] is not None:

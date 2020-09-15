@@ -281,7 +281,7 @@ def process(db, affiliations, new_traits=None, spreads=(), ignore_affs=(),
         logger.debug("Processing person_id=%d", p_id)
         pe.clear()
         pe.find(p_id)
-        update_account(db, pe, account_policy, creator, new_traits  , spreads,
+        update_account(db, pe, account_policy, creator, new_traits, spreads,
                        ignore_affs, remove_quars, posix, home, home_auto,
                        posix_uio)
 
@@ -402,7 +402,7 @@ def main(inargs=None):
 
     # Lookup stuff
     affiliations = [str2aff(co, a) for a in args.affs]
-    new_traits=[co.EntityTrait(t)
+    new_traits = [co.EntityTrait(t)
                   for t in args.traits] if args.traits else None
     spreads = [co.Spread(s) for s in args.spreads]
     ignore_affs = [str2aff(co, a) for a in args.ignore_affs]

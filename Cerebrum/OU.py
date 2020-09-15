@@ -178,9 +178,14 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         for parent in parents:
             ou.clear()
             ou.find(parent)
-            contact_info = ou.get_contact_info(type=self.const.contact_lit)
-            if contact_info:
-                return contact_info
+            contact_infos = ou.get_contact_info(type=self.const.contact_lit)
+            if contact_infos:
+                ret = []
+                for row in contact_infos:
+                    contact_info = dict(row)
+                    contact_info['from_ou_id'] = parent
+                    ret.append(contact_info)
+                return ret
         return []
 
     def list_ou_path(self, perspective):
