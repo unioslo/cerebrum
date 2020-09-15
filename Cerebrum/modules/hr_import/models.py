@@ -73,13 +73,19 @@ class ComparableObject(object):
 class HRContactInfo(object):
     """Class with contact info matching entity_contact_info"""
 
-    def __init__(self, contact_pref, contact_value):
+    def __init__(self, contact_type, contact_pref, contact_value):
         """
+        :param str contact_type: Contact type code
         :param int contact_pref: Contact preference (default 50)
         :param str contact_value: The actual contact info. e.g. a phonenumber
         """
+        self.contact_type = contact_type
         self.contact_pref = contact_pref
         self.contact_value = contact_value
+
+    def __hash__(self):
+        return hash(
+            (self.contact_type, self.contact_pref, self.contact_value))
 
 
 class HRExternalID(ComparableObject):
@@ -102,8 +108,7 @@ class HRTitle(ComparableObject):
 
     def __init__(self, name_language, name):
         """
-        :param _EntityNameCode name_variant: Entity name code
-        :param _LanguageCode name_language: Language code
+        :param str name_language: Language code
         :param str name: The name of the title
         """
         self.name_language = name_language
