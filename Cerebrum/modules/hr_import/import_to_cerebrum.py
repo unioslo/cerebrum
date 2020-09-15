@@ -46,9 +46,6 @@ class HRDataImport(object):
         self.update_person()
         self.update_external_ids()
         self.update_names()
-        self.update_affiliations()
-        self.update_account_types()
-        self.update_addresses()
         self.update_titles()
         self.update_leader_groups()
         self.update_contact_info()
@@ -130,41 +127,6 @@ class HRDataImport(object):
             logger.info('Changing last name from %r to %r',
                         crb_last_name, self.hr_person.last_name)
         self.cerebrum_person.write_db()
-
-    def update_addresses(self):
-        """Update a person in Cerebrum with addresses"""
-        cerebrum_addresses = set()
-        for add in self.cerebrum_person.get_entity_address(
-                source=self.source_system):
-            cerebrum_addresses.add(
-                models.HRAddress(
-                    add['address_type'],
-                    add['city'],
-                    add['postal_number'],
-                    add['address_text'])
-            )
-
-        for add in cerebrum_addresses - self.hr_person.addresses:
-            self.cerebrum_person.delete_entity_address(
-                source_type=self.source_system,
-                a_type=add.address_type
-            )
-            logger.info('Removing address %r for id: %r',
-                        (unicode(add.address_type),
-                         add.city, add.postal_number, add.address_text),
-                        self.cerebrum_person.entity_id)
-        for add in self.hr_person.addresses - cerebrum_addresses:
-            self.cerebrum_person.add_entity_address(
-                source=self.source_system,
-                type=add.address_type,
-                address_text=add.address_text,
-                postal_number=add.postal_code,
-                city=add.city
-            )
-            logger.info('Adding address %r for id: %r',
-                        (unicode(add.address_type),
-                         add.city, add.postal_number, add.address_text),
-                        self.cerebrum_person.entity_id)
 
     def update_titles(self):
         """Update person in Cerebrum with work and personal titles"""
