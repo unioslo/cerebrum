@@ -106,16 +106,18 @@ class HRExternalID(ComparableObject):
 class HRTitle(ComparableObject):
     """Class with info about a title, matching entity_language_name"""
 
-    def __init__(self, name_language, name):
+    def __init__(self, name_variant, name_language, name):
         """
+        :param str name_variant: Entity name code
         :param str name_language: Language code
         :param str name: The name of the title
         """
+        self.name_variant = name_variant
         self.name_language = name_language
         self.name = name
 
     def __hash__(self):
-        return hash((self.name_language, self.name))
+        return hash((self.name_variant, self.name_language, self.name))
 
 
 class HRAffiliation(ComparableObject):
