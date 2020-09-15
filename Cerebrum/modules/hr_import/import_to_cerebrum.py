@@ -33,11 +33,11 @@ RESERVATION_GROUP = 'SAP-elektroniske-reservasjoner'
 
 class HRDataImport(object):
 
-    def __init__(self, database, hr_person, cerebrum_person, logger):
+    def __init__(self, database, hr_person, cerebrum_person, source_system):
         self.hr_person = hr_person
         self.cerebrum_person = cerebrum_person
         self.database = database
-        self.source_system = hr_person.source_system
+        self.source_system = source_system
         self.co = Factory.get('Constants')(self.database)
 
     def import_to_cerebrum(self):
@@ -93,18 +93,18 @@ class HRDataImport(object):
                 (unicode(ext_type)
                  for ext_type in to_remove),
                 self.cerebrum_person.entity_id)
-        for (id_type, ext_id) in to_add:
+        for ext_id in to_add:
             self.cerebrum_person.populate_external_id(
-                self.source_system, id_type, ext_id)
+                self.source_system, ext_id.id_type, ext_id.external_id)
             logger.info('Adding externalid %r for id: %r',
-                        (unicode(id_type),
-                         ext_id), self.cerebrum_person.entity_id)
+                        (unicode(ext_id.id_type), ext_id.external_id),
+                        self.cerebrum_person.entity_id)
         self.cerebrum_person.write_db()
 
     def update_names(self):
         """Update person in Cerebrum with fresh names"""
 
-        def _get_name_type(self, name_type):
+        def _get_name_type(name_type):
             """Try to get the name of a specific type from cerebrum"""
             try:
                 return self.cerebrum_person.get_name(
@@ -214,7 +214,7 @@ class HRDataImport(object):
         for contact in self.hr_person.contact_infos - cerebrum_contacts:
             self.cerebrum_person.add_contact_info(
                 source=self.source_system,
-                type=contact.address_type,
+                type=contact.contact_type,
                 value=contact.contact_value,
                 pref=contact.contact_pref,
             )
