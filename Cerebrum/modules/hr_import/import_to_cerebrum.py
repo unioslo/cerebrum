@@ -55,6 +55,7 @@ class HRDataImport(object):
 
     def update_person(self):
         """Update person with birth date and gender"""
+        self.hr_person.gender = int(self.co.Gender(self.hr_person.gender))
         if not (self.cerebrum_person.gender and
                 self.cerebrum_person.birth_date and
                 self.cerebrum_person.gender == self.hr_person.gender and
@@ -70,6 +71,9 @@ class HRDataImport(object):
 
     def update_external_ids(self):
         """Update person in Cerebrum with appropriate external ids"""
+        for ext_id in self.hr_person.external_ids:
+            ext_id.id_type = int(self.co.EntityExternalId(ext_id.id_type))
+
         cerebrum_external_ids = set()
         for ext_id in self.cerebrum_person.get_external_id(
                 source_system=self.source_system):
@@ -130,6 +134,9 @@ class HRDataImport(object):
 
     def update_titles(self):
         """Update person in Cerebrum with work and personal titles"""
+        for t in self.hr_person.titles:
+            t.name_variant = int(self.co.EntityNameCode(t.name_variant))
+            t.name_language = int(self.co.LanguageCode(t.name_language))
         cerebrum_titles = set()
         for title in self.cerebrum_person.search_name_with_language(
                 entity_id=self.cerebrum_person.entity_id,
@@ -180,6 +187,8 @@ class HRDataImport(object):
 
     def update_contact_info(self):
         """Update person in Cerebrum with contact information"""
+        for c in self.hr_person.contact_infos:
+            c.contact_type = int(self.co.ContactInfo(c.contact_type))
         cerebrum_contacts = set()
         for contact in self.cerebrum_person.get_contact_info(
                 source=self.source_system):
