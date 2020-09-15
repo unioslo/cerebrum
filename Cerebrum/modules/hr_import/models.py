@@ -28,8 +28,13 @@ class HRPerson(object):
     about a person from an HR system
     """
 
-    def __init__(self, hr_id, first_name, last_name, birth_date,
-                 gender, reserved, source_system):
+    def __init__(self,
+                 hr_id,
+                 first_name,
+                 last_name,
+                 birth_date,
+                 gender,
+                 reserved):
         """
         :param str hr_id: The person's ID in the source system
         :param str first_name: First name of the person
@@ -37,7 +42,6 @@ class HRPerson(object):
         :param date birth_date: Date the person was born
         :param str gender: Gender of the person ('M'/'F'/None)
         :param bool reserved: If the person is reserved from public display
-        :param _AuthorativeSystemCode source_system: Authorative system code
         """
         self.hr_id = hr_id
         self.first_name = first_name
@@ -45,12 +49,10 @@ class HRPerson(object):
         self.birth_date = birth_date
         self.gender = gender
         self.reserved = reserved
-        self.source_system = source_system
 
         self.leader_groups = set()  # set of int (group ids)
         self.external_ids = set()   # set of HRExternalID
         self.contact_infos = set()  # set of HRContactInfo
-        self.adddresses = set()     # set of HRAddress
         self.titles = set()         # set of HRTitle
         self.affiliations = set()   # set of HRAffiliation
         self.account_types = set()  # set of HRAccountType
@@ -71,10 +73,9 @@ class ComparableObject(object):
 class HRContactInfo(object):
     """Class with contact info matching entity_contact_info"""
 
-    def __init__(self, contact_type, contact_pref,
-                 contact_value):
+    def __init__(self, contact_type, contact_pref, contact_value):
         """
-        :param _ContactInfoCode contact_type: Contact type code.
+        :param str contact_type: Contact type code
         :param int contact_pref: Contact preference (default 50)
         :param str contact_value: The actual contact info. e.g. a phonenumber
         """
@@ -84,30 +85,7 @@ class HRContactInfo(object):
 
     def __hash__(self):
         return hash(
-            (self.contact_type, self.contact_pref, self.contact_value)
-        )
-
-
-class HRAddress(ComparableObject):
-    """Class with info about an address matching, entity_address"""
-
-    def __init__(self, address_type, city, postal_code, address_text):
-        """
-        :param _AddressCode address_type: Address code
-        :param str city: City name.
-        :param str postal_code: Postal code of address.
-        :param str address_text: The rest of the address. Typically street
-                                 name and house number.
-        """
-        self.address_type = address_type
-        self.city = city
-        self.postal_code = postal_code
-        self.address_text = address_text
-
-    def __hash__(self):
-        return hash(
-            (self.address_type, self.city, self.postal_code, self.address_text)
-        )
+            (self.contact_type, self.contact_pref, self.contact_value))
 
 
 class HRExternalID(ComparableObject):
@@ -115,16 +93,14 @@ class HRExternalID(ComparableObject):
 
     def __init__(self, id_type, external_id):
         """
-        :param _EntityExternalIdCode id_type: External_id type constant code.
+        :param str id_type: External_id type.
         :param str external_id: The ID. e.g. passport number or birth number
         """
-        self.id_type = id_type
         self.external_id = external_id
+        self.id_type = id_type
 
     def __hash__(self):
-        return hash(
-            (self.id_type, self.external_id)
-        )
+        return hash((self.id_type, self.external_id))
 
 
 class HRTitle(ComparableObject):
@@ -132,8 +108,8 @@ class HRTitle(ComparableObject):
 
     def __init__(self, name_variant, name_language, name):
         """
-        :param _EntityNameCode name_variant: Entity name code
-        :param _LanguageCode name_language: Language code
+        :param str name_variant: Entity name code
+        :param str name_language: Language code
         :param str name: The name of the title
         """
         self.name_variant = name_variant
@@ -141,9 +117,7 @@ class HRTitle(ComparableObject):
         self.name = name
 
     def __hash__(self):
-        return hash(
-            (self.name_variant, self.name_language, self.name)
-        )
+        return hash((self.name_variant, self.name_language, self.name))
 
 
 class HRAffiliation(ComparableObject):
@@ -155,8 +129,8 @@ class HRAffiliation(ComparableObject):
     def __init__(self, ou_id, affiliation, status, precedence):
         """
         :param int ou_id: ID of the ou where the affiliation belongs
-        :param _PersonAffiliationCode affiliation: Affiliation code
-        :param _PersonAffStatusCode status: Status code
+        :param str affiliation: Affiliation code
+        :param str status: Status code
         :param int or None precedence: Precedence for the affiliation
         """
         self.ou_id = ou_id
@@ -176,6 +150,6 @@ class HRAccountType(HRAffiliation):
     def __init__(self, ou_id, affiliation):
         """
         :param int ou_id: ID of the ou where the affiliation belongs
-        :param _PersonAffiliationCode affiliation: Affiliation code
+        :param str affiliation: Affiliation code
         """
         super(HRAccountType, self).__init__(ou_id, affiliation, None, None)
