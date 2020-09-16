@@ -44,9 +44,6 @@ from Cerebrum.modules.bofhd.auth import BofhdAuthOpSet, BofhdAuthOpTarget, Bofhd
 from Cerebrum.modules.virthome.bofhd_auth import BofhdVirtHomeAuth
 from Cerebrum.modules.virthome.VirtAccount import BaseVirtHomeAccount, FEDAccount, VirtAccount
 
-# For convenience: This is a list of all the possible group auth opsets we can
-# add to a group.
-GROUP_AUTH_OPSETS = ('group-owner', 'group-moderator', )
 
 # TODO: Is this okay? Should we just have one class in stead? There's no real
 #       reason to keep two classes...
