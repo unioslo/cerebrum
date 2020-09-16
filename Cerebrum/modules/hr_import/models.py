@@ -126,30 +126,30 @@ class HRAffiliation(ComparableObject):
     (and person_affiliation)
     """
 
-    def __init__(self, ou_id, affiliation, status, precedence):
+    def __init__(self, placecode, affiliation, status, precedence):
         """
-        :param int ou_id: ID of the ou where the affiliation belongs
+        :param str or None placecode: Place-code
         :param str affiliation: Affiliation code
         :param str status: Status code
         :param int or None precedence: Precedence for the affiliation
         """
-        self.ou_id = ou_id
+        self.placecode = placecode
         self.affiliation = affiliation
         self.status = status
         self.precedence = precedence
 
     def __hash__(self):
         return hash(
-            (self.ou_id, self.affiliation, self.status, self.precedence)
+            (self.placecode, self.affiliation, self.status, self.precedence)
         )
 
 
 class HRAccountType(HRAffiliation):
     """Class with info about an account type, matching account_type"""
 
-    def __init__(self, ou_id, affiliation):
+    def __init__(self, placecode, affiliation):
         """
-        :param int ou_id: ID of the ou where the affiliation belongs
+        :param str or None placecode: Placecode where the affiliation belongs
         :param str affiliation: Affiliation code
         """
-        super(HRAccountType, self).__init__(ou_id, affiliation, None, None)
+        super(HRAccountType, self).__init__(placecode, affiliation, None, None)
