@@ -18,7 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Request handler for bofhd.
+
+"""
+Request handler for bofhd.
 
 Configuration
 -------------
@@ -68,7 +70,6 @@ moved to a separate module after:
     commit ff3e3f1392a951a059020d56044f8017116bb69c
     Merge: c57e8ee 61f02de
     Date:  Fri Mar 18 10:34:58 2016 +0100
-
 """
 
 from __future__ import unicode_literals
@@ -91,17 +92,14 @@ from Cerebrum import (
 )
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import statsd
+from Cerebrum.modules.bofhd import protocol
 from Cerebrum.modules.bofhd.errors import (
     CerebrumError,
     ServerRestartedError,
-    SessionExpiredError,
     UnknownError,
 )
 from Cerebrum.modules.bofhd.session import BofhdSession
 from Cerebrum.modules.bofhd.xmlutils import xmlrpc_to_native, native_to_xmlrpc
-
-
-fault_codes = {CerebrumError: 1}
 
 
 def format_addr(addr):
@@ -240,21 +238,11 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                              exc_to_text(e), format_addr(self.client_address))
             self.close_connection = 1
 
-    def send_xmlrpc_response(self, message):
-        self._send_raw_xmlrpc((message,))
-
-    def send_xmlrpc_error(self, exc):
-        code = fault_codes.get(exc.__class__, 2)
-        fault = xmlrpclib.Fault(code, self._format_xmlrpc_fault(exc))
-        self._send_raw_xmlrpc(fault)
-
-    def _send_raw_xmlrpc(self, body):
+    def send_xmlrpc(self, message):
         try:
-            # xmlrpclib.dumps() takes either xmlrpclib.Fault
-            # or a tuple of return parameters
-            payload = xmlrpclib.dumps(body, methodresponse=True)
+            payload = protocol.dumps(message)
         except:
-            self.logger.error("Unable to serialize to XML-RPC: %r", body, exc_info=True)
+            self.logger.error("Unable to serialize XML-RPC: %r", message, exc_info=True)
             self.send_error(500)
         else:
             self.send_response(200)
@@ -263,24 +251,6 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             self.end_headers()
             self.wfile.write(payload)
             self.wfile.flush()
-
-    @staticmethod
-    def _format_xmlrpc_fault(exc):
-        """ Get XMLRPC fault string from an exception. """
-        # Stringify the exception type
-        err_type = six.text_type(type(exc).__name__)
-        if isinstance(exc, CerebrumError):
-            # Include module name in CerebrumError and subclasses
-            if type(exc) in (ServerRestartedError, SessionExpiredError,
-                             UnknownError):
-                # Client *should* know this
-                err_type = u'{0.__module__}.{0.__name__}'.format(type(exc))
-            else:
-                # Use superclass
-                err_type = u'{0.__module__}.{0.__name__}'.format(CerebrumError)
-
-        return u'{err_type}:{err_msg}'.format(err_type=err_type,
-                                              err_msg=exc_to_text(exc))
 
     def do_POST(self):
         """
@@ -311,7 +281,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         # anything else as ascii-bytestrings.
         try:
             data = self.rfile.read(int(content_length))
-            params, method = xmlrpclib.loads(data)
+            method, params = protocol.loads(data)
         except ExpatError:
             self.logger.warn(
                 "Unable to deserialize request to XML-RPC (client=%r, data=%r)",
@@ -336,7 +306,7 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
             self.logger.debug("dispatch method=%r", method)
             rv = self._dispatch(method, params)
         except CerebrumError as e:
-            self.send_xmlrpc_error(e)
+            self.send_xmlrpc(e)
         except Exception as e:
             self.logger.warn(
                 "Unexpected exception (client=%r, params=%r, method=%r)",
@@ -345,9 +315,9 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                 method,
                 exc_info=True,
             )
-            self.send_xmlrpc_error(e)
+            self.send_xmlrpc(e)
         else:
-            self.send_xmlrpc_response(rv)
+            self.send_xmlrpc(rv)
 
     def _get_quarantines(self, account):
         """ Fetch a list of active lockout quarantines for account.
