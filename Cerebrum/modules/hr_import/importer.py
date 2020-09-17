@@ -84,6 +84,8 @@ class AbstractImport(object):
         This method inspects and compares the source data and cerebrum data,
         and calls the relevant create/update/remove method.
         """
+        # TODO: Fixme! Should we look at the raw data or the hr_object to
+        #       figure out if the object should be present?!
         if self.mapper.is_active(hr_object):
             if db_object:
                 logger.info('updating id=%r with %r',

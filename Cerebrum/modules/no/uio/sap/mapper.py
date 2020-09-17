@@ -44,6 +44,37 @@ logger = logging.getLogger(__name__)
 LEADER_GROUP_PREFIX = 'adm-leder-'
 
 
+def translate_keys(d, mapping):
+    """
+    Filter and translate keys of a dict-like mapping.
+
+    :param d: A dict-like object to translate
+    :param mapping: A dict-like key translation table
+
+    :rtype: dict
+    :returns: A modified copy of ``d``.
+
+    >>> translate_keys({'a': 1, 'b': 2, 'c': 3}, {'a': 'A', 'b': 'B'})
+    {'A': 1, 'B': 2}
+    """
+    return {mapping[k]: v for k, v in d.items() if k in mapping}
+
+
+def filter_elements(d):
+    """
+    Filter out empty keys and valies from a dict.
+
+    :param d: A dict-like object to filter
+
+    :rtype: dict
+    :returns: A modified copy of ``d``.
+
+    >>> filter_elements({'a': None, 'b': 0, 'c': False, '': 3, 'x': 'y'})
+    {'x': 'y'}
+    """
+    return {k: v for k, v in d.items() if k and v}
+
+
 class EmployeeMapper(_base.AbstractMapper):
     """A simple employee mapper class"""
     def __init__(self, db):
@@ -53,10 +84,6 @@ class EmployeeMapper(_base.AbstractMapper):
         """
         self.db = db
         self.const = Factory.get('Constants')(db)
-
-    @staticmethod
-    def filter_elements(dict_):
-        return {k: v for k, v in six.iteritems(dict_) if k and v}
 
     @staticmethod
     def parse_affiliations(assignment_data, role_data):
@@ -126,12 +153,10 @@ class EmployeeMapper(_base.AbstractMapper):
             ('privateMobile', 'PRIVATEMOBILE'),
             ('publicMobile', 'PRIVMOBVISIBLE')])
 
-        numbers_to_add = EmployeeMapper.filter_elements(
-            EmployeeMapper.translate_keys(person_data,
-                                          key_map))
+        numbers_to_add = filter_elements(translate_keys(person_data, key_map))
         numbers_to_add = sorted(
-            [(k, v) for k, v in six.iteritems(numbers_to_add)],
-            cmp=lambda k, v: key_map.values().index(k))
+            [(k, v) for k, v in numbers_to_add.items()],
+            key=lambda (k, v): key_map.values().index(k))
         numbers = set()
         for pref, (key, value) in enumerate(numbers_to_add):
             numbers.add(HRContactInfo(contact_type=key,
@@ -246,7 +271,7 @@ class EmployeeMapper(_base.AbstractMapper):
             ):
                 assignment = e
         if assignment:
-            titles.extend(map(lambda lang_code, lang_str: HRTitle(
+            titles.extend(map(lambda (lang_code, lang_str): HRTitle(
                 name_variant='WORKTITLE',
                 name_language=lang_code,
                 name=assignment.get('jobTitle').get(lang_str)),
@@ -255,20 +280,16 @@ class EmployeeMapper(_base.AbstractMapper):
                                ('en', 'en')]))
         return set(filter(lambda hr_title: hr_title.name, titles))
 
-    @staticmethod
-    def translate_keys(dict_, mapping):
-        return {mapping[k]: v for k, v in six.iteritems(dict_) if k in mapping}
-
     def find_entity(self, hr_object):
         """Extract reference from event."""
         db_object = Factory.get('Person')(self.db)
 
-        match_ids = (
+        match_ids = ((
             self.const.externalid_sap_ansattnr,
             hr_object.hr_id,
             self.const.system_sap,
-        ) + tuple(
-            (i.id_type, i.external_id)
+        ),) + tuple(
+            (self.const.EntityExternalId(i.id_type), i.external_id)
             for i in hr_object.external_ids
         )
 
