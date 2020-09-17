@@ -27,6 +27,9 @@ to the users it-organization.
 import argparse
 import functools
 import logging
+
+import six
+
 from smtplib import SMTPException
 
 import mx.DateTime
@@ -62,6 +65,17 @@ class AccountsWithTraitManager(object):
             yield row
 
 
+def get_ou_contact_emails(ou, co):
+    """Get the contact email(s) of an ou, if any.
+
+    :param ou: A populated OU object
+    :param co: Constants
+    """
+    contact_emails = ou.local_it_contact(co.perspective_sap)
+    contact_emails = [a['contact_value'] for a in contact_emails]
+    return contact_emails
+
+
 class AccountCreationNotifier(object):
 
     def __init__(self, db, trait, too_old, affiliations=None, commit=False):
@@ -74,6 +88,18 @@ class AccountCreationNotifier(object):
         self.affiliations = affiliations
         self.manager = AccountsWithTraitManager(self.db, trait)
 
+    def find_ou(self, ou_id):
+        """Attempt to do self.ou.find(ou_id)"""
+        self.ou.clear()
+        try:
+            self.ou.find(ou_id)
+        except Errors.NotFoundError:
+            logger.error(
+                'Unknown OU. Something is probably wrong, ou_id %s',
+                ou_id)
+            return False
+        return True
+
     def notify(self):
         """Notify lkit on the creation of new accounts"""
         logger.info('send_new_account_notification_mail start')
@@ -83,14 +109,15 @@ class AccountCreationNotifier(object):
         # Combine all accounts per contact address to minimize the number of
         # emails sent.
         email_content = {}
-        for ou_id, users in ou_notify.items():
+        for ou_id, users in six.iteritems(ou_notify):
 
-            contact_emails = self.get_ou_contact_emails(ou_id)
-            self.ou.find(ou_id)
+            if not self.find_ou(ou_id):
+                continue
+
+            contact_emails = get_ou_contact_emails(self.ou, self.co)
             stedkode = self.ou.get_stedkode()
-            self.ou.clear()
 
-            logger.info('Found user %s with trait, on ou %s', user, stedkode)
+            logger.info('Found users %s with trait, on ou %s', users, stedkode)
 
             if not contact_emails:
                 logger.info('No contact email for ou %s, skipping', stedkode)
@@ -106,10 +133,10 @@ class AccountCreationNotifier(object):
                     email_content[addr][stedkode] = users
 
         notified_users = []
-        for addr, ous in email_content.items():
+        for addr, ous in six.iteritems(email_content):
             msg = []
             users_in_mail = []
-            for ou, users in ous.items():
+            for ou, users in six.iteritems(ous):
                 msg.append('Nye brukere ved stedkode {}:'.format(ou))
                 msg.append('\n'.join(users))
                 msg.append('')
@@ -160,20 +187,6 @@ class AccountCreationNotifier(object):
         else:
             self.db.rollback()
             logger.debug('Remove trait: Changes rolled back')
-
-    def get_ou_contact_emails(self, ou_id):
-        """Get the contact email(s) of a ou, if any."""
-        try:
-            self.ou.find(ou_id)
-        except Errors.NotFoundError:
-            logger.error('Unknown OU. Something is probably wrong, ou_id %s',
-                         ou_id)
-            return None
-
-        contact_emails = self.ou.get_contact_info(type=self.co.contact_lit)
-        contact_emails = [a['contact_value'] for a in contact_emails]
-        self.ou.clear()
-        return contact_emails
 
     def get_ous_and_users_to_notify(self):
         """
