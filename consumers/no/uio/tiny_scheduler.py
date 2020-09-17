@@ -28,6 +28,7 @@ import datetime
 import errno
 import json
 import os
+import ssl
 import sys
 
 import pika
@@ -166,10 +167,12 @@ def main():
             logger.error('Unable to open password file: {0}'.format(e))
             sys.exit(1)
     creds_broker = pika.PlainCredentials(args.username, args.password)
+    ssl_context = ssl.create_default_context()
+    ssl_opts = pika.SSLOptions(ssl_context, args.hostname)
     conn_params = pika.ConnectionParameters(args.hostname,
                                             args.port,
                                             virtual_host=args.vhost,
-                                            ssl=True,
+                                            ssl_options=ssl_opts,
                                             credentials=creds_broker)
     conn_broker = pika.BlockingConnection(conn_params)
     channel = conn_broker.channel()
