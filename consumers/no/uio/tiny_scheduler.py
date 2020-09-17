@@ -177,10 +177,11 @@ def main():
     conn_broker = pika.BlockingConnection(conn_params)
     channel = conn_broker.channel()
     consumer_callback = ConsumerCallback(args)
-    channel.basic_consume(consumer_callback,
-                          queue=args.queue,
-                          no_ack=False,
-                          consumer_tag=args.consumer_tag)
+    channel.basic_consume(
+        on_message_callback=consumer_callback,
+        queue=args.queue,
+        auto_ack=True,
+        consumer_tag=args.consumer_tag)
     logger.info('Consumer active!')
     try:
         channel.start_consuming()
