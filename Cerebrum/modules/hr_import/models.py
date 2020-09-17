@@ -70,7 +70,7 @@ class ComparableObject(object):
         return not self.__eq__(other)
 
 
-class HRContactInfo(object):
+class HRContactInfo(ComparableObject):
     """Class with contact info matching entity_contact_info"""
 
     def __init__(self, contact_type, contact_pref, contact_value):
