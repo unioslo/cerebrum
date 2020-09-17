@@ -72,7 +72,10 @@ class HRDataImport(object):
     def update_external_ids(self):
         """Update person in Cerebrum with appropriate external ids"""
         for ext_id in self.hr_person.external_ids:
+            # remove and add to set since the hash changes
+            self.hr_person.external_ids.remove(ext_id)
             ext_id.id_type = int(self.co.EntityExternalId(ext_id.id_type))
+            self.hr_person.external_ids.add(ext_id)
 
         cerebrum_external_ids = set()
         for ext_id in self.cerebrum_person.get_external_id(
@@ -135,8 +138,11 @@ class HRDataImport(object):
     def update_titles(self):
         """Update person in Cerebrum with work and personal titles"""
         for t in self.hr_person.titles:
+            # remove and add to set since the hash changes
+            self.hr_person.titles.remove(t)
             t.name_variant = int(self.co.EntityNameCode(t.name_variant))
             t.name_language = int(self.co.LanguageCode(t.name_language))
+            self.hr_person.titles.add(t)
         cerebrum_titles = set()
         for title in self.cerebrum_person.search_name_with_language(
                 entity_id=self.cerebrum_person.entity_id,
@@ -188,21 +194,23 @@ class HRDataImport(object):
     def update_contact_info(self):
         """Update person in Cerebrum with contact information"""
         for c in self.hr_person.contact_infos:
+            # remove and add to set since the hash changes
+            self.hr_person.contact_infos.remove(c)
             c.contact_type = int(self.co.ContactInfo(c.contact_type))
+            self.hr_person.contact_infos.add(c)
         cerebrum_contacts = set()
         for contact in self.cerebrum_person.get_contact_info(
                 source=self.source_system):
             cerebrum_contacts.add(
-                models.HRAddress(
-                    contact['type'],
-                    contact['pref'],
-                    contact['value'])
+                models.HRContactInfo(
+                    contact['contact_type'],
+                    contact['contact_pref'],
+                    contact['contact_value'])
             )
-
         for contact in cerebrum_contacts - self.hr_person.contact_infos:
             self.cerebrum_person.delete_contact_info(
-                source_type=self.source_system,
-                contact_type_type=contact.contact_type,
+                source=self.source_system,
+                contact_type=contact.contact_type,
                 pref=contact.contact_pref,
             )
             logger.info('Removing contact %r of type %r with preference %r '
