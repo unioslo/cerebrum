@@ -175,9 +175,16 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
     def local_it_contact(self, perspective):
         """Return the 'LOCAL-IT' contact of the nearest OU which has one
 
-        :rtype: list[Cerebrum.extlib.db_row.row]
+        :rtype: list[dict]
         """
-        parents = self.list_ou_path(perspective)
+        try:
+            parents = self.list_ou_path(perspective)
+        except Errors.NotFoundError:
+            # If this happens, some OU in the path does not exist in the
+            # ou_structure table (which means there is an error in the OU
+            # hierarchy), but this method should probably still work?
+            return []
+
         ou = self.__class__(self._db)
         for parent in parents:
             ou.clear()
