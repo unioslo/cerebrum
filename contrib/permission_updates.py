@@ -168,9 +168,9 @@ def import_opsets(db, opsets):
 
 def clean_opsets(db, opsets):
     """ Remove opsets not defined in `opsets.operation_sets`. """
-    operation_sets = getattr(opsets, 'operation_sets', dict())
-    if not operation_sets:
-        raise OpsetConfigError("No opsets defined in operation_sets!")
+    operation_sets = getattr(opsets, 'operation_sets', None)
+    if operation_sets is None:
+        raise OpsetConfigError("No operation_sets defined in opset_config!")
 
     co = Factory.get('Constants')(db)
     baos = BofhdAuthOpSet(db)
@@ -230,7 +230,6 @@ def make_parser():
         metavar="FILE",
         help=("Path to the opset_config config module. Imports 'opset_config'"
               " from PYTHONPATH by default."))
-
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument(
         '--convert',

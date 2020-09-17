@@ -173,14 +173,30 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
                              'perspective': int(perspective)})
 
     def local_it_contact(self, perspective):
-        parents = self.list_ou_path(perspective)
+        """Return the 'LOCAL-IT' contact of the nearest OU which has one
+
+        :rtype: list[dict]
+        """
+        try:
+            parents = self.list_ou_path(perspective)
+        except Errors.NotFoundError:
+            # If this happens, some OU in the path does not exist in the
+            # ou_structure table (which means there is an error in the OU
+            # hierarchy), but this method should probably still work?
+            return []
+
         ou = self.__class__(self._db)
         for parent in parents:
             ou.clear()
             ou.find(parent)
-            contact_info = ou.get_contact_info(type=self.const.contact_lit)
-            if contact_info:
-                return contact_info
+            contact_infos = ou.get_contact_info(type=self.const.contact_lit)
+            if contact_infos:
+                ret = []
+                for row in contact_infos:
+                    contact_info = dict(row)
+                    contact_info['from_ou_id'] = parent
+                    ret.append(contact_info)
+                return ret
         return []
 
     def list_ou_path(self, perspective):

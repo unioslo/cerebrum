@@ -2759,8 +2759,8 @@ class BofhdExtension(BofhdCommonMethods):
              "Spreads:       %s",
              ('stedkode', 'entity_id', 'name_nb', 'name_en', 'quarantines',
               'spreads')),
-            ("Contact:       (%s) %s: %s",
-             ('contact_source', 'contact_type', 'contact_value')),
+            ("Contact:       (%s) %s: %s %s",
+             ('contact_source', 'contact_type', 'contact_value', 'from_ou')),
             ("Address:       (%s) %s: %s%s%s %s %s",
              ('address_source', 'address_type', 'address_text',
               'address_po_box', 'address_postal_number', 'address_city',
@@ -2835,8 +2835,26 @@ class BofhdExtension(BofhdCommonMethods):
                     self.const.AuthoritativeSystem(c['source_system'])),
                 'contact_type': text_type(
                     self.const.ContactInfo(c['contact_type'])),
-                'contact_value': c['contact_value']
+                'contact_value': c['contact_value'],
+                'from_ou': ''
             })
+
+        ou_perspective = cereconf.LDAP_OU.get('perspective', None)
+        if ou_perspective:
+            ou_perspective = self.const.OUPerspective(ou_perspective)
+            from_ou_str = '(inherited from parent OU, entity_id:{})'
+            for it_contact in ou.local_it_contact(ou_perspective):
+                if it_contact['from_ou_id'] == ou.entity_id:
+                    continue
+                output.append({
+                    'contact_source': text_type(
+                        self.const.AuthoritativeSystem(
+                            it_contact['source_system'])),
+                    'contact_type': text_type(
+                        self.const.ContactInfo(it_contact['contact_type'])),
+                    'contact_value': it_contact['contact_value'],
+                    'from_ou': from_ou_str.format(it_contact['from_ou_id'])
+                })
 
         for a in ou.get_entity_address():
             if a['country'] is not None:
