@@ -66,7 +66,7 @@ class HRDataImport(object):
             self.cerebrum_person.write_db()
             logger.info('Added birth date %r and gender %r for %r',
                         self.hr_person.birth_date,
-                        self.hr_person.gender,
+                        self.co.Gender(self.hr_person.gender),
                         self.cerebrum_person.entity_id)
 
     def update_external_ids(self):
@@ -74,7 +74,7 @@ class HRDataImport(object):
         for ext_id in self.hr_person.external_ids:
             # remove and add to set since the hash changes
             self.hr_person.external_ids.remove(ext_id)
-            ext_id.id_type = int(self.co.EntityExternalId(ext_id.id_type))
+            ext_id.id_type = self.co.EntityExternalId(ext_id.id_type)
             self.hr_person.external_ids.add(ext_id)
 
         cerebrum_external_ids = set()
@@ -82,7 +82,7 @@ class HRDataImport(object):
                 source_system=self.source_system):
             cerebrum_external_ids.add(
                 models.HRExternalID(
-                    ext_id['id_type'],
+                    self.co.EntityExternalId(ext_id['id_type']),
                     ext_id['external_id'])
             )
         to_remove = cerebrum_external_ids - self.hr_person.external_ids
@@ -93,7 +93,7 @@ class HRDataImport(object):
         if to_remove:
             logger.info(
                 'Purging externalids of types %r for id: %r',
-                (unicode(ext_type)
+                (unicode(ext_type.id_type)
                  for ext_type in to_remove),
                 self.cerebrum_person.entity_id)
         for ext_id in to_add:
@@ -140,8 +140,8 @@ class HRDataImport(object):
         for t in self.hr_person.titles:
             # remove and add to set since the hash changes
             self.hr_person.titles.remove(t)
-            t.name_variant = int(self.co.EntityNameCode(t.name_variant))
-            t.name_language = int(self.co.LanguageCode(t.name_language))
+            t.name_variant = self.co.EntityNameCode(t.name_variant)
+            t.name_language = self.co.LanguageCode(t.name_language)
             self.hr_person.titles.add(t)
         cerebrum_titles = set()
         for title in self.cerebrum_person.search_name_with_language(
@@ -149,8 +149,8 @@ class HRDataImport(object):
                 name_variant=[self.co.work_title, self.co.personal_title]):
             cerebrum_titles.add(
                 models.HRTitle(
-                    title['name_variant'],
-                    title['name_language'],
+                    self.co.EntityNameCode(title['name_variant']),
+                    self.co.LanguageCode(title['name_language']),
                     title['name'])
             )
 
@@ -196,14 +196,14 @@ class HRDataImport(object):
         for c in self.hr_person.contact_infos:
             # remove and add to set since the hash changes
             self.hr_person.contact_infos.remove(c)
-            c.contact_type = int(self.co.ContactInfo(c.contact_type))
+            c.contact_type = self.co.ContactInfo(c.contact_type)
             self.hr_person.contact_infos.add(c)
         cerebrum_contacts = set()
         for contact in self.cerebrum_person.get_contact_info(
                 source=self.source_system):
             cerebrum_contacts.add(
                 models.HRContactInfo(
-                    contact['contact_type'],
+                    self.co.ContactInfo(contact['contact_type']),
                     contact['contact_pref'],
                     contact['contact_value'])
             )
