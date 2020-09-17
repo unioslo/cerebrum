@@ -24,6 +24,7 @@ The datasource is responsible for parsing events (messages) and fetching data
 from a given source system.
 """
 import abc
+import collections
 
 import six
 
@@ -41,6 +42,30 @@ class DatasourceUnavailable(DatasourceError):
 class DatasourceInvalid(DatasourceError):
     """ Got broken data from data source. """
     pass
+
+
+class RemoteObject(collections.Mapping):
+
+    def __init__(self, source, reference, data):
+        self.src = source
+        self.ref = reference
+        self._data = data
+
+    def __repr__(self):
+        return '<{c.__name__} src={o.src} ref={o.ref} at 0x{a:x}>'.format(
+            c=type(self),
+            o=self,
+            a=id(self),
+        )
+
+    def __len__(self):
+        return len(self._data)
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __getitem__(self, item):
+        return self._data[item]
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -93,22 +118,6 @@ class AbstractDatasource(object):
         #       apply the mapper and return a `.models` object here!
         #       Note also that the is_active() and needs_delay() checks would
         #       have to be updated to look at an object from `.models`.
-        pass
-
-    @abc.abstractmethod
-    def is_active(self, obj):
-        """
-        Decide if a provided object should be considered active by Cerebrum.
-
-        :type obj: object
-        :param obj:
-            An object, as provided by :meth:`.get_object`
-
-        :rtype: bool
-        :returns:
-            - ``True`` - object should be present (create, update)
-            - ``False`` - object should *not* be present (clear, noop)
-        """
         pass
 
     @abc.abstractmethod

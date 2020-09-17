@@ -45,7 +45,7 @@ def in_date_range(value, start=None, end=None):
 def parse_date(value, format='%Y-%m-%d', ignore_error=False):
     if value:
         try:
-            return datetime.datetime.strptime(value, format).date
+            return datetime.datetime.strptime(value, format).date()
         except ValueError:
             if ignore_error:
                 return None
@@ -63,6 +63,18 @@ def extract_reference(text):
     if not match:
         raise ValueError('Invalid employee reference in sub')
     return match.group(1)
+
+
+class Employee(_base.RemoteObject):
+    pass
+
+
+class Assignment(_base.RemoteObject):
+    pass
+
+
+class Role(_base.RemoteObject):
+    pass
 
 
 class EmployeeDatasource(_base.AbstractDatasource):
@@ -92,28 +104,31 @@ class EmployeeDatasource(_base.AbstractDatasource):
         employee_id = reference
         employee = self.client.get_employee(employee_id)
         if employee is None:
-            employee = {
-                "personId": int(reference),
-                "personnelNumber": reference,
-            }
-            assignments = []
-            roles = []
+            employee = Employee(
+                'sapuio',
+                reference,
+                {
+                    "personId": int(reference),
+                    "personnelNumber": reference,
+                    "assignments": [],
+                    "roles": [],
+                }
+            )
         else:
-            assignments = self.client.get_assignments(employee)
-            roles = self.client.get_roles(employee)
-        return (employee, assignments, roles)
-
-    def is_active(self, obj):
-        # TODO: Examine affs?
-        employee = obj[0]
-        return employee.get('employmentStatus') == 'active'
+            employee['assignments'] = [
+                Assignment('sapuio', d['assignmentId'], d)
+                for d in self.client.get_assignments(employee)]
+            employee['roles'] = [
+                Role('sapuio', d['roleId'], d)
+                for d in self.client.get_roles(employee)]
+        return employee
 
     def needs_delay(self, obj):
         t = datetime.date.today()
         start_cutoff = t + self.start_grace
         end_cutoff = t + self.end_grace
 
-        _, assigns, roles = obj
+        assigns, roles = obj['assignments'], obj['roles']
 
         active_date_ranges = []
 

@@ -24,6 +24,7 @@ from __future__ import unicode_literals
 
 import collections
 import decimal
+import datetime
 import logging
 
 import six
@@ -42,6 +43,15 @@ from Cerebrum.modules.automatic_group.structure import get_automatic_group
 logger = logging.getLogger(__name__)
 
 LEADER_GROUP_PREFIX = 'adm-leder-'
+
+
+def parse_date(value, fmt='%Y-%m-%d', allow_empty=True):
+    if value:
+        return datetime.datetime.strptime(value, fmt).date()
+    elif allow_empty:
+        return None
+    else:
+        raise ValueError('No date: %r' % (value,))
 
 
 def translate_keys(d, mapping):
@@ -77,6 +87,10 @@ def filter_elements(d):
 
 class EmployeeMapper(_base.AbstractMapper):
     """A simple employee mapper class"""
+
+    start_grace = datetime.timedelta(days=-6)
+    end_grace = datetime.timedelta(days=0)
+
     def __init__(self, db):
         """
         :param db: Database object
@@ -85,24 +99,24 @@ class EmployeeMapper(_base.AbstractMapper):
         self.db = db
         self.const = Factory.get('Constants')(db)
 
-    @staticmethod
-    def parse_affiliations(assignment_data, role_data):
+    @classmethod
+    def parse_affiliations(cls, assignment_data, role_data):
         """
         Parse data from SAP and return affiliations and account types
 
         :rtype: tuple(set(HRAffiliation), set(HRAccountType))
         """
-        assignments = EmployeeMapper.parse_assignments(assignment_data)
+        assignments = cls.parse_assignments(assignment_data)
         account_types = set(
             HRAccountType(placecode=a.placecode,
                           affiliation=a.affiliation) for a in
             assignments
         )
-        roles = EmployeeMapper.parse_roles(role_data)
+        roles = cls.parse_roles(role_data)
         return assignments.union(roles), account_types
 
-    @staticmethod
-    def parse_assignments(assignment_data):
+    @classmethod
+    def parse_assignments(cls, assignment_data):
         """
         Parse data from SAP and return affiliations
 
@@ -111,14 +125,26 @@ class EmployeeMapper(_base.AbstractMapper):
         affiliations = set()
         sap_assignments_to_affiliation_map = {'administrative': 'tekadm',
                                               'academic': 'vitenskapelig'}
+
         for x in assignment_data:
+            current = datetime.date.today()
+            start = parse_date(x.get('effectiveStartDate'), allow_empty=True)
+            if start and start > current + cls.start_grace:
+                logger.debug('Ignoring pending %r (start=%r)', x, start)
+                continue
+
+            end = parse_date(x.get('effectiveEndDate'), allow_empty=True)
+            if end and end < current + cls.end_grace:
+                logger.debug('Ignoring expired %r (end=%r)', x, end)
+                continue
+
             status = sap_assignments_to_affiliation_map.get(
                 x.get('jobCategory'))
             if not status:
                 logger.warning('parse_affiliations: Unknown job category')
                 # Unknown job category
                 continue
-            placecode = x.get('personId')
+            placecode = x.get('locationCode')
             if placecode is None:
                 logger.warning('Placecode does not exist')
                 continue
@@ -135,8 +161,8 @@ class EmployeeMapper(_base.AbstractMapper):
         logger.info('parsed %i affiliations', len(affiliations))
         return affiliations
 
-    @staticmethod
-    def parse_contacts(person_data):
+    @classmethod
+    def parse_contacts(cls, person_data):
         """
         Parse data from SAP and return contact information.
 
@@ -164,8 +190,8 @@ class EmployeeMapper(_base.AbstractMapper):
                                       contact_value=value))
         return numbers
 
-    @staticmethod
-    def parse_external_ids(person_data):
+    @classmethod
+    def parse_external_ids(cls, person_data):
         """
         Parse data from SAP and return external ids (i.e. passnr).
 
@@ -192,8 +218,8 @@ class EmployeeMapper(_base.AbstractMapper):
         return set(ext_id for ext_id in external_ids if
                    ext_id.id_type and ext_id.external_id)
 
-    @staticmethod
-    def parse_roles(role_data):
+    @classmethod
+    def parse_roles(cls, role_data):
         """
         Parse data from SAP and return existing roles.
 
@@ -216,7 +242,7 @@ class EmployeeMapper(_base.AbstractMapper):
              ('POLS-ANSAT', None)])
         roles = set()
         for role in role_data:
-            placecode = role.get('locationId')
+            placecode = role.get('locationCode')
             if placecode is None:
                 logger.warning('Placecode does not exist, '
                                'cannot parse affiliation %r for %r',
@@ -235,8 +261,8 @@ class EmployeeMapper(_base.AbstractMapper):
         logger.info('parsed %i roles', len(roles))
         return roles
 
-    @staticmethod
-    def parse_titles(person_data, assignment_data):
+    @classmethod
+    def parse_titles(cls, person_data, assignment_data):
         """
         Parse data from SAP and return person titles.
 
@@ -324,22 +350,20 @@ class EmployeeMapper(_base.AbstractMapper):
             if x.get('managerFlag'):
                 leader_group_ids.add(
                     get_automatic_group(self.db,
-                                        six.text_type(x.get('locationId')),
+                                        x.get('locationCode'),
                                         LEADER_GROUP_PREFIX).entity_id)
         logger.info('parsed %i leader groups', len(leader_group_ids))
         return leader_group_ids
 
-    def populate_hr_person(self, person_data, assignment_data, role_data):
+    def translate(self, reference, obj):
         """
         Populate a HRPerson object with data fetched from SAP
 
-        :param person_data: Data from SAP `/employees`
-        :param assignment_data: Data from SAP
-                                `/employees({personId})/assignments`
-        :param role_data: Data from SAP `/employees({personId})/roles`
-
         :rtype: HRPerson
         """
+        person_data = obj
+        assignment_data = obj['assignments']
+        role_data = obj['roles']
 
         hr_person = HRPerson(
             hr_id=six.text_type(person_data.get('personId')),
@@ -360,6 +384,5 @@ class EmployeeMapper(_base.AbstractMapper):
                 role_data))
         return hr_person
 
-    def translate(self, reference, obj):
-        person, assignments, roles = obj
-        return self.populate_hr_person(person, assignments, roles)
+    def is_active(self, hr_object):
+        return bool(hr_object.affiliations)

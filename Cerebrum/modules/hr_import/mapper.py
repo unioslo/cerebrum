@@ -82,3 +82,14 @@ class AbstractMapper(object):
         :raises ManyMappedObjects: Multiple entities can be found
         """
         pass
+
+    @abc.abstractmethod
+    def is_active(self, hr_object):
+        """
+        Decide if an HR object should be present in the database.
+
+        :type hr_object: models.HRPerson
+
+        :rtype: bool
+        """
+        pass
