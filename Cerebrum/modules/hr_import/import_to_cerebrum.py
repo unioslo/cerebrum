@@ -55,7 +55,10 @@ class HRDataImport(object):
 
     def update_person(self):
         """Update person with birth date and gender"""
-        self.hr_person.gender = int(self.co.Gender(self.hr_person.gender))
+        if self.hr_person.gender:
+            self.hr_person.gender = self.co.Gender(self.hr_person.gender)
+        else:
+            self.hr_person.gender = self.co.gender_unknown
         if not (self.cerebrum_person.gender and
                 self.cerebrum_person.birth_date and
                 self.cerebrum_person.gender == self.hr_person.gender and
@@ -66,7 +69,7 @@ class HRDataImport(object):
             self.cerebrum_person.write_db()
             logger.info('Added birth date %r and gender %r for %r',
                         self.hr_person.birth_date,
-                        self.co.Gender(self.hr_person.gender),
+                        self.hr_person.gender,
                         self.cerebrum_person.entity_id)
 
     def update_external_ids(self):
@@ -93,8 +96,8 @@ class HRDataImport(object):
         if to_remove:
             logger.info(
                 'Purging externalids of types %r for id: %r',
-                (unicode(ext_type.id_type)
-                 for ext_type in to_remove),
+                (unicode(ext_id.id_type)
+                 for ext_id in to_remove),
                 self.cerebrum_person.entity_id)
         for ext_id in to_add:
             self.cerebrum_person.populate_external_id(
