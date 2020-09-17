@@ -38,11 +38,10 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRExternalID,
                                                HRAccountType,
                                                HRContactInfo)
-from Cerebrum.modules.automatic_group.structure import get_automatic_group
+
+from .leader_groups import get_leader_group
 
 logger = logging.getLogger(__name__)
-
-LEADER_GROUP_PREFIX = 'adm-leder-'
 
 
 def parse_date(value, fmt='%Y-%m-%d', allow_empty=True):
@@ -349,9 +348,7 @@ class EmployeeMapper(_base.AbstractMapper):
         for x in assignment_data:
             if x.get('managerFlag'):
                 leader_group_ids.add(
-                    get_automatic_group(self.db,
-                                        x.get('locationCode'),
-                                        LEADER_GROUP_PREFIX).entity_id)
+                    get_leader_group(self.db, x.get('locationCode')).entity_id)
         logger.info('parsed %i leader groups', len(leader_group_ids))
         return leader_group_ids
 
