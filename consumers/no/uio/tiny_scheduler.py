@@ -180,7 +180,7 @@ def main():
     channel.basic_consume(
         on_message_callback=consumer_callback,
         queue=args.queue,
-        auto_ack=True,
+        auto_ack=False,
         consumer_tag=args.consumer_tag)
     logger.info('Consumer active!')
     try:
