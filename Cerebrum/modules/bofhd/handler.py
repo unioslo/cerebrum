@@ -18,7 +18,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-""" Request handler for bofhd.
+
+"""
+Request handler for bofhd.
 
 Configuration
 -------------
@@ -68,8 +70,10 @@ moved to a separate module after:
     commit ff3e3f1392a951a059020d56044f8017116bb69c
     Merge: c57e8ee 61f02de
     Date:  Fri Mar 18 10:34:58 2016 +0100
-
 """
+
+from __future__ import unicode_literals
+
 import cereconf
 
 import io
@@ -81,15 +85,19 @@ from xml.parsers.expat import ExpatError
 
 import six
 
-from Cerebrum import Errors
-from Cerebrum import QuarantineHandler
-from Cerebrum import https
+from Cerebrum import (
+    Errors,
+    QuarantineHandler,
+    https,
+)
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import statsd
-from Cerebrum.modules.bofhd.errors import CerebrumError
-from Cerebrum.modules.bofhd.errors import ServerRestartedError
-from Cerebrum.modules.bofhd.errors import SessionExpiredError
-from Cerebrum.modules.bofhd.errors import UnknownError
+from Cerebrum.modules.bofhd import protocol
+from Cerebrum.modules.bofhd.errors import (
+    CerebrumError,
+    ServerRestartedError,
+    UnknownError,
+)
 from Cerebrum.modules.bofhd.session import BofhdSession
 from Cerebrum.modules.bofhd.xmlutils import xmlrpc_to_native, native_to_xmlrpc
 
@@ -230,52 +238,30 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
                              exc_to_text(e), format_addr(self.client_address))
             self.close_connection = 1
 
-    def _send_response(self, http_code, response):
-        """ write xml headers and response. """
-        if response:
-            try:
-                response = xmlrpclib.dumps(response, methodresponse=True)
-            except:
-                self.logger.error('Unable to generate XML response',
-                                  exc_info=True)
-                http_code = 500
-                response = None
-
-        self.send_response(http_code)
-        if response:
-            self.send_header('Content-Type', 'text/xml')
-            self.send_header('Content-Length', str(len(response)))
-        self.end_headers()
-        if response:
-            self.wfile.write(response)
-        self.wfile.flush()
-
-    @staticmethod
-    def _format_xmlrpc_fault(exc):
-        """ Get XMLRPC fault string from an exception. """
-        # Stringify the exception type
-        err_type = six.text_type(type(exc).__name__)
-        if isinstance(exc, CerebrumError):
-            # Include module name in CerebrumError and subclasses
-            if type(exc) in (ServerRestartedError, SessionExpiredError,
-                             UnknownError):
-                # Client *should* know this
-                err_type = u'{0.__module__}.{0.__name__}'.format(type(exc))
-            else:
-                # Use superclass
-                err_type = u'{0.__module__}.{0.__name__}'.format(CerebrumError)
-
-        return u'{err_type}:{err_msg}'.format(err_type=err_type,
-                                              err_msg=exc_to_text(exc))
+    def send_xmlrpc(self, message):
+        try:
+            payload = protocol.dumps(message)
+        except:
+            self.logger.error("Unable to serialize XML-RPC: %r", message, exc_info=True)
+            self.send_error(500)
+        else:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/xml")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            self.wfile.flush()
 
     def do_POST(self):
-        """Handles the HTTP POST request.
+        """
+        Handles HTTP POST requests.
 
-        Attempts to interpret all HTTP POST requests as XML-RPC calls,
-        which are forwarded to the _dispatch method for handling.
+        All POST requests are assumed to be valid XML-RPC structures.
+        Once deserialized they are forwarded to ``_dispatch()``.
 
-        Will also encode known and unknown exceptions as XMLRPC Faults to the
-        client.
+        Exceptions that occur within ``_dispatch()`` are encoded
+        and returned as ``xmlrpclib.Fault``s, where the error code 1
+        indicates a Cerebrum issue and 2 an unexpected internal error.
         """
         data = params = method = None
 
@@ -283,9 +269,8 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         try:
             content_length = self.headers["content-length"]
         except KeyError:
-            self.logger.warn('Missing Content-Length (client=%r)',
-                             self.client_address)
-            self._send_response(411, None)
+            self.logger.warn("Missing Content-Length (client=%r)", self.client_address)
+            self.send_error(411)
             return
 
         # Read and parse request data
@@ -296,38 +281,43 @@ class BofhdRequestHandler(SimpleXMLRPCRequestHandler, object):
         # anything else as ascii-bytestrings.
         try:
             data = self.rfile.read(int(content_length))
-            params, method = xmlrpclib.loads(data)
-        except ExpatError as e:
-            self.logger.warn('ExpatError (%d) - malformed XML content'
-                             ' (client=%r, data=%r)',
-                             e.code, self.client_address, data)
-            self._send_response(400, None)
+            method, params = protocol.loads(data)
+        except ExpatError:
+            self.logger.warn(
+                "Unable to deserialize request to XML-RPC (client=%r, data=%r)",
+                self.client_address,
+                data,
+                exc_info=True,
+            )
+            self.send_error(400)
             return
         except:
-            self.logger.warn('Unknown client error (client=%r, data=%r)',
-                             self.client_address, data, exc_info=True)
-            self._send_response(400, None)
+            self.logger.warn(
+                "Unknown client error (client=%r, data=%r)",
+                self.client_address,
+                data,
+                exc_info=True,
+            )
+            self.send_error(400)
             return
 
         # XML-RPC structure is decoded and valid, try to dispatch
         try:
-            try:
-                # wrap response in a singleton tuple
-                self.logger.debug('dispatch, method=%r', method)
-                response = (self._dispatch(method, params), )
-            except CerebrumError as e:
-                response = xmlrpclib.Fault(1, self._format_xmlrpc_fault(e))
-            except Exception as e:
-                self.logger.warn(
-                    u'Unexpected exception (client=%r, params=%r, method=%r)',
-                    self.client_address, params, method,
-                    exc_info=True)
-                response = xmlrpclib.Fault(2, self._format_xmlrpc_fault(e))
-
-            self._send_response(200, response)
-        except:
-            self.logger.error('Unable to handle fault', exc_info=True)
-            self._send_response(500, None)
+            self.logger.debug("dispatch method=%r", method)
+            rv = self._dispatch(method, params)
+        except CerebrumError as e:
+            self.send_xmlrpc(e)
+        except Exception as e:
+            self.logger.warn(
+                "Unexpected exception (client=%r, params=%r, method=%r)",
+                self.client_address,
+                params,
+                method,
+                exc_info=True,
+            )
+            self.send_xmlrpc(e)
+        else:
+            self.send_xmlrpc(rv)
 
     def _get_quarantines(self, account):
         """ Fetch a list of active lockout quarantines for account.
