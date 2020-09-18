@@ -23,6 +23,7 @@ SAPUiO import.
 import functools
 import os
 
+from Cerebrum.Utils import Factory
 from Cerebrum.config import loader as config_loader
 from Cerebrum.config.configuration import (
     Configuration,
@@ -34,6 +35,9 @@ from Cerebrum.modules.hr_import.employee_import import EmployeeImportBase
 from .datasource import EmployeeDatasource
 from .client import SapClientConfig, get_client
 from .mapper import EmployeeMapper
+from .reservation_group import ReservationGroupUpdater
+from .leader_groups import LeaderGroupUpdater
+from .account_type import AccountTypeUpdater
 
 
 class EmployeeImportConfig(Configuration):
@@ -54,6 +58,7 @@ class EmployeeImport(EmployeeImportBase):
 
     def __init__(self, db, datasource):
         self.db = db
+        self.const = Factory.get('Constants')(self.db)
         self._ds = datasource
 
     @property
@@ -65,6 +70,36 @@ class EmployeeImport(EmployeeImportBase):
         if not hasattr(self, '_mapper'):
             self._mapper = self.mapper_cls(self.db)
         return self._mapper
+
+    def update(self, hr_object, db_object):
+
+        account_types = AccountTypeUpdater(
+            self.db,
+            restrict_affiliation=self.const.affiliation_ansatt,
+            restrict_source=self.const.system_sap)
+
+        def _get_affiliations():
+            return set(
+                (r['affiliation'], r['status'], r['ou_id'])
+                for r in db_object.list_affiliations(
+                    person_id=db_object.entity_id,
+                    affiliation=account_types.restrict_affiliation,
+                    source_system=account_types.restrict_source))
+
+        affs_before = _get_affiliations()
+        super(EmployeeImport, self).update(hr_object, db_object)
+        affs_after = _get_affiliations()
+
+        if affs_before != affs_after:
+            account_types.sync(db_object,
+                               added=affs_after - affs_before,
+                               removed=affs_before - affs_after)
+
+        reservation_group = ReservationGroupUpdater(self.db)
+        reservation_group.set(db_object.entity_id, hr_object.reserved)
+
+        leader_groups = LeaderGroupUpdater(self.db)
+        leader_groups.sync(db_object.entity_id, hr_object.leader_groups)
 
 
 def get_employee_importer(config):
