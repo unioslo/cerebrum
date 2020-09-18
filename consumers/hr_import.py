@@ -82,6 +82,12 @@ def get_importer(importer_config):
     return im_init(importer_config.config_file)
 
 
+def get_db():
+    db = Factory.get('Database')()
+    db.cl_init(change_program='hr-import-consumer')
+    return db
+
+
 def main(inargs=None):
     parser = argparse.ArgumentParser(
         description='Run a basic AMQP message consumer',
@@ -111,7 +117,7 @@ def main(inargs=None):
 
     callback = EmployeeHandler(
         import_init=importer,
-        db_init=Factory.get('Database'),
+        db_init=get_db,
         dryrun=not args.commit)
 
     consume = get_consumer(config.consumer, callback)

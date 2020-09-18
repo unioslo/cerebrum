@@ -60,6 +60,12 @@ def get_importer(importer_config):
     return init(importer_config.config_file)
 
 
+def get_db():
+    db = Factory.get('Database')()
+    db.cl_init(change_program='hr-import-person')
+    return db
+
+
 def main(inargs=None):
     parser = argparse.ArgumentParser(
         description='Run import for a single hr-system object',
@@ -89,7 +95,7 @@ def main(inargs=None):
     import_init = get_importer(config.importer)
     logger.info('employee importer: %r', import_init)
 
-    with db_context(Factory.get('Database'), not args.commit) as db:
+    with db_context(get_db, not args.commit) as db:
         importer = import_init(db)
 
         logger.info('handle reference=%r', args.reference)
