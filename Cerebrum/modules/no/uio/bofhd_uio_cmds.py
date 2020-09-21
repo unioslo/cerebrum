@@ -2882,7 +2882,13 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied("Currently limited to superusers")
         ou = self._get_ou(stedkode=stedkode)
         source_system = self.const.system_manual
+
         id_type = self.const.EntityExternalId(id_type)
+        try:
+            int(id_type)
+        except Errors.NotFoundError:
+            raise CerebrumError("No such external id")
+
         ou.affect_external_id(source_system, id_type)
         ou.populate_external_id(source_system, id_type, id_value)
         ou.write_db()
@@ -2900,11 +2906,20 @@ class BofhdExtension(BofhdCommonMethods):
             raise PermissionDenied("Currently limited to superusers")
         ou = self._get_ou(stedkode=stedkode)
         source_system = self.const.system_manual
+
         id_type = self.const.EntityExternalId(id_type)
-        ou.affect_external_id(source_system, id_type)
-        ou.write_db()
-        return "OK, deleted external_id: '%s' for ou: '%s'" % (id_type,
-                                                               stedkode)
+        try:
+            int(id_type)
+        except Errors.NotFoundError:
+            raise CerebrumError("No such external id")
+
+        if ou.get_external_id(source_system=source_system, id_type=id_type):
+            ou.affect_external_id(source_system, id_type)
+            ou.write_db()
+            return "OK, deleted external_id: '%s' for ou: '%s'" % (id_type,
+                                                                   stedkode)
+        return ("Could not find manually set external_id: '%s' to delete "
+                "for ou: '%s'" % (id_type, stedkode))
 
     #
     # ou tree <stedkode/entity_id> <perspective> <language>
