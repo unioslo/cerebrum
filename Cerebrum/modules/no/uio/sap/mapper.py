@@ -323,8 +323,8 @@ class EmployeeMapper(_base.AbstractMapper):
             logger.info('Found existing person with id=%r',
                         db_object.entity_id)
         except Errors.NotFoundError:
-            logger.debug('could not find person by id_type=%r',
-                         tuple(i[0] for i in match_ids))
+            logger.debug('could not find person by id_type=%s',
+                         tuple(six.text_type(i[0]) for i in match_ids))
             raise _base.NoMappedObjects('no matching persons')
         except Errors.TooManyRowsError as e:
             # TODO: Include which entity in error?
