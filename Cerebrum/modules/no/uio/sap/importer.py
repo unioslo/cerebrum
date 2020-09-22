@@ -23,7 +23,6 @@ SAPUiO import.
 import functools
 import os
 
-from Cerebrum.Utils import Factory
 from Cerebrum.config import loader as config_loader
 from Cerebrum.config.configuration import (
     Configuration,
@@ -58,7 +57,6 @@ class EmployeeImport(EmployeeImportBase):
 
     def __init__(self, db, datasource):
         self.db = db
-        self.const = Factory.get('Constants')(self.db)
         self._ds = datasource
 
     @property
