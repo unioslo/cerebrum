@@ -1115,6 +1115,10 @@ def perform_delete(database, source_system, hr_person, cerebrum_person):
 
 def get_local_it_contact(cerebrum_person, source_system, affiliation,
                          database):
+    return_dict = {
+        "mail": MAIL_TO,
+        "ou": int()
+    }
     ou = Factory.get('OU')(database)
     co = Factory.get('Constants')(database)
     for row in cerebrum_person.list_affiliations(
@@ -1126,11 +1130,12 @@ def get_local_it_contact(cerebrum_person, source_system, affiliation,
         ou.clear()
         ou.find(row['ou_id'])
         local_it_contact = ou.local_it_contact(co.perspective_sap)
+        return_dict["ou"] = ou.entity_id
         # We will get the contact of the affiliation with lower precedence if
         # no `local_it_contact` is found on the first iteration.
         if local_it_contact:
-            return local_it_contact[0]['contact_value']
-    return MAIL_TO
+            return_dict["mail"] = local_it_contact[0]['contact_value']
+    return return_dict
 
 
 def _mail_possible_duplicate(hr_person, new_person, database,
@@ -1150,19 +1155,20 @@ def _mail_possible_duplicate(hr_person, new_person, database,
             continue
         full_name = person['full_name']
         if name_diff(new_name.lower(), full_name.lower()) <= 2:
-            substitute = {
-                'NEW_PERSON': new_name,
-                'NEW_ID': new_person.entity_id,
-                'OLD_PERSON': full_name,
-                'OLD_ID': person['person_id']
-            }
             mail_to = get_local_it_contact(
                 new_person,
                 co.system_sap,
                 [co.affiliation_ansatt, co.affiliation_tilknyttet],
                 database
             )
-            mail_template(mail_to, TEMPLATE, substitute=substitute,
+            substitute = {
+                'NEW_PERSON': new_name,
+                'NEW_ID': new_person.entity_id,
+                'OLD_PERSON': full_name,
+                'OLD_ID': person['person_id'],
+                'OU': mail_to["ou"]
+            }
+            mail_template(mail_to["mail"], TEMPLATE, substitute=substitute,
                           sender=MAIL_SENDER, cc=MAIL_CC,
                           debug=dryrun)
             return
