@@ -32,7 +32,6 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.date import datetime2mx
 from Cerebrum.utils.argutils import add_commit_args
 
 logger = logging.getLogger(__name__)
@@ -120,7 +119,7 @@ def process_deceased(db, source_data):
             logger.debug("Processing person with employee_id=%r, date=%r",
                          key, item['deceased_date'])
 
-        deceased_date = datetime2mx(item['deceased_date'])
+        deceased_date = item['deceased_date']
 
         if person.deceased_date == deceased_date:
             logger.debug("No change in deceased_date for employee_id=%r", key)
