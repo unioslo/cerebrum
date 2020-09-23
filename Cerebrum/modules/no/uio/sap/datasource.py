@@ -93,8 +93,7 @@ class EmployeeDatasource(_base.AbstractDatasource):
                          reference, event)
             return reference
         except Exception as e:
-            logger.debug('unable to extract reference from event=%r',
-                         event, exc_info=True)
+            logger.debug('unable to extract reference from event=%r', event)
             raise _base.DatasourceInvalid('Invalid event format: %s (%r)' %
                                           (e, event.body))
 

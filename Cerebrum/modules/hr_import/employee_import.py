@@ -37,20 +37,41 @@ RESERVATION_GROUP = 'SAP-elektroniske-reservasjoner'
 
 class EmployeeImportBase(AbstractImport):
 
+    @property
+    def const(self):
+        """ Constants. """
+        if not hasattr(self, '_const'):
+            self._const = Factory.get('Constants')(self.db)
+        return self._const
+
+    @property
+    def source_system(self):
+        # TODO: Use different source systems?
+        return self.const.system_sap
+
     def create(self, employee_data):
         """ Create a new Person object using employee_data. """
         # TODO: Warn about name matches
         assert employee_data is not None
         person_obj = Factory.get('Person')(self.db)
-        self.update_person(employee_data, person_obj)
+
+        gender = self.const.Gender(employee_data.gender)
+        person_obj.populate(employee_data.birth_date, gender)
+        person_obj.write_db()
+
+        assert person_obj.entity_id
+        logger.info('Created person_id=%r from %r',
+                    person_obj.entity_id, employee_data)
+        self.update(employee_data, person_obj)
 
     def update(self, employee_data, person_obj):
         """ Update the Person object using employee_data. """
         assert employee_data is not None
         assert person_obj is not None
         assert person_obj.entity_id
-        updater = HRDataImport(self.db, employee_data, person_obj, logger)
-        updater.update_person()
+        updater = HRDataImport(self.db, employee_data, person_obj,
+                               self.source_system)
+        updater.import_to_cerebrum()
 
     def remove(self, person_obj):
         """ Clear HR data from a Person object. """
