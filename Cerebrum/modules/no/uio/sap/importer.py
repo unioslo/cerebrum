@@ -69,6 +69,10 @@ class EmployeeImport(EmployeeImportBase):
             self._mapper = self.mapper_cls(self.db)
         return self._mapper
 
+    @property
+    def source_system(self):
+        return self.const.system_sap
+
     def update(self, hr_object, db_object):
 
         account_types = AccountTypeUpdater(

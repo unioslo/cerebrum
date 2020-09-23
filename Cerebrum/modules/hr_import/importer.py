@@ -36,7 +36,6 @@ class AbstractImport(object):
     def __init__(self, db):
         self.db = db
 
-    @property
     @abc.abstractproperty
     def datasource(self):
         """ A datasource to use for fetching HR data. """
@@ -45,6 +44,11 @@ class AbstractImport(object):
     @abc.abstractproperty
     def mapper(self):
         """ A mapper to use for translating HR data to Cerebrum. """
+        pass
+
+    @abc.abstractproperty
+    def source_system(self):
+        """ A source system to link import data to. """
         pass
 
     def handle_event(self, event):
