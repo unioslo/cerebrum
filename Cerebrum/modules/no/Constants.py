@@ -217,16 +217,6 @@ class ConstantsHigherEdu(Constants.Constants):
         "SAP_OU_ID", Constants.Constants.entity_ou,
         'SAP OU identification')
 
-    externalid_dfo_ou = _EntityExternalIdCode(
-        'DFO_OU_ID', Constants.Constants.entity_ou,
-        'DFO OU identification'
-    )
-
-    externalid_dfo_acronym = _EntityExternalIdCode(
-        'DFO_ACRONYM', Constants.Constants.entity_ou,
-        'DFO OU acronym'
-    )
-
     externalid_uname = _EntityExternalIdCode(
         'UNAME', Constants.Constants.entity_person,
         'User name (external system)')
