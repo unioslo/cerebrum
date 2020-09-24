@@ -18,21 +18,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-Update leader groups.
+Leader group module.
 
-The intention is to keep Person affiliations in sync with the persons primary
-account account_types.
-
-We can only sync affiliations if:
-
-1. The person only owns *one* account.
-2. That account is/was only used for *a similar purpose*.  E.g. we *only*
-   update employee account_types if the account is *only* used as an employee
-   account (i.e. has account_types of a given affiliation from a given source
-   system).
-
-In all other cases, any attempt to automatically assign account_type will
-likely end up doing the wrong thing.
+This module defines the Cerebrum leader groups, ``adm-leder-<ou>``.  These
+groups mirror manager roles from the hr system.
 """
 import logging
 
