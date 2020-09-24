@@ -91,13 +91,13 @@ class SapEndpoints(object):
 
     def __init__(self,
                  url,
-                 person_url='person/',
+                 employee_url='ansatte/',
                  orgenhet_url='orgenhet/',
                  stilling_url='stilling/',
                  kursinfo_url='kursgjennomfoering/',
                  familie_url='ansattefamilie-test/'):
         self.baseurl = url
-        self.person_url = person_url
+        self.employee_url = employee_url
         self.orgenhet_url = orgenhet_url
         self.stilling_url = stilling_url
         self.kursinfo_url = kursinfo_url
@@ -118,8 +118,8 @@ class SapEndpoints(object):
 
         return urlparse.urljoin(base, path + str(ident))
 
-    def get_person(self, person_id):
-        return self._urljoin(self.baseurl, self.person_url, str(person_id))
+    def get_employee(self, employee_id):
+        return self._urljoin(self.baseurl, self.employee_url, str(employee_id))
 
     def get_orgenhet(self, org_id):
         return self._urljoin(self.baseurl, self.orgenhet_url, str(org_id))
@@ -141,7 +141,7 @@ class SapClient(object):
 
     def __init__(self,
                  url,
-                 person_url=None,
+                 employee_url=None,
                  orgenhet_url=None,
                  stilling_url=None,
                  kursinfo_url=None,
@@ -154,7 +154,7 @@ class SapClient(object):
         SAP API client.
 
         :param str url: Base API URL
-        :param str person_url: Relative URL to person API
+        :param str employee_url: Relative URL to employee API
         :param str orgenhet_url: Relative URL to organisational API
         :param str stilling_url: Relative URL to stillings API
         :param str kursinfo_url: Relative URL to kursinfo API
@@ -165,7 +165,7 @@ class SapClient(object):
         :param bool use_sessions: Keep HTTP connections alive (default True)
         """
         self.urls = SapEndpoints(url,
-                                 person_url,
+                                 employee_url,
                                  orgenhet_url,
                                  stilling_url,
                                  kursinfo_url,
@@ -220,13 +220,19 @@ class SapClient(object):
     def put(self, url, **kwargs):
         return self.call('PUT', url, **kwargs)
 
-    # def get_person(self, person_id: str) -> [None, dict]:
-    def get_person(self, person_id):
-        url = self.urls.get_person(person_id)
+    # def object_or_data(self, cls, data) -> [object, dict]:
+    def object_or_data(self, cls, data):
+        if not self.return_objects:
+            return data
+        return cls.from_dict(data)
+
+    # def get_employee(self, employee_id: str) -> [None, dict]:
+    def get_employee(self, employee_id):
+        url = self.urls.get_employee(employee_id)
         if self.mock:
-            return load_json_file('person_00101223.json')
+            return load_json_file('employee_00101223.json')
         response = self.get(url,
-                            headers=self.tokens.get('person_api',
+                            headers=self.tokens.get('employee_api',
                                                     None))
         if response.status_code == 404:
             return None
@@ -266,11 +272,11 @@ class SapClient(object):
             return data.get('stilling', None)
         response.raise_for_status()
 
-    # def get_familie(self, person_id: str) -> [None, dict]:
-    def get_familie(self, person_id):
+    # def get_familie(self, employee_id: str) -> [None, dict]:
+    def get_familie(self, employee_id):
         if self.mock:
             return load_json_file('familie_00101223.json')
-        url = self.urls.get_familie(person_id)
+        url = self.urls.get_familie(employee_id)
         response = self.get(url,
                             headers=self.tokens.get(
                                 'familie_api',
@@ -342,7 +348,7 @@ class DictEntry(Configuration):
 class SapClientConfig(Configuration):
     """The configuration for the dfo module"""
     url = ConfigDescriptor(String, default='http://localhost')
-    person_url = ConfigDescriptor(String, default='http://localhost')
+    employee_url = ConfigDescriptor(String, default='http://localhost')
     orgenhet_url = ConfigDescriptor(String, default='http://localhost')
     stilling_url = ConfigDescriptor(String, default='http://localhost')
     kursinfo_url = ConfigDescriptor(String, default='http://localhost')
