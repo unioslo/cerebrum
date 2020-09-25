@@ -34,6 +34,12 @@ import urlparse
 
 import requests
 
+from Cerebrum.config.configuration import (Configuration,
+                                           ConfigDescriptor,
+                                           Namespace)
+from Cerebrum.config.settings import Boolean, Iterable, String
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -143,7 +149,6 @@ class SapClient(object):
                  tokens={},
                  mock=False,
                  headers=None,
-                 return_objects=True,
                  use_sessions=True):
         """
         SAP API client.
@@ -157,7 +162,6 @@ class SapClient(object):
         :params dict tokens: Tokens for the different APIs
         :param bool mock: Mock the API or not
         :param dict headers: Append extra headers to all requests
-        :param bool return_objects: Return objects instead of raw JSON
         :param bool use_sessions: Keep HTTP connections alive (default True)
         """
         self.urls = SapEndpoints(url,
@@ -169,7 +173,6 @@ class SapClient(object):
         self.tokens = tokens
         self.mock = mock
         self.headers = merge_dicts(self.default_headers, headers)
-        self.return_objects = return_objects
         if use_sessions:
             self.session = requests.Session()
         else:
@@ -216,12 +219,6 @@ class SapClient(object):
 
     def put(self, url, **kwargs):
         return self.call('PUT', url, **kwargs)
-
-    # def object_or_data(self, cls, data) -> [object, dict]:
-    def object_or_data(self, cls, data):
-        if not self.return_objects:
-            return data
-        return cls.from_dict(data)
 
     # def get_person(self, person_id: str) -> [None, dict]:
     def get_person(self, person_id):
@@ -336,8 +333,32 @@ class SapClient(object):
         response.raise_for_status()
 
 
-def get_client(config_dict):
-    """
-    Get a SapClient from configuration.
-    """
-    return SapClient(**config_dict)
+class DictEntry(Configuration):
+    """Represents a key-value element"""
+    key = ConfigDescriptor(String, doc='key')
+    value = ConfigDescriptor(String, doc='value')
+
+
+class SapClientConfig(Configuration):
+    """The configuration for the dfo module"""
+    url = ConfigDescriptor(String, default='http://localhost')
+    person_url = ConfigDescriptor(String, default='http://localhost')
+    orgenhet_url = ConfigDescriptor(String, default='http://localhost')
+    stilling_url = ConfigDescriptor(String, default='http://localhost')
+    kursinfo_url = ConfigDescriptor(String, default='http://localhost')
+    familie_url = ConfigDescriptor(String, default='http://localhost')
+    tokens = ConfigDescriptor(Iterable,
+                              default=[],
+                              template=Namespace(config=DictEntry))
+    mock = ConfigDescriptor(Boolean,
+                            default=False)
+    headers = ConfigDescriptor(Iterable,
+                               default=[],
+                               template=Namespace(config=DictEntry))
+    use_sessions = ConfigDescriptor(Boolean,
+                                    default=True)
+
+
+def get_client(config):
+    """Get a SapClient from configuration"""
+    return SapClient(**config.dump_dict())
