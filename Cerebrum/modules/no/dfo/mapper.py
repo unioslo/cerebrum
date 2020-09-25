@@ -23,7 +23,6 @@ Mapper for DFØ-SAP.
 from __future__ import unicode_literals
 
 import collections
-import decimal
 import datetime
 import logging
 
@@ -38,6 +37,7 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRExternalID,
                                                HRAccountType,
                                                HRContactInfo)
+from Cerebrum.modules.hr_import.matcher import match_entity
 
 from .leader_groups import get_leader_group
 
@@ -136,6 +136,10 @@ class EmployeeMapper(_base.AbstractMapper):
         """
         self.db = db
         self.const = Factory.get('Constants')(db)
+
+    @property
+    def source_system(self):
+        return self.const.system_dfo_sap
 
     @classmethod
     def parse_affiliations(cls, person_data, assignment_data, stedkode_cache):
@@ -372,33 +376,10 @@ class EmployeeMapper(_base.AbstractMapper):
         return titles
 
     def find_entity(self, hr_object):
-        """Extract reference from event."""
-        db_object = Factory.get('Person')(self.db)
-
-        match_ids = ((
-                         self.const.externalid_sap_ansattnr,
-                         hr_object.hr_id,
-                         # TODO:
-                         #  SAP or DFØ-SAP?
-                         self.const.system_sap,
-                     ),) + tuple(
-            (self.const.EntityExternalId(i.id_type), i.external_id)
-            for i in hr_object.external_ids
-        )
-
-        try:
-            db_object.find_by_external_ids(*match_ids)
-            logger.info('Found existing person with id=%r',
-                        db_object.entity_id)
-        except Errors.NotFoundError:
-            logger.debug('could not find person by id_type=%s',
-                         tuple(six.text_type(i[0]) for i in match_ids))
-            raise _base.NoMappedObjects('no matching persons')
-        except Errors.TooManyRowsError as e:
-            # TODO: Include which entity in error?
-            raise _base.ManyMappedObjects(
-                'Person mismatch: found multiple matches: {}'.format(e))
-        return db_object
+        """Find matching Cerebrum entity for the given HRPerson."""
+        return match_entity(hr_object.external_ids,
+                            self.source_system,
+                            self.db)
 
     def parse_leader_groups(self, person_data, assignment_data,
                             stedkode_cache):

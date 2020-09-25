@@ -37,6 +37,7 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRExternalID,
                                                HRContactInfo)
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.hr_import.matcher import match_entity
 
 from .leader_groups import get_leader_group
 
@@ -304,30 +305,10 @@ class EmployeeMapper(_base.AbstractMapper):
         return set(filter(lambda hr_title: hr_title.name, titles))
 
     def find_entity(self, hr_object):
-        """Extract reference from event."""
-        db_object = Factory.get('Person')(self.db)
-
-        search_ids = tuple(
-            (self.const.EntityExternalId(i.id_type), i.external_id)
-            for i in hr_object.external_ids
-        )
-        # match_ids = tuple(
-        #     (id_type, id_value, self.mapper.source_system)
-        #     for id_type, id_value in search_ids,
-        # )
-
-        try:
-            db_object.find_by_external_ids(*search_ids)
-            logger.info('Found existing person with id=%r',
-                        db_object.entity_id)
-        except Errors.NotFoundError:
-            logger.debug('could not find person by id_type=%s',
-                         tuple(six.text_type(i[0]) for i in search_ids))
-            raise _base.NoMappedObjects('no matching persons')
-        except Errors.TooManyRowsError as e:
-            raise _base.ManyMappedObjects(
-                'Person mismatch: found multiple matches: {}'.format(e))
-        return db_object
+        """Find matching Cerebrum entity for the given HRPerson."""
+        return match_entity(hr_object.external_ids,
+                            self.source_system,
+                            self.db)
 
     def parse_leader_groups(self, assignment_data):
         """
