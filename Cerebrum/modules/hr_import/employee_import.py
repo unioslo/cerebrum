@@ -22,9 +22,10 @@ Generic HR import.
 """
 import logging
 
+import six
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.automatic_group.structure import update_memberships
 
 from .importer import AbstractImport
 from . import models
@@ -43,11 +44,6 @@ class EmployeeImportBase(AbstractImport):
         if not hasattr(self, '_const'):
             self._const = Factory.get('Constants')(self.db)
         return self._const
-
-    @property
-    def source_system(self):
-        # TODO: Use different source systems?
-        return self.const.system_sap
 
     def create(self, employee_data):
         """ Create a new Person object using employee_data. """
@@ -70,7 +66,7 @@ class EmployeeImportBase(AbstractImport):
         assert person_obj is not None
         assert person_obj.entity_id
         updater = HRDataImport(self.db, employee_data, person_obj,
-                               self.source_system)
+                               self.mapper.source_system)
         updater.import_to_cerebrum()
 
     def remove(self, person_obj):
@@ -93,7 +89,7 @@ class HRDataImport(object):
         """Call all the update functions, creating or updating a person"""
         logger.info('Starting import_to_cerebrum for %r', self.hr_person.hr_id)
         self.update_person()
-        self.update_external_ids()
+        self.update_external_ids(self.cerebrum_person, self.hr_person)
         self.update_names()
         self.update_titles()
         self.update_contact_info()
@@ -119,40 +115,43 @@ class HRDataImport(object):
                         self.hr_person.gender,
                         self.cerebrum_person.entity_id)
 
-    def update_external_ids(self):
-        """Update person in Cerebrum with appropriate external ids"""
-        hr_external_ids = set()
-        for ext_id in self.hr_person.external_ids:
-            ext_id.id_type = self.co.EntityExternalId(ext_id.id_type)
-            hr_external_ids.add(ext_id)
-        self.hr_person.external_ids = hr_external_ids
+    def update_external_ids(self, db_person, hr_person):
+        """
+        Update person in Cerebrum with appropriate external ids
 
-        cerebrum_external_ids = set()
-        for ext_id in self.cerebrum_person.get_external_id(
-                source_system=self.source_system):
-            cerebrum_external_ids.add(
-                models.HRExternalID(
-                    self.co.EntityExternalId(ext_id['id_type']),
-                    ext_id['external_id'])
-            )
-        to_remove = cerebrum_external_ids - self.hr_person.external_ids
-        to_add = self.hr_person.external_ids - cerebrum_external_ids
-        self.cerebrum_person.affect_external_id(
+        :param db_person: A populated Cerebrum.Person object to update
+        :param hr_person: A HRPerson object to update with
+        """
+        hr_ids = set(
+            (self.co.EntityExternalId(i.id_type), i.external_id)
+            for i in hr_person.external_ids)
+        db_ids = set(
+            (self.co.EntityExternalId(r['id_type']), r['external_id'])
+            for r in db_person.get_external_id(
+                source_system=self.source_system))
+        to_remove = set(t[0] for t in db_ids) - set(t[0] for t in hr_ids)
+        to_add = set(t[0] for t in hr_ids) - set(t[0] for t in db_ids)
+        to_update = set(t[0] for t in (hr_ids - db_ids)) - to_add
+
+        if not any(to_remove | to_add | to_update):
+            logger.debug('No change in external_id for person_id=%r',
+                         db_person.entity_id)
+            return
+
+        logger.info('Updating external_id for person_id=%r: '
+                    'add=%r, update=%r, remove=%r',
+                    db_person.entity_id,
+                    sorted(six.text_type(c) for c in to_add),
+                    sorted(six.text_type(c) for c in to_update),
+                    sorted(six.text_type(c) for c in to_remove))
+
+        db_person.affect_external_id(
             self.source_system,
-            *(ext_id.id_type for ext_id in to_remove | to_add))
-        if to_remove:
-            logger.info(
-                'Purging externalids of types %r for id: %r',
-                (unicode(ext_id.id_type)
-                 for ext_id in to_remove),
-                self.cerebrum_person.entity_id)
-        for ext_id in to_add:
-            self.cerebrum_person.populate_external_id(
-                self.source_system, ext_id.id_type, ext_id.external_id)
-            logger.info('Adding externalid %r for id: %r',
-                        (unicode(ext_id.id_type), ext_id.external_id),
-                        self.cerebrum_person.entity_id)
-        self.cerebrum_person.write_db()
+            *(to_remove | to_add | to_update))
+        for id_type, id_value in hr_ids:
+            db_person.populate_external_id(
+                self.source_system, id_type, id_value)
+        db_person.write_db()
 
     def update_names(self):
         """Update person in Cerebrum with fresh names"""

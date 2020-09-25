@@ -46,11 +46,6 @@ class AbstractImport(object):
         """ A mapper to use for translating HR data to Cerebrum. """
         pass
 
-    @abc.abstractproperty
-    def source_system(self):
-        """ A source system to link import data to. """
-        pass
-
     def handle_event(self, event):
         """
         Initiate hr import from event.
