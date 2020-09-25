@@ -93,7 +93,7 @@ class SapEndpoints(object):
                  url,
                  employee_url='ansatte/',
                  orgenhet_url='orgenhet/',
-                 stilling_url='stilling/',
+                 stilling_url='stillinger/',
                  kursinfo_url='kursgjennomfoering/',
                  familie_url='ansattefamilie-test/'):
         self.baseurl = url
