@@ -89,6 +89,7 @@ def get_additional_assignment(person_data, assignment_id):
 
     :type person_data: dict
     :param person_data: Data from SAP
+    :type assignment_id: int
     """
     for assignment in person_data.get('tilleggsstilling') or []:
         if assignment['stillingId'] == assignment_id:
@@ -177,7 +178,6 @@ class EmployeeMapper(_base.AbstractMapper):
         today = datetime.date.today()
         # TODO:
         #  Rewrite this once orgreg is ready.
-        #  Handle start and end dates here or elsewhere?
         for assignment_id, assignment in assignment_data.items():
             status = category_2_status.get(
                 assignment.get('stillingskat', {}).get(
@@ -190,16 +190,18 @@ class EmployeeMapper(_base.AbstractMapper):
             is_main_assignment = assignment_id == person_data['stillingId']
             if is_main_assignment:
                 precedence = (50, 50)
-                start_date = person_data['startdato']
-                end_date = person_data['sluttdato']
+                start_date = parse_date(person_data['startdato'])
+                end_date = parse_date(person_data['sluttdato'])
             else:
                 precedence = None
                 additional_assignment = get_additional_assignment(
                     person_data,
                     assignment_id
                 )
-                start_date = additional_assignment.get('startdato')
-                end_date = additional_assignment.get('sluttdato')
+                start_date = parse_date(additional_assignment.get('startdato'),
+                                        allow_empty=True)
+                end_date = parse_date(additional_assignment.get('sluttdato'),
+                                      allow_empty=True)
 
             if start_date and start_date > today + cls.start_grace:
                 logger.debug('Ignoring pending %r (start_date=%r)',
@@ -223,7 +225,9 @@ class EmployeeMapper(_base.AbstractMapper):
                     'placecode': placecode,
                     'affiliation': 'ANSATT',
                     'status': status,
-                    'precedence': precedence
+                    'precedence': precedence,
+                    'start_date': start_date,
+                    'end_date': end_date
                 })
             )
 
@@ -465,10 +469,7 @@ class EmployeeMapper(_base.AbstractMapper):
         )
         return hr_person
 
-    def is_active(self, hr_object):
-        # TODO:
-        #  This should check the dates of affiliations
+    def is_active(self, hr_object, is_active=None):
+        if is_active is not None:
+            return is_active
         return bool(hr_object.affiliations)
-
-    # TODO:
-    #  def needs_delay() ...

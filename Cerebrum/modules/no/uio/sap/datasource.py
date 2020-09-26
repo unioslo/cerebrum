@@ -21,6 +21,7 @@
 SAPUiO datasource for HR imports.
 """
 import datetime
+import time
 import re
 import json
 import logging
@@ -31,15 +32,6 @@ logger = logging.getLogger(__name__)
 
 
 SUB_2_HR_ID = re.compile(r'employees\((\d+)\)')
-
-
-def in_date_range(value, start=None, end=None):
-    """ Check if a date is in a given range. """
-    if start and value < start:
-        return False
-    if end and value > end:
-        return False
-    return True
 
 
 def parse_date(value, format='%Y-%m-%d', ignore_error=False):
@@ -122,25 +114,12 @@ class EmployeeDatasource(_base.AbstractDatasource):
                 for d in self.client.get_roles(employee)]
         return employee
 
-    def needs_delay(self, obj):
-        t = datetime.date.today()
-        start_cutoff = t + self.start_grace
-        end_cutoff = t + self.end_grace
-
-        assigns, roles = obj['assignments'], obj['roles']
-
-        active_date_ranges = []
-
-        for a in assigns + roles:
-            active_date_ranges.append(
-                (parse_date(a.get('effectiveStartDate'), ignore_error=True),
-                 parse_date(a.get('effectiveEndDate'), ignore_error=True))
-            )
-
-        retry_dates = []
-
-        for start, end in active_date_ranges:
-            if (not in_date_range(start_cutoff, start=start)
-                    and in_date_range(end_cutoff, end=end)):
-                retry_dates.append(start_cutoff)
-        return retry_dates
+    def needs_delay(self, body):
+        not_before_time = body.get('nbf')  # Example "nbf":1593561600
+        if not_before_time:
+            if time.time() < not_before_time:
+                # TODO:
+                #  This is a bit hairy. We may not need to reschedule this if
+                #  tiny_scheduler is already listening to the same queue?
+                return not_before_time
+        return False

@@ -152,8 +152,9 @@ class EmployeeMapper(_base.AbstractMapper):
                     'placecode': placecode,
                     'affiliation': 'ANSATT',
                     'status': status,
-                    'precedence': (
-                        (50, 50) if main else None)
+                    'precedence': ((50, 50) if main else None),
+                    'start_date': start,
+                    'end_date': end
                 })
             )
         logger.info('parsed %i affiliations', len(affiliations))
@@ -358,5 +359,7 @@ class EmployeeMapper(_base.AbstractMapper):
                                                          role_data)
         return hr_person
 
-    def is_active(self, hr_object):
+    def is_active(self, hr_object, is_active=None):
+        if is_active is not None:
+            return is_active
         return bool(hr_object.affiliations)

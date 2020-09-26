@@ -18,11 +18,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 from __future__ import unicode_literals
-
 """
-SAPUiO datasource for HR imports.
+DFØ-SAP datasource for HR imports.
 """
 
+import time
 import datetime
 import json
 import logging
@@ -54,12 +54,6 @@ def parse_date(value, format='%Y-%m-%d', ignore_error=False):
         return None
 
 
-def extract_reference(text):
-    """ Extract employee reference from a json encoded message body. """
-    message = json.loads(text)
-    return message['id']
-
-
 class Employee(_base.RemoteObject):
     pass
 
@@ -73,27 +67,16 @@ class Role(_base.RemoteObject):
 
 
 class EmployeeDatasource(_base.AbstractDatasource):
-    # TODO:
-    #  Should be config. We also probably don't need to consider this until
-    #  after a HRPerson has been constructed. Is it up to the mapper or the
-    #  import to decide this?
-    start_grace = datetime.timedelta(days=-6)
-    end_grace = datetime.timedelta(days=0)
 
     def __init__(self, client):
         self.client = client
 
-    def get_reference(self, event):
-        """ Extract reference from event (sap employee id). """
+    def get_reference(self, body):
+        """ Extract reference from message body """
         try:
-            reference = extract_reference(event.body)
-            logger.debug('found reference=%r from event=%r',
-                         reference, event)
-            return reference
-        except Exception as e:
-            logger.debug('unable to extract reference from event=%r', event)
-            raise _base.DatasourceInvalid('Invalid event format: %s (%r)' %
-                                          (e, event.body))
+            return body['id']
+        except KeyError:
+            raise _base.DatasourceInvalid('No "id" in body: %r', body)
 
     def get_object(self, reference):
         """ Fetch data from sap (employee data, assignments, roles). """
@@ -128,33 +111,12 @@ class EmployeeDatasource(_base.AbstractDatasource):
                 }
             )
 
-    # TODO:
-    #  Would it maybe be better to handle this further down the line? This is
-    #  potentially the same logic for both dfo-sap and sap, so it would be
-    #  more general if it was handled after conversion to HRPerson. It should
-    #  however be possible to configure per institution.
-    # TODO:
-    #  Fix it
-    def needs_delay(self, obj):
-        # t = datetime.date.today()
-        # start_cutoff = t + self.start_grace
-        # end_cutoff = t + self.end_grace
-        #
-        # assigns, roles = obj['assignments'], obj['roles']
-        #
-        # active_date_ranges = []
-        #
-        # for a in assigns + roles:
-        #     active_date_ranges.append(
-        #         (parse_date(a.get('effectiveStartDate'), ignore_error=True),
-        #          parse_date(a.get('effectiveEndDate'), ignore_error=True))
-        #     )
-        #
-        # retry_dates = []
-        #
-        # for start, end in active_date_ranges:
-        #     if (not in_date_range(start_cutoff, start=start)
-        #             and in_date_range(end_cutoff, end=end)):
-        #         retry_dates.append(start_cutoff)
-        # return retry_dates
+    def needs_delay(self, body):
+        # TODO:
+        #  Is gyldigEtter a date equivalent to nbf?
+        date_str = body.get('gyldigEtter')
+        if date_str:
+            not_before_date = parse_date(date_str, '%Y%m%d')
+            if datetime.date.today() < not_before_date:
+                return time.mktime(not_before_date.timetuple())
         return False
