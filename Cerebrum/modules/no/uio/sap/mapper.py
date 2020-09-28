@@ -36,7 +36,6 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRTitle,
                                                HRAffiliation,
                                                HRExternalID,
-                                               HRAccountType,
                                                HRContactInfo)
 
 from .leader_groups import get_leader_group
@@ -103,16 +102,11 @@ class EmployeeMapper(_base.AbstractMapper):
         """
         Parse data from SAP and return affiliations and account types
 
-        :rtype: tuple(set(HRAffiliation), set(HRAccountType))
+        :rtype: set(HRAffiliation)
         """
         assignments = cls.parse_assignments(assignment_data)
-        account_types = set(
-            HRAccountType(placecode=a.placecode,
-                          affiliation=a.affiliation) for a in
-            assignments
-        )
         roles = cls.parse_roles(role_data)
-        return assignments.union(roles), account_types
+        return assignments.union(roles)
 
     @classmethod
     def parse_assignments(cls, assignment_data):
@@ -375,10 +369,8 @@ class EmployeeMapper(_base.AbstractMapper):
         hr_person.external_ids = self.parse_external_ids(person_data)
         hr_person.contact_infos = self.parse_contacts(person_data)
         hr_person.titles = self.parse_titles(person_data, assignment_data)
-        hr_person.affiliations, hr_person.account_types = (
-            self.parse_affiliations(
-                assignment_data,
-                role_data))
+        hr_person.affiliations = self.parse_affiliations(assignment_data,
+                                                         role_data)
         return hr_person
 
     def is_active(self, hr_object):
