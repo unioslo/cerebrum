@@ -243,6 +243,39 @@ def parse_date(dtstr):
     return aniso8601.parse_date(dtstr)
 
 
+def get_date(dtobj, allow_none=True):
+    """
+    Get a datetime.date object from a datetime-like object.
+
+    Typical usecase for this method is to convert database mx.DateTime objects
+    to native date objects:
+
+        if get_date(pe.birth_date) != new_date:
+            pe.birth_date = new_date
+
+    :type dtobj: datetime.datetime, datetime.date, mx.DateTime, NoneType
+    :param dtobj: A datetime-like object.
+
+    :type allow_none: bool
+    :param allow_none:
+        Returns None if the input value is empty (this is the default).
+
+    :rtype: datetime.date
+    :return: A date object.
+    """
+    if not dtobj and allow_none:
+        return None
+    if isinstance(dtobj, datetime.datetime):
+        return dtobj.date()
+    if isinstance(dtobj, datetime.date):
+        return dtobj
+    if hasattr(dtobj, 'pydate'):
+        # mx.DateTime
+        return dtobj.pydate()
+    raise ValueError('Non-date value: %r' % (dtobj,))
+
+
+
 def parse(dtstr):
     """ Utility method, get a naive mx.DateTime. """
     return datetime2mx(parse_datetime(dtstr))
