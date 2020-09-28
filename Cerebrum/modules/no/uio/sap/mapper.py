@@ -125,16 +125,8 @@ class EmployeeMapper(_base.AbstractMapper):
                                               'academic': 'vitenskapelig'}
 
         for x in assignment_data:
-            current = datetime.date.today()
             start = parse_date(x.get('effectiveStartDate'), allow_empty=True)
-            if start and start > current + cls.start_grace:
-                logger.debug('Ignoring pending %r (start=%r)', x, start)
-                continue
-
             end = parse_date(x.get('effectiveEndDate'), allow_empty=True)
-            if end and end < current + cls.end_grace:
-                logger.debug('Ignoring expired %r (end=%r)', x, end)
-                continue
 
             status = sap_assignments_to_affiliation_map.get(
                 x.get('jobCategory'))

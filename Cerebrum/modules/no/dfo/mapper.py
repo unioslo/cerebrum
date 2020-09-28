@@ -169,11 +169,10 @@ class EmployeeMapper(_base.AbstractMapper):
         category_2_status = {
             50001597: 'tekadm',
             # TODO:
-            #  academic id ?
-            'academic': 'vitenskapelig'
+            #   Find correct id
+            1: 'vitenskapelig'
         }
 
-        today = datetime.date.today()
         # TODO:
         #  Rewrite this once orgreg is ready.
         for assignment_id, assignment in assignment_data.items():
@@ -200,18 +199,6 @@ class EmployeeMapper(_base.AbstractMapper):
                                         allow_empty=True)
                 end_date = parse_date(additional_assignment.get('sluttdato'),
                                       allow_empty=True)
-
-            if start_date and start_date > today + cls.start_grace:
-                logger.debug('Ignoring pending %r (start_date=%r)',
-                             assignment,
-                             start_date)
-                continue
-
-            if end_date and end_date < today + cls.end_grace:
-                logger.debug('Ignoring expired %r (end=%r)',
-                             assignment,
-                             end_date)
-                continue
 
             placecode = stedkode_cache.get(assignment.get('organisasjonsId'))
             if placecode is None:
