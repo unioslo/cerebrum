@@ -130,9 +130,12 @@ class HRDataImport(object):
             for r in db_person.get_external_id(
                 source_system=self.source_system))
 
+        # All id-types that only exist in one of the sets
         to_remove = set(t[0] for t in db_ids) - set(t[0] for t in hr_ids)
         to_add = set(t[0] for t in hr_ids) - set(t[0] for t in db_ids)
-        to_update = set(t[0] for t in (hr_ids & db_ids))
+
+        # All id-types in both sets that differ in *value*
+        to_update = set(t[0] for t in (hr_ids - db_ids)) - to_add
 
         if not any(to_remove | to_add | to_update):
             logger.debug('No change in external_id for person_id=%r',
