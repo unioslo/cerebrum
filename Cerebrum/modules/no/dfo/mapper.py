@@ -35,7 +35,6 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRTitle,
                                                HRAffiliation,
                                                HRExternalID,
-                                               HRAccountType,
                                                HRContactInfo)
 from Cerebrum.modules.hr_import.matcher import match_entity
 
@@ -145,18 +144,13 @@ class EmployeeMapper(_base.AbstractMapper):
         """
         Parse data from SAP and return affiliations and account types
 
-        :rtype: tuple(set(HRAffiliation), set(HRAccountType))
+        :rtype: tuple(set(HRAffiliation)
         """
         assignments = cls.parse_assignments(person_data,
                                             assignment_data,
                                             stedkode_cache)
-        account_types = set(
-            HRAccountType(placecode=a.placecode,
-                          affiliation=a.affiliation) for a in
-            assignments
-        )
         roles = cls.parse_roles(person_data)
-        return assignments.union(roles), account_types
+        return assignments.union(roles)
 
     @classmethod
     def parse_assignments(cls, person_data, assignment_data, stedkode_cache):
@@ -408,6 +402,10 @@ class EmployeeMapper(_base.AbstractMapper):
         for dfo_ou_id in dfo_ou_ids:
             ou.clear()
             try:
+                # TODO:
+                #  DFØ-SAP currently uses a mix of int and str for their ids.
+                #  This is also falsely documented, so we will have to clean up
+                #  the code on our side once DFØ clean up their mess.
                 ou.find_by_external_id(co.externalid_dfo_ou_id, str(dfo_ou_id))
             except Errors.NotFoundError:
                 logger.warning('OU not found in Cerebrum %r', dfo_ou_id)
@@ -448,11 +446,9 @@ class EmployeeMapper(_base.AbstractMapper):
         hr_person.external_ids = self.parse_external_ids(person_data)
         hr_person.contact_infos = self.parse_contacts(person_data)
         hr_person.titles = self.parse_titles(person_data, assignment_data)
-        hr_person.affiliations, hr_person.account_types = (
-            self.parse_affiliations(person_data,
-                                    assignment_data,
-                                    stedkode_cache)
-        )
+        hr_person.affiliations = self.parse_affiliations(person_data,
+                                                         assignment_data,
+                                                         stedkode_cache)
         return hr_person
 
     def is_active(self, hr_object, is_active=None):

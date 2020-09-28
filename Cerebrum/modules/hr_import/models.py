@@ -71,8 +71,6 @@ class ComparableObject(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    # TODO:
-    #  Test this thoroughly!
     def __hash__(self):
         """Retrieves ``self._hash`` if it exists, otherwise create it"""
         if hasattr(self, '_hash'):
@@ -143,6 +141,8 @@ class HRAffiliation(ComparableObject):
         :param str affiliation: Affiliation code
         :param str status: Status code
         :param int or None precedence: Precedence for the affiliation
+        :param date start_date: Date from which the affiliation is active
+        :param date end_date: End date of the affiliation
         """
         self.placecode = placecode
         self.affiliation = affiliation
