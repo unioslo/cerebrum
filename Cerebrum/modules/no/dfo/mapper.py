@@ -149,7 +149,7 @@ class EmployeeMapper(_base.AbstractMapper):
         assignments = cls.parse_assignments(person_data,
                                             assignment_data,
                                             stedkode_cache)
-        roles = cls.parse_roles(person_data)
+        roles = cls.parse_roles(person_data, stedkode_cache)
         return assignments.union(roles)
 
     @classmethod
@@ -224,12 +224,12 @@ class EmployeeMapper(_base.AbstractMapper):
         :rtype: set(HRContactInfo)
         """
         logger.info('parsing contacts')
-        all_source_phone_types = ['tjenestetelefon',
-                                  'privatTelefonnummer',
-                                  'telefonnummer',
-                                  'mobilnummer',
-                                  'mobilPrivat',
-                                  'privatTlfUtland']
+        # all_source_phone_types = ['tjenestetelefon',
+        #                           'privatTelefonnummer',
+        #                           'telefonnummer',
+        #                           'mobilnummer',
+        #                           'mobilPrivat',
+        #                           'privatTlfUtland']
         key_map = collections.OrderedDict([
             # TODO:
             #  It is tricky to find out the correct mapping here. Do we need
@@ -237,7 +237,8 @@ class EmployeeMapper(_base.AbstractMapper):
             ('tjenestetelefon', 'PHONE'),
             ('mobilnummer', 'MOBILE'),
             ('mobilPrivat', 'PRIVATEMOBILE'),
-            ('telefonnummer', 'PRIVMOBVISIBLE')])
+            # ('telefonnummer', 'PRIVMOBVISIBLE')
+        ])
 
         numbers_to_add = filter_elements(translate_keys(person_data, key_map))
         numbers_to_add = sorted(
@@ -295,50 +296,40 @@ class EmployeeMapper(_base.AbstractMapper):
         return external_ids
 
     @classmethod
-    def parse_roles(cls, role_data):
+    def parse_roles(cls, person_data, stedkode_cache):
         """
         Parse data from SAP and return existing roles.
 
         :rtype: set(HRAffiliation)
         """
+        role_mapping = {
+            # TODO:
+            #  It says that "medarbeiderundergruppe" is supposed to be int in
+            #  the API-doc.
+            ('9', '93'): 'emeritus',
+            ('9', '94'): 'ekst_partner',
+            ('9', '95'): 'gjesteforsker'
+        }
+        group = person_data.get('medarbeidergruppe')
+        sub_group = person_data.get('medarbeiderundergruppe')
+
+        placecode = stedkode_cache.get(person_data.get('organisasjonId'))
+        role = role_mapping.get((group, sub_group))
         # TODO:
-        #  Tests are not dependent on this, fix it later
-        # role2aff = collections.OrderedDict(
-        #     [('INNKJØPER', 'innkjoper'),
-        #      ('EF-FORSKER', 'ekst_forsker'),
-        #      ('EMERITUS', 'emeritus'),
-        #      ('BILAGSLØNN', 'bilag'),
-        #      ('GJ-FORSKER', 'gjesteforsker'),
-        #      ('ASSOSIERT', 'assosiert_person'),
-        #      ('EF-STIP', 'ekst_stip'),
-        #      ('GRP-LÆRER', 'grlaerer'),
-        #      ('EKST-KONS', 'ekst_partner'),
-        #      ('PCVAKT', 'pcvakt'),
-        #      ('EKST-PART', 'ekst_partner'),
-        #      ('KOMITEMEDLEM', 'komitemedlem'),
-        #      ('STEDOPPLYS', None),
-        #      ('POLS-ANSAT', None)])
-        # roles = set()
-        # for role in role_data:
-        #     placecode = role.get('locationCode')
-        #     if placecode is None:
-        #         logger.warning('Placecode does not exist, '
-        #                        'cannot parse affiliation %r for %r',
-        #                        role2aff.get(role.get('roleName')),
-        #                        role_data.get('personId'))
-        #         continue
-        #     if role2aff.get(role.get('roleName')):
-        #         roles.add(
-        #             HRAffiliation(**{
-        #                 'placecode': placecode,
-        #                 'affiliation': role2aff.get(
-        #                     role.get('roleName')).affiliation,
-        #                 'status': role2aff.get(role.get('roleName')),
-        #                 'precedence': None})
-        #         )
-        # logger.info('parsed %i roles', len(roles))
-        # return roles
-        return set()
+        #  What dates should one use? Is this correct?
+        start_date = parse_date(person_data['startdato'])
+        end_date = parse_date(person_data['sluttdato'])
+        if role and placecode:
+            roles = {HRAffiliation(placecode=placecode,
+                                   affiliation='TILKNYTTET',
+                                   status=role,
+                                   precedence=None,
+                                   start_date=start_date,
+                                   end_date=end_date)}
+        else:
+            roles = set()
+        logger.info('parsed %i roles', len(roles))
+        return roles
 
     @classmethod
     def parse_titles(cls, person_data, assignment_data):
