@@ -77,17 +77,13 @@ class EmployeeDatasource(_base.AbstractDatasource):
     def __init__(self, client):
         self.client = client
 
-    def get_reference(self, event):
-        """ Extract reference from event (sap employee id). """
-        try:
-            reference = extract_reference(event.body)
-            logger.debug('found reference=%r from event=%r',
-                         reference, event)
-            return reference
-        except Exception as e:
-            logger.debug('unable to extract reference from event=%r', event)
-            raise _base.DatasourceInvalid('Invalid event format: %s (%r)' %
-                                          (e, event.body))
+    def get_reference(self, body):
+        """ Extract employee reference from a json encoded message body. """
+        subject = body['sub']
+        match = SUB_2_HR_ID.search(subject)
+        if not match:
+            raise ValueError('Invalid employee reference in sub')
+        return match.group(1)
 
     def get_object(self, reference):
         """ Fetch data from sap (employee data, assignments, roles). """

@@ -75,13 +75,12 @@ class AbstractDatasource(object):
     """
 
     @abc.abstractmethod
-    def get_reference(self, event):
+    def get_reference(self, body):
         """
-        Extracts a reference or identifier from an event.
+        Extracts a reference or identifier from a message.
 
-        :type event: Cerebrum.modules.amqp.handlers.Event
-        :param event:
-            A notification that contains a reference to the modified object.
+        :type body: dict
+        :param body: The message body of an incoming message
 
         :rtype: six.text_type
         :returns:

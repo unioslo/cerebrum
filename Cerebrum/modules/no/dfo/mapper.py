@@ -124,9 +124,7 @@ class EmployeeMapper(_base.AbstractMapper):
     """A simple employee mapper class"""
 
     # TODO:
-    #  Should be config. We also probably don't need to consider this until
-    #  after a HRPerson has been constructed. Is it up to the mapper or the
-    #  import to decide this?
+    #  Should be config
     start_grace = datetime.timedelta(days=-6)
     end_grace = datetime.timedelta(days=0)
 
@@ -169,7 +167,7 @@ class EmployeeMapper(_base.AbstractMapper):
         """
         affiliations = set()
         category_2_status = {
-            '50001597': 'tekadm',
+            50001597: 'tekadm',
             # TODO:
             #  academic id ?
             'academic': 'vitenskapelig'
@@ -215,7 +213,7 @@ class EmployeeMapper(_base.AbstractMapper):
                              end_date)
                 continue
 
-            placecode = stedkode_cache.get(assignment_id)
+            placecode = stedkode_cache.get(assignment.get('organisasjonsId'))
             if placecode is None:
                 logger.warning('Placecode does not exist')
                 continue
@@ -285,7 +283,7 @@ class EmployeeMapper(_base.AbstractMapper):
         )
 
         # TODO:
-        #  Also handle eksternIdent?
+        #  Also handle "eksternIdent", "brukerident" and "dfoBrukerident"?
         fnr = person_data.get('fnr')
         if fnr:
             external_ids.add(
@@ -419,10 +417,11 @@ class EmployeeMapper(_base.AbstractMapper):
         cache = {}
         ou = Factory.get('OU')(self.db)
         co = Factory.get('Constants')(self.db)
-        for dfo_ou_id in (a['organisasjonsId'] for a in assignment_data):
+        dfo_ou_ids = (a['organisasjonsId'] for a in assignment_data.values())
+        for dfo_ou_id in dfo_ou_ids:
             ou.clear()
             try:
-                ou.find_by_external_id(co.externalid_dfo_ou_id, dfo_ou_id)
+                ou.find_by_external_id(co.externalid_dfo_ou_id, str(dfo_ou_id))
             except Errors.NotFoundError:
                 logger.warning('OU not found in Cerebrum %r', dfo_ou_id)
             else:
@@ -437,14 +436,14 @@ class EmployeeMapper(_base.AbstractMapper):
         :type obj: RemoteObject
         :rtype: HRPerson
         """
-        person_data = obj
+        person_data = obj['employee']
         assignment_data = obj['assignments']
 
         hr_person = HRPerson(
             hr_id=person_data.get('id'),
             first_name=person_data.get('fornavn'),
             last_name=person_data.get('etternavn'),
-            birth_date=person_data.get('fdato'),
+            birth_date=parse_date(person_data.get('fdato'), allow_empty=False),
             gender=person_data.get('kjonn'),
             # TODO:
             #  There does not seem to be any way to determine this in DFO-SAP

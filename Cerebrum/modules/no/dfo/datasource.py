@@ -93,21 +93,17 @@ class EmployeeDatasource(_base.AbstractDatasource):
                 assignment = self.client.get_stilling(assignment_id)
                 if assignment:
                     assignments[assignment_id] = (
-                        # TODO:
-                        #  Handle source, it should be dfosap<inst> or
-                        #  something? Is it really necessary?
-                        Assignment('sapuio', assignment_id, assignment)
+                        Assignment('dfo-sap', assignment_id, assignment)
                     )
 
         return Employee(
-                # TODO:
-                #  Handle source, it should be dfosap<inst> or something?
-                'sapuio',
+                'dfo-sap',
                 reference,
                 {
                     "personId": int(reference),
                     "personnelNumber": reference,
-                    "assignments": assignments
+                    "assignments": assignments,
+                    "employee": employee
                 }
             )
 
