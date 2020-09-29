@@ -31,12 +31,12 @@ import six
 
 from Cerebrum.modules.hr_import import mapper as _base
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
 from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRTitle,
                                                HRAffiliation,
                                                HRExternalID,
                                                HRContactInfo)
+from Cerebrum.Utils import Factory
 
 from .leader_groups import get_leader_group
 
@@ -363,9 +363,10 @@ class EmployeeMapper(_base.AbstractMapper):
             hr_id=six.text_type(person_data.get('personId')),
             first_name=person_data.get('firstName'),
             last_name=person_data.get('lastName'),
-            birth_date=person_data.get('dateOfBirth'),
+            birth_date=parse_date(person_data.get('dateOfBirth'),
+                                  allow_empty=False),
             gender={'Kvinne': 'F', 'Mann': 'M'}.get(
-                person_data.get('gender'), None
+                person_data.get('gender')
             ),
             reserved=not person_data.get('allowedPublicDirectoryFlag'))
         hr_person.leader_groups = self.parse_leader_groups(assignment_data)
