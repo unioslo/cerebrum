@@ -17,12 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import unicode_literals
 """
-SAPUiO datasource for HR imports.
+DFØ-SAP datasource for HR imports.
 """
-import datetime
+
 import time
-import re
+import datetime
 import json
 import logging
 
@@ -31,7 +32,13 @@ from Cerebrum.modules.hr_import import datasource as _base
 logger = logging.getLogger(__name__)
 
 
-SUB_2_HR_ID = re.compile(r'employees\((\d+)\)')
+def in_date_range(value, start=None, end=None):
+    """ Check if a date is in a given range. """
+    if start and value < start:
+        return False
+    if end and value > end:
+        return False
+    return True
 
 
 def parse_date(value, format='%Y-%m-%d', ignore_error=False):
@@ -45,16 +52,6 @@ def parse_date(value, format='%Y-%m-%d', ignore_error=False):
                 raise
     else:
         return None
-
-
-def extract_reference(text):
-    """ Extract employee reference from a json encoded message body. """
-    message = json.loads(text)
-    subject = message['sub']
-    match = SUB_2_HR_ID.search(subject)
-    if not match:
-        raise ValueError('Invalid employee reference in sub')
-    return match.group(1)
 
 
 class Employee(_base.RemoteObject):
@@ -71,51 +68,51 @@ class Role(_base.RemoteObject):
 
 class EmployeeDatasource(_base.AbstractDatasource):
 
-    start_grace = datetime.timedelta(days=-6)
-    end_grace = datetime.timedelta(days=0)
-
     def __init__(self, client):
         self.client = client
 
     def get_reference(self, body):
-        """ Extract employee reference from a json encoded message body. """
-        subject = body['sub']
-        match = SUB_2_HR_ID.search(subject)
-        if not match:
-            raise ValueError('Invalid employee reference in sub')
-        return match.group(1)
+        """ Extract reference from message body """
+        try:
+            return body['id']
+        except KeyError:
+            raise _base.DatasourceInvalid('No "id" in body: %r', body)
 
     def get_object(self, reference):
         """ Fetch data from sap (employee data, assignments, roles). """
-        # TODO: Use client to fetch all relevant data, pack into HR objects
         employee_id = reference
         employee = self.client.get_employee(employee_id)
-        if employee is None:
-            employee = Employee(
-                'sapuio',
+        assignments = dict()
+
+        if employee:
+            assignment_ids = [employee['stillingId']]
+            for secondary_assignment in employee.get('tilleggsstilling') or []:
+                assignment_ids.append(secondary_assignment['stillingId'])
+
+            for assignment_id in assignment_ids:
+                assignment = self.client.get_stilling(assignment_id)
+                if assignment:
+                    assignments[assignment_id] = (
+                        Assignment('dfo-sap', assignment_id, assignment)
+                    )
+
+        return Employee(
+                'dfo-sap',
                 reference,
                 {
                     "personId": int(reference),
                     "personnelNumber": reference,
-                    "assignments": [],
-                    "roles": [],
+                    "assignments": assignments,
+                    "employee": employee
                 }
             )
-        else:
-            employee['assignments'] = [
-                Assignment('sapuio', d['assignmentId'], d)
-                for d in self.client.get_assignments(employee)]
-            employee['roles'] = [
-                Role('sapuio', d['roleId'], d)
-                for d in self.client.get_roles(employee)]
-        return employee
 
     def needs_delay(self, body):
-        not_before_time = body.get('nbf')  # Example "nbf":1593561600
-        if not_before_time:
-            if time.time() < not_before_time:
-                # TODO:
-                #  This is a bit hairy. We may not need to reschedule this if
-                #  tiny_scheduler is already listening to the same queue?
-                return not_before_time
+        # TODO:
+        #  Is gyldigEtter a date equivalent to nbf?
+        date_str = body.get('gyldigEtter')
+        if date_str:
+            not_before_date = parse_date(date_str, '%Y%m%d')
+            if datetime.date.today() < not_before_date:
+                return time.mktime(not_before_date.timetuple())
         return False

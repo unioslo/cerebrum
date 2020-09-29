@@ -37,6 +37,7 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRExternalID,
                                                HRContactInfo)
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.hr_import.matcher import match_entity
 
 from .leader_groups import get_leader_group
 
@@ -124,16 +125,8 @@ class EmployeeMapper(_base.AbstractMapper):
                                               'academic': 'vitenskapelig'}
 
         for x in assignment_data:
-            current = datetime.date.today()
             start = parse_date(x.get('effectiveStartDate'), allow_empty=True)
-            if start and start > current + cls.start_grace:
-                logger.debug('Ignoring pending %r (start=%r)', x, start)
-                continue
-
             end = parse_date(x.get('effectiveEndDate'), allow_empty=True)
-            if end and end < current + cls.end_grace:
-                logger.debug('Ignoring expired %r (end=%r)', x, end)
-                continue
 
             status = sap_assignments_to_affiliation_map.get(
                 x.get('jobCategory'))
@@ -151,8 +144,9 @@ class EmployeeMapper(_base.AbstractMapper):
                     'placecode': placecode,
                     'affiliation': 'ANSATT',
                     'status': status,
-                    'precedence': (
-                        (50, 50) if main else None)
+                    'precedence': ((50, 50) if main else None),
+                    'start_date': start,
+                    'end_date': end
                 })
             )
         logger.info('parsed %i affiliations', len(affiliations))
@@ -304,30 +298,10 @@ class EmployeeMapper(_base.AbstractMapper):
         return set(filter(lambda hr_title: hr_title.name, titles))
 
     def find_entity(self, hr_object):
-        """Extract reference from event."""
-        db_object = Factory.get('Person')(self.db)
-
-        search_ids = tuple(
-            (self.const.EntityExternalId(i.id_type), i.external_id)
-            for i in hr_object.external_ids
-        )
-        # match_ids = tuple(
-        #     (id_type, id_value, self.mapper.source_system)
-        #     for id_type, id_value in search_ids,
-        # )
-
-        try:
-            db_object.find_by_external_ids(*search_ids)
-            logger.info('Found existing person with id=%r',
-                        db_object.entity_id)
-        except Errors.NotFoundError:
-            logger.debug('could not find person by id_type=%s',
-                         tuple(six.text_type(i[0]) for i in search_ids))
-            raise _base.NoMappedObjects('no matching persons')
-        except Errors.TooManyRowsError as e:
-            raise _base.ManyMappedObjects(
-                'Person mismatch: found multiple matches: {}'.format(e))
-        return db_object
+        """Find matching Cerebrum entity for the given HRPerson."""
+        return match_entity(hr_object.external_ids,
+                            self.source_system,
+                            self.db)
 
     def parse_leader_groups(self, assignment_data):
         """
@@ -377,5 +351,7 @@ class EmployeeMapper(_base.AbstractMapper):
                                                          role_data)
         return hr_person
 
-    def is_active(self, hr_object):
+    def is_active(self, hr_object, is_active=None):
+        if is_active is not None:
+            return is_active
         return bool(hr_object.affiliations)

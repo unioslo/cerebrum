@@ -25,10 +25,32 @@ for performing the actual database updates.
 """
 import abc
 import logging
+import json
+import time
 
 from .mapper import NoMappedObjects
+from .datasource import DatasourceInvalid
 
 logger = logging.getLogger(__name__)
+
+
+def load_message(event):
+    """ Extract message body from event.
+
+    :type event: Cerebrum.modules.amqp.handlers.Event
+    :param event:
+        A notification that contains a reference to the modified object.
+    :rtype: dict
+    """
+    try:
+        body = json.loads(event.body)
+    except Exception as e:
+        logger.debug('unable to extract message body from event=%r', event)
+        raise DatasourceInvalid('Invalid event format: %s (%r)' %
+                                (e, event.body))
+    logger.debug('Extracted message from event=%r from event=%r',
+                 body, event)
+    return body
 
 
 class AbstractImport(object):
@@ -56,7 +78,13 @@ class AbstractImport(object):
         :param event:
             A Cerebrum.modules.amqp event
         """
-        reference = self.datasource.get_reference(event)
+        message_body = load_message(event)
+        reference = self.datasource.get_reference(message_body)
+        not_before = self.datasource.needs_delay(message_body)
+        if not_before:
+            # TODO:
+            #  Insert code for rescheduling message (not_before is timestamp)
+            raise NotImplemented('Message rescheduling not implemented yet!')
         self.handle_reference(reference)
 
     def handle_reference(self, reference):
@@ -83,9 +111,10 @@ class AbstractImport(object):
         This method inspects and compares the source data and cerebrum data,
         and calls the relevant create/update/remove method.
         """
-        # TODO: Fixme! Should we look at the raw data or the hr_object to
-        #       figure out if the object should be present?!
-        if self.mapper.is_active(hr_object):
+        # TODO:
+        #  Rescheduling
+        retry_dates, has_active_affiliation = self.mapper.needs_delay()
+        if self.mapper.is_active(hr_object, is_active=has_active_affiliation):
             if db_object:
                 logger.info('updating id=%r with %r',
                             db_object.entity_id, hr_object)

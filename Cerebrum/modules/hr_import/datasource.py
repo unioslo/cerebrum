@@ -75,13 +75,12 @@ class AbstractDatasource(object):
     """
 
     @abc.abstractmethod
-    def get_reference(self, event):
+    def get_reference(self, body):
         """
-        Extracts a reference or identifier from an event.
+        Extracts a reference or identifier from a message.
 
-        :type event: Cerebrum.modules.amqp.handlers.Event
-        :param event:
-            A notification that contains a reference to the modified object.
+        :type body: dict
+        :param body: The message body of an incoming message
 
         :rtype: six.text_type
         :returns:
@@ -121,23 +120,16 @@ class AbstractDatasource(object):
         pass
 
     @abc.abstractmethod
-    def needs_delay(self, obj):
+    def needs_delay(self, body):
         """
-        Examine object and decide additional future date triggers.
+        Examine message body and decide if processing must be delayed.
 
-        Some changes are *future* updates that needs additional processing at a
-        given date.  This method examines an object and returns a list of
-        date or datetime objects for this purpose.
+        Examine if it is ok to process this message now, or if processing has
+        to be delayed until a later time.
 
-        These dates should be stored in a queue along with the original
-        message or object reference, and re-processed at a later time.
+        :type body: dict
 
-        :type obj: object
-        :param obj:
-            An object, as provided by :meth:`.get_object`
-
-        :rtype: list
         :returns:
-            A list of date or datetime objects for future processing.
+            unix time for future processing
         """
         pass

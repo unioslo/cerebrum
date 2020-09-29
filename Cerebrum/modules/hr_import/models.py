@@ -51,14 +51,17 @@ class HRPerson(object):
         self.reserved = reserved
 
         self.leader_groups = set()  # set of int (group ids)
-        self.external_ids = set()   # set of HRExternalID
+        self.external_ids = set()  # set of HRExternalID
         self.contact_infos = set()  # set of HRContactInfo
         self.titles = set()         # set of HRTitle
         self.affiliations = set()   # set of HRAffiliation
 
 
 class ComparableObject(object):
-    """General class that implements __eq__ and __ne__"""
+    """General class that implements __eq__ and __ne__
+
+    One should never mutate instances of this class or subclasses once created!
+    """
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -67,6 +70,22 @@ class ComparableObject(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def __hash__(self):
+        """Retrieves ``self._hash`` if it exists, otherwise create it"""
+        if hasattr(self, '_hash'):
+            return self._hash
+        self._hash = self.get_hash()
+        return self._hash
+
+    def get_hash(self):
+        """Create a hash for the object"""
+        def helper():
+            yield self.__class__.__name__
+            for k, v in sorted(self.__dict__.items()):
+                yield hash(tuple((k, hash(v))))
+
+        return hash(tuple(helper()))
 
 
 class HRContactInfo(ComparableObject):
@@ -82,10 +101,6 @@ class HRContactInfo(ComparableObject):
         self.contact_pref = contact_pref
         self.contact_value = contact_value
 
-    def __hash__(self):
-        return hash(
-            (self.contact_type, self.contact_pref, self.contact_value))
-
 
 class HRExternalID(ComparableObject):
     """Class with info about an external_id, matching entity_external_id"""
@@ -97,9 +112,6 @@ class HRExternalID(ComparableObject):
         """
         self.external_id = external_id
         self.id_type = id_type
-
-    def __hash__(self):
-        return hash((self.id_type, self.external_id))
 
 
 class HRTitle(ComparableObject):
@@ -115,9 +127,6 @@ class HRTitle(ComparableObject):
         self.name_language = name_language
         self.name = name
 
-    def __hash__(self):
-        return hash((self.name_variant, self.name_language, self.name))
-
 
 class HRAffiliation(ComparableObject):
     """
@@ -125,19 +134,19 @@ class HRAffiliation(ComparableObject):
     (and person_affiliation)
     """
 
-    def __init__(self, placecode, affiliation, status, precedence):
+    def __init__(self, placecode, affiliation, status, precedence, start_date,
+                 end_date):
         """
         :param str or None placecode: Place-code
         :param str affiliation: Affiliation code
         :param str status: Status code
         :param int or None precedence: Precedence for the affiliation
+        :param date start_date: Date from which the affiliation is active
+        :param date end_date: End date of the affiliation
         """
         self.placecode = placecode
         self.affiliation = affiliation
         self.status = status
         self.precedence = precedence
-
-    def __hash__(self):
-        return hash(
-            (self.placecode, self.affiliation, self.status, self.precedence)
-        )
+        self.start_date = start_date
+        self.end_date = end_date
