@@ -55,7 +55,6 @@ class HRPerson(object):
         self.contact_infos = set()  # set of HRContactInfo
         self.titles = set()         # set of HRTitle
         self.affiliations = set()   # set of HRAffiliation
-        self.account_types = set()  # set of HRAccountType
 
 
 class ComparableObject(object):
@@ -142,14 +141,3 @@ class HRAffiliation(ComparableObject):
         return hash(
             (self.placecode, self.affiliation, self.status, self.precedence)
         )
-
-
-class HRAccountType(HRAffiliation):
-    """Class with info about an account type, matching account_type"""
-
-    def __init__(self, placecode, affiliation):
-        """
-        :param str or None placecode: Placecode where the affiliation belongs
-        :param str affiliation: Affiliation code
-        """
-        super(HRAccountType, self).__init__(placecode, affiliation, None, None)
