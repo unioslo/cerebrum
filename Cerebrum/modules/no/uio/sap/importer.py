@@ -69,16 +69,12 @@ class EmployeeImport(EmployeeImportBase):
             self._mapper = self.mapper_cls(self.db)
         return self._mapper
 
-    @property
-    def source_system(self):
-        return self.const.system_sap
-
     def update(self, hr_object, db_object):
 
         account_types = AccountTypeUpdater(
             self.db,
             restrict_affiliation=self.const.affiliation_ansatt,
-            restrict_source=self.const.system_sap)
+            restrict_source=self.mapper.source_system)
 
         def _get_affiliations():
             return set(

@@ -98,6 +98,10 @@ class EmployeeMapper(_base.AbstractMapper):
         self.db = db
         self.const = Factory.get('Constants')(db)
 
+    @property
+    def source_system(self):
+        return self.const.system_sap
+
     @classmethod
     def parse_affiliations(cls, assignment_data, role_data):
         """
@@ -309,25 +313,24 @@ class EmployeeMapper(_base.AbstractMapper):
         """Extract reference from event."""
         db_object = Factory.get('Person')(self.db)
 
-        match_ids = ((
-            self.const.externalid_sap_ansattnr,
-            hr_object.hr_id,
-            self.const.system_sap,
-        ),) + tuple(
+        search_ids = tuple(
             (self.const.EntityExternalId(i.id_type), i.external_id)
             for i in hr_object.external_ids
         )
+        # match_ids = tuple(
+        #     (id_type, id_value, self.mapper.source_system)
+        #     for id_type, id_value in search_ids,
+        # )
 
         try:
-            db_object.find_by_external_ids(*match_ids)
+            db_object.find_by_external_ids(*search_ids)
             logger.info('Found existing person with id=%r',
                         db_object.entity_id)
         except Errors.NotFoundError:
             logger.debug('could not find person by id_type=%s',
-                         tuple(six.text_type(i[0]) for i in match_ids))
+                         tuple(six.text_type(i[0]) for i in search_ids))
             raise _base.NoMappedObjects('no matching persons')
         except Errors.TooManyRowsError as e:
-            # TODO: Include which entity in error?
             raise _base.ManyMappedObjects(
                 'Person mismatch: found multiple matches: {}'.format(e))
         return db_object

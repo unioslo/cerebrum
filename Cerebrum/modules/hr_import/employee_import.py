@@ -22,9 +22,11 @@ Generic HR import.
 """
 import logging
 
+import six
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.automatic_group.structure import update_memberships
+from Cerebrum.utils.date import parse_date, get_date
 
 from .importer import AbstractImport
 from . import models
@@ -43,11 +45,6 @@ class EmployeeImportBase(AbstractImport):
         if not hasattr(self, '_const'):
             self._const = Factory.get('Constants')(self.db)
         return self._const
-
-    @property
-    def source_system(self):
-        # TODO: Use different source systems?
-        return self.const.system_sap
 
     def create(self, employee_data):
         """ Create a new Person object using employee_data. """
@@ -69,9 +66,8 @@ class EmployeeImportBase(AbstractImport):
         assert employee_data is not None
         assert person_obj is not None
         assert person_obj.entity_id
-        updater = HRDataImport(self.db, employee_data, person_obj,
-                               self.source_system)
-        updater.import_to_cerebrum()
+        updater = HRDataImport(self.db, self.mapper.source_system)
+        updater.update_person(person_obj, employee_data)
 
     def remove(self, person_obj):
         """ Clear HR data from a Person object. """
@@ -82,183 +78,187 @@ class EmployeeImportBase(AbstractImport):
 
 class HRDataImport(object):
 
-    def __init__(self, database, hr_person, cerebrum_person, source_system):
-        self.hr_person = hr_person
-        self.cerebrum_person = cerebrum_person
+    def __init__(self, database, source_system):
+        """
+        :param database:
+        :param source_system:
+        :param callbacks:
+            A series of callbacks to call on changes.
+        """
         self.database = database
         self.source_system = source_system
         self.co = Factory.get('Constants')(self.database)
 
-    def import_to_cerebrum(self):
+    def update_person(self, db_person, hr_person):
         """Call all the update functions, creating or updating a person"""
-        logger.info('Starting import_to_cerebrum for %r', self.hr_person.hr_id)
-        self.update_person()
-        self.update_external_ids()
-        self.update_names()
-        self.update_titles()
-        self.update_contact_info()
+        logger.info('Starting import_to_cerebrum for %r', hr_person)
+        self.update_basic(db_person, hr_person)
+        self.update_external_ids(db_person, hr_person)
+        self.update_names(db_person, hr_person)
+        self.update_titles(db_person, hr_person)
+        self.update_contact_info(db_person, hr_person)
         logger.info('Done with import_to_cereburm for %r',
-                    self.cerebrum_person.entity_id)
+                    db_person.entity_id)
 
-    def update_person(self):
+    def update_basic(self, db_person, hr_person):
         """Update person with birth date and gender"""
-        if self.hr_person.gender:
-            self.hr_person.gender = self.co.Gender(self.hr_person.gender)
+        if hr_person.gender:
+            gender = self.co.Gender(hr_person.gender)
         else:
-            self.hr_person.gender = self.co.gender_unknown
-        if not (self.cerebrum_person.gender and
-                self.cerebrum_person.birth_date and
-                self.cerebrum_person.gender == self.hr_person.gender and
-                self.cerebrum_person.birth_date == self.hr_person.birth_date):
-            self.cerebrum_person.populate(
-                self.hr_person.birth_date,
-                self.hr_person.gender)
-            self.cerebrum_person.write_db()
-            logger.info('Added birth date %r and gender %r for %r',
-                        self.hr_person.birth_date,
-                        self.hr_person.gender,
-                        self.cerebrum_person.entity_id)
+            gender = self.co.gender_unknown
 
-    def update_external_ids(self):
+        if db_person.gender != gender:
+            db_person.gender = gender
+            logger.info('Updated gender for person_id=%r', db_person.entity_id)
+
+        birth_date = parse_date(hr_person.birth_date)
+
+        if get_date(db_person.birth_date) != birth_date:
+            db_person.birth_date = birth_date
+            logger.info('Updated birth_date for person_id=%r',
+                        db_person.entity_id)
+
+        db_person.write_db()
+
+    def update_external_ids(self, db_person, hr_person):
         """Update person in Cerebrum with appropriate external ids"""
-        hr_external_ids = set()
-        for ext_id in self.hr_person.external_ids:
-            ext_id.id_type = self.co.EntityExternalId(ext_id.id_type)
-            hr_external_ids.add(ext_id)
-        self.hr_person.external_ids = hr_external_ids
+        hr_ids = set(
+            (self.co.EntityExternalId(i.id_type), i.external_id)
+            for i in hr_person.external_ids)
+        db_ids = set(
+            (self.co.EntityExternalId(r['id_type']), r['external_id'])
+            for r in db_person.get_external_id(
+                source_system=self.source_system))
 
-        cerebrum_external_ids = set()
-        for ext_id in self.cerebrum_person.get_external_id(
-                source_system=self.source_system):
-            cerebrum_external_ids.add(
-                models.HRExternalID(
-                    self.co.EntityExternalId(ext_id['id_type']),
-                    ext_id['external_id'])
-            )
-        to_remove = cerebrum_external_ids - self.hr_person.external_ids
-        to_add = self.hr_person.external_ids - cerebrum_external_ids
-        self.cerebrum_person.affect_external_id(
+        # All id-types that only exist in one of the sets
+        to_remove = set(t[0] for t in db_ids) - set(t[0] for t in hr_ids)
+        to_add = set(t[0] for t in hr_ids) - set(t[0] for t in db_ids)
+
+        # All id-types in both sets that differ in *value*
+        to_update = set(t[0] for t in (hr_ids - db_ids)) - to_add
+
+        if not any(to_remove | to_add | to_update):
+            logger.debug('No change in external_id for person_id=%r',
+                         db_person.entity_id)
+            return
+
+        logger.info('Updating external_id for person_id=%r: '
+                    'add=%r, update=%r, remove=%r',
+                    db_person.entity_id,
+                    sorted(six.text_type(c) for c in to_add),
+                    sorted(six.text_type(c) for c in to_update),
+                    sorted(six.text_type(c) for c in to_remove))
+
+        db_person.affect_external_id(
             self.source_system,
-            *(ext_id.id_type for ext_id in to_remove | to_add))
-        if to_remove:
-            logger.info(
-                'Purging externalids of types %r for id: %r',
-                (unicode(ext_id.id_type)
-                 for ext_id in to_remove),
-                self.cerebrum_person.entity_id)
-        for ext_id in to_add:
-            self.cerebrum_person.populate_external_id(
-                self.source_system, ext_id.id_type, ext_id.external_id)
-            logger.info('Adding externalid %r for id: %r',
-                        (unicode(ext_id.id_type), ext_id.external_id),
-                        self.cerebrum_person.entity_id)
-        self.cerebrum_person.write_db()
+            *(to_remove | to_add | to_update))
+        for id_type, id_value in hr_ids:
+            db_person.populate_external_id(
+                self.source_system, id_type, id_value)
+        db_person.write_db()
 
-    def update_names(self):
+    def update_names(self, db_person, hr_person):
         """Update person in Cerebrum with fresh names"""
 
         def _get_name_type(name_type):
             """Try to get the name of a specific type from cerebrum"""
             try:
-                return self.cerebrum_person.get_name(
-                    self.source_system, name_type)
+                return db_person.get_name(self.source_system, name_type)
             except Errors.NotFoundError:
                 return None
 
         crb_first_name = _get_name_type(self.co.name_first)
         crb_last_name = _get_name_type(self.co.name_last)
 
-        if crb_first_name != self.hr_person.first_name:
-            self.cerebrum_person.affect_names(
-                self.source_system, self.co.name_first)
-            self.cerebrum_person.populate_name(
-                self.co.name_first, self.hr_person.first_name)
-            logger.info('Changing first name from %r to %r',
-                        crb_first_name, self.hr_person.first_name)
+        if crb_first_name != hr_person.first_name:
+            db_person.affect_names(self.source_system, self.co.name_first)
+            db_person.populate_name(self.co.name_first, hr_person.first_name)
+            logger.info('Updating name=%s of person_id=%r',
+                        self.co.name_first, db_person.entity_id)
 
-        if crb_last_name != self.hr_person.last_name:
-            self.cerebrum_person.affect_names(
-                self.source_system, self.co.name_last)
-            self.cerebrum_person.populate_name(
-                self.co.name_last, self.hr_person.last_name)
-            logger.info('Changing last name from %r to %r',
-                        crb_last_name, self.hr_person.last_name)
-        self.cerebrum_person.write_db()
+        if crb_last_name != hr_person.last_name:
+            db_person.affect_names(self.source_system, self.co.name_last)
+            db_person.populate_name(self.co.name_last, hr_person.last_name)
+            logger.info('Updating name=%s of person_id=%r',
+                        crb_last_name, hr_person.last_name)
+        db_person.write_db()
 
-    def update_titles(self):
+    def update_titles(self, db_person, hr_person):
         """Update person in Cerebrum with work and personal titles"""
-        hr_titles = set()
-        for t in self.hr_person.titles:
-            t.name_variant = self.co.EntityNameCode(t.name_variant)
-            t.name_language = self.co.LanguageCode(t.name_language)
-            hr_titles.add(t)
-        self.hr_person.titles = hr_titles
-        cerebrum_titles = set()
-        for title in self.cerebrum_person.search_name_with_language(
-                entity_id=self.cerebrum_person.entity_id,
-                name_variant=[self.co.work_title, self.co.personal_title]):
-            cerebrum_titles.add(
-                models.HRTitle(
-                    self.co.EntityNameCode(title['name_variant']),
-                    self.co.LanguageCode(title['name_language']),
-                    title['name'])
-            )
+        hr_titles = set(
+            models.HRTitle(
+                self.co.EntityNameCode(t.name_variant),
+                self.co.LanguageCode(t.name_language),
+                t.name)
+            for t in hr_person.titles)
 
-        for title in self.hr_person.titles - cerebrum_titles:
-            self.cerebrum_person.add_name_with_language(
+        cerebrum_titles = set(
+            models.HRTitle(
+                self.co.EntityNameCode(row['name_variant']),
+                self.co.LanguageCode(row['name_language']),
+                row['name'])
+            for row in db_person.search_name_with_language(
+                entity_id=db_person.entity_id,
+                name_variant=[self.co.work_title, self.co.personal_title]))
+
+        for title in hr_titles - cerebrum_titles:
+            db_person.add_name_with_language(
                 name_variant=title.name_variant,
                 name_language=title.name_language,
                 name=title.name,
             )
-            logger.info('Adding title %r for id: %r',
-                        title.name, self.cerebrum_person.entity_id)
-        for title in cerebrum_titles - self.hr_person.titles:
-            self.cerebrum_person.delete_name_with_language(
+            logger.info('Setting title %s/%s for person_id=%r',
+                        title.name_variant, title.name_language,
+                        db_person.entity_id)
+
+        # TODO: This will delete titles that we just changed!
+        for title in cerebrum_titles - hr_titles:
+            db_person.delete_name_with_language(
                 name_variant=title.name_variant,
                 name_language=title.name_language,
                 name=title.name,
             )
-            logger.info('Removing title %r for id: %r',
-                        title.name, self.cerebrum_person.entity_id)
+            logger.info('Clearing title %s/%s for person_id=%r',
+                        title.name_variant, title.name_language,
+                        db_person.entity_id)
 
-    def update_contact_info(self):
+    def update_contact_info(self, db_person, hr_person):
         """Update person in Cerebrum with contact information"""
-        hr_contacts = set()
-        for c in self.hr_person.contact_infos:
-            c.contact_type = self.co.ContactInfo(c.contact_type)
-            hr_contacts.add(c)
-        self.hr_person.contact_infos = hr_contacts
-        cerebrum_contacts = set()
-        for contact in self.cerebrum_person.get_contact_info(
-                source=self.source_system):
-            cerebrum_contacts.add(
-                models.HRContactInfo(
-                    self.co.ContactInfo(contact['contact_type']),
-                    contact['contact_pref'],
-                    contact['contact_value'])
-            )
-        for contact in cerebrum_contacts - self.hr_person.contact_infos:
-            self.cerebrum_person.delete_contact_info(
-                source=self.source_system,
-                contact_type=contact.contact_type,
-                pref=contact.contact_pref,
-            )
-            logger.info('Removing contact %r of type %r with preference %r '
-                        'for id: %r',
-                        contact.contact_value,
-                        contact.contact_type,
-                        contact.contact_pref,
-                        self.cerebrum_person.entity_id)
-        for contact in self.hr_person.contact_infos - cerebrum_contacts:
-            self.cerebrum_person.add_contact_info(
-                source=self.source_system,
-                type=contact.contact_type,
-                value=contact.contact_value,
-                pref=contact.contact_pref,
-            )
-            logger.info('Adding contact %r of type %r with preference %r '
-                        'for id: %r',
-                        contact.contact_value,
-                        contact.contact_type,
-                        contact.contact_pref,
-                        self.cerebrum_person.entity_id)
+        hr_contacts = {
+            self.co.ContactInfo(c.contact_type): (c.contact_value,
+                                                  c.contact_pref)
+            for c in hr_person.contact_infos}
+
+        db_contacts = {
+            self.co.ContactInfo(row['contact_type']): (row['contact_value'],
+                                                       row['contact_pref'])
+            for row in db_person.get_contact_info(source=self.source_system)}
+
+        to_remove = set(db_contacts) - set(hr_contacts)
+        to_add = set(hr_contacts) - set(db_contacts)
+        to_update = set(ctype
+                        for ctype in (set(hr_contacts) & set(db_contacts))
+                        if hr_contacts[ctype] != db_contacts[ctype])
+
+        for ctype in to_remove:
+            db_value, db_pref = db_contacts[ctype]
+            db_person.delete_contact_info(source=self.source_system,
+                                          contact_type=ctype,
+                                          pref=db_pref)
+            logger.info('clearing contact %s (pref=%r) for person_id=%r',
+                        ctype, db_pref, db_person.entity_id)
+
+        for contact in to_update:
+            db_value, db_pref = db_contacts[ctype]
+            hr_value, hr_pref = hr_contacts[ctype]
+            db_person.add_contact_info(source=self.source_system, type=ctype,
+                                       value=hr_value, pref=hr_pref)
+            logger.info('updating contact %s (pref=%r/%r) for entity_id=%r',
+                        ctype, db_pref, hr_pref, db_person.entity_id)
+
+        for contact in to_add:
+            hr_value, hr_pref = hr_contacts[ctype]
+            db_person.add_contact_info(source=self.source_system, type=ctype,
+                                       value=hr_value, pref=hr_pref)
+            logger.info('adding contact %s (pref=%r) for entity_id=%r',
+                        ctype, hr_pref, db_person.entity_id)

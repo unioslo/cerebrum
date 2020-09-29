@@ -50,6 +50,11 @@ class AbstractMapper(object):
     Fetch objects from remote systems.
     """
 
+    @abc.abstractproperty
+    def source_system(self):
+        """ The source system to map this data to. """
+        pass
+
     @abc.abstractmethod
     def translate(self, reference, obj):
         """
