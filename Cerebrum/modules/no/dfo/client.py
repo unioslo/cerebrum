@@ -220,12 +220,6 @@ class SapClient(object):
     def put(self, url, **kwargs):
         return self.call('PUT', url, **kwargs)
 
-    # def object_or_data(self, cls, data) -> [object, dict]:
-    def object_or_data(self, cls, data):
-        if not self.return_objects:
-            return data
-        return cls.from_dict(data)
-
     # def get_employee(self, employee_id: str) -> [None, dict]:
     def get_employee(self, employee_id):
         url = self.urls.get_employee(employee_id)
