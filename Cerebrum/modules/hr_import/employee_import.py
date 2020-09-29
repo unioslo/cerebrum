@@ -26,7 +26,7 @@ import six
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.date import parse_date, get_date
+from Cerebrum.utils.date import get_date
 
 from .importer import AbstractImport
 from . import models
@@ -111,10 +111,8 @@ class HRDataImport(object):
             db_person.gender = gender
             logger.info('Updated gender for person_id=%r', db_person.entity_id)
 
-        birth_date = parse_date(hr_person.birth_date)
-
-        if get_date(db_person.birth_date) != birth_date:
-            db_person.birth_date = birth_date
+        if get_date(db_person.birth_date) != hr_person.birth_date:
+            db_person.birth_date = hr_person.birth_date
             logger.info('Updated birth_date for person_id=%r',
                         db_person.entity_id)
 
