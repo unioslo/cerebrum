@@ -147,7 +147,7 @@ class EmployeeMapper(_base.AbstractMapper):
             # TODO:
             #  It says that "medarbeiderundergruppe" is supposed to be int in
             #  the API-doc.
-            ('9', '90'): 'ekstern',  # TODO: this is just a guess
+            ('9', '90'): 'assosiert_person',
             ('9', '93'): 'emeritus',
             ('9', '94'): 'ekst_partner',
             ('9', '95'): 'gjesteforsker',
@@ -191,7 +191,7 @@ class EmployeeMapper(_base.AbstractMapper):
                 logger.warning('parse_affiliations: Unknown job category')
                 continue
 
-            placecode = stedkode_cache.get(assignment.get('organisasjonsId'))
+            placecode = stedkode_cache.get(assignment.get('orgenhet'))
             if placecode is None:
                 logger.warning('Placecode does not exist')
                 continue
@@ -305,7 +305,7 @@ class EmployeeMapper(_base.AbstractMapper):
         main_assignment = assignment_data[person_data['stillingId']]
         titles.add(
             HRTitle(name_variant='WORKTITLE',
-                    name_language='no',
+                    name_language='nb',
                     name=main_assignment['stillingstittel'])
         )
         return titles
@@ -391,7 +391,6 @@ class EmployeeMapper(_base.AbstractMapper):
         #  This should be fetched from orgreg by ``datasource.py`` sometime in
         #  the future.
         stedkode_cache = self.cache_stedkoder(assignment_data)
-
         hr_person.leader_groups = self.parse_leader_groups(person_data,
                                                            assignment_data,
                                                            stedkode_cache)
