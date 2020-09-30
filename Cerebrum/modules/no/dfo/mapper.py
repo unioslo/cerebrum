@@ -132,18 +132,6 @@ class EmployeeMapper(_base.AbstractMapper):
     @classmethod
     def parse_affiliations(cls, person_data, assignment_data, stedkode_cache):
         """
-        Parse data from SAP and return affiliations and account types
-
-        :rtype: tuple(set(HRAffiliation)
-        """
-        assignments = cls.parse_assignments(person_data,
-                                            assignment_data,
-                                            stedkode_cache)
-        return assignments
-
-    @classmethod
-    def parse_assignments(cls, person_data, assignment_data, stedkode_cache):
-        """
         Parse data from SAP and return affiliations
 
         :rtype: set(HRAffiliation)
@@ -159,7 +147,7 @@ class EmployeeMapper(_base.AbstractMapper):
             # TODO:
             #  It says that "medarbeiderundergruppe" is supposed to be int in
             #  the API-doc.
-            ('9', '90'): 'ekstern',
+            ('9', '90'): 'ekstern',  # TODO: this is just a guess
             ('9', '93'): 'emeritus',
             ('9', '94'): 'ekst_partner',
             ('9', '95'): 'gjesteforsker',
@@ -220,7 +208,7 @@ class EmployeeMapper(_base.AbstractMapper):
             )
 
         logger.info('parsed %i affiliations', len(affiliations))
-        return affiliations,
+        return affiliations
 
     @classmethod
     def parse_contacts(cls, person_data):
