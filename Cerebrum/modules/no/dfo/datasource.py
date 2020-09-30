@@ -17,14 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-from __future__ import unicode_literals
 """
 DFØ-SAP datasource for HR imports.
 """
+from __future__ import unicode_literals
 
 import time
 import datetime
-import json
 import logging
 
 from Cerebrum.modules.hr_import import datasource as _base
@@ -41,10 +40,10 @@ def in_date_range(value, start=None, end=None):
     return True
 
 
-def parse_date(value, format='%Y-%m-%d', ignore_error=False):
+def parse_date(value, fmt='%Y-%m-%d', ignore_error=False):
     if value:
         try:
-            return datetime.datetime.strptime(value, format).date()
+            return datetime.datetime.strptime(value, fmt).date()
         except ValueError:
             if ignore_error:
                 return None

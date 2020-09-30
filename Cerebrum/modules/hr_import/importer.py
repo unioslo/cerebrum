@@ -26,7 +26,6 @@ for performing the actual database updates.
 import abc
 import logging
 import json
-import time
 
 from .mapper import NoMappedObjects
 from .datasource import DatasourceInvalid
@@ -84,7 +83,8 @@ class AbstractImport(object):
         if not_before:
             # TODO:
             #  Insert code for rescheduling message (not_before is timestamp)
-            raise NotImplemented('Message rescheduling not implemented yet!')
+            raise NotImplementedError(
+                'Message rescheduling not implemented yet!')
         self.handle_reference(reference)
 
     def handle_reference(self, reference):
