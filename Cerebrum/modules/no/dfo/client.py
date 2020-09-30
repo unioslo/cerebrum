@@ -339,6 +339,33 @@ class DictEntry(Configuration):
     value = ConfigDescriptor(String, doc='value')
 
 
+class Tokens(Configuration):
+    employee_api = ConfigDescriptor(
+        String,
+        default=None,
+        doc='Token header, e.g. "X-Gravitee-API-Key: fafa-fafaaf-fafaaf-afaf"')
+
+    orgenhet_api = ConfigDescriptor(
+        String,
+        default=None,
+        doc='Token header, e.g. "X-Gravitee-API-Key: fafa-fafaaf-fafaaf-afaf"')
+
+    stilling_api = ConfigDescriptor(
+        String,
+        default=None,
+        doc='Token header, e.g. "X-Gravitee-API-Key: fafa-fafaaf-fafaaf-afaf"')
+
+    familie_api = ConfigDescriptor(
+        String,
+        default=None,
+        doc='Token header, e.g. "X-Gravitee-API-Key: fafa-fafaaf-fafaaf-afaf"')
+
+    kursinfo_api = ConfigDescriptor(
+        String,
+        default=None,
+        doc='Token header, e.g. "X-Gravitee-API-Key: fafa-fafaaf-fafaaf-afaf"')
+
+
 class SapClientConfig(Configuration):
     """The configuration for the dfo module"""
     url = ConfigDescriptor(String, default='http://localhost')
@@ -347,9 +374,9 @@ class SapClientConfig(Configuration):
     stilling_url = ConfigDescriptor(String, default='http://localhost')
     kursinfo_url = ConfigDescriptor(String, default='http://localhost')
     familie_url = ConfigDescriptor(String, default='http://localhost')
-    tokens = ConfigDescriptor(Iterable,
-                              default=[],
-                              template=Namespace(config=DictEntry))
+    tokens = ConfigDescriptor(Namespace,
+                              config=Tokens,
+                              doc='Token config')
     mock = ConfigDescriptor(Boolean,
                             default=False)
     headers = ConfigDescriptor(Iterable,
@@ -361,4 +388,11 @@ class SapClientConfig(Configuration):
 
 def get_client(config):
     """Get a SapClient from configuration"""
-    return SapClient(**config.dump_dict())
+    config_dict = config.dump_dict()
+    new_tokens = {}
+    for token_name, value in config_dict['tokens'].items():
+        if value:
+            k, v = value.split(':')
+            new_tokens[token_name] = {k: v.strip(' ')}
+    config_dict['tokens'] = new_tokens
+    return SapClient(**config_dict)
