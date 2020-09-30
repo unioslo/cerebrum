@@ -139,8 +139,7 @@ class EmployeeMapper(_base.AbstractMapper):
         assignments = cls.parse_assignments(person_data,
                                             assignment_data,
                                             stedkode_cache)
-        roles = cls.parse_roles(person_data, stedkode_cache)
-        return assignments.union(roles)
+        return assignments
 
     @classmethod
     def parse_assignments(cls, person_data, assignment_data, stedkode_cache):
@@ -156,23 +155,39 @@ class EmployeeMapper(_base.AbstractMapper):
             #   Find correct id
             1: 'vitenskapelig'
         }
+        role_mapping = {
+            # TODO:
+            #  It says that "medarbeiderundergruppe" is supposed to be int in
+            #  the API-doc.
+            ('9', '90'): 'ekstern',
+            ('9', '93'): 'emeritus',
+            ('9', '94'): 'ekst_partner',
+            ('9', '95'): 'gjesteforsker',
+        }
 
         # TODO:
         #  Rewrite this once orgreg is ready.
         for assignment_id, assignment in assignment_data.items():
+            affiliation = 'ANSATT'
             status = category_2_status.get(
                 assignment.get('stillingskat', {}).get(
                     'stillingskatId')
             )
-            if not status:
-                logger.warning('parse_affiliations: Unknown job category')
-                continue
-
             is_main_assignment = assignment_id == person_data['stillingId']
             if is_main_assignment:
                 precedence = (50, 50)
                 start_date = parse_date(person_data['startdato'])
                 end_date = parse_date(person_data['sluttdato'])
+
+                # If the person has one of the MG/MUG combinations present in
+                # role_mapping, then the main assignment should instead be
+                # interpreted as a TILKNYTTET affiliation.
+                group = person_data.get('medarbeidergruppe')
+                sub_group = person_data.get('medarbeiderundergruppe')
+                role = role_mapping.get((group, sub_group))
+                if role:
+                    status = role
+                    affiliation = 'TILKNYTTET'
             else:
                 precedence = None
                 additional_assignment = get_additional_assignment(
@@ -184,6 +199,10 @@ class EmployeeMapper(_base.AbstractMapper):
                 end_date = parse_date(additional_assignment.get('sluttdato'),
                                       allow_empty=True)
 
+            if not status:
+                logger.warning('parse_affiliations: Unknown job category')
+                continue
+
             placecode = stedkode_cache.get(assignment.get('organisasjonsId'))
             if placecode is None:
                 logger.warning('Placecode does not exist')
@@ -192,7 +211,7 @@ class EmployeeMapper(_base.AbstractMapper):
             affiliations.add(
                 HRAffiliation(**{
                     'placecode': placecode,
-                    'affiliation': 'ANSATT',
+                    'affiliation': affiliation,
                     'status': status,
                     'precedence': precedence,
                     'start_date': start_date,
@@ -201,7 +220,7 @@ class EmployeeMapper(_base.AbstractMapper):
             )
 
         logger.info('parsed %i affiliations', len(affiliations))
-        return affiliations
+        return affiliations,
 
     @classmethod
     def parse_contacts(cls, person_data):
@@ -284,42 +303,6 @@ class EmployeeMapper(_base.AbstractMapper):
                 )
         logger.info('parsed %i external ids', len(external_ids))
         return external_ids
-
-    @classmethod
-    def parse_roles(cls, person_data, stedkode_cache):
-        """
-        Parse data from SAP and return existing roles.
-
-        :rtype: set(HRAffiliation)
-        """
-        role_mapping = {
-            # TODO:
-            #  It says that "medarbeiderundergruppe" is supposed to be int in
-            #  the API-doc.
-            ('9', '93'): 'emeritus',
-            ('9', '94'): 'ekst_partner',
-            ('9', '95'): 'gjesteforsker'
-        }
-        group = person_data.get('medarbeidergruppe')
-        sub_group = person_data.get('medarbeiderundergruppe')
-
-        placecode = stedkode_cache.get(person_data.get('organisasjonId'))
-        role = role_mapping.get((group, sub_group))
-        # TODO:
-        #  What dates should one use? Is this correct?
-        start_date = parse_date(person_data['startdato'])
-        end_date = parse_date(person_data['sluttdato'])
-        if role and placecode:
-            roles = {HRAffiliation(placecode=placecode,
-                                   affiliation='TILKNYTTET',
-                                   status=role,
-                                   precedence=None,
-                                   start_date=start_date,
-                                   end_date=end_date)}
-        else:
-            roles = set()
-        logger.info('parsed %i roles', len(roles))
-        return roles
 
     @classmethod
     def parse_titles(cls, person_data, assignment_data):
