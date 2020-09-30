@@ -60,31 +60,41 @@ def db_context(init_db, dryrun):
 class EmployeeHandler(AbstractConsumerHandler):
     """ Handle HR person events. """
 
-    def __init__(self, import_init, db_init, dryrun):
+    def __init__(self, task_mapper, db_init, dryrun, importer_config=None):
         """
-        :type datasource: .datasource.AbstractDatasource
-        :param datasource: A datasource implementation
-
-        :param import_init:
-            Import factory.  Should take a single database-argument and return
-            a :class:`.importer.AbstractImport` object.
+        :type task_mapper: Cerebrum.modules.amqp.mapper.MessageToTaskMapper
+        :param task_mapper:
+            Mapper used for mapping an incoming event to the appropriate
+            importer_class.
 
         :param db_init:
             Database factory.  Should take no arguments and return a
             :class:`Cerebrum.database.Database` object.
 
         :param dryrun: True if all changes should be rolled back
+
+        :type importer_config:
+            Cerebrum.modules.no.uio.importer.EmployeeImportConfig
+
         """
-        self.import_init = import_init
+        # Validate importer config
+        for task in task_mapper.tasks:
+            task.call(importer_config)
+
+        self.task_mapper = task_mapper
         self.db_init = db_init
         self.dryrun = dryrun
+        self.importer_config = importer_config
 
     def handle(self, event):
         logger.debug('processing change for event=%r', event)
 
-        with db_context(self.db_init, self.dryrun) as db:
-            importer = self.import_init(db)
-            importer.handle_event(event)
+        for call in self.task_mapper.message_to_callable(event):
+            importer_init = call(self.importer_config)
+
+            with db_context(self.db_init, self.dryrun) as db:
+                importer = importer_init(db)
+                importer.handle_event(event)
 
     def on_error(self, event, error):
         # TODO: Separate between DatasourceInvalid, DatasourceUnavailable

@@ -113,7 +113,8 @@ class AbstractImport(object):
         """
         # TODO:
         #  Rescheduling
-        retry_dates, has_active_affiliation = self.mapper.needs_delay()
+        retry_dates, has_active_affiliation = self.mapper.needs_delay(
+            hr_object)
         if self.mapper.is_active(hr_object, is_active=has_active_affiliation):
             if db_object:
                 logger.info('updating id=%r with %r',

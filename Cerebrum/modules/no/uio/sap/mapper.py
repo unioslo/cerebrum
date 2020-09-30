@@ -37,8 +37,7 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRContactInfo)
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.hr_import.matcher import match_entity
-
-from .leader_groups import get_leader_group
+from Cerebrum.modules.no.uio.hr_import.leader_groups import get_leader_group
 
 logger = logging.getLogger(__name__)
 
@@ -86,16 +85,10 @@ def filter_elements(d):
 class EmployeeMapper(_base.AbstractMapper):
     """A simple employee mapper class"""
 
+    # TODO:
+    #  Should be config
     start_grace = datetime.timedelta(days=-6)
     end_grace = datetime.timedelta(days=0)
-
-    def __init__(self, db):
-        """
-        :param db: Database object
-        :type db: Cerebrum.Database
-        """
-        self.db = db
-        self.const = Factory.get('Constants')(db)
 
     @property
     def source_system(self):

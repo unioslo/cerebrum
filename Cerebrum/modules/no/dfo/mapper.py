@@ -37,8 +37,7 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRExternalID,
                                                HRContactInfo)
 from Cerebrum.modules.hr_import.matcher import match_entity
-
-from .leader_groups import get_leader_group
+from Cerebrum.modules.no.uio.hr_import.leader_groups import get_leader_group
 
 logger = logging.getLogger(__name__)
 
@@ -113,27 +112,18 @@ def parse_leader_ous(person_data, assignment_data):
         leader_assignment_id = person_data['stillingId']
         # TODO:
         #  DFØ-SAP will probably fix naming of
-        #  organisasjonsId/organisasjonId, so that they are equal at some
-        #  point.
-        return [assignment_data[leader_assignment_id]['organisasjonsId']]
+        #  organisasjonsId/organisasjonId/orgenhet, so that they are equal at
+        #  some point.
+        return [assignment_data[leader_assignment_id]['orgenhet']]
     return []
+
+
+class MapperConfig(_base.MapperConfig):
+    pass
 
 
 class EmployeeMapper(_base.AbstractMapper):
     """A simple employee mapper class"""
-
-    # TODO:
-    #  Should be config
-    start_grace = datetime.timedelta(days=-6)
-    end_grace = datetime.timedelta(days=0)
-
-    def __init__(self, db):
-        """
-        :param db: Database object
-        :type db: Cerebrum.Database
-        """
-        self.db = db
-        self.const = Factory.get('Constants')(db)
 
     @property
     def source_system(self):
@@ -279,7 +269,7 @@ class EmployeeMapper(_base.AbstractMapper):
             #  Are there other id-types?
         }
 
-        for external_id in person_data.get('annenId') or []:
+        for external_id in [person_data.get('annenId')] or []:
             id_type = dfo_2_cerebrum.get(external_id['idType'])
             if id_type:
                 if id_type == 'PASSNR':
@@ -389,7 +379,7 @@ class EmployeeMapper(_base.AbstractMapper):
         cache = {}
         ou = Factory.get('OU')(self.db)
         co = Factory.get('Constants')(self.db)
-        dfo_ou_ids = (a['organisasjonsId'] for a in assignment_data.values())
+        dfo_ou_ids = (a['orgenhet'] for a in assignment_data.values())
         for dfo_ou_id in dfo_ou_ids:
             ou.clear()
             try:

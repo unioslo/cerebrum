@@ -63,6 +63,18 @@ from Cerebrum.config.configuration import (
 )
 from Cerebrum.config.settings import String
 from Cerebrum.modules.amqp.config import ConsumerConfig
+from Cerebrum.modules.amqp.mapper_config import MapperConfig
+from Cerebrum.utils.module import resolve
+from Cerebrum.config.loader import read_config as read_config_file
+
+
+def get_configurable_module(config):
+    """Load a ``ConfigurableModule``"""
+    config_init = resolve(config.module)
+    config_instance = config_init()
+    config_dict = read_config_file(config.config_file)
+    config_instance.load_dict(config_dict)
+    return config_instance
 
 
 class ConfigurableModule(Configuration):
@@ -115,7 +127,13 @@ class HrImportConfig(Configuration):
     importer = ConfigDescriptor(
         Namespace,
         config=ConfigurableModule,
-        doc='Import module to use',
+        doc='Importer config to use',
+    )
+
+    task_mapper = ConfigDescriptor(
+        Namespace,
+        config=MapperConfig,
+        doc='Configuration for the task mapper',
     )
 
 

@@ -71,9 +71,6 @@ class Role(_base.RemoteObject):
 
 class EmployeeDatasource(_base.AbstractDatasource):
 
-    start_grace = datetime.timedelta(days=-6)
-    end_grace = datetime.timedelta(days=0)
-
     def __init__(self, client):
         self.client = client
 
