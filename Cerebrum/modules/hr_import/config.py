@@ -116,6 +116,20 @@ class ConfigurableModule(Configuration):
     )
 
 
+class EmployeeImportConfig(Configuration):
+    client = ConfigDescriptor(
+        Namespace,
+        config=ConfigurableModule,
+        doc='Which client config to use',
+    )
+
+    mapper = ConfigDescriptor(
+        Namespace,
+        config=ConfigurableModule,
+        doc='Which mapper config to use'
+    )
+
+
 class HrImportConfig(Configuration):
 
     consumer = ConfigDescriptor(
@@ -126,7 +140,7 @@ class HrImportConfig(Configuration):
 
     importer = ConfigDescriptor(
         Namespace,
-        config=ConfigurableModule,
+        config=EmployeeImportConfig,
         doc='Importer config to use',
     )
 
