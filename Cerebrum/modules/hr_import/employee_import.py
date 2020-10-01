@@ -174,21 +174,15 @@ class HRDataImport(object):
         if crb_first_name != hr_person.first_name:
             db_person.affect_names(self.source_system, self.co.name_first)
             db_person.populate_name(self.co.name_first, hr_person.first_name)
-            logger.info('Updating name %s from %s to %s for person_id %r',
-                        self.co.name_first,
-                        crb_first_name,
-                        hr_person.first_name,
-                        db_person.entity_id)
+            logger.info('Updating name %s for person with person_id %r',
+                        self.co.name_first, db_person.entity_id)
             db_person.write_db()
 
         if crb_last_name != hr_person.last_name:
             db_person.affect_names(self.source_system, self.co.name_last)
             db_person.populate_name(self.co.name_last, hr_person.last_name)
-            logger.info('Updating name %s from %s to %s for person_id %r',
-                        self.co.name_last,
-                        crb_last_name,
-                        hr_person.last_name,
-                        db_person.entity_id)
+            logger.info('Updating name %s for person with person_id %r',
+                        self.co.name_last, db_person.entity_id)
             db_person.write_db()
 
     def update_titles(self, db_person, hr_person):
