@@ -39,7 +39,6 @@ from Cerebrum.config.configuration import (Configuration,
                                            Namespace)
 from Cerebrum.config.settings import Boolean, Iterable, String
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -110,7 +109,6 @@ class SapEndpoints(object):
 
     @staticmethod
     def _urljoin(base, path, ident):
-
         # urlparse and urllib.parse behave differently.
         # Hack to add a trailing slash if it's missing
         if path[-1] != '/':
@@ -141,12 +139,11 @@ class SapClient(object):
 
     def __init__(self,
                  url,
-                 employee_url=None,
-                 orgenhet_url=None,
-                 stilling_url=None,
-                 kursinfo_url=None,
-                 familie_url=None,
-                 tokens={},
+                 employee_api=None,
+                 orgenhet_api=None,
+                 stilling_api=None,
+                 kursinfo_api=None,
+                 familie_api=None,
                  mock=False,
                  headers=None,
                  use_sessions=True):
@@ -154,23 +151,41 @@ class SapClient(object):
         SAP API client.
 
         :param str url: Base API URL
-        :param str employee_url: Relative URL to employee API
-        :param str orgenhet_url: Relative URL to organisational API
-        :param str stilling_url: Relative URL to stillings API
-        :param str kursinfo_url: Relative URL to kursinfo API
-        :param str familie_url: Relative URL to familie API
-        :params dict tokens: Tokens for the different APIs
+        :param dict employee_api: employee API config
+        :param dict orgenhet_api: organisational API config
+        :param dict stilling_api: stilling API config
+        :param dict kursinfo_api: kursinfo API config
+        :param dict familie_api: familie API config
         :param bool mock: Mock the API or not
         :param dict headers: Append extra headers to all requests
         :param bool use_sessions: Keep HTTP connections alive (default True)
         """
-        self.urls = SapEndpoints(url,
-                                 employee_url,
-                                 orgenhet_url,
-                                 stilling_url,
-                                 kursinfo_url,
-                                 familie_url)
-        self.tokens = tokens
+
+        def add_tokens(**apis):
+            for api_name, api in apis.items():
+                if api.get('auth'):
+                    key, val = api['auth'].split(':')
+                    self.tokens.update({api_name: {key: val.strip(' ')}})
+
+        def extract_url(api):
+            if api is None:
+                return None
+            return api.get('url')
+
+        self.urls = SapEndpoints(
+            url,
+            extract_url(employee_api),
+            extract_url(orgenhet_api),
+            extract_url(stilling_api),
+            extract_url(kursinfo_api),
+            extract_url(familie_api),
+        )
+        self.tokens = {}
+        add_tokens(employee_api=employee_api,
+                   orgenhet_api=orgenhet_api,
+                   stilling_api=stilling_api,
+                   kursinfo_api=kursinfo_api,
+                   familie_api=familie_api)
         self.mock = mock
         self.headers = merge_dicts(self.default_headers, headers)
         if use_sessions:
@@ -339,17 +354,22 @@ class DictEntry(Configuration):
     value = ConfigDescriptor(String, doc='value')
 
 
+class SapClientApi(Configuration):
+    url = ConfigDescriptor(String, default='http://localhost')
+    auth = ConfigDescriptor(
+        String,
+        default=None,
+        doc='Token header, e.g. "X-Gravitee-API-Key: fafa-fafaaf-fafaaf-afaf"')
+
+
 class SapClientConfig(Configuration):
     """The configuration for the dfo module"""
     url = ConfigDescriptor(String, default='http://localhost')
-    employee_url = ConfigDescriptor(String, default='http://localhost')
-    orgenhet_url = ConfigDescriptor(String, default='http://localhost')
-    stilling_url = ConfigDescriptor(String, default='http://localhost')
-    kursinfo_url = ConfigDescriptor(String, default='http://localhost')
-    familie_url = ConfigDescriptor(String, default='http://localhost')
-    tokens = ConfigDescriptor(Iterable,
-                              default=[],
-                              template=Namespace(config=DictEntry))
+    employee_api = ConfigDescriptor(Namespace, config=SapClientApi)
+    orgenhet_api = ConfigDescriptor(Namespace, config=SapClientApi)
+    stilling_api = ConfigDescriptor(Namespace, config=SapClientApi)
+    kursinfo_api = ConfigDescriptor(Namespace, config=SapClientApi)
+    familie_api = ConfigDescriptor(Namespace, config=SapClientApi)
     mock = ConfigDescriptor(Boolean,
                             default=False)
     headers = ConfigDescriptor(Iterable,
@@ -361,4 +381,5 @@ class SapClientConfig(Configuration):
 
 def get_client(config):
     """Get a SapClient from configuration"""
-    return SapClient(**config.dump_dict())
+    config_dict = config.dump_dict()
+    return SapClient(**config_dict)

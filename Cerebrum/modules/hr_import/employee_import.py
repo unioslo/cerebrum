@@ -246,7 +246,7 @@ class HRDataImport(object):
             logger.info('clearing contact %s (pref=%r) for person_id=%r',
                         ctype, db_pref, db_person.entity_id)
 
-        for contact in to_update:
+        for ctype in to_update:
             db_value, db_pref = db_contacts[ctype]
             hr_value, hr_pref = hr_contacts[ctype]
             db_person.add_contact_info(source=self.source_system, type=ctype,
@@ -254,7 +254,7 @@ class HRDataImport(object):
             logger.info('updating contact %s (pref=%r/%r) for entity_id=%r',
                         ctype, db_pref, hr_pref, db_person.entity_id)
 
-        for contact in to_add:
+        for ctype in to_add:
             hr_value, hr_pref = hr_contacts[ctype]
             db_person.add_contact_info(source=self.source_system, type=ctype,
                                        value=hr_value, pref=hr_pref)
