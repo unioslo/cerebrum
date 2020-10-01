@@ -137,7 +137,7 @@ class AbstractMapper(object):
         These dates should be stored in a queue along with the original
         message or object reference, and re-processed at a later time.
 
-        :type hr_object: object
+        :type hr_object: Cerebrum.modules.hr_import.models.HRPerson
 
         :returns:
             - A list of date or datetime objects for future processing.
@@ -169,12 +169,14 @@ class AbstractMapper(object):
 class MapperConfig(Configuration):
     start_grace = ConfigDescriptor(
         Integer,
+        default=0,
         doc=("How many days after an affiliation's start date should it first "
              "be imported?"),
     )
 
     end_grace = ConfigDescriptor(
         Integer,
+        default=0,
         doc=("How many days past an affiliation's end date should it be kept "
              "in Cerebrum?"),
     )

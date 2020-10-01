@@ -302,6 +302,7 @@ class EmployeeMapper(_base.AbstractMapper):
         logger.info('parsing titles')
         titles = set()
 
+        # We only want the title of the main assignment
         main_assignment = assignment_data[person_data['stillingId']]
         titles.add(
             HRTitle(name_variant='WORKTITLE',

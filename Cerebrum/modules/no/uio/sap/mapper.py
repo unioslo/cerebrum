@@ -35,7 +35,6 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRAffiliation,
                                                HRExternalID,
                                                HRContactInfo)
-from Cerebrum.Utils import Factory
 from Cerebrum.modules.hr_import.matcher import match_entity
 from Cerebrum.modules.no.uio.hr_import.leader_groups import get_leader_group
 
@@ -84,11 +83,6 @@ def filter_elements(d):
 
 class EmployeeMapper(_base.AbstractMapper):
     """A simple employee mapper class"""
-
-    # TODO:
-    #  Should be config
-    start_grace = datetime.timedelta(days=-6)
-    end_grace = datetime.timedelta(days=0)
 
     @property
     def source_system(self):
