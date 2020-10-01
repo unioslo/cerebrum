@@ -139,9 +139,7 @@ class EmployeeMapper(_base.AbstractMapper):
         affiliations = set()
         category_2_status = {
             50001597: 'tekadm',
-            # TODO:
-            #   Find correct id
-            1: 'vitenskapelig'
+            50001599: 'vitenskapelig'
         }
         role_mapping = {
             # TODO:
