@@ -24,6 +24,8 @@ import logging
 
 import six
 
+import cereconf
+
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.date import get_date
@@ -91,13 +93,14 @@ class HRDataImport(object):
 
     def update_person(self, db_person, hr_person):
         """Call all the update functions, creating or updating a person"""
-        logger.info('Starting import_to_cerebrum for %r', hr_person)
+        logger.info('Starting update_person for %r', hr_person)
         self.update_basic(db_person, hr_person)
         self.update_external_ids(db_person, hr_person)
         self.update_names(db_person, hr_person)
         self.update_titles(db_person, hr_person)
         self.update_contact_info(db_person, hr_person)
-        logger.info('Done with import_to_cereburm for %r',
+        self.update_affiliations(db_person, hr_person)
+        logger.info('Done with update_person for %r',
                     db_person.entity_id)
 
     def update_basic(self, db_person, hr_person):
@@ -171,15 +174,22 @@ class HRDataImport(object):
         if crb_first_name != hr_person.first_name:
             db_person.affect_names(self.source_system, self.co.name_first)
             db_person.populate_name(self.co.name_first, hr_person.first_name)
-            logger.info('Updating name=%s of person_id=%r',
-                        self.co.name_first, db_person.entity_id)
+            logger.info('Updating name %s from %s to %s for person_id %r',
+                        self.co.name_first,
+                        crb_first_name,
+                        hr_person.first_name,
+                        db_person.entity_id)
+            db_person.write_db()
 
         if crb_last_name != hr_person.last_name:
             db_person.affect_names(self.source_system, self.co.name_last)
             db_person.populate_name(self.co.name_last, hr_person.last_name)
-            logger.info('Updating name=%s of person_id=%r',
-                        crb_last_name, hr_person.last_name)
-        db_person.write_db()
+            logger.info('Updating name %s from %s to %s for person_id %r',
+                        self.co.name_last,
+                        crb_last_name,
+                        hr_person.last_name,
+                        db_person.entity_id)
+            db_person.write_db()
 
     def update_titles(self, db_person, hr_person):
         """Update person in Cerebrum with work and personal titles"""
@@ -246,7 +256,7 @@ class HRDataImport(object):
             logger.info('clearing contact %s (pref=%r) for person_id=%r',
                         ctype, db_pref, db_person.entity_id)
 
-        for contact in to_update:
+        for ctype in to_update:
             db_value, db_pref = db_contacts[ctype]
             hr_value, hr_pref = hr_contacts[ctype]
             db_person.add_contact_info(source=self.source_system, type=ctype,
@@ -254,9 +264,72 @@ class HRDataImport(object):
             logger.info('updating contact %s (pref=%r/%r) for entity_id=%r',
                         ctype, db_pref, hr_pref, db_person.entity_id)
 
-        for contact in to_add:
+        for ctype in to_add:
             hr_value, hr_pref = hr_contacts[ctype]
             db_person.add_contact_info(source=self.source_system, type=ctype,
                                        value=hr_value, pref=hr_pref)
             logger.info('adding contact %s (pref=%r) for entity_id=%r',
                         ctype, hr_pref, db_person.entity_id)
+
+    # TODO: should probaly be moved into sap_uio/dfo_sap subclasses
+    def _get_ou_id(self, hr_ou_id):
+        """Find id of ou in cerebrum from ou_id given by the hr system"""
+        ou = Factory.get('OU')(self.database)
+        ou.clear()
+        if self.source_system == self.co.system_sap:
+            ou.find_stedkode(
+                hr_ou_id[0:2],
+                hr_ou_id[2:4],
+                hr_ou_id[4:6],
+                cereconf.DEFAULT_INSTITUSJONSNR
+            )
+        else:
+            ou.find_by_external_id(
+                id_type=self.co.externalid_dfo_ou_id,
+                external_id=hr_ou_id,
+                source_system=self.source_system
+            )
+        return ou.entity_id
+
+    def update_affiliations(self, db_person, hr_person):
+        """Update person in Cerebrum with the latest affiliations"""
+        hr_affiliations = set(
+            models.HRAffiliation(
+                ou_id=self._get_ou_id(aff.ou_id),
+                affiliation=self.co.PersonAffiliation(aff.affiliation),
+                status=self.co.PersonAffStatus(aff.affiliation, aff.status),
+                precedence=aff.precedence)
+            for aff in hr_person.affiliations
+        )
+        db_affiliations = set(
+            models.HRAffiliation(
+                    aff['ou_id'],
+                    self.co.PersonAffiliation(aff['affiliation']),
+                    self.co.PersonAffStatus(aff['status']),
+                    precedence=aff['precedence'])
+            for aff in db_person.list_affiliations(
+                person_id=db_person.entity_id,
+                source_system=self.source_system)
+        )
+        for aff in db_affiliations - hr_affiliations:
+            db_person.delete_affiliation(
+                ou_id=aff.ou_id,
+                affiliation=aff.affiliation,
+                source=self.source_system)
+            logger.info('Removing affiliation %r on ou %r for id: %r',
+                        unicode(aff.status),
+                        aff.ou_id,
+                        db_person.entity_id)
+        for aff in hr_affiliations - db_affiliations:
+            db_person.populate_affiliation(
+                source_system=self.source_system,
+                ou_id=aff.ou_id,
+                affiliation=aff.affiliation,
+                status=aff.status,
+                precedence=aff.precedence
+            )
+            logger.info('Adding affiliation %r on ou %r for id: %r',
+                        unicode(aff.status),
+                        aff.ou_id,
+                        db_person.entity_id)
+        db_person.write_db()

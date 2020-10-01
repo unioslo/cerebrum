@@ -134,19 +134,25 @@ class HRAffiliation(ComparableObject):
     (and person_affiliation)
     """
 
-    def __init__(self, placecode, affiliation, status, precedence, start_date,
-                 end_date):
+    def __init__(self, ou_id, affiliation, status, precedence,
+                 start_date=None, end_date=None):
         """
-        :param str or None placecode: Place-code
+        :param str ou_id: id for the ou, either an external id or stedkode
         :param str affiliation: Affiliation code
         :param str status: Status code
         :param int or None precedence: Precedence for the affiliation
-        :param date start_date: Date from which the affiliation is active
-        :param date end_date: End date of the affiliation
+        :param date or None start_date: Date from which the affiliation is
+                                        active
+        :param date or None end_date: End date of the affiliation
         """
-        self.placecode = placecode
+        self.ou_id = ou_id
         self.affiliation = affiliation
         self.status = status
         self.precedence = precedence
         self.start_date = start_date
         self.end_date = end_date
+
+    def __hash__(self):
+        return hash(
+            (self.ou_id, self.affiliation, self.status, self.precedence)
+        )

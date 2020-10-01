@@ -141,7 +141,7 @@ class EmployeeMapper(_base.AbstractMapper):
             main = x.get('primaryAssignmentFlag')
             affiliations.add(
                 HRAffiliation(**{
-                    'placecode': placecode,
+                    'ou_id': placecode,
                     'affiliation': 'ANSATT',
                     'status': status,
                     'precedence': ((50, 50) if main else None),
