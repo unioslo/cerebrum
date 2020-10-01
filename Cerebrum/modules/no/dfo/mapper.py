@@ -130,7 +130,7 @@ class EmployeeMapper(_base.AbstractMapper):
         return self.const.system_dfo_sap
 
     @classmethod
-    def parse_affiliations(cls, person_data, assignment_data, stedkode_cache):
+    def parse_affiliations(cls, person_data, assignment_data):
         """
         Parse data from SAP and return affiliations
 
@@ -189,14 +189,14 @@ class EmployeeMapper(_base.AbstractMapper):
                 logger.warning('parse_affiliations: Unknown job category')
                 continue
 
-            placecode = stedkode_cache.get(assignment.get('orgenhet'))
-            if placecode is None:
-                logger.warning('Placecode does not exist')
+            ou_id = assignment.get('orgenhet')
+            if ou_id is None:
+                logger.warning('No orgenhet skipping')
                 continue
 
             affiliations.add(
                 HRAffiliation(**{
-                    'placecode': placecode,
+                    'ou_id': ou_id,
                     'affiliation': affiliation,
                     'status': status,
                     'precedence': precedence,
@@ -397,8 +397,7 @@ class EmployeeMapper(_base.AbstractMapper):
         hr_person.contact_infos = self.parse_contacts(person_data)
         hr_person.titles = self.parse_titles(person_data, assignment_data)
         hr_person.affiliations = self.parse_affiliations(person_data,
-                                                         assignment_data,
-                                                         stedkode_cache)
+                                                         assignment_data)
         return hr_person
 
     def is_active(self, hr_object, is_active=None):
