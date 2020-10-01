@@ -29,6 +29,13 @@ import abc
 
 import six
 
+from Cerebrum.Utils import Factory
+from Cerebrum.config.configuration import (
+    Configuration,
+    ConfigDescriptor,
+)
+from Cerebrum.config.settings import Integer
+
 
 class MapperError(RuntimeError):
     """ Unable to fetch data. """
@@ -59,6 +66,16 @@ class AbstractMapper(object):
     """
     Fetch objects from remote systems.
     """
+
+    def __init__(self, db, config):
+        """
+        :param db: Database object
+        :type db: Cerebrum.Database
+        """
+        self.db = db
+        self.end_grace = datetime.timedelta(days=config.end_grace)
+        self.start_grace = datetime.timedelta(days=config.start_grace)
+        self.const = Factory.get('Constants')(db)
 
     @abc.abstractproperty
     def source_system(self):
@@ -120,7 +137,7 @@ class AbstractMapper(object):
         These dates should be stored in a queue along with the original
         message or object reference, and re-processed at a later time.
 
-        :type hr_object: object
+        :type hr_object: Cerebrum.modules.hr_import.models.HRPerson
 
         :returns:
             - A list of date or datetime objects for future processing.
@@ -148,3 +165,18 @@ class AbstractMapper(object):
 
         return retry_dates, has_active_affiliation
 
+
+class MapperConfig(Configuration):
+    start_grace = ConfigDescriptor(
+        Integer,
+        default=0,
+        doc=("How many days after an affiliation's start date should it first "
+             "be imported?"),
+    )
+
+    end_grace = ConfigDescriptor(
+        Integer,
+        default=0,
+        doc=("How many days past an affiliation's end date should it be kept "
+             "in Cerebrum?"),
+    )

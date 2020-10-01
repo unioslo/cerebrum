@@ -18,33 +18,55 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """
-SAPUiO import.
+UIO import.
 """
 import functools
 import os
 
+from Cerebrum.config.settings import String
 from Cerebrum.config import loader as config_loader
 from Cerebrum.config.configuration import (
     Configuration,
     ConfigDescriptor,
     Namespace,
 )
+from Cerebrum.utils.funcwrap import memoize
+from Cerebrum.utils.module import resolve
 from Cerebrum.modules.hr_import.employee_import import EmployeeImportBase
+from Cerebrum.modules.hr_import.config import (ConfigurableModule,
+                                               get_configurable_module)
 
-from .datasource import EmployeeDatasource
-from .client import SapClientConfig, get_client
-from .mapper import EmployeeMapper
-from .reservation_group import ReservationGroupUpdater
-from .leader_groups import LeaderGroupUpdater
-from .account_type import AccountTypeUpdater
+from leader_groups import LeaderGroupUpdater
+from reservation_group import ReservationGroupUpdater
+from account_type import AccountTypeUpdater
 
 
 class EmployeeImportConfig(Configuration):
-
-    client = ConfigDescriptor(
+    client_config = ConfigDescriptor(
         Namespace,
-        config=SapClientConfig,
-        doc='SAPUiO client configuration',
+        config=ConfigurableModule,
+        doc='Which client config to use',
+    )
+
+    client_class = ConfigDescriptor(
+        String,
+        doc='Which client class to use'
+    )
+
+    mapper_config = ConfigDescriptor(
+        Namespace,
+        config=ConfigurableModule,
+        doc='Which mapper config to use'
+    )
+
+    mapper_class = ConfigDescriptor(
+        String,
+        doc='Which mapper class to use'
+    )
+
+    datasource_class = ConfigDescriptor(
+        String,
+        doc='Which datasource class to use'
     )
 
 
@@ -53,10 +75,9 @@ class EmployeeImport(EmployeeImportBase):
     An employee import for SAPUiO @ UiO.
     """
 
-    mapper_cls = EmployeeMapper
-
-    def __init__(self, db, datasource):
+    def __init__(self, db, mapper_cls, datasource):
         self.db = db
+        self.mapper_cls = mapper_cls
         self._ds = datasource
 
     @property
@@ -70,7 +91,7 @@ class EmployeeImport(EmployeeImportBase):
         return self._mapper
 
     def update(self, hr_object, db_object):
-
+        print('Update')
         account_types = AccountTypeUpdater(
             self.db,
             restrict_affiliation=self.const.affiliation_ansatt,
@@ -100,10 +121,27 @@ class EmployeeImport(EmployeeImportBase):
         leader_groups.sync(db_object.entity_id, hr_object.leader_groups)
 
 
+@memoize
 def get_employee_importer(config):
-    client = get_client(config.client)
-    ds = EmployeeDatasource(client)
-    return functools.partial(EmployeeImport, datasource=ds)
+    """Get employee importer from config
+
+    :type config: EmployeeImportConfig
+    """
+
+    client_config = get_configurable_module(config.client_config)
+    client_cls = resolve(config.client_class)
+    client = client_cls(client_config)
+
+    mapper_config = get_configurable_module(config.mapper_config)
+    mapper_cls = resolve(config.mapper_class)
+    mapper_cls = functools.partial(mapper_cls, config=mapper_config)
+
+    datasource_cls = resolve(config.datasource_class)
+    datasource = datasource_cls(client)
+
+    return functools.partial(EmployeeImport,
+                             mapper_cls=mapper_cls,
+                             datasource=datasource)
 
 
 def autoload_employee_import(filename_or_namespace):

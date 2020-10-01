@@ -37,8 +37,7 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRExternalID,
                                                HRContactInfo)
 from Cerebrum.modules.hr_import.matcher import match_entity
-
-from .leader_groups import get_leader_group
+from Cerebrum.modules.no.uio.hr_import.leader_groups import get_leader_group
 
 logger = logging.getLogger(__name__)
 
@@ -113,27 +112,18 @@ def parse_leader_ous(person_data, assignment_data):
         leader_assignment_id = person_data['stillingId']
         # TODO:
         #  DFØ-SAP will probably fix naming of
-        #  organisasjonsId/organisasjonId, so that they are equal at some
-        #  point.
-        return [assignment_data[leader_assignment_id]['organisasjonsId']]
+        #  organisasjonsId/organisasjonId/orgenhet, so that they are equal at
+        #  some point.
+        return [assignment_data[leader_assignment_id]['orgenhet']]
     return []
+
+
+class MapperConfig(_base.MapperConfig):
+    pass
 
 
 class EmployeeMapper(_base.AbstractMapper):
     """A simple employee mapper class"""
-
-    # TODO:
-    #  Should be config
-    start_grace = datetime.timedelta(days=-6)
-    end_grace = datetime.timedelta(days=0)
-
-    def __init__(self, db):
-        """
-        :param db: Database object
-        :type db: Cerebrum.Database
-        """
-        self.db = db
-        self.const = Factory.get('Constants')(db)
 
     @property
     def source_system(self):
@@ -142,19 +132,6 @@ class EmployeeMapper(_base.AbstractMapper):
     @classmethod
     def parse_affiliations(cls, person_data, assignment_data, stedkode_cache):
         """
-        Parse data from SAP and return affiliations and account types
-
-        :rtype: tuple(set(HRAffiliation)
-        """
-        assignments = cls.parse_assignments(person_data,
-                                            assignment_data,
-                                            stedkode_cache)
-        roles = cls.parse_roles(person_data, stedkode_cache)
-        return assignments.union(roles)
-
-    @classmethod
-    def parse_assignments(cls, person_data, assignment_data, stedkode_cache):
-        """
         Parse data from SAP and return affiliations
 
         :rtype: set(HRAffiliation)
@@ -162,27 +139,41 @@ class EmployeeMapper(_base.AbstractMapper):
         affiliations = set()
         category_2_status = {
             50001597: 'tekadm',
+            50001599: 'vitenskapelig'
+        }
+        role_mapping = {
             # TODO:
-            #   Find correct id
-            1: 'vitenskapelig'
+            #  It says that "medarbeiderundergruppe" is supposed to be int in
+            #  the API-doc.
+            ('9', '90'): 'assosiert_person',
+            ('9', '93'): 'emeritus',
+            ('9', '94'): 'ekst_partner',
+            ('9', '95'): 'gjesteforsker',
         }
 
         # TODO:
         #  Rewrite this once orgreg is ready.
         for assignment_id, assignment in assignment_data.items():
+            affiliation = 'ANSATT'
             status = category_2_status.get(
                 assignment.get('stillingskat', {}).get(
                     'stillingskatId')
             )
-            if not status:
-                logger.warning('parse_affiliations: Unknown job category')
-                continue
-
             is_main_assignment = assignment_id == person_data['stillingId']
             if is_main_assignment:
                 precedence = (50, 50)
                 start_date = parse_date(person_data['startdato'])
                 end_date = parse_date(person_data['sluttdato'])
+
+                # If the person has one of the MG/MUG combinations present in
+                # role_mapping, then the main assignment should instead be
+                # interpreted as a TILKNYTTET affiliation.
+                group = person_data.get('medarbeidergruppe')
+                sub_group = person_data.get('medarbeiderundergruppe')
+                role = role_mapping.get((group, sub_group))
+                if role:
+                    status = role
+                    affiliation = 'TILKNYTTET'
             else:
                 precedence = None
                 additional_assignment = get_additional_assignment(
@@ -194,15 +185,19 @@ class EmployeeMapper(_base.AbstractMapper):
                 end_date = parse_date(additional_assignment.get('sluttdato'),
                                       allow_empty=True)
 
-            placecode = stedkode_cache.get(assignment.get('organisasjonsId'))
+            if not status:
+                logger.warning('parse_affiliations: Unknown job category')
+                continue
+
+            placecode = stedkode_cache.get(assignment.get('orgenhet'))
             if placecode is None:
                 logger.warning('Placecode does not exist')
                 continue
 
             affiliations.add(
                 HRAffiliation(**{
-                    'ou_id': placecode,
-                    'affiliation': 'ANSATT',
+                    'placecode': placecode,
+                    'affiliation': affiliation,
                     'status': status,
                     'precedence': precedence,
                     'start_date': start_date,
@@ -279,7 +274,7 @@ class EmployeeMapper(_base.AbstractMapper):
             #  Are there other id-types?
         }
 
-        for external_id in person_data.get('annenId') or []:
+        for external_id in [person_data.get('annenId')] or []:
             id_type = dfo_2_cerebrum.get(external_id['idType'])
             if id_type:
                 if id_type == 'PASSNR':
@@ -296,42 +291,6 @@ class EmployeeMapper(_base.AbstractMapper):
         return external_ids
 
     @classmethod
-    def parse_roles(cls, person_data, stedkode_cache):
-        """
-        Parse data from SAP and return existing roles.
-
-        :rtype: set(HRAffiliation)
-        """
-        role_mapping = {
-            # TODO:
-            #  It says that "medarbeiderundergruppe" is supposed to be int in
-            #  the API-doc.
-            ('9', '93'): 'emeritus',
-            ('9', '94'): 'ekst_partner',
-            ('9', '95'): 'gjesteforsker'
-        }
-        group = person_data.get('medarbeidergruppe')
-        sub_group = person_data.get('medarbeiderundergruppe')
-
-        placecode = stedkode_cache.get(person_data.get('organisasjonId'))
-        role = role_mapping.get((group, sub_group))
-        # TODO:
-        #  What dates should one use? Is this correct?
-        start_date = parse_date(person_data['startdato'])
-        end_date = parse_date(person_data['sluttdato'])
-        if role and placecode:
-            roles = {HRAffiliation(placecode=placecode,
-                                   affiliation='TILKNYTTET',
-                                   status=role,
-                                   precedence=None,
-                                   start_date=start_date,
-                                   end_date=end_date)}
-        else:
-            roles = set()
-        logger.info('parsed %i roles', len(roles))
-        return roles
-
-    @classmethod
     def parse_titles(cls, person_data, assignment_data):
         """
         Parse data from DFØ-SAP and return person titles.
@@ -341,10 +300,11 @@ class EmployeeMapper(_base.AbstractMapper):
         logger.info('parsing titles')
         titles = set()
 
+        # We only want the title of the main assignment
         main_assignment = assignment_data[person_data['stillingId']]
         titles.add(
             HRTitle(name_variant='WORKTITLE',
-                    name_language='no',
+                    name_language='nb',
                     name=main_assignment['stillingstittel'])
         )
         return titles
@@ -389,7 +349,7 @@ class EmployeeMapper(_base.AbstractMapper):
         cache = {}
         ou = Factory.get('OU')(self.db)
         co = Factory.get('Constants')(self.db)
-        dfo_ou_ids = (a['organisasjonsId'] for a in assignment_data.values())
+        dfo_ou_ids = (a['orgenhet'] for a in assignment_data.values())
         for dfo_ou_id in dfo_ou_ids:
             ou.clear()
             try:
@@ -430,7 +390,6 @@ class EmployeeMapper(_base.AbstractMapper):
         #  This should be fetched from orgreg by ``datasource.py`` sometime in
         #  the future.
         stedkode_cache = self.cache_stedkoder(assignment_data)
-
         hr_person.leader_groups = self.parse_leader_groups(person_data,
                                                            assignment_data,
                                                            stedkode_cache)
