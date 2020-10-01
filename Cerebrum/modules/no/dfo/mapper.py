@@ -196,7 +196,7 @@ class EmployeeMapper(_base.AbstractMapper):
 
             affiliations.add(
                 HRAffiliation(**{
-                    'placecode': placecode,
+                    'ou_id': placecode,
                     'affiliation': affiliation,
                     'status': status,
                     'precedence': precedence,
