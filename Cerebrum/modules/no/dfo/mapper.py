@@ -82,6 +82,22 @@ def filter_elements(d):
     return {k: v for k, v in d.items() if k and v}
 
 
+def assert_list(value):
+    """
+    Assert that value is a list.
+
+    Usage: ``some_key = assert_list(dfo_object.get('someKey'))``
+    """
+    # This is a hacky way to fix the broken DFØ API
+    # Some items in the API are specified to be a list, but lists of length 1
+    # are unwrapped, and empty lists are simply not present.
+    if not value:
+        return []
+    if not isinstance(value, list):
+        return [value]
+    return value
+
+
 def get_additional_assignment(person_data, assignment_id):
     """Extract data about an additional assignment from ``person_data``
 
@@ -269,24 +285,20 @@ class EmployeeMapper(_base.AbstractMapper):
             )
 
         dfo_2_cerebrum = {
-            '02': 'PASSNR',
-            # TODO:
-            #  Are there other id-types?
+            '02': (
+                'PASSNR',
+                (lambda d: '{}-{}'.format(d['idLand'][:2], d['idNr'])),
+            ),
+            # TODO: Are there other id-types?
         }
 
-        for external_id in [person_data.get('annenId')] or []:
-            id_type = dfo_2_cerebrum.get(external_id['idType'])
-            if id_type:
-                if id_type == 'PASSNR':
-                    id_value = '{}-{}'.format(
-                        external_id['idLand'][:2],
-                        external_id['idNr']
-                    )
-                else:
-                    id_value = external_id['idNr']
-                external_ids.add(
-                    HRExternalID(id_type=id_type, external_id=id_value)
-                )
+        for external_id in assert_list(person_data.get('annenId')):
+            if external_id['idType'] not in dfo_2_cerebrum:
+                continue
+            id_type, id_format = dfo_2_cerebrum[external_id['idType']]
+            id_value = id_format(external_id)
+            external_ids.add(HRExternalID(id_type=id_type,
+                                          external_id=id_value))
         logger.info('parsed %i external ids', len(external_ids))
         return external_ids
 
