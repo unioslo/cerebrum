@@ -314,15 +314,15 @@ class HRDataImport(object):
                         unicode(aff.status),
                         aff.ou_id,
                         db_person.entity_id)
-        for aff in hr_affiliations - db_affiliations:
-            db_person.populate_affiliation(
+        for aff in hr_affiliations:
+            db_person.add_affiliation(
                 source_system=self.source_system,
                 ou_id=aff.ou_id,
                 affiliation=aff.affiliation,
                 status=aff.status,
                 precedence=aff.precedence
             )
-            logger.info('Adding affiliation %r on ou %r for id: %r',
+            logger.info('Adding/updating affiliation %r on ou %r for id: %r',
                         unicode(aff.status),
                         aff.ou_id,
                         db_person.entity_id)

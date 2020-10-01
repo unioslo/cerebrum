@@ -154,5 +154,5 @@ class HRAffiliation(ComparableObject):
 
     def __hash__(self):
         return hash(
-            (self.ou_id, self.affiliation, self.status, self.precedence)
+            (self.ou_id, self.affiliation)
         )
