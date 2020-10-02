@@ -27,10 +27,12 @@ This client is forked from the ``dfo_sap_client.client`` module @
 """
 from __future__ import unicode_literals
 
-import json
 import logging
-import os
-import urlparse
+from six.moves.urllib.parse import (
+    quote_plus,
+    urlparse,
+    urljoin as _urljoin,
+)
 
 import requests
 
@@ -42,27 +44,8 @@ from Cerebrum.config.settings import Boolean, Iterable, String
 logger = logging.getLogger(__name__)
 
 
-def load_json_file(name):
-    here = os.path.realpath(
-        os.path.join(os.getcwd(),
-                     os.path.dirname(__file__).rsplit('/', 1)[0]))
-    with open(os.path.join(here, '../tests/fixtures', name)) as f:
-        data = json.load(f)
-    return data
-
-
-def get_deferred(dct):
-    """ Get an url from a dict-like object.
-
-    The dict like object should contain:
-
-        {'__deferred': {'uri': '...'}}
-    """
-    return dct['__deferred']['uri']
-
-
 def quote_path_arg(arg):
-    return urlparse.quote_plus(str(arg))
+    return quote_plus(str(arg))
 
 
 def merge_dicts(*dicts):
@@ -85,67 +68,78 @@ def merge_dicts(*dicts):
     return combined
 
 
+def urljoin(base_url, *paths):
+    """
+    A sane urljoin.
+
+    >>> urljoin('https://localhost/foo', 'bar')
+    'https://localhost/bar'
+
+    >>> urljoin('https://localhost/foo', 'bar')
+    'https://localhost/foo/bar'
+
+    >>> urljoin('https://localhost/foo', 'bar', 'baz')
+    'https://localhost/foo/bar/baz'
+    """
+    for path in paths:
+        base_url = _urljoin(base_url.rstrip('/') + '/', path)
+    return base_url
+
+
 class SapEndpoints(object):
     """Get endpoints relative to the SAP API URL."""
 
+    default_employee_path = 'ansatte/'
+    default_orgenhet_path = 'orgenhet/'
+    default_stilling_path = 'stillinger/'
+
     def __init__(self,
                  url,
-                 employee_url='ansatte/',
-                 orgenhet_url='orgenhet/',
-                 stilling_url='stillinger/',
-                 kursinfo_url='kursgjennomfoering/',
-                 familie_url='ansattefamilie-test/'):
+                 employee_path=None,
+                 orgenhet_path=None,
+                 stilling_path=None):
         self.baseurl = url
-        self.employee_url = employee_url
-        self.orgenhet_url = orgenhet_url
-        self.stilling_url = stilling_url
-        self.kursinfo_url = kursinfo_url
-        self.familie_url = familie_url
+        self.employee_path = employee_path or self.default_employee_path
+        self.orgenhet_path = orgenhet_path or self.default_orgenhet_path
+        self.stilling_path = stilling_path or self.default_stilling_path
 
     def __repr__(self):
-        return '{cls.__name__}({url!r})'.format(
-            cls=type(self),
-            url=self.baseurl)
-
-    @staticmethod
-    def _urljoin(base, path, ident):
-        # urlparse and urllib.parse behave differently.
-        # Hack to add a trailing slash if it's missing
-        if path[-1] != '/':
-            path = path + '/'
-
-        return urlparse.urljoin(base, path + str(ident))
+        return (
+            '{cls.__name__}'
+            '({obj.baseurl!r},'
+            ' employee_path={obj.employee_path!r},'
+            ' orgenhet_path={obj.orgenhet_path!r},'
+            ' stilling_path={obj.stilling_path!r})'
+        ).format(cls=type(self), obj=self)
 
     def get_employee(self, employee_id):
-        return self._urljoin(self.baseurl, self.employee_url, str(employee_id))
+        return urljoin(self.baseurl, self.employee_path,
+                       quote_path_arg(employee_id))
 
     def get_orgenhet(self, org_id):
-        return self._urljoin(self.baseurl, self.orgenhet_url, str(org_id))
+        return urljoin(self.baseurl, self.orgenhet_path,
+                       quote_path_arg(org_id))
 
     def get_stilling(self, stilling_id):
-        return self._urljoin(self.baseurl, self.stilling_url, str(stilling_id))
-
-    def get_familie(self, familie_id):
-        return self._urljoin(self.baseurl, self.familie_url, str(familie_id))
-
-    def put_kursinfo(self):
-        return urlparse.urljoin(self.baseurl, self.kursinfo_url)
+        return urljoin(self.baseurl, self.stilling_path,
+                       quote_path_arg(stilling_id))
 
 
 class SapClient(object):
+
     default_headers = {
         'Accept': 'application/json',
     }
 
     def __init__(self,
                  url,
-                 employee_api=None,
-                 orgenhet_api=None,
-                 stilling_api=None,
-                 kursinfo_api=None,
-                 familie_api=None,
-                 mock=False,
                  headers=None,
+                 employee_path=None,
+                 employee_headers=None,
+                 orgenhet_path=None,
+                 orgenhet_headers=None,
+                 stilling_path=None,
+                 stilling_headers=None,
                  use_sessions=True):
         """
         SAP API client.
@@ -154,52 +148,25 @@ class SapClient(object):
         :param dict employee_api: employee API config
         :param dict orgenhet_api: organisational API config
         :param dict stilling_api: stilling API config
-        :param dict kursinfo_api: kursinfo API config
-        :param dict familie_api: familie API config
-        :param bool mock: Mock the API or not
         :param dict headers: Append extra headers to all requests
         :param bool use_sessions: Keep HTTP connections alive (default True)
         """
-
-        def add_tokens(**apis):
-            for api_name, api in apis.items():
-                if api.get('auth'):
-                    key, val = api['auth'].split(':')
-                    self.tokens.update({api_name: {key: val.strip(' ')}})
-
-        def extract_url(api):
-            if api is None:
-                return None
-            return api.get('url')
-
         self.urls = SapEndpoints(
-            url,
-            extract_url(employee_api),
-            extract_url(orgenhet_api),
-            extract_url(stilling_api),
-            extract_url(kursinfo_api),
-            extract_url(familie_api),
+            url=url,
+            employee_path=employee_path,
+            orgenhet_path=orgenhet_path,
+            stilling_path=stilling_path,
         )
-        self.tokens = {}
-        add_tokens(employee_api=employee_api,
-                   orgenhet_api=orgenhet_api,
-                   stilling_api=stilling_api,
-                   kursinfo_api=kursinfo_api,
-                   familie_api=familie_api)
-        self.mock = mock
         self.headers = merge_dicts(self.default_headers, headers)
+        self.api_headers = {
+            'employee': employee_headers,
+            'orgenhet': orgenhet_headers,
+            'stilling': stilling_headers,
+        }
         if use_sessions:
             self.session = requests.Session()
         else:
             self.session = requests
-
-    def _build_request_headers(self, headers):
-        request_headers = {}
-        for h in self.headers:
-            request_headers[h] = self.headers[h]
-        for h in (headers or ()):
-            request_headers[h] = headers[h]
-        return request_headers
 
     def call(self,
              method_name,
@@ -208,12 +175,12 @@ class SapClient(object):
              params=None,
              return_response=True,
              **kwargs):
-        headers = self._build_request_headers(headers)
+        headers = merge_dicts(self.headers, headers)
         if params is None:
             params = {}
         logger.debug('Calling %s %s with params=%r',
                      method_name,
-                     urlparse.urlparse(url).path,
+                     urlparse(url).path,
                      params)
         r = self.session.request(method_name,
                                  url,
@@ -238,11 +205,8 @@ class SapClient(object):
     # def get_employee(self, employee_id: str) -> [None, dict]:
     def get_employee(self, employee_id):
         url = self.urls.get_employee(employee_id)
-        if self.mock:
-            return load_json_file('employee_00101223.json')
-        response = self.get(url,
-                            headers=self.tokens.get('employee_api',
-                                                    None))
+        headers = merge_dicts(self.headers, self.api_headers['employee'])
+        response = self.get(url, headers=headers)
         if response.status_code == 404:
             return None
         if response.status_code == 200:
@@ -252,12 +216,9 @@ class SapClient(object):
 
     # def get_orgenhet(self, org_id: str) -> [None, dict]:
     def get_orgenhet(self, org_id):
-        if self.mock:
-            return load_json_file('org_5001234.json')
         url = self.urls.get_orgenhet(org_id)
-        response = self.get(url,
-                            headers=self.tokens.get('orgenhet_api',
-                                                    None))
+        headers = merge_dicts(self.headers, self.api_headers['orgenhet'])
+        response = self.get(url, headers=headers)
         if response.status_code == 404:
             return None
         if response.status_code == 200:
@@ -267,84 +228,14 @@ class SapClient(object):
 
     # def get_stilling(self, stilling_id: str) -> [None, dict]:
     def get_stilling(self, stilling_id):
-        if self.mock:
-            return load_json_file('stilling_30045705.json')
         url = self.urls.get_stilling(stilling_id)
-        response = self.get(url,
-                            headers=self.tokens.get(
-                                'stilling_api',
-                                None))
+        headers = merge_dicts(self.headers, self.api_headers['stilling'])
+        response = self.get(url, headers=headers)
         if response.status_code == 404:
             return None
         if response.status_code == 200:
             data = response.json()
             return data.get('stilling', None)
-        response.raise_for_status()
-
-    # def get_familie(self, employee_id: str) -> [None, dict]:
-    def get_familie(self, employee_id):
-        if self.mock:
-            return load_json_file('familie_00101223.json')
-        url = self.urls.get_familie(employee_id)
-        response = self.get(url,
-                            headers=self.tokens.get(
-                                'familie_api',
-                                None))
-        if response.status_code == 404:
-            return None
-        if response.status_code == 200:
-            data = self.transform_familie(response.json())
-            return data.get('AnsattFamilie', None)
-        response.raise_for_status()
-
-    def transform_familie(self, data):
-        if 'kontaktpersICE' in data['AnsattFamilie']:
-            if data['AnsattFamilie']['kontaktpersICE'] is not None:
-                if data['AnsattFamilie']['kontaktpersICE'].lower() == "ja":
-                    data['AnsattFamilie']['kontaktpersICE'] = True
-                else:
-                    data['AnsattFamilie']['kontaktpersICE'] = False
-        else:
-            # If value is missing from json set it to None
-            data['AnsattFamilie']['kontaktpersICE'] = None
-
-        if 'narmesteFamilie' in data['AnsattFamilie']:
-            if data['AnsattFamilie']['narmesteFamilie'] is not None:
-                if data['AnsattFamilie']['narmesteFamilie'].lower() == "ja":
-                    data['AnsattFamilie']['narmesteFamilie'] = True
-                else:
-                    data['AnsattFamilie']['narmesteFamilie'] = False
-        else:
-            # If value is missing from json set it to None
-            data['AnsattFamilie']['narmesteFamilie'] = None
-        return data
-
-    # def put_kursinformasjon(self, kursinfo: Kursinformasjon) -:
-    def put_kursinformasjon(self, kursinfo):
-        """PUT kursinfo to the appropriate API endpoint"""
-
-        data = kursinfo.json(by_alias=True)
-        url = self.urls.put_kursinfo()
-        token = self.tokens.get('kursinfo_api', None)
-        headers = {'Content-Type': 'application/json',
-                   "accept": "application/json"}
-        headers.update(token)
-
-        if self.mock:
-            return "MOCK - PUT: {} to {} with headers {}".format(
-                data,
-                url,
-                headers
-            )
-        response = self.put(url,
-                            data=data,
-                            headers=headers)
-        if response.status_code == 404:
-            return None
-        if response.status_code == 200:
-            return "Modified successfully"
-        if response.status_code == 201:
-            return "Created successfully"
         response.raise_for_status()
 
 
@@ -355,11 +246,17 @@ class DictEntry(Configuration):
 
 
 class SapClientApi(Configuration):
-    url = ConfigDescriptor(String, default='http://localhost')
+    path = ConfigDescriptor(
+        String,
+        default=None,
+        doc='Relative path to this API',
+    )
+
     auth = ConfigDescriptor(
         String,
         default=None,
-        doc='Token header, e.g. "X-Gravitee-API-Key: fafa-fafaaf-fafaaf-afaf"')
+        doc='Auth key/token to use for this API',
+    )
 
 
 class SapClientConfig(Configuration):
@@ -368,10 +265,6 @@ class SapClientConfig(Configuration):
     employee_api = ConfigDescriptor(Namespace, config=SapClientApi)
     orgenhet_api = ConfigDescriptor(Namespace, config=SapClientApi)
     stilling_api = ConfigDescriptor(Namespace, config=SapClientApi)
-    kursinfo_api = ConfigDescriptor(Namespace, config=SapClientApi)
-    familie_api = ConfigDescriptor(Namespace, config=SapClientApi)
-    mock = ConfigDescriptor(Boolean,
-                            default=False)
     headers = ConfigDescriptor(Iterable,
                                default=[],
                                template=Namespace(config=DictEntry))
@@ -381,5 +274,24 @@ class SapClientConfig(Configuration):
 
 def get_client(config):
     """Get a SapClient from configuration"""
-    config_dict = config.dump_dict()
-    return SapClient(**config_dict)
+    api_key_header = 'X-Gravitee-Api-Key'
+
+    kwargs = {
+        'url': config.url,
+        'headers': config.headers or {},
+        'use_sessions': config.use_sessions,
+    }
+
+    # set <name>_path and <name>_headers from api namespaces
+    for name, api_config in (
+            ('employee', config.employee_api)
+            ('orgenhet', config.orgenhet_api)
+            ('stilling', config.stilling_api)):
+        if api_config.url:
+            kwargs[name + '_path'] = api_config.path
+        if api_config.auth:
+            kwargs.setdefault(name + '_headers', {}).update({
+                api_key_header: api_config.auth,
+            })
+
+    return SapClient(**kwargs)
