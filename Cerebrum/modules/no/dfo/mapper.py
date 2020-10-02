@@ -391,7 +391,7 @@ class EmployeeMapper(_base.AbstractMapper):
             hr_id=person_data.get('id'),
             first_name=person_data.get('fornavn'),
             last_name=person_data.get('etternavn'),
-            birth_date=parse_date(person_data.get('fdato'), allow_empty=False),
+            birth_date=parse_date(person_data.get('fdato'), allow_empty=True),
             gender=person_data.get('kjonn'),
             # TODO:
             #  There does not seem to be any way to determine this in DFO-SAP
