@@ -238,7 +238,7 @@ class FsImporterUio(FsImporter):
                 try:
                     sko = self.emne2sko[p['emnekode']]
                 except KeyError:
-'                    logger.warn(
+                    logger.warn(
                         "Fant ingen emner med koden %s" % p['emnekode'])
                     continue
                 self._process_affiliation(

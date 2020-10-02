@@ -316,25 +316,19 @@ class FsImporter(object):
         person.populate_name(self.co.name_first, fornavn)
         person.populate_name(self.co.name_last, etternavn)
 
+        external_ids = [self.co.externalid_fodselsnr]
+        external_id_mappings = {self.co.externalid_fodselsnr: fnr}
         if studentnr is not None:
-            person.affect_external_id(self.co.system_fs,
-                                      self.co.externalid_fodselsnr,
-                                      self.co.externalid_studentnr)
+            external_ids.append(self.co.externalid_studentnr)
+            external_id_mappings[self.co.externalid_studentnr] = studentnr
+        if lopenr is not None:
+            external_ids.append(self.co.externalid_fs_lopenr)
+            external_id_mappings[self.co.externalid_fs_lopenr] = lopenr
+        person.affect_external_id(self.co.system_fs, *external_ids)
+        for eid_type, eid_value in external_id_mappings.items():
             person.populate_external_id(self.co.system_fs,
-                                        self.co.externalid_fodselsnr,
-                                        fnr)
-            person.populate_external_id(self.co.system_fs,
-                                        self.co.externalid_studentnr,
-                                        studentnr)
-        else:
-            person.affect_external_id(self.co.system_fs,
-                                      self.co.externalid_fodselsnr)
-            person.populate_external_id(self.co.system_fs,
-                                        self.co.externalid_fodselsnr,
-                                        fnr)
-        person.populate_external_id(self.co.system_fs,
-                                    self.co.externalid_fs_lopenr,
-                                    lopenr)
+                                        eid_type,
+                                        eid_value)
         ad_post, ad_post_private, ad_street = self._calc_address(person_info)
         for address_info, ad_const in ((ad_post, self.co.address_post),
                                        (ad_post_private,
