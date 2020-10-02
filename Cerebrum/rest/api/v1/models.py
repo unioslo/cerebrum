@@ -81,6 +81,7 @@ class ExternalIdType(object):
         'PASSNR': 'passportNumber',
         'NO_SAPNO': 'employeeNumber',
         'NO_STUDNO': 'studentNumber',
+        'NO_FSNO': 'studentIssueNumber',
     }
 
     _rev_map = dict((v, k) for k, v in _map.iteritems())

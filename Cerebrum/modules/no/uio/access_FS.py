@@ -59,7 +59,7 @@ class UiOStudent(access_FS.Student):
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
-           s.studentnr_tildelt,
+           s.studentnr_tildelt, p.personlopenr,
            pt.telefonlandnr telefonlandnr_mobil,
            '' telefonretnnr_mobil,
            pt.telefonnr telefonnr_mobil,
@@ -102,7 +102,7 @@ class UiOStudent(access_FS.Student):
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
-           s.studentnr_tildelt,
+           s.studentnr_tildelt, p.personlopenr,
            pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
            pt.telefonnr telefonnr_mobil,
            sps.dato_studierett_tildelt
@@ -142,7 +142,7 @@ class UiOStudent(access_FS.Student):
            p.sprakkode_malform, sps.studieprogramkode, sps.studieretningkode,
            sps.studierettstatkode, sps.studentstatkode, sps.terminkode_kull,
            sps.arstall_kull, sp.studienivakode, p.kjonn, p.status_dod,
-           s.studentnr_tildelt,
+           s.studentnr_tildelt, p.personlopenr,
            pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
            pt.telefonnr telefonnr_mobil,
            sps.dato_studierett_tildelt
@@ -185,7 +185,7 @@ class UiOStudent(access_FS.Student):
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
                p.adresseland_hjemsted,
                p.sprakkode_malform, p.kjonn, p.status_dod,
-               s.studentnr_tildelt, u.emnekode, u.versjonskode,
+               s.studentnr_tildelt, p.personlopenr, u.emnekode, u.versjonskode,
                u.terminkode, u.arstall,
                pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
@@ -239,7 +239,7 @@ class UiOStudent(access_FS.Student):
                p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
                p.adresseland_hjemsted,
                p.sprakkode_malform, p.kjonn, p.status_dod, ve.emnekode,
-               s.studentnr_tildelt,
+               s.studentnr_tildelt, p.personlopenr,
                pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
         FROM fs.student s, fs.registerkort r,
@@ -318,6 +318,7 @@ class UiOStudent(access_FS.Student):
                sps.studieretningkode, sps.studierettstatkode,
                sps.studentstatkode, sps.terminkode_kull,
                sps.arstall_kull, p.kjonn, p.status_dod, s.studentnr_tildelt,
+               p.personlopenr,
                pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
         FROM fs.student s, fs.studieprogramstudent sps, fs.person p
@@ -349,6 +350,7 @@ class UiOStudent(access_FS.Student):
                sps.studieretningkode, sps.studierettstatkode,
                sps.studentstatkode, sps.terminkode_kull,
                sps.arstall_kull, p.kjonn, p.status_dod, s.studentnr_tildelt,
+               p.personlopenr,
                pt.telefonlandnr telefonlandnr_mobil, '' telefonretnnr_mobil,
                pt.telefonnr telefonnr_mobil
         FROM fs.student s, fs.studieprogramstudent sps,
@@ -391,6 +393,7 @@ class UiOStudent(access_FS.Student):
             , s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
             s.adrlin1_semadr, s.adrlin2_semadr, s.adrlin3_semadr,
             s.postnr_semadr, s.adresseland_semadr,
+            p.personlopenr,
             p.sprakkode_malform, p.kjonn,
             p.status_dod, pt.telefonlandnr telefonlandnr_mobil,
             '' telefonretnnr_mobil, pt.telefonnr telefonnr_mobil
@@ -439,7 +442,7 @@ class UiOStudent(access_FS.Student):
         SELECT DISTINCT
            p.fodselsdato, p.personnr, p.dato_fodt, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           vm.emnekode, vm.versjonskode, s.studentnr_tildelt
+           vm.emnekode, vm.versjonskode, s.studentnr_tildelt, p.personlopenr,
         FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
            fs.registerkort r, fs.vurdkombmelding vm,
            fs.emne_i_studieprogram es, fs.person p
@@ -484,7 +487,7 @@ class UiOStudent(access_FS.Student):
         SELECT DISTINCT
            p.fodselsdato, p.personnr, p.dato_fodt, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           vm.emnekode, vm.versjonskode, s.studentnr_tildelt
+           vm.emnekode, vm.versjonskode, s.studentnr_tildelt, p.personlopenr,
         FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
            fs.registerkort r, fs.vurdkombmelding vm,
            fs.person p
@@ -525,7 +528,8 @@ class UiOStudent(access_FS.Student):
         SELECT DISTINCT
            p.fodselsdato, p.personnr, p.dato_fodt, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           NULL as emnekode, NULL as versjonskode, s.studentnr_tildelt
+           NULL as emnekode, NULL as versjonskode,
+           s.studentnr_tildelt, p.personlopenr,
         FROM fs.student s, fs.studieprogramstudent sps, fs.registerkort r,
            fs.studprogstud_planbekreft spp, fs.studieprogram sp,
            fs.person p
@@ -571,7 +575,7 @@ class UiOStudent(access_FS.Student):
         SELECT DISTINCT
            p.fodselsdato, p.personnr, p.dato_fodt, sps.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           svp.emnekode, svp.versjonskode, s.studentnr_tildelt
+           svp.emnekode, svp.versjonskode, s.studentnr_tildelt, p.personlopenr,
         FROM fs.studentvurdkombprotokoll svp, fs.studieprogramstudent sps,
            fs.emne_i_studieprogram es, fs.registerkort r,
            fs.person p, fs.student s,
@@ -1205,6 +1209,7 @@ class UiOForkurs(access_FS.FSObject):
           FS.VURDKOMBMELDING.PERSONNR,
           FS.PERSON.DATO_FODT,
           FS.STUDENT.STUDENTNR_TILDELT,
+          FS.PERSON.PERSONLOPENR,
           FS.PERSON.FORNAVN,
           FS.PERSON.ETTERNAVN,
           FS.PERSONTELEFON.TELEFONLANDNR,

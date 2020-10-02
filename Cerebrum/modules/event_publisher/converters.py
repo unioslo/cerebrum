@@ -338,6 +338,7 @@ def entity_external_id(msg, db=None, **kwargs):
         c.externalid_fodselsnr: 'nationalIdNumber',
         c.externalid_pass_number: 'passNumber',
         c.externalid_studentnr: 'studentNumber',
+        c.externalid_fs_lopenr: 'studentIssueNumber',
         c.externalid_sap_ansattnr: 'employeeNumber',
         c.externalid_sap_ou: 'sapOu',
         c.externalid_uname: 'externalUsername',

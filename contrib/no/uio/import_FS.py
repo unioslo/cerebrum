@@ -130,16 +130,22 @@ class FsImporterUio(FsImporter):
         fornavn = None
         birth_date = None
         studentnr = None
+        personlopenr = None
         affiliations = []
         aktiv_sted = []
 
         # Iterate over all person_info entries and extract relevant data
         if 'aktiv' in person_info:
             for row in person_info['aktiv']:
-                if self.studieprog2sko[row['studieprogramkode']] is not None:
-                    aktiv_sted.append(
-                        int(self.studieprog2sko[row['studieprogramkode']]))
-                    logger.debug("App2akrivts")
+                try:
+                    if self.studieprog2sko[
+                            row['studieprogramkode']] is not None:
+                        aktiv_sted.append(
+                            int(self.studieprog2sko[row['studieprogramkode']]))
+                        logger.debug("App2akrivts")
+                except KeyError:
+                    logger.error(
+                        "Nonextant studieprogramkode", row['studieprogramkode'])
 
         for dta_type in person_info.keys():
             x = person_info[dta_type]
@@ -166,6 +172,8 @@ class FsImporterUio(FsImporter):
 
             if 'studentnr_tildelt' in p:
                 studentnr = p['studentnr_tildelt']
+            if 'personlopenr' in p:
+                personlopenr = p['personlopenr']
             # Get affiliations
             if dta_type in ('fagperson',):
                 self._process_affiliation(
@@ -180,23 +188,28 @@ class FsImporterUio(FsImporter):
             elif dta_type in ('opptak',):
                 for row in x:
                     subtype = self.co.affiliation_status_student_opptak
-                    if (self.studieprog2sko[row['studieprogramkode']] in
+                    try:
+                        if (self.studieprog2sko[row['studieprogramkode']] in
                             aktiv_sted):
-                        subtype = self.co.affiliation_status_student_aktiv
-                    elif row['studierettstatkode'] == 'EVU':
-                        subtype = self.co.affiliation_status_student_evu
-                    elif row['studierettstatkode'] == 'FULLFØRT':
-                        subtype = self.co.affiliation_status_student_alumni
-                    elif int(row['studienivakode']) >= 900:
-                        subtype = self.co.affiliation_status_student_drgrad
-                    elif self._is_new_admission(
-                            row.get('dato_studierett_tildelt')):
-                        subtype = self.co.affiliation_status_student_ny
-                    self._process_affiliation(
-                        self.co.affiliation_student,
-                        subtype,
-                        affiliations,
-                        self.studieprog2sko[row['studieprogramkode']])
+                            subtype = self.co.affiliation_status_student_aktiv
+                        elif row['studierettstatkode'] == 'EVU':
+                            subtype = self.co.affiliation_status_student_evu
+                        elif row['studierettstatkode'] == 'FULLFØRT':
+                            subtype = self.co.affiliation_status_student_alumni
+                        elif int(row['studienivakode']) >= 900:
+                            subtype = self.co.affiliation_status_student_drgrad
+                        elif self._is_new_admission(
+                                row.get('dato_studierett_tildelt')):
+                            subtype = self.co.affiliation_status_student_ny
+                        self._process_affiliation(
+                            self.co.affiliation_student,
+                            subtype,
+                            affiliations,
+                            self.studieprog2sko[row['studieprogramkode']])
+                    except KeyError:
+                        logger.error(
+                            "Nonextant studieprogramkode",
+                            row['studieprogramkode'])
             elif dta_type in ('emnestud',):
                 for row in x:
                     subtype = self.co.affiliation_status_student_emnestud
@@ -225,7 +238,7 @@ class FsImporterUio(FsImporter):
                 try:
                     sko = self.emne2sko[p['emnekode']]
                 except KeyError:
-                    logger.warn(
+'                    logger.warn(
                         "Fant ingen emner med koden %s" % p['emnekode'])
                     continue
                 self._process_affiliation(
@@ -259,7 +272,12 @@ class FsImporterUio(FsImporter):
                 logger.debug("No such affiliation type: %s, skipping",
                              dta_type)
 
-        return (etternavn, fornavn, studentnr, birth_date, affiliations,
+        return (etternavn,
+                fornavn,
+                studentnr,
+                personlopenr,
+                birth_date,
+                affiliations,
                 aktiv_sted)
 
     def _get_admission_date_func(self, for_date, grace_days=0):
@@ -381,26 +399,21 @@ def main():
                   'postnr_hjem', 'adresseland_hjem'),
         '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
         }
-
     fs_importer = FsImporterUio(args.gen_groups,
                                 args.include_delete, args.commit,
                                 args.studieprogramfile, source, rules, adr_map,
                                 args.emnefile, rule_map)
-
     StudentInfo.StudentInfoParser(args.personfile,
                                   fs_importer.process_person_callback,
                                   logger)
-
     if args.include_delete:
         fs_importer.rem_old_aff()
-
     if args.commit:
         fs_importer.db.commit()
         logger.info('Changes were committed to the database')
     else:
         fs_importer.db.rollback()
         logger.info('Dry run. Changes to the database were rolled back')
-
     logger.info("Found %d persons without name.", fs_importer.no_name)
     logger.info("Completed")
 

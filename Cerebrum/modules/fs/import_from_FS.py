@@ -364,7 +364,8 @@ class ImportFromFs(object):
                     'fornavn="{}" adrlin2_semadr="" postnr_semadr="" '
                     'adrlin3_semadr="" adrlin2_hjemsted="" postnr_hjemsted="" '
                     'adrlin3_hjemsted="" sprakkode_malform="NYNORSK" '
-                    'kjonn="X" studentnr_tildelt="{}" emnekode="FORGLU" '
+                    'kjonn="X" studentnr_tildelt="{}" personlopenr="{}" '
+                    'emnekode="FORGLU" '
                     'versjonskode="1" terminkode="VÅR" arstall="2016" '
                     'telefonlandnr_mobil="{}" telefonnr_mobil="{}"/>\n'.format(
                         a['fodselsdato'],
@@ -372,6 +373,7 @@ class ImportFromFs(object):
                         a['etternavn'],
                         a['fornavn'],
                         a['studentnr_tildelt'],
+                        a['personlopenr'],
                         a['telefonlandnr'],
                         a['telefonnr']
                     ))

@@ -166,7 +166,7 @@ class FsImporter(object):
 
         gender = self._get_gender(fnr)
 
-        etternavn, fornavn, studentnr, birth_date, affiliations, aktiv_sted = \
+        etternavn, fornavn, studentnr, lopenr, birth_date, affiliations, aktiv_sted = \
             self._get_person_data(person_info, fnr)
 
         if etternavn is None:
@@ -180,7 +180,7 @@ class FsImporter(object):
         person = self._get_person(fnr, studentnr)
 
         if self._db_add_person(person, birth_date, gender, fornavn,
-                               etternavn, studentnr, fnr, person_info,
+                               etternavn, studentnr, lopenr, fnr, person_info,
                                affiliations):
             # Perform following operations only if _db_add_person didn't fail
             if self.reg_fagomr:
@@ -229,6 +229,7 @@ class FsImporter(object):
         etternavn = None
         fornavn = None
         studentnr = None
+        lopenr = None
         birth_date = None
         affiliations = []
         aktiv_sted = []
@@ -252,6 +253,8 @@ class FsImporter(object):
                 fornavn = p['fornavn']
             if 'studentnr_tildelt' in p:
                 studentnr = p['studentnr_tildelt']
+            if 'personlopenr' in p:
+                lopenr = p['personlopenr']
             if not birth_date and 'dato_fodt' in p:
                 birth_date = datetime.datetime.strptime(p['dato_fodt'],
                                                         "%Y-%m-%d %H:%M:%S.%f")
@@ -294,8 +297,8 @@ class FsImporter(object):
                         stedkode)
 
         # end for-loop
-        return (etternavn, fornavn, studentnr, birth_date, affiliations,
-                aktiv_sted)
+        return (etternavn, fornavn, studentnr,  lopenr, birth_date,
+                affiliations, aktiv_sted)
 
     def _process_affiliation(self, aff, aff_status, new_affs, ou):
         # TBD: Should we for example remove the 'opptak' affiliation if we
@@ -304,7 +307,7 @@ class FsImporter(object):
             new_affs.append((ou, aff, aff_status))
 
     def _db_add_person(self, person, birth_date, gender, fornavn,
-                       etternavn, studentnr, fnr, person_info, affiliations):
+                       etternavn, studentnr, lopenr, fnr, person_info, affiliations):
         """Fills in the necessary information about the new_person.
         Then the new_person gets written to the database"""
         person.populate(birth_date, gender)
@@ -329,7 +332,9 @@ class FsImporter(object):
             person.populate_external_id(self.co.system_fs,
                                         self.co.externalid_fodselsnr,
                                         fnr)
-
+        person.populate_external_id(self.co.system_fs,
+                                    self.co.externalid_fs_lopenr,
+                                    lopenr)
         ad_post, ad_post_private, ad_street = self._calc_address(person_info)
         for address_info, ad_const in ((ad_post, self.co.address_post),
                                        (ad_post_private,
