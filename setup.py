@@ -213,6 +213,7 @@ sbin_files = [
     ('servers/event/event_publisher.py', 0755),
     ('servers/cis/SoapIndividuationServer.py', 0755),
     ('servers/cis/SoapPostmasterServer.py', 0755),
+    ('consumers/hr_import.py', 0755),
     ('consumers/no/consumer_affiliations.py', 0755),
     ('consumers/no/uio/tiny_scheduler.py', 0755),
     ('consumers/no/uio/consumer_sap.py', 0755),
