@@ -81,9 +81,9 @@ class EmployeeDatasource(_base.AbstractDatasource):
         """ Fetch data from sap (employee data, assignments, roles). """
         employee_id = reference
         employee = self.client.get_employee(employee_id)
-        assignments = dict()
 
         if employee:
+            employee['assignments'] = assignments = {}
             assignment_ids = [employee['stillingId']]
             for secondary_assignment in employee.get('tilleggsstilling') or []:
                 assignment_ids.append(secondary_assignment['stillingId'])
@@ -94,17 +94,13 @@ class EmployeeDatasource(_base.AbstractDatasource):
                     assignments[assignment_id] = (
                         Assignment('dfo-sap', assignment_id, assignment)
                     )
+        else:
+            employee = {
+                'id': int(reference),
+                'assignments': {},
+            }
 
-        return Employee(
-                'dfo-sap',
-                reference,
-                {
-                    "personId": int(reference),
-                    "personnelNumber": reference,
-                    "assignments": assignments,
-                    "employee": employee
-                }
-            )
+        return Employee('dfo-sap', reference, employee)
 
     def needs_delay(self, body):
         # TODO:
