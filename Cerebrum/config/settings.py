@@ -14,7 +14,13 @@ from __future__ import unicode_literals
 
 import os
 import re
+import warnings
 from collections import OrderedDict
+
+try:
+    import collections.abc as _abcoll
+except ImportError:
+    import collections as _abcoll
 
 import six
 
@@ -407,7 +413,15 @@ class FilePath(String):
 class Choice(Setting):
     """Choice setting with limited options."""
 
-    def __init__(self, choices=set(), **kw):
+    # Note: all valid choice types needs to be sortable (re: doc_struct)
+    _choice_types = (
+        set,
+        _abcoll.Set,  # set implementations
+        type(six.viewkeys({})),  # PY2 dict_keys objects
+        _abcoll.KeysView,  # dict_keys implementations
+    )
+
+    def __init__(self, choices=None, **kw):
         """Configure a choice setting.
 
         :param set choice:
@@ -415,10 +429,20 @@ class Choice(Setting):
         :param **dict kw:
             See `Setting` for additional keyword arguments.
         """
-        if not isinstance(choices, set):
+        if choices is None:
+            # This should probably just be a TypeError, but we default to an
+            # empty set for backwards compatibility
+            choices = set()
+        if not isinstance(choices, self._choice_types):
             raise TypeError(
                 "Invalid argument 'choices' ({}) must be {}".format(
-                    type(choices), set))
+                    type(choices), self._choice_types))
+        if not choices:
+            # Note on stacklevel: The source of this warning isn't really
+            # useful in most cases unless we start searching the stack for
+            # calls from outside Cerebrum.config.configuration.
+            warnings.warn('Choice setting without any valid choices',
+                          RuntimeWarning, stacklevel=2)
         self._choices = choices
         super(Choice, self).__init__(**kw)
 
@@ -441,7 +465,7 @@ class Choice(Setting):
     @property
     def doc_struct(self):
         doc = super(Choice, self).doc_struct
-        doc['choices'] = repr(self._choices)
+        doc['choices'] = repr(sorted(self._choices))
         return doc
 
 
