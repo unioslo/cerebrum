@@ -81,10 +81,12 @@ class AbstractImport(object):
         reference = self.datasource.get_reference(message_body)
         not_before = self.datasource.needs_delay(message_body)
         if not_before:
+            logger.info('Scheduling event=%r for %r', event, not_before)
             # TODO:
             #  Insert code for rescheduling message (not_before is timestamp)
-            raise NotImplementedError(
-                'Message rescheduling not implemented yet!')
+            # raise NotImplementedError(
+            #     'Message rescheduling not implemented yet!')
+            logger.warning('Scheduling not implemented!')
         self.handle_reference(reference)
 
     def handle_reference(self, reference):
