@@ -384,7 +384,7 @@ class EmployeeMapper(_base.AbstractMapper):
         :type obj: RemoteObject
         :rtype: HRPerson
         """
-        person_data = obj['employee']
+        person_data = 'employee'
         assignment_data = obj['assignments']
 
         hr_person = HRPerson(
