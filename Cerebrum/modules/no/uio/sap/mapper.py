@@ -324,7 +324,7 @@ class EmployeeMapper(_base.AbstractMapper):
             first_name=person_data.get('firstName'),
             last_name=person_data.get('lastName'),
             birth_date=parse_date(person_data.get('dateOfBirth'),
-                                  allow_empty=False),
+                                  allow_empty=True),
             gender={'Kvinne': 'F', 'Mann': 'M'}.get(
                 person_data.get('gender')
             ),

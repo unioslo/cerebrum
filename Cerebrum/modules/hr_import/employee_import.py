@@ -55,6 +55,8 @@ class EmployeeImportBase(AbstractImport):
         person_obj = Factory.get('Person')(self.db)
 
         gender = self.const.Gender(employee_data.gender)
+        if employee_data.birth_date is None:
+            raise ValueError('No birth date, unable to create!')
         person_obj.populate(employee_data.birth_date, gender)
         person_obj.write_db()
 
@@ -114,7 +116,10 @@ class HRDataImport(object):
             db_person.gender = gender
             logger.info('Updated gender for person_id=%r', db_person.entity_id)
 
-        if get_date(db_person.birth_date) != hr_person.birth_date:
+        if hr_person.birth_date is None:
+            logger.warning('No HR birth date for person_id=%r (%r)',
+                           db_person.entity_id, hr_person)
+        elif get_date(db_person.birth_date) != hr_person.birth_date:
             db_person.birth_date = hr_person.birth_date
             logger.info('Updated birth_date for person_id=%r',
                         db_person.entity_id)
