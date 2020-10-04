@@ -177,7 +177,7 @@ class AccountTypeUpdater(object):
                         person.entity_id, e)
 
         try:
-            account_types = self._get_account_types(person)
+            account_types = self._get_account_types(account)
         except _UpdateError as e:
             logger.info('Incompatible account_types person_id=%r: %s',
                         person.entity_id, e)
