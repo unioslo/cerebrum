@@ -321,7 +321,7 @@ class HRDataImport(object):
                         db_person.entity_id)
         for aff in hr_affiliations:
             db_person.add_affiliation(
-                source_system=self.source_system,
+                source=self.source_system,
                 ou_id=aff.ou_id,
                 affiliation=aff.affiliation,
                 status=aff.status,
