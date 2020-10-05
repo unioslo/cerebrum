@@ -1,4 +1,4 @@
- # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 # Copyright 2003-2018 University of Oslo, Norway
 #
@@ -38,7 +38,6 @@ class StudentInfoParser(xml.sax.ContentHandler):
         self.personer = []
         self.elementstack = []
         self.call_back_function = call_back_function
-        print info_file
         xml.sax.parse(info_file, self)
 
     def startElement(self, name, attrs):
