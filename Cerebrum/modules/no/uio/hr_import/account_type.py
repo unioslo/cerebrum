@@ -175,12 +175,14 @@ class AccountTypeUpdater(object):
         except _UpdateError as e:
             logger.info('No accounts to sync for person_id=%r: %s',
                         person.entity_id, e)
+            return
 
         try:
             account_types = self._get_account_types(account)
         except _UpdateError as e:
             logger.info('Incompatible account_types person_id=%r: %s',
                         person.entity_id, e)
+            return
 
         for affiliation, status, ou_id in removed:
             try:
