@@ -178,7 +178,8 @@ class EmployeeMapper(_base.AbstractMapper):
             is_main_assignment = assignment_id == person_data['stillingId']
             if is_main_assignment:
                 precedence = (50, 50)
-                start_date = parse_date(person_data['startdato'])
+                start_date = parse_date(person_data.get('startdato'),
+                                        allow_empty=True)
                 end_date = parse_date(person_data['sluttdato'])
 
                 # If the person has one of the MG/MUG combinations present in
