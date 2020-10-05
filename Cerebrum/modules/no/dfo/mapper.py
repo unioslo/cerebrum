@@ -98,6 +98,18 @@ def assert_list(value):
     return value
 
 
+def get_main_assignment(person_data, assignment_data):
+    """Extract data about a person's main assignment from ``assignment_data``
+
+    :param dict person_data: Person data from DFØ-SAP
+    :param dict assignment_data: Assignment data from DFØ-SAP
+    """
+    main_assignment_id = person_data.get('stillingId')
+    if not main_assignment_id:
+        return None
+    return assignment_data[main_assignment_id]
+
+
 def get_additional_assignment(person_data, assignment_id):
     """Extract data about an additional assignment from ``person_data``
 
@@ -111,27 +123,27 @@ def get_additional_assignment(person_data, assignment_id):
     return None
 
 
-def parse_leader_ous(person_data, assignment_data):
+def parse_leader_ous(person_data, main_assignment):
     """
     Parse leader OUs from DFØ-SAP data
 
     :param person_data: Data from DFØ-SAP
                         `/ansatte/{id}`
     :type person_data: dict
-    :param assignment_data: Assignment data from DFØ-SAP
-    :type assignment_data: dict
+    :param main_assignment: Assignment data from DFØ-SAP
+    :type main_assignment: dict
 
     :rtype: set(int)
     :return OU ids where the person is a leader
     """
-    if person_data.get('lederflagg'):
-        leader_assignment_id = person_data['stillingId']
-        # TODO:
-        #  DFØ-SAP will probably fix naming of
-        #  organisasjonsId/organisasjonId/orgenhet, so that they are equal at
-        #  some point.
-        return [assignment_data[leader_assignment_id]['orgenhet']]
-    return []
+    if not main_assignment or not person_data.get('lederflagg'):
+        return []
+
+    # TODO:
+    #  DFØ-SAP will probably fix naming of
+    #  organisasjonsId/organisasjonId/orgenhet, so that they are equal at
+    #  some point.
+    return [main_assignment['orgenhet']]
 
 
 class MapperConfig(_base.MapperConfig):
@@ -175,7 +187,7 @@ class EmployeeMapper(_base.AbstractMapper):
                 assignment.get('stillingskat', {}).get(
                     'stillingskatId')
             )
-            is_main_assignment = assignment_id == person_data['stillingId']
+            is_main_assignment = assignment_id == person_data.get('stillingId')
             if is_main_assignment:
                 precedence = (50, 50)
                 start_date = parse_date(person_data.get('startdato'),
@@ -304,7 +316,7 @@ class EmployeeMapper(_base.AbstractMapper):
         return external_ids
 
     @classmethod
-    def parse_titles(cls, person_data, assignment_data):
+    def parse_titles(cls, main_assignment):
         """
         Parse data from DFØ-SAP and return person titles.
 
@@ -314,7 +326,9 @@ class EmployeeMapper(_base.AbstractMapper):
         titles = set()
 
         # We only want the title of the main assignment
-        main_assignment = assignment_data[person_data['stillingId']]
+        if not main_assignment:
+            return titles
+
         titles.add(
             HRTitle(name_variant='WORKTITLE',
                     name_language='nb',
@@ -328,7 +342,7 @@ class EmployeeMapper(_base.AbstractMapper):
                             self.source_system,
                             self.db)
 
-    def parse_leader_groups(self, person_data, assignment_data,
+    def parse_leader_groups(self, person_data, main_assignment,
                             stedkode_cache):
         """
         Parse leader groups from SAP assignment data
@@ -336,13 +350,13 @@ class EmployeeMapper(_base.AbstractMapper):
         :param person_data: Data from DFØ-SAP
                             `/ansatte/{id}`
         :type person_data: dict
-        :param assignment_data: Assignment data from DFØ-SAP
-        :type assignment_data: dict
+        :param main_assignment: Assignment data from DFØ-SAP
+        :type main_assignment: dict
 
         :rtype: set(int)
         :return: leader group ids where the person should be a member
         """
-        leader_dfo_ou_ids = parse_leader_ous(person_data, assignment_data)
+        leader_dfo_ou_ids = parse_leader_ous(person_data, main_assignment)
 
         leader_group_ids = set()
         for dfo_ou_id in leader_dfo_ou_ids:
@@ -403,12 +417,13 @@ class EmployeeMapper(_base.AbstractMapper):
         #  This should be fetched from orgreg by ``datasource.py`` sometime in
         #  the future.
         stedkode_cache = self.cache_stedkoder(assignment_data)
+        main_assignment = get_main_assignment(person_data, assignment_data)
         hr_person.leader_groups = self.parse_leader_groups(person_data,
-                                                           assignment_data,
+                                                           main_assignment,
                                                            stedkode_cache)
         hr_person.external_ids = self.parse_external_ids(person_data)
         hr_person.contact_infos = self.parse_contacts(person_data)
-        hr_person.titles = self.parse_titles(person_data, assignment_data)
+        hr_person.titles = self.parse_titles(main_assignment)
         hr_person.affiliations = self.parse_affiliations(person_data,
                                                          assignment_data)
         return hr_person
