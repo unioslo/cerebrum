@@ -182,6 +182,7 @@ class AccountTypeUpdater(object):
         except _UpdateError as e:
             logger.info('Incompatible account_types person_id=%r: %s',
                         person.entity_id, e)
+            return
 
         for affiliation, status, ou_id in removed:
             try:
