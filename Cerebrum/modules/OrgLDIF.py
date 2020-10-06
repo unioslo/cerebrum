@@ -753,7 +753,7 @@ class OrgLDIF(object):
             return
 
         ou_id2address = defaultdict(dict)
-        for row in self.ou.list_entity_addresses(
+        for row in self.person.list_entity_addresses(
                 entity_type=self.const.entity_ou,
                 address_type=addr_types,
                 source_system=addr_source):
