@@ -995,6 +995,10 @@ class BofhdCommonMethods(BofhdCommandBase):
                     raise CerebrumError('No admin group with name: {}'
                                         .format(admin_group))
                 else:
+                    if admin_gr.group_type == self.const.group_type_personal:
+                        raise CerebrumError(
+                            'Group {} cannot be admin since it is a personal '
+                            'file group'.format(admin_gr))
                     roles.add_admin_to_group(admin_gr.entity_id, g.entity_id)
         return {'group_id': int(g.entity_id)}
 
