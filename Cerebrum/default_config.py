@@ -761,6 +761,11 @@ LDAP_PERSON = {
     # Which address types to give persons: POST and/or STREET
     'address_types': ['POST', 'STREET'],
 
+    # This setting indicates that init_person_addresses should fetch these
+    # address types from the OU that a person is affiliated rather than the
+    # person itself.
+    'address_from_affiliated_ou': [],
+
     # Whether to give the organization tree alias entries for persons.
     # Disabled by default:  Aliases defeat indexing in OpenLDAP since the
     # server does not index a value "through" an alias, so a search which

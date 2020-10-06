@@ -139,8 +139,8 @@ def ou_has_ephorte_spread(ou_id):
 
     if _ephorte_ous is None:
         _ephorte_ous = set([x['entity_id'] for x in
-                           ou.list_all_with_spread(
-                            spreads=co.spread_ephorte_ou)])
+                            ou.list_all_with_spread(
+                                spreads=co.spread_ephorte_ou)])
 
     return ou_id in _ephorte_ous
 
@@ -157,8 +157,37 @@ def ephorte_has_ou(client, sko):
     global _valid_ephorte_ous
     if _valid_ephorte_ous is None:
         _valid_ephorte_ous = dict(((x['OrgId'], x) for x in
-                                  client.get_all_org_units()))
+                                   client.get_all_org_units()))
     return _valid_ephorte_ous.get(sko, False)
+
+
+@memoize
+def ou_address(pe, co, ou_id):
+    for row in pe.list_entity_addresses(entity_type=co.entity_ou,
+                                        source_system=co.system_sap,
+                                        address_type=co.address_street,
+                                        entity_id=ou_id):
+        return dict(row)
+    return None
+
+
+def get_person_address(pe, co):
+    for row in pe.list_affiliations(person_id=pe.entity_id,
+                                    source_system=co.system_sap,
+                                    fetchall=False):
+        address = ou_address(pe, co, row['ou_id'])
+        # If no address is found on OU of primary affiliation, we search for
+        # an address at the OUs of less prioritized affiliations.
+        if address:
+            street_address = address['address_text']
+            # There seems to be a limit in ePhorte ...
+            if street_address and len(street_address) > 50:
+                street_address = street_address[0:50]
+            zip_code = address['postal_number']
+            city = address['city']
+            return street_address, zip_code, city
+
+    return None, None, None
 
 
 def update_person_info(pe, client):
@@ -198,17 +227,7 @@ def update_person_info(pe, client):
     # TODO: Has not been exported before. Export nao?
     mobile = None
 
-    tmp_addr = (lambda x: x[0] if len(x) else None)(pe.get_entity_address(
-        source=co.system_sap, type=co.address_street))
-    if tmp_addr:
-        street_address = tmp_addr['address_text']
-        # There seems to be a limit in ePhorte ...
-        if street_address and len(street_address) > 50:
-            street_address = street_address[0:50]
-        zip_code = tmp_addr['postal_number']
-        city = tmp_addr['city']
-    else:
-        street_address = zip_code = city = None
+    street_address, zip_code, city = get_person_address(pe, co)
 
     logger.info('Ensuring existence of %s: %s', user_id, text_type((
         first_name, None, initials, last_name, full_name, initials,
@@ -359,7 +378,7 @@ def select_events_by_person(clh, config, change_types, selection_spread):
     :rtype: generator
     :return: A generator that yields (person_id, events)
     """
-    too_old = time.time() - int(config.changes_too_old_days) * 60*60*24
+    too_old = time.time() - int(config.changes_too_old_days) * 60 * 60 * 24
 
     logger.debug("Fetching unhandled events using change key: %s",
                  config.change_key)
@@ -663,9 +682,10 @@ def update_person_roles(pe, client, remove_superfluous=False):
 
     args = {}
 
-    ephorte_roles = set(tuple(sorted(x.items()))
-                        for x in user_details_to_roles(
-                            client.get_user_details(user_id)))
+    ephorte_roles = set(
+        tuple(sorted(x.items())) for x in user_details_to_roles(
+            client.get_user_details(user_id))
+    )
     cerebrum_roles = set()
 
     # These functons can be used to remove the default_role component from

@@ -155,41 +155,6 @@ def load_config(cls, name, filepath=None):
     return config_cls
 
 
-def parse_address(d):
-    """Parse the data from SAP an return a diff-able structure.
-
-    :type d: dict
-    :param d: Data from SAP
-
-    :rtype: tuple(
-        (AddressCode,
-         ('city', 'OSLO'),
-         ('postal_number', 0316),
-         ('address_text', 'Postboks 1059 Blindern')))
-    :return: A tuple with the fields that should be updated"""
-    co = Factory.get('Constants')
-    address_types = ('legalAddress',
-                     'workMailingAddress',
-                     'workVisitingAddress')
-    m = {'legalAddress': co.address_post_private,
-         'workMailingAddress': co.address_post,
-         'workVisitingAddress': co.address_street,
-         'city': 'city',
-         'postalCode': 'postal_number',
-         'streetAndHouseNumber': 'address_text'}
-    r = {x: d.get(x, {}) for x in address_types}
-    logger.info('parsing %i addresses', len(r))
-    # Visiting address should be a concoction of real address and a
-    # meta-location
-    if r.get('workVisitingAddress'):
-        r['workVisitingAddress']['streetAndHouseNumber'] = '{}\n{}'.format(
-            r.get('workVisitingAddress').get('streetAndHouseNumber'),
-            r.get('workVisitingAddress').get('location'))
-    return tuple([(k, tuple(sorted(filter_elements(translate_keys(v, m))))) for
-                  (k, v) in filter_elements(
-            translate_keys(filter_meta(r), m))])
-
-
 def verify_sap_header(header):
     """Verify that the headers originate from SAP"""
     if 'sap-server' in header:
@@ -453,7 +418,6 @@ def _parse_hr_person(database, source_system, data):
     affiliations, leader_group_ids = parse_affiliations(database, data)
     return {
         'id': data.get('personId'),
-        'addresses': parse_address(data),
         'names': parse_names(data),
         'birth_date': DateTime.DateFrom(
             data.get('dateOfBirth')),
@@ -918,34 +882,6 @@ def update_external_ids(database, source_system, hr_person, cerebrum_person):
                     cerebrum_person.entity_id)
 
 
-def update_addresses(database, source_system, hr_person, cerebrum_person):
-    """Update a person in Cerebrum with addresses.
-
-    :param database: A database object
-    :param source_system: The source system code
-    :param hr_person: The parsed data from the remote source system
-    :param cerebrum_person: The Person object to be updated.
-    """
-    co = Factory.get('Constants')(database)
-    addresses = row_transform(co.Address,
-                              'address_type',
-                              ('entity_id', 'source_system', 'address_type',
-                               'p_o_box', 'country'),
-                              cerebrum_person.get_entity_address(
-                                  source=source_system))
-
-    for (k, v) in addresses - set(hr_person.get('addresses')):
-        cerebrum_person.delete_entity_address(source_system, k)
-        logger.info('Removing address %r for id: %r',
-                    (_stringify_for_log(k), v),
-                    cerebrum_person.entity_id)
-    for (k, v) in set(hr_person.get('addresses')) - addresses:
-        cerebrum_person.add_entity_address(source_system, k, **dict(v))
-        logger.info('Adding address %r for id: %r',
-                    (_stringify_for_log(k), v),
-                    cerebrum_person.entity_id)
-
-
 def update_contact_info(database, source_system, hr_person, cerebrum_person):
     """Update a person in Cerebrum with contact information (telephone, etc.).
 
@@ -1064,7 +1000,6 @@ def perform_update(database, source_system, hr_person, cerebrum_person):
     update_person(database, source_system, hr_person, cerebrum_person)
     update_external_ids(database, source_system, hr_person, cerebrum_person)
     update_names(database, source_system, hr_person, cerebrum_person)
-    update_addresses(database, source_system, hr_person, cerebrum_person)
     update_contact_info(database, source_system, hr_person, cerebrum_person)
     update_titles(database, source_system, hr_person, cerebrum_person)
     update_roles(database, source_system, hr_person, cerebrum_person)
@@ -1087,10 +1022,6 @@ def perform_delete(database, source_system, hr_person, cerebrum_person):
                  source_system,
                  {'names': []},
                  cerebrum_person)
-    update_addresses(database,
-                     source_system,
-                     {'addresses': []},
-                     cerebrum_person)
     update_contact_info(database,
                         source_system,
                         {'contacts': []},

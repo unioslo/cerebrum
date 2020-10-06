@@ -230,22 +230,6 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
         # uio attributes require uioPersonObject
         entry['objectClass'].append('uioPersonObject')
 
-        # Check if there exists «avvikende» (deviant) addresses.
-        # If so, export them instead.
-        addrs = self.addr_info.get(person_id)
-        post = addrs and addrs.get(int(self.const.address_other_post))
-        if post:
-            a_txt, p_o_box, p_num, city, country = post
-            post = self.make_address("$", p_o_box, a_txt, p_num, city, country)
-            if post:
-                entry['postalAddress'] = (post,)
-        street = addrs and addrs.get(int(self.const.address_other_street))
-        if street:
-            a_txt, p_o_box, p_num, city, country = street
-            street = self.make_address(", ", None, a_txt, p_num, city, country)
-            if street:
-                entry['street'] = (street,)
-
         if self.account_primary_mail:
             mail = self.account_primary_mail.get(account_id)
             if mail:
