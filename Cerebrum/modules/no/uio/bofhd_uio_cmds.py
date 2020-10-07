@@ -562,7 +562,12 @@ class BofhdExtension(BofhdCommonMethods):
 
         admin = admin.split(":", 1)
         if len(admin) == 1 or admin[0] == "group":
-            admin_id = self._get_group(admin[-1]).entity_id
+            admin_gr = self._get_group(admin[-1])
+            if admin_gr.group_type == self.const.group_type_personal:
+                raise CerebrumError(
+                    'Group {group} cannot be admin since it is a personal '
+                    'file group'.format(group=admin_gr))
+            admin_id = admin_gr.entity_id
         elif admin[0] == "account":
             admin_id = self._get_account(admin[-1]).entity_id
         roles = GroupRoles(self.db)
@@ -614,7 +619,12 @@ class BofhdExtension(BofhdCommonMethods):
 
         moderator = moderator.split(":", 1)
         if len(moderator) == 1 or moderator[0] == "group":
-            moderator_id = self._get_group(moderator[-1]).entity_id
+            moderator_gr = self._get_group(moderator[-1])
+            if moderator_gr.group_type == self.const.group_type_personal:
+                raise CerebrumError(
+                    'Group {group} cannot be moderator since it is a personal '
+                    'file group'.format(group=moderator_gr))
+            moderator_id = moderator_gr.entity_id
         elif moderator[0] == "account":
             moderator_id = self._get_account(moderator[-1]).entity_id
         roles = GroupRoles(self.db)
