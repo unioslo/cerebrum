@@ -130,18 +130,29 @@ class EmployeeImportConfig(Configuration):
     )
 
 
-class HrImportConfig(Configuration):
-
-    consumer = ConfigDescriptor(
-        Namespace,
-        config=ConsumerConfig,
-        doc='Message broker configuration',
-    )
+class HrImportBaseConfig(Configuration):
 
     importer = ConfigDescriptor(
         Namespace,
         config=EmployeeImportConfig,
         doc='Importer config to use',
+    )
+
+
+class SingleEmployeeImportConfig(HrImportBaseConfig):
+
+    importer_class = ConfigDescriptor(
+        String,
+        doc='Importer class to use'
+    )
+
+
+class HrImportConfig(HrImportBaseConfig):
+
+    consumer = ConfigDescriptor(
+        Namespace,
+        config=ConsumerConfig,
+        doc='Message broker configuration',
     )
 
     task_mapper = ConfigDescriptor(

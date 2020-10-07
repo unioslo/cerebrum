@@ -27,11 +27,12 @@ See :mod:`Cerebrum.modules.hr_import.config` for configuration instructions.
 """
 import argparse
 import logging
+import functools
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.config.loader import read_config as read_config_file
-from Cerebrum.modules.hr_import.config import HrImportConfig
+from Cerebrum.modules.hr_import.config import SingleEmployeeImportConfig
 from Cerebrum.modules.hr_import.handler import db_context
 from Cerebrum.utils.module import resolve
 from Cerebrum.utils.argutils import add_commit_args
@@ -50,14 +51,14 @@ def get_config(config_file):
     :return ConsumerConfig:
         Returns a configuration object.
     """
-    config = HrImportConfig()
+    config = SingleEmployeeImportConfig()
     config.load_dict(read_config_file(config_file))
     return config
 
 
 def get_importer(importer_config):
-    init = resolve(importer_config.module)
-    return init(importer_config.config_file)
+    init = resolve(importer_config.importer_class)
+    return functools.partial(init, config=importer_config.importer)
 
 
 def get_db():
@@ -92,7 +93,7 @@ def main(inargs=None):
 
     config = get_config(args.config)
 
-    import_init = get_importer(config.importer)
+    import_init = get_importer(config)
     logger.info('employee importer: %r', import_init)
 
     with db_context(get_db, not args.commit) as db:

@@ -86,8 +86,6 @@ class HRDataImport(object):
         """
         :param database:
         :param source_system:
-        :param callbacks:
-            A series of callbacks to call on changes.
         """
         self.database = database
         self.source_system = source_system
@@ -282,13 +280,21 @@ class HRDataImport(object):
                 hr_ou_id[4:6],
                 cereconf.DEFAULT_INSTITUSJONSNR
             )
-        else:
-            ou.find_by_external_id(
-                id_type=self.co.externalid_dfo_ou_id,
-                external_id=hr_ou_id,
-                source_system=self.source_system
-            )
-        return ou.entity_id
+            return ou.entity_id
+
+        source_systems = (self.co.system_dfo_sap, self.co.system_manual)
+        for source in source_systems:
+            try:
+                ou.find_by_external_id(
+                    id_type=self.co.externalid_dfo_ou_id,
+                    external_id=hr_ou_id,
+                    source_system=source
+                )
+            except Errors.NotFoundError:
+                ou.clear()
+            else:
+                return ou.entity_id
+        raise Errors.NotFoundError('Could not find OU by id %r', hr_ou_id)
 
     def update_affiliations(self, db_person, hr_person):
         """Update person in Cerebrum with the latest affiliations"""
