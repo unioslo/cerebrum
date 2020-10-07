@@ -211,7 +211,7 @@ class ConstantsHigherEdu(Constants.Constants):
 
     externalid_fs_lopenr = _EntityExternalIdCode(
         'NO_FSNO', Constants.Constants.entity_person,
-        'FS issue number')
+        'FS serial number')
 
     externalid_sap_ansattnr = _EntityExternalIdCode(
         'NO_SAPNO', Constants.Constants.entity_person,
