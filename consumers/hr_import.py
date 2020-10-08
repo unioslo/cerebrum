@@ -108,7 +108,7 @@ def main(inargs=None):
 
     config = get_config(args.config)
     task_mapper = MessageToTaskMapper(config=config.task_mapper)
-    importer_config = get_configurable_module(config.importer)
+    importer_config = config.importer
     logger.info('employee importer: %r', importer_config)
 
     callback = EmployeeHandler(

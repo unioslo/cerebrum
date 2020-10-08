@@ -116,18 +116,43 @@ class ConfigurableModule(Configuration):
     )
 
 
-class HrImportConfig(Configuration):
+class EmployeeImportConfig(Configuration):
+    client = ConfigDescriptor(
+        Namespace,
+        config=ConfigurableModule,
+        doc='Which client config to use',
+    )
+
+    mapper = ConfigDescriptor(
+        Namespace,
+        config=ConfigurableModule,
+        doc='Which mapper config to use'
+    )
+
+
+class HrImportBaseConfig(Configuration):
+
+    importer = ConfigDescriptor(
+        Namespace,
+        config=EmployeeImportConfig,
+        doc='Importer config to use',
+    )
+
+
+class SingleEmployeeImportConfig(HrImportBaseConfig):
+
+    importer_class = ConfigDescriptor(
+        String,
+        doc='Importer class to use'
+    )
+
+
+class HrImportConfig(HrImportBaseConfig):
 
     consumer = ConfigDescriptor(
         Namespace,
         config=ConsumerConfig,
         doc='Message broker configuration',
-    )
-
-    importer = ConfigDescriptor(
-        Namespace,
-        config=ConfigurableModule,
-        doc='Importer config to use',
     )
 
     task_mapper = ConfigDescriptor(

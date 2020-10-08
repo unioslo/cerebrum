@@ -79,7 +79,7 @@ class EmployeeHandler(AbstractConsumerHandler):
         """
         # Validate importer config
         for task in task_mapper.tasks:
-            task.call(importer_config)
+            task.call(None, importer_config)
 
         self.task_mapper = task_mapper
         self.db_init = db_init
@@ -90,10 +90,8 @@ class EmployeeHandler(AbstractConsumerHandler):
         logger.debug('processing change for event=%r', event)
 
         for call in self.task_mapper.message_to_callable(event):
-            importer_init = call(self.importer_config)
-
             with db_context(self.db_init, self.dryrun) as db:
-                importer = importer_init(db)
+                importer = call(db, self.importer_config)
                 importer.handle_event(event)
 
     def on_error(self, event, error):

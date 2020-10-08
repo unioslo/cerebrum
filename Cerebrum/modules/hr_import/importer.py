@@ -54,18 +54,20 @@ def load_message(event):
 
 class AbstractImport(object):
 
-    def __init__(self, db):
+    def __init__(self, db, datasource, mapper):
         self.db = db
+        self._datasource = datasource
+        self._mapper = mapper
 
-    @abc.abstractproperty
+    @property
     def datasource(self):
         """ A datasource to use for fetching HR data. """
-        pass
+        return self._datasource
 
-    @abc.abstractproperty
+    @property
     def mapper(self):
         """ A mapper to use for translating HR data to Cerebrum. """
-        pass
+        return self._mapper
 
     def handle_event(self, event):
         """

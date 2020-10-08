@@ -406,6 +406,7 @@ setup(
         'Cerebrum/modules/no/uio/exchange',
         'Cerebrum/modules/no/uio/hr_import',
         'Cerebrum/modules/no/uio/sap',
+        'Cerebrum/modules/no/uio/dfo',
         'Cerebrum/modules/no/hia',
         'Cerebrum/modules/no/hia/exchange',
         'Cerebrum/modules/no/hiof',
