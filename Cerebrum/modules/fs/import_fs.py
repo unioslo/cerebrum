@@ -316,16 +316,13 @@ class FsImporter(object):
         person.populate_name(self.co.name_first, fornavn)
         person.populate_name(self.co.name_last, etternavn)
 
-        external_ids = [self.co.externalid_fodselsnr]
-        external_id_mappings = {self.co.externalid_fodselsnr: fnr}
+        external_ids = {self.co.externalid_fodselsnr: fnr}
         if studentnr is not None:
-            external_ids.append(self.co.externalid_studentnr)
-            external_id_mappings[self.co.externalid_studentnr] = studentnr
+            external_ids[self.co.externalid_studentnr] = studentnr
         if lopenr is not None:
-            external_ids.append(self.co.externalid_fs_lopenr)
-            external_id_mappings[self.co.externalid_fs_lopenr] = lopenr
+            external_ids[self.co.externalid_fs_lopenr] = lopenr
         person.affect_external_id(self.co.system_fs, *external_ids)
-        for eid_type, eid_value in external_id_mappings.items():
+        for eid_type, eid_value in external_ids.items():
             person.populate_external_id(self.co.system_fs,
                                         eid_type,
                                         eid_value)
