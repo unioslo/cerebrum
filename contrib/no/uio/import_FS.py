@@ -188,13 +188,6 @@ class FsImporterUio(FsImporter):
             elif dta_type in ('opptak',):
                 for row in x:
                     subtype = self.co.affiliation_status_student_opptak
-                    try:
-                        possible = self.studieprog2sko[row['studieprogramkode']]
-                    except KeyError:
-                        logger.error(
-                            "Nonextant studieprogramkode %r",
-                            row['studieprogramkode'])
-                        continue
                     if (self.studieprog2sko[row['studieprogramkode']] in
                         aktiv_sted):
                         subtype = self.co.affiliation_status_student_aktiv
