@@ -138,14 +138,10 @@ class FsImporterUio(FsImporter):
         if 'aktiv' in person_info:
             for row in person_info['aktiv']:
                 studieprogramkode = row['studieprogramkode']
-                try:
-                    if self.studieprog2sko[studieprogramkode] is not None:
-                        aktiv_sted.append(int(
-                            self.studieprog2sko[studieprogramkode]))
-                        logger.debug("App2akrivts")
-                except KeyError:
-                    logger.error(
-                        "Nonextant studieprogramkode %r", studieprogramkode)
+                if self.studieprog2sko[studieprogramkode] is not None:
+                    aktiv_sted.append(int(
+                        self.studieprog2sko[studieprogramkode]))
+                    logger.debug("App2akrivts")
 
         for dta_type in person_info.keys():
             x = person_info[dta_type]
