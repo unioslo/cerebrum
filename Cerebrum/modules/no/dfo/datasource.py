@@ -27,6 +27,8 @@ import datetime
 import logging
 
 from Cerebrum.modules.hr_import import datasource as _base
+from Cerebrum.modules.no.dfo.utils import assert_list, parse_date
+
 
 logger = logging.getLogger(__name__)
 
@@ -38,19 +40,6 @@ def in_date_range(value, start=None, end=None):
     if end and value > end:
         return False
     return True
-
-
-def parse_date(value, fmt='%Y-%m-%d', ignore_error=False):
-    if value:
-        try:
-            return datetime.datetime.strptime(value, fmt).date()
-        except ValueError:
-            if ignore_error:
-                return None
-            else:
-                raise
-    else:
-        return None
 
 
 class Employee(_base.RemoteObject):
@@ -85,7 +74,8 @@ class EmployeeDatasource(_base.AbstractDatasource):
         if employee:
             employee['assignments'] = assignments = {}
             assignment_ids = [employee['stillingId']]
-            for secondary_assignment in employee.get('tilleggsstilling') or []:
+            for secondary_assignment in assert_list(
+                    employee.get('tilleggsstilling')):
                 assignment_ids.append(secondary_assignment['stillingId'])
 
             for assignment_id in assignment_ids:

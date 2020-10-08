@@ -23,7 +23,6 @@ Mapper for DFØ-SAP.
 from __future__ import unicode_literals
 
 import collections
-import datetime
 import logging
 
 import six
@@ -38,17 +37,9 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRContactInfo)
 from Cerebrum.modules.hr_import.matcher import match_entity
 from Cerebrum.modules.no.uio.hr_import.leader_groups import get_leader_group
+from Cerebrum.modules.no.dfo.utils import assert_list, parse_date
 
 logger = logging.getLogger(__name__)
-
-
-def parse_date(value, fmt='%Y-%m-%d', allow_empty=True):
-    if value:
-        return datetime.datetime.strptime(value, fmt).date()
-    elif allow_empty:
-        return None
-    else:
-        raise ValueError('No date: %r' % (value,))
 
 
 def translate_keys(d, mapping):
@@ -80,22 +71,6 @@ def filter_elements(d):
     {'x': 'y'}
     """
     return {k: v for k, v in d.items() if k and v}
-
-
-def assert_list(value):
-    """
-    Assert that value is a list.
-
-    Usage: ``some_key = assert_list(dfo_object.get('someKey'))``
-    """
-    # This is a hacky way to fix the broken DFØ API
-    # Some items in the API are specified to be a list, but lists of length 1
-    # are unwrapped, and empty lists are simply not present.
-    if not value:
-        return []
-    if not isinstance(value, list):
-        return [value]
-    return value
 
 
 def get_main_assignment(person_data, assignment_data):
