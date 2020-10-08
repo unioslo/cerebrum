@@ -294,7 +294,7 @@ class HRDataImport(object):
                 ou.clear()
             else:
                 return ou.entity_id
-        raise Errors.NotFoundError('Could not find OU by id %r', hr_ou_id)
+        raise Errors.NotFoundError('Could not find OU by id %r' % hr_ou_id)
 
     def update_affiliations(self, db_person, hr_person):
         """Update person in Cerebrum with the latest affiliations"""
