@@ -20,7 +20,6 @@
 """
 SAPUiO datasource for HR imports.
 """
-import datetime
 import time
 import re
 import json
@@ -32,19 +31,6 @@ logger = logging.getLogger(__name__)
 
 
 SUB_2_HR_ID = re.compile(r'employees\((\d+)\)')
-
-
-def parse_date(value, format='%Y-%m-%d', ignore_error=False):
-    if value:
-        try:
-            return datetime.datetime.strptime(value, format).date()
-        except ValueError:
-            if ignore_error:
-                return None
-            else:
-                raise
-    else:
-        return None
 
 
 def extract_reference(text):

@@ -35,9 +35,6 @@ from . import models
 
 logger = logging.getLogger(__name__)
 
-LEADER_GROUP_PREFIX = 'adm-leder-'
-RESERVATION_GROUP = 'SAP-elektroniske-reservasjoner'
-
 
 class EmployeeImportBase(AbstractImport):
 
