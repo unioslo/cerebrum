@@ -92,7 +92,7 @@ def get_additional_assignment(person_data, assignment_id):
     :param person_data: Data from SAP
     :type assignment_id: int
     """
-    for assignment in person_data.get('tilleggsstilling') or []:
+    for assignment in assert_list(person_data.get('tilleggsstilling')):
         if assignment['stillingId'] == assignment_id:
             return assignment
     return None
