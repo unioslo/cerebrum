@@ -252,7 +252,7 @@ class EmployeeMapper(_base.AbstractMapper):
         return numbers
 
     @classmethod
-    def parse_external_ids(cls, person_data):
+    def parse_external_ids(cls, person_id, person_data):
         """
         Parse data from DFØ-SAP and return external ids (i.e. passnr).
 
@@ -261,7 +261,7 @@ class EmployeeMapper(_base.AbstractMapper):
         external_ids = set()
         external_ids.add(
             HRExternalID(id_type='DFO_PID',
-                         external_id=six.text_type(person_data['id']))
+                         external_id=six.text_type(person_id))
         )
 
         # TODO:
@@ -379,11 +379,12 @@ class EmployeeMapper(_base.AbstractMapper):
         :type obj: RemoteObject
         :rtype: HRPerson
         """
-        person_data = obj
+        person_id = obj['id']
+        person_data = obj['employee']
         assignment_data = obj['assignments']
 
         hr_person = HRPerson(
-            hr_id=person_data.get('id'),
+            hr_id=person_id,
             first_name=person_data.get('fornavn'),
             last_name=person_data.get('etternavn'),
             birth_date=parse_date(person_data.get('fdato'), allow_empty=True),
@@ -401,7 +402,8 @@ class EmployeeMapper(_base.AbstractMapper):
         hr_person.leader_groups = self.parse_leader_groups(person_data,
                                                            main_assignment,
                                                            stedkode_cache)
-        hr_person.external_ids = self.parse_external_ids(person_data)
+        hr_person.external_ids = self.parse_external_ids(person_id,
+                                                         person_data)
         hr_person.contact_infos = self.parse_contacts(person_data)
         hr_person.titles = self.parse_titles(main_assignment)
         hr_person.affiliations = self.parse_affiliations(person_data,
