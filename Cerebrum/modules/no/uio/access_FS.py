@@ -487,7 +487,7 @@ class UiOStudent(access_FS.Student):
         SELECT DISTINCT
            p.fodselsdato, p.personnr, p.dato_fodt, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           vm.emnekode, vm.versjonskode, s.studentnr_tildelt, p.personlopenr,
+           vm.emnekode, vm.versjonskode, s.studentnr_tildelt, p.personlopenr
         FROM fs.studieprogram sp, fs.studieprogramstudent sps, fs.student s,
            fs.registerkort r, fs.vurdkombmelding vm,
            fs.person p
@@ -529,7 +529,7 @@ class UiOStudent(access_FS.Student):
            p.fodselsdato, p.personnr, p.dato_fodt, sp.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
            NULL as emnekode, NULL as versjonskode,
-           s.studentnr_tildelt, p.personlopenr,
+           s.studentnr_tildelt, p.personlopenr
         FROM fs.student s, fs.studieprogramstudent sps, fs.registerkort r,
            fs.studprogstud_planbekreft spp, fs.studieprogram sp,
            fs.person p
@@ -575,7 +575,7 @@ class UiOStudent(access_FS.Student):
         SELECT DISTINCT
            p.fodselsdato, p.personnr, p.dato_fodt, sps.studieprogramkode,
            sps.studieretningkode, sps.terminkode_kull, sps.arstall_kull,
-           svp.emnekode, svp.versjonskode, s.studentnr_tildelt, p.personlopenr,
+           svp.emnekode, svp.versjonskode, s.studentnr_tildelt, p.personlopenr
         FROM fs.studentvurdkombprotokoll svp, fs.studieprogramstudent sps,
            fs.emne_i_studieprogram es, fs.registerkort r,
            fs.person p, fs.student s,
