@@ -24,7 +24,6 @@ from __future__ import unicode_literals
 
 import collections
 import decimal
-import datetime
 import logging
 
 import six
@@ -37,17 +36,9 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRContactInfo)
 from Cerebrum.modules.hr_import.matcher import match_entity
 from Cerebrum.modules.no.uio.hr_import.leader_groups import get_leader_group
+from Cerebrum.modules.no.uio.sap.utils import parse_date
 
 logger = logging.getLogger(__name__)
-
-
-def parse_date(value, fmt='%Y-%m-%d', allow_empty=True):
-    if value:
-        return datetime.datetime.strptime(value, fmt).date()
-    elif allow_empty:
-        return None
-    else:
-        raise ValueError('No date: %r' % (value,))
 
 
 def translate_keys(d, mapping):

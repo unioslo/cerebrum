@@ -305,10 +305,14 @@ class EmployeeMapper(_base.AbstractMapper):
         if not main_assignment:
             return titles
 
+        name = main_assignment.get('stillingstittel')
+        if not name:
+            return titles
+
         titles.add(
             HRTitle(name_variant='WORKTITLE',
                     name_language='nb',
-                    name=main_assignment['stillingstittel'])
+                    name=name)
         )
         return titles
 
