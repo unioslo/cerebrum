@@ -107,7 +107,6 @@ class HRDataImport(object):
             # is called
             birth_date=None,
             gender=None,
-            reserved=None
         )
         keep_id_type = source2id_type[self.source_system]
         empty_hr_person.external_ids = set(

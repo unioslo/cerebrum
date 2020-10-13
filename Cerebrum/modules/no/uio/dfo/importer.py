@@ -23,12 +23,21 @@ UIO DFØ import.
 from Cerebrum.modules.no.uio.hr_import.importer import (
     EmployeeImport as UioEmployeeImport
 )
-from Cerebrum.modules.no.dfo.importer import (
-    EmployeeImport as DfoEmployeeImport
-)
+from Cerebrum.modules.hr_import.config import get_configurable_module
+from Cerebrum.modules.no.dfo.client import get_client
+from Cerebrum.modules.no.dfo.datasource import EmployeeDatasource
+from Cerebrum.modules.no.uio.dfo.mapper import EmployeeMapper
 
 
-class EmployeeImport(DfoEmployeeImport, UioEmployeeImport):
+class EmployeeImport(UioEmployeeImport):
     """
     An UiO-DFØ employee import
     """
+
+    def __init__(self, db, config):
+        client_config = get_configurable_module(config.client)
+        client = get_client(client_config)
+        datasource = EmployeeDatasource(client)
+        mapper_config = get_configurable_module(config.mapper)
+        mapper = EmployeeMapper(db, mapper_config)
+        super(EmployeeImport, self).__init__(db, datasource, mapper)
