@@ -130,7 +130,7 @@ class AbstractImport(object):
         elif db_object:
             logger.info('removing id=%r (%r)',
                         db_object.entity_id, hr_object)
-            self.remove(db_object)
+            self.remove(hr_object, db_object)
         else:
             logger.info('nothing to do for %r', hr_object)
 
@@ -145,6 +145,6 @@ class AbstractImport(object):
         pass
 
     @abc.abstractmethod
-    def remove(self, db_object):
+    def remove(self, hr_object, db_object):
         """ Remove source data from an existing Cerebrum object. """
         pass

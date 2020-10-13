@@ -70,11 +70,12 @@ class EmployeeImportBase(AbstractImport):
         updater = HRDataImport(self.db, self.mapper.source_system)
         updater.update_person(person_obj, employee_data)
 
-    def remove(self, person_obj):
+    def remove(self, hr_object, db_object):
         """ Clear HR data from a Person object. """
-        assert person_obj is not None
-        assert person_obj.entity_id
-        # TODO: clear all sap-data (except ext-ids?)
+        assert db_object is not None
+        assert db_object.entity_id
+        updater = HRDataImport(self.db, self.mapper.source_system)
+        updater.remove_person(db_object, hr_object)
 
 
 class HRDataImport(object):
@@ -87,6 +88,40 @@ class HRDataImport(object):
         self.database = database
         self.source_system = source_system
         self.co = Factory.get('Constants')(self.database)
+
+    def remove_person(self, db_person, hr_person):
+        logger.info('Deleting: %r', db_person.entity_id)
+
+        source2id_type = {
+            self.co.system_sap: 'NO_SAPNO',
+            self.co.system_dfo_sap: 'DFO_PID',
+        }
+
+        # The strategy for removing persons is to create an empty HRPerson
+        # containing only the hr_id, and then calling the update methods.
+        empty_hr_person = models.HRPerson(
+            hr_id=hr_person.hr_id,
+            first_name=None,
+            last_name=None,
+            # birth_date and gender is not needed unless self.update_basic()
+            # is called
+            birth_date=None,
+            gender=None,
+            reserved=None
+        )
+        keep_id_type = source2id_type[self.source_system]
+        empty_hr_person.external_ids = set(
+            id_ for id_ in hr_person.external_ids if
+            id_.id_type == keep_id_type
+        )
+
+        # Call every update method except self.update_basic()
+        self.update_external_ids(db_person, empty_hr_person)
+        self.update_names(db_person, empty_hr_person)
+        self.update_titles(db_person, empty_hr_person)
+        self.update_contact_info(db_person, empty_hr_person)
+        self.update_affiliations(db_person, empty_hr_person)
+        logger.info('%r deleted', db_person.entity_id)
 
     def update_person(self, db_person, hr_person):
         """Call all the update functions, creating or updating a person"""
@@ -171,18 +206,23 @@ class HRDataImport(object):
         crb_first_name = _get_name_type(self.co.name_first)
         crb_last_name = _get_name_type(self.co.name_last)
 
-        if crb_first_name != hr_person.first_name:
-            db_person.affect_names(self.source_system, self.co.name_first)
-            db_person.populate_name(self.co.name_first, hr_person.first_name)
-            logger.info('Updating name %s for person with person_id %r',
-                        self.co.name_first, db_person.entity_id)
-            db_person.write_db()
+        names = ((self.co.name_first, crb_first_name, hr_person.first_name),
+                 (self.co.name_last, crb_last_name, hr_person.last_name))
 
-        if crb_last_name != hr_person.last_name:
-            db_person.affect_names(self.source_system, self.co.name_last)
-            db_person.populate_name(self.co.name_last, hr_person.last_name)
-            logger.info('Updating name %s for person with person_id %r',
-                        self.co.name_last, db_person.entity_id)
+        for name_type, crb_name, hr_name in names:
+            if crb_name == hr_name:
+                continue
+
+            db_person.affect_names(self.source_system, name_type)
+            if hr_name is None:
+                logger.info('Deleting name %s for person with person_id %r',
+                            name_type,
+                            db_person.entity_id)
+            else:
+                logger.info('Updating name %s for person with person_id %r',
+                            name_type,
+                            db_person.entity_id)
+                db_person.populate_name(name_type, hr_name)
             db_person.write_db()
 
     def update_titles(self, db_person, hr_person):

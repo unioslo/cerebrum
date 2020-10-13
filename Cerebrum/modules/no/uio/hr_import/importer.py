@@ -27,36 +27,51 @@ from reservation_group import ReservationGroupUpdater
 from account_type import AccountTypeUpdater
 
 
+def _get_affiliations(db_object, account_types):
+    return set(
+        (r['affiliation'], r['status'], r['ou_id'])
+        for r in db_object.list_affiliations(
+            person_id=db_object.entity_id,
+            affiliation=account_types.restrict_affiliation,
+            source_system=account_types.restrict_source))
+
+
 class EmployeeImport(EmployeeImportBase):
     """
-    An employee import for SAPUiO @ UiO.
+    An employee import for SAP and DFØ @ UiO.
     """
 
-    def update(self, hr_object, db_object):
+    def _update_account_types(self, hr_object, db_object, parent_method):
         account_types = AccountTypeUpdater(
             self.db,
             restrict_affiliation=self.const.affiliation_ansatt,
             restrict_source=self.mapper.source_system)
 
-        def _get_affiliations():
-            return set(
-                (r['affiliation'], r['status'], r['ou_id'])
-                for r in db_object.list_affiliations(
-                    person_id=db_object.entity_id,
-                    affiliation=account_types.restrict_affiliation,
-                    source_system=account_types.restrict_source))
-
-        affs_before = _get_affiliations()
-        super(EmployeeImport, self).update(hr_object, db_object)
-        affs_after = _get_affiliations()
+        affs_before = _get_affiliations(db_object, account_types)
+        parent_method(hr_object, db_object)
+        affs_after = _get_affiliations(db_object, account_types)
 
         if affs_before != affs_after:
             account_types.sync(db_object,
                                added=affs_after - affs_before,
                                removed=affs_before - affs_after)
 
+    def update(self, hr_object, db_object):
+        parent_method = super(EmployeeImport, self).update
+        self._update_account_types(hr_object, db_object, parent_method)
+
         reservation_group = ReservationGroupUpdater(self.db)
         reservation_group.set(db_object.entity_id, hr_object.reserved)
 
         leader_groups = LeaderGroupUpdater(self.db)
         leader_groups.sync(db_object.entity_id, hr_object.leader_groups)
+
+    def remove(self, hr_object, db_object):
+        parent_method = super(EmployeeImport, self).remove
+        self._update_account_types(hr_object, db_object, parent_method)
+
+        reservation_group = ReservationGroupUpdater(self.db)
+        reservation_group.set(db_object.entity_id, False)
+
+        leader_groups = LeaderGroupUpdater(self.db)
+        leader_groups.sync(db_object.entity_id, set())

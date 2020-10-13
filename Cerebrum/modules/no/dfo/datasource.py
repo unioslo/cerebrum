@@ -50,7 +50,7 @@ class Assignment(_base.RemoteObject):
     pass
 
 
-class Role(_base.RemoteObject):
+class Person(_base.RemoteObject):
     pass
 
 
@@ -69,11 +69,16 @@ class EmployeeDatasource(_base.AbstractDatasource):
     def get_object(self, reference):
         """ Fetch data from sap (employee data, assignments, roles). """
         employee_id = reference
-        employee = self.client.get_employee(employee_id)
+        employee_data = self.client.get_employee(employee_id)
+        employee = {
+            'id': int(reference),
+            'employee': {},
+            'assignments': {},
+        }
 
-        if employee:
-            employee['assignments'] = assignments = {}
-            assignment_ids = [employee['stillingId']]
+        if employee_data:
+            employee['employee'] = Person('dfo-sap', reference, employee_data)
+            assignment_ids = [employee_data['stillingId']]
             for secondary_assignment in assert_list(
                     employee.get('tilleggsstilling')):
                 assignment_ids.append(secondary_assignment['stillingId'])
@@ -81,14 +86,12 @@ class EmployeeDatasource(_base.AbstractDatasource):
             for assignment_id in assignment_ids:
                 assignment = self.client.get_stilling(assignment_id)
                 if assignment:
-                    assignments[assignment_id] = (
+                    employee['assignments'][assignment_id] = (
                         Assignment('dfo-sap', assignment_id, assignment)
                     )
-        else:
-            employee = {
-                'id': int(reference),
-                'assignments': {},
-            }
+                else:
+                    raise _base.DatasourceInvalid('No assignment found: %r' %
+                                                  assignment_id)
 
         return Employee('dfo-sap', reference, employee)
 
