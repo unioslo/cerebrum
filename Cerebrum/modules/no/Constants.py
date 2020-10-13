@@ -209,6 +209,10 @@ class ConstantsHigherEdu(Constants.Constants):
         'NO_STUDNO', Constants.Constants.entity_person,
         'Student ID number')
 
+    externalid_fs_lopenr = _EntityExternalIdCode(
+        'NO_FSNO', Constants.Constants.entity_person,
+        'FS serial number')
+
     externalid_sap_ansattnr = _EntityExternalIdCode(
         'NO_SAPNO', Constants.Constants.entity_person,
         'Employee ID number')
