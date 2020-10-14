@@ -188,7 +188,7 @@ class AccountTypeUpdater(object):
             try:
                 self._clear_account_type(account, account_types, affiliation,
                                          ou_id)
-            except _UpdateError:
+            except _UpdateError as e:
                 logger.info(
                     'Unable to clear account_type for person_id=%r: %s',
                     person.entity_id, e)
@@ -197,7 +197,7 @@ class AccountTypeUpdater(object):
             try:
                 self._set_account_type(account, account_types, affiliation,
                                        ou_id)
-            except _UpdateError:
+            except _UpdateError as e:
                 logger.info(
                     'Unable to set account_type for person_id=%r: %s',
                     person.entity_id, e)
