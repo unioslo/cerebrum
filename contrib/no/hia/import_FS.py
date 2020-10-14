@@ -114,8 +114,14 @@ class FsImporterUia(FsImporter):
                                               subtype, affiliations,
                                               self.studieprog2sko[
                                                   row['studieprogramkode']])
-        return (etternavn, fornavn, studentnr, birth_date, affiliations,
-                aktiv_sted)
+        rv = {'fnr': fnr,
+              'etternavn': etternavn,
+              'fornavn':  fornavn,
+              'studentnr':  studentnr,
+              'birth_date':  birth_date,
+              'affiliations':  affiliations,
+              'aktiv_sted': aktiv_sted}
+        return rv
 
 
 def main():
