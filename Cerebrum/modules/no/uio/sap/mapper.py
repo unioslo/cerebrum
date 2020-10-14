@@ -29,8 +29,8 @@ import logging
 import six
 
 from Cerebrum.modules.hr_import import mapper as _base
-from Cerebrum.modules.hr_import.models import (HRPerson,
-                                               HRTitle,
+from Cerebrum.modules.no.uio.hr_import.models import HRPerson
+from Cerebrum.modules.hr_import.models import (HRTitle,
                                                HRAffiliation,
                                                HRExternalID,
                                                HRContactInfo)

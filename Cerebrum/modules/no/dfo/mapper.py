@@ -28,15 +28,12 @@ import logging
 import six
 
 from Cerebrum.modules.hr_import import mapper as _base
-from Cerebrum import Errors
-from Cerebrum.Utils import Factory
 from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRTitle,
                                                HRAffiliation,
                                                HRExternalID,
                                                HRContactInfo)
 from Cerebrum.modules.hr_import.matcher import match_entity
-from Cerebrum.modules.no.uio.hr_import.leader_groups import get_leader_group
 from Cerebrum.modules.no.dfo.utils import assert_list, parse_date
 
 logger = logging.getLogger(__name__)
@@ -96,29 +93,6 @@ def get_additional_assignment(person_data, assignment_id):
         if assignment['stillingId'] == assignment_id:
             return assignment
     return None
-
-
-def parse_leader_ous(person_data, main_assignment):
-    """
-    Parse leader OUs from DFØ-SAP data
-
-    :param person_data: Data from DFØ-SAP
-                        `/ansatte/{id}`
-    :type person_data: dict
-    :param main_assignment: Assignment data from DFØ-SAP
-    :type main_assignment: dict
-
-    :rtype: set(int)
-    :return OU ids where the person is a leader
-    """
-    if not main_assignment or not person_data.get('lederflagg'):
-        return []
-
-    # TODO:
-    #  DFØ-SAP will probably fix naming of
-    #  organisasjonsId/organisasjonId/orgenhet, so that they are equal at
-    #  some point.
-    return [main_assignment['orgenhet']]
 
 
 class MapperConfig(_base.MapperConfig):
@@ -322,54 +296,30 @@ class EmployeeMapper(_base.AbstractMapper):
                             self.source_system,
                             self.db)
 
-    def parse_leader_groups(self, person_data, main_assignment,
-                            stedkode_cache):
-        """
-        Parse leader groups from SAP assignment data
+    @staticmethod
+    def create_hr_person(obj):
+        person_id = obj['id']
+        person_data = obj['employee']
 
-        :param person_data: Data from DFØ-SAP
-                            `/ansatte/{id}`
-        :type person_data: dict
-        :param main_assignment: Assignment data from DFØ-SAP
-        :type main_assignment: dict
+        return HRPerson(
+            hr_id=person_id,
+            first_name=person_data.get('fornavn'),
+            last_name=person_data.get('etternavn'),
+            birth_date=parse_date(person_data.get('fdato'), allow_empty=True),
+            gender=person_data.get('kjonn'),
+        )
 
-        :rtype: set(int)
-        :return: leader group ids where the person should be a member
-        """
-        leader_dfo_ou_ids = parse_leader_ous(person_data, main_assignment)
+    def update_hr_person(self, hr_person, obj):
+        person_data = obj['employee']
+        assignment_data = obj['assignments']
 
-        leader_group_ids = set()
-        for dfo_ou_id in leader_dfo_ou_ids:
-            stedkode = stedkode_cache.get(dfo_ou_id)
-            if stedkode:
-                leader_group_ids.add(get_leader_group(self.db,
-                                                      stedkode).entity_id)
-            else:
-                logger.warning('No matching stedkode for OU: %r', dfo_ou_id)
-
-        logger.info('parsed %i leader groups', len(leader_group_ids))
-        return leader_group_ids
-
-    def cache_stedkoder(self, assignment_data):
-        # TODO:
-        #  Remove this once orgreg is ready
-        cache = {}
-        ou = Factory.get('OU')(self.db)
-        co = Factory.get('Constants')(self.db)
-        dfo_ou_ids = (a['orgenhet'] for a in assignment_data.values())
-        for dfo_ou_id in dfo_ou_ids:
-            ou.clear()
-            try:
-                # TODO:
-                #  DFØ-SAP currently uses a mix of int and str for their ids.
-                #  This is also falsely documented, so we will have to clean up
-                #  the code on our side once DFØ clean up their mess.
-                ou.find_by_external_id(co.externalid_dfo_ou_id, str(dfo_ou_id))
-            except Errors.NotFoundError:
-                logger.warning('OU not found in Cerebrum %r', dfo_ou_id)
-            else:
-                cache[dfo_ou_id] = ou.get_stedkode()
-        return cache
+        main_assignment = get_main_assignment(person_data, assignment_data)
+        hr_person.external_ids = self.parse_external_ids(hr_person.hr_id,
+                                                         person_data)
+        hr_person.contact_infos = self.parse_contacts(person_data)
+        hr_person.titles = self.parse_titles(main_assignment)
+        hr_person.affiliations = self.parse_affiliations(person_data,
+                                                         assignment_data)
 
     def translate(self, reference, obj):
         """
@@ -379,35 +329,8 @@ class EmployeeMapper(_base.AbstractMapper):
         :type obj: RemoteObject
         :rtype: HRPerson
         """
-        person_id = obj['id']
-        person_data = obj['employee']
-        assignment_data = obj['assignments']
-
-        hr_person = HRPerson(
-            hr_id=person_id,
-            first_name=person_data.get('fornavn'),
-            last_name=person_data.get('etternavn'),
-            birth_date=parse_date(person_data.get('fdato'), allow_empty=True),
-            gender=person_data.get('kjonn'),
-            # TODO:
-            #  There does not seem to be any way to determine this in DFO-SAP
-            reserved=False
-        )
-
-        # TODO:
-        #  This should be fetched from orgreg by ``datasource.py`` sometime in
-        #  the future.
-        stedkode_cache = self.cache_stedkoder(assignment_data)
-        main_assignment = get_main_assignment(person_data, assignment_data)
-        hr_person.leader_groups = self.parse_leader_groups(person_data,
-                                                           main_assignment,
-                                                           stedkode_cache)
-        hr_person.external_ids = self.parse_external_ids(person_id,
-                                                         person_data)
-        hr_person.contact_infos = self.parse_contacts(person_data)
-        hr_person.titles = self.parse_titles(main_assignment)
-        hr_person.affiliations = self.parse_affiliations(person_data,
-                                                         assignment_data)
+        hr_person = self.create_hr_person(obj)
+        self.update_hr_person(hr_person, obj)
         return hr_person
 
     def is_active(self, hr_object, is_active=None):

@@ -33,24 +33,20 @@ class HRPerson(object):
                  first_name,
                  last_name,
                  birth_date,
-                 gender,
-                 reserved):
+                 gender):
         """
         :param str hr_id: The person's ID in the source system
         :param str first_name: First name of the person
         :param str last_name: Last name of the person
         :param date birth_date: Date the person was born
         :param str gender: Gender of the person ('M'/'F'/None)
-        :param bool reserved: If the person is reserved from public display
         """
         self.hr_id = hr_id
         self.first_name = first_name
         self.last_name = last_name
         self.birth_date = birth_date
         self.gender = gender
-        self.reserved = reserved
 
-        self.leader_groups = set()  # set of int (group ids)
         self.external_ids = set()  # set of HRExternalID
         self.contact_infos = set()  # set of HRContactInfo
         self.titles = set()         # set of HRTitle
