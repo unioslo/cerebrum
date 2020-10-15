@@ -63,7 +63,7 @@ class EmployeeImport(EmployeeImportBase):
         reservation_group = ReservationGroupUpdater(self.db)
         reservation_group.set(db_object.entity_id, hr_object.reserved)
 
-        leader_groups = LeaderGroupUpdater(self.db)
+        leader_groups = LeaderGroupUpdater(self.db, self.mapper.source_system)
         leader_groups.sync(db_object.entity_id, hr_object.leader_groups)
 
     def remove(self, hr_object, db_object):
@@ -73,5 +73,5 @@ class EmployeeImport(EmployeeImportBase):
         reservation_group = ReservationGroupUpdater(self.db)
         reservation_group.set(db_object.entity_id, False)
 
-        leader_groups = LeaderGroupUpdater(self.db)
+        leader_groups = LeaderGroupUpdater(self.db, self.mapper.source_system)
         leader_groups.sync(db_object.entity_id, set())
