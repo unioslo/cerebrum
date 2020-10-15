@@ -164,24 +164,21 @@ class FsImporter(object):
         except fodselsnr.InvalidFnrError:
             return
 
-        gender = self._get_gender(fnr)
+        pd = self._get_person_data(person_info, fnr)
+        pd['gender'] = self._get_gender(fnr)
 
-        etternavn, fornavn, studentnr, lopenr, birth_date, affiliations, aktiv_sted = \
-            self._get_person_data(person_info, fnr)
-
-        if etternavn is None:
+        if pd['etternavn'] is None:
             logger.debug("Ikke noe navn på %s" % fnr)
             self.no_name += 1
             return
 
-        if not birth_date:
-            logger.warn('No birth date registered for studentnr %s', studentnr)
+        if not pd['birth_date']:
+            logger.warn('No birth date registered for studentnr %s',
+                        pd['studentnr'])
 
-        person = self._get_person(fnr, studentnr)
+        person = self._get_person(fnr, pd['studentnr'])
 
-        if self._db_add_person(person, birth_date, gender, fornavn,
-                               etternavn, studentnr, lopenr, fnr, person_info,
-                               affiliations):
+        if self._db_add_person(person, person_info, pd):
             # Perform following operations only if _db_add_person didn't fail
             if self.reg_fagomr:
                 self._register_fagomrade(person, person_info)
@@ -229,7 +226,6 @@ class FsImporter(object):
         etternavn = None
         fornavn = None
         studentnr = None
-        lopenr = None
         birth_date = None
         affiliations = []
         aktiv_sted = []
@@ -253,8 +249,6 @@ class FsImporter(object):
                 fornavn = p['fornavn']
             if 'studentnr_tildelt' in p:
                 studentnr = p['studentnr_tildelt']
-            if 'personlopenr' in p:
-                lopenr = p['personlopenr']
             if not birth_date and 'dato_fodt' in p:
                 birth_date = datetime.datetime.strptime(p['dato_fodt'],
                                                         "%Y-%m-%d %H:%M:%S.%f")
@@ -297,8 +291,14 @@ class FsImporter(object):
                         stedkode)
 
         # end for-loop
-        return (etternavn, fornavn, studentnr,  lopenr, birth_date,
-                affiliations, aktiv_sted)
+        rv = {'fnr': fnr,
+              'etternavn': etternavn,
+              'fornavn':  fornavn,
+              'studentnr':  studentnr,
+              'birth_date':  birth_date,
+              'affiliations':  affiliations,
+              'aktiv_sted': aktiv_sted}
+        return rv
 
     def _process_affiliation(self, aff, aff_status, new_affs, ou):
         # TBD: Should we for example remove the 'opptak' affiliation if we
@@ -306,10 +306,17 @@ class FsImporter(object):
         if ou is not None:
             new_affs.append((ou, aff, aff_status))
 
-    def _db_add_person(self, person, birth_date, gender, fornavn,
-                       etternavn, studentnr, lopenr, fnr, person_info, affiliations):
+    def _db_add_person(self, person, person_info, pd):
         """Fills in the necessary information about the new_person.
         Then the new_person gets written to the database"""
+        etternavn = pd['etternavn']
+        fornavn = pd['fornavn']
+        studentnr = pd['studentnr']
+        birth_date = pd['birth_date']
+        affiliations = pd['affiliations']
+        fnr = pd['fnr']
+        gender = pd['gender']
+
         person.populate(birth_date, gender)
         person.affect_names(self.co.system_fs, self.co.name_first,
                             self.co.name_last)
@@ -319,8 +326,8 @@ class FsImporter(object):
         external_ids = {self.co.externalid_fodselsnr: fnr}
         if studentnr is not None:
             external_ids[self.co.externalid_studentnr] = studentnr
-        if lopenr is not None:
-            external_ids[self.co.externalid_fs_lopenr] = lopenr
+        if 'personlopenr' in pd and pd['personlopenr'] is not None:
+            external_ids[self.co.externalid_fs_lopenr] = pd['personlopenr']
         person.affect_external_id(self.co.system_fs, *external_ids)
         for eid_type, eid_value in external_ids.items():
             person.populate_external_id(self.co.system_fs,

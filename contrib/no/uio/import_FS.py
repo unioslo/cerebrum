@@ -262,14 +262,85 @@ class FsImporterUio(FsImporter):
             else:
                 logger.debug("No such affiliation type: %s, skipping",
                              dta_type)
+        rv = {'fnr': fnr,
+              'etternavn': etternavn,
+              'fornavn':  fornavn,
+              'studentnr':  studentnr,
+              'personlopenr': personlopenr,
+              'birth_date':  birth_date,
+              'affiliations':  affiliations,
+              'aktiv_sted': aktiv_sted}
+        return rv
 
-        return (etternavn,
-                fornavn,
-                studentnr,
-                personlopenr,
-                birth_date,
-                affiliations,
-                aktiv_sted)
+    def _db_add_person(self, person, person_info, pd):
+        """Fills in the necessary information about the new_person.
+        Then the new_person gets written to the database"""
+        etternavn = pd['etternavn']
+        fornavn = pd['fornavn']
+        studentnr = pd['studentnr']
+        personlopenr = pd['personlopenr']
+        birth_date = pd['birth_date']
+        affiliations = pd['affiliations']
+        fnr = pd['fnr']
+        gender = pd['gender']
+
+        person.populate(birth_date, gender)
+        person.affect_names(self.co.system_fs, self.co.name_first,
+                            self.co.name_last)
+        person.populate_name(self.co.name_first, fornavn)
+        person.populate_name(self.co.name_last, etternavn)
+
+        external_ids = {self.co.externalid_fodselsnr: fnr}
+        if studentnr is not None:
+            external_ids[self.co.externalid_studentnr] = studentnr
+        if personlopenr is not None:
+            external_ids[self.co.externalid_fs_lopenr] = personlopenr
+        person.affect_external_id(self.co.system_fs, *external_ids)
+        for eid_type, eid_value in external_ids.items():
+            person.populate_external_id(self.co.system_fs,
+                                        eid_type,
+                                        eid_value)
+        ad_post, ad_post_private, ad_street = self._calc_address(person_info)
+        for address_info, ad_const in ((ad_post, self.co.address_post),
+                                       (ad_post_private,
+                                        self.co.address_post_private),
+                                       (ad_street, self.co.address_street)):
+            # TBD: Skal vi slette evt. eksisterende adresse v/None?
+            if address_info is not None:
+                logger.debug("Populating address %s for %s", ad_const, fnr)
+                person.populate_address(self.co.system_fs, ad_const,
+                                        **address_info)
+        # if this is a new Person, there is no entity_id assigned to it
+        # until written to the database.
+        try:
+            op = person.write_db()
+        except Exception as e:
+            logger.exception("write_db failed for person %s: %s", fnr, e)
+            # Roll back in case of db exceptions:
+            self.db.rollback()
+            return False
+
+        affiliations = self._filter_affiliations(affiliations)
+
+        for ou, aff, aff_status in affiliations:
+            person.populate_affiliation(self.co.system_fs, ou, aff,
+                                        aff_status)
+            if self.include_delete:
+                key_a = "%s:%s:%s" % (person.entity_id, ou, int(aff))
+                if key_a in self.old_aff:
+                    self.old_aff[key_a] = False
+
+        self._register_cellphone(person, person_info)
+
+        op2 = person.write_db()
+
+        if op is None and op2 is None:
+            logger.info("**** EQUAL ****")
+        elif op:
+            logger.info("**** NEW ****")
+        else:
+            logger.info("**** UPDATE ****")
+        return True
 
     def _get_admission_date_func(self, for_date, grace_days=0):
         """ Get a admission date filter function to evaluate *new* students.
