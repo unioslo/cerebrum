@@ -34,6 +34,7 @@ from Cerebrum.modules.LDIFutils import (
     normalize_IA5String,
     verify_IA5String,
 )
+from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import make_timer
 
 logger = logging.getLogger(__name__)
@@ -234,6 +235,28 @@ class OrgLDIFUiOMixin(OrgLdifCourseMixin,
             mail = self.account_primary_mail.get(account_id)
             if mail:
                 entry['uioPrimaryMail'] = mail
+
+        # Locked accounts needs to be a uioFeideHiddenPerson to be locked from
+        # Feide non-password authentication schemes.  Note that autopassord is
+        # exempt from this - the password is invalid, but the account should
+        # still be allowed into Feide services through ID-porten auth.
+        #
+        # If/when the ID-porten pilot is over and other institutions need
+        # this, the functionality should be moved into a separate, generic
+        # mixin that allows us to customize:
+        #   - Quarantine types to exempt from uioFeideHiddenPerson
+        #   - Feide locking mechanism (or at the very least the name of the
+        #     objectClass)
+        feide_lock_exempt = set((
+            int(self.const.quarantine_autopassord),
+        ))
+        relevant_quarantines = [
+            q for q in self.acc_locked_quarantines.get(account_id) or ()
+            if q not in feide_lock_exempt]
+        if QuarantineHandler(self.db, relevant_quarantines).is_locked():
+            entry['objectClass'].append('uioFeideHiddenPerson')
+            logger.debug('uioFeideHiddenPerson for account_id=%r',
+                         account_id)
 
         return dn, entry, alias_info
 
