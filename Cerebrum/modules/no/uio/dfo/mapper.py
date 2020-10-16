@@ -46,13 +46,13 @@ def parse_leader_ous(person_data, main_assignment):
     :return OU ids where the person is a leader
     """
     if not main_assignment or not person_data.get('lederflagg'):
-        return []
+        return set()
 
     # TODO:
     #  DFØ-SAP will probably fix naming of
     #  organisasjonsId/organisasjonId/orgenhet, so that they are equal at
     #  some point.
-    return [main_assignment['orgenhet']]
+    return set([main_assignment['orgenhet']])
 
 
 class EmployeeMapper(_base.EmployeeMapper):
