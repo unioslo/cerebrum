@@ -409,6 +409,5 @@ class EmployeeMapper(_base.AbstractMapper):
         return hr_person
 
     def is_active(self, hr_object, is_active=None):
-        if is_active is not None:
-            return is_active
-        return bool(hr_object.affiliations)
+        return hr_object.has_active_affiliations(start_grace=self.start_grace,
+                                                 end_grace=self.end_grace)

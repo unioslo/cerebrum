@@ -81,15 +81,17 @@ class AbstractImport(object):
         """
         message_body = load_message(event)
         reference = self.datasource.get_reference(message_body)
-        not_before = self.datasource.needs_delay(message_body)
-        if not_before:
-            logger.info('Scheduling event=%r for %r', event, not_before)
-            # TODO:
-            #  Insert code for rescheduling message (not_before is timestamp)
-            # raise NotImplementedError(
-            #     'Message rescheduling not implemented yet!')
-            logger.warning('Scheduling not implemented!')
-        self.handle_reference(reference)
+
+        event_not_before = self.datasource.needs_delay(message_body)
+        if event_not_before:
+            # Check if the event itself has a not before date.
+            # If it does, we return here and push the message to the reschedule
+            # queue
+            logger.info('Event=%s has a nbf in the future. Rescheduling at %r',
+                        event, event_not_before)
+            return set([event_not_before])
+        retry_dates = self.handle_reference(reference)
+        return retry_dates
 
     def handle_reference(self, reference):
         """
@@ -106,7 +108,7 @@ class AbstractImport(object):
         except NoMappedObjects:
             db_object = None
 
-        self.handle_object(hr_object, db_object)
+        return self.handle_object(hr_object, db_object)
 
     def handle_object(self, hr_object, db_object):
         """
@@ -117,9 +119,10 @@ class AbstractImport(object):
         """
         # TODO:
         #  Rescheduling
-        retry_dates, has_active_affiliation = self.mapper.needs_delay(
+        retry_dates = self.mapper.needs_delay(
             hr_object)
-        if self.mapper.is_active(hr_object, is_active=has_active_affiliation):
+
+        if self.mapper.is_active(hr_object):
             if db_object:
                 logger.info('updating id=%r with %r',
                             db_object.entity_id, hr_object)
@@ -133,6 +136,7 @@ class AbstractImport(object):
             self.remove(db_object)
         else:
             logger.info('nothing to do for %r', hr_object)
+        return retry_dates
 
     @abc.abstractmethod
     def create(self, hr_object):

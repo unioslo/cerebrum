@@ -62,7 +62,7 @@ from Cerebrum.config.configuration import (
     Namespace,
 )
 from Cerebrum.config.settings import String
-from Cerebrum.modules.amqp.config import ConsumerConfig
+from Cerebrum.modules.amqp.config import ConsumerConfig, PublisherConfig
 from Cerebrum.modules.amqp.mapper_config import MapperConfig
 from Cerebrum.utils.module import resolve
 from Cerebrum.config.loader import read_config as read_config_file
@@ -153,6 +153,12 @@ class HrImportConfig(HrImportBaseConfig):
         Namespace,
         config=ConsumerConfig,
         doc='Message broker configuration',
+    )
+
+    publisher = ConfigDescriptor(
+        Namespace,
+        config=PublisherConfig,
+        doc='Message republish configuration',
     )
 
     task_mapper = ConfigDescriptor(

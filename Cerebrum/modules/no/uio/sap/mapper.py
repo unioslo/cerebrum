@@ -72,6 +72,10 @@ def filter_elements(d):
     return {k: v for k, v in d.items() if k and v}
 
 
+class MapperConfig(_base.MapperConfig):
+    pass
+
+
 class EmployeeMapper(_base.AbstractMapper):
     """A simple employee mapper class"""
 
@@ -328,7 +332,6 @@ class EmployeeMapper(_base.AbstractMapper):
                                                          role_data)
         return hr_person
 
-    def is_active(self, hr_object, is_active=None):
-        if is_active is not None:
-            return is_active
-        return bool(hr_object.affiliations)
+    def is_active(self, hr_object):
+        return hr_object.has_active_affiliations(start_grace=self.start_grace,
+                                                 end_grace=self.end_grace)

@@ -153,6 +153,11 @@ class AbstractConsumerHandler(collections.Callable):
         """ Handle event.  """
         pass
 
+    @abc.abstractmethod
+    def reschedule(self, event, dates):
+        """Reschedule future events."""
+        pass
+
     def on_error(self, event, error):
         """
         Handle unexpected error.
@@ -188,6 +193,9 @@ class _Demo(AbstractConsumerHandler):
         logger.info('got event: %r on channel %r', event, event.channel)
         if 'fail' in event.body.decode(event.content_encoding):
             raise RuntimeError('intentional, body contains "fail"')
+
+    def reschedule(self, event, dates):
+        pass
 
 
 demo_handler = _Demo()

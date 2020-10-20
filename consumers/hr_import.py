@@ -107,13 +107,27 @@ def main(inargs=None):
     logger.debug("args: %r", args)
 
     config = get_config(args.config)
+
+    try:
+        config.validate()
+    except Exception as e:
+        print('Error in sonsumer config')
+        print(e)
+        return
+
     task_mapper = MessageToTaskMapper(config=config.task_mapper)
     importer_config = config.importer
     logger.info('employee importer: %r', importer_config)
 
+    publisher_config = {
+        'conn': get_connection_params(config.publisher.connection),
+        'exchange': config.publisher.exchange.name
+    }
+
     callback = EmployeeHandler(
         task_mapper=task_mapper,
         importer_config=importer_config,
+        publisher_config=publisher_config,
         db_init=get_db,
         dryrun=not args.commit)
 

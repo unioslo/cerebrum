@@ -26,6 +26,7 @@ Cerebrum.Person object from employee data).
 """
 import datetime
 import abc
+import logging
 
 import six
 
@@ -34,7 +35,9 @@ from Cerebrum.config.configuration import (
     Configuration,
     ConfigDescriptor,
 )
-from Cerebrum.config.settings import Integer
+from Cerebrum.config.settings import Integer, Iterable, String
+
+logger = logging.getLogger(__name__)
 
 
 class MapperError(RuntimeError):
@@ -73,8 +76,11 @@ class AbstractMapper(object):
         :type db: Cerebrum.Database
         """
         self.db = db
-        self.end_grace = datetime.timedelta(days=config.end_grace)
-        self.start_grace = datetime.timedelta(days=config.start_grace)
+        self.end_grace = datetime.timedelta(days=abs(config.end_grace))
+        self.start_grace = datetime.timedelta(days=abs(config.start_grace))
+        self.end_dates_ignore = [
+            datetime.datetime.strptime(x, '%Y-%m-%d').date()
+            for x in config.end_dates_ignore]
         self.const = Factory.get('Constants')(db)
 
     @abc.abstractproperty
@@ -147,23 +153,33 @@ class AbstractMapper(object):
         t = datetime.date.today()
         start_cutoff = t + self.start_grace
         end_cutoff = t + self.end_grace
-
         active_date_ranges = []
 
         for a in hr_object.affiliations:
             active_date_ranges.append((a.start_date, a.end_date))
 
-        retry_dates = []
-        has_active_affiliation = False
+        active_date_ranges = [
+            (datetime.date(2020, 1, 17), datetime.date(2021, 1, 31))]
 
+        # TODO: Add roles?
+        retry_dates = set()
         for start, end in active_date_ranges:
-            if (not in_date_range(start_cutoff, start=start)
-                    and in_date_range(end_cutoff, end=end)):
-                retry_dates.append(start_cutoff)
-            else:
-                has_active_affiliation = True
-
-        return retry_dates, has_active_affiliation
+            if not in_date_range(start_cutoff, start=start):
+                # Start of affiliation is in the future
+                retry_date = start - self.start_grace
+                retry_dates.add(retry_date.strftime('%s'))
+                logger.info('Start date of affiliation in the future. '
+                            'Rescheduling for %s', retry_date )
+                # No need to handle the the end date now.
+                continue
+            if (end not in self.end_dates_ignore and
+                    in_date_range(end_cutoff, end=end)):
+                # Affiliation with end defined.
+                retry_date = end + self.end_grace
+                retry_dates.add(retry_date.strftime('%s'))
+                logger.info('End date of affiliation set. '
+                            'Rescheduling for %s', retry_date)
+        return retry_dates
 
 
 class MapperConfig(Configuration):
@@ -179,4 +195,12 @@ class MapperConfig(Configuration):
         default=0,
         doc=("How many days past an affiliation's end date should it be kept "
              "in Cerebrum?"),
+    )
+
+    end_dates_ignore = ConfigDescriptor(
+        Iterable,
+        template=String(),
+        default=[],
+        doc='End dates representing contracts without an end date..'
+            'E.g. 9999-12-31 is used by UiO-SAP.'
     )
