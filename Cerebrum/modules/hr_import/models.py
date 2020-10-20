@@ -22,9 +22,7 @@ an HR system.
 """
 
 import datetime
-import logging
 
-logger = logging.getLogger(__name__)
 
 class HRPerson(object):
     """

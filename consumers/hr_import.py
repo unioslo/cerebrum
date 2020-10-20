@@ -111,7 +111,7 @@ def main(inargs=None):
     try:
         config.validate()
     except Exception as e:
-        print('Error in sonsumer config')
+        print('Error in consumer config')
         print(e)
         return
 
