@@ -179,11 +179,12 @@ class HRAffiliation(ComparableObject):
         :return boolean: True if active
         """
 
-        t = datetime.date.today()
-        start_cutoff = t - start_grace
-        end_cutoff = t + end_grace
-        if (self.start_date and self.start_date <= start_cutoff
-                and (not self.end_date
-                     or (self.end_date and self.end_date >= end_cutoff))):
-            return True
+        today = datetime.date.today()
+        if self.start_date and self.end_date:
+            if (self.start_date - start_grace <= today
+                    <= self.end_date + end_grace):
+                return True
+        elif self.start_date:
+            if self.start_date - start_grace <= today:
+                return True
         return False
