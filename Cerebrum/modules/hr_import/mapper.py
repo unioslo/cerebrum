@@ -158,9 +158,6 @@ class AbstractMapper(object):
         for a in hr_object.affiliations:
             active_date_ranges.append((a.start_date, a.end_date))
 
-        active_date_ranges = [
-            (datetime.date(2020, 1, 17), datetime.date(2021, 1, 31))]
-
         # TODO: Add roles?
         retry_dates = set()
         for start, end in active_date_ranges:
