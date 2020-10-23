@@ -98,12 +98,6 @@ def _get_primary_emailaddress(db, pe):
         return None
 
 
-def _get_ssn(db, pe, ssn_type, source_system):
-    ssns = pe.get_external_id(id_type=ssn_type,
-                              source_system=source_system)
-    return None if not ssns else ssns[0]['external_id']
-
-
 def _get_phone(db, pe, source_system, telephone_types):
     phones = []
     for (ss, tt) in telephone_types:
@@ -134,15 +128,13 @@ def get_affiliated(db, source_system, affiliations):
         yield row['person_id']
 
 
-def get_person_info(db, person, ssn_type, source_system,
+def get_person_info(db, person, source_system,
                     telephone_types):
     """Collect information about `person`.
 
     :param Cerebrum.database.Database db: DB connection object.
     :param Cerebrum.Constants._EntityExternalIdCode ssn_type: External id type
         to filter by.
-    :param Cerebrum.Constants._AuthoritativeSystemCode source_system: Source
-        system to filter by.
     :param Cerebrum.Constants._ContactInfoCode telephone_types: Filter
         telephone entries by type."""
     if isinstance(person, (int, long)):
@@ -233,11 +225,6 @@ def main(inargs=None):
                         help='Telephone types to export, in prioritized '
                              'order. An authorative system can be defined as '
                              'a number-source. I.e: SAP:MOBILE')
-    parser.add_argument('--ssn-type',
-                        dest='ssn_type',
-                        required=True,
-                        metavar='ssn-type',
-                        help='SSN type to select. I.e NO_BIRTHNO')
     parser.add_argument('--skip-incomplete',
                         dest='skip_incomplete',
                         action='store_true',
@@ -262,7 +249,6 @@ def main(inargs=None):
                args.codec,
                (get_person_info(
                    db, pid,
-                   _parse_codes(db, args.ssn_type),
                    _parse_codes(db, args.source_system),
                    _strip_n_parse_source_system(db, args.telephone_types))
                    for pid in set(get_affiliated(
