@@ -133,8 +133,8 @@ def get_person_info(db, person, source_system,
     """Collect information about `person`.
 
     :param Cerebrum.database.Database db: DB connection object.
-    :param Cerebrum.Constants._EntityExternalIdCode ssn_type: External id type
-        to filter by.
+    :param Cerebrum.Constants._AuthoritativeSystemCode source_system: Source
+        system to filter by.
     :param Cerebrum.Constants._ContactInfoCode telephone_types: Filter
         telephone entries by type."""
     if isinstance(person, (int, long)):
