@@ -101,4 +101,4 @@ class EmployeeDatasource(_base.AbstractDatasource):
                 #  This is a bit hairy. We may not need to reschedule this if
                 #  tiny_scheduler is already listening to the same queue?
                 return not_before_time
-        return False
+        return None

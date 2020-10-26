@@ -21,6 +21,8 @@ This module contains classes for holding information about a person from
 an HR system.
 """
 
+import datetime
+
 
 class HRPerson(object):
     """
@@ -52,6 +54,16 @@ class HRPerson(object):
         self.titles = set()         # set of HRTitle
         self.affiliations = set()   # set of HRAffiliation
 
+    def has_active_affiliations(self, start_grace, end_grace):
+        """
+        Check if any of the persons affiliations is active.
+
+        :param datetime.timedelta start_grace: Grace period for start date
+        :param datetime.timedelta end_grace: Grace period for end date
+        :return boolean: True if active any affiliations are active.
+        """
+        return any([x.is_active(start_grace, end_grace)
+                    for x in self.affiliations])
 
 class ComparableObject(object):
     """General class that implements __eq__ and __ne__
@@ -152,3 +164,23 @@ class HRAffiliation(ComparableObject):
         return hash(
             (self.ou_id, self.affiliation)
         )
+
+    def is_active(self, start_grace, end_grace):
+        """
+        Check if the affiliation is currently active.
+
+        self.start_date - start_grace <= today <= self.end_date + end_grace
+        :param datetime.timedelta start_grace: Grace period for start date
+        :param datetime.timedelta end_grace: Grace period for end date
+        :return boolean: True if active
+        """
+
+        today = datetime.date.today()
+        if self.start_date and self.end_date:
+            if (self.start_date - start_grace <= today
+                    <= self.end_date + end_grace):
+                return True
+        elif self.start_date:
+            if self.start_date - start_grace <= today:
+                return True
+        return False
