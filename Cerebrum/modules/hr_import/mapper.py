@@ -30,7 +30,6 @@ import logging
 
 import six
 
-from Cerebrum.Utils import Factory
 from Cerebrum.config.configuration import (
     Configuration,
     ConfigDescriptor,
@@ -70,18 +69,15 @@ class AbstractMapper(object):
     Fetch objects from remote systems.
     """
 
-    def __init__(self, db, config):
+    def __init__(self, config):
         """
-        :param db: Database object
-        :type db: Cerebrum.Database
+        # TODO: beskrivelse for config-argumentet?
         """
-        self.db = db
         self.end_grace = datetime.timedelta(days=abs(config.end_grace))
         self.start_grace = datetime.timedelta(days=abs(config.start_grace))
         self.end_dates_ignore = [
             datetime.datetime.strptime(x, '%Y-%m-%d').date()
             for x in config.end_dates_ignore]
-        self.const = Factory.get('Constants')(db)
 
     @abc.abstractproperty
     def source_system(self):

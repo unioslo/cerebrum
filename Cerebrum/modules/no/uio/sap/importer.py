@@ -39,5 +39,5 @@ class EmployeeImport(UioEmployeeImport):
         client = get_client(client_config)
         datasource = EmployeeDatasource(client)
         mapper_config = get_configurable_module(config.mapper)
-        mapper = EmployeeMapper(db, mapper_config)
+        mapper = EmployeeMapper(mapper_config)
         super(EmployeeImport, self).__init__(db, datasource, mapper)

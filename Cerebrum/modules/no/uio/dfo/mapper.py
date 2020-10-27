@@ -25,10 +25,7 @@ from __future__ import unicode_literals
 import logging
 
 from Cerebrum.modules.no.dfo import mapper as _base
-from Cerebrum import Errors
-from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.hr_import.models import HRPerson
-from Cerebrum.modules.no.uio.hr_import.leader_groups import get_leader_group
 from Cerebrum.modules.no.dfo.utils import parse_date
 from Cerebrum.modules.no.dfo.mapper import get_main_assignment
 
@@ -49,66 +46,17 @@ def parse_leader_ous(person_data, main_assignment):
     :return OU ids where the person is a leader
     """
     if not main_assignment or not person_data.get('lederflagg'):
-        return []
+        return set()
 
     # TODO:
     #  DFØ-SAP will probably fix naming of
     #  organisasjonsId/organisasjonId/orgenhet, so that they are equal at
     #  some point.
-    return [main_assignment['orgenhet']]
+    return set([main_assignment['orgenhet']])
 
 
 class EmployeeMapper(_base.EmployeeMapper):
     """A simple employee mapper class"""
-
-    def parse_leader_groups(self, person_data, main_assignment,
-                            stedkode_cache):
-        """
-        Parse leader groups from SAP assignment data
-
-        :param person_data: Data from DFØ-SAP
-                            `/ansatte/{id}`
-        :type person_data: dict
-        :param main_assignment: Assignment data from DFØ-SAP
-        :type main_assignment: dict
-
-        :rtype: set(int)
-        :return: leader group ids where the person should be a member
-        """
-        leader_dfo_ou_ids = parse_leader_ous(person_data, main_assignment)
-
-        leader_group_ids = set()
-        for dfo_ou_id in leader_dfo_ou_ids:
-            stedkode = stedkode_cache.get(dfo_ou_id)
-            if stedkode:
-                leader_group_ids.add(get_leader_group(self.db,
-                                                      stedkode).entity_id)
-            else:
-                logger.warning('No matching stedkode for OU: %r', dfo_ou_id)
-
-        logger.info('parsed %i leader groups', len(leader_group_ids))
-        return leader_group_ids
-
-    def cache_stedkoder(self, assignment_data):
-        # TODO:
-        #  Remove this once orgreg is ready
-        cache = {}
-        ou = Factory.get('OU')(self.db)
-        co = Factory.get('Constants')(self.db)
-        dfo_ou_ids = (a['orgenhet'] for a in assignment_data.values())
-        for dfo_ou_id in dfo_ou_ids:
-            ou.clear()
-            try:
-                # TODO:
-                #  DFØ-SAP currently uses a mix of int and str for their ids.
-                #  This is also falsely documented, so we will have to clean up
-                #  the code on our side once DFØ clean up their mess.
-                ou.find_by_external_id(co.externalid_dfo_ou_id, str(dfo_ou_id))
-            except Errors.NotFoundError:
-                logger.warning('OU not found in Cerebrum %r', dfo_ou_id)
-            else:
-                cache[dfo_ou_id] = ou.get_stedkode()
-        return cache
 
     @staticmethod
     def create_hr_person(obj):
@@ -134,8 +82,6 @@ class EmployeeMapper(_base.EmployeeMapper):
         # TODO:
         #  This should be fetched from orgreg by ``datasource.py`` sometime in
         #  the future.
-        stedkode_cache = self.cache_stedkoder(assignment_data)
         main_assignment = get_main_assignment(person_data, assignment_data)
-        hr_person.leader_groups = self.parse_leader_groups(person_data,
-                                                           main_assignment,
-                                                           stedkode_cache)
+        hr_person.leader_groups = self.parse_leader_ous(person_data,
+                                                        main_assignment)
