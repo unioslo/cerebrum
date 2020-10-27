@@ -83,5 +83,5 @@ class EmployeeMapper(_base.EmployeeMapper):
         #  This should be fetched from orgreg by ``datasource.py`` sometime in
         #  the future.
         main_assignment = get_main_assignment(person_data, assignment_data)
-        hr_person.leader_groups = self.parse_leader_ous(person_data,
-                                                        main_assignment)
+        hr_person.leader_groups = parse_leader_ous(person_data,
+                                                   main_assignment)
