@@ -27,6 +27,7 @@ import abc
 import logging
 import json
 
+from .matcher import match_entity
 from .mapper import NoMappedObjects
 from .datasource import DatasourceInvalid
 
@@ -54,10 +55,11 @@ def load_message(event):
 
 class AbstractImport(object):
 
-    def __init__(self, db, datasource, mapper):
+    def __init__(self, db, datasource, mapper, source_system):
         self.db = db
         self._datasource = datasource
         self._mapper = mapper
+        self._source_system = source_system
 
     @property
     def datasource(self):
@@ -68,6 +70,17 @@ class AbstractImport(object):
     def mapper(self):
         """ A mapper to use for translating HR data to Cerebrum. """
         return self._mapper
+
+    @property
+    def source_system(self):
+        """ A source system to link import data to. """
+        return self._source_system
+
+    def find_entity(self, hr_object):
+        """Find matching Cerebrum entity for the given HRPerson."""
+        return match_entity(hr_object.external_ids,
+                            self.source_system,
+                            self.db)
 
     def handle_event(self, event):
         """
@@ -104,7 +117,7 @@ class AbstractImport(object):
         hr_object = self.mapper.translate(reference, raw_data)
 
         try:
-            db_object = self.mapper.find_entity(hr_object)
+            db_object = self.find_entity(hr_object)
         except NoMappedObjects:
             db_object = None
 

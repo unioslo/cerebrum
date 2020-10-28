@@ -33,7 +33,6 @@ from Cerebrum.modules.hr_import.models import (HRPerson,
                                                HRAffiliation,
                                                HRExternalID,
                                                HRContactInfo)
-from Cerebrum.modules.hr_import.matcher import match_entity
 from Cerebrum.modules.no.dfo.utils import assert_list, parse_date
 
 logger = logging.getLogger(__name__)
@@ -101,10 +100,6 @@ class MapperConfig(_base.MapperConfig):
 
 class EmployeeMapper(_base.AbstractMapper):
     """A simple employee mapper class"""
-
-    @property
-    def source_system(self):
-        return self.const.system_dfo_sap
 
     @classmethod
     def parse_affiliations(cls, person_data, assignment_data):
@@ -289,12 +284,6 @@ class EmployeeMapper(_base.AbstractMapper):
                     name=name)
         )
         return titles
-
-    def find_entity(self, hr_object):
-        """Find matching Cerebrum entity for the given HRPerson."""
-        return match_entity(hr_object.external_ids,
-                            self.source_system,
-                            self.db)
 
     @staticmethod
     def create_hr_person(obj):

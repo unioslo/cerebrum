@@ -45,7 +45,7 @@ class EmployeeImport(EmployeeImportBase):
         account_types = AccountTypeUpdater(
             self.db,
             restrict_affiliation=self.const.affiliation_ansatt,
-            restrict_source=self.mapper.source_system)
+            restrict_source=self.source_system)
 
         affs_before = _get_affiliations(db_object, account_types)
         parent_method(hr_object, db_object)
@@ -63,7 +63,7 @@ class EmployeeImport(EmployeeImportBase):
         reservation_group = ReservationGroupUpdater(self.db)
         reservation_group.set(db_object.entity_id, hr_object.reserved)
 
-        leader_groups = LeaderGroupUpdater(self.db, self.mapper.source_system)
+        leader_groups = LeaderGroupUpdater(self.db, self.source_system)
         leader_groups.sync(db_object.entity_id, hr_object.leader_groups)
 
     def remove(self, hr_object, db_object):
@@ -73,5 +73,5 @@ class EmployeeImport(EmployeeImportBase):
         reservation_group = ReservationGroupUpdater(self.db)
         reservation_group.set(db_object.entity_id, False)
 
-        leader_groups = LeaderGroupUpdater(self.db, self.mapper.source_system)
+        leader_groups = LeaderGroupUpdater(self.db, self.source_system)
         leader_groups.sync(db_object.entity_id, set())

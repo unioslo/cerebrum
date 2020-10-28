@@ -103,21 +103,6 @@ class AbstractMapper(object):
         pass
 
     @abc.abstractmethod
-    def find_entity(self, hr_object):
-        """
-        Find a Cerebrum object/entity.
-
-        :type hr_object: models.HRPerson
-        :param obj: An object, as provided by :meth:`.translate`.
-
-        :rtype: Cerebrum.Person.Person
-
-        :raises NoMappedObjects: No entity can be found
-        :raises ManyMappedObjects: Multiple entities can be found
-        """
-        pass
-
-    @abc.abstractmethod
     def is_active(self, hr_object):
         """
         Decide if an HR object should be present in the database.
