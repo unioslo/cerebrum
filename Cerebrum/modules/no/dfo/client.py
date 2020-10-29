@@ -72,7 +72,10 @@ def urljoin(base_url, *paths):
     """
     A sane urljoin.
 
-    >>> urljoin('https://localhost/foo', 'bar')
+    Note how urllib.parse.urljoin will assume 'relative to parent' when the
+    base_url doesn't end with a '/':
+
+    >>> urllib.parse.urljoin('https://localhost/foo', 'bar')
     'https://localhost/bar'
 
     >>> urljoin('https://localhost/foo', 'bar')
@@ -287,7 +290,7 @@ def get_client(config):
             ('employee', config.employee_api)
             ('orgenhet', config.orgenhet_api)
             ('stilling', config.stilling_api)):
-        if api_config.url:
+        if api_config.path:
             kwargs[name + '_path'] = api_config.path
         if api_config.auth:
             kwargs.setdefault(name + '_headers', {}).update({
