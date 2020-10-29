@@ -116,8 +116,8 @@ class EmployeeHandler(AbstractConsumerHandler):
         message = json.loads(event.body)
         if not self.publisher_config:
             logger.warning(
-                'No publisher config, skipping rescheduling of event %s',
-                message['jti'])
+                'No publisher config, skipping rescheduling of event %r',
+                event)
             return
 
         for rechedule_date in dates:
@@ -128,12 +128,11 @@ class EmployeeHandler(AbstractConsumerHandler):
                     event.method.routing_key,
                     json.dumps(message)
                 ):
-                    logger.info('Rescheduled msg %s for %s',
-                                message['jti'],
+                    logger.info('Rescheduled event %r for %s',
+                                event,
                                 rechedule_date)
                 else:
-                    logger.error('Could not reschedule message %s',
-                                 message['jti'])
+                    logger.error('Could not reschedule event %r', event)
 
     def on_error(self, event, error):
         # TODO: Separate between DatasourceInvalid, DatasourceUnavailable
