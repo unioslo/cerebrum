@@ -27,6 +27,7 @@ from Cerebrum.modules.no.uio.sap.mapper import EmployeeMapper
 from Cerebrum.modules.no.uio.hr_import.importer import (
     EmployeeImport as UioEmployeeImport
 )
+from Cerebrum.Utils import Factory
 
 
 class EmployeeImport(UioEmployeeImport):
@@ -40,4 +41,6 @@ class EmployeeImport(UioEmployeeImport):
         datasource = EmployeeDatasource(client)
         mapper_config = get_configurable_module(config.mapper)
         mapper = EmployeeMapper(mapper_config)
-        super(EmployeeImport, self).__init__(db, datasource, mapper)
+        co = Factory.get('Constants')(db)
+        super(EmployeeImport, self).__init__(db, datasource, mapper,
+                                             co.system_sap)

@@ -34,7 +34,6 @@ from Cerebrum.modules.hr_import.models import (HRTitle,
                                                HRAffiliation,
                                                HRExternalID,
                                                HRContactInfo)
-from Cerebrum.modules.hr_import.matcher import match_entity
 from Cerebrum.modules.no.uio.hr_import.leader_groups import get_leader_group
 from Cerebrum.modules.no.uio.sap.utils import parse_date
 
@@ -277,12 +276,6 @@ class EmployeeMapper(_base.AbstractMapper):
                                ('nn', 'nb'),
                                ('en', 'en')]))
         return set(filter(lambda hr_title: hr_title.name, titles))
-
-    def find_entity(self, hr_object):
-        """Find matching Cerebrum entity for the given HRPerson."""
-        return match_entity(hr_object.external_ids,
-                            self.source_system,
-                            self.db)
 
     def parse_leader_groups(self, assignment_data):
         """

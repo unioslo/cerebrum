@@ -67,14 +67,14 @@ class EmployeeImportBase(AbstractImport):
         assert employee_data is not None
         assert person_obj is not None
         assert person_obj.entity_id
-        updater = HRDataImport(self.db, self.mapper.source_system)
+        updater = HRDataImport(self.db, self.source_system)
         updater.update_person(person_obj, employee_data)
 
     def remove(self, hr_object, db_object):
         """ Clear HR data from a Person object. """
         assert db_object is not None
         assert db_object.entity_id
-        updater = HRDataImport(self.db, self.mapper.source_system)
+        updater = HRDataImport(self.db, self.source_system)
         updater.remove_person(db_object, hr_object)
 
 
