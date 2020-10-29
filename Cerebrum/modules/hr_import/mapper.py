@@ -79,11 +79,6 @@ class AbstractMapper(object):
             datetime.datetime.strptime(x, '%Y-%m-%d').date()
             for x in config.end_dates_ignore]
 
-    @abc.abstractproperty
-    def source_system(self):
-        """ The source system to map this data to. """
-        pass
-
     @abc.abstractmethod
     def translate(self, reference, obj):
         """
