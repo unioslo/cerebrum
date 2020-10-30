@@ -129,7 +129,7 @@ class EmployeeMapper(_base.AbstractMapper):
         for assignment_id, assignment in assignment_data.items():
             affiliation = 'ANSATT'
             status = category_2_status.get(
-                assignment.get('stillingskat', {}).get(
+                assignment.get('stillingskat', {})[0].get(
                     'stillingskatId')
             )
             is_main_assignment = assignment_id == person_data.get('stillingId')
