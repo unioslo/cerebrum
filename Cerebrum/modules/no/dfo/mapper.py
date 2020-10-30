@@ -128,9 +128,15 @@ class EmployeeMapper(_base.AbstractMapper):
         #  Rewrite this once orgreg is ready.
         for assignment_id, assignment in assignment_data.items():
             affiliation = 'ANSATT'
+
+            stillingskats = assert_list(assignment.get('stillingskat', []))
+            if len(stillingskats) == 0:
+                logger.info('No "stillingskat" given for assignment, %s',
+                            assignment_id)
+                continue
+
             status = category_2_status.get(
-                assignment.get('stillingskat', {}).get(
-                    'stillingskatId')
+                stillingskats[0].get('stillingskatId')
             )
             is_main_assignment = assignment_id == person_data.get('stillingId')
             if is_main_assignment:
@@ -163,7 +169,7 @@ class EmployeeMapper(_base.AbstractMapper):
                 logger.warning('parse_affiliations: Unknown job category')
                 continue
 
-            ou_id = assignment.get('orgenhet')
+            ou_id = assignment.get('organisasjonId')
             if ou_id is None:
                 logger.warning('No orgenhet skipping')
                 continue

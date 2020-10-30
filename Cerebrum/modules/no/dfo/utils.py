@@ -37,7 +37,7 @@ def assert_list(value):
         return []
     if not isinstance(value, list):
         return [value]
-    return value
+    return [x for x in value if x is not None]
 
 
 def parse_date(value, fmt='%Y-%m-%d', allow_empty=True):
