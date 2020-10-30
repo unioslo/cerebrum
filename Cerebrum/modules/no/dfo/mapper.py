@@ -251,7 +251,7 @@ class EmployeeMapper(_base.AbstractMapper):
         }
 
         for external_id in assert_list(person_data.get('annenId')):
-            if not external_id or external_id['idType'] not in dfo_2_cerebrum:
+            if external_id['idType'] not in dfo_2_cerebrum:
                 continue
             id_type, id_format = dfo_2_cerebrum[external_id['idType']]
             id_value = id_format(external_id)
