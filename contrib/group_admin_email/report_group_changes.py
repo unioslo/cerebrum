@@ -243,7 +243,7 @@ def send_mails(db, args):
             title=title,
             translation=TRANSLATION[DEFAULT_LANGUAGE],
             sender=SENDER,
-            owned_groups=groups,
+            owned_groups=filter(lambda group: sum(group['changes'].values()), groups),
             account_name=account_name,
             info_link=INFO_LINK,
         )
@@ -251,7 +251,7 @@ def send_mails(db, args):
             args.codec,
             translation=TRANSLATION[DEFAULT_LANGUAGE],
             sender=SENDER,
-            owned_groups=groups,
+            owned_groups=filter(lambda group: sum(group['changes'].values()), groups),
             account_name=account_name,
             info_link=INFO_LINK,
         )
