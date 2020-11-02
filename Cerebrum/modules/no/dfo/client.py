@@ -287,9 +287,9 @@ def get_client(config):
 
     # set <name>_path and <name>_headers from api namespaces
     for name, api_config in (
-            ('employee', config.employee_api)
-            ('orgenhet', config.orgenhet_api)
-            ('stilling', config.stilling_api)):
+            ('employee', config.employee_api),
+            ('orgenhet', config.orgenhet_api),
+            ('stilling', config.stilling_api),):
         if api_config.path:
             kwargs[name + '_path'] = api_config.path
         if api_config.auth:
