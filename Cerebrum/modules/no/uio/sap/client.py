@@ -61,7 +61,10 @@ def urljoin(base_url, *paths):
     """
     A sane urljoin.
 
-    >>> urljoin('https://localhost/foo', 'bar')
+    Note how urllib.parse.urljoin will assume 'relative to parent' when the
+    base_url doesn't end with a '/':
+
+    >>> urllib.parse.urljoin('https://localhost/foo', 'bar')
     'https://localhost/bar'
 
     >>> urljoin('https://localhost/foo', 'bar')
@@ -160,21 +163,13 @@ class SapClient(object):
         else:
             self.session = requests
 
-    def _build_request_headers(self, headers):
-        request_headers = {}
-        for h in self.headers:
-            request_headers[h] = self.headers[h]
-        for h in (headers or ()):
-            request_headers[h] = headers[h]
-        return request_headers
-
     def call(self,
              method_name,
              url,
              headers=None,
              params=None,
              **kwargs):
-        headers = self._build_request_headers(headers)
+        headers = merge_dicts(self.headers, headers)
         params = params or {}
         logger.debug('Calling %s %s with params=%r',
                      method_name, urlparse(url).path, params)
