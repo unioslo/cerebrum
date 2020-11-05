@@ -118,10 +118,14 @@ class UiaAuth(EntityNoteBofhdAuth, BofhdAuth):
         """
         if self.is_superuser(operator):
             return True
-        if query_run_any and self._is_admin(operator):
-            return True
-        if self._is_admin(operator, group.entity_id):
-            return True
+        if query_run_any:
+            # query_run_any and operator is admin for *any* groups
+            if self._is_admin(operator):
+                return True
+        else:
+            # operator is admin for this specific group
+            if self._is_admin(operator, group.entity_id):
+                return True
         return super(UiaAuth, self).can_alter_group(operator, group,
                                                     query_run_any)
 
