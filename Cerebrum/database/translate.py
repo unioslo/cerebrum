@@ -31,12 +31,11 @@ import six
 
 from Cerebrum import Cache
 
-# FIXME: Temporary feature toggle for the translate() implementation that uses
-#        'sqlparse'.
-if os.environ.get('CEREBRUM_SQL_LEXER', '').lower() == 'sqlparse':
-    from .lexer_sqlparse import _translate
-else:
+# TODO: Remove feature toggle for selecting translate() implementation.
+if os.environ.get('CEREBRUM_SQL_LEXER', '').lower() == 'plex':
     from .lexer_plex import _translate
+else:
+    from .lexer_sqlparse import _translate
 
 logger = logging.getLogger(__name__)
 
