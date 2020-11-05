@@ -197,7 +197,7 @@ class HRAffiliation(ComparableObject, ReprMixin):
             (self.ou_id, self.affiliation)
         )
 
-    def is_active(self, start_grace, end_grace):
+    def is_active(self, start_grace, end_grace, _today=None):
         """
         Check if the affiliation is currently active.
 
@@ -206,13 +206,36 @@ class HRAffiliation(ComparableObject, ReprMixin):
         :param datetime.timedelta end_grace: Grace period for end date
         :return boolean: True if active
         """
+        today = _today or datetime.date.today()
 
-        today = datetime.date.today()
-        if self.start_date and self.end_date:
-            if (self.start_date - start_grace <= today
-                    <= self.end_date + end_grace):
-                return True
-        elif self.start_date:
-            if self.start_date - start_grace <= today:
-                return True
-        return False
+        def _norm_delta(d, polarity):
+            # normalize a timedelta, ensure positive or negative
+            # TODO: This should probably be enforced e.g. in the config
+            if polarity > 0 and d < datetime.timedelta(0):
+                return d * -1
+            if polarity < 0 and d > datetime.timedelta(0):
+                return d * -1
+            return d
+
+        def _add_delta(dt, d):
+            # add a timedelta, but ignore out of bounds results
+            try:
+                return dt + d
+            except OverflowError:
+                return dt
+
+        if self.start_date:
+            start_limit = _add_delta(self.start_date,
+                                     _norm_delta(start_grace, -1))
+            if today < start_limit:
+                return False
+
+        if self.end_date:
+            end_limit = _add_delta(self.end_date,
+                                   _norm_delta(end_grace, 1))
+
+            if today > end_limit:
+                return False
+
+        # Nothing else to check, assume active
+        return True
