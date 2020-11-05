@@ -93,6 +93,8 @@ class AbstractImport(object):
         """
         message_body = load_message(event)
         reference = self.datasource.get_reference(message_body)
+        logger.info('handle_event: valid event=%r, reference=%r',
+                    event, reference)
 
         event_not_before = self.datasource.needs_delay(message_body)
         if event_not_before:
