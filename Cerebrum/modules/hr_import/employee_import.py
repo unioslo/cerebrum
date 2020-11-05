@@ -47,33 +47,39 @@ class EmployeeImportBase(AbstractImport):
 
     def create(self, employee_data):
         """ Create a new Person object using employee_data. """
-        # TODO: Warn about name matches
-        assert employee_data is not None
+        logger.debug('create(%r)', employee_data)
+        if employee_data is None:
+            raise ValueError('create() called without hr data!')
+
         person_obj = Factory.get('Person')(self.db)
+
+        # TODO: Search for soft matches (names) and warn?
 
         gender = self.const.Gender(employee_data.gender)
         if employee_data.birth_date is None:
             raise ValueError('No birth date, unable to create!')
         person_obj.populate(employee_data.birth_date, gender)
         person_obj.write_db()
+        if not person_obj.entity_id:
+            raise RuntimeError('Write failed, unable to create!')
 
-        assert person_obj.entity_id
-        logger.info('Created person_id=%r from %r',
+        logger.info('created new person, id=%r, person=%r',
                     person_obj.entity_id, employee_data)
         self.update(employee_data, person_obj)
 
     def update(self, employee_data, person_obj):
         """ Update the Person object using employee_data. """
-        assert employee_data is not None
-        assert person_obj is not None
-        assert person_obj.entity_id
+        if employee_data is None:
+            raise ValueError('update() called without hr data!')
+        if person_obj is None or not person_obj.entity_id:
+            raise ValueError('update() called without cerebrum person!')
         updater = HRDataImport(self.db, self.source_system)
         updater.update_person(person_obj, employee_data)
 
     def remove(self, hr_object, db_object):
         """ Clear HR data from a Person object. """
-        assert db_object is not None
-        assert db_object.entity_id
+        if db_object is None or not db_object.entity_id:
+            raise ValueError('remove() called without cerebrum person!')
         updater = HRDataImport(self.db, self.source_system)
         updater.remove_person(db_object, hr_object)
 
@@ -90,7 +96,8 @@ class HRDataImport(object):
         self.co = Factory.get('Constants')(self.database)
 
     def remove_person(self, db_person, hr_person):
-        logger.info('Deleting: %r', db_person.entity_id)
+        logger.debug('remove_person(%r, %r)',
+                     db_person.entity_id, hr_person)
 
         source2id_type = {
             self.co.system_sap: 'NO_SAPNO',
@@ -108,6 +115,7 @@ class HRDataImport(object):
             birth_date=None,
             gender=None,
         )
+
         keep_id_type = source2id_type[self.source_system]
         empty_hr_person.external_ids = set(
             id_ for id_ in hr_person.external_ids if
@@ -120,43 +128,56 @@ class HRDataImport(object):
         self.update_titles(db_person, empty_hr_person)
         self.update_contact_info(db_person, empty_hr_person)
         self.update_affiliations(db_person, empty_hr_person)
-        logger.info('%r deleted', db_person.entity_id)
+        logger.info('removed person id=%r', db_person.entity_id)
 
     def update_person(self, db_person, hr_person):
         """Call all the update functions, creating or updating a person"""
-        logger.info('Starting update_person for %r', hr_person)
+        logger.debug('update_person(%r, %r)',
+                     db_person.entity_id, hr_person)
         self.update_basic(db_person, hr_person)
         self.update_external_ids(db_person, hr_person)
         self.update_names(db_person, hr_person)
         self.update_titles(db_person, hr_person)
         self.update_contact_info(db_person, hr_person)
         self.update_affiliations(db_person, hr_person)
-        logger.info('Done with update_person for %r',
-                    db_person.entity_id)
+        logger.info('updated person id=%r', db_person.entity_id)
 
     def update_basic(self, db_person, hr_person):
         """Update person with birth date and gender"""
+        logger.debug('update_basic(%r, %r)', db_person.entity_id, hr_person)
         if hr_person.gender:
             gender = self.co.Gender(hr_person.gender)
         else:
             gender = self.co.gender_unknown
 
+        change = False
+
         if db_person.gender != gender:
+            logger.info('basic_info: updating gender, id=%r',
+                        db_person.entity_id)
             db_person.gender = gender
-            logger.info('Updated gender for person_id=%r', db_person.entity_id)
+            change = True
 
         if hr_person.birth_date is None:
-            logger.warning('No HR birth date for person_id=%r (%r)',
-                           db_person.entity_id, hr_person)
+            logger.warning(
+                'basic_info: missing birth date, id=%r, person=%r)',
+                db_person.entity_id, hr_person)
         elif get_date(db_person.birth_date) != hr_person.birth_date:
-            db_person.birth_date = hr_person.birth_date
-            logger.info('Updated birth_date for person_id=%r',
+            logger.info('basic_info: updating birth_date, id=%r',
                         db_person.entity_id)
+            db_person.birth_date = hr_person.birth_date
+            change = True
 
-        db_person.write_db()
+        if change:
+            db_person.write_db()
+        else:
+            logger.info('basic_info: no changes, id=%r',
+                        db_person.entity_id)
 
     def update_external_ids(self, db_person, hr_person):
         """Update person in Cerebrum with appropriate external ids"""
+        logger.debug('update_external_ids(%r, %r), ids=%r',
+                     db_person.entity_id, hr_person, hr_person.external_ids)
         hr_ids = set(
             (self.co.EntityExternalId(i.id_type), i.external_id)
             for i in hr_person.external_ids)
@@ -172,17 +193,15 @@ class HRDataImport(object):
         # All id-types in both sets that differ in *value*
         to_update = set(t[0] for t in (hr_ids - db_ids)) - to_add
 
-        if not any(to_remove | to_add | to_update):
-            logger.debug('No change in external_id for person_id=%r',
-                         db_person.entity_id)
-            return
-
-        logger.info('Updating external_id for person_id=%r: '
+        logger.info('external_id: changes for id=%r, '
                     'add=%r, update=%r, remove=%r',
                     db_person.entity_id,
                     sorted(six.text_type(c) for c in to_add),
                     sorted(six.text_type(c) for c in to_update),
                     sorted(six.text_type(c) for c in to_remove))
+
+        if not any(to_remove | to_add | to_update):
+            return
 
         db_person.affect_external_id(
             self.source_system,
@@ -194,6 +213,7 @@ class HRDataImport(object):
 
     def update_names(self, db_person, hr_person):
         """Update person in Cerebrum with fresh names"""
+        logger.debug('update_names(%r, %r)', db_person.entity_id, hr_person)
 
         def _get_name_type(name_type):
             """Try to get the name of a specific type from cerebrum"""
@@ -208,24 +228,35 @@ class HRDataImport(object):
         names = ((self.co.name_first, crb_first_name, hr_person.first_name),
                  (self.co.name_last, crb_last_name, hr_person.last_name))
 
-        for name_type, crb_name, hr_name in names:
-            if crb_name == hr_name:
-                continue
+        changes = tuple((name_type, hr_name)
+                        for name_type, crb_name, hr_name in names
+                        if crb_name != hr_name)
+        name_types = tuple(name_type for name_type, _ in changes)
 
-            db_person.affect_names(self.source_system, name_type)
-            if hr_name is None:
-                logger.info('Deleting name %s for person with person_id %r',
-                            name_type,
-                            db_person.entity_id)
+        logger.info('names: changes for id=%r, type=%r',
+                    db_person.entity_id, name_types)
+
+        if not changes:
+            return
+
+        db_person.affect_names(self.source_system, *name_types)
+
+        for name_type, name in changes:
+            if name is None:
+                logger.info(
+                    'names: clearing id=%r, name_type=%r',
+                    db_person.entity_id, name_type)
             else:
-                logger.info('Updating name %s for person with person_id %r',
-                            name_type,
-                            db_person.entity_id)
-                db_person.populate_name(name_type, hr_name)
-            db_person.write_db()
+                logger.info(
+                    'names: setting id=%r, name_type=%r',
+                    db_person.entity_id, name_type)
+                db_person.populate_name(name_type, name)
+        db_person.write_db()
 
     def update_titles(self, db_person, hr_person):
         """Update person in Cerebrum with work and personal titles"""
+        logger.debug('update_titles(%r, %r), titles=%r',
+                     db_person.entity_id, hr_person, hr_person.titles)
         hr_titles = set(
             models.HRTitle(
                 self.co.EntityNameCode(t.name_variant),
@@ -248,9 +279,9 @@ class HRDataImport(object):
                 name_language=title.name_language,
                 name=title.name,
             )
-            logger.info('Setting title %s/%s for person_id=%r',
-                        title.name_variant, title.name_language,
-                        db_person.entity_id)
+            logger.info('titles: setting id=%r, type=%r, lang=%r',
+                        db_person.entity_id, title.name_variant,
+                        title.name_language)
 
         # TODO: This will delete titles that we just changed!
         for title in cerebrum_titles - hr_titles:
@@ -259,12 +290,14 @@ class HRDataImport(object):
                 name_language=title.name_language,
                 name=title.name,
             )
-            logger.info('Clearing title %s/%s for person_id=%r',
-                        title.name_variant, title.name_language,
-                        db_person.entity_id)
+            logger.info('titles: clearing id=%r, type=%r, lang=%r',
+                        db_person.entity_id, title.name_variant,
+                        title.name_language)
 
     def update_contact_info(self, db_person, hr_person):
         """Update person in Cerebrum with contact information"""
+        logger.debug('update_contact_info(%r, %r), contacts=%r',
+                     db_person.entity_id, hr_person, hr_person.contact_infos)
         hr_contacts = {
             self.co.ContactInfo(c.contact_type): (c.contact_value,
                                                   c.contact_pref)
@@ -281,28 +314,36 @@ class HRDataImport(object):
                         for ctype in (set(hr_contacts) & set(db_contacts))
                         if hr_contacts[ctype] != db_contacts[ctype])
 
+        logger.info('contact_info: changes for id=%r, '
+                    'add=%d, update=%d, remove=%d',
+                    db_person.entity_id, len(to_add), len(to_update),
+                    len(to_remove))
+
         for ctype in to_remove:
             db_value, db_pref = db_contacts[ctype]
+            logger.info(
+                'contact_info: clearing id=%r, type=%s, pref=%r',
+                db_person.entity_id, ctype, db_pref)
             db_person.delete_contact_info(source=self.source_system,
-                                          contact_type=ctype,
-                                          pref=db_pref)
-            logger.info('clearing contact %s (pref=%r) for person_id=%r',
-                        ctype, db_pref, db_person.entity_id)
+                                          contact_type=ctype)
 
         for ctype in to_update:
             db_value, db_pref = db_contacts[ctype]
             hr_value, hr_pref = hr_contacts[ctype]
+            logger.info(
+                'contact_info: updating id=%r, type=%s, pref=%r,%r',
+                db_person.entity_id, ctype, db_pref, hr_pref)
+            db_person.delete_contact_info(source=self.source_system,
+                                          contact_type=ctype)
             db_person.add_contact_info(source=self.source_system, type=ctype,
                                        value=hr_value, pref=hr_pref)
-            logger.info('updating contact %s (pref=%r/%r) for entity_id=%r',
-                        ctype, db_pref, hr_pref, db_person.entity_id)
 
         for ctype in to_add:
             hr_value, hr_pref = hr_contacts[ctype]
+            logger.info('contact_info: adding id=%r, type=%s, pref=%r',
+                        db_person.entity_id, ctype, hr_pref)
             db_person.add_contact_info(source=self.source_system, type=ctype,
                                        value=hr_value, pref=hr_pref)
-            logger.info('adding contact %s (pref=%r) for entity_id=%r',
-                        ctype, hr_pref, db_person.entity_id)
 
     # TODO: should probaly be moved into sap_uio/dfo_sap subclasses
     def _get_ou_id(self, hr_ou_id):
@@ -334,6 +375,8 @@ class HRDataImport(object):
 
     def update_affiliations(self, db_person, hr_person):
         """Update person in Cerebrum with the latest affiliations"""
+        logger.debug('update_affiliations(%r, %r), affs=%r',
+                     db_person.entity_id, hr_person, hr_person.affiliations)
         hr_affiliations = set(
             models.HRAffiliation(
                 ou_id=self._get_ou_id(aff.ou_id),
@@ -357,10 +400,12 @@ class HRDataImport(object):
                 ou_id=aff.ou_id,
                 affiliation=aff.affiliation,
                 source=self.source_system)
-            logger.info('Removing affiliation %r on ou %r for id: %r',
-                        unicode(aff.status),
-                        aff.ou_id,
-                        db_person.entity_id)
+            logger.info(
+                'affiliations: clearing id=%r, aff=%r, ou_id=%r, '
+                'precedence=%r',
+                db_person.entity_id, six.text_type(aff.status), aff.ou_id,
+                aff.precedence)
+
         for aff in hr_affiliations:
             db_person.add_affiliation(
                 source=self.source_system,
@@ -369,8 +414,9 @@ class HRDataImport(object):
                 status=aff.status,
                 precedence=aff.precedence
             )
-            logger.info('Adding/updating affiliation %r on ou %r for id: %r',
-                        unicode(aff.status),
-                        aff.ou_id,
-                        db_person.entity_id)
+            logger.info(
+                'affiliations: setting id=%r, aff=%r, ou_id=%r '
+                'precedence=%r',
+                db_person.entity_id, six.text_type(aff.status), aff.ou_id,
+                aff.precedence)
         db_person.write_db()
