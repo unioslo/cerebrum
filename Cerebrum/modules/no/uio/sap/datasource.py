@@ -25,6 +25,8 @@ import re
 import json
 import logging
 
+import six
+
 from Cerebrum.modules.hr_import import datasource as _base
 
 logger = logging.getLogger(__name__)
@@ -71,7 +73,7 @@ class EmployeeDatasource(_base.AbstractDatasource):
     def get_object(self, reference):
         """ Fetch data from sap (employee data, assignments, roles). """
         # TODO: Use client to fetch all relevant data, pack into HR objects
-        employee_id = reference
+        employee_id = six.text_type(reference)
         employee = self.client.get_employee(employee_id)
         if employee is None:
             employee = Employee(
@@ -87,10 +89,10 @@ class EmployeeDatasource(_base.AbstractDatasource):
         else:
             employee['assignments'] = [
                 Assignment('sapuio', d['assignmentId'], d)
-                for d in self.client.get_assignments(employee)]
+                for d in self.client.get_assignments(employee_id)]
             employee['roles'] = [
                 Role('sapuio', d['roleId'], d)
-                for d in self.client.get_roles(employee)]
+                for d in self.client.get_roles(employee_id)]
         return employee
 
     def needs_delay(self, body):
