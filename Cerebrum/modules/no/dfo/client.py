@@ -28,17 +28,18 @@ This client is forked from the ``dfo_sap_client.client`` module @
 from __future__ import unicode_literals
 
 import logging
+
+import requests
 from six.moves.urllib.parse import (
     quote_plus,
     urlparse,
     urljoin as _urljoin,
 )
 
-import requests
-
 from Cerebrum.config.configuration import (Configuration,
                                            ConfigDescriptor,
                                            Namespace)
+from Cerebrum.config.secrets import Secret, get_secret
 from Cerebrum.config.settings import Boolean, Iterable, String
 
 logger = logging.getLogger(__name__)
@@ -256,9 +257,9 @@ class SapClientApi(Configuration):
     )
 
     auth = ConfigDescriptor(
-        String,
-        default=None,
-        doc='Auth key/token to use for this API',
+        Namespace,
+        config=Secret,
+        doc='Auth token for this API',
     )
 
 
@@ -294,7 +295,7 @@ def get_client(config):
             kwargs[name + '_path'] = api_config.path
         if api_config.auth:
             kwargs.setdefault(name + '_headers', {}).update({
-                api_key_header: api_config.auth,
+                api_key_header: get_secret(api_config.auth),
             })
 
     return SapClient(**kwargs)
