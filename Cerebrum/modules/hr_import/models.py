@@ -208,15 +208,6 @@ class HRAffiliation(ComparableObject, ReprMixin):
         """
         today = _today or datetime.date.today()
 
-        def _norm_delta(d, polarity):
-            # normalize a timedelta, ensure positive or negative
-            # TODO: This should probably be enforced e.g. in the config
-            if polarity > 0 and d < datetime.timedelta(0):
-                return d * -1
-            if polarity < 0 and d > datetime.timedelta(0):
-                return d * -1
-            return d
-
         def _add_delta(dt, d):
             # add a timedelta, but ignore out of bounds results
             try:
@@ -225,14 +216,12 @@ class HRAffiliation(ComparableObject, ReprMixin):
                 return dt
 
         if self.start_date:
-            start_limit = _add_delta(self.start_date,
-                                     _norm_delta(start_grace, -1))
+            start_limit = _add_delta(self.start_date, -1 * abs(start_grace))
             if today < start_limit:
                 return False
 
         if self.end_date:
-            end_limit = _add_delta(self.end_date,
-                                   _norm_delta(end_grace, 1))
+            end_limit = _add_delta(self.end_date, abs(end_grace))
 
             if today > end_limit:
                 return False
