@@ -62,7 +62,7 @@ class EmployeeDatasource(_base.AbstractDatasource):
     def get_reference(self, body):
         """ Extract reference from message body """
         try:
-            return body['id']
+            return str(body['id'])
         except KeyError:
             raise _base.DatasourceInvalid('No "id" in body: %r', body)
 
@@ -98,7 +98,7 @@ class EmployeeDatasource(_base.AbstractDatasource):
     def needs_delay(self, body):
         # TODO:
         #  Is gyldigEtter a date equivalent to nbf?
-        date_str = body.get('gyldigEtter')
+        date_str = str(body.get('gyldigEtter'))
         if date_str:
             not_before_date = parse_date(date_str, '%Y%m%d')
             if datetime.date.today() < not_before_date:
