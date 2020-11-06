@@ -69,9 +69,7 @@ class EmployeeMapper(_base.EmployeeMapper):
             last_name=person_data.get('etternavn'),
             birth_date=parse_date(person_data.get('fdato'), allow_empty=True),
             gender=person_data.get('kjonn'),
-            # TODO:
-            #  There does not seem to be any way to determine this in DFO-SAP
-            reserved=False
+            reserved=person_data.get('reservasjonPublisering')
         )
 
     def update_hr_person(self, hr_person, obj):
