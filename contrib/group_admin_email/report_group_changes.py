@@ -298,7 +298,7 @@ def main(inargs=None):
     parser.add_argument(
         '--include-expired',
         dest='filter_expired',
-        default='store_false',
+        action='store_false',
         help="Include expired groups in report")
     test_group = parser.add_argument_group('Testing',
                                            'Arguments useful when testing')
