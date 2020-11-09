@@ -75,6 +75,13 @@ class GroupAdminCacher(object):
             counts[str(change_type)] = len(list(events))
         return counts
 
+    def include_group(self):
+        if self.filter_expired:
+            self.group.clear()
+            self.group.find(group_id)
+            return self.group.is_expired()
+        return True
+
     def cache_member_id2group_ids(self, group_ids, member_type=None):
         """Maps an entity_id to the group_ids where it is a member
 
@@ -87,12 +94,7 @@ class GroupAdminCacher(object):
             member_type = self.co.entity_account
         cache = collections.defaultdict(list)
         for group_id in group_ids:
-            include_group = True
-            if self.filter_expired:
-                self.group.clear()
-                self.group.find(group_id)
-                include_group = not self.group.is_expired()
-            if include_group:
+            if self.include_group(group_id):
                 for member in self.group.search_members(
                         group_id=group_id,
                         member_type=member_type):
@@ -144,12 +146,7 @@ class GroupAdminCacher(object):
                 admin_type,
                 nr_of_admins=nr_of_admins
         ):
-            include_group = True
-            if self.filter_expired:
-                self.group.clear()
-                self.group.find(group_id)
-                include_group = not self.group.is_expired()
-            if include_group:
+            if self.include_group(group_id):
                 admin_id2group_info[admin_id].append({
                     field: get_field_value(field, admin_id, group_id)
                     for field in fields
