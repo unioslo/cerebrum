@@ -23,12 +23,6 @@ Setting for providing secrets in configuration files.
 
 This Configuration/Setting is provides input to :mod:`Cerebrum.utils.secrets`
 
-
-TBD
-----
-Does this belong in ``Cerebrum.utils.secrets``?
-
-
 Example
 -------
 A short example to show how :class:`.Secret` can be used:
@@ -39,55 +33,90 @@ A short example to show how :class:`.Secret` can be used:
     class MyConfig(Configuration):
 
         username = ConfigDescriptor(String)
-        password = ConfigDescriptor(Namespace, config=Secret)
+        password = ConfigDescriptor(Secret)
 
     # Provide configuration values
     config = MyConfig({
         'username': 'Foo',
-        'password': {'source': 'file', 'value': '/etc/secret_password'},
+        'password': 'file:/etc/secret_password',
     })
 
     # Fetch secret from configuration.
-    password = get_secret(config.password)
+    password = get_secret_from_string(config.password)
 """
+from __future__ import print_function
+
 import six
 
 from Cerebrum.utils import secrets
 
-from .configuration import Configuration, ConfigDescriptor
-from .settings import Choice, String
+from .settings import Setting
 
 
-class Secret(Configuration):
+class Secret(Setting):
     """
     Reuseable configuration for an application secret.
 
-    This should be used to configure ``Cerebrum.utils.secrets``
+    This should be used to configure ``Cerebrum.utils.secrets``.  Should be
+    formatted as ``<source>:<source-args>``.
 
     Examples:
 
-        {'source': 'plaintext', 'value': 'hunter2'}
-        {'source': 'file': 'value': '/etc/pki/tls/private/my.key'}
-        {'source': 'legacy_file': 'value': 'AzureDiamond@example.org'}
+        'plaintext:hunter2'
+        'file:/etc/pki/tls/private/my.key'
+        'legacy_file:AzureDiamond@example.org'
     """
 
-    source = ConfigDescriptor(
-        Choice,
-        choices=six.viewkeys(secrets.sources),
-        doc='Secret type (how the secret is represented)',
-    )
+    _valid_types = six.string_types
+    _valid_sources = six.viewkeys(secrets.sources)
 
-    value = ConfigDescriptor(
-        String,
-        doc='Secret value (where the secret is defined)',
-    )
+    @classmethod
+    def _split(cls, raw_value):
+        """ Split raw config value into (source, args) tuple. """
+        source, sep, source_arg = raw_value.partition(':')
+        if not sep:
+            # Missing mandatory ':' separator
+            raise ValueError("Invalid format, must be '<source>:<secret>'")
+        if source not in cls._valid_sources:
+            # Text before the mandatory ':' separator is not valid
+            raise ValueError(
+                'Invalid source {!r}, must be one of {!r}'.format(
+                    source, tuple(cls._valid_sources)))
+        return source, source_arg
+
+    def validate(self, value):
+        """Validates a value.
+
+        :see: Setting.validate
+
+        :raises ValueError:
+            If the string value does not pass the configured regex, or is
+            shorter or longer than the specified limits.
+        """
+        # Note: Take care not to expose the raw value in error messages
+        #
+        # Parent (Setting) only checks type, doesn't include value in exception
+        # messages.
+        if super(Secret, self).validate(value):
+            return True
+
+        # If it _split()s correctly, it's probably valid
+        self._split(value)
+
+        return False
+
+    @property
+    def doc_struct(self):
+        return super(Secret, self).doc_struct
 
 
-def get_secret(secret_config):
+def get_secret_from_string(config_value):
     """ Get password using a Secret configuration. """
-    return secrets.get_secret(secret_config.source,
-                              secret_config.value)
+    source, value = Secret._split(config_value)
+    return secrets.get_secret(source, value)
 
 
 if __name__ == '__main__':
-    print(Secret.documentation())
+    print(__doc__.strip())
+    print()
+    print('Setting:', Secret().doc)

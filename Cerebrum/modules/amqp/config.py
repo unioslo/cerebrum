@@ -29,6 +29,7 @@ from Cerebrum.config.configuration import (
     ConfigDescriptor,
     Namespace,
 )
+from Cerebrum.config.secrets import Secret, get_secret_from_string
 from Cerebrum.config.settings import (
     Boolean,
     FilePath,
@@ -118,8 +119,8 @@ class Connection(Configuration):
     )
 
     password = ConfigDescriptor(
-        String,
-        default='guest',
+        Secret,
+        default='plaintext:guest',
         doc='Password for plain authentication',
     )
 
@@ -221,7 +222,8 @@ class PublisherConfig(Configuration):
 def get_credentials(config):
     """ Get credentials from Connection object. """
     if config.username or config.password:
-        return pika.PlainCredentials(config.username, config.password)
+        passwd = get_secret_from_string(config.password)
+        return pika.PlainCredentials(config.username, passwd)
     return None
 
 

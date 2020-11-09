@@ -39,7 +39,7 @@ from six.moves.urllib.parse import (
 from Cerebrum.config.configuration import (Configuration,
                                            ConfigDescriptor,
                                            Namespace)
-from Cerebrum.config.secrets import Secret, get_secret
+from Cerebrum.config.secrets import Secret, get_secret_from_string
 from Cerebrum.config.settings import Boolean, Iterable, String
 
 logger = logging.getLogger(__name__)
@@ -257,8 +257,7 @@ class SapClientApi(Configuration):
     )
 
     auth = ConfigDescriptor(
-        Namespace,
-        config=Secret,
+        Secret,
         doc='Auth token for this API',
     )
 
@@ -295,7 +294,7 @@ def get_client(config):
             kwargs[name + '_path'] = api_config.path
         if api_config.auth:
             kwargs.setdefault(name + '_headers', {}).update({
-                api_key_header: get_secret(api_config.auth),
+                api_key_header: get_secret_from_string(api_config.auth),
             })
 
     return SapClient(**kwargs)
