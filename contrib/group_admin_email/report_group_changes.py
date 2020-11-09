@@ -235,6 +235,7 @@ def send_mails(db, args):
 
         account_name = get_account_name(ac, account_id)
         title = timestamp_title(TRANSLATION[DEFAULT_LANGUAGE]['title'])
+        unchanged_groups = filter(lambda group: sum(group['changes'].values()), groups)
 
         html = write_html_report(
             TEMPLATE_NAME,
@@ -243,7 +244,7 @@ def send_mails(db, args):
             title=title,
             translation=TRANSLATION[DEFAULT_LANGUAGE],
             sender=SENDER,
-            owned_groups=filter(lambda group: sum(group['changes'].values()), groups),
+            owned_groups=unchanged_groups,
             account_name=account_name,
             info_link=INFO_LINK,
         )
@@ -251,7 +252,7 @@ def send_mails(db, args):
             args.codec,
             translation=TRANSLATION[DEFAULT_LANGUAGE],
             sender=SENDER,
-            owned_groups=filter(lambda group: sum(group['changes'].values()), groups),
+            owned_groups=unchanged_groups,
             account_name=account_name,
             info_link=INFO_LINK,
         )
