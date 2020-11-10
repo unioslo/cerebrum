@@ -105,18 +105,21 @@ class EmployeeMapper(_base.AbstractMapper):
                                               'academic': 'vitenskapelig'}
 
         for x in assignment_data:
+            assignment_id = x.get('assignmentId')
+            job_category = x.get('jobCategory')
             start = parse_date(x.get('effectiveStartDate'), allow_empty=True)
             end = parse_date(x.get('effectiveEndDate'), allow_empty=True)
 
-            status = sap_assignments_to_affiliation_map.get(
-                x.get('jobCategory'))
+            status = sap_assignments_to_affiliation_map.get(job_category)
             if not status:
-                logger.warning('parse_affiliations: Unknown job category')
-                # Unknown job category
+                logger.warning(
+                    'ignoring assignment=%s, unknown jobCategory=%r',
+                    assignment_id, job_category)
                 continue
             placecode = x.get('locationCode')
             if placecode is None:
-                logger.warning('Placecode does not exist')
+                logger.warning('ignoring assignment=%s, missing locationCode',
+                               assignment_id)
                 continue
             main = x.get('primaryAssignmentFlag')
             affiliations.add(
@@ -129,7 +132,8 @@ class EmployeeMapper(_base.AbstractMapper):
                     'end_date': end
                 })
             )
-        logger.info('parsed %i affiliations', len(affiliations))
+        logger.info('mapped %d assignments to %d affiliations: %r',
+                    len(assignment_data), len(affiliations), affiliations)
         return affiliations
 
     @classmethod
@@ -142,7 +146,6 @@ class EmployeeMapper(_base.AbstractMapper):
 
         :rtype: set(HRContactInfo)
         """
-        logger.info('parsing contacts')
         # TODO: Validate/clean numbers with phonenumbers?
         key_map = collections.OrderedDict([
             ('workPhone', 'PHONE'),
@@ -159,6 +162,7 @@ class EmployeeMapper(_base.AbstractMapper):
             numbers.add(HRContactInfo(contact_type=key,
                                       contact_pref=pref,
                                       contact_value=value))
+        logger.info('found %d contacts: %r', len(numbers), numbers)
         return numbers
 
     @classmethod
@@ -172,7 +176,6 @@ class EmployeeMapper(_base.AbstractMapper):
             id_type='NO_SAPNO',
             external_id=six.text_type(person_data.get('personId')))]
 
-        logger.info('parsing %i external ids', len(external_ids))
         if (
                 person_data.get('passportIssuingCountry') and
                 person_data.get('passportNumber')
@@ -186,8 +189,11 @@ class EmployeeMapper(_base.AbstractMapper):
             external_ids.append(HRExternalID(
                 id_type='NO_BIRTHNO',
                 external_id=person_data.get('norwegianIdentificationNumber')))
-        return set(ext_id for ext_id in external_ids if
-                   ext_id.id_type and ext_id.external_id)
+        result = set(ext_id
+                     for ext_id in external_ids
+                     if ext_id.id_type and ext_id.external_id)
+        logger.info('found %d ids: %r', len(result), result)
+        return result
 
     @classmethod
     def parse_roles(cls, role_data):
@@ -213,23 +219,26 @@ class EmployeeMapper(_base.AbstractMapper):
              ('POLS-ANSAT', None)])
         roles = set()
         for role in role_data:
+            role_id = role.get('roleId')
+            role_name = role.get('roleName')
             placecode = role.get('locationCode')
             if placecode is None:
-                logger.warning('Placecode does not exist, '
-                               'cannot parse affiliation %r for %r',
-                               role2aff.get(role.get('roleName')),
-                               role_data.get('personId'))
+                logger.warning('ignoring role=%s, empty locationCode', role_id)
                 continue
-            if role2aff.get(role.get('roleName')):
+            if role2aff.get(role_name):
                 roles.add(
                     HRAffiliation(**{
                         'placecode': placecode,
-                        'affiliation': role2aff.get(
-                            role.get('roleName')).affiliation,
-                        'status': role2aff.get(role.get('roleName')),
+                        # TODO: None of these role2aff mappings would work?
+                        'affiliation': role2aff[role_name].affiliation,
+                        'status': role2aff.get[role_name],
                         'precedence': None})
                 )
-        logger.info('parsed %i roles', len(roles))
+            else:
+                logger.warning('ignoring role=%s, unknown roleName=%r',
+                               role_id, role_name)
+        logger.info('mapped %d roles to %d affiliations: %r',
+                    len(role_data), len(roles), roles)
         return roles
 
     @classmethod
@@ -239,7 +248,6 @@ class EmployeeMapper(_base.AbstractMapper):
 
         :rtype: set(HRTitle)
         """
-        logger.info('parsing titles')
         titles = []
         if person_data.get('personalTitle'):
             titles.extend(
@@ -275,27 +283,32 @@ class EmployeeMapper(_base.AbstractMapper):
                               [('nb', 'nb'),
                                ('nn', 'nb'),
                                ('en', 'en')]))
-        return set(filter(lambda hr_title: hr_title.name, titles))
+        results = set(filter(lambda hr_title: hr_title.name, titles))
+        logger.info('found %d titles: %r', len(results), results)
+        return results
 
     def parse_leader_groups(self, assignment_data):
         """
         Parse leader groups from SAP assignment data
 
-        :param assignment_data: Data from SAP
-                                `/employees({personId})/assignments`
         :type assignment_data: list
+        :param assignment_data:
+            Data from SAP `/employees({personId})/assignments`
 
         :rtype: set(int)
         :return: leader group ids where the person should be a member
         """
         # This method is not Cerebrum independent ...
-        leader_group_ids = set()
-        for x in assignment_data:
-            if x.get('managerFlag'):
-                leader_group_ids.add(
-                    get_leader_group(self.db, x.get('locationCode')).entity_id)
-        logger.info('parsed %i leader groups', len(leader_group_ids))
-        return leader_group_ids
+        group_ids = set()
+        group_names = set()
+        for assignment in assignment_data:
+            if assignment.get('managerFlag'):
+                group = get_leader_group(self.db,
+                                         assignment.get('locationCode'))
+                group_ids.add(group.entity_id)
+                group_names.add(group.group_name)
+        logger.info('found %d manager groups: %r', len(group_ids), group_names)
+        return group_ids
 
     def translate(self, reference, obj):
         """
@@ -303,6 +316,7 @@ class EmployeeMapper(_base.AbstractMapper):
 
         :rtype: HRPerson
         """
+        logger.debug('translate(%r, ...)', reference)
         person_data = obj
         assignment_data = obj['assignments']
         role_data = obj['roles']

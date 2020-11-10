@@ -52,11 +52,12 @@ def match_entity(external_ids, source_system, database):
 
     try:
         db_object.find_by_external_ids(*match_ids)
-        logger.info('Found existing person with id=%r',
+        logger.info('match_entity: found existing person, id=%r',
                     db_object.entity_id)
     except Errors.NotFoundError:
-        logger.debug('could not find person by id_type=%s',
-                     tuple(six.text_type(i[0]) for i in match_ids))
+        logger.debug(
+            'match_entity: could not find existing person, id_type=%s',
+            tuple(six.text_type(i[0]) for i in match_ids))
         raise _base.NoMappedObjects('no matching persons')
     except Errors.TooManyRowsError as e:
         raise _base.ManyMappedObjects(

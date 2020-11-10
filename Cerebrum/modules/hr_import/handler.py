@@ -95,10 +95,11 @@ class EmployeeHandler(AbstractConsumerHandler):
         self.publisher_config = publisher_config
 
     def handle(self, event):
-        logger.info('Start processing change for event=%r', event)
+        logger.info('handle: processing event=%r', event)
         event_handled = False
 
         for call in self.task_mapper.message_to_callable(event):
+            logger.debug('handle: applying %r', call)
             event_handled = True
             with db_context(self.db_init, self.dryrun) as db:
                 importer = call(db, self.importer_config)
@@ -108,31 +109,28 @@ class EmployeeHandler(AbstractConsumerHandler):
                 self.reschedule(event, reschedule_dates)
 
         if not event_handled:
-            logger.info('Skipping event=%r. No task defined for event key',
-                        event)
-        logger.info('Done processing changes for event=%r', event)
+            logger.warning('handle: no tasks for event=%r', event)
+        logger.info('handle: processed event=%r', event)
 
     def reschedule(self, event, dates):
         message = json.loads(event.body)
         if not self.publisher_config:
             logger.warning(
-                'No publisher config, skipping rescheduling of event %r',
-                event)
+                'reschedule: disabled (no publisher config), event=%r, at=%r',
+                event, dates)
             return
 
-        for rechedule_date in dates:
-            message['nbf'] = int(rechedule_date)
+        for nbf in dates:
+            message['nbf'] = int(nbf)
             with Publisher(self.publisher_config['conn']) as publish:
-                if publish(
-                    self.publisher_config['exchange'],
-                    event.method.routing_key,
-                    json.dumps(message)
-                ):
-                    logger.info('Rescheduled event %r for %s',
-                                event,
-                                rechedule_date)
+                if publish(self.publisher_config['exchange'],
+                           event.method.routing_key,
+                           json.dumps(message)):
+                    logger.info('reschedule: success, event=%r, at=%r',
+                                event, nbf)
                 else:
-                    logger.error('Could not reschedule event %r', event)
+                    logger.error('reschedule: failure, event=%r, at=%r',
+                                 event, nbf)
 
     def on_error(self, event, error):
         # TODO: Separate between DatasourceInvalid, DatasourceUnavailable

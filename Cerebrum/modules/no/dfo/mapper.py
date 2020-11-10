@@ -128,17 +128,16 @@ class EmployeeMapper(_base.AbstractMapper):
         #  Rewrite this once orgreg is ready.
         for assignment_id, assignment in assignment_data.items():
             affiliation = 'ANSATT'
-
             stillingskats = assert_list(assignment.get('stillingskat', []))
             if len(stillingskats) == 0:
-                logger.info('No "stillingskat" given for assignment, %s',
-                            assignment_id)
+                logger.warning('ignoring assignment=%s, no stillingskat',
+                               assignment_id)
                 continue
 
-            status = category_2_status.get(
-                stillingskats[0].get('stillingskatId')
-            )
+            stillingskat_id = stillingskats[0].get('stillingskatId')
+            status = category_2_status.get(stillingskat_id)
             is_main_assignment = assignment_id == person_data.get('stillingId')
+
             if is_main_assignment:
                 precedence = (50, 50)
                 start_date = parse_date(person_data.get('startdato'),
@@ -154,6 +153,13 @@ class EmployeeMapper(_base.AbstractMapper):
                 if role:
                     status = role
                     affiliation = 'TILKNYTTET'
+
+                if not status:
+                    # extra log message for main aff (to log mg/mug)
+                    logger.warning('unknown main assignment=%s '
+                                   '(stillingskatId=%r, mg=%r, mug=%r)',
+                                   assignment_id, stillingskat_id, group,
+                                   sub_group)
             else:
                 precedence = None
                 additional_assignment = get_additional_assignment(
@@ -166,12 +172,16 @@ class EmployeeMapper(_base.AbstractMapper):
                                       allow_empty=True)
 
             if not status:
-                logger.warning('parse_affiliations: Unknown job category')
+                logger.warning('ignoring assignment=%s, '
+                               'no matching aff (stillingskatId=%r)',
+                               assignment_id, stillingskat_id)
                 continue
 
             ou_id = assignment.get('organisasjonId')
             if ou_id is None:
-                logger.warning('No orgenhet skipping')
+                logger.warning(
+                    'ignoring assignment=%s, missing organisasjonId',
+                    assignment_id)
                 continue
 
             affiliations.add(
@@ -185,7 +195,8 @@ class EmployeeMapper(_base.AbstractMapper):
                 })
             )
 
-        logger.info('parsed %i affiliations', len(affiliations))
+        logger.info('mapped %d assignments to %d affiliations: %r',
+                    len(assignment_data), len(affiliations), affiliations)
         return affiliations
 
     @classmethod
@@ -198,21 +209,14 @@ class EmployeeMapper(_base.AbstractMapper):
 
         :rtype: set(HRContactInfo)
         """
-        logger.info('parsing contacts')
-        # all_source_phone_types = ['tjenestetelefon',
-        #                           'privatTelefonnummer',
-        #                           'telefonnummer',
-        #                           'mobilnummer',
-        #                           'mobilPrivat',
-        #                           'privatTlfUtland']
+        # TODO: Do we have the correct mapping?
         key_map = collections.OrderedDict([
-            # TODO:
-            #  It is tricky to find out the correct mapping here. Do we need
-            #  more constants for this? This is pretty much wild guessing..
             ('tjenestetelefon', 'PHONE'),
+            # ('privatTelefonnummer', ?),
+            # ('telefonnummer', 'PRIVMOBVISIBLE'),
             ('mobilnummer', 'MOBILE'),
             ('mobilPrivat', 'PRIVATEMOBILE'),
-            # ('telefonnummer', 'PRIVMOBVISIBLE')
+            # ('privatTlfUtland', ?),
         ])
 
         numbers_to_add = filter_elements(translate_keys(person_data, key_map))
@@ -224,6 +228,7 @@ class EmployeeMapper(_base.AbstractMapper):
             numbers.add(HRContactInfo(contact_type=key,
                                       contact_pref=pref,
                                       contact_value=value))
+        logger.info('found %d contacts: %r', len(numbers), numbers)
         return numbers
 
     @classmethod
@@ -263,7 +268,8 @@ class EmployeeMapper(_base.AbstractMapper):
             id_value = id_format(external_id)
             external_ids.add(HRExternalID(id_type=id_type,
                                           external_id=id_value))
-        logger.info('parsed %i external ids', len(external_ids))
+        logger.info('found %d ids: %r',
+                    len(external_ids), external_ids)
         return external_ids
 
     @classmethod
@@ -273,7 +279,6 @@ class EmployeeMapper(_base.AbstractMapper):
 
         :rtype: set(HRTitle)
         """
-        logger.info('parsing titles')
         titles = set()
 
         # We only want the title of the main assignment
@@ -289,6 +294,7 @@ class EmployeeMapper(_base.AbstractMapper):
                     name_language='nb',
                     name=name)
         )
+        logger.info('found %d titles: %r', len(titles), titles)
         return titles
 
     @staticmethod

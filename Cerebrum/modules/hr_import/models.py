@@ -24,11 +24,34 @@ an HR system.
 import datetime
 
 
-class HRPerson(object):
+class ReprMixin(object):
+
+    repr_fields = ()
+
+    def __iter_repr_fields(self):
+        for attr in self.repr_fields:
+            value = getattr(self, attr, None)
+            if value:
+                yield attr, value
+
+    def __repr__(self):
+        # Note: no infinite recursion protection
+        fields = ', '.join(
+            '{k}={v}'.format(k=k, v=repr(v))
+            for k, v in self.__iter_repr_fields())
+        return '<{cls.__name__}{fields}>'.format(
+            cls=type(self),
+            fields=(' ' + fields) if fields else '',
+        )
+
+
+class HRPerson(ReprMixin):
     """
     Main class for holding all information that Cerebrum should need
     about a person from an HR system
     """
+
+    repr_fields = ('hr_id',)
 
     def __init__(self,
                  hr_id,
@@ -65,6 +88,7 @@ class HRPerson(object):
         return any([x.is_active(start_grace, end_grace)
                     for x in self.affiliations])
 
+
 class ComparableObject(object):
     """General class that implements __eq__ and __ne__
 
@@ -96,8 +120,10 @@ class ComparableObject(object):
         return hash(tuple(helper()))
 
 
-class HRContactInfo(ComparableObject):
+class HRContactInfo(ComparableObject, ReprMixin):
     """Class with contact info matching entity_contact_info"""
+
+    repr_fields = ('contact_type',)
 
     def __init__(self, contact_type, contact_pref, contact_value):
         """
@@ -110,8 +136,10 @@ class HRContactInfo(ComparableObject):
         self.contact_value = contact_value
 
 
-class HRExternalID(ComparableObject):
+class HRExternalID(ComparableObject, ReprMixin):
     """Class with info about an external_id, matching entity_external_id"""
+
+    repr_fields = ('id_type',)
 
     def __init__(self, id_type, external_id):
         """
@@ -122,8 +150,10 @@ class HRExternalID(ComparableObject):
         self.id_type = id_type
 
 
-class HRTitle(ComparableObject):
+class HRTitle(ComparableObject, ReprMixin):
     """Class with info about a title, matching entity_language_name"""
+
+    repr_fields = ('name_variant', 'name_language')
 
     def __init__(self, name_variant, name_language, name):
         """
@@ -136,11 +166,13 @@ class HRTitle(ComparableObject):
         self.name = name
 
 
-class HRAffiliation(ComparableObject):
+class HRAffiliation(ComparableObject, ReprMixin):
     """
     Class with info about an affiliation, matching person_affiliation_source
     (and person_affiliation)
     """
+
+    repr_fields = ('affiliation', 'ou_id')
 
     def __init__(self, ou_id, affiliation, status, precedence,
                  start_date=None, end_date=None):
@@ -165,7 +197,7 @@ class HRAffiliation(ComparableObject):
             (self.ou_id, self.affiliation)
         )
 
-    def is_active(self, start_grace, end_grace):
+    def is_active(self, start_grace, end_grace, _today=None):
         """
         Check if the affiliation is currently active.
 
@@ -174,13 +206,25 @@ class HRAffiliation(ComparableObject):
         :param datetime.timedelta end_grace: Grace period for end date
         :return boolean: True if active
         """
+        today = _today or datetime.date.today()
 
-        today = datetime.date.today()
-        if self.start_date and self.end_date:
-            if (self.start_date - start_grace <= today
-                    <= self.end_date + end_grace):
-                return True
-        elif self.start_date:
-            if self.start_date - start_grace <= today:
-                return True
-        return False
+        def _add_delta(dt, d):
+            # add a timedelta, but ignore out of bounds results
+            try:
+                return dt + d
+            except OverflowError:
+                return dt
+
+        if self.start_date:
+            start_limit = _add_delta(self.start_date, -1 * abs(start_grace))
+            if today < start_limit:
+                return False
+
+        if self.end_date:
+            end_limit = _add_delta(self.end_date, abs(end_grace))
+
+            if today > end_limit:
+                return False
+
+        # Nothing else to check, assume active
+        return True

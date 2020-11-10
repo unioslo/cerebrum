@@ -44,12 +44,11 @@ def load_message(event):
     """
     try:
         body = json.loads(event.body)
+        logger.debug('load_message: parsed content, event=%r', event)
     except Exception as e:
-        logger.debug('unable to extract message body from event=%r', event)
+        logger.debug('load_message: unable to parse content, event=%r', event)
         raise DatasourceInvalid('Invalid event format: %s (%r)' %
                                 (e, event.body))
-    logger.debug('Extracted message from event=%r from event=%r',
-                 body, event)
     return body
 
 
@@ -94,17 +93,19 @@ class AbstractImport(object):
         """
         message_body = load_message(event)
         reference = self.datasource.get_reference(message_body)
+        logger.info('handle_event: valid event=%r, reference=%r',
+                    event, reference)
 
         event_not_before = self.datasource.needs_delay(message_body)
         if event_not_before:
             # Check if the event itself has a not before date.
             # If it does, we return here and push the message to the reschedule
             # queue
-            logger.info('Event=%s has a nbf in the future. Rescheduling at %r',
-                        event, event_not_before)
+            logger.info('handle_event: ignoring event with nbf=%r, event=%r',
+                        event_not_before, event)
             return set([event_not_before])
-        retry_dates = self.handle_reference(reference)
-        return retry_dates
+
+        return self.handle_reference(reference)
 
     def handle_reference(self, reference):
         """
@@ -132,23 +133,25 @@ class AbstractImport(object):
         """
         # TODO:
         #  Rescheduling
-        retry_dates = self.mapper.needs_delay(
-            hr_object)
+        retry_dates = self.mapper.needs_delay(hr_object)
 
         if self.mapper.is_active(hr_object):
             if db_object:
-                logger.info('updating id=%r with %r',
+                logger.info('handle_object: updating id=%r, obj=%r',
                             db_object.entity_id, hr_object)
                 self.update(hr_object, db_object)
             else:
-                logger.info('creating %r', hr_object)
+                logger.info('handle_object: creating obj=%r', hr_object)
                 self.create(hr_object)
         elif db_object:
-            logger.info('removing id=%r (%r)',
+            logger.info('handle_object: removing id=%r, obj=%r',
                         db_object.entity_id, hr_object)
             self.remove(hr_object, db_object)
         else:
-            logger.info('nothing to do for %r', hr_object)
+            logger.info('handle_object: ignoring obj=%r', hr_object)
+
+        if retry_dates:
+            logger.debug('handle_object: needs delay, retry=%r', retry_dates)
         return retry_dates
 
     @abc.abstractmethod
