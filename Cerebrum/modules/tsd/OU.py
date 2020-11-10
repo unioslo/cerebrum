@@ -959,7 +959,7 @@ class OUTSDMixin(TsdDefaultEntityMixin,
         if vm_type in ('linux_vm', 'win_and_linux_vm'):
             host.clear()
             # Create a Linux host for the whole project if it doesn' exist
-            hostname = '%s-tl01-l.tsd.usit.no.' % projectid
+            hostname = '%s-rhel8-01.tsd.usit.no.' % projectid
             hinfo = 'IBM-PC\tLINUX'
             host_dns_owner = None
             try:
@@ -984,12 +984,6 @@ class OUTSDMixin(TsdDefaultEntityMixin,
                                                       host_dns_owner.entity_id,
                                                       comp)
 
-            # Add CNAME-record for connecting via thinlinc-proxy
-            cname_record_name = '%s-tl01-l.tl.tsd.usit.no.' % projectid
-            TSDUtils.add_cname_record(self._db,
-                                      cname_record_name,
-                                      cereconf.TSD_THINLINC_PROXY,
-                                      fail_on_exists=False)
 
     def _setup_project_posix(self, creator_id):
         """Upgrade non-posix entities.
