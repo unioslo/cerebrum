@@ -53,7 +53,7 @@ def _read_secret_file(value):
         return f.read().rstrip('\n')
 
 
-@sources.register('auth_file')
+@sources.register('auth-file')
 def _read_secret_auth_file(value):
     """
     Read secret from file in ``cereconf.DB_AUTH_DIR``.
@@ -68,7 +68,7 @@ def _read_secret_auth_file(value):
         return f.read().rstrip('\n')
 
 
-@sources.register('legacy_file')
+@sources.register('legacy-file')
 def _read_legacy_password_file(value):
     """
     Read a legacy password file.

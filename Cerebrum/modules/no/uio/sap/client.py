@@ -37,7 +37,11 @@ from six.moves.urllib.parse import (
     urljoin as _urljoin,
 )
 
-from Cerebrum.config.configuration import Configuration, ConfigDescriptor
+from Cerebrum.config.configuration import (
+    Configuration,
+    ConfigDescriptor,
+)
+from Cerebrum.config.secrets import Secret, get_secret_from_string
 from Cerebrum.config.settings import String
 
 logger = logging.getLogger(__name__)
@@ -284,10 +288,12 @@ class SapClientConfig(Configuration):
     url = ConfigDescriptor(
         String,
         default='http://localhost',
+        doc='URL to a SAP API',
     )
     # TODO: Read auth token from file!
     auth = ConfigDescriptor(
-        String,
+        Secret,
+        doc='Auth token for the SAP API',
     )
 
 
@@ -295,7 +301,7 @@ def get_client(config):
     kwargs = {
         'url': config.url,
         'headers': {
-            'X-Gravitee-Api-Key': config.auth,
+            'X-Gravitee-Api-Key': get_secret_from_string(config.auth),
         }
     }
     return SapClient(**kwargs)
