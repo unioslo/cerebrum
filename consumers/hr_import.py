@@ -115,7 +115,7 @@ def main(inargs=None):
         action='store_false',
         help=(
             'Disable republishing of delayed messages'
-            + flag_default_msg[pub_enable_default]
+            + flag_default_msg[not pub_enable_default]
         ),
     )
     pub_enable_mutex.set_defaults(enable_publisher=pub_enable_default)
