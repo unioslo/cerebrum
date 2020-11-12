@@ -75,7 +75,7 @@ class GroupAdminCacher(object):
             counts[str(change_type)] = len(list(events))
         return counts
 
-    def include_group(self):
+    def include_group(self, group_id):
         if self.filter_expired:
             self.group.clear()
             self.group.find(group_id)
