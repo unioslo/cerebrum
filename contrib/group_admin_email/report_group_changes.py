@@ -236,41 +236,43 @@ def send_mails(db, args):
 
         account_name = get_account_name(ac, account_id)
         title = timestamp_title(TRANSLATION[DEFAULT_LANGUAGE]['title'])
+        changed_groups = filter(lambda group: sum(group['changes'].values()), groups)
 
-        html = write_html_report(
-            TEMPLATE_NAME,
-            args.template_folder,
-            args.codec,
-            title=title,
-            translation=TRANSLATION[DEFAULT_LANGUAGE],
-            sender=SENDER,
-            owned_groups=groups,
-            account_name=account_name,
-            info_link=INFO_LINK,
-        )
-        plain_text = write_plain_text_report(
-            args.codec,
-            translation=TRANSLATION[DEFAULT_LANGUAGE],
-            sender=SENDER,
-            owned_groups=groups,
-            account_name=account_name,
-            info_link=INFO_LINK,
-        )
+        if changed_groups:
+            html = write_html_report(
+                TEMPLATE_NAME,
+                args.template_folder,
+                args.codec,
+                title=title,
+                translation=TRANSLATION[DEFAULT_LANGUAGE],
+                sender=SENDER,
+                owned_groups=changed_groups,
+                account_name=account_name,
+                info_link=INFO_LINK,
+            )
+            plain_text = write_plain_text_report(
+                args.codec,
+                translation=TRANSLATION[DEFAULT_LANGUAGE],
+                sender=SENDER,
+                owned_groups=changed_groups,
+                account_name=account_name,
+                info_link=INFO_LINK,
+            )
 
-        if args.print_messages:
-            print(html)
-            print(plain_text)
+            if args.print_messages:
+                print(html)
+                print(plain_text)
 
-        message = create_html_message(html,
-                                      plain_text,
-                                      args.codec,
-                                      subject=title,
-                                      from_addr=FROM_ADDRESS,
-                                      to_addrs=email_address)
-        try:
-            Cerebrum.utils.email.send_message(message, debug=not args.commit)
-        except SMTPException as e:
-            logger.warning(e)
+            message = create_html_message(html,
+                                        plain_text,
+                                        args.codec,
+                                        subject=title,
+                                        from_addr=FROM_ADDRESS,
+                                        to_addrs=email_address)
+            try:
+                Cerebrum.utils.email.send_message(message, debug=not args.commit)
+            except SMTPException as e:
+                logger.warning(e)
 
 
 def main(inargs=None):
