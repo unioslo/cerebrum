@@ -195,8 +195,8 @@ def merge_admin_types(admins1, admins2):
     return admins1
 
 
-def cache_info(db, nr_of_admins=None):
-    cacher = GroupAdminCacher(db, BRUKERINFO_GROUP_MANAGE_LINK)
+def cache_info(db, nr_of_admins=None, filter_expired=True):
+    cacher = GroupAdminCacher(db, BRUKERINFO_GROUP_MANAGE_LINK, filter_expired)
     cl_const = Factory.get('CLConstants')(db)
     change_types = (cl_const.group_add,
                     cl_const.group_rem,
@@ -225,7 +225,8 @@ def send_mails(db, args):
     ac = Factory.get('Account')(db)
     account_id2managed_groups = cache_info(
         db,
-        nr_of_admins=10 if args.ten else None
+        nr_of_admins=10 if args.ten else None,
+        filter_expired=args.filter_expired
     )
     for account_id, groups in six.iteritems(account_id2managed_groups):
         email_address = get_account_email(co, ac, account_id)
@@ -294,6 +295,11 @@ def main(inargs=None):
              'script on the format: <day>-<month>. The script runs normally if'
              ' no date is given.'
     )
+    parser.add_argument(
+        '--include-expired',
+        dest='filter_expired',
+        action='store_false',
+        help="Include expired groups in report")
     test_group = parser.add_argument_group('Testing',
                                            'Arguments useful when testing')
     test_group.add_argument(

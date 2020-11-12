@@ -35,7 +35,7 @@ from Cerebrum.group.GroupRoles import GroupRoles
 
 
 class GroupAdminCacher(object):
-    def __init__(self, db, manage_link):
+    def __init__(self, db, manage_link, filter_expired=False):
         self.db = db
         self.en = Factory.get('Entity')(db)
         self.co = Factory.get('Constants')(db)
@@ -43,6 +43,7 @@ class GroupAdminCacher(object):
         self.group = Factory.get('Group')(db)
         self.account = Factory.get('Account')(db)
         self.manage_link = manage_link
+        self.filter_expired = filter_expired
 
     @memoize
     def get_group_name(self, group_id):
@@ -74,6 +75,13 @@ class GroupAdminCacher(object):
             counts[str(change_type)] = len(list(events))
         return counts
 
+    def include_group(self, group_id):
+        if self.filter_expired:
+            self.group.clear()
+            self.group.find(group_id)
+            return self.group.is_expired()
+        return True
+
     def cache_member_id2group_ids(self, group_ids, member_type=None):
         """Maps an entity_id to the group_ids where it is a member
 
@@ -86,10 +94,11 @@ class GroupAdminCacher(object):
             member_type = self.co.entity_account
         cache = collections.defaultdict(list)
         for group_id in group_ids:
-            for member in self.group.search_members(
-                    group_id=group_id,
-                    member_type=member_type):
-                cache[member['member_id']].append(group_id)
+            if self.include_group(group_id):
+                for member in self.group.search_members(
+                        group_id=group_id,
+                        member_type=member_type):
+                    cache[member['member_id']].append(group_id)
         return cache
 
     def cache_admins_by_membership(self, fields, nr_of_admins=None, **kwargs):
@@ -137,10 +146,11 @@ class GroupAdminCacher(object):
                 admin_type,
                 nr_of_admins=nr_of_admins
         ):
-            admin_id2group_info[admin_id].append({
-                field: get_field_value(field, admin_id, group_id)
-                for field in fields
-            })
+            if self.include_group(group_id):
+                admin_id2group_info[admin_id].append({
+                    field: get_field_value(field, admin_id, group_id)
+                    for field in fields
+                })
         return admin_id2group_info
 
     def cache_manual_group_admins(self, admin_type, nr_of_admins=None):
