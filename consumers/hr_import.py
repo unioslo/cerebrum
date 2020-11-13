@@ -35,8 +35,7 @@ from Cerebrum.config.loader import read_config as read_config_file
 from Cerebrum.modules.amqp.config import get_connection_params
 from Cerebrum.modules.amqp.mapper import MessageToTaskMapper
 from Cerebrum.modules.amqp.consumer import ChannelSetup, Manager
-from Cerebrum.modules.hr_import.config import (HrImportConfig,
-                                               get_configurable_module)
+from Cerebrum.modules.hr_import.config import HrImportConfig
 from Cerebrum.modules.hr_import.handler import EmployeeHandler
 from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.Utils import Factory
@@ -94,7 +93,32 @@ def main(inargs=None):
         help='config to use (see Cerebrum.modules.consumer.config)',
     )
 
-    add_commit_args(parser)
+    db_args = parser.add_argument_group('database')
+    add_commit_args(db_args)
+
+    flag_default_msg = {True: ' (default)', False: ''}
+    pub_args = parser.add_argument_group('republish')
+    pub_enable_mutex = pub_args.add_mutually_exclusive_group()
+    pub_enable_default = True
+    pub_enable_mutex.add_argument(
+        '-p', '--enable-publisher',
+        dest='enable_publisher',
+        action='store_true',
+        help=(
+            'Enable republishing of delayed messages'
+            + flag_default_msg[pub_enable_default]
+        ),
+    )
+    pub_enable_mutex.add_argument(
+        '-P', '--disable-publisher',
+        dest='enable_publisher',
+        action='store_false',
+        help=(
+            'Disable republishing of delayed messages'
+            + flag_default_msg[not pub_enable_default]
+        ),
+    )
+    pub_enable_mutex.set_defaults(enable_publisher=pub_enable_default)
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
@@ -107,22 +131,22 @@ def main(inargs=None):
     logger.debug("args: %r", args)
 
     config = get_config(args.config)
-
-    try:
-        config.validate()
-    except Exception as e:
-        print('Error in consumer config')
-        print(e)
-        return
+    config.validate()
 
     task_mapper = MessageToTaskMapper(config=config.task_mapper)
     importer_config = config.importer
     logger.info('employee importer: %r', importer_config)
 
-    publisher_config = {
-        'conn': get_connection_params(config.publisher.connection),
-        'exchange': config.publisher.exchange.name
-    }
+    if args.enable_publisher:
+        publisher_config = {
+            'conn': get_connection_params(config.publisher.connection),
+            'exchange': config.publisher.exchange.name
+        }
+        logger.info('publisher enabled, exchange=%r',
+                    publisher_config['exchange'])
+    else:
+        publisher_config = None
+        logger.warning('publisher disabled')
 
     callback = EmployeeHandler(
         task_mapper=task_mapper,
