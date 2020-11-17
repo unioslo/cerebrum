@@ -2102,10 +2102,10 @@ class BofhdExtension(BofhdCommonMethods):
         return ret
 
     #
-    # group list_roles
+    # group roles
     #
-    all_commands['group_list_roles'] = Command(
-        ('group', 'list_roles'),
+    all_commands['group_roles'] = Command(
+        ('group', 'roles'),
         EntityType(default="account"),
         Id(),
         fs=FormatSuggestion(
@@ -2115,7 +2115,10 @@ class BofhdExtension(BofhdCommonMethods):
         )
     )
 
-    def group_list_roles(self, operator, entity_type, entity_id):
+    def group_roles(self, operator, entity_type, entity_id):
+        """Return a list of what groups an account or group can moderate or
+        administrate.
+        """
         entity = self._get_entity(entity_type, entity_id)
         group = self.Group_class(self.db)
         indirect = entity_type != 'group'
@@ -2133,6 +2136,86 @@ class BofhdExtension(BofhdCommonMethods):
         result += [{'role': 'moderator', 'group_name': r['name']}
                    for r in moderators]
         return result
+
+
+    #
+    # group list_admins <groupname>
+    #
+    all_commands['group_list_admins'] = Command(
+        ('group', 'list_admins'),
+        GroupName(),
+        fs=FormatSuggestion(
+            '%8i %10s %30s %25s',
+            ('admin_id', 'admin_type', 'admin_name', 'group_name'),
+            hdr='%8s %10s %30s %30s' %
+            ('id', 'type', 'name', 'is an admin of group_name'),
+        ))
+
+    def group_list_admins(self, operator, groupname):
+        """List admins of a group by type (account or group)"""
+        gr = self._get_group(groupname)
+        admins = [
+            a['admin_id'] for a in gr.get_group_admins(
+                group_id=gr.entity_id)]
+        if (
+                len(admins) > cereconf.BOFHD_MAX_MATCHES and
+                not self.ba.is_superuser(operator.get_entity_id())
+        ):
+            raise CerebrumError('More than %d (%d) matches, contact superuser'
+                                'to get a listing for %r' %
+                                (cereconf.BOFHD_MAX_MATCHES, len(all_members),
+                                 groupname))
+        result = []
+        for admin in admins:
+            en = self._get_entity(ident=admin)
+            admin_type = text_type(self.const.EntityType(en.entity_type))
+            admin_name = self._get_entity_name(admin, admin_type)
+            result.append(
+                {'admin_id': admin,
+                 'admin_type': admin_type,
+                 'admin_name': admin_name,
+                 'group_name': groupname})
+        return result
+
+
+    #
+    # group list_mods <groupname>
+    #
+    all_commands['group_list_mods'] = Command(
+        ('group', 'list_mods'),
+        GroupName(),
+        fs=FormatSuggestion(
+            '%8i %10s %30s %25s',
+            ('mod_id', 'mod_type', 'mod_name', 'group_name'),
+            hdr='%8s %10s %30s %30s' %
+            ('id', 'type', 'name', 'is a moderator of group_name'),
+        ))
+
+    def group_list_mods(self, operator, groupname):
+        """List moderators of a group by type (account or group)"""
+        gr = self._get_group(groupname)
+        mods = [m['moderator_id'] for m in gr.get_group_moderators(
+            group_id=gr.entity_id)]
+        if (
+                len(mods) > cereconf.BOFHD_MAX_MATCHES and
+                not self.ba.is_superuser(operator.get_entity_id())
+        ):
+            raise CerebrumError('More than %d (%d) matches, contact superuser'
+                                'to get a listing for %r' %
+                                (cereconf.BOFHD_MAX_MATCHES, len(all_members),
+                                 groupname))
+        result = []
+        for mod in mods:
+            en = self._get_entity(ident=mod)
+            mod_type = text_type(self.const.EntityType(en.entity_type))
+            mod_name = self._get_entity_name(mod, mod_type)
+            result.append(
+                {'mod_id': mod,
+                 'mod_type': mod_type,
+                 'mod_name': mod_name,
+                 'group_name': groupname})
+        return result
+
 
     #
     # misc affiliations

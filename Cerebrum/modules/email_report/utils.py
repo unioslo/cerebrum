@@ -84,6 +84,12 @@ def get_account_email(const, account, account_id):
 def count_members(gr, group_id):
     return len([m['member_id'] for m in gr.search_members(group_id=group_id)])
 
+def count_admins(gr, group_id):
+    return len([a['admin_id'] for a in gr.get_group_admins(group_id=group_id)])
+
+def count_mods(gr, group_id):
+    return len([m['moderator_id'] for m in gr.get_group_moderators(
+        group_id=group_id)])
 
 def get_account_name(account, account_id):
     account.clear()
