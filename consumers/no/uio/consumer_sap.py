@@ -1061,7 +1061,8 @@ def get_local_it_contact(cerebrum_person, source_system, affiliation,
         ou.clear()
         ou.find(row['ou_id'])
         local_it_contact = ou.local_it_contact(co.perspective_sap)
-        return_dict["ou"] = ou.entity_id
+        return_dict["ou"] = ou.get_name_with_language(co.ou_name,
+                                                      co.language_nb, '')
         # We will get the contact of the affiliation with lower precedence if
         # no `local_it_contact` is found on the first iteration.
         if local_it_contact:
