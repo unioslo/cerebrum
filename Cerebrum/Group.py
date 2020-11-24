@@ -1157,3 +1157,18 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           )
         """
         return self.query(stmt)
+    def get_group_admins(self, group_id=None):
+        binds = {'group_id': group_id}
+        """Returns a list of all admins of a group"""
+        stmt = """
+        SELECT * FROM group_admin WHERE group_id=:group_id;
+        """
+        return self.query(stmt, binds)
+
+    def get_group_moderators(self, group_id=None):
+        binds = {'group_id': group_id}
+        """Returns a list of all moderators of a group"""
+        stmt = """
+        SELECT * FROM group_moderator WHERE group_id=:group_id;
+        """
+        return self.query(stmt, binds)

@@ -94,9 +94,10 @@ command_help = {
         'group_list': 'List direct members of a group',
         'group_list_expanded':
             'List all members of a group, direct and indirect',
-        'group_list_roles':
-            'List all groups an entity has a role for. Either directly or '
-            'indirectly through a membership in an admin/moderator group',
+        'group_list_admins':
+            'List all administrators of a group by type (account or group)',
+        'group_list_mods':
+            'List all moderators of a group by type (account or group)',
         'group_memberships': 'List all groups an entity is a member of',
         'group_memberships_expanded':
             'List all groups an entity is a member of, direct and indirect',
@@ -104,6 +105,9 @@ command_help = {
         'group_premove': 'Remove a person from a group',
         'group_personal': 'Create a new personal filegroup for an account',
         'group_promote_posix': 'Make an existing group into a POSIX group',
+        'group_roles':
+            'List all groups an entity has a role for. Either directly or '
+            'indirectly through a membership in an admin/moderator group',
         'group_roomlist_create':
             'Make a roomlist from scratch. Remove with spread remove/group '
             'delete',
