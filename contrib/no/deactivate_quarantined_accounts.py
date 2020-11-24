@@ -220,8 +220,8 @@ and not a person.
                             make the person's accounts getting deactivated.
                             Manual affiliation are typically added here. Could
                             be comma separated.
-
-                            Note: Affiliation status types are not supported.
+                            Affiliation status types can be specified in the format 
+                            STATUS/affiliation (eg. TILKNYTTET/fagperson).
 
         --include-system-accounts If set, system accounts with the quarantine
                             will also de deactivated.
