@@ -1161,7 +1161,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         binds = {'group_id': group_id}
         """Returns a list of all admins of a group"""
         stmt = """
-        SELECT * FROM group_admin WHERE group_id=:group_id;
+        SELECT * FROM group_admin WHERE group_id=:group_id
         """
         return self.query(stmt, binds)
 
@@ -1169,6 +1169,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         binds = {'group_id': group_id}
         """Returns a list of all moderators of a group"""
         stmt = """
-        SELECT * FROM group_moderator WHERE group_id=:group_id;
+        SELECT * FROM group_moderator WHERE group_id=:group_id
         """
         return self.query(stmt, binds)
