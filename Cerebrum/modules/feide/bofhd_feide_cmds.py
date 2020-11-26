@@ -244,13 +244,12 @@ class BofhdExtension(BofhdCommonMethods):
             try:
                 en.clear()
                 en.find(x['entity_id'])
-                entity_type = six.text_type(
-                    self.const.map_const(en.entity_type))
+                entity_type = self.const.map_const(en.entity_type)
                 entity_name = self._get_entity_name(
                     en.entity_id, en.entity_type)
-                entity = '{} {} (id:{:d})'.format(
+                entity = u'{} {} (id:{:d})'.format(
                     entity_type, entity_name, en.entity_id)
-            except:
+            except Exception:
                 entity = 'id:{}'.format(x['entity_id'])
             result.append({
                 'service_name': service_name,
