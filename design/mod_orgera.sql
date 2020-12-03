@@ -102,6 +102,9 @@ CREATE TABLE IF NOT EXISTS orgera_yrkeskode
  * Assignments are similar to affiliations, in that they bind a given person to
  * a given OU.
  *
+ * source_system
+ *   Identifies which source the assignment comes from
+ *
  * assignment_id
  *   A unique identifier for this assignment, typically from the source system
  *
@@ -123,6 +126,12 @@ CREATE TABLE IF NOT EXISTS orgera_yrkeskode
 category:main;
 CREATE TABLE IF NOT EXISTS orgera_assignments
 (
+  source_system
+    NUMERIC(6,0)
+    NOT NULL
+    CONSTRAINT orgera_assignments_source_fk
+      REFERENCES authoritative_system_code(code),
+
   assignment_id
     CHAR VARYING(128)
     NOT NULL,
@@ -155,14 +164,11 @@ CREATE TABLE IF NOT EXISTS orgera_assignments
     DEFAULT [:now],
 
   CONSTRAINT orgera_assignments_pk
-    PRIMARY KEY (assignment_id),
+    PRIMARY KEY (source_system, assignment_id),
 
   CONSTRAINT orgera_assignments_styrk_fk
     FOREIGN KEY (sko, styrk)
-    REFERENCES orgera_yrkeskode(sko, styrk),
-
-  CONSTRAINT orgera_assignments_unique
-    UNIQUE (person_id, ou_id, sko)
+    REFERENCES orgera_yrkeskode(sko, styrk)
 );
 
 

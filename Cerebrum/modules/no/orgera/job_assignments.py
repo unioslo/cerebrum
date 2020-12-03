@@ -35,34 +35,50 @@ def _cast_or_none(cast):
     return lambda v: None if v is None else cast(v)
 
 
-assignment_fields = ('assignment_id', 'person_id', 'ou_id', 'sko', 'styrk',
-                     'updated_at')
+assignment_fields = (
+    'source_system',
+    'assignment_id',
+    'person_id',
+    'ou_id',
+    'sko',
+    'styrk',
+    'updated_at',
+)
 
 
-def get_assignment(db, assignment_id):
+def get_assignment(db, source_system, assignment_id):
     """
     Ensure assignment exists and is up to date.
 
+    :param int source_system: source of the assignment
     :param str assignment_id: external reference for the assignment
 
     :returns:
-        an assignment row with fields: assignment_id, person_id, ou_id, sko,
-        styrk
+        an assignment row (see py:data:`assignment_fields`)
     """
-    binds = {'assignment_id': six.text_type(assignment_id)}
+    binds = {
+        'source_system': int(source_system),
+        'assignment_id': six.text_type(assignment_id),
+    }
 
     stmt = """
-      SELECT {fields}
-      FROM [:table schema=cerebrum name=orgera_assignments]
-      WHERE assignment_id = :assignment_id
+      SELECT
+        {fields}
+      FROM
+        [:table schema=cerebrum name=orgera_assignments]
+      WHERE
+        source_system = :source_system AND
+        assignment_id = :assignment_id
     """.format(fields=', '.join(assignment_fields))
     return db.query_1(stmt, binds)
 
 
-def set_assignment(db, assignment_id, person_id, ou_id, sko, styrk=None):
+def set_assignment(db, source_system, assignment_id, person_id, ou_id, sko,
+                   styrk=None):
     """
     Ensure assignment exists and is up to date.
 
+    :param int source_system: source of the assignment
     :param str assignment_id: external reference for the assignment
     :param int person_id: person_id that assignment belongs to
     :param int ou_id: ou_id that the assingment targets
@@ -72,6 +88,7 @@ def set_assignment(db, assignment_id, person_id, ou_id, sko, styrk=None):
     :returns: an up to date assignment row
     """
     binds = {
+        'source_system': int(source_system),
         'assignment_id': six.text_type(assignment_id),
         'person_id': int(person_id),
         'ou_id': int(ou_id),
@@ -80,11 +97,11 @@ def set_assignment(db, assignment_id, person_id, ou_id, sko, styrk=None):
     }
 
     try:
-        current = get_assignment(db, assignment_id)
+        current = get_assignment(db, source_system, assignment_id)
     except Errors.NotFoundError:
         current = None
 
-    if all(current[k] == binds[k] for k in binds):
+    if current and all(current[k] == binds[k] for k in binds):
         logger.debug('set_assignment (%r, %r, %r): no change',
                      assignment_id, person_id, ou_id)
         # No change
@@ -93,9 +110,9 @@ def set_assignment(db, assignment_id, person_id, ou_id, sko, styrk=None):
     if not current:
         stmt = """
           INSERT INTO [:table schema=cerebrum name=orgera_assignments]
-            (assignment_id, person_id, ou_id, sko, styrk)
+            (source_system, assignment_id, person_id, ou_id, sko, styrk)
           VALUES
-            (:assignment_id, :person_id, :ou_id, :sko, :styrk)
+            (:source_system, :assignment_id, :person_id, :ou_id, :sko, :styrk)
           RETURNING
             {fields}
         """.format(fields=', '.join(assignment_fields))
@@ -110,6 +127,7 @@ def set_assignment(db, assignment_id, person_id, ou_id, sko, styrk=None):
             sko = :sko,
             styrk = :styrk
           WHERE
+            source_system = :source_system AND
             assignment_id = :assignment_id
           RETURNING
             {fields}
@@ -120,21 +138,27 @@ def set_assignment(db, assignment_id, person_id, ou_id, sko, styrk=None):
     return db.query_1(stmt, binds)
 
 
-def search_assignments(db, assignment_id=NotSet, person_id=NotSet,
-                       ou_id=NotSet, sko=NotSet, styrk=NotSet):
+def search_assignments(db, source_system=NotSet, assignment_id=NotSet,
+                       person_id=NotSet, ou_id=NotSet, sko=NotSet,
+                       styrk=NotSet):
     """
-    Ensure assignment exists and is up to date.
+    Filter and list assignments.
 
+    :type source_system: int, _AuthoritativeSystemCode, sequence
     :type assignment_id: int, sequence
     :type person_id: int, sequence
     :type ou_id: int, sequence
     :type sko: int
     :type styrk: int, NoneType
 
-    :returns: an up to date assignment row
+    :returns: matching assignment rows
     """
     binds = {}
     conds = []
+
+    if source_system is not NotSet:
+        conds.append(argument_to_sql(source_system, 'source_system', binds,
+                                     int))
 
     if assignment_id is not NotSet:
         conds.append(argument_to_sql(assignment_id, 'assignment_id', binds,
@@ -158,8 +182,10 @@ def search_assignments(db, assignment_id=NotSet, person_id=NotSet,
             conds.append('styrk = :styrk')
 
     stmt = """
-      SELECT {fields}
-      FROM [:table schema=cerebrum name=orgera_assignments]
+      SELECT
+        {fields}
+      FROM
+        [:table schema=cerebrum name=orgera_assignments]
       {where}
     """.format(
         fields=', '.join(assignment_fields),
@@ -168,21 +194,42 @@ def search_assignments(db, assignment_id=NotSet, person_id=NotSet,
     return db.query(stmt, binds)
 
 
-def delete_assignments(db, assignment_id=NotSet, person_id=NotSet,
-                       ou_id=NotSet, sko=NotSet, styrk=NotSet):
+def delete_assignments(db, source_system=NotSet, assignment_id=NotSet,
+                       person_id=NotSet, ou_id=NotSet, sko=NotSet,
+                       styrk=NotSet):
     """
     Delete assignments.
 
+    Examples:
+
+        # delete *all* assignments:
+        delete_assignments(db)
+
+        # delete *all* assignments from a given source
+        delete_assignments(db, source_system=int(code))
+
+        # delete a single assignment
+        delete_assignments(db, assignment_id=str(a_id),
+                           source_system=int(code))
+
+        # delete all assignments for a given person
+        delete_assignments(db, person_id=int(entity_id))
+
+    :type source_system: int, _AuthoritativeSystemCode, sequence
     :type assignment_id: int, sequence
     :type person_id: int, sequence
     :type ou_id: int, sequence
     :type sko: int
     :type styrk: int, NoneType
 
-    :returns: an up to date assignment row
+    :returns: deleted rows
     """
     binds = {}
     conds = []
+
+    if source_system is not NotSet:
+        conds.append(argument_to_sql(source_system, 'source_system', binds,
+                                     int))
 
     if assignment_id is not NotSet:
         conds.append(argument_to_sql(assignment_id, 'assignment_id', binds,
@@ -206,10 +253,11 @@ def delete_assignments(db, assignment_id=NotSet, person_id=NotSet,
             conds.append('styrk = :styrk')
 
     stmt = """
-      DELETE
-      FROM [:table schema=cerebrum name=orgera_assignments]
+      DELETE FROM
+        [:table schema=cerebrum name=orgera_assignments]
       {where}
-      RETURNING {fields}
+      RETURNING
+        {fields}
     """.format(
         fields=', '.join(assignment_fields),
         where=('WHERE ' + ' AND '.join(conds)) if conds else '',
