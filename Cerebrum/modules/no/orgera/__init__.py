@@ -29,6 +29,9 @@ If the related ``mod_orgera.sql`` database schema is present, the following
 Cerebrum modules must be included in ``cereconf`` in order to maintain
 constraints:
 
+``cereconf.CLASS_CONSTANTS``
+    Must include ``Cerebrum.modules.no.orgera.constants/OrgEraConstants``
+
 ``cereconf.CLASS_PERSON``
     Must include ``Cerebrum.modules.no.orgera.person_mixins/OrgEraPersonMixin``
 
