@@ -64,9 +64,6 @@ CREATE TABLE IF NOT EXISTS orgera_stillingskode
 /**
  * Set of known STYRK values (yrkeskode/occupation code)
  *
- * sko
- *   A numerical job code that this occuopation code belongs to
- *
  * styrk
  *   A numerical category code for a given occupation.
  *
@@ -74,25 +71,21 @@ CREATE TABLE IF NOT EXISTS orgera_stillingskode
  *   A title or short text to describe the given code.
  *
  * Examples:
- *   (1065, 3120126): Konsulent, IT-medarbeider
- *   (1065, 3415116): Konsulent, Salgsmedarbeider
+ *   3120126 - IT-medarbeider
+ *   3415116 - Salgsmedarbeider
 **/
 category:main;
 CREATE TABLE IF NOT EXISTS orgera_yrkeskode
 (
-  sko
-    NUMERIC(4,0)
-    NOT NULL,
-
   styrk
-    NUMERIC(9,0)
+    NUMERIC(7,0)
     NOT NULL,
 
   description
     TEXT
     NOT NULL,
 
-  CONSTRAINT orgera_yrkeskode_pk PRIMARY KEY (sko, styrk)
+  CONSTRAINT orgera_yrkeskode_pk PRIMARY KEY (styrk)
 );
 
 
@@ -155,8 +148,10 @@ CREATE TABLE IF NOT EXISTS orgera_assignments
       REFERENCES orgera_stillingskode(sko),
 
   styrk
-    NUMERIC(9,0)
-    NULL,
+    NUMERIC(7,0)
+    NULL
+    CONSTRAINT orgera_assignments_styrk_fk
+      REFERENCES orgera_yrkeskode(styrk),
 
   updated_at
     TIMESTAMP WITH TIME ZONE
@@ -164,11 +159,7 @@ CREATE TABLE IF NOT EXISTS orgera_assignments
     DEFAULT [:now],
 
   CONSTRAINT orgera_assignments_pk
-    PRIMARY KEY (source_system, assignment_id),
-
-  CONSTRAINT orgera_assignments_styrk_fk
-    FOREIGN KEY (sko, styrk)
-    REFERENCES orgera_yrkeskode(sko, styrk)
+    PRIMARY KEY (source_system, assignment_id)
 );
 
 
