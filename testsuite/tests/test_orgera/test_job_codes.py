@@ -36,15 +36,13 @@ def test_list_sko(database, sko_t):
     assert sko_t in all_sko
 
 
-example_styrk = (example_sko[0], 1, 'styrk-1')
+example_styrk = (1, 'styrk-1')
 
 
 def test_insert_styrk(database, sko_t):
-    sko, styrk, desc = example_styrk
-    res_t = job_codes.assert_styrk(database, sko, styrk, desc)
-    assert len(res_t) == 4
-    assert res_t[0:2] == sko_t
-    assert res_t[2:4] == (styrk, desc)
+    res_t = job_codes.assert_styrk(database, *example_styrk)
+    assert len(res_t) == 2
+    assert res_t == example_styrk
 
 
 @pytest.fixture
@@ -53,16 +51,16 @@ def styrk_t(database, sko_t):
 
 
 def test_get_styrk(database, styrk_t):
-    sko, sko_desc, styrk, styrk_desc = styrk_t
-    res_t = job_codes.get_styrk(database, sko, styrk)
+    styrk, styrk_desc = styrk_t
+    res_t = job_codes.get_styrk(database, styrk)
     assert res_t == styrk_t
 
 
 def test_update_styrk(database, styrk_t):
-    sko, sko_desc, styrk, styrk_desc = styrk_t
-    new_desc = 'a different description'
-    res_t = job_codes.assert_styrk(database, sko, styrk, new_desc)
-    assert res_t[-1] == new_desc
+    styrk, _ = styrk_t
+    desc = 'a different description'
+    res_t = job_codes.assert_styrk(database, styrk, desc)
+    assert res_t == (styrk, desc)
 
 
 def test_list_styrk(database, styrk_t):
