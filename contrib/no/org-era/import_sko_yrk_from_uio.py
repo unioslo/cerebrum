@@ -44,9 +44,12 @@ def parse_csv(infile, delimiter):
     with open(infile, 'r') as csvfile:
         csv_reader = csv.reader(csvfile, delimiter=str(delimiter))
         csv_reader.next()  # Skip header
+
+        stilling = "Stillingen mangler beskrivelse"
+        yrkeskodebetegnelse = "Yrkeskode mangler beskrivelse"
         for row in csv_reader:
-            SKO = row[0]
-            STYRK = row[2]
+            sko = row[0]
+            styrk = row[2]
 
             try:
                 stilling = row[1].decode('utf-8')
@@ -58,11 +61,11 @@ def parse_csv(infile, delimiter):
             except Exception as e:
                 logger.error(e)
 
-            if not SKO or not STYRK or not stilling or not yrkeskodebetegnelse:
+            if not sko or not styrk:
                 continue
 
-            job_codes.assert_sko(db, SKO, stilling)
-            job_codes.assert_styrk(db, SKO, STYRK, yrkeskodebetegnelse)
+            job_codes.assert_sko(db, sko, stilling)
+            job_codes.assert_styrk(db, styrk, yrkeskodebetegnelse)
 
 
 def main(inargs=None):
