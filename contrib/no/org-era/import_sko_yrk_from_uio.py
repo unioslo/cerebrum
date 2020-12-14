@@ -87,7 +87,7 @@ def main(inargs=None):
     parser.add_argument(
         '--delimiter',
         default=",",
-        help="Actually commit this to the database"
+        help="Delemiter for the csv file"
     )
 
     parser.add_argument(
