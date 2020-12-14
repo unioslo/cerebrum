@@ -67,7 +67,7 @@ debug_hostlist = None
 
 DEBUG = False
 SUDO_CMD = "sudo"
-SSH_CEREBELLUM = ["/usr/bin/ssh", "cerebrum@cerebellum"]
+SSH_CEREBELLUM = ["/usr/bin/ssh", cereconf.ARCHIVE_USER_SERVER]
 
 
 class EvtHandler(object):

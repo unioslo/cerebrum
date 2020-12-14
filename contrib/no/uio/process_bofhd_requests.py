@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 SSH_CMD = "/usr/bin/ssh"
 SUDO_CMD = "sudo"
-SSH_CEREBELLUM = [SSH_CMD, "cerebrum@cerebellum"]
+SSH_CEREBELLUM = [SSH_CMD, cereconf.ARCHIVE_USER_SERVER]
 
 DEBUG = False
 EXIT_SUCCESS = 0
