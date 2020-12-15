@@ -1398,7 +1398,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_change_owners(operator.get_entity_id(), group.entity_id)
         admin = self.vhutils.list_group_admins(group),
         try:
-            admin = admin['admin_id']
+            admin = admin[0]['account_id']
         except IndexError:
             admin = None
         ret = {}
