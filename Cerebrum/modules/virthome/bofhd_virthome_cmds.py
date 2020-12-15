@@ -1396,7 +1396,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """Change gname's admin to FA associated with email."""
         group = self._get_group(gname)
         self.ba.can_change_owners(operator.get_entity_id(), group.entity_id)
-        admin = self.vhutils.list_group_admins(group),
+        admin = self.vhutils.list_group_admins(group)
         try:
             admin = admin[0]['account_id']
         except IndexError:
