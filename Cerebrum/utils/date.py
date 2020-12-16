@@ -176,17 +176,18 @@ def mx2datetime(src, tz=TIMEZONE):
     return apply_timezone(dt, tz=tz)
 
 
-def parse_datetime_tz(dtstr):
+def parse_datetime_tz(rawstr):
     """
     Parse an ISO8601 datetime string, and require timezone.
 
     The datetime may be delimited by ' ' or 'T'.
 
-    :param dtstr: An ISO8601 formatted datetime string with timezone.
+    :param rawstr: An ISO8601 formatted datetime string with timezone.
 
     :rtype: datetime.datetime
     :return: A timezone-aware datetime objet.
     """
+    dtstr = str(rawstr)
     # Allow use of space as separator
     try:
         if 'T' not in dtstr:
@@ -202,19 +203,20 @@ def parse_datetime_tz(dtstr):
     return date
 
 
-def parse_datetime(dtstr, default_timezone=TIMEZONE):
+def parse_datetime(rawstr, default_timezone=TIMEZONE):
     """
     Parse an ISO8601 datetime string.
 
     The datetime may be delimited by ' ' or 'T'.
     If no timezone is included, the ``default_timezone`` will be applied
 
-    :param dtstr: An ISO8601 formatted datetime string
+    :param rawstr: An ISO8601 formatted datetime string
     :param default_timezone: A default timezone to apply if missing.
 
     :rtype: datetime.datetime
     :return: A timezone-aware datetime objet.
     """
+    dtstr = str(rawstr)
     # Allow use of space as separator
     try:
         if 'T' not in dtstr:
@@ -240,7 +242,7 @@ def parse_date(dtstr):
     :rtype: datetime.date
     :return: A date object.
     """
-    return aniso8601.parse_date(dtstr)
+    return aniso8601.parse_date(str(dtstr))
 
 
 def get_date(dtobj, allow_none=True):
@@ -281,12 +283,13 @@ def parse(dtstr):
     return datetime2mx(parse_datetime(dtstr))
 
 
-def parse_to_datetime(dtstr):
+def parse_to_datetime(rawstr):
     """Converts a value from str to datetime if it matches a pattern
 
     The string must be on the formatted as a date or datetime. Does not
     localize the resulting datetime object.
     """
+    dtstr = str(rawstr)
     try:
         if 'T' not in dtstr:
             return aniso8601.parse_datetime(dtstr, delimiter=' ')
