@@ -190,9 +190,9 @@ def parse_datetime_tz(dtstr):
     # Allow use of space as separator
     try:
         if 'T' not in dtstr:
-            date = aniso8601.parse_datetime(dtstr, delimiter=' ')
+            date = aniso8601.parse_datetime(str(dtstr), delimiter=' ')
         else:
-            date = aniso8601.parse_datetime(dtstr)
+            date = aniso8601.parse_datetime(str(dtstr))
     except ValueError as e:
         # The aniso8601 errors are not always great
         raise ValueError("invalid iso8601 datetime (%s)" % (e,))
@@ -218,9 +218,9 @@ def parse_datetime(dtstr, default_timezone=TIMEZONE):
     # Allow use of space as separator
     try:
         if 'T' not in dtstr:
-            date = aniso8601.parse_datetime(dtstr, delimiter=' ')
+            date = aniso8601.parse_datetime(str(dtstr), delimiter=' ')
         else:
-            date = aniso8601.parse_datetime(dtstr)
+            date = aniso8601.parse_datetime(str(dtstr))
     except ValueError as e:
         # The aniso8601 errors are not always great
         raise ValueError("invalid iso8601 date (%s)" % (e,))
@@ -240,7 +240,7 @@ def parse_date(dtstr):
     :rtype: datetime.date
     :return: A date object.
     """
-    return aniso8601.parse_date(dtstr)
+    return aniso8601.parse_date(str(dtstr))
 
 
 def get_date(dtobj, allow_none=True):
@@ -289,9 +289,9 @@ def parse_to_datetime(dtstr):
     """
     try:
         if 'T' not in dtstr:
-            return aniso8601.parse_datetime(dtstr, delimiter=' ')
+            return aniso8601.parse_datetime(str(dtstr), delimiter=' ')
         else:
-            return aniso8601.parse_datetime(dtstr)
+            return aniso8601.parse_datetime(str(dtstr))
     except ValueError:
         return datetime.datetime.strptime(dtstr, '%Y-%m-%d')
 
