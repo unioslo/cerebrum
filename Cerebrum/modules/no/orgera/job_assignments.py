@@ -122,7 +122,7 @@ def set_assignment(db, source_system, assignment_id, person_id, ou_id, sko,
         stmt = """
           UPDATE [:table schema=cerebrum name=orgera_assignments]
           SET
-            person_id = :person_id
+            person_id = :person_id,
             ou_id = :ou_id,
             sko = :sko,
             styrk = :styrk
@@ -171,15 +171,10 @@ def search_assignments(db, source_system=NotSet, assignment_id=NotSet,
         conds.append(argument_to_sql(ou_id, 'ou_id', binds, int))
 
     if sko is not NotSet:
-        binds['sko'] = int(sko)
-        conds.append('sko = :sko')
+        conds.append(argument_to_sql(sko, 'sko', binds, int))
 
     if styrk is not NotSet:
-        if styrk is None:
-            conds.append('styrk IS NULL')
-        else:
-            binds['styrk'] = int(styrk)
-            conds.append('styrk = :styrk')
+        conds.append(argument_to_sql(styrk, 'styrk', binds, int))
 
     stmt = """
       SELECT
@@ -242,15 +237,10 @@ def delete_assignments(db, source_system=NotSet, assignment_id=NotSet,
         conds.append(argument_to_sql(ou_id, 'ou_id', binds, int))
 
     if sko is not NotSet:
-        binds['sko'] = int(sko)
-        conds.append('sko = :sko')
+        conds.append(argument_to_sql(sko, 'sko', binds, int))
 
     if styrk is not NotSet:
-        if styrk is None:
-            conds.append('styrk IS NULL')
-        else:
-            binds['styrk'] = int(styrk)
-            conds.append('styrk = :styrk')
+        conds.append(argument_to_sql(styrk, 'styrk', binds, int))
 
     stmt = """
       DELETE FROM
