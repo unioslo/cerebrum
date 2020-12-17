@@ -277,6 +277,14 @@ def get_date(dtobj, allow_none=True):
     raise ValueError('Non-date value: %r' % (dtobj,))
 
 
+def parse_time(dtstr):
+    """
+    Parse an ISO8601 time string.
+    :param dtstr: An ISO8601 formatted time string
+    :return: A time object.
+    """
+    return aniso8601.parse_time(str(dtstr))
+
 
 def parse(dtstr):
     """ Utility method, get a naive mx.DateTime. """
