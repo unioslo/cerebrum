@@ -41,27 +41,6 @@ class JsonEncoder(json.JSONEncoder):
             return obj.strftime('%Y-%m-%d %H:%M:%S.00')
         return json.JSONEncoder.default(self, obj)
 
-# Alternate -- get timezones and use datetime
-# import datetime
-# import aniso8601
-#
-# def mx_to_dt(obj):
-#     if obj is None:
-#         return None
-#     elif isinstance(obj, datetime.datetime):
-#         return obj
-#     d = aniso8601.parse_datetime(ISO.str(obj), delimiter=' ')
-#     return d
-#
-# class JsonEncoder(json.JSONEncoder):
-#     """ mx.DateTime-aware json encoder. """
-#     def default(self, obj):
-#         if isinstance(obj, DateTimeType):
-#             return self.default(mx_to_dt(obj))
-#         if isinstance(obj, datetime.datetime):
-#             return obj.isoformat()
-#         return json.JSONEncoder.default(self, obj)
-
 
 def get_quarantines(db, quarantine_types):
     """List quarantines.
