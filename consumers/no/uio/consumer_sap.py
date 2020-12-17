@@ -28,7 +28,6 @@ from collections import OrderedDict
 
 from six import text_type, integer_types
 from mx import DateTime
-from aniso8601.exceptions import ISOFormatError
 
 import cereconf
 
@@ -517,7 +516,7 @@ def _add_roles_and_assignments(person_data, config, ignore_read_password):
                             parse_date(result.get('effectiveStartDate')) -
                             hire_date_offset
                     )
-                except (ValueError, AttributeError, ISOFormatError):
+                except (ValueError, AttributeError):
                     logger.error('Invalid date %s', result.get(
                         'effectiveStartDate'))
                     results_to_add.append(result)
