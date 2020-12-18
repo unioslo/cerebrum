@@ -248,7 +248,10 @@ command_help = {
         'trait_remove':
             'Remove a trait from an entity',
         'trait_set':
-            "Add or update an entity's trait",
+            'Add or update an entity\'s trait. '
+            'The trait value should be entered as key=value. '
+            'Available keys are; target_id, date, numval, strval. '
+            'Example: trait set uname dns_comment strval=\'words\'',
         'trait_types':
             'List all defined trait types (not all are editable)',
     },
