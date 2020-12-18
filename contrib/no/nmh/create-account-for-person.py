@@ -50,7 +50,7 @@ logger = None
 
 @memoize
 def get_system_account():
-    """Return an ID for cereconf.INITIAL_ACCOUNT_NAME"""
+    """Return an ID for cereconf.INITIAL_ACCOUNTNAME"""
 
     db = Factory.get("Database")()
     account = Factory.get('Account')(db)
@@ -226,7 +226,7 @@ def create_new_account(db, person_id):
     Create a new account owned by person_id. This account:
 
       - has an automatically chosen uname
-      - has the system as creator_id (cereconf.INITIAL_ACCOUNT_NAME)
+      - has the system as creator_id (cereconf.INITIAL_ACCOUNTNAME)
       - has all of the person's affiliation
       - has all of cereconf.BOFHD_NEW_USER_SPREADS spreads
       - has an automatically assigned password
