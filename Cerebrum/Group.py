@@ -44,15 +44,16 @@ Entity_class = Utils.Factory.get("Entity")
 
 
 @six.python_2_unicode_compatible
-class Group(EntityQuarantine, EntityExternalId, EntityName,
-            EntitySpread, EntityNameWithLanguage, Entity_class):
+class BaseGroup(EntityQuarantine, EntityExternalId,
+                EntityName, EntitySpread,
+                EntityNameWithLanguage, Entity_class):
 
     __read_attr__ = ('__in_db', 'created_at')
     __write_attr__ = ('description', 'visibility', 'creator_id',
                       'expire_date', 'group_name', 'group_type')
 
     def clear(self):
-        super(Group, self).clear()
+        super(BaseGroup, self).clear()
         self.clear_class(Group)
         self.__updated = []
 
@@ -94,7 +95,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if parent is not None:
             self.__xerox__(parent)
         else:
-            super(Group, self).populate(entity_type=self.const.entity_group)
+            super(BaseGroup, self).populate(
+                  entity_type=self.const.entity_group)
         # If __in_db is present, it must be True; calling populate on
         # an object where __in_db is present and False is very likely
         # a programming error.
@@ -162,7 +164,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         this object.
 
         """
-        super(Group, self).write_db()
+        super(BaseGroup, self).write_db()
         try:
             is_new = not self.__in_db
         except AttributeError:
@@ -250,10 +252,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=group_member]
             WHERE group_id=:g_id""", {'g_id': self.entity_id})
-
-            # Empty this group's set of admins and moderators
-            group_roles = GroupRoles(self._db)
-            group_roles.remove_all(self.entity_id)
 
             # Empty this group's memberships.
             # IVR 2008-06-06 TBD: Is this really wise? I.e. should the caller
@@ -1157,6 +1155,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           )
         """
         return self.query(stmt)
+
     def get_group_admins(self, group_id=None):
         binds = {'group_id': group_id}
         """Returns a list of all admins of a group"""
@@ -1172,3 +1171,14 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         SELECT * FROM group_moderator WHERE group_id=:group_id
         """
         return self.query(stmt, binds)
+
+
+class GroupRolesMixin(BaseGroup):
+    def delete(self):
+        # Empty this group's set of admins and moderators
+        GroupRoles.remove_all(GroupRoles(self._db), self.entity_id)
+        super(GroupRolesMixin, self).delete()
+
+
+class Group(GroupRolesMixin, BaseGroup):
+    pass

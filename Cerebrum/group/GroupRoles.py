@@ -146,6 +146,11 @@ class GroupRoles(DatabaseAccessor):
         DELETE FROM [:table schema=cerebrum name=group_admin]
         WHERE group_id=:group_id""", binds)
 
+        # Remove entries for when the group being deleted is admin for another group
+        self.execute("""
+                DELETE FROM [:table schema=cerebrum name=group_admin]
+                WHERE admin_id=:group_id""", binds)
+
         # Find mods and log removals
         mods = self.query("""
         SELECT moderator_id FROM [:table schema=cerebrum name=group_moderator]
@@ -158,6 +163,12 @@ class GroupRoles(DatabaseAccessor):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=group_moderator]
         WHERE group_id=:group_id""", binds)
+
+        # Remove entries for when group being deleted is moderator for another group
+        self.execute("""
+                DELETE FROM [:table schema=cerebrum name=group_moderator]
+                WHERE moderator_id=:group_id""", binds)
+
 
     def search_admins(self, group_id=None, group_spread=None, group_type=None,
                       admin_id=None, admin_type=None,
