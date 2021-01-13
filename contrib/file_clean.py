@@ -215,11 +215,11 @@ def archive_files(name_pattern='', dirname='', archive_name='',
     if not files_to_archive:
         return
     # Set tar command
-    tar_cmd = '/bin/tar --files-from %s --remove-files -czf %s'
+    tar_cmd_core = '/bin/tar --files-from %s '
     if no_del_tar:
-        tar_cmd = '/bin/tar --files-from %s -czf %s'
+        tar_cmd = tar_cmd_core + '-czf %s'
     else:
-        tar_cmd = '/bin/tar --files-from %s --remove-files -czf %s'
+        tar_cmd = tar_cmd_core + '--remove-files -czf %s'
     # Create filename of archive file, first postfix
     time_threshold = time.time() - archive_age*3600*24
     postfix = '-' + time.strftime('%Y-%m-%d', time.localtime(time_threshold))
@@ -257,13 +257,14 @@ def archive_files(name_pattern='', dirname='', archive_name='',
             if ret != 0:
                 logger.error("tar failed (%s): %s" % (cmd, ret))
             if file_type == 'dir' and no_delete is False:
-                # tar won't delete directories used as argument
-                for f in files_to_archive:
-                    try:
-                        old_dir = os.path.join(dirname, f)
-                        shutil.rmtree(old_dir)
-                    except:
-                        logger.exception("Couldn't delete %s" % old_dir)
+                # tar sometimes fails removing directories used as argument
+                for f in set(files_to_archive):
+                    if tempfile._exists(f):
+                        try:
+                            old_dir = os.path.join(dirname, f)
+                            shutil.rmtree(old_dir)
+                        except:
+                            logger.exception("Couldn't delete %s" % old_dir)
     os.unlink(tmp_name)
 
 
