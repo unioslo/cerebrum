@@ -326,10 +326,9 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
 
         return self.can_add_to_group(account_id, group_id)
     # end can_change_moderators
-    
 
 
-    def can_change_owners(self, account_id, group_id):
+    def can_change_admins(self, account_id, group_id):
         """Can an account change group_id's owner?
 
         Group owners are allowed to change owners.
