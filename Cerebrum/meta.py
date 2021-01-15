@@ -83,14 +83,10 @@ The original implementation of these classes can be seen in:
 import six
 
 
-def is_str(x):
-    """Checks if a given variable is a string, but not a unicode string."""
-    return isinstance(x, bytes)
-
-
 def _mangle_name(classname, attr):
-    """Do 'name mangling' for attribute ``attr`` in class ``classname``."""
-    if not (classname and is_str(classname)):
+    """Get a *mangled* attribute name for a given class.
+    """
+    if not (classname and isinstance(classname, str)):
         raise ValueError("Invalid class name string: '%s'" % classname)
     # Attribute name starts with at least two underscores, and
     # ends with at most one underscore and is not all underscores
@@ -102,7 +98,7 @@ def _mangle_name(classname, attr):
     return attr
 
 
-class auto_super(type):  # noqa: N801
+class AutoSuper(type):
     """
     Metaclass adding a private class variable __super, set to super(cls).
 
@@ -123,9 +119,8 @@ class auto_super(type):  # noqa: N801
           if such a situation does arise, the subclass's definition
           will fail, raising a ValueError.
     """
-
     def __init__(cls, name, bases, dict):  # noqa: N805
-        super(auto_super, cls).__init__(name, bases, dict)
+        super(AutoSuper, cls).__init__(name, bases, dict)
         attr = _mangle_name(name, '__super')
         if hasattr(cls, attr):
             # The class-private attribute slot is already taken; the
@@ -137,15 +132,12 @@ class auto_super(type):  # noqa: N801
         setattr(cls, attr, super(cls))
 
 
-AutoSuper = auto_super
-
-
 class AutoSuperMixin(six.with_metaclass(AutoSuper), object):
     """ An object subclass with the AutoSuper metaclass. """
     pass
 
 
-class mark_update(auto_super):  # noqa: N801
+class MarkUpdate(AutoSuper):
     """
     Metaclass marking objects as 'updated' per superclass.
 
@@ -156,167 +148,141 @@ class mark_update(auto_super):  # noqa: N801
     handled by code objects that live in the class where they were
     defined.
 
-    The following class members are automatically defined for classes
-    with this metaclass:
+    These special class attributes are used by MarkUpdate:
 
-    ``__updated`` (class private variable):
-      Set to the empty list initially; see description of ``__setattr__``.
+    ``__read_attr__``
+        A tuple of attribute names that should be considered read-only.
 
-    ``__setattr__`` (Python magic for customizing attribute assignment):
-      * When a 'write' attribute has its value changed, the attribute
-        name is appended to the list in the appropriate class's
-        ``__updated`` attribute.
+        - Read-only attributes cannot be changed (but can be initially set if
+          previously undefined).
+        - Read-only attributes are cleared when ``clear()`` is called on the
+          resulting class.
+        - Note that read-only attributes *can* be modified by calling ``del
+          <obj>.<attr>`` first.
 
-      * 'Read' attributes can only be assigned to if there hasn't
-        already been defined any attribute by that name on the
-        instance.
-        This means that initial assignment will work, but plain
-        reassignment will fail.  To perform a reassignment one must
-        delete the attribute from the instance (e.g. by using ``del``
-        or ``delattr``).
-      NOTE: If a class has an explicit definition of ``__setattr__``,
-            that class will retain that definition.
+    ``__write_attr__``
+        A tuple of attribute names that should be considered read-write.
 
-    ``__new__``:
-      Make sure that instances get ``__updated`` attributes for the
-      instance's class and for all of its base classes.
-      NOTE: If a class has an explicit definition of ``__new__``,
-            that class will retain that definition.
+        Write-attributes are typically handled by some kind of flush method in
+        the class definition.  One example of a flush method is the
+        ``write_db()`` method of db-entities.
 
-    ``clear'':
-      Reset all the ``mark_update''-relevant attributes of an object
-      to their default values.
-      NOTE: If a class has an explicit definition of ``clear'', that
-            class will retain that definition.
+        - Write-attributes can be changed.  When changed, the attribute name is
+          added to the ``__updated`` list.
+        - Write-attributes are cleared just like read-attributes.
 
-    ``__read_attr__`` and ``__write_attr__``:
-      Gets overwritten with tuples holding the name-mangled versions
-      of the names they initially held.  If there was no initial
-      definition, the attribute is set to the empty tuple.
+    ``__updated``
+        A list of write-attributes that has been modified.
 
-    ``__xerox__``:
-      Copy all attributes that are valid for this instance from object
-      given as first arg.
+        Whenever a write-attribute is changed, its attribute name is added to
+        the ``__updated`` list.  This ``__updated`` list is typically cleared
+        by flush-logic (e.g. ``write_db()`` for db-entities), and is also
+        cleared by ``clear()``.
 
-    ``__slots__``:
-      If a class has an explicit definition of ``__slots__``, this
-      metaclass will add names from ``__write_attr__`` and
-      ``__read_attr__`` to the class's slots.  Classes without any
-      explicit ``__slots__`` are not affected by this.
+    ``__slots__``
+        ``__slots__`` are updated with ``__read_attr__`` and
+        ``__write_attr__``.  This only applies for classes that explicitly
+        defines ``__slots__``.
 
-    Additionally, mark_update is a subclass of the auto_super
-    metaclass; hence, all classes with metaclass mark_update will also
-    be subject to the functionality provided by the auto_super
-    metaclass.
+    ``dontclear``
+        An optional tuple of attribute names to omit when calling ``clear()``.
+
+
+    MarkUpdate classes also has a few extra methods:
+
+    ``__xerox__``
+        Copies read/write attributes from another, similar object.
+
+    ``clear``
+        Removes/clears all ``__read_attr__`` and ``__write_attr__`` attributes
+        in the object, and empties the ``__updated`` list.
+
+    ``__setattr__``
+        Implements the ``__read_attr__``, ``__write_attr__``, and ``__updated``
+        logic.
+
+    ``__new__``
+        Implements ``__read_attr__``, ``__write_attr__``, and ``__updated``
+        initialization.
+
+    Be careful not to override/break these methods when implmenting a class
+    with MarkUpdate.
 
     A quick (and rather nonsensical) example of usage:
 
-    >>> class A(object):
-    ...     __metaclass__ = mark_update
-    ...     __write_attr__ = ('breakfast',)
-    ...     def print_updated(self):
-    ...         if self.__updated:
-    ...             print('A')
-    ...
-    >>> class B(A):
-    ...     __write_attr__ = ('egg', 'sausage', 'bacon')
-    ...     __read_attr__ = ('spam',)
-    ...     def print_updated(self):
-    ...         if self.__updated:
-    ...             print('B')
-    ...         self.__super.print_updated()
-    ...
-    >>> b = B()
-    >>> b.breakfast = 'vroom'
-    >>> b.spam = False
-    >>> b.print_updated()
-    A
-    >>> b.egg = 7
-    >>> b.print_updated()
-    B
-    A
-    >>> b.spam = True
-    Traceback (most recent call last):
-      File "<stdin>", line 1, in ?
-      File "Cerebrum/Utils.py", line 237, in __setattr__
-        raise AttributeError, \
-    AttributeError: Attribute 'spam' is read-only.
-    >>> del b.spam
-    >>> b.spam = True
-    >>> b.spam
-    True
-    >>> b.egg
-    7
-    >>> b.sausage
-    Traceback (most recent call last):
-      File "<stdin>", line 1, in ?
-    AttributeError: sausage
-    >>>
 
     """
-    def __new__(cls, name, bases, dict):
-        read = [_mangle_name(name, x) for x in
-                dict.get('__read_attr__', ())]
-        dict['__read_attr__'] = read
-        write = [_mangle_name(name, x) for x in
-                 dict.get('__write_attr__', ())]
-        dict['__write_attr__'] = write
-        mupdated = _mangle_name(name, '__updated')
-        msuper = _mangle_name(name, '__super')
+    def __new__(cls, name, bases, dct):
 
-        # Define the __setattr__ method that should be used in the
-        # class we're creating.
-        def __setattr__(self, attr, val):  # noqa: N802
-            # print "%s.__setattr__:" % name, self, attr, val
-            if attr in read:
-                # Only allow setting if attr has no previous
-                # value.
+        # mangled attribute names:
+        read_attrs = dct['__read_attr__'] = tuple(
+            _mangle_name(name, attr)
+            for attr in dct.get('__read_attr__', ()))
+
+        write_attrs = dct['__write_attr__'] = tuple(
+            _mangle_name(name, attr)
+            for attr in dct.get('__write_attr__', ()))
+
+        updated_attr = _mangle_name(name, '__updated')
+        auto_super_attr = _mangle_name(name, '__super')
+
+        def mark_update_setattr(self, attr, val):
+            """ __setattr__ implementation for MarkUpdate classes. """
+            if attr in read_attrs:
                 if hasattr(self, attr):
-                    raise AttributeError("Attribute '%s' is read-only." % attr)
-            elif attr in write:
+                    raise AttributeError("attribute '%s' is read-only" % attr)
+            elif attr in write_attrs:
                 if hasattr(self, attr) and val == getattr(self, attr):
                     # No change, don't set __updated.
                     return
-            elif attr != mupdated:
+            elif attr != updated_attr:
                 # This attribute doesn't belong in this class; try the
                 # base classes.
-                return getattr(self, msuper).__setattr__(attr, val)
+                return getattr(self, auto_super_attr).__setattr__(attr, val)
+
             # We're in the correct class, and we've established that
             # it's OK to set the attribute.  Short circuit directly to
-            # object's __setattr__, as that's where the attribute
+            # ``object.__setattr__()``, as that's where the attribute
             # actually gets its new value set.
-            # print "%s.__setattr__: setting %s = %s" % (self, attr, val)
             object.__setattr__(self, attr, val)
-            if attr in write:
-                getattr(self, mupdated).append(attr)
-        dict.setdefault('__setattr__', __setattr__)
+            if attr in write_attrs:
+                getattr(self, updated_attr).append(attr)
+        dct.setdefault('__setattr__', mark_update_setattr)
 
-        def __new__(cls, *args, **kws):  # noqa: N802
-            # Get a bound super object.
-            sup = getattr(cls, msuper).__get__(cls)
+        def mark_update_new(cls, *args, **kws):  # noqa: N807
+            """ __new__ implementation for MarkUpdate classes. """
+            # Get a bound super object:
+            super_cls = getattr(cls, auto_super_attr).__get__(cls)
             # Call base class's __new__() to perform initialization
-            # and get an instance of this class.
-            obj = sup.__new__(cls)
-            # Add a default for this class's __updated attribute.
-            setattr(obj, mupdated, [])
+            # and get an instance of this class:
+            obj = super_cls.__new__(cls)
+            # Initialize a mangled __updated list for this class:
+            setattr(obj, updated_attr, [])
             return obj
-        dict.setdefault('__new__', __new__)
+        dct.setdefault('__new__', mark_update_new)
 
-        dont_clear = dict.get('dontclear', ())
+        dont_clear = dct.get('dontclear', ())
 
-        def clear(self):
-            getattr(self, msuper).clear()
-            for attr in read:
+        def mark_update_clear(self):
+            """ Clear attributes managed by MarkUpdate. """
+            getattr(self, auto_super_attr).clear()
+
+            # clear the __read_attr__ attributes of this class
+            for attr in read_attrs:
                 if hasattr(self, attr) and attr not in dont_clear:
                     delattr(self, attr)
-            for attr in write:
+
+            # clear the __write_attr__ attributes of this class
+            for attr in write_attrs:
                 if attr not in dont_clear:
                     setattr(self, attr, None)
-            setattr(self, mupdated, [])
-        dict.setdefault('clear', clear)
 
-        def __xerox__(self, from_obj, reached_common=False):  # noqa: N802
-            """Copy attributes of ``from_obj`` to self (shallowly).
+            # reset the __updated list of this class
+            setattr(self, updated_attr, [])
+        dct.setdefault('clear', mark_update_clear)
+
+        def mark_update_xerox(self, from_obj, _reached_common=False):
+            """ Copy attributes of ``from_obj`` to self (shallowly).
 
             If self's class is the same as or a subclass of
             ``from_obj``s class, all attributes are copied.  If self's
@@ -325,34 +291,34 @@ class mark_update(auto_super):  # noqa: N801
             classes) are copied.
 
             """
-            if not reached_common and \
-               name in [c.__name__ for c in from_obj.__class__.__mro__]:
-                reached_common = True
+            if (not _reached_common and
+                    name in [c.__name__ for c in from_obj.__class__.__mro__]):
+                _reached_common = True
             try:
-                super_xerox = getattr(self, msuper).__xerox__
+                super_xerox = getattr(self, auto_super_attr).__xerox__
             except AttributeError:
                 # We've reached a base class that doesn't have this
                 # metaclass; stop recursion.
                 super_xerox = None
+
             if super_xerox is not None:
-                super_xerox(from_obj, reached_common)
-            if reached_common:
-                for attr in read + write:
+                super_xerox(from_obj, _reached_common)
+            if _reached_common:
+                for attr in read_attrs + write_attrs:
                     if hasattr(from_obj, attr):
                         setattr(self, attr, getattr(from_obj, attr))
-                setattr(self, mupdated, getattr(from_obj, mupdated))
-        dict.setdefault('__xerox__', __xerox__)
+                setattr(self, updated_attr, getattr(from_obj, updated_attr))
+        dct.setdefault('__xerox__', mark_update_xerox)
 
-        if hasattr(dict, '__slots__'):
-            slots = list(dict['__slots__'])
-            for slot in read + write + [mupdated]:
-                slots.append(slot)
-            dict['__slots__'] = tuple(slots)
+        if '__slots__' in dct:
+            # update __slots__ with relevant attrs
+            tmp_slots = list(dct['__slots__'])
+            for attr in read_attrs + write_attrs + (updated_attr,):
+                if attr not in tmp_slots:
+                    tmp_slots.append(attr)
+            dct['__slots__'] = tuple(tmp_slots)
 
-        return super(mark_update, cls).__new__(cls, name, bases, dict)
-
-
-MarkUpdate = mark_update
+        return super(MarkUpdate, cls).__new__(cls, name, bases, dct)
 
 
 class MarkUpdateMixin(six.with_metaclass(MarkUpdate), object):
