@@ -1,3 +1,4 @@
+""" Tests for Cerebrum.meta metaclasses """
 import pytest
 import Cerebrum.meta
 
@@ -22,52 +23,84 @@ class InitMixin(object):
             setattr(self, attr, value)
 
 
-class SuperBase(InitMixin, Cerebrum.meta.AutoSuperMixin):
-    overload = 0
+@pytest.fixture(scope='module')
+def super_base_cls():
+    # We create classes from metaclasses in fixtures, simply because the code
+    # we want to test actually *runs* on class creation.
+
+    class SuperBase(InitMixin, Cerebrum.meta.AutoSuperMixin):
+        overload = 0
+
+    return SuperBase
 
 
-class SuperFoo(SuperBase):
-    overload = 1
+@pytest.fixture(scope='module')
+def super_foo_cls(super_base_cls):
+
+    class SuperFoo(super_base_cls):
+        overload = 1
+
+    return SuperFoo
 
 
-class SuperBar(SuperFoo):
-    overload = 2
+@pytest.fixture(scope='module')
+def super_bar_cls(super_foo_cls):
+
+    class SuperBar(super_foo_cls):
+        overload = 2
+
+    return SuperBar
 
 
-def test_has_super_attr():
-    obj = SuperBar()
-
+def test_has_super_attr(super_bar_cls):
+    obj = super_bar_cls()
     assert all(hasattr(obj, attr) for attr in ('_SuperBase__super',
                                                '_SuperFoo__super',
                                                '_SuperBar__super'))
 
 
-def test_super_attr_value():
-    obj = SuperBar()
-    assert getattr(obj, '_SuperFoo__super').overload == SuperBase.overload
-    assert getattr(obj, '_SuperBar__super').overload == SuperFoo.overload
+def test_super_attr_value(super_base_cls, super_foo_cls, super_bar_cls):
+    obj = super_bar_cls()
+    assert getattr(obj, '_SuperFoo__super').overload == super_base_cls.overload
+    assert getattr(obj, '_SuperBar__super').overload == super_foo_cls.overload
 
 
-class UpdateBase(InitMixin, Cerebrum.meta.MarkUpdateMixin):
-    __read_attr__ = ('foo_1',)
-    __write_attr__ = ('bar_1',)
+@pytest.fixture(scope='module')
+def update_base_cls():
+
+    class UpdateBase(InitMixin, Cerebrum.meta.MarkUpdateMixin):
+        __read_attr__ = ('foo_1',)
+        __write_attr__ = ('bar_1',)
+
+    return UpdateBase
 
 
-class UpdateFoo(UpdateBase):
-    __read_attr__ = ('foo_2', 'foo_3')
-    __write_attr__ = ('bar_2', 'bar_3')
-    dontclear = ('foo_3',)
+@pytest.fixture(scope='module')
+def update_foo_cls(update_base_cls):
+
+    class UpdateFoo(update_base_cls):
+
+        __read_attr__ = ('foo_2', 'foo_3')
+        __write_attr__ = ('bar_2', 'bar_3')
+        dontclear = ('foo_3',)
+
+    return UpdateFoo
 
 
-class UpdateBar(UpdateFoo):
-    __read_attr__ = ('foo_4', 'foo_5')
-    __write_attr__ = ('bar_4', 'bar_5')
-    __slots__ = ('other_1',)
+@pytest.fixture(scope='module')
+def update_bar_cls(update_foo_cls):
+
+    class UpdateBar(update_foo_cls):
+        __read_attr__ = ('foo_4', 'foo_5')
+        __write_attr__ = ('bar_4', 'bar_5')
+        __slots__ = ('other_1',)
+
+    return UpdateBar
 
 
 @pytest.fixture
-def update_bar_obj():
-    return UpdateBar(
+def update_bar_obj(update_bar_cls):
+    return update_bar_cls(
         # __read_attr__
         foo_1=1, foo_2=2, foo_3=3, foo_4=4, foo_5=5,
         # __write_attr__
@@ -76,9 +109,7 @@ def update_bar_obj():
         other_1='something')
 
 
-def test_meta_update_init(update_bar_obj):
-    # the fixture actually inits our object
-    # note: read-attrs can only be set if previously unset
+def test_meta_update_init_attrs(update_bar_obj):
     assert update_bar_obj.foo_1 == 1
     assert update_bar_obj.foo_3 == 3
     assert update_bar_obj.foo_5 == 5
@@ -88,30 +119,45 @@ def test_meta_update_init(update_bar_obj):
     assert update_bar_obj.other_1 == 'something'
 
 
-def test_mark_update_slots():
-    # __slots__ are updated with all read/write attrs
-    slots = set(UpdateBar.__slots__)
-    require = (set(UpdateBar.__read_attr__)
-               | set(UpdateBar.__write_attr__)
+def test_meta_update_init_empty(update_bar_cls):
+    obj = update_bar_cls()
+    assert not any(hasattr(obj, attr)
+                   for attr in ('foo_1', 'foo_2', 'foo_3', 'foo_4', 'foo_5'))
+    assert not any(hasattr(obj, attr)
+                   for attr in ('bar_1', 'bar_2', 'bar_3', 'bar_4', 'bar_5'))
+    assert not hasattr(obj, 'other_1')
+
+
+def test_mark_update_slots(update_bar_cls):
+    # UpdateBar uses __slots__, should be updated with all read/write attrs
+    slots = set(update_bar_cls.__slots__)
+    require = (set(update_bar_cls.__read_attr__)
+               | set(update_bar_cls.__write_attr__)
                | set(('other_1',)))
     assert slots.intersection(require) == require
 
 
-def test_mark_update_noslots():
-    # UpdateFoo should not have __slots__
+def test_mark_update_noslots(update_foo_cls):
+    # UpdateBar does not use __slots__, should not get set by metaclass
     with pytest.raises(AttributeError):
-        UpdateFoo.__slots__
+        update_foo_cls.__slots__
 
 
-def test_meta_update_updated(update_bar_obj):
-    # any write-attribute should be added to __updated when set
+def test_meta_update_attr(update_base_cls, update_foo_cls, update_bar_cls,
+                          update_bar_obj):
+    # write-attributes are added to a name-mangled __updated attr when set
+    base_attr = Cerebrum.meta._mangle_name(update_base_cls.__name__,
+                                           '__updated')
+    foo_attr = Cerebrum.meta._mangle_name(update_foo_cls.__name__, '__updated')
+    bar_attr = Cerebrum.meta._mangle_name(update_bar_cls.__name__, '__updated')
+
     # our fixture sets all write-attrs
-    assert (set(update_bar_obj._UpdateBase__updated)
-            == set(UpdateBase.__write_attr__))
-    assert (set(update_bar_obj._UpdateFoo__updated)
-            == set(UpdateFoo.__write_attr__))
-    assert (set(update_bar_obj._UpdateBar__updated)
-            == set(UpdateBar.__write_attr__))
+    assert (set(getattr(update_bar_obj, base_attr))
+            == set(update_base_cls.__write_attr__))
+    assert (set(getattr(update_bar_obj, foo_attr))
+            == set(update_foo_cls.__write_attr__))
+    assert (set(getattr(update_bar_obj, bar_attr))
+            == set(update_bar_cls.__write_attr__))
 
 
 def test_meta_update_read_attr(update_bar_obj):
@@ -152,17 +198,17 @@ def test_is_updated(update_bar_obj):
     assert True
 
 
-def test_xerox(update_bar_obj):
+def test_xerox(update_foo_cls, update_bar_cls, update_bar_obj):
 
     # xerox only copies supported read/write attrs
-    foo = UpdateFoo()
+    foo = update_foo_cls()
     foo.__xerox__(update_bar_obj)
     assert foo.foo_1 == 1
     assert foo.foo_3 == 3
     assert foo.bar_3 == 'c'
     assert not hasattr(foo, 'foo_4')
 
-    bar = UpdateBar()
+    bar = update_bar_cls()
     bar.__xerox__(foo)
     assert bar.foo_1 == 1
     assert bar.foo_3 == 3
