@@ -328,26 +328,29 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         params = event["change_params"]
         new_admin = self._get_account(issuer_id)
-        old_admin = self._get_account(params["old"])
+        old_admin = self._get_account(params["old"]) if params["old"] else None
         group = self._get_group(params["group_id"])
         assert group.entity_id == int(event["subject_entity"])
 
         self.ba.can_own_group(new_admin.entity_id)
-        self.ba.can_change_admins(old_admin.entity_id, group.entity_id)
+        old_admin_id = old_admin.entity_id if old_admin else None
+        self.ba.can_change_admins(old_admin_id, group.entity_id)
 
-        if new_admin.entity_id == old_admin.entity_id:
+        if old_admin and new_admin.entity_id == old_admin.entity_id:
             return "OK, no changes necessary"
 
         # Let's swap them
         roles = GroupRoles(self.db)
         roles.add_admin_to_group(new_admin.entity_id, group.entity_id)
-        roles.remove_admin_from_group(old_admin.entity_id, group.entity_id)
+        if old_admin:
+            roles.remove_admin_from_group(old_admin.entity_id, group.entity_id)
 
         # action e_group:pending_admin_change
         # Ok, <group> admin changed, <old_admin> -> <new_admin>
+        old_admin_name = old_admin.account_name if old_admin else None
         return {'action': event.get('change_type'),
                 'group': group.group_name,
-                'old_admin': old_admin.account_name,
+                'old_admin': old_admin_name,
                 'new_admin': new_admin.account_name, }
 
     def __process_moderator_add_request(self, issuer_id, event):
@@ -1395,7 +1398,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     def group_change_admin(self, operator, email, gname):
         """Change gname's admin to FA associated with email."""
         group = self._get_group(gname)
-        self.ba.can_change_owners(operator.get_entity_id(), group.entity_id)
+        self.ba.can_change_admins(operator.get_entity_id(), group.entity_id)
         admin = self.vhutils.list_group_admins(group)
         try:
             admin = admin[0]['account_id']
