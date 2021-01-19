@@ -333,8 +333,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         assert group.entity_id == int(event["subject_entity"])
 
         self.ba.can_own_group(new_admin.entity_id)
-        old_admin_id = old_admin.entity_id if old_admin else None
-        self.ba.can_change_admins(old_admin_id, group.entity_id)
 
         if old_admin and new_admin.entity_id == old_admin.entity_id:
             return "OK, no changes necessary"
