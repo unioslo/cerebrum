@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002 University of Oslo, Norway
+# Copyright 2002-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,8 +18,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Example client for Cerebrum.modules.bofhd
+
+The example client is a precursor to the `bofh` (previously named pybofh)
+package.
+
+Note that this client requires an additional 3rd party package, M2Crypto, if
+connecting to a bofhd server using SSL.
+"""
 from __future__ import print_function
 
+import datetime
 import getopt
 import getpass
 import logging
@@ -31,10 +41,19 @@ import threading
 import xmlrpclib
 
 import six
-from mx import DateTime
+
+try:
+    from M2Crypto import SSL
+    from M2Crypto.Rand import rand_add as ssl_rand_add
+    from M2Crypto.m2xmlrpclib import Server as SSL_Server, SSL_Transport
+    SSL_SUPPORT = True
+except ImportError:
+    SSL_Server = SSL_Transport = SSL = ssl_rand_add = None
+    SSL_SUPPORT = False
 
 
 VERSION = "0.0.1"
+ENCODING = 'iso8859-1'
 logger = None
 
 
@@ -282,27 +301,35 @@ class BofhCompleter(object):
         return tmp_dict, args[n+1:]
 
 
+def _ssl_connect(url, cacert_file, rand_cmd, encoding=ENCODING):
+    """ open ssl connection using M2Crypto. """
+    if not SSL_SUPPORT:
+        raise NotImplementedError("no SSL support (missing M2Crypto package)")
+
+    if not os.path.exists('/dev/random') and rand_cmd is not None:
+        rand_file = os.popen(rand_cmd, 'r')
+        rand_string = rand_file.read()
+        rand_file.close()
+        ssl_rand_add(rand_string, len(rand_string))
+    ctx = SSL.Context()
+    if cacert_file is not None:
+        ctx.load_verify_info(cacert_file)
+        ctx.set_verify(SSL.verify_peer, 10)
+    return SSL_Server(url, SSL_Transport(ctx), encoding=encoding)
+
+
 class BofhConnection(object):
     """Handles all communication with remote server"""
 
-    def __init__(self, url, bofh_client, cacert_file=None, rand_cmd=None):
+    def __init__(self, url, bofh_client, cacert_file=None, rand_cmd=None,
+                 encoding=ENCODING):
         self.__bc = bofh_client
+        self._encoding = encoding
         if url.startswith("https"):
-            from M2Crypto.m2xmlrpclib import Server, SSL_Transport
-            from M2Crypto import SSL
-            if not os.path.exists('/dev/random') and rand_cmd is not None:
-                from M2Crypto.Rand import rand_add
-                rand_file = os.popen(rand_cmd, 'r')
-                rand_string = rand_file.read()
-                rand_file.close()
-                rand_add(rand_string, len(rand_string))
-            ctx = SSL.Context('sslv3')
-            if cacert_file is not None:
-                ctx.load_verify_info(cacert_file)
-                ctx.set_verify(SSL.verify_peer, 10)
-            self.conn = Server(url, SSL_Transport(ctx), encoding='iso8859-1')
+            self.conn = _ssl_connect(url, cacert_file, rand_cmd,
+                                     encoding=encoding)
         else:
-            self.conn = xmlrpclib.Server(url, encoding='iso8859-1')
+            self.conn = xmlrpclib.Server(url, encoding=encoding)
 
     def get_format_suggestion(self, cmd):
         return self.__send_raw_command("get_format_suggestion", [cmd])
@@ -427,7 +454,7 @@ class BofhConnection(object):
                 if obj == 'None':
                     obj = '<not set>'
             if isinstance(obj, six.text_type):
-                return obj.encode('iso8859-1')
+                return obj.encode(self._encoding)
             return obj
         elif isinstance(obj, dict):
             ret = {}
@@ -651,12 +678,23 @@ class BofhClient(object):
                             fmt = ftype.split(":", 1)[1]
                             fmt = fmt.replace('yyyy', '%Y').replace(
                                 'MM', '%m').replace('dd', '%d')
-                            tmp[-1] = DateTime.ISO.ParseDateTime(
-                                str(row[field])).strftime(fmt)
+                            tmp[-1] = reformat_dt(str(row[field]), fmt)
                 self.show_message(format_str % tuple(tmp))
 
     def show_message(self, msg):
         print(msg)
+
+
+XMLRPC_DATETIME_FORMAT = '%Y%m%dT%H:%M:%S'
+
+
+def reformat_dt(datestr, tofmt, fromfmt=XMLRPC_DATETIME_FORMAT):
+    """ try to reformat an xmlrpc datetime string. """
+    try:
+        dt = datetime.datetime.strptime(datestr, fromfmt)
+        return dt.strftime(tofmt)
+    except ValueError:
+        return datestr
 
 
 def setup_logger(debug_log):
@@ -696,8 +734,6 @@ def main():
     for opt, val in opts:
         if opt in ('--help',):
             usage()
-        elif opt in ('-q',):
-            user, password = 'bootstrap_account', 'test'
         elif opt in ('--username',):
             user = val
         elif opt in ('--set',):
@@ -718,7 +754,6 @@ usage_text = """
 Usage: [options]
 
     -u | --url url : url to connect to
-    -q : for debugging
     -d : log debuging info to pybofh.log
     --set k=v : override properties:
         console_prompt : override default console prompt
@@ -727,7 +762,7 @@ Usage: [options]
         cacert_file : file containing servers ca cert
         rand_cmd : provides random-seed when /dev/random doesn't exist
                    (example: .../openssh/libexec/ssh-rand-helper)
-    --username NAME: Override username.
+    --username NAME: Override username (defaults to $USER)
 """.lstrip()
 
 
