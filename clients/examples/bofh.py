@@ -33,10 +33,22 @@ from mx import DateTime
 VERSION = "0.0.1"
 logger = None
 
-class AnalyzeCommandException(Exception): pass
-class QuitException(Exception): pass
-class BofhdException(Exception): pass
-class ParseException(Exception): pass
+
+class AnalyzeCommandException(Exception):
+    pass
+
+
+class QuitException(Exception):
+    pass
+
+
+class BofhdException(Exception):
+    pass
+
+
+class ParseException(Exception):
+    pass
+
 
 class CommandLine(object):
     """Responsible for reading commands from stdin, and splitting them
@@ -51,7 +63,7 @@ class CommandLine(object):
         self.__timer_wait = None
         self.my_pid = os.getpid()
         self.__quit = False
-        
+
     def __got_alarm(self, *args):
         self.__alarm_count += 1
         if self.__alarm_count > 1 or self.__warn_delay is None:
@@ -74,10 +86,10 @@ class CommandLine(object):
     def prompt_arg(self, msg, default=None, postfix=''):
         """Prompt for a string, optionally returning a default value
         if user enters an empty string"""
-        
+
         self.__alarm_count = 0
         self.__set_alarm(self.__max_timeout)
-        
+
         if(default is not None):
             msg = "%s [%s]" % (msg, default)
         if postfix:
@@ -86,7 +98,7 @@ class CommandLine(object):
         while ret == '':
             try:
                 ret = raw_input(msg)
-            except:
+            except Exception:
                 if self.__quit:
                     raise QuitException
                 logger.debug("Some exception")
@@ -140,7 +152,7 @@ class CommandLine(object):
         if quote is not None:
             raise ParseException("Missing end-quote")
         if sub_cmd is not None:
-	    raise ParseException("Missing end )")
+            raise ParseException("Missing end )")
         return ret
     split_command = staticmethod(split_command)
 
@@ -152,25 +164,26 @@ class CommandLine(object):
         # >= 2.4.  Is there any way around this?  Can history in
         # readline be disabled?  Looking Modules/readline.c indicates
         # that it can't
-        
+
         old_completer = readline.get_completer()
         readline.parse_and_bind('tab: complete')
         readline.set_completer(self._completer.tab_complete)
         try:
             ret = CommandLine.split_command(
                 self.prompt_arg(self._default_prompt))
-        except:
+        except Exception:
             raise
         readline.parse_and_bind('tab: rl_insert')
-        readline.set_completer(old_completer)        
+        readline.set_completer(old_completer)
         return ret
+
 
 class BofhCompleter(object):
     """Handles tab-completion, and allows short-forms of commands"""
-    
+
     def __init__(self):
         self._complete = {}
-    
+
     def clear(self):
         self._complete.clear()
 
@@ -188,7 +201,7 @@ class BofhCompleter(object):
         """Find matching commands at this argument number"""
         if len(args) > 2:
             raise AnalyzeCommandException("no matches")
-        
+
         tmp_dict = self._complete
         lvl = 0
         for n in range(len(args)):
@@ -219,7 +232,7 @@ class BofhCompleter(object):
         # check for matches when state=0, and cache the results for
         # answering the next calls.  See the gnu-readline (C-version)
         # docs for details
-        
+
         line = readline.get_line_buffer()
         endidx = readline.get_endidx()
 
@@ -233,7 +246,7 @@ class BofhCompleter(object):
                 self.__matches = self._find_matches_at(args, lvl)
             except AnalyzeCommandException:
                 return None
-            except:
+            except Exception:
                 logger.error("Unexpected tab-complete exception", exc_info=1)
         try:
             if state == len(self.__matches)-1:
@@ -264,6 +277,7 @@ class BofhCompleter(object):
             raise AnalyzeCommandException("Incomplete command")
         return tmp_dict, args[n+1:]
 
+
 class BofhConnection(object):
     """Handles all communication with remote server"""
 
@@ -285,7 +299,7 @@ class BofhConnection(object):
             self.conn = Server(url, SSL_Transport(ctx), encoding='iso8859-1')
         else:
             self.conn = xmlrpclib.Server(url, encoding='iso8859-1')
-    
+
     def get_format_suggestion(self, cmd):
         return self.__send_raw_command("get_format_suggestion", [cmd])
 
@@ -301,7 +315,7 @@ class BofhConnection(object):
 
     def logout(self):
         return self.__auth_cmd("logout")
-    
+
     def update_commands(self):
         self.commands = self.__auth_cmd("get_commands")
 
@@ -316,11 +330,11 @@ class BofhConnection(object):
         if args:
             tmp.extend(args)
         return self.__auth_cmd("run_command", tmp)
-    
+
     def __auth_cmd(self, func_name, args=None):
         tmp = [self.__sessid]
         if args:
-            tmp.extend(args) 
+            tmp.extend(args)
         logger.debug("X: %s %s" % (repr(args), repr(tmp)))
         return self.__send_raw_command(func_name, tmp, sessid_loc=0)
 
@@ -348,7 +362,7 @@ class BofhConnection(object):
                 logger.debug("-> %s(%s)" % (cmd, repr(args)))
         else:
             logger.debug("-> %s(%s)" % (cmd, repr(args)))
-            
+
         args = self.__wash_command_args(args)
         try:
             r = getattr(self.conn, cmd)(*args)
@@ -358,12 +372,13 @@ class BofhConnection(object):
             logger.debug("F: '%s'" % m.faultString)
             match = "Cerebrum.modules.bofhd.errors."
             if (not got_restart and
-                m.faultString.startswith(match+"ServerRestartedError")):
+                    m.faultString.startswith(match+"ServerRestartedError")):
                 self.update_commands()
                 self.__bc.notify_restart()
                 return self.__send_raw_command(cmd, args, got_restart=True)
             elif m.faultString.startswith(match+"SessionExpiredError"):
-                self.__bc.show_message("Session expired, you must re-authenticate")
+                self.__bc.show_message("Session expired, you must "
+                                       "re-authenticate")
                 self.__bc.login()
                 if sessid_loc is not None:
                     args[sessid_loc] = self.__sessid
@@ -417,6 +432,7 @@ class BofhConnection(object):
             return ret
         else:
             return obj
+
 
 class BofhClient(object):
     """The actual client, running main_loop until termination"""
@@ -482,7 +498,7 @@ class BofhClient(object):
             raise
         except EOFError:
             pass  # User aborted command
-        except:
+        except Exception:
             self.show_message("Unexpected error")
             logger.error("Unexpected exception", exc_info=1)
 
@@ -565,17 +581,18 @@ class BofhClient(object):
         while True:
             pspec = self.bc.prompt_func(cmd, *args)
             if not isinstance(pspec, dict):
-                raise ValueError, "server bug"
-            if pspec.get("prompt", None) is None and pspec.has_key("last_arg"):
+                raise ValueError("server bug")
+            if pspec.get("prompt", None) is None and "last_arg" in pspec:
                 break
-            if pspec.has_key("map"):
+            if "map" in pspec:
                 for n in range(len(pspec["map"])):
                     desc = pspec["map"][n][0]
                     if n == 0:
                         self.show_message("Num " + desc[0] % tuple(desc[1:]))
                     else:
-                        self.show_message(("%4s " % n) + desc[0] % tuple(desc[1:]))
-                        
+                        self.show_message(("%4s " % n)
+                                          + desc[0] % tuple(desc[1:]))
+
             defval = pspec.get("default", None)
             tmp_arg = self.cline.prompt_arg(pspec['prompt'], defval,
                                             postfix='> ')
@@ -583,10 +600,10 @@ class BofhClient(object):
                 self.show_message(self.bc.get_help("arg_help",
                                                    pspec['help_ref']))
                 continue
-            if pspec.has_key("map") and not pspec.has_key("raw"):
+            if "map" in pspec and "raw" not in pspec:
                 tmp_arg = pspec["map"][int(tmp_arg)][1]
             args.append(tmp_arg)
-            if pspec.has_key("last_arg"):
+            if "last_arg" in pspec:
                 break
         return args
 
@@ -601,10 +618,11 @@ class BofhClient(object):
         if isinstance(resp, (str, unicode)):
             self.show_message(resp)
             return
-        if not self._known_formats.has_key(bofh_cmd):
-            self._known_formats[bofh_cmd] = self.bc.get_format_suggestion(bofh_cmd)
+        if bofh_cmd not in self._known_formats:
+            self._known_formats[bofh_cmd] = \
+                self.bc.get_format_suggestion(bofh_cmd)
         format = self._known_formats[bofh_cmd]
-        if show_hdr and format.has_key("hdr"):
+        if show_hdr and "hdr" in format:
             self.show_message(format["hdr"])
         if not isinstance(resp, (tuple, list)):
             resp = [resp]
@@ -617,7 +635,7 @@ class BofhClient(object):
             if header:
                 self.show_message(header)
             for row in resp:
-                if not row.has_key(order[0]):
+                if order[0] not in row:
                     continue
                 tmp = []
                 for o in order:
@@ -632,15 +650,16 @@ class BofhClient(object):
                             tmp[-1] = DateTime.ISO.ParseDateTime(
                                 str(row[field])).strftime(fmt)
                 self.show_message(format_str % tuple(tmp))
-    
+
     def show_message(self, msg):
         print msg
+
 
 def setup_logger(debug_log):
     """Setup logging.  If debug_log=True, we log debug info to a file.
     Otherwise we setup a stdout-logger for loglevel ERROR (as those
     are indications of bugs that needs fixing)"""
-    
+
     global logger
     logger = logging.getLogger("pybofh")
     logger.setLevel(logging.DEBUG)
@@ -655,6 +674,7 @@ def setup_logger(debug_log):
         fh.setLevel(logging.DEBUG)
         fh.setFormatter(formatter)
         logger.addHandler(fh)
+
 
 def main():
     try:
@@ -689,6 +709,7 @@ def main():
     setup_logger(debug_log)
     BofhClient(url, user, password, **props_override)
 
+
 def usage(exitcode=0):
     print """Usage: [options]
     -u | --url url : url to connect to
@@ -705,6 +726,6 @@ def usage(exitcode=0):
     """
     sys.exit(exitcode)
 
+
 if __name__ == '__main__':
     main()
-
