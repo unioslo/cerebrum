@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+from __future__ import print_function
 
 import getopt
 import getpass
@@ -28,7 +29,10 @@ import signal
 import sys
 import threading
 import xmlrpclib
+
+import six
 from mx import DateTime
+
 
 VERSION = "0.0.1"
 logger = None
@@ -67,11 +71,11 @@ class CommandLine(object):
     def __got_alarm(self, *args):
         self.__alarm_count += 1
         if self.__alarm_count > 1 or self.__warn_delay is None:
-            print "Terminating program due to inactivity"
+            print("Terminating program due to inactivity")
             self.__quit = True
             os.kill(self.my_pid, signal.SIGINT)
             return
-        print "Session about to timeout, press enter to cancel"
+        print("Session about to timeout, press enter to cancel")
         self.__set_alarm(self.__warn_delay)
 
     def __set_alarm(self, delay):
@@ -97,7 +101,7 @@ class CommandLine(object):
         ret = ''
         while ret == '':
             try:
-                ret = raw_input(msg)
+                ret = six.moves.input(msg)
             except Exception:
                 if self.__quit:
                     raise QuitException
@@ -368,7 +372,7 @@ class BofhConnection(object):
             r = getattr(self.conn, cmd)(*args)
             logger.debug("<- %s" % repr(r)[:30])
             return self.__wash_response(r)
-        except xmlrpclib.Fault, m:
+        except xmlrpclib.Fault as m:
             logger.debug("F: '%s'" % m.faultString)
             match = "Cerebrum.modules.bofhd.errors."
             if (not got_restart and
@@ -408,7 +412,7 @@ class BofhConnection(object):
                     tmp.append(a2)
                 ret.append(tmp)
             else:
-                if isinstance(a, (str, unicode)):
+                if isinstance(a, six.string_types):
                     check_safe_str(a)
                 ret.append(a)
         return ret
@@ -417,12 +421,12 @@ class BofhConnection(object):
         """Handle out extensions to xml-rpc"""
         if isinstance(obj, (list, tuple)):
             return [self.__wash_response(i) for i in obj]
-        elif isinstance(obj, (str, unicode)):
+        elif isinstance(obj, six.string_types):
             if len(obj) > 0 and obj[0] == ':':
                 obj = obj[1:]
                 if obj == 'None':
                     obj = '<not set>'
-            if isinstance(obj, unicode):
+            if isinstance(obj, six.text_type):
                 return obj.encode('iso8859-1')
             return obj
         elif isinstance(obj, dict):
@@ -475,7 +479,7 @@ class BofhClient(object):
                 self.process_cmd_line()
             except QuitException:
                 break
-            except Exception, msg:
+            except Exception as msg:
                 self.show_message("Unexpected error (bug): %s" % msg)
                 logger.error("Exception", exc_info=1)
         self.show_message("Bye")
@@ -485,14 +489,14 @@ class BofhClient(object):
         """Reads command from the user, and runs it"""
         try:
             args = self.cline.get_splitted_command()
-        except ParseException, msg:
+        except ParseException as msg:
             self.show_message("Bad command: %s" % msg)
             return
         except EOFError:
             raise QuitException
         try:
             self.run_command(args)
-        except BofhdException, msg:
+        except BofhdException as msg:
             self.show_message(msg)
         except QuitException:
             raise
@@ -518,7 +522,7 @@ class BofhClient(object):
         else:
             try:
                 bofh_cmd, bofh_args = self.completer.analyze_command(args)
-            except AnalyzeCommandException, msg:
+            except AnalyzeCommandException as msg:
                 self.show_message(msg)
                 return
             if not sourcing:
@@ -615,7 +619,7 @@ class BofhClient(object):
             for i in range(len(resp)):
                 self.show_response(bofh_cmd, resp[i], False, show_hdr=(i == 0))
             return
-        if isinstance(resp, (str, unicode)):
+        if isinstance(resp, six.string_types):
             self.show_message(resp)
             return
         if bofh_cmd not in self._known_formats:
@@ -652,7 +656,7 @@ class BofhClient(object):
                 self.show_message(format_str % tuple(tmp))
 
     def show_message(self, msg):
-        print msg
+        print(msg)
 
 
 def setup_logger(debug_log):
@@ -710,8 +714,9 @@ def main():
     BofhClient(url, user, password, **props_override)
 
 
-def usage(exitcode=0):
-    print """Usage: [options]
+usage_text = """
+Usage: [options]
+
     -u | --url url : url to connect to
     -q : for debugging
     -d : log debuging info to pybofh.log
@@ -723,7 +728,11 @@ def usage(exitcode=0):
         rand_cmd : provides random-seed when /dev/random doesn't exist
                    (example: .../openssh/libexec/ssh-rand-helper)
     --username NAME: Override username.
-    """
+""".lstrip()
+
+
+def usage(exitcode=0):
+    print(usage_text)
     sys.exit(exitcode)
 
 
