@@ -142,6 +142,7 @@ def update_account(db, pe, account_policy, creator, new_traits=None, spreads=(),
     """
     ac = Factory.get('Account')(db)
     co = Factory.get('Constants')(db)
+    di = Factory.get('Disk')(db)
     affiliations = get_account_types(pe, ignore_affs)
     disks = (home,) if home else ()
     # Some logging
@@ -164,7 +165,10 @@ def update_account(db, pe, account_policy, creator, new_traits=None, spreads=(),
     if posix:
         logger.debug("Will add POSIX for account")
     if home or home_auto:
-        logger.debug("Will add homedir for account")
+        disk_id = account_policy._get_ou_disk(pe)[0]
+        di.clear()
+        di.find(disk_id)
+        logger.debug("Will add homedir: %s for account", di.path)
 
     # Restore the _last_ expired account, if any:
     old_accounts = ac.search(owner_id=pe.entity_id, expire_start=None,
