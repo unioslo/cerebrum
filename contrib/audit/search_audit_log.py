@@ -6,7 +6,6 @@ import itertools
 import logging
 import os
 
-import aniso8601
 import six
 
 import Cerebrum.logutils
@@ -15,7 +14,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.audit.auditdb import AuditLogAccessor
 from Cerebrum.modules.audit.formatter import (AuditRecordFormatter,
                                               AuditRecordProcessor)
-from Cerebrum.utils.date import apply_timezone
+from Cerebrum.utils.date import (apply_timezone, parse_date, parse_datetime,
+                                 parse_time)
 
 
 DEFAULT_LOG_PRESET = 'console'
@@ -114,19 +114,19 @@ def change_id_type(value):
 
 def datetime_type(value):
     def _parse_dt(value, **kwargs):
-        d = aniso8601.parse_datetime(value, **kwargs)
+        d = parse_datetime(value)
         if d.tzinfo is None:
             d = apply_timezone(d)
         return d
 
     def _parse_dt_space(value):
-        return _parse_dt(value, delimiter=' ')
+        return _parse_dt(value)
 
     def _parse_date(value):
-        return aniso8601.parse_date(value)
+        return parse_date(value)
 
     def _parse_time(value):
-        t = aniso8601.parse_time(value)
+        t = parse_time(value)
         d = datetime.datetime.combine(datetime.datetime.now().date(), t)
         return apply_timezone(d)
 
