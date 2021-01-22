@@ -6064,8 +6064,8 @@ class BofhdExtension(BofhdCommonMethods):
 
         if ac.owner_type != self.const.entity_person:
             raise CerebrumError('Owner of entity is not a person. '
-                                'Please contact brukerreg to restore %s'%
-                                ac.get_account_name())
+                                'Please contact IT support to restore %s'
+                                % ac.get_account_name())
 
         # Print a list of affiliations registred on the accounts owner (person)
         # Prompts user to select one of these. Checks if the input is sane.
