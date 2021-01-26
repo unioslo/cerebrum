@@ -35,12 +35,19 @@ from Cerebrum.rest.api.v1 import emailaddress
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import date
+from Cerebrum.utils import date_compat
 from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.modules.gpg.data import GpgData
 from Cerebrum.modules.pwcheck.checker import (check_password,
                                               PasswordNotGoodEnough)
 
 api = Namespace('accounts', description='Account operations')
+
+
+def _iso_datetime_type(v, k, s):
+    # replaces obsolete (lambda v, k, s: date.parse(v))
+    # TODO: what is (k, s)?
+    return date.strip_timezone(date.to_timezone(date.parse_datetime(v)))
 
 
 def find_account(identifier):
@@ -180,6 +187,7 @@ AccountHome = api.model('AccountHome', {
 })
 
 AccountHomeList = api.model('AccountHomeList', {
+
     'homes': fields.base.List(
         fields.base.Nested(AccountHome),
         description='Home directories'),
@@ -277,10 +285,7 @@ def _in_range(date, start=None, end=None):
 def _format_quarantine(q):
     """ Format a quarantine db_row for models.EntityQuarantine. """
 
-    def _tz_aware(dt):
-        if dt is None:
-            return None
-        return date.mx2datetime(dt)
+    _tz_aware = date_compat.get_datetime_tz
 
     return {
         'type': q['quarantine_type'],
@@ -391,20 +396,20 @@ class AccountQuarantineItemResource(Resource):
     quarantine_parser = api.parser()
     quarantine_parser.add_argument(
         'start',
-        type=lambda v, k, s: date.parse(v),
+        type=_iso_datetime_type,
         required=True,
         nullable=False,
         location=['form', 'json'],
         help='when the quarantine should take effect (ISO8601 datetime)')
     quarantine_parser.add_argument(
         'end',
-        type=lambda v, k, s: date.parse(v),
+        type=_iso_datetime_type,
         nullable=True,
         location=['form', 'json'],
         help='if/when the quarantine should end (ISO8601 datetime)')
     quarantine_parser.add_argument(
         'disable_until',
-        type=lambda v, k, s: date.parse(v),
+        type=_iso_datetime_type,
         nullable=True,
         location=['form', 'json'],
         help='if/when the quarantine should really start (ISO8601 datetime)')
