@@ -29,8 +29,6 @@ import os
 import re
 import sys
 
-import mx.DateTime
-
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import logutils
@@ -42,6 +40,8 @@ from Cerebrum.modules.entity_expire.entity_expire import EntityExpiredError
 from Cerebrum.modules.fs.import_from_FS import AtomicStreamRecoder
 from Cerebrum.modules.no.uit.Account import UsernamePolicy
 from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
+from Cerebrum.utils.date import now, parse_date
+from Cerebrum.utils.date_compat import to_mx_format
 from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,28 @@ def wash_sitosted(name):
     # samskipnaden has a habit of putting metadata (numbers) in the name... :(
     washed = re.sub(r"^[0-9 ]+|,|& |[0-9 -.]+$", "", name)
     return washed
+
+
+def is_valid_tils_date(t, today=None):
+    """
+    Check if tils dict is valid according to its start/end dates.
+
+    :param dict t:
+        (data > person > tils) object from an uit employee file
+
+    :param date today:
+        Check if `t` is valid at given date (default: datetime.date.today())
+
+    :returns bool: True if the tils object is valid according to `today`
+    """
+    today = today or datetime.date.today()
+    dato_fra = parse_date(t["dato_fra"])
+    earliest = dato_fra - datetime.timedelta(days=cereconf.PAGA_EARLYDAYS)
+    if today < earliest:
+        return False
+    if t['dato_til'] and today > parse_date(t["dato_til"]):
+        return False
+    return True
 
 
 class AdExport(object):
@@ -106,7 +128,7 @@ class AdExport(object):
             name_types=(self.co.name_first, self.co.name_last))
 
         logger.info("Cache AD accounts")
-        expire_start = mx.DateTime.now() + 1
+        expire_start = now() + datetime.timedelta(days=1)
         self.ad_accounts = self.account.search(
             spread=int(self.co.spread_uit_ad_account),
             expire_start=expire_start)
@@ -353,7 +375,7 @@ class AdExport(object):
         xml.startDocument(encoding='utf-8')
         xml.startElement('data')
         xml.startElement('properties')
-        xml.dataElement('tstamp', str(mx.DateTime.now()))
+        xml.dataElement('tstamp', to_mx_format(now()))
         if acctlist:
             export_type = "incr"
         else:
@@ -515,13 +537,7 @@ class AdExport(object):
         pagaid = person['ansattnr']
 
         for t in person.get('tils', ()):
-            dato_fra = mx.DateTime.DateFrom(t.get("dato_fra"))
-            dato_til = mx.DateTime.DateFrom(t.get("dato_til"))
-            earliest = dato_fra - mx.DateTime.DateTimeDelta(
-                cereconf.PAGA_EARLYDAYS)
-
-            if (mx.DateTime.today() < earliest) or (
-                    dato_til and (mx.DateTime.today() > dato_til)):
+            if not is_valid_tils_date(t):
                 continue
 
             stedkode = "%s%s%s" % (t['fakultetnr_utgift'].zfill(2),

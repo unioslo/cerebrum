@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
+import datetime
 import getopt
 import locale
 import sys
@@ -366,6 +366,13 @@ def process_classdata():
     logger.info(" ... done")
 
 
+def get_new_expire_date(today=None):
+    """ get default extended expire date for groups. """
+    today = today or datetime.date.today()
+    delta = datetime.timedelta(days=6 * 30)
+    return today + delta
+
+
 def sync_group(affil, gname, descr, mtype, memb, recurse=True):
     logger.debug("sync_group(parent:'%s'; groupname:'%s'; description:'%s'; "
                  "membertype:'%s'; members:'%s'; recurse:'%s')",
@@ -402,9 +409,7 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True):
             group.write_db()
 
         if group.is_expired():
-            # Extend the group's life by 6 months
-            from mx.DateTime import now, DateTimeDelta
-            group.expire_date = now() + DateTimeDelta(6*30)
+            group.expire_date = get_new_expire_date()
             group.write_db()
 
         # Make sure the group is listed for export to LMS

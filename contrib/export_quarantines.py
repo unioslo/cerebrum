@@ -19,17 +19,17 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Utilities/script to export quarantines to file."""
 import argparse
+import datetime
 import json
 import logging
 import sys
-
-from mx.DateTime import DateTimeType
 
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Entity import EntityQuarantine
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import get_constant
+from Cerebrum.utils.date_compat import get_date, to_mx_format
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +37,8 @@ logger = logging.getLogger(__name__)
 class JsonEncoder(json.JSONEncoder):
     """ mx.DateTime-aware json encoder. """
     def default(self, obj):
-        if isinstance(obj, DateTimeType):
-            return obj.strftime('%Y-%m-%d %H:%M:%S.00')
+        if isinstance(obj, datetime.date):
+            return to_mx_format(obj)
         return json.JSONEncoder.default(self, obj)
 
 
@@ -53,7 +53,14 @@ def get_quarantines(db, quarantine_types):
     """
     eq = EntityQuarantine(db)
     for row in eq.list_entity_quarantines(quarantine_types=quarantine_types):
-        yield row.dict()
+        yield {
+            'entity_id': row['entity_id'],
+            'quarantine_type': row['quarantine_type'],
+            'start_date': get_date(row['start_date'], allow_none=False),
+            'disable_until': get_date(row['disable_until'], allow_none=True),
+            'end_date': get_date(row['end_date'], allow_none=True),
+            'description': row['description'],
+        }
 
 
 def codes_to_human(db, quarantines):
