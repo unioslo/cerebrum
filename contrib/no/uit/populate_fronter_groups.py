@@ -32,14 +32,13 @@ populering av visse NIS (Ifi).
 from __future__ import unicode_literals
 
 import argparse
+import datetime
+import itertools
 import locale
 import logging
 import os
 import re
 import sys
-import datetime
-
-from itertools import izip, repeat
 
 import cereconf
 
@@ -166,7 +165,7 @@ def process_role(enhet_id, template_id, roles_mapping,
             continue
 
         group_name = str2key(template_id % role)
-        fnrs = dict(izip(dbrows2account_ids(people), repeat(1)))
+        fnrs = dict(itertools.izip(dbrows2account_ids(people), itertools.repeat(1)))
         logger.debug("Registering %d people with role %s for %s "
                      "(%s sted; %s stprog)",
                      len(fnrs), role, enhet_id, len(stedr), len(stprog))
@@ -863,7 +862,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
         # eksamensmeldte studenter.
         logger.debug(" student")
         primary, secondary = UndervEnhet[enhet_id]["students"]
-        alle_stud = dict(izip(primary, repeat(1)))
+        alle_stud = dict(itertools.izip(primary, itertools.repeat(1)))
 
         sync_group(kurs_id,
                    fields2key(enhet_id, "student"),

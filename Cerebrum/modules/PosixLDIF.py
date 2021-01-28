@@ -189,6 +189,7 @@ class PosixLDIF(object):
 
         def get_children_not_in_group2groups():
             children = set()
+            # TODO:PY3:RefactoringTool: You should use a for loop here
             map(children.update, self.group2groups.itervalues())
             return children.difference(self.group2groups.keys())
 
@@ -417,6 +418,7 @@ class PosixLDIF(object):
     @clock_time
     def cache_uncached_children(self):
         children = set()
+        # TODO:PY3:RefactoringTool: You should use a for loop here
         map(children.update, self.group2groups.itervalues())
         extra = children.difference(self.groupcache.keys())
         if extra:

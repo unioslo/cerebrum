@@ -18,24 +18,22 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
 """
-Dette scriptet går gjennom alle brukere med gitt spread. For hver
+Dette scriptet gÃ¥r gjennom alle brukere med gitt spread. For hver
 bruker skal det:
 
 * beregnes homedir/profile-path/OU-plassering iht til reglene som er
   definert i ADMappingRules.
 
-* hvis disse attributtene er lagret for brukeren fra før skal de nye
+* hvis disse attributtene er lagret for brukeren fra fÃ¸r skal de nye
   og gamle verdiene sammenlignes. Dersom verdiene er forskjellige skal
   det automatisk sendes en e-post til liste(r) definert i cereconf.
-  (Dette gjøres av et eget script) Om endringene er fornuftig skal
+  (Dette gjÃ¸res av et eget script) Om endringene er fornuftig skal
   IT-personell ved hiof slette gamle verdier, med bofh-kommandoen user
-  delete_ad_attr. Ved neste kjøring vil dette skriptet sette de nye
+  delete_ad_attr. Ved neste kjÃ¸ring vil dette skriptet sette de nye
   verdiene.
 
-* Dersom det ikke er lagret verdier for ad-attributtene fra før
+* Dersom det ikke er lagret verdier for ad-attributtene fra fÃ¸r
   (gjelder for nye brukere og for brukere der gamle verdier er
   slettet) skal de nye beregnede verdiene settes.
 
@@ -74,8 +72,8 @@ class StudieInfo(object):
     def __init__(self, person_fname, stprog_fname):
         self._person_fname = person_fname
         self._stprog_fname = stprog_fname
-        # Bruker lazy-initalizing av data-dictene slik at vi slipper å
-        # parse XML-filen medmindre vi trenger å slå opp i den
+        # Bruker lazy-initalizing av data-dictene slik at vi slipper Ã¥
+        # parse XML-filen medmindre vi trenger Ã¥ slÃ¥ opp i den
         self.stdnr2stproginfo = None
         self.studieprog2sko = None
 
@@ -140,7 +138,7 @@ class Job(object):
         # Verify spread
         self.spread = co.Spread(spread_str)
 
-        # TODO: få vekk denne hardkodingen av spreads
+        # TODO: fÃ¥ vekk denne hardkodingen av spreads
         if self.spread == co.spread_ad_account_fag:
             self.rules = ADMappingRules.Fag()
         elif self.spread == co.spread_ad_account_adm:
@@ -207,7 +205,7 @@ class Job(object):
         if self.spread == co.spread_ad_account_stud:
             return self.calc_stud_home()
         ret = {}
-        # Henter sted fra affiliation med høyest prioritet uavhengig
+        # Henter sted fra affiliation med hÃ¸yest prioritet uavhengig
         # av dens type.
         affs = ac.get_account_types()
         if not affs:
@@ -259,7 +257,7 @@ class Job(object):
         stprogs = self.student_info.get_persons_studieprogrammer(stdnr)
         if not stprogs:
             raise Job.CalcError("No studieprogram for %s" % fnr)
-        # Velger foreløbig det første studieprogrammet i listen...
+        # Velger forelÃ¸big det fÃ¸rste studieprogrammet i listen...
         sko = self.student_info.get_studprog_sko(
             stprogs[0]['studieprogramkode'])
         if not sko:
