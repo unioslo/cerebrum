@@ -33,7 +33,8 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, read_password
-from Cerebrum.utils.date import parse_date, date_to_datetime, apply_timezone
+from Cerebrum.utils.date import parse_date
+from Cerebrum.utils.date_compat import get_datetime_tz
 from Cerebrum.utils.email import mail_template
 from Cerebrum.utils.stringmatch import name_diff
 from Cerebrum.modules.event.mapping import CallbackMap
@@ -1161,7 +1162,7 @@ def handle_person(database, source_system, url, datasource=get_hr_person,
 
 def _reschedule_message(publisher, routing_key, message, reschedule_date):
     logger.info('Reschedule the message for %s', reschedule_date)
-    reschedule_time = apply_timezone(date_to_datetime(reschedule_date))
+    reschedule_time = get_datetime_tz(reschedule_date)
     # Convert to timestamp and add to message
     message['nbf'] = int(time.mktime(reschedule_time.timetuple()))
     with publisher:

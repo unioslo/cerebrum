@@ -34,7 +34,8 @@ from collections import OrderedDict
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.event_publisher.utils import get_entity_ref
-from Cerebrum.utils.date import parse_to_datetime, date_to_datetime
+from Cerebrum.utils.date import parse_datetime
+from Cerebrum.utils.date_compat import get_datetime_tz
 from . import event
 
 
@@ -427,19 +428,29 @@ def person(*args, **kwargs):
     return None
 
 
+def _parse_quarantine_add_start(rawstr):
+    # TODO: Fix - *quarantine_add* should log_change with consistent change
+    #       params - which should *either* be a date, datetime, or a string
+    #       with a consistent format!
+    try:
+        return parse_datetime(rawstr)
+    except ValueError:
+        return datetime.datetime.strptime(rawstr, '%Y-%m-%d')
+
+
 @EventFilter.register('quarantine', 'add')
 def quarantine_add(msg, **kwargs):
     common = _make_common_args(msg)
     start = msg['data'].get('start')
     if isinstance(start, (str, unicode, )):
         try:
-            start = parse_to_datetime(start)
+            start = _parse_quarantine_add_start(start)
         except ValueError:
             raise TypeError('Invalid date/datetime {0} ({1})'.format(
                 type(start), repr(start)
             ))
     elif isinstance(start, datetime.date):
-        start = date_to_datetime(start)
+        start = get_datetime_tz(start)
     # co = Factory.get('Constants')(args[-1])
     # tp = msg['data']['q_type']
     # TODO: Quarantine handler

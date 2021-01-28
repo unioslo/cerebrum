@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import datetime
 import decimal
 import warnings
 import xmlrpclib
@@ -25,6 +26,7 @@ import xmlrpclib
 import six
 from mx import DateTime
 
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.textnorm import UnicodeNormalizer
 
 
@@ -78,12 +80,10 @@ def native_to_xmlrpc(obj):
     elif isinstance(obj, decimal.Decimal):
         return float(obj)
     elif isinstance(obj, (xmlrpclib.DateTime, DateTime.DateTimeType)):
-        # TODO: This only works for Postgres.  Needs support
-        # in Database.py as the Python database API doesn't
-        # define any return type for Date
-
-        # python2.3 don't want floats here
         return xmlrpclib.DateTime(tuple([int(i) for i in obj.tuple()]))
+    elif isinstance(obj, datetime.date):
+        # (datetime.date, datetime.datetime) -> naive datetime -> xmlrpc
+        return xmlrpclib.DateTime(date_compat.get_datetime_naive(obj))
     else:
         raise ValueError("Unrecognized parameter type: '{!r}' {!r}".format(
             obj, getattr(obj, '__class__', type(obj))))

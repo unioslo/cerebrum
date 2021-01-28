@@ -28,7 +28,7 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.date import get_date
+from Cerebrum.utils.date_compat import get_date
 
 from .importer import AbstractImport
 from . import models

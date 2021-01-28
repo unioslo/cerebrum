@@ -25,6 +25,7 @@ there may be cleanup scripts that clear out non-critical personal information
 from audit record params, and delete really old audit records, subject to data
 retention.
 """
+import datetime
 import json
 
 import mx.DateTime
@@ -36,12 +37,20 @@ from Cerebrum.utils.date import apply_timezone
 from .record import DbAuditRecord
 
 
+def _serialize_datetime(dt):
+    if dt is None:
+        return None
+    if isinstance(dt, datetime.datetime) and not dt.tzinfo:
+        dt = apply_timezone(dt)
+    return dt.isoformat()
+
+
 def _serialize_mx_datetime(dt):
     """ Convert mx.DateTime.DateTime object to string. """
     if dt.hour == dt.minute == 0 and dt.second == 0.0:
-        return dt.pydate().isoformat()
+        return _serialize_datetime(dt.pydate())
     else:
-        return apply_timezone(dt.pydatetime()).isoformat()
+        return _serialize_datetime(dt.pydatetime())
 
 
 def serialize_params(value):
@@ -49,6 +58,8 @@ def serialize_params(value):
     # all change_params are properly serialized when calling log_change()
     if isinstance(value, mx.DateTime.DateTimeType):
         return _serialize_mx_datetime(value)
+    elif isinstance(value, datetime.date):
+        return _serialize_datetime(value)
     elif isinstance(value, (list, tuple, set)):
         return [serialize_params(p) for p in value]
     elif isinstance(value, dict):

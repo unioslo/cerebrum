@@ -50,7 +50,6 @@ from Cerebrum.modules.bofhd.cmd_param import (AccountName, Command,
                                               FormatSuggestion, SimpleString,)
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.help import merge_help_strings
-from Cerebrum.utils.date import datetime2mx
 from .dbal import ApiMapping
 
 
@@ -237,7 +236,7 @@ class BofhdApiKeyCommands(BofhdCommandBase):
                 'identifier': row['identifier'],
                 # TODO: Add support for naive and localized datetime objects in
                 # native_to_xmlrpc
-                'updated_at': datetime2mx(row['updated_at']),
+                'updated_at': row['updated_at'],
                 'description': row['description'],
             }
             for row in keys.search(account_id=account.entity_id)
@@ -286,6 +285,6 @@ class BofhdApiKeyCommands(BofhdCommandBase):
             'identifier': mapping['identifier'],
             # TODO: Add support for naive and localized datetime objects in
             # native_to_xmlrpc
-            'updated_at': datetime2mx(mapping['updated_at']),
+            'updated_at': mapping['updated_at'],
             'description': mapping['description'],
         }

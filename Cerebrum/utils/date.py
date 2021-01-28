@@ -65,12 +65,13 @@ TIMEZONE
 import datetime
 
 import aniso8601
-import mx.DateTime
 import pytz
 
 import cereconf
 
+# Read-only tzinfo copy of ``cereconf.TIMEZONE``
 TIMEZONE = pytz.timezone(cereconf.TIMEZONE)
+
 
 # TODO: Use tzlocal for default TIMEZONE?
 # try:
@@ -162,20 +163,6 @@ def strip_timezone(aware):
     return aware.replace(tzinfo=None)
 
 
-def datetime2mx(src, tz=TIMEZONE):
-    """ Convert (localized) datetime to naive mx.DateTime. """
-    if not src.tzinfo:
-        src = apply_timezone(src, tz=tz)
-    src = to_timezone(src, tz=tz)
-    return mx.DateTime.DateTimeFrom(strip_timezone(src))
-
-
-def mx2datetime(src, tz=TIMEZONE):
-    """ Convert naive mx.DateTime into a timezone-aware datetime. """
-    dt = src.pydatetime()
-    return apply_timezone(dt, tz=tz)
-
-
 def parse_datetime_tz(rawstr):
     """
     Parse an ISO8601 datetime string, and require timezone.
@@ -245,38 +232,6 @@ def parse_date(dtstr):
     return aniso8601.parse_date(str(dtstr))
 
 
-def get_date(dtobj, allow_none=True):
-    """
-    Get a datetime.date object from a datetime-like object.
-
-    Typical usecase for this method is to convert database mx.DateTime objects
-    to native date objects:
-
-        if get_date(pe.birth_date) != new_date:
-            pe.birth_date = new_date
-
-    :type dtobj: datetime.datetime, datetime.date, mx.DateTime, NoneType
-    :param dtobj: A datetime-like object.
-
-    :type allow_none: bool
-    :param allow_none:
-        Returns None if the input value is empty (this is the default).
-
-    :rtype: datetime.date
-    :return: A date object.
-    """
-    if not dtobj and allow_none:
-        return None
-    if isinstance(dtobj, datetime.datetime):
-        return dtobj.date()
-    if isinstance(dtobj, datetime.date):
-        return dtobj
-    if hasattr(dtobj, 'pydate'):
-        # mx.DateTime
-        return dtobj.pydate()
-    raise ValueError('Non-date value: %r' % (dtobj,))
-
-
 def parse_time(dtstr):
     """
     Parse an ISO8601 time string.
@@ -285,32 +240,6 @@ def parse_time(dtstr):
     """
     return aniso8601.parse_time(str(dtstr))
 
-
-def parse(dtstr):
-    """ Utility method, get a naive mx.DateTime. """
-    return datetime2mx(parse_datetime(dtstr))
-
-
-def parse_to_datetime(rawstr):
-    """Converts a value from str to datetime if it matches a pattern
-
-    The string must be on the formatted as a date or datetime. Does not
-    localize the resulting datetime object.
-    """
-    dtstr = str(rawstr)
-    try:
-        if 'T' not in dtstr:
-            return aniso8601.parse_datetime(dtstr, delimiter=' ')
-        else:
-            return aniso8601.parse_datetime(dtstr)
-    except ValueError:
-        return datetime.datetime.strptime(dtstr, '%Y-%m-%d')
-
-
-def date_to_datetime(date, time=None):
-    if time is None:
-        time = datetime.time(hour=0)
-    return datetime.datetime.combine(date, time)
 
 # python -m Cerebrum.utils.date
 
@@ -339,21 +268,13 @@ def main(inargs=None):
     for num, d in enumerate(args.datetime, 1):
         print("\ndate #{0:d}: {1!r}".format(num, d))
 
-        p = parse_datetime(d)
-        print("  parse_datetime: {0!s}".format(p))
-        print("                  {0!r}".format(p))
+        foo = parse_datetime(d)
+        print("  parse_datetime: {0!s}".format(foo))
+        print("                  {0!r}".format(foo))
 
-        l = to_timezone(p, tz=args.timezone)
-        print("  to_timezone:    {0!s}".format(l))
-        print("                  {0!r}".format(l))
-
-        m = datetime2mx(p, tz=args.timezone)
-        print("  datetime2mx:    {0!s}".format(m))
-        print("                  {0!r}".format(m))
-
-        n = mx2datetime(m, tz=args.timezone)
-        print("  mx2datetime:    {0!s}".format(n))
-        print("                  {0!r}".format(n))
+        bar = to_timezone(foo, tz=args.timezone)
+        print("  to_timezone:    {0!s}".format(bar))
+        print("                  {0!r}".format(bar))
 
 
 if __name__ == '__main__':
