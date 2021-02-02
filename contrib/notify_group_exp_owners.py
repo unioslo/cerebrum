@@ -77,13 +77,13 @@ TRANSLATION = {
         'greeting': 'Hi,',
         'message': "The following groups will expire in the near future. If "
                    "you want the groups to remain, please extend their expire "
-                   "date. If you would like the group to expire no action is "
+                   "date. If you would like the group to expire, no action is "
                    "needed."
 
-                   "The groups can be managed  with the account {}. "
+                   "The groups can be managed with the account {}. "
                    "You are considered to be an administrator of these groups "
-                   "because you are member of administrator group(s) which "
-                   "gives you that role. ",
+                   "because you are a direct administrator, or a member of "
+                   "administrator group(s) giving you that role. ",
         'info_link': 'For more information go to the page ',
         'here': 'Automatisk rapportering av grupper.',
         'signature': 'Best regards,',
@@ -91,7 +91,7 @@ TRANSLATION = {
         'headers': collections.OrderedDict([
             ('group_name', 'Managed group'),
             ('expire_date', 'Expire date'),
-            ('manage_link', 'Link to brukerinfo'),
+            ('manage_link', 'Link to Brukerinfo'),
         ]),
     },
     'nb': {
@@ -99,11 +99,11 @@ TRANSLATION = {
         'greeting': 'Hei,',
         'message': "Her følger en oversikt over grupper med utløpsdato i "
                    "nærmeste fremtid. Vennligst forleng utløpsdato om du "
-                   "ønsker å beholde de. Hvis du vil at gruppene skal utløpe "
+                   "ønsker å beholde dem. Hvis du vil at gruppene skal utløpe "
                    "trenger du ikke foreta deg noe. "
                    "Gruppene kan administrereres med kontoen {}. "
                    "Du blir regnet som administrator for disse gruppene fordi "
-                   "du er satt som administator, eller er medlem av "
+                   "du er satt som administrator, eller er medlem av "
                    "administrator-gruppe(r) som gir deg den rollen. "
                    "På UiO blir tilgang til nettsider og en del verktøy "
                    "definert av gruppemedlemskap. Det er derfor viktig at "
@@ -115,7 +115,7 @@ TRANSLATION = {
         'headers': collections.OrderedDict([
             ('group_name', 'Gruppe du administrerer'),
             ('expire_date', 'Utløpsdato'),
-            ('manage_link', 'Link til brukerinfo'),
+            ('manage_link', 'Link til Brukerinfo'),
         ]),
     },
     'nn': {
@@ -137,7 +137,7 @@ TRANSLATION = {
         'headers': collections.OrderedDict([
             ('group_name', 'Gruppe du administrerer'),
             ('expire_date', 'Utløpsdato'),
-            ('manage_link', 'Link til brukerinfo'),
+            ('manage_link', 'Link til Brukerinfo'),
         ]),
     }
 }
