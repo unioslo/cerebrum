@@ -183,6 +183,7 @@ def send_mails(args, group_info_dict, translation, title):
         } for gr_id in groups]
 
         html = write_html_report(
+            TEMPLATE_NAME,
             args.template_folder,
             args.codec,
             title=title,
