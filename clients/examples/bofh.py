@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2002 University of Oslo, Norway
+# Copyright 2002-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,18 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Example client for Cerebrum.modules.bofhd
 
+The example client is a precursor to the `bofh` (previously named pybofh)
+package.
+
+Note that this client requires an additional 3rd party package, M2Crypto, if
+connecting to a bofhd server using SSL.
+"""
+from __future__ import print_function
+
+import datetime
 import getopt
 import getpass
 import logging
@@ -28,15 +39,39 @@ import signal
 import sys
 import threading
 import xmlrpclib
-from mx import DateTime
+
+import six
+
+try:
+    from M2Crypto import SSL
+    from M2Crypto.Rand import rand_add as ssl_rand_add
+    from M2Crypto.m2xmlrpclib import Server as SSL_Server, SSL_Transport
+    SSL_SUPPORT = True
+except ImportError:
+    SSL_Server = SSL_Transport = SSL = ssl_rand_add = None
+    SSL_SUPPORT = False
+
 
 VERSION = "0.0.1"
+ENCODING = 'iso8859-1'
 logger = None
 
-class AnalyzeCommandException(Exception): pass
-class QuitException(Exception): pass
-class BofhdException(Exception): pass
-class ParseException(Exception): pass
+
+class AnalyzeCommandException(Exception):
+    pass
+
+
+class QuitException(Exception):
+    pass
+
+
+class BofhdException(Exception):
+    pass
+
+
+class ParseException(Exception):
+    pass
+
 
 class CommandLine(object):
     """Responsible for reading commands from stdin, and splitting them
@@ -51,15 +86,15 @@ class CommandLine(object):
         self.__timer_wait = None
         self.my_pid = os.getpid()
         self.__quit = False
-        
+
     def __got_alarm(self, *args):
         self.__alarm_count += 1
         if self.__alarm_count > 1 or self.__warn_delay is None:
-            print "Terminating program due to inactivity"
+            print("Terminating program due to inactivity")
             self.__quit = True
             os.kill(self.my_pid, signal.SIGINT)
             return
-        print "Session about to timeout, press enter to cancel"
+        print("Session about to timeout, press enter to cancel")
         self.__set_alarm(self.__warn_delay)
 
     def __set_alarm(self, delay):
@@ -74,10 +109,10 @@ class CommandLine(object):
     def prompt_arg(self, msg, default=None, postfix=''):
         """Prompt for a string, optionally returning a default value
         if user enters an empty string"""
-        
+
         self.__alarm_count = 0
         self.__set_alarm(self.__max_timeout)
-        
+
         if(default is not None):
             msg = "%s [%s]" % (msg, default)
         if postfix:
@@ -85,8 +120,8 @@ class CommandLine(object):
         ret = ''
         while ret == '':
             try:
-                ret = raw_input(msg)
-            except:
+                ret = six.moves.input(msg)
+            except Exception:
                 if self.__quit:
                     raise QuitException
                 logger.debug("Some exception")
@@ -140,7 +175,7 @@ class CommandLine(object):
         if quote is not None:
             raise ParseException("Missing end-quote")
         if sub_cmd is not None:
-	    raise ParseException("Missing end )")
+            raise ParseException("Missing end )")
         return ret
     split_command = staticmethod(split_command)
 
@@ -152,25 +187,26 @@ class CommandLine(object):
         # >= 2.4.  Is there any way around this?  Can history in
         # readline be disabled?  Looking Modules/readline.c indicates
         # that it can't
-        
+
         old_completer = readline.get_completer()
         readline.parse_and_bind('tab: complete')
         readline.set_completer(self._completer.tab_complete)
         try:
             ret = CommandLine.split_command(
                 self.prompt_arg(self._default_prompt))
-        except:
+        except Exception:
             raise
         readline.parse_and_bind('tab: rl_insert')
-        readline.set_completer(old_completer)        
+        readline.set_completer(old_completer)
         return ret
+
 
 class BofhCompleter(object):
     """Handles tab-completion, and allows short-forms of commands"""
-    
+
     def __init__(self):
         self._complete = {}
-    
+
     def clear(self):
         self._complete.clear()
 
@@ -188,7 +224,7 @@ class BofhCompleter(object):
         """Find matching commands at this argument number"""
         if len(args) > 2:
             raise AnalyzeCommandException("no matches")
-        
+
         tmp_dict = self._complete
         lvl = 0
         for n in range(len(args)):
@@ -219,7 +255,7 @@ class BofhCompleter(object):
         # check for matches when state=0, and cache the results for
         # answering the next calls.  See the gnu-readline (C-version)
         # docs for details
-        
+
         line = readline.get_line_buffer()
         endidx = readline.get_endidx()
 
@@ -233,7 +269,7 @@ class BofhCompleter(object):
                 self.__matches = self._find_matches_at(args, lvl)
             except AnalyzeCommandException:
                 return None
-            except:
+            except Exception:
                 logger.error("Unexpected tab-complete exception", exc_info=1)
         try:
             if state == len(self.__matches)-1:
@@ -264,28 +300,37 @@ class BofhCompleter(object):
             raise AnalyzeCommandException("Incomplete command")
         return tmp_dict, args[n+1:]
 
+
+def _ssl_connect(url, cacert_file, rand_cmd, encoding=ENCODING):
+    """ open ssl connection using M2Crypto. """
+    if not SSL_SUPPORT:
+        raise NotImplementedError("no SSL support (missing M2Crypto package)")
+
+    if not os.path.exists('/dev/random') and rand_cmd is not None:
+        rand_file = os.popen(rand_cmd, 'r')
+        rand_string = rand_file.read()
+        rand_file.close()
+        ssl_rand_add(rand_string, len(rand_string))
+    ctx = SSL.Context()
+    if cacert_file is not None:
+        ctx.load_verify_info(cacert_file)
+        ctx.set_verify(SSL.verify_peer, 10)
+    return SSL_Server(url, SSL_Transport(ctx), encoding=encoding)
+
+
 class BofhConnection(object):
     """Handles all communication with remote server"""
 
-    def __init__(self, url, bofh_client, cacert_file=None, rand_cmd=None):
+    def __init__(self, url, bofh_client, cacert_file=None, rand_cmd=None,
+                 encoding=ENCODING):
         self.__bc = bofh_client
+        self._encoding = encoding
         if url.startswith("https"):
-            from M2Crypto.m2xmlrpclib import Server, SSL_Transport
-            from M2Crypto import SSL
-            if not os.path.exists('/dev/random') and rand_cmd is not None:
-                from M2Crypto.Rand import rand_add
-                rand_file = os.popen(rand_cmd, 'r')
-                rand_string = rand_file.read()
-                rand_file.close()
-                rand_add(rand_string, len(rand_string))
-            ctx = SSL.Context('sslv3')
-            if cacert_file is not None:
-                ctx.load_verify_info(cacert_file)
-                ctx.set_verify(SSL.verify_peer, 10)
-            self.conn = Server(url, SSL_Transport(ctx), encoding='iso8859-1')
+            self.conn = _ssl_connect(url, cacert_file, rand_cmd,
+                                     encoding=encoding)
         else:
-            self.conn = xmlrpclib.Server(url, encoding='iso8859-1')
-    
+            self.conn = xmlrpclib.Server(url, encoding=encoding)
+
     def get_format_suggestion(self, cmd):
         return self.__send_raw_command("get_format_suggestion", [cmd])
 
@@ -301,7 +346,7 @@ class BofhConnection(object):
 
     def logout(self):
         return self.__auth_cmd("logout")
-    
+
     def update_commands(self):
         self.commands = self.__auth_cmd("get_commands")
 
@@ -316,11 +361,11 @@ class BofhConnection(object):
         if args:
             tmp.extend(args)
         return self.__auth_cmd("run_command", tmp)
-    
+
     def __auth_cmd(self, func_name, args=None):
         tmp = [self.__sessid]
         if args:
-            tmp.extend(args) 
+            tmp.extend(args)
         logger.debug("X: %s %s" % (repr(args), repr(tmp)))
         return self.__send_raw_command(func_name, tmp, sessid_loc=0)
 
@@ -348,22 +393,23 @@ class BofhConnection(object):
                 logger.debug("-> %s(%s)" % (cmd, repr(args)))
         else:
             logger.debug("-> %s(%s)" % (cmd, repr(args)))
-            
+
         args = self.__wash_command_args(args)
         try:
             r = getattr(self.conn, cmd)(*args)
             logger.debug("<- %s" % repr(r)[:30])
             return self.__wash_response(r)
-        except xmlrpclib.Fault, m:
+        except xmlrpclib.Fault as m:
             logger.debug("F: '%s'" % m.faultString)
             match = "Cerebrum.modules.bofhd.errors."
             if (not got_restart and
-                m.faultString.startswith(match+"ServerRestartedError")):
+                    m.faultString.startswith(match+"ServerRestartedError")):
                 self.update_commands()
                 self.__bc.notify_restart()
                 return self.__send_raw_command(cmd, args, got_restart=True)
             elif m.faultString.startswith(match+"SessionExpiredError"):
-                self.__bc.show_message("Session expired, you must re-authenticate")
+                self.__bc.show_message("Session expired, you must "
+                                       "re-authenticate")
                 self.__bc.login()
                 if sessid_loc is not None:
                     args[sessid_loc] = self.__sessid
@@ -393,7 +439,7 @@ class BofhConnection(object):
                     tmp.append(a2)
                 ret.append(tmp)
             else:
-                if isinstance(a, (str, unicode)):
+                if isinstance(a, six.string_types):
                     check_safe_str(a)
                 ret.append(a)
         return ret
@@ -402,13 +448,13 @@ class BofhConnection(object):
         """Handle out extensions to xml-rpc"""
         if isinstance(obj, (list, tuple)):
             return [self.__wash_response(i) for i in obj]
-        elif isinstance(obj, (str, unicode)):
+        elif isinstance(obj, six.string_types):
             if len(obj) > 0 and obj[0] == ':':
                 obj = obj[1:]
                 if obj == 'None':
                     obj = '<not set>'
-            if isinstance(obj, unicode):
-                return obj.encode('iso8859-1')
+            if isinstance(obj, six.text_type):
+                return obj.encode(self._encoding)
             return obj
         elif isinstance(obj, dict):
             ret = {}
@@ -417,6 +463,7 @@ class BofhConnection(object):
             return ret
         else:
             return obj
+
 
 class BofhClient(object):
     """The actual client, running main_loop until termination"""
@@ -459,7 +506,7 @@ class BofhClient(object):
                 self.process_cmd_line()
             except QuitException:
                 break
-            except Exception, msg:
+            except Exception as msg:
                 self.show_message("Unexpected error (bug): %s" % msg)
                 logger.error("Exception", exc_info=1)
         self.show_message("Bye")
@@ -469,20 +516,20 @@ class BofhClient(object):
         """Reads command from the user, and runs it"""
         try:
             args = self.cline.get_splitted_command()
-        except ParseException, msg:
+        except ParseException as msg:
             self.show_message("Bad command: %s" % msg)
             return
         except EOFError:
             raise QuitException
         try:
             self.run_command(args)
-        except BofhdException, msg:
+        except BofhdException as msg:
             self.show_message(msg)
         except QuitException:
             raise
         except EOFError:
             pass  # User aborted command
-        except:
+        except Exception:
             self.show_message("Unexpected error")
             logger.error("Unexpected exception", exc_info=1)
 
@@ -502,7 +549,7 @@ class BofhClient(object):
         else:
             try:
                 bofh_cmd, bofh_args = self.completer.analyze_command(args)
-            except AnalyzeCommandException, msg:
+            except AnalyzeCommandException as msg:
                 self.show_message(msg)
                 return
             if not sourcing:
@@ -565,17 +612,18 @@ class BofhClient(object):
         while True:
             pspec = self.bc.prompt_func(cmd, *args)
             if not isinstance(pspec, dict):
-                raise ValueError, "server bug"
-            if pspec.get("prompt", None) is None and pspec.has_key("last_arg"):
+                raise ValueError("server bug")
+            if pspec.get("prompt", None) is None and "last_arg" in pspec:
                 break
-            if pspec.has_key("map"):
+            if "map" in pspec:
                 for n in range(len(pspec["map"])):
                     desc = pspec["map"][n][0]
                     if n == 0:
                         self.show_message("Num " + desc[0] % tuple(desc[1:]))
                     else:
-                        self.show_message(("%4s " % n) + desc[0] % tuple(desc[1:]))
-                        
+                        self.show_message(("%4s " % n)
+                                          + desc[0] % tuple(desc[1:]))
+
             defval = pspec.get("default", None)
             tmp_arg = self.cline.prompt_arg(pspec['prompt'], defval,
                                             postfix='> ')
@@ -583,10 +631,10 @@ class BofhClient(object):
                 self.show_message(self.bc.get_help("arg_help",
                                                    pspec['help_ref']))
                 continue
-            if pspec.has_key("map") and not pspec.has_key("raw"):
+            if "map" in pspec and "raw" not in pspec:
                 tmp_arg = pspec["map"][int(tmp_arg)][1]
             args.append(tmp_arg)
-            if pspec.has_key("last_arg"):
+            if "last_arg" in pspec:
                 break
         return args
 
@@ -598,13 +646,14 @@ class BofhClient(object):
             for i in range(len(resp)):
                 self.show_response(bofh_cmd, resp[i], False, show_hdr=(i == 0))
             return
-        if isinstance(resp, (str, unicode)):
+        if isinstance(resp, six.string_types):
             self.show_message(resp)
             return
-        if not self._known_formats.has_key(bofh_cmd):
-            self._known_formats[bofh_cmd] = self.bc.get_format_suggestion(bofh_cmd)
+        if bofh_cmd not in self._known_formats:
+            self._known_formats[bofh_cmd] = \
+                self.bc.get_format_suggestion(bofh_cmd)
         format = self._known_formats[bofh_cmd]
-        if show_hdr and format.has_key("hdr"):
+        if show_hdr and "hdr" in format:
             self.show_message(format["hdr"])
         if not isinstance(resp, (tuple, list)):
             resp = [resp]
@@ -617,7 +666,7 @@ class BofhClient(object):
             if header:
                 self.show_message(header)
             for row in resp:
-                if not row.has_key(order[0]):
+                if order[0] not in row:
                     continue
                 tmp = []
                 for o in order:
@@ -629,18 +678,30 @@ class BofhClient(object):
                             fmt = ftype.split(":", 1)[1]
                             fmt = fmt.replace('yyyy', '%Y').replace(
                                 'MM', '%m').replace('dd', '%d')
-                            tmp[-1] = DateTime.ISO.ParseDateTime(
-                                str(row[field])).strftime(fmt)
+                            tmp[-1] = reformat_dt(str(row[field]), fmt)
                 self.show_message(format_str % tuple(tmp))
-    
+
     def show_message(self, msg):
-        print msg
+        print(msg)
+
+
+XMLRPC_DATETIME_FORMAT = '%Y%m%dT%H:%M:%S'
+
+
+def reformat_dt(datestr, tofmt, fromfmt=XMLRPC_DATETIME_FORMAT):
+    """ try to reformat an xmlrpc datetime string. """
+    try:
+        dt = datetime.datetime.strptime(datestr, fromfmt)
+        return dt.strftime(tofmt)
+    except ValueError:
+        return datestr
+
 
 def setup_logger(debug_log):
     """Setup logging.  If debug_log=True, we log debug info to a file.
     Otherwise we setup a stdout-logger for loglevel ERROR (as those
     are indications of bugs that needs fixing)"""
-    
+
     global logger
     logger = logging.getLogger("pybofh")
     logger.setLevel(logging.DEBUG)
@@ -655,6 +716,7 @@ def setup_logger(debug_log):
         fh.setLevel(logging.DEBUG)
         fh.setFormatter(formatter)
         logger.addHandler(fh)
+
 
 def main():
     try:
@@ -672,8 +734,6 @@ def main():
     for opt, val in opts:
         if opt in ('--help',):
             usage()
-        elif opt in ('-q',):
-            user, password = 'bootstrap_account', 'test'
         elif opt in ('--username',):
             user = val
         elif opt in ('--set',):
@@ -689,10 +749,11 @@ def main():
     setup_logger(debug_log)
     BofhClient(url, user, password, **props_override)
 
-def usage(exitcode=0):
-    print """Usage: [options]
+
+usage_text = """
+Usage: [options]
+
     -u | --url url : url to connect to
-    -q : for debugging
     -d : log debuging info to pybofh.log
     --set k=v : override properties:
         console_prompt : override default console prompt
@@ -701,10 +762,14 @@ def usage(exitcode=0):
         cacert_file : file containing servers ca cert
         rand_cmd : provides random-seed when /dev/random doesn't exist
                    (example: .../openssh/libexec/ssh-rand-helper)
-    --username NAME: Override username.
-    """
+    --username NAME: Override username (defaults to $USER)
+""".lstrip()
+
+
+def usage(exitcode=0):
+    print(usage_text)
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()
-
