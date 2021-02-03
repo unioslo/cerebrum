@@ -28,13 +28,13 @@ import argparse
 import locale
 import logging
 
-import mx.DateTime
-
 import cereconf
 from Cerebrum import logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib.xmlprinter import xmlprinter
 from Cerebrum.modules.no.uit import access_FS
+from Cerebrum.utils.date import now
+from Cerebrum.utils.date_compat import to_mx_format
 from Cerebrum.utils.funcwrap import memoize
 
 logger = logging.getLogger(__name__)
@@ -487,7 +487,7 @@ def write_xml(agrgroup_dict, xmlfile):
     xml.startDocument(encoding='utf-8')
     xml.startElement('data')
     xml.startElement('properties')
-    xml.dataElement('tstamp', str(mx.DateTime.now()))
+    xml.dataElement('tstamp', to_mx_format(now()))
     xml.endElement('properties')
     xml.startElement('groups')
     for grpname, gdata in group_dict.iteritems():
@@ -542,7 +542,7 @@ def main(inargs=None):
     logger.debug("setting studieprogfile to '%s'", args.studieprogfile)
     logger.debug("setting undenhfile to '%s'", args.undenhfile)
     logger.debug("setting exportfile to '%s'", args.exportfile)
-    start = mx.DateTime.now()
+    start = now()
 
     db = Factory.get('Database')()
     ac = Factory.get('Account')(db)
@@ -559,10 +559,9 @@ def main(inargs=None):
     agrgroup_dict = aggregate_studieprogram_groups(ac)
     write_xml(agrgroup_dict, args.exportfile)
 
-    stop = mx.DateTime.now()
+    stop = now()
     logger.debug("Started %s, ended %s", start, stop)
-    logger.debug("Script running time was %s",
-                 (stop - start).strftime("%M minutes %S secs"))
+    logger.debug("Script running time was %s", str(stop - start))
 
 
 if __name__ == '__main__':

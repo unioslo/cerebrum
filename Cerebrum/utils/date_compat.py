@@ -147,3 +147,23 @@ def get_datetime_tz(dtobj, allow_none=True, tz=date.TIMEZONE):
         # mx.DateTime
         return date.apply_timezone(dtobj.pydatetime(), tz)
     raise ValueError('Non-datetime value: %r' % (dtobj,))
+
+
+def to_mx_format(dtobj, tz=date.TIMEZONE):
+    """
+    Get the equivalent of str(mx.DateTime).
+
+    :type dtobj: datetime.datetime, datetime.date, mx.DateTime, NoneType
+    :param dtobj: A datetime-like object.
+
+    :type tz: tzinfo
+    :param tz:
+        Converts tz-aware datetime objects to the given tz before formatting.
+
+    :rtype: str
+    :return:
+        A datetime string with format "%Y-%m-%d %H:%M:%S.%f", but with only two
+        digit precision for the %f component.
+    """
+    dt = get_datetime_naive(dtobj, allow_none=False, tz=tz)
+    return dt.strftime('%Y-%m-%d %H:%M:%S') + '.' + dt.strftime('%f')[:2]

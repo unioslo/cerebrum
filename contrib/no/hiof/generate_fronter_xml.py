@@ -51,11 +51,11 @@ The script works like this:
 from __future__ import unicode_literals
 
 import argparse
+import datetime
 import logging
 import re
 from collections import deque
 
-import mx.DateTime
 import six
 
 import cereconf
@@ -1123,7 +1123,7 @@ def open_xml_stream(filename):
 def output_fixed_header(printer):
     printer.startElement("properties")
     printer.dataElement("datasource", "cerebrum@hiof.no")
-    printer.dataElement("datetime", mx.DateTime.now().strftime("%Y-%m-%d"))
+    printer.dataElement("datetime", datetime.date.today().strftime("%Y-%m-%d"))
     printer.endElement("properties")
 
 

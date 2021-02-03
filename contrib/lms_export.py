@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2007-2008 University of Oslo, Norway
+# Copyright 2007-2020 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,12 +18,10 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-# $Id$
-
-import sys
+import datetime
 import getopt
 import locale
+import sys
 
 import cereconf
 
@@ -41,7 +39,7 @@ Usage: %s [options]
    -h, --help            Prints this message and quits
    -r, --role-file FILE  File that roles should be taken from
    --host HOST           The host that output should be generated for
-   --no-import           Do not import data from source system and update groups
+   --no-import           Do not import data - only update groups
    --no-export           Do not generate export to LMS
    -d, --dryrun          Do not commit database changes made during import
 
@@ -59,7 +57,6 @@ points in the processing.
 """ % progname
 
 __version__ = "$Revision$"
-# $Source$
 
 
 logger = Factory.get_logger("cronjob")
@@ -117,11 +114,11 @@ def fnrs2account_ids(rows):
     result = []
     for r in rows:
         fnr = "%06d%05d" % (int(r['fodselsdato']), int(r['personnr']))
-        if importer.persons.has_key(fnr):
+        if fnr in importer.persons:
             result.append(importer.persons[fnr])
         else:
-            logger.info("Unable to find account for user identified " +
-                           "by '%s'" % fnr)
+            logger.info("Unable to find account for user identified by %r",
+                        fnr)
     return result
 
 
@@ -144,7 +141,8 @@ def parse_xml_roles(fname):
     """
 
     result = dict()
-    def gimme_lambda(element, data):
+
+    def add_role_from_xml_elem(element, data):
         kind = data[roles_xml_parser.target_key]
         if len(kind) > 1:
             logger.warn("Cannot decide on role kind for: %s", kind)
@@ -170,14 +168,14 @@ def parse_xml_roles(fname):
                         data["fodselsdato"], data["personnr"], kind, data)
             return
 
+        result.setdefault(key, list()).append({
+            "fodselsdato": int(data["fodselsdato"]),
+            "personnr": int(data["personnr"]),
+        })
 
-        result.setdefault(key, list()).append(
-            { "fodselsdato" : int(data["fodselsdato"]),
-              "personnr"    : int(data["personnr"]), })
-
-    roles_xml_parser(fname, gimme_lambda)
+    roles_xml_parser(fname, add_role_from_xml_elem)
     for entry in result.keys():
-        logger.debug("Role-mapping: '%s' => '%s'" % (entry, result[entry]))
+        logger.debug("Role-mapping: %r => %r", entry, result[entry])
     return result
 
 
@@ -188,16 +186,16 @@ def populate_enhet_groups(enhet_id, role_mapping):
     fs = importer.fs_db
 
     if not enhet_type == 'kurs':
-         raise ValueError, "Unable to handle non-'kurs'-enheter yet"
+        raise ValueError("Unable to handle non-'kurs'-enheter yet")
 
-    Instnr, emnekode, versjon, termk, aar, termnr = type_id
+    instnr, emnekode, versjon, termk, aar, termnr = type_id
 
     # Finnes det mer enn en undervisningsenhet knyttet til dette
-    # emnet, kun forskjellig på versjonskode og/eller terminnr?  I
-    # så fall bør gruppene få beskrivelser som gjør det mulig å
+    # emnet, kun forskjellig pÃ¥ versjonskode og/eller terminnr?  I
+    # sÃ¥ fall bÃ¸r gruppene fÃ¥ beskrivelser som gjÃ¸r det mulig Ã¥
     # knytte dem til riktig undervisningsenhet.
     multi_enhet = []
-    multi_id = ":".join((Instnr, emnekode, termk, aar))
+    multi_id = ":".join((instnr, emnekode, termk, aar))
     if len(importer.emne_termnr.get(multi_id, {})) > 1:
         multi_enhet.append("%s. termin" % termnr)
     if len(importer.emne_versjon.get(multi_id, {})) > 1:
@@ -206,16 +204,16 @@ def populate_enhet_groups(enhet_id, role_mapping):
         enhet_suffix = ", %s" % ", ".join(multi_enhet)
     else:
         enhet_suffix = ""
-    logger.debug("Updating groups for %s %s %s%s:" % (
-        emnekode, termk, aar, enhet_suffix))
+    logger.debug("Updating groups for %s %s %s%s:",
+                 emnekode, termk, aar, enhet_suffix)
 
-    kurs_id = course2CerebumID('kurs', Instnr, emnekode,
+    kurs_id = course2CerebumID('kurs', instnr, emnekode,
                                versjon, termk, aar, termnr)
 
     # Enhetsansvar? Fagpersoner?
     all_resp = {}
     try:
-        group_identificators = (Instnr, emnekode, versjon, termk, aar, termnr)
+        group_identificators = (instnr, emnekode, versjon, termk, aar, termnr)
         resp = role_mapping[group_identificators]
         logger.debug("Retrieved responsibles for group '%s' (AKA '%s'): %s" %
                      (group_identificators, kurs_id, resp))
@@ -223,25 +221,27 @@ def populate_enhet_groups(enhet_id, role_mapping):
             all_resp[account_id] = 1
         logger.debug("all_resp: '%s'" % all_resp)
     except KeyError:
-        # TODO: This might warrant a warning, but we need to discuss it with NMH
-        logger.info("Unable to find any responsibles for '%s'" % kurs_id)
-    sync_group(kurs_id, mk_gname("%s:ansvar" % enhet_id),
+        logger.info("Unable to find any responsibles for %r", kurs_id)
+    sync_group(kurs_id,
+               mk_gname("%s:ansvar" % enhet_id),
                "Ansvarlige %s %s %s%s" % (emnekode, termk, aar, enhet_suffix),
-               constants.entity_account, all_resp);
+               constants.entity_account,
+               all_resp)
 
-    # Alle nåværende undervisningsmeldte samt nåværende+fremtidige
+    # Alle nÃ¥vÃ¦rende undervisningsmeldte samt nÃ¥vÃ¦rende+fremtidige
     # eksamensmeldte studenter.
     logger.debug(" student")
     alle_stud = {}
     accounts = fnrs2account_ids(fs.undervisning.list_studenter_underv_enhet(
-                                Instnr, emnekode, versjon, termk, aar, termnr))
+                                instnr, emnekode, versjon, termk, aar, termnr))
     for account_id in accounts:
         alle_stud[account_id] = 1
 
-    sync_group(kurs_id, mk_gname("%s:student" % enhet_id),
+    sync_group(kurs_id,
+               mk_gname("%s:student" % enhet_id),
                "Studenter %s %s %s%s" % (emnekode, termk, aar, enhet_suffix),
-               constants.entity_account, alle_stud);
-
+               constants.entity_account,
+               alle_stud)
 
     # Syhnchronize registered activities for the enhet
     for act_code in importer.UndervEnhet[enhet_id].get('aktivitet', {}).keys():
@@ -250,37 +250,47 @@ def populate_enhet_groups(enhet_id, role_mapping):
         # Aktivitetsansvar
         act_resp = {}
         try:
-            group_identificators = (Instnr, emnekode, versjon, termk, aar, termnr, act_code)
+            group_identificators = (instnr, emnekode, versjon, termk, aar,
+                                    termnr, act_code)
             resp = role_mapping[group_identificators]
-            logger.debug("Retrieved responsibles for group '%s' (AKA '%s-%s'): %s" %
-                         (group_identificators, kurs_id, act_code, resp))
+            logger.debug(
+                "Retrieved responsibles for group '%s' (AKA '%s-%s'): %s",
+                group_identificators, kurs_id, act_code, resp)
             for account_id in fnrs2account_ids(resp):
                 act_resp[account_id] = 1
                 logger.debug("act_resp: '%s'" % act_resp)
         except KeyError:
-            logger.info("Unable to find any responsibles for '%s-%s'" % (kurs_id, act_code))
-        sync_group(kurs_id, mk_gname("%s:%s:ansvar" % (enhet_id, act_code)),
-                   "Ansvarlige %s %s %s%s %s" % (emnekode, termk, aar, enhet_suffix,
-                                             importer.UndervEnhet[enhet_id]['aktivitet'][act_code]),
-                   constants.entity_account, act_resp)
-
+            logger.info("Unable to find any responsibles for '%s-%s'",
+                        kurs_id, act_code)
+        sync_group(kurs_id,
+                   mk_gname("%s:%s:ansvar" % (enhet_id, act_code)),
+                   "Ansvarlige %s %s %s%s %s" % (
+                       emnekode, termk, aar, enhet_suffix,
+                       importer.UndervEnhet[enhet_id]['aktivitet'][act_code],
+                   ),
+                   constants.entity_account,
+                   act_resp)
 
         # Students
         logger.debug(" student:%s" % act_code)
         act_stud = {}
         for account_id in fnrs2account_ids(fs.undervisning.list_aktivitet(
-            Instnr, emnekode, versjon, termk, aar, termnr, act_code)):
+                instnr, emnekode, versjon, termk, aar, termnr, act_code)):
             act_stud[account_id] = 1
 
-        sync_group(kurs_id, mk_gname("%s:%s:student" % (enhet_id, act_code)),
-                   "Studenter %s %s %s%s %s" % (emnekode, termk, aar, enhet_suffix,
-                                               importer.UndervEnhet[enhet_id]['aktivitet'][act_code]),
-                   constants.entity_account, act_stud)
+        sync_group(kurs_id,
+                   mk_gname("%s:%s:student" % (enhet_id, act_code)),
+                   "Studenter %s %s %s%s %s" % (
+                       emnekode, termk, aar, enhet_suffix,
+                       importer.UndervEnhet[enhet_id]['aktivitet'][act_code],
+                   ),
+                   constants.entity_account,
+                   act_stud)
 
 
 def process_kursdata(role_mapping):
     logger.info("Starting retrieval of groups and participants from FS")
-    #importer.get_emner()
+    # importer.get_emner()
     importer.get_undervisningsenheter()
     importer.get_undervisningsaktiviteter()
 
@@ -297,7 +307,8 @@ def process_kursdata(role_mapping):
         enhet_type = rest.pop(0).lower()
         if enhet_type == 'kurs':
             instnr, emnekode, versjon, termk, aar = rest
-            sync_group(subject_supergroup, mk_gname(kurs_id),
+            sync_group(subject_supergroup,
+                       mk_gname(kurs_id),
                        importer.enhet_names[kurs_id],
                        constants.entity_group,
                        AffiliatedGroups[kurs_id])
@@ -312,14 +323,18 @@ def process_kursdata(role_mapping):
     # Now the only remaining group is the root supergroup
     logger.info("Updating course supergroup")
     try:
-        sync_group(None, subject_supergroup, "Root of the course-tree containing all course-based groups",
-                   constants.entity_group, AffiliatedGroups[subject_supergroup])
-    except KeyError, ke:
+        sync_group(None,
+                   subject_supergroup,
+                   ("Root of the course-tree containing all "
+                    "course-based groups"),
+                   constants.entity_group,
+                   AffiliatedGroups[subject_supergroup])
+    except KeyError:
         # This really shouldn't happen during normal operations...
-        logger.error("Unable to find course supergroup among groups to be synced. "
-                     "This can only happen if no courses are to be sync'ed, "
-                     "which sounds very very wrong.")
-        raise Errors.CerebrumError("No courses are set to being sync'ed")
+        logger.error("Unable to find course supergroup among groups to be "
+                     "synced.   This can only happen if no courses are to be "
+                     "synced, which sounds very very wrong.")
+        raise Errors.CerebrumError("No courses are set to being synced")
     logger.info(" ... done")
 
 
@@ -328,26 +343,40 @@ def process_classdata():
 
     for class_id in importer.classes:
         group_name = mk_gname(class_id)
-        group_type, institution, program_code, year, term_code = class_id.split(":")
+        (group_type, institution,
+         program_code, year, term_code) = class_id.split(":")
         group_desc = "%s %s %s" % (program_code, term_code.capitalize(), year)
 
         students = {}
         for student in importer.classes[class_id]:
             students[student] = 1
 
-        sync_group(class_supergroup, group_name, group_desc,
-                   constants.entity_account, students)
+        sync_group(class_supergroup,
+                   group_name,
+                   group_desc,
+                   constants.entity_account,
+                   students)
 
     logger.info("Updating class supergroup")
-    sync_group(None, class_supergroup, "Root of the class-tree containing all class-based groups",
-               constants.entity_group, AffiliatedGroups[class_supergroup])
+    sync_group(None,
+               class_supergroup,
+               "Root of the class-tree containing all class-based groups",
+               constants.entity_group,
+               AffiliatedGroups[class_supergroup])
     logger.info(" ... done")
 
 
+def get_new_expire_date(today=None):
+    """ get default extended expire date for groups. """
+    today = today or datetime.date.today()
+    delta = datetime.timedelta(days=6 * 30)
+    return today + delta
+
+
 def sync_group(affil, gname, descr, mtype, memb, recurse=True):
-    logger.debug(("sync_group(parent:'%s'; groupname:'%s'; description:'%s'; " +
-                  "membertype:'%s'; members:'%s'; recurse:'%s')") %
-                 (affil, gname, descr, mtype, memb.keys(), recurse))
+    logger.debug("sync_group(parent:'%s'; groupname:'%s'; description:'%s'; "
+                 "membertype:'%s'; members:'%s'; recurse:'%s')",
+                 affil, gname, descr, mtype, memb.keys(), recurse)
     if mtype == constants.entity_group:   # memb has group_name as keys
         members = {}
         for tmp_gname in memb.keys():
@@ -380,9 +409,7 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True):
             group.write_db()
 
         if group.is_expired():
-            # Extend the group's life by 6 months
-            from mx.DateTime import now, DateTimeDelta
-            group.expire_date = now() + DateTimeDelta(6*30)
+            group.expire_date = get_new_expire_date()
             group.write_db()
 
         # Make sure the group is listed for export to LMS
@@ -393,7 +420,7 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True):
                                            member_type=mtype,
                                            member_filter_expired=False):
             member = int(member["member_id"])
-            if members.has_key(member):
+            if member in members:
                 del members[member]
             else:
                 logger.debug("sync_group(): Deleting member %d" % member)
@@ -427,7 +454,7 @@ def get_group_members(group_id):
     group.clear()
     group.find(group_id)
     group_members = []
-    for member in group.search_members(group_id=group.entity_id): # Spread?
+    for member in group.search_members(group_id=group.entity_id):
         user_entity_id = int(member["member_id"])
         try:
             account = exporter.user_entity_id2account[user_entity_id]
@@ -463,7 +490,7 @@ def export_data(output_stream):
     root_groupname = subject_supergroup
     group.find_by_name(root_groupname)
 
-    for enhet in group.search_members(group_id=group.entity_id): # Spread?
+    for enhet in group.search_members(group_id=group.entity_id):
         enhet_group_id = int(enhet["member_id"])
         group.clear()
         group.find(enhet_group_id)
@@ -514,10 +541,14 @@ def export_data(output_stream):
                 name_elements = group.description.split(" ")
                 act_name = " ".join(name_elements[1:])
 
-                logger.debug("Exporting activity: '%s' - '%s'" % (activity_id, act_name))
+                logger.debug("Exporting activity: '%s' - '%s'",
+                             activity_id, act_name)
                 exporter.group_to_xml(id=activity_id,
-                                      grouptype="Undaktivitet", parentcode=enhet_id,
-                                      grouptype_level=3, nameshort=act_name, namelong=act_name,
+                                      grouptype="Undaktivitet",
+                                      parentcode=enhet_id,
+                                      grouptype_level=3,
+                                      nameshort=act_name,
+                                      namelong=act_name,
                                       namefull=act_name)
 
             resp_group_id = subgroups[activity + ":ansvar"]
@@ -581,7 +612,6 @@ def export_data(output_stream):
                  len(faculty_responsibles), len(faculty_members),
                  root_faculty_id)
     exporter.membership_to_xml(root_faculty_id, [], faculty_members)
-
 
     exporter.end()
 
