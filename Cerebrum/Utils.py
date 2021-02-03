@@ -24,13 +24,10 @@ This module contains a number of core utilities used everywhere in the tree.
 from __future__ import unicode_literals
 
 import collections
-import imaplib
 import inspect
 import io
 import os
 import random
-import socket
-import ssl
 import sys
 import time
 import traceback
@@ -41,6 +38,11 @@ from subprocess import Popen, PIPE
 import six
 
 import cereconf
+
+
+# Compatibility imports / relocated classes and functions
+import Cerebrum.meta
+import Cerebrum.utils.imap
 
 
 class _NotSet(object):
@@ -119,18 +121,6 @@ def remove_control_characters(s):
 
 
 # TODO: Deprecate: needlessly complex in terms of readability and end result
-def _mangle_name(classname, attr):
-    """Do 'name mangling' for attribute ``attr`` in class ``classname``."""
-    if not (classname and is_str(classname)):
-        raise ValueError("Invalid class name string: '%s'" % classname)
-    # Attribute name starts with at least two underscores, and
-    # ends with at most one underscore and is not all underscores
-    if (attr.startswith("__") and
-            not attr.endswith("__") and
-            classname.count("_") != len(classname)):
-        # Strip leading underscores from classname.
-        return "_" + classname.lstrip("_") + attr
-    return attr
 
 
 def read_password(user, system, host=None, encoding=None):
@@ -258,246 +248,6 @@ def unicode2str(obj, encoding='utf-8'):
     return obj
 
 
-class auto_super(type):  # noqa: N801
-    """
-    Metaclass adding a private class variable __super, set to super(cls).
-
-    Any class C of this metaclass can use the shortcut
-      self.__super.method(args)
-    instead of
-      super(C, self).method(args)
-
-    Besides being slightly shorter to type, this should also be less
-    error prone -- there's no longer a need to remember that the first
-    argument to super() must be changed whenever one copies its
-    invocation into a new class.
-
-    NOTE: As the __super trick relies on Pythons name-mangling
-          mechanism for class private identifiers, it won't work if a
-          subclass has the same name as one of its base classes.  This
-          is a situation that hopefully won't be very common; however,
-          if such a situation does arise, the subclass's definition
-          will fail, raising a ValueError.
-    """
-
-    def __init__(cls, name, bases, dict):  # noqa: N805
-        super(auto_super, cls).__init__(name, bases, dict)
-        attr = _mangle_name(name, '__super')
-        if hasattr(cls, attr):
-            # The class-private attribute slot is already taken; the
-            # most likely cause for this is a base class with the same
-            # name as the subclass we're trying to create.
-            raise ValueError(
-                "Found '%s' in class '%s'; name clash with base class?" %
-                (attr, name))
-        setattr(cls, attr, super(cls))
-
-
-class mark_update(auto_super):  # noqa: N801
-    """
-    Metaclass marking objects as 'updated' per superclass.
-
-    This metaclass looks in the class attributes ``__read_attr__`` and
-    ``__write_attr__`` (which should be tuples of strings) to
-    determine valid attributes for that particular class.  The
-    attributes stay valid in subclasses, but assignment to them are
-    handled by code objects that live in the class where they were
-    defined.
-
-    The following class members are automatically defined for classes
-    with this metaclass:
-
-    ``__updated`` (class private variable):
-      Set to the empty list initially; see description of ``__setattr__``.
-
-    ``__setattr__`` (Python magic for customizing attribute assignment):
-      * When a 'write' attribute has its value changed, the attribute
-        name is appended to the list in the appropriate class's
-        ``__updated`` attribute.
-
-      * 'Read' attributes can only be assigned to if there hasn't
-        already been defined any attribute by that name on the
-        instance.
-        This means that initial assignment will work, but plain
-        reassignment will fail.  To perform a reassignment one must
-        delete the attribute from the instance (e.g. by using ``del``
-        or ``delattr``).
-      NOTE: If a class has an explicit definition of ``__setattr__``,
-            that class will retain that definition.
-
-    ``__new__``:
-      Make sure that instances get ``__updated`` attributes for the
-      instance's class and for all of its base classes.
-      NOTE: If a class has an explicit definition of ``__new__``,
-            that class will retain that definition.
-
-    ``clear'':
-      Reset all the ``mark_update''-relevant attributes of an object
-      to their default values.
-      NOTE: If a class has an explicit definition of ``clear'', that
-            class will retain that definition.
-
-    ``__read_attr__`` and ``__write_attr__``:
-      Gets overwritten with tuples holding the name-mangled versions
-      of the names they initially held.  If there was no initial
-      definition, the attribute is set to the empty tuple.
-
-    ``__xerox__``:
-      Copy all attributes that are valid for this instance from object
-      given as first arg.
-
-    ``__slots__``:
-      If a class has an explicit definition of ``__slots__``, this
-      metaclass will add names from ``__write_attr__`` and
-      ``__read_attr__`` to the class's slots.  Classes without any
-      explicit ``__slots__`` are not affected by this.
-
-    Additionally, mark_update is a subclass of the auto_super
-    metaclass; hence, all classes with metaclass mark_update will also
-    be subject to the functionality provided by the auto_super
-    metaclass.
-
-    A quick (and rather nonsensical) example of usage:
-
-    >>> class A(object):
-    ...     __metaclass__ = mark_update
-    ...     __write_attr__ = ('breakfast',)
-    ...     def print_updated(self):
-    ...         if self.__updated:
-    ...             print('A')
-    ...
-    >>> class B(A):
-    ...     __write_attr__ = ('egg', 'sausage', 'bacon')
-    ...     __read_attr__ = ('spam',)
-    ...     def print_updated(self):
-    ...         if self.__updated:
-    ...             print('B')
-    ...         self.__super.print_updated()
-    ...
-    >>> b = B()
-    >>> b.breakfast = 'vroom'
-    >>> b.spam = False
-    >>> b.print_updated()
-    A
-    >>> b.egg = 7
-    >>> b.print_updated()
-    B
-    A
-    >>> b.spam = True
-    Traceback (most recent call last):
-      File "<stdin>", line 1, in ?
-      File "Cerebrum/Utils.py", line 237, in __setattr__
-        raise AttributeError, \
-    AttributeError: Attribute 'spam' is read-only.
-    >>> del b.spam
-    >>> b.spam = True
-    >>> b.spam
-    True
-    >>> b.egg
-    7
-    >>> b.sausage
-    Traceback (most recent call last):
-      File "<stdin>", line 1, in ?
-    AttributeError: sausage
-    >>>
-
-    """
-    def __new__(cls, name, bases, dict):
-        read = [_mangle_name(name, x) for x in
-                dict.get('__read_attr__', ())]
-        dict['__read_attr__'] = read
-        write = [_mangle_name(name, x) for x in
-                 dict.get('__write_attr__', ())]
-        dict['__write_attr__'] = write
-        mupdated = _mangle_name(name, '__updated')
-        msuper = _mangle_name(name, '__super')
-
-        # Define the __setattr__ method that should be used in the
-        # class we're creating.
-        def __setattr__(self, attr, val):  # noqa: N802
-            # print "%s.__setattr__:" % name, self, attr, val
-            if attr in read:
-                # Only allow setting if attr has no previous
-                # value.
-                if hasattr(self, attr):
-                    raise AttributeError("Attribute '%s' is read-only." % attr)
-            elif attr in write:
-                if hasattr(self, attr) and val == getattr(self, attr):
-                    # No change, don't set __updated.
-                    return
-            elif attr != mupdated:
-                # This attribute doesn't belong in this class; try the
-                # base classes.
-                return getattr(self, msuper).__setattr__(attr, val)
-            # We're in the correct class, and we've established that
-            # it's OK to set the attribute.  Short circuit directly to
-            # object's __setattr__, as that's where the attribute
-            # actually gets its new value set.
-            # print "%s.__setattr__: setting %s = %s" % (self, attr, val)
-            object.__setattr__(self, attr, val)
-            if attr in write:
-                getattr(self, mupdated).append(attr)
-        dict.setdefault('__setattr__', __setattr__)
-
-        def __new__(cls, *args, **kws):  # noqa: N802
-            # Get a bound super object.
-            sup = getattr(cls, msuper).__get__(cls)
-            # Call base class's __new__() to perform initialization
-            # and get an instance of this class.
-            obj = sup.__new__(cls)
-            # Add a default for this class's __updated attribute.
-            setattr(obj, mupdated, [])
-            return obj
-        dict.setdefault('__new__', __new__)
-
-        dont_clear = dict.get('dontclear', ())
-
-        def clear(self):
-            getattr(self, msuper).clear()
-            for attr in read:
-                if hasattr(self, attr) and attr not in dont_clear:
-                    delattr(self, attr)
-            for attr in write:
-                if attr not in dont_clear:
-                    setattr(self, attr, None)
-            setattr(self, mupdated, [])
-        dict.setdefault('clear', clear)
-
-        def __xerox__(self, from_obj, reached_common=False):  # noqa: N802
-            """Copy attributes of ``from_obj`` to self (shallowly).
-
-            If self's class is the same as or a subclass of
-            ``from_obj``s class, all attributes are copied.  If self's
-            class is a base class of ``from_obj``s class, only the
-            attributes appropriate for self's class (and its base
-            classes) are copied.
-
-            """
-            if not reached_common and \
-               name in [c.__name__ for c in from_obj.__class__.__mro__]:
-                reached_common = True
-            try:
-                super_xerox = getattr(self, msuper).__xerox__
-            except AttributeError:
-                # We've reached a base class that doesn't have this
-                # metaclass; stop recursion.
-                super_xerox = None
-            if super_xerox is not None:
-                super_xerox(from_obj, reached_common)
-            if reached_common:
-                for attr in read + write:
-                    if hasattr(from_obj, attr):
-                        setattr(self, attr, getattr(from_obj, attr))
-                setattr(self, mupdated, getattr(from_obj, mupdated))
-        dict.setdefault('__xerox__', __xerox__)
-
-        if hasattr(dict, '__slots__'):
-            slots = list(dict['__slots__'])
-            for slot in read + write + [mupdated]:
-                slots.append(slot)
-            dict['__slots__'] = tuple(slots)
-
-        return super(mark_update, cls).__new__(cls, name, bases, dict)
 
 
 class Factory(object):
@@ -953,36 +703,11 @@ class Messages(dict):
         return dict.__getitem__(self, key)[self.fallback]
 
 
-class CerebrumIMAP4_SSL(imaplib.IMAP4_SSL):  # noqa: N801
-    """
-    A changed version of imaplib.IMAP4_SSL that lets the caller specify
-    ssl_version in order to please older versions of OpenSSL. CRB-1246
-    """
-    def __init__(self,
-                 host='',
-                 port=imaplib.IMAP4_SSL_PORT,
-                 keyfile=None,
-                 certfile=None,
-                 ssl_version=ssl.PROTOCOL_TLSv1):
-        """
-        """
-        self.keyfile = keyfile
-        self.certfile = certfile
-        self.ssl_version = ssl_version
-        imaplib.IMAP4.__init__(self, host, port)
-
-    def open(self, host='', port=imaplib.IMAP4_SSL_PORT):
-        """
-        """
-        self.host = host
-        self.port = port
-        self.sock = socket.create_connection((host, port))
-        # "If not specified, the default is PROTOCOL_SSLv23;...
-        # Which connections succeed will vary depending on the version
-        # of OpenSSL. For example, before OpenSSL 1.0.0, an SSLv23
-        # client would always attempt SSLv2 connections."
-        self.sslobj = ssl.wrap_socket(self.sock,
-                                      self.keyfile,
-                                      self.certfile,
-                                      ssl_version=self.ssl_version)
-        self.file = self.sslobj.makefile('rb')
+# Compatibility names
+#
+# These names were historically defined in Cerebrum.Utils, but have been moved
+# to different modules and given PEP-8 compatible names.
+#
+CerebrumIMAP4_SSL = Cerebrum.utils.imap.Imap4SslVersionMixin
+auto_super = Cerebrum.meta.AutoSuper
+mark_update = Cerebrum.meta.MarkUpdate

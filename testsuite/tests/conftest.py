@@ -53,9 +53,9 @@ def database(factory):
     if hasattr(db, 'cl_init'):
         db.cl_init(change_program='testsuite')
 
-    print 'database init', db, db._cursor
+    print('database init', db, db._cursor)
     yield db
-    print 'database rollback', db, db._cursor
+    print('database rollback', db, db._cursor)
     db.rollback()
 
 
