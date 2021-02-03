@@ -404,6 +404,7 @@ setup(
         'Cerebrum/modules/no',
         'Cerebrum/modules/no/dfo',
         'Cerebrum/modules/no/Indigo',
+        'Cerebrum/modules/no/orgera',
         'Cerebrum/modules/no/uio',
         'Cerebrum/modules/no/uio/pq_exemption',
         'Cerebrum/modules/no/uio/voip',
