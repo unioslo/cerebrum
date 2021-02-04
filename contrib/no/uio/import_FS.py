@@ -43,16 +43,55 @@ import Cerebrum.logutils.options
 from Cerebrum.modules.fs.import_fs import FsImporter
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum.utils.argutils import add_commit_args
+from Cerebrum.utils.date_compat import parse_fs_xml_date
 
 import cereconf
-import mx.DateTime
-import six
 
 # Globals
 logger = logging.getLogger(__name__)
 
 
+def _get_admission_date_func(for_date, grace_days):
+    """ Get a admission date filter function to evaluate *new* students.
+
+    For any given date `for_date`, this method returns a filter function
+    that tests admission dates. Students with an admission date that passes
+    this filter are considered *new* students.
+    """
+    date_ranges = (
+        # Dec. 1 (previous year) - Feb. 1 (same year)
+        (
+            datetime.date(for_date.year - 1, 12, 1),
+            datetime.date(for_date.year, 2, 1),
+        ),
+        # June. 1 (same year) - Sept. 1 (same year)
+        (
+            datetime.date(for_date.year, 6, 1),
+            datetime.date(for_date.year, 9, 1),
+        ),
+        # Dec 1. (same year) - Feb. 1 (next year)
+        (
+            datetime.date(for_date.year, 12, 1),
+            datetime.date(for_date.year + 1, 2, 1),
+        ),
+    )
+
+    grace = datetime.timedelta(days=grace_days)
+
+    for from_date, to_date in date_ranges:
+        if from_date <= for_date <= to_date + grace:
+            logger.info('in admission period: %s to %s (+ %s)',
+                        from_date, to_date, grace)
+            return lambda date: (
+                isinstance(date, datetime.date)
+                and from_date <= date <= to_date + grace)
+
+    logger.info('not in an admission period')
+    return lambda date: False
+
+
 class FsImporterUio(FsImporter):
+
     def __init__(self, gen_groups, include_delete, commit,
                  studieprogramfile, source, rules, adr_map, emnefile,
                  rule_map):
@@ -61,8 +100,9 @@ class FsImporterUio(FsImporter):
                                             studieprogramfile, source, rules,
                                             adr_map, rule_map=rule_map)
         self._init_emne2sko(emnefile)
-        self._new_student_filter = self._get_admission_date_func(
-            mx.DateTime.now(), grace_days=7)
+        self._new_student_filter = _get_admission_date_func(
+            for_date=datetime.date.today(),
+            grace_days=7)
 
     def _init_emne2sko(self, emnefile):
         self.emne2sko = {}
@@ -184,8 +224,8 @@ class FsImporterUio(FsImporter):
             elif dta_type in ('opptak',):
                 for row in x:
                     subtype = self.co.affiliation_status_student_opptak
-                    if (self.studieprog2sko[row['studieprogramkode']] in
-                        aktiv_sted):
+                    if (self.studieprog2sko[row['studieprogramkode']]
+                            in aktiv_sted):
                         subtype = self.co.affiliation_status_student_aktiv
                     elif row['studierettstatkode'] == 'EVU':
                         subtype = self.co.affiliation_status_student_evu
@@ -342,61 +382,11 @@ class FsImporterUio(FsImporter):
             logger.info("**** UPDATE ****")
         return True
 
-    def _get_admission_date_func(self, for_date, grace_days=0):
-        """ Get a admission date filter function to evaluate *new* students.
-
-        For any given date `for_date`, this method returns a filter function
-        that tests admission dates. Students with an admission date that passes
-        this filter are considered *new* students.
-
-        """
-        date_ranges = [
-            # Dec. 1 (previous year) - Feb. 1 (same year)
-            (
-                mx.DateTime.DateTime(for_date.year - 1,
-                                     mx.DateTime.December,
-                                     1),
-                mx.DateTime.DateTime(for_date.year,
-                                     mx.DateTime.February,
-                                     1)
-            ),
-            # June. 1 (same year) - Sept. 1 (same year)
-            (
-                mx.DateTime.DateTime(for_date.year,
-                                     mx.DateTime.June,
-                                     1),
-                mx.DateTime.DateTime(for_date.year,
-                                     mx.DateTime.September,
-                                     1)
-            ),
-            # Dec 1. (same year) - Feb. 1 (next year)
-            (
-                mx.DateTime.DateTime(for_date.year,
-                                     mx.DateTime.December,
-                                     1),
-                mx.DateTime.DateTime(for_date.year + 1,
-                                     mx.DateTime.February,
-                                     1)
-            )
-        ]
-
-        for from_date, to_date in date_ranges:
-            if from_date <= for_date <= to_date + grace_days:
-                return lambda date: (
-                    isinstance(date, mx.DateTime.DateTimeType) and
-                    from_date <= date <= to_date + grace_days)
-
-        return lambda date: False
-
     def _is_new_admission(self, admission_date_str):
         """ Parse date string and apply `_new_student_filter`. """
-        if not isinstance(admission_date_str, six.string_types):
-            return False
         try:
-            # parse YYYY-mm-dd string
-            date = mx.DateTime.Parser.DateFromString(admission_date_str,
-                                                     formats=('ymd1', ))
-        except mx.DateTime.Error:
+            date = parse_fs_xml_date(admission_date_str, allow_empty=False)
+        except ValueError:
             return False
         return self._new_student_filter(date)
 

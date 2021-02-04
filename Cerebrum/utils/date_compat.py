@@ -167,3 +167,31 @@ def to_mx_format(dtobj, tz=date.TIMEZONE):
     """
     dt = get_datetime_naive(dtobj, allow_none=False, tz=tz)
     return dt.strftime('%Y-%m-%d %H:%M:%S') + '.' + dt.strftime('%f')[:2]
+
+
+def parse_fs_xml_date(dtstr, allow_empty=True):
+    """
+    Get a date object from an FS date field.
+
+    Currently, FS datetime objects are formatted by str(mx.DateTime) in
+    various `import_from_FS` scripts.  The code for this is in
+    `Cerebrum.modules.xmlutils.xml_helper`.
+
+    In the future, we expect these date fields to be formatted as proper
+    ISO8601 date values (and parsed by ``Cerebrum.utils.date.parse_date``)
+
+    :param str dtstr:
+        an ISO-formatted date or datetime
+
+    :param bool allow_empty:
+        Allow the dtstr value to be empty (return `None`)
+
+    :rtype: datetime.date
+    """
+    if allow_empty and not dtstr:
+        return None
+    try:
+        return date.parse_date(dtstr)
+    except ValueError:
+        pass
+    return date.parse_datetime(dtstr).date()
