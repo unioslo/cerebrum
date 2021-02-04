@@ -146,7 +146,7 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup, fs_update, index,
                 updates[cere_value] = None
             except db.IntegrityError:
                 logger.info("Not updating %s for %06d%05d: %s -> %s",
-                            index, u_fdato, u_persnr, u_fs_value, cere_value)
+                            index, u_fdato, u_persnr, u_fs_value, u_cere_value)
         logger.info("Changing %s for %06d%05d: %s -> %s",
                     index, fdato, persnr, fs_value, cere_value)
         try:
