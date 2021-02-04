@@ -139,11 +139,14 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup, fs_update, index,
             u_fdato, u_persnr, u_cere_value = updates[u_fs_value]
             logger.info("Changing cascading %s for %06d%05d: %s -> %s",
                         index, u_fdato, u_persnr, u_fs_value, u_cere_value)
-            fs_update(u_fdato, u_persnr, u_cere_value)
-            commit_handler()
-            # Mark it as done
-            updates[cere_value] = None
-
+            try:
+                fs_update(u_fdato, u_persnr, u_cere_value)
+                commit_handler()
+                # Mark it as done
+                updates[cere_value] = None
+            except db.IntegrityError:
+                logger.info("Not updating %s for %06d%05d: %s -> %s",
+                            index, u_fdato, u_persnr, u_fs_value, u_cere_value)
         logger.info("Changing %s for %06d%05d: %s -> %s",
                     index, fdato, persnr, fs_value, cere_value)
         try:
