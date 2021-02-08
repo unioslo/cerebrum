@@ -32,17 +32,20 @@ TODO: add functionality for only affecting new person affiliations instead,
 e.g. only new employees from the last 7 days? This is usable e.g. for UiO.
 
 """
-
 import argparse
+import logging
 from operator import itemgetter
 
 import cereconf
 
-from Cerebrum import Errors, Constants
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+from Cerebrum import Constants
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.AccountPolicy import AccountPolicy
 
-logger = Factory.get_logger('cronjob')
+logger = logging.getLogger(__name__)
 
 
 def str2aff(co, affstring):
@@ -126,7 +129,8 @@ def get_gid(posix, posix_uio):
     return None
 
 
-def update_account(db, pe, account_policy, creator, new_traits=None, spreads=(),
+def update_account(db, pe, account_policy, creator, new_traits=None,
+                   spreads=(),
                    ignore_affs=(), remove_quars=(), posix=False, home=None,
                    home_auto=None, posix_uio=False):
     """Make sure that the given person has an active account. It the person has
@@ -147,7 +151,7 @@ def update_account(db, pe, account_policy, creator, new_traits=None, spreads=(),
     disks = (home,) if home else ()
     # Some logging
     logger.debug("Will add traits: %s to account",
-        ', '.join(str(trait) for trait in new_traits))
+                 ', '.join(str(trait) for trait in new_traits))
     logger.debug("Will add spreads: %s to account",
                  ', '.join(str(i) for i in spreads))
     # Log stedkode if ou has stedkode mixin
@@ -164,11 +168,6 @@ def update_account(db, pe, account_policy, creator, new_traits=None, spreads=(),
                      affiliation['ou_id'])
     if posix:
         logger.debug("Will add POSIX for account")
-    if home or home_auto:
-        disk_id = account_policy._get_ou_disk(pe)[0]
-        di.clear()
-        di.find(disk_id)
-        logger.debug("Will add homedir: %s for account", di.path)
 
     # Restore the _last_ expired account, if any:
     old_accounts = ac.search(owner_id=pe.entity_id, expire_start=None,
@@ -390,7 +389,11 @@ def make_parser():
         '--commit',
         action='store_true',
         default=False,
-        help='Actually commit the work. The default is dryrun.')
+        help='Actually commit the work. The default is dryrun.',
+    )
+
+    Cerebrum.logutils.options.install_subparser(parser)
+
     return parser
 
 
@@ -398,8 +401,10 @@ def main(inargs=None):
     parser = make_parser()
     args = parser.parse_args(inargs)
 
-    logger.info("start ({0})".format(__file__))
-    logger.debug(repr(args))
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    logger.info("start %s", parser.prog)
+    logger.debug("args: %s", repr(args))
 
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
