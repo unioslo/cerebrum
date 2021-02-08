@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import collections
+import datetime
 import errno
 import imaplib
 import re
@@ -106,6 +107,8 @@ from Cerebrum.modules.pwcheck.history import (
     PasswordHistory,
     check_password_history,
 )
+from Cerebrum.utils.date import parse_date
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.email import mail_template, sendmail
 from Cerebrum.utils import json
 
@@ -1951,32 +1954,57 @@ class BofhdExtension(BofhdCommonMethods):
         ("group", "set_expire"),
         GroupName(),
         Date(optional=True),
-        perm_filter='can_delete_group')
+        perm_filter='can_delete_group',
+        # TODO: Update brukerinfo to handle data structure return value
+        # fs=FormatSuggestion(
+        #     "OK, set expire date for group %s to %s",
+        #     ('group_name', format_day('expire_date')),
+        # ),
+    )
 
     def group_set_expire(self, operator, group, expire=None):
         grp = self._get_group(group)
         self.ba.can_delete_group(operator.get_entity_id(), grp)
         self._raise_PermissionDenied_if_not_manual_group(grp)
+
+        # TODO: Make new, non-mx generic date parsers in bofhd_utils.
+        #       We'd probably need new help texts for the new parsers too.
         if expire:
-            self._assert_group_deletable(grp)
-            grp.expire_date = self._parse_date(expire)
-            grp.write_db()
-            return 'OK, set expire-date for {0} set to {1}'.format(group,
-                                                                   expire)
+            try:
+                expire = parse_date(expire)
+            except ValueError:
+                raise CerebrumError('Invalid date: ' + repr(expire))
+
+        max_delta = datetime.timedelta(days=366)
+        is_superuser = self.ba.is_superuser(operator.get_entity_id())
+        delta = (expire - datetime.date.today()) if expire else None
+
+        if (delta and delta > max_delta and not is_superuser):
+            raise PermissionDenied('Cannot set expire date > %s days'
+                                   % max_delta.days)
+
+        if expire:
+            # set the given expire date
+            grp.expire_date = expire
+        elif (self._is_perishable_manual_group(grp)
+                and cereconf.MANUAL_GROUP_DEFAULT_LIFETIME):
+            # no expire given - set default expire if configured to do so
+            grp.set_default_expire_date()
         else:
-            if (
-                    self._is_perishable_manual_group(grp) and
-                    cereconf.MANUAL_GROUP_DEFAULT_LIFETIME):
-                grp.set_default_expire_date()
-                grp.write_db()
-                return 'Expires {0} (default lifetime)'.format(grp.expire_date)
-            if grp.expire_date:
-                grp.expire_date = None
-                grp.write_db()
-                return 'OK, removed expire-date for {0}'.format(group)
-            else:
-                raise CerebrumError('Expire date not set for {0}'.format(
-                    group))
+            raise CerebrumError('Missing expire date')
+
+        # TODO: Allow superuser to clear expire_date from certain
+        #       group types? Probably better to make a superuser
+        #       `group clear_expire`
+
+        grp.write_db()
+        return (
+            u'OK, set expire date for group %(group_name)s '
+            u'to %(expire_date)s'
+            % {
+                'group_name': grp.group_name,
+                'expire_date': date_compat.get_date(grp.expire_date),
+            })
 
     #
     # group set_visibility
