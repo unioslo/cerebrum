@@ -19,22 +19,26 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """ Script to maintain accounts of students with aff STUDENT/ny. """
-
 from __future__ import unicode_literals, absolute_import, print_function
 
-import os.path
 import argparse
-import mx.DateTime
+import datetime
+import logging
+import os.path
 from collections import defaultdict
 
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
+from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.utils.descriptors import lazy_property
-from Cerebrum.utils.scriptargs import build_callback_action
 from Cerebrum.Utils import Factory
 
 
 SCRIPT_NAME = os.path.basename(__file__)
+
+logger = logging.getLogger(__name__)
 
 
 class NewStudentHelper(object):
@@ -216,7 +220,7 @@ class NewStudentHelper(object):
             self.quarantine,
             self.operator.entity_id,
             description="ny, inaktiv student",
-            start=mx.DateTime.now())
+            start=datetime.date.today())
         self.stats[self.STAT_LOCKED] += 1
 
     def unlock_account(self, account):
@@ -225,79 +229,82 @@ class NewStudentHelper(object):
         self.stats[self.STAT_UNLOCKED] += 1
 
 
-def tag_new_accounts(db_helper, logger):
+def tag_new_accounts(db_helper):
     """ Tag all new, untagged accounts. """
     for account in db_helper.list_new_accounts():
         if not db_helper.is_tagged_account(account):
             db_helper.tag_account(account)
-            logger.debug("tagged account {!s}".format(account.account_name))
+            logger.debug("tagged account '%s'", account.account_name)
 
 
-def process_tagged_accounts(db_helper, logger):
+def process_tagged_accounts(db_helper):
     """ Untag and process all tagged accounts that aren't new. """
     for account in db_helper.list_tagged_accounts():
-        logger.debug("account {!s} has trait".format(account.account_name))
+        logger.debug("account '%s' has trait", account.account_name)
         if db_helper.is_new_account(account):
             continue
         # not considered new anymore, must update
         db_helper.untag_account(account)
-        logger.debug(
-            "account {!s} no longer new".format(account.account_name))
+        logger.debug("account '%s' no longer new", account.account_name)
         if (db_helper.is_inactive_account(account)
                 and not db_helper.is_locked_account(account)):
             db_helper.lock_account(account)
-            logger.info(
-                "locked account {!s}".format(account.account_name))
+            logger.info("locked account '%s'", account.account_name)
 
 
-def process_locked_accounts(db_helper, logger):
+def process_locked_accounts(db_helper):
     """ Unlock accounts that are not inactive. """
     for account in db_helper.list_locked_accounts():
         if not db_helper.is_inactive_account(account):
             db_helper.unlock_account(account)
-            logger.info(
-                "unlocked account {!s}".format(account.account_name))
+            logger.info("unlocked account %s", account.account_name)
 
 
-def list_action_cb():
+def print_new_students(db_helper):
     """ Print list of new accounts. """
-    db_helper = NewStudentHelper()
     print("New accounts")
     for account in db_helper.list_new_accounts():
         print(" - {:s}".format(account.account_name))
 
 
-def main(args=None):
-    logger = Factory.get_logger('cronjob')
-
+def main(inargs=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--list',
-                        action=build_callback_action(list_action_cb),
-                        help="List new accounts and exit")
-    parser.add_argument('--commit',
-                        default=False,
-                        action='store_true',
-                        help="Commit any changes")
-    args = parser.parse_args(args)
+    parser.add_argument(
+        '--list',
+        action='store_true',
+        help="List new accounts and exit",
+    )
 
-    logger.info("Start")
+    db_args = parser.add_argument_group('Database')
+    add_commit_args(db_args)
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+    logger.info("Start %s", parser.prog)
+    logger.debug("args: %r", args)
 
     db_helper = NewStudentHelper()
-    logger.info("unlock active accounts...")
-    process_locked_accounts(db_helper, logger)
-    logger.info("process tagged accounts...")
-    process_tagged_accounts(db_helper, logger)
-    logger.info("tag new accounts...")
-    tag_new_accounts(db_helper, logger)
 
-    logger.info("Tagged {:d} accounts".format(
-        db_helper.stats[db_helper.STAT_TAGGED]))
-    logger.info("Untagged {:d} accounts".format(
-        db_helper.stats[db_helper.STAT_UNTAGGED]))
-    logger.info("Locked {:d} accounts".format(
-        db_helper.stats[db_helper.STAT_LOCKED]))
-    logger.info("Unlocked {:d} accounts".format(
-        db_helper.stats[db_helper.STAT_UNLOCKED]))
+    if args.list:
+        print_new_students(db_helper)
+        raise SystemExit(0)
+
+    logger.info("unlock active accounts...")
+    process_locked_accounts(db_helper)
+    logger.info("process tagged accounts...")
+    process_tagged_accounts(db_helper)
+    logger.info("tag new accounts...")
+    tag_new_accounts(db_helper)
+
+    logger.info("Tagged %d accounts",
+                db_helper.stats[db_helper.STAT_TAGGED])
+    logger.info("Untagged %d accounts",
+                db_helper.stats[db_helper.STAT_UNTAGGED])
+    logger.info("Locked %d accounts",
+                db_helper.stats[db_helper.STAT_LOCKED])
+    logger.info("Unlocked %d accounts",
+                db_helper.stats[db_helper.STAT_UNLOCKED])
 
     if args.commit:
         db_helper.db.commit()
@@ -305,7 +312,8 @@ def main(args=None):
     else:
         db_helper.db.rollback()
         logger.info("Changes has been rolled back.")
-    logger.info("Done")
+
+    logger.info("Done %s", parser.prog)
 
 
 if __name__ == '__main__':
