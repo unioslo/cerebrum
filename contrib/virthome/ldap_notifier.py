@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-# Copyright 2013-2018 University of Oslo, Norway
+#
+# Copyright 2013-2021 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,16 +18,26 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+""" Process users that are exported to or retained from LDAP.
 
-""" This is a generic script that can operate on users that are created
-(exported) or removed (retained) in LDAP exports.
+This script can run an assortment of functions on users as they are 'created'
+or 'deleted' in the associated WebID LDAP tree.  We calculate if users *should*
+exist in LDAP, look up if they *actually do* exist in LDAP, and if we've
+notified users about a change in this state before
+(Constants.trait_user_notified).
+
+If this state changes for the first time, we run a series of callbacks for that
+user account.  Currently, only one type of callback is implemented;  We notify
+users if they are member of a group with a Constants.trait_group_forward trait,
+with an email that explains that their account is now active, and ready to be
+used with the associated webapp.
 
 NOTE: This script requires special commit handling! The notifier will commit
 changes to the retained-trait after running `update_retained_trait()'.
 
 When running `run_callbacks()', we pass Account-objects to the callback
-functions, re-using the same Database-object. The callback function must take
-care of and commit/rollback any changes it writes.
+functions, re-using a single Database-transaction. The callback function must
+commit/rollback any changes according to the `dryrun` flag.
 """
 import argparse
 import ldap
@@ -62,18 +73,18 @@ def get_config(name):
 def get_trait(entity, trait_const, val=None):
     """ Get trait or a given trait attribute
 
-    @type entity: Cerebrum.Entity
-    @param entity: The entity we're looking up trait for
+    :type entity: Cerebrum.Entity
+    :param entity: The entity we're looking up trait for
 
-    @type trait_const: EntityTraitCode
-    @param trait_const: The type of trait
+    :type trait_const: EntityTraitCode
+    :param trait_const: The type of trait
 
-    @type val: str, NoneType
-    @param val: The trait attribute to get, or None to get the trait dict
+    :type val: str, NoneType
+    :param val: The trait attribute to get, or None to get the trait dict
 
-    @rtype: mixed
-    @return: The trait or given trait value L{val}, if it exists. Otherwise
-             None
+    :rtype: mixed
+    :return:
+        The trait or given trait value L{val}, if it exists. Otherwise None
     """
     assert hasattr(entity, 'entity_id') and hasattr(entity, 'get_trait')
     try:
@@ -86,7 +97,7 @@ def get_trait(entity, trait_const, val=None):
     return None
 
 
-class Notifier:
+class Notifier(object):
     """ Notifier, runs a dummy LDAP export to see which users are eligible for
     export to LDAP. We compare this set with all users in the database, and all
     users previously marked as retained/'not exported'.
@@ -252,7 +263,7 @@ class Notifier:
         try:
             result = webid.search_s(user_dn, ldap.SCOPE_SUBTREE,
                                     filterstr=filter)
-        except ldap.LDAPError, e:
+        except ldap.LDAPError as e:
             self.logger.info("Could not check if %r in ldap: %s", uid, str(e))
             return None
 
@@ -280,7 +291,7 @@ class Notifier:
                 callback(ac, dryrun)
 
 
-class AccountEmailer:
+class AccountEmailer(object):
     """ A simple emailer that can send emails to an address associated with an
     account, and prevent spamming if anything should fail.
 
@@ -376,7 +387,7 @@ class AccountEmailer:
             try:
                 sendmail(to_addr, self.sender, subject, message)
                 self.logger.debug("Sent message to %r", to_addr)
-            except smtplib.SMTPRecipientsRefused, e:
+            except smtplib.SMTPRecipientsRefused as e:
                 error = e.recipients.get(to_addr)
                 self.logger.warn("Failed to send message to %s (SMTP %d: %s)",
                                  to_addr, error[0], error[1])
@@ -389,7 +400,7 @@ class AccountEmailer:
 
 
 def callback_test(ac, dryrun=False):
-    logger.debug("Callback for acocunt '%s'" % ac.account_name)
+    logger.debug("Callback for account '%s'", ac.account_name)
 
 
 def callback_notify_forward(ac, dryrun=False):
@@ -431,6 +442,17 @@ def callback_notify_forward(ac, dryrun=False):
             'account_name': ac.account_name,
             'items': items}
         mailer.send_email(subject, message)
+
+
+dryrun_callback_error_msg = """
+Running callbacks without commiting would cause users to be
+notified multiple times about the same change.
+
+Commiting without running callbacks would cause users NOT to get
+notified about changes.
+
+If debugging, or running first time, use -f to force this action.
+""".lstrip()
 
 
 def main(inargs=None):
@@ -475,29 +497,18 @@ def main(inargs=None):
         '-f', '--force',
         action='store_true',
         default=False,
-        help='Cannot normally run callbacks (-r) without commiting (-c),'
-             ' as that would cause callbacks to be runned multiple times'
-             ' for a given user.  The -f flag makes this possible.'
+        help='Force run callbacks (-r) in dryrun'
     )
 
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(inargs)
     Cerebrum.logutils.autoconf(DEFAULT_LOGGER, args)
 
-    logger.info('Start of script %s', parser.prog)
+    logger.info('Start %s', parser.prog)
     logger.debug("args: %r", args)
 
     if args.run_callbacks and not (args.commit or args.force):
-        raise RuntimeError(
-            """
-            Running callbacks without commiting would cause users to be
-            notified multiple times about the same change.
-
-            Commiting without running callbacks would cause users NOT to get
-            notified about changes.
-
-            If debugging, or running first time, use -f to force this action.
-            """)
+        raise RuntimeError(dryrun_callback_error_msg)
 
     noti = Notifier(logger, dryrun=not args.commit)
 
@@ -509,7 +520,7 @@ def main(inargs=None):
     if args.run_callbacks:
         noti.run_callbacks(not args.commit)
 
-    logger.info('Done with script %s', parser.prog)
+    logger.info('Done %s', parser.prog)
 
 
 if __name__ == "__main__":

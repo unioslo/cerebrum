@@ -1,7 +1,25 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
-
-"""Notify accounts that are about to expire.
+# -*- coding: utf-8 -*-
+#
+# Copyright 2010-2021 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+Notify accounts that are about to expire.
 
 This script scans the accounts in WebID and looks for accounts that are about
 to expire. Specifically, expire_notifier.py performs these tasks:
@@ -21,22 +39,24 @@ In order for this approach to work additional cooperation is required from:
   * bofhd/PHP-interface. The URL mentioned earlier leads to a page where users
     confirm the request and push the expiration date into the future.
 """
+import argparse
+import logging
+import smtplib
 
+import six
 from mx.DateTime import now
 from mx.DateTime import DateTimeDelta
 
-import getopt
-import smtplib
-import sys
-
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.email import sendmail
 from Cerebrum.utils import json
 
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 
 
 def get_config(name):
@@ -53,7 +73,7 @@ def get_config(name):
     return getattr(cereconf, name)
 
 
-class user_attributes(object):
+class UserAttributes(object):
     """Placeholder for related attributes for a user.
 
     This is a convenience class. Rather than construct a dict of dicts, we'll
@@ -120,7 +140,7 @@ def account_id2attributes(account_id, database):
     account = Factory.get("Account")(database)
     try:
         account.find(account_id)
-        return user_attributes(account)
+        return UserAttributes(account)
     except Errors.NotFoundError:
         return None
 
@@ -227,7 +247,7 @@ def send_email(requests, dryrun, database):
                          message)
                 logger.debug("Message for %s/%s (request key: %s) sent",
                              uname, email, magic_key)
-            except smtplib.SMTPRecipientsRefused, e:
+            except smtplib.SMTPRecipientsRefused as e:
                 error = e.recipients.get(email)
                 logger.warn("Failed to send message to %s/%s (SMTP %d: %s)",
                             uname, email, error[0], error[1])
@@ -243,7 +263,6 @@ def send_email(requests, dryrun, database):
             logger.debug("Message for %s/%s (request key: %s) will not be sent"
                          " (this is a dry run)",
                          uname, email, magic_key)
-# end send_email
 
 
 def get_account(ident, database):
@@ -256,8 +275,8 @@ def get_account(ident, database):
 
     account = Factory.get("Account")(database)
     try:
-        if (isinstance(ident, (int, long)) or
-                isinstance(ident, str) and ident.isdigit()):
+        if (isinstance(ident, six.integer_types)
+                or isinstance(ident, six.string_types) and ident.isdigit()):
             account.find(int(ident))
         else:
             account.find_by_name(ident)
@@ -270,10 +289,10 @@ def get_account(ident, database):
 def typeset_change_log_row(row, database):
     account = get_account(row["subject_entity"], database)
     clconst = Factory.get("CLConstants")()
-    entity = (account is not None and
-              "account: %s/id=%s" % (account.account_name,
-                                     account.entity_id) or
-              "id=%s" % row["subject_entity"])
+    entity = ("account: %s/id=%s" % (account.account_name,
+                                     account.entity_id)
+              if account
+              else "id=%s" % row["subject_entity"])
     if row.get("confirmation_key") is not None:
         magic = "with request key %s " % str(row["confirmation_key"])
     else:
@@ -383,32 +402,51 @@ def remove_request(ident, dryrun, database):
     database.remove_log_event(request["change_id"])
 
 
-def main(argv):
-    opts, junk = getopt.getopt(argv[1:],
-                               "d",
-                               ("dryrun",
-                                "dry-run",
-                                "show-request=",
-                                "send-expire-warning=",
-                                "remove-request=",))
-    dryrun = False
-    display_requests = set()
-    explicit_requests = set()
-    remove_requests = set()
-    for option, value in opts:
-        if option in ("-d", "--dryrun", "--dry-run",):
-            dryrun = True
-        elif option in ("--show-request",):
-            display_requests.add(value)
-        elif option in ("--send-expire-warning",):
-            explicit_requests.add(value)
-        elif option in ("--remove-request",):
-            remove_requests.add(value)
+def main(inargs=None):
+    parser = argparse.ArgumentParser(
+        description="Notify accounts that are about to expire",
+    )
+    parser.add_argument(
+        '-d', '--dryrun', '--dry-run',
+        dest='dryrun',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--show-request',
+        dest='display_requests',
+        action='append',
+    )
+    parser.add_argument(
+        '--send-expire-warning',
+        dest='explicit_requests',
+        action='append',
+    )
+    parser.add_argument(
+        '--remove-request',
+        dest='remove_requests',
+        action='append',
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(inargs)
+
+    Cerebrum.logutils.autoconf('cronjob', args)
+    logger.info('start %s', parser.prog)
+
+    dryrun = args.dryrun
+    logger.info('dryrun: %r', dryrun)
+
+    display_requests = set(args.display_requests or ())
+    logger.info('display_requests: %r', display_requests)
+
+    explicit_requests = set(args.explicit_requests or ())
+    logger.info('explicit_requests: %r', explicit_requests)
+
+    remove_requests = set(args.remove_requests or ())
+    logger.info('remove_requests: %r', remove_requests)
 
     database = Factory.get("Database")()
     database.cl_init(change_program="expire_notifier")
-    if dryrun:
-        database.commit = database.rollback
 
     if display_requests:
         for ident in display_requests:
@@ -422,15 +460,23 @@ def main(argv):
         for ident in remove_requests:
             remove_request(ident, dryrun, database)
 
-    if display_requests or explicit_requests or remove_requests:
-        database.commit()
-        sys.exit(0)
+    # using --show-request, --send-expire-warning, or --remove-request negates
+    # the default behaviour:
+    if not any((display_requests, explicit_requests, remove_requests)):
+        logger.info('collecting new expire notifications...')
+        requests = generate_requests(database)
+        logger.info('found %d new expire notifications to send', len(requests))
+        send_email(requests, dryrun, database)
 
-    requests = generate_requests(database)
-    send_email(requests, dryrun, database)
-    database.commit()
-    logger.debug("All done")
+    if dryrun:
+        logger.info("rolling back changes (dryrun)")
+        database.rollback()
+    else:
+        logger.info("commiting changes")
+        database.commit()
+
+    logger.debug("Done %s", parser.prog)
 
 
 if __name__ == "__main__":
-    main(sys.argv[:])
+    main()
