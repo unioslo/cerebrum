@@ -38,14 +38,47 @@ In order for this approach to work additional cooperation is required from:
 
   * bofhd/PHP-interface. The URL mentioned earlier leads to a page where users
     confirm the request and push the expiration date into the future.
+
+
+cereconf
+--------
+``EXPIRE_WARN_WINDOW``
+    When to generate and send expire email notifications.
+
+    Notification will be sent if there are less than ``EXPIRE_WARN_WINDOW``
+    days left until the account expires.
+
+``EXPIRE_CONFIRM_URL``
+    Base URL for the 'keepalive' link in the email notification.
+
+    The actual link provided in the email is ``EXPIRE_CONFIRM_URL +
+    confirmation_key``.
+
+``EXPIRE_MESSAGE_SENDER``
+    *From* field in email notifications.
+
+``EXPIRE_MESSAGE_SUBJECT``
+    *Subject* field in email notifications.
+
+``EXPIRE_MESSAGE_TEMPLATE``
+    Template for the email notification message body.  The template is rendered
+    using old-style string formatting:
+
+    ::
+
+        EXPIRE_MESSAGE_TEMPLATE % {
+            "uname": "example",
+            "expire_date": "1998-06-28",
+            "url": EXPIRE_CONFIRM_URL + "c945...",
+        }
+
 """
 import argparse
+import datetime
 import logging
 import smtplib
 
 import six
-from mx.DateTime import now
-from mx.DateTime import DateTimeDelta
 
 import cereconf
 
@@ -53,8 +86,10 @@ import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.utils.email import sendmail
 from Cerebrum.utils import json
+from Cerebrum.utils.date import now
+from Cerebrum.utils.date_compat import get_date, get_timedelta
+from Cerebrum.utils.email import sendmail
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +119,7 @@ class UserAttributes(object):
         self.email = account.get_email_address()
         self.account_id = account.entity_id
         self.magic_key = None
-        self.expire_date = account.expire_date
+        self.expire_date = get_date(account.expire_date)
 
     def set_magic_key(self, magic):
         self.magic_key = magic
@@ -98,41 +133,47 @@ def collect_warnable_accounts(database):
 
     account = Factory.get("Account")(database)
     const = Factory.get("Constants")()
-    return set(x["account_id"]
-               # collect all accounts
-               for x in account.list(filter_expired=True)
-               # ... that are VA/FA
-               if (x["np_type"] in (const.virtaccount_type,
-                                    const.fedaccount_type) and
-                   # ... and have an expire date
-                   x["expire_date"] and
-                   # ... and that expire date is within the right window
-                   DateTimeDelta(0) <= x["expire_date"] - now() \
-                                    <= get_config("EXPIRE_WARN_WINDOW")))
+
+    today = datetime.date.today()
+    warn_np_types = (const.virtaccount_type, const.fedaccount_type)
+    warn_min_delta = datetime.timedelta(0)
+    warn_max_delta = get_timedelta(get_config("EXPIRE_WARN_WINDOW"),
+                                   allow_none=False)
+
+    for row in account.list(filter_expired=True):
+        if row["np_type"] not in warn_np_types:
+            # wrong account type - we only notify "regular" accounts
+            continue
+        expire_date = get_date(row["expire_date"])
+        if not expire_date:
+            continue
+        days_until_expire = expire_date - today
+        if days_until_expire < warn_min_delta:
+            # already expired
+            continue
+        if days_until_expire > warn_max_delta:
+            # too many days until expire
+            continue
+        yield row["account_id"]
 
 
 def collect_warned_accounts(database, account_ids=None):
     """Collect FA/VA that have an outstanding expire warning.
 
-    @type account_ids: an int or a sequence thereof
-    @param account_ids:
+    :type account_ids: an int or a sequence thereof
+    :param account_ids:
       Specific accounts the expire warning status of which we want.
     """
     clconst = Factory.get("CLConstants")
-    already_warned = set()
     for event in database.get_log_events(types=clconst.va_reset_expire_date,
                                          subject_entity=account_ids):
         account_id = event["subject_entity"]
         if account_id is None:
-            logger.error("While scanning for %s events, found an event "
-                         "(change_id=%s) without an associated subject_entity."
-                         "This is a serious error and should be fixed "
-                         "manually (ninja-sql?)",
-                         str(clconst.va_reset_expire_date),
-                         event["change_id"])
+            logger.error(
+                "event %s (change_id=%s) has no subject_entity",
+                str(clconst.va_reset_expire_date), event["change_id"])
             continue
-        already_warned.add(account_id)
-    return already_warned
+        yield account_id
 
 
 def account_id2attributes(account_id, database):
@@ -161,8 +202,8 @@ def create_request(attrs, cl_event_type, db):
                                       change_params={"date": now(),
                                                      "to": attrs.email})
     db.write_log()
-    logger.debug("Created %s request for account %s (id=%s)",
-                 str(cl_event_type), attrs.uname, attrs.account_id)
+    logger.info("Created %s request for account %s (id=%s)",
+                str(cl_event_type), attrs.uname, attrs.account_id)
 
     attrs.set_magic_key(magic_key)
     return magic_key
@@ -195,8 +236,8 @@ def generate_requests(database):
     warned. However, not all of them should have a request generated, as some
     may already have a similar request.
     """
-    warnable_accounts = collect_warnable_accounts(database)
-    already_warned = collect_warned_accounts(database)
+    warnable_accounts = set(collect_warnable_accounts(database))
+    already_warned = set(collect_warned_accounts(database))
 
     clconst = Factory.get("CLConstants")()
     # Ok, we have the warnable set and the exception set. Let's go.
@@ -220,8 +261,8 @@ def generate_requests(database):
 def send_email(requests, dryrun, database):
     """Send 'confirm you are still alive' e-mails.
     """
+    logger.debug("%d e-mails to dispatch", len(requests))
 
-    logger.debug("%d e-mails to dispatch.", len(requests))
     for account_id in requests:
         attrs = requests[account_id]
         email = attrs.email
@@ -239,14 +280,18 @@ def send_email(requests, dryrun, database):
 
         logger.debug("Generated a message for %s/%s (request key: %s). ",
                      uname, email, magic_key)
-        if not dryrun:
+        if dryrun:
+            logger.info("Message for %s/%s (request key: %s) will not be sent"
+                        " (this is a dry run)",
+                        uname, email, magic_key)
+        else:
             try:
                 sendmail(email,
                          get_config("EXPIRE_MESSAGE_SENDER"),
                          get_config("EXPIRE_MESSAGE_SUBJECT"),
                          message)
-                logger.debug("Message for %s/%s (request key: %s) sent",
-                             uname, email, magic_key)
+                logger.info("Message for %s/%s (request key: %s) sent",
+                            uname, email, magic_key)
             except smtplib.SMTPRecipientsRefused as e:
                 error = e.recipients.get(email)
                 logger.warn("Failed to send message to %s/%s (SMTP %d: %s)",
@@ -259,10 +304,6 @@ def send_email(requests, dryrun, database):
                 logger.exception(
                     "Failed to send message to %s/%s", uname, email)
                 cancel_request(attrs, database)
-        else:
-            logger.debug("Message for %s/%s (request key: %s) will not be sent"
-                         " (this is a dry run)",
-                         uname, email, magic_key)
 
 
 def get_account(ident, database):
@@ -354,8 +395,8 @@ def send_expire_warning(ident, dryrun, database):
                      ident)
         return
 
-    if account.entity_id in collect_warned_accounts(database,
-                                                    account.entity_id):
+    warned = set(collect_warned_accounts(database, account.entity_id))
+    if account.entity_id in warned:
         logger.debug("Account %s (id=%s) has already been warned about "
                      "approaching expire date. No additional warnings "
                      "will be generated",
