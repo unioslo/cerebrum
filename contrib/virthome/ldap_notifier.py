@@ -38,20 +38,55 @@ changes to the retained-trait after running `update_retained_trait()'.
 When running `run_callbacks()', we pass Account-objects to the callback
 functions, re-using a single Database-transaction. The callback function must
 commit/rollback any changes according to the `dryrun` flag.
+
+cereconf
+--------
+``LDAP_URL``
+    The LDAP user lookup connects to the ldap server given in ``LDAP_URL``.
+
+``LDAP_USER``
+    The LDAP user lookup does a subtree search in the base-dn given by
+    ``LDAP_USER['dn']``.
+
+``USER_NOTIFIED_LIMIT``
+    Notification limits for this script - a dict with two values, *num* and
+    *days*.  A given user account can only be notified up to *num* times in
+    *days* days.
+
+``EXPORT_MESSAGE``
+    Message template for notifications - a dict with values *sender*,
+    *subject*, *body*, and *item_fmt*.
+
+    *sender* and *subject* are the *From* and *Subject* fields of a
+    notification email.
+
+    *body* is a template which gets rendered with old-style string formatting,
+    while *item_tpl* is a template for individual group memberships/webapps to
+    notify the user about:
+
+    ::
+
+        EXPORT_MESSAGE['body'] % {
+            'account_name': 'example@realm',
+            'items': "\n".join(
+                EXPORT_MESSAGE['item_fmt'] % {'name': name, 'url': url}
+                for name, url in ...
+            ),
+        }
 """
 import argparse
+import datetime
 import ldap
 import logging
 import smtplib
 import textwrap
 from time import time
 
-from mx.DateTime import now
-
 import cereconf
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.email import sendmail
 from Cerebrum.modules.virthome.LDIFHelper import LDIFHelper
 
@@ -300,7 +335,7 @@ class AccountEmailer(object):
     """
     # TODO: Build in spam prevention
 
-    def __init__(self, ac, logger, sender, dryrun=True):
+    def __init__(self, ac, logger, sender, dryrun=True, today=None):
         """ If account L{ac} is a member of at least one group with trait
         'forward_url', send an email notification to the email address
         associated with the account.
@@ -312,8 +347,20 @@ class AccountEmailer(object):
         self.co = Factory.get('Constants')(ac._db)
         self.sender = sender
         self.address = None
-        self.max_num = get_config('USER_NOTIFIED_LIMIT')['num']
-        self.days_reset = get_config('USER_NOTIFIED_LIMIT')['days']
+        self.max_num = int(get_config('USER_NOTIFIED_LIMIT')['num'])
+        self.days_reset = datetime.timedelta(
+            days=int(get_config('USER_NOTIFIED_LIMIT')['days']),
+        )
+        self.today = today or datetime.date.today()
+
+    def _needs_reset(self, last_reset):
+        """Check if a trait needs to be reset, according to its date value."""
+        # Note: traits contains TIMESTAMP values, but we really only care about
+        # the date component
+        last_reset = date_compat.get_date(last_reset)
+        if not last_reset:
+            return True
+        return self.today - last_reset > self.days_reset
 
     def get_address(self):
         """ Lazy fetching of account email address """
@@ -332,13 +379,13 @@ class AccountEmailer(object):
             logger.debug("No trait '%s' for '%s'",
                          self.co.trait_user_notified, self.ac.account_name)
             return True
-        else:
-            logger.debug("Trait '%s' for '%s': numval(%d) date(%s)",
-                         self.co.trait_user_notified, self.ac.account_name,
-                         trait.get('numval', 0), trait.get('date'))
-        if (now() - self.days_reset) > trait.get('date'):
+
+        logger.debug("Trait '%s' for '%s': numval=%r, date=%r",
+                     self.co.trait_user_notified, self.ac.account_name,
+                     trait['numval'], trait['date'])
+        if self._needs_reset(trait['date']):
             return True
-        if self.max_num >= trait.get('numval'):
+        if self.max_num >= (trait['numval'] or 0):
             return True
         return False
 
@@ -350,15 +397,15 @@ class AccountEmailer(object):
           3. Incrementing the numval attribute.
         """
         # Initial values for new trait
-        last_reset = now()
-        num_sent = 0
         trait = self.ac.get_trait(self.co.trait_user_notified)
 
-        # Trait date exists, and is not older than days_reset old.
-        if trait and (last_reset - self.days_reset) < trait.get('date'):
-            last_reset = trait.get('date')
-            num_sent = trait.get('numval') or 0
-        # Else, reset trait
+        if (trait and not self._needs_reset(trait['date'])):
+            # Trait date exists, and is not older than days_reset old
+            last_reset = date_compat.get_date(trait['date'])
+            num_sent = trait['numval'] or 0
+        else:
+            last_reset = self.today
+            num_sent = 0
 
         # Increment and write the updated trait values
         num_sent += 1
