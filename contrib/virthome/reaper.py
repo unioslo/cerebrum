@@ -12,22 +12,23 @@ Cerebrum that have not been confirmed within a specified period of time.
 The code should be generic enough to be used on any installation.
 """
 import argparse
+import datetime
 import logging
 
 import six
-from mx.DateTime import now
-from mx.DateTime import DateTimeDelta
 
 import cereconf
 
 import Cerebrum.logutils
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import json
-from Cerebrum import Errors, Entity
+from Cerebrum import Entity
+from Cerebrum import Errors
 from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget
-from Cerebrum.Entity import EntitySpread
+from Cerebrum.utils import date_compat
+from Cerebrum.utils.date import now
 
 
 logger = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ def get_account(ident, database):
     account = Factory.get("Account")(database)
     try:
         if (isinstance(ident, six.integer_types)
-                or isinstance(ident, str) and ident.isdigit()):
+                or isinstance(ident, six.string_types) and ident.isdigit()):
             account.find(int(ident))
         else:
             account.find_by_name(ident)
@@ -73,7 +74,7 @@ def get_group(ident, database):
     group = Factory.get("Group")(database)
     try:
         if (isinstance(ident, six.integer_types)
-                or isinstance(ident, str) and ident.isdigit()):
+                or isinstance(ident, six.string_types) and ident.isdigit()):
             group.find(int(ident))
         else:
             group.find_by_name(ident)
@@ -143,7 +144,7 @@ def delete_common(entity_id, db):
     logger.debug("Deleting common parts for entity %s (id=%s)",
                  fetch_name(entity_id, db), entity_id)
 
-    es = EntitySpread(db)
+    es = Entity.EntitySpread(db)
     es.find(entity_id)
     logger.debug("Deleting spreads: %s",
                  ", ".join(str(const.Spread(x["spread"]))
@@ -209,7 +210,7 @@ def disable_account(account_id, db):
 
     delete_common(account.entity_id, db)
 
-    account.expire_date = now() - DateTimeDelta(1)
+    account.expire_date = datetime.date.today() + datetime.timedelta(days=1)
     account.write_db()
     logger.debug("Disabled account %s (id=%s)",
                  account.account_name, account.entity_id)
@@ -229,7 +230,7 @@ def delete_account(account, db):
 
 def disable_expired_accounts(db):
     """Delete (nuke) all accounts that have expire_date in the past. """
-    logger.debug("Disabling expired accounts")
+    logger.info("Disabling expired accounts")
     const = Factory.get("Constants")(db)
     account = Factory.get("Account")(db)
     for row in account.list(filter_expired=False):
@@ -238,7 +239,8 @@ def disable_expired_accounts(db):
                                   const.fedaccount_type):
             continue
 
-        if row["expire_date"] >= now():
+        expire_date = date_compat.get_date(row["expire_date"])
+        if not expire_date or expire_date >= datetime.date.today():
             continue
 
         # Ok, it's an expired VH. Kill it
@@ -256,12 +258,17 @@ def delete_unconfirmed_accounts(account_np_type, db):
     FIXME: What about partial failures? I.e. do we want to commit after each
     deletion?
     """
-    logger.debug("Deleting unconfirmed accounts")
+    logger.info("Deleting unconfirmed accounts of type '%s'",
+                six.text_type(account_np_type))
+    grace_period = date_compat.get_timedelta(cereconf.GRACE_PERIOD,
+                                             allow_none=False)
+    logger.debug('grace period: %r', grace_period)
+
     clconst = Factory.get("CLConstants")(db)
     account = Factory.get("Account")(db)
     for row in db.get_log_events(types=clconst.va_pending_create):
-        tstamp = row["tstamp"]
-        if now() - tstamp <= cereconf.GRACE_PERIOD:
+        tstamp = date_compat.get_datetime_tz(row["tstamp"])
+        if now() - tstamp <= grace_period:
             continue
 
         account_id = int(row["subject_entity"])
@@ -275,7 +282,7 @@ def delete_unconfirmed_accounts(account_np_type, db):
                         "that no longer exists (cl event will be deleted)",
                         row["change_id"],
                         str(clconst.ChangeType(row["change_type_id"])),
-                        tstamp.strftime("%F %T"),
+                        tstamp.strftime('%F %T'),
                         fetch_name(row["subject_entity"], db),
                         row["subject_entity"])
             db.remove_log_event(row["change_id"])
@@ -317,31 +324,36 @@ def delete_stale_events(cl_events, db):
     than their own deletion). It is the caller's responsibility to check that
     this is so.
     """
-
     if not isinstance(cl_events, (list, tuple, set)):
         cl_events = [cl_events, ]
 
     clconst = Factory.get("CLConstants")()
     typeset_request = ", ".join(str(clconst.ChangeType(x))
                                 for x in cl_events)
-    logger.debug("Deleting stale requests: %s", typeset_request)
+    logger.info("Deleting stale requests: %s", typeset_request)
+    max_invite_period = date_compat.get_timedelta(cereconf.MAX_INVITE_PERIOD,
+                                                  allow_none=False)
+    logger.debug('max age: %r', max_invite_period)
+    grace_period = date_compat.get_timedelta(cereconf.GRACE_PERIOD,
+                                             allow_none=False)
+    logger.debug('grace period: %r', grace_period)
+
     for event in db.get_log_events(types=cl_events):
-        tstamp = event["tstamp"]
-        timeout = cereconf.GRACE_PERIOD
+        tstamp = date_compat.get_datetime_tz(event["tstamp"])
+        timeout = grace_period
         try:
             params = json.loads(event["change_params"])
-            logger.debug('params: %r', params)
             if params['timeout'] is not None:
-                timeout = DateTimeDelta(int(params['timeout']))
+                timeout = datetime.timedelta(days=int(params['timeout']))
                 logger.debug('Timeout set to %s for %s',
                              (now() + timeout).strftime('%Y-%m-%d'),
                              event['change_id'])
 
-                if timeout > cereconf.MAX_INVITE_PERIOD:
+                if timeout > max_invite_period:
                     logger.warning('Too long timeout (%s) for for %s',
                                    timeout.strftime('%Y-%m-%d'),
                                    event['change_id'])
-                    timeout = cereconf.MAX_INVITE_PERIOD
+                    timeout = max_invite_period
         except KeyError:
             pass
         if now() - tstamp <= timeout:
@@ -349,7 +361,7 @@ def delete_stale_events(cl_events, db):
 
         logger.debug("Deleting stale event %s (@%s) for entity %s (id=%s)",
                      str(clconst.ChangeType(event["change_type_id"])),
-                     event["tstamp"].strftime("%Y-%m-%d"),
+                     tstamp.strftime("%Y-%m-%d"),
                      fetch_name(event["subject_entity"], db),
                      event["subject_entity"])
 
@@ -357,34 +369,6 @@ def delete_stale_events(cl_events, db):
         db.commit()
 
     logger.debug("Deleted all stale requests: %s", typeset_request)
-
-
-def enforce_user_constraints(db):
-    """ Check a number of business rules for our users. """
-    account = Factory.get("Account")(db)
-    const = Factory.get("Constants")()
-    for row in account.list(filter_expired=False):
-        # We check FA/VA only
-        if row["np_type"] not in (const.fedaccount_type,
-                                  const.virtaccount_type):
-            continue
-
-        account.clear()
-        account.find(row["entity_id"])
-        # Expiration is not set -> force it to default
-        if row["expire_date"] is None:
-            logger.warn("Account %s (id=%s) is missing expiration date.",
-                        account.account_name,
-                        account.entity_id)
-            account.expire_date = now() + account.DEFAULT_ACCOUNT_LIFETIME
-            account.write_db()
-
-        # Expiration is too far in the future -> force it to default
-        if row["expire_date"] - now() > account.DEFAULT_ACCOUNT_LIFETIME:
-            logger.warn("Account %s (id=%s) has expire date too far in the"
-                        " future.", account.account_name, account.entity_id)
-            account.expire_date = now() + account.DEFAULT_ACCOUNT_LIFETIME
-            account.write_db()
 
 
 def find_and_disable_account(uname, database):
@@ -448,12 +432,6 @@ def delete_stale_event_action(*event_types):
         # validate and map event_types
         for event_attr in event_types:
             events.append(getattr(clconst, event_attr))
-
-        pretty_events = tuple(
-            '{}:{}'.format(code.category, code.type)
-            for code in events)
-
-        logger.info('removing stale events of type: %r', pretty_events)
 
         return delete_stale_events(events, db)
     return do_delete_event
