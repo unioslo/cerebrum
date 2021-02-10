@@ -20,9 +20,12 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 """Delete old data from users."""
 
+import argparse
 import collections
 import functools
 import logging
+
+import Cerebrum.logutils
 
 logger = logging.getLogger(__name__)
 
@@ -246,9 +249,6 @@ def clean_it(prog, commit, logger, systems, system_to_cleaner, selectors,
 
 def parse_it():
     """Argument parsing."""
-    import argparse
-    import Cerebrum.logutils
-
     parser = argparse.ArgumentParser(
         description='Delete person data on grounds of originating source'
                     ' systems')
