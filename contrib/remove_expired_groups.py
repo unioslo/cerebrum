@@ -27,11 +27,11 @@ from __future__ import unicode_literals
 
 import argparse
 
-import mx.DateTime
 from six import text_type
 
 from Cerebrum.Utils import Factory
 from Cerebrum.database import DatabaseError
+from Cerebrum.utils.date import now
 
 logger = Factory.get_logger('cronjob')
 
@@ -55,6 +55,7 @@ def remove_posix_users(gr, posix_user2gid):
         else:
             # PosixGroup, but not PosixUser..? This should
             # never happen, but should be noted if it does.
+            # EDIT: This *does* happen! Investigate.
             logger.warning('Member %i of PosixGroup %r '
                            'is not a PosixUser',
                            member, gr.entity_id)
@@ -88,7 +89,7 @@ def remove_expired_groups(db, days, pretend):
         expired_groups = gr.search(filter_expired=False, expired_only=True)
         for group in expired_groups:
             removal_deadline = group['expire_date'] + days
-            if mx.DateTime.now() > removal_deadline:
+            if now() > removal_deadline:
                 # deadline passed. remove!
                 amount_to_be_removed_groups += 1
                 try:
@@ -154,7 +155,7 @@ def remove_expired_groups(db, days, pretend):
                     db.rollback()
                     continue
             else:
-                time_until_removal = removal_deadline - mx.DateTime.now()
+                time_until_removal = removal_deadline - now()
                 logger.debug(
                     'Expired group (%s - %s), will be removed in %d days' % (
                         group['name'],
