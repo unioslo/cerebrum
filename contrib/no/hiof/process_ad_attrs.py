@@ -20,6 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
+import argparse
 import sys
 import getopt
 import time
@@ -112,21 +113,21 @@ def set_operator(entity_id=None):
 
 
 def main():
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], '',
-                                   ['dryrun', 'delete'])
-    except getopt.GetoptError:
-        usage(1)
-    dryrun = False
-    delete = False
-    for opt, val in opts:
-        if opt in ('--dryrun'):
-            dryrun = True
-        elif opt in ('--delete',):
-            delete = True
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dryrun",
+                        help="Dryrun mode",
+                        action='store_true',
+                        default=False,
+    )
+    parser.add_argument("--delete",
+                        help="find bofhd requests and delete ad attrs",
+                        action='store_true',
+                        default=False,
+    )
+    args = parser.parse_args()
 
-    if delete:
-        process_requests(dryrun)
+    if args.delete:
+        process_requests(args.dryrun)
 
 
 def usage(exitcode=0):
