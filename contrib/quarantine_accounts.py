@@ -213,7 +213,7 @@ def notify_user(ac, quar_start_in_days):
     body = body.replace('${DAYS_TO_START}', str(quar_start_in_days))
     body = body.replace(
         '${QUARANTINE_DATE}',
-        (now() + quar_start_in_days).Format("%F"))
+        (now() + quar_start_in_days).strftime("%F"))
 
     try:
         first_name = (pe.search_person_names(
