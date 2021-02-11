@@ -1,4 +1,4 @@
-B1;95;0c#!/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2003-2006, 2008 University of Oslo, Norway
@@ -33,34 +33,33 @@ from Cerebrum.modules.no.hiof.bofhd_hiof_cmds import HiofBofhdRequests
 
 logger = logging.getLogger(__name__)
 
-db = Factory.get('Database')()
-const = Factory.get('Constants')(db)
-ac = Factory.get('Account')(db)
-br = HiofBofhdRequests(db, const)
-max_requests = 999999
-start_time = time.time()
 
-
-def process_requests(dryrun):
+def process_requests(dryrun, db):
     """
     Process all bofhd requests of type bofh_ad_attrs_remove. Try to
     remove ad attributes given by user and spread. If ad attrs are
     deleted successfully, remove the request.
     """
+    start_time = time.time()
+    max_requests = 999999
+    ac = Factory.get('Account')(db)
+    const = Factory.get('Constants')(db)
+    br = HiofBofhdRequests(db, const)
     op = const.bofh_ad_attrs_remove
     for r in br.get_requests(operation=op, only_runnable=True):
-        if not is_valid_request(r['request_id']):
+        if not is_valid_request(db, const, r['request_id']):
             continue
-        if not keep_running():
+        if not keep_running(max_requests,start_time):
             break
+        max_requests -= 1
         logger.debug("Process req: %s %d at %s",
                      op, r['request_id'], r['run_at'])
-        set_operator(r['requestee_id'])
+        set_operator(db, r['requestee_id'])
         if r['state_data']:
             spread = const.Spread(r['state_data'])
         else:
             spread = None
-        if delete_ad_attrs(r['entity_id'], spread):
+        if delete_ad_attrs(ac, r['entity_id'], spread):
             br.delete_request(request_id=r['request_id'])
 
     if dryrun:
@@ -71,7 +70,7 @@ def process_requests(dryrun):
         db.commit()
 
 
-def delete_ad_attrs(entity_id, spread):
+def delete_ad_attrs(ac, entity_id, spread):
     # Find account and delete ad attrs
     ret = False
     ac.clear()
@@ -86,7 +85,7 @@ def delete_ad_attrs(entity_id, spread):
     return ret
 
 
-def is_valid_request(req_id):
+def is_valid_request(db, const, req_id):
     # The request may have been canceled very recently
     br = HiofBofhdRequests(db, const)
     for r in br.get_requests(request_id=req_id):
@@ -94,19 +93,17 @@ def is_valid_request(req_id):
     return False
 
 
-def keep_running():
+def keep_running(max_requests,start_time):
     # If we've run for more than half an hour, it's time to go on to
     # the next task.  This check is necessary since job_runner is
     # single-threaded, and so this job will block LDAP updates
     # etc. while it is running.
-    global max_requests, start_time
-    max_requests -= 1
     if max_requests < 0:
         return False
     return time.time() - start_time < 15 * 60
 
 
-def set_operator(entity_id=None):
+def set_operator(db, entity_id=None):
     if entity_id:
         db.cl_init(change_by=entity_id)
     else:
@@ -129,8 +126,10 @@ def main():
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
 
+    db = Factory.get('Database')()
+
     if args.delete:
-        process_requests(args.dryrun)
+        process_requests(args.dryrun, db)
 
 
 def usage(exitcode=0):
