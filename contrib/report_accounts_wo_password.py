@@ -68,7 +68,6 @@ logger = logging.getLogger(__name__)
 
 def read_account_names(filename):
     with open(filename, 'r') as f:
-        # for lineno, raw_line in enumerate(f, 1):
         for raw_line in f:
             account_name = raw_line.strip()
             if not account_name or account_name.startswith('#'):
@@ -96,12 +95,18 @@ def find_recent_accounts(db, days):
 
 
 def get_account_by_id(db, account_id):
+    """
+    Procure account by account_id.
+    """
     ac = Factory.get('Account')(db)
     ac.find(account_id)
     return ac
 
 
 def get_account_by_name(db, account_name):
+    """
+    Procure account by account_name.
+    """
     ac = Factory.get('Account')(db)
     ac.find_by_name(account_name)
     return ac
