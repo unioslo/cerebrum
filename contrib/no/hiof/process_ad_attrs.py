@@ -93,7 +93,7 @@ def is_valid_request(db, const, req_id):
     return False
 
 
-def keep_running(max_requests,start_time):
+def keep_running(max_requests, start_time):
     # If we've run for more than half an hour, it's time to go on to
     # the next task.  This check is necessary since job_runner is
     # single-threaded, and so this job will block LDAP updates
@@ -115,13 +115,11 @@ def main():
     parser.add_argument("--dryrun",
                         help="Dryrun mode",
                         action='store_true',
-                        default=False,
-    )
+                        default=False)
     parser.add_argument("--delete",
                         help="Find bofhd requests and delete ad attrs",
                         action='store_true',
-                        default=False,
-    )
+                        default=False)
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
