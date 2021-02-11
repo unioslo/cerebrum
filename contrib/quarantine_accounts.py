@@ -58,7 +58,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.QuarantineHandler import QuarantineHandler
-from Cerebrum.utils.date import now
+from Cerebrum.utils.date import now, get_datetime_naive
 from Cerebrum.utils.email import sendmail
 
 logger = Factory.get_logger('cronjob')
@@ -319,14 +319,15 @@ def set_quarantine(pids, quar, offset, quarantined):
     no_processed = 0
     date = now() + datetime.timedelta(days=int(offset))
 
-
     # Cache what entities has the target quarantine:
     with_target_quar = set(
         r['entity_id'] for r in
         ac.list_entity_quarantines(quarantine_types=quar,
                                    only_active=False,
                                    entity_types=co.entity_account)
-        if r['start_date'] <= date)
+        if (
+                get_datetime_naive(r['start_date']) and
+                get_datetime_naive(r['start_date']) <= date))
     logger.debug2('Accounts with target quarantine: %d', len(with_target_quar))
     # Cache the owner to account relationship:
     pid2acs = {}
