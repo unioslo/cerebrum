@@ -53,102 +53,91 @@ Tags that are important to us:
 """
 from __future__ import unicode_literals
 
+import argparse
+import contextlib
+import datetime
 import functools
-import getopt
+import logging
 import json
 import os
 import shutil
-import sys
 import time
-
-from os.path import join as pjoin
 
 import six
 
-from mx import DateTime
-
 import cereconf
 
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.date import now
 from Cerebrum.utils.username import suggest_usernames
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.tsd import Gateway
 
-logger = Factory.get_logger('cronjob')
-db = Factory.get('Database')(client_encoding='utf-8')
-co = Factory.get('Constants')(db)
-ou = Factory.get('OU')(db)
-pe = Factory.get('Person')(db)
-ac = Factory.get('Account')(db)
+logger = logging.getLogger(__name__)
 
-gateway = Gateway.GatewayClient(logger)
-
-ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-db.cl_init(change_by=ac.entity_id)
-systemaccount_id = ac.entity_id
+# TODO: Fixme - global values
+db = None
+co = None
+gateway = None
+systemaccount_id = None
 
 
-def usage(exitcode=0):
-    print("""
-    %(doc)s
-
-    Usage: %(file)s FILE_OR_DIR [FILE_OR_DIR...]
-
-    Where FILE_OR_DIR is a specific JSON file to import, or a directory where
-    all the JSON files should be imported from. You could specify several
-    directories and/or files.
-
-    --archive DIR       A directory to move successfully processed files. The
-                        archived files will get the format:
-
-                            YYYY-MM-DD-BASENAME-COUNT.json
-
-                        where BASENAME is the originalt name of the file, and
-                        COUNT starts at 0 and goes upwards if there exists
-                        more files.
-
-    -d --dryrun         Only test-run the import and ignores the --archive
-                        option.
-
-    -h --help           Show this and quit.
-
-    """ % {'doc': __doc__,
-           'file': os.path.basename(sys.argv[0])})
-    sys.exit(exitcode)
+def get_initial_account_id(db):
+    """ get the entity_id of the INITIAL_ACCOUNTNAME. """
+    ac = Factory.get('Account')(db)
+    ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+    return ac.entity_id
 
 
-def archive_file(afile, dryrun, directory):
-    """Archive a file by moving it to a archive directory.
-
-    The given file should be successfully processed before archiving it.
-
-    @type afile: string
-    @param afile: The file to archive.
-
-    @type dryrun: bool
-    @param dryrun: If the archival should actually happen or not.
-
-    @type directory: string
-    @param directory: The directory to where the file should be moved.
-
-    @rtype: bool
-    @return: If the file got successfully moved or not.
+def get_archiver(directory, dryrun):
     """
-    def getfilename(count=0):
-        return '%s/%s-%s-%s.json' % (directory,
-                                     time.strftime('%Y%m%d'),
-                                     os.path.basename(afile),
-                                     count)
-    count = 0
-    new_file = getfilename(count)
-    while os.path.exists(new_file):
-        count += 1
-        new_file = getfilename(count)
-    logger.info("Archiving file to: %s", new_file)
-    if dryrun:
-        return True
-    return shutil.move(afile, new_file)
+    get a file archiver function.
+
+    The archiver moves files to the given directory,
+    but renames the moved file from BASENAME.EXT to:
+
+        YYYY-MM-DD-BASENAME-COUNT.EXT
+
+    where YYYY-MM-DD is the current date, and COUNT starts at 0 and goes
+    upwards in case of naming collisions.
+
+    :type directory: string
+    :param directory: Directory to archive files in.
+
+    :type dryrun: bool
+    :param dryrun: Disables archiving if ``True``
+
+    :returns:
+        A function that moves a file to the given directory
+    """
+
+    def get_filename(orig, n):
+        base, ext = os.path.splitext(orig)
+        newname = '%s-%s-%s.%s' % (time.strftime('%Y%m%d'), base, n, ext)
+        return os.path.join(directory, newname)
+
+    def archive(filename):
+        if directory is None:
+            logger.debug('archiving disabled')
+            return True
+
+        count = 0
+        new_file = get_filename(filename, count)
+        while os.path.exists(new_file):
+            count += 1
+            new_file = get_filename(count)
+
+        if dryrun:
+            logger.info("Dryrun: Would archive %s to %s", filename, new_file)
+            return True
+
+        logger.info("Archiving %s to %s", filename, new_file)
+        return shutil.move(filename, new_file)
+
+    return archive
 
 
 class InvalidFileError(Exception):
@@ -156,41 +145,38 @@ class InvalidFileError(Exception):
     pass
 
 
-def process_files(locations, dryrun, archive=None):
-    """Do the process thing."""
-    # Get all the files:
-    files = set()
-    for location in locations:
-        if os.path.isdir(location):
-            files.update(pjoin(location, f) for f in os.listdir(location))
-        elif os.path.exists(location):
-            files.add(location)
+@contextlib.contextmanager
+def db_context(db, dryrun):
+    """ simple commit/rollback handler. """
+    try:
+        yield db
+        if dryrun:
+            logger.info('rolling back changes (dryrun)')
+            db.rollback()
         else:
-            logger.warn("Ignoring unknown path: %s", location)
+            logger.info('commiting changes')
+            db.commit()
+    except Exception as e:
+        logger.info('rolling back changes (unhandled %s)', type(e))
+        db.rollback()
+        raise
 
-    # Process the files:
-    # TODO: Might want to sort in a numeric fashion, depending on the file
-    # names given from Nettskjema.
+
+def process_files(files, dryrun, archive):
+    """ Process a sequence of files.  """
     for afile in sorted(files):
         try:
-            if process_file(afile, dryrun):
-                if dryrun:
-                    db.rollback()
-                    logger.info("Dryrun, rolled back changes")
-                else:
-                    db.commit()
-                    logger.info("Commited changes")
-                if archive:
-                    archive_file(afile, dryrun, archive)
-        except BadInputError, e:
+            # TODO: Let db_context create a new db-transaction
+            with db_context(db, dryrun):
+                process_file(afile, dryrun)
+                logger.info('Successfully processed %s', afile)
+                archive(afile)
+        except BadInputError as e:
             logger.warn("Bad input in file %s: %s", afile, e)
-            db.rollback()
-        except InvalidFileError, e:
+        except InvalidFileError as e:
             logger.warn("Problems with file %s: %s", afile, e)
-            db.rollback()
-        except Errors.CerebrumError, e:
-            logger.exception(e)
-            db.rollback()
+        except Errors.CerebrumError:
+            logger.error('Unable to import %s', afile, exc_info=True)
 
 
 class BadInputError(Exception):
@@ -212,6 +198,8 @@ class InputControl(object):
     """
     def is_projectid(self, name):
         """Check that a given projectname validates."""
+        # TODO: Fix global db
+        ou = Factory.get('OU')(db)
         try:
             return ou._validate_project_name(name)
         except Errors.CerebrumError as e:
@@ -219,7 +207,10 @@ class InputControl(object):
 
     def is_valid_date(self, date):
         """Check that a date is parsable and valid."""
-        DateTime.strptime(date, '%d.%m.%Y')
+        try:
+            self.filter_date(date)
+        except Exception as e:
+            raise BadInputError("Invalid date: " + str(e))
         return True
 
     def is_nonempty(self, txt):
@@ -231,6 +222,8 @@ class InputControl(object):
     def is_username(self, name):
         """Check that a given username is a valid username."""
         self.is_nonempty(name)
+        # TODO: Fix global db
+        ac = Factory.get('Account')(db)
         err = ac.illegal_name(name)
         if err:
             raise BadInputError('Illegal username: %s' % err)
@@ -280,11 +273,13 @@ class InputControl(object):
         return six.text_type(data).strip()
 
     def filter_date(self, date):
-        """Parse a date and return a DateTime object."""
+        """Parse a date and return a datetime.date object."""
         # TODO: What date format should we use? Isn't ISO the best option?
-        return DateTime.strptime(date, '%d.%m.%Y')
+        return datetime.datetime.strptime(date, '%d.%m.%Y').date()
 
-input = InputControl()
+
+check_input = InputControl()
+
 
 # The map for changing the keys the new JSON schema has to the old ones,
 # which the script uses throughout the code.
@@ -334,43 +329,44 @@ answer_options_map = {
 # variable.
 input_values = {
     # Project ID
-    'p_id': (input.is_projectid, input.str),
+    'p_id': (check_input.is_projectid, check_input.str),
     # Project full name
-    'p_name': (input.is_nonempty, input.str),
+    'p_name': (check_input.is_nonempty, check_input.str),
     # Project short name
-    'p_shortname': (input.is_nonempty, input.str),
+    'p_shortname': (check_input.is_nonempty, check_input.str),
     # Project start date
-    'project_start': (input.is_valid_date, input.filter_date),
+    'project_start': (check_input.is_valid_date, check_input.filter_date),
     # Project end date
-    'project_end': (input.is_valid_date, input.filter_date),
+    'project_end': (check_input.is_valid_date, check_input.filter_date),
     # Project owner's FNR
-    'rek_owner': (input.is_fnr, input.str),
+    'rek_owner': (check_input.is_fnr, check_input.str),
     # Project's institution's address
-    'inst_address': (input.is_nonempty, input.str),
+    'inst_address': (check_input.is_nonempty, check_input.str),
     # Project's REK approval number
-    'legal_notice': (input.is_nonempty, input.str),
+    'legal_notice': (check_input.is_nonempty, check_input.str),
     # Project members, identified by FNR
-    'p_persons': (lambda x: True, input.str),
+    'p_persons': (lambda x: True, check_input.str),
     # PA's full name
-    'pa_name': (input.is_nonempty, input.str),
+    'pa_name': (check_input.is_nonempty, check_input.str),
     # PA's phone number
-    'pa_phone': (input.is_phone, input.str),
+    'pa_phone': (check_input.is_phone, check_input.str),
     # PA's e-mail address
-    'pa_email': (input.is_email, input.str),
+    'pa_email': (check_input.is_email, check_input.str),
     # PA's chosen username
-    'pa_username': (input.is_username, input.str),
+    'pa_username': (check_input.is_username, check_input.str),
     # The respondent's chosen username. Not necessarily mandatory.
-    'username': (lambda x: True, input.str),
+    'username': (lambda x: True, check_input.str),
     # The respondent's full name
-    'real_name': (input.is_nonempty, input.str),
+    'real_name': (check_input.is_nonempty, check_input.str),
     # The respondent's e-mail address
-    'email': (input.is_email, input.str),
+    'email': (check_input.is_email, check_input.str),
     # The respondent's phone number
-    'phone': (input.is_phone, input.str),
+    'phone': (check_input.is_phone, check_input.str),
     # What resources that should be used in a given project:
-    'vm_descr': (input.in_options(cereconf.TSD_VM_TYPES), input.str),
+    'vm_descr': (check_input.in_options(cereconf.TSD_VM_TYPES),
+                 check_input.str),
     # If the person should use OTP through smartphone or yubikey:
-    'smartphone': (lambda x: True, input.str),
+    'smartphone': (lambda x: True, check_input.str),
 }
 
 
@@ -456,7 +452,6 @@ def json2answers(json_data):
         from L{input_values} and the values are the filtered answers.
     """
     answers = _json2answersdict(json_data)
-    logger.debug2("Answers: %s", answers)
     # Find the correct survey type:
     stypes = []
     for stype, requireds in survey_types.iteritems():
@@ -482,7 +477,7 @@ def json2answers(json_data):
         answer = answers[extid]
         try:
             control_ans = control(answer)
-        except BadInputError, e:
+        except BadInputError as e:
             raise BadInputError('Answer "%s" invalid: %s. Answer: %s' % (
                 extid,
                 e,
@@ -529,6 +524,9 @@ class Processing(object):
                      and requested some changes in TSD.
         """
         self.fnr = fnr
+        self.start_now = datetime.date.today()
+        self.start_past = (datetime.date.today()
+                           - datetime.timedelta(days=1000))
 
     def _get_person(self, fnr=None, create_nonexisting=True):
         """Return the person with the given fnr.
@@ -549,6 +547,7 @@ class Processing(object):
         """
         if not fnr:
             fnr = self.fnr
+        # TODO: Fix global db
         pe = Factory.get('Person')(db)
         try:
             pe.find_by_external_id(id_type=co.externalid_fodselsnr,
@@ -602,16 +601,19 @@ class Processing(object):
         for key in ('smartphone',):
             if key in input:
                 logger.debug("Updating otp-device: %s", input[key])
-                pe.populate_trait(co.trait_otp_device, date=DateTime.now(),
+                pe.populate_trait(co.trait_otp_device, date=now(),
                                   strval=six.text_type(input[key]))
                 pe.write_db()
 
     def _create_ou(self, input):
         """Create the project OU based on given input."""
         pname = input['p_id']
-        ou.clear()
+        # TODO: Fix global db
+        ou = Factory.get('OU')(db)
         pid = ou.create_project(pname)
         logger.debug("New project %s named: %s", pid, pname)
+        logger.debug("Project start=%r end=%r", input['project_start'],
+                     input['project_end'])
 
         # The gateway should not be informed about new projects before they're
         # approved, so if we should create the project in the GW, we must also
@@ -632,12 +634,12 @@ class Processing(object):
         ou.add_entity_quarantine(qtype=co.quarantine_not_approved,
                                  creator=systemaccount_id,
                                  description='Project not approved yet',
-                                 start=DateTime.now())
+                                 start=self.start_now)
         ou.write_db()
 
         # Storing the start and end date:
         endtime = input['project_end']
-        if endtime < DateTime.now():
+        if endtime < self.start_now:
             raise BadInputError("End date of project has passed: %s" % endtime)
         ou.add_entity_quarantine(
             qtype=co.quarantine_project_end,
@@ -652,7 +654,8 @@ class Processing(object):
             qtype=co.quarantine_project_start,
             creator=systemaccount_id,
             description='Initial requested starttime for project',
-            start=DateTime.now() - 1000, end=starttime)
+            start=self.start_past,
+            end=starttime)
         ou.write_db()
 
         ou.populate_trait(co.trait_project_institution, target_id=ou.entity_id,
@@ -715,6 +718,7 @@ class Processing(object):
         @return: The chosen, available username.
         """
         pid = ou.get_project_id()
+        # TODO: Fix global db
         ac = Factory.get('Account')(db)
         other_acs = ac.search(owner_id=pe.entity_id)
         if not other_acs:
@@ -759,6 +763,7 @@ class Processing(object):
         """
         ou_is_approved = ou.is_approved()
         pid = ou.get_project_id()
+        # TODO: Fix global db
         ac = Factory.get('Account')(db)
         # Not set usernames or invalid usernames gets ignored
         username = self._get_username(pe, ou, requestedname)
@@ -805,7 +810,7 @@ class Processing(object):
                     qtype=co.quarantine_not_approved,
                     creator=systemaccount_id,
                     description='Project not yet approved',
-                    start=DateTime.now())
+                    start=self.start_now)
             else:
                 try:
                     gateway.create_user(uid=ac.posix_uid,
@@ -823,7 +828,7 @@ class Processing(object):
             ac.add_entity_quarantine(qtype=co.quarantine_not_approved,
                                      creator=systemaccount_id,
                                      description='User not yet approved',
-                                     start=DateTime.now())
+                                     start=self.start_now)
         else:
             # TODO: Should the JSON file now be deleted automatically?
             raise BadInputError("Person %s not affiliated to project %s",
@@ -840,6 +845,8 @@ class Processing(object):
         Note that a person *could* have more than one account per project, even
         if that would not make much sense.
         """
+        # TODO: Fix global db
+        ac = Factory.get('Account')(db)
         return ac.list_accounts_by_type(ou_id=ou.entity_id,
                                         person_id=pe.entity_id)
 
@@ -891,7 +898,7 @@ class Processing(object):
                 logger.warn("Project owner not found: %s", input['rek_owner'])
 
         # Give the PA an account:
-        ac = self._create_account(pe, ou, input['pa_username'])
+        self._create_account(pe, ou, input['pa_username'])
 
         # Fill the pre approve list with external ids:
         pre_approve_list = set()
@@ -910,8 +917,6 @@ class Processing(object):
             logger.debug("Pre approvals: %s", ', '.join(pre_approve_list))
             ou.add_pre_approved_persons(pre_approve_list)
             ou.write_db()
-        # TODO:How should we signal that a new project is waiting for approval?
-        return True
 
     def project_access(self, input):
         """Setup a request for the respondent to join a project.
@@ -938,17 +943,19 @@ class Processing(object):
 
         # Find the project:
         pid = input['p_id']
-        ou.clear()
 
+        # TODO: Fix global db
+        ou = Factory.get('OU')(db)
         ou.find_by_tsd_projectid(pid)
 
         # Check that the person is not already in the project:
         for row in pe.list_affiliations(person_id=pe.entity_id,
                                         affiliation=co.affiliation_project,
                                         ou_id=ou.entity_id):
-            logger.info("Person %s already affiliated with project",
-                        pe.entity_id)
-            return False
+            logger.info("person_id=%d already affiliated with project %s",
+                        pe.entity_id, pid)
+            # nothing more to do for this person
+            return
 
         # Check if the person is pre approved for the project:
         approved = False
@@ -978,14 +985,16 @@ class Processing(object):
         # Check if the person already has an account:
         accounts = self._get_project_account(pe, ou)
         if accounts:
-            logger.info(
-                "Ignoring person %s, already has project accounts: id:%s",
-                pe.entity_id,
-                ', '.join(six.text_type(a['account_id']) for a in accounts))
-            return False
+            # TODO: This *may* be the wrong behaviour - and we should just
+            #       write any changes and return
+            logger.info("person_id=%d already has project accounts (%s)",
+                        pe.entity_id,
+                        ', '.join(six.text_type(a['account_id'])
+                                  for a in accounts))
+            # no need to create an account
+            return
 
-        ac = self._create_account(pe, ou, input['username'])
-        return True
+        self._create_account(pe, ou, input['username'])
 
     def approve_persons(self, input):
         """Let project owner and PAs approve more persons to their project.
@@ -996,7 +1005,8 @@ class Processing(object):
         """
         # Find the project:
         pid = input['p_id']
-        ou.clear()
+        # TODO: Fix global db
+        ou = Factory.get('OU')(db)
         ou.find_by_tsd_projectid(pid)
         logger.info('Approve persons for project: %s', pid)
 
@@ -1018,8 +1028,10 @@ class Processing(object):
         # Update contact info for PA:
         self._update_person(pe, input)
 
+        # TODO: Fix global db
         # Try to find and add the given person to the project
         pe2 = Factory.get('Person')(db)
+        ac = Factory.get('Account')(db)
         pre_approvals = set()
         for fnr in set(input['p_persons'].split()):
             for fnr1 in set(fnr.split(',')):
@@ -1103,50 +1115,106 @@ class Processing(object):
                          len(pre_approvals))
             ou.add_pre_approved_persons(pre_approvals)
             ou.write_db()
-        return True
 
 
-def main():
-    try:
-        opts, args = getopt.getopt(
-            sys.argv[1:],
-            'hd',
-            ['help', 'dryrun', 'archive='])
-    except getopt.GetoptError, e:
-        print(e)
-        usage(1)
+def collect_files(items):
+    """
+    Find all existing files in a sequence of pathnames.
 
-    global dryrun
-    dryrun = False
-    archive = None
-
-    for opt, val in opts:
-        if opt in ('-h', '--help'):
-            usage()
-        elif opt in ('-d', '--dryrun'):
-            dryrun = True
-        elif opt == '--archive':
-            if not os.path.isdir(val):
-                raise Exception("Archive dir doesn't exist: %s" % val)
-            archive = val
+    :param items: an iterable of files and directories
+    """
+    for item in items:
+        if os.path.isdir(item):
+            for filename in os.listdir(item):
+                yield os.path.join(item, filename)
+        elif os.path.exists(item):
+            yield item
         else:
-            print "Unknown argument: %s" % opt
-            usage(1)
+            logger.warn("Ignoring unknown path: %s", item)
 
-    if not args:
-        print "No input file given"
-        usage(1)
 
-    gateway.dryrun = dryrun
+def dir_type(value):
+    """ Assert value is a directory. """
+    if not os.path.isdir(value):
+        raise ValueError('not a directory: ' + repr(value))
+    return value
 
-    process_files(args, dryrun, archive)
 
-    if dryrun:
-        db.rollback()
-        logger.info("Dryrun, rolled back changes")
-    else:
-        db.commit()
-        logger.info("Commited changes")
+def main(inargs=None):
+    # TODO: Get rid of globals
+    global db, co, gateway, systemaccount_id
+
+    parser = argparse.ArgumentParser(
+        description='Import json data from nettskjema forms',
+    )
+    parser.add_argument(
+        '--archive',
+        type=dir_type,
+        help='move processed json files to %(metavar)s',
+        metavar='DIR',
+    )
+
+    # TODO: make dryrun the default (must first add --commit to scheduled_jobs)
+    default_commit = True
+    default_msg = " (this is the default)"
+    commit_mutex = parser.add_mutually_exclusive_group()
+    commit_mutex.add_argument(
+        '--commit',
+        dest='commit',
+        action='store_true',
+        help="commit changes" + (default_msg if default_commit else ""),
+    )
+    commit_mutex.add_argument(
+        '-d', '--dryrun',
+        dest='commit',
+        action='store_false',
+        help=("dryrun - do not commit changes or move files"
+              + ("" if default_commit else default_msg)),
+    )
+    commit_mutex.set_defaults(commit=default_commit)
+
+    parser.add_argument(
+        '--no-gateway',
+        dest='gateway_dryrun',
+        action='store_true',
+        help=("do not communicate changes to gateway"
+              " (default: follows --commit/--dryrun)")
+    )
+    parser.add_argument(
+        'items',
+        nargs='+',
+        help="json file or directory of json files to import",
+    )
+    Cerebrum.logutils.options.install_subparser(parser)
+
+    args = parser.parse_args(inargs)
+    Cerebrum.logutils.autoconf('cronjob', args)
+
+    # Configure global values
+    db = Factory.get('Database')(client_encoding='utf-8')
+    co = Factory.get('Constants')(db)
+    gateway = Gateway.GatewayClient(logger.getChild('gateway'))
+    systemaccount_id = get_initial_account_id(db)
+    db.cl_init(change_by=systemaccount_id)
+
+    logger.info("Start %s", parser.prog)
+
+    dryrun = not args.commit
+    gateway.dryrun = args.gateway_dryrun or dryrun
+    logger.debug('dryrun: %r, gateway.dryrun: %r', dryrun, gateway.dryrun)
+
+    do_archive = get_archiver(directory=args.archive, dryrun=dryrun)
+    logger.debug('archive: directory=%r, dryrun=%r', args.archive, dryrun)
+
+    files = set(collect_files(args.items))
+    logger.info('found %d files to import', len(files))
+    if not files:
+        parser.error('no files to import in: ' + repr(args.items))
+
+    process_files(files, dryrun, do_archive)
+
+    logger.info("Done %s", parser.prog)
+
 
 if __name__ == '__main__':
     main()

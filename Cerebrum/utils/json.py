@@ -46,21 +46,21 @@ def _conv(cls):
     return reg
 
 
+@_conv(datetime.date)
+def date_to_json(dt):
+    """ Convert datetime.date/datetime.datetime object to json. """
+    if isinstance(dt, datetime.datetime) and not dt.tzinfo:
+        dt = apply_timezone(dt)
+    return dt.isoformat()
+
+
 @_conv(DateTimeType)
 def mx_DateTime_to_json(dt):
     """ Convert mx.DateTime.DateTime object to json. """
     if dt.hour == dt.minute == 0 and dt.second == 0.0:
-        return dt.pydate().isoformat()
+        return date_to_json(dt.pydate())
     else:
-        return apply_timezone(dt.pydatetime()).isoformat()
-
-
-@_conv(datetime.datetime)
-def datetime_to_json(dt):
-    """ Convert datetime.datetime object to json. """
-    if not dt.tzinfo:
-        dt = apply_timezone(dt)
-    return dt.isoformat()
+        return date_to_json(dt.pydatetime())
 
 
 @_conv(Constants.Constants.CerebrumCode)
