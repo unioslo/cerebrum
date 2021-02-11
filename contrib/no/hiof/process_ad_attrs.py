@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+B1;95;0c#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 # Copyright 2003-2006, 2008 University of Oslo, Norway
@@ -19,18 +19,19 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-
 import argparse
-import sys
 import getopt
+import logging
+import sys
 import time
+
+import Cerebrum.logutils
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hiof.bofhd_hiof_cmds import HiofBofhdRequests
 
-
-logger = Factory.get_logger("cronjob")
+logger = logging.getLogger(__name__)
 
 db = Factory.get('Database')()
 const = Factory.get('Constants')(db)
@@ -120,11 +121,13 @@ def main():
                         default=False,
     )
     parser.add_argument("--delete",
-                        help="find bofhd requests and delete ad attrs",
+                        help="Find bofhd requests and delete ad attrs",
                         action='store_true',
                         default=False,
     )
+    Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     if args.delete:
         process_requests(args.dryrun)
