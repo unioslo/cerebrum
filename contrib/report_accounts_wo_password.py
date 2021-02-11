@@ -57,19 +57,19 @@ import functools
 import logging
 import sys
 
-import mx.DateTime
-
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.argutils import codec_type
+from Cerebrum.utils.date_compat import get_datetime_tz
 
 logger = logging.getLogger(__name__)
 
 
 def read_account_names(filename):
     with open(filename, 'r') as f:
-        for lineno, raw_line in enumerate(f, 1):
+        # for lineno, raw_line in enumerate(f, 1):
+        for raw_line in f:
             account_name = raw_line.strip()
             if not account_name or account_name.startswith('#'):
                 continue
@@ -82,14 +82,14 @@ def find_recent_accounts(db, days):
     changed their password.
     """
     cl = Factory.get('CLConstants')(db)
-    start_date = datetime.date.today() - datetime.timedelta(days=days)
+    start_date = get_datetime_tz(
+        datetime.date.today() - datetime.timedelta(days=days))
     has_password = set(
         r['subject_entity']
         for r in db.get_log_events(types=cl.account_password,
-                                   sdate=mx.DateTime.DateFrom(start_date)))
+                                   sdate=start_date))
 
-    for r in db.get_log_events(types=cl.account_create,
-                               sdate=mx.DateTime.DateFrom(start_date)):
+    for r in db.get_log_events(types=cl.account_create, sdate=start_date):
         if r['subject_entity'] in has_password:
             continue
         yield int(r['subject_entity'])
