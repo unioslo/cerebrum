@@ -121,7 +121,8 @@ def fetch_all_relevant_accounts(qua_type, since, ignore_affs,
     # Ignore those with person affiliations:
     persons = set(r['person_id'] for r in
                   person.list_affiliations(include_deleted=False)
-                  if r['affiliation'] not in ignore_affs)
+                  if (int(r['affiliation']), None) not in ignore_affs and
+                  (int(r['affiliation']), int(r['status'])) not in ignore_affs)
     logger.debug2("Found %d persons with affiliations", len(persons))
     accounts_to_ignore = set(int(r['account_id']) for r in
                              account.search(owner_type=constants.entity_person)
@@ -219,8 +220,8 @@ and not a person.
                             make the person's accounts getting deactivated.
                             Manual affiliation are typically added here. Could
                             be comma separated.
-
-                            Note: Affiliation status types are not supported.
+                            Affiliation status types can be specified in the format 
+                            STATUS/affiliation (eg. TILKNYTTET/fagperson).
 
         --include-system-accounts If set, system accounts with the quarantine
                             will also de deactivated.
@@ -280,14 +281,16 @@ def main():
             logger.debug('Set to delete accounts and not just deactivating!')
             delete = True
         elif option in ('-a', '--affiliations'):
-            for af in value.split(','):
-                aff = constants.PersonAffiliation(af)
+            for af in value.strip().split(','):
                 try:
-                    int(aff)
+                    aff = constants.get_affiliation(af)
                 except Errors.NotFoundError:
                     print("Unknown affiliation: %s" % af)
-                    sys.exit(2)
-                affiliations.add(aff)
+                    raise Errors.CerebrumError("Affiliation (%s) not found" % af)
+                aff_status = ((int(aff[0]), None)  # to prevent int(None)
+                                    if aff[1] is None   # if status=None
+                                    else (int(aff[0]), int(aff[1])))  # (aff, status)
+                affiliations.add(aff_status)
         elif option in ("-h", "--help"):
             usage()
         else:
@@ -298,8 +301,10 @@ def main():
                 "bofhdreq=%s, limit=%s",
                 [str(constants.human2constant(q)) for q in quarantines],
                 since, delete, bofhdreq, limit)
-    logger.debug("Ignoring those with person-affilations: %s",
-                 ', '.join(str(a) for a in affiliations))
+    logger.debug("Ignoring person-affilations: %s",
+                 ', '.join(
+                     "\naffiliation:"+str(a[0])+" - status:"+str(a[1])
+                           for a in affiliations))
     logger.info("Fetching relevant accounts")
     rel_accounts = fetch_all_relevant_accounts(quarantines, since,
                                                ignore_affs=affiliations,
@@ -325,6 +330,7 @@ def main():
         except Exception:
             logger.exception("Failed deactivating account: %s (%s)" %
                              (account.account_name, account.entity_id))
+            continue
 
     if dryrun:
         database.rollback()
