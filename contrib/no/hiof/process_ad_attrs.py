@@ -20,7 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import argparse
-import getopt
 import logging
 import sys
 import time
@@ -29,6 +28,7 @@ import Cerebrum.logutils
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils.argutils import add_commit_args
 from Cerebrum.modules.no.hiof.bofhd_hiof_cmds import HiofBofhdRequests
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ def process_requests(dryrun, db):
     for r in br.get_requests(operation=op, only_runnable=True):
         if not is_valid_request(db, const, r['request_id']):
             continue
-        if not keep_running(max_requests,start_time):
+        if not keep_running(max_requests, start_time):
             break
         max_requests -= 1
         logger.debug("Process req: %s %d at %s",
@@ -112,14 +112,11 @@ def set_operator(db, entity_id=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dryrun",
-                        help="Dryrun mode",
-                        action='store_true',
-                        default=False)
     parser.add_argument("--delete",
                         help="Find bofhd requests and delete ad attrs",
                         action='store_true',
                         default=False)
+    add_commit_args(parser)
     Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args()
     Cerebrum.logutils.autoconf('cronjob', args)
