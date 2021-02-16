@@ -79,7 +79,7 @@ def list_disk_quotas(f, disk_id, spread):
     for row in dq.list_quotas(spread=spread, disk_id=disk.entity_id,
                               all_users=all_users):
         quota = row['quota']
-        if row['override_expiration'] and row['override_expiration'] > now:
+        if row['override_expiration'] and row['override_expiration'] > now():
             quota = row['override_quota']
         if quota is None:
             quota = default_quota
