@@ -25,12 +25,11 @@ Can be further restricted to users on a specific host or disk
 """
 import getopt
 import sys
-import mx
-
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
+from Cerebrum.utils.date import now
 from Cerebrum.modules.disk_quota import DiskQuota
 
 
@@ -76,7 +75,6 @@ def list_disk_quotas(f, disk_id, spread):
     else:
         all_users = True
 
-    now = mx.DateTime.now()
     dq = DiskQuota(db)
     for row in dq.list_quotas(spread=spread, disk_id=disk.entity_id,
                               all_users=all_users):
