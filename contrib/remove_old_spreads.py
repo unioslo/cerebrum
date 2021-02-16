@@ -20,20 +20,22 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """
-This script removes unwanted spreads from entities.
+his script removes unwanted spreads from entities.
 """
 
 import cereconf
 
 from Cerebrum.Utils import Factory
+import Cerebrum.logutils
+import Cerebrum.logutils.options
 
-logger = Factory.get_logger('console')
-db = Factory.get('Database')()
-const = Factory.get('Constants')(db)
 
 
 def remove_spread(args):
     """Remove spread(s) from a entity_type"""
+
+    db = Factory.get('Database')()
+    const = Factory.get('Constants')(db)
 
     if args.accounts:
         entity_type = const.entity_account
@@ -100,7 +102,9 @@ def main(args=None):
                         action='store_true',
                         help='Commit changes.')
 
+    Cerebrum.logutils.options.install_subparser(parser)
     args = parser.parse_args(args)
+    Cerebrum.logutils.autoconf('cronjob', args)
 
     if not (args.accounts or args.groups or args.persons):
         print('Must specify -a, -g or -p')
