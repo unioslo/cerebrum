@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """
-his script removes unwanted spreads from entities.
+This script removes unwanted spreads from entities.
 """
 
 import cereconf
