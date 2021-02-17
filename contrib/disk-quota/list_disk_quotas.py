@@ -28,6 +28,7 @@ import sys
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+from Cerebrum.utils import date_compat
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
 from Cerebrum.utils.date import now
 from Cerebrum.modules.disk_quota import DiskQuota
@@ -79,7 +80,8 @@ def list_disk_quotas(f, disk_id, spread):
     for row in dq.list_quotas(spread=spread, disk_id=disk.entity_id,
                               all_users=all_users):
         quota = row['quota']
-        if row['override_expiration'] and row['override_expiration'] > now():
+        if (row['override_expiration'] and
+                 date_compat.get_datetime_tz(row['override_expiration']) > now()):
             quota = row['override_quota']
         if quota is None:
             quota = default_quota
