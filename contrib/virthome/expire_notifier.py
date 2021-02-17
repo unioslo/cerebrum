@@ -330,10 +330,13 @@ def get_account(ident, database):
 def typeset_change_log_row(row, database):
     account = get_account(row["subject_entity"], database)
     clconst = Factory.get("CLConstants")()
-    entity = ("account: %s/id=%s" % (account.account_name,
-                                     account.entity_id)
-              if account
-              else "id=%s" % row["subject_entity"])
+
+    if account:
+        entity = "account: %s/id=%s" % (account.account_name,
+                                        account.entity_id)
+    else:
+        entity = "id=%s" % row["subject_entity"]
+
     if row.get("confirmation_key") is not None:
         magic = "with request key %s " % str(row["confirmation_key"])
     else:

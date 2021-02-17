@@ -227,7 +227,7 @@ def disable_account(account_id, db):
 
     delete_common(account.entity_id, db)
 
-    account.expire_date = datetime.date.today() + datetime.timedelta(days=1)
+    account.expire_date = datetime.date.today() - datetime.timedelta(days=1)
     account.write_db()
     logger.debug("Disabled account %s (id=%s)",
                  account.account_name, account.entity_id)
