@@ -26,7 +26,7 @@ Import fnr, uname, and optionally person names if option --set-names
 is given. Accounts will either be created or reserved depending on the
 option --reserve-unames.
 
-TBD: 
+TBD:
 
 The input format for this job is a file with one line per
 person/account. Each line has four fields separated by ':'.
@@ -37,10 +37,10 @@ no_ssn  -- 11-digit Norwegian social security number (personnummer)
 uname   -- account name
 """
 
+import datetime
 import getopt
 import sys
 import string
-import mx.DateTime
 
 import cereconf
 from Cerebrum import Errors
@@ -112,7 +112,7 @@ def process_line(infile, maxlen, reserve_unames, set_names):
             reserve_user(person_id, uname, maxlen)
         else:
             create_user(person_id, uname, maxlen)
-        
+
         if commit_count % commit_limit == 0:
             attempt_commit()
 
@@ -121,18 +121,18 @@ def process_person(fnr, lname, fname, bewid, set_names):
     """
     Find or create a person; return the person_id corresponding to
     fnr. Set name for new persons if set_name is True.
-    """    
+    """
     logger.debug("Processing person %s %s (%s)", fname, lname, fnr)
     try:
         fodselsnr.personnr_ok(fnr)
     except fodselsnr.InvalidFnrError:
         logger.warn("Bad no_ssn |%s|", fnr)
         return None
-    
+
     if fnr2person_id.has_key(fnr):
         logger.debug("Person with fnr %s exists in Cerebrum", fnr)
         return fnr2person_id[fnr]
-    
+
     # ... otherwise, create a new person
     person.clear()
     gender = constants.gender_male
@@ -146,7 +146,7 @@ def process_person(fnr, lname, fname, bewid, set_names):
                                   constants.externalid_bewatorid)
     else:
         person.affect_external_id(constants.system_migrate,
-                                  constants.externalid_fodselsnr)        
+                                  constants.externalid_fodselsnr)
     person.populate_external_id(constants.system_migrate,
                                 constants.externalid_fodselsnr,
                                 fnr)
@@ -160,7 +160,7 @@ def process_person(fnr, lname, fname, bewid, set_names):
                                     bewid)
     person.write_db()
     logger.info("Added BewatorID %s for %s", bewid, fnr)
-    
+
     if set_names:
         if lname and fname:
             person.affect_names(constants.system_migrate,
@@ -195,14 +195,14 @@ def check_uname(uname, maxlen, strict=True):
             logger.error("Uname too short or too long %s", uname)
             return None
 
-    # check uname for special and non-ascii characters 
+    # check uname for special and non-ascii characters
     if not set(uname).issubset(legal_chars):
         logger.error("Bad uname %s", uname)
-        return None 
+        return None
 
     if not uname.islower():
         uname = uname.lower()
-           
+
     return uname
 
 
@@ -222,8 +222,8 @@ def populate_user(uname, owner_type, owner_id, np_type,
                          expire_date)
         account.write_db()
         return account.entity_id
-    
-    
+
+
 
 def create_user(owner_id, uname, maxlen):
     """
@@ -246,7 +246,7 @@ def reserve_user(owner_id, uname, maxlen):
 
     uname = check_uname(uname, maxlen, strict=False)
     if uname and populate_user(uname, owner_type, default_group_id, np_type,
-                               expire_date=mx.DateTime.today()):
+                               expire_date=datetime.datetime.today()):
         logger.info("User %s reserved", uname)
         person.clear()
         person.find(owner_id)
@@ -257,7 +257,7 @@ def reserve_user(owner_id, uname, maxlen):
                                     uname)
         person.write_db()
         logger.info("Registered %s as external id for %s", uname, owner_id)
-    
+
 
 
 def usage():
@@ -315,4 +315,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
