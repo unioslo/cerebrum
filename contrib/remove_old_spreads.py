@@ -24,18 +24,17 @@ This script removes unwanted spreads from entities.
 """
 
 import cereconf
+import logging
 
 from Cerebrum.Utils import Factory
 import Cerebrum.logutils
 import Cerebrum.logutils.options
 
+logger = logging.getLogger(__name__)
 
 
-def remove_spread(args):
+def remove_spread(args, db, const):
     """Remove spread(s) from a entity_type"""
-
-    db = Factory.get('Database')()
-    const = Factory.get('Constants')(db)
 
     if args.accounts:
         entity_type = const.entity_account
@@ -106,6 +105,9 @@ def main(args=None):
     args = parser.parse_args(args)
     Cerebrum.logutils.autoconf('cronjob', args)
 
+    db = Factory.get('Database')
+    const = Factory.get('Constants')(db)
+
     if not (args.accounts or args.groups or args.persons):
         print('Must specify -a, -g or -p')
         raise SystemExit()
@@ -121,7 +123,7 @@ def main(args=None):
     db.cl_init(change_program='remove_old_spreads')
 
     try:
-        remove_spread(args)
+        remove_spread(args, db, const)
     except Exception:
         logger.error("Unexpected exception", exc_info=1)
         db.rollback()
