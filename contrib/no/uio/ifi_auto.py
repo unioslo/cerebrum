@@ -29,10 +29,9 @@ from __future__ import unicode_literals
 import sys
 import getopt
 import re
-import time
+import datetime
 from six import text_type
 
-from mx import DateTime
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
@@ -233,8 +232,8 @@ def sync_filegroup(fgname, group, course, act):
     # Make the group last a year or so.  To avoid changing the database
     # every night, we only change expire date if it has less than three
     # month to live.
-    expdate = DateTime.TimestampFromTicks(int(time.time() + 12*31*24*3600))
-    refreshdate = DateTime.TimestampFromTicks(int(time.time() + 3*31*24*3600))
+    expdate = datetime.date.today() + datetime.timedelta(days=365)
+    refreshdate = expdate - datetime.timedelta(days=31*3)
     try:
         fgroup = get_group(fgname)
     except Errors.NotFoundError:
