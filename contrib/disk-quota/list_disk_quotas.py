@@ -23,6 +23,7 @@
 Can be further restricted to users on a specific host or disk
 
 """
+import datetime
 import getopt
 import sys
 
@@ -30,7 +31,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.utils import date_compat
 from Cerebrum.utils.atomicfile import SimilarSizeWriter
-from Cerebrum.utils.date import now
 from Cerebrum.modules.disk_quota import DiskQuota
 
 
@@ -81,7 +81,8 @@ def list_disk_quotas(f, disk_id, spread):
                               all_users=all_users):
         quota = row['quota']
         if (row['override_expiration'] and
-                 date_compat.get_datetime_tz(row['override_expiration']) > now()):
+                 date_compat.get_date(row['override_expiration'])
+                 > datetime.date.today()):
             quota = row['override_quota']
         if quota is None:
             quota = default_quota
