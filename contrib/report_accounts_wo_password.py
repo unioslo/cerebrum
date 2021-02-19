@@ -81,8 +81,7 @@ def find_recent_accounts(db, days):
     changed their password.
     """
     cl = Factory.get('CLConstants')(db)
-    start_date = get_datetime_tz(
-        datetime.date.today() - datetime.timedelta(days=days))
+    start_date = datetime.date.today() - datetime.timedelta(days=days)
     has_password = set(
         r['subject_entity']
         for r in db.get_log_events(types=cl.account_password,
